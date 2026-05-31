@@ -1,0 +1,36 @@
+?BEGIN JOB DEPNOCT;
+% =================================================================
+% WFL : DEPNOCT  -  Proceso nocturno del dominio DEPOSITS
+% SISTEMA: SISTEMA-CORE-UNISYS
+% Corre programas de negocio de deposits en secuencia.
+% =================================================================
+  CLASS = 5;
+
+  % Apertura de cuentas pendientes del dia
+  RUN OBJECT/DEPOSITS/DEPAPERT;
+    DATABASE COREBANK;
+  IF (TASKVALUE GTR 0) THEN
+    BEGIN
+      DISPLAY "DEPNOCT: error en DEPAPERT";
+      GO ABORTAR;
+    END;
+
+  % Posteo de movimientos del dia (incluye asiento al GL)
+  RUN OBJECT/DEPOSITS/DEPPOST;
+    DATABASE COREBANK;
+
+  % Recalculo de intereses
+  RUN OBJECT/DEPOSITS/DEPINTER;
+    DATABASE COREBANK;
+
+  % Respaldo DMSII (utileria compartida)
+  RUN OBJECT/UTIL/UDMSIIWR;
+    FILE BACKOUT (TITLE = COREBANK/BACKUP/DEPOSITS);
+
+  DISPLAY "DEPNOCT: fin normal";
+  GO FIN;
+
+ABORTAR:
+  DISPLAY "DEPNOCT: terminado con error";
+FIN:
+?END JOB.
