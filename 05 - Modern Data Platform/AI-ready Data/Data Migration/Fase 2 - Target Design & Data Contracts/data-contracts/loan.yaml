@@ -1,0 +1,40 @@
+# Data Contract — loan
+data_contract: loan
+version: 1.0.0
+status: draft
+domain: product
+layer: gold
+table: bank_gold.fact_loan
+owner: Data Steward - Loans (FS-CML)
+description: Contratos de crédito (VDARL). FK a customer.
+
+sources:
+  - bank_silver.loan             # de SAP VDARL
+  - bank_bronze.sap_tcurx
+
+schema:
+  - name: loan_id       type: STRING   required: true   unique: true
+  - name: customer_sk   type: INT64    required: true
+  - name: principal     type: NUMERIC  description: via TCURX
+  - name: currency      type: STRING
+  - name: rate          type: NUMERIC
+  - name: start_date    type: DATE
+  - name: term_months   type: INT64
+
+rules:
+  - id: fk_validate
+    desc: loan.party_id debe existir en customer; si no -> cuarentena.
+  - id: curr_tcurx
+    desc: principal convertido via TCURX.
+
+sla:
+  freshness: "< 4h post-source"
+  completeness: "loan_id 100% · principal 100%"
+
+dq:
+  - unique: [loan_id]
+  - not_null: [loan_id, customer_sk, principal]
+  - referential: "loan.customer_sk existe en dim_customer"
+
+pii: []
+consumers: [analytics, reporting IFRS 9 / CNBV]

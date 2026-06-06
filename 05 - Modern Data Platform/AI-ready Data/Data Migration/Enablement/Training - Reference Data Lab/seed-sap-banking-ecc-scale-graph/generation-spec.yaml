@@ -1,0 +1,52 @@
+# Generation Spec - seed-sap-banking-ecc-scale-graph
+# Reference Data Lab (AI-ready Data / Digital Core)
+#
+# Seed a ESCALA (graph-as-data): ~1,500 tablas de un core bancario sobre SAP ECC
+# emitidas como GRAFO (no como filas). Dual del seed-corebank-unisys de Mainframe.
+# Sirve al discovery a escala: hairball, hubs, comunidades, dead clusters, waves.
+# Para validar pipeline/DQ/entity-resolution con FILAS, usar el seed con datos
+# (seed-sap-banking-crm-to-bigquery-medallion). Son escalas COMPLEMENTARIAS.
+#
+# Regenerar: python generator/generate.py   (determinista por seed)
+
+system:
+  name: SAP-BANKING-ECC-SCALE
+  industry: banca
+  source_family: sap
+  scale_strategy: graph-as-data        # se emite el grafo, no las filas
+  modules: [bp, am_deposits, cml_loans, payments, fi_gl, co, cards, channels, collateral, dmee]
+  satellite: crm                       # sistema NO-SAP con entity-link a BUT000
+
+size:                                  # arquetipos de tabla SAP (~1,500 + dead + crm)
+  master: 120                          # master data (BUT000, account, GL, bank)
+  txn: 720                             # transaccional / documentos
+  text: 150                            # text tables (SPRAS)
+  cust: 360                            # customizing / check (T*)
+  totals: 80                           # agregados / index
+  dead: 70                             # modulo legacy decomisionado (isla -> RETIRE)
+  crm: 30                              # satelite CRM
+
+topology:
+  degree_distribution: scale-free
+  pref_exp: 1.6                        # preferential attachment -> pocos hubs enormes
+  cross_module_leakage: 0.16           # fraccion de FK que cruzan modulo
+  cycles: 5                            # SCCs a inyectar (jerarquias/estatus circular)
+  cycle_size: [3, 6]
+  named_hubs:                          # tablas reales SAP que concentran fan-in
+    - T001    # company code
+    - TCURC   # currency
+    - TCURX   # decimales por moneda
+    - TCURR   # tipos de cambio
+    - SKA1    # GL account (COA)
+    - SKB1    # GL account (company code)
+    - BUT000  # business partner (cliente)
+    - BNKA    # bank master
+
+hidden_coupling:                       # el "copybook coupling" de datos
+  model_as_separate_layer: true        # shared-table-usage.json
+  min_modules_to_flag: 3               # tabla compartida por >=3 modulos = transversal
+
+output:
+  emit_answer_key: true                # computado del grafo (hubs, Tarjan SCC, WCC, modularidad)
+  emit_rows: false                     # a esta escala NO se emiten filas
+  seed: 5100

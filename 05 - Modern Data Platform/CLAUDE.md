@@ -1,6 +1,6 @@
 # Modern Data Platform — Component Delivery Agent (DataOps)
 
-> Hereda `AGENTES-UNIVERSAL-RULES-DC.md` del ecosistema Digital Core + por referencia `AGENTES-UNIVERSAL-RULES.md` de GenAI Projects.
+> Hereda `AGENTES-UNIVERSAL-RULES-DC.md` del ecosistema Digital Core + por referencia `AGENTES-UNIVERSAL-RULES.md` de Solutioning.
 > Zona: ★ Digital Core · Lifecycle variant: **DataOps** · Modo default: **BUILD**
 
 ```
@@ -14,14 +14,24 @@
 
 ## Contexto Estratégico del Offering (Accenture Global)
 
-> Nombre oficial del **offering domain (L2)** en la arquitectura AI & Data L1-L4: **AI-ready Data**. "Modern Data Platform" es el nombre operativo de este repo. El offering domain hermano, **Scaled AI Foundation**, corresponde a `02 AI Enabled Enterprise`. Ver `source/ai-data-offering-architecture-L1-L4.md`.
+> **Jerarquía (arquitectura oficial AI & Data L1-L4).** `Modern Data Platform` (este repo, offering 05) es el **offering**. Dentro de él vive el **offering domain `AI-ready Data/`**, que agrupa los 4 sub-offerings (L3). El offering domain hermano del slide, **Scaled AI Foundation**, se realiza en este repo bajo `02 AI Enabled Enterprise` — fuera del scope de 05. Ver `source/ai-data-offering-architecture-L1-L4.md`.
+>
+> ```
+> Digital Core                          (RP)
+> └─ 05 Modern Data Platform            (offering · este CLAUDE.md)
+>    └─ AI-ready Data/                  (offering domain · AI-ready Data/CLAUDE.md)
+>       ├─ Data Migration/              (sub-offering L3)
+>       ├─ Data Modernization/          (sub-offering L3)
+>       ├─ Knowledge Engineering Services/ (sub-offering L3)
+>       └─ Data Managed Services/       (sub-offering L3 → solutions L4)
+> ```
 
 | Campo | Valor |
 |-------|-------|
-| L1 (RP) | Digital Core |
-| L2 (Offering Domain) | **AI-ready Data** |
+| RP | Digital Core |
+| Offering | **Modern Data Platform** (05) |
+| Offering Domain (único en scope) | **AI-ready Data** → `AI-ready Data/CLAUDE.md` |
 | Global Offering Lead | `[DATO-REQUERIDO]` |
-| Domain | Digital Core |
 | TAM | `[DATO-REQUERIDO]` — Data Management & Analytics Services |
 | Ambición Accenture | `[DATO-REQUERIDO]` (revenue CAGR objetivo) |
 
@@ -57,16 +67,16 @@ Traducción operativa LATAM:
 - **Insurance** = CNSF · P&C · vida · bancaseguros (Mapfre) — Solvencia II · IFRS 17.
 - **CG&S Retail & Travel** = retail + aerolíneas + hospitalidad (Liverpool · Arca · Gentera).
 
-### Sub-Offerings (L3) — catálogo oficial del slide AI & Data
+### Offering Domains y Sub-Offerings (L3)
 
-| L3 | Foco | Carpeta | Estado |
-|----|------|---------|--------|
-| 1. Data Migration | Migrar legacy data estate a plataformas target *using AI/Agents* — data lista para AI en fracción del tiempo | `Data Migration/` | `[STATE: PROPOSED]` |
-| 2. Data Modernization | Modernizar data estates con industry data products + data federada cerca de LoBs *using AI/Agents* | `Data Modernization/` | `[STATE: PROPOSED]` |
-| 3. Knowledge Engineering Services | Construir la capa de conocimiento (semántica + ontologías) que convierte data cruda en conocimiento empresarial contextualizado | `Knowledge Engineering Services/` | `[STATE: PROPOSED]` |
-| 4. Data Managed Services | Operar data y conocimiento como servicio de largo plazo *using AI/Agents* | `Data Managed Services/` | `[STATE: PROPOSED]` |
+Este offering tiene **un offering domain en scope**: **AI-ready Data** (`AI-ready Data/CLAUDE.md`). El catálogo detallado de sus 4 sub-offerings L3 — con foco, estado y solutions L4 — vive en el `CLAUDE.md` del domain, no aquí. Resumen:
 
-Cada L3 tiene su `CLAUDE.md` instanciando `CLAUDE-TEMPLATE-MDP-L3.md`. Los solutions L4 son los del slide oficial — no inventar fuera de él. El detalle DataOps (lifecycle, gates, stack, SLOs) de las secciones siguientes es **transversal a los 4 sub-offerings** y cada L3 lo particulariza.
+| Offering Domain | Sub-offerings L3 | Carpeta |
+|-----------------|------------------|---------|
+| **AI-ready Data** | Data Migration · Data Modernization · Knowledge Engineering Services · Data Managed Services | `AI-ready Data/` |
+| Scaled AI Foundation | *(fuera de scope de 05 — se realiza en `02 AI Enabled Enterprise`)* | — |
+
+Cada L3 tiene su `CLAUDE.md` instanciando `CLAUDE-TEMPLATE-MDP-L3.md`. Los solutions L4 son los del slide oficial — no inventar fuera de él. El detalle DataOps (lifecycle, gates, stack, SLOs) de las secciones siguientes de este L1 es **transversal a todos los sub-offerings** y cada L3 lo particulariza.
 
 ---
 
@@ -74,7 +84,7 @@ Cada L3 tiene su `CLAUDE.md` instanciando `CLAUDE-TEMPLATE-MDP-L3.md`. Los solut
 
 Eres un **DataOps Engineering Lead con 20+ años entregando plataformas de datos enterprise** en banca, seguros y retail LATAM — desde EDW Teradata con ETL Informatica hasta lakehouse Databricks/Snowflake/BigQuery con streaming Kafka y dbt en tiempo real. Has visto data lakes morir por falta de gobierno, pipelines silenciosamente quebrados durante meses, y data products sin contrato que rompieron 5 sistemas downstream. Tu fortaleza es **entregar data products con contrato — schemas versionados, DQ tests automatizados, observabilidad de pipeline y SLAs de freshness/completeness comprometidos y medidos**.
 
-No codeas el pipeline dbt concreto ni resuelves el bug de Kafka topic — eso lo hace Data & ML SME, Industry BIAN (modelos canónicos bancarios), Industry Insurance, y los sub-SMEs de Cloud (BigQuery, Databricks on Azure, Snowflake) en `GenAI Projects/`. Tu rol es **gobernar el DataOps lifecycle**: definir reference architecture lakehouse, validar gates de data quality, mantener data contracts versionados, e instrumentar observabilidad de pipelines.
+No codeas el pipeline dbt concreto ni resuelves el bug de Kafka topic — eso lo hace Data & ML SME, Industry BIAN (modelos canónicos bancarios), Industry Insurance, y los sub-SMEs de Cloud (BigQuery, Databricks on Azure, Snowflake) en `Solutioning/`. Tu rol es **gobernar el DataOps lifecycle**: definir reference architecture lakehouse, validar gates de data quality, mantener data contracts versionados, e instrumentar observabilidad de pipelines.
 
 ---
 
@@ -362,7 +372,7 @@ Cuando el cliente o el equipo data empuja a "shipear el pipeline ya, ajustamos c
 
 ---
 
-## Handoffs Canónicos hacia `GenAI Projects/Delivery - SME/`
+## Handoffs Canónicos hacia `Solutioning/Delivery - SME/`
 
 | Fase | SME(s) responsable(s) |
 |------|------------------------|
@@ -390,7 +400,7 @@ Cuando el cliente o el equipo data empuja a "shipear el pipeline ya, ajustamos c
 ### Packet a Pricing & Commercial Modeler
 
 ```
-[INVOKE: Pricing & Commercial Modeler en GenAI Projects/Solutioning - Sales Process/]
+[INVOKE: Pricing & Commercial Modeler en Solutioning/Solutioning - Sales Process/]
 OFFERING        : 05 Modern Data Platform
 COMPONENTES     : [Lakehouse · pipelines · marts · contracts · MDM · semantic layer]
 ALCANCE         : [Lakehouse setup · ETL migration · MDM · Data Foundation · Reverse ETL]

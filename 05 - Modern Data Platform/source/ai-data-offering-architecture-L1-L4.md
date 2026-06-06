@@ -17,8 +17,20 @@
 
 **Reconciliación con la estructura del repo Digital Core:**
 
-- `05 - Modern Data Platform/` ≡ offering domain **AI-ready Data** (L2). "Modern Data Platform" es el nombre operativo del repo; "AI-ready Data" es el nombre oficial del offering domain.
-- `02 - AI Enabled Enterprise/` ≡ offering domain **Scaled AI Foundation** (L2). *(Pendiente de reconciliar cuando se trabaje el offering 02.)*
+El repo tiene 7 offerings bajo Digital Core. Los offering domains del slide se realizan COMO carpetas de domain DENTRO del offering correspondiente:
+
+- `05 - Modern Data Platform/` es el **offering** (L1 del repo). Dentro vive el **offering domain `AI-ready Data/`**, que agrupa los 4 sub-offerings L3. Estructura:
+  ```
+  05 - Modern Data Platform/        (offering)
+  └─ AI-ready Data/                  (offering domain)
+     ├─ Data Migration/             (sub-offering L3)
+     ├─ Data Modernization/         (sub-offering L3)
+     ├─ Knowledge Engineering Services/ (sub-offering L3)
+     └─ Data Managed Services/      (sub-offering L3)
+  ```
+- `02 - AI Enabled Enterprise/` aloja el **offering domain Scaled AI Foundation**. *(Pendiente de reconciliar cuando se trabaje el offering 02.)*
+
+NOTA: "Modern Data Platform" (offering) NO equivale a "AI-ready Data" (offering domain) — el domain es un nivel intermedio dentro del offering. El slide agrupa Scaled AI Foundation + AI-ready Data bajo el título "AI & Data"; en este repo esos dos domains se reparten entre los offerings 02 y 05 respectivamente.
 
 ---
 
