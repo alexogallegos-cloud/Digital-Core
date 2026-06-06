@@ -22,11 +22,11 @@ Este documento define **lo común a todas las variantes** — fases, gates, ambi
 
 ---
 
-## 1. HERENCIA DESDE `GenAI Projects/`
+## 1. HERENCIA DESDE `Solutioning/`
 
-Este ecosistema es independiente del de `GenAI Projects/`, pero importa por referencia las reglas universales del mismo. Fuente canónica:
+Este ecosistema es independiente del de `Solutioning/`, pero importa por referencia las reglas universales del mismo. Fuente canónica:
 
-**`c:\Users\alejandro.gallegos\OneDrive - Accenture\Documents\GenAI Projects\AGENTES-UNIVERSAL-RULES.md`**
+**`c:\Users\alejandro.gallegos\OneDrive - Accenture\Documents\Solutioning\AGENTES-UNIVERSAL-RULES.md`**
 
 ### 1.1 Reglas heredadas íntegras
 
@@ -76,7 +76,7 @@ Antes de iniciar BUILD, el componente debe tener:
 - Requisitos no funcionales declarados (rendimiento, disponibilidad, seguridad, compliance).
 - Decisiones de arquitectura clave registradas como ADRs (Architectural Decision Records).
 - Dependencias upstream resueltas o marcadas como `[BLOQUEANTE]`.
-- Estimación de esfuerzo validada por SME correspondiente en `GenAI Projects/`.
+- Estimación de esfuerzo validada por SME correspondiente en `Solutioning/`.
 - Test strategy declarada (qué tipos de pruebas, qué cobertura objetivo, qué datos sintéticos).
 
 ### 2.2 Definition of Done (DoD) — universal, mínima
@@ -469,7 +469,7 @@ FASE              : {DISCOVER | DESIGN | BUILD | TEST | RELEASE | OPERATE | OBSE
 ENV ACTIVOS       : {DEV | QA | UAT | STG | PROD | DR — separados por coma}
 VERSIÓN ACTUAL    : {semver}
 REPO              : {URL Git}
-OWNER (SME)       : {SME en GenAI Projects/Delivery - SME/ responsable de delivery}
+OWNER (SME)       : {SME en Solutioning/Delivery - SME/ responsable de delivery}
 DoR / DoD ESTADO  : {DRAFT | COMPLETO | PENDIENTE: X}
 SLOs              : {lista de SLOs activos si fase = OPERATE+}
 DORA (last 30d)   : DF=x · LT=y · CFR=z · MTTR=w
@@ -499,11 +499,11 @@ Cada `[GATE-EXIT]` cumplido produce evidencia archivable: link a CI run verde, l
 
 ---
 
-## 13. HANDOFF CROSS-ECOSYSTEM HACIA `GenAI Projects/`
+## 13. HANDOFF CROSS-ECOSYSTEM HACIA `Solutioning/`
 
-El Component Delivery Agent **gobierna el lifecycle**; el delivery operativo concreto lo ejecutan los SMEs de `GenAI Projects/Delivery - SME/`. La frontera:
+El Component Delivery Agent **gobierna el lifecycle**; el delivery operativo concreto lo ejecutan los SMEs de `Solutioning/Delivery - SME/`. La frontera:
 
-| Lo que hace DC Agent | Lo que hace SME GenAI Projects |
+| Lo que hace DC Agent | Lo que hace SME Solutioning |
 |----------------------|-------------------------------|
 | Definir el lifecycle (fases, gates, DoD) | Ejecutar cada fase con el detalle técnico |
 | Mantener el component catalog y reference architecture | Diseñar el componente específico |
@@ -517,7 +517,7 @@ El Component Delivery Agent **gobierna el lifecycle**; el delivery operativo con
 Cuando un Component Delivery Agent invoca a un SME para una fase específica:
 
 ```
-[INVOKE: SME en GenAI Projects/Delivery - SME/{ruta}/]
+[INVOKE: SME en Solutioning/Delivery - SME/{ruta}/]
 COMPONENTE      : {ID + nombre del componente}
 FASE OBJETIVO   : {DISCOVER/DESIGN/BUILD/TEST/RELEASE/OPERATE}
 DELIVERABLE     : {qué debe producir el SME — concreto, no genérico}
@@ -529,7 +529,7 @@ DEADLINE        : {fecha límite / sin deadline}
 
 ### 13.2 SMEs canónicos por offering
 
-Cada `CLAUDE.md` de offering declara explícitamente los SMEs de `GenAI Projects/Delivery - SME/` que ejecutan delivery. Esa lista es **prescriptiva** — no improvisar.
+Cada `CLAUDE.md` de offering declara explícitamente los SMEs de `Solutioning/Delivery - SME/` que ejecutan delivery. Esa lista es **prescriptiva** — no improvisar.
 
 > `[PILOTO — 2026-05-30]` **Excepción documentada**: la solution *Mainframe Modernization* (03 S&PE · HVM) estrena el modelo inverso *SME=experto / DC=ejecución* — aloja sus sub-agentes de ejecución en el propio offering y trata al SME GenAI como advisory (método + estimación). Es un piloto acotado; el resto del ecosistema sigue esta §13 (SME ejecuta). Ver `…/Mainframe Modernization/CLAUDE.md`.
 
@@ -591,7 +591,7 @@ Aplica a cualquier output canónico (catalog, playbook, spec, ADR, runbook).
 - [ ] Budget + alerta configurada.
 
 **Handoffs**
-- [ ] SMEs de `GenAI Projects/Delivery - SME/` declarados como owners reales por fase.
+- [ ] SMEs de `Solutioning/Delivery - SME/` declarados como owners reales por fase.
 - [ ] Handoff a AMS Reinvention con runbook + on-call rotation antes de cerrar OPERATE.
 - [ ] Postmortem ejecutado dentro de 5 días hábiles si hubo incidente P1/P2 (§21).
 
@@ -618,7 +618,7 @@ Todo componente productivo debe tener su `spec-{component-name}.md` con la estru
 - **State**: [STATE: PROPOSED | APPROVED | ACTIVE | DEPRECATED | SUNSET | ON-HOLD]
 - **Fase activa**: [PHASE: DISCOVER | ... | ITERATE]
 - **Versión actual**: {semver}
-- **Owner técnico**: {persona / equipo en GenAI Projects/Delivery - SME/}
+- **Owner técnico**: {persona / equipo en Solutioning/Delivery - SME/}
 - **Sponsor de negocio**: {rol / persona}
 
 ## Propósito
@@ -1109,7 +1109,7 @@ Un componente productivo sin entrada en service catalog **no existe instituciona
 | Name | {component-name canónico} |
 | Type | {service · library · datastore · pipeline · model · IaC module · runbook · dashboard} |
 | Offering | {01-07} |
-| Owner team | {squad / equipo en GenAI Projects/Delivery - SME/} |
+| Owner team | {squad / equipo en Solutioning/Delivery - SME/} |
 | Tech contact (on-call) | {persona / rotation alias} |
 | Business contact | {sponsor / PO} |
 | Lifecycle state | {PROPOSED · APPROVED · ACTIVE · DEPRECATED · SUNSET · ON-HOLD} |

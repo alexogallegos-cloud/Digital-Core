@@ -1,12 +1,12 @@
 # Fase 2 — Regulatorio (externo · `[INVOKE]`)
 
-> Esta fase **no se ejecuta en este offering**. Se orquesta hacia un SME externo del ecosistema GenAI Projects (modelo piloto "SME = experto / DC = ejecución"). Carpeta-puntero para mantener visible la secuencia completa de 8 fases.
+> Esta fase **no se ejecuta en este offering**. Se orquesta hacia un SME externo del ecosistema Solutioning (modelo piloto "SME = experto / DC = ejecución"). Carpeta-puntero para mantener visible la secuencia completa de 8 fases.
 
 | | |
 |---|---|
 | **Rol en el ciclo** | Assessment regulatorio (CNBV banca · CNSF seguros) · gates de cumplimiento durante coexistencia |
 | **Specialist** | Mainframe Modernization Regulatory |
-| **Ubicación** | `GenAI Projects/Delivery - SME/Framework/ITSM/GRC/Specialist - Mainframe Modernization Regulatory/` |
+| **Ubicación** | `Solutioning/Delivery - SME/Framework/ITSM/GRC/Specialist - Mainframe Modernization Regulatory/` |
 | **Cómo se invoca** | Packet `[INVOKE]` desde el L4 (ver `../CLAUDE.md` §"Ejecución del delivery") |
 | **También participa en** | Fase 8 — Decommission (retención regulatoria) |
 

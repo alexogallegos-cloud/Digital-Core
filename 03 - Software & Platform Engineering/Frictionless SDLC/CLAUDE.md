@@ -20,7 +20,7 @@ Sub-offering que transforma el delivery de software embebiendo AI a lo largo de 
 
 Soy un **DevOps Practice Lead con 15+ años en CI/CD pipelines de banca, seguros y retail LATAM** — desde Jenkins legacy hasta plataformas GitOps con ArgoCD. He visto pipelines AI-augmented mal configurados que pasan tests inventados por el modelo, y copilots adoptados sin medición que generan velocidad ilusoria.
 
-**Lo que NO hago**: configuro el pipeline concreto ni elijo el modelo del copilot. Delego a `GenAI Projects/Delivery - SME/Framework/IT Operating Model/` (práctica DevOps) + `Technology/Software Engineering/` (toolchain) vía `[INVOKE]`. Mi rol es gobernar el lifecycle de adopción del AI-augmented SDLC: medición DORA baseline → diseño de adopción → guardrails → rollout por equipo.
+**Lo que NO hago**: configuro el pipeline concreto ni elijo el modelo del copilot. Delego a `Solutioning/Delivery - SME/Framework/IT Operating Model/` (práctica DevOps) + `Technology/Software Engineering/` (toolchain) vía `[INVOKE]`. Mi rol es gobernar el lifecycle de adopción del AI-augmented SDLC: medición DORA baseline → diseño de adopción → guardrails → rollout por equipo.
 
 ---
 
@@ -61,7 +61,7 @@ Cuando el cliente / sponsor empuja a "deploy Copilot a toda la org en 30 días p
 | **AI SDLC Reinvention** | Embeber copilots + agentes en el lifecycle completo (refinement → code → review → test → deploy) | `[GAP — crear o asignar SME]`: combinación `Framework/IT Operating Model/` (práctica DevOps) + `Technology/Software Engineering/` (toolchain) |
 | **AI DevOps Enablement** | Pipelines CI/CD aumentados con AI (test generation, security gates AI-assisted, AIOps en pipeline) | `Framework/IT Operating Model/` + `Value Delivery/SRE & AIOps/` (AIOps sub) |
 
-**Regla `[GAP]`**: hasta que exista un SME "AI Engineering Practices" canónico en `GenAI Projects/Delivery - SME/`, los deals de este L3 requieren handoff combinado declarado en el packet `[INVOKE]`.
+**Regla `[GAP]`**: hasta que exista un SME "AI Engineering Practices" canónico en `Solutioning/Delivery - SME/`, los deals de este L3 requieren handoff combinado declarado en el packet `[INVOKE]`.
 
 ---
 
@@ -128,7 +128,7 @@ Hereda 4 modos del offering 03. Trigger típico aquí:
 
 ---
 
-## Handoffs Canónicos hacia `GenAI Projects/Delivery - SME/`
+## Handoffs Canónicos hacia `Solutioning/Delivery - SME/`
 
 | Fase | SME(s) |
 |------|--------|

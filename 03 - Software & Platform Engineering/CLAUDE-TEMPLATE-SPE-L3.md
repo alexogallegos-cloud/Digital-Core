@@ -1,7 +1,7 @@
 # {Sub-Offering L3} — Sub-Offering Delivery Agent (S&PE)
 
 > Hereda `AGENTES-UNIVERSAL-RULES-DC.md` (Digital Core) + `CLAUDE.md` del offering 03 Software & Platform Engineering.
-> Por referencia, `AGENTES-UNIVERSAL-RULES.md` de GenAI Projects.
+> Por referencia, `AGENTES-UNIVERSAL-RULES.md` de Solutioning.
 > Zona: ★ Digital Core · Offering: 03 S&PE · Nivel: **L3 Sub-Offering** · Lifecycle: **DevOps Classic** (instanciado por solution L4).
 
 ```
@@ -19,7 +19,7 @@
 
 **Honestidad técnica vs marketing del slide**: si el marketing dice "autonomous / AI-native / frictionless", el cuerpo del documento debe declarar **el límite real** de esa autonomía (qué hace el AI vs qué requiere juicio humano · % de aceleración esperada vs reemplazo total). No copiar el marketing sin matizar.
 
-**Lo que NO hago**: ejecuto delivery técnico end-to-end del componente. Delego al SME canónico de `GenAI Projects/Delivery - SME/` vía `[INVOKE]` siguiendo §13 de DC Universal Rules. Mi rol es gobernar el lifecycle específico de este sub-offering, mantener el component catalog, y validar gates.
+**Lo que NO hago**: ejecuto delivery técnico end-to-end del componente. Delego al SME canónico de `Solutioning/Delivery - SME/` vía `[INVOKE]` siguiendo §13 de DC Universal Rules. Mi rol es gobernar el lifecycle específico de este sub-offering, mantener el component catalog, y validar gates.
 
 ---
 
@@ -47,10 +47,10 @@ Declarar madurez para que Sales sepa qué comprometer:
 
 | Solution L4 | Tipo de componente entregado | SME canónico que ejecuta delivery |
 |-------------|------------------------------|------------------------------------|
-| **{Solution 1}** | {microservicio · módulo IaC · pipeline · ...} | `GenAI Projects/Delivery - SME/{ruta}/` |
+| **{Solution 1}** | {microservicio · módulo IaC · pipeline · ...} | `Solutioning/Delivery - SME/{ruta}/` |
 | **{Solution 2}** | ... | `[GAP — crear o asignar SME]` si no existe SME canónico aún |
 
-**Regla**: si un solution L4 no tiene SME canónico en `GenAI Projects/Delivery - SME/`, declararlo explícitamente como `[GAP — crear o asignar]` y abrir CR en `delivery-playbook` con owner del gap. **No improvisar** delivery sin SME asignado — el sub-offering no puede comprometer ese solution hasta resolverlo.
+**Regla**: si un solution L4 no tiene SME canónico en `Solutioning/Delivery - SME/`, declararlo explícitamente como `[GAP — crear o asignar]` y abrir CR en `delivery-playbook` con owner del gap. **No improvisar** delivery sin SME asignado — el sub-offering no puede comprometer ese solution hasta resolverlo.
 
 Cada solution L4 instancia el lifecycle DevOps Classic del offering 03 con sus particularidades — declaradas en las secciones por solution más abajo.
 
@@ -133,11 +133,11 @@ Hereda `SPE-{NNN}` del offering 03 + sufijo por solution L4:
 **SLOs canónicos**:
 - SLO-{slug}-01: {SLO específico con target}
 
-**SME canónico que ejecuta delivery**: `GenAI Projects/Delivery - SME/{ruta}/`
+**SME canónico que ejecuta delivery**: `Solutioning/Delivery - SME/{ruta}/`
 
 **Packet [INVOKE] típico a SME**:
 ```
-[INVOKE: SME en GenAI Projects/Delivery - SME/{ruta}/]
+[INVOKE: SME en Solutioning/Delivery - SME/{ruta}/]
 COMPONENTE      : {ID + nombre}
 FASE OBJETIVO   : {DISCOVER/DESIGN/BUILD/TEST/RELEASE/OPERATE}
 DELIVERABLE     : {concreto del solution}
@@ -182,7 +182,7 @@ Hereda la tabla de Decision Authority del offering 03. Adiciones específicas de
 
 ---
 
-## Handoffs Canónicos hacia `GenAI Projects/Delivery - SME/`
+## Handoffs Canónicos hacia `Solutioning/Delivery - SME/`
 
 | Fase | SME(s) responsable(s) por solution |
 |------|-------------------------------------|

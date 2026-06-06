@@ -9,12 +9,12 @@
 **Lee y aplica `AGENTES-UNIVERSAL-RULES-DC.md`** antes de responder cualquier solicitud en este ecosistema.
 
 Ese documento define, para todos los Component Delivery Agents:
-- Herencia respecto a `AGENTES-UNIVERSAL-RULES.md` del ecosistema `GenAI Projects/`
+- Herencia respecto a `AGENTES-UNIVERSAL-RULES.md` del ecosistema `Solutioning/`
 - SDLC canónico de 8 fases (DISCOVER → DESIGN → BUILD → TEST → RELEASE → OPERATE → OBSERVE → ITERATE)
 - Definition of Ready (DoR) y Definition of Done (DoD) universal
 - Vocabulario propio de delivery (componente, blueprint, artifact, gate, environment, SLO, DORA, runbook, ADR)
 - Modos de operación alineados a fase SDLC (REQUIREMENTS · BUILD · RELEASE · RUN)
-- Protocolo de handoff cross-ecosystem hacia los SMEs de `GenAI Projects/Delivery - SME/`
+- Protocolo de handoff cross-ecosystem hacia los SMEs de `Solutioning/Delivery - SME/`
 - Outputs canónicos (component-catalog, reference-architecture, delivery-playbook, quality-gates, runbooks, ADRs)
 - Quality gates entry/exit por fase, security gates, observability standards, métricas DORA
 - Coordinación entre los 7 offerings vía dependencias de delivery (no portafolio)
@@ -37,12 +37,12 @@ Si el `CLAUDE.md` de un offering contradice una regla universal de Digital Core,
 | 06 Innovation | PoCs, prototypes, pattern libraries | **PoC Lifecycle** |
 | 07 AMS Reinvention | Runbooks, automations, observability assets, AIOps signals | **AIOps + ITIL** |
 
-**Frontera con `GenAI Projects/`**:
+**Frontera con `Solutioning/`**:
 - Digital Core/ **gobierna el lifecycle** del componente — fases, gates, DoD, reference architecture, observability standards.
-- GenAI Projects/Delivery - SME/ **ejecuta el delivery operativo** — código, IaC, modelo, pipeline concreto.
-- Cada Component Delivery Agent declara prescriptivamente qué SME(s) de `GenAI Projects/` ejecutan cada fase de su lifecycle.
+- Solutioning/Delivery - SME/ **ejecuta el delivery operativo** — código, IaC, modelo, pipeline concreto.
+- Cada Component Delivery Agent declara prescriptivamente qué SME(s) de `Solutioning/` ejecutan cada fase de su lifecycle.
 
-**No hay frontera con propuestas y deals** — ese es territorio exclusivo de `GenAI Projects/Solutioning - *`. Digital Core opera sobre componentes técnicos en construcción y operación, no sobre pipeline comercial.
+**No hay frontera con propuestas y deals** — ese es territorio exclusivo de `Solutioning/Solutioning - *`. Digital Core opera sobre componentes técnicos en construcción y operación, no sobre pipeline comercial.
 
 ---
 
@@ -99,9 +99,9 @@ Outputs canónicos por offering: `component-catalog-{slug}.md`, `reference-archi
 
 ---
 
-## RELACIÓN CON `GenAI Projects/`
+## RELACIÓN CON `Solutioning/`
 
-| Dimensión | Digital Core/ | GenAI Projects/ |
+| Dimensión | Digital Core/ | Solutioning/ |
 |-----------|---------------|------------------|
 | Foco | Lifecycle del componente técnico | Delivery del deal comercial |
 | Tiempo | Sprints / releases / SLOs | Stages S0→S3 / gates / commitments |
@@ -110,11 +110,11 @@ Outputs canónicos por offering: `component-catalog-{slug}.md`, `reference-archi
 | Modo de entrega | Componente en producción cumpliendo DoD | Deal firmado entrando a delivery |
 
 **Ruta cross-ecosystem**:
-- Universal Rules base (heredadas): `c:\...\GenAI Projects\AGENTES-UNIVERSAL-RULES.md`
-- SMEs ejecutores de delivery: `c:\...\GenAI Projects\Delivery - SME\`
-- Showcase visual del Digital Core: `c:\...\GenAI Projects\Delivery - Showcase\Showcase - Digital Core\`
+- Universal Rules base (heredadas): `c:\...\Solutioning\AGENTES-UNIVERSAL-RULES.md`
+- SMEs ejecutores de delivery: `c:\...\Solutioning\Delivery - SME\`
+- Showcase visual del Digital Core: `c:\...\Solutioning\Delivery - Showcase\Showcase - Digital Core\`
 
-Cada Component Delivery Agent declara prescriptivamente la lista de SMEs de `GenAI Projects/Delivery - SME/` que ejecutan cada fase de su lifecycle. Esa lista vive en la sección "Handoffs Canónicos hacia GenAI Projects" del `CLAUDE.md` del offering.
+Cada Component Delivery Agent declara prescriptivamente la lista de SMEs de `Solutioning/Delivery - SME/` que ejecutan cada fase de su lifecycle. Esa lista vive en la sección "Handoffs Canónicos hacia Solutioning" del `CLAUDE.md` del offering.
 
 ---
 

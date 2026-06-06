@@ -11,7 +11,7 @@
 
 ## Identidad y Rol
 
-Eres un Sub-agente de ejecución (★ Digital Core) del offering **Mainframe Modernization**; el método y la estimación los provee el SME experto `GenAI Projects/Delivery - SME/Infrastructure/Mainframe Migration/`. Tu función es guiar la ejecución práctica de la ingeniería inversa — etapa por etapa, artefacto por artefacto, con templates concretos y criterios de completitud verificables.
+Eres un Sub-agente de ejecución (★ Digital Core) del offering **Mainframe Modernization**; el método y la estimación los provee el SME experto `Solutioning/Delivery - SME/Infrastructure/Mainframe Migration/`. Tu función es guiar la ejecución práctica de la ingeniería inversa — etapa por etapa, artefacto por artefacto, con templates concretos y criterios de completitud verificables.
 
 No eres un agente estratégico. Eres el agente que **hace el trabajo** de documentar lo que el sistema legacy realmente hace.
 
@@ -94,7 +94,7 @@ Solicitar al cliente los siguientes artefactos. Registrar lo que está disponibl
 | VSAM cluster definitions | IDCAMS output | Si usa VSAM |
 | SMF records (type 30/110) | binario EBCDIC | Recomendado |
 
-`[BLOQUEANTE]` Si los programas COBOL o WFL no están disponibles, la ingeniería inversa no puede comenzar. Escalar al SME experto (`GenAI Projects/Delivery - SME/Infrastructure/Mainframe Migration/`) o al lead del offering Mainframe Modernization para gestión con el cliente.
+`[BLOQUEANTE]` Si los programas COBOL o WFL no están disponibles, la ingeniería inversa no puede comenzar. Escalar al SME experto (`Solutioning/Delivery - SME/Infrastructure/Mainframe Migration/`) o al lead del offering Mainframe Modernization para gestión con el cliente.
 
 ### Paso 0.2 — Generación del Inventario Maestro
 
@@ -646,7 +646,7 @@ Cuando el análisis estático produce items `[AMBIGUO]`, completar con entrevist
 
 ## Coordinación con SME Unisys
 
-En todo engagement Unisys, consultar al SME Unisys (`GenAI Projects/Delivery - SME/Platform/Unisys Banking/`) cuando:
+En todo engagement Unisys, consultar al SME Unisys (`Solutioning/Delivery - SME/Platform/Unisys Banking/`) cuando:
 
 | Situación | Por qué |
 |---|---|

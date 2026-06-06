@@ -14,7 +14,7 @@ Aplica a:
 
 **No aplica a:**
 - Agentes de portafolio / governance — Digital Core es 100% delivery.
-- SMEs de delivery operativo concreto — esos viven en `GenAI Projects/Delivery - SME/` y usan `CLAUDE-TEMPLATE.md` de ese ecosistema.
+- SMEs de delivery operativo concreto — esos viven en `Solutioning/Delivery - SME/` y usan `CLAUDE-TEMPLATE.md` de ese ecosistema.
 
 ---
 
@@ -44,7 +44,7 @@ Reglas: outputs en raíz del offering, ADRs en `adr/`, postmortems en raíz, sin
 
 # [Nombre del Offering / Sub-Agente] — Component Delivery Agent
 
-> Hereda `AGENTES-UNIVERSAL-RULES-DC.md` v2.1 del ecosistema Digital Core + por referencia `AGENTES-UNIVERSAL-RULES.md` de GenAI Projects.
+> Hereda `AGENTES-UNIVERSAL-RULES-DC.md` v2.1 del ecosistema Digital Core + por referencia `AGENTES-UNIVERSAL-RULES.md` de Solutioning.
 > Zona: ★ Digital Core · Lifecycle variant: **[DevOps Classic | MLOps | DataOps | IaC/GitOps | AIOps+ITIL | Arch Lifecycle | PoC Lifecycle]** · Modo default: **[REQUIREMENTS | BUILD | RELEASE | RUN]**
 
 ```
@@ -65,7 +65,7 @@ TAGLINE: máximo 3 elementos, separador `·`. Ej.: "Microservicios · DevOps · 
 
 Eres un **[Título completo con N+ años de experiencia]** en delivery de [tipo de componente que entrega el offering] en LATAM. Tu fortaleza es **[la tensión central que el agente resuelve — p. ej. "construir software con velocidad sostenible sin acumular deuda técnica"]**.
 
-No [actividades fuera de scope]. Tu rol es **gobernar el lifecycle del componente** desde DISCOVER hasta ITERATE: mantener el catalog, validar gates, ensamblar reference architecture y derivar la implementación concreta a los SMEs de `GenAI Projects/`.
+No [actividades fuera de scope]. Tu rol es **gobernar el lifecycle del componente** desde DISCOVER hasta ITERATE: mantener el catalog, validar gates, ensamblar reference architecture y derivar la implementación concreta a los SMEs de `Solutioning/`.
 
 ---
 
@@ -371,14 +371,14 @@ trivialidades. Tres niveles: autónomo / requiere reviewer / requiere sponsor o 
 
 ---
 
-## Handoffs Canónicos hacia `GenAI Projects/Delivery - SME/`
+## Handoffs Canónicos hacia `Solutioning/Delivery - SME/`
 
 <!--
 Mapeo prescriptivo: para cada fase, qué SME(s) ejecuta(n) el delivery operativo.
 Usar `[INVOKE: ...]` con formato §13.1 de Universal Rules DC.
 -->
 
-| Fase | SME(s) responsable(s) en GenAI Projects |
+| Fase | SME(s) responsable(s) en Solutioning |
 |------|------------------------------------------|
 | DISCOVER | [SME(s) por dominio] |
 | DESIGN | [SME(s)] |
@@ -394,7 +394,7 @@ Usar `[INVOKE: ...]` con formato §13.1 de Universal Rules DC.
 ## Estimation & Pricing Handoff
 
 <!--
-Cuándo y cómo el agente invoca a Pricing & Commercial Modeler en GenAI Projects.
+Cuándo y cómo el agente invoca a Pricing & Commercial Modeler en Solutioning.
 No todos los engagements requieren pricing formal — algunos son internos.
 Documentar el trigger y el packet que se envía.
 -->
@@ -410,7 +410,7 @@ Documentar el trigger y el packet que se envía.
 ### Packet a Pricing & Commercial Modeler
 
 ```
-[INVOKE: Pricing & Commercial Modeler en GenAI Projects/Solutioning - Sales Process/]
+[INVOKE: Pricing & Commercial Modeler en Solutioning/Solutioning - Sales Process/]
 OFFERING        : [01-07]
 COMPONENTE      : [ID + nombre]
 ALCANCE         : [SI / AMS / IMS / Híbrido]
@@ -520,7 +520,7 @@ CHECKLIST DE CALIDAD ANTES DE ENTREGAR UN NUEVO COMPONENT DELIVERY AGENT (meta-c
 [ ] 4 modos (REQUIREMENTS/BUILD/RELEASE/RUN) con triggers + outputs
 [ ] Common Scenarios — 3-5 escenarios típicos con trigger + modo + pasos + output
 [ ] Decision Authority — matriz autónomo / reviewer / sponsor por tipo de decisión
-[ ] Handoffs por fase a SMEs reales en GenAI Projects/Delivery - SME/
+[ ] Handoffs por fase a SMEs reales en Solutioning/Delivery - SME/
 [ ] Estimation & Pricing Handoff con triggers + packet + exceptions
 [ ] Cross-Offering dependencies con etiquetas canónicas (DEPENDS-ON / BLOCKS / HANDOFF / TS&T-PRECEDENCE)
 [ ] 5-8 antipatrones con el WHY

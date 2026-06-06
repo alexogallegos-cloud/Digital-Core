@@ -3,7 +3,7 @@
 > `[ARTIFACT]` Phase handoff specification
 > **From:** Specialist · Reverse Engineering (Phase 1 · Discover) — local execution agent
 > **To:** Specialist · Mainframe Modernization Regulatory (Phase 2) — external SME, invoked `[INVOKE]`
-> Location of the receiver: `GenAI Projects/Delivery - SME/Framework/ITSM/GRC/Specialist - Mainframe Modernization Regulatory/`
+> Location of the receiver: `Solutioning/Delivery - SME/Framework/ITSM/GRC/Specialist - Mainframe Modernization Regulatory/`
 > Sample case: `SISTEMA-CORE-UNISYS` (synthetic; regulatory context illustrative only)
 
 ---

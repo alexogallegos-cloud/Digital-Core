@@ -64,7 +64,7 @@ Sin `domain_name`, el sitio queda en la URL de CloudFront (cert default, HTTPS).
 
 ```
 cd site
-aws s3 sync . s3://<bucket_name> --delete --exclude "infra/*" --exclude "_build.py" --exclude "README.md"
+aws s3 sync . s3://<bucket_name> --delete --exclude "infra/*" --exclude "*.py" --exclude "README.md"
 aws cloudfront create-invalidation --distribution-id <dist_id> --paths "/*"
 ```
 `aws s3 sync` asigna content-type por extensión (html→text/html, csv→text/csv).

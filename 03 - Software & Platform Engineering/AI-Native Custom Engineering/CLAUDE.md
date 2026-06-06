@@ -130,7 +130,7 @@ Hereda 8 fases del offering 03 con énfasis en **business case + greenfield deli
 | Decisión | Autoridad |
 |----------|-----------|
 | Vender SaaS Replacement sin TCO comparison 3-5 años | **Prohibido** — clawback comercial inevitable cuando TCO real supera baseline |
-| Comprometer deal de Silicon Engineering | **Bloqueado** hasta que exista SME canónico en `GenAI Projects/Delivery - SME/` |
+| Comprometer deal de Silicon Engineering | **Bloqueado** hasta que exista SME canónico en `Solutioning/Delivery - SME/` |
 | Construir custom platform sin product owner asignado por el cliente | **Prohibido** — plataforma sin PO muere por falta de adopción |
 | Cancelar paquete legacy antes de cutover por capability completo | **Prohibido sin `[BREAK-GLASS]`** + ventana 6 meses cumplida |
 | Selección de stack para custom (Java vs Node vs .NET) | **Requiere `[ADR]`** alineado con stack cliente o `[ADR-SPE-001]` del offering |

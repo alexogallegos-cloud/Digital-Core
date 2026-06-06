@@ -52,11 +52,11 @@ cd site/infra && terraform init && terraform apply -var="suffix=ago-2026"
 
 ---
 
-## Relación con `GenAI Projects/`
+## Relación con `Solutioning/`
 
-Digital Core **gobierna el lifecycle** del componente (fases, gates, DoD, reference architecture, observability). El ecosistema hermano `GenAI Projects/Delivery - SME/` **ejecuta el delivery operativo** (código, IaC, modelo, pipeline concreto). Cada Component Delivery Agent declara prescriptivamente qué SMEs ejecutan cada fase en la sección "Handoffs Canónicos hacia GenAI Projects" de su `CLAUDE.md`.
+Digital Core **gobierna el lifecycle** del componente (fases, gates, DoD, reference architecture, observability). El ecosistema hermano `Solutioning/Delivery - SME/` **ejecuta el delivery operativo** (código, IaC, modelo, pipeline concreto). Cada Component Delivery Agent declara prescriptivamente qué SMEs ejecutan cada fase en la sección "Handoffs Canónicos hacia Solutioning" de su `CLAUDE.md`.
 
-El pipeline comercial (DIP, propuestas, solution plans, deals) es territorio exclusivo de `GenAI Projects/Solutioning - *`, fuera del alcance de este repositorio.
+El pipeline comercial (DIP, propuestas, solution plans, deals) es territorio exclusivo de `Solutioning/Solutioning - *`, fuera del alcance de este repositorio.
 
 ---
 

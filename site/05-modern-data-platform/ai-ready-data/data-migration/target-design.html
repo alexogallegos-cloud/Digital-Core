@@ -1,0 +1,54 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Target Design & Data Contracts - Core Bancario SAP</title><style>
+ :root{--purple:#6B21A8;--magenta:#A100FF;--ink:#1A1A2E;--bg:#f4f4f6;--card:#fff;--line:#dcdce4;--txt:#22222e;--muted:#63636f;--green:#2e7d4f}
+ *{box-sizing:border-box}body{margin:0;font-family:'Segoe UI',Roboto,Arial,sans-serif;background:var(--bg);color:var(--txt);line-height:1.55;font-size:14.5px}
+ header{background:var(--ink);color:#fff;padding:22px 38px;border-bottom:3px solid var(--purple)}
+ header h1{margin:0;font-size:21px}header p{margin:4px 0 0;font-size:12.5px;opacity:.85}
+ main{max-width:1080px;margin:0 auto;padding:30px 28px 70px}
+ h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--purple);margin:30px 0 12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+ .med{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:10px 0}
+ @media(max-width:760px){.med{grid-template-columns:1fr}}
+ .layer{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--magenta);border-radius:6px;padding:14px 16px}
+ .layer h3{margin:0 0 6px;font-size:15px;color:var(--ink)}.layer p{margin:0;font-size:12.5px;color:var(--muted)}
+ table{border-collapse:collapse;width:100%;background:#fff;border:1px solid var(--line);border-radius:6px;overflow:hidden;font-size:13px;margin:8px 0}
+ th{background:#f0eef6;color:var(--purple);text-align:left;padding:7px 10px;font-size:11.5px;text-transform:uppercase}
+ td{padding:7px 10px;border-top:1px solid var(--line)}.muted{color:var(--muted)}
+ .flag{background:#f3effa;border-left:4px solid var(--magenta);padding:12px 15px;border-radius:6px;margin:10px 0}
+ .ok{background:#e9f6ee;border-left:4px solid var(--green);padding:12px 15px;border-radius:6px;margin:10px 0}
+ code{background:#eee;padding:1px 5px;border-radius:3px}ul{margin:8px 0;padding-left:20px}li{margin:4px 0}
+ footer{text-align:center;color:var(--muted);font-size:11px;padding:20px;border-top:1px solid var(--line)}
+</style></head><body>
+<header><h1>Target Design &amp; Data Contracts &mdash; Core Bancario SAP + CRM</h1>
+<p>Fase 2 &middot; Data Migration &middot; AI-ready Data &middot; &#9733; Digital Core &middot; 2026-06-01</p></header>
+<main>
+<h2>Modelo target &mdash; Medallion (BigQuery)</h2>
+<div class="med">
+ <div class="layer"><h3>Bronze &middot; bank_bronze</h3><p>Réplica raw 1:1 de SAP + CRM (todo STRING + metadata técnica). Espejo fiel auditable; conserva flags de borrado y MANDT.</p></div>
+ <div class="layer"><h3>Silver &middot; bank_silver</h3><p>Entidades conformadas, tipadas, deduplicadas, FK validadas. DATS→DATE · ALPHA · CURR/TCURX · filter_deleted · country_map · cuarentena.</p></div>
+ <div class="layer"><h3>Gold &middot; bank_gold</h3><p>Dimensional + Customer 360 mastereado. Entity resolution + merge + surrogate keys + agregados.</p></div>
+</div>
+
+<h2>Data contracts por dominio (5 data products)</h2>
+<p class="muted">Cada contrato: schema + owner + SLA + DQ + lineage + PII + consumers (en <code>data-contracts/*.yaml</code>).</p>
+<table><tr><th>Data product</th><th>Tabla Gold</th><th>Owner</th><th>SLA fresh/compl</th><th>Reglas clave</th></tr><tr><td>customer</td><td>dim_customer</td><td>Data Steward - Customer</td><td>&lt;4h / &ge;99.5%</td><td>entity_resolution + master_merge</td></tr><tr><td>account</td><td>dim_account</td><td>Data Steward - Deposits</td><td>&lt;4h / 100%</td><td>fk_validate + filter_deleted</td></tr><tr><td>transaction</td><td>fact_transaction</td><td>Data Steward - Deposits</td><td>&lt;1h CDC</td><td>curr_tcurx + dedup</td></tr><tr><td>loan</td><td>fact_loan</td><td>Data Steward - Loans</td><td>&lt;4h</td><td>fk_validate + curr_tcurx</td></tr><tr><td>crm_opportunity</td><td>fact_crm_opportunity</td><td>Data Steward - Commercial</td><td>&lt;12h</td><td>link_via_entity_resolution</td></tr></table>
+
+<div class="flag"><b>Contrato clave &mdash; customer (Customer 360):</b> es dueño de la regla de <b>entity resolution SAP↔CRM</b> (ref exacto + fuzzy nombre+país + merge de duplicados + HITL). Es prerequisito de todo: account, transaction, loan y crm_opportunity dependen de su <code>customer_sk</code>. Ver ADR-MDP-MIG-003.</div>
+
+<h2>ADRs</h2>
+<table><tr><th>ADR</th><th>Decisión</th></tr><tr><td>ADR-MDP-MIG-001</td><td>Plataforma target = BigQuery medallion</td></tr><tr><td>ADR-MDP-MIG-002</td><td>Patrón = bulk + CDC, wave-based (Foundation primero)</td></tr><tr><td>ADR-MDP-MIG-003</td><td>Entity resolution SAP↔CRM (ref + fuzzy + merge + HITL)</td></tr><tr><td>ADR-MDP-MIG-004</td><td>PII: tokenización + RLS/CLS; retención CNBV/LFPDPPP</td></tr></table>
+
+<h2>Closing gate (Fase 2)</h2>
+<div class="ok"><b>Criterios antes de Fase 3:</b><ul>
+<li>Modelo medallion target definido por capa &#10003;</li>
+<li>5 data contracts (schema + SLA + ownership + DQ + lineage) versionados &#10003;</li>
+<li>Contrato customer con regla de entity resolution &#10003;</li>
+<li>4 ADRs (plataforma, patrón, entity resolution, PII) aceptados &#10003;</li>
+<li><b>Pendiente humano:</b> firma de cada Data Steward por dominio + clasificación PII final.</li>
+</ul></div>
+
+<h2>Handoff a Fase 3 &mdash; Mapping &amp; Transformation Rules</h2>
+<p class="muted">Con el target y los contratos firmados, Fase 3 produce el mapping columna-a-columna fuente→target y las reglas ejecutables (DATS, ALPHA, CURR/TCURX, dedup, FK, country_map, entity_resolution). El <code>reference-solution-dbt</code> del lab ya implementa estas reglas como referencia.</p>
+</main>
+<footer>Fase 2 Target Design &amp; Data Contracts &middot; Data Migration &middot; uso interno &middot; modelo de referencia validado por SME, sin IP de cliente</footer>
+</body></html>

@@ -2,7 +2,7 @@
 """Build del staging del sitio Digital Core a partir de los entregables del RE specialist.
 Mecánica: crea estructura, copia grafos, reescribe enlaces relativos, convierte MD->HTML, copia CSV.
 Las landing pages (DC root, MM hub) se escriben aparte. Re-ejecutable."""
-import os, re, base64, html, shutil, pathlib
+import os, re, base64, html, shutil, pathlib, subprocess, sys
 
 ROOT = pathlib.Path(__file__).resolve().parent                      # .../Digital Core/site
 SRC  = pathlib.Path(r"c:\Users\alejandro.gallegos\OneDrive - Accenture\Documents\Digital Core\03 - Software & Platform Engineering\High Velocity Modernization\Mainframe Modernization\Fase 1 - Discover\Specialist - Reverse Engineering")
@@ -29,6 +29,14 @@ MM = SRC.parent.parent   # .../Mainframe Modernization
 shutil.copyfile(MM / "Enablement" / "Training - Synthetic Codebase Lab" / "seed-corebank-unisys" / "graph-view.html", GRAPHS/"truth.html")
 shutil.copyfile(SRC/"benchmark"/"reconstructed"/"graph-view.reconstructed.html", GRAPHS/"blind.html")
 shutil.copyfile(SRC/"benchmark"/"reconstructed"/"graph-view.augmented.html", GRAPHS/"augmented.html")
+
+# 1b) inyectar el FILTRO POR WAVE DE MIGRACION (mismo patrón que el grafo de datos).
+# Las waves se computan del grafo canónico (corebank: domain/access/layer reales) y se
+# inyectan en los 3 grafos (comparten node ids). NO edita el renderer.
+CANON = MM / "Enablement" / "Training - Synthetic Codebase Lab" / "seed-corebank-unisys" / "graph" / "dependency-graph.json"
+INJ   = SRC / "graph-viz" / "inject_waves.py"
+for h in ["truth.html", "blind.html", "augmented.html"]:
+    subprocess.run([sys.executable, str(INJ), str(CANON), str(GRAPHS / h)], check=True)
 
 # 2) HTMLs con enlaces -> reescribir
 def rewrite(text):
