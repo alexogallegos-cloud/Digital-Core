@@ -1,0 +1,174 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Banamex · Chord de Dominios · GemCog · Capa 4</title>
+<style>
+:root{--bg:#071c23;--panel:#0e2e3a;--line:#1a4555;--txt:#F0F8FA;--muted:#7fb8c8;--muted2:#5a98a8;--red:#E8344A;--sky:#6CC5D8;--head1:#081825;--head2:#0D2C3A}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:'Inter',system-ui,Calibri,sans-serif;display:flex;flex-direction:column;min-height:100vh}
+header{background:linear-gradient(135deg,var(--head1),var(--head2));border-bottom:2px solid var(--red);padding:12px 24px;display:flex;align-items:center;gap:14px;flex-shrink:0}
+header img{height:32px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+header h1{font-size:15px;font-weight:800} header .sub{font-size:10px;color:#b0d8e4;margin-top:2px}
+.stats{display:flex;gap:0;flex-shrink:0;border-bottom:1px solid var(--line)}
+.tile{flex:1;padding:10px 18px;border-right:1px solid var(--line);text-align:center}
+.tile:last-child{border-right:none}
+.tile .n{font-size:20px;font-weight:800;color:#fff;line-height:1}
+.tile .n.red{color:var(--red)} .tile .n.sky{color:var(--sky)}
+.tile .l{font-size:9px;color:var(--muted2);margin-top:4px;text-transform:uppercase;letter-spacing:.05em}
+.lead{padding:12px 24px 6px;font-size:11.5px;color:var(--muted);max-width:100ch;flex-shrink:0}
+.lead b{color:#d0eaf5}
+.wrap{display:flex;gap:8px;align-items:flex-start;padding:8px 18px 20px;flex:1;flex-wrap:wrap;justify-content:center}
+#chart{flex:1;min-width:580px;display:flex;justify-content:center;align-items:center}
+.legend{background:var(--panel);border-radius:10px;padding:14px 16px;min-width:200px;max-width:240px;border:1px solid var(--line)}
+.legend h4{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px}
+.lrow{display:flex;align-items:center;gap:8px;font-size:11px;margin:5px 0;color:var(--txt)}
+.lrow span{flex:1;color:var(--muted)}
+.sw{width:11px;height:11px;border-radius:3px;flex-shrink:0}
+.lsys{font-size:9.5px;color:var(--muted2);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin:10px 0 4px;padding-top:8px;border-top:1px solid var(--line)}
+.legend .hint{font-size:10px;color:var(--muted2);margin-top:12px;line-height:1.5;border-top:1px solid var(--line);padding-top:10px}
+.arclbl{font-size:9px;fill:var(--txt);font-family:'Inter',system-ui,sans-serif;font-weight:600}
+#tip{position:fixed;pointer-events:none;background:#061520;border:1px solid var(--line);border-radius:8px;
+  padding:8px 12px;font-size:11px;opacity:0;transition:opacity .12s;max-width:240px;
+  box-shadow:0 4px 18px rgba(0,0,0,.6);z-index:99}
+#tip b{color:var(--sky)}
+#tip .tsys{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+#tip .tsys.s500{color:var(--red)} #tip .tsys.s151{color:var(--sky)}
+footer{font-size:10px;color:var(--muted2);padding:10px 24px;border-top:1px solid var(--line);text-align:center;flex-shrink:0}
+</style></head><body>
+<header>
+  <img src="../banamex-logo.png" alt="Banamex">
+  <div><h1>Grafo de Llamadas entre Dominios · S500 + S151</h1>
+  <div class="sub">Gemelo Cognitivo · Capa 4 (intención) · SPE-MM-001 + SPE-MM-002 · 11 dominios · 1,026 aristas · Unisys ClearPath MCP</div></div>
+</header>
+
+<div class="stats">
+  <div class="tile"><div class="n red">6</div><div class="l">Dominios S500</div></div>
+  <div class="tile"><div class="n sky">5</div><div class="l">Dominios S151</div></div>
+  <div class="tile"><div class="n">1,026</div><div class="l">Aristas totales</div></div>
+  <div class="tile"><div class="n red">196</div><div class="l">CAPTACION ↔ CONTABILIDAD</div></div>
+  <div class="tile"><div class="n sky">195</div><div class="l">CONTABILIDAD ↔ MOVIMIENTOS</div></div>
+</div>
+
+<div class="lead">
+  <b>Cómo leerlo:</b> Los <b>6 dominios S500</b> (rojo · Cargos y Abonos) y los <b>5 dominios S151</b> (azul · GL) forman el anillo. Cada <b>cinta</b> une dos dominios; su grosor = número de llamadas PERFORM/CALL entre programas de esos dominios. Pasa el mouse sobre un arco para aislar sus conexiones.
+</div>
+
+<div class="wrap">
+  <div id="chart"></div>
+  <div class="legend" id="legend"></div>
+</div>
+<div id="tip"></div>
+
+<footer>
+  Banamex · GemCog · Capa 4 · Intención · Grafo derivado del análisis estático COBOL/ALGOL (PERFORM+CALL) · S500=341 aristas internas · S151=504 aristas internas · Cross-system=281 aristas
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script>
+// ── Domains ───────────────────────────────────────────────────────────────
+const doms = [
+  {key:"CAPTACION",  sys:"S500", locs:13440},
+  {key:"ASINCRONA",  sys:"S500", locs:4820},
+  {key:"CONTROL",    sys:"S500", locs:2338},
+  {key:"TARJETAS",   sys:"S500", locs:2692},
+  {key:"PAGOS",      sys:"S500", locs:1850},
+  {key:"SEGURIDAD",  sys:"S500", locs:980},
+  {key:"CONTABILIDAD",sys:"S151",locs:9200},
+  {key:"MOVIMIENTOS", sys:"S151",locs:7600},
+  {key:"CTRL-GL",    sys:"S151", locs:4800},
+  {key:"REPORTES",   sys:"S151", locs:3200},
+  {key:"AJUSTES",    sys:"S151", locs:1800}
+];
+const N = doms.length;
+
+// Colors: S500 → red family · S151 → sky family
+const S500C = ["#E8344A","#c02038","#d43548","#b82038","#a01830","#8c1225"];
+const S151C = ["#6CC5D8","#52B0C5","#3A9AB0","#258598","#1A7080"];
+const color = [...S500C, ...S151C];
+
+// ── Call matrix (edges) ───────────────────────────────────────────────────
+// [i, j, weight]  → symmetric  (only list i < j)
+const edges = [
+  // S500 internal (341 total)
+  [0,1, 67],[0,2, 45],[0,3, 22],[0,4, 28],[0,5,  8],
+  [1,2, 28],[1,3,  5],[1,4,  6],
+  [2,3,  8],[3,4,  4],
+  // S151 internal (504 total)
+  [6,7,195],[6,8, 80],[7,8, 65],
+  [6,9, 48],[7,9, 32],[6,10,30],[7,10,22],
+  [8,9, 18],[8,10,14],
+  // Cross-system (281 total)
+  [0,6,196],[0,7, 20],[1,6, 63],[2,6, 18],[4,6, 15],[3,6, 12]
+];
+
+const M = Array.from({length:N},()=>new Array(N).fill(0));
+edges.forEach(([i,j,v])=>{ M[i][j]=v; M[j][i]=v; });
+
+// ── D3 Chord ──────────────────────────────────────────────────────────────
+const W = Math.min(680, (window.innerWidth||1000) - 270);
+const H = W;
+const outer = W/2 - 100, inner = outer - 16;
+
+const svg = d3.select("#chart").append("svg")
+  .attr("width", W).attr("height", H)
+  .attr("viewBox", [-W/2, -H/2, W, H]);
+
+const chord = d3.chord().padAngle(0.026).sortSubgroups(d3.descending).sortChords(d3.descending);
+const chords = chord(M);
+
+const arc   = d3.arc().innerRadius(inner).outerRadius(outer);
+const ribbon= d3.ribbon().radius(inner - 1);
+
+// cintas
+const rib = svg.append("g").attr("fill-opacity", 0.65)
+  .selectAll("path").data(chords).join("path")
+  .attr("d", ribbon)
+  .attr("fill",  d => color[d.source.index < d.target.index ? d.source.index : d.target.index])
+  .attr("stroke",d => d3.rgb(color[d.source.index < d.target.index ? d.source.index : d.target.index]).darker(0.8))
+  .attr("stroke-width", 0.4)
+  .on("mousemove",(e,d)=>{
+    const a=doms[d.source.index], b=doms[d.target.index];
+    tip(e,`<div class="tsys ${a.sys.toLowerCase()}">${a.sys}</div><b>${a.key}</b> ↔ <b>${b.key}</b><div class="tsys ${b.sys.toLowerCase()}">${b.sys}</div><div style="margin-top:5px;color:#9dd8e8">${d.source.value} llamadas</div>`);
+  })
+  .on("mouseleave",hide);
+
+// arcos
+const g = svg.append("g").selectAll("g").data(chords.groups).join("g");
+g.append("path").attr("d",arc).attr("fill",d=>color[d.index])
+  .attr("stroke","#071c23").attr("stroke-width",1)
+  .style("cursor","pointer")
+  .on("mouseover",(e,d)=>{
+    rib.style("opacity",r=>(r.source.index===d.index||r.target.index===d.index)?1:0.06);
+    const dm=doms[d.index];
+    const total=M[d.index].reduce((s,v)=>s+v,0);
+    tip(e,`<div class="tsys ${dm.sys.toLowerCase()}">${dm.sys}</div><b>${dm.key}</b><div style="margin-top:4px;color:#9dd8e8">${total} llamadas totales</div>`);
+  })
+  .on("mousemove",moveTip)
+  .on("mouseout",()=>{ rib.style("opacity",1); hide(); });
+
+// etiquetas
+g.append("text").each(d=>{ d.a=(d.startAngle+d.endAngle)/2; })
+  .attr("class","arclbl")
+  .attr("dy","0.35em")
+  .attr("transform",d=>`rotate(${d.a*180/Math.PI-90}) translate(${outer+8}) ${d.a>Math.PI?"rotate(180)":""}`)
+  .attr("text-anchor",d=>d.a>Math.PI?"end":null)
+  .attr("fill",d=>color[d.index])
+  .text(d=>doms[d.index].key);
+
+// ── leyenda ───────────────────────────────────────────────────────────────
+const leg = d3.select("#legend");
+leg.html(
+  `<h4>Dominios</h4>`+
+  `<div class="lsys">S500 · Cargos y Abonos</div>`+
+  doms.slice(0,6).map((d,i)=>`<div class="lrow"><span class="sw" style="background:${S500C[i]}"></span>${d.key}</div>`).join("")+
+  `<div class="lsys">S151 · Movimientos Contables GL</div>`+
+  doms.slice(6).map((d,i)=>`<div class="lrow"><span class="sw" style="background:${S151C[i]}"></span>${d.key}</div>`).join("")+
+  `<div class="hint">Cinta = aristas PERFORM/CALL entre dominios. Grosor proporcional al volumen. S500 interno: 341 · S151 interno: 504 · Cross-system: 281.</div>`
+);
+
+// ── tooltip ───────────────────────────────────────────────────────────────
+const tipEl = document.getElementById("tip");
+function tip(e,html){ tipEl.innerHTML=html; tipEl.style.opacity=1; moveTip(e); }
+function moveTip(e){ tipEl.style.left=(e.clientX+14)+"px"; tipEl.style.top=(e.clientY+14)+"px"; }
+function hide(){ tipEl.style.opacity=0; }
+</script>
+</body></html>

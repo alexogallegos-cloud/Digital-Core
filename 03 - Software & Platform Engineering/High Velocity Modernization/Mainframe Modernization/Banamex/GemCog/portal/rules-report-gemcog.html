@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GemCog · Reglas de Negocio — Banamex Unisys ClearPath MCP</title>
+<style>
+:root{--bg:#071c23;--bg2:#0a2530;--panel:#0e2e3a;--line:#1a4555;--txt:#F0F8FA;--muted:#7fb8c8;--hbar:#6CC5D8;--red:#E8344A}
+*{box-sizing:border-box;margin:0;padding:0}
+body{display:flex;height:100vh;background:var(--bg);color:var(--txt);font-family:'Inter',system-ui,sans-serif;overflow:hidden;flex-direction:column}
+header{background:linear-gradient(135deg,#071c23,#0e2e3a);border-bottom:2px solid var(--hbar);padding:10px 18px;display:flex;align-items:center;gap:14px;flex-shrink:0}
+header img{height:22px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+header h1{font-size:15px;font-weight:800}
+header .sub{font-size:9px;color:var(--muted);margin-top:2px}
+#ctrl{background:var(--bg2);border-bottom:1px solid var(--line);padding:8px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex-shrink:0}
+.lbl{font-size:9px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+select{background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:4px;padding:4px 8px;font-size:10px;cursor:pointer;outline:none}
+select:hover{border-color:var(--hbar)}
+input[type=text]{background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:4px;padding:4px 10px;font-size:10px;width:180px;outline:none}
+input[type=text]:focus{border-color:var(--hbar)}
+input[type=text]::placeholder{color:var(--muted)}
+#cnt{font-size:10px;color:var(--muted);margin-left:auto;white-space:nowrap}#cnt b{color:var(--hbar)}
+#wrap{flex:1;overflow:auto;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+#wrap::-webkit-scrollbar{width:6px}#wrap::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+table{width:100%;border-collapse:collapse;font-size:11px}
+thead th{background:var(--bg2);color:var(--muted);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:7px 12px;text-align:left;border-bottom:2px solid var(--line);position:sticky;top:0;z-index:2;cursor:pointer;user-select:none;white-space:nowrap}
+thead th:hover{color:var(--txt)}
+thead th.asc::after{content:' ↑'}thead th.desc::after{content:' ↓'}
+tbody tr{border-bottom:1px solid rgba(26,69,85,.6)}
+tbody tr:hover{background:rgba(108,197,216,.04)}
+td{padding:6px 12px;vertical-align:top;line-height:1.4}
+.td-dom{font-size:8px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;display:inline-block}
+.td-pgm{font-family:'Cascadia Code','Consolas',monospace;font-size:10px;color:#5a8090}
+.td-type{font-size:8px;padding:2px 6px;border-radius:3px;font-weight:700;white-space:nowrap;display:inline-block}
+.t-IF{background:#0e2a1a;color:#86efac}.t-EVALUATE{background:#1a2a0e;color:#bef264}.t-COMPUTE{background:#1a1a2e;color:#a5b4fc}.t-PERFORM{background:#2a1a1a;color:#fca5a5}.t-CALL{background:#0e1a2a;color:#93c5fd}
+.td-reg{display:flex;flex-wrap:wrap;gap:3px}
+.rtag{padding:1px 5px;border-radius:10px;font-size:7.5px;font-weight:700;white-space:nowrap}
+.rtag.cnbv{background:#0e2030;color:#7dd3fc}.rtag.banxico{background:#1a1a0e;color:#fde68a}.rtag.sat{background:#1a2a0e;color:#86efac}.rtag.condusef{background:#2a0e1a;color:#f9a8d4}
+.td-desc{color:#c8dde4;max-width:340px;line-height:1.5}
+.td-line{font-family:'Cascadia Code','Consolas',monospace;font-size:9px;color:var(--muted)}
+.dom-REP{background:#2a1a0e;color:#fdba74}.dom-CTL{background:#0e2530;color:#6ee7b7}.dom-SEC{background:#1a0e2a;color:#c4b5fd}.dom-TAR{background:#0e2a3a;color:#7dd3fc}
+#empty{display:flex;align-items:center;justify-content:center;padding:60px;color:var(--muted);font-size:13px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <img src="../banamex-logo.png" alt="Banamex">
+  <div>
+    <h1>Reglas de Negocio y Fórmulas · GemCog — Banamex Unisys ClearPath MCP</h1>
+    <div class="sub">COBOL IF / EVALUATE / COMPUTE / PERFORM · Business Logic Extraction · Etapa 3</div>
+  </div>
+</header>
+<div id="ctrl">
+  <span class="lbl">Dominio</span>
+  <select id="fDom"><option value="">Todos</option><option value="REP">REPORTERIA (FraudLink/S711)</option><option value="CTL">CONTROL (Fecha / Día)</option><option value="SEC">SEGURIDAD (Scrambling)</option><option value="TAR">TARJETAS (Teleton/AMEX)</option></select>
+  <span class="lbl">Tipo</span>
+  <select id="fType"><option value="">Todos</option><option value="IF">IF</option><option value="EVALUATE">EVALUATE</option><option value="COMPUTE">COMPUTE</option><option value="PERFORM">PERFORM</option><option value="CALL">CALL</option></select>
+  <span class="lbl">Regulatorio</span>
+  <select id="fReg"><option value="">Todos</option><option value="CNBV">CNBV</option><option value="Banxico">Banxico</option><option value="SAT">SAT</option><option value="CONDUSEF">CONDUSEF</option></select>
+  <input type="text" id="fTxt" placeholder="Buscar programa, regla…">
+  <span id="cnt">mostrando <b id="cntN">—</b> de <b id="cntT">—</b></span>
+</div>
+<div id="wrap">
+<table id="tbl">
+<thead>
+  <tr>
+    <th data-col="dom">Dominio</th>
+    <th data-col="pgm">Programa</th>
+    <th data-col="line">Línea</th>
+    <th data-col="type">Tipo</th>
+    <th data-col="desc">Regla / Fórmula</th>
+    <th data-col="reg">Regulatorio</th>
+  </tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+<div id="empty" style="display:none">No hay reglas que coincidan con los filtros seleccionados.</div>
+</div>
+<script>
+const RULES=[
+  // P103 — FRAUDLINK → S711/CNBV (PROGRAM-ID: P103, JUL/2005, 332 LOC)
+  {dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:160,type:'IF',
+   desc:'Al iniciar el proceso, se verifica que la versión del programa coincida con la registrada en el catálogo de versiones del banco. Si existe discrepancia, el proceso se cancela y no genera el archivo de reporte de fraude.',
+   reg:[]},
+  {dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:177,type:'IF',
+   desc:'Si el registro de control de la base de depósitos bancarios no puede leerse al inicio, el proceso se cancela sin generar el archivo de reporte de fraude hacia el sistema FraudLink de la CNBV.',
+   reg:['CNBV']},
+  {dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:219,type:'IF',
+   desc:'Para cada movimiento del día, si el resultado de búsqueda indica fin de archivo, el proceso concluye normalmente. Cualquier error distinto al fin de archivo provoca la cancelación del proceso de reporte.',
+   reg:[]},
+  {dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:229,type:'IF',
+   desc:'Los movimientos con estatus de cancelación o anulación son excluidos del reporte de fraude. Solo los movimientos con estatus vigente generan registro en el archivo FraudLink enviado a la CNBV.',
+   reg:['CNBV']},
+  {dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:241,type:'IF',
+   desc:'Los movimientos con código de transacción 2001, 2444 o 2496 se reportan al sistema de prevención de fraude FraudLink de la CNBV. El registro incluye sucursal de operación, medio de acceso, fecha de proceso, importe y número de referencia.',
+   reg:['CNBV']},
+  {dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:254,type:'IF',
+   desc:'Cada movimiento puede tener hasta 5 sub-movimientos secundarios. Si alguno de estos sub-movimientos tiene código de transacción 2001, 2444 o 2496, también genera un registro independiente en el archivo FraudLink de la CNBV.',
+   reg:['CNBV']},
+  {dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:237,type:'IF',
+   desc:'Si un movimiento tiene sub-movimientos registrados en la tabla de claves de movimientos adicionales, el proceso consulta hasta 10 entradas de esa tabla. Los sub-movimientos con código 2001, 2444 o 2496 generan registros adicionales en el archivo FraudLink.',
+   reg:['CNBV']},
+  {dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:300,type:'COMPUTE',
+   desc:'Cada registro de detalle generado en el archivo FraudLink acumula el importe de la transacción en el total del día. Al finalizar el proceso, se escribe un registro de cierre con el total de registros reportados y el importe acumulado.',
+   reg:['CNBV']},
+
+  // P100 — FECHA DE PROCESO (PROGRAM-ID: FECHA-DE-PROCESO, MAR96/AGO2018, 593 LOC)
+  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:95,type:'IF',
+   desc:'Si el proceso se ejecuta en el servidor de desarrollo, se omite la verificación de versión y se habilita el modo de diagnóstico. En todos los demás ambientes, la verificación de versión contra el catálogo del banco es obligatoria.',
+   reg:[]},
+  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:160,type:'IF',
+   desc:'Si la versión del programa no coincide con el catálogo de versiones del banco (en ambientes distintos a desarrollo), el proceso se cancela y no devuelve ninguna fecha de proceso al workflow solicitante.',
+   reg:[]},
+  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:285,type:'IF',
+   desc:'Cuando se solicita la fecha de la última aplicación de archivo (opción 3 sin días de retroceso), el proceso consulta la base de datos de tarjetas de débito en lugar de la base de captación. En cualquier otra opción, consulta la base de captación.',
+   reg:[]},
+  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:333,type:'IF',
+   desc:'Si el registro de control de la base de captación está vacío o no existe, el proceso se cancela de forma irrecuperable. Sin este registro no es posible calcular ninguna fecha de proceso, ya que contiene la fecha de línea y el número de nodo del banco.',
+   reg:[]},
+  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:176,type:'IF',
+   desc:'Cuando se solicita el nodo especial de la base (opción 31), el proceso retorna el valor almacenado en el campo de uso futuro del registro de control sin calcular fecha alguna. Esta opción se usa para identificar el nodo de procesamiento activo.',
+   reg:[]},
+  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:176,type:'IF',
+   desc:'Si se proporciona una combinación inválida de parámetros (opción con valor y días de retroceso simultáneamente, o valores fuera del rango definido), el proceso retorna la fecha de línea del registro de control sin cálculo adicional.',
+   reg:[]},
+  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:375,type:'IF',
+   desc:'En la opción de captura manual de fecha (opción 5), el proceso solicita la fecha al operador y valida que el año esté entre 1989 y 2999, el mes entre 1 y 12, y el día entre 1 y 31. Si la fecha es inválida, la solicita nuevamente.',
+   reg:[]},
+  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:377,type:'IF',
+   desc:'La opción 9 retorna el indicador de activación de la campaña Teletón almacenado en el registro de control de la base de captación. Este dato determina si el banco está procesando donaciones Teletón en la fecha de proceso activa.',
+   reg:[]},
+  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:381,type:'COMPUTE',
+   desc:'Al calcular el último día de febrero para determinar el fin de mes anterior, si el año es divisible entre 4 (año bisiesto), se asigna 29 días. Para todos los demás meses, se consulta la tabla fija de días por mes del calendario gregoriano.',
+   reg:[]},
+  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:212,type:'IF',
+   desc:'Si el servicio de calendario de días hábiles bancarios responde con error al proyectar la fecha hacia atrás, el proceso se cancela. Este servicio externo es obligatorio para calcular fechas con retroceso de días hábiles.',
+   reg:[]},
+  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:388,type:'IF',
+   desc:'La opción 7 retorna el primer día calendario del mes en curso, derivado de la fecha de línea del registro de control. Esta fecha se utiliza en procesos de corte mensual de captación.',
+   reg:[]},
+  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:393,type:'IF',
+   desc:'La opción 8 retorna la fecha de línea del registro de control sin ningún retroceso ni cálculo. Se usa cuando el proceso necesita exactamente la fecha del lote activo de la base de captación.',
+   reg:[]},
+
+  // P075 — CAMBIO DE DIA → P080 (PROGRAM-ID: P075, 238 LOC)
+  {dom:'CTL',pgm:'P075',pgm_name:'S500/P075 Cambio-de-Dia',line:154,type:'IF',
+   desc:'Al iniciar el proceso de cierre del día bancario, se verifica la versión del programa contra el catálogo de versiones del banco. Si la versión no coincide, el proceso se cancela y no notifica el cambio de día al procesador central.',
+   reg:[]},
+  {dom:'CTL',pgm:'P075',pgm_name:'S500/P075 Cambio-de-Dia',line:160,type:'IF',
+   desc:'El proceso de notificación de cierre de día solo se ejecuta cuando el parámetro de control recibido es exactamente 1. Cualquier otro valor provoca la cancelación del proceso con registro del valor incorrecto recibido.',
+   reg:[]},
+  {dom:'CTL',pgm:'P075',pgm_name:'S500/P075 Cambio-de-Dia',line:177,type:'CALL',
+   desc:'Antes de notificar el cambio de día, se resuelve dinámicamente el título de la librería de procesamiento central consultando el catálogo de versiones del banco. Esto garantiza que la notificación se envíe a la versión correcta del procesador.',
+   reg:[]},
+  {dom:'CTL',pgm:'P075',pgm_name:'S500/P075 Cambio-de-Dia',line:195,type:'CALL',
+   desc:'El proceso notifica al procesador central que el día bancario ha concluido llamando al punto de entrada de inicialización de lote. Si la llamada retorna cualquier código de error, el proceso de cierre del día se cancela con estatus negativo.',
+   reg:[]},
+  {dom:'CTL',pgm:'P075',pgm_name:'S500/P075 Cambio-de-Dia',line:189,type:'IF',
+   desc:'Si la notificación de cambio de día al procesador central retorna un resultado de error, el proceso registra el incidente en el log de operación y finaliza con estatus de fallo, señalando que el cierre del día no fue reconocido por el procesador.',
+   reg:[]},
+
+  // P655 — SCRAMBLING / PROTECCION DE DATOS (PROGRAM-ID: P655, MARZO/2004, 860 LOC)
+  {dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:291,type:'IF',
+   desc:'Al iniciar, el proceso identifica el ambiente de ejecución según el nombre del servidor. Los servidores de producción bancaria activan el bloqueo inmediato del proceso. Los servidores de prueba permiten continuar con la protección de datos sensibles de titulares.',
+   reg:[]},
+  {dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:304,type:'IF',
+   desc:'El proceso de enmascaramiento de datos sensibles de titulares de cuenta está bloqueado en ambientes de producción bancaria. Si se detecta un servidor productivo, el proceso se cancela de forma inmediata y no modifica ningún dato de cliente.',
+   reg:[]},
+  {dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:321,type:'COMPUTE',
+   desc:'El tamaño del bloque de contratos a enmascarar en cada ciclo se calcula restando la hora actual (horas + minutos + segundos) de un máximo de 1,800 registros en pruebas o 200 en desarrollo interno. Esto introduce variabilidad basada en la hora de ejecución para evitar patrones predecibles.',
+   reg:[]},
+  {dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:327,type:'IF',
+   desc:'El tamaño del bloque de contratos para enmascaramiento siempre debe ser un número par. Si al calcular el tamaño resulta impar, se reduce en uno para garantizar que el intercambio de nombres entre titulares sea simétrico y no quede ningún nombre sin asignar.',
+   reg:[]},
+  {dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:441,type:'IF',
+   desc:'Si el archivo de control de enmascaramiento ya existe con los mismos parámetros de nodo, fecha de proceso y número de contrato, el proceso reanuda desde el último contrato procesado. Este mecanismo de recuperación garantiza la continuidad ante interrupciones del batch.',
+   reg:[]},
+  {dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:585,type:'IF',
+   desc:'En conjuntos impares de contratos dentro de un bloque, el contrato en la posición central recibe un nombre sintético de espera que no puede intercambiarse con otro en ese ciclo. Los contratos en posiciones pares intercambian sus nombres entre sí.',
+   reg:[]},
+  {dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:609,type:'MOVE',
+   desc:'Para cada grupo de productos de crédito especiales, se reemplaza el nombre del representante legal con el texto sintético "REPRESENTANTE LEGAL GRUPO" seguido del número de grupo, y el domicilio con "DOMICILIO DEL GRUPO" seguido del mismo número. Esto protege la identidad real en ambientes de prueba.',
+   reg:[]},
+  {dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:631,type:'IF',
+   desc:'Para las cuentas vinculadas a grupos de crédito especiales, si el contrato existe en la base de contratos se asigna el nombre ya enmascarado de ese contrato. Si el contrato no existe en la base, se genera un nombre secuencial de prueba para no dejar el campo de nombre en blanco.',
+   reg:[]},
+
+  // S500P630 — TARJETAS INTERCAMBIABLES / TELETON (PROGRAM-ID: S500P630, migrado S501→S500 jun-oct 2016, 1359 LOC)
+  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:175,type:'IF',
+   desc:'En ambientes de prueba y pre-producción, se omite la verificación de versión del programa. En ambientes productivos, el proceso verifica su versión contra el catálogo del banco antes de procesar cualquier movimiento de tarjeta de la campaña Teletón.',
+   reg:[]},
+  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:182,type:'MOVE',
+   desc:'El archivo de movimientos de tarjetas (destinado al sistema S244) se genera con cabecera identificadora: cadena "TELETON", origen de cadena 00 y número de ventana 01 para la fecha de proceso en curso. Estas etiquetas identifican el origen de los cargos en el sistema de liquidación.',
+   reg:[]},
+  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:192,type:'IF',
+   desc:'Los movimientos de tarjeta con estatus normal generan dos archivos de salida: el archivo de movimientos para el sistema S244 (Teletón) y el archivo de punteo para conciliación con el Libro Mayor. Los movimientos con estatus distinto de normal o AMEX no generan ningún archivo.',
+   reg:[]},
+  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:192,type:'IF',
+   desc:'Los movimientos de tarjeta American Express (estatus 15) solo generan el archivo de punteo para el Libro Mayor y se envían directamente al sistema de liquidación de American Express (INTELAR). Los movimientos AMEX no se incluyen en el archivo Teletón del sistema S244.',
+   reg:[]},
+  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:194,type:'IF',
+   desc:'El tipo de transacción en el archivo S244 se determina por el campo de autorización: si el campo está en ceros o espacios, la transacción se clasifica como captura manual (tipo 1); si contiene un número de autorización electrónica válido, se clasifica como automática (tipo 0).',
+   reg:[]},
+  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:197,type:'IF',
+   desc:'El BIN adquirente de la referencia de trazabilidad se determina por el primer dígito del número de tarjeta: si el primer dígito es 3 o 4 (franquicias American Express o Visa clásica), se asigna BIN 454061; para cualquier otro primer dígito, se asigna BIN 543006.',
+   reg:[]},
+  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:199,type:'COMPUTE',
+   desc:'El dígito verificador de la referencia de 23 posiciones se calcula con el algoritmo de módulo 10 con pesos alternos (1 y 2) sobre los primeros 22 dígitos: se multiplica cada dígito por su peso, se suman los dígitos del resultado, se divide entre 10, y el dígito verificador es (10 menos el residuo).',
+   reg:[]},
+  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:199,type:'CALL',
+   desc:'Para construir la referencia de trazabilidad, la fecha de la transacción se convierte a día juliano llamando al servicio de cálculo de fechas bancario. El día juliano resultante se incorpora como componente de identificación temporal de la transacción.',
+   reg:[]},
+  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:207,type:'MOVE',
+   desc:'El registro de movimiento American Express generado para INTELAR lleva valores fijos de producto: identificador de establecimiento 9355195968, moneda peso mexicano, tipo de transacción "REGULAR", cero cuotas y tipo de tarjeta "CREDITO".',
+   reg:[]},
+  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:214,type:'IF',
+   desc:'En el archivo de punteo para conciliación con el Libro Mayor, el número de autorización registrado se determina según el código de transacción origen: si el código es 500, se usa el formato de 10 dígitos; para cualquier otro código, se usa el formato estándar de 6 dígitos de autorización.',
+   reg:[]},
+  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:214,type:'MOVE',
+   desc:'Cada registro de punteo enviado al Libro Mayor lleva el código de producto Teletón (500) y el código de moneda peso mexicano (1) como valores fijos. Estos códigos permiten la identificación y conciliación contable de todos los movimientos de tarjetas de la campaña.',
+   reg:[]},
+  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:222,type:'CALL',
+   desc:'El archivo de movimientos American Express se envía al sistema de liquidación INTELAR. Si el primer envío falla, el proceso espera 3 segundos y realiza un segundo intento. Si el segundo intento también falla, el error queda registrado en el log de operación.',
+   reg:[]},
+  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:227,type:'IF',
+   desc:'Al concluir el proceso, si la terminación fue normal, se actualiza el registro de control global del sistema Teletón registrando el paso 630 como completado con confirmación transaccional. Si hubo terminación anormal, el proceso finaliza con estatus de error sin actualizar el control.',
+   reg:[]},
+  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:229,type:'CALL',
+   desc:'Tras completar la generación de archivos y el envío a INTELAR, el proceso lanza el workflow bancario de transferencia de archivos para mover físicamente los archivos generados (Teletón S244 y AMEX) al destino final de procesamiento de la fecha de proceso.',
+   reg:[]},
+];
+
+let sortCol=null, sortDir=1;
+
+function dom2cls(d){return 'dom-'+d;}
+function reg2tag(r){const m={CNBV:'cnbv',Banxico:'banxico',SAT:'sat',CONDUSEF:'condusef'};return `<span class="rtag ${m[r]||''}">${r}</span>`;}
+function type2cls(t){return 't-'+t;}
+
+function getFiltered(){
+  const dom=document.getElementById('fDom').value;
+  const type=document.getElementById('fType').value;
+  const reg=document.getElementById('fReg').value;
+  const txt=document.getElementById('fTxt').value.toLowerCase();
+  return RULES.filter(r=>{
+    if(dom&&r.dom!==dom)return false;
+    if(type&&r.type!==type)return false;
+    if(reg&&!r.reg.includes(reg))return false;
+    if(txt&&!r.pgm.toLowerCase().includes(txt)&&!r.desc.toLowerCase().includes(txt))return false;
+    return true;
+  });
+}
+
+function render(){
+  let rows=getFiltered();
+  if(sortCol){
+    rows=rows.slice().sort((a,b)=>{
+      let av=a[sortCol],bv=b[sortCol];
+      if(typeof av==='number')return (av-bv)*sortDir;
+      return String(av).localeCompare(String(bv))*sortDir;
+    });
+  }
+  const tbody=document.getElementById('tbody');
+  const empty=document.getElementById('empty');
+  document.getElementById('cntN').textContent=rows.length;
+  document.getElementById('cntT').textContent=RULES.length;
+  if(!rows.length){tbody.innerHTML='';empty.style.display='flex';return;}
+  empty.style.display='none';
+  tbody.innerHTML=rows.map(r=>`<tr>
+    <td><span class="td-dom ${dom2cls(r.dom)}">${r.dom}</span></td>
+    <td class="td-pgm">${r.pgm}</td>
+    <td class="td-line">${r.line}</td>
+    <td><span class="td-type ${type2cls(r.type)}">${r.type}</span></td>
+    <td class="td-desc">${r.desc}</td>
+    <td><div class="td-reg">${r.reg.map(reg2tag).join('')}</div></td>
+  </tr>`).join('');
+}
+
+document.querySelectorAll('thead th').forEach(th=>{
+  th.addEventListener('click',()=>{
+    const col=th.dataset.col;
+    if(sortCol===col){sortDir=-sortDir;}else{sortCol=col;sortDir=1;}
+    document.querySelectorAll('thead th').forEach(t=>{t.classList.remove('asc','desc');});
+    th.classList.add(sortDir===1?'asc':'desc');
+    render();
+  });
+});
+['fDom','fType','fReg','fTxt'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',render);
+  document.getElementById(id).addEventListener('change',render);
+});
+
+render();
+</script>
+</body>
+</html>

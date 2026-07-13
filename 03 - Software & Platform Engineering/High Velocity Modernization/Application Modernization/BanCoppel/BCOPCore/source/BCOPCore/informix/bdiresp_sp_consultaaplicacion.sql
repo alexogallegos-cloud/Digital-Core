@@ -1,0 +1,68 @@
+CREATE PROCEDURE "informix".sp_consultaaplicacion(piCveAplicacion INT)
+	RETURNING CHAR(5) AS Retorno, CHAR(100) AS DescError, 
+	CHAR(30) AS nombre_aplicacion, CHAR(1) AS periodicidad, INT AS tiempo_en_linea, INT AS dia_respaldo, CHAR(1) AS activa, INT AS cve_dependencia, 
+	INT AS tiempo_max_sol;
+		
+	/*
+	*****************************************************************************************************
+	-- DESCRIPCION:  Consulta una aplicación en particular ----------------------------------------------
+	-- AUTOR : Walber Castro ----------------------------------------------------------------------------
+	-- FECHA : 04/10/2012  ------------------------------------------------------------------------------
+	-- BD: bdiresp  -------------------------------------------------------------------------------------	
+	-----------------------------------------------------------------------------------------------------
+	*****************************************************************************************************
+	*/
+	
+	DEFINE viCodigo				INT;
+	DEFINE vcCodRet				CHAR(5);	
+	DEFINE vcDescRet			CHAR(100);	
+	DEFINE vcNombreAplicacion	CHAR(30);
+	DEFINE vcPeriodicidad		CHAR(1);
+	DEFINE viTiempoLinea		INT;
+	DEFINE viDiaRespaldo		INT;
+	DEFINE vcActiva				CHAR(1);
+	DEFINE viCveDependencia		INT;
+	DEFINE viTiempoMax			INT;
+		
+	LET viCodigo			= 	0;
+	LET vcCodRet			= 	'00000';
+	LET vcDescRet			= 	'';	
+	LET vcNombreAplicacion	= 	'';
+	LET vcPeriodicidad		= 	'';
+	LET viTiempoLinea		= 	0;
+	LET viDiaRespaldo		= 	0;
+	LET vcActiva			= 	'';
+	LET viCveDependencia	= 	0;
+	LET viTiempoMax			= 	0;
+	
+	BEGIN
+
+	ON EXCEPTION SET viCodigo
+		IF viCodigo <> 0 THEN
+			LET vcCodRet = viCodigo;
+		END IF;		
+		RETURN NVL(vcCodRet,''), vcDescRet, '', '', 0, 0, '', 0, 0;
+	END EXCEPTION;	
+
+	SET LOCK MODE TO WAIT 3;
+	SET ISOLATION TO DIRTY READ;
+	
+	IF ( NVL(piCveAplicacion,0) <= 0 ) THEN
+		LET vcCodRet = '00001';
+		LET vcDescRet = 'ERROR, CVE APLICACIÓN INVÁLIDA (PARÁMETRO 1)';
+		RETURN vcCodRet, vcDescRet, '', '', 0, 0, '', 0, 0;
+	END IF;
+	
+	SELECT nombre_aplicacion, periodicidad, tiempo_en_linea, dia_respaldo, activa, cve_dependencia, tiempo_max_sol 
+	INTO vcNombreAplicacion, vcPeriodicidad, viTiempoLinea, viDiaRespaldo, vcActiva, viCveDependencia, viTiempoMax
+	FROM "informix".rp_aplicaciones
+	WHERE cve_aplicacion = piCveAplicacion;
+	
+	IF ( DBINFO('sqlca.sqlerrd2') <= 0 ) THEN
+		LET vcCodRet = '00002';
+		LET vcDescRet = 'ERROR, NO SE ENCONTRÓ INFORMACIÓN';
+	END IF;
+	
+	RETURN vcCodRet, vcDescRet, vcNombreAplicacion, vcPeriodicidad, viTiempoLinea, viDiaRespaldo, vcActiva, viCveDependencia, viTiempoMax;
+	END;
+END PROCEDURE;

@@ -1,0 +1,622 @@
+CREATE PROCEDURE "informix".sp_msi_modifica_registros()
+	RETURNING VARCHAR(5) AS rCODIGO_RETORNO, VARCHAR(250) AS rMENSAJE_RESPUESTA;
+	
+	--VARIABLES DE CONTROL DE EXCEPCIONES
+	DEFINE SQLERR INTEGER;
+	DEFINE ISAM_ERR INTEGER;
+	DEFINE ERROR_INFO VARCHAR(250);    
+
+	--VARIABLES DE RETORNO
+    DEFINE vCODIGO_RETORNO VARCHAR(5);
+    DEFINE vMENSAJE_RETORNO VARCHAR(250);
+
+	--VARIABLE DE RUTA
+    DEFINE RUTA_ORIGEN VARCHAR(100);
+	
+	--VARIABLES DE CAMPOS DE TABLA DE PASO
+	DEFINE vNum_serial_comercio			INTEGER;
+	DEFINE vIdentificador_registro      VARCHAR(1);
+	DEFINE vClave_promocion        	    VARCHAR(10);
+	DEFINE vClave_afiliacion       	    VARCHAR(8); 
+	DEFINE vFecha_inicio_prom      	    VARCHAR(10);
+	DEFINE vFecha_termino_prom     	    VARCHAR(10);
+	DEFINE vMov_promocion          	    VARCHAR(2); 
+	DEFINE vCve_tipo_promocion     	    VARCHAR(2); 
+	DEFINE vNum_meses_dif_compra		VARCHAR(2); 
+	DEFINE vNum_meses_a_cobrar     	    VARCHAR(2); 
+	DEFINE vPcte_sobretasa         	    VARCHAR(4); 
+	DEFINE vMonto_minimo           	   	VARCHAR(9); 
+	DEFINE vId_institucion         	    VARCHAR(6); 
+	DEFINE vCuenta_cheques         	    VARCHAR(8); 
+	DEFINE vRespuesta_promo        	    VARCHAR(2); 
+	DEFINE vIva_promocion          	   	VARCHAR(4); 
+	DEFINE vBin_participante       	    VARCHAR(8);
+	DEFINE vCuenta_clabe           	    VARCHAR(18);
+	DEFINE vEspacio_relleno        	    VARCHAR(26);
+	DEFINE vFin_archivo            	    VARCHAR(1);
+	DEFINE iContador_pay                INTEGER;
+	DEFINE vconteo_antes                INTEGER;
+	DEFINE vTotal                       INTEGER;
+	DEFINE vAlta                        INTEGER;
+	DEFINE vBaja                        INTEGER;
+	DEFINE vMod                         INTEGER; 
+	DEFINE vNp_alta 					INTEGER;
+	DEFINE vNp_baja						INTEGER;
+	DEFINE vNp_modificacion             INTEGER;
+	
+	
+	LET vBaja                           = 0;
+	LET vAlta                           = 0;
+	LET vMod                            = 0;
+	LET vNp_alta						= 0;
+	LET vNp_baja                        = 0;
+	LET vNp_modificacion                = 0;
+    LET vconteo_antes                   = 0;
+	LET vTotal                          = 0;
+    LET iContador_pay                   = 0;
+	LET SQLERR 							= '';
+	LET ISAM_ERR 						= '';
+	LET ERROR_INFO 						= '';
+	
+	LET vCODIGO_RETORNO					= '00000';
+    LET vMENSAJE_RETORNO 				= 'Proceso exitoso.';
+	
+	LET RUTA_ORIGEN 					= '/RESPALDOSNEW/';
+	
+	LET vNum_serial_comercio			=0;
+	LET vIdentificador_registro			='';
+	LET vClave_promocion				='';
+	LET vClave_afiliacion				=''; 
+	LET vFecha_inicio_prom				=''; 
+	LET vFecha_termino_prom				='';
+	LET vMov_promocion					='';
+	LET vCve_tipo_promocion				=''; 
+	LET vNum_meses_dif_compra			=''; 
+	LET vNum_meses_a_cobrar				=''; 
+	LET vPcte_sobretasa					=''; 
+	LET vMonto_minimo					=''; 
+	LET vId_institucion					=''; 
+	LET vCuenta_cheques					=''; 
+	LET vRespuesta_promo				=''; 
+	LET vIva_promocion					=''; 
+	LET vBin_participante				=''; 
+	LET vCuenta_clabe					=''; 
+	LET vEspacio_relleno				='';
+	LET vFin_archivo					='';
+	
+    --SET DEBUG FILE TO RUTA_ORIGEN || "debug_sp_msi_modifica_registros.out";
+    --TRACE ON;
+
+	BEGIN
+	
+	    ON EXCEPTION SET SQLERR, ISAM_ERR, ERROR_INFO
+
+			--SET DEBUG FILE TO RUTA_ORIGEN || "excep_sp_msi_modifica_registros.err.out" WITH APPEND;
+			--TRACE ON;
+			
+			IF ( SQLERR <> 0 ) THEN
+				LET vCODIGO_RETORNO = SQLERR;
+				LET vMENSAJE_RETORNO = ISAM_ERR || ' ' || ERROR_INFO || ' ' || CURRENT;
+			END IF;
+         
+         RETURN vCODIGO_RETORNO, vMENSAJE_RETORNO;
+        
+        END EXCEPTION;
+        
+        SET ISOLATION TO DIRTY READ;
+        SET LOCK MODE TO WAIT 3;
+		
+		--SE PUEDE UTILIZAR ESTA VALIDACION EN CASO DE QUE REQUIERAN PONER PARAMETROS AL SP
+		
+/* 		--SE VALIDA SI LOS PARAMETROS SE ENCUENTRAN NULOS O VACIOS
+		IF ( pNombreProceso IS NULL OR pNombreProceso = '' OR pNombreArchivo IS NULL OR pNombreArchivo = '') THEN
+            LET vCODIGO_RETORNO = '00001';            
+            LET vMENSAJE_RETORNO = 'El parametro pNombreProceso o pNombreArchivo se encuentra nulo o sin informacion.';
+            RETURN vCODIGO_RETORNO, vMENSAJE_RETORNO;
+        END IF; */
+				
+		--CICLO PARA MODIFICAR LOS REGISTROS DE ACUERDO AL ESTATUS DE LA TABLA DE PASO
+		
+		BEGIN WORK;
+		
+		 SELECT NVL(COUNT(*),0) INTO vconteo_antes FROM intercard:tbl_msi_info_comercios_afiliados;
+		
+		UPDATE "informix".MSI_CONTROL_REG_E17
+		SET numero_afiliaciones = 0;
+		 
+		FOREACH WITH HOLD
+		
+			--SE OBTIENEN LOS MOVIMIENTOS DE LA TABLA DE PASO
+			SELECT num_serial_comercio,identificador_registro,clave_promocion,clave_afiliacion,fecha_inicio_prom,fecha_termino_prom,mov_promocion,cve_tipo_promocion,num_meses_dif_compra,num_meses_a_cobrar,pcte_sobretasa,monto_minimo,id_institucion,cuenta_cheques,respuesta_promo,iva_promocion,bin_participante,cuenta_clabe,espacio_relleno,fin_archivo
+				INTO vNum_serial_comercio,vIdentificador_registro,vClave_promocion,vClave_afiliacion,vFecha_inicio_prom,vFecha_termino_prom,vMov_promocion,vCve_tipo_promocion,vNum_meses_dif_compra,vNum_meses_a_cobrar,vPcte_sobretasa,vMonto_minimo,vId_institucion,vCuenta_cheques,vRespuesta_promo,vIva_promocion,vBin_participante,vCuenta_clabe,vEspacio_relleno,vFin_archivo
+			FROM "informix".tbl_paso_msi_info_comercios_afiliados
+		
+		
+			--MOVIMIENTO DE BAJA
+			IF  ( vMov_promocion = '00' ) THEN
+							
+				IF EXISTS ( 
+				
+					SELECT clave_promocion 
+					FROM tbl_msi_info_comercios_afiliados 
+					WHERE identificador_registro = vIdentificador_registro
+					AND clave_promocion = vClave_promocion
+					AND clave_afiliacion = vClave_afiliacion
+					AND cuenta_clabe = vCuenta_clabe
+					)  THEN
+					
+				
+				DELETE FROM "informix".tbl_msi_info_comercios_afiliados
+				WHERE identificador_registro = vIdentificador_registro
+					AND clave_promocion = vClave_promocion
+					AND clave_afiliacion = vClave_afiliacion
+					AND cuenta_clabe = vCuenta_clabe;
+					
+				ELSE 
+			 
+					LET vNp_baja  = vNp_baja + 1 ;
+					
+					DELETE FROM "informix".tbl_paso_msi_info_comercios_afiliados
+					WHERE identificador_registro = vIdentificador_registro
+					AND clave_promocion = vClave_promocion
+					AND clave_afiliacion = vClave_afiliacion
+					AND cuenta_clabe = vCuenta_clabe;
+					
+				 
+					
+					
+				
+					
+				END IF;
+	        
+				
+			 --MOVIMIENTO DE ALTA	
+			 ELIF ( vMov_promocion = '01' ) THEN 
+			
+				IF ( NOT EXISTS ( 
+					SELECT clave_promocion 
+					FROM tbl_msi_info_comercios_afiliados 
+					WHERE identificador_registro = vIdentificador_registro
+					AND clave_promocion = vClave_promocion
+					AND clave_afiliacion = vClave_afiliacion
+					AND cuenta_clabe = vCuenta_clabe
+					) ) THEN
+			
+					INSERT INTO "informix".tbl_msi_info_comercios_afiliados (num_serial_comercio,identificador_registro,clave_promocion,clave_afiliacion,fecha_inicio_prom,fecha_termino_prom,mov_promocion,cve_tipo_promocion,num_meses_dif_compra,num_meses_a_cobrar,pcte_sobretasa,monto_minimo,id_institucion,cuenta_cheques,respuesta_promo,iva_promocion,bin_participante,cuenta_clabe,espacio_relleno,fin_archivo)
+					VALUES(vNum_serial_comercio,vIdentificador_registro,vClave_promocion,vClave_afiliacion,vFecha_inicio_prom,vFecha_termino_prom,vMov_promocion,vCve_tipo_promocion,vNum_meses_dif_compra,vNum_meses_a_cobrar,vPcte_sobretasa,vMonto_minimo,vId_institucion,vCuenta_cheques,vRespuesta_promo,vIva_promocion,vBin_participante,vCuenta_clabe,vEspacio_relleno,vFin_archivo);
+			
+				
+				ELSE 
+						 
+					LET vNp_alta  = vNp_alta + 1 ;
+					
+					DELETE FROM "informix".tbl_paso_msi_info_comercios_afiliados
+					WHERE identificador_registro = vIdentificador_registro
+					AND clave_promocion = vClave_promocion
+					AND clave_afiliacion = vClave_afiliacion
+					AND cuenta_clabe = vCuenta_clabe;
+						
+						
+					
+						
+				END IF;
+				
+			 --MOVIMIENTO DE MODIFICACION
+			 ELIF ( vMov_promocion = '02' ) THEN 
+			 
+			 IF EXISTS ( 
+				
+					SELECT clave_promocion 
+					FROM tbl_msi_info_comercios_afiliados 
+					WHERE identificador_registro = vIdentificador_registro
+					AND clave_promocion = vClave_promocion
+					AND clave_afiliacion = vClave_afiliacion
+					AND cuenta_clabe = vCuenta_clabe
+					)  THEN
+					
+			 ----Agregar Commite cada 1000
+				UPDATE "informix".tbl_msi_info_comercios_afiliados
+				SET mov_promocion = '02',
+					fecha_inicio_prom = vFecha_inicio_prom,
+					fecha_termino_prom = vFecha_termino_prom,
+					mov_promocion = vMov_promocion,
+					cve_tipo_promocion = vCve_tipo_promocion,
+					num_meses_dif_compra = vNum_meses_dif_compra,
+					num_meses_a_cobrar = vNum_meses_a_cobrar,
+					pcte_sobretasa = vPcte_sobretasa,
+					monto_minimo = vMonto_minimo,
+					id_institucion = vId_institucion,
+					cuenta_cheques = vCuenta_cheques,
+					respuesta_promo = vRespuesta_promo,
+					iva_promocion = vIva_promocion,
+					bin_participante = vBin_participante,
+					cuenta_clabe = vCuenta_clabe,
+					espacio_relleno = vEspacio_relleno,
+					fin_archivo = vFin_archivo
+				 WHERE identificador_registro = vIdentificador_registro
+					AND clave_promocion = vClave_promocion
+					AND clave_afiliacion = vClave_afiliacion
+					AND cuenta_clabe = vCuenta_clabe;
+				
+				ELSE  
+				
+					LET vNp_modificacion = vNp_modificacion + 1 ;
+					
+					DELETE FROM "informix".tbl_paso_msi_info_comercios_afiliados
+					WHERE identificador_registro = vIdentificador_registro
+					AND clave_promocion = vClave_promocion
+					AND clave_afiliacion = vClave_afiliacion
+					AND cuenta_clabe = vCuenta_clabe;
+					END IF;	
+			
+			END IF;
+			
+			LET iContador_pay = iContador_pay + 1;
+				
+			IF iContador_pay = 1000 THEN
+				COMMIT;
+        
+				LET iContador_pay = 0;
+        
+				UPDATE STATISTICS MEDIUM FOR TABLE "informix".tbl_msi_info_comercios_afiliados;
+				BEGIN WORK;
+				
+				
+			END IF;
+			
+		END FOREACH;
+		
+		COMMIT;
+
+		
+	    select NVL (count(*) , 0 ) into vBaja from "informix".tbl_paso_msi_info_comercios_afiliados where mov_promocion ='00'
+		AND identificador_registro = 'D';
+		
+	    select NVL (count(*) , 0 ) into vTotal from "informix".tbl_msi_info_comercios_afiliados;
+		
+		select NVL (count(*) , 0 ) into vAlta from "informix".tbl_paso_msi_info_comercios_afiliados where mov_promocion ='01'
+		AND identificador_registro = 'D';
+		
+		select NVL (count(*), 0) into vMod from "informix".tbl_paso_msi_info_comercios_afiliados where mov_promocion ='02'
+		AND identificador_registro = 'D';
+		
+		UPDATE "informix".MSI_CONTROL_REG_E17 
+		set numero_afiliaciones = vAlta
+		WHERE accion = 'alta';
+		
+		UPDATE "informix".MSI_CONTROL_REG_E17 
+		set numero_afiliaciones = vTotal
+		WHERE accion = 'total';
+		
+		UPDATE "informix".MSI_CONTROL_REG_E17 
+		set numero_afiliaciones = vMod
+		WHERE accion = 'modificacion';
+		
+		UPDATE "informix".MSI_CONTROL_REG_E17 
+		set numero_afiliaciones = vBaja
+		WHERE accion = 'baja';
+		
+		UPDATE "informix".MSI_CONTROL_REG_E17 
+		set numero_afiliaciones = vNp_alta
+		WHERE accion = 'np_alta';
+		
+		UPDATE "informix".MSI_CONTROL_REG_E17 
+		set numero_afiliaciones = vNp_baja
+		WHERE accion = 'np_baja';
+		
+		UPDATE "informix".MSI_CONTROL_REG_E17 
+		set numero_afiliaciones = vNp_modificacion
+		WHERE accion = 'np_modificacion';
+		
+		
+		
+		
+		RETURN vCODIGO_RETORNO, vMENSAJE_RETORNO;
+	
+	END
+	
+END PROCEDURE
+DOCUMENT
+'Base de datos: intercard',
+'Fecha de creacion: 13 de febrero del 2024',
+'Autor: Humberto Daniel Reza Teran',
+'CoordinaciÃ³n de AdministraciÃ³n de Tarjetas e Interfaces Transaccionales - CATIT',
+'Descripcion: Procedimiento Almacenado que modifica los registros de la tabla tbl_msi_info_comercios_afiliados ',
+'de acuerdo a los nuevos movimientos que se encuentran en la tabla de paso tbl_paso_msi_info_comercios_afiliados.';
+
+CREATE PROCEDURE "informix".sp_msi_generar_archivo( pRutaArchivo VARCHAR (80), pNombreArchivo VARCHAR (50) )
+    RETURNING VARCHAR (5) as rCODIGO_RETORNO, VARCHAR(150) as rMENSAJE_RESPUESTA;
+    
+    DEFINE SQLERR INTEGER;
+    DEFINE ISAM_ERR INTEGER;
+    DEFINE ERROR_INFO VARCHAR(150);
+    
+    DEFINE vCODIGO_RETORNO VARCHAR(5);
+    DEFINE vMENSAJE_RETORNO VARCHAR(150);
+    DEFINE RUTA_UNLOAD_RESPALDOS VARCHAR(40);
+    
+    DEFINE vRellenoPiePagina VARCHAR(150);
+    DEFINE NOMBRE_UNL_ARCHIVO VARCHAR(15);
+    DEFINE SCRIPT_EJECUCION VARCHAR(30);
+    DEFINE vExecuteSQL LVARCHAR(2500);
+    DEFINE vTotalRegistros VARCHAR(15);
+    DEFINE vIndicadorProceso CHAR(1);
+
+    DEFINE vRellenoEncabezado VARCHAR(120);
+    DEFINE vFechaActualEncabezado VARCHAR(8);
+    DEFINE vFechaActualNomArch VARCHAR(8);
+    DEFINE vEmisorBancoppel VARCHAR(7);
+    DEFINE vSwitchEglobal VARCHAR(7);
+    DEFINE vNumVentana SMALLINT;
+    DEFINE vPrefijoArchivo VARCHAR(15);
+    DEFINE vNumCharVentana VARCHAR(2);
+    DEFINE vNombreArchivoE17 VARCHAR(25);
+        
+    LET SQLERR = '';
+    LET ISAM_ERR ='';
+    LET ERROR_INFO = '';
+    LET vCODIGO_RETORNO = '00000';
+    LET vMENSAJE_RETORNO = 'Inicia el proceso.';
+    LET RUTA_UNLOAD_RESPALDOS = '/RESPALDOSNEW/';
+    
+    LET vRellenoPiePagina = '';
+    LET NOMBRE_UNL_ARCHIVO = 'archivo_e17.txt';
+    LET SCRIPT_EJECUCION = 'msi_ejec_info_comercios.sql';
+    LET vExecuteSQL = '';
+    LET vTotalRegistros = 0;
+    LET vIndicadorProceso = '0';
+    LET vNombreArchivoE17 = '';
+    LET vRellenoEncabezado = '';
+    LET vFechaActualEncabezado = '';
+    LET vFechaActualNomArch = '';
+    LET vEmisorBancoppel = '';
+    LET vSwitchEglobal = '';
+    LET vNumVentana = 0;
+    
+    LET vPrefijoArchivo = '';
+    LET vNumCharVentana = '' ;
+    
+    --SET DEBUG FILE TO RUTA_UNLOAD_RESPALDOS || "debug_sp_msi_generar_archivo.out";
+    --TRACE ON;
+
+    BEGIN 		
+
+        ON EXCEPTION SET SQLERR, ISAM_ERR, ERROR_INFO
+            
+            --SET DEBUG FILE TO RUTA_UNLOAD_RESPALDOS || "excepcion_sp_msi_generar_archivo.err.out" WITH APPEND;
+            --TRACE ON;
+            
+            IF ( SQLERR <> 0 ) THEN
+                LET vCODIGO_RETORNO = SQLERR;
+                LET vMENSAJE_RETORNO = ISAM_ERR||' '||'sp_msi_generar_archivo'||' '||current||' '||'vIndicadorProceso =>'||vIndicadorProceso;
+                RETURN vCODIGO_RETORNO, vMENSAJE_RETORNO;
+            END IF;
+            
+        END EXCEPTION;
+        
+		
+        --Construccion del encabezado
+        LET vRellenoEncabezado = LPAD(vRellenoEncabezado, 107,' ');
+        LET vFechaActualEncabezado = TO_CHAR(today, '%Y%m')||LPAD(DAY(today), '2', '0');
+        LET vFechaActualNomArch = LPAD(DAY(today), '2', '0')||TO_CHAR(today, '%m%Y');
+        LET vEmisorBancoppel = RPAD('EMISOR',7,' ');
+        LET vSwitchEglobal = LPAD('EGLOBAL',7,' ');
+
+        ---Preparación para determinar la ventana
+        SELECT num_ventana 
+            INTO vNumVentana
+        FROM intercard:"informix".tbl_msi_archivos_generados
+            WHERE fecha_proceso = today;
+        
+        IF( vNumVentana IS NULL OR vNumVentana = 0) THEN
+            INSERT INTO intercard:"informix".tbl_msi_archivos_generados (num_serial_archivo, prefijo_archivo, fecha_proceso, num_ventana)
+                VALUES (0, 'E17M210137', today, 1);
+        ELSE
+            LET vNumVentana = vNumVentana + 1;
+            UPDATE intercard:"informix".tbl_msi_archivos_generados 
+                SET num_ventana = vNumVentana
+            WHERE fecha_proceso = today;
+        END IF        
+        
+        SELECT prefijo_archivo, num_ventana 
+            INTO vPrefijoArchivo, vNumCharVentana
+        FROM intercard:tbl_msi_archivos_generados 
+            WHERE fecha_proceso = today;        
+
+        LET vIndicadorProceso = '1';
+        LET vExecuteSQL	= '';
+        LET vExecuteSQL = 'echo "H'||vFechaActualEncabezado||vNumCharVentana||vEmisorBancoppel||vSwitchEglobal||vRellenoEncabezado||'.'||'">'||RUTA_UNLOAD_RESPALDOS||NOMBRE_UNL_ARCHIVO;
+        SYSTEM vExecuteSQL; 
+        
+        LET vNumCharVentana = LPAD(vNumCharVentana, 2,'0');
+        
+        LET vIndicadorProceso = '2';        
+        LET vExecuteSQL	= '';
+        LET vExecuteSQL = 'echo "SET ISOLATION TO DIRTY READ; SET LOCK MODE TO WAIT 3; UNLOAD TO '||RUTA_UNLOAD_RESPALDOS||'informacion_msi.txt'||
+        '   SELECT identificador_registro, LPAD(clave_promocion, 10, 0), LPAD(clave_afiliacion, 8, 0), fecha_inicio_prom, fecha_termino_prom, mov_promocion, '||
+        '     cve_tipo_promocion, num_meses_dif_compra, num_meses_a_cobrar, pcte_sobretasa, LPAD( NVL(monto_minimo, \" \"), 8, \"0\") as monto_minimo, '||
+        '       id_institucion, LPAD( NVL(cuenta_cheques, \" \"), 8, \"0\"), LPAD( NVL(respuesta_promo, \" \"), 2, \" \"), iva_promocion, '||
+        '       bin_participante, LPAD( NVL(cuenta_clabe,\" \"),18,\" \") as cuenta_clabe, '||  ----18 espacios
+        '     LPAD( NVL(espacio_relleno,\" \"),26,\" \"), fin_archivo'  ||
+        '   FROM intercard:tbl_paso_msi_info_comercios_afiliados '||
+        '    WHERE identificador_registro = \"D\" '||
+         '" >'||RUTA_UNLOAD_RESPALDOS||SCRIPT_EJECUCION;            
+        SYSTEM vExecuteSQL; 
+        
+        LET vIndicadorProceso = '3';
+        LET vExecuteSQL   = '';
+        LET vExecuteSQL   = 'dbaccess intercard '||RUTA_UNLOAD_RESPALDOS||SCRIPT_EJECUCION;
+        SYSTEM vExecuteSQL;
+
+        LET vIndicadorProceso = '4';
+        LET vExecuteSQL   = '';
+        LET vExecuteSQL   = "sed -e 's/\|//g' "||RUTA_UNLOAD_RESPALDOS||'informacion_msi.txt >> ' ||RUTA_UNLOAD_RESPALDOS||NOMBRE_UNL_ARCHIVO;
+        SYSTEM vExecuteSQL;
+        
+        SET ISOLATION TO DIRTY READ;
+        SET LOCK MODE TO WAIT 3;
+        
+        SELECT COUNT(*)
+            INTO vTotalRegistros
+        FROM intercard:tbl_paso_msi_info_comercios_afiliados
+            WHERE identificador_registro = 'D';        
+
+        LET vTotalRegistros = LPAD(vTotalRegistros,10,'0');
+        LET vRellenoPiePagina = LPAD(vRellenoPiePagina, 120,' ');
+        
+        LET vIndicadorProceso = '5';
+        LET vExecuteSQL	= '';
+        LET vExecuteSQL = 'echo "T'||vTotalRegistros||vRellenoPiePagina||'.'||'">>'||RUTA_UNLOAD_RESPALDOS||NOMBRE_UNL_ARCHIVO;
+        SYSTEM vExecuteSQL;
+        
+        ---Valor asignado de forma arbitraria solo para validar que la generación del archivo fue creado exitosamente.
+        LET vCODIGO_RETORNO = '00005';
+        
+        LET vNombreArchivoE17 = vPrefijoArchivo||vFechaActualNomArch||vNumCharVentana;
+        
+        --Renombrar el archivo conforme a la nomenclatura formalizada y posteriormente ser entregado a Eglobal
+        LET vIndicadorProceso = '6';
+        LET vExecuteSQL	= '';
+        LET vExecuteSQL = 'mv '||RUTA_UNLOAD_RESPALDOS||NOMBRE_UNL_ARCHIVO||'  '||RUTA_UNLOAD_RESPALDOS||vNombreArchivoE17;
+        SYSTEM vExecuteSQL;
+
+        LET vIndicadorProceso = '7';
+        LET vExecuteSQL	= '';
+        LET vExecuteSQL = 'gzip -c '||pRutaArchivo||pNombreArchivo||' > '||pRutaArchivo||'arch_msi_procesado_'||vFechaActualNomArch||'.gz';
+        SYSTEM vExecuteSQL;
+
+        LET vIndicadorProceso = '8';
+        LET vExecuteSQL	= '';
+        LET vExecuteSQL = 'rm -f '||pRutaArchivo||pNombreArchivo;
+        SYSTEM vExecuteSQL;
+        
+        LET vCODIGO_RETORNO = '00000';
+        LET vMENSAJE_RETORNO = 'Generacion exitosa del archivo: '||  vNombreArchivoE17;
+
+        RETURN vCODIGO_RETORNO, vMENSAJE_RETORNO;
+		
+	END
+END PROCEDURE
+DOCUMENT
+'#1',
+'Base de datos: intercard',
+'Fecha de creacion: 15 de febrero del 2022',
+'Armando Garcia Ortiz',
+'Coordinacion de Tarjetas - Gerencia I',
+'Descripcion: Genera el formato especificado y denominado E17 para ser entregado a Eglobal',
+'#2',
+'Fecha de modificacion: 01 de agosto del 2022',
+'Armando Garcia Ortiz',
+'Descripcion: Se agregan los dos nuevos campos considerados en el diseño del archivo E17 (bin_participante y cuenta_clabe)',
+'Fecha de modificacion: 13 de agosto del 2024',
+'Cristian Ariel Meza Martinez',
+'Descripcion: Se cambia la tabla de base por la de paso que es donde se llenara el archivo E17'
+;
+
+CREATE PROCEDURE "informix".sp_tokenizacion_cardoperation(pissuer_id CHAR(10), pcard_id CHAR(48), px_correlation_id CHAR(64), p_operationid CHAR(64),
+															p_operation  CHAR(10), pdigitalcard_ids LVARCHAR, pstatus CHAR(11))
+	RETURNING  CHAR(5) AS codretorno,  CHAR(150) AS descodretorno ;
+	
+--Definicion de Variables
+DEFINE isqlerr 	   					INTEGER;
+DEFINE codigoRetorno    			CHAR (5);
+DEFINE desCodRetorno 				CHAR (120);
+DEFINE outNumTarjeta				CHAR(19);
+DEFINE outIdEstatus					INTEGER;
+DEFINE outNumTarjetaTokenizada		CHAR(19);
+DEFINE outProces 					CHAR(10);
+DEFINE outStatus					INTEGER;
+DEFINE inFechaToken 				DATETIME YEAR TO FRACTION;
+DEFINE inTokenizada					CHAR(1);
+
+--Inicializacion de Variables
+LET isqlerr 						= 0;
+LET codigoRetorno 					= '00000';
+LET desCodRetorno 					= 'Consulta Exitosa.';
+LET outNumTarjeta					= '';
+LET outNumTarjetaTokenizada			= '';
+LET outProces 						= '';
+LET outStatus						= 0;
+LET inFechaToken					= NULL;
+LET inTokenizada 					= '0';
+
+
+	BEGIN
+		
+		ON EXCEPTION SET isqlerr
+			IF isqlerr <> 0 THEN		
+				LET codigoRetorno = isqlerr;
+				LET desCodRetorno = 'Error No Controlado al invocar SP sp_tokenizacion_consultatarjeta. Validar.';
+			END IF;
+			RETURN codigoRetorno, desCodRetorno;
+		END EXCEPTION;
+		
+		SET ISOLATION TO DIRTY READ;
+		SET LOCK MODE TO WAIT 10;
+		
+		
+		--SET DEBUG FILE TO '/home/c90313380/sp_tokenizacion_cardoperation.log';
+	    --TRACE ON;	
+		
+	--Obtiene numero de tarjeta con el card_id	
+		SELECT numtarjeta
+			INTO outNumTarjeta
+		FROM tokenizacion_cardid 
+			WHERE card_id = pcard_id;
+			
+		IF outNumTarjeta IS NULL OR outNumTarjeta = '' THEN
+			LET codigoRetorno = '00400';
+			LET desCodRetorno =  'No se encontro numero de tarjeta con card_id';
+			RETURN codigoRetorno, desCodRetorno;
+		END IF
+		
+	--Obtiene id_estatus
+		SELECT id_estatus 
+			INTO outIdEstatus
+		FROM "informix".tarjeta_estatus_tokenizacion 
+			WHERE estatus = pstatus;
+			
+		IF outIdEstatus IS NULL OR outIdEstatus = '' THEN
+			LET codigoRetorno = '00400';
+			LET desCodRetorno =  'No se encontro id de estatus';
+			RETURN codigoRetorno, desCodRetorno;
+		END IF
+
+	--Busca en tarjeta tokenizadas
+		SELECT numtarjeta, operacion, status 
+			INTO outNumTarjetaTokenizada, outProces , outStatus
+		FROM tarjetas_tokenizadas
+			WHERE numtarjeta = outNumTarjeta;
+			
+		IF outNumTarjetaTokenizada IS NULL OR outNumTarjetaTokenizada = ' ' THEN
+			IF pstatus = 'FAILED' OR pstatus = 'PENDING' THEN		
+				LET	inTokenizada = '0';
+				
+			ELIF pstatus = 'SUCCESSFUL' THEN	
+				LET	inTokenizada = '1';
+				LET	inFechaToken = CURRENT;					
+			END IF
+			
+			INSERT INTO tarjetas_tokenizadas(numtarjeta, operacion, status, tokenizada, fecha_tokenizacion, fecha_del_token, fecha_susp_token, fecha_insert) 
+			VALUES(outNumTarjeta,p_operation, outIdEstatus, inTokenizada, CURRENT, inFechaToken, NULL, CURRENT );
+		ELSE
+			IF pstatus = 'SUCCESSFUL' THEN
+				LET	inTokenizada = '1';
+				LET	inFechaToken = CURRENT;	
+			END IF
+			
+			UPDATE tarjetas_tokenizadas 
+				SET operacion = p_operation, 
+					status = outIdEstatus,  
+					tokenizada = inTokenizada,
+					fecha_tokenizacion = inFechaToken
+				WHERE numtarjeta = outNumTarjetaTokenizada;
+		END IF
+		
+		INSERT INTO "informix".bitacora_token_cardoperation(issuer_id, card_id, x_correlation_id, operation_id, operation, digital_cardids, status, cod_retorno , des_codret, fecha_insert)
+		VALUES(pissuer_id, pcard_id,  px_correlation_id, p_operationid, p_operation , pdigitalcard_ids, pstatus, codigoRetorno, desCodRetorno, CURRENT);
+			
+		RETURN codigoRetorno, desCodRetorno;
+		
+	END
+END PROCEDURE;

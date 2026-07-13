@@ -1,0 +1,716 @@
+$$SET ZIP                                                               00001000          
+$$RESET DMCONTROL                                                       00002000          
+$$SET LIST ALLINFO                                                      00003000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%         00004000          
+%%                                                           %%         00005000          
+%%  BASE DE DATOS PARA EL MODULO DE INFORMACION A TESORERIA  %%         00006000          
+%%  (S151ADSALDO)                       J.GARCIA ENE.92      %%         00007000          
+%%                                                           %%         00008000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%         00009000          
+ UPDATE;                                                                00010000          
+%INITIALIZE;                                                            00011000          
+DEFAULTS                                                                00012000          
+        (                                                               00013000          
+         DATA SET                                                       00014000          
+                 (                                                      00015000          
+                  PACK=CMEMP                                            00016000          
+                 ,CHECKSUM=TRUE                                         00017000          
+                 ,REBLOCK=TRUE                                          00018000          
+                 ,REBLOCKFACTOR=5                                       00019000          
+                 ,BUFFERS = 0 + 2 PER RANDOM USER                       00020000          
+                             OR 2 PER SERIAL USER                       00021000          
+                 )                                                      00022000          
+        ,SET                                                            00023000          
+                 (                                                      00024000          
+                  PACK=CMEMP                                            00025000          
+                 ,CHECKSUM=TRUE                                         00026000          
+                 ,BUFFERS = 1 + 1 PER RANDOM USER                       00027000          
+                             OR 2 PER SERIAL USER                       00028000          
+                 )                                                      00029000          
+        ,ALPHA (INITIALVALUE IS BLANKS)                                 00030000          
+        ,NUMBER (INITIALVALUE IS 0)                                     00031000          
+         );                                                             00032000          
+                                                                        00033000          
+CONTROL FILE                                                            00034000          
+             (                                                          00035000          
+              PACK=CMEMP                                                00036000          
+             ,USERCODE= S151                                            00037000          
+             );                                                         00038000          
+                                                                        00039000          
+OPTIONS                                                                 00040000          
+        (                                                               00041000          
+         AUDIT                                                          00042000          
+        ,STATISTICS                                                     00043000          
+        ,ADDRESSCHECK                                                   00044000          
+        ,KEYCOMPARE                                                     00045000          
+        ,INDEPENDENTTRANS                                               00045100          
+        );                                                              00046000          
+                                                                        00047000          
+PARAMETERS                                                              00048000          
+           (                                                            00049000          
+            ALLOWEDCORE=40000                                           00050000          
+           ,SYNCPOINT=1  TRANSACTIONS                                   00051000          
+           ,CONTROLPOINT=1 SYNCPOINTS                                   00052000          
+           );                                                           00053000          
+                                                                        00054000          
+AUDIT TRAIL                                                             00055000          
+            (                                                           00056000          
+             CHECKSUM=TRUE                                              00057000          
+            ,BLOCKSIZE = 2700 WORDS                                     00058000          
+            ,AREAS     = 70                                             00059000          
+            ,AREASIZE  = 150 BLOCKS                                     00060000          
+            ,KIND=PACK                                                  00061000          
+            ,PACKNAME=AUDIT                                             00062000          
+            ,QUICKCOPY APPEND MAXFILESPERTAPE = 1 TO TAPESET            00063000          
+                          1 TIMES                                       00064000          
+                          FORWARD COMPARE                               00065000          
+                          AND REMOVE                                    00066000          
+                  JOB *DATABASE/WFL/COPYAUDIT ON PACK                   00067000          
+            ,UPDATE EOF=150 BLOCKS                                      00069000          
+            );                                                          00070000          
+                                                                        00071000          
+ACCESSROUTINES=*SYSTEM/ACCESSROUTINES ON PACK;                          00072000          
+                                                                        00073000          
+DMSUPPORT=(S151)DMSUPPORT/S151BD02ADSALDO/23MTP001                      00074000          
+          ON CMEMP;                                                     00075000          
+                                                                        00076000          
+RECOVERY=*SYSTEM/DMRECOVERY ON PACK;                                    00077000          
+                                                                        00078000          
+DATARECOVERY=*SYSTEM/DMDATARECOVERY ON PACK;                            00079000          
+                                                                        00080000          
+RECONSTRUCT=(S151)RECONSTRUCT/S151BD02ADSALDO/23MTP001                  00081000          
+            ON CMEMP;                                                   00082000          
+                                                                        00083000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%        00084000          
+%%                                                            %%        00085000          
+%%              D A T O S       G L O B A L E S               %%        00086000          
+%%                                                            %%        00087000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%        00088000          
+                                                                        00089000          
+ B92-CTR-CSI       "CSI DE LA ABASE DE DATOS"          NUMBER (002);    00090000          
+%B92-CTR-FECHA     "FECHA DE PROCESO "                 NUMBER (006);    00091000          
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00092000          
+ B92-CTR-FECHA     "FECHA DE PROCESO "                 NUMBER (008);    00093000          
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00094000          
+%B92-CTR-FECHA-FIL "FECHA DE CARGA DE ARCHIVOS"        NUMBER (006);    00095000          
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00096000          
+ B92-CTR-FECHA-FIL "FECHA DE CARGA DE ARCHIVOS"        NUMBER (008);    00097000          
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00098000          
+%B92-CTR-FECHA-CAR "FECHA DE CARGA OK ARCHIVOS"        NUMBER (006);    00099000          
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00100000          
+ B92-CTR-FECHA-CAR "FECHA DE CARGA OK ARCHIVOS"        NUMBER (008);    00101000          
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00102000          
+ B92-CTR-SISTEMA   "NUMERO DE SISTEMA CALIFICADO"      NUMBER (006)     00103000          
+                                                       OCCURS 20 TIMES; 00104000          
+ B92-CTR-SISFILE   "STATUS DE ARCHIVO POR SISTEMA"     NUMBER (006)     00105000          
+                                                       OCCURS 20 TIMES; 00106000          
+ B92-CTR-CSIOK     "STATUS DE TOTALES POR C.S.I"       NUMBER (002)     00107000          
+                                                       OCCURS 10 TIMES; 00108000          
+ B92-CTR-SUCOK     "STATUS DE CONCENTRACION DE SUC"    NUMBER (002)     00109000          
+                                                       OCCURS 999 TIMES;00110000          
+ B92-CTR-ARRIBO    "STATUS DE ARRIBO DE ARCHIVOS "     NUMBER (004)     00111000          
+                                                       OCCURS 20  TIMES;00112000          
+                                                                        00113000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%        00114000          
+%%                                                            %%        00115000          
+%%              S 1 5 1 B 9 1 R E I N I C I O                 %%        00116000          
+%%                                                            %%        00117000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%        00118000          
+                                                                        00119000          
+S151B91REINICIO   "RESTART DATA SET"               RESTART DATA SET     00120000          
+(                                                                       00121000          
+ B91-CTR-IDPROG   "IDENTIFICACION DE LA APLICACION"     ALPHA  (010);   00122000          
+ B91-CTR-PTRLOG   "LLAVE DEL LOG"                       NUMBER (006);   00123000          
+%B91-CTR-FECLOG   "FECHA DEL LOG AAMMDD"                NUMBER (006);   00124000          
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00125000          
+ B91-CTR-FECLOG   "FECHA DEL LOG AAMMDD"                NUMBER (008);   00126000          
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00127000          
+ B91-CTR-USERINFO "PARA REDEFINIR SEGUN NECESIDAD"      ALPHA  (320);   00128000          
+)                                                                       00129000          
+ POPULATION=100                                                         00130000          
+,BLOCKSIZE=1 RECORDS                                                    00131000          
+,AREASIZE=100 RECORDS                                                   00132000          
+;                                                                       00133000          
+                                                                        00134000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%          00135000          
+%%                                                          %%          00136000          
+%%                B 9 1 S X R E I N I C I O                 %%          00137000          
+%%                                                          %%          00138000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%          00139000          
+                                                                        00140000          
+B91SXREINICIO SET OF S151B91REINICIO                                    00141000          
+                                                                        00142000          
+   KEY                                                                  00143000          
+       (                                                                00144000          
+        B91-CTR-IDPROG                                                  00145000          
+       )                                                                00146000          
+        DUPLICATES FIRST                                                00147000          
+       ,TABLESIZE = 28                                                  00148000          
+       ,AREASIZE  = 10 TABLES                                           00149000          
+       ;                                                                00150000          
+                                                                        00151000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00152000          
+%%                                                         %%           00153000          
+%%             S 1 5 1 B 0 1 S D O G L O B                 %%           00154000          
+%%                                                         %%           00155000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00156000          
+                                                                        00157000          
+S151B01SDOGLOB     "SALDOS GLOBALES POR SISTEMA"      STANDARD DATA SET 00158000          
+(                                                                       00159000          
+ B01-GLO-CSI       "NUMERO DE CENTRO DE SERVICIO"       NUMBER (002);   00160000          
+ B01-GLO-MONEDA    "NUMERO DE MONEDA            "       NUMBER (004);   00161000          
+ B01-GLO-SALDOS    GROUP                                                00162000          
+ ( B01-GLO-SISTEMA "NUMERO DE SISTEMA "                 NUMBER (004);   00163000          
+   B01-GLO-ACTUAL  "SALDO ACTUAL DEL SISTEMA"           NUMBER (18,2);  00164000          
+   B01-GLO-ANTES   "SALDO ANTERIOR DEL SISTEMA"         NUMBER (18,2);  00165000          
+ )                                                      OCCURS 20 TIMES;00166000          
+)                                                                       00167000          
+ POPULATION        = 1000                                               00168000          
+,BLOCKSIZE         = 11   RECORDS                                       00169000          
+;                                                                       00170000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00171000          
+%%                                                               %%     00172000          
+%%                     B 0 1 S X C S I                           %%     00173000          
+%%                                                               %%     00174000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00175000          
+                                                                        00176000          
+B01SXCSI SET OF S151B01SDOGLOB                                          00177000          
+ KEY  (B01-GLO-MONEDA, B01-GLO-CSI )                                    00178000          
+       NO DUPLICATES                                                    00179000          
+%     ,TABLESIZE = 388                                                  00180000          
+%     ,AREASIZE  = 100 TABLES                                           00181000          
+      ;                                                                 00182000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00183000          
+%%                                                         %%           00184000          
+%%                 S 1 5 1 B 0 2 S D O S U C               %%           00185000          
+%%                                                         %%           00186000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00187000          
+S151B02SDOSUC      "SALDOS GLOBALES POR SUCURSAL"     STANDARD DATA SET 00188000          
+(                                                                       00189000          
+ B02-SUC-MONEDA    "NUMERO DE MONEDA            "       NUMBER (004);   00190000          
+ B02-SUC-NUMERO    "NUMERO DE SUCURSAL "                NUMBER (004);   00191000          
+ B02-SUC-SALDOS    GROUP                                                00192000          
+ ( B02-SUC-SISTEMA "NUMERO DE SISTEMA "                 NUMBER (004);   00193000          
+   B02-SUC-ACTUAL  "SALDO ACTUAL DEL SISTEMA"           NUMBER (18,2);  00194000          
+   B02-SUC-ANTES   "SALDO ANTERIOR DEL SISTEMA"         NUMBER (18,2);  00195000          
+ )                                                      OCCURS 20 TIMES;00196000          
+)                                                                       00197000          
+ POPULATION        = 4000                                               00198000          
+,BLOCKSIZE         = 26   RECORDS                                       00199000          
+% ,AREASIZE          = 2000 RECORDS                                     00200000          
+% ,REBLOCKFACTOR     = 30                                               00201000          
+;                                                                       00202000          
+                                                                        00203000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00204000          
+%%                                                               %%     00205000          
+%%                     B 0 2 S X S U C                           %%     00206000          
+%%                                                               %%     00207000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00208000          
+                                                                        00209000          
+B02SXSUC SET OF S151B02SDOSUC                                           00210000          
+ KEY  (B02-SUC-MONEDA, B02-SUC-NUMERO)                                  00211000          
+       NO DUPLICATES                                                    00212000          
+%     ,TABLESIZE = 388                                                  00213000          
+%     ,AREASIZE  = 100 TABLES                                           00214000          
+      ;                                                                 00215000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00216000          
+%%                                                         %%           00217000          
+%%                 S 1 5 1 B 0 3 S D O C T E               %%           00218000          
+%%                                                         %%           00219000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00220000          
+S151B03SDOCTE      "SALDOS GLOBALES POR SUC/CTE "     STANDARD DATA SET 00221000          
+(                                                                       00222000          
+ B03-CTE-MONEDA    "NUMERO DE MONEDA   "                NUMBER (004);   00223000          
+ B03-CTE-SUCURSAL  "NUMERO DE SUCURSAL "                NUMBER (004);   00224000          
+ B03-CTE-SISTEMA   "NUMERO DE SISTEMA "                 NUMBER (004);   00225000          
+ B03-CTE-NUMERO1   "LA LLAVE DEL CLIENTE ES DE 20"      NUMBER (010);   00226000          
+ B03-CTE-NUMERO2   "Y SE DIVIDE EN DOS PARTES.   "      NUMBER (010);   00227000          
+ B03-CTE-INST      "NUMERO DE INSTRUMENTO "             NUMBER (004);   00228000          
+ B03-CTE-SUCEXP    "NUMERO DE SUCURSAL EXPEDIDORA"      NUMBER (004);   00229000          
+ B03-CTE-NOMBRE    "NOMBRE DEL CLIENTE "                ALPHA  (030);   00230000          
+%B03-CTE-FECHA     "FECHA DE PROCESO/EXPEDICION  "      NUMBER (006);   00231000          
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00232000          
+ B03-CTE-FECHA     "FECHA DE PROCESO/EXPEDICION  "      NUMBER (008);   00233000          
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00234000          
+ B03-CTE-ACTUAL    "SALDO ACTUAL DEL SISTEMA"           NUMBER (018,2); 00235000          
+ B03-CTE-ANTES     "SALDO ANTERIOR DEL SISTEMA"         NUMBER (018,2); 00236000          
+)                                                                       00237000          
+ POPULATION        = 500000                                             00238000          
+,BLOCKSIZE         = 17   RECORDS                                       00239000          
+% ,AREASIZE          = 2000 RECORDS                                     00240000          
+% ,REBLOCKFACTOR     = 30                                               00241000          
+;                                                                       00242000          
+                                                                        00243000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00244000          
+%%                                                               %%     00245000          
+%%                     B 0 3 S X C T E                           %%     00246000          
+%%                                                               %%     00247000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00248000          
+                                                                        00249000          
+B03SXCTE SET OF S151B03SDOCTE                                           00250000          
+ KEY  (B03-CTE-MONEDA,                                                  00251000          
+       B03-CTE-SUCURSAL,                                                00252000          
+       B03-CTE-SISTEMA,                                                 00253000          
+       B03-CTE-NUMERO1,                                                 00254000          
+       B03-CTE-NUMERO2  )                                               00255000          
+       NO DUPLICATES                                                    00256000          
+%     ,TABLESIZE = 388                                                  00257000          
+%     ,AREASIZE  = 100 TABLES                                           00258000          
+      ;                                                                 00259000          
+$$SET OMIT                                                              00260000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00261000          
+%%                                                         %%           00262000          
+%%                 S 1 5 1 B 0 4 S D O E X C               %%           00263000          
+%%                                                         %%           00264000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00265000          
+S151B04SDOEXC       "SALDOS POR EXCEPCION        "    STANDARD DATA SET 00266000          
+(                                                                       00267000          
+ B04-EXC-HORA       "HORA DE TRANSFERENCIA       "      NUMBER (008);   00268000          
+ B04-EXC-SALDOS     GROUP                                               00269000          
+ ( B04-EXC-SUCURSAL "NUMERO DE SUCURSAL          "      NUMBER (004);   00270000          
+   B04-EXC-CONCEPTO "CONCEPTO POR EXCEPCION      "      ALPHA  (035);   00271000          
+   B04-EXC-IMPORTE  "IMPORTE DE LA EXCEPCION     "      NUMBER (18,2);  00272000          
+ )                                                      OCCURS 12 TIMES;00273000          
+)                                                                       00274000          
+ POPULATION        = 1000                                               00275000          
+,BLOCKSIZE         = 26   RECORDS                                       00276000          
+% ,AREASIZE          = 2000 RECORDS                                     00277000          
+% ,REBLOCKFACTOR     = 30                                               00278000          
+;                                                                       00279000          
+                                                                        00280000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00281000          
+%%                                                               %%     00282000          
+%%                     B 0 4 S X E X C                           %%     00283000          
+%%                                                               %%     00284000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00285000          
+                                                                        00286000          
+B04SXEXC SET OF S151B04SDOEXC                                           00287000          
+ KEY  (B04-EXC-HORA)                                                    00288000          
+       NO DUPLICATES                                                    00289000          
+%     ,TABLESIZE = 388                                                  00290000          
+%     ,AREASIZE  = 100 TABLES                                           00291000          
+      ;                                                                 00292000          
+$$RESET OMIT                                                            00293000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00294000          
+%%                                                         %%           00295000          
+%%                 S 1 5 1 B 0 5 S D O C N C               %%           00296000          
+%%                                                         %%           00297000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00298000          
+S151B05SDOCNC      "SALDOS POR CONCEPTOS        "     STANDARD DATA SET 00299000          
+(                                                                       00300000          
+ B05-CNC-CSI       "NUMERO DE C.S.I.            "       NUMBER (002);   00301000          
+ B05-CNC-SUCURSAL  "NUMERO DE SUCURSAL          "       NUMBER (004);   00302000          
+ B05-CNC-COBRO     "IMP. COBRO INMEDIATO        "       NUMBER (018,2); 00303000          
+ B05-CNC-SDOCAJA   "SALDO DE CAJA               "       NUMBER (018,2); 00304000          
+ B05-CNC-IMSS      "IMP. CUOTAS DEL I.M.S.S.    "       NUMBER (018,2); 00305000          
+ B05-CNC-ADUANA    "IMP. IMPUESTOS ADUANALES    "       NUMBER (018,2); 00306000          
+ B05-CNC-CONBXICO  "CONCENTRACIONES/CAJA BANXICO"       NUMBER (018,2); 00307000          
+ B05-CNC-RETBXICO  "IMP. RETIROS DE CAJA BANXICO"       NUMBER (018,2); 00308000          
+ B05-CNC-NUMCHEQT  "NUMERO CHEQUES DE TESORERIA "       NUMBER (006);   00309000          
+ B05-CNC-IMPCHEQT  "IMPORTE CHEQUES DE TESORERIA"       NUMBER (018,2); 00310000          
+)                                                                       00311000          
+ POPULATION        = 500000                                             00312000          
+,BLOCKSIZE         = 17   RECORDS                                       00313000          
+% ,AREASIZE          = 2000 RECORDS                                     00314000          
+% ,REBLOCKFACTOR     = 30                                               00315000          
+;                                                                       00316000          
+                                                                        00317000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00318000          
+%%                                                               %%     00319000          
+%%                     B 0 5 S X C N C                           %%     00320000          
+%%                                                               %%     00321000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00322000          
+                                                                        00323000          
+B05SXCNC SET OF S151B05SDOCNC                                           00324000          
+ KEY  (B05-CNC-CSI,                                                     00325000          
+       B05-CNC-SUCURSAL)                                                00326000          
+       NO DUPLICATES                                                    00327000          
+%     ,TABLESIZE = 388                                                  00328000          
+%     ,AREASIZE  = 100 TABLES                                           00329000          
+      ;                                                                 00330000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00331000          
+%%                                                         %%           00332000          
+%%            S 1 5 1 B 0 6 S D O C N C C S I              %%           00333000          
+%%                                                         %%           00334000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00335000          
+S151B06SDOCNCCSI     "SALDOS POR CONCEPTOS TOT CSI"   STANDARD DATA SET 00336000          
+(                                                                       00337000          
+ B06-CNC-CSI-CSI     "NUMERO DE C.S.I.            "     NUMBER (002);   00338000          
+ B06-CNC-CSI-COBRO   "IMP. COBRO INMEDIATO        "     NUMBER (018,2); 00339000          
+ B06-CNC-CSI-CAJA    "SALDO DE CAJA               "     NUMBER (018,2); 00340000          
+ B06-CNC-CSI-IMSS    "IMP. CUOTAS DEL I.M.S.S.    "     NUMBER (018,2); 00341000          
+ B06-CNC-CSI-ADUA    "IMP. IMPUESTOS ADUANALES    "     NUMBER (018,2); 00342000          
+ B06-CNC-CSI-CONBX   "CONCENTRACION/CAJA A BANXICO"     NUMBER (018,2); 00343000          
+ B06-CNC-CSI-RETBX   "RETIROS DE CAJA A BANXICO   "     NUMBER (018,2); 00344000          
+ B06-CNC-CSI-NCHET   "NUMERO CHEQUES DE TESORERIA "     NUMBER (008);   00345000          
+ B06-CNC-CSI-ICHET   "IMPORTE CHEQUES DE TESORERIA"     NUMBER (018,2); 00346000          
+)                                                                       00347000          
+ POPULATION        = 500000                                             00348000          
+,BLOCKSIZE         = 17   RECORDS                                       00349000          
+% ,AREASIZE          = 2000 RECORDS                                     00350000          
+% ,REBLOCKFACTOR     = 30                                               00351000          
+;                                                                       00352000          
+                                                                        00353000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00354000          
+%%                                                               %%     00355000          
+%%                B 0 6 S X C N C C S I                          %%     00356000          
+%%                                                               %%     00357000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00358000          
+                                                                        00359000          
+B06SXCNCCSI SET OF S151B06SDOCNCCSI                                     00360000          
+ KEY  (B06-CNC-CSI-CSI)                                                 00361000          
+                                                                        00362000          
+       NO DUPLICATES                                                    00363000          
+%     ,TABLESIZE = 388                                                  00364000          
+%     ,AREASIZE  = 100 TABLES                                           00365000          
+      ;                                                                 00366000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00367000          
+%%                                                         %%           00368000          
+%%            S 1 5 1 B 0 7 T O T S D O                    %%           00369000          
+%%                                                         %%           00370000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00371000          
+S151B07TOTSDO        "SALDOS POR CONCEPTOS S.A.R. "   STANDARD DATA SET 00372000          
+(                                                                       00373000          
+ B07-S333-SUC        "NUMERO DE SUCURSAL          "     NUMBER (004);   00374000          
+ B07-S333-SALDOS      GROUP                                             00375000          
+ ( B07-S333-NUMCR    "NUMERO DE CARGOS    (S151)  "     NUMBER (006);   00376000          
+   B07-S333-IMPCR    "IMPORTE DE CARGOS   (S151)  "     NUMBER (018,2); 00377000          
+   B07-S333-NUMAB    "NUMERO DE ABONOS    (S151)  "     NUMBER (006);   00378000          
+   B07-S333-IMPAB    "IMPORTE DE ABONOS   (S151)  "     NUMBER (018,2); 00379000          
+   B07-S333-IMPOR    "IMPORTE DE ORDENES  (S333)  "     NUMBER (018,2); 00380000          
+   B07-S333-IMPFV    "IMPORTE FECHA VALOR (S333)  "     NUMBER (018,2); 00381000          
+ )                                                      OCCURS 10 TIMES;00382000          
+)                                                                       00383000          
+ POPULATION        = 1000                                               00384000          
+,BLOCKSIZE         = 11   RECORDS                                       00385000          
+;                                                                       00386000          
+                                                                        00387000          
+                                                                        00388000          
+                                                                        00389000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00390000          
+%%                                                               %%     00391000          
+%%                B 0 7 S X S 3 3 3                              %%     00392000          
+%%                                                               %%     00393000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00394000          
+                                                                        00395000          
+B07SXS333 SET OF S151B07TOTSDO                                          00396000          
+ KEY  (B07-S333-SUC)                                                    00397000          
+                                                                        00398000          
+       NO DUPLICATES                                                    00399000          
+%     ,TABLESIZE = 388                                                  00400000          
+%     ,AREASIZE  = 100 TABLES                                           00401000          
+      ;                                                                 00402000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00403000          
+%%                                                         %%           00404000          
+%%                 S 1 5 1 B 0 8 G L O S A R               %%           00405000          
+%%                                                         %%           00406000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00407000          
+ S151B08GLOSAR      "SALDOS GLOBALES S.A.R       "     STANDARD DATA SET00408000          
+(                                                                       00409000          
+ B08-GSAR-CSI      "NUMERO DE C.S.I.               "    NUMBER (002);   00410000          
+%B08-GSAR-FECHA    "FECHA DE RECEPCION             "    NUMBER (006);   00411000          
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00412000          
+ B08-GSAR-FECHA    "FECHA DE RECEPCION             "    NUMBER (008);   00413000          
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00414000          
+ B08-GSAR-OBL-IMSS "OBLIGACION PATRON     IMSS     "    NUMBER (020,2); 00415000          
+ B08-GSAR-VOL-IMSS "VOLUNTARIO            IMSS     "    NUMBER (020,2); 00416000          
+ B08-GSAR-OBL-ISTE "OBLIGACION PATRON     ISSSTE   "    NUMBER (020,2); 00417000          
+ B08-GSAR-VOL-ISTE "VOLUNTARIO            ISSSTE   "    NUMBER (020,2); 00418000          
+ B08-GSAR-INF-IMSS "ACT POR INFLACION     IMSS     "    NUMBER (020,2); 00419000          
+ B08-GSAR-INT-IMSS "INTERESES TASA SHCP   IMSS     "    NUMBER (020,2); 00420000          
+ B08-GSAR-INF-ISTE "ACT POR INFLACION     ISSSTE   "    NUMBER (020,2); 00421000          
+ B08-GSAR-INT-ISTE "INTERESES TASA SHCP   ISSSTE   "    NUMBER (020,2); 00422000          
+ B08-GSAR-OBL-INFO "OBLIGACION            INFONAVIT"    NUMBER (020,2); 00423000          
+ B08-GSAR-VOL-INFO "VOLUNTARIA            INFONAVIT"    NUMBER (020,2); 00424000          
+ B08-GSAR-IPR-INFO "INT. PROVICIONALES    INFONAVIT"    NUMBER (020,2); 00425000          
+ B08-GSAR-IDE-INFO "INT. DEFINITIVOS      INFONAVIT"    NUMBER (020,2); 00426000          
+ B08-GSAR-OBL-FOVI "OBLIGACION PATRON     FOVISTE  "    NUMBER (020,2); 00427000          
+ B08-GSAR-VOL-FOVI "VOLUNTARIO            FOVISTE  "    NUMBER (020,2); 00428000          
+ B08-GSAR-IPR-FOVI "INT. PROVICIONALES    FOVISTE  "    NUMBER (020,2); 00429000          
+ B08-GSAR-IDE-FOVI "INT. DEFINITIVOS      FOVISTE  "    NUMBER (020,2); 00430000          
+ B08-GSAR-OBL-PEME "OBLIGATORIA           PEMEX    "    NUMBER (020,2); 00431000          
+ B08-GSAR-VOL-PEME "VOLUNTARIA            PEMEX    "    NUMBER (020,2); 00432000          
+ B08-GSAR-INF-PEME "ACT POR INFLACION     PEMEX    "    NUMBER (020,2); 00433000          
+ B08-GSAR-INT-PEME "INTERESES TASA SHCP   PEMEX    "    NUMBER (020,2); 00434000          
+ B08-GSAR-ANT-IMSS "SDO ANTERIOR          IMSS     "    NUMBER (020,2); 00435000          
+ B08-GSAR-ANT-ISTE "SDO ANTERIOR          ISSSTE   "    NUMBER (020,2); 00436000          
+ B08-GSAR-ANT-INFO "SDO ANTERIOR          INFONAVIT"    NUMBER (020,2); 00437000          
+ B08-GSAR-ANT-FOVI "SDO ANTERIOR          FOVISTE  "    NUMBER (020,2); 00438000          
+ B08-GSAR-ANT-PEME "SDO ANTERIOR          PEMEX    "    NUMBER (020,2); 00439000          
+ B08-GSAR-ACT-IMSS "SDO ACTUAL            IMSS     "    NUMBER (020,2); 00440000          
+ B08-GSAR-ACT-ISTE "SDO ACTUAL            ISSSTE   "    NUMBER (020,2); 00441000          
+ B08-GSAR-ACT-INFO "SDO ACTUAL            INFONAVIT"    NUMBER (020,2); 00442000          
+ B08-GSAR-ACT-FOVI "SDO ACTUAL            FOVISSSTE"    NUMBER (020,2); 00443000          
+ B08-GSAR-ACT-PEME "SDO ACTUAL            PEMEX    "    NUMBER (020,2); 00444000          
+ B08-GSAR-REC-IMSS "RECARGOS              IMSS     "    NUMBER (020,2); 00445000          
+ B08-GSAR-REC-ISTE "RECARGOS              ISSSTE   "    NUMBER (020,2); 00446000          
+ B08-GSAR-REC-INFO "RECRAGOS              INFONAVIT"    NUMBER (020,2); 00447000          
+ B08-GSAR-REC-FOVI "RECARGOS              FOVISSSTE"    NUMBER (020,2); 00448000          
+ B08-GSAR-REC-PEME "RECARGOS              PEMEX    "    NUMBER (020,2); 00449000          
+)                                                                       00450000          
+ POPULATION        = 500000                                             00451000          
+,BLOCKSIZE         = 17   RECORDS                                       00452000          
+% ,AREASIZE          = 2000 RECORDS                                     00453000          
+% ,REBLOCKFACTOR     = 30                                               00454000          
+;                                                                       00455000          
+                                                                        00456000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00457000          
+%%                                                               %%     00458000          
+%%                     B 0 8 S X C S I                           %%     00459000          
+%%                                                               %%     00460000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00461000          
+                                                                        00462000          
+B08SXCSI SET OF S151B08GLOSAR                                           00463000          
+ KEY  (B08-GSAR-CSI)                                                    00464000          
+       NO DUPLICATES                                                    00465000          
+%     ,TABLESIZE = 388                                                  00466000          
+%     ,AREASIZE  = 100 TABLES                                           00467000          
+      ;                                                                 00468000          
+$$SET OMIT                                                              00469000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00470000          
+%%                                                         %%           00471000          
+%%                 S 1 5 1 B 0 9 R E C I M P               %%           00472000          
+%%                                                         %%           00473000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00474000          
+ S151B09RECIMP      "SALDOS RECEPCION IMPUESTOS    "   STANDARD DATA SET00475000          
+(                                                                       00476000          
+ B09-S401-CSI      "NUMERO DE C.S.I.               "    NUMBER (002);   00477000          
+ B09-S401-MAT-NUM  "H. MATUTINO NUM. TRANSACCIONES "    NUMBER (010);   00478000          
+ B09-S401-MAT-TOT  "H. MATUTINO TOTAL IMPORTE      "    NUMBER (020,2); 00479000          
+ B09-S401-VES-NUM  "H. VESPERTINO NUM. TRANSACCION "    NUMBER (010);   00480000          
+ B09-S401-VES-TOT  "H. VESPERTINO TOTAL IMPORTE    "    NUMBER (020,2); 00481000          
+)                                                                       00482000          
+ POPULATION        = 500000                                             00483000          
+,BLOCKSIZE         = 17   RECORDS                                       00484000          
+% ,AREASIZE          = 2000 RECORDS                                     00485000          
+% ,REBLOCKFACTOR     = 30                                               00486000          
+;                                                                       00487000          
+                                                                        00488000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00489000          
+%%                                                               %%     00490000          
+%%                     B 0 9 S X R E C I M P                     %%     00491000          
+%%                                                               %%     00492000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00493000          
+                                                                        00494000          
+B09SXRECIMP SET OF S151B09RECIMP                                        00495000          
+ KEY  (B09-S401-CSI)                                                    00496000          
+       NO DUPLICATES                                                    00497000          
+%     ,TABLESIZE = 388                                                  00498000          
+%     ,AREASIZE  = 100 TABLES                                           00499000          
+      ;                                                                 00500000          
+$$RESET OMIT                                                            00501000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00502000          
+%%                                                         %%           00503000          
+%%                 S 1 5 1 B 1 0 F E C H V A L             %%           00504000          
+%%                                                         %%           00505000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00506000          
+ S151B10FECHVAL     "SALDOS FECHA VALOR            "   STANDARD DATA SET00507000          
+(                                                                       00508000          
+ B10-FVAL-CSI      "NUMERO DE C.S.I.               "    NUMBER (002);   00509000          
+%B10-FVAL-FECH1    "FECHA   DIA 1                  "    NUMBER (006);   00510000          
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00511000          
+ B10-FVAL-FECH1    "FECHA   DIA 1                  "    NUMBER (008);   00512000          
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00513000          
+ B10-FVAL-IMPO1    "IMPORTE DIA 1                  "    NUMBER (020,2); 00514000          
+%B10-FVAL-FECH2    "FECHA   DIA 2                  "    NUMBER (006);   00515000          
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00516000          
+ B10-FVAL-FECH2    "FECHA   DIA 2                  "    NUMBER (008);   00517000          
+%TERMINA CODIGO DE RENOVACION CRONOS 2000          "    NUMBER (006);   00518000          
+ B10-FVAL-IMPO2    "IMPORTE DIA 2                  "    NUMBER (020,2); 00519000          
+%B10-FVAL-FECH3    "FECHA   DIA 3                  "    NUMBER (006);   00520000          
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00521000          
+ B10-FVAL-FECH3    "FECHA   DIA 3                  "    NUMBER (008);   00522000          
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00523000          
+ B10-FVAL-IMPO3    "IMPORTE DIA 3                  "    NUMBER (020,2); 00524000          
+ B10-CAPT-APORT    "SDOS. DIA ANT. APORTACIONES    "    NUMBER (020,2); 00525000          
+ B10-CAPT-INST     "SDOS. DIA ANT. INSTRUCCIONES   "    NUMBER (020,2); 00526000          
+)                                                                       00527000          
+ POPULATION        = 500000                                             00528000          
+,BLOCKSIZE         = 17   RECORDS                                       00529000          
+% ,AREASIZE          = 2000 RECORDS                                     00530000          
+% ,REBLOCKFACTOR     = 30                                               00531000          
+;                                                                       00532000          
+                                                                        00533000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00534000          
+%%                                                               %%     00535000          
+%%                     B 1 0 S X F E C H V A L                   %%     00536000          
+%%                                                               %%     00537000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00538000          
+                                                                        00539000          
+B10SXFECHVAL SET OF S151B10FECHVAL                                      00540000          
+ KEY  (B10-FVAL-CSI)                                                    00541000          
+       NO DUPLICATES                                                    00542000          
+%     ,TABLESIZE = 388                                                  00543000          
+%     ,AREASIZE  = 100 TABLES                                           00544000          
+      ;                                                                 00545000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00546000          
+%%                                                         %%           00547000          
+%%                 S 1 5 1 B 1 1 C A N F V A L             %%           00548000          
+%%                                                         %%           00549000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00550000          
+ S151B11CANFVAL    "CANCELACION DE SALDOS F. VALOR "   STANDARD DATA SET00551000          
+(                                                                       00552000          
+ B11-CFVA-CSI      "NUMERO DE C.S.I.               "    NUMBER (002);   00553000          
+%B11-CFVA-FECH1    "FECHA   DIA 1                  "    NUMBER (006);   00554000          
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00555000          
+ B11-CFVA-FECH1    "FECHA   DIA 1                  "    NUMBER (008);   00556000          
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00557000          
+ B11-CFVA-IMPO1    "IMPORTE DIA 1                  "    NUMBER (020,2); 00558000          
+%B11-CFVA-FECH2    "FECHA   DIA 2                  "    NUMBER (006);   00559000          
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00560000          
+ B11-CFVA-FECH2    "FECHA   DIA 2                  "    NUMBER (008);   00561000          
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00562000          
+ B11-CFVA-IMPO2    "IMPORTE DIA 2                  "    NUMBER (020,2); 00563000          
+%B11-CFVA-FECH3    "FECHA   DIA 3                  "    NUMBER (006);   00564000          
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00565000          
+ B11-CFVA-FECH3    "FECHA   DIA 3                  "    NUMBER (008);   00566000          
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00567000          
+ B11-CFVA-IMPO3    "IMPORTE DIA 3                  "    NUMBER (020,2); 00568000          
+)                                                                       00569000          
+ POPULATION        = 500000                                             00570000          
+,BLOCKSIZE         = 17   RECORDS                                       00571000          
+% ,AREASIZE          = 2000 RECORDS                                     00572000          
+% ,REBLOCKFACTOR     = 30                                               00573000          
+;                                                                       00574000          
+                                                                        00575000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00576000          
+%%                                                               %%     00577000          
+%%                     B 1 1 S X C A N F V A L                   %%     00578000          
+%%                                                               %%     00579000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00580000          
+                                                                        00581000          
+B11SXCANFVAL SET OF S151B11CANFVAL                                      00582000          
+ KEY  (B11-CFVA-CSI)                                                    00583000          
+       NO DUPLICATES                                                    00584000          
+%     ,TABLESIZE = 388                                                  00585000          
+%     ,AREASIZE  = 100 TABLES                                           00586000          
+      ;                                                                 00587000          
+$$SET OMIT                                                              00588000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00589000          
+%%                                                         %%           00590000          
+%%                 S 1 5 1 B 1 2 C V I G V E N             %%           00591000          
+%%                                                         %%           00592000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           00593000          
+ S151B12CVIGVEN    "SDOS. CARTERA VIGENTE Y VENCIDA"   STANDARD DATA SET00594000          
+(                                                                       00595000          
+ B12-CVV-CSI       "NUMERO DE C.S.I.               "    NUMBER (002);   00596000          
+ B12-CVV-SISTEMA   "NUMERO DE SISTEMA              "    NUMBER (004);   00597000          
+ B12-CVV-PRODUCTO  "NUMERO DE PRODUCTO             "    NUMBER (004);   00598000          
+ B12-CVV-MONEDA    "NUMERO DE MONEDA               "    NUMBER (004);   00599000          
+ B12-CVV-VIGENTE   "CARTERA VIGENTE                "    NUMBER (020,2); 00600000          
+ B12-CVV-VENCIDA   "CARTERA VENCIDA                "    NUMBER (020,2); 00601000          
+)                                                                       00602000          
+ POPULATION        = 500000                                             00603000          
+,BLOCKSIZE         = 17   RECORDS                                       00604000          
+% ,AREASIZE          = 2000 RECORDS                                     00605000          
+% ,REBLOCKFACTOR     = 30                                               00606000          
+;                                                                       00607000          
+                                                                        00608000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00609000          
+%%                                                               %%     00610000          
+%%                     B 1 2 S X C V I G V E N                   %%     00611000          
+%%                                                               %%     00612000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     00613000          
+                                                                        00614000          
+B12SXCVIGVEN SET OF S151B12CVIGVEN                                      00615000          
+ KEY  (B12-CVV-CSI,                                                     00616000          
+       B12-CVV-SISTEMA,                                                 00617000          
+       B12-CVV-PRODUCTO)                                                00618000          
+       NO DUPLICATES                                                    00619000          
+%     ,TABLESIZE = 388                                                  00620000          
+%     ,AREASIZE  = 100 TABLES                                           00621000          
+      ;                                                                 00622000          
+$RESET OMIT                                                             00623000          
+%***********************************************************************00624000          
+ S151B13AUDITORIA      DATA SET       % PREFIJO B13                     00625000          
+%*********************************************************************  00626000          
+ (B13-AUD-CAPSULA     "NUMERO DE CAPSULA     "        NUMBER  (01);     00627000          
+  B13-AUD-TIPO-BUSQ   "TIPO DE BUSQUEDA      "        NUMBER  (01);     00628000          
+  B13-AUD-SISTEMA     "NUMERO DE SISTEMA     "        NUMBER  (04);     00629000          
+  B13-AUD-MONEDA      "MONEDA                "        NUMBER  (02);     00630000          
+  B13-AUD-IMPORTE     "IMPORTE               "        NUMBER  (14);     00631000          
+  B13-AUD-NUM-DIAS    "NO. DIAS (FEC.VAL)    "        NUMBER  (04);     00632000          
+ )                                                                      00633000          
+ ,POPULATION    = 500                                                   00634000          
+ ,BLOCKSIZE     = 4                                                     00635000          
+ ;                                                                      00636000          
+%*********************************************************************  00637000          
+ B13SXCAPSULA          SET OF S151B13AUDITORIA                          00638000          
+%*********************************************************************  00639000          
+ KEY IS B13-AUD-CAPSULA                                                 00640000          
+ ,NO DUPLICATES                                                         00641000          
+ ,TABLESIZE = 14                                                        00642000          
+ ,INDEX SEQUENTIAL                                                      00643000          
+ ;                                                                      00644000          
+%***********************************************************************00645000          
+ S151B14CONOPECRUZ      DATA SET       % PREFIJO B14                    00646000          
+%*********************************************************************  00647000          
+ (B14-CON-KEYTESO     "LLAVE DEL DATA-SET            " GROUP            00648000          
+ (B14-CON-CSI         "NUMERO DE CSI         "        NUMBER  (02);     00649000          
+  B14-CON-FCHCON      "FECHA DE CONSULTA     "        NUMBER  (08);     00650000          
+  B14-CON-SISTEMA     "NUMERO DE SISTEMA     "        NUMBER  (04);     00651000          
+  B14-CON-MONEDA      "MONEDA                "        NUMBER  (04);     00652000          
+  B14-CON-ORIBNM      "BANCO ORIGEN BANAMEX  "        NUMBER  (03);     00653000          
+  B14-CON-DESOTR      "BANCO DESTINO OTROS   "        NUMBER  (03);     00654000          
+  B14-CON-ORIOTR      "BANCO ORIGEN OTROS    "        NUMBER  (03);     00655000          
+  B14-CON-DESBNM      "BANCO DESTINO BANAMEX "        NUMBER  (03);     00656000          
+  B14-CON-HHMMSS      "HORA DE CONSULTA      "        NUMBER  (06);     00657000          
+  );                                                                    00658000          
+  B14-BNM-NUMCAR      "NUMERO DE CARGOS      "        NUMBER  (06);     00659000          
+  B14-BNM-IMPCAR      "IMPORTE DE CARGOS     "        NUMBER  (S15,2);  00660000          
+  B14-BNM-NUMABO      "NUMERO DE ABONOS      "        NUMBER  (06);     00661000          
+  B14-BNM-IMPABO      "IMPORTE DE ABONOS     "        NUMBER  (S15,2);  00662000          
+  B14-BNM-LIQ         "MOVIMIENTOS DE LIQUID "        NUMBER  (S15,2);  00663000          
+  B14-BNM-DIF         "DIFERENCIA ENTRE BCOS "        NUMBER  (S15,2);  00664000          
+  B14-OTR-NUMCAR      "NUMERO DE CARGOS      "        NUMBER  (06);     00665000          
+  B14-OTR-IMPCAR      "IMPORTE DE CARGOS     "        NUMBER  (S15,2);  00666000          
+  B14-OTR-NUMABO      "NUMERO DE ABONOS      "        NUMBER  (06);     00667000          
+  B14-OTR-IMPABO      "IMPORTE DE ABONOS     "        NUMBER  (S15,2);  00668000          
+  B14-OTR-LIQ         "MOVIMIENTOS DE LIQUID "        NUMBER  (S15,2);  00669000          
+  B14-OTR-DIF         "DIFERENCIA ENTRE BCOS "        NUMBER  (S15,2);  00670000          
+  B14-CON-DIFGLO      "DIFERENCIA GLOBAL     "        NUMBER  (S15,2);  00671000          
+  B14-CON-AUTS151     "AUTORIZACION S151    "         NUMBER  (08);     00671100          
+ )                                                                      00672000          
+ ,POPULATION    = 100000                                                00673000          
+ ;                                                                      00674000          
+%*********************************************************************  00675000          
+ B14SXCONOPE           SET OF S151B14CONOPECRUZ                         00676000          
+%*********************************************************************  00677000          
+ KEY IS (B14-CON-KEYTESO)                                               00678000          
+                                                                        00679000          
+ ,POPULATION      = 100000                                              00680000          
+ ,MEMORY RESIDENT = ALL                                                 00681000          
+ ,NO DUPLICATES                                                         00682000          
+ ,INDEX SEQUENTIAL                                                      00683000          
+ ;                                                                      00684000          
+                                                                        00685000          
+%***********************************************************************00686000          
+ S151B15MOVOPECRUZ      DATA SET       % PREFIJO B15                    00687000          
+%*********************************************************************  00688000          
+ (B15-MOV-KEYTESO     "LLAVE DEL DATA-SET            " GROUP            00689000          
+ (B15-MOV-CSI         "NUMERO DE CSI         "        NUMBER  (02);     00690000          
+  B15-MOV-FCHCON      "FECHA CONTABLE        "        NUMBER  (08);     00691000          
+  B15-MOV-SISTEMA     "NUMERO DE SISTEMA     "        NUMBER  (04);     00692000          
+  B15-MOV-MONEDA      "MONEDA                "        NUMBER  (04);     00693000          
+  B15-MOV-BCOORI      "BANCO ORIGEN          "        NUMBER  (03);     00694000          
+  B15-MOV-BCODES      "BANCO DESTINO         "        NUMBER  (03);     00695000          
+  B15-MOV-HHMMSS      "HORA MAQUINA DEL MOV  "        NUMBER  (06);     00696000          
+  B15-MOV-FCHMAQ      "FECHA MAQUINA DEL MOV "        NUMBER  (08);     00697000          
+  );                                                                    00698000          
+  B15-MOV-CVETRA      "CLAVE DE TRANSACCION  "        NUMBER  (04);     00699000          
+  B15-MOV-IMPMOV      "IMPORTE DEL MOVTO     "        NUMBER  (14,2);   00700000          
+ )                                                                      00701000          
+ ,POPULATION    = 100000                                                00702000          
+ ;                                                                      00703000          
+%*********************************************************************  00704000          
+ B15SXCONMOV           SET OF S151B15MOVOPECRUZ                         00705000          
+%*********************************************************************  00706000          
+ KEY IS (B15-MOV-KEYTESO)                                               00707000          
+                                                                        00708000          
+ ,POPULATION      = 100000                                              00709000          
+ ,MEMORY RESIDENT = ALL                                                 00710000          
+ ,NO DUPLICATES                                                         00711000          
+ ,INDEX SEQUENTIAL                                                      00712000          
+ ;                                                                      00713000          
+S151BD02ADSALDO(GUARDFILE=(S151)S151/FILE/GUARDFILE/S151BD02ADSALDO     00713100          
+                 ON CMEMP);                                             00713200          

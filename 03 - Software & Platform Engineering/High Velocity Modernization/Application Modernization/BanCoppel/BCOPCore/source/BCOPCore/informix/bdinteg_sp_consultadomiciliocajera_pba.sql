@@ -1,0 +1,4270 @@
+CREATE PROCEDURE "informix".sp_consultadomiciliocajera_pba( pModo SMALLINT, pCliente CHAR(20) )
+	--- pModo = 1 - Consulta de Domicilio Personal
+	--- pModo = 2 - Consulta de Domicilio del Trabajo
+	RETURNING CHAR(6) AS cCodRet ,CHAR(26) AS cApellidoPaterno,CHAR(26) AS cApellidoMaterno,CHAR(26) AS cNombre1,
+		CHAR(26) AS cNombre2,CHAR(15) AS cNombreCiudad,CHAR(30) AS cNombreZona,CHAR(10) AS cNumeroExterior,CHAR(10) AS cNumeroInterior,
+		CHAR(6) AS cDepto,CHAR(1) AS cRumbo,CHAR(30) AS cNombreCalle,CHAR(5) AS cCodigoPostal,CHAR(80) AS cObservaciones,CHAR(13) AS cTelefonoParticular,
+		CHAR(13)AS cTelefonoCelular,CHAR(13) AS cTelefonoTrabajo,CHAR(13) AS cTelefonoReferencia,CHAR(40) AS cEntreCalles,CHAR(2) AS cEstado,
+		CHAR(30) AS cNombreEstado,CHAR(60) AS cLugarTrabajo,CHAR(2) AS cUnidad,CHAR(3) AS cCiudad,INTEGER AS iColonia,INTEGER AS iCalle,INTEGER AS iManzana,
+		INTEGER AS iOtros,INTEGER AS iAndador,INTEGER AS iEtapa,INTEGER AS iLote,INTEGER AS iEdificio,INTEGER AS iEntrada,INTEGER AS iCiudadCoppel, CHAR(100) AS cEmail;
+			  
+			  
+		DEFINE isqlerr INTEGER;
+		DEFINE cCodRet CHAR(6);
+		DEFINE cApellidoPaterno CHAR(26);
+		DEFINE cApellidoMaterno CHAR(26);
+		DEFINE cNombre1 CHAR(26);
+		DEFINE cNombre2 CHAR(26);
+		DEFINE cNombreCiudad CHAR(15);
+		DEFINE cNombreZona CHAR(30);
+		DEFINE cNumeroExterior CHAR(10);
+		DEFINE cNumeroInterior CHAR(10);
+		DEFINE cDepto CHAR(6);
+		DEFINE cRumbo CHAR(1);
+		DEFINE cNombreCalle CHAR(30);
+		DEFINE cCodigoPostal CHAR(5);
+		DEFINE cObservaciones CHAR(80);
+		DEFINE cTelefonoParticular CHAR(13);
+		DEFINE cTelefonoCelular CHAR(13);
+		DEFINE cTelefonoReferencia CHAR(13);
+		DEFINE cTelefonoTrabajo CHAR(13);
+		DEFINE cEntreCalles CHAR(40);
+		DEFINE cCiudad CHAR(3);
+		DEFINE iColonia INTEGER ;
+		DEFINE iCalle INTEGER ;
+		DEFINE cUnidad CHAR(2);
+		DEFINE iManzana INTEGER ;
+		DEFINE iOtros INTEGER ;
+		DEFINE iAndador INTEGER ;
+		DEFINE iEtapa INTEGER ;
+		DEFINE iLote INTEGER ;
+		DEFINE iEdificio INTEGER ;
+		DEFINE iEntrada INTEGER ;
+		DEFINE cEstado CHAR(2);
+		DEFINE cNombreEstado CHAR(30);
+		DEFINE cLugarTrabajo CHAR(60);
+		DEFINE iCiudadCoppel INTEGER ;
+		DEFINE cEmail CHAR(100);
+		
+		DEFINE cNumSolicitud CHAR(20);
+		DEFINE cNumSolicitud2 CHAR(20);
+		DEFINE dFecha1 DATE;
+		DEFINE dFecha2 DATE;
+		DEFINE cProducto CHAR(4);
+
+		LET isqlerr = 0;
+		LET cCodRet = "";
+		LET cApellidoPaterno = " ";
+		LET cApellidoMaterno = " ";
+		LET cNombre1 = " ";
+		LET cNombre2 = " ";
+		LET cNombreCiudad = " ";
+		LET cNombreZona = " ";
+		LET cNumeroExterior = " ";
+		LET cNumeroInterior = " ";
+		LET cDepto = " ";
+		LET cRumbo = " ";
+		LET cNombreCalle = " ";
+		LET cCodigoPostal = " ";
+		LET cObservaciones = " ";
+		LET cTelefonoParticular = " ";
+		LET cTelefonoCelular = " ";
+		LET cTelefonoReferencia = " ";
+		LET cTelefonoTrabajo = " ";
+		LET cEntreCalles = " ";
+		LET cCiudad = "";
+		LET iColonia = 0;
+		LET iCalle = 0;
+		LET cUnidad= "N";
+		LET iManzana = 0;
+		LET iOtros = 0;
+		LET iAndador = 0;
+		LET iEtapa = 0;
+		LET iLote = 0;
+		LET iEdificio = 0;
+		LET iEntrada = 0;
+		LET cEstado = " ";
+		LET cNombreEstado = " ";
+		LET cLugarTrabajo = " ";
+		LET iCiudadCoppel = 0;
+		LET cEmail = " ";
+
+		LET cNumSolicitud = '';
+		LET cNumSolicitud2 = '';
+		LET dFecha1 = '01/01/1900';
+		LET dFecha2 = '01/01/1900';
+		LET cProducto = '';
+
+		--SET DEBUG FILE TO "/respaldosbd/AnahiLeyva/sp_consultadomiciliocajera.out";
+		--TRACE ON;
+		
+		BEGIN
+
+		ON EXCEPTION SET isqlerr
+			IF isqlerr <> 0 THEN
+				LET cCodRet = isqlerr;
+				RETURN cCodRet,cApellidoPaterno,cApellidoMaterno,cNombre1,cNombre2,cNombreCiudad,cNombreZona,cNumeroExterior,cNumeroInterior,cDepto,cRumbo,
+						cNombreCalle,cCodigoPostal,cObservaciones,cTelefonoParticular,cTelefonoCelular,cTelefonoTrabajo,cTelefonoReferencia,cEntreCalles,
+						cEstado,cNombreEstado,cLugarTrabajo,cUnidad,cCiudad,iColonia,iCalle,iManzana,iOtros,iAndador,iEtapa,iLote,iEdificio,iEntrada,iCiudadCoppel,cEmail;
+			END IF;
+		END EXCEPTION;
+
+		SET ISOLATION TO DIRTY READ;
+		SET LOCK MODE TO WAIT 3;   
+		
+		--Se obtiene numero de solicitud
+			SELECT limit 1 fecha_apertura, num_credito 		
+			INTO dFecha1, cNumsolicitud
+			FROM bdicred:"informix".sd_maecred 
+			WHERE numcte   =  pCliente 
+			AND fecha_apertura = (SELECT MAX(fecha_apertura)
+								FROM bdicred:"informix".sd_maecred 
+								WHERE numcte   =  pCliente );
+			
+			SELECT  limit 1 fecha_apertura, num_credito, num_producto 
+			INTO dFecha2, cNumsolicitud2, cProducto
+			FROM bdicred:"informix".sd_maecredcrd
+			WHERE numcte = pCliente
+			AND  fecha_apertura = (SELECT MAX (fecha_apertura) 
+								FROM bdicred:"informix".sd_maecredcrd
+								WHERE numcte   =  pCliente );
+		
+		IF dFecha1 IS NULL OR dFecha1 = "" THEN
+			LET dFecha1 = '01/01/1900';
+		END IF;
+		
+		IF dFecha2 IS NULL OR dFecha2 = ""  THEN
+			LET dFecha2 = '01/01/1900';
+		END IF;
+		
+		IF dfecha1 < dFecha2 THEN		
+			IF cProducto = '6011' THEN
+				SELECT num_credito 		
+				INTO cNumsolicitud
+				FROM bdicred:"informix".sd_maecred 
+				WHERE credito_externo =  cNumsolicitud2;
+			ELSE
+				LET cNumsolicitud = cNumsolicitud2;
+			END IF;
+		END IF;		
+			
+		IF NVL(cNumSolicitud, '') <> '' THEN
+			--Obtener el numero de telefono		
+			SELECT telefono_ref 
+			INTO cTelefonoReferencia  
+			FROM bdisolic:"informix".ss_refpersonales 
+			WHERE numcte = pCliente AND num_solicitud = cNumSolicitud
+			AND numcte_ref = 'R1';
+
+			IF NVL(cTelefonoReferencia,'') = '' THEN
+				SELECT  first 1 b.telefono1 
+				INTO  cTelefonoReferencia 
+				FROM bdinteg:"informix".si_refclientes a, bdinteg:"informix".si_refdirecciones b
+				WHERE a.empresa = '001'
+				  and a.num_solicitud = cNumSolicitud
+				  and a.numcte = pCliente
+				  AND a.numcte = b.numcte 
+				  AND a.secuencia = b.secuencia ;
+			END IF;
+			let cTelefonoReferencia = nvl(cTelefonoReferencia,'');
+			--IF NVL(cTelefonoReferencia,'') <> '' THEN
+				SELECT '000',NVL(t1.apell_paterno,''), NVL(t1.apell_materno,''), NVL(t1.nombre1,''), NVL(t1.nombre2,''), 
+				NVL(t2.ciudad,0), NVL(t2.numerocolonia,0), NVL(t2.numeroextcalle,''), NVL(t2.numerointcalle,''),NVL(t2.departamento,''), 
+				NVL(t2.puntocardinal,''), NVL(t2.numerocalle,0), NVL(t2.cod_postal,''), NVL(t2.observaciones,''), NVL(t2.manzana,0)::INTEGER, 
+				NVL(t2.otros,0)::INTEGER, NVL(t2.andador,0)::INTEGER, NVL(t2.etapa,0)::INTEGER, NVL(t2.lote,0)::INTEGER, NVL(t2.edificio,0)::INTEGER,
+				NVL(t2.entrada,0)::INTEGER, NVL(t9.telefono,''), NVL(t92.telefono,''), NVL(t93.telefono,''),
+				--t7.telefono_ref as referencia, 
+				NVL(t3.nombre,''), NVL(t4.nombrecalle,''), NVL(t5.nombrezona,''), NVL(t2.entre_calles,''), NVL(t2.estado,''), NVL(t6.nombre,''),--<--si_estados
+				NVL((SELECT nombre_empresa
+							FROM "informix".SI_INGRESOS ING1 
+							WHERE ING1.tipo_ingreso = 'T'
+							AND ING1.sec_ingreso = ( SELECT MAX(ING2.sec_ingreso)
+														FROM "informix".si_ingresos ING2 
+														WHERE t1.EMPRESA = ING2.EMPRESA 
+														AND t1.NUMCTE = ING2.NUMCTE 
+														AND ING2.tipo_ingreso = 'T') 
+							AND t1.EMPRESA = ING1.EMPRESA 
+							AND t1.NUMCTE = ING1.NUMCTE),''),
+							NVL(t2.unidadhabitac,'N'), NVL(t3.ciudad_coppel,0)::INTEGER, NVL(t10.correo_elec,'')
+				INTO cCodRet ,cApellidoPaterno, cApellidoMaterno, cNombre1, cNombre2, 
+				cCiudad, iColonia, cNumeroExterior, cNumeroInterior, cDepto, 
+				cRumbo, iCalle, cCodigoPostal, cObservaciones, iManzana, 
+				iOtros, iAndador, iEtapa, iLote, iEdificio,
+				iEntrada, cTelefonoParticular, cTelefonoCelular, cTelefonoTrabajo, 
+				--cTelefonoReferencia, 
+				cNombreCiudad, cNombreCalle, cNombreZona, cEntreCalles, cEstado, cNombreEstado, 
+				cLugarTrabajo, 
+				cUnidad, iCiudadCoppel, cEmail
+				FROM "informix".si_cliente t1
+				LEFT JOIN "informix".si_direcciones_actual t2 ON (t1.numcte = t2.numcte AND t2.tipo_dir = pModo) --- AND t2.secuencia = (SELECT MAX(t6.secuencia) FROM bdinteg:si_direcciones t6 WHERE t6.numcte = t1.numcte AND t6.tipo_dir = t2.tipo_dir )) 
+				LEFT JOIN "informix".si_ciudades t3 ON t2.ciudad = t3.ciudad AND t2.estado = t3.estado
+				LEFT JOIN "informix".si_catcalles t4 ON t2.numerocalle = t4.numerocalle
+				LEFT JOIN "informix".si_catzonas t5 ON t2.numerociudad = t5.numerociudad AND t2.numerocolonia = t5.numerocolonia
+				LEFT JOIN "informix".si_estados t6 ON t2.estado = t6.estado
+				--2014/06/09
+				--LEFT JOIN bdisolic:"informix".ss_refpersonales t7 ON (t1.numcte = t7.numcte AND t7.numcte_ref = 'R1')
+				--JOIN bdicred:"informix".sd_maecred t8 ON (t1.numcte = t8.numcte AND t7.num_solicitud = t8.num_credito)
+				LEFT OUTER JOIN "informix".si_telefonos_actual t9 ON ( t9.numcte = t1.numcte AND t9.tipo_tel = 1 )
+				LEFT OUTER JOIN "informix".si_telefonos_actual t92 ON ( t92.numcte = t1.numcte AND t92.tipo_tel = 2 )
+				LEFT OUTER JOIN "informix".si_telefonos_actual t93 ON ( t93.numcte = t1.numcte AND t93.tipo_tel = 3 )
+				LEFT JOIN "informix".si_correos t10 ON ( t10.numcte = t1.numcte 
+				AND t10.secuencia = (SELECT MAX(secuencia)
+									FROM "informix".si_correos
+									WHERE numcte = pCliente
+									AND tipo_correo = pModo ))
+				WHERE t1.numcte = pCliente;
+			--ELSE
+				--LET cCodRet = '002' ;  --- No existe el cliente en el catalogo de telefonos
+			--END IF;
+		ELSE
+			LET cCodRet = '001' ;  --- No existe el cliente en el catalogo
+		END IF ;
+		RETURN cCodRet,cApellidoPaterno,cApellidoMaterno,cNombre1,cNombre2,cNombreCiudad,cNombreZona,cNumeroExterior,cNumeroInterior,cDepto,cRumbo,
+			   cNombreCalle,cCodigoPostal,cObservaciones,cTelefonoParticular,cTelefonoCelular,cTelefonoTrabajo,cTelefonoReferencia,cEntreCalles,
+			   cEstado,cNombreEstado,cLugarTrabajo,cUnidad,cCiudad,iColonia,iCalle,iManzana,iOtros,iAndador,iEtapa,iLote,iEdificio,iEntrada,iCiudadCoppel, cEmail with resume;
+		END
+	END PROCEDURE
+	DOCUMENT
+	'06/Febrero/2008',
+	'Walber Castro',
+	'Obtiene los datos del domicilio del cliente',
+	'*********************************************',
+	'17/Junio/2008',
+	'Walber Castro',
+	'Se corrige como toma el nombre de la empresa por el maximo de secuencia de la si_ingresos.',
+	'*********************************************',
+	'11/Julio/2008',
+	'Walber Castro',
+	'Se agrega el parametro de ciudad coppel.',
+	'*********************************************',
+	'10/Sept/2008',
+	'Walber Castro',
+	'Se modifica el ON de las tablas si_cliente join di_direcciones',
+	'para que se obtengan los datos del cliente aun cuando no haya',
+	'informaci?n del domicilio del trabajo.',
+	'**********************************************',
+	'2009-01-07',
+	'Marcos Cuevas',
+	'Se agrego la validacion de tipo ingreso en las consulta ala si_ingresos',
+	'2011-02-03  Por MACF',
+	'*************************************************************************************************************************',
+	'Se modifica para obtener el tel?fono de la Referencia, siempre y cuando el Cliente haya ingresado una solicitud de TDC',
+	'******************************************************************************************************************************',
+	' 2011-07-05 Se modifica para que solo obtenga info de la solicitud y/o credito aprobado - Marco A. Campos',
+	'*************************************************************************************************************************',
+	' 2013-08-27 Se modifica para a?adir retorno y consulta de email de cte '' Hugo G. Vazquez',
+	'*************************************************************************************************************************',
+	' 2014-06-09 ',
+	' Descripcion: Se sustituye tabla ss_refpersonales',
+	' Modifico: Victor Hugo Nu?ez',
+	'*************************************************************************************************************************';
+
+CREATE PROCEDURE "informix".sp_cnsif_buscacte_pba(cID_USUARIOC char(8),cID_FUNCIONC CHAR(10),cTBUSQUEDA CHAR(1),cNOMBRE1 CHAR (26),cNOMBRE2 CHAR(26),cAPATERNO CHAR(26),cAMATERNO CHAR(26),dFNACIMIENTO DATE,cRSOCIAL CHAR(60),pNumRegistro INTEGER,pRecuperacion INTEGER)
+
+    RETURNING CHAR(5)  AS Cod_Retorno,
+			  CHAR(20) AS Numero_Cliente,
+			  CHAR(13) AS RFC,
+			  CHAR(1)  AS Id_Num_Consulta,
+			  CHAR(26) AS Nombre_1,
+			  CHAR(26) AS Nombre_2,
+			  CHAR(26) AS Apellido_Paterno,
+			  CHAR(26) AS Apellido_Materno,
+			  CHAR(60) AS Razon_Social;
+								
+	--Variables
+	DEFINE iexiste 					INT;
+	DEFINE cCodRet 					CHAR(5);
+	DEFINE iSql_err 				INT;
+	DEFINE cNumero_cliente			CHAR(20);
+	DEFINE cNombre1_salida			CHAR(26);
+	DEFINE cNombre2_salida			CHAR(26);
+	DEFINE cAPaterno1				CHAR(26);
+	DEFINE cAMaterno1				char(26);
+	DEFINE cRSocial1				CHAR(60);
+	DEFINE cRFC1 					CHAR(13);
+	DEFINE cId_Nconsulta_cliente	CHAR(1);
+    DEFINE iCont                    INTEGER;
+    DEFINE cRSOCIAL2                CHAR(60);
+
+
+	--inicializando variables
+	LET iexiste 	= 0;
+	LET cCodRet 	= "00000";	
+	LET iSql_err 	= 0;
+	LET cNumero_cliente	 = "";
+	LET cNombre1_salida	 = "";
+	LET cNombre2_salida	 = "";
+	LET cAPaterno1	 = "";
+	LET cAMaterno1	 = "";
+	LET cRSocial1	 = "";
+	LET cRFC1	 = "";
+	LET cId_Nconsulta_cliente	 = '1';
+    LET iCont=0;
+    LET cRSOCIAL2="";
+	
+	BEGIN
+		ON EXCEPTION SET iSql_err
+            IF iSql_err <> 0 THEN
+                LET cCodRet = iSql_err;
+                RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+                
+            END IF;
+        END EXCEPTION;
+		      --SET DEBUG FILE TO "/informix/CHVN/log/sp_cnsif_buscacte.out";
+		      --TRACE ON;
+
+        IF pNumRegistro<0 THEN
+            LET cCodRet='00098';
+            RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+        ELSE
+            IF pRecuperacion<=0 THEN
+                LET cCodRet='00098';
+                RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+            END IF;
+        END IF;    
+
+		IF cTBUSQUEDA <> '1' AND cTBUSQUEDA <> '2' THEN 
+			LET cCodRet = "00052";
+			RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+		END IF; 	
+		
+		EXECUTE FUNCTION sp_cnsif_confirmaejecutivo (cID_USUARIOC,cID_FUNCIONC)
+		INTO cCodRet;
+
+		IF cCodRet = '00028' THEN 
+			RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+		END IF;		
+		
+		IF cTBUSQUEDA = 1 THEN
+			IF 		cID_USUARIOC ='' 	OR 
+					cID_FUNCIONC = '' 	OR 
+					cNOMBRE1 ='' 		OR
+					cAPATERNO= ''  		THEN
+					LET cCodRet = "00054";
+					RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+			END IF;		
+			IF cID_FUNCIONC='SKI002' THEN
+				IF dFNACIMIENTO IS NULL OR dFNACIMIENTO='' THEN
+					LET cCodRet = "00360";
+					RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+				END IF;
+			END IF;
+			IF cNOMBRE2  <> '' THEN
+				IF cAMATERNO <> '' THEN
+					IF dFNACIMIENTO IS NULL THEN 
+						FOREACH
+                        SELECT FIRST 1 nvl(Count(numcte),0) INTO iexiste  FROM si_cliente WHERE nombre1 =cNOMBRE1 AND nombre2 =cNOMBRE2 AND apell_paterno = cAPATERNO AND apell_materno = cAMATERNO
+						UNION
+						SELECT nvl(Count(numcte_tf),0) FROM bditransfer:tf_maecte WHERE nombre1 =cNOMBRE1 AND nombre2 =cNOMBRE2 AND apell_paterno = cAPATERNO AND apell_materno = cAMATERNO
+						ORDER BY 1 desc
+						END FOREACH;
+                        IF iexiste = 0 THEN
+                            LET cCodRet = "00053";
+                            RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+                        END IF;
+						set isolation to dirty read;
+						FOREACH
+							SELECT SKIP pNumRegistro FIRST pRecuperacion CL.numcte,CL.nombre1,CL.nombre2,CL.apell_paterno,CL.apell_materno,CL.rfc_alterno 
+							INTO
+							cNumero_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRFC1
+							FROM  si_cliente CL
+							LEFT JOIN si_ctepf PF
+							ON PF.numcte = CL.numcte
+							WHERE CL.nombre1 = 	cNOMBRE1
+							AND CL.nombre2 =	cNOMBRE2
+							AND CL.apell_paterno = cAPATERNO
+							AND CL.apell_materno = cAMATERNO
+							UNION
+							SELECT TF.numcte_tf,TF.nombre1,TF.nombre2,TF.apell_paterno,TF.apell_materno,TF.rfc
+							FROM bditransfer:tf_maecte TF
+							LEFT JOIN si_cliente PF
+							ON PF.numcte = TF.numcte
+							WHERE TF.nombre1 = 	cNOMBRE1
+							AND TF.nombre2 =	cNOMBRE2
+							AND TF.apell_paterno = cAPATERNO
+							AND TF.apell_materno = cAMATERNO
+							AND PF.numcte IS NULL
+                            ORDER BY 1
+							
+                            IF cRFC1='' OR cRFC1 IS NULL THEN
+                                SELECT rfc INTO cRFC1 FROM si_cliente WHERE numcte = cNumero_cliente AND empresa = '001';
+                            END IF;
+
+                            SELECT NVL(nivel,0) INTO cId_Nconsulta_cliente FROM si_cliente_nivel
+                            WHERE numcte=cNumero_cliente;
+
+                            IF cId_Nconsulta_cliente IS NULL THEN
+                                LET cId_Nconsulta_cliente=9;
+                            END IF;
+
+                            LET iCont=iCont+1;
+							RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1 with resume;
+						END FOREACH;
+                        IF iCont = 0 THEN
+                            LET cCodRet = '1001'; 
+                            RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+                        END IF 
+					ELSE 
+						FOREACH
+                        SELECT FIRST 1 nvl(Count(CL.numcte),0) INTO iexiste FROM si_cliente CL LEFT JOIN si_ctepf PF ON PF.numcte = CL.numcte WHERE CL.nombre1 = cNOMBRE1 AND CL.nombre2 =cNOMBRE2 AND
+                        CL.apell_paterno = cAPATERNO AND CL.apell_materno = cAMATERNO AND PF.fecha_nac = dFNACIMIENTO
+						UNION
+						SELECT nvl(Count(TF.numcte_tf),0) FROM bditransfer:tf_maecte TF WHERE TF.nombre1 = cNOMBRE1 AND TF.nombre2 =cNOMBRE2 AND
+                        TF.apell_paterno = cAPATERNO AND TF.apell_materno = cAMATERNO AND TF.fecha_nac = dFNACIMIENTO
+						ORDER BY 1 desc
+						END FOREACH;
+                        IF iexiste = 0 THEN
+                            LET cCodRet = "00053";
+                            RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+                        END IF;
+						set isolation to dirty read;
+						FOREACH
+							SELECT SKIP pNumRegistro FIRST pRecuperacion CL.numcte,CL.nombre1,CL.nombre2,CL.apell_paterno,CL.apell_materno,CL.razon_social,CL.rfc_alterno
+							INTO
+							cNumero_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1,cRFC1
+							FROM  si_cliente CL
+							LEFT JOIN si_ctepf PF
+							ON PF.numcte = CL.numcte
+							WHERE CL.nombre1 = 	cNOMBRE1
+							AND CL.nombre2 =	cNOMBRE2
+							AND CL.apell_paterno = cAPATERNO
+							AND CL.apell_materno = cAMATERNO
+							AND PF.fecha_nac = dFNACIMIENTO
+							UNION
+							SELECT TF.numcte_tf,TF.nombre1,TF.nombre2,TF.apell_paterno,TF.apell_materno,'',TF.rfc
+							FROM bditransfer:tf_maecte TF
+							LEFT JOIN si_cliente PF
+							ON PF.numcte = TF.numcte
+							WHERE TF.nombre1 = 	cNOMBRE1
+							AND TF.nombre2 =	cNOMBRE2
+							AND TF.apell_paterno = cAPATERNO
+							AND TF.apell_materno = cAMATERNO
+							AND TF.fecha_nac = dFNACIMIENTO
+							AND PF.numcte IS NULL
+                            ORDER BY 1
+
+                            IF cRFC1='' OR cRFC1 IS NULL THEN
+                                SELECT rfc INTO cRFC1 FROM si_cliente WHERE numcte = cNumero_cliente AND empresa = '001';
+                            END IF;
+
+                            SELECT NVL(nivel,0) INTO cId_Nconsulta_cliente FROM si_cliente_nivel
+                            WHERE numcte=cNumero_cliente;
+
+                            IF cId_Nconsulta_cliente IS NULL THEN
+                                LET cId_Nconsulta_cliente=9;
+                            END IF;
+							
+                            LET iCont=iCont+1;	
+							RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1 with resume;
+						END FOREACH;
+                        IF iCont = 0 THEN
+                            LET cCodRet = '1001'; 
+                            RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+                        END IF 	
+					END IF;
+				ELSE 
+					FOREACH
+                    SELECT FIRST 1 nvl(Count(numcte),0) INTO iexiste  FROM si_cliente WHERE nombre1 =cNOMBRE1 AND nombre2 =cNOMBRE2 AND apell_paterno = cAPATERNO
+					UNION
+					SELECT nvl(Count(TF.numcte_tf),0) FROM bditransfer:tf_maecte TF WHERE TF.nombre1 = cNOMBRE1 AND TF.nombre2 =cNOMBRE2 AND TF.apell_paterno = cAPATERNO
+					ORDER BY 1 desc
+					END FOREACH;
+                        IF iexiste = 0 THEN
+                            LET cCodRet = "00053";
+                            RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+                        END IF;
+					IF dFNACIMIENTO IS NULL  THEN
+						set isolation to dirty read;
+						FOREACH
+							SELECT SKIP pNumRegistro FIRST pRecuperacion CL.numcte,CL.nombre1,CL.nombre2,CL.apell_paterno,CL.apell_materno,CL.razon_social,CL.rfc_alterno
+							INTO
+							cNumero_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1,cRFC1
+							FROM  si_cliente CL
+							LEFT JOIN si_ctepf PF
+							ON PF.numcte = CL.numcte
+							WHERE CL.nombre1 = 	cNOMBRE1
+							AND CL.nombre2 =	cNOMBRE2
+							AND CL.apell_paterno = cAPATERNO
+							UNION
+							SELECT TF.numcte_tf,TF.nombre1,TF.nombre2,TF.apell_paterno,TF.apell_materno,'',TF.rfc
+							FROM bditransfer:tf_maecte TF
+							LEFT JOIN si_cliente PF
+							ON PF.numcte = TF.numcte
+							WHERE TF.nombre1 = cNOMBRE1
+							AND TF.nombre2 = cNOMBRE2
+							AND TF.apell_paterno = cAPATERNO
+							AND PF.numcte IS NULL
+							ORDER BY 1
+
+                            IF cRFC1='' OR cRFC1 IS NULL THEN
+                                SELECT rfc INTO cRFC1 FROM si_cliente WHERE numcte = cNumero_cliente AND empresa = '001';
+                            END IF;
+
+                            SELECT NVL(nivel,0) INTO cId_Nconsulta_cliente FROM si_cliente_nivel
+                            WHERE numcte=cNumero_cliente;
+
+                            IF cId_Nconsulta_cliente IS NULL THEN
+                                LET cId_Nconsulta_cliente=9;
+                            END IF;
+							
+                            LET iCont=iCont+1;	
+							RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1 with resume;
+						END FOREACH;
+                        IF iCont = 0 THEN
+                            LET cCodRet = '1001'; 
+                            RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+                        END IF 
+					ELSE
+                        FOREACH
+						SELECT FIRST 1 nvl(Count(CL.numcte),0) INTO iexiste FROM si_cliente CL LEFT JOIN si_ctepf PF ON PF.numcte = CL.numcte WHERE CL.nombre1 = cNOMBRE1 AND CL.nombre2 =cNOMBRE2 AND
+                        CL.apell_paterno = cAPATERNO AND PF.fecha_nac = dFNACIMIENTO
+						UNION
+						SELECT nvl(Count(TF.numcte_tf),0) FROM bditransfer:tf_maecte TF WHERE TF.nombre1 = cNOMBRE1 AND TF.nombre2 =cNOMBRE2 AND
+                        TF.apell_paterno = cAPATERNO AND TF.fecha_nac = dFNACIMIENTO
+						ORDER BY 1 desc
+						END FOREACH;
+                            IF iexiste = 0 THEN
+                                LET cCodRet = "00053";
+                                RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+                            END IF;
+						set isolation to dirty read;
+						FOREACH
+							SELECT SKIP pNumRegistro FIRST pRecuperacion CL.numcte,CL.nombre1,CL.nombre2,CL.apell_paterno,CL.apell_materno,CL.razon_social,CL.rfc_alterno
+							INTO
+							cNumero_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1,cRFC1
+							FROM  si_cliente CL
+							LEFT JOIN si_ctepf PF
+							ON PF.numcte = CL.numcte
+							WHERE CL.nombre1 = 	cNOMBRE1
+							AND CL.nombre2 =	cNOMBRE2
+							AND CL.apell_paterno = cAPATERNO
+							AND PF.fecha_nac = dFNACIMIENTO
+                            UNION
+							SELECT TF.numcte_tf,TF.nombre1,TF.nombre2,TF.apell_paterno,TF.apell_materno,'',TF.rfc
+							FROM bditransfer:tf_maecte TF
+							LEFT JOIN si_cliente PF
+							ON PF.numcte = TF.numcte
+							WHERE TF.nombre1 = cNOMBRE1
+							AND TF.nombre2 = cNOMBRE2
+							AND TF.apell_paterno = cAPATERNO
+							AND TF.fecha_nac = dFNACIMIENTO
+							AND PF.numcte IS NULL
+                            ORDER BY 1
+
+                            IF cRFC1='' OR cRFC1 IS NULL THEN
+                                SELECT rfc INTO cRFC1 FROM si_cliente WHERE numcte = cNumero_cliente AND empresa = '001';
+                            END IF;
+
+                            SELECT NVL(nivel,0) INTO cId_Nconsulta_cliente FROM si_cliente_nivel
+                            WHERE numcte=cNumero_cliente;
+
+                            IF cId_Nconsulta_cliente IS NULL THEN
+                                LET cId_Nconsulta_cliente=9;
+                            END IF;
+							
+                            LET iCont=iCont+1;		
+							RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1 with resume;
+						END FOREACH;
+                        IF iCont = 0 THEN
+                            LET cCodRet = '1001'; 
+                            RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+                        END IF 
+					END IF;	
+				END IF;	
+			ELSE
+				IF cAMATERNO <> '' THEN
+					iF dFNACIMIENTO IS NULL  THEN
+						FOREACH
+                        SELECT FIRST 1 nvl(Count(numcte),0) INTO iexiste  FROM si_cliente WHERE nombre1 =cNOMBRE1 AND apell_paterno = cAPATERNO AND apell_materno = cAMATERNO
+						UNION
+						SELECT nvl(Count(numcte_tf),0) FROM bditransfer:tf_maecte WHERE nombre1 =cNOMBRE1 AND apell_paterno = cAPATERNO AND apell_materno = cAMATERNO
+						ORDER BY 1 desc
+						END FOREACH;
+                        IF iexiste = 0 THEN
+                            LET cCodRet = "00053";
+                            RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+                        END IF;
+						set isolation to dirty read;
+						FOREACH
+							SELECT SKIP pNumRegistro FIRST pRecuperacion CL.numcte,CL.nombre1,CL.nombre2,CL.apell_paterno,CL.apell_materno,CL.razon_social,CL.rfc_alterno
+							INTO
+							cNumero_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1,cRFC1
+							FROM  si_cliente CL
+							LEFT JOIN si_ctepf PF
+							ON PF.numcte = CL.numcte
+							WHERE CL.nombre1 = 	cNOMBRE1
+							AND CL.apell_paterno = cAPATERNO
+							AND CL.apell_materno = cAMATERNO
+							UNION
+							SELECT TF.numcte_tf, TF.nombre1,TF.nombre2,TF.apell_paterno,TF.apell_materno,'',TF.rfc
+							FROM bditransfer:tf_maecte TF
+							LEFT JOIN si_cliente PF
+							ON PF.numcte = TF.numcte
+							WHERE TF.nombre1 = 	cNOMBRE1
+							AND TF.apell_paterno = cAPATERNO
+							AND TF.apell_materno = cAMATERNO
+							AND PF.numcte IS NULL
+			                ORDER BY 1
+
+                            IF cRFC1='' OR cRFC1 IS NULL THEN
+                                SELECT rfc INTO cRFC1 FROM si_cliente WHERE numcte = cNumero_cliente AND empresa = '001';
+                            END IF;
+
+                            SELECT NVL(nivel,0) INTO cId_Nconsulta_cliente FROM si_cliente_nivel
+                            WHERE numcte=cNumero_cliente;
+
+                            IF cId_Nconsulta_cliente IS NULL THEN
+                                LET cId_Nconsulta_cliente=9;
+                            END IF;
+							
+                            LET iCont=iCont+1;	
+							RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1 with resume;
+						END FOREACH;
+                        IF iCont = 0 THEN
+                            LET cCodRet = '1001'; 
+                            RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+                        END IF 
+					ELSE
+						FOREACH
+                        SELECT FIRST 1 nvl(Count(CL.numcte),0) INTO iexiste FROM si_cliente CL LEFT JOIN si_ctepf PF ON PF.numcte = CL.numcte WHERE CL.nombre1 = cNOMBRE1 
+                        AND CL.apell_paterno = cAPATERNO AND CL.apell_materno = cAMATERNO AND PF.fecha_nac = dFNACIMIENTO
+						UNION
+						SELECT nvl(Count(TF.numcte_tf),0) FROM bditransfer:tf_maecte TF WHERE TF.nombre1 = cNOMBRE1 
+                        AND TF.apell_paterno = cAPATERNO AND TF.apell_materno = cAMATERNO AND TF.fecha_nac = dFNACIMIENTO
+						ORDER BY 1 desc
+						END FOREACH; 
+                        IF iexiste = 0 THEN
+                            LET cCodRet = "00053";
+                            RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+                        END IF;
+						set isolation to dirty read;
+						FOREACH
+							SELECT SKIP pNumRegistro FIRST pRecuperacion CL.numcte,CL.nombre1,CL.nombre2,CL.apell_paterno,CL.apell_materno,CL.razon_social,CL.rfc_alterno
+							INTO
+							cNumero_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1,cRFC1
+							FROM  si_cliente CL
+							LEFT JOIN si_ctepf PF
+							ON PF.numcte = CL.numcte
+							WHERE CL.nombre1 = 	cNOMBRE1
+							AND CL.apell_paterno = cAPATERNO
+							AND CL.apell_materno = cAMATERNO
+							AND PF.fecha_nac = dFNACIMIENTO	
+                            UNION
+							SELECT TF.numcte_tf,TF.nombre1,TF.nombre2,TF.apell_paterno,TF.apell_materno,'',TF.rfc
+							FROM bditransfer:tf_maecte TF
+							LEFT JOIN si_cliente PF
+							ON PF.numcte = TF.numcte
+							WHERE TF.nombre1 = 	cNOMBRE1
+							AND TF.apell_paterno = cAPATERNO
+							AND TF.apell_materno = cAMATERNO
+							AND TF.fecha_nac = dFNACIMIENTO	
+							AND PF.numcte IS NULL
+                            ORDER BY 1
+
+                            IF cRFC1='' OR cRFC1 IS NULL THEN
+                                SELECT rfc INTO cRFC1 FROM si_cliente WHERE numcte = cNumero_cliente AND empresa = '001';
+                            END IF;
+
+                            SELECT NVL(nivel,0) INTO cId_Nconsulta_cliente FROM si_cliente_nivel
+                            WHERE numcte=cNumero_cliente;
+
+                            IF cId_Nconsulta_cliente IS NULL THEN
+                                LET cId_Nconsulta_cliente=9;
+                            END IF;
+							
+                            LET iCont=iCont+1;	
+							RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1 with resume;
+						END FOREACH;
+                        IF iCont = 0 THEN
+                            LET cCodRet = '1001'; 
+                            RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+                        END IF 
+					END IF;
+				ELSE 
+					iF dFNACIMIENTO IS NULL  THEN
+						FOREACH
+						SELECT FIRST 1 nvl(Count(numcte),0) INTO iexiste FROM si_cliente WHERE nombre1 = cNOMBRE1 AND apell_paterno = cAPATERNO
+						UNION
+						SELECT nvl(Count(numcte_tf),0) FROM bditransfer:tf_maecte WHERE nombre1 = cNOMBRE1 AND apell_paterno = cAPATERNO
+						ORDER BY 1 desc
+						END FOREACH;
+                        IF iexiste = 0 THEN
+                            LET cCodRet = "00053";
+                            RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+                        END IF;
+						set isolation to dirty read;
+						FOREACH
+							SELECT SKIP pNumRegistro FIRST pRecuperacion CL.numcte,CL.nombre1,CL.nombre2,CL.apell_paterno,CL.apell_materno,CL.razon_social,CL.rfc_alterno
+							INTO
+							cNumero_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1,cRFC1
+							FROM  si_cliente CL
+							LEFT JOIN si_ctepf PF
+							ON PF.numcte = CL.numcte
+							WHERE CL.nombre1 = 	cNOMBRE1
+							AND CL.apell_paterno = cAPATERNO
+							UNION
+							SELECT TF.numcte_tf,TF.nombre1,TF.nombre2,TF.apell_paterno,TF.apell_materno,'',TF.rfc
+							FROM bditransfer:tf_maecte TF
+							LEFT JOIN si_cliente PF
+							ON PF.numcte = TF.numcte
+							WHERE TF.nombre1 = 	cNOMBRE1
+							AND TF.apell_paterno = cAPATERNO
+							AND PF.numcte IS NULL
+                            ORDER BY 1
+
+                            IF cRFC1='' OR cRFC1 IS NULL THEN
+                                SELECT rfc INTO cRFC1 FROM si_cliente WHERE numcte = cNumero_cliente AND empresa = '001';
+                            END IF;
+
+                            SELECT NVL(nivel,0) INTO cId_Nconsulta_cliente FROM si_cliente_nivel
+                            WHERE numcte=cNumero_cliente;
+
+                            IF cId_Nconsulta_cliente IS NULL THEN
+                                LET cId_Nconsulta_cliente=9;
+                            END IF;
+							
+                            LET iCont=iCont+1;	
+							RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1 with resume;
+						END FOREACH;
+                        IF iCont = 0 THEN
+                            LET cCodRet = '1001'; 
+                            RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+                        END IF 
+					ELSE 
+						FOREACH
+						SELECT FIRST 1 nvl(Count(CL.numcte),0) INTO iexiste FROM si_cliente CL LEFT JOIN si_ctepf PF ON PF.numcte = CL.numcte WHERE CL.nombre1 = cNOMBRE1 AND 
+                        CL.apell_paterno = cAPATERNO AND PF.fecha_nac = dFNACIMIENTO
+						UNION
+						SELECT nvl(Count(TF.numcte_tf),0) FROM bditransfer:tf_maecte TF WHERE TF.nombre1 = cNOMBRE1 AND 
+                        TF.apell_paterno = cAPATERNO AND TF.fecha_nac = dFNACIMIENTO
+						ORDER BY 1 desc
+						END FOREACH; 
+                        IF iexiste = 0 THEN
+                            LET cCodRet = "00053";
+                            RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+                        END IF;
+						set isolation to dirty read;
+						FOREACH
+							SELECT SKIP pNumRegistro FIRST pRecuperacion CL.numcte,CL.nombre1,CL.nombre2,CL.apell_paterno,CL.apell_materno,CL.razon_social,CL.rfc_alterno
+							INTO
+							cNumero_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1,cRFC1
+							FROM  si_cliente CL
+							LEFT JOIN si_ctepf PF
+							ON PF.numcte = CL.numcte
+							WHERE CL.nombre1 = 	cNOMBRE1
+							AND CL.apell_paterno = cAPATERNO
+							AND PF.fecha_nac = dFNACIMIENTO	
+							UNION
+                            SELECT TF.numcte_tf,TF.nombre1,TF.nombre2,TF.apell_paterno,TF.apell_materno,'',TF.rfc
+							FROM bditransfer:tf_maecte TF
+							LEFT JOIN si_cliente PF
+							ON PF.numcte = TF.numcte
+							WHERE TF.nombre1 = 	cNOMBRE1
+							AND TF.apell_paterno = cAPATERNO
+							AND TF.fecha_nac = dFNACIMIENTO	
+							AND PF.numcte IS NULL
+                            ORDER BY 1
+
+                            IF cRFC1='' OR cRFC1 IS NULL THEN
+                                SELECT rfc INTO cRFC1 FROM si_cliente WHERE numcte = cNumero_cliente AND empresa = '001';
+                            END IF;
+
+                            SELECT NVL(nivel,0) INTO cId_Nconsulta_cliente FROM si_cliente_nivel
+                            WHERE numcte=cNumero_cliente;
+
+                            IF cId_Nconsulta_cliente IS NULL THEN
+                                LET cId_Nconsulta_cliente=9;
+                            END IF;
+							
+                            LET iCont=iCont+1;	
+							RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1 with resume;
+						END FOREACH;
+                        IF iCont = 0 THEN
+                            LET cCodRet = '1001'; 
+                            RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+                        END IF 
+					END IF;
+				END IF;	
+			END IF;
+		ELIF  cTBUSQUEDA = 2 THEN
+			IF 	cID_USUARIOC ='' 	OR 
+				cID_FUNCIONC = '' 	OR 
+				cRSOCIAL ='' 		THEN
+				LET cCodRet = "00054";
+				RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+			END IF;	
+
+            LET cRSOCIAL2=TRIM(cRSOCIAL)||'%';
+	
+			SELECT {+INDEX (bdinteg:si_cliente idx_razonsocial)} nvl(Count(numcte),0) INTO iexiste  FROM si_cliente where razon_social LIKE cRSOCIAL2;
+			IF iexiste = 0 THEN
+				LET cCodRet = "00053";
+				RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+			END IF;
+			SET ISOLATION TO DIRTY READ;	
+			FOREACH	
+				SELECT {+INDEX (bdinteg:si_cliente idx_razonsocial)} SKIP pNumRegistro FIRST pRecuperacion CL.numcte,CL.razon_social,CL.rfc_alterno
+				INTO
+				cNumero_cliente,cRSocial1,cRFC1
+				FROM  si_cliente CL
+                WHERE CL.razon_social LIKE cRSOCIAL2
+                ORDER BY 1
+
+                IF cRFC1='' OR cRFC1 IS NULL THEN
+                    SELECT rfc INTO cRFC1 FROM si_cliente WHERE numcte = cNumero_cliente AND empresa = '001';
+                END IF;
+
+                SELECT NVL(nivel,0) INTO cId_Nconsulta_cliente FROM si_cliente_nivel
+                WHERE numcte=cNumero_cliente;
+
+                IF cId_Nconsulta_cliente IS NULL THEN
+                    LET cId_Nconsulta_cliente=9;
+                END IF;
+							
+                LET iCont=iCont+1;	
+				RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1 with resume;
+			END FOREACH;
+            IF iCont = 0 THEN
+                LET cCodRet = '1001'; 
+                RETURN cCodRet,cNumero_cliente,cRFC1,cId_Nconsulta_cliente,cNombre1_salida,cNombre2_salida,cAPaterno1,cAMaterno1,cRSocial1;
+            END IF 	
+		END IF
+	END
+END PROCEDURE
+DOCUMENT 
+"AutOR : Antonio Flores",
+"FUNCIONAMIENTO:Este SP servira para la busqueda de clientes segun su nombre su apellido paterno y el tipo de busqueda,",
+"los tipos de busqueda son 1.- para persona fisica, 2 .- para personal moral",  
+"FECHA : 26-12-2011",
+"BD    : bdinteg",
+"VER   : 1.0";
+
+CREATE PROCEDURE  "informix".sp_cnsif_consaldoscap2_pba(cID_USUARIOC char(8),cID_FUNCIONC CHAR(10),cNUMCUENTA char(20),cTIPOSALDO CHAR(10),dPERIODO DATE)
+       returning 	CHAR(5)     AS Cod_Retorno,
+					CHAR(20)    AS Numero_Cuenta,
+					MONEY(14,2) AS Saldo_Disponible,
+					MONEY(14,2) AS Saldo_Congelado,
+					MONEY(14,2) AS Saldo_Retenido,
+					MONEY(14,2) AS Saldo_SBC,
+					MONEY(14,2) AS Saldo_Comisiones,
+					MONEY(14,2) AS Saldo_Actual,
+					MONEY(14,2) AS Saldo_Promedio,
+					MONEY(14,2) AS Interes,
+					MONEY(14,2) AS Tasa,
+                    MONEY(14,2) AS Sobregiro;
+ 
+
+ --Variables
+	DEFINE iexiste 					INT;
+	DEFINE cCodRet 					CHAR(5);
+	DEFINE iSql_err 				INT;
+	DEFINE cNumero_cuenta			CHAR(20);
+	DEFINE mSaldo_disponible		MONEY(14,2);
+	DEFINE mSaldo_congelado			MONEY(14,2);
+	DEFINE mSaldo_retenido   		MONEY(14,2);
+	DEFINE mSaldo_SBC				MONEY(14,2);
+	DEFINE mSaldo_comisiones 		MONEY(14,2);
+	DEFINE mSaldo_actual			MONEY(14,2);
+	DEFINE mSlado_promedio			MONEY(14,2);
+	DEFINE mItenres					MONEY(14,2);
+	DEFINE mTasa					MONEY(14,2);
+	DEFINE dAnio_actual				DATE;
+	DEFINE dAnio_usuario			DATE;
+	DEFINE dMes_usuario				DATE;
+	DEFINE cTabla 					CHAR(40);
+	DEFINE cAniomes					CHAR(6);
+    DEFINE cconsmovhis      CHAR(10);
+    DEFINE cconsmovhisold   CHAR(10);
+    DEFINE cconsmovhisold2  CHAR(10);
+    DEFINE cconsmovhisold3  CHAR(10);
+	DEFINE mSobregiro				MONEY(14,2);
+
+
+	--inicializando variables
+	LET iexiste 				= 0;
+	LET cCodRet 				= "00000";
+	LET iSql_err 				= 0;
+	LET cNumero_cuenta			= "";
+	LET mSaldo_disponible		= 0;
+	LET mSaldo_congelado		= 0;
+	LET mSaldo_retenido   		= 0;
+	LET mSaldo_SBC				= 0;
+	LET mSlado_promedio			= 0;
+	LET mItenres				= 0;
+	LET mTasa					= 0;
+	LET dAnio_actual	 		= "";
+	LET dAnio_usuario			= "";
+	LET dMes_usuario			= "";
+	LET cTabla 					= "";
+	LET mSaldo_actual			= 0;
+	LET mSaldo_comisiones  		= 0;
+	LET cAniomes				= "";
+    LET cconsmovhis     = '';
+	LET cconsmovhisold  = '';
+    LET cconsmovhisold2 = '';
+    LET cconsmovhisold3 = '';
+    LET mSobregiro              = 0;
+
+	
+	BEGIN
+		ON EXCEPTION SET iSql_err
+            IF iSql_err <> 0 THEN
+                LET cCodRet = iSql_err;
+                RETURN cCodRet,cNumero_cuenta, mSaldo_disponible, mSaldo_congelado, mSaldo_retenido, mSaldo_SBC,mSaldo_comisiones,mSaldo_actual, mSlado_promedio, mItenres, mTasa, mSobregiro;
+            END IF;
+        END EXCEPTION;
+		--	SET DEBUG FILE TO "/tmp/CNSIF/sp_cnsif_consaldoscap.out";
+		--	TRACE ON;
+		
+		IF 		cID_USUARIOC 	='' OR
+				cID_FUNCIONC	='' OR
+				cNUMCUENTA 		=''	OR				
+				cTIPOSALDO 		=''	THEN 
+				LET cCodRet = '00036';
+			RETURN cCodRet,cNumero_cuenta, mSaldo_disponible, mSaldo_congelado, mSaldo_retenido, mSaldo_SBC,mSaldo_comisiones,mSaldo_actual, mSlado_promedio, mItenres, mTasa, mSobregiro;
+		END IF;		
+		
+		IF cTIPOSALDO <> "ALCORTE" AND cTIPOSALDO <> "ACTUAL" THEN 
+			LET cCodRet = '00038';
+			RETURN cCodRet,cNumero_cuenta, mSaldo_disponible, mSaldo_congelado, mSaldo_retenido, mSaldo_SBC,mSaldo_comisiones,mSaldo_actual, mSlado_promedio, mItenres, mTasa, mSobregiro;
+		END IF;	
+		
+		--VALIDACION
+		EXECUTE PROCEDURE sp_cnsif_permisosejecutivo(cID_USUARIOC,cID_FUNCIONC, cNUMCUENTA,'01','1')
+		INTO
+		cCodRet;
+		IF (cCodRet != '00000')  THEN
+			RETURN cCodRet,cNumero_cuenta, mSaldo_disponible, mSaldo_congelado, mSaldo_retenido, mSaldo_SBC,mSaldo_comisiones,mSaldo_actual, mSlado_promedio, mItenres, mTasa, mSobregiro;
+		END IF;
+	-- TERMINA VALIDACION		
+		
+    SELECT valor
+      INTO cconsmovhis
+      FROM bdicheq:"informix".sc_param
+     WHERE empresa = '001'
+       AND codparam = 'fechcon_movhis';
+
+    SELECT valor
+      INTO cconsmovhisold
+      FROM bdicheq:"informix".sc_param
+     WHERE empresa = '001'
+       AND codparam = 'FechIniCon_movhis_ol';
+
+    SELECT valor
+      INTO cconsmovhisold2
+      FROM bdicheq:"informix".sc_param
+     WHERE empresa = '001'
+       AND codparam = 'FechaIniMovhisOld2';
+       
+    SELECT valor
+      INTO cconsmovhisold3
+      FROM bdicheq:"informix".sc_param
+     WHERE empresa = '001'
+       AND codparam = 'vfechconmovhisold3';
+		
+		FOREACH
+		SELECT FIRST 1 NVL(COUNT(cuenta),0) INTO iexiste FROM bdicheq:sc_maechq WHERE cuenta = cNUMCUENTA
+		UNION
+		SELECT NVL(COUNT(cuenta_tf),0) FROM bditransfer:tf_maecte WHERE cuenta_tf = cNUMCUENTA
+		ORDER BY 1 DESC
+		END FOREACH;
+		IF iexiste = 0 THEN 
+			LET cCodRet = "00009";
+			RETURN cCodRet,cNumero_cuenta, mSaldo_disponible, mSaldo_congelado, mSaldo_retenido, mSaldo_SBC,mSaldo_comisiones,mSaldo_actual, mSlado_promedio, mItenres, mTasa, mSobregiro;
+		END IF;	
+		
+
+	IF cTIPOSALDO = "ALCORTE" THEN 		
+			IF 	dPERIODO IS NULL THEN
+				LET cCodRet = "00036";
+				RETURN cCodRet,cNumero_cuenta, mSaldo_disponible, mSaldo_congelado, mSaldo_retenido, mSaldo_SBC,mSaldo_comisiones,mSaldo_actual, mSlado_promedio, mItenres, mTasa, mSobregiro;
+			END IF;	
+			LET dAnio_actual = YEAR(TODAY);
+			LET dAnio_usuario = YEAR(dPERIODO);
+			LET dMes_usuario = MONTH(dPERIODO);
+			LET cAniomes =  SUBSTR(dPERIODO,7,10)||SUBSTR(dPERIODO,1,2);
+
+           IF dAnio_usuario=2012 THEN 
+				IF dMes_usuario = 1 THEN 
+					SELECT  TA.capvigprom1 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 2 THEN 
+					SELECT  TA.capvigprom2 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 3 THEN 
+					SELECT  TA.capvigprom3 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 4 THEN 
+					SELECT  TA.capvigprom4 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 5 THEN 
+					SELECT  TA.capvigprom5 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 6 THEN 
+					SELECT  TA.capvigprom6 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 7 THEN 
+					SELECT  TA.capvigprom7 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 8 THEN 
+					SELECT  TA.capvigprom8 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 9 THEN 
+					SELECT  TA.capvigprom9 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 10 THEN 
+					SELECT  TA.capvigprom10 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 11 THEN 
+					SELECT  TA.capvigprom11 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 12 THEN 
+					SELECT  TA.capvigprom12 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				END IF; 
+           ELIF dAnio_usuario=2011 THEN 
+				IF dMes_usuario = 1 THEN 
+					SELECT  TA.capvigprom1 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc_2011 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 2 THEN 
+					SELECT  TA.capvigprom2 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc_2011 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 3 THEN 
+					SELECT  TA.capvigprom3 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc_2011 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 4 THEN 
+					SELECT  TA.capvigprom4 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc_2011 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 5 THEN 
+					SELECT  TA.capvigprom5 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc_2011 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 6 THEN 
+					SELECT  TA.capvigprom6 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc_2011 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 7 THEN 
+					SELECT  TA.capvigprom7 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc_2011 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 8 THEN 
+					SELECT  TA.capvigprom8 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc_2011 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 9 THEN 
+					SELECT  TA.capvigprom9 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc_2011 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 10 THEN 
+					SELECT  TA.capvigprom10 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc_2011 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 11 THEN 
+					SELECT  TA.capvigprom11 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc_2011 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 12 THEN 
+					SELECT  TA.capvigprom12 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc_2011 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				END IF; 
+           ELIF dAnio_usuario=2010 THEN 
+				IF dMes_usuario = 1 THEN 
+					SELECT  TA.capvigprom1 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2010 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 2 THEN 
+					SELECT  TA.capvigprom2 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2010 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 3 THEN 
+					SELECT  TA.capvigprom3 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2010 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 4 THEN 
+					SELECT  TA.capvigprom4 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2010 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 5 THEN 
+					SELECT  TA.capvigprom5 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2010 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 6 THEN 
+					SELECT  TA.capvigprom6 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2010 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 7 THEN 
+					SELECT  TA.capvigprom7 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2010 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 8 THEN 
+					SELECT  TA.capvigprom8 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2010 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 9 THEN 
+					SELECT  TA.capvigprom9 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2010 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 10 THEN 
+					SELECT  TA.capvigprom10 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2010 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 11 THEN 
+					SELECT  TA.capvigprom11 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2010 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 12 THEN 
+					SELECT  TA.capvigprom12 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2010 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				END IF; 
+           ELIF dAnio_usuario=2009 or dAnio_usuario=2008 THEN 
+				IF dMes_usuario = 1 THEN 
+					SELECT  TA.capvigprom1 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2009 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 2 THEN 
+					SELECT  TA.capvigprom2 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2009 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 3 THEN 
+					SELECT  TA.capvigprom3 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2009 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 4 THEN 
+					SELECT  TA.capvigprom4 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2009 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 5 THEN 
+					SELECT  TA.capvigprom5 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2009 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 6 THEN 
+					SELECT  TA.capvigprom6 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2009 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 7 THEN 
+					SELECT  TA.capvigprom7 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2009 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 8 THEN 
+					SELECT  TA.capvigprom8 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2009 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 9 THEN 
+					SELECT  TA.capvigprom9 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2009 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 10 THEN 
+					SELECT  TA.capvigprom10 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2009 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 11 THEN 
+					SELECT  TA.capvigprom11 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2009 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				ELIF dMes_usuario = 12 THEN 
+					SELECT  TA.capvigprom12 INTO mSlado_promedio FROM bdicheq:sc_sdomensualc2009 TA WHERE TA.cuenta = cNUMCUENTA AND TA.anio=dAnio_usuario;
+				END IF; 
+          END IF;  
+          SET ISOLATION TO DIRTY READ;
+          FOREACH    
+             SELECT LIMIT 1 monto_tot,tasa_aplicada*100 
+			 INTO  mItenres,mTasa 
+			 FROM bdicheq:sc_movhis
+			 WHERE empresa='001' and cuenta  =cNUMCUENTA 
+			 AND transacc = '3276'
+			 AND aniomes = cAniomes 
+             AND fech_alt >= cconsmovhis
+             UNION
+			 SELECT monto_tot,tasa_aplicada*100 
+			 FROM bdicheq:sc_movhis_old
+			 WHERE empresa='001' and cuenta  =cNUMCUENTA 
+			 AND transacc = '3276'
+			 AND aniomes = cAniomes
+             AND fech_alt >= cconsmovhisold
+             AND fech_alt < cconsmovhis
+             UNION
+			 SELECT monto_tot,tasa_aplicada*100 
+			 FROM bdicheq:sc_movhis_old2
+			 WHERE empresa='001' and cuenta  =cNUMCUENTA 
+			 AND transacc = '3276'
+			 AND aniomes = cAniomes
+             AND fech_alt >= cconsmovhisold2
+             AND fech_alt < cconsmovhisold
+             UNION
+			 SELECT monto_tot,tasa_aplicada*100 
+			 FROM bdicheq:sc_movhis_old3
+			 WHERE empresa='001' and cuenta  =cNUMCUENTA 
+			 AND transacc = '3276'
+			 AND aniomes = cAniomes
+             AND fech_alt >= cconsmovhisold3
+             AND fech_alt < cconsmovhisold2
+             UNION
+			 SELECT monto_tot,tasa_aplicada*100 
+			 FROM bdicheq:sc_movhis_old4
+			 WHERE empresa='001' and cuenta  =cNUMCUENTA 
+			 AND transacc = '3276'
+			 AND aniomes = cAniomes
+             AND fech_alt < cconsmovhisold3
+         END FOREACH;
+ 	END IF; 
+
+		FOREACH
+		SELECT  cuenta, sdo_actual - (sdo_retenido + sdo_cong + imp_sbg_ccc) as saldo_disponible,sdo_cong,sdo_retenido,imp_chq_sbc,
+				com_pendiente,sdo_actual,(imp_sbg_ccc + imp_chq_sbg) as sobregiro
+		INTO 
+		cNumero_cuenta, mSaldo_disponible, mSaldo_congelado, mSaldo_retenido, mSaldo_SBC,mSaldo_comisiones,mSaldo_actual,mSobregiro
+		FROM
+		bdicheq:sc_maechq
+		WHERE cuenta   =  cNUMCUENTA AND empresa='001'
+		UNION
+		SELECT  cuenta, sdo_cta,0,0,0,
+				0,sdo_cta,0
+		FROM
+		bditransfer:tf_account_balance_customer
+		WHERE cuenta =  cNUMCUENTA
+		AND fecha_proceso = (SELECT MAX(fecha_proceso) FROM bditransfer:tf_account_balance_customer WHERE cuenta = cNUMCUENTA)
+		END FOREACH;
+
+	RETURN cCodRet,cNumero_cuenta, mSaldo_disponible, mSaldo_congelado, mSaldo_retenido, mSaldo_SBC,mSaldo_comisiones,mSaldo_actual, mSlado_promedio, mItenres, mTasa, mSobregiro;					
+	END
+END PROCEDURE
+DOCUMENT
+"AutOR : Antonio Flores",
+"FUNCIONAMIENTO:Este sp realizara la busqueda y el calculo de saldos segun la cuenta que se le envie al SP y tambien tomando en cuenta el tipo de saldo",
+"ya sea al corte, que hara una busqueda de periodos anteriores, y actual que sera la busqueda de saldos del periodo acutal",
+"FECHA : 10-01-2012",
+"BD    : bdinteg",
+"VER   : 1.0";
+
+CREATE PROCEDURE "informix".sp_consultadatoscte_bcpl_pba(pFechaIni CHAR(10),pFechaFin CHAR(10))
+RETURNING CHAR(6)AS cCodRet, CHAR(10) AS cDefinicion, CHAR(20) AS cNumcte, CHAR(104) AS cNombreCompleto, DATE AS dFechaNac, CHAR(30) AS cCalle, CHAR(10) AS cNumCasa, CHAR(32)AS cColonia, CHAR(60) AS cCiudad, CHAR(27)AS cMunicipio, CHAR(30)AS cEstado;
+
+--DEFINICION DE VARIABLES
+DEFINE cCodRet  CHAR(6);
+DEFINE cDefinicion CHAR(10);
+DEFINE cNumcte CHAR(20);
+DEFINE cNombreCompleto CHAR(104);
+DEFINE dFechaNac DATE;
+DEFINE cCalle CHAR(30);
+DEFINE cNumCasa CHAR(10);
+DEFINE cColonia CHAR(32);
+DEFINE cCiudad CHAR(60);
+DEFINE cMunicipio CHAR(27);
+DEFINE cEstado CHAR(30);
+DEFINE iSqlErr INTEGER;
+DEFINE cTipoRel CHAR(1);
+DEFINE sTipoRelFin      SMALLINT;
+DEFINE sTipoRelIni      SMALLINT;
+DEFINE cFechaRelacion  CHAR(10);
+DEFINE cNombre1   		CHAR(26);
+DEFINE cNombre2   		CHAR(26);
+DEFINE cApellPaterno   	CHAR(26);
+DEFINE cApellMaterno   	CHAR(26);
+DEFINE cCveEstado   CHAR(2);
+DEFINE iNumeroCalle INTEGER;
+DEFINE sNumeroCiudad  SMALLINT;
+DEFINE iNumeroColonia INTEGER;
+DEFINE cCveCiudad       CHAR(3);
+DEFINE iContadorReg  	INTEGER;
+--INICIALIZACION DE VARIABLES
+LET cCodret	= "000000";
+LET cDefinicion ="";
+LET cNumcte ="";
+LET cNombreCompleto ="";
+LET dFechaNac =DATE(1);
+LET cCalle ="";
+LET cNumCasa="";
+LET cColonia="";
+LET cCiudad="";
+LET cMunicipio="";
+LET cEstado="";
+LET iSqlErr = 0;
+LET cTipoRel ="";
+LET sTipoRelFin        	= 0;
+LET sTipoRelIni        	= 0;
+LET cFechaRelacion     = "";
+LET cNombre1   		="";
+LET cNombre2   		="";
+LET cApellPaterno   	="";
+LET cApellMaterno   	="";
+LET cCveEstado   ="";
+LET iNumeroCalle =0;
+LET sNumeroCiudad  =0;
+LET iNumeroColonia =0;
+LET cCveCiudad       ="";
+LET iContadorReg    	= 0;
+--SET DEBUG FILE TO '/respaldosbd/Leslie/sp_consultadatoscte_bcpl.out';
+    --TRACE ON;
+	
+BEGIN
+    
+		ON EXCEPTION SET iSqlErr
+			IF iSqlErr <> 0 THEN
+				LET cCodret = iSqlErr;
+				RETURN cCodRet, cDefinicion, cNumcte, cNombreCompleto,dFechaNac,cCalle,cNumCasa,cColonia,cCiudad,cMunicipio,cEstado;
+			END IF;
+		END EXCEPTION;
+
+		SET ISOLATION TO DIRTY READ;
+		SET LOCK MODE TO WAIT 5;
+	
+		IF  TRIM(NVL(pFechaIni,"")) =  ""  OR  TRIM(NVL(pFechaFin,"")) =  "" THEN
+			LET cCodret	= "000001"; --Parámetros de entrada vacíos
+			RETURN cCodRet, cDefinicion, cNumcte, cNombreCompleto,dFechaNac,cCalle,cNumCasa,cColonia,cCiudad,cMunicipio,cEstado;
+		ELSE
+			
+			FOREACH WITH HOLD
+		
+				SELECT {+INDEX(si_relacion_ctebcplcpl idx_si_relacion_ctebcplcpl)} a.fecha_insert,a.numcte_banco,a.tipo_relacion,a.definicion,a.tipo_re_ini, status
+					INTO cFechaRelacion,cNumcte,sTipoRelFin,cDefinicion,sTipoRelIni,cTipoRel
+				FROM bdinteg:"informix".si_relacion_ctebcplcpl a,
+				bdicobranza:"informix".cb_param c			
+				WHERE a.empresa = '001'
+				AND a.cliente = a.cliente			
+				AND a.fecha_insert BETWEEN pFechaIni and pFechaFin			
+				AND c.empresa = '001'
+				AND c.descripcion = 'REP_TIPO_RELACION'
+				AND c.cod_param IN (43,44)
+				AND UPPER( TRIM(c.valor) ) = UPPER(TRIM(a.definicion))
+				AND a.status =  a.status
+				AND a.tipo_relacion  =a.tipo_relacion 
+				ORDER BY a.fecha_insert
+				
+				IF cTipoRel =0 AND sTipoRelIni NOT IN ('2','3') THEN
+					CONTINUE foreach;
+				END IF;
+				IF cTipoRel =1 and sTipoRelFin <> 3 THEN
+					CONTINUE foreach;
+				END IF;
+				
+				SELECT nombre1,nombre2,apell_paterno, apell_materno 
+				INTO cNombre1,cNombre2,cApellPaterno,cApellMaterno
+				FROM bdinteg:"informix".si_cliente 
+				WHERE  numcte = TRIM(NVL(cNumcte,''))
+				AND empresa="001";
+				
+				IF dbinfo("sqlca.sqlerrd2") = 0 THEN
+					CONTINUE foreach;
+				END IF
+				
+				LET cNombreCompleto = TRIM(NVL(cNombre1,''))||" "||TRIM(NVL(cNombre2,''))||" "||TRIM(NVL(cApellPaterno,''))||" "||TRIM(NVL(cApellMaterno,''));
+				
+				SELECT fecha_nac
+				INTO dFechaNac
+				FROM bdinteg:"informix".si_ctepf 
+				WHERE numcte = TRIM(NVL(cNumcte,''))
+				AND empresa="001";
+				
+				SELECT estado, numerocalle, numerointcalle, numerociudad, numerocolonia, ciudad
+				INTO cCveEstado,iNumeroCalle,cNumCasa,sNumeroCiudad,iNumeroColonia,cCveCiudad
+				FROM bdinteg:"informix".si_direcciones_actual
+				WHERE numcte= TRIM(NVL(cNumcte,''))
+				AND tipo_dir="1";
+				
+				IF dbinfo("sqlca.sqlerrd2") = 0 THEN
+					CONTINUE foreach;
+				END IF
+				
+				IF TRIM(NVL(cNumCasa,""))="" THEN
+					SELECT numeroextcalle
+					INTO   cNumCasa
+					FROM bdinteg:"informix".si_direcciones_actual
+					WHERE numcte= TRIM(NVL(cNumcte,''))
+					AND tipo_dir="1";
+				END IF
+				
+				SELECT nombrecalle 
+				INTO cCalle
+				FROM bdinteg:"informix".si_catcalles
+				WHERE numerocalle= NVL(iNumeroCalle,0);
+				
+				SELECT nombrezona,municipiozona 
+				INTO cColonia,cMunicipio
+				FROM bdinteg:"informix".si_catzonas
+				WHERE numerociudad=NVL(sNumeroCiudad,0)
+				AND numerocolonia=NVL(iNumeroColonia,0);
+				
+				SELECT nombre
+				INTO cCiudad
+				FROM bdinteg:"informix".si_ciudades
+				WHERE ciudad = NVL(cCveCiudad,0)
+				AND estado=TRIM(NVL(cCveEstado,""));
+				
+				SELECT nombre
+				INTO cEstado
+				FROM bdinteg:"informix".si_estados
+				WHERE estado= TRIM(NVL(cCveEstado,""));
+				
+				LET iContadorReg = iContadorReg+1;
+				
+				RETURN cCodRet, cDefinicion, cNumcte, cNombreCompleto,dFechaNac,cCalle,cNumCasa,cColonia,cCiudad,cMunicipio,cEstado WITH RESUME;
+			END FOREACH;
+			
+			IF iContadorReg = 0 THEN 
+				IF cCodRet = "000000" THEN
+					LET cCodret	= "000002"; --No se encontraron registros
+					LET cDefinicion ="";
+					LET cNumcte="";
+					LET cNombreCompleto="";
+					LET dFechaNac =DATE(1);
+					LET cCalle ="";
+					LET cNumCasa="";
+					LET cColonia="";
+					LET cCiudad="";
+					LET cMunicipio="";
+					LET cEstado="";
+					RETURN cCodRet, cDefinicion, cNumcte, cNombreCompleto,dFechaNac,cCalle,cNumCasa,cColonia,cCiudad,cMunicipio,cEstado;
+				END IF;
+			END IF
+		END IF
+END
+END PROCEDURE
+DOCUMENT
+"Descripción: Consulta datos generales de un cliente",
+"Autor : Leslie Rendón",
+"FECHA : 08/01/2015",
+"BD    : bdinteg";
+
+CREATE PROCEDURE "informix".sp_relacion_consultadatosrpt_pba (pDescripcion CHAR(20),pFechaIni CHAR(10),pFechaFin CHAR(10))
+	RETURNING
+	CHAR(6)  AS COD_RET, 
+	CHAR(80) AS MENSAJE_RETORNO,
+	CHAR(20) AS NUM_CLIENTE,
+	CHAR(107) AS NOMBRE_CLIENTE,
+	/*CHAR(10)*/ DATE AS FECHA_NAC,
+	CHAR(100)  AS DESCRIPCION_TIPO_RELACION_INICIAL,
+	CHAR(20) AS NUM_CLIENTE_COPPEL,
+	CHAR(104) AS NOMBRE_CLIENTE_COPPEL,
+	CHAR(10) AS FECHA_NAC_COPPEL,
+	CHAR(10)  AS MODIFICACION,
+	CHAR(10) AS FECHA_RELACION,
+	CHAR(100)  AS DESCRIPCION_TIPO_RELACION,
+	CHAR(107) AS NOMBRE_ANALISTA;
+	
+-- Modificado por: Abrham López López, 26 Marzo 2013 Se modifica proceso para que solo traiga en el roporte movimientos hechos 
+-- por mesa de control y el campo FECHA_NAC se cambio a DATE para que ponga correcta la fecha en pantalla con formato dd/mm/aaaa
+	
+---DECLARACIONES
+DEFINE iSqlErr         	 INTEGER;
+DEFINE iIsamErr        	 INTEGER;
+DEFINE cErrorInfo      	 CHAR(80);
+DEFINE cCodRet         	 CHAR(6);
+DEFINE cMensajeRet     	 CHAR(80);
+
+DEFINE cNumcte      	 CHAR(20);
+DEFINE cNumSol      	 CHAR(20);
+DEFINE cNombreCte      	 CHAR(107);
+DEFINE dtFechaNac     	 CHAR(10);
+DEFINE iTipoRelFin       SMALLINT;
+DEFINE iTipoRelIni       SMALLINT;
+DEFINE cDesTipoRelFin    CHAR(100);
+DEFINE cDesTipoRelIni    CHAR(100);
+DEFINE cDesModificacion  CHAR(10);
+
+DEFINE cNomEmpleado      CHAR(107);
+DEFINE cNumRef      	 CHAR(20);
+DEFINE cNombre_coppel    CHAR(107);
+DEFINE dtFechaNacCoppel  CHAR(10);
+DEFINE dtFechaRelacion   CHAR(10);
+DEFINE iContadorReg  	 INTEGER;
+DEFINE cNumEmp  	     CHAR(10);
+DEFINE vStatus           CHAR(1);
+DEFINE sTipoRel          CHAR(1);
+DEFINE iSecuencia        INTEGER;
+DEFINE dFechaNacCoppel   DATE;
+DEFINE cCliente          CHAR(20);
+
+---INICIALIZACIONES
+LET iSqlErr            	= 0;
+LET iIsamErr           	= 0;
+LET cErrorInfo         	= "";
+LET cCodRet            	= "000000";
+LET cMensajeRet        	= "PROCESO EXITOSO";   
+
+LET cNumcte      		= "";
+LET cNumSol      		= "";
+LET cNombreCte      	= "";
+LET dtFechaNac      	= "";
+LET iTipoRelFin        	= 0;
+LET iTipoRelIni        	= 0;
+LET cDesTipoRelFin     	= "";
+LET cDesTipoRelIni     	= "";
+LET cDesModificacion  	= "";
+LET cNomEmpleado    	= "";
+LET cNumRef      		= "";
+LET cNombre_coppel  	= "";
+LET dtFechaNacCoppel    = "";
+LET dtFechaRelacion     = "";
+LET iContadorReg    	= 0;
+LET cNumEmp    	        = "";
+LET iSecuencia          = 0;
+LET dFechaNacCoppel     = DATE(1);
+LET cCliente            = "";
+	
+BEGIN
+    
+    ON EXCEPTION SET iSqlErr, iIsamErr, cErrorInfo
+       IF iSqlErr != 0 THEN
+          LET cCodRet = iSqlErr;
+          LET cMensajeRet = cErrorInfo;
+          RETURN cCodRet,cMensajeRet,"","","","","","","","","","","";		 
+       END IF;
+    END EXCEPTION;
+
+    SET ISOLATION TO DIRTY READ;
+    SET LOCK MODE TO WAIT 3;
+
+	--SET DEBUG FILE TO "/home/sysifx/jesusm/sp_relacion_consultadatosrpt.out";
+	--TRACE ON;
+	
+	-- VALIDA LOS PARAMETROS DE ENTRADA
+	IF  NVL(pFechaIni,"") =  ""  OR  NVL(pFechaFin,"") =  "" THEN
+		LET cCodRet = '000001';
+		LET cMensajeRet = 'Parametros de entrada incompletos,verifique';
+	ELSE
+	IF pDescripcion = '' THEN
+		LET	vStatus = '';
+	ELIF pDescripcion = 'RELACION' THEN
+		LET	vStatus = '1';
+	ELSE
+		LET	vStatus = '0';
+	END IF;
+		FOREACH WITH HOLD
+		
+			SELECT {+INDEX(si_relacion_ctebcplcpl idx_si_relacion_ctebcplcpl)} a.fecha_insert,a.numcte_banco,a.cliente,a.tipo_relacion,a.definicion,a.tipo_re_ini, a.numempleado,status
+				INTO dtFechaRelacion,cNumcte,cNumRef,iTipoRelFin,cDesModificacion,iTipoRelIni,cNumEmp, sTipoRel
+			FROM bdinteg:"informix".si_relacion_ctebcplcpl a,
+			bdicobranza:"informix".cb_param c			
+			WHERE a.empresa = '001'
+			AND a.cliente = a.cliente			
+			AND a.fecha_insert BETWEEN pFechaIni AND pFechaFin			
+			AND c.empresa = '001'
+			AND c.descripcion = 'REP_TIPO_RELACION'
+			AND c.cod_param IN (43,44)
+			AND UPPER( TRIM(c.valor) ) = UPPER(TRIM(a.definicion))
+			--AND UPPER(a.definicion) = CASE WHEN pDescripcion = '' THEN UPPER(a.definicion) ELSE pDescripcion END
+			AND a.status =  CASE WHEN vStatus = '' THEN a.status ELSE vStatus END 
+			AND a.tipo_relacion  = CASE WHEN vStatus = 1 THEN 3 ELSE a.tipo_relacion END
+		--	AND tipo_re_ini  in CASE WHEN vStatus = '0' THEN ('2','3') ELSE tipo_relacion END
+			order by a.fecha_insert
+			
+			IF sTipoRel =0 AND iTipoRelIni NOT IN ('2','3') THEN
+				CONTINUE foreach;
+			END IF;
+			IF sTipoRel =1 AND iTipoRelFin <> 3 THEN
+				CONTINUE foreach;
+			END IF;
+			--
+			
+			IF pDescripcion = 'SEPARACION' THEN
+			
+				SELECT MAX(secuencia)
+				INTO iSecuencia
+				FROM bdinteg:"informix".si_relacion_ctebcplcpl_hist
+				WHERE empresa = '001'
+				AND numcte_banco= cNumcte
+				AND cliente <> '';
+				
+				IF NVL(iSecuencia,0) > 0 THEN
+					SELECT cliente
+					INTO cCliente
+					FROM bdinteg:"informix".si_relacion_ctebcplcpl_hist
+					WHERE empresa = '001'
+					AND numcte_banco= cNumcte
+					AND secuencia = iSecuencia;
+					
+					LET cNumRef = cCliente;
+					LET iSecuencia = 0;
+				END IF;
+			END IF;
+			
+			SELECT MAX (secuencia)
+			INTO iSecuencia
+			FROM bdisolic:"informix".ss_respuesta_conscoppel
+			WHERE empresa = '001'
+			AND numcte = cNumcte 
+			AND numcte_ref= cNumRef;
+			
+			IF NVL(iSecuencia,0) > 0 THEN
+			
+				SELECT fechanaccop
+				INTO dFechaNacCoppel
+				FROM bdisolic:"informix".ss_respuesta_conscoppel
+				WHERE empresa = '001'
+				AND numcte = cNumcte 
+				AND numcte_ref= cNumRef
+				AND secuencia = iSecuencia;
+				
+				LET dtFechaNacCoppel = dFechaNacCoppel;
+				
+			END IF;
+			
+			IF NVL(cNumEmp,"") <> "" THEN
+				SELECT nombre
+					INTO cNomEmpleado
+				FROM bdinteg:"informix".si_ejecut
+				WHERE empresa = '001' 
+				AND  ejecutivo = cNumEmp;
+			END IF;
+
+			SELECT valor_alfabetico
+				INTO cDesTipoRelFin
+			FROM  bdicobranza:"informix".cb_param_campania
+			WHERE grupo_parametro ="TIPO_RELAC"
+			AND valor_numerico = NVL(iTipoRelFin,0);	
+			
+			
+			SELECT valor_alfabetico
+				INTO cDesTipoRelIni
+			FROM  bdicobranza:"informix".cb_param_campania
+			WHERE grupo_parametro ="TIPO_RELAC"
+			AND valor_numerico = NVL(iTipoRelIni,0);
+			
+			
+	  --	IF  NVL(cNumRef,"")  <> ""THEN 
+				--obtiene la información del cliente
+				SELECT TRIM(a.nombre1)||" "||TRIM(a.nombre2)||" "||TRIM(a.apell_paterno)||" "||TRIM(a.apell_materno),b.fecha_nac
+					INTO cNombreCte,dtFechaNac
+				FROM bdinteg:"informix".si_cliente a,
+					 bdinteg:"informix".si_ctepf b 
+				WHERE a.empresa = b.empresa
+				AND a.numcte = b.numcte
+				AND a.numcte = cNumcte;
+			--- AND a.numcte_ref = cNumRef; 
+				
+				let cNombre_coppel = ' ';					
+				IF EXISTS (SELECT nombre_coppel FROM bdisolic:"informix".ss_bitacora_precal WHERE empresa = '001' 	AND num_referencia = cNumRef ) THEN
+					
+					SELECT nombre_coppel
+						INTO cNombre_coppel
+					FROM bdisolic:"informix".ss_bitacora_precal 
+					WHERE empresa = '001' 
+					AND num_referencia = cNumRef 
+					AND ROWID = (SELECT MAX(ROWID)
+									FROM  bdisolic:"informix".ss_bitacora_precal aux2
+									WHERE aux2.empresa = '001' 
+									AND aux2.num_referencia = cNumRef);							
+				END IF;
+		--	END IF;
+		
+			LET iContadorReg = iContadorReg+1;
+			RETURN cCodRet,cMensajeRet,NVL(cNumcte,""),NVL(cNombreCte,""),NVL(dtFechaNac,""),NVL(cDesTipoRelIni,""),NVL(cNumRef,""),NVL(cNombre_coppel,""),	
+				NVL(dtFechaNacCoppel,""),NVL(cDesModificacion,""),NVL(dtFechaRelacion,""),NVL(cDesTipoRelFin,""),NVL(cNomEmpleado,"") WITH RESUME;
+		END FOREACH;
+	END IF;	
+	IF iContadorReg = 0 THEN 
+		IF cCodRet = "000000" THEN
+			LET cCodRet = '000002';
+			LET cMensajeRet = 'No se encontraron registros del periodo indicado';
+		END IF;
+		RETURN cCodRet,cMensajeRet,cNumcte,cNombreCte,dtFechaNac,NVL(cDesTipoRelIni,""),NVL(cNumRef,""),NVL(cNombre_coppel,""),	
+			NVL(dtFechaNacCoppel,""),NVL(cDesModificacion,""),NVL(dtFechaRelacion,""),NVL(cDesTipoRelFin,""),NVL(cNomEmpleado,"");
+	END IF;
+END;
+END PROCEDURE
+DOCUMENT
+'DESCRIPCION: Genera una consulta para obtener la información general del cliente en bancoppel y coppel de acuerdo a los tipos de reportes', 
+'AUTOR: Jesús Aguilar ',
+'FECHA: 26 ABRIL 2012',
+'BD: BDINTEG',
+'VERSION: 20120426.1641',
+'DESCRIPCION: se modifica para retornar la fecha necimiento coppel', 
+'AUTOR: Felipe Urias ',
+'FECHA: 08 Enero 2015',
+'BD: BDINTEG',
+'VERSION: 20150108.1025';
+
+CREATE PROCEDURE "informix".sp_consultasufijos(pNumEmpresa CHAR(3), pCodigo CHAR(2))
+
+	RETURNING
+
+		CHAR(6) AS CodRet,
+		CHAR(80) AS MensajeErr,
+		CHAR(2) AS CodSufijo,
+		CHAR(60) AS Descripcion;
+--------------------------DECLARACION DE VARIABLES
+		DEFINE iSqlErr			INTEGER;
+		DEFINE iSam_Err   		INTEGER;
+		DEFINE cError_Info 		CHAR(200);
+		DEFINE cCodRet         	CHAR(6);
+		DEFINE cMensajeErr		CHAR(80);
+		DEFINE cCodSufijo		CHAR(2);
+		DEFINE cDescripcion		CHAR(60);
+--------------------------INICIALIZACION DE VARIABLES
+		LET iSqlErr				= 0;
+		LET iSam_Err			= 0;
+		LET cError_Info			= '';
+		LET cCodSufijo			= '';
+		LET cCodRet         	= '000000';
+		LET cMensajeErr			= 'PROCESO EXITOSO';
+		LET cDescripcion		= '';
+
+	BEGIN
+
+		ON EXCEPTION SET iSqlErr, iSam_Err, cError_Info
+			IF iSqlErr != 0 THEN
+				LET cCodRet = iSqlErr;
+				LET cMensajeErr = 'ERROR EN EL PROCEDIMIENTO PRINCIPAL';
+				RETURN TRIM(NVL(cCodRet,'')), TRIM(NVL(cMensajeErr,'')), TRIM(NVL(cCodSufijo,'')), TRIM(NVL(cDescripcion,''));
+			END IF;
+		END EXCEPTION;
+
+		SET ISOLATION TO DIRTY READ;
+		SET LOCK MODE TO WAIT 3;
+
+		--SET DEBUG FILE TO '/dbexportb/Hugo/sp_consultasufijos.out';
+		--TRACE ON;
+
+		IF NVL(pNumEmpresa, '') = '' THEN----NO SE RECIBIO PARAMETRO DE EMPRESA
+			LET cCodRet		= '00001';
+			LET cMensajeErr    = 'ERROR EN EL PARAMETRO DE EMPRESA';
+
+			RETURN TRIM(NVL(cCodRet,'')), TRIM(NVL(cMensajeErr,'')), TRIM(NVL(cCodSufijo,'')), TRIM(NVL(cDescripcion,''));
+		END IF
+		IF  NVL(pCodigo, '') = '' THEN---CONSULTA GENERAL, REGRESA TODOS LOS REGISTROS
+
+			FOREACH
+
+				SELECT TRIM(codigo), TRIM(Descripcion)
+				INTO cCodSufijo, cDescripcion
+				FROM "informix".si_sufijos
+				WHERE empresa = pNumEmpresa
+				AND status = 1
+				ORDER BY codigo
+
+				RETURN TRIM(NVL(cCodRet,'')), TRIM(NVL(cMensajeErr,'')), TRIM(NVL(cCodSufijo,'')), TRIM(NVL(cDescripcion,'')) WITH RESUME;
+
+			END FOREACH
+
+			IF DBINFO("sqlca.sqlerrd2") = 0 THEN---NO EXISTEN DATOS EN LA TABLA
+				LET cCodRet		= '000002';
+				LET cMensajeErr    = 'NO EXISTEN DATOS EN LA TABLA';
+
+				RETURN TRIM(NVL(cCodRet,'')), TRIM(NVL(cMensajeErr,'')), TRIM(NVL(cCodSufijo,'')), TRIM(NVL(cDescripcion,''));
+
+			END IF
+
+		ELSE--CONSULTA CON UN CODIGO EN ESPECIFICO
+
+			SELECT TRIM(codigo), TRIM(Descripcion)
+			INTO cCodSufijo, cDescripcion
+			FROM "informix".si_sufijos
+			WHERE empresa = pNumEmpresa
+			AND	codigo = pCodigo;
+
+			IF DBINFO("sqlca.sqlerrd2") = 0 THEN--NO HAY REGISTROS EN LA TABLA
+				LET cCodRet		= '000003';
+				LET cMensajeErr    = 'ERROR NO HAY REGISTROS EN LA TABLA';
+			END IF
+
+			RETURN TRIM(NVL(cCodRet,'')), TRIM(NVL(cMensajeErr,'')), TRIM(NVL(cCodSufijo,'')), TRIM(NVL(cDescripcion,''));
+
+		END IF
+
+	END;
+END PROCEDURE
+DOCUMENT
+'DESCRIPCION: Consulta catalogo sufijos',
+'Modificó: Hugo Vazquez',
+'FECHA: 16 Julio 2013',
+'VERSION: 20130716.0936',
+'BD: bdinteg';
+
+CREATE PROCEDURE "informix".sp_campaniamensaje_multiple(pIdMensaje SMALLINT)
+
+--DATOS A REGRESAR---
+	RETURNING
+	CHAR(6)  AS codigo_retorno,
+	CHAR(55) AS mensaje,
+	SMALLINT AS Orden;
+
+--DEFINICION DE VARIABLES--
+	DEFINE iSqlErr     INTEGER;
+	DEFINE cCodRet     CHAR(6);
+	DEFINE iRows       INTEGER; 
+	DEFINE cMensaje    CHAR(55);
+	DEFINE cMensajeInc CHAR(55);
+	DEFINE cVariable   CHAR(20);
+	DEFINE cValorVar   CHAR(10);
+	DEFINE i           INTEGER;
+	DEFINE sOrden	   SMALLINT;	
+
+--INICIALIZACION DE VARIABLES--
+	LET iSqlErr     = 0;
+	LET cCodRet     = '000000';
+	LET iRows       = 0;  
+	LET cMensaje    = '';
+	LET cMensajeInc = '';
+	LET cVariable   = '';
+	LET cValorVar   = '';
+	LET i           = 0;
+	LET sOrden      = 0;
+
+	--SET DEBUG FILE TO "/respaldosbd/isarai/sp_campaniamensaje_multiple.out";
+	--TRACE ON;
+
+	SET ISOLATION TO DIRTY READ;
+	SET LOCK MODE TO WAIT 3;
+
+	-- INICIO DEL PROCEDIMIENTO
+	BEGIN
+	-- MANEJADOR DE ERRORES
+		ON EXCEPTION SET iSqlErr
+		
+			IF iSqlErr <> 0 THEN
+				LET cCodRet = iSqlErr;
+				RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cMensaje,'')),NVL(sOrden,0);
+			END IF;
+			
+		END EXCEPTION;
+
+		--Valida parámetros de entrada
+		IF NVL(pIdMensaje,0) <> 0  THEN
+
+			-- Se obtiene el mensaje de la campaña
+			FOREACH
+				SELECT mensaje,orden
+				INTO cMensajeInc,sOrden
+				FROM "informix".si_detcamp
+				WHERE empresa = '001'
+				AND idmensaje = NVL(pIdMensaje,0)
+				ORDER  BY orden ASC
+
+				LET i = 1;
+				LET cVariable = "";
+				LET cMensaje = "";
+
+				WHILE i <= LENGTH(cMensajeInc)
+					IF SUBSTR(cMensajeInc,i,1) = "<" THEN
+					
+						LET i = i + 1;
+						
+						WHILE SUBSTR(cMensajeInc,i,1) != ">"
+						
+						   IF SUBSTR(cMensajeInc,i,1) <> " " tHEN
+								LET cVariable = TRIM(cVariable) || SUBSTR(cMensajeInc,i,1);
+						   ELSE
+								LET cVariable = TRIM(cVariable) || "|";
+						   END IF;
+							LET i = i + 1;
+							
+						END WHILE;
+						
+						--Se reemplaza caracter para respetar el espacio en blanco
+						LET cVariable =  REPLACE(cVariable, "|" ," ");
+
+						IF TRIM(NVL(cVariable,'')) <> '' THEN
+							-- Se obtiene el valor de la variable
+							SELECT valor
+							INTO cValorVar
+							FROM "informix".si_cat_variables
+							WHERE nomvar = TRIM(NVL(cVariable,''));
+
+							LET iRows = DBINFO("sqlca.sqlerrd2");
+
+							IF iRows = 0 THEN
+							   -- No se encontraron registros para ese Id de Mensaje
+							   LET cCodRet = '000002';
+								RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cMensaje,'')),NVL(sOrden,0);
+							END IF;
+
+							LET cMensaje =  REPLACE(cMensajeInc,"<" || TRIM(cVariable) || ">" ,TRIM(NVL(cValorVar,'')));
+
+							LET cVariable = '';
+							LET cMensajeInc = TRIM(NVL(cMensaje,''));
+							LET i = 1;
+
+						END IF;
+						
+					END IF;
+					
+					LET i = i + 1;
+					
+				END WHILE;
+
+			--Si no encuentra variables en el texto se asigna el texto original
+				IF TRIM(NVL(cMensaje,'')) = '' THEN
+					LET cMensaje =  TRIM(NVL(cMensajeInc,''));
+				END IF;
+
+				RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cMensaje,'')),NVL(sOrden,0) WITH RESUME ;
+			END FOREACH;
+
+			LET iRows = DBINFO("sqlca.sqlerrd2");
+			
+			IF iRows = 0 THEN
+			   -- No se encontraron registros para ese Id de Mensaje
+			   LET cCodRet = '000002';
+				RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cMensaje,'')),NVL(sOrden,0);
+			END IF;
+			
+		ELSE
+			--Párametros de entrada vacíos
+			LET cCodRet = '000001';
+			 RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cMensaje,'')),NVL(sOrden,0);
+		END IF;
+
+	END
+END PROCEDURE
+DOCUMENT
+'FECHA: 09/04/2015',
+'FOLIO :1711',
+'PROYECTO: TICKETINTELIGENTEBANCOPPEL',
+'DESCRIPCION: PROCEDIMIENTO PARA OBTENER EL MENSAJE DE UNA CAMPANIA',
+'AUTOR: ISARAI BOJORQUEZ',
+'BD: BDINTEG';
+
+CREATE PROCEDURE "informix".sp_consulta_campania_multiple(pTipoBusqueda CHAR(1), pId CHAR(5))
+--DATOS A REGRESAR---
+RETURNING
+	CHAR(6)   AS Codigo_retorno,
+	SMALLINT  AS Id_Campana,
+	SMALLINT  AS Id_Jerarquia,
+	CHAR(40)  AS nombre_campana,
+	CHAR(5)	  AS producto_campana,
+	CHAR(5)	  AS sistema_campana,
+	CHAR(8)   AS estado_campana,
+	CHAR(55)  AS mensaje_campana,
+	CHAR(5)  AS num_transsac,
+	CHAR(10)  AS estatus,
+	CHAR(5)   AS sucursal;
+
+		
+--DEFINICION DE VARIABLES--
+
+--1711
+	DEFINE	cCodRet					CHAR(6);
+	DEFINE	iSqlErr					INTEGER;
+	DEFINE	sIdCampania				SMALLINT;
+	DEFINE	sIDJerarquia			SMALLINT;
+	DEFINE	sPrimeraVez				SMALLINT;
+	DEFINE	sIdCampania2			SMALLINT;
+	DEFINE	sIDJerarquia2			SMALLINT;
+	DEFINE	cNombre					CHAR(40);
+	DEFINE	cProducto				CHAR(5);
+	DEFINE	csistema				CHAR(5);
+	DEFINE	csistema2				CHAR(5);
+	DEFINE	cEstado					CHAR(8);
+	DEFINE	sIDMensaje				SMALLINT;
+	DEFINE	cIDSucursal				CHAR(20);
+	DEFINE	cIDZona					CHAR(5);
+	DEFINE	sIdCampaniaRet			SMALLINT;
+	DEFINE	sIDJerarquiaRet			SMALLINT;
+	DEFINE	cNombreRet				CHAR(65);
+	DEFINE	cProductoRet			CHAR(55);
+	DEFINE	csistemaRet				CHAR(55);
+	DEFINE	csistemaRet2			CHAR(55);
+	DEFINE	sEstadoRet				SMALLINT;
+	DEFINE	sIDMensajeRet			SMALLINT;
+	DEFINE	cIDSucursalRet			CHAR(30);
+	DEFINE	cMensaje				CHAR(65);
+	DEFINE	sMensaje3				SMALLINT;
+	DEFINE	cMensajeRet				CHAR(55);
+	DEFINE	iContadorSuc			INTEGER;
+	DEFINE	iContadorZona			INTEGER;
+	DEFINE	sCombinable				SMALLINT;
+	DEFINE	sCombinableRet			SMALLINT;
+	DEFINE	cEstatus				CHAR(10);
+	DEFINE	cEst					CHAR (10);
+	DEFINE	cEstatusRet				CHAR(1);
+	DEFINE	cNomProductoRet			CHAR(40);
+	DEFINE	sTranNum				SMALLINT;
+	DEFINE	cDesTranRet				CHAR(49);
+	DEFINE 	cSucursal				CHAR(5);
+	DEFINE sActivo 					SMALLINT;
+	DEFINE sEstado 					SMALLINT;
+	--1711	
+	DEFINE	sOrden					SMALLINT;
+	DEFINE	sContSist				SMALLINT;
+	DEFINE	sContProd				SMALLINT;
+	DEFINE	sContSuc				SMALLINT;
+	DEFINE  sTranssac				CHAR(5);
+	--sp_campaniamensajeporlinea
+	DEFINE cCodRet2					CHAR(5);
+	DEFINE sActiva					SMALLINT;
+	DEFINE cMensaje2				CHAR(65);	
+	DEFINE	ssistema				SMALLINT;
+	DEFINE	sProd					SMALLINT;
+	DEFINE	sSuc					SMALLINT;
+	DEFINE 	iSC						INTEGER;
+	DEFINE 	iSD						INTEGER;
+	DEFINE 	iSE						INTEGER;
+	DEFINE iTipoBusqueda			INTEGER;
+	DEFINE cPlaza       			CHAR(3);
+	DEFINE cTransaccion 			CHAR(10);
+	DEFINE iConEst 					INTEGER;
+	DEFINE 	sSistema3				CHAR(2);
+	DEFINE 	sSistema4				CHAR(2);
+	DEFINE 	sSistema5				CHAR(2);
+	DEFINE 	sSistema6				CHAR(2);
+	
+--INICIALIZACION DE VARIABLES--
+	LET iConEst 				= 0;
+	LET sSistema6 				= '';
+	LET sSistema3 				= '';
+	LET sSistema4 				= '';
+	LET sSistema5 				= '';
+	LET cTransaccion 			= '';
+	LET cCodRet2 				= '';
+	LET cEst 					= '';
+	LET cMensaje2				= '';
+	LET cSucursal 				= '';
+	LET cCodRet					= '000000';
+	LET iSqlErr					= 0;
+	LET sMensaje3				= 0;
+	LET iTipoBusqueda			= 0;
+	LET iSC						= 0;
+	LET iSD						= 0;
+	LET iSE						= 0;
+	LET sProd					= 0;
+	LET sSuc					= 0;
+	LET ssistema				= 0;
+	LET sContSist				= 0;
+	LET sContProd				= 0;
+	LET sContSuc				= 0;
+	LET	sIdCampania				= 0;
+	LET	sIDJerarquia			= 0;
+	LET	sPrimeraVez				= 0;
+	LET	sIdCampania2			= 0;
+	LET	sIDJerarquia2			= 0;
+	LET	cNombre					= "";
+	LET	cProducto				= "";
+	LET	csistema				= "";
+	LET	csistema2				= "";
+	LET	cEstado					= '';
+	LET	sIDMensaje				= 0;
+	LET	cIDSucursal				= "";
+	LET	cIDZona					= "";
+	LET	sIdCampaniaRet			= 0;
+	LET	sIDJerarquiaRet			= 0;
+	LET	cNombreRet				= "";
+	LET	cProductoRet			= "";
+	LET	csistemaRet				= "";
+	LET	csistemaRet2			= "";
+	LET	sEstadoRet				= 0;
+	LET	sIDMensajeRet			= 0;
+	LET	cIDSucursalRet			= "";
+	LET	cMensaje				= "";
+	LET cMensajeRet				= "";
+	LET	iContadorSuc			= 0;
+	LET	iContadorZona			= 0;
+	LET	sCombinable				= 0;
+	LET	sCombinableRet			= 0;
+	LET	cEstatus				= "";
+	LET	cEstatusRet				= "";
+	LET	cNomProductoRet			= "";
+	LET	sTranNum				= 0;
+	LET	cDesTranRet				= "";		
+	LET sOrden 					= 0;
+	LET sActivo 				= 0;
+	LET sestado 				= 0;
+	LET sActiva					= 0;
+	LET sTranssac				= '';
+	LET cPlaza        			= ''; 
+
+	--SET DEBUG FILE TO "/respaldosbd/isarai/sp_consulta_campania_multiple.out";
+	--TRACE ON;
+
+	SET ISOLATION TO DIRTY READ;
+	SET LOCK MODE TO WAIT 3;
+
+	-- INICIO DEL PROCEDIMIENTO
+	BEGIN
+	-- MANEJADOR DE ERRORES
+		ON EXCEPTION SET iSqlErr
+			IF iSqlErr <> 0 THEN
+				LET cCodRet = iSqlErr;
+				
+				RETURN TRIM(NVL(cCodRet,'')),NVL(sIdCampaniaRet,0),NVL(sIDJerarquiaRet,0),TRIM(NVL(cNombreRet,'')),TRIM(NVL(cProductoRet,'')),
+				TRIM(NVL(csistemaRet2,'')),TRIM(NVL(cEstado,'')),TRIM(NVL(cMensaje,'')),TRIM(NVL(cTransaccion,'')),TRIM(NVL(cEstatus,'')), 
+				TRIM(NVL(cIDSucursalRet,''));
+			END IF;
+		END EXCEPTION;	
+
+		IF TRIM(NVL(pTipoBusqueda,'')) <> '' AND  TRIM(NVL(pId,'')) <> '' THEN
+			--BUSQUEDA POR SUCURSAL
+			IF pTipoBusqueda = '0' THEN
+			
+				FOREACH
+
+				-- Se obtienen los datos de las campañas
+					SELECT DISTINCT idcamp,idJerarquia,idmensaje 
+					INTO sIdCampania,sIDJerarquia,sIdMensaje			   
+					FROM "informix".si_maecamp
+					WHERE sucursal = TRIM(pId)
+					OR sucursal = 'T'
+					
+					--CUANDO SE OBTIENE EL PRIMER REGISTRO
+					LET sPrimeraVez = 1;
+
+					FOREACH
+					
+						SELECT DISTINCT DECODE(num_producto, 'T','T',num_producto),DECODE(sistema,'T','T',sistema),activa,estatus			
+						INTO cProducto, csistema,sActiva,cEstatus
+						FROM "informix".si_maecamp
+						WHERE (sucursal = TRIM(pId) or sucursal = 'T')
+						AND idcamp = NVL(sIdCampania,0)
+						AND idjerarquia = NVL(sIDJerarquia,0)
+						
+						
+						--CONTABILIZA EL NUMERO DE sistemaS QUE EXISTEN PARA LA CAMPAÑA
+						SELECT COUNT(DISTINCT sistema) INTO ssistema FROM "informix".si_maecamp  
+						WHERE (sucursal = TRIM(pId) or sucursal = 'T') AND idcamp = NVL(sIdCampania,0)	
+						AND idjerarquia = NVL(sIDJerarquia,0) AND sistema <> '';
+
+						
+						--CONTABILIZA EL NUMERO DE PRODUCTOS QUE EXISTEN PARA LA CAMPAÑA
+						SELECT COUNT(DISTINCT num_producto) INTO sProd FROM "informix".si_maecamp  
+						WHERE idcamp =   NVL(sIdCampania,0)	AND idjerarquia = NVL(sIDJerarquia,0) 
+						AND num_producto = TRIM(NVL(cProducto,'')) AND num_producto IS NOT NULL
+						AND (sucursal = TRIM(pId) or sucursal = 'T');
+			
+						--SI EXISTEN PRODUCTOS
+						IF NVL(sProd,0) = 1 AND TRIM(cProductoRet) <>  TRIM(cProducto) THEN 
+							LET sContProd = sContProd + 1 ;
+						END IF;	
+						
+						IF sPrimeraVez = 1 THEN
+							--SE GUARDA EL IDCAMPAÑA, IDJERARQUIA, NOMBRE CAMAPAÑA, PRODUCTO, sistema, STATUS, SI ESTA ACTIVA, SI ES COMBINABLE Y EL IDMENSAJE LA CAMAPAÑA PARA DESPUES RETORNARLO
+							LET sIdCampaniaRet =   NVL(sIdCampania,0);
+							LET sIDJerarquiaRet = NVL(sIDJerarquia,0);
+							LET cProductoRet = TRIM(NVL(cProducto,''));
+							LET csistemaRet = TRIM(NVL(csistema,''));
+							LET	cEstatusRet = TRIM(NVL(cEstatus,''));
+							LET sIDMensajeRet = NVL(sIDMensaje,0);
+							
+							LET sPrimeraVez = 0;
+						ELSE
+
+							--SI EXISTEN MAS DE UN PRODUCTO SE RETORNA LA LETRA V
+							IF sContProd > 1 AND TRIM(cProductoRet) <>  TRIM(cProducto)THEN
+								LET cProductoRet = 'V';
+							ELSE
+								--SI SOLO EXISTE UN PRODUCTO
+								LET cProductoRet = TRIM(NVL(cProducto,''));
+							END IF;
+						END IF;
+						
+						--SI EXISTEN sistemaS
+						IF NVL(ssistema,0) = 1 THEN
+							IF (NVL(cSistema,'')) <> '' THEN
+								LET cSistemaRet2 = TRIM(NVL(cSistema,'')) ;
+							ELSE
+								LET cSistemaRet2 = TRIM(NVL(cSistemaRet2,'')) ;
+							END IF;
+						ELIF NVL(ssistema,0) = 3 THEN
+							LET cSistemaRet2 = TRIM(NVL('T','')) ;
+						ELIF NVL(ssistema,0) = 2 THEN	
+							FOREACH
+								SELECT DISTINCT DECODE(sistema,'T','T',sistema),sistema
+								INTO sSistema3,ssistema6
+								FROM "informix".si_maecamp
+								WHERE empresa = TRIM('001')
+								AND idcamp =  NVL(sIdCampania,0)
+								AND idjerarquia = NVL(sIDJerarquia,0)
+								ORDER BY sistema ASC 	
+
+								SELECT DISTINCT DECODE(sistema,'T','T',sistema)
+								INTO sSistema4
+								FROM "informix".si_maecamp
+								WHERE empresa = TRIM('001')
+								AND idcamp =  NVL(sIdCampania,0)
+								AND idjerarquia = NVL(sIDJerarquia,0)	
+								AND sistema <> TRIM(sSistema3);
+
+								LET cSistemaRet2 = TRIM(sSistema4) || "|" || TRIM(sSistema3);
+							END FOREACH	
+						END IF;
+						
+						--SI EXISTE MAS DE UN RENGLON CON INFORMACION
+						IF (SELECT  COUNT (mensaje) FROM "informix".si_detcamp WHERE idmensaje = sIdMensaje ) =  1 THEN
+							--SI LA CAMPAÑA TIENE SOLO UN RENGLON PARA EL MENSAJE
+							--SE OBTIENE LA DESCRIPCION DEL MENSAJE
+							SELECT FIRST 1 orden INTO sOrden FROM "informix".si_detcamp 
+							WHERE idmensaje = NVL(sIDMensaje,0) AND NVL(mensaje,'') <> '';
+			
+							EXECUTE  PROCEDURE "informix".sp_campaniamensajeporlinea(sIdMensaje,sOrden) INTO cCodRet2,cMensaje2;
+							--OCURRIO UN ERROR EN EL LLAMADO DEL PROCEDIMIENTO
+							IF  NVL(cCodRet2:: INTEGER,0) <> 0 THEN
+								LET cCodRet = NVL(cCodRet2:: INTEGER,0);
+								RETURN TRIM(NVL(cCodRet,'')),NVL(sIdCampaniaRet,0),NVL(sIDJerarquiaRet,0),TRIM(NVL(cNombreRet,'')),
+								TRIM(NVL(cProductoRet,'')),TRIM(NVL(csistemaRet2,'')),TRIM(NVL(cEstado,'')),TRIM(NVL(cMensaje,'')),
+								TRIM(NVL(cTransaccion,'')),TRIM(NVL(cEstatus,'')), TRIM(NVL(cIDSucursalRet,''));
+							ELSE
+								--SE OBTIENE LA DESCRIPCION DEL MENSAJE
+								LET cMensaje = TRIM(TRIM(NVL(sIdMensaje,0)::CHAR(5))||"|"||TRIM(NVL(cMensaje2,''))); 
+							END IF 
+						ELSE
+
+							--SI EXISTE MAS DE UN RENGLON PARA EL MENSAJE DE LA CAMPAÑA
+							LET cMensaje  = TRIM(TRIM(NVL(sIdMensaje,0)::CHAR(5))||"|"||'V');
+						END IF;
+							
+						--SE OBTIENE EL ESTADO DE LA CAMPAÑA
+						SELECT FIRST 1 activa INTO sActivo FROM "informix".si_maecamp		
+						WHERE idcamp =   NVL(sIdCampania,0)	AND idjerarquia = NVL(sIDJerarquia,0) AND (sucursal = TRIM(pId) or sucursal = 'T') ; 
+
+						IF NVL(sActivo,0) = 1 THEN
+							LET cEstado =  TRIM('SI');
+						ELSE
+							LET cEstado =  TRIM('NO');
+						END IF;	
+						
+						IF csistema = 'SD' OR csistema = 'T' THEN
+								SELECT COUNT(DISTINCT estatus) INTO iConEst FROM "informix".si_maecamp WHERE idcamp =   NVL(sIdCampania,0) 
+								AND idjerarquia = NVL(sIDJerarquia,0) 
+								AND (sucursal = TRIM(pId) or sucursal = 'T')
+								AND (sistema = 'SD' or sistema = 'T')
+								AND sistema = TRIM(NVL(csistema,'')) ;
+								
+								IF iConEst = 1 THEN
+									SELECT DISTINCT DECODE(estatus,'N','NORMAL','A','ATRASO','V','POR VENCER','T','TODOS') 
+									INTO cEstatus  FROM "informix".si_maecamp WHERE idcamp =   NVL(sIdCampania,0) 
+									AND idjerarquia = NVL(sIDJerarquia,0) 
+									AND (sucursal = TRIM(pId) or sucursal = 'T')
+									AND (sistema = 'SD' or sistema = 'T')
+									AND sistema = TRIM(NVL(csistema,'')) ;
+								ELIF iConEst > 1 THEN
+									--SI ES MAS DE UN ESTATUS
+									LET cEstatus = TRIM('V');
+								ELIF iConEst = 0 THEN	
+									LET cEstatus = TRIM('NO APLICA');
+								END IF;
+								
+						ELSE	
+							IF 	iConEst = 1 THEN
+								SELECT DISTINCT DECODE(estatus,'N','NORMAL','A','ATRASO','V','POR VENCER','T','TODOS') 
+								INTO cEstatus  FROM "informix".si_maecamp WHERE idcamp =   NVL(sIdCampania,0) 
+								AND idjerarquia = NVL(sIDJerarquia,0) 
+								AND (sucursal = TRIM(pId) or sucursal = 'T')
+								AND (sistema = 'SD' or sistema = 'T');
+								--and sistema = csistema ;
+							ELIF iConEst > 1 THEN
+								--SI ES MAS DE UN ESTATUS
+								LET cEstatus = TRIM('V');
+							ELIF iConEst = 0 THEN	
+								LET cEstatus = TRIM('NO APLICA');
+							END IF;
+						END IF;	
+							
+						--SE OBTIENEN LAS TRANSACCIONES POR CADA CAMPAÑA
+						IF ( SELECT COUNT(DISTINCT tran_nro) FROM "informix".si_maecamp WHERE idcamp =   NVL(sIdCampania,0) 
+							AND idjerarquia = NVL(sIDJerarquia,0) AND (sucursal = TRIM(pId) or sucursal = 'T')) = 1 THEN
+							
+							SELECT DISTINCT TRIM(tran_nro::CHAR(5)) INTO sTranssac FROM "informix".si_maecamp WHERE idcamp =   NVL(sIdCampania,0) 
+							AND idjerarquia = NVL(sIDJerarquia,0) AND (sucursal = TRIM(pId) or sucursal = 'T');
+							
+							IF TRIM(NVL(sTranssac,''))= '0' THEN
+								LET cTransaccion = TRIM('T');
+							ELSE
+								LET cTransaccion = TRIM(sTranssac::CHAR(5)) ;
+							END IF;
+						ELSE
+							LET cTransaccion = TRIM('V');
+						END IF;	
+						
+						--SE OBTIENE EL NOMBRE DE LA CAMPAÑA
+						SELECT FIRST 1  nombre INTO cNombreRet  FROM "informix".si_maecamp		
+						WHERE idcamp =   NVL(sIdCampania,0)	AND idjerarquia = NVL(sIDJerarquia,0);
+							
+						LET cIDSucursalRet = TRIM(NVL(pid,''));
+						--LET iconest = 0;
+					END FOREACH;
+					 	
+					RETURN TRIM(NVL(cCodRet,'')),NVL(sIdCampaniaRet,0),NVL(SIDJerarquiaRet,0),TRIM(NVL(cNombreRet,'')),
+						TRIM(NVL(cProductoRet,'')),TRIM(NVL(csistemaRet2,'')),TRIM(NVL(cEstado,'')),TRIM(NVL(cMensaje,'')),
+						TRIM(NVL(cTransaccion,'')),TRIM(NVL(cEstatus,'')), TRIM(NVL(cIDSucursalRet,'')) WITH RESUME;
+					LET csistema = ''; 
+					LET csistemaRet2 = '';	
+					LET scontsist = 0;
+					LET sContProd = 0;	
+					LET iconest = 0;
+				END FOREACH	;
+						
+					IF DBINFO('sqlca.sqlerrd2') = 0 THEN
+					--NO EXISTEN CAMPAÑAS
+						LET cCodRet = '000002';
+						RETURN TRIM(NVL(cCodRet,'')),NVL(sIdCampaniaRet,0),NVL(sIDJerarquiaRet,0),TRIM(NVL(cNombreRet,'')),
+						TRIM(NVL(cProductoRet,'')), TRIM(NVL(csistemaRet2,'')),TRIM(NVL(cEstado,'')),TRIM(NVL(cMensaje,'')),
+						TRIM(NVL(cTransaccion,'')),TRIM(NVL(cEstatus,'')),TRIM(NVL(cIDSucursalRet,''));
+					END IF;
+					
+					LET sIdCampaniaRet = 0; 
+					LET sIDJerarquiaRet = 0; 
+					LET cNombreRet = ''; 
+					LET cProductoRet = '';
+					LET csistemaRet2 = ''; 
+					LET cEstado =''; 
+					LET cMensaje = ''; 
+					LET cTransaccion = '';
+					LET cEstatus = ''; 
+					LET cIDSucursalRet = '';
+					LET csistema2='';
+					
+				--BUSCAR SI LA SUCURSAL PERTENECE A UNA ZONA PARA RETORNAR LAS CAMPAÑAS DE LAS ZONAS
+				SELECT plaza INTO cPlaza FROM "informix".si_sucursales WHERE sucursal = TRIM(NVL(pid,''));	
+				
+				--CUANDO LA BUSQUEDA ES POR ZONA
+				IF EXISTS (SELECT 1 FROM "informix".si_maecamp WHERE idzona = TRIM(NVL(cPlaza,0))) 
+					AND NVL(cCodRet:: INTEGER,0) = 0 THEN
+				
+					FOREACH
+						-- Se obtienen los datos de las campañas
+						SELECT DISTINCT idcamp,idJerarquia,idmensaje 
+						INTO sIdCampania,sIDJerarquia,sIdMensaje			   
+						FROM "informix".si_maecamp
+						WHERE idzona = TRIM(NVL(cPlaza,''))
+						
+						--CUANDO SE OBTIENE EL PRIMER REGISTRO
+						LET sPrimeraVez = 1;
+						LET iContadorSuc = 1;
+						
+						FOREACH
+							SELECT DISTINCT DECODE(num_producto, 'T','T',num_producto),DECODE(sistema,'T','T',sistema)
+							INTO cProducto, csistema
+							FROM "informix".si_maecamp
+							WHERE idcamp =   NVL(sIdCampania,0)
+							AND idjerarquia = NVL(sIDJerarquia,0)
+							AND idzona = TRIM(NVL(cPlaza,''))
+							
+							--CONTABILIZA EL NUMERO DE sistemaS QUE EXISTEN PARA LA CAMPAÑA
+							SELECT COUNT(DISTINCT sistema) INTO ssistema FROM "informix".si_maecamp  
+							WHERE idcamp =   NVL(sIdCampania,0)	
+							AND idjerarquia = NVL(sIDJerarquia,0)  AND sistema <> ''
+							AND idzona = TRIM(NVL(cPlaza,''));
+							
+							--CONTABILIZA EL NUMERO DE PRODUCTOS QUE EXISTEN PARA LA CAMPAÑA
+							SELECT COUNT(DISTINCT num_producto) INTO sProd FROM "informix".si_maecamp  
+							WHERE idcamp =   NVL(sIdCampania,0)	
+							AND idjerarquia = NVL(sIDJerarquia,0) AND num_producto = TRIM(NVL(cProducto,'')) 
+							AND num_producto IS NOT NULL
+							AND idzona = TRIM(NVL(cPlaza,''));
+
+							--SI EXISTEN PRODUCTOS
+							IF NVL(sProd,0) = 1 AND TRIM(cProductoRet) <>  TRIM(cProducto) THEN 
+								LET sContProd = NVL(sContProd,0) + 1 ;
+							END IF;	
+							
+							IF sPrimeraVez = 1 THEN
+								--SE GUARDA EL IDCAMPAÑA, IDJERARQUIA, NOMBRE CAMAPAÑA, PRODUCTO, sistema, STATUS, SI ESTA ACTIVA, SI ES COMBINABLE Y EL IDMENSAJE LA CAMAPAÑA PARA DESPUES RETORNARLO
+								LET sIdCampaniaRet =   NVL(sIdCampania,0);
+								LET sIDJerarquiaRet = NVL(sIDJerarquia,0);
+								LET cProductoRet = TRIM(NVL(cProducto,''));
+								LET csistemaRet = TRIM(NVL(csistema,''));
+								LET	cEstatusRet = TRIM(NVL(cEstatus,''));
+								LET sIDMensajeRet = NVL(sIDMensaje,0);
+								LET sPrimeraVez = 0;
+							ELSE
+
+								--SI EXISTEN MAS DE UN PRODUCTO SE RETORNA LA LETRA V
+								IF sContProd > 1 AND TRIM(cProductoRet) <>  TRIM(cProducto)THEN
+									LET cProductoRet = 'V';
+								ELSE
+									--SI SOLO EXISTE UN PRODUCTO
+									LET cProductoRet = TRIM(NVL(cProducto,''));
+								END IF;
+							END IF;
+							
+							--SI EXISTEN sistemaS
+							IF NVL(ssistema,0) = 1 THEN
+								IF (NVL(cSistema,'')) <> '' THEN
+									LET cSistemaRet2 = TRIM(NVL(cSistema,'')) ;
+								ELSE
+									LET cSistemaRet2 = TRIM(NVL(cSistemaRet2,'')) ;
+								END IF;
+							ELIF NVL(ssistema,0) = 3 THEN
+								LET cSistemaRet2 = TRIM(NVL('T','')) ;
+							ELIF NVL(ssistema,0) = 2 THEN	
+								FOREACH
+									SELECT DISTINCT DECODE(sistema,'T','T',sistema),sistema
+									INTO sSistema3,ssistema6
+									FROM "informix".si_maecamp
+									WHERE empresa = TRIM('001')
+									AND idcamp =  NVL(sIdCampania,0)
+									AND idjerarquia = NVL(sIDJerarquia,0)
+									ORDER BY sistema ASC
+									
+									SELECT DISTINCT DECODE(sistema,'T','T',sistema) 
+									INTO sSistema4
+									FROM "informix".si_maecamp
+									WHERE empresa = TRIM('001')
+									AND idcamp =  NVL(sIdCampania,0)
+									AND idjerarquia = NVL(sIDJerarquia,0)	
+									AND sistema <> TRIM(sSistema3);
+									
+									LET cSistemaRet2 = TRIM(sSistema4) || "|" || TRIM(sSistema3);
+								END FOREACH	
+							END IF;
+							--SI EXISTE MAS DE UN RENGLON CON INFORMACION
+							IF (SELECT  COUNT (mensaje) FROM "informix".si_detcamp WHERE idmensaje = NVL(sIDMensaje,0) ) =  1 THEN
+								--SI LA CAMPAÑA TIENE SOLO UN RENGLON PARA EL MENSAJE
+								--SE OBTIENE LA DESCRIPCION DEL MENSAJE
+								SELECT FIRST 1 orden INTO sOrden FROM "informix".si_detcamp 
+								WHERE idmensaje = NVL(sIDMensaje,0) AND NVL(mensaje,'') <> '';
+				
+								EXECUTE  PROCEDURE "informix".sp_campaniamensajeporlinea(sIdMensaje,sOrden) INTO cCodRet2,cMensaje2;
+								--OCURRIO UN ERROR EN EL LLAMADO DEL PROCEDIMIENTO
+								IF  NVL(cCodRet2:: INTEGER,0) <> 0 THEN
+									LET cCodRet = NVL(cCodRet2:: INTEGER,0);
+									RETURN TRIM(NVL(cCodRet,'')),NVL(sIdCampaniaRet,0),NVL(sIDJerarquiaRet,0),
+										  TRIM(NVL(cNombreRet,'')),TRIM(NVL(cProductoRet,'')),TRIM(NVL(csistemaRet2,'')),
+										  TRIM(NVL(cEstado,'')),TRIM(NVL(cMensaje,'')), TRIM(NVL(cTransaccion,'')),TRIM(NVL(cEstatus,'')), 
+										  TRIM(NVL(cIDSucursalRet,''));
+								ELSE
+									--SE OBTIENE LA DESCRIPCION DEL MENSAJE
+									LET cMensaje = TRIM(TRIM(NVL(sIdMensaje,0)::CHAR(5))||"|"||TRIM(NVL(cMensaje2,'')));
+								END IF; 
+							ELSE
+
+								LET cMensaje  = TRIM(TRIM(NVL(sIdMensaje,0)::CHAR(5))||"|"||'V');
+							END IF;
+							
+							--SE OBTIENE EL ESTADO DE LA CAMPAÑA
+							SELECT FIRST 1 activa INTO sActivo FROM "informix".si_maecamp		
+							WHERE idcamp = NVL(sIdCampania,0)AND idjerarquia = NVL(sIDJerarquia,0) AND idzona = TRIM(NVL(cPlaza,'')) ; 
+
+							IF NVL(sActivo,0) = 1 THEN
+								LET cEstado =  TRIM('SI');
+							ELSE
+								LET cEstado =  TRIM('NO');
+							END IF;	
+								
+							--SE OBTIENE EL ESTATUS DE LA CAMPAÑA SOLO PARA LOS DE CREDITO 
+							IF csistema = 'SD' OR csistema = 'T' THEN
+								SELECT COUNT(DISTINCT estatus) INTO iConEst FROM "informix".si_maecamp 
+								WHERE idcamp =   NVL(sIdCampania,0) 
+								AND idjerarquia = NVL(sIDJerarquia,0) 
+								AND idzona = TRIM(NVL(cPlaza,''))
+								AND (sistema = 'SD' or sistema = 'T')
+								AND sistema = TRIM(NVL(cSistema,''));
+								
+								IF iConEst = 1 THEN
+									SELECT DISTINCT DECODE(estatus,'N','NORMAL','A','ATRASO','V','POR VENCER','T','TODOS') 
+									INTO cEstatus  FROM "informix".si_maecamp 
+									WHERE idcamp =   NVL(sIdCampania,0) 
+									AND idjerarquia = NVL(sIDJerarquia,0) 
+									AND idzona = TRIM(NVL(cPlaza,''))
+									AND (sistema = 'SD' or sistema = 'T')
+									AND sistema = TRIM(NVL(cSistema,''));
+								ELIF iConEst > 1 THEN
+									--SI ES MAS DE UN ESTATUS
+									LET cEstatus = TRIM('V');
+								ELIF iConEst = 0 THEN	
+									LET cEstatus = TRIM('NO APLICA');
+								END IF;
+							ELSE	
+								IF 	iConEst = 1 THEN
+									SELECT DISTINCT DECODE(estatus,'N','NORMAL','A','ATRASO','V','POR VENCER','T','TODOS') 
+									INTO cEstatus  FROM "informix".si_maecamp 
+									WHERE idcamp = NVL(sIdCampania,0) 
+									AND idjerarquia = NVL(sIDJerarquia,0) 
+									AND idzona = TRIM(NVL(cPlaza,''))
+									AND (sistema = 'SD' or sistema = 'T');
+								ELIF iConEst > 1 THEN
+									--SI ES MAS DE UN ESTATUS
+									LET cEstatus = TRIM('V');
+								ELIF iConEst = 0 THEN	
+									LET cEstatus = TRIM('NO APLICA');
+								END IF;
+							END IF;		
+								
+							--SE OBTIENEN LAS TRANSACCIONES POR CADA CAMPAÑA
+							IF ( SELECT COUNT(DISTINCT tran_nro) FROM "informix".si_maecamp WHERE idcamp =   NVL(sIdCampania,0) 
+								AND idjerarquia = NVL(sIDJerarquia,0) AND idzona = TRIM(NVL(cPlaza,'')))  = 1 THEN
+								
+								SELECT DISTINCT TRIM(tran_nro::CHAR(5)) INTO sTranssac FROM "informix".si_maecamp 
+								WHERE idcamp =   NVL(sIdCampania,0)	AND idjerarquia = NVL(sIDJerarquia,0) AND idzona = TRIM(NVL(cPlaza,'')) ;
+								
+								IF TRIM(NVL(sTranssac,''))= '0' THEN
+									LET cTransaccion = TRIM('T');
+								ELSE
+									LET cTransaccion = TRIM(sTranssac::CHAR(5)) ;
+								END IF;
+							ELSE
+								LET cTransaccion = TRIM('V');
+							END IF;	
+							
+							--SE OBTIENE EL NOMBRE DE LA CAMPAÑA
+							SELECT FIRST 1 nombre INTO cNombreRet  FROM "informix".si_maecamp		
+							WHERE idcamp =   NVL(sIdCampania,0)	AND idjerarquia = NVL(sIDJerarquia,0);
+
+							LET cIDSucursalRet = '';
+							--	LET iconest = 0;
+
+						END FOREACH;
+						
+					 	RETURN TRIM(NVL(cCodRet,'')),NVL(sIdCampaniaRet,0),NVL(sIDJerarquiaRet,0),TRIM(NVL(cNombreRet,'')),
+							TRIM(NVL(cProductoRet,'')),TRIM(NVL(csistemaRet2,'')),TRIM(NVL(cEstado,'')),TRIM(NVL(cMensaje,'')),
+							TRIM(NVL(cTransaccion,'')),TRIM(NVL(cEstatus,'')), TRIM(NVL(cIDSucursalRet,'')) WITH RESUME;
+	
+						LET csistema = ''; 
+						LET csistemaRet2 = '';
+						LET scontsist = 0;
+						LET sContProd = 0;
+					LET iconest = 0;
+						
+					END FOREACH	;
+
+					IF DBINFO('sqlca.sqlerrd2') = 0 THEN
+					--NO EXISTEN CAMPAÑAS
+						LET cCodRet = "000002";
+						RETURN TRIM(NVL(cCodRet,'')),NVL(SIdCampaniaRet,0),NVL(sIDJerarquiaRet,0),TRIM(NVL(cNombreRet,'')),TRIM(NVL(cProductoRet,'')),
+						TRIM(NVL(csistemaRet2,'')),TRIM(NVL(cEstado,'')),TRIM(NVL(cMensaje,'')),TRIM(NVL(cTransaccion,'')),TRIM(NVL(cEstatus,'')),
+						TRIM(NVL(cIDSucursalRet,''));
+					END IF;
+				END IF;
+			ELSE 
+				--CUANDO LA BUSQUEDA ES POR ZONA
+				FOREACH
+			
+					-- Se obtienen los datos de las campañas
+					SELECT DISTINCT idcamp,idJerarquia,idmensaje 
+					INTO sIdCampania,sIDJerarquia,sIdMensaje			   
+					FROM "informix".si_maecamp
+					WHERE idzona = TRIM(NVL(pId,'')) 
+					
+					--CUANDO SE OBTIENE EL PRIMER REGISTRO
+					LET sPrimeraVez = 1;
+					LET iContadorSuc = 1;
+					
+					FOREACH
+						
+						SELECT DISTINCT DECODE(num_producto, 'T','T',num_producto),DECODE(sistema,'T','T',sistema)
+						INTO cProducto, csistema
+						FROM "informix".si_maecamp
+						WHERE idcamp =   NVL(sIdCampania,0)
+						AND idjerarquia = NVL(sIDJerarquia,0)
+						AND idzona = TRIM(NVL(pId,''))
+						
+						--CONTABILIZA EL NUMERO DE sistemaS QUE EXISTEN PARA LA CAMPAÑA
+						SELECT COUNT(DISTINCT sistema) INTO ssistema FROM "informix".si_maecamp  
+						WHERE idcamp =   NVL(sIdCampania,0)	
+						AND idjerarquia = NVL(sIDJerarquia,0)  AND sistema <> ''
+						AND idzona = TRIM(NVL(pId,''));
+						
+						--CONTABILIZA EL NUMERO DE PRODUCTOS QUE EXISTEN PARA LA CAMPAÑA
+						SELECT COUNT(DISTINCT num_producto) INTO sProd FROM "informix".si_maecamp  
+						WHERE idcamp =   NVL(sIdCampania,0)	
+						AND idjerarquia = NVL(sIDJerarquia,0) AND num_producto = TRIM(NVL(cProducto,'')) AND num_producto IS NOT NULL
+						AND idzona = TRIM(NVL(pId,''));
+					
+						--SI EXISTEN PRODUCTOS
+						IF NVL(sProd,0) = 1 AND TRIM(cProductoRet) <>  TRIM(cProducto) THEN 
+							LET sContProd = sContProd + 1 ;
+						END IF;	
+						
+						IF sPrimeraVez = 1 THEN
+							--SE GUARDA EL IDCAMPAÑA, IDJERARQUIA, NOMBRE CAMAPAÑA, PRODUCTO, sistema, STATUS, SI ESTA ACTIVA, SI ES COMBINABLE Y EL IDMENSAJE LA CAMAPAÑA PARA DESPUES RETORNARLO
+							LET sIdCampaniaRet =   NVL(sIdCampania,0);
+							LET sIDJerarquiaRet = NVL(sIDJerarquia,0);
+							LET cProductoRet = TRIM(NVL(cProducto,''));
+							LET csistemaRet = TRIM(NVL(csistema,''));
+							LET	cEstatusRet = TRIM(NVL(cEstatus,''));
+							LET sIDMensajeRet = NVL(sIDMensaje,0);
+							LET sPrimeraVez = 0;
+						ELSE
+							
+							--SI EXISTEN MAS DE UN PRODUCTO SE RETORNA LA LETRA V
+							IF sContProd > 1 AND TRIM(cProductoRet) <>  TRIM(cProducto)THEN
+								LET cProductoRet = 'V';
+							ELSE
+								--SI SOLO EXISTE UN PRODUCTO
+								LET cProductoRet = TRIM(NVL(cProducto,''));
+							END IF;
+						END IF;
+						
+						--SI EXISTEN sistemaS
+						IF NVL(ssistema,0) = 1 THEN
+							IF (NVL(cSistema,'')) <> '' THEN
+								LET cSistemaRet2 = TRIM(NVL(cSistema,'')) ;
+							ELSE
+								LET cSistemaRet2 = TRIM(NVL(cSistemaRet2,'')) ;
+							END IF;
+						ELIF NVL(ssistema,0) = 3 THEN
+							LET cSistemaRet2 = TRIM(NVL('T','')) ;
+						ELIF NVL(ssistema,0) = 2 THEN	
+							FOREACH
+								SELECT DISTINCT DECODE(sistema,'T','T',sistema),sistema
+								INTO sSistema3,ssistema6
+								FROM "informix".si_maecamp
+								WHERE empresa = TRIM('001')
+								AND idcamp =  NVL(sIdCampania,0)
+								AND idjerarquia = NVL(sIDJerarquia,0)
+								ORDER BY sistema ASC
+
+								SELECT DISTINCT DECODE(sistema,'T','T',sistema) 
+								INTO sSistema4
+								FROM "informix".si_maecamp
+								WHERE empresa = TRIM('001')
+								AND idcamp =  NVL(sIdCampania,0)
+								AND idjerarquia = NVL(sIDJerarquia,0)	
+								AND sistema <> TRIM(sSistema3);
+
+								LET cSistemaRet2 = TRIM(sSistema4) || "|" || TRIM(sSistema3);
+							END FOREACH	
+						END IF;	
+						--SI EXISTE MAS DE UN RENGLON CON INFORMACION
+						IF (SELECT  COUNT (mensaje) FROM "informix".si_detcamp WHERE idmensaje = NVL(sIDMensaje,0)) =  1 THEN
+							--SI LA CAMPAÑA TIENE SOLO UN RENGLON PARA EL MENSAJE
+							--SE OBTIENE LA DESCRIPCION DEL MENSAJE
+							SELECT FIRST 1 orden INTO sOrden FROM "informix".si_detcamp 
+							WHERE idmensaje = NVL(sIDMensaje,0) AND NVL(mensaje,'') <> '';
+			
+							EXECUTE  PROCEDURE "informix".sp_campaniamensajeporlinea(sIdMensaje,sOrden) INTO cCodRet2,cMensaje2;
+							--OCURRIO UN ERROR EN EL LLAMADO DEL PROCEDIMIENTO
+							IF  NVL(cCodRet2:: INTEGER,0) <> 0 THEN
+								LET cCodRet = NVL(cCodRet2:: INTEGER,0);
+								RETURN TRIM(NVL(cCodRet,'')),NVL(sIdCampaniaRet,0),NVL(sIDJerarquiaRet,0),TRIM(NVL(cNombreRet,'')),
+								TRIM(NVL(cProductoRet,'')),TRIM(NVL(csistemaRet2,'')),TRIM(NVL(cEstado,'')),TRIM(NVL(cMensaje,'')),
+								TRIM(NVL(cTransaccion,'')),TRIM(NVL(cEstatus,'')), TRIM(NVL(cIDSucursalRet,''));
+							ELSE
+								--SE OBTIENE LA DESCRIPCION DEL MENSAJE
+								LET cMensaje = TRIM(TRIM(NVL(sIdMensaje,0)::CHAR(5))||"|"||TRIM(NVL(cMensaje2,'')));
+							END IF 
+						ELSE
+							LET cMensaje  = TRIM(TRIM(NVL(sIdMensaje,0)::CHAR(5))||"|"||'V');
+						END IF;
+						
+						--SE OBTIENE EL ESTADO DE LA CAMPAÑA
+						SELECT FIRST 1 activa INTO sActivo  FROM "informix".si_maecamp		
+						WHERE idcamp =   NVL(sIdCampania,0)	AND idjerarquia = NVL(sIDJerarquia,0) AND idzona = TRIM(NVL(pId,'')) ; 
+
+						IF NVL(sActivo,0) = 1 THEN
+							LET cEstado =  TRIM('SI');
+						ELSE
+							LET cEstado =  TRIM('NO');
+						END IF;	
+					
+						IF csistema = 'SD' OR csistema = 'T' THEN
+							SELECT COUNT(DISTINCT estatus) INTO iConEst FROM "informix".si_maecamp WHERE idcamp =   NVL(sIdCampania,0) 
+							AND idjerarquia = NVL(sIDJerarquia,0) AND idzona = TRIM(NVL(pId,''))
+							AND (sistema = 'SD' or sistema = 'T')
+							AND sistema = TRIM(NVL(csistema,''));
+							
+							IF iConEst = 1 THEN
+								SELECT DISTINCT DECODE(estatus,'N','NORMAL','A','ATRASO','V','POR VENCER','T','TODOS') 
+								INTO cEstatus  FROM "informix".si_maecamp WHERE idcamp = NVL(sIdCampania,0) 
+								AND idjerarquia = NVL(sIDJerarquia,0) 
+								AND idzona = TRIM(NVL(pId,''))
+								AND (sistema = 'SD' or sistema = 'T')
+								AND sistema = TRIM(NVL(csistema,''));
+							ELIF iConEst > 1 THEN
+								--SI ES MAS DE UN ESTATUS
+								LET cEstatus = TRIM('V');
+							ELIF iConEst = 0 THEN	
+								LET cEstatus = TRIM('NO APLICA');
+							END IF;
+						ELSE	
+							IF 	iConEst = 1 THEN
+								SELECT DISTINCT DECODE(estatus,'N','NORMAL','A','ATRASO','V','POR VENCER','T','TODOS') 
+								INTO cEstatus  FROM "informix".si_maecamp WHERE idcamp =   NVL(sIdCampania,0) 
+								AND idjerarquia = NVL(sIDJerarquia,0) 
+								AND idzona = TRIM(NVL(pId,''))
+								AND (sistema = 'SD' or sistema= 'T');
+							ELIF iConEst > 1 THEN
+								--SI ES MAS DE UN ESTATUS
+								LET cEstatus = TRIM('V');
+							ELIF iConEst = 0 THEN	
+								LET cEstatus = TRIM('NO APLICA');
+							END IF;
+						END IF;	
+						
+						--SE OBTIENEN LAS TRANSACCIONES POR CADA CAMPAÑA
+						IF ( SELECT COUNT(DISTINCT tran_nro) FROM "informix".si_maecamp WHERE idcamp = NVL(sIdCampania,0) 
+							AND idjerarquia = NVL(sIDJerarquia,0) AND idzona = TRIM(NVL(pId,'')))  = 1 THEN
+							
+							SELECT DISTINCT TRIM(tran_nro::CHAR(5)) INTO sTranssac FROM "informix".si_maecamp WHERE idcamp = NVL(sIdCampania,0) 
+							AND idjerarquia = NVL(sIDJerarquia,0) AND idzona = TRIM(NVL(pId,'')) ;
+							
+							IF TRIM(NVL(sTranssac,''))= '0' THEN
+								LET cTransaccion = TRIM('T');
+							ELSE
+								LET cTransaccion = TRIM(sTranssac::CHAR(5)) ;
+							END IF;
+						ELSE
+							LET cTransaccion = TRIM('V');
+						END IF;	
+						
+						--SE OBTIENE EL NOMBRE DE LA CAMPAÑA
+						SELECT FIRST 1 nombre INTO cNombreRet  FROM "informix".si_maecamp		
+						WHERE idcamp =   NVL(sIdCampania,0)	AND idjerarquia = NVL(sIDJerarquia,0);
+						
+						LET cIDSucursalRet = '';
+						--LET iconest = 0;
+					END FOREACH;
+			
+					 RETURN TRIM(NVL(cCodRet,'')),NVL(sIdCampaniaRet,0),NVL(sIDJerarquiaRet,0),TRIM(NVL(cNombreRet,'')),
+						TRIM(NVL(cProductoRet,'')),TRIM(NVL(csistemaRet2,'')),TRIM(NVL(cEstado,'')),TRIM(NVL(cMensaje,'')),
+						TRIM(NVL(cTransaccion,'')),TRIM(NVL(cEstatus,'')), TRIM(NVL(cIDSucursalRet,'')) WITH RESUME;
+						
+					LET csistema = ''; 
+					LET csistemaRet2 = '';
+					LET scontsist = 0;
+					LET sContProd = 0;
+					LET iconest = 0;
+				END FOREACH	;
+
+				IF DBINFO('sqlca.sqlerrd2') = 0 THEN
+				--NO EXISTEN CAMPAÑAS
+					LET cCodRet = '000002';
+					RETURN TRIM(NVL(cCodRet,'')),NVL(sIdCampaniaRet,0),NVL(sIDJerarquiaRet,0),TRIM(NVL(cNombreRet,'')),
+					TRIM(NVL(cProductoRet,'')),	TRIM(NVL(csistemaRet2,'')),TRIM(NVL(cEstado,'')),TRIM(NVL(cMensaje,'')),
+					TRIM(NVL(cTransaccion,'')),TRIM(NVL(cEstatus,'')), TRIM(NVL(cIDSucursalRet,''));
+				END IF; 
+			END IF;	
+		ELSE 
+			-- Parámetros de entrada vacíos
+			LET cCodRet = '000001';
+			RETURN TRIM(NVL(cCodRet,'')),NVL(sIdCampaniaRet,0),NVL(sIDJerarquiaRet,0),TRIM(NVL(cNombreRet,'')),TRIM(NVL(cProductoRet,'')),
+				TRIM(NVL(csistemaRet2,'')),TRIM(NVL(cEstado,'')),TRIM(NVL(cMensaje,'')),TRIM(NVL(cTransaccion,'')),TRIM(NVL(cEstatus,'')),
+				TRIM(NVL(cIDSucursalRet,''));
+		END IF;				
+	END
+END PROCEDURE
+DOCUMENT
+'FECHA: 09/04/2015',
+'FOLIO :1711',
+'PROYECTO: TICKETINTELIGENTEBANCOPPEL',
+'DESCRIPCION: PROCEDIMIENTO PARA OBTENER TODAS LAS CAMPANIAS QUE TIENE UNA SUCURSAL O ZONA',
+'AUTOR: ISARAI BOJORQUEZ',
+'FECHA: 05/05/2015',
+'MODIFICACION: SE MODIFICA PARA CONSULTAR TODAS LAS SUCURSALES SI EL PARAMETRO O SUCURSAL ES IGUAL A T',
+'BD: BDINTEG';
+
+CREATE PROCEDURE "informix".sp_modificaguardacampania_multiple(
+cEmpresa 		CHAR(3), 
+cSucursal 		CHAR(5), 
+cZona 			CHAR(5), 
+cSistema 		CHAR(2), 
+cProducto 		CHAR(5), 
+sTransaccion 	SMALLINT, 
+cEstatus 		CHAR(1), 
+sNivel 			SMALLINT, 
+sActiva 		SMALLINT, 
+sAct_Zona 		SMALLINT, 
+sCombinable 	SMALLINT, 
+sCampania 		SMALLINT, 
+sJerarquia 		SMALLINT, 
+cMensaje1 		CHAR(55), 
+cMensaje2 		CHAR(55), 
+cMensaje3 		CHAR(55), 
+cMensaje4 		CHAR(55), 
+cMensaje5 		CHAR(55), 
+cMensaje6 		CHAR(55),
+cNomCamp 		CHAR(40), 
+cCampNueva 		CHAR(1)) --DSB 20-08-2013 SE AGREGA EL PARAMETRO CNOMCAMP Y CCAMPNUEVA
+--------------------------------------------------------------------
+--DOCUMENTACIÓN
+--Guarda o modifica la información de la campaña
+--Realizó: Nancy Sevilla Camacho
+ 
+--MODIFICACION: 
+--DSB 20-08-2013
+--DESCRIPCION: Se modifica para que inserte nombre de campaña y cree un solo mensaje por campaña
+--MODIFICO:   Vega
+--FECHA MODIFICACION: 20/Agosto/2013
+--------------------------------------------------------------------
+
+	--DATOS A REGRESAR---
+	RETURNING
+		CHAR(6) AS Codigo_retorno;
+
+	--DEFINICION DE VARIABLES--
+	DEFINE iSqlErr      INTEGER;
+	DEFINE cCodRet      CHAR(6);
+
+	---------------------------	
+	DEFINE sIdMensajeMax SMALLINT;
+	DEFINE sIdMensaje SMALLINT;
+
+	--INICIALIZACION DE VARIABLES--
+	LET iSqlErr       = 0;
+	LET cCodRet       = '000000';
+	LET sIdMensajeMax = 0;
+	LET sIdMensaje    = 0;
+
+	--SET DEBUG FILE TO "/respaldosbd/isarai/sp_modificaguardacampania_multiple.out";
+	--TRACE ON;
+	
+	SET ISOLATION TO DIRTY READ;
+	SET LOCK MODE TO WAIT 3;
+
+	-- INICIO DEL PROCEDIMIENTO
+	BEGIN
+	-- MANEJADOR DE ERRORES
+		ON EXCEPTION SET iSqlErr
+			IF iSqlErr <> 0 THEN
+				LET cCodRet = iSqlErr;
+				RETURN TRIM(NVL(cCodRet,''));
+			END IF;
+		END EXCEPTION;	
+		
+		IF NVL(cEmpresa,'') = '' OR NVL(sCampania, 0) = 0 OR NVL(sJerarquia, 0) = 0 THEN
+		
+			LET cCodRet = '000002';
+			RETURN TRIM(NVL(cCodRet,''));
+		
+		ELSE
+				
+			IF TRIM(cCampNueva) <> "1" THEN --MODIFICAR CAMPAÑA
+			
+				IF TRIM(cProducto) = "0" THEN
+					LET cProducto = "T";
+				END IF;
+				
+				--Se obtiene el ID del mensaje de la campaña a modificar para no perderlo
+				SELECT FIRST 1 idmensaje
+				INTO sIdMensaje
+				FROM "informix".si_maecamp
+				WHERE idcamp = NVL(sCampania, 0)
+				AND idJerarquia = NVL(sJerarquia, 0)
+				AND empresa = cEmpresa
+				AND sucursal IS NOT NULL
+				AND empresa IS NOT NULL
+				AND num_producto IS NOT NULL
+				AND sistema IS NOT NULL
+				AND estatus IS NOT NULL
+				AND tran_nro IS NOT NULL;
+				
+				IF TRIM(cCampNueva) = "2" THEN
+					--Se borra la campaña existente para crearla nuevamente con la nueva informacion
+					DELETE FROM "informix".si_maecamp
+					WHERE idcamp = NVL(sCampania, 0)
+					AND idJerarquia = NVL(sJerarquia, 0)
+					AND empresa = NVL(cEmpresa,'');
+					
+					--Se borra el mensaje existente para crearlo nuevamente con la informacion nueva
+					IF NVL(sIdMensaje,0) <> 0 OR NVL(sIdMensaje,0) IS NOT NULL THEN
+						DELETE FROM "informix".si_detcamp 
+						WHERE empresa = NVL(cEmpresa,'') 
+						AND idmensaje = NVL(sIdMensaje,0)
+						AND NVL(orden,0) <> 0;
+										
+						IF TRIM(NVL(cMensaje1,'')) <> '' OR TRIM(NVL(cMensaje2,'')) <> '' OR TRIM(NVL(cMensaje3,'')) <> '' 
+							OR TRIM(NVL(cMensaje4,'')) <> '' OR TRIM(NVL(cMensaje5,'')) <> '' OR TRIM(NVL(cMensaje6,'')) <> '' THEN
+							
+							INSERT INTO "informix".si_detcamp
+								(empresa, idmensaje, mensaje, orden)
+							VALUES
+								(NVL(cEmpresa,''), NVL(sIdMensaje,0), NVL(cMensaje1,''), 1);	
+						END IF;
+						
+						IF TRIM(NVL(cMensaje2,'')) <> '' OR TRIM(NVL(cMensaje3,'')) <> '' OR  TRIM(NVL(cMensaje4,'')) <> '' 
+						   OR TRIM(NVL(cMensaje5,'')) <> '' OR TRIM(NVL(cMensaje6,'')) <> '' THEN
+							
+							INSERT INTO "informix".si_detcamp
+								(empresa, idmensaje, mensaje, orden)
+							VALUES
+								(NVL(cEmpresa,''), NVL(sIdMensaje,0), NVL(cMensaje2,''), 2);	
+						END IF;
+						
+						IF TRIM(NVL(cMensaje3,'')) <> '' OR  TRIM(NVL(cMensaje4,'')) <> '' OR  TRIM(NVL(cMensaje5,'')) <> '' 
+						   OR TRIM(NVL(cMensaje6,'')) <> '' THEN
+							
+							INSERT INTO "informix".si_detcamp
+								(empresa, idmensaje, mensaje, orden)
+							VALUES
+								(NVL(cEmpresa,''), NVL(sIdMensaje,0), NVL(cMensaje3,''), 3);	
+						END IF;
+						
+						IF TRIM(NVL(cMensaje4,'')) <> '' OR  TRIM(NVL(cMensaje5,'')) <> '' OR TRIM(NVL(cMensaje6,'')) <> '' THEN
+							
+							INSERT INTO "informix".si_detcamp
+								(empresa, idmensaje, mensaje, orden)
+							VALUES
+								(NVL(cEmpresa,''), NVL(sIdMensaje,0), NVL(cMensaje4,''), 4);	
+						END IF;
+						
+						IF TRIM(NVL(cMensaje5,'')) <> '' OR TRIM(NVL(cMensaje6,'')) <> '' THEN
+							
+							INSERT INTO "informix".si_detcamp
+								(empresa, idmensaje, mensaje, orden)
+							VALUES
+								(NVL(cEmpresa,''), NVL(sIdMensaje,0), NVL(cMensaje5,''), 5);	
+						END IF;
+						
+						IF TRIM(NVL(cMensaje6,'')) <> '' THEN						   			   
+
+							INSERT INTO "informix".si_detcamp
+								(empresa, idmensaje, mensaje, orden)
+							VALUES
+								(NVL(cEmpresa,''), NVL(sIdMensaje,0), NVL(cMensaje6,''), 6);							   		   
+						END IF;	
+					ELSE
+						--NO SE ENCONTRÓ EL IDMENSAJE PARA ESA CAMPAÑA Y JERARQUÍA
+						LET cCodRet = '000001';
+						RETURN TRIM(NVL(cCodRet,''));
+					END IF;
+				END IF;
+				
+					INSERT INTO "informix".si_maecamp
+						(empresa, sucursal, num_producto, sistema, estatus, idcamp, idjerarquia, idnivel, idzona, activa, 
+						act_zona, combinable, idmensaje, tran_nro, nombre)
+					VALUES
+						( NVL(cEmpresa,''), NVL(cSucursal,''), NVL(cProducto,''), NVL(cSistema,''), NVL(cEstatus,''), 
+						  NVL(sCampania, 0), NVL(sJerarquia, 0), NVL(sNivel,0), NVL(cZona,''), NVL(sActiva,0), NVL(sAct_Zona,0), NVL(sCombinable,0), NVL(sIdMensaje,0), NVL(sTransaccion,0), NVL(cNomCamp,''));
+						
+				RETURN TRIM(NVL(cCodRet,''));
+
+			ELSE --CAMPAÑA NUEVA
+				SELECT FIRST 1 idmensaje
+				INTO sIdMensaje
+				FROM "informix".si_maecamp
+				WHERE idcamp = sCampania
+				AND idJerarquia = sJerarquia
+				AND empresa = cEmpresa
+				AND sucursal IS NOT NULL;
+
+				
+				IF NVL(sIdMensaje,0) <> 0  THEN --OR NVL(sIdMensaje,0) IS NOT NULL THEN
+					-- INSERTA EN LA TABLA SI_MAECAMP LOS DATOS QUE CORRESPONDEN A LA CAMPAÑA CREADA
+					INSERT INTO "informix".si_maecamp
+						(empresa, sucursal, num_producto, sistema, estatus, idcamp, idjerarquia, idnivel, idzona, activa, act_zona, combinable, idmensaje, tran_nro, nombre)
+					VALUES
+						( NVL(cEmpresa,''), NVL(cSucursal,''), NVL(cProducto,''), NVL(cSistema,''), NVL(cEstatus,''), 
+						  NVL(sCampania, 0), NVL(sJerarquia, 0), NVL(sNivel,0), NVL(cZona,''), NVL(sActiva,0), NVL(sAct_Zona,0), NVL(sCombinable,0), NVL(sIdMensaje,0), NVL(sTransaccion,0), NVL(cNomCamp,''));
+				
+				ELSE
+					-- SE OBTIENE EL VALOR MÁXIMO DEL ID MENSAJE
+					SELECT MAX(idmensaje)
+					INTO sIdMensajeMax
+					FROM "informix".si_maecamp;
+									
+					IF NVL(sIdMensajeMax,0) = 0 OR sIdMensajeMax IS NULL THEN
+						LET sIdMensajeMax = 1;			
+					ELSE
+						LET sIdMensajeMax = sIdMensajeMax + 1;
+					END IF;
+				
+					-- INSERTA EN LA TABLA SI_MAECAMP LOS DATOS QUE CORRESPONDEN A LA CAMPAÑA CREADA
+					INSERT INTO "informix".si_maecamp
+						(empresa, sucursal, num_producto, sistema, estatus, idcamp, idjerarquia, idnivel, idzona, activa, act_zona, combinable, idmensaje, tran_nro, nombre)
+					VALUES
+						( NVL(cEmpresa,''), NVL(cSucursal,''), NVL(cProducto,''), NVL(cSistema,''), NVL(cEstatus,''), 
+						  NVL(sCampania, 0), NVL(sJerarquia, 0), NVL(sNivel,0), NVL(cZona,''), NVL(sActiva,0), NVL(sAct_Zona,0), NVL(sCombinable,0), NVL(sIdMensajeMax,0), NVL(sTransaccion,0), NVL(cNomCamp,''));
+						  
+					-- INSERTA EN LA TABLA SI_DETCAMP LOS DATOS QUE CORRESPONDEN A LA CAMPAÑA CREADA
+					IF TRIM(NVL(cMensaje1,'')) <> '' OR TRIM(NVL(cMensaje2,'')) <> '' OR TRIM(NVL(cMensaje3,'')) <> '' 
+						OR TRIM(NVL(cMensaje4,'')) <> '' OR TRIM(NVL(cMensaje5,'')) <> '' OR TRIM(NVL(cMensaje6,'')) <> '' THEN
+						
+						INSERT INTO "informix".si_detcamp
+							(empresa, idmensaje, mensaje, orden)
+						VALUES
+							(NVL(cEmpresa,''), NVL(sIdMensajeMax,0), NVL(cMensaje1,''), 1);
+					END IF;
+					
+					IF TRIM(NVL(cMensaje2,'')) <> '' OR TRIM(NVL(cMensaje3,'')) <> '' OR  TRIM(NVL(cMensaje4,'')) <> '' 
+					   OR TRIM(NVL(cMensaje5,'')) <> '' OR TRIM(NVL(cMensaje6,'')) <> '' THEN
+						
+						INSERT INTO "informix".si_detcamp
+							(empresa, idmensaje, mensaje, orden)
+						VALUES
+							(NVL(cEmpresa,''), NVL(sIdMensajeMax,0), NVL(cMensaje2,''), 2);	
+					END IF;
+					
+					IF TRIM(NVL(cMensaje3,'')) <> '' OR  TRIM(NVL(cMensaje4,'')) <> '' OR  TRIM(NVL(cMensaje5,'')) <> '' 
+					   OR TRIM(NVL(cMensaje6,'')) <> '' THEN
+						
+						INSERT INTO "informix".si_detcamp
+							(empresa, idmensaje, mensaje, orden)
+						VALUES
+							(NVL(cEmpresa,''), NVL(sIdMensajeMax,0), NVL(cMensaje3,''), 3);
+					END IF;
+					
+					IF TRIM(NVL(cMensaje4,'')) <> '' OR  TRIM(NVL(cMensaje5,'')) <> '' OR TRIM(NVL(cMensaje6,'')) <> '' THEN
+						
+						INSERT INTO "informix".si_detcamp
+							(empresa, idmensaje, mensaje, orden)
+						VALUES
+							(NVL(cEmpresa,''), NVL(sIdMensajeMax,0), NVL(cMensaje4,''), 4);	
+					END IF;
+					
+					IF TRIM(NVL(cMensaje5,'')) <> '' OR TRIM(NVL(cMensaje6,'')) <> '' THEN
+						
+						INSERT INTO "informix".si_detcamp
+							(empresa, idmensaje, mensaje, orden)
+						VALUES
+							(NVL(cEmpresa,''), NVL(sIdMensajeMax,0), NVL(cMensaje5,''), 5);	
+					END IF;
+					
+					IF TRIM(NVL(cMensaje6,'')) <> '' THEN						   			   
+
+						INSERT INTO "informix".si_detcamp
+							(empresa, idmensaje, mensaje, orden)
+						VALUES
+							(NVL(cEmpresa,''), NVL(sIdMensajeMax,0), NVL(cMensaje6,''), 6);						   		   
+					END IF;					   
+				END IF;
+				RETURN TRIM(NVL(cCodRet,''));	
+			END IF;
+		END IF;
+	END;
+END PROCEDURE
+DOCUMENT
+'Fecha: 10/04/2015',
+'Folio :1711',
+'Proyecto: TicketInteligenteBancoppel',
+'Descripcion: Procedimiento para modificar o guardar campania',
+'Autor: Isarai Bojorquez',
+'BD: BDINTEG';
+
+CREATE PROCEDURE "informix".sp_obtiene_campanias_multiple(pEmpresa CHAR(3))
+RETURNING	CHAR(6) 	AS CodRet,
+			SMALLINT 	AS IDCamp,
+			SMALLINT 	AS IDJerarquia,
+			CHAR(40) 	AS Nombre,
+			CHAR(55) 	AS Producto,
+			CHAR(55) 	AS Sistema,
+			CHAR(8) 	AS Estado,
+			SMALLINT 	AS Combinable,
+			CHAR(65) 	AS Mensaje,
+			CHAR(55) 	AS Sucursales;
+			
+
+	-- DEFINICION DE VARIABLES
+    DEFINE	cCodRet				CHAR(6);
+	DEFINE	iSqlErr				INTEGER;
+	DEFINE	sIDCamp				SMALLINT;
+	DEFINE	sIDJerarquia		SMALLINT;
+	DEFINE	sPrimeraVez			SMALLINT;
+	DEFINE	sIDCamp2			SMALLINT;
+	DEFINE	sIDJerarquia2		SMALLINT;
+	DEFINE	cNombre				CHAR(40);
+	DEFINE	cProducto			CHAR(5);
+	DEFINE	cSistema			CHAR(5);
+	DEFINE	cSistema2			CHAR(5);
+	DEFINE	cEstado				CHAR(8);
+	DEFINE	sIDMensaje			SMALLINT;
+	DEFINE	cIDSucursal			CHAR(20);
+	DEFINE	cIDZona				CHAR(5);
+	DEFINE	sIDCampRet			SMALLINT;
+	DEFINE	sIDJerarquiaRet		SMALLINT;
+	DEFINE	cNombreRet			CHAR(65);
+	DEFINE	cProductoRet		CHAR(55);
+	DEFINE	cSistemaRet			CHAR(55);
+	DEFINE	cSistemaRet2		CHAR(55);
+	DEFINE	sEstadoRet			SMALLINT;
+	DEFINE	sIDMensajeRet		SMALLINT;
+	DEFINE	cIDSucursalRet		CHAR(30);
+	DEFINE	cMensaje			CHAR(65);
+	DEFINE	cMensajeRet			CHAR(55);
+	DEFINE	iContadorSuc		INTEGER;
+	DEFINE	iContadorZona		INTEGER;
+	DEFINE	sCombinable			SMALLINT;
+	DEFINE	sCombinableRet		SMALLINT;
+	DEFINE	cEstatus			CHAR(1);
+	DEFINE	cEstatusRet			CHAR(1);
+	DEFINE	cNomProductoRet		CHAR(40);
+	DEFINE	sTranNum			SMALLINT;
+	DEFINE	cDesTranRet			CHAR(49);
+	DEFINE 	cSucursal			CHAR(5);
+	DEFINE sActivo 				SMALLINT;
+	DEFINE sEstado 				SMALLINT;
+	--1711
+	DEFINE	sOrden				SMALLINT;
+	DEFINE	sContSist			SMALLINT;
+	DEFINE	sContProd			SMALLINT;
+	DEFINE	sContSuc			SMALLINT;
+	DEFINE	sContSuc2			SMALLINT;
+	--sp_campaniamensajeporlinea
+	DEFINE cCodRet2				CHAR(5);
+	DEFINE cMensaje2			CHAR(65);	
+	DEFINE	sSistema			SMALLINT;
+	DEFINE	sProd				SMALLINT;
+	DEFINE	sSuc				SMALLINT;
+	DEFINE 	iSC					INTEGER;
+	DEFINE 	iSD					INTEGER;
+	DEFINE 	iSE					INTEGER;
+	DEFINE 	cSucursal2			CHAR(5);
+	DEFINE	sSistema2			SMALLINT;
+	DEFINE 	sSistema3			CHAR(2);
+	DEFINE 	sSistema4			CHAR(2);
+	
+		
+	--INICIALIZACION DE VARIABLES--
+	LET cCodRet2 			= '';
+	LET sSistema3 			= '';
+	LET sSistema4 			= '';
+	LET cMensaje2			= '';
+	LET cSucursal 			= '';
+	LET cCodRet				= "000000";
+	LET sSistema2			= 0;
+	LET iSqlErr				= 0;
+	LET iSC					= 0;
+	LET iSD					= 0;
+	LET iSE					= 0;
+	LET sProd				= 0;
+	LET sSuc				= 0;
+	LET sSistema			= 0;
+	LET sContSist			= 0;
+	LET sContProd			= 0;
+	LET sContSuc			= 0;
+	LET sContSuc2			= 0;
+	LET	sIDCamp				= 0;
+	LET	sIDJerarquia		= 0;
+	LET	sPrimeraVez			= 0;
+	LET	sIDCamp2			= 0;
+	LET	sIDJerarquia2		= 0;
+	LET	cNombre				= "";
+	LET	cProducto			= "";
+	LET	cSistema			= "";
+	LET	cSistema2			= "";
+	LET	cEstado				= '';
+	LET	sIDMensaje			= 0;
+	LET	cIDSucursal			= "";
+	LET	cIDZona				= "";
+	LET	sIDCampRet			= 0;
+	LET	sIDJerarquiaRet		= 0;
+	LET	cNombreRet			= "";
+	LET	cProductoRet		= "";
+	LET	cSistemaRet			= "";
+	LET	cSistemaRet2		= "";
+	LET	sEstadoRet			= 0;
+	LET	sIDMensajeRet		= 0;
+	LET	cIDSucursalRet		= "";
+	LET	cMensaje			= "";
+	LET cMensajeRet			= "";
+	LET	iContadorSuc		= 0;
+	LET	iContadorZona		= 0;
+	LET	sCombinable			= 0;
+	LET	sCombinableRet		= 0;
+	LET	cEstatus			= "";
+	LET	cEstatusRet			= "";
+	LET	cNomProductoRet		= "";
+	LET	sTranNum			= 0;
+	LET	cDesTranRet			= "";		
+	LET sOrden 				= 0;
+	LET sActivo 			= 0;
+	LET sestado 			= 0;
+	LET	cSucursal2			= "";
+	
+	--SET DEBUG FILE TO '/respaldosbd/isarai/sp_obtiene_campanias_multiple.out';
+	--TRACE ON;
+	
+	SET ISOLATION TO DIRTY READ;
+	SET LOCK MODE TO WAIT 3;
+	
+    BEGIN
+
+        ON EXCEPTION SET iSqlErr
+		
+            IF iSqlErr <> 0 THEN
+                LET cCodRet = iSqlErr;
+				RETURN TRIM(NVL(cCodRet,'')),NVL(sIDCampRet,0),NVL(sIDJerarquiaRet,0),TRIM(NVL(cNombreRet,'')),TRIM(NVL(cProductoRet,'')),
+					   TRIM(NVL(cSistemaRet2,'')),TRIM(NVL(cEstado,'')),NVL(sCombinableRet,0),TRIM(NVL(cMensaje,'')), TRIM(NVL(cIDSucursalRet,''));
+            END IF;
+			
+        END EXCEPTION;
+		
+		IF LENGTH(TRIM(NVL(pEmpresa,""))) = 0 THEN
+			--PROPORCIONAR EMPRESA
+			LET cCodRet = "00001";
+			RETURN TRIM(NVL(cCodRet,'')),NVL(sIDCampRet,0),NVL(sIDJerarquiaRet,0),TRIM(NVL(cNombreRet,'')),TRIM(NVL(cProductoRet,'')),
+			       TRIM(NVL(cSistemaRet2,'')),TRIM(NVL(cEstado,'')),NVL(sCombinableRet,0),TRIM(NVL(cMensaje,'')),TRIM(NVL(cIDSucursalRet,''));
+		ELSE
+			FOREACH
+				--SE OBTIENEN EL TOTAL DE CAMPÑAS
+				SELECT DISTINCT idcamp, idjerarquia,idmensaje
+				INTO sIDCamp, sIDJerarquia,sIdMensaje
+				FROM "informix".si_maecamp
+				WHERE empresa = TRIM(pEmpresa)
+				
+				LET sPrimeraVez = 1;
+				
+				FOREACH
+										--SE OBTIENEN LAS PRIMERAS 5 SUCURSALES
+					SELECT DISTINCT DECODE(num_producto, 'T','T',num_producto),
+									DECODE(sistema,'T','T',sistema), 
+									DECODE(sucursal,'T','T',sucursal),idzona,combinable
+					INTO cProducto, cSistema,cIDSucursal,cIDZona,sCombinableRet
+					FROM "informix".si_maecamp
+					WHERE empresa = TRIM(pEmpresa)
+					AND idcamp = NVL(sIDCamp,0)
+					AND idjerarquia = NVL(sIDJerarquia,0)
+					
+					SELECT COUNT(DISTINCT sucursal) INTO sSuc FROM "informix".si_maecamp  
+					WHERE empresa = TRIM(pEmpresa) AND idcamp = NVL(sIDCamp,0)	
+					AND idjerarquia = NVL(sIDJerarquia,0) AND sucursal = TRIM(NVL(cIDSucursal,'')) AND sucursal IS NOT NULL;
+					
+					SELECT COUNT(DISTINCT num_producto) INTO sProd FROM "informix".si_maecamp  
+					WHERE empresa = TRIM(pEmpresa) AND idcamp = NVL(sIDCamp,0)	
+					AND idjerarquia = NVL(sIDJerarquia,0) AND num_producto = TRIM(NVL(cProducto,'')) AND num_producto IS NOT NULL;
+					
+					SELECT  COUNT(DISTINCT sistema) INTO sSistema2 FROM "informix".si_maecamp  
+					WHERE empresa = TRIM(pEmpresa) AND idcamp = NVL(sIDCamp,0)	
+					AND idjerarquia = NVL(sIDJerarquia,0) AND sistema <> '';
+					
+						IF NVL(sProd,0) = 1 AND TRIM(cProductoRet) <>  TRIM(NVL(cProducto,'')) THEN 
+							LET sContProd = NVL(sContProd,0) + 1 ;
+						END IF;	
+						IF NVL(sSuc,0) = 1 AND TRIM(cIDSucursalRet) <>  TRIM(cIDSucursal) AND TRIM(cIDSucursalRet) <>  '' THEN 
+							LET sContSuc = NVL(sContSuc,0) + 1 ;
+						END IF;	
+
+					IF sPrimeraVez = 1 THEN
+						--SE GUARDA EL IDCAMPAÑA, IDJERARQUIA, NOMBRE CAMAPAÑA, PRODUCTO, SISTEMA, STATUS, SI ESTA ACTIVA, SI ES COMBINABLE Y EL IDMENSAJE LA CAMAPAÑA PARA DESPUES RETORNARLO
+						LET sIDCampRet = NVL(sIDCamp,0);
+						LET sIDJerarquiaRet = NVL(sIDJerarquia,0);
+						LET cNombreRet = TRIM(NVL(cNombre,''));
+						LET cProductoRet = TRIM(NVL(cProducto,''));
+						LET cSistemaRet = TRIM(NVL(cSistema,''));
+						LET	cEstatusRet = NVL(cEstatus,"");
+						LET sEstadoRet = NVL(sEstado,0);
+						LET	sCombinableRet = NVL(sCombinableRet,0);
+						LET sIDMensajeRet = NVL(sIdMensaje,0);
+						
+						IF TRIM(cIDSucursal) <> ''  THEN	
+							LET cIDSucursalRet = TRIM(NVL(cIDSucursal,''));
+
+						ELSE
+							LET cIDSucursalRet = 'Z'|| "|" || TRIM(NVL(cIDZona,''));
+						END IF;	
+						
+						IF sContSuc = 1 THEN
+							LET cSucursal2 = TRIM(NVL(cIDSucursal,'')) ;
+						END IF;
+						
+						LET sPrimeraVez = 0;
+					ELSE
+						
+						IF sContProd > 1 AND TRIM(cProductoRet) <>  TRIM(NVL(cProducto,'')) THEN
+							LET cProductoRet = 'V';
+						ELSE
+							LET cProductoRet = TRIM(NVL(cProducto,''));
+						END IF;
+						
+						IF sContSuc > 1 AND cSucursal2 <> TRIM(NVL(cIDSucursal,'')) THEN
+							LET cIDSucursalRet = 'V';
+						ELSE 
+							LET cIDSucursalRet = TRIM(NVL(cIDSucursalRet,''));
+						END IF;
+
+					END IF;
+					
+					IF NVL(sSistema2,0) = 1 THEN
+						IF (NVL(cSistema,'')) <> '' THEN
+							LET cSistemaRet2 = TRIM(NVL(cSistema,'')) ;
+						ELSE
+							LET cSistemaRet2 = TRIM(NVL(cSistemaRet2,'')) ;
+						END IF;	
+					ELIF NVL(sSistema2,0) = 3 THEN
+						LET cSistemaRet2 = TRIM(NVL('T','')) ;
+					ELIF NVL(sSistema2,0) = 2 THEN	
+						FOREACH
+							SELECT DISTINCT DECODE(sistema,'T','T',sistema) INTO sSistema3 
+							FROM "informix".si_maecamp
+							WHERE empresa = TRIM(pEmpresa)
+							AND idcamp = NVL(sIDCamp,0)
+							AND idjerarquia = NVL(sIDJerarquia,0)
+							
+							SELECT DISTINCT DECODE(sistema,'T','T',sistema) INTO sSistema4 
+							FROM "informix".si_maecamp
+							WHERE empresa = TRIM(pEmpresa)
+							AND idcamp = NVL(sIDCamp,0)
+							AND idjerarquia = NVL(sIDJerarquia,0)	
+							AND sistema <> TRIM(sSistema3);
+							
+							LET cSistemaRet2 = TRIM(NVL(sSistema4,'')) || "|" || TRIM(NVL(sSistema3,''));
+						END FOREACH	
+					END IF;
+					
+					SELECT FIRST 1 orden INTO sOrden FROM "informix".si_detcamp WHERE idmensaje = NVL(sIdMensaje,0) AND NVL(mensaje,'') <> '';
+				
+					EXECUTE  PROCEDURE "informix".sp_campaniamensajeporlinea(sIdMensaje,sOrden) INTO cCodRet2,cMensaje2;
+				
+					IF  NVL(cCodRet2:: INTEGER,0) <> 0 THEN
+						LET cCodRet = TRIM(NVL(cCodRet2,'')); --NVL(cCodRet2:: INTEGER,0);
+						RETURN TRIM(NVL(cCodRet,'')),NVL(sIDCampRet,0),NVL(sIDJerarquiaRet,0),TRIM(NVL(cNombreRet,'')),
+							   TRIM(NVL(cProductoRet,'')),		TRIM(NVL(cSistemaRet2,'')),TRIM(NVL(cEstado,'')),NVL(sCombinableRet,0),
+						       TRIM(NVL(cMensaje,'')),TRIM(NVL(cIDSucursalRet,''));
+					ELSE
+						LET cMensaje = NVL(sIdMensaje,0) || "|" || TRIM(NVL(cMensaje2,''));
+					END IF 
+					
+					SELECT FIRST 1 activa,nombre INTO sActivo,cNombreRet  FROM "informix".si_maecamp		
+					WHERE empresa = TRIM('001')	AND idcamp = sIDCampRet	AND idjerarquia = sIDJerarquiaRet; 
+					
+					IF NVL(sActivo,0) = 1 THEN
+						LET cEstado =  TRIM('Activa');
+					ELSE
+						LET cEstado =  TRIM('Inactiva');
+					END IF;	
+								
+					LET sContSuc2 = NVL(sContSuc,0);
+				END FOREACH;
+				
+				RETURN TRIM(NVL(cCodRet,'')),NVL(sIDCampRet,0),NVL(sIDJerarquiaRet,0),TRIM(NVL(cNombreRet,'')),TRIM(NVL(cProductoRet,'')),
+				       TRIM(NVL(cSistemaRet2,'')),TRIM(NVL(cEstado,'')),NVL(sCombinableRet,0),TRIM(NVL(cMensaje,'')),
+				       TRIM(NVL(cIDSucursalRet,'')) WITH RESUME;
+				
+				LET sContSist 		= 0;
+				LET sContSuc 		= 0;
+				LET cSistemaRet2 	= '';
+				LET cSistemaRet		= '';
+				LET cSistema 		= '';
+				LET sContProd 		= 0;
+				LET sSistema2		= 0;
+				
+			END FOREACH;
+			
+			IF DBINFO('sqlca.sqlerrd2') = 0 THEN
+				--NO EXISTEN CAMPAÑAS
+				LET cCodRet = "00002";
+				RETURN TRIM(NVL(cCodRet,'')),NVL(sIDCampRet,0),NVL(sIDJerarquiaRet,0),TRIM(NVL(cNombreRet,'')),TRIM(NVL(cProductoRet,'')),		
+				       TRIM(NVL(cSistemaRet2,'')),TRIM(NVL(cEstado,'')),NVL(sCombinableRet,0),TRIM(NVL(cMensaje,'')),
+				       TRIM(NVL(cIDSucursalRet,''));
+			END IF;
+			
+		END IF;
+	END;
+END PROCEDURE
+DOCUMENT
+'FECHA: 09/04/2015',
+'FOLIO :1711',
+'PROYECTO: TICKETINTELIGENTEBANCOPPEL',
+'DESCRIPCION: PROCEDIMIENTO PARA OBTENER TODAS LAS CAMPANIAS',
+'AUTOR: ISARAI BOJORQUEZ',
+'BD: BDINTEG';
+
+CREATE PROCEDURE "informix".sp_obtiene_estatus_multiple(pEmpresa CHAR(3), pIdCamp SMALLINT, pIdJerarquia SMALLINT)
+
+RETURNING
+	CHAR(6)   AS Codigo_retorno,
+	CHAR(15)  AS Descrip_estatus,
+	CHAR(1)	  AS cEstatus;
+
+--DECLARACION DE VARIABLES
+	DEFINE cCodRet						CHAR(6);
+	DEFINE iSqlErr						INTEGER;
+	DEFINE cDescripEst					CHAR(15);
+	DEFINE iContador,i					INTEGER;
+	DEFINE cEstatus						CHAR(1);
+
+--INICIALIZACION DE VARIABLES
+	LET cCodRet 		= '000000';
+	LET iSqlErr 		= 0;
+	LET cDescripEst 	= '';
+	LET cEstatus 		= '';
+	LET iContador		= 0;
+	LET i				= 0;
+
+	--SET DEBUG FILE TO "/respaldosbd/isarai/sp_obtiene_estatus_multiple.out";
+	--TRACE ON;
+
+	SET LOCK MODE TO WAIT 3;
+	SET ISOLATION TO DIRTY READ;
+
+	-- INICIO DEL PROCEDIMIENTO
+	BEGIN
+	
+	-- MANEJADOR DE ERRORES
+		ON EXCEPTION SET iSqlErr
+		
+			IF iSqlErr <> 0 THEN
+				LET cCodRet = iSqlErr;
+				RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cDescripEst,'')),TRIM(NVL(cEstatus,''));
+			END IF;
+			
+		END EXCEPTION;	
+		
+		IF TRIM(NVL(pEmpresa,'')) <> '' AND NVL(pIdCamp,0) <> 0 AND NVL(pIdJerarquia,0) <> 0 THEN
+		
+			FOREACH
+			
+				SELECT DISTINCT DECODE(estatus,'N','NORMAL','A','ATRASO','V','POR VENCER','T','TODOS'),estatus
+				INTO cDescripEst,cEstatus
+				FROM "informix".si_maecamp
+				WHERE idcamp = NVL(pIdCamp,0)
+				AND idjerarquia = NVL(pIdJerarquia,0)
+				AND (sistema = 'SD' OR sistema = 'T')
+				
+				LET iContador = NVL(iContador,0) + 1;
+				
+				IF cDescripEst = TRIM('TODOS') THEN
+				
+					WHILE iContador <= 3
+
+						IF iContador = 1 THEN
+							LET cDescripEst =  TRIM('ATRASO');
+							LET cEstatus = 'A';
+						ELIF iContador = 2 THEN
+							LET cDescripEst =  TRIM('NORMAL');
+							LET cEstatus = 'N';
+						ELIF iContador = 3 THEN
+							LET cDescripEst =  TRIM('POR VENCER');
+							LET cEstatus = 'V';
+						ELIF iContador > 3 THEN
+							EXIT FOREACH;
+						END IF	
+
+						LET iContador = NVL(iContador,0) + 1;
+						RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cDescripEst,'')),TRIM(NVL(cEstatus,'')) WITH RESUME;
+
+					END WHILE;
+				ELSE 
+					RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cDescripEst,'')),TRIM(NVL(cEstatus,'')) WITH RESUME;
+				END IF;
+				
+			END FOREACH	
+			
+			IF DBINFO('sqlca.sqlerrd2') = 0 THEN
+				--NO EXISTEN CAMPAÑAS
+				LET cCodRet = "000002";
+				RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cDescripEst,'')),TRIM(NVL(cEstatus,''));
+			END IF;
+			
+		ELSE
+			LET cCodRet = '000001';	
+			RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cDescripEst,'')),TRIM(NVL(cEstatus,''));
+		END IF;
+		
+	END
+END PROCEDURE
+DOCUMENT
+'FECHA: 09/04/2015',
+'FOLIO :1711',
+'PROYECTO: TICKETINTELIGENTEBANCOPPEL',
+'DESCRIPCION: PROCEDIMIENTO PARA OBTENER LOS ESTATUS DEL SISTEMA DE CREDITO DE UNA CAMPANIA',
+'AUTOR: 95358897-ISARAI BOJORQUEZ',
+'BD: BDINTEG';
+
+CREATE PROCEDURE "informix".sp_obtiene_producto_multiple(pEmpresa CHAR(3),pIdCamp SMALLINT,pIdJerarquia SMALLINT)
+
+RETURNING
+	CHAR(6)  AS codigo_retorno,
+	CHAR(40) AS DesProducto,
+	CHAR(4)  AS codigo_producto,
+	CHAR(2)  AS sist_producto;
+
+--DEFINICION DE VARIABLES--
+	DEFINE iSqlErr     			INTEGER;
+	DEFINE cCodRet     			CHAR(6);
+	DEFINE cDescripProd    		CHAR(40);
+	DEFINE cCodProd 			CHAR(4);
+	DEFINE cSistProd   			CHAR(2);
+	DEFINE cSistProd3   		CHAR(2);
+	DEFINE	cProducto			CHAR(4);
+	DEFINE	sPrimeraVez			SMALLINT;
+	DEFINE cCodProd2 			CHAR(4);
+	DEFINE cSistProd2   		CHAR(2);
+
+--INICIALIZACION DE VARIABLES--
+	LET iSqlErr     	= 0;
+	LET sPrimeraVez     = 0;
+	LET cCodRet     	= '000000';
+	LET cDescripProd    = '';
+	LET cCodProd 		= '';
+	LET cSistProd   	= '';
+	LET cCodProd2 		= '';
+	LET cSistProd2  	= '';
+	LET cProducto  		= '';
+
+	--SET DEBUG FILE TO "/respaldosbd/isarai/sp_obtiene_producto_multiple.out";
+	--TRACE ON;
+
+	SET LOCK MODE TO WAIT 3;
+	SET ISOLATION TO DIRTY READ;
+
+	-- INICIO DEL PROCEDIMIENTO
+	BEGIN
+	
+	-- MANEJADOR DE ERRORES
+		ON EXCEPTION SET iSqlErr
+		
+			IF iSqlErr <> 0 THEN
+				LET cCodRet = iSqlErr;
+				RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cDescripProd,'')),TRIM(NVL(cCodProd,'')),TRIM(NVL(cSistProd,''));
+			END IF;
+			
+		END EXCEPTION;
+		
+		IF TRIM(NVL(pEmpresa,'')) <> '' AND NVL(pIdCamp,0) <> 0 AND NVL(pIdJerarquia,0) <> 0 THEN
+		
+			FOREACH
+				--OBTIENE TODOS LOS SISTEMAS DE LA CAMPAÑA
+				SELECT DISTINCT DECODE(sistema,'T','T',sistema),sistema			
+				INTO cSistProd,cSistProd3
+				FROM "informix".si_maecamp
+				WHERE empresa = TRIM(NVL(pEmpresa,''))
+				AND idcamp = NVL(pIdCamp,0)
+				AND idjerarquia = NVL(pIdJerarquia,0)
+				ORDER BY sistema ASC
+					
+				LET sPrimeraVez = 1;
+				
+				FOREACH
+				
+					SELECT DISTINCT DECODE(num_producto,'T','T',num_producto)	
+					INTO cCodProd
+					FROM "informix".si_maecamp
+					WHERE empresa = TRIM(NVL(pEmpresa,''))
+					AND idcamp = NVL(pIdCamp,0)
+					AND idjerarquia = NVL(pIdJerarquia,0)
+					AND sistema = TRIM(NVL(cSistProd,''))
+					
+					--CUANDO SE OBTIENE EL PRIMER REGISTRO
+					IF sPrimeraVez = 1 THEN 
+						LET cSistProd2 = TRIM(cSistProd);
+						LET cCodProd2 = TRIM(cCodProd);
+						LET sPrimeraVez = 0;
+					END IF ;
+
+					IF TRIM(NVL(cSistProd,'')) = 'SC' THEN
+							
+						IF TRIM(NVL(cCodProd,'')) = 'T' THEN
+							LET cCodProd = '';
+						END IF;
+						
+						FOREACH 
+						
+							SELECT DiSTINCT nombre,producto INTO cDescripProd,cProducto FROM bdicheq: "informix".sc_producto 
+							WHERE producto =  DECODE(cCodProd,'',producto,cCodProd)
+							ORDER BY producto ASC
+							
+							LET cCodProd =  TRIM(NVL(cProducto,''));
+							LET cProducto = '';
+
+							RETURN TRIM(NVL(cCodRet,'')), TRIM(NVL(cDescripProd,'')), TRIM(NVL(cCodProd,'')),
+								   TRIM(NVL(cSistProd,'')) WITH RESUME;	
+							
+						END FOREACH
+						
+						IF DBINFO("sqlca.sqlerrd2") = 0 THEN 
+							--NO SE ENCONTRARON PRODUCTOS PARA ESTA CAMPANIA
+							LET cCodRet = '000002';
+							RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cDescripProd,'')),TRIM(NVL(cCodProd,'')),TRIM(NVL(cSistProd,''));
+						END IF;	
+						
+					ELIF TRIM(NVL(cSistProd,'')) = 'SD'	THEN
+					
+						IF TRIM(NVL(cCodProd,'')) = 'T' THEN
+							LET cCodProd = '';
+						END IF;
+						
+						FOREACH 
+							SELECT DiSTINCT nombre_prod,num_producto  INTO cDescripProd, cProducto
+							FROM bdicred: "informix".sd_definicion
+							where num_producto = DECODE(cCodProd,'',num_producto,cCodProd)
+							ORDER BY num_producto ASC
+
+							LET cCodProd =  TRIM(NVL(cProducto,''));
+							LET cProducto = '';
+							
+							IF DBINFO("sqlca.sqlerrd2") = 0 THEN 
+								--NO SE ENCONTRARON PRODUCTOS PARA ESTA CAMPANIA
+								LET cCodRet = '000002';
+								RETURN TRIM(NVL(cCodRet,'')), TRIM(NVL(cDescripProd,'')), TRIM(NVL(cCodProd,'')),
+									   TRIM(NVL(cSistProd,''));
+							END IF;
+							
+							RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cDescripProd,'')),TRIM(NVL(cCodProd,'')),
+								   TRIM(NVL(cSistProd,'')) WITH RESUME;	
+							
+						END FOREACH	
+						
+					ELIF TRIM(NVL(cSistProd,'')) = 'SE' THEN
+					
+						LET cCodProd = TRIM('T');
+						LET cSistProd = TRIM('SE');
+						LET cDescripProd = TRIM('SERVICIOS');
+						
+						RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cDescripProd,'')),TRIM(NVL(cCodProd,'')),
+							   TRIM(NVL(cSistProd,'')) WITH RESUME;	
+						
+					ELIF TRIM(NVL(cSistProd,'')) = 'T' THEN	
+						
+						IF TRIM(NVL(cCodProd,'')) = 'T' THEN
+							LET cProducto =  TRIM(NVL(cCodProd,''));
+							LET cCodProd = '';
+							
+						END IF;
+						
+						FOREACH 
+						
+							SELECT DiSTINCT nombre,producto INTO cDescripProd,cProducto FROM bdicheq: "informix".sc_producto 
+							WHERE producto =  DECODE(cCodProd,'',producto,cCodProd)
+							ORDER BY producto ASC
+								
+							LET cCodProd =  TRIM(NVL(cProducto,''));
+							LET cSistProd = TRIM('SC');
+								
+							IF DBINFO("sqlca.sqlerrd2") = 0 THEN 
+								--NO SE ENCONTRARON PRODUCTOS PARA ESTA CAMPANIA
+								LET cCodRet = '000002';
+								RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cDescripProd,'')),TRIM(NVL(cCodProd,'')),
+								       TRIM(NVL(cSistProd,''));
+							END IF;
+								
+							RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cDescripProd,'')),TRIM(NVL(cCodProd,'')),
+								   TRIM(NVL(cSistProd,'')) WITH RESUME;	
+							
+						END FOREACH	
+							
+							LET cCodProd = '';
+							LET cProducto = '';
+							LET cSistProd = '';
+							
+						FOREACH 
+							SELECT DiSTINCT nombre_prod,num_producto  INTO cDescripProd, cProducto
+							FROM bdicred: "informix".sd_definicion
+							where num_producto = DECODE(cCodProd,'',num_producto,cCodProd)
+							ORDER BY num_producto ASC
+
+								LET cCodProd =  TRIM(NVL(cProducto,''));
+								LET cSistProd = TRIM('SD');
+
+							IF DBINFO("sqlca.sqlerrd2") = 0 THEN 
+								--NO SE ENCONTRARON PRODUCTOS PARA ESTA CAMPANIA
+								LET cCodRet = '000002';
+								RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cDescripProd,'')),TRIM(NVL(cCodProd,'')),TRIM(NVL(cSistProd,''));
+							END IF;
+							
+							RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cDescripProd,'')),TRIM(NVL(cCodProd,'')),
+							       TRIM(NVL(cSistProd,'')) WITH RESUME;
+							
+						END FOREACH	
+							
+							LET cCodProd = TRIM('T');
+							LET cSistProd = TRIM('SE');
+							LET cDescripProd = TRIM('SERVICIOS');	
+							RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cDescripProd,'')),TRIM(NVL(cCodProd,'')),
+							       TRIM(NVL(cSistProd,''));	
+								   
+						END IF;
+						
+				END FOREACH
+				
+					IF DBINFO("sqlca.sqlerrd2") = 0 THEN 
+						--NO SE ENCONTRARON PRODUCTOS PARA ESTA CAMPANIA
+						LET cCodRet = '000002';
+						RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cDescripProd,'')),TRIM(NVL(cCodProd,'')),TRIM(NVL(cSistProd,''));
+					END IF;	
+					
+			END FOREACH	
+
+			IF DBINFO("sqlca.sqlerrd2") = 0 THEN 
+				--NO SE ENCONTRO LA CAMPANIA
+				LET cCodRet = '000003';
+				RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cDescripProd,'')),TRIM(NVL(cCodProd,'')),TRIM(NVL(cSistProd,''));
+			END IF;	
+			
+		ELSE
+			--Párametros de entrada vacíos
+			LET cCodRet = '000001';
+			RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cDescripProd,'')),TRIM(NVL(cCodProd,'')),TRIM(NVL(cSistProd,''));
+			
+		END IF;
+	END
+END PROCEDURE
+DOCUMENT
+'FECHA: 10/04/2015',
+'FOLIO :1711',
+'PROYECTO: TICKETINTELIGENTEBANCOPPEL',
+'DESCRIPCION: PROCEDIMIENTO PARA OBTENER LOS PRODUCTOS  DE UNA CAMPANIA',
+'AUTOR: 95358897-ISARAI BOJORQUEZ',
+'BD: BDINTEG';
+
+CREATE PROCEDURE "informix".sp_obtiene_transaccion_multiple(pEmpresa CHAR(3),pIdCamp SMALLINT,pIdJerarquia SMALLINT)
+
+RETURNING
+	CHAR(6)  AS codigo_retorno,
+	CHAR(40) AS DescripTransacc,
+	SMALLINT  AS codigo_transacc,
+	CHAR(2)  AS sist_transacc;
+
+--DEFINICION DE VARIABLES--
+	DEFINE 	iSqlErr     			INTEGER;
+	DEFINE 	cCodRet     			CHAR(6);
+	DEFINE 	cDescripTransacc    	CHAR(40);
+	DEFINE 	cCodigo_transacc		SMALLINT;
+	DEFINE 	sSist_transacc   		CHAR(2);
+	DEFINE	cProducto				CHAR(4);
+	DEFINE	sNumero					SMALLINT;
+	DEFINE	cSistema				CHAR(2);
+
+--INICIALIZACION DE VARIABLES--
+	LET iSqlErr     		= 0;
+	LET cCodRet     		= '000000';
+	LET cDescripTransacc    = '';
+	LET cCodigo_transacc 	= 0;
+	LET sNumero 			= 0;
+	LET sSist_transacc   	= '';
+	LET cProducto   		= '';
+	LET cSistema   			= '';
+
+	--SET DEBUG FILE TO "/respaldosbd/isarai/sp_obtiene_transaccion_multiple.out";
+	--TRACE ON;
+
+	SET LOCK MODE TO WAIT 3;
+	SET ISOLATION TO DIRTY READ;
+
+	-- INICIO DEL PROCEDIMIENTO
+	BEGIN
+	-- MANEJADOR DE ERRORES
+		ON EXCEPTION SET iSqlErr
+		
+			IF iSqlErr <> 0 THEN
+				LET cCodRet = iSqlErr;
+				RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cDescripTransacc,'')),NVL(cCodigo_transacc,0),TRIM(NVL(sSist_transacc,''));
+			END IF;
+			
+		END EXCEPTION;
+		
+		IF TRIM(NVL(pEmpresa,'')) <> '' AND NVL(pIdCamp,0) <> 0 AND NVL(pIdJerarquia,0) <> 0 THEN
+		
+			FOREACH
+				--OBTIENE TODOS LOS SISTEMAS DE LA CAMPAÑA
+				SELECT DISTINCT DECODE(sistema,'T','T',sistema)	
+				INTO sSist_transacc
+				FROM "informix".si_maecamp
+				WHERE empresa = TRIM(NVL(pEmpresa,''))
+				AND idcamp = NVL(pIdCamp,0)
+				AND idjerarquia = NVL(pIdJerarquia,0)
+				--ORDER BY sistema ASC
+				
+				FOREACH	
+					SELECT DISTINCT DECODE(tran_nro, 0,0,tran_nro) INTO cCodigo_transacc
+					FROM "informix".si_maecamp
+					WHERE empresa = TRIM(NVL(pEmpresa,''))
+					AND idcamp = NVL(pIdCamp,0)
+					AND idjerarquia = NVL(pIdJerarquia,0)
+					AND sistema = TRIM(NVL(sSist_transacc,''))
+					
+					IF  TRIM(NVL(sSist_transacc,'')) = 'T' AND TRIM(NVL(sSist_transacc,'')) <> '' THEN
+						LET sSist_transacc = '';
+						LET cCodigo_transacc = 0;
+					END IF;
+					
+					FOREACH
+						SELECT descripcion,numero,sistema INTO cDescripTransacc,sNumero,cSistema
+						FROM "informix".itran 
+						WHERE empresa = TRIM(NVL(pEmpresa,''))
+						AND numero = DECODE (cCodigo_transacc, 0,numero,cCodigo_transacc)
+						AND sistema = TRIM(DECODE (sSist_transacc, '',sistema,sSist_transacc))
+						AND sistema IN ('SD','SC','SE')
+						ORDER BY numero,sistema ASC
+							
+						IF cCodigo_transacc = 0 THEN
+							LET cCodigo_transacc = NVL(sNumero,0);
+							LET sNumero = 0;
+						ELSE
+							LET cCodigo_transacc = NVL(cCodigo_transacc,0);
+						END IF;	
+							
+						IF sSist_transacc = '' THEN
+							LET sSist_transacc = TRIM(NVL(cSistema,''));
+							LET cSistema = '';
+						END IF;
+						
+						RETURN TRIM(NVL(cCodRet,'')), TRIM(NVL(cDescripTransacc,'')), NVL(cCodigo_transacc,0),
+							   TRIM(NVL(sSist_transacc,'')) WITH RESUME;
+						
+						LET cCodigo_transacc = 0;
+						LET sSist_transacc = '';
+						
+						IF DBINFO("sqlca.sqlerrd2") = 0 THEN 
+							--NO SE ENCONTRO LA CAMPANIA
+							LET cCodRet = '000003';
+							RETURN TRIM(NVL(cCodRet,'')), TRIM(NVL(cDescripTransacc,'')), NVL(cCodigo_transacc,0),
+							       TRIM(NVL(sSist_transacc,''));
+						END IF;	
+						
+					END FOREACH	
+					
+					IF DBINFO("sqlca.sqlerrd2") = 0 THEN 
+						--NO SE ENCONTRO LA CAMPANIA
+						LET cCodRet = '000003';
+						RETURN TRIM(NVL(cCodRet,'')), TRIM(NVL(cDescripTransacc,'')), NVL(cCodigo_transacc,0), 
+							   TRIM(NVL(sSist_transacc,''));
+					END IF;	
+				END FOREACH
+
+					IF DBINFO("sqlca.sqlerrd2") = 0 THEN 
+						--NO SE ENCONTRO LA CAMPANIA
+						LET cCodRet = '000003';
+						RETURN TRIM(NVL(cCodRet,'')), TRIM(NVL(cDescripTransacc,'')), NVL(cCodigo_transacc,0),
+							   TRIM(NVL(sSist_transacc,''));
+					END IF;
+	
+			END FOREACH	
+
+			IF DBINFO("sqlca.sqlerrd2") = 0 THEN 
+				--NO SE ENCONTRO LA CAMPANIA
+				LET cCodRet = '000003';
+				RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cDescripTransacc,'')),NVL(cCodigo_transacc,0),TRIM(NVL(sSist_transacc,''));
+			END IF;
+			
+		ELSE
+			LET cCodRet = '000001';
+			RETURN TRIM(NVL(cCodRet,'')),TRIM(NVL(cDescripTransacc,'')),NVL(cCodigo_transacc,0),TRIM(NVL(sSist_transacc,''));
+		END IF;
+	END
+END PROCEDURE
+DOCUMENT
+'FECHA: 10/04/2015',
+'FOLIO :1711',
+'PROYECTO: TICKETINTELIGENTEBANCOPPEL',
+'DESCRIPCION: PROCEDIMIENTO PARA OBTENER LAS TRANSACCIONES SELECCIONADAS  DE UNA CAMPANIA',
+'AUTOR: 95358897-ISARAI BOJORQUEZ',
+'BD: BDINTEG';
+
+CREATE PROCEDURE "informix".sp_consmaecamreplica (cSucursalParam CHAR(5), iNumRegistros INTEGER)
+
+RETURNING
+CHAR(5)  AS codigo_retorno,
+CHAR(5)  AS codigo_retorno2,
+CHAR(3)  AS cEmpresa,
+CHAR(5)  AS cSucursal,
+CHAR(5)  AS cNum_Producto,
+CHAR(2)  AS cSistem,
+CHAR(1)  AS cEstatus,
+SMALLINT AS sIdCamp,
+SMALLINT AS sIdJerarquia,
+SMALLINT AS sIdNivel,
+SMALLINT AS sIdZona,
+SMALLINT AS sActiva,
+SMALLINT AS sAct_Zona,
+SMALLINT AS sCombinable,
+SMALLINT AS sIdMensaje,
+SMALLINT AS sTran_nro;
+
+--DEFINICION DE VARIABLES--
+DEFINE iSqlErr       INTEGER;
+DEFINE cCodRet       CHAR(5);	
+DEFINE cCodRet2      CHAR(5);
+DEFINE iRows         INTEGER;
+---------------------------
+DEFINE cEmpresa       CHAR(3);
+DEFINE cSucursal      CHAR(5);
+DEFINE cNum_Producto  CHAR(5);
+DEFINE cSistema       CHAR(2);
+DEFINE cEstatus       CHAR(1);
+DEFINE sIdCamp        SMALLINT;
+DEFINE sIdJerarquia   SMALLINT;
+DEFINE sIdNivel       SMALLINT;
+DEFINE sIdZona        SMALLINT;
+DEFINE sActiva        SMALLINT;
+DEFINE sAct_Zona      SMALLINT;
+DEFINE sCombinable    SMALLINT;
+DEFINE sIdMensaje     SMALLINT;
+DEFINE sTran_nro      SMALLINT;
+DEFINE iContador      INTEGER;
+DEFINE cPlaza         CHAR(3);
+
+--INICIALIZACION DE VARIABLES--
+LET iSqlErr        = 0;
+LET cCodRet        = '00000';
+LET cCodRet2        = '00000';
+LET iRows          = 0;
+-------------------------------
+LET cEmpresa       = '';
+LET cSucursal      = '';
+LET cNum_Producto  = '';
+LET cSistema       = '';
+LET cEstatus       = '';
+LET sIdCamp        = 0;
+LET sIdJerarquia   = 0;
+LET sIdNivel       = 0;
+LET sIdZona        = '';
+LET sActiva        = 0;
+LET sAct_Zona      = 0;
+LET sCombinable    = 0;
+LET sIdMensaje     = 0;
+LET sTran_nro      = 0;
+LET iContador      = 0;
+LET cPlaza         = '';
+
+	--SET DEBUG FILE TO "/respaldosbd/isarai/sp_consmaecamreplica.out";
+	--TRACE ON;
+
+	SET LOCK MODE TO WAIT 3;
+	SET ISOLATION TO DIRTY READ;
+
+	-- INICIO DEL PROCEDIMIENTO
+	BEGIN
+	-- MANEJADOR DE ERRORES
+		ON EXCEPTION SET iSqlErr
+			IF iSqlErr <> 0 THEN
+				LET cCodRet = iSqlErr;
+			   RETURN cCodRet, 
+			         cCodRet2, 
+					 cEmpresa,     
+					 cSucursal,    
+					 cNum_Producto,
+					 cSistema,     
+					 cEstatus,     
+					 NVL(sIdCamp,0),      
+					 NVL(sIdJerarquia,0), 
+					 NVL(sIdNivel,0),     
+					 NVL(sIdZona,0),      
+					 NVL(sActiva,0),     
+					 NVL(sAct_Zona,0), 
+					 NVL(sCombinable,0),  
+					 NVL(sIdMensaje,0),      	  
+					 NVL(sTran_nro,0);
+			END IF;
+		END EXCEPTION;	
+		
+		--Valida parámetros de entrada
+		IF NVL(cSucursalParam,'') = '' OR iNumRegistros IS NULL THEN	
+
+			-- Parámetro de entrada vacío
+			LET cCodRet2 = '00001';
+			
+		   RETURN cCodRet, 
+		         cCodRet2,
+				 cEmpresa,     
+				 cSucursal,    
+				 cNum_Producto,
+				 cSistema,     
+				 cEstatus,     
+				 sIdCamp,      
+				 sIdJerarquia, 
+				 sIdNivel,     
+				 sIdZona,      
+				 sActiva,     
+				 sAct_Zona, 
+				 sCombinable,  
+				 sIdMensaje,  				 
+				 sTran_nro
+			WITH RESUME;
+
+		ELSE		
+
+			-- Se consulta si la zona de la sucursal asignada está activa
+			SELECT plaza
+			  INTO cPlaza
+			  FROM bdinteg:"informix".si_sucursales
+			 WHERE sucursal = cSucursalParam;
+			 
+			IF NVL(cPlaza,'') <> '' THEN
+			 
+				IF EXISTS (SELECT 1 FROM bdinteg:"informix".si_maecamp WHERE idzona = cPlaza AND activa = 1 AND act_zona = 1 ) THEN
+				
+					FOREACH
+					
+						SELECT  empresa,     			  			
+								num_producto,			
+								sistema,     			
+								estatus,     			
+								idcamp,      			
+								idjerarquia, 			
+								idnivel,     			
+								idzona,      			
+								activa,      			
+								act_zona,    			
+								combinable,  			
+								idmensaje,   			
+								tran_nro    			
+						   INTO cEmpresa,        
+								cNum_Producto,
+								cSistema,     
+								cEstatus,     
+								sIdCamp,      
+								sIdJerarquia, 
+								sIdNivel,     
+								sIdZona,      
+								sActiva,      
+								sAct_Zona,    
+								sCombinable,  
+								sIdMensaje,   
+								sTran_nro    			   
+						   FROM bdinteg:"informix".si_maecamp
+						  WHERE idzona = cPlaza
+						    AND	activa = 1	
+							AND	act_zona = 1
+							
+							LET iContador = iContador + 1;
+
+							IF iContador <= iNumRegistros THEN
+								CONTINUE FOREACH;
+							END IF; 							
+
+						   RETURN cCodRet, 
+								 cCodRet2,
+								 cEmpresa,     
+								 cSucursal,    
+								 cNum_Producto,
+								 cSistema,     
+								 cEstatus,     
+								 sIdCamp,      
+								 sIdJerarquia, 
+								 sIdNivel,     
+								 sIdZona,      
+								 sActiva,     
+								 sAct_Zona, 
+								 sCombinable,  
+								 sIdMensaje,  				 
+								 sTran_nro
+							WITH RESUME;	
+
+					END FOREACH;
+				
+				END IF;
+
+			END IF; 
+			
+			FOREACH		
+			
+				--Se seleccionan los datos de central
+				SELECT  empresa,     			
+						sucursal,    			
+						num_producto,			
+						sistema,     			
+						estatus,     			
+						idcamp,      			
+						idjerarquia, 			
+						idnivel,     			
+						idzona,      			
+						activa,      			
+						act_zona,    			
+						combinable,  			
+						idmensaje,   			
+						tran_nro    			
+				   INTO cEmpresa,     
+						cSucursal,    
+						cNum_Producto,
+						cSistema,     
+						cEstatus,     
+						sIdCamp,      
+						sIdJerarquia, 
+						sIdNivel,     
+						sIdZona,      
+						sActiva,      
+						sAct_Zona,    
+						sCombinable,  
+						sIdMensaje,   
+						sTran_nro    			   
+				   FROM bdinteg:"informix".si_maecamp
+				  WHERE empresa='001' and (sucursal = cSucursalParam  OR sucursal = 'T')
+					AND	activa = 1	
+					
+				IF NVL(cEmpresa,"") <> "" OR NVL(cSucursal,"") <> "" OR NVL(cNum_Producto,"") <> "" OR NVL(cSistema,"") <> "" THEN
+													
+					LET iContador = iContador + 1;
+
+					IF iContador <= iNumRegistros THEN --DSB 11/10/2013 Christian Echavarria se agrega =
+						CONTINUE FOREACH;
+					END IF; 
+					
+				   RETURN cCodRet, 
+				         cCodRet2,
+						 cEmpresa,     
+						 cSucursal,    
+						 cNum_Producto,
+						 cSistema,     
+						 cEstatus,     
+						 sIdCamp,      
+						 sIdJerarquia, 
+						 sIdNivel,     
+						 sIdZona,      
+						 sActiva,     
+						 sAct_Zona, 
+						 sCombinable,  
+						 sIdMensaje,  				 
+						 sTran_nro
+					WITH RESUME;					
+				
+				ELSE	
+
+					--No se encontraron datos
+					LET cCodRet2 = '00002';
+
+				  RETURN cCodRet, 
+				         cCodRet2,
+						 cEmpresa,     
+						 cSucursal,    
+						 cNum_Producto,
+						 cSistema,     
+						 cEstatus,     
+						 sIdCamp,      
+						 sIdJerarquia, 
+						 sIdNivel,     
+						 sIdZona,      
+						 sActiva,     
+						 sAct_Zona, 
+						 sCombinable,  
+						 sIdMensaje,  				 
+						 sTran_nro
+					WITH RESUME;
+				  					
+				END IF;
+
+			END FOREACH; 
+																--1711
+			IF NVL(cEmpresa,"") = "" OR (NVL(cSucursal,"") = "" AND NVL(cPlaza,"") = "" ) OR NVL(cNum_Producto,"") = "" OR NVL(cSistema,"") = "" THEN		
+				LET cCodRet2 = '00003';
+
+				  RETURN cCodRet, 
+				         cCodRet2,
+						 cEmpresa,     
+						 cSucursal,    
+						 cNum_Producto,
+						 cSistema,     
+						 cEstatus,     
+						 sIdCamp,      
+						 sIdJerarquia, 
+						 sIdNivel,     
+						 sIdZona,      
+						 sActiva,     
+						 sAct_Zona, 
+						 sCombinable,  
+						 sIdMensaje,  				 
+						 sTran_nro;
+			END IF;
+			
+		END IF;
+
+	END
+END PROCEDURE
+DOCUMENT
+'Se consultan los datos de la tabla si_maecamp para replicarlos en sucursal',
+'Realizó: Nancy Sevilla Camacho',
+'Fecha: 03/05/2012  ',
+'Se modifica el foreach para la paginación',
+'Realizó: Christian Echavarria',
+'Fecha: 11/10/2013',
+'BD    : bdinteg',
+'FECHA: 27/04/2015',
+'FOLIO :1711',
+'PROYECTO: TICKETINTELIGENTEBANCOPPEL',
+'DESCRIPCION: SE MODIFICA PROCEDIMIENTO PARA VALIDAR SI EL NUMERO DE ZONA O DE SUCURSAL ESTAN VACIAS RETORNE EL CODIGO 3',
+'AUTOR: 95358897-ISARAI BOJORQUEZ',
+'BD: BDINTEG';
+
+CREATE PROCEDURE "informix".sp_generararchivoplanobatch_pba(cTipoMov CHAR(2), pFechaAct DATE)
+RETURNING
+     CHAR(6); ---cod_ret
+
+    DEFINE v_cod_ret            CHAR(6);
+    DEFINE iSqlErr              INTEGER;
+    DEFINE iSamErr              INTEGER;
+	DEFINE vDesErr              CHAR(60);
+	DEFINE vsSQL1 				CHAR (150);
+	DEFINE vsSQL2 				CHAR (750) ;
+	DEFINE vsSQL3 				CHAR (150) ;
+	--DEFINE v_NomArchivo  VARCHAR(50);
+	DEFINE vRuta CHAR (90);
+	DEFINE vsSQL CHAR (1050) ;
+	DEFINE sPreNomArchivoFinal VARCHAR(100);
+	DEFINE sNombreArchivoFinal VARCHAR(100);
+	-- AAME RQI 27 067 SE AGREGA VARIABLE PARA EL NUEVO ARCHIVO
+	DEFINE sAntNomArchivoFinal VARCHAR(100);
+	DEFINE sAnterNomArchivoFinal VARCHAR(100);
+	DEFINE iCountMovTO INTEGER;
+	DEFINE v_TipoMov VARCHAR (20);
+	DEFINE cFecha_hoy CHAR(8);
+	DEFINE cFechaSistema DATE;
+	DEFINE vAux VARCHAR(50,1);
+	
+	LET vsSQL = '' ;
+	LET vsSQL1 = '' ;
+	LET vsSQL2 = '' ;
+	LET vsSQL3 = '' ;
+	LET iCountMovTO = 0;
+	LET  v_TipoMov = '';
+	LET cFecha_hoy = '19000101';
+	LET cFechaSistema = DATE(1);
+	LET sPreNomArchivoFinal ='';
+	LET sNombreArchivoFinal ='';
+	-- AAME RQI 27 067 SE INICIALIZA VARIABLE PARA EL NUEVO ARCHIVO
+	LET sAntNomArchivoFinal ='';
+	LET sAnterNomArchivoFinal='';
+    LET vAux = "||'||'||'|'||1||'||'||-99999||'|'||99999";
+	
+SET ISOLATION TO COMMITTED READ LAST COMMITTED;	
+	---SET LOCK MODE TO WAIT 10;
+
+BEGIN
+
+   ON EXCEPTION
+        SET iSqlErr, iSamErr
+        IF iSqlErr <> 0 THEN
+                LET v_cod_ret = iSqlErr;
+                --EXECUTE PROCEDURE  "informix".sp_desc_ret(20, v_cod_ret)
+                --INTO v_cod_ret, vDesErr;
+        END IF;
+        RETURN v_cod_ret;
+    END EXCEPTION;
+	
+	SET LOCK MODE TO WAIT 3;
+
+	--SET DEBUG FILE TO "/tmp/sp_GenerarArchivoPlano.out";
+	--SET DEBUG FILE TO "/informix/Malena/sp_GenerarArchivoPlano.out";
+	--TRACE ON;
+
+	LET v_cod_ret = '000000';
+	LET vDesErr = '';
+	
+	SELECT TRIM(valor)
+	INTO vRuta
+	FROM "informix".si_param
+	WHERE cod_param='193';
+
+	--LET vRuta = '/resplogifx/archivoscartera/altaunica/envios/';
+	LET sNombreArchivoFinal = TRIM(vRuta)||'movimientosaltaunica';
+	-- INC 27 047 Se cambia el nombrado de los archivos generados a como se encontraban los productivos.
+	
+	IF cTipoMov IS NULL OR (cTipoMov <> '' AND cTipoMov <> 'TO') THEN
+		LET v_cod_ret = '000001';
+		RETURN v_cod_ret;
+	END IF;
+	
+	SELECT COUNT(tipomovto) INTO iCountMovTO FROM "informix".si_archivoscopdiario WHERE tipomovto = 'TO' AND fecha_insert = pFechaAct;
+	
+	SELECT fecha_hoy INTO cFechaSistema FROM bdinteg:"informix".si_fechas;
+    
+	IF pFechaAct <> mdy(1,1,1900) OR pFechaAct IS NOT NULL THEN	
+		IF iCountMovTO > 0 THEN
+			IF cTipoMov = '' THEN	---	Se valida el tipo de movimiento
+					
+				IF EXISTS (SELECT  {+INDEX(si_archivoscopdiario idx_si_archivoscopdiario1)} DISTINCT tipomovto FROM "informix".si_archivoscopdiario WHERE tipomovto <> 'TO' AND fecha_insert = pFechaAct) THEN		---	Se valida que que tlpo de movimiento se encuentre en la tabla
+					LET cFecha_hoy = YEAR(pFechaAct)||""||LPAD(MONTH(pFechaAct),2,0)||""||LPAD(DAY(pFechaAct),2,0);
+					LET sNombreArchivoFinal = TRIM(vRuta)||'movimientosaltaunica'|| cFecha_hoy || '.txt' ;
+					LET sPreNomArchivoFinal = TRIM(vRuta)||'movimientosaltaunica.unl';
+					-- AAME RQI 27 067 SE AGREGA EL NOMBRE PARA EL NUEVOS ARCHIVOS DE PASO
+					LET sAntNomArchivoFinal = TRIM(vRuta)||'movimientosaltaunica2.unl';
+					LET sAnterNomArchivoFinal = TRIM(vRuta)||'movimientosaltaunica3.unl';
+					--
+					LET vsSQL = ' echo "UNLOAD TO ' ||  TRIM(vRuta)|| 'movimientosaltaunicax.unl' || ' DELIMITER ' || '''|''' || 
+								' SELECT {+INDEX(si_archivoscopdiario idx_si_archivoscopdiario1)} trama ' || TRIM(vAux) ||
+								' FROM "informix".si_archivoscopdiario '||
+								' WHERE tipomovto <> '||'''TO'''||
+								' AND fecha_insert = '||''''||pFechaAct||''''||
+								' " > ' || TRIM(vRuta)|| 'Ejecutamovimientosaltaunica.sql';
+					SYSTEM vsSQL;
+					LET vsSQL =  "chmod 777 "||sNombreArchivoFinal||" > "|| TRIM(vRuta)|| "Ejecutamovimientosaltaunica.sql";
+					LET vsSQL = '';
+					LET vsSQL = 'dbaccess bdinteg ' || TRIM(vRuta)|| 'Ejecutamovimientosaltaunica.sql';
+					SYSTEM vsSQL;
+
+					LET vsSQL = '';
+					LET vsSQL =  "sed 's/\\//g' " || TRIM(vRuta)|| "movimientosaltaunicax.unl > " || sPreNomArchivoFinal;
+					SYSTEM vsSQL;					
+					LET vsSQL = '';
+					LET vsSQL =  "sed 's/|$//g' " || TRIM(vRuta)|| "movimientosaltaunica.unl > " || sAntNomArchivoFinal;
+					SYSTEM vsSQL;
+					-- AAME RQI 27 067 SE AGREGA ARCHIVO DE PASO PARA AGREGAR ESPACIOS EN BLANCO A LOS CAMPOS VACÍOS
+					LET vsSQL = '';
+					LET vsSQL =  "sed 's/||/| |/g' " || TRIM(vRuta)|| "movimientosaltaunica2.unl > " || sAnterNomArchivoFinal;
+					SYSTEM vsSQL;				
+					LET vsSQL = '';
+					LET vsSQL =  "sed 's/||/| |/g' " || TRIM(vRuta)|| "movimientosaltaunica3.unl > " || sNombreArchivoFinal;
+					SYSTEM vsSQL;	
+					--
+					LET vsSQL = '';
+					LET vsSQL =  "chmod 777 "||sNombreArchivoFinal||" > "|| TRIM(vRuta)|| "movimientosaltaunicaderechos.txt";
+					SYSTEM vsSQL;
+					LET vsSQL = '';
+					LET vsSQL =  "rm " || TRIM(vRuta)|| "movimientosaltaunicaderechos.txt";
+					SYSTEM vsSQL;
+					---	RESPALDA LOS DATOS DEL MOVIMIENTO A LA TABLA HISTORICA
+					INSERT INTO "informix".si_archivoscophist(empresa,secuencia, identificador,trama,tipomovto,fecha_archivo,fecha_insert)
+					SELECT {+INDEX(si_archivoscopdiario idx_si_archivoscopdiario1)} empresa,secuencia,'',trama,tipomovto,fecha_insert, cFechaSistema
+					FROM "informix".si_archivoscopdiario
+					WHERE tipomovto <> 'TO'
+					AND fecha_insert = pFechaAct;
+					
+					--BORRA LOS MOVIMIENTOS DE LA TABLA DIARIA
+					DELETE FROM "informix".si_archivoscopdiario
+					WHERE tipomovto <> 'TO' 
+					AND fecha_insert = pFechaAct;					
+									
+				END IF;
+			ELIF cTipoMov = 'TO'  THEN --Valida el tipo de movimiento para generar el archivo de totales
+				LET v_cod_ret = '000000';
+				IF EXISTS (SELECT {+INDEX(si_archivoscopdiario idx_si_archivoscopdiario1)}DISTINCT tipomovto FROM "informix".si_archivoscopdiario WHERE tipomovto = 'TO' AND fecha_insert = pFechaAct) THEN		---	Se valida que que tlpo de movimiento se encuentre en la tabla
+					LET cFecha_hoy = YEAR(pFechaAct)||""||LPAD(MONTH(pFechaAct),2,0)||""||LPAD(DAY(pFechaAct),2,0);
+					LET sNombreArchivoFinal = TRIM(vRuta)|| 'cifrasaltaunica'|| cFecha_hoy || '.txt';
+					LET sPreNomArchivoFinal =  TRIM(vRuta)|| 'cifrasaltaunica.unl';
+					-- AAME RQI 27 067 SE AGREGA EL NOMBRE PARA EL NUEVOS ARCHIVOS DE PASO
+					LET sAntNomArchivoFinal = TRIM(vRuta)|| 'cifrasaltaunica2.unl';
+					LET sAnterNomArchivoFinal = TRIM(vRuta)|| 'cifrasaltaunica3.unl';
+					--
+					---	GENERA EL ARCHIVO PLANO
+					LET vsSQL1 = ' echo "UNLOAD TO ' || TRIM(vRuta)||'cifrasaltaunicax.unl' || ' DELIMITER ' || '''|''';
+					LET vsSQL2 = "SELECT {+INDEX(si_archivoscopdiario idx_si_archivoscopdiario1)} trama FROM  bdinteg:si_archivoscopdiario WHERE  tipomovto = '"||cTipoMov||"' AND fecha_insert ='"||pFechaAct||"';";
+					LET vsSQL3 = ' " > '|| TRIM(vRuta) || 'Ejecutacifrasaltaunica.sql'; 
+					LET vsSQL = vsSQL1 || vsSQL2 || vsSQL3;
+					SYSTEM vsSQL;
+				    LET vsSQL =  "chmod 777 "||sNombreArchivoFinal||" > "|| TRIM(vRuta)|| "Ejecutacifrasaltaunica.sql";
+					LET vsSQL = '';
+					LET vsSQL = 'dbaccess bdinteg '|| TRIM(vRuta)|| 'Ejecutacifrasaltaunica.sql';
+					SYSTEM vsSQL;
+
+					LET vsSQL = '';
+					LET vsSQL =  "sed 's/\\//g' " || TRIM(vRuta)|| "cifrasaltaunicax.unl > "|| sPreNomArchivoFinal;
+					SYSTEM vsSQL;
+					LET vsSQL = '';
+					LET vsSQL =  "sed 's/|$//g' " || TRIM(vRuta)|| "cifrasaltaunica.unl > "|| sAntNomArchivoFinal;
+					SYSTEM vsSQL;
+					-- AAME RQI 27 067 SE AGREGA ARCHIVO DE PASO PARA AGREGAR ESPACIOS EN BLANCO A LOS CAMPOS VACÍOS
+					LET vsSQL = '';
+					LET vsSQL =  "sed 's/||/| |/g' " || TRIM(vRuta)|| "cifrasaltaunica2.unl > " || sAnterNomArchivoFinal;
+					SYSTEM vsSQL;	
+					LET vsSQL = '';
+					LET vsSQL =  "sed 's/||/| |/g' " || TRIM(vRuta)|| "cifrasaltaunica3.unl > " || sNombreArchivoFinal;
+					SYSTEM vsSQL;	
+					--
+					LET vsSQL = '';
+					LET vsSQL =  "chmod 777 " || sNombreArchivoFinal || " > "|| TRIM(vRuta)|| "cifrasaltaunicaderechos.txt";
+					SYSTEM vsSQL;
+					LET vsSQL = '';
+					LET vsSQL =  "rm "|| TRIM(vRuta)|| "cifrasaltaunicaderechos.txt";
+					SYSTEM vsSQL;
+				
+					---	RESPALDA LOS DATOS DEL MOVIMIENTO A LA TABLA HISTORICA
+					INSERT INTO "informix".si_archivoscophist(empresa,secuencia, identificador,trama,tipomovto,fecha_archivo,fecha_insert)
+					SELECT {+INDEX(si_archivoscopdiario idx_si_archivoscopdiario1)} empresa,secuencia,'',trama,tipomovto,fecha_insert, cFechaSistema
+					FROM "informix".si_archivoscopdiario
+					WHERE tipomovto = 'TO'
+					AND fecha_insert = pFechaAct;
+					
+					--BORRA LOS MOVIMIENTOS DE LA TABLA DIARIA
+					DELETE {+INDEX(si_archivoscopdiario idx_si_archivoscopdiario1)} FROM "informix".si_archivoscopdiario
+					WHERE tipomovto = 'TO' 
+					AND fecha_insert = pFechaAct;							
+
+				END IF;
+			END IF;
+		ELSE
+			LET v_cod_ret = '000002';
+		END IF;
+	ELSE
+		LET v_cod_ret = '000003';
+	END IF;
+	RETURN v_cod_ret;
+END;
+--##############################################################################
+--## Procedimiento   : "informix".sp_GenerarArchivoPlanobatch
+--## Version         : 1.0
+--## Creado por      : Maria Elena Angulo
+--## Fecha creacion  : Diciembre de 2008
+--## Descripcion     : Espejo del procedimiento sp_GenerarArchivoPlano que Realiza la generacion del archivo plano con las 
+--## adecuaciones para los nuevos procesos que realizan la generación de archivos batch.
+--##############################################################################
+END PROCEDURE;

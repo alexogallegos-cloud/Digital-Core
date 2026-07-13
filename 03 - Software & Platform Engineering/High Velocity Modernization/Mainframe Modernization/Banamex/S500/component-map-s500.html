@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>S500 Banamex · Mapa de Componentes · Grupos Funcionales</title>
+<style>
+:root{
+  --bg:#14142b;--bg2:#1A1A2E;--panel:#1f1f3a;--line:#2c2c50;
+  --purple:#6B21A8;--magenta:#A100FF;--txt:#E8E8F0;--muted:#9a9ab5;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{display:flex;height:100vh;background:var(--bg);color:var(--txt);
+  font-family:'Inter',system-ui,sans-serif;overflow:hidden}
+
+/* ── SIDEBAR ──────────────────────────────────────────────── */
+#sidebar{
+  width:234px;min-width:234px;height:100vh;background:var(--bg2);
+  border-right:1px solid var(--line);overflow-y:auto;padding:10px;
+  display:flex;flex-direction:column;gap:8px;scrollbar-width:thin;
+  scrollbar-color:var(--line) transparent;
+}
+#sidebar::-webkit-scrollbar{width:4px}
+#sidebar::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.panel-title{font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);
+  text-transform:uppercase;margin-bottom:3px}
+.panel-box{background:var(--panel);border-radius:6px;padding:8px 10px}
+
+/* ── SCOPE BANNER ─────────────────────────────────────────── */
+#scope-banner{
+  background:linear-gradient(135deg,#1a004d,#2a0060);
+  border:1px solid var(--magenta);border-radius:6px;padding:9px 11px;
+}
+#scope-banner h2{font-size:14px;font-weight:800;color:var(--txt);letter-spacing:.02em}
+#scope-banner .sub{font-size:9px;color:var(--muted);margin-top:2px}
+#scope-banner .warn{font-size:9px;color:#fca5a5;margin-top:5px;
+  background:rgba(127,29,29,.4);border-radius:3px;padding:3px 5px}
+
+/* ── LEGEND ───────────────────────────────────────────────── */
+.leg-row{display:flex;align-items:center;gap:6px;margin:3px 0;font-size:9px;color:var(--muted)}
+.leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.leg-line{width:16px;height:0;flex-shrink:0}
+
+/* ── WAVE CARDS ───────────────────────────────────────────── */
+#waves{display:flex;flex-direction:column;gap:3px}
+.wave-card{background:var(--panel);border-radius:4px;padding:5px 8px;border-left:3px solid #374151}
+.wave-card.w1{border-left-color:#2E6B48}
+.wave-card.w2{border-left-color:#803060}
+.wave-card.w3{border-left-color:#8B5A20}
+.wave-card.w4{border-left-color:#2A507A}
+.wave-card.w5{border-left-color:#7A6018}
+.wave-card.w6{border-left-color:#8B3535}
+.wave-card.w7{border-left-color:#503280}
+.wave-card.w0{border-left-color:#48555E}
+.wave-num{font-size:10px;font-weight:700;color:var(--txt)}
+.wave-desc{font-size:9px;color:var(--muted);margin-top:1px}
+.wave-risk{font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;
+  display:inline-block;margin-top:3px}
+.r-critico{background:#7f1d1d;color:#fca5a5}
+.r-alto{background:#7c2d12;color:#fdba74}
+.r-medio{background:#2e1065;color:#c4b5fd}
+.r-bajo{background:#052e16;color:#86efac}
+
+/* ── NODE INFO ────────────────────────────────────────────── */
+#ni-label{font-size:11px;font-weight:700;color:var(--txt);margin-bottom:4px}
+.ni-row{font-size:9px;color:var(--muted);margin:2px 0}
+.ni-row span{color:var(--txt)}
+.ni-notes{font-size:8px;color:var(--muted);font-style:italic;margin-top:4px;line-height:1.4}
+
+/* ── DOMAIN NAV ───────────────────────────────────────────── */
+#dom-nav{display:flex;flex-direction:column;gap:2px}
+.dom-btn{
+  display:flex;align-items:center;gap:7px;
+  padding:5px 8px;border-radius:4px;cursor:pointer;
+  border:1px solid transparent;background:var(--panel);
+  transition:background .15s,border-color .15s;
+  font-size:9px;color:var(--txt);text-align:left;
+  width:100%;
+}
+.dom-btn:hover{background:#2a2a4a;border-color:var(--line)}
+.dom-btn.active{background:#26264a;border-color:rgba(255,255,255,.25)}
+.dom-swatch{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.dom-name{font-weight:700;font-size:9px;white-space:nowrap}
+.dom-loc{font-size:8px;color:var(--muted);margin-left:auto;flex-shrink:0}
+.dom-badge{font-size:7px;font-weight:700;padding:1px 4px;border-radius:2px;flex-shrink:0}
+.db-pci{background:#7c2d12;color:#fca5a5}
+.db-crit{background:#7f1d1d;color:#fca5a5}
+
+/* ── META ─────────────────────────────────────────────────── */
+.meta-row{display:flex;justify-content:space-between;font-size:9px;margin:2px 0;color:var(--muted)}
+.meta-row b{color:var(--txt)}
+
+/* ── SVG ──────────────────────────────────────────────────── */
+#svg-wrap{flex:1;position:relative;overflow:hidden}
+#svg{width:100%;height:100%}
+
+/* ── SCOPE RING ───────────────────────────────────────────── */
+.scope-ring{fill:none;stroke:var(--magenta);stroke-width:1.5;stroke-dasharray:8 4;opacity:.35}
+.scope-label{fill:var(--magenta);font-size:9px;text-anchor:middle;opacity:.55;
+  letter-spacing:.08em;font-family:inherit}
+
+/* ── LINKS ────────────────────────────────────────────────── */
+.link{fill:none;transition:opacity .2s}
+.link.contains  {stroke:#5a9a6a;stroke-width:1.2;stroke-dasharray:5 3;stroke-opacity:.6}
+.link.consumes  {stroke:#8a50cc;stroke-width:1.5;stroke-opacity:.5}
+.link.depends-on{stroke:#a08830;stroke-width:1.1;stroke-dasharray:7 3;stroke-opacity:.55}
+/* Highlighted edges */
+.link.hl-contains  {stroke:#6aba7e;stroke-width:1.8;stroke-opacity:1 !important}
+.link.hl-consumes  {stroke:#A100FF;stroke-width:2;stroke-opacity:1 !important}
+.link.hl-depends-on{stroke:#d4a800;stroke-width:1.6;stroke-opacity:1 !important}
+
+/* ── NODES ────────────────────────────────────────────────── */
+.node{cursor:pointer}
+.node circle{transition:opacity .2s,filter .15s}
+.node text{fill:var(--txt);text-anchor:middle;pointer-events:none;
+  font-family:inherit;dominant-baseline:hanging;transition:opacity .2s}
+.node.dmsii text,.node.externo text{fill:var(--muted)}
+.node.dominio circle{stroke-width:2}
+.node.critical circle{stroke:#ccc !important;filter:drop-shadow(0 0 5px rgba(200,200,200,.5))}
+/* Dimmed state */
+.node.dimmed circle{opacity:.07}
+.node.dimmed text{opacity:.05}
+.link.dimmed{opacity:.04 !important}
+/* Selected */
+.node.selected circle{stroke:#fff !important;stroke-width:2.5;
+  filter:drop-shadow(0 0 8px rgba(255,255,255,.6))}
+
+/* ── TOOLTIP ──────────────────────────────────────────────── */
+#tip{position:fixed;background:rgba(22,22,44,.97);border:1px solid var(--line);
+  border-radius:6px;padding:9px 22px 9px 11px;font-size:11px;color:var(--txt);
+  pointer-events:auto;max-width:240px;z-index:9999;display:none;
+  box-shadow:0 4px 20px rgba(0,0,0,.7)}
+#tip-close{position:absolute;top:5px;right:7px;cursor:pointer;color:var(--muted);
+  font-size:13px;line-height:1;-webkit-user-select:none;user-select:none}
+#tip-close:hover{color:var(--txt)}
+#tip .tt{font-weight:700;margin-bottom:5px;font-size:12px}
+#tip .tr{font-size:10px;color:var(--muted);margin:2px 0}
+#tip .tr span{color:var(--txt)}
+#tip .tn{font-size:9px;color:var(--muted);margin-top:5px;font-style:italic;line-height:1.4}
+#tip .tc{margin-top:7px;padding-top:6px;border-top:1px solid var(--line)}
+#tip .tc a{color:#A100FF;font-size:10px;text-decoration:none;font-weight:600;cursor:pointer}
+#tip .tc a:hover{text-decoration:underline}
+
+/* ── CODE PANEL ───────────────────────────────────────────── */
+#code-panel{
+  position:fixed;top:0;right:-66%;width:65%;height:100vh;
+  background:#0c0c1e;border-left:1px solid var(--line);
+  z-index:11000;display:flex;flex-direction:column;
+  transition:right .28s cubic-bezier(.4,0,.2,1);
+  box-shadow:-10px 0 36px rgba(0,0,0,.7);
+}
+#code-panel.open{right:0}
+#cp-header{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:9px 14px;border-bottom:1px solid var(--line);
+  background:var(--bg2);flex-shrink:0;
+}
+#cp-title{
+  font-size:11px;font-weight:700;color:var(--txt);
+  font-family:'Cascadia Code','Consolas',monospace;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+#cp-close{
+  cursor:pointer;color:var(--muted);font-size:15px;line-height:1;
+  background:none;border:none;padding:2px 5px;flex-shrink:0;
+}
+#cp-close:hover{color:var(--txt)}
+#cp-body{flex:1;overflow:hidden;position:relative;display:flex;flex-direction:column}
+#cp-pre{
+  flex:1;overflow:auto;margin:0;padding:14px 16px;
+  font-family:'Cascadia Code','Consolas','Courier New',monospace;
+  font-size:11px;line-height:1.55;color:#c0c0de;
+  background:transparent;white-space:pre;tab-size:4;
+  border:none;outline:none;
+}
+#cp-iframe{flex:1;border:none;width:100%;display:none}
+#cp-msg{
+  flex:1;display:none;flex-direction:column;align-items:center;justify-content:center;
+  padding:30px;text-align:center;font-size:11px;color:var(--muted);line-height:1.7;
+}
+#cp-msg code{
+  display:block;margin:8px 0;padding:7px 12px;
+  background:var(--panel);border-radius:4px;
+  font-family:'Cascadia Code','Consolas',monospace;font-size:10px;
+  color:#a0a0c8;word-break:break-all;text-align:left;
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════ SIDEBAR ════════════════════════════ -->
+<div id="sidebar">
+
+  <div id="scope-banner">
+    <h2>S500 CAPTACION</h2>
+    <div class="sub">Banamex · Unisys ClearPath MCP</div>
+    <div class="sub">COBOL + ALGOL · DMSII · 898,596 LOC</div>
+    <div class="warn">⚠ DRAFT — HITL pendiente SME Banamex</div>
+  </div>
+
+  <div>
+    <div class="panel-title">Dominios funcionales — click para navegar</div>
+    <div id="dom-nav">
+      <button class="dom-btn" onclick="focusDomain('dom01')">
+        <div class="dom-swatch" style="background:#8B3535"></div>
+        <span class="dom-name">DOM-01 Núcleo Online</span>
+        <span class="dom-badge db-crit">CRIT</span>
+        <span class="dom-loc">174K</span>
+      </button>
+      <button class="dom-btn" onclick="focusDomain('dom02')">
+        <div class="dom-swatch" style="background:#2E6B48"></div>
+        <span class="dom-name">DOM-02 Gestión Cuenta</span>
+        <span class="dom-loc">115K</span>
+      </button>
+      <button class="dom-btn" onclick="focusDomain('dom03')">
+        <div class="dom-swatch" style="background:#8B5A20"></div>
+        <span class="dom-name">DOM-03 Movimientos</span>
+        <span class="dom-badge db-crit">CRIT</span>
+        <span class="dom-loc">116K</span>
+      </button>
+      <button class="dom-btn" onclick="focusDomain('dom04')">
+        <div class="dom-swatch" style="background:#2A507A"></div>
+        <span class="dom-name">DOM-04 Lote Nocturno</span>
+        <span class="dom-loc">96K</span>
+      </button>
+      <button class="dom-btn" onclick="focusDomain('dom05')">
+        <div class="dom-swatch" style="background:#7A6018"></div>
+        <span class="dom-name">DOM-05 Pagos SPEI</span>
+        <span class="dom-badge db-crit">CRIT</span>
+        <span class="dom-loc">35K</span>
+      </button>
+      <button class="dom-btn" onclick="focusDomain('dom06')">
+        <div class="dom-swatch" style="background:#503280"></div>
+        <span class="dom-name">DOM-06 Prods. CPE/TEF</span>
+        <span class="dom-loc">57K</span>
+      </button>
+      <button class="dom-btn" onclick="focusDomain('dom07')">
+        <div class="dom-swatch" style="background:#803060"></div>
+        <span class="dom-name">DOM-07 Tarjetas BD04</span>
+        <span class="dom-badge db-pci">PCI</span>
+        <span class="dom-loc">36K</span>
+      </button>
+      <button class="dom-btn" onclick="focusDomain('dom08')">
+        <div class="dom-swatch" style="background:#8B2A2A"></div>
+        <span class="dom-name">DOM-08 Comisiones</span>
+        <span class="dom-loc">12K</span>
+      </button>
+      <button class="dom-btn" onclick="focusDomain('dom09')">
+        <div class="dom-swatch" style="background:#1E6868"></div>
+        <span class="dom-name">DOM-09 Tesorería</span>
+        <span class="dom-loc">33K</span>
+      </button>
+      <button class="dom-btn" onclick="focusDomain('dom10')">
+        <div class="dom-swatch" style="background:#48555E"></div>
+        <span class="dom-name">DOM-10 Control/Util.</span>
+        <span class="dom-loc">165K</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="panel-box">
+    <div class="panel-title">Tipos de nodo</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#8B3535"></div>Dominio funcional (tamaño ∝ LOC)</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#8B5A20"></div>COBOL transaccional</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#2A507A"></div>COBOL batch</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#2A6E7A"></div>ALGOL librería</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#3D4350"></div>INC copybook compartido</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#4A2E7A"></div>WFL job</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#1A5A38"></div>Schema DMSII</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#323875"></div>Sistema externo</div>
+    <div class="panel-title" style="margin-top:7px">Aristas</div>
+    <div class="leg-row">
+      <div class="leg-line" style="border-top:2px dashed #5a9a6a;margin-top:4px"></div>contains (dominio → prog.)
+    </div>
+    <div class="leg-row">
+      <div class="leg-line" style="border-top:2px solid #8a50cc;margin-top:4px"></div>consumes (→ DMSII)
+    </div>
+    <div class="leg-row">
+      <div class="leg-line" style="border-top:2px dashed #a08830;margin-top:4px"></div>depends-on / cross-domain
+    </div>
+    <div class="leg-row" style="margin-top:5px;font-size:8px;font-style:italic;color:#6a6a80">
+      Click en nodo para aislar · click fondo para reset
+    </div>
+  </div>
+
+  <div>
+    <div class="panel-title">Waves de modernización</div>
+    <div id="waves">
+      <div class="wave-card w1">
+        <div class="wave-num">Wave 1 — DOM-02</div>
+        <div class="wave-desc">Gestión Ciclo de Cuenta</div>
+        <div class="wave-risk r-bajo">BAJO</div>
+      </div>
+      <div class="wave-card w2">
+        <div class="wave-num">Wave 2 — DOM-07</div>
+        <div class="wave-desc">Tarjetas BD04 (schema aislado)</div>
+        <div class="wave-risk r-alto">ALTO</div>
+      </div>
+      <div class="wave-card w3">
+        <div class="wave-num">Wave 3 — DOM-03</div>
+        <div class="wave-desc">Movimientos y Contabilidad</div>
+        <div class="wave-risk r-critico">CRÍTICO</div>
+      </div>
+      <div class="wave-card w4">
+        <div class="wave-num">Wave 4 — DOM-04</div>
+        <div class="wave-desc">Lote Nocturno / EDC</div>
+        <div class="wave-risk r-alto">ALTO</div>
+      </div>
+      <div class="wave-card w5">
+        <div class="wave-num">Wave 5 — DOM-05</div>
+        <div class="wave-desc">Pagos SPEI · REGLA-CNBV</div>
+        <div class="wave-risk r-critico">CRÍTICO</div>
+      </div>
+      <div class="wave-card w6">
+        <div class="wave-num">Wave 6 — DOM-01</div>
+        <div class="wave-desc">Núcleo Transaccional (último)</div>
+        <div class="wave-risk r-critico">CRÍTICO</div>
+      </div>
+      <div class="wave-card w7">
+        <div class="wave-num">Wave 7 — DOM-06/08/09</div>
+        <div class="wave-desc">CPE · Comisiones · Tesorería</div>
+        <div class="wave-risk r-medio">MEDIO</div>
+      </div>
+      <div class="wave-card w0">
+        <div class="wave-num">Paralelo — DOM-10</div>
+        <div class="wave-desc">Control · Utilerías · Externos</div>
+        <div class="wave-risk r-bajo">BAJO–MEDIO</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel-box">
+    <div class="panel-title">Métricas S500</div>
+    <div class="meta-row">Archivos fuente<b>114</b></div>
+    <div class="meta-row">LOC total<b>898,596</b></div>
+    <div class="meta-row">Schemas DMSII<b>7</b></div>
+    <div class="meta-row">Datasets CAPTACION<b>57</b></div>
+    <div class="meta-row">Dominios funcionales<b>10</b></div>
+    <div class="meta-row">Peak TPS<b style="color:#a08830">[PENDIENTE SUMLOG]</b></div>
+    <div class="meta-row">Equivalencia mínima<b style="color:#2E6B48">≥ 99.99%</b></div>
+  </div>
+
+  <div class="panel-box" id="node-info-box">
+    <div class="panel-title">Nodo seleccionado</div>
+    <div id="ni-label" style="color:var(--muted);font-size:10px">Click en un nodo para ver detalles</div>
+    <div id="ni-body"></div>
+  </div>
+
+</div>
+
+<!-- ════════════════════════════ SVG ════════════════════════════ -->
+<div id="svg-wrap">
+  <svg id="svg"></svg>
+</div>
+
+<div id="tip"></div>
+
+<!-- ════════════════════════════ CODE PANEL ════════════════════════════ -->
+<div id="code-panel">
+  <div id="cp-header">
+    <span id="cp-title">—</span>
+    <button id="cp-close" type="button" onclick="closeCodePanel()">&#x2715;</button>
+  </div>
+  <div id="cp-body">
+    <pre id="cp-pre">Cargando…</pre>
+    <iframe id="cp-iframe" title="Código fuente"></iframe>
+    <div id="cp-msg"></div>
+  </div>
+</div>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+// ════════════════════════════════════════════════════════════════
+// S500 BANAMEX — COMPONENT MAP DATA
+// Etapa 4 HITL — Grupos Funcionales (DRAFT 2026-06-30)
+// ════════════════════════════════════════════════════════════════
+
+const SRC = 'source/S500/extracted_source/'; // relative path from this HTML
+
+const D = {
+
+nodes: [
+// ── DOMINIOS FUNCIONALES ───────────────────────────────────────
+{id:"dom01",label:"DOM-01\nNúcleo Online",   type:"dominio",color:"#8B3535",wave:6,loc:174000,pci:true, critical:true, notes:"P010 dispatcher · 420+ record types · accede TODOS los schemas · CRÍTICO"},
+{id:"dom02",label:"DOM-02\nGestión Cuenta",  type:"dominio",color:"#2E6B48",wave:1,loc:115000,pci:false,critical:false,notes:"29 programas · ciclo de vida BDB01/02/03 · menor riesgo de equivalencia"},
+{id:"dom03",label:"DOM-03\nMovimientos",     type:"dominio",color:"#8B5A20",wave:3,loc:116000,pci:true, critical:true, notes:"P142/P144 AMBIGUO (58K LOC solo BDB02) · L019 árbitro de saldos · COMP-3 critical · parallel-run ≥ 3 meses"},
+{id:"dom04",label:"DOM-04\nLote Nocturno",   type:"dominio",color:"#2A507A",wave:4,loc:96000, pci:false,critical:false,notes:"P020 batch principal · cierre de período · BDB52-54 réplicas · depende de Wave 3"},
+{id:"dom05",label:"DOM-05\nPagos SPEI",      type:"dominio",color:"#7A6018",wave:5,loc:35000, pci:true, critical:true, notes:"P080 CUENTA ORDENANTE · Banxico < 30 seg · REGLA-CNBV · sign-off regulatorio requerido"},
+{id:"dom06",label:"DOM-06\nProds. CPE/TEF",  type:"dominio",color:"#503280",wave:7,loc:57000, pci:false,critical:false,notes:"BDB35-45 · grupos + prepago + BIN · CPE AMBIGUO"},
+{id:"dom07",label:"DOM-07\nTarjetas BD04",   type:"dominio",color:"#803060",wave:2,loc:36000, pci:true, critical:false,notes:"BD04TARJETAS schema separado · L039 ÚNICO acceso · PROSA/Visa/MC · aislamiento natural Wave 2"},
+{id:"dom08",label:"DOM-08\nComisiones",      type:"dominio",color:"#8B2A2A",wave:7,loc:12000, pci:false,critical:false,notes:"7 tipos COMICOB BDB28-34 · RIESGO-CONDUSEF · mapeo pendiente"},
+{id:"dom09",label:"DOM-09\nTesorería",       type:"dominio",color:"#1E6868",wave:7,loc:33000, pci:false,critical:false,notes:"BDB50-56 · maker-checker BDB56 · réplicas: receptor AMBIGUO"},
+{id:"dom10",label:"DOM-10\nControl",         type:"dominio",color:"#48555E",wave:0,loc:165000,pci:false,critical:false,notes:"Monitor + Activa Medios + MAPLI + 13 progs AMBIGUO sin DMSII · paralelo todas las waves"},
+
+// ── COBOL — DOM-01 ─────────────────────────────────────────────
+{id:"p010",   label:"P010",     type:"cobol",color:"#8B3535",wave:6,loc:52656,domain:"DOM-01",pci:true, critical:true, src:SRC+"S500_SOURCE_P010.txt",    notes:"APLICACION · Dispatcher principal · 3 modos LINEA/LOTE/PARA · todos los schemas"},
+{id:"p010pro",label:"P010_PRO", type:"cobol",color:"#8B3535",wave:6,loc:42310,domain:"DOM-01",pci:true, critical:false,src:SRC+"S500_SOURCE_P010_PRO.txt", notes:"Módulo de procedimientos de P010"},
+{id:"p010par",label:"P010_PAR", type:"cobol",color:"#8B3535",wave:6,loc:11018,domain:"DOM-01",pci:false,critical:false,src:SRC+"S500_SOURCE_P010_PAR.txt", notes:"Parámetros e inicialización de P010"},
+
+// ── COBOL — DOM-02 ─────────────────────────────────────────────
+{id:"p015",label:"P015",type:"cobol",color:"#2E6B48",wave:1,loc:17734,domain:"DOM-02",pci:false,src:SRC+"S500_SOURCE_P015.txt",notes:"DISPERSADOR declarado en WFL · [AMBIGUO: ¿nómina o routing?]"},
+{id:"p102",label:"P102",type:"cobol",color:"#2E6B48",wave:1,loc:9456, domain:"DOM-02",pci:false,src:SRC+"S500_SOURCE_P102.txt",notes:"Mantenimiento masivo de cuenta · BDB00-BDB22"},
+{id:"p110",label:"P110",type:"cobol",color:"#2E6B48",wave:1,loc:10380,domain:"DOM-02",pci:false,src:SRC+"S500_SOURCE_P110.txt",notes:"Actualización de estado de cuenta"},
+{id:"p005",label:"P005",type:"cobol",color:"#2E6B48",wave:1,loc:5334, domain:"DOM-02",pci:false,src:SRC+"S500_SOURCE_P005.txt",notes:"PRE-PASO · setup inicial · invocado en WFL antes de P010"},
+
+// ── COBOL — DOM-03 ─────────────────────────────────────────────
+{id:"p142",label:"P142",type:"cobol",color:"#8B5A20",wave:3,loc:29138,domain:"DOM-03",pci:true, critical:true, src:SRC+"S500_SOURCE_P142.txt",notes:"[HITL CRÍTICO] Solo BDB02 · 29K LOC batch masivo · naturaleza desconocida"},
+{id:"p144",label:"P144",type:"cobol",color:"#8B5A20",wave:3,loc:28994,domain:"DOM-03",pci:true, critical:true, src:SRC+"S500_SOURCE_P144.txt",notes:"[HITL CRÍTICO] Par de P142 · solo BDB02 · ¿cargos vs abonos?"},
+{id:"p130",label:"P130",type:"cobol",color:"#8B5A20",wave:3,loc:31762,domain:"DOM-03",pci:false,critical:false,src:SRC+"S500_SOURCE_P130.txt",notes:"Compartido DOM-03/04/06 · compensación + productos especiales"},
+{id:"p165",label:"P165",type:"cobol",color:"#8B5A20",wave:3,loc:11286,domain:"DOM-03",pci:false,critical:false,src:SRC+"S500_SOURCE_P165.txt",notes:"Movimiento + pagos pendientes BDB04+BDB24+BDB25"},
+
+// ── COBOL — DOM-04 ─────────────────────────────────────────────
+{id:"p020",label:"P020",type:"cobol",color:"#2A507A",wave:4,loc:44012,domain:"DOM-04",pci:false,src:SRC+"S500_SOURCE_P020.txt",notes:"BATCH MAIN · procesador batch principal · cierre de período · CNBV"},
+{id:"p105",label:"P105",type:"cobol",color:"#2A507A",wave:4,loc:20556,domain:"DOM-04",pci:false,src:SRC+"S500_SOURCE_P105.txt",notes:"Compensación clearing · BDB04+BDB12+BDB13+BDB14"},
+
+// ── COBOL — DOM-05 ─────────────────────────────────────────────
+{id:"p080",label:"P080",type:"cobol",color:"#7A6018",wave:5,loc:18548,domain:"DOM-05",pci:true, critical:true, src:SRC+"S500_SOURCE_P080.txt",notes:"CUENTA ORDENANTE · SPEI/CIE originating · sin DMSII directo · interface Banxico"},
+{id:"p164",label:"P164",type:"cobol",color:"#7A6018",wave:5,loc:5262, domain:"DOM-05",pci:false,critical:false,src:SRC+"S500_SOURCE_P164.txt",notes:"Pagos pendientes + control depósito-retiro + réplicas"},
+{id:"p200",label:"P200",type:"cobol",color:"#7A6018",wave:5,loc:3106, domain:"DOM-05",pci:false,critical:false,src:SRC+"S500_SOURCE_P200.txt",notes:"[AMBIGUO] Probable recepción SPEI beneficiario"},
+
+// ── COBOL — DOM-06 ─────────────────────────────────────────────
+{id:"p330",label:"P330",type:"cobol",color:"#503280",wave:7,loc:15642,domain:"DOM-06",pci:false,src:SRC+"S500_SOURCE_P330.txt",notes:"Gestión grupo CPE + sub-grupos BDB37-39"},
+{id:"p168",label:"P168",type:"cobol",color:"#503280",wave:7,loc:4194, domain:"DOM-06",pci:false,src:SRC+"S500_SOURCE_P168.txt",notes:"TEF + grupos comerciales BDB35+BDB36+BDB45"},
+{id:"p120",label:"P120",type:"cobol",color:"#503280",wave:7,loc:9540, domain:"DOM-06",pci:false,src:SRC+"S500_SOURCE_P120.txt",notes:"Productos especiales y grupos BDB35+BDB36+BDB43"},
+{id:"p335",label:"P335",type:"cobol",color:"#503280",wave:7,loc:10198,domain:"DOM-06",pci:false,src:SRC+"S500_SOURCE_P335.txt",notes:"[AMBIGUO] alto LOC con acceso BDB02 básico"},
+
+// ── COBOL — DOM-07 ─────────────────────────────────────────────
+{id:"p305",label:"P305",type:"cobol",color:"#803060",wave:2,loc:3606, domain:"DOM-07",pci:false,src:SRC+"S500_SOURCE_P305.txt",notes:"Movimiento + CPE + compensación depósitos"},
+{id:"p315",label:"P315",type:"cobol",color:"#803060",wave:2,loc:4134, domain:"DOM-07",pci:false,src:SRC+"S500_SOURCE_P315.txt",notes:"Movimiento + instrumentos + histórico"},
+{id:"p630",label:"P630",type:"cobol",color:"#803060",wave:2,loc:2718, domain:"DOM-07",pci:true, src:SRC+"S500_SOURCE_P630_TARINTERCAM.txt",notes:"TARJETAS INTERCAMBIO · PROSA/Visa/MC interchange"},
+
+// ── COBOL — DOM-08 ─────────────────────────────────────────────
+{id:"p178",label:"P178",type:"cobol",color:"#8B2A2A",wave:7,loc:3434,domain:"DOM-08",pci:false,src:SRC+"S500_SOURCE_P178.txt",notes:"Comisiones cobro tipo 1 · BDB28 · CONDUSEF"},
+
+// ── COBOL — DOM-09 ─────────────────────────────────────────────
+{id:"p107",label:"P107",type:"cobol",color:"#1E6868",wave:7,loc:4562, domain:"DOM-09",pci:false,src:SRC+"S500_SOURCE_P107.txt",notes:"Ligas tesorería + compensación depósitos BDB50+BDB49"},
+{id:"p180",label:"P180",type:"cobol",color:"#1E6868",wave:7,loc:10076,domain:"DOM-09",pci:false,src:SRC+"S500_SOURCE_P180.txt",notes:"Movimiento + grupos + tesorería · compartido DOM-03"},
+{id:"p290",label:"P290",type:"cobol",color:"#1E6868",wave:7,loc:5318, domain:"DOM-09",pci:false,src:SRC+"S500_SOURCE_P290.txt",notes:"Cuenta de origen BDB51=RCTAORI"},
+
+// ── COBOL — DOM-10 ─────────────────────────────────────────────
+{id:"p038",label:"P038",type:"cobol",color:"#48555E",wave:0,loc:5796, domain:"DOM-10",pci:false,src:SRC+"S500_SOURCE_P038.txt",notes:"MONITOR declarado en WFL · supervisor del sistema"},
+{id:"p050",label:"P050",type:"cobol",color:"#48555E",wave:0,loc:3668, domain:"DOM-10",pci:false,src:SRC+"S500_SOURCE_P050.txt",notes:"ACTIVA MEDIOS declarado en WFL · activación de terminales"},
+{id:"p186",label:"P186",type:"cobol",color:"#48555E",wave:0,loc:10800,domain:"DOM-10",pci:false,src:SRC+"S500_SOURCE_P186.txt",notes:"[AMBIGUO] 10K LOC sin DMSII · función desconocida"},
+
+// ── ALGOL LIBRARIES ────────────────────────────────────────────
+{id:"l010",label:"L010",type:"algol",color:"#2A6E7A",wave:6,loc:27612,domain:"DOM-01",pci:false,src:SRC+"S500_SOURCE_L010_CONTROL.txt",  notes:"L010_CONTROL · gestión sesiones COMS · dispatch MCS"},
+{id:"l019",label:"L019",type:"algol",color:"#2A6E7A",wave:3,loc:1146, domain:"DOM-03",pci:true, critical:true, src:SRC+"S500_SOURCE_L019_SALDOS.txt",    notes:"L019_SALDOS · ÁRBITRO 4 tipos de saldo · COMP-3 critical"},
+{id:"l039",label:"L039",type:"algol",color:"#2A6E7A",wave:2,loc:23494,domain:"DOM-07",pci:true, src:SRC+"S500_SOURCE_L039_ACCESOBD04.txt",notes:"L039_ACCESOBD04 · ÚNICA librería acceso BD04-TARJETAS"},
+{id:"l035",label:"L035",type:"algol",color:"#2A6E7A",wave:0,loc:10802,domain:"DOM-10",pci:false,src:SRC+"S500_SOURCE_L035_MAPLI.txt",    notes:"L035_MAPLI · acceso BD MAPLI · mensajería Banamex"},
+{id:"l050",label:"L050",type:"algol",color:"#2A6E7A",wave:0,loc:12800,domain:"DOM-10",pci:false,src:SRC+"S500_SOURCE_L050.txt",          notes:"[AMBIGUO] 12K LOC sin $SET · función desconocida"},
+{id:"l091",label:"L091",type:"algol",color:"#2A6E7A",wave:5,loc:1028, domain:"DOM-05",pci:false,src:SRC+"S500_SOURCE_L091_ASINCRONA.txt", notes:"L091_ASINCRONA · procesamiento asíncrono SPEI"},
+{id:"l093",label:"L093",type:"algol",color:"#2A6E7A",wave:5,loc:1030, domain:"DOM-05",pci:false,src:SRC+"S500_SOURCE_L093_ASINCRONA.txt", notes:"L093_ASINCRONA · variante de L091"},
+
+// ── INC COPYBOOKS ──────────────────────────────────────────────
+{id:"pro_can", label:"PRO_CAN", type:"inc",color:"#3D4350",wave:6,loc:40892,domain:"DOM-01",pci:false,src:SRC+"S500_INC_PRO_CAN.txt",notes:"Copybook masivo · procedimientos cancelación/reversa · incluido por P010"},
+{id:"wor",     label:"WOR",     type:"inc",color:"#3D4350",wave:4,loc:23980,domain:"DOM-04",pci:false,src:SRC+"S500_INC_WOR.txt",    notes:"Working storage batch principal"},
+{id:"wor_can", label:"WOR_CAN", type:"inc",color:"#3D4350",wave:4,loc:18554,domain:"DOM-04",pci:false,src:SRC+"S500_INC_WOR_CAN.txt",notes:"Working storage cancelaciones batch"},
+
+// ── WFL JOBS ───────────────────────────────────────────────────
+// NOTA: los nombres de archivo están invertidos en el inventario
+{id:"wfl_linea",label:"WFL\nLINEA",type:"wfl",color:"#4A2E7A",wave:6,loc:5000,domain:"DOM-01",pci:false,src:SRC+"S500_WFL_LOTE.txt",  notes:"Job S500/WFL/LINEA/24MTP005 · orquesta P005→P010→P038→P050→P080 [archivo: S500_WFL_LOTE.txt — nombres invertidos]"},
+{id:"wfl_reorg",label:"WFL\nREORG", type:"wfl",color:"#4A2E7A",wave:0,loc:2000,domain:"DOM-10",pci:false,src:SRC+"S500_WFL_LINEA.txt", notes:"REORG GARBAGE de BD01CAPTACION [archivo: S500_WFL_LINEA.txt — nombres invertidos]"},
+
+// ── SCHEMAS DMSII ──────────────────────────────────────────────
+{id:"dmsii_cap", label:"CAPTACION\n57 datasets",   type:"dmsii",color:"#1A5A38",wave:0,loc:0,domain:"DMSII",pci:true, src:SRC+"S500_DASDL_BD01CAPTACION.txt",notes:"Schema principal · BDB00-BDB91 · 57 datasets documentados"},
+{id:"dmsii_bd04",label:"BD04-TARJETAS\n18 datasets",type:"dmsii",color:"#1A5A38",wave:0,loc:0,domain:"DMSII",pci:true, src:SRC+"S500_DASDL_BD04TARJETAS.txt", notes:"Schema separado · S500B01P-S500B19P · acceso exclusivo L039"},
+{id:"dmsii_aux", label:"AUXILIAR",    type:"dmsii",color:"#1A5A38",wave:0,loc:0,domain:"DMSII",pci:false,notes:"Prefijo BDA · datos auxiliares"},
+{id:"dmsii_map", label:"MAPLI",       type:"dmsii",color:"#1A5A38",wave:0,loc:0,domain:"DMSII",pci:false,notes:"Acceso via L035_MAPLI"},
+{id:"dmsii_tel", label:"TELETON",     type:"dmsii",color:"#1A5A38",wave:0,loc:0,domain:"DMSII",pci:false,notes:"[AMBIGUO] Donaciones / fondo emergencias?"},
+{id:"dmsii_atr", label:"ATRIBUCTA",   type:"dmsii",color:"#1A5A38",wave:0,loc:0,domain:"DMSII",pci:false,notes:"Prefijo ATR · atributos de cuenta"},
+{id:"dmsii_msg", label:"MSGAAPLI",    type:"dmsii",color:"#1A5A38",wave:0,loc:0,domain:"DMSII",pci:false,notes:"Prefijo MSG · mensajes de aplicación"},
+
+// ── SISTEMAS EXTERNOS ──────────────────────────────────────────
+{id:"ext_spei", label:"SPEI/CIE\nBanxico",    type:"externo",color:"#323875",wave:0,loc:0,domain:"EXTERNO",pci:true, notes:"Sistema Pagos Electrónicos Interbancarios · Banxico · < 30 seg"},
+{id:"ext_prosa",label:"PROSA\nVisa/MC",        type:"externo",color:"#323875",wave:0,loc:0,domain:"EXTERNO",pci:true, notes:"Red intercambio tarjetas · P630 TARJETAS INTERCAMBIO"},
+{id:"ext_mcs",  label:"MCS/COMS\nTerminales",  type:"externo",color:"#323875",wave:0,loc:0,domain:"EXTERNO",pci:false,notes:"Messaging Control System · terminales bancarias · via L010"},
+{id:"ext_s151", label:"S151\nMov. Contables",  type:"externo",color:"#323875",wave:0,loc:0,domain:"EXTERNO",pci:false,notes:"Sistema 151 · receptor probable réplicas BDB53/54 · GL Banamex"},
+{id:"ext_core", label:"Core\nBancario",         type:"externo",color:"#323875",wave:0,loc:0,domain:"EXTERNO",pci:false,notes:"Core bancario Banamex · enlace de cuentas"}
+],
+
+edges: [
+// CONTAINS
+{source:"dom01",target:"p010",    type:"contains"},
+{source:"dom01",target:"p010pro", type:"contains"},
+{source:"dom01",target:"p010par", type:"contains"},
+{source:"dom01",target:"l010",    type:"contains"},
+{source:"dom01",target:"pro_can", type:"contains"},
+{source:"dom01",target:"wfl_linea",type:"contains"},
+{source:"dom02",target:"p015",type:"contains"},
+{source:"dom02",target:"p102",type:"contains"},
+{source:"dom02",target:"p110",type:"contains"},
+{source:"dom02",target:"p005",type:"contains"},
+{source:"dom03",target:"p142",type:"contains"},
+{source:"dom03",target:"p144",type:"contains"},
+{source:"dom03",target:"p130",type:"contains"},
+{source:"dom03",target:"p165",type:"contains"},
+{source:"dom03",target:"l019",type:"contains"},
+{source:"dom04",target:"p020",   type:"contains"},
+{source:"dom04",target:"p105",   type:"contains"},
+{source:"dom04",target:"wor",    type:"contains"},
+{source:"dom04",target:"wor_can",type:"contains"},
+{source:"dom05",target:"p080",type:"contains"},
+{source:"dom05",target:"p164",type:"contains"},
+{source:"dom05",target:"p200",type:"contains"},
+{source:"dom05",target:"l091",type:"contains"},
+{source:"dom05",target:"l093",type:"contains"},
+{source:"dom06",target:"p330",type:"contains"},
+{source:"dom06",target:"p168",type:"contains"},
+{source:"dom06",target:"p120",type:"contains"},
+{source:"dom06",target:"p335",type:"contains"},
+{source:"dom07",target:"l039",type:"contains"},
+{source:"dom07",target:"p305",type:"contains"},
+{source:"dom07",target:"p315",type:"contains"},
+{source:"dom07",target:"p630",type:"contains"},
+{source:"dom08",target:"p178",type:"contains"},
+{source:"dom09",target:"p107",type:"contains"},
+{source:"dom09",target:"p180",type:"contains"},
+{source:"dom09",target:"p290",type:"contains"},
+{source:"dom10",target:"p038",    type:"contains"},
+{source:"dom10",target:"p050",    type:"contains"},
+{source:"dom10",target:"p186",    type:"contains"},
+{source:"dom10",target:"l035",    type:"contains"},
+{source:"dom10",target:"l050",    type:"contains"},
+{source:"dom10",target:"wfl_reorg",type:"contains"},
+// CONSUMES → DMSII
+{source:"dom01",target:"dmsii_cap", type:"consumes"},
+{source:"dom01",target:"dmsii_bd04",type:"consumes"},
+{source:"dom02",target:"dmsii_cap", type:"consumes"},
+{source:"dom03",target:"dmsii_cap", type:"consumes"},
+{source:"dom04",target:"dmsii_cap", type:"consumes"},
+{source:"dom05",target:"dmsii_cap", type:"consumes"},
+{source:"dom06",target:"dmsii_cap", type:"consumes"},
+{source:"dom07",target:"dmsii_bd04",type:"consumes"},
+{source:"dom08",target:"dmsii_cap", type:"consumes"},
+{source:"dom09",target:"dmsii_cap", type:"consumes"},
+{source:"dom10",target:"dmsii_cap", type:"consumes"},
+{source:"dom10",target:"dmsii_aux", type:"consumes"},
+{source:"dom10",target:"dmsii_map", type:"consumes"},
+{source:"dom10",target:"dmsii_tel", type:"consumes"},
+{source:"dom10",target:"dmsii_atr", type:"consumes"},
+{source:"dom10",target:"dmsii_msg", type:"consumes"},
+// DEPENDS-ON → externos
+{source:"dom05",target:"ext_spei", type:"depends-on"},
+{source:"dom07",target:"ext_prosa",type:"depends-on"},
+{source:"dom01",target:"ext_mcs",  type:"depends-on"},
+{source:"dom09",target:"ext_s151", type:"depends-on"},
+{source:"dom02",target:"ext_core", type:"depends-on"},
+// DEPENDS-ON → cross-domain
+{source:"dom04",target:"dom03",type:"depends-on"},
+{source:"dom06",target:"dom03",type:"depends-on"},
+{source:"dom05",target:"dom09",type:"depends-on"},
+{source:"dom08",target:"dom02",type:"depends-on"},
+{source:"dom07",target:"dom01",type:"depends-on"}
+]
+
+}; // end D
+
+// ════════════════════════════════════════════════════════════════
+// RENDERING
+// ════════════════════════════════════════════════════════════════
+
+const nodes = D.nodes;
+const edges = D.edges;
+const nodeMap = Object.fromEntries(nodes.map(n=>[n.id,n]));
+
+const TYPE_LABELS = {
+  dominio:'Dominio Funcional',cobol:'COBOL Transaccional','cobol-batch':'COBOL Batch',
+  algol:'ALGOL Librería',inc:'INC Copybook',wfl:'WFL Job',
+  dmsii:'Schema DMSII',externo:'Sistema Externo'
+};
+
+const WAVE_COLORS = {
+  0:'#6b7280',1:'#2E6B48',2:'#803060',3:'#8B5A20',
+  4:'#2A507A',5:'#7A6018',6:'#8B3535',7:'#503280'
+};
+
+// ── RADIUS ─────────────────────────────────────────────────────
+const r = d => {
+  if (d.type==='dominio')          return Math.max(14, 8 + Math.sqrt(d.loc/700));
+  if (d.type==='cobol'||d.type==='cobol-batch') return Math.max(5, 3 + Math.sqrt(d.loc/1200));
+  if (d.type==='algol')            return Math.max(4, 2.5 + Math.sqrt(d.loc/1200));
+  if (d.type==='dmsii')            return 10;
+  if (d.type==='inc')              return 7;
+  if (d.type==='wfl')              return 7;
+  if (d.type==='externo')          return 9;
+  return 5;
+};
+
+// ── SVG SETUP ──────────────────────────────────────────────────
+const svgEl = document.getElementById('svg');
+const W = svgEl.clientWidth  || (window.innerWidth  - 234);
+const H = svgEl.clientHeight || window.innerHeight;
+const svg = d3.select('#svg').attr('viewBox',`0 0 ${W} ${H}`);
+const g = svg.append('g');
+
+const zoomBehavior = d3.zoom().scaleExtent([.08,8])
+  .on('zoom', e => g.attr('transform', e.transform));
+svg.call(zoomBehavior);
+
+// Click on SVG background → deselect
+svg.on('click', e => {
+  if (e.target === svgEl || e.target.tagName === 'svg') {
+    setSelected(null);
+    document.getElementById('tip').style.display = 'none';
+  }
+});
+
+// ── SCOPE RING ─────────────────────────────────────────────────
+const ringR = Math.min(W,H) * 0.27;
+g.append('circle').attr('class','scope-ring')
+  .attr('cx',W/2).attr('cy',H/2).attr('r',ringR);
+g.append('text').attr('class','scope-label')
+  .attr('x',W/2).attr('y',H/2 - ringR - 9)
+  .text('ZONA CRÍTICA  ·  DOM-01  ·  DOM-03  ·  DOM-05');
+
+// ── FORCE SIMULATION ──────────────────────────────────────────
+const sim = d3.forceSimulation(nodes)
+  .force('link', d3.forceLink(edges).id(d=>d.id)
+    .distance(d => {
+      const st = nodeMap[d.source.id||d.source]?.type;
+      const tt = nodeMap[d.target.id||d.target]?.type;
+      if (st==='dominio'&&tt==='dominio')  return 260;
+      if (st==='dominio'&&tt==='dmsii')    return 170;
+      if (st==='dominio'&&tt==='externo')  return 210;
+      if (st==='dominio')                  return 65;
+      return 110;
+    })
+    .strength(d => {
+      const st = nodeMap[d.source.id||d.source]?.type;
+      const tt = nodeMap[d.target.id||d.target]?.type;
+      if (d.type==='depends-on')           return 0.04;
+      if (st==='dominio'&&tt==='dominio')  return 0.04;
+      if (st==='dominio'&&tt==='dmsii')    return 0.15;
+      if (st==='dominio'&&tt==='externo')  return 0.12;
+      if (st==='dominio')                  return 0.7;
+      return 0.3;
+    }))
+  .force('charge', d3.forceManyBody().strength(d => {
+    if (d.type==='dominio')  return -700;
+    if (d.type==='cobol'||d.type==='cobol-batch') return -190;
+    if (d.type==='algol')    return -160;
+    if (d.type==='dmsii')    return -130;
+    if (d.type==='externo')  return -110;
+    return -150;
+  }))
+  .force('center', d3.forceCenter(W/2, H/2))
+  .force('radial-critical', d3.forceRadial(0, W/2, H/2)
+    .strength(d => d.critical ? 0.07 : 0))
+  .force('radial-dmsii', d3.forceRadial(Math.min(W,H)*0.44, W/2, H/2)
+    .strength(d => d.type==='dmsii'   ? 0.18 : 0))
+  .force('radial-ext',  d3.forceRadial(Math.min(W,H)*0.52, W/2, H/2)
+    .strength(d => d.type==='externo' ? 0.22 : 0))
+  .force('collision', d3.forceCollide(d => r(d) + 2.5).iterations(2));
+
+// ── EDGES ─────────────────────────────────────────────────────
+const link = g.append('g')
+  .selectAll('line').data(edges).join('line')
+  .attr('class', d => `link ${d.type}`);
+
+// ── NODES ─────────────────────────────────────────────────────
+const node = g.append('g')
+  .selectAll('g').data(nodes).join('g')
+  .attr('class', d => ['node', d.type, d.critical?'critical':''].filter(Boolean).join(' '))
+  .call(d3.drag()
+    .on('start',(e,d)=>{ if(!e.active) sim.alphaTarget(.3).restart(); d.fx=d.x; d.fy=d.y })
+    .on('drag', (e,d)=>{ d.fx=e.x; d.fy=e.y })
+    .on('end',  (e,d)=>{ if(!e.active) sim.alphaTarget(0); d.fx=null; d.fy=null }));
+
+node.append('circle')
+  .attr('r', r)
+  .attr('fill', d => d.color || '#9aa0ad')
+  .attr('stroke', d => {
+    if (d.critical)         return 'rgba(210,200,200,.85)';
+    if (d.type==='dominio') return 'rgba(255,255,255,.4)';
+    return 'rgba(255,255,255,.15)';
+  })
+  .on('click',     (e,d) => { e.stopPropagation(); clickNode(d) })
+  .on('mouseover', (e,d) => showTip(e,d));
+
+node.append('text')
+  .attr('dy', d => r(d) + 3)
+  .style('font-size', d => {
+    if (d.type==='dominio')                    return '10px';
+    if (d.type==='dmsii'||d.type==='externo') return '8px';
+    return '9px';
+  })
+  .style('font-weight', d => d.type==='dominio' ? '700' : '400')
+  .each(function(d) {
+    const sel = d3.select(this);
+    const parts = d.label.split('\n');
+    if (parts.length > 1) {
+      sel.selectAll('tspan').data(parts).join('tspan')
+        .attr('x', 0)
+        .attr('dy', (_,i) => i===0 ? 0 : '1.15em')
+        .text(s => s);
+    } else {
+      sel.text(d.label);
+    }
+  });
+
+// ── TICK ───────────────────────────────────────────────────────
+sim.on('tick', () => {
+  link
+    .attr('x1', d=>d.source.x).attr('y1', d=>d.source.y)
+    .attr('x2', d=>d.target.x).attr('y2', d=>d.target.y);
+  node.attr('transform', d=>`translate(${d.x},${d.y})`);
+});
+
+// ════════════════════════════════════════════════════════════════
+// SELECTION / ISOLATION
+// ════════════════════════════════════════════════════════════════
+
+let selectedId = null;
+
+function getNeighborIds(id) {
+  const set = new Set([id]);
+  edges.forEach(e => {
+    const s = e.source.id || e.source;
+    const t = e.target.id || e.target;
+    if (s === id) set.add(t);
+    if (t === id) set.add(s);
+  });
+  return set;
+}
+
+function setSelected(id) {
+  selectedId = id;
+
+  if (!id) {
+    // Reset all
+    node.classed('dimmed', false).classed('selected', false);
+    link.classed('dimmed', false)
+      .attr('class', d => `link ${d.type}`);
+    return;
+  }
+
+  const neighbors = getNeighborIds(id);
+
+  // Dim/undim nodes
+  node
+    .classed('dimmed',   d => !neighbors.has(d.id))
+    .classed('selected', d => d.id === id);
+
+  // Dim/highlight edges
+  link.each(function(d) {
+    const s = d.source.id || d.source;
+    const t = d.target.id || d.target;
+    const connected = (s === id || t === id);
+    d3.select(this)
+      .classed('dimmed', !connected)
+      .attr('class', !connected
+        ? `link ${d.type} dimmed`
+        : `link hl-${d.type}`);
+  });
+}
+
+function clickNode(d) {
+  if (selectedId === d.id) {
+    setSelected(null);     // toggle off
+  } else {
+    setSelected(d.id);
+    showInfo(d);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// TOOLTIP
+// ════════════════════════════════════════════════════════════════
+
+function showTip(e, d) {
+  const tip = document.getElementById('tip');
+  const wlabel = d.wave>0 ? `Wave ${d.wave}` : 'Paralelo';
+  const wcol   = WAVE_COLORS[d.wave] || '#9a9ab5';
+
+  const fn = d.src ? d.src.split('/').pop() : '';
+  const srcLink = d.src
+    ? `<div class="tc"><a href="#" onclick="openCodeViewer('${d.src}','${fn}');return false;">&#9654; Ver código fuente</a></div>`
+    : '';
+
+  tip.innerHTML = `
+    <span id="tip-close" onclick="document.getElementById('tip').style.display='none'">&#x2715;</span>
+    <div class="tt">${d.label.replace('\n',' ')}</div>
+    <div class="tr">Tipo: <span>${TYPE_LABELS[d.type]||d.type}</span></div>
+    ${d.domain ? `<div class="tr">Dominio: <span>${d.domain}</span></div>` : ''}
+    ${d.loc    ? `<div class="tr">LOC: <span>${d.loc.toLocaleString('es-MX')}</span></div>` : ''}
+    <div class="tr">Modernización: <span style="color:${wcol};font-weight:700">${wlabel}</span></div>
+    ${d.pci      ? `<div class="tr" style="color:#c08050">&#9888; PCI / Regulatorio</div>` : ''}
+    ${d.critical ? `<div class="tr" style="color:#c07070">&#9888; Zona Crítica</div>` : ''}
+    <div class="tn">${d.notes||''}</div>
+    ${srcLink}
+  `;
+  tip.style.display = 'block';
+  tip.style.left = Math.min(e.pageX + 14, window.innerWidth  - 255) + 'px';
+  tip.style.top  = Math.max(e.pageY - 10, 0) + 'px';
+}
+
+// ════════════════════════════════════════════════════════════════
+// INFO PANEL
+// ════════════════════════════════════════════════════════════════
+
+function showInfo(d) {
+  const wlabel = d.wave>0 ? `Wave ${d.wave}` : 'Paralelo (todas waves)';
+  const wcol   = WAVE_COLORS[d.wave] || '#9a9ab5';
+
+  document.getElementById('ni-label').innerHTML =
+    d.label.replace('\n',' ') +
+    (d.critical ? ' <span style="font-size:8px;background:#7f1d1d;color:#fca5a5;padding:1px 4px;border-radius:3px;vertical-align:middle">CRÍTICO</span>' : '');
+
+  document.getElementById('ni-body').innerHTML = `
+    <div class="ni-row">Tipo: <span>${TYPE_LABELS[d.type]||d.type}</span></div>
+    ${d.domain ? `<div class="ni-row">Dominio: <span>${d.domain}</span></div>` : ''}
+    ${d.loc    ? `<div class="ni-row">LOC: <span>${d.loc.toLocaleString('es-MX')}</span></div>` : ''}
+    <div class="ni-row">Wave: <span style="color:${wcol};font-weight:700">${wlabel}</span></div>
+    ${d.pci    ? `<div class="ni-row" style="color:#c08050">PCI / Regulatorio</div>` : ''}
+    <div class="ni-notes">${d.notes||''}</div>
+    ${d.src ? `<div style="margin-top:6px"><a href="#"
+      onclick="openCodeViewer('${d.src}','${d.src.split('/').pop()}');return false;"
+      style="color:#A100FF;font-size:10px;font-weight:600;text-decoration:none">
+      &#9654; Ver código fuente</a></div>` : ''}
+  `;
+}
+
+// ════════════════════════════════════════════════════════════════
+// DOMAIN NAV — focusDomain
+// ════════════════════════════════════════════════════════════════
+
+function focusDomain(id) {
+  const d = nodeMap[id];
+  if (!d || d.x == null) return;
+
+  // Highlight + info panel
+  setSelected(id);
+  showInfo(d);
+  document.getElementById('tip').style.display = 'none';
+
+  // Mark active button
+  document.querySelectorAll('.dom-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.dom-btn[onclick="focusDomain('${id}')"]`);
+  if (btn) btn.classList.add('active');
+
+  // Zoom & pan to center the domain node
+  const scale = 1.5;
+  const tx = W / 2 - d.x * scale;
+  const ty = H / 2 - d.y * scale;
+  svg.transition().duration(650).ease(d3.easeCubicInOut)
+     .call(zoomBehavior.transform,
+           d3.zoomIdentity.translate(tx, ty).scale(scale));
+}
+
+// Clear active button when user resets selection via background click
+const _origSvgClick = svg.on('click.reset');
+svg.on('click', e => {
+  if (e.target === svgEl || e.target.tagName === 'svg') {
+    setSelected(null);
+    document.getElementById('tip').style.display = 'none';
+    document.querySelectorAll('.dom-btn').forEach(b => b.classList.remove('active'));
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// CODE VIEWER PANEL
+// ════════════════════════════════════════════════════════════════
+
+function closeCodePanel() {
+  document.getElementById('code-panel').classList.remove('open');
+}
+
+async function openCodeViewer(srcPath, filename) {
+  const panel  = document.getElementById('code-panel');
+  const title  = document.getElementById('cp-title');
+  const pre    = document.getElementById('cp-pre');
+  const iframe = document.getElementById('cp-iframe');
+  const msg    = document.getElementById('cp-msg');
+
+  title.textContent    = filename;
+  pre.textContent      = 'Cargando…';
+  pre.style.display    = 'block';
+  iframe.style.display = 'none';
+  msg.style.display    = 'none';
+  panel.classList.add('open');
+
+  try {
+    const res = await fetch(srcPath);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    pre.textContent = await res.text();
+  } catch (_) {
+    pre.style.display    = 'none';
+    iframe.src           = srcPath;
+    iframe.style.display = 'block';
+    // If iframe also fails (file:// origin isolation), show instructions
+    setTimeout(() => {
+      let loaded = false;
+      try { loaded = !!(iframe.contentDocument?.body?.textContent?.trim()); } catch(e) {}
+      if (!loaded) {
+        iframe.style.display = 'none';
+        msg.innerHTML =
+          `<p>No se pudo cargar el archivo en modo <code>file://</code>.</p>
+           <p>Inicia un servidor local desde la carpeta <code>S500/</code>:</p>
+           <pre>python -m http.server 8080</pre>
+           <p>Luego abre:<br><code>http://localhost:8080/component-map-s500.html</code></p>
+           <p style="opacity:.6">Archivo: <code>${srcPath}</code></p>`;
+        msg.style.display = 'block';
+      }
+    }, 700);
+  }
+}
+</script>
+</body>
+</html>

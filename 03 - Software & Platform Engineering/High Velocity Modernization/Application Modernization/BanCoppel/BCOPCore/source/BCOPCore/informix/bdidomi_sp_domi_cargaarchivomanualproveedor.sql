@@ -1,0 +1,541 @@
+CREATE PROCEDURE "informix".sp_domi_cargaarchivomanualproveedor(pNombre_Archivo CHAR(20), pNumCte CHAR(20),pUsert_Insert CHAR(8))
+	RETURNING CHAR(5),CHAR(95),CHAR(20),INTEGER,MONEY(18,2),INTEGER,MONEY(18,2);
+
+
+---- VARIABLES  GENERALES---
+DEFINE cSqlerr			 INTEGER;
+DEFINE cCodret      	 CHAR(5);
+DEFINE cCodretSAP      	 CHAR(5);
+DEFINE cCodretVCP      	 CHAR(5);
+DEFINE cCodretVAP      	 CHAR(5);
+DEFINE cMensajeError     CHAR(95);
+DEFINE cCuenta_Abono 	 CHAR(20);
+DEFINE iTotalAltas 		 INTEGER;
+DEFINE mTotalImporteAltas MONEY(18,2);
+DEFINE iTotalBajas 		 INTEGER;
+DEFINE mTotalImporteBajas MONEY(18,2);
+DEFINE cConsecutivo		 INTEGER;
+DEFINE pFechaEnvio DATE;
+
+--VALORES INICIALES
+LET cSqlerr = '';
+LET cCodret = '00000';
+LET cCodretSAP = '00000';
+LET cCodretVCP = '00000';
+LET cMensajeError = 'Procedimiento se ejecuto correctamente';
+LET cCuenta_Abono = '';
+LET iTotalAltas = 0 ;
+LET mTotalImporteAltas = 0.00;
+LET iTotalBajas = 0;
+LET mTotalImporteBajas = 0.00;
+LET cConsecutivo		 = '';
+LET pFechaEnvio = CURRENT;
+--LET pFechaEnvio = CURRENT::DATE - 1;
+--SET debug FILE TO "/tmp/domi/Sp_Domi_CargaArchivoManualProveedor.out";
+--Trace ON;
+
+BEGIN
+	------  Control de Errores no Controlados
+    ON EXCEPTION SET cSqlerr
+        IF cSqlerr <> 0 THEN
+            Let cCodret = cSqlerr;
+            RETURN cCodret, cMensajeError, cCuenta_Abono, iTotalAltas, mTotalImporteAltas, iTotalBajas, mTotalImporteBajas;
+        END IF;
+	END EXCEPTION;
+	---validar si el archivo ya fue procesado
+	IF EXISTS (SELECT nombre_arch FROM dom_cte_archivos  WHERE nombre_arch = pNombre_Archivo AND fecha_envio = pFechaEnvio) THEN
+		--ARCHIVO YA FUE PROCESADO
+		LET cCodret = '99907';
+		EXECUTE PROCEDURE BDIDOMI: sp_ObtenerMensajeError(cCodret) INTO cCodret,cMensajeError;
+		RETURN cCodret, cMensajeError, cCuenta_Abono, iTotalAltas, mTotalImporteAltas, iTotalBajas, mTotalImporteBajas;
+	END IF;
+	--validar el consecutivo del archivo
+	SELECT COUNT(nombre_arch) + 1 INTO cConsecutivo FROM dom_cte_archivos  WHERE SUBSTR(nombre_arch,1,18) = SUBSTR(pNombre_Archivo,1,18) AND num_cte = pNumCte AND fecha_envio = pFechaEnvio;
+	let cMensajeError = LPAD(cConsecutivo,2,'0')||'**'||SUBSTR(pNombre_Archivo,19,2);
+	IF LPAD(cConsecutivo,2,'0') <> SUBSTR(pNombre_Archivo,19,2) THEN
+		--EL CONSECUTIVO DEL ARCHIVO NO ES EL CORRECTO
+		LET cCodret = '99906';
+		EXECUTE PROCEDURE BDIDOMI: sp_ObtenerMensajeError(cCodret) INTO cCodret,cMensajeError;
+		RETURN cCodret, cMensajeError, cCuenta_Abono, iTotalAltas, mTotalImporteAltas, iTotalBajas, mTotalImporteBajas;
+	END IF;
+	--subir el archivo a las tablas para validarlo
+	EXECUTE PROCEDURE bdidomi:sp_Domi_SubirArchivosProveedor (pNombre_Archivo, pFechaEnvio,pNumCte,pFechaEnvio,'01',pUsert_Insert) INTO cCodretSAP, cMensajeError;
+	IF cCodretSAP <> 0 THEN
+		--Borrar las tablas
+		DELETE FROM dom_cte_sumario WHERE nombre_arch = pNombre_Archivo;
+		DELETE FROM dom_cte_detalle WHERE nombre_arch = pNombre_Archivo;
+		DELETE FROM dom_cte_encabezado WHERE nombre_arch = pNombre_Archivo;
+		DELETE FROM dom_cte_archivos WHERE nombre_arch = pNombre_Archivo;
+		EXECUTE PROCEDURE BDIDOMI: sp_ObtenerMensajeError(cCodretSAP) INTO cCodret,cMensajeError;
+		RETURN cCodret, cMensajeError, cCuenta_Abono, iTotalAltas, mTotalImporteAltas, iTotalBajas, mTotalImporteBajas;
+	END IF;
+	--validacion del archivo del provedor estructura etc.etc.
+	EXECUTE PROCEDURE sp_valida_carga_proveedor(pNombre_Archivo, pFechaEnvio) INTO cCodretVCP;
+	IF cCodretVCP <> 0 THEN
+		--Borrar las tablas
+		DELETE FROM dom_cte_sumario WHERE nombre_arch = pNombre_Archivo;
+		DELETE FROM dom_cte_detalle WHERE nombre_arch = pNombre_Archivo;
+		DELETE FROM dom_cte_encabezado WHERE nombre_arch = pNombre_Archivo;
+		DELETE FROM dom_cte_archivos WHERE nombre_arch = pNombre_Archivo;
+		EXECUTE PROCEDURE BDIDOMI: sp_ObtenerMensajeError(cCodretVCP) INTO cCodret,cMensajeError;
+		RETURN cCodret, cMensajeError, cCuenta_Abono, iTotalAltas, mTotalImporteAltas, iTotalBajas, mTotalImporteBajas;
+	END IF;
+	--validacion del archivo del provedor estructura etc.etc.
+	EXECUTE PROCEDURE Sp_Domi_ValidaArchivoProveedor(pNombre_Archivo, pFechaEnvio) INTO cCodretVAP;
+	IF cCodretVAP <> 0 THEN
+		--Borrar las tablas
+		DELETE FROM dom_cte_sumario WHERE nombre_arch = pNombre_Archivo;
+		DELETE FROM dom_cte_detalle WHERE nombre_arch = pNombre_Archivo;
+		DELETE FROM dom_cte_encabezado WHERE nombre_arch = pNombre_Archivo;
+		DELETE FROM dom_cte_archivos WHERE nombre_arch = pNombre_Archivo;
+		EXECUTE PROCEDURE BDIDOMI: sp_ObtenerMensajeError(cCodretVAP) INTO cCodret,cMensajeError;
+		RETURN cCodret, cMensajeError, cCuenta_Abono, iTotalAltas, mTotalImporteAltas, iTotalBajas, mTotalImporteBajas;
+	END IF;
+	---------------OBTENER LOS DATOS  la cuenta abono,TOTAL DE ALTAS, IMPORTE DE LAS ALTAS,  TOTAL DE BAJAS, IMPORTE DE LAS BAJAS,
+	--selecciona la cuenta abono
+	SELECT cuenta_abono INTO cCuenta_Abono FROM dom_cte_encabezado WHERE nombre_arch = pNombre_Archivo;
+	--seleccionar cuantos son altasCOUNT(accion),
+	SELECT COUNT(accion), SUM((imp_operacion::money)/100) INTO iTotalAltas, mTotalImporteAltas FROM dom_cte_detalle
+	WHERE nombre_arch = pNombre_Archivo AND accion = 'A';
+	SELECT COUNT(accion), SUM((imp_operacion::money)/100) INTO iTotalBajas, mTotalImporteBajas FROM dom_cte_detalle
+	WHERE nombre_arch = pNombre_Archivo AND accion = 'B';
+
+	LET cMensajeError = 'Procedimiento se ejecuto correctamente';
+
+	RETURN cCodret, cMensajeError, cCuenta_Abono, NVL(iTotalAltas,0), NVL(mTotalImporteAltas,0), NVL(iTotalBajas,0), NVL(mTotalImporteBajas,0);
+END
+END PROCEDURE
+DOCUMENT
+'AUTOR :CÃ?Â©sar ValdÃ?Â©z Figueroa',
+'DESCRIPCION: Este Procediemiento en el principal para la carga manual de archivo del proveedor, mandando a ejecutar los procedimientos que ',
+'	validan y realizan la carga de archivo, a demas que si el archivo de carga bien regresa unos totales que e requieren en la aplicacion	',
+'FECHA : Agosto de 2009',
+'BD    : BDIDOMI',
+'VERSION: 20090810.1200';
+
+CREATE PROCEDURE "informix".sp_domi_generador_presentador(psNombreArchivo CHAR(20),psNumEmpleado CHAR (8))
+
+RETURNING CHAR (20) AS Nom_Archivo, CHAR (5) AS Codigo_Respuesta, CHAR (100) AS Mensaje_Respuesta;
+
+--****************************************************************************************************
+-- DESCRIPCION:  SP PRINCIPAL DE DOMICILIACION -- RECEPTOR
+-- AUTOR : Rochin Rocha Edgar Ivan
+-- FECHA : 23/07/2009
+-- BD: BdiDomi
+-- SISTEMA : Domiciliacion
+-- 14Jun2010 - FRG --> Se agrega el llamado al 'sp_domi_generaarchivoproveedor.sql' para DOMI TDC
+--****************************************************************************************************
+
+--DEFINICION DE VARIABLES.
+DEFINE vsFlagTipoProceso 		CHAR(1);
+DEFINE vsNomProceso 			CHAR(20);
+DEFINE vsDescripcionProceso 	CHAR(60);
+DEFINE sGENERANDO 				CHAR(1);
+DEFINE sFINALIZADO				CHAR(1);
+DEFINE sERROR 					CHAR(1);
+DEFINE visqlerr 				INTEGER;
+DEFINE vsNomArchivo 			CHAR(20);
+DEFINE vsFechaPresentacion 		CHAR(8);
+DEFINE vsFechaPresentacion1		CHAR(8);
+DEFINE vsCodRetorno 			CHAR(5);
+DEFINE vsCodRetorno2 			CHAR(5);
+DEFINE vdtFecha 				DATE;
+DEFINE vdtFechaInsert 			DATE;
+DEFINE vsMensajeRespuesta 		CHAR (100);
+DEFINE viContador 				INTEGER;
+DEFINE viTipoArchivo 			INTEGER;
+DEFINE vsDia 					CHAR(2);
+DEFINE vsMes 					CHAR(2);
+DEFINE vsAno 					CHAR(4);
+DEFINE vsSpLlamado 				CHAR(24);
+DEFINE vsCveBanc 				CHAR(3);
+DEFINE cNumCteCoppel			CHAR(20);
+DEFINE cCuentaAbono_Prov		CHAR(20);
+DEFINE dFecha_hoy				DATE;
+DEFINE cNom_Arch_Salida			CHAR(20);
+DEFINE cCodret 					CHAR(5);
+DEFINE dFechaArchivo_salida		DATE;
+DEFINE cCodSpFecha				CHAR(5);
+
+--INICIALIZACION DE VARIABLES.
+LET vsFlagTipoProceso			= '';
+LET vsNomProceso				= '';
+LET vsDescripcionProceso		= '';
+LET sGENERANDO					= '0';
+LET sFINALIZADO					= '1';
+LET sERROR						= '3';
+LET visqlerr					= 0;
+LET vsNomArchivo				= '';
+LET vsFechaPresentacion			= '';
+LET vsFechaPresentacion1		= '';
+LET vsCodRetorno				= '';
+LET vsCodRetorno2				= '';
+LET vdtFecha					= CURRENT::DATE;
+LET vdtFechaInsert				= CURRENT::DATE;
+LET vsMensajeRespuesta			= '';
+LET viContador					= 0;
+LET viTipoArchivo				= 0;
+LET vsDia						= '';
+LET vsMes						= '';
+LET vsAno						= '';
+LET vsSpLlamado					= '';
+LET vsCveBanc					= '';
+LET cNumCteCoppel 				= '';
+LET cCuentaAbono_Prov			= '';
+LET dFecha_hoy 					= '';
+LET cNom_Arch_Salida 			= '';
+LET cCodret 					= '00000';
+LET cCodSpFecha  				= '';
+
+
+
+BEGIN
+
+ON EXCEPTION SET visqlerr --Control de errores.
+	EXECUTE PROCEDURE BdiDomi:Sp_Domi_Bitacora(vsFlagTipoProceso, CURRENT::DATE, TRIM(vsNomProceso), vsDescripcionProceso,
+	sERROR, visqlerr, psNumEmpleado, 'ERROR NO CONTROLADO', TRIM(vsNomArchivo), vsFechaPresentacion, '11') INTO vsCodRetorno;
+	LET vsMensajeRespuesta = 'ERROR NO CONTROLADO(' || visqlerr || ') ARCHIVO: ' || TRIM(vsNomArchivo) || ' PROCESO: ' || TRIM(vsDescripcionProceso) ;
+	RETURN  vsNomArchivo, visqlerr, vsMensajeRespuesta;
+END EXCEPTION;
+
+--SET DEBUG FILE TO "/tmp/josea/10211/sp_domi_generador_presentador.trace";
+--TRACE ON;
+
+-- FRG_I  -------> Se agrega el proceso "bdidomi:"informix".sp_domi_generaarchivoproveedor" para DOMI TDC
+LET vsDescripcionProceso = 'Proceso carga informacion DOMI TDC';
+EXECUTE PROCEDURE bdidomi:sp_domi_generaarchivoproveedor(psNumEmpleado) INTO vsCodRetorno;
+LET vsCodRetorno				= '';
+
+LET vsDescripcionProceso = 'Validacion de numero de empleado.';
+EXECUTE PROCEDURE BdiDomi:Sp_Valida_Cadena(TRIM(psNumEmpleado),'N') INTO vsCodRetorno;
+
+LET vsDescripcionProceso = 'Validacion de parametros.';
+SET LOCK MODE TO WAIT 3;
+SET ISOLATION TO DIRTY READ;
+IF NOT EXISTS (SELECT Valor FROM BdiDomi:Dom_Parametros WHERE Cod_Param = '01') THEN -- Valida que exista el parametro RUTA ARCHIVO PROCESAR.
+	LET vsCodRetorno = '02100';
+ELIF NOT EXISTS (SELECT Valor FROM BdiDomi:Dom_Parametros WHERE Cod_Param = '02') THEN -- Valida que exista el parametro RUTA ARCHIVO RESPUESTA.
+	LET vsCodRetorno = '02101';
+ELIF NOT EXISTS (SELECT Valor FROM BdiDomi:Dom_Parametros WHERE Cod_Param = '03') THEN -- Valida que exista el parametro RUTA ARCHIVOS PROCESADOS.
+	LET vsCodRetorno = '02102';
+ELIF NOT EXISTS (SELECT Valor FROM BdiDomi:Dom_Parametros WHERE Cod_Param = '04') THEN -- Valida que exista el parametro RUTA ARCHIVOS ERRONEOS.
+	LET vsCodRetorno = '02103';
+ELIF NOT EXISTS (SELECT Valor FROM BdiDomi:Dom_Parametros WHERE Cod_Param = '05') THEN -- Valida que exista el parametro CLAVE BANCARIA BANCOPPEL.
+	LET vsCodRetorno = '02104';
+ELIF NOT EXISTS (SELECT Valor FROM BdiDomi:Dom_Parametros WHERE Cod_Param = '06') THEN -- Valida que exista el parametro BIN CORRESPONDIENTE TARJETA DEBITO.
+	LET vsCodRetorno = '02105';
+ELIF NOT EXISTS (SELECT Valor FROM BdiDomi:Dom_Parametros WHERE Cod_Param = '43') THEN -- Valida que exista el nuevo parametro BIN CORRESPONDIENTE TARJETA DEBITO.
+	LET vsCodRetorno = '02105'; 
+ELIF NOT EXISTS (SELECT Valor FROM BdiDomi:Dom_Parametros WHERE Cod_Param = '07') THEN -- Valida que exista el parametro SUCURSAL CONTABLE DOMI.
+	LET vsCodRetorno = '02106';
+ELIF NOT EXISTS (SELECT Valor FROM BdiDomi:Dom_Parametros WHERE Cod_Param = '08') THEN -- Valida que exista el parametro TRANSACCION DE CARGO POR DOMI.
+	LET vsCodRetorno = '02107';
+ELIF NOT EXISTS (SELECT Valor FROM BdiDomi:Dom_Parametros WHERE Cod_Param = '09') THEN -- Valida que exista el parametro TRANSACCION DE ABONO.
+	LET vsCodRetorno = '02108';
+ELIF NOT EXISTS (SELECT Valor FROM BdiDomi:Dom_Parametros WHERE Cod_Param = '10') THEN -- Valida que exista el parametro IMPORTE MAXIMO CECOBAN.
+	LET vsCodRetorno = '02109';
+ELIF NOT EXISTS (SELECT Valor FROM BdiDomi:Dom_Parametros WHERE Cod_Param = '11') THEN -- Valida que exista el parametro MAXIMO DE RECHAZOS PERMITIDOS.
+	LET vsCodRetorno = '02110';
+ELIF NOT EXISTS (SELECT Valor FROM BdiDomi:Dom_Parametros WHERE Cod_Param = '12') THEN -- Valida que exista el parametro PRODUCTOS PERMITIDOS PARA DOMI.
+	LET vsCodRetorno = '02111';
+--ELIF NOT EXISTS (SELECT Valor FROM BdiDomi:Dom_Parametros WHERE Cod_Param = '13') THEN -- Valida que exista el parametro PRODUCTOS PERMITIDOS PARA DOMI.
+--	LET vsCodRetorno = '02112';
+ELIF NOT EXISTS (SELECT Fecha_Hoy FROM BdiCheq:Sc_Fechas) THEN -- Valida que exista el parametro de la fecha actual.
+	LET vsCodRetorno = '02113';
+ELIF (TRIM(psNumEmpleado) = '') THEN --NUMERO DE EMPLEADO VACIO.
+	LET vsCodRetorno = '02114';
+ELIF (LENGTH(TRIM(psNumEmpleado)) < 8 ) THEN --NUMERO DE EMPLEADO NO CONTIENE LOS 8 DIGITOS REQUERIDOS.
+	LET vsCodRetorno = '02115';
+ELIF (vsCodRetorno <> '00000') THEN --ERROR EL NUMERO DE EMPLEADO CONTIENE  CARACTERES INVALIDOS.
+	LET vsCodRetorno = '02116';
+ELIF NOT EXISTS(SELECT ejecutivo FROM bdinteg:si_ejecut WHERE ejecutivo = psNumEmpleado)THEN --EL NUM EMPLEADO NO EXISTE EN SI_EJECUT
+	LET vsCodRetorno = '02117';
+ELSE
+	SET LOCK MODE TO WAIT 3;
+	SET ISOLATION TO DIRTY READ;
+	--Se obtiene la fecha del dia actual.
+	SELECT LIMIT 1 Fecha_Hoy INTO vdtFecha FROM BdiCheq:Sc_Fechas;
+	--Valida que la fecha actual sea dia laboral.
+	EXECUTE PROCEDURE BdiDomi:Sp_Valida_Fecha(LPAD (YEAR(vdtFecha), 4, '0') || LPAD (MONTH(vdtFecha), 2, '0') || LPAD (DAY(vdtFecha), 2, '0')) INTO vsCodRetorno;
+		--Valida si el codigo de retorno es diferente a '00000' el dia es no laboral.
+		IF(vsCodRetorno <> '00000') THEN
+			--El dia no es laboral.
+			LET vsCodRetorno = '02112';
+		ELSE --DIA LABORAL.
+			LET vsCodRetorno = '00000';
+		END IF;
+END IF;
+
+--Valida si todos los parametros existen y si la fecha con la que se generaran los archivos corresponde a un dia habil.
+IF(vsCodRetorno = '00000')THEN
+	--Se inicializa contador en cero para realizar procedimiento automatico 3 veces archivo 10,30 y 34 tambien se marca con 'A' de automatico el tipoflag.
+	LET viContador = 0;
+	LET vsFlagTipoProceso = 'A';
+	--Se guarda en variable la clave bancaria correspondiente con la que se generaran archivos.
+	SET LOCK MODE TO WAIT 3;
+	SET ISOLATION TO DIRTY READ;
+	SELECT valor INTO vsCveBanc FROM bdidomi:dom_parametros  WHERE cod_param = '05';
+	--Mientras el contador sea menor a 3 y el flagproceso sea 'A' automatico.
+	WHILE ((viContador < 2) AND (vsFlagTipoProceso = 'A'))
+		LET vsDescripcionProceso = 'Obtencion de nombre de archivo';
+		--Valida que el nombre del archivo se recibe en blanco.
+		IF(TRIM(psNombreArchivo) = '') THEN
+			--Se arma la fecha dia mes y aÃ±o para el armado completo del nombre de archivo.
+			LET vsDia = LPAD (DAY(vdtFecha), 2, '0');
+			LET vsMes = LPAD (MONTH(vdtFecha), 2, '0');
+			LET vsAno = LPAD (YEAR(vdtFecha), 4, '0');
+			LET vsFechaPresentacion = vsAno || vsMes || vsDia;
+			IF(viContador = 0)THEN
+				LET viTipoArchivo = 10;
+			ELIF(viContador = 1)THEN
+				LET viTipoArchivo = 30;
+			ELSE --NINGUN TIPO DEFINIDO
+					LET viTipoArchivo = 0;
+			END IF;
+			-- Se asigna a variable el nombre completo del archivo.
+			LET vsNomArchivo = 'E' --CONSTANTE
+									|| TRIM(vsCveBanc)--CONSTANTE
+									|| vsDia
+									|| vsMes
+									|| vsAno
+									|| '.' --CONSTANTE
+									|| viTipoArchivo::CHAR(2)
+									|| '01'; --SECUENCIA DEL ARCHIVO 98 PARA AUTOMATICO
+		ELIF(TRIM(psNombreArchivo) <> '')THEN
+			--Se marca el proceso como manual.
+			LET vsFlagTipoProceso = 'M';
+			LET vsNomArchivo = psNombreArchivo;
+			LET vsDia = LPAD (DAY(vdtFecha), 2, '0');
+			LET vsMes = LPAD (MONTH(vdtFecha), 2, '0');
+			LET vsAno = LPAD (YEAR(vdtFecha), 4, '0');
+			LET vsFechaPresentacion = vsAno || vsMes || vsDia;
+			IF( SUBSTRING (TRIM(vsNomArchivo) FROM 14 FOR 2) = '10' ) THEN --ARCHIVO 10
+				LET viTipoArchivo = 10;
+			ELIF( SUBSTRING (TRIM(vsNomArchivo) FROM 14 FOR 2) = '30' ) THEN --ARCHIVO 30
+				LET viTipoArchivo = 30;
+			--Archivo no valido.
+			ELSE
+				LET viTipoArchivo = 0;
+			END IF;
+		END IF;
+		--Valida que el nombre del archivo posea la extension adecuada.
+		IF (LENGTH (TRIM(vsNomArchivo)) >= 16)THEN
+				LET vsNomProceso = 'GENARCH_' || LPAD (viTipoArchivo, 2, '0') || '.' || SUBSTRING (TRIM(vsNomArchivo) FROM 16 FOR 2);
+		--Error de longitud del archivo archivo no reconocido.
+		ELSE
+				LET vsNomProceso = 'GENARCH_' || LPAD (viTipoArchivo, 2, '0') || '.' || '00';
+		END IF ;
+
+		LET vsDescripcionProceso = 'Validacion nombre archivo.';
+		--Valida la integridad del nombre de archivo.
+		EXECUTE PROCEDURE BdiDomi:sp_domi_validarnombrearchivos(viTipoArchivo, 'E', vsNomArchivo) INTO vsCodRetorno;
+		--Valida si el nombre del archivo fue integro.
+		IF(vsCodRetorno = '00000')THEN
+			LET vsDescripcionProceso = 'Validacion de generaciones previas.';
+			SET LOCK MODE TO WAIT 3;
+			SET ISOLATION TO DIRTY READ;
+			IF EXISTS(SELECT descripcion FROM BdiDomi:Dom_Procesos WHERE Fecha_Proceso = vdtFecha AND TRIM(Cve_Proceso) = TRIM(vsNomProceso) AND Estatus = sFINALIZADO ) THEN  --EL ARCHIVO FUE GENERADO PREVIAMENTE
+				LET vsCodRetorno = '02118';
+				EXECUTE PROCEDURE BdiDomi:sp_ObtenerMensajeError(vsCodRetorno) INTO vsCodRetorno2, vsMensajeRespuesta;
+				INSERT INTO BdiDomi:Dom_Errores (Fecha_Error,Hora_Error,Cod_Error,Nombre_Arch,Sp_Llamado,Mensaje_Error,User_Insert,Fecha_Insert)
+				VALUES (CURRENT, CURRENT HOUR TO FRACTION, vsCodRetorno, vsNomArchivo, 'sp_Domi_Generador_Presentador', vsMensajeRespuesta, psNumEmpleado, CURRENT);
+			ELIF EXISTS(SELECT descripcion FROM BdiDomi:Dom_Procesos WHERE Fecha_Proceso = vdtFecha AND TRIM(Cve_Proceso) = TRIM(vsNomProceso) AND Estatus = sGENERANDO ) THEN  --EL ARCHIVO SE ENCUENTRA GENERANDO
+				LET vsCodRetorno = '02119';
+				EXECUTE PROCEDURE BdiDomi:sp_ObtenerMensajeError(vsCodRetorno) INTO vsCodRetorno2, vsMensajeRespuesta;
+				INSERT INTO BdiDomi:Dom_Errores (Fecha_Error,Hora_Error,Cod_Error,Nombre_Arch,Sp_Llamado,Mensaje_Error,User_Insert,Fecha_Insert)
+				VALUES (CURRENT, CURRENT HOUR TO FRACTION, vsCodRetorno, vsNomArchivo, 'sp_Domi_Generador_Presentador', vsMensajeRespuesta, psNumEmpleado, CURRENT);
+			ELIF NOT EXISTS(SELECT descripcion FROM BdiDomi:Dom_Procesos WHERE Fecha_Proceso = vdtFecha AND TRIM(Cve_Proceso) = TRIM(vsNomProceso) AND Estatus = sERROR ) THEN  --EL ARCHIVO FUE GENERADO CON ERROR
+				--Crea registro de generacion de archivo.
+				LET vsDescripcionProceso = 'Registro de generacion del archivo.';
+				EXECUTE PROCEDURE BdiDomi:Sp_Domi_Bitacora(vsFlagTipoProceso, CURRENT::DATE, TRIM(vsNomProceso), vsDescripcionProceso,
+				sGENERANDO, vsCodRetorno, psNumEmpleado, 'sp_Domi_Generador_Presentador', TRIM(vsNomArchivo), vsFechaPresentacion, '11') INTO vsCodRetorno2;
+				LET vsCodRetorno = '00000';
+			ELSE
+				LET vsDescripcionProceso = 'Registro de regeneracion del archivo.';
+				EXECUTE PROCEDURE BdiDomi:Sp_Domi_Bitacora(vsFlagTipoProceso, CURRENT::DATE, TRIM(vsNomProceso), vsDescripcionProceso,
+				sGENERANDO, vsCodRetorno, psNumEmpleado, 'sp_Domi_Generador_Presentador', TRIM(vsNomArchivo) , vsFechaPresentacion, '11' ) INTO vsCodRetorno2;
+				LET vsCodRetorno = '00000';
+			END IF;
+				IF(vsCodRetorno = '00000')THEN
+					LET vsDescripcionProceso = 'Borrado de tablas de paso.';
+					--Limpia las tablas de paso para generar el nuevo archivo.
+					EXECUTE PROCEDURE BdiDomi:sp_Domi_MoverRegistrosHist (TRIM (vsNomArchivo), '', 'B') INTO vsCodRetorno;
+					--Valida que las tablas se limpiaron correctamente.
+					IF(vsCodRetorno = '00000')THEN
+						LET vsDescripcionProceso = 'Generar informacion a tablas de paso.';
+						IF(viTipoArchivo = 10)THEN
+							EXECUTE PROCEDURE BdiDomi:sp_domi_generarArchivo10(vsNomArchivo, psNumEmpleado) INTO vsCodRetorno;
+							LET vsSpLlamado = 'sp_domi_generarArchivo10';
+						ELIF(viTipoArchivo = 30)THEN
+							EXECUTE PROCEDURE BdiDomi:sp_domi_generarArch30(vsNomArchivo, psNumEmpleado) INTO vsCodRetorno;
+							LET vsSpLlamado = 'sp_domi_generarArch30';
+						END IF;
+						--Valida que se genero la informacion correctamente.
+						IF(vsCodRetorno = '00000') THEN
+							LET vsDescripcionProceso = 'Verificar existencia de registros.';
+							IF EXISTS(SELECT nombre_arch FROM bdidomi:dom_cce_encabezado_paso WHERE nombre_arch = TRIM(vsNomArchivo))THEN
+								IF EXISTS(SELECT nombre_arch FROM bdidomi:dom_cce_detalle_paso WHERE nombre_arch = TRIM(vsNomArchivo))THEN
+									IF EXISTS(SELECT nombre_arch FROM bdidomi:dom_cce_sumario_paso WHERE nombre_arch = TRIM(vsNomArchivo))THEN
+										LET vsDescripcionProceso = 'Descargar archivo a repositorio.';
+										SET LOCK MODE TO WAIT 3;
+										SET ISOLATION TO DIRTY READ;
+										SELECT Fecha_Presentacion INTO vsFechaPresentacion1 FROM BdiDomi:Dom_cce_Encabezado_Paso WHERE nombre_arch = TRIM(vsNomArchivo) ;
+										EXECUTE PROCEDURE BdiDomi:sp_Domi_GeneraArchivo(vsNomArchivo, vsFechaPresentacion1, '01') INTO vsCodRetorno;
+										--Verifica si se genero el archivo correctamente.
+										IF (vsCodRetorno = '00000')THEN
+											LET vsDescripcionProceso = 'Guardar en ccearchivos.';
+											EXECUTE PROCEDURE Sp_Domi_GuardarCCEArchivos (psNumEmpleado, TRIM (vsNomArchivo), vsFechaPresentacion, '01') INTO vsCodRetorno;
+											--Verifica si guardo en ccearchivos correctamente.
+											IF (vsCodRetorno = '00000')THEN
+												--Verifica si es un archivo 30 el que se genero, en ese caso se actualiza la tabla cte detalle.
+												IF(viTipoArchivo = 30)THEN
+													EXECUTE PROCEDURE BdiDomi:sp_domi_actualizar_cte_detalle(vsNomArchivo, vsFechaPresentacion) INTO vsCodRetorno;
+													IF(vsCodRetorno <> '00000')THEN
+														LET vsCodRetorno = '02120';
+														EXECUTE PROCEDURE BdiDomi:Sp_Domi_Bitacora(vsFlagTipoProceso, CURRENT::DATE, TRIM(vsNomProceso), vsDescripcionProceso,
+														sERROR, vsCodRetorno, psNumEmpleado, 'sp_domi_actualizar_cte_detalle', TRIM(vsNomArchivo) , vsFechaPresentacion, '01' ) INTO vsCodRetorno2;
+													ELSE
+														LET vsCodRetorno = '00000';
+													END IF;
+												END IF;
+													LET vsDescripcionProceso = 'Guardar historico.';
+													EXECUTE PROCEDURE BdiDomi:sp_Domi_MoverRegistrosHist (TRIM (vsNomArchivo), vsFechaPresentacion1, 'T') INTO vsCodRetorno;
+													--Vallida que se paso informacion a historico correctamente.
+													IF (vsCodRetorno = '00000')THEN
+														--Guarda bitacora exito.
+														LET vsDescripcionProceso = 'Generacion de archivo exitosa.';
+														EXECUTE PROCEDURE BdiDomi:Sp_Domi_Bitacora(vsFlagTipoProceso, CURRENT::DATE, TRIM(vsNomProceso), vsDescripcionProceso,
+														sFINALIZADO, vsCodRetorno, psNumEmpleado, 'sp_Domi_Generador_Presentador', TRIM(vsNomArchivo) , vsFechaPresentacion, '02') INTO vsCodRetorno2;
+													--Error al guardar informacion a tablas historico.
+													ELSE
+														LET vsCodRetorno = '02129';
+														EXECUTE PROCEDURE BdiDomi:Sp_Domi_Bitacora(vsFlagTipoProceso, CURRENT::DATE, TRIM(vsNomProceso), vsDescripcionProceso,
+														sERROR, vsCodRetorno, psNumEmpleado, 'sp_Domi_MoverRegistrosHist', TRIM(vsNomArchivo) , vsFechaPresentacion, '01' ) INTO vsCodRetorno2;
+													END IF;
+											--Error al descargar archivo a repositorio.
+											ELSE
+												LET vsCodRetorno = '02128';
+												EXECUTE PROCEDURE BdiDomi:Sp_Domi_Bitacora(vsFlagTipoProceso, CURRENT::DATE, TRIM(vsNomProceso), vsDescripcionProceso,
+												sERROR, vsCodRetorno, psNumEmpleado, 'Sp_Domi_GuardarCCEArchivos', TRIM(vsNomArchivo) , vsFechaPresentacion, '01' ) INTO vsCodRetorno2;
+											END IF;
+										ELSE
+											LET vsCodRetorno = '02127';
+											EXECUTE PROCEDURE BdiDomi:Sp_Domi_Bitacora(vsFlagTipoProceso, CURRENT::DATE, TRIM(vsNomProceso), vsDescripcionProceso,
+											sERROR, vsCodRetorno, psNumEmpleado, 'sp_Domi_GeneraArchivo', TRIM(vsNomArchivo) , vsFechaPresentacion, '01' ) INTO vsCodRetorno2;
+										END IF;
+									--No se puede descargar el archivo por que no existen registros para el nombre de archivo indicado en tabla sumario.
+									ELSE
+										LET vsCodRetorno = '02126';
+										EXECUTE PROCEDURE BdiDomi:Sp_Domi_Bitacora(vsFlagTipoProceso, CURRENT::DATE, TRIM(vsNomProceso), vsDescripcionProceso,
+										sERROR, vsCodRetorno, psNumEmpleado, '', TRIM(vsNomArchivo) , vsFechaPresentacion, '11' ) INTO vsCodRetorno2;
+									END IF;
+								--No se puede descargar el archivo por que no existen registros para el nombre de archivo indicado en tabla detalle.
+								ELSE
+									LET vsCodRetorno = '02125';
+									EXECUTE PROCEDURE BdiDomi:Sp_Domi_Bitacora(vsFlagTipoProceso, CURRENT::DATE, TRIM(vsNomProceso), vsDescripcionProceso,
+									sERROR, vsCodRetorno, psNumEmpleado, '', TRIM(vsNomArchivo) , vsFechaPresentacion, '11' ) INTO vsCodRetorno2;
+								END IF;
+							--No se puede descargar el archivo por que no existen registros para el nombre de archivo indicado en tabla encabezado.
+							ELSE
+								LET vsCodRetorno = '02124';
+								EXECUTE PROCEDURE BdiDomi:Sp_Domi_Bitacora(vsFlagTipoProceso, CURRENT::DATE, TRIM(vsNomProceso), vsDescripcionProceso,
+								sERROR, vsCodRetorno, psNumEmpleado, '', TRIM(vsNomArchivo) , vsFechaPresentacion, '11' ) INTO vsCodRetorno2;
+							END IF;
+						--Error al generar informacion a tablas de paso.
+						ELSE
+							LET vsCodRetorno = '02123';
+							EXECUTE PROCEDURE BdiDomi:Sp_Domi_Bitacora(vsFlagTipoProceso, CURRENT::DATE, TRIM(vsNomProceso), vsDescripcionProceso,
+							sERROR, vsCodRetorno, psNumEmpleado, vsSpLlamado, TRIM(vsNomArchivo) , vsFechaPresentacion, '01' ) INTO vsCodRetorno2;
+						END IF;
+					--Error al limpiar las tablas de paso.
+					ELSE
+						LET vsCodRetorno = '02122';
+						EXECUTE PROCEDURE BdiDomi:Sp_Domi_Bitacora(vsFlagTipoProceso, CURRENT::DATE, TRIM(vsNomProceso), vsDescripcionProceso,
+						sERROR, vsCodRetorno, psNumEmpleado, 'sp_Domi_MoverRegistrosHist', TRIM(vsNomArchivo) , vsFechaPresentacion, '01' ) INTO vsCodRetorno2;
+					END IF;
+				--El archivo ya fue generado previamente o el archivo se encuentra generando.
+				END IF;
+		--Error al validar la integridad del nombre del archivo.
+		ELSE
+			LET vsCodRetorno = '02121';
+			EXECUTE PROCEDURE BdiDomi:Sp_Domi_Bitacora(vsFlagTipoProceso, CURRENT::DATE, TRIM(vsNomProceso), vsDescripcionProceso,
+			sERROR, vsCodRetorno, psNumEmpleado, 'sp_domi_validarnombrearchivos', TRIM(vsNomArchivo) , vsFechaPresentacion, '01' ) INTO vsCodRetorno2;
+		END IF;
+		IF EXISTS(SELECT descripcion FROM BdiDomi:Dom_Procesos WHERE Fecha_Proceso = vdtFecha AND TRIM(Cve_Proceso) = TRIM(vsNomProceso) AND Estatus = sGENERANDO ) THEN  --EL ARCHIVO SE ENCUENTRA GENERANDO
+			IF(vsCodRetorno <> '02119') THEN --VALIDA SI EL ERROR ES DISTINTO DE 'GENERANDO'
+				UPDATE BdiDomi:Dom_Procesos SET Estatus = sERROR WHERE Fecha_Proceso = vdtFecha AND TRIM(Cve_Proceso) = TRIM(vsNomProceso) AND Estatus = sGENERANDO ;
+			END IF;
+		END IF;
+		
+		/*IF viContador = 1 THEN		
+			--SE OBTIENE NUMERO DE CLIENTE COPPEL
+			SELECT TRIM(valor) 
+			INTO cNumCteCoppel FROM dom_parametros
+			WHERE cod_param = '45';
+			
+			--SE OBTIENE NUMERO DE CUENTA COPPEL
+			SELECT TRIM(valor) 
+			INTO cCuentaAbono_Prov FROM dom_parametros
+			WHERE cod_param = '46';			
+		
+			EXECUTE FUNCTION bdinteg:splvalfecha('001',(vdtFecha) + 1 ,0)INTO cCodSpFecha,dFechaArchivo_salida; --a qui ya tengo el dias siguiente habil
+			
+			LET cNom_Arch_Salida = 	'S'||
+									TRIM(cNumCteCoppel)||
+									'D'||
+									LPAD(DAY(dFechaArchivo_salida),2,'0') || 	LPAD(MONTH(dFechaArchivo_salida),2,'0') || SUBSTR(YEAR(dFechaArchivo_salida)::CHAR(4),3,2)||
+									'.'||
+									'01';
+									
+			IF EXISTS(SELECT 1 FROM dom_cte_detalle WHERE nombre_arch = cNom_Arch_Salida) THEN
+				
+				INSERT INTO dom_cte_archivos(nombre_arch, fecha_envio, num_cte, fecha_carga, cve_status, user_insert, fecha_insert)
+				VALUES (cNom_Arch_Salida, dFechaArchivo_salida, cNumCteCoppel, vdtFecha, '01', psNumEmpleado, CURRENT::DATE);
+				
+				LET cNumCteCoppel = LPAD(TRIM(cNumCteCoppel), 20,'0');
+				
+				INSERT INTO dom_cte_encabezado(nombre_arch, fecha_envio, tipo_registro, num_cte, cuenta_abono, 
+							num_operaciones, 
+							fecha_inicial, fecha_final, user_insert, fecha_insert)
+				SELECT LIMIT 1 nombre_arch, dFechaArchivo_salida, 'E', cNumCteCoppel, LPAD(TRIM(cCuentaAbono_Prov),20,'0'), 
+					   LPAD((SELECT COUNT(*)	FROM dom_cte_detalle WHERE nombre_arch = cNom_Arch_Salida),8,'0'),
+					   (SELECT MIN(fecha_cargo) FROM dom_cte_detalle WHERE nombre_arch = cNom_Arch_Salida),
+					   (SELECT MAX(fecha_cargo) FROM dom_cte_detalle WHERE nombre_arch = cNom_Arch_Salida),
+					   psNumEmpleado, CURRENT::DATE
+				FROM dom_cte_detalle 
+				WHERE nombre_arch = cNom_Arch_Salida;
+				
+				INSERT INTO dom_cte_sumario(nombre_arch, fecha_envio, tipo_registro, num_operaciones, imp_operaciones, num_oper_pend, imp_oper_pend, num_oper_apli, 
+							imp_oper_apli, num_oper_rech, imp_oper_rech, user_insert, fecha_insert)
+				SELECT LIMIT 1 nombre_arch, dFechaArchivo_salida, 'S', LPAD((SELECT COUNT(*)	FROM dom_cte_detalle WHERE nombre_arch = cNom_Arch_Salida),8,'0'),
+				(SELECT LPAD( NVL(SUM(imp_operacion::INTEGER),0),18,'0') FROM dom_cte_detalle WHERE nombre_arch = cNom_Arch_Salida),
+				LPAD ((SELECT COUNT (*) FROM dom_cte_detalle WHERE nombre_arch = cNom_Arch_Salida AND estatus = '02' AND causa_rechazo = 'PR'),8, '0'), 
+				(SELECT LPAD( NVL(SUM(imp_operacion::INTEGER),0),18,'0') FROM dom_cte_detalle WHERE nombre_arch = cNom_Arch_Salida AND estatus = '02' AND causa_rechazo = 'PR'),
+				LPAD ((SELECT COUNT (*) FROM dom_cte_detalle WHERE nombre_arch = cNom_Arch_Salida AND estatus = '01'),8, '0'), 
+				(SELECT LPAD( NVL(SUM(imp_operacion::INTEGER),0),18,'0') FROM dom_cte_detalle WHERE nombre_arch = cNom_Arch_Salida AND estatus = '01'),
+				LPAD ((SELECT COUNT (*) FROM dom_cte_detalle WHERE nombre_arch = cNom_Arch_Salida AND estatus = '02' AND causa_rechazo <> 'PR'),8, '0'),
+				(SELECT LPAD( NVL(SUM(imp_operacion::INTEGER),0),18,'0') FROM dom_cte_detalle WHERE nombre_arch = cNom_Arch_Salida AND estatus = '02' AND causa_rechazo <> 'PR'),
+				psNumEmpleado, CURRENT::DATE
+				FROM dom_cte_detalle 
+				WHERE nombre_arch = cNom_Arch_Salida;			
+			
+				--EXECUTE PROCEDURE "informix".sp_domi_cop_generaarchivo(cNom_Arch_Salida, '02') INTO cCodret;	
+				
+			END IF;		
+		END IF;*/
+		
+		EXECUTE PROCEDURE BdiDomi:sp_ObtenerMensajeError(vsCodRetorno) INTO vsCodRetorno2, vsMensajeRespuesta;
+		
+		RETURN vsNomArchivo, vsCodRetorno, vsMensajeRespuesta WITH RESUME;
+		LET viContador = viCOntador + 1;
+	END WHILE;
+		
+--Error en la validacion de parametros.
+ELSE
+	LET vsCodRetorno = vsCodRetorno;
+	EXECUTE PROCEDURE BdiDomi:sp_ObtenerMensajeError(vsCodRetorno) INTO vsCodRetorno2, vsMensajeRespuesta;
+	RETURN 'GENERAL', vsCodRetorno, vsMensajeRespuesta;
+END IF;
+
+END
+END PROCEDURE;

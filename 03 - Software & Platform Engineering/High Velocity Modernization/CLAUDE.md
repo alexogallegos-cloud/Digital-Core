@@ -118,9 +118,27 @@ Cada solution L4 vive como CLAUDE.md propio en su subcarpeta. Este L3 orquesta y
 
 ## Sub-Specialist HVM-wide (reusable por AM + MM)
 
-| Specialist | Hosting canónico |
-|------------|------------------|
-| Equivalence Testing | `Solutioning/Delivery - SME/Technology/Software Engineering/Specialist - Equivalence Testing/` (movido a Solutioning/ el 2026-05-30 por consistencia con §13 DC Universal Rules — specialists ejecutan delivery, no viven en Digital Core/) |
+| Specialist | Hosting canónico | Fase · qué aporta |
+|------------|------------------|-------------------|
+| Equivalence Testing | `Solutioning/Delivery - SME/Technology/Software Engineering/Specialist - Equivalence Testing/` (movido a Solutioning/ el 2026-05-30 por consistencia con §13 DC Universal Rules — specialists ejecutan delivery, no viven en Digital Core/) | TEST · paridad funcional target vs legacy (golden-master, comparator, parallel-run) |
+| Code Quality Assessment | `Solutioning/Delivery - SME/Technology/Software Engineering/Specialist - Code Quality Assessment/` | DISCOVER · salud estructural del código legacy AS-IS contra **ISO/IEC 5055:2021**; input de la decisión 7R, del pricing (deuda técnica) y de la priorización de golden-masters. Peer de Equivalence Testing |
+
+> **Complementariedad:** Code Quality mide *si el legacy está bien escrito* (AS-IS, DISCOVER) → prioriza dónde Equivalence mide *si el target replica el comportamiento* (TEST). El primero alimenta al segundo. Ambos son el hilo transversal **Calidad** del Gemelo Cognitivo ([metodologia-gemelo-cognitivo.md](metodologia-gemelo-cognitivo.md) §3).
+
+## Método HVM-wide — Gemelo Cognitivo del Sistema
+
+Método de comprensión de legacy **reutilizable por AM + MM**, independiente de la tecnología del sistema origen. Es el marco que gobierna la fase DISCOVER de cualquier modernización: destila el lenguaje, los autores y la evolución de un legacy en un **modelo vivo y consultable** (Cognitive Digital Twin) que siembra el target y predice riesgo.
+
+| Aspecto | Valor |
+|---------|-------|
+| Documento canónico | [metodologia-gemelo-cognitivo.md](metodologia-gemelo-cognitivo.md) (nivel HVM, tech-agnóstico) |
+| Estructura | 8 capas (1–4 entender AS-IS · 5–8 engendrar TO-BE) + 2 transversales (Calidad, Seguridad) |
+| Principio de reutilización | *método vs. mecánica* — lo que se destila es constante; la extracción se adapta por tecnología (§4 del método) |
+| Arquitectura del toolkit | **extractor** (1 por tecnología) → **JSON normalizado** (contrato §6) → **renderer cognitivo** (tech-agnóstico, se construye una vez) |
+| Implementan el método | los **Specialists de RE** de cada solution: Informix SPL (AM ✅) · Reverse Engineering COBOL (MM ✅) · Oracle Forms/PL-SQL y T-SQL (AM ⏳ stub) |
+| Instancia de referencia | BanCoppel `SPE-AM-001` (Informix) — renderer construido en `.../BanCoppel/BCOPCore/`, pendiente de extracción a starter-kit |
+
+> **Frontera:** el método (el "qué/por qué") vive aquí, en HVM, una sola vez. La **mecánica de extracción** (el "cómo", específico de cada tecnología) vive en el CLAUDE.md de cada Specialist de RE. El renderer cognitivo es un activo de software HVM-wide, hoy implementado como referencia en la instancia BanCoppel.
 
 ### Cuándo activar cada solution L4
 
@@ -240,4 +258,4 @@ Hereda checklist del offering 03 + criterios HVM:
 
 ---
 
-*Última actualización: 2026-05-28 · v0.3 · L4 promovidos a CLAUDE.md propios (Application Modernization/ + Mainframe Modernization/). HVM L3 reducido a orquestador delgado — detalle operativo vive en cada L4. v0.2 (mismo día): revisión crítica aplicada (H1-H8 + Estado del Sub-Offering).*
+*Última actualización: 2026-07-07 · v0.4 · Añadido sub-specialist HVM-wide **Code Quality Assessment** (ISO 5055, salud del AS-IS) como peer de Equivalence Testing; método Gemelo Cognitivo extendido con la transversal Calidad AS-IS (v2.1). v0.3 (2026-05-28): L4 promovidos a CLAUDE.md propios (Application Modernization/ + Mainframe Modernization/). HVM L3 reducido a orquestador delgado — detalle operativo vive en cada L4. v0.2 (mismo día): revisión crítica aplicada (H1-H8 + Estado del Sub-Offering).*

@@ -1,0 +1,504 @@
+CREATE PROCEDURE "informix".sp_consultarclientebpi2(pTipo CHAR(1), pEmpresa CHAR(3), pNumCte CHAR(20), pCveOperacion CHAR (12),pSucursal CHAR(5),pIdusuario CHAR(10),pIpusu CHAR(16))
+
+    --DATOS A REGRESAR---
+    RETURNING
+    CHAR(5),   -- Codigo de Retorno
+    CHAR(10), -- Fecha Registro
+	CHAR(10), -- Fecha Nacimiento
+    CHAR(20), -- Numero de Cliente
+    CHAR(26), -- Apellido Paterno
+    CHAR(26), -- Apellido Materno
+    CHAR(26), -- Nombre1
+    CHAR(26), -- Nombre2
+    CHAR(4),  -- Id Status
+    CHAR(5), -- suc Registro
+	CHAR(40), -- Nom Suc
+    CHAR(12), -- Folio Contrato
+    CHAR(250), -- DescriciÃÂ³n ValidaciÃÂ³n
+    SMALLINT, --Tipo Servicio
+    CHAR(6),  --Status token
+	char(15), --Num Sol Token
+	money(16,2), --Costo Token
+	CHAR(100),--correo
+	CHAR(13);
+	
+
+    --DEFINICION DE VARIABLES--
+    DEFINE sql_err      INT;
+    DEFINE vCodRet      CHAR(5);
+    DEFINE vFechaReg    CHAR(10);
+	DEFINE vFechaNac    CHAR(10);
+    DEFINE vNumCte      CHAR(20);
+    DEFINE vApePat      CHAR(26);
+    DEFINE vApeMat      CHAR(26);
+    DEFINE vNombre1     CHAR(26);
+    DEFINE vNombre2     CHAR(26);
+    DEFINE vStatus      SMALLINT;
+    DEFINE vSucReg      CHAR(5);
+	DEFINE vSucNom      CHAR(40);
+    DEFINE vMensValid   CHAR(250);
+    DEFINE vTipoPersona CHAR(2);
+    DEFINE vFolio       CHAR(55);
+    DEFINE vF_status    DATE;
+    DEFINE vF_registro  DATE;
+    DEFINE vFecha_Hoy  DATE;
+    DEFINE vTipoServicio SMALLINT;
+    DEFINE vStatusToken CHAR(6);
+    DEFINE vIdStatusAnterior SMALLINT;
+	DEFINE vSolicitud CHAR(15);
+	
+	--Variables de Retorno del Stored sp_cons_detenvios_token2	
+	DEFINE vFolioSuc char(16);
+	DEFINE vCuenta char(20); 
+	DEFINE vFecha date;
+	DEFINE vSucursal char(4); 
+	DEFINE vCargoTot money(16,2);
+	DEFINE vCorreo char(100);
+	DEFINE vCelular char(13);
+	
+	DEFINE cod_ret char(5);
+	DEFINE vcCondDesEnc char(55);
+	DEFINE vFolioEnc char(55);
+	
+
+    --INICIALIZACION DE VARIABLES--
+    LET sql_err = 0;
+    LET vCodRet =   '000';
+    LET vFechaReg = '01/01/1900';
+	LET vFechaNac = '01/01/1900';
+    LET vNumCte =   '';
+    LET vApePat =   '';
+    LET vApeMat =   '';
+    LET vNombre1 =  '';
+    LET vNombre2 =  '';
+    LET vStatus = 0;
+    LET vSucReg = '';
+	LET vSucNom = '';
+    LET vMensValid = '';
+    LET vTipoPersona = '';
+    LET vFolio = '';
+    LET vF_status  =  '01/01/1900';
+    LET vF_registro = '01/01/1900';
+    LET vTipoServicio = 0;
+    LET vStatusToken = '';
+    LET vIdStatusAnterior = 0;
+	LET vSolicitud= '';
+	LET vFolioSuc= '';
+	LET vCuenta= '';
+	LET vFecha= '';
+	LET vSucursal= '';
+	LET vCargoTot = 0;
+	LET vCorreo = '';
+	LET vCelular= '';
+	
+	LET cod_ret= '';
+	LET vcCondDesEnc= '';
+    LET vFolioEnc = '';
+
+
+	--**************************************************************
+	-- Creado por: Manuel Osuna Valencia 
+	-- Fecha: 2010-09-03                                
+	-- Solicito: Ismael Hernandez
+	-- Stored de Consulta de Cliente y Registro de Bitacora para la
+	-- ReimpresiÃÂ³n de documentos.
+	--**************************************************************
+
+BEGIN
+
+    ON EXCEPTION SET sql_err
+        IF sql_err <> 0 THEN
+            LET vCodRet = sql_err;
+            RETURN vCodRet, vFechaReg, vFechaNac, vNumCte, vApePat, vApeMat, vNombre1, vNombre2, vStatus, vSucReg, vSucNom, vFolio, vMensValid, vTipoServicio, vStatusToken,vSolicitud,vCargoTot,vCorreo,vCelular;
+        END IF;
+    END EXCEPTION;
+	
+		SELECT telefono INTO vCelular FROM bdinteg:si_telefonos_actual WHERE numcte=pNumCte AND tipo_tel= 2 AND status_tel='A';
+		IF vCelular IS NULL THEN
+			LET vCelular='';
+		END IF;
+		SELECT correo_elec INTO vCorreo FROM bdinteg:si_correos WHERE numcte=pNumCte AND tipo_correo= 1 AND status_correo='A';
+		IF vCorreo IS NULL THEN
+			LET vCorreo = '';
+		END IF;
+		
+		IF pTipo = '2' THEN 
+			IF EXISTS(SELECT numcte FROM bdinteg:si_cliente WHERE numcte = pNumCte and tpo_persona = '01') THEN
+					IF (SELECT count(id_status) FROM bdinteg:si_bpiusuarios WHERE numcte = pNumCte ) > 0 THEN
+								SELECT bdi_sicte.numcte, bdi_sicte.apell_paterno, bdi_sicte.apell_materno, bdi_sicte.nombre1,
+									 bdi_sicte.nombre2, bdi_sibpi.id_status, bdi_sibpi.suc_registro, bdi_sisuc.nombre, bdi_sibpi.folio_contrato, bdi_sibpi.f_registro::date,
+									 bdi_sictepf.fecha_nac, bdi_sibpi.servicio
+								INTO vNumCte, vApePat, vApeMat, vNombre1, vNombre2, vStatus, vSucReg, vSucNom, vFolio, vFechaReg, vFechaNac,vTipoServicio 
+								FROM bdinteg:si_cliente bdi_sicte, bdinteg:si_ctepf bdi_sictepf, bdinteg:si_bpiusuarios bdi_sibpi, bdinteg:si_sucursales bdi_sisuc
+								WHERE bdi_sicte.numcte = pNumCte
+									AND bdi_sicte.empresa = pEmpresa
+									AND bdi_sicte.tpo_persona = '01'
+									AND bdi_sicte.numcte = bdi_sictepf.numcte
+									AND bdi_sicte.numcte = bdi_sibpi.numcte
+									AND bdi_sibpi.suc_registro = bdi_sisuc.sucursal;
+								 
+								IF vStatus = '0' OR  vStatus = '88' OR  vStatus = '99' THEN 
+									LET vCodRet =  '003';
+									LET vMensValid = 'Este cliente tiene el servicio de banca por Internet cancelado, bloqueado o pre-activaciÃÂ³n incompleta';
+								ELIF (SELECT count(status_destino) FROM si_bpicatcambiostatus WHERE Proceso = pTipo AND status_origen = vStatus ) = 0  THEN
+									IF  EXISTS (SELECT mensaje FROM bdinteg:si_bpicatmensajes WHERE proceso = pTipo AND operacion = '1' AND status_servicio = vStatus) 										THEN
+										SELECT mensaje INTO vMensValid FROM bdinteg:si_bpicatmensajes WHERE proceso = pTipo AND operacion = '1' AND status_servicio = 										vStatus;
+								ELSE
+									LET vCodRet = '-002';
+									LET vMensValid = 'El cliente tiene un estatus invÃÂ¡lido para el servicio';
+								END IF;
+
+							END IF;	 
+					ELSE
+							SELECT mensaje INTO vMensValid FROM bdinteg:si_bpicatmensajes WHERE proceso = pTipo AND operacion = '1' AND status_servicio = vStatus;
+							LET vCodRet = '004';
+					END IF		
+									  
+			ELSE
+					SELECT tpo_persona INTO vTipoPersona FROM bdinteg:si_cliente WHERE numcte = pNumcte;
+					IF vTipoPersona = '02' THEN
+							LET vCodRet = '002';						
+							LET vMensValid = 'Cliente Moral, verifique';
+						
+					ELSE
+							LET vCodRet =   '001';
+    						LET vMensValid = 'Cliente no Existe';							
+
+				   END IF;
+			END IF;
+		ELIF pTipo = '1' THEN
+		
+			select solicitud into vSolicitud from bdibpi:bpi_tokensolicitud  where numcte = pNumCte and f_solicitud = 
+           (select max(f_solicitud) from bdibpi:bpi_tokensolicitud  where numcte = pNumCte);
+		   
+		   IF vSolicitud <> ""  THEN
+				EXECUTE PROCEDURE  bdibpi:sp_cons_detenvios_token2(pEmpresa,vSolicitud) INTO vCodRet,vFolioSuc, vCuenta, vFecha, vSucursal, vCargoTot; 
+				
+		   END IF;	
+			   
+		ELIF pTipo = '3' THEN	
+			
+		--Registra Datos en la bitacora
+			insert into si_bpibitacora(fecha_oper,id_operacion,sucursal,id_usuario,ipusuario,fecha_aplic,cuenta_origen)
+			values(current,'1019',pSucursal,pIdusuario,pIpusu,date(current),pNumCte);	
+			
+				
+		END IF;	
+
+IF LENGTH(vFolio) >12 THEN
+		
+        -- Entra a Desencripta folio solo cuando el folio esta encriptado
+        EXECUTE PROCEDURE bdibpi:"informix".sp_desencripta_folio_contrato_bpi(vFolio) INTO cod_ret, vcCondDesEnc;	
+        LET vFolio = vcCondDesEnc;
+
+        
+        IF vFolio = TRIM('Valor Nulo') THEN
+            LET vFolio = '';
+        END IF;   
+
+
+    RETURN vCodRet, vFechaReg, vFechaNac, vNumCte, vApePat, vApeMat, vNombre1, vNombre2, vStatus, vSucReg, vSucNom, vFolio, vMensValid, vTipoServicio, vStatusToken,vSolicitud,vCargoTot,vCorreo,vCelular;
+
+ELSE
+
+    RETURN vCodRet, vFechaReg, vFechaNac, vNumCte, vApePat, vApeMat, vNombre1, vNombre2, vStatus, vSucReg, vSucNom, vFolio, vMensValid, vTipoServicio, vStatusToken,vSolicitud,vCargoTot,vCorreo,vCelular;
+END IF; 
+
+
+END
+END PROCEDURE
+DOCUMENT
+"Modificado: Hector Juan Casanova Edeza",
+"Proyecto: BPI",
+"Solicito: Ismael Hernandez",
+"Descripcion: se modifica el formato de casteo del campo fecha registro al formato  MM/DD/AAAA.",
+"Fecha: 2010/10/15",
+"Version: 20101015.1642",
+'',
+"Modificado: Edgar Ivan Rochin Rocha",
+"Proyecto: BPI",
+"Solicito: Ismael Hernandez",
+"Descripcion: se modifico para que regrese el nombre de la sucursal.",
+"Fecha: 2010/11/04",
+"Version: 2010/11/04.1648",
+"Se modifica el insert para registro en la bitacora, cambiando el id_oper",
+"Fecha: 30-07-2012";
+
+CREATE PROCEDURE "informix".sp_obthuellasactes2(pNumCteCorr CHAR(20), pNumCteInc CHAR(20))
+	RETURNING
+	CHAR(6) 	AS 	cCodRet,
+	CHAR(942)	AS	cTrama,
+	CHAR(942)	AS	cTrama2,
+	CHAR(942)	AS	cTramaInc,
+	CHAR(942)	AS	cTramaInc2;
+
+
+	--DECLARACIONES
+    DEFINE cCodRet          CHAR(6);
+    DEFINE iSqlErr          INTEGER;
+    DEFINE iIsamErr         INTEGER;
+    
+	DEFINE cTrama	    	CHAR(942);
+	DEFINE cTrama2	    	CHAR(942);
+	DEFINE cTramaInc    	CHAR(942);
+	DEFINE cTramaInc2    	CHAR(942);
+	DEFINE cTipoCte	    	CHAR(1);
+	DEFINE cTipoCte2    	CHAR(1);
+	DEFINE cSecTitular    	CHAR(2);
+	DEFINE cSecInco	    	CHAR(2);
+	DEFINE cTicket1	    	CHAR(20);
+	DEFINE cTicket2	    	CHAR(20);
+	DEFINE cTicket3	    	CHAR(20);
+	DEFINE iNumCte	    	INTEGER;
+	DEFINE ibandera	    	INTEGER;
+
+    --INICIALIZACIONES
+	LET cCodRet				= '000000';
+	LET iSqlErr				= 0;
+	LET iIsamErr			= 0;
+	
+	LET cTrama				= '';
+	LET cTrama2				= '';
+	LET cTramaInc			= '';
+	LET cTramaInc2			= '';
+	LET cTipoCte			= '';
+	LET cTipoCte2			= '';
+	LET cSecTitular    		= '';
+	LET cSecInco	    	= '';
+	LET cTicket1	    	= '';
+	LET cTicket2	    	= '';
+	LET cTicket3	    	= '';
+	LET iNumCte	    		= 0;
+	LET ibandera	    	= 0;
+
+BEGIN
+    ON EXCEPTION SET iSqlErr, iIsamErr
+		IF iSqlErr != 0 THEN
+			LET cCodRet = iSqlErr;
+			RETURN TRIM(cCodRet), TRIM(NVL(cTrama,'')), TRIM(NVL(cTrama2,'')), TRIM(NVL(cTramaInc,'')), TRIM(NVL(cTramaInc2,''));
+		END IF;
+    END EXCEPTION;
+
+	--SET DEBUG FILE TO "/tmp/mfinis/sp_obthuellasactes2.out";
+	--TRACE ON;
+	
+	SET LOCK MODE TO WAIT 3;
+	SET ISOLATION TO DIRTY READ;	
+	
+	IF NVL(pNumCteCorr,'') = '' OR NVL(pNumCteInc,'') = '' THEN
+		LET cCodRet = '000001';
+		RETURN TRIM(cCodRet), TRIM(NVL(cTrama,'')), TRIM(NVL(cTrama2,'')), TRIM(NVL(cTramaInc,'')), TRIM(NVL(cTramaInc2,''));
+	END IF
+	
+	--VALIDA QUE SEAN TITULARES AMBOS CLIENTES.
+	SELECT tipo_cliente
+	INTO cTipoCte
+	FROM bdinteg:"informix".si_cliente
+	WHERE numcte = pNumCteCorr;
+	
+	IF NVL(cTipoCte,'') = '' THEN -- CLIENTE CORRECTO NO EXISTE
+		LET cCodRet = '000002';
+		RETURN TRIM(cCodRet), TRIM(NVL(cTrama,'')), TRIM(NVL(cTrama2,'')), TRIM(NVL(cTramaInc,'')), TRIM(NVL(cTramaInc2,''));
+	END IF;
+		
+	SELECT tipo_cliente
+	INTO cTipoCte2
+	FROM bdinteg:"informix".si_cliente
+	WHERE numcte = pNumCteInc;
+	
+	IF NVL(cTipoCte2,'') = '' THEN --CLIENTE INCORRECTO NO EXISTE
+		LET cCodRet = '000003';
+		RETURN TRIM(cCodRet), TRIM(NVL(cTrama,'')), TRIM(NVL(cTrama2,'')), TRIM(NVL(cTramaInc,'')), TRIM(NVL(cTramaInc2,''));
+	ELSE
+		--OBTIENE EL TEMPLATE DE LA HUELLA DEL CLIENTE TITULAR
+		SELECT dmapa, imapa, secuencia
+		INTO cTrama, cTrama2, cSecTitular
+		FROM bdinteg:"informix".si_cte_huella   
+		WHERE numcte = pNumCteCorr
+		AND secuencia = (SELECT MAX(secuencia)
+						FROM bdinteg:"informix".si_cte_huella
+						WHERE numcte = pNumCteCorr);		
+		
+		--OBTIENE EL TEMPLATE DE LA HUELLA DEL CLIENTE TRASPASAR
+		SELECT dmapa, imapa, secuencia
+		INTO cTramaInc, cTramaInc2, cSecInco
+		FROM bdinteg:"informix".si_cte_huella   
+		WHERE numcte = pNumCteInc
+		AND secuencia = (SELECT MAX(secuencia)
+						FROM bdinteg:"informix".si_cte_huella
+						WHERE numcte = pNumCteInc);
+		
+		--VALIDA QUE LA SECUENCIA EXISTA EN LA CONSULTA A LA TABLA "si_cte_huella" SINO, REGRESA UN CODIGO DE RETORNO
+		IF cSecTitular <> '' THEN
+			SELECT ticket
+			INTO cTicket1
+			FROM bdinteg:"informix".si_huella_linea
+			WHERE numcte = pNumCteCorr
+			AND secuencia = cSecTitular;
+			
+			IF NVL(cTicket1,'') = '' THEN
+				SELECT ticket
+				INTO cTicket2
+				FROM bdinteg:"informix".si_huella_linea_hist
+				WHERE numcte = pNumCteCorr
+				AND secuencia = cSecTitular
+				AND fecha_consulta = (SELECT MAX (fecha_consulta)
+									  FROM bdinteg:"informix".si_huella_linea_hist
+									  WHERE numcte = pNumCteCorr
+									  AND secuencia = cSecTitular);
+									  
+				IF cTicket2 = '' THEN
+					LET cCodRet = "000000";  --NO SE A REALIZADO LA COMPARACION DE HUELLA DEL CLIENTE SOLICITADO
+					RETURN TRIM(cCodRet), TRIM(NVL(cTrama,'')), TRIM(NVL(cTrama2,'')), TRIM(NVL(cTramaInc,'')), TRIM(NVL(cTramaInc2,''));
+				END IF;
+			END IF;
+		END IF;
+		
+		
+		--SE CONSULTA EL NUMERO DE CLIENTE PARA VER SI SE REALIZO LA COMPARACIÃÂ DE HUELLA EXITOSA EN SUCURSAL SINO SE MANDA CODIGO DE EXITO
+		IF cTicket1 <> '' THEN
+			LET cTicket3 = cTicket1;
+		ELIF cTicket2 <> '' THEN
+			LET cTicket3 = cTicket2;
+		ELSE
+			LET cCodRet = "000000";  --NO SE A REALIZADO LA COMPARACION DE HUELLA DEL CLIENTE SOLICITADO
+			RETURN TRIM(cCodRet), TRIM(NVL(cTrama,'')), TRIM(NVL(cTrama2,'')), TRIM(NVL(cTramaInc,'')), TRIM(NVL(cTramaInc2,''));
+		END IF;	
+		
+		
+			SELECT LIMIT 1 cliente
+			INTO iNumCte
+			FROM bdinteg:"informix".si_huella_linea_resultado
+			WHERE estado_proceso = '2'
+			AND cliente = pNumCteInc
+			AND ticket = cTicket3
+			AND empresa  = '5'
+			AND num_mensaje = '602';
+			--AND secuencia = cSecInco; -- ESTA LINEA SE ACTIVARA CUANDO LO DE SUCURSAL YA ESTE
+										-- FUNCIONANDO,ES DECIR, CUANDO EL VALOR DE LA SECUENCIA SE ESTE
+										-- GUARDANDO EN LAS TABLAS.
+
+			IF NOT iNumCte > 0 THEN
+                SELECT LIMIT 1 cliente
+                INTO iNumCte
+                FROM bdinteg:"informix".si_huella_linea_resultado_hist
+                WHERE estado_proceso = '2'
+                AND cliente = pNumCteInc
+                AND ticket = cTicket3
+                AND empresa  = '5'
+                AND num_mensaje = '602';
+            END IF;    
+		
+			IF iNumCte > 0 THEN
+				LET cCodRet = '000006';  --Los clientes consultados ya tuvieron la comparaciÃ³Â®Â Â¤e huellas
+			END IF;
+	END IF;
+	
+	RETURN TRIM(cCodRet), TRIM(NVL(cTrama,'')), TRIM(NVL(cTrama2,'')), TRIM(NVL(cTramaInc,'')), TRIM(NVL(cTramaInc2,''));		
+END
+END PROCEDURE
+DOCUMENT 'AUTOR: Johnattan Esquivel Sanchez',
+'FECHA: 02/08/2022',
+'MODULO: CLIENTES',
+'FUNCIONALIDAD: Fusion Manual de Clientes',
+'DESCRIPCION: Se crea procedimiento el cual consulta la tabla si_cte_huella para traer la informacion de la huella derecha e izquierda del cliente por su maxima secuencia',
+'BD: bdinteg';
+
+CREATE PROCEDURE "informix".sp_valida_datos_contacto_bpi(pEmpresa CHAR(3),pIdUsuario CHAR(11))
+RETURNING CHAR (5);
+	-- Creador: Solser
+	-- Objetivo: Validar datos de contacto de  usuario BPI
+	-- Fecha: 03/01/2022
+	
+	DEFINE sql_err int;
+	DEFINE vCodRet CHAR (5);
+    DEFINE vNumCliente CHAR (9);
+	
+	BEGIN
+		ON EXCEPTION SET sql_err
+		  IF sql_err <> 0 THEN
+				let vCodRet = sql_err;
+				RETURN vCodRet ;
+		  END IF ;
+		END EXCEPTION ;
+		
+		LET vCodRet = '00000';
+        LET vNumCliente = '';
+       
+		
+		SET LOCK MODE TO WAIT 3;
+        
+        IF(LENGTH(TRIM(NVL(pEmpresa,''))) = 0  OR  LENGTH(TRIM(NVL(pIdUsuario,''))) = 0)THEN
+            LET vCodRet="00003";
+            RETURN vCodRet;
+        END IF;
+
+      
+
+        SELECT numcliente INTO vNumCliente FROM bdibpi:bpi_usuario where id_usuario= pIdUsuario and st_portal = 'activo';     
+        IF (vNumCliente <> '' OR vNumCliente IS NOT NULL) THEN
+           
+             	IF (SELECT count (telefono) from bdinteg:"informix".si_telefonos_actual where numcte = vNumCliente 	AND status_tel ='A' AND tipo_tel=2) = 0 THEN 
+                    LET vCodRet="00001";
+                ELIF (SELECT count(correo_elec) FROM bdinteg:"informix".si_correos WHERE numcte = vNumCliente AND status_correo = 'A') = 0 THEN 
+                    LET vCodRet="00002";
+                END IF
+        ELSE
+             LET vCodRet="00004";
+        END IF;
+                 
+     
+         
+		RETURN vCodRet;
+	END;
+END PROCEDURE
+DOCUMENT
+'AUTOR.........: Solser',
+'FECHA.........: 03-01-2022',
+'CREACION..: Validación deatos de contacto bpi',
+'SOLICITA......: Alejandro Vazquez',
+'BD............: BDInteg';
+
+CREATE PROCEDURE "informix".sp_valida_cel_repetido_bpi(pNumCel CHAR(10), pNumCte CHAR(9), pSucursal CHAR(5))
+RETURNING CHAR(5) as Cod_Ret, INTEGER as Repetidos;
+
+DEFINE sCodRet		CHAR(5);
+DEFINE iCantRep     INTEGER;
+DEFINE iSqlErr		INTEGER;
+DEFINE iSamErr		INTEGER;
+DEFINE iDias        INTEGER;
+
+LEt sCodRet     =   '00000';
+LET iCantRep    =   0;
+LET iSqlErr		=   0;
+LET iSamErr     =   0;
+LET iDias       =   0;
+
+BEGIN
+    ON EXCEPTION SET iSqlErr
+        IF iSqlErr != 0 THEN
+            LET sCodRet = iSqlErr::CHAR(8);
+            RETURN sCodRet, iCantRep;
+        END IF;
+    END EXCEPTION; 	
+ 
+--SET DEBUG FILE TO '/informix/gaby/ArchivosOut/sp_valida_cel_repetido.out';
+--TRACE ON;
+
+	SET ISOLATION TO DIRTY READ;
+    SET LOCK MODE TO WAIT 3;
+
+	
+	SELECT COUNT(*) INTO iCantRep FROM bdinteg:"informix".si_telefonos 
+	WHERE telefono=pNumCel AND numcte!=pNumCte AND tipo_tel=2 AND status_tel='A' AND verificado='V'	
+	AND (DATE(CURRENT) - DATE(SUBSTR(fecha_hora,0,10)) < 90);
+		
+	IF iCantRep>=1 THEN
+		LET sCodRet='288';
+	END IF;
+    
+
+RETURN sCodRet, iCantRep;
+
+END
+END PROCEDURE;

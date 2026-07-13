@@ -1,0 +1,640 @@
+$$SET LIST                                                              00001000          
+$$RESET DMCONTROL                                                       00002000          
+$$SET ZIP                                                               00003000          
+$$SET ALLINFO                                                           00004000          
+%***********************************************************************00005000          
+ UPDATE;                                                                00006000          
+%INITIALIZE;                                                            00007000          
+                                                                        00008000          
+  DEFAULTS  (                                                           00009000          
+   DATA SET (                                                           00010000          
+        BUFFERS       = 0 + 2 PER RANDOM USER OR 2 PER SERIAL USER      00011000          
+       ,PACK          = S067REMESAS                                     00012000          
+       ,CHECKSUM      = TRUE                                            00013000          
+       ,REBLOCK       = TRUE                                            00014000          
+       ,LOCK TO MODIFY DETAILS = FALSE)                                 00015000          
+   SET (                                                                00016000          
+        BUFFERS       = 2 + 1 PER RANDOM USER OR 2 PER SERIAL USER      00017000          
+       ,PACK          = S067REMESAS                                     00018000          
+       ,CHECKSUM      = TRUE)                                           00019000          
+       ,ALPHA   (INITIALVALUE = BLANKS)                                 00020000          
+       ,BOOLEAN (INITIALVALUE = FALSE )                                 00021000          
+       ,NUMBER  (INITIALVALUE = 0 )                                     00022000          
+       ,REAL    (INITIALVALUE = 0)                                      00023000          
+         );                                                             00024000          
+                                                                        00025000          
+  OPTIONS                                                               00026000          
+% ( AUDIT                                                               00027000          
+  ( STATISTICS                                                          00028000          
+   ,ADDRESSCHECK                                                        00029000          
+   ,KEYCOMPARE                                                          00030000          
+%  ,INDEPENDENTTRANS                                                    00030100          
+  );                                                                    00031000          
+                                                                        00032000          
+  PARAMETERS                                                            00033000          
+% ( SYNCPOINT         = 1000 TRANSACTIONS                               00034000          
+%  ,CONTROLPOINT      = 2    SYNCPOINTS                                 00035000          
+  ( ALLOWEDCORE       = 5000000                                         00036000          
+   ,RESIDENT LIMIT    = 2000000                                         00037000          
+   ,OVERLAYGOAL       = 5                                               00038000          
+  );                                                                    00039000          
+                                                                        00040000          
+% AUDIT TRAIL (                                                         00041000          
+%    AREAS         =  150                                               00042000          
+%   ,AREASIZE      =  100                                               00043000          
+%   ,BLOCKSIZE     = 1800                                               00044000          
+%   ,UPDATE-EOF    =   50                                               00045000          
+%   ,CHECKSUM      = TRUE                                               00046000          
+%   ,PACK = AUDIT                                                       00047000          
+%   ,COPY TO TAPE (DENSITY = FMT36TRK) 1 TIMES                          00048000          
+%    FORWARD COMPARE                                                    00049000          
+%    AND REMOVE                                                         00050000          
+%    JOB *DATABASE/WFL/COPYAUDIT ON DISK                                00051000          
+%             );                                                        00052000          
+                                                                        00053000          
+                                                                        00054000          
+  CONTROL FILE (PACK = CMEMP, USERCODE = S151 );                        00055000          
+                                                                        00056000          
+  ACCESSROUTINES =*SYSTEM/ACCESSROUTINES                    ON PACK;    00057000          
+                                                                        00058000          
+  DMSUPPORT      = (S151)DMSUPPORT/S151BD12MC001S151/23MTP001 ON CMEMP; 00059000          
+                                                                        00060000          
+  RECOVERY       =*SYSTEM/DMRECOVERY                        ON PACK;    00061000          
+                                                                        00062000          
+  DATARECOVERY   =*SYSTEM/DMDATARECOVERY                    ON PACK;    00063000          
+                                                                        00064000          
+  RECONSTRUCT  = (S151)RECONSTRUCT/S151BD12MC001S151/23MTP001 ON CMEMP; 00065000          
+                                                                        00066000          
+                                                                        00067000          
+%***********************************************************************00068000          
+ B00-MOV-CSI          "NUMERO DE CSI                 " NUMBER (02);     00069000          
+%B00-MOV-FEC          "AQO Y MES DE LA BASE          " NUMBER (04);     00070000CRONOS2K  
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00070001CRONOS2K  
+ B00-MOV-FEC          "AQO Y MES DE LA BASE          " NUMBER (06);     00070002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00070003CRONOS2K  
+ B00-MOV-STA          "STATUS DE LA BASE             " NUMBER (02);     00071000          
+ B00-MOV-SECOK        "SECUNCIAL DE GRABACION MOV OK " NUMBER (10);     00072000          
+ B00-MOV-SECINF       "SECUNCIAL DE GRABACION MOV INF" NUMBER (10);     00073000          
+ B00-MOV-SECERR       "SECUNCIAL DE GRABACION MOV ERR" NUMBER (10);     00074000          
+ B00-MOV-NIVACTDIA    "NIVEL DE ACTUALIZACION DIARIO " GROUP            00075000          
+(B00-MOV-LECARCDIA    "ULTIMO REGISTRO DE LECTURA DIA" NUMBER (08);     00076000          
+ B00-MOV-MOVCICDIA    "ULT. REG. ACT. MOVS. CICLO    " NUMBER (08);     00077000          
+ B00-MOV-SDOCICDIA    "ULT. REG. ACT. SDOS. CICLO    " NUMBER (08);     00078000          
+)                                                    OCCURS 31 TIMES;   00079000          
+$PAGE                                                                   00080000          
+%***********************************************************************00081000          
+ S151B01MOVCTO        DIRECT         DATA SET        % PREFIJO B01      00082000          
+%*********************************************************************  00083000          
+ (B01-MOV-KEYCONT     "LLAVE DEL CONTRATO            " GROUP            00084000          
+ (B01-MOV-KEYCON      "NUMERO DE CUENTA-CONTRATO     " NUMBER (20);     00085000          
+ );                                                                     00086000          
+  B01-MOV-PRD         "PRODUCTO    EJ: 0500, 0066    " NUMBER (04);     00087000          
+  B01-MOV-INS         "INSTRUMENTO  EJ: 06           " NUMBER (02);     00088000          
+  B01-MOV-SUCPRO      "SUCURSAL PROMOTORA            " NUMBER (04);     00089000          
+  B01-MOV-CVETRA      "CLAVE DE TRANSACCION          " NUMBER (04);     00090000          
+  B01-MOV-INDLEY      "INDICADOR DE LEYENDA          " NUMBER (02);     00091000          
+  B01-MOV-ESQCON      "ESQUEMA CONTABLE              " NUMBER (04);     00092000          
+  B01-MOV-IMP         "IMPORTE DEL MOVIMIENTO        " NUMBER (16,2);   00093000          
+  B01-MOV-HORMOV      "HORA DEL MOVIMIENTO           " NUMBER (06);     00094000          
+% B01-MOV-FECMOV      "FECHA DEL MOVIMIENTO          " NUMBER (06);     00095000CRONOS2K  
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00095001CRONOS2K  
+  B01-MOV-FECMOV      "FECHA DEL MOVIMIENTO          " NUMBER (08);     00095002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00095003CRONOS2K  
+% B01-MOV-FECCON      "FECHA CONTABLE DEL MOVTO.     " NUMBER (06);     00096000CRONOS2K  
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00096001CRONOS2K  
+  B01-MOV-FECCON      "FECHA CONTABLE DEL MOVTO.     " NUMBER (08);     00096002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00096003CRONOS2K  
+% B01-MOV-FECVAL      "FECHA VALOR                   " NUMBER (06);     00097000CRONOS2K  
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00097001CRONOS2K  
+  B01-MOV-FECVAL      "FECHA VALOR                   " NUMBER (08);     00097002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00097003CRONOS2K  
+  B01-MOV-AUTORI      "NUM. AUT. DEL SISTEMA ORIGEN  " NUMBER (08);     00098000          
+  B01-MOV-AUT3ERNIV   "NUM. AUT. DE TERCER NIVEL     " NUMBER (08);     00099000          
+  B01-MOV-REFMOV      "REFERENCIA DEL MOVIMIENTO     " NUMBER (20);     00100000          
+  B01-MOV-CVEMDA      "CLAVE DEL MEDIO DE ACCESO     " NUMBER (02);     00101000          
+  B01-MOV-NUMMDA      "NUMERO DEL MEDIO DE ACCESO    " GROUP            00102000          
+ (B01-MOV-SUCPROMDA   "NUMERO DE SUCURSAL MEDIO ACC. " NUMBER (04);     00103000          
+  B01-MOV-NUMCTAMDA   "NUMERO DE CTA/CONT MEDIO ACC. " NUMBER (16);     00104000          
+ );                                                                     00105000          
+  B01-MOV-CVEMDE      "CLAVE DEL MEDIO DE ENTREGA    " NUMBER (02);     00106000          
+  B01-MOV-SUCINI      "SUCURSAL DE LA INICIATIVA     " NUMBER (04);     00107000          
+  B01-MOV-CAJINI      "CAJA DE LA INICIATIVA         " NUMBER (02);     00108000          
+  B01-MOV-SUCOPE      "SUCURSAL OPERADORA            " NUMBER (04);     00109000          
+  B01-MOV-CAJOPE      "CAJA OPERADORA                " NUMBER (02);     00110000          
+  B01-MOV-SUCTRA      "SUCURSAL TRANSMISORA          " NUMBER (04);     00111000          
+  B01-MOV-CAJTRA      "CAJA TRANSMISORA              " NUMBER (04);     00112000          
+  B01-MOV-NUMOPE      "NOMINA/OPERADOR EN SEGURIDAD  " NUMBER (08);     00113000          
+  B01-MOV-ORIMOV      "LOCAL,FORANEO/TRAN,FORANEO/RV " NUMBER (02);     00114000          
+  B01-MOV-MON         "CLAVE DE MONEDA               " NUMBER (04);     00115000          
+  B01-MOV-AUTS151     "AUTORIZACION DEL S151         " NUMBER (08);     00116000          
+  B01-MOV-AELIS151    "AUTORIZACION A ELIMINAR S151  " NUMBER (08);     00117000          
+  B01-MOV-AANTS151    "AUTORIZACION ANTERIOR S151    " NUMBER (08);     00118000          
+  B01-MOV-PROCESO     "TIPO DE PROCESO (LINEA/BATCH) " NUMBER (02);     00119000          
+  B01-MOV-SOBGIRO     "INDICADOR DE SOBREGIRO        " NUMBER (02);     00120000          
+  B01-MOV-CVEAVISO    "CLAVE DE AVISO                " NUMBER (04);     00121000          
+  B01-MOV-INDEDOCTA   "INDICADOR DE ESTADO DE CUENTA " NUMBER (02);     00122000          
+  B01-MOV-INDDATADI   "INDICADOR DATOS ADICIONALES   " NUMBER (02);     00123000          
+  B01-MOV-INDCONTA    "INDICADOR CONTABLE            " NUMBER (02);     00124000          
+  B01-MOV-INDNUMREN   "INDICADOR DE NUMERO DE RENGLON" NUMBER (02);     00125000          
+  B01-MOV-ACTIVIDAD   "NUMERO DE ACTIVIDAD           " NUMBER (06);     00126000          
+  B01-MOV-SECTOR      "NUMERO DE SECTOR              " NUMBER (02);     00127000          
+  B01-MOV-BANCA       "NUMERO DE BANCA               " NUMBER (02);     00128000          
+  B01-MOV-FILLER      "FILLER FUTURO                 " ALPHA  (10);     00129000          
+  B01-MOV-NODOORI     "NODO ORIGEN                   " NUMBER (02);     00130000          
+  B01-MOV-APUDESC     "APUNTADOR DESCRIPCIONES       " NUMBER (08);     00131000          
+  B01-MOV-STAMOV      "STATUS DEL MOVIMIENTO         " NUMBER (02);     00132000          
+  B01-MOV-INDIMP      "SI TIENE MAS MOVTOS           " NUMBER (02);     00133000          
+  B01-MOV-AUT         "AUTORIZACION 3ERNIVEL O APL   " NUMBER (08);     00134000          
+  B01-MOV-SEC         "NUMERO DE REGISTRO            " NUMBER (10);     00135000          
+                                                                        00136000          
+ )                                                                      00137000          
+   POPULATION    = 25000000                                             00138000          
+ ;                                                                      00139000          
+                                                                        00140000          
+%*********************************************************************  00141000          
+ B01SXMOVSEC                      ACCESS TO S151B01MOVCTO               00142000          
+%*********************************************************************  00143000          
+ KEY IS (B01-MOV-SEC)                                                   00144000          
+ ;                                                                      00145000          
+%*********************************************************************  00146000          
+ B01SXMOVCTO                      SET OF S151B01MOVCTO                  00147000          
+%*********************************************************************  00148000          
+ KEY IS (B01-MOV-FECCON,                                                00149000          
+         B01-MOV-KEYCONT,                                               00150000          
+         B01-MOV-SEC)                                                   00151000          
+                                                                        00152000          
+ , LOADFACTOR      =  85                                                00153000          
+%, MEMORY RESIDENT = COARSE                                             00154000          
+ , NO DUPLICATES                                                        00155000          
+ , INDEX SEQUENTIAL                                                     00156000          
+ ;                                                                      00157000          
+                                                                        00158000          
+%*********************************************************************  00159000          
+ B01SXFCHVAL                   SET OF S151B01MOVCTO                     00160000          
+%*********************************************************************  00161000          
+ KEY IS (B01-MOV-PRD,                                                   00162000          
+         B01-MOV-INS,                                                   00163000          
+         B01-MOV-KEYCONT,                                               00163500          
+         B01-MOV-FECVAL,                                                00163510          
+         B01-MOV-SEC)                                                   00164000          
+                                                                        00165000          
+ , LOADFACTOR      =  85                                                00166000          
+%, MEMORY RESIDENT = COARSE                                             00167000          
+ , NO DUPLICATES                                                        00168000          
+ , INDEX SEQUENTIAL                                                     00169000          
+ ;                                                                      00170000          
+                                                                        00171000          
+$PAGE                                                                   00227000          
+%********************************************************************** 00228000          
+ S151B02IMPADI                 DATA SET        % PREFIJO B52            00229000          
+%********************************************************************** 00230000          
+ (B02-MOV-SEC         "SECUENCIAL DE GRABACION       " NUMBER (10);     00231000          
+  B02-MOV-IMPADI      "IMPORTES ADICIONALES          " GROUP            00232000          
+ (B02-MOV-CVETRA      "CLAVE DE TRANSACCION          " NUMBER (04);     00233000          
+  B02-MOV-INDLEY      "INDICADOR DE LEYENDA          " NUMBER (02);     00234000          
+  B02-MOV-ESQCON      "ESQUEMA CONTABLE              " NUMBER (04);     00235000          
+  B02-MOV-IMP         "IMPORTE DEL MOVIMIENTO        " NUMBER (16,2);   00236000          
+ )                                                     OCCURS 4 TIMES;  00237000          
+ )                                                                      00238000          
+                                                                        00239000          
+  POPULATION = 12500000                                                 00240000          
+ ;                                                                      00241000          
+                                                                        00242000          
+%*********************************************************************  00243000          
+ B02SXIMPADICIC                      SET OF S151B02IMPADI               00244000          
+%*********************************************************************  00245000          
+ KEY IS (B02-MOV-SEC)                                                   00246000          
+                                                                        00247000          
+ , LOADFACTOR      =  85                                                00248000          
+%, MEMORY RESIDENT = COARSE                                             00249000          
+ , POPULATION = 12500000                                                00250000          
+ , NO DUPLICATES                                                        00251000          
+ , INDEX SEQUENTIAL                                                     00252000          
+ ;                                                                      00253000          
+                                                                        00254000          
+$PAGE                                                                   00255000          
+%*********************************************************************  00256000          
+ S151B03DATADI        DATA SET       % PREFIJO B03                      00257000          
+%*********************************************************************  00258000          
+ (B03-MOV-SEC         "SECUENCIAL DE GRABACION       " NUMBER (10);     00259000          
+  B03-MOV-FUN1        "FUNCIONARIO 1                 " NUMBER (08);     00260000          
+  B03-MOV-FUN2        "FUNCIONARIO 2                 " NUMBER (08);     00261000          
+  B03-MOV-SISORI      "SISTEMA ORIGEN                " NUMBER (04);     00262000          
+  B03-MOV-PRDORI      "PRODUCTO ORIGEN               " NUMBER (04);     00263000          
+  B03-MOV-INSORI      "INSTRUMENTO ORIGEN            " NUMBER (02);     00264000          
+  B03-MOV-CVEORI      "CLAVE TRANSACCION ORIGEN      " NUMBER (04);     00265000          
+  B03-MOV-CONORI      "CUENTA/CONTRATO ORIGEN        " NUMBER (20);     00266000          
+  B03-MOV-REFLOCBNM   "REFERENCIA LOCALIZACION BNM   " ALPHA  (14);     00267000          
+  B03-MOV-FILXAPL     "DATOS VARIABLES POR APLICACION" ALPHA  (120);    00268000          
+  B03-MOV-LEY1        "LEYENDA 1                     " ALPHA  (40);     00269000          
+  B03-MOV-CONDES      "CONTINUACION DE DESCRIPCIONES " NUMBER (02);     00270000          
+                                                                        00271000          
+ )                                                                      00272000          
+                                                                        00273000          
+  POPULATION = 12500000                                                 00274000          
+ ;                                                                      00275000          
+                                                                        00276000          
+%*********************************************************************  00277000          
+ B03SXDATADIC                  SET OF S151B03DATADI                     00278000          
+%*********************************************************************  00279000          
+ KEY IS (B03-MOV-SEC)                                                   00280000          
+                                                                        00281000          
+ , LOADFACTOR      =  85                                                00282000          
+%, MEMORY RESIDENT = COARSE                                             00283000          
+ , POPULATION = 12500000                                                00284000          
+ , NO DUPLICATES                                                        00285000          
+ , INDEX SEQUENTIAL                                                     00286000          
+ ;                                                                      00287000          
+                                                                        00288000          
+$PAGE                                                                   00289000          
+%*********************************************************************  00290000          
+ S151B04CONDATADI     DATA SET       % PREFIJO B03                      00291000          
+%*********************************************************************  00292000          
+ (B04-MOV-SEC         "SECUENCIAL DE GRABACION       " NUMBER (10);     00293000          
+  B04-MOV-NUMDES      "CONTINUACION DE DESCRIPCIONES " NUMBER (02);     00294000          
+  B04-MOV-LEY2        "LEYENDA 2                     " ALPHA  (40);     00295000          
+  B04-MOV-LEY3        "LEYENDA 3                     " ALPHA  (40);     00296000          
+  B04-MOV-LEY4        "LEYENDA 4                     " ALPHA  (40);     00297000          
+  B04-MOV-LEY5        "LEYENDA 5                     " ALPHA  (40);     00298000          
+  B04-MOV-CONDES      "SI MAS DESCRIPCIONES          " NUMBER (02);     00299000          
+                                                                        00300000          
+ )                                                                      00301000          
+                                                                        00302000          
+  POPULATION = 12500000                                                 00303000          
+ ;                                                                      00304000          
+                                                                        00305000          
+%*********************************************************************  00306000          
+ B04SXCONDATADI                SET OF S151B04CONDATADI                  00307000          
+%*********************************************************************  00308000          
+ KEY IS (B04-MOV-SEC,                                                   00309000          
+         B04-MOV-NUMDES)                                                00310000          
+                                                                        00311000          
+ , LOADFACTOR      =  85                                                00312000          
+%, MEMORY RESIDENT = COARSE                                             00313000          
+ , POPULATION = 12500000                                                00314000          
+ , NO DUPLICATES                                                        00315000          
+ , INDEX SEQUENTIAL                                                     00316000          
+ ;                                                                      00317000          
+                                                                        00318000          
+$PAGE                                                                   00319000          
+%***********************************************************************00320000          
+ S151B11MOVINFCTO         DIRECT     DATA SET        % PREFIJO B11      00321000          
+%*********************************************************************  00322000          
+ (B11-MOV-KEYCONT     "LLAVE DEL CONTRATO            " GROUP            00323000          
+ (B11-MOV-KEYCON      "NUMERO DE CUENTA-CONTRATO     " NUMBER (20);     00324000          
+ );                                                                     00325000          
+  B11-MOV-PRD         "PRODUCTO    EJ: 0500, 0066    " NUMBER (04);     00326000          
+  B11-MOV-INS         "INSTRUMENTO  EJ: 06           " NUMBER (02);     00327000          
+  B11-MOV-SUCPRO      "SUCURSAL PROMOTORA            " NUMBER (04);     00328000          
+  B11-MOV-CVETRA      "CLAVE DE TRANSACCION          " NUMBER (04);     00329000          
+  B11-MOV-INDLEY      "INDICADOR DE LEYENDA          " NUMBER (02);     00330000          
+  B11-MOV-ESQCON      "ESQUEMA CONTABLE              " NUMBER (04);     00331000          
+  B11-MOV-IMP         "IMPORTE DEL MOVIMIENTO        " NUMBER (16,2);   00332000          
+  B11-MOV-HORMOV      "HORA DEL MOVIMIENTO           " NUMBER (06);     00333000          
+% B11-MOV-FECMOV      "FECHA DEL MOVIMIENTO          " NUMBER (06);     00334000CRONOS2K  
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00334001CRONOS2K  
+  B11-MOV-FECMOV      "FECHA DEL MOVIMIENTO          " NUMBER (08);     00334002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00334003CRONOS2K  
+% B11-MOV-FECCON      "FECHA CONTABLE DEL MOVTO.     " NUMBER (06);     00335000CRONOS2K  
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00335001CRONOS2K  
+  B11-MOV-FECCON      "FECHA CONTABLE DEL MOVTO.     " NUMBER (08);     00335002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00335003CRONOS2K  
+% B11-MOV-FECVAL      "FECHA VALOR                   " NUMBER (06);     00336000CRONOS2K  
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00336001CRONOS2K  
+  B11-MOV-FECVAL      "FECHA VALOR                   " NUMBER (08);     00336002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00336003CRONOS2K  
+  B11-MOV-AUTORI      "NUM. AUT. DEL SISTEMA ORIGEN  " NUMBER (08);     00337000          
+  B11-MOV-AUT3ERNIV   "NUM. AUT. DE TERCER NIVEL     " NUMBER (08);     00338000          
+  B11-MOV-REFMOV      "REFERENCIA DEL MOVIMIENTO     " NUMBER (20);     00339000          
+  B11-MOV-CVEMDA      "CLAVE DEL MEDIO DE ACCESO     " NUMBER (02);     00340000          
+  B11-MOV-NUMMDA      "NUMERO DEL MEDIO DE ACCESO    " GROUP            00341000          
+ (B11-MOV-SUCPROMDA   "NUMERO DE SUCURSAL MEDIO ACC. " NUMBER (04);     00342000          
+  B11-MOV-NUMCTAMDA   "NUMERO DE CTA/CONT MEDIO ACC. " NUMBER (16);     00343000          
+ );                                                                     00344000          
+  B11-MOV-CVEMDE      "CLAVE DEL MEDIO DE ENTREGA    " NUMBER (02);     00345000          
+  B11-MOV-SUCINI      "SUCURSAL DE LA INICIATIVA     " NUMBER (04);     00346000          
+  B11-MOV-CAJINI      "CAJA DE LA INICIATIVA         " NUMBER (02);     00347000          
+  B11-MOV-SUCOPE      "SUCURSAL OPERADORA            " NUMBER (04);     00348000          
+  B11-MOV-CAJOPE      "CAJA OPERADORA                " NUMBER (02);     00349000          
+  B11-MOV-SUCTRA      "SUCURSAL TRANSMISORA          " NUMBER (04);     00350000          
+  B11-MOV-CAJTRA      "CAJA TRANSMISORA              " NUMBER (04);     00351000          
+  B11-MOV-NUMOPE      "NOMINA/OPERADOR EN SEGURIDAD  " NUMBER (08);     00352000          
+  B11-MOV-ORIMOV      "LOCAL,FORANEO/TRAN,FORANEO/RV " NUMBER (02);     00353000          
+  B11-MOV-MON         "CLAVE DE MONEDA               " NUMBER (04);     00354000          
+  B11-MOV-AUTS151     "AUTORIZACION DEL S151         " NUMBER (08);     00355000          
+  B11-MOV-AELIS151    "AUTORIZACION A ELIMINAR S151  " NUMBER (08);     00356000          
+  B11-MOV-AANTS151    "AUTORIZACION ANTERIOR S151    " NUMBER (08);     00357000          
+  B11-MOV-PROCESO     "TIPO DE PROCESO (LINEA/BATCH) " NUMBER (02);     00358000          
+  B11-MOV-SOBGIRO     "INDICADOR DE SOBREGIRO        " NUMBER (02);     00359000          
+  B11-MOV-CVEAVISO    "CLAVE DE AVISO                " NUMBER (04);     00360000          
+  B11-MOV-INDEDOCTA   "INDICADOR DE ESTADO DE CUENTA " NUMBER (02);     00361000          
+  B11-MOV-INDDATADI   "INDICADOR DATOS ADICIONALES   " NUMBER (02);     00362000          
+  B11-MOV-INDCONTA    "INDICADOR CONTABLE            " NUMBER (02);     00363000          
+  B11-MOV-INDNUMREN   "INDICADOR DE NUMERO DE RENGLON" NUMBER (02);     00364000          
+  B11-MOV-ACTIVIDAD   "NUMERO DE ACTIVIDAD           " NUMBER (06);     00365000          
+  B11-MOV-SECTOR      "NUMERO DE SECTOR              " NUMBER (02);     00366000          
+  B11-MOV-BANCA       "NUMERO DE BANCA               " NUMBER (02);     00367000          
+  B11-MOV-FILLER      "FILLER FUTURO                 " ALPHA  (10);     00368000          
+  B11-MOV-NODOORI     "NODO ORIGEN                   " NUMBER (02);     00369000          
+  B11-MOV-APUDESC     "APUNTADOR DESCRIPCIONES       " NUMBER (08);     00370000          
+  B11-MOV-STAMOV      "STATUS DEL MOVIMIENTO         " NUMBER (02);     00371000          
+  B11-MOV-INDIMP      "SI TIENE MAS MOVTOS           " NUMBER (02);     00372000          
+  B11-MOV-SEC         "NUMERO DE REGISTRO            " NUMBER (10);     00373000          
+                                                                        00374000          
+ )                                                                      00375000          
+   POPULATION    = 5000000                                              00376000          
+ ;                                                                      00377000          
+                                                                        00378000          
+%*********************************************************************  00379000          
+ B11SXMOVSEC                      ACCESS TO S151B11MOVINFCTO            00380000          
+%*********************************************************************  00381000          
+ KEY IS (B11-MOV-SEC)                                                   00382000          
+ ;                                                                      00383000          
+%*********************************************************************  00384000          
+ B11SXMOVINFCTO                   SET OF S151B11MOVINFCTO               00385000          
+%*********************************************************************  00386000          
+ KEY IS (B11-MOV-KEYCONT,                                               00387000          
+         B11-MOV-FECCON,                                                00388000          
+         B11-MOV-AUTS151,                                               00389000          
+         B11-MOV-SEC)                                                   00390000          
+                                                                        00391000          
+ , NO DUPLICATES                                                        00392000          
+ , INDEX SEQUENTIAL                                                     00393000          
+ ;                                                                      00394000          
+                                                                        00395000          
+$PAGE                                                                   00396000          
+%********************************************************************** 00397000          
+ S151B12IMPINFADI              DATA SET        % PREFIJO B12            00398000          
+%********************************************************************** 00399000          
+ (B12-MOV-SEC         "SECUENCIAL DE GRABACION       " NUMBER (10);     00400000          
+  B12-MOV-IMPADI      "IMPORTES ADICIONALES          " GROUP            00401000          
+ (B12-MOV-CVETRA      "CLAVE DE TRANSACCION          " NUMBER (04);     00402000          
+  B12-MOV-INDLEY      "INDICADOR DE LEYENDA          " NUMBER (02);     00403000          
+  B12-MOV-ESQCON      "ESQUEMA CONTABLE              " NUMBER (04);     00404000          
+  B12-MOV-IMP         "IMPORTE DEL MOVIMIENTO        " NUMBER (16,2);   00405000          
+ )                                                     OCCURS 4 TIMES;  00406000          
+ )                                                                      00407000          
+                                                                        00408000          
+  POPULATION = 2500000                                                  00409000          
+ ;                                                                      00410000          
+                                                                        00411000          
+%*********************************************************************  00412000          
+ B12SXIMPINFADI                      SET OF S151B12IMPINFADI            00413000          
+%*********************************************************************  00414000          
+ KEY IS (B12-MOV-SEC)                                                   00415000          
+                                                                        00416000          
+ , POPULATION = 2500000                                                 00417000          
+ , NO DUPLICATES                                                        00418000          
+ , INDEX SEQUENTIAL                                                     00419000          
+ ;                                                                      00420000          
+                                                                        00421000          
+$PAGE                                                                   00422000          
+%*********************************************************************  00423000          
+ S151B13DATINFADI     DATA SET       % PREFIJO B13                      00424000          
+%*********************************************************************  00425000          
+ (B13-MOV-SEC         "SECUENCIAL DE GRABACION       " NUMBER (10);     00426000          
+  B13-MOV-FUN1        "FUNCIONARIO 1                 " NUMBER (08);     00427000          
+  B13-MOV-FUN2        "FUNCIONARIO 2                 " NUMBER (08);     00428000          
+  B13-MOV-SISORI      "SISTEMA ORIGEN                " NUMBER (04);     00429000          
+  B13-MOV-PRDORI      "PRODUCTO ORIGEN               " NUMBER (04);     00430000          
+  B13-MOV-INSORI      "INSTRUMENTO ORIGEN            " NUMBER (02);     00431000          
+  B13-MOV-CVEORI      "CLAVE TRANSACCION ORIGEN      " NUMBER (04);     00432000          
+  B13-MOV-CONORI      "CUENTA/CONTRATO ORIGEN        " NUMBER (20);     00433000          
+  B13-MOV-REFLOCBNM   "REFERENCIA LOCALIZACION BNM   " ALPHA  (14);     00434000          
+  B13-MOV-FILXAPL     "DATOS VARIABLES POR APLICACION" ALPHA  (120);    00435000          
+  B13-MOV-LEY1        "LEYENDA 1                     " ALPHA  (40);     00436000          
+  B13-MOV-CONDES      "CONTINUACION DE DESCRIPCIONES " NUMBER (02);     00437000          
+                                                                        00438000          
+ )                                                                      00439000          
+                                                                        00440000          
+  POPULATION = 2500000                                                  00441000          
+ ;                                                                      00442000          
+                                                                        00443000          
+%*********************************************************************  00444000          
+ B13SXDATINFADI                SET OF S151B13DATINFADI                  00445000          
+%*********************************************************************  00446000          
+ KEY IS (B13-MOV-SEC)                                                   00447000          
+                                                                        00448000          
+ , POPULATION = 2500000                                                 00449000          
+ , NO DUPLICATES                                                        00450000          
+ , INDEX SEQUENTIAL                                                     00451000          
+ ;                                                                      00452000          
+                                                                        00453000          
+$PAGE                                                                   00454000          
+%*********************************************************************  00455000          
+ S151B14CONDATADI     DATA SET       % PREFIJO B13                      00456000          
+%*********************************************************************  00457000          
+ (B14-MOV-SEC         "SECUENCIAL DE GRABACION       " NUMBER (10);     00458000          
+  B14-MOV-NUMDES      "CONTINUACION DE DESCRIPCIONES " NUMBER (02);     00459000          
+  B14-MOV-LEY2        "LEYENDA 2                     " ALPHA  (40);     00460000          
+  B14-MOV-LEY3        "LEYENDA 3                     " ALPHA  (40);     00461000          
+  B14-MOV-LEY4        "LEYENDA 4                     " ALPHA  (40);     00462000          
+  B14-MOV-LEY5        "LEYENDA 5                     " ALPHA  (40);     00463000          
+  B14-MOV-CONDES      "SI MAS DESCRIPCIONES          " NUMBER (02);     00464000          
+                                                                        00465000          
+ )                                                                      00466000          
+                                                                        00467000          
+  POPULATION = 2500000                                                  00468000          
+ ;                                                                      00469000          
+                                                                        00470000          
+%*********************************************************************  00471000          
+ B14SXCONDATADI                SET OF S151B14CONDATADI                  00472000          
+%*********************************************************************  00473000          
+ KEY IS (B14-MOV-SEC,                                                   00474000          
+         B14-MOV-NUMDES)                                                00475000          
+                                                                        00476000          
+ , POPULATION = 2500000                                                 00477000          
+ , NO DUPLICATES                                                        00478000          
+ , INDEX SEQUENTIAL                                                     00479000          
+ ;                                                                      00480000          
+                                                                        00481000          
+$PAGE                                                                   00482000          
+%***********************************************************************00483000          
+ S151B51MOVERRCTO        DIRECT         DATA SET        % PREFIJO B51   00484000          
+%*********************************************************************  00485000          
+ (B51-MOV-KEYCONT     "LLAVE DEL CONTRATO            " GROUP            00486000          
+ (B51-MOV-KEYCON      "NUMERO DE CUENTA-CONTRATO     " NUMBER (20);     00487000          
+ );                                                                     00488000          
+  B51-MOV-PRD         "PRODUCTO    EJ: 0500, 0066    " NUMBER (04);     00489000          
+  B51-MOV-INS         "INSTRUMENTO  EJ: 06           " NUMBER (02);     00490000          
+  B51-MOV-SUCPRO      "SUCURSAL PROMOTORA            " NUMBER (04);     00491000          
+  B51-MOV-CVETRA      "CLAVE DE TRANSACCION          " NUMBER (04);     00492000          
+  B51-MOV-INDLEY      "INDICADOR DE LEYENDA          " NUMBER (02);     00493000          
+  B51-MOV-ESQCON      "ESQUEMA CONTABLE              " NUMBER (04);     00494000          
+  B51-MOV-IMP         "IMPORTE DEL MOVIMIENTO        " NUMBER (16,2);   00495000          
+  B51-MOV-HORMOV      "HORA DEL MOVIMIENTO           " NUMBER (06);     00496000          
+% B51-MOV-FECMOV      "FECHA DEL MOVIMIENTO          " NUMBER (06);     00497000CRONOS2K  
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00497001CRONOS2K  
+  B51-MOV-FECMOV      "FECHA DEL MOVIMIENTO          " NUMBER (08);     00497002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00497003CRONOS2K  
+% B51-MOV-FECCON      "FECHA CONTABLE DEL MOVTO.     " NUMBER (06);     00498000CRONOS2K  
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00498001CRONOS2K  
+  B51-MOV-FECCON      "FECHA CONTABLE DEL MOVTO.     " NUMBER (08);     00498002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00498003CRONOS2K  
+% B51-MOV-FECVAL      "FECHA VALOR                   " NUMBER (06);     00499000CRONOS2K  
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00499001CRONOS2K  
+  B51-MOV-FECVAL      "FECHA VALOR                   " NUMBER (08);     00499002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00499003CRONOS2K  
+  B51-MOV-AUTORI      "NUM. AUT. DEL SISTEMA ORIGEN  " NUMBER (08);     00500000          
+  B51-MOV-AUT3ERNIV   "NUM. AUT. DE TERCER NIVEL     " NUMBER (08);     00501000          
+  B51-MOV-REFMOV      "REFERENCIA DEL MOVIMIENTO     " NUMBER (20);     00502000          
+  B51-MOV-CVEMDA      "CLAVE DEL MEDIO DE ACCESO     " NUMBER (02);     00503000          
+  B51-MOV-NUMMDA      "NUMERO DEL MEDIO DE ACCESO    " GROUP            00504000          
+ (B51-MOV-SUCPROMDA   "NUMERO DE SUCURSAL MEDIO ACC. " NUMBER (04);     00505000          
+  B51-MOV-NUMCTAMDA   "NUMERO DE CTA/CONT MEDIO ACC. " NUMBER (16);     00506000          
+ );                                                                     00507000          
+  B51-MOV-CVEMDE      "CLAVE DEL MEDIO DE ENTREGA    " NUMBER (02);     00508000          
+  B51-MOV-SUCINI      "SUCURSAL DE LA INICIATIVA     " NUMBER (04);     00509000          
+  B51-MOV-CAJINI      "CAJA DE LA INICIATIVA         " NUMBER (02);     00510000          
+  B51-MOV-SUCOPE      "SUCURSAL OPERADORA            " NUMBER (04);     00511000          
+  B51-MOV-CAJOPE      "CAJA OPERADORA                " NUMBER (02);     00512000          
+  B51-MOV-SUCTRA      "SUCURSAL TRANSMISORA          " NUMBER (04);     00513000          
+  B51-MOV-CAJTRA      "CAJA TRANSMISORA              " NUMBER (04);     00514000          
+  B51-MOV-NUMOPE      "NOMINA/OPERADOR EN SEGURIDAD  " NUMBER (08);     00515000          
+  B51-MOV-ORIMOV      "LOCAL,FORANEO/TRAN,FORANEO/RV " NUMBER (02);     00516000          
+  B51-MOV-MON         "CLAVE DE MONEDA               " NUMBER (04);     00517000          
+  B51-MOV-AUTS151     "AUTORIZACION DEL S151         " NUMBER (08);     00518000          
+  B51-MOV-AELIS151    "AUTORIZACION A ELIMINAR S151  " NUMBER (08);     00519000          
+  B51-MOV-AANTS151    "AUTORIZACION ANTERIOR S151    " NUMBER (08);     00520000          
+  B51-MOV-PROCESO     "TIPO DE PROCESO (LINEA/BATCH) " NUMBER (02);     00521000          
+  B51-MOV-SOBGIRO     "INDICADOR DE SOBREGIRO        " NUMBER (02);     00522000          
+  B51-MOV-CVEAVISO    "CLAVE DE AVISO                " NUMBER (04);     00523000          
+  B51-MOV-INDEDOCTA   "INDICADOR DE ESTADO DE CUENTA " NUMBER (02);     00524000          
+  B51-MOV-INDDATADI   "INDICADOR DATOS ADICIONALES   " NUMBER (02);     00525000          
+  B51-MOV-INDCONTA    "INDICADOR CONTABLE            " NUMBER (02);     00526000          
+  B51-MOV-INDNUMREN   "INDICADOR DE NUMERO DE RENGLON" NUMBER (02);     00527000          
+  B51-MOV-ACTIVIDAD   "NUMERO DE ACTIVIDAD           " NUMBER (06);     00528000          
+  B51-MOV-SECTOR      "NUMERO DE SECTOR              " NUMBER (02);     00529000          
+  B51-MOV-BANCA       "NUMERO DE BANCA               " NUMBER (02);     00530000          
+  B51-MOV-FILLER      "FILLER FUTURO                 " ALPHA  (10);     00531000          
+  B51-MOV-NODOORI     "NODO ORIGEN                   " NUMBER (02);     00532000          
+  B51-MOV-APUDESC     "APUNTADOR DESCRIPCIONES       " NUMBER (08);     00533000          
+  B51-MOV-STAMOV      "STATUS DEL MOVIMIENTO         " NUMBER (02);     00534000          
+  B51-MOV-INDIMP      "SI TIENE MAS MOVTOS           " NUMBER (02);     00535000          
+  B51-MOV-SEC         "NUMERO DE REGISTRO            " NUMBER (10);     00536000          
+                                                                        00537000          
+ )                                                                      00538000          
+   POPULATION    = 5000000                                              00539000          
+ ;                                                                      00540000          
+                                                                        00541000          
+%*********************************************************************  00542000          
+ B51SXMOVSEC                      ACCESS TO S151B51MOVERRCTO            00543000          
+%*********************************************************************  00544000          
+ KEY IS (B51-MOV-SEC)                                                   00545000          
+ ;                                                                      00546000          
+%*********************************************************************  00547000          
+ B51SXMOVCTO                      SET OF S151B51MOVERRCTO               00548000          
+%*********************************************************************  00549000          
+KEY IS (B51-MOV-FECCON,                                                 00550000          
+        B51-MOV-KEYCONT,                                                00551000          
+        B51-MOV-AUTS151,                                                00552000          
+        B51-MOV-SEC)                                                    00553000          
+                                                                        00554000          
+ , NO DUPLICATES                                                        00555000          
+ , INDEX SEQUENTIAL                                                     00556000          
+ ;                                                                      00557000          
+                                                                        00558000          
+$PAGE                                                                   00559000          
+%********************************************************************** 00560000          
+ S151B52IMPADIERR              DATA SET        % PREFIJO B52            00561000          
+%********************************************************************** 00562000          
+ (B52-MOV-SEC         "SECUENCIAL DE GRABACION       " NUMBER (10);     00563000          
+  B52-MOV-IMPADI      "IMPORTES ADICIONALES          " GROUP            00564000          
+ (B52-MOV-CVETRA      "CLAVE DE TRANSACCION          " NUMBER (04);     00565000          
+  B52-MOV-INDLEY      "INDICADOR DE LEYENDA          " NUMBER (02);     00566000          
+  B52-MOV-ESQCON      "ESQUEMA CONTABLE              " NUMBER (04);     00567000          
+  B52-MOV-IMP         "IMPORTE DEL MOVIMIENTO        " NUMBER (16,2);   00568000          
+ )                                                     OCCURS 4 TIMES;  00569000          
+ )                                                                      00570000          
+                                                                        00571000          
+  POPULATION = 2500000                                                  00572000          
+ ;                                                                      00573000          
+                                                                        00574000          
+%*********************************************************************  00575000          
+ B52SXIMPADIERR                      SET OF S151B52IMPADIERR            00576000          
+%*********************************************************************  00577000          
+ KEY IS (B52-MOV-SEC)                                                   00578000          
+                                                                        00579000          
+ , POPULATION = 2500000                                                 00580000          
+ , NO DUPLICATES                                                        00581000          
+ , INDEX SEQUENTIAL                                                     00582000          
+ ;                                                                      00583000          
+                                                                        00584000          
+$PAGE                                                                   00585000          
+%*********************************************************************  00586000          
+ S151B53DATADIERR        DATA SET       % PREFIJO B53                   00587000          
+%*********************************************************************  00588000          
+ (B53-MOV-SEC         "SECUENCIAL DE GRABACION       " NUMBER (10);     00589000          
+  B53-MOV-FUN1        "FUNCIONARIO 1                 " NUMBER (08);     00590000          
+  B53-MOV-FUN2        "FUNCIONARIO 2                 " NUMBER (08);     00591000          
+  B53-MOV-SISORI      "SISTEMA ORIGEN                " NUMBER (04);     00592000          
+  B53-MOV-PRDORI      "PRODUCTO ORIGEN               " NUMBER (04);     00593000          
+  B53-MOV-INSORI      "INSTRUMENTO ORIGEN            " NUMBER (02);     00594000          
+  B53-MOV-CVEORI      "CLAVE TRANSACCION ORIGEN      " NUMBER (04);     00595000          
+  B53-MOV-CONORI      "CUENTA/CONTRATO ORIGEN        " NUMBER (20);     00596000          
+  B53-MOV-REFLOCBNM   "REFERENCIA LOCALIZACION BNM   " ALPHA  (14);     00597000          
+  B53-MOV-FILXAPL     "DATOS VARIABLES POR APLICACION" ALPHA  (120);    00598000          
+  B53-MOV-LEY1        "LEYENDA 1                     " ALPHA  (40);     00599000          
+  B53-MOV-CONDES      "CONTINUACION DE DESCRIPCIONES " NUMBER (02);     00600000          
+                                                                        00601000          
+ )                                                                      00602000          
+                                                                        00603000          
+  POPULATION = 2500000                                                  00604000          
+ ;                                                                      00605000          
+                                                                        00606000          
+%*********************************************************************  00607000          
+ B53SXDATADIERR                SET OF S151B53DATADIERR                  00608000          
+%*********************************************************************  00609000          
+ KEY IS (B53-MOV-SEC)                                                   00610000          
+                                                                        00611000          
+ , POPULATION = 2500000                                                 00612000          
+ , NO DUPLICATES                                                        00613000          
+ , INDEX SEQUENTIAL                                                     00614000          
+ ;                                                                      00615000          
+                                                                        00616000          
+$PAGE                                                                   00617000          
+%*********************************************************************  00618000          
+ S151B54CONDATERR     DATA SET       % PREFIJO B53                      00619000          
+%*********************************************************************  00620000          
+ (B54-MOV-SEC         "SECUENCIAL DE GRABACION       " NUMBER (10);     00621000          
+  B54-MOV-NUMDES      "CONTINUACION DE DESCRIPCIONES " NUMBER (02);     00622000          
+  B54-MOV-LEY2        "LEYENDA 2                     " ALPHA  (40);     00623000          
+  B54-MOV-LEY3        "LEYENDA 3                     " ALPHA  (40);     00624000          
+  B54-MOV-LEY4        "LEYENDA 4                     " ALPHA  (40);     00625000          
+  B54-MOV-LEY5        "LEYENDA 5                     " ALPHA  (40);     00626000          
+  B54-MOV-CONDES      "SI MAS DESCRIPCIONES          " NUMBER (02);     00627000          
+                                                                        00628000          
+ )                                                                      00629000          
+                                                                        00630000          
+  POPULATION = 2500000                                                  00631000          
+ ;                                                                      00632000          
+                                                                        00633000          
+%*********************************************************************  00634000          
+ B54SXCONDATERR                SET OF S151B54CONDATERR                  00635000          
+%*********************************************************************  00636000          
+ KEY IS (B54-MOV-SEC,                                                   00637000          
+         B54-MOV-NUMDES)                                                00638000          
+                                                                        00639000          
+ , POPULATION = 2500000                                                 00640000          
+ , NO DUPLICATES                                                        00641000          
+ , INDEX SEQUENTIAL                                                     00642000          
+ ;                                                                      00643000          
+                                                                        00644000          
+%$PAGE                                                                  00645000          
+%***********************************************************************00646000          
+%S151B99REINMOV          RESTART DATA SET     %PREFIJO S151B19REINICIO  00647000          
+%***********************************************************************00648000          
+% ( B99-REI-PROGRAM                                  NUMBER (8);        00649000          
+%   B99-REI-USERINFO                                 ALPHA  (176);      00650000          
+% )                                                                     00651000          
+% POPULATION=100;                                                       00652000          
+%                                                                       00653000          
+%***********************************************************************00654000          
+%B99SXREINMOV                       SET OF S151B99REINMOV               00655000          
+%***********************************************************************00656000          
+%    KEY IS (B99-REI-PROGRAM )                                          00657000          
+%   ,DUPLICATES LAST                                                    00658000          
+%   ,INDEX SEQUENTIAL                                                   00659000          
+%   ;                                                                   00660000          
+S151BD12MC001S151(GUARDFILE=(S151)S151/FILE/GUARDFILE/S151BD12MC001S151 00660100          
+                 ON CMEMP);                                             00660200          

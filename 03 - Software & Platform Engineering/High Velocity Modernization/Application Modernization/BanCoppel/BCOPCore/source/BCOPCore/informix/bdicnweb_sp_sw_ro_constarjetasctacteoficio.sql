@@ -1,0 +1,567 @@
+CREATE PROCEDURE "informix".sp_sw_ro_constarjetasctacteoficio(pUsuario CHAR(8), pIdFuncion CHAR(20), pIdOficio INT, pIdCliente INT, pNumCuenta CHAR(20))
+        RETURNING CHAR(5) AS codret,
+                CHAR(20) AS num_tarjeta;
+				
+        DEFINE iSqlErr INT;
+        DEFINE cCodRet CHAR(5);
+        DEFINE cNumTarjeta CHAR(20);
+        DEFINE iNoRegs INT;
+        LET iSqlErr = 0;
+        LET cCodRet = '00000';
+        LET cNumTarjeta = '';
+        LET iNoRegs = 0;
+        
+        BEGIN
+                ON EXCEPTION SET iSqlErr
+                        IF iSqlErr <> 0 THEN
+                                LET cCodRet = iSqlErr;
+                                RETURN cCodRet, cNumTarjeta;
+                        END IF;
+                END EXCEPTION;
+				
+				--SET DEBUG FILE TO '/tmp/mfinis/sp_sw_ro_constarjetasctacteoficio.out';
+				--TRACE ON;
+                
+				IF pUsuario = ''OR pIdFuncion = '' OR pIdOficio = '' OR pIdCliente = '' OR pNumCuenta = '' THEN
+					LET cCodRet = '00003';
+					RETURN cCodRet, cNumTarjeta;
+                END IF;
+                
+				-- VALIDACION DE ACCESO A LA FUNCIONALIDAD
+                EXECUTE FUNCTION bdinteg:sp_cnsif_confirmaejecutivo(pUsuario, pIdFuncion) INTO cCodRet;
+                IF cCodRet <> '00000' THEN
+                        RETURN cCodRet, cNumTarjeta;
+                END IF;
+				
+                SET ISOLATION TO DIRTY READ;
+                FOREACH
+                        SELECT num_tarjeta
+                        INTO cNumTarjeta
+                        FROM v_sw_ro_tarjetasclientes
+                        WHERE id_oficio = pIdOficio 
+                                AND id_resulcte = pIdCliente 
+                                AND cuenta = pNumCuenta
+								AND ind_reportar
+								
+                        LET iNoRegs = iNoRegs + 1;
+                        
+						RETURN cCodRet, cNumTarjeta WITH RESUME;
+                END FOREACH;
+                
+				IF iNoRegs = 0 THEN
+                        LET cCodRet = '1001';
+                        RETURN cCodRet, cNumTarjeta;
+                END IF;
+        END
+		
+END PROCEDURE
+DOCUMENT 'AUTOR: Oscar Flores Conde',
+'FECHA: 24/09/2014',
+'DESCRIPCION: Se cambia el procedimiento para solo devolver las tarjetas seleccionadas';
+
+CREATE PROCEDURE "informix".sp_sw_ro_constarjetascte(pUsuario CHAR(8), pIdFunciON CHAR(10), pIdOficio INT, pIdBusqueda INT, 
+                                                                                        pIdCliente INT, pRegistros INT, pRecuperaciON INT)
+        RETURNING CHAR(5) AS codret,
+                        CHAR(2) AS tipo_cuenta,
+                        CHAR(20) AS cuenta,
+                        CHAR(20) AS num_tarjeta,
+                        CHAR(20) AS status_tarjeta,
+						INTEGER AS id_tarjeta,
+						CHAR(1) AS ind_reporte;
+						
+        DEFINE cCodRet CHAR(5);
+        DEFINE cTipoCuenta CHAR(2);
+        DEFINE cNumTarjeta CHAR(20);
+        DEFINE cStatusTarjeta CHAR(20);
+        DEFINE cCuenta CHAR(20);
+        DEFINE iNoRegistros INTEGER;
+		DEFINE iIdTarjeta INTEGER;
+		DEFINE cIndReporte CHAR(1);
+		
+        LET cCodRet = '';
+        LET cTipoCuenta = '';
+        LET cNumTarjeta = '';
+        LET cStatusTarjeta = '';
+        LET iNoRegistros = 0;
+        LET cCuenta = '';
+		LET iIdTarjeta = 0;
+		LET cIndReporte = '';
+        
+        BEGIN
+                IF pUsuario = '' OR pIdFunciON = ''
+                                 OR pIdOficio = ''
+                                 OR pIdBusqueda = ''
+                                 OR pIdCliente = ''
+                                 OR pRegistros = ''
+                                 OR pRecuperaciON = '' THEN
+					LET cCodRet = '00003';
+					RETURN cCodRet, cTipoCuenta, cCuenta, cNumTarjeta, cStatusTarjeta, iIdTarjeta, cIndReporte;
+                END IF; 
+                -- VALIDACION DE ACCESO A LA FUNCIONALIDAD
+                EXECUTE FUNCTION bdinteg:sp_cnsif_confirmaejecutivo(pUsuario, pIdFuncion) INTO cCodRet;
+                IF cCodRet <> '00000' THEN
+					RETURN cCodRet, cTipoCuenta, cCuenta, cNumTarjeta, cStatusTarjeta, iIdTarjeta, cIndReporte;
+                END IF;
+				
+                SET ISOLATION TO DIRTY READ;
+                FOREACH SELECT SKIP pRegistros FIRST pRecuperaciON tipo_cuenta, num_tarjeta, status_tarjeta, cuenta, id_tarjeta, DECODE(ind_reportar, 't', '1', '0')
+                                INTO cTipoCuenta, cNumTarjeta, cStatusTarjeta, cCuenta, iIdTarjeta, cIndReporte
+                                FROM v_sw_ro_tarjetasclientes
+                                WHERE id_oficio = pIdOficio 
+                                        AND id_busqueda = pIdBusqueda 
+                                        AND id_resulcte = pIdCliente
+                                LET iNoRegistros = iNoRegistros + 1;
+                                
+					RETURN cCodRet, cTipoCuenta, cCuenta, cNumTarjeta, cStatusTarjeta, iIdTarjeta, cIndReporte WITH resume;
+                END FOREACH;
+				
+                IF iNoRegistros = 0 THEN
+                        RETURN cCodRet, cTipoCuenta, cCuenta, cNumTarjeta, cStatusTarjeta, iIdTarjeta, cIndReporte;
+                END IF;
+        END
+END PROCEDURE
+DOCUMENT 'FECHA: 26/08/2014',
+'AUTOR: Oscar Flores Conde',
+'DESCRIPCION: Se aumenta el id de la tarjeta para que se pueda actualizar al reportarla o no, asÃ­ como su estatus de seleccionada';
+
+CREATE PROCEDURE "informix".sp_sw_ro_finalizaoficio(pUsuario CHAR(8), pIdFunciON CHAR(10), pIdOficio INT)
+        RETURNING CHAR(5) AS codret,
+                INT AS movimientos,
+                INT AS imagenes,
+                INT AS tabla_tmp,
+                INT AS ctas
+        DEFINE iSqlErr INT;
+        DEFINE cCodRet CHAR(5);
+        DEFINE iMovtos INT;
+        DEFINE iImagenes INT;
+        DEFINE iTmp INT;
+        DEFINE iCtas INT;
+        LET iSqlErr = 0;
+        LET cCodRet = '00000';
+        LET iMovtos = 0;
+        LET iImagenes = 0;
+        LET iTmp = 0;
+        LET iCtas = 0;
+        
+        BEGIN
+                ON EXCEPTION SET iSqlErr
+                        IF iSqlErr <> 0 THEN
+                                LET cCodRet = iSqlErr;
+                                RETURN cCodRet, iMovtos, iImagenes, iTmp, 
+                                                iCtas;
+                        END IF;
+                END EXCEPTION;
+                IF pUsuario = ''OR pIdFunciON = ''OR pIdOficio = '' THEN
+                        LET cCodRet = '00003';
+                        RETURN cCodRet, iMovtos, iImagenes, iTmp, 
+                                        iCtas;
+                END IF;
+                -- VALIDACION DE ACCESO A LA FUNCIONALIDAD
+                EXECUTE FUNCTION bdinteg:sp_cnsif_confirmaejecutivo(pUsuario, pIdFuncion) 
+                INTO cCodRet;
+                IF cCodRet <> '00000' THEN
+                        RETURN cCodRet, iMovtos, iImagenes, iTmp, 
+                                        iCtas;
+                END IF;
+                
+				-- SE ELIMINAN LOS REGISTROS DE LA TABLA TEMPORAL
+                DELETE FROM sw_ro_ctascliente_temp 
+                WHERE id_oficio = pIdOficio;
+                LET iTmp = dbinfo('sqlca.sqlerrd2');
+                
+				RETURN cCodRet, iMovtos, iImagenes, iTmp, iCtas;
+        END
+END PROCEDURE
+DOCUMENT 'AUTOR: Oscar Flores Conde',
+'FECHA: 22/10/2014',
+'DESCRIPCION: Se eliminan las sentencias que eliminaban los regitros del oficio para posteriormente recuperarlos';
+
+CREATE PROCEDURE "informix".sp_sw_ro_guardafacultadosoficio(pUsuario CHAR(8), pIdFunciON CHAR(10), pIdOficio INT, pIdFacultado INT, 
+							pIdRolFunciON INT, pIp CHAR(15), pMac CHAR(12), pStatus CHAR(1))
+	RETURNING CHAR(5) AS codret
+	DEFINE cCodRet CHAR(5);
+	DEFINE iSqlErr INT;
+	DEFINE cExiste CHAR(1);
+	LET cCodRet = '';
+	LET iSqlErr = '';
+	LET cExiste = '';
+	BEGIN
+		ON EXCEPTION SET iSqlErr
+			IF iSqlErr <> 0 THEN
+				LET cCodRet = iSqlErr;
+				RETURN cCodRet;
+			END IF;
+		END EXCEPTION;
+		IF pUsuario = ''OR pIdFunciON = ''
+				OR pIdOficio = ''
+				OR pIdFacultado = ''
+				OR pIdRolFunciON = ''
+				OR pIp = ''
+				OR pMac = '' 
+			THEN
+				LET cCodRet = '00003';
+				RETURN cCodRet;
+		END IF;
+		-- VALIDACION DE ACCESO A LA FUNCIONALIDAD
+		EXECUTE FUNCTION bdinteg:sp_cnsif_confirmaejecutivo(pUsuario, pIdFuncion) 
+		INTO cCodRet;
+		IF cCodRet <> '00000' THEN
+			RETURN cCodRet;
+		END IF;
+ 
+ 		SELECT 1 INTO cExiste
+		FROM sw_ro_oficio_facultados WHERE 
+		id_oficio = pIdOficio AND
+		id_facultado = pIdFacultado AND
+		id_rolfuncion = pIdRolFuncion AND
+		user_INSERT = pUsuario AND
+		ip_INSERT = pIp AND
+		mac_INSERT = pMac;
+
+		IF cExiste = 1 THEN
+			UPDATE sw_ro_oficio_facultados 
+			SET status = pStatus WHERE  
+				id_oficio = pIdOficio AND
+				id_facultado = pIdFacultado AND
+				id_rolfuncion = pIdRolFuncion AND
+				user_INSERT = pUsuario AND
+				ip_INSERT = pIp AND
+				mac_INSERT = pMac;
+		ELSE
+			INSERT INTO sw_ro_oficio_facultados(id_oficio, id_facultado, id_rolfuncion, 
+			status, user_INSERT, ip_INSERT, mac_INSERT)
+				VALUES(pIdOficio, pIdFacultado, pIdRolFuncion, pStatus, pUsuario, pIp, pMac);
+			UPDATE sw_ro_maeoficios
+			SET ind_terminado = '1'
+			WHERE id_oficio = pIdOficio;
+		END IF;
+		RETURN cCodRet;
+	END
+END PROCEDURE
+DOCUMENT "AUTOR: Esparza Brenis Fernando Martin",
+"FECHA: 16/10/2014",
+"DESCRIPCION MODIFICACIÃN: Se agrega el parametro pStatus y una validaciÃ³n donde inserte o modifique segun si existe o no el registro";
+
+CREATE PROCEDURE "informix".sp_catalogoproductosreportesic(pUsuario CHAR(8), pIdFuncion CHAR(10))
+		RETURNING CHAR(5) AS codret,
+				  CHAR(4) AS IdProducto,
+				  CHAR(80) AS cDescripcionProducto;
+				  
+	DEFINE cCodRet CHAR(5);
+	DEFINE iSqlErr INTEGER;
+	DEFINE cIdProducto CHAR(4);
+	DEFINE cDescripcionProducto CHAR(80);
+	
+	LET cCodRet = '00000';
+	LET iSqlErr = 0;
+	LET cIdProducto = '';
+	LET cDescripcionProducto = '';
+	
+	
+	BEGIN
+		ON EXCEPTION SET iSqlErr
+			LET cCodRet = iSqlErr;
+			RETURN cCodRet, cIdProducto, cDescripcionProducto;
+		END EXCEPTION;
+		
+		--SET DEBUG FILE TO '/tmp/mfinis/sp_catalogoproductosreportesic.out';
+		--TRACE ON;
+		
+		IF pUsuario = '' OR pIdFuncion = '' THEN
+			LET cCodRet = '00003';
+			RETURN cCodRet, cIdProducto, cDescripcionProducto;
+		END IF;
+		
+		
+		-- VALIDACION DE ACCESO A LA FUNCIONALIDAD
+		EXECUTE PROCEDURE bdinteg:'informix'.sp_cnsif_confirmaejecutivo(pUsuario, pIdFuncion) INTO cCodRet;
+		IF cCodRet <> '00000' THEN
+			RETURN cCodRet, cIdProducto, cDescripcionProducto;
+		END IF;
+		
+		FOREACH
+			SELECT num_producto, nombre_prod INTO cIdProducto, cDescripcionProducto  FROM bdicred:sd_definicion  
+			WHERE empresa = '001' AND num_producto in ('6001','6011','6300','6400','6600')
+			ORDER BY num_producto::INTEGER ASC
+			
+			RETURN cCodRet, cIdProducto, cDescripcionProducto WITH RESUME;
+		END FOREACH;
+		
+		IF DBINFO('sqlca.sqlerrd2')= 0 THEN
+			LET cCodRet = '00017';
+			RETURN cCodRet, cIdProducto, cDescripcionProducto;
+		END IF;
+	END;
+	
+END PROCEDURE
+DOCUMENT 'AUTOR: SAUL ORTIZ BAEZA',
+'FECHA: 02/06/2014',
+'DESCRIPCION: Consulta de productos BanCoppel',
+'BD: bdicnweb';
+
+CREATE PROCEDURE "informix".sp_sw_ro_buscaxnombre(pIdUsuario CHAR(8), pIdFunciON CHAR(10), pIdBusqueda INT, pIdOficio INT, 
+										pTipoBusquedaPersona CHAR(1), pNombre1 CHAR(26), pNombre2 CHAR(26), pApPaterno CHAR(26), 
+								pApMaterno CHAR(26), pRazonSocial CHAR(60), pFechaNacimiento DATE, pTipoCuenta CHAR(2), pIp CHAR(15), 
+										pMac CHAR(12), pNumRegistro INT, pRecuperaciON INT)
+RETURNING CHAR(5)  AS codret,
+	CHAR(20) AS numerocliente,
+	CHAR(13) AS rfc,
+	CHAR(1)  AS nivelcliente,
+	CHAR(26) AS nombre1,
+	CHAR(26) AS nombre2,
+	CHAR(26) AS ap_paterno,
+	CHAR(26) AS ap_materno,
+	CHAR(60) AS razon_social,
+	CHAR(2)  AS tipo_persona,
+	CHAR(1)  AS tipo_cliente,
+	INT      AS status_busqueda,
+	CHAR(20) AS desc_status_busqueda,
+	INT      AS id_encontrado
+	DEFINE cCodRet CHAR(5);
+	DEFINE dFechaNacimiento DATE;
+	-- Variables de retorno
+	DEFINE cNumeroCliente CHAR(20);
+	DEFINE cRfc CHAR(13);
+	DEFINE cNivelCliente CHAR(1);
+	DEFINE cNombre1 CHAR(26);
+	DEFINE cNombre2 CHAR(26);
+	DEFINE cApPaterno CHAR(26);
+	DEFINE cApMaterno CHAR(26);
+	DEFINE cRazonSocial CHAR(60);
+	DEFINE iNoRegistros INT;
+	DEFINE cEtiqueta CHAR(20);
+	DEFINE iStatusBusqueda SMALLINT;
+	DEFINE cTipoPersona CHAR(2);
+	DEFINE cTipoCliente CHAR(1);
+	DEFINE cCodRetSp CHAR(5);
+	DEFINE iRegsProc INT;
+	DEFINE iRegsProcHomonimos INT;
+	DEFINE iIdGenerado INT;
+	DEFINE iNivel INT;
+	-- -- -- --
+	LET cCodRet = '00000';
+	LET dFechaNacimiento = pFechaNacimiento;
+	LET cNumeroCliente = '';
+	LET cRfc = '';
+	LET cNivelCliente = '';
+	LET cNombre1 = '';
+	LET cNombre2 = '';
+	LET cApPaterno = '';
+	LET cApMaterno = '';
+	LET cRazonSocial = '';
+	LET iNoRegistros = 0;
+	LET cEtiqueta = 'NO LOCALIZADO';
+	LET iStatusBusqueda = 0; -- 0. No encontrado, 1. Encontrado, 2. Homonimo
+	LET cTipoPersona = '';
+	LET cTipoCliente = '';
+	LET cCodRetSp = '';
+	LET iRegsProc = 0;
+	LET iIdGenerado = 0;
+	LET iRegsProcHomonimos = 0;
+	LET iNivel = 0;
+	
+	BEGIN
+		SET ISOLATION TO DIRTY READ;
+		FOREACH
+			EXECUTE PROCEDURE bdinteg:sp_cnsif_buscacte(pIdUsuario, pIdFuncion, pTipoBusquedaPersona, pNombre1, 
+														pNombre2, pApPaterno, pApMaterno, dFechaNacimiento,					
+														pRazonSocial, pNumRegistro, pRecuperacion)
+			INTO cCodRet, cNumeroCliente, cRfc, cNivelCliente, 
+					cNombre1, cNombre2, cApPaterno, cApMaterno, 
+					cRazonSocial 
+			LET iNoRegistros = iNoRegistros + 1;
+		END FOREACH;
+		IF cCodRet <> '00000' THEN
+			EXECUTE PROCEDURE sp_sw_ro_bitacoraresultados(pIdUsuario, pIdBusqueda, pIdOficio, pApPaterno, 
+															pApMaterno, pNombre1, pNombre2,pRazonSocial,
+															'', '', '', '', 
+															pTipoCuenta,cTipoCliente, iStatusBusqueda, pIp,
+															pMac)
+			INTO cCodRetSp, iRegsProc;
+			IF cCodRetSp <> '00000' THEN
+				RETURN cCodRetSp, cNumeroCliente, cRfc, cNivelCliente, 
+						pNombre1, pNombre2, pApPaterno, pApMaterno, 
+						pRazonSocial, cTipoPersona, cTipoCliente, iStatusBusqueda, 
+						cEtiqueta, 0;
+			END IF;
+			LET cCodRet = '00000';
+			LET cNivelCliente = '9';
+			RETURN cCodRet, cNumeroCliente, cRfc, cNivelCliente, 
+					pNombre1, pNombre2, pApPaterno, pApMaterno, 
+					pRazonSocial, cTipoPersona, cTipoCliente, iStatusBusqueda, 
+					cEtiqueta, iRegsProc;
+		END IF;
+		IF iNoRegistros > 1 THEN -- Se encontrarON homonimos
+			LET cEtiqueta = 'HOMONIMO';
+			LET iStatusBusqueda = 2;
+			LET cNumeroCliente = '';
+			LET cRfc = '';
+			LET cNivelCliente = '9';
+			LET cCodRet = '00000';
+			LET cTipoPersona = pTipoBusquedaPersona;
+			LET cTipoCliente = ''; 
+			
+			EXECUTE PROCEDURE sp_sw_ro_bitacoraresultados(pIdUsuario, pIdBusqueda, pIdOficio, pApPaterno, 
+															pApMaterno, pNombre1, pNombre2, pRazonSocial, 
+															cRfc, cNumeroCliente, '', '', 
+															pTipoCuenta, cTipoCliente, iStatusBusqueda, pIp, 
+															pMac)
+			INTO cCodRetSp, iRegsProc;
+			
+			LET iRegsProc = 0;
+			RETURN cCodRetSp, cNumeroCliente, cRfc, cNivelCliente, 
+						pNombre1, pNombre2, pApPaterno, pApMaterno, 
+						pRazonSocial, cTipoPersona, cTipoCliente, iStatusBusqueda, 
+						cEtiqueta, iRegsProc;
+			
+			--SET ISOLATION TO DIRTY READ;
+			--FOREACH
+			--	EXECUTE PROCEDURE bdinteg:sp_cnsif_buscacte(pIdUsuario, pIdFuncion, pTipoBusquedaPersona, pNombre1, 
+			--												pNombre2, pApPaterno, pApMaterno, dFechaNacimiento,
+			--												pRazonSocial, pNumRegistro, pRecuperacion)
+			--	INTO cCodRet, cNumeroCliente, cRfc, cNivelCliente, 
+			--			cNombre1, cNombre2, cApPaterno, cApMaterno, 
+			--			cRazonSocial
+			--	LET cEtiqueta = 'HOMONIMO';
+			--	LET iStatusBusqueda = 2;
+			--	SET ISOLATION TO DIRTY READ;
+			--	SELECT tpo_persona, tipo_cliente 
+			--	INTO cTipoPersona, cTipoCliente 
+			--	FROM bdinteg:si_cliente 
+			--	WHERE numcte = cNumeroCliente;
+			--	EXECUTE PROCEDURE sp_sw_ro_bitacoraresultadoshom(pIdUsuario, pIdBusqueda, pIdOficio, cApPaterno, 
+			--													cApMaterno, cNombre1, cNombre2, cRazonSocial,
+			--													cRfc, cNumeroCliente, '', '',
+			--													pTipoCuenta, cTipoCliente, iStatusBusqueda, pIp, 
+			--													pMac)
+			--	INTO cCodRetSp, iRegsProc;
+			--	RETURN cCodRet, cNumeroCliente, cRfc, cNivelCliente, 
+			--			pNombre1, pNombre2, pApPaterno, pApMaterno, 
+			--			pRazonSocial, cTipoPersona, cTipoCliente, iStatusBusqueda, 
+			--			cEtiqueta, iRegsProc 
+			--			WITH resume;
+			--	
+			--	IF iNoRegistros < pRecuperaciON THEN
+			--		SET ISOLATION TO DIRTY READ;
+			--		FOREACH 
+			--			SELECT numcte, rfc, nombre1, nombre2, 
+			--				apell_paterno, apell_materno, razon_social
+			--			INTO cNumeroCliente, cRfc, cNombre1, cNombre2, 
+			--				cApPaterno, cApMaterno, cRazonSocial
+			--			FROM sw_ro_resulper_homonimos
+			--			WHERE id_oficio = pIdOficio 
+			--				AND id_busqueda = pIdBusqueda
+			--			SET ISOLATION TO DIRTY READ;
+			--			SELECT tpo_persona, tipo_cliente 
+			--			INTO cTipoPersona, cTipoCliente 
+			--			FROM bdinteg:si_cliente 
+			--			WHERE numcte = cNumeroCliente;
+			--			LET cCodRet = '00000';
+			--			LET cNivelCliente = '9';
+			--			LET cEtiqueta = 'HOMONIMO';
+			--			LET iStatusBusqueda = 2;
+			--			EXECUTE PROCEDURE sp_sw_ro_bitacoraresultados(pIdUsuario, pIdBusqueda, pIdOficio, cApPaterno, 
+			--															cApMaterno, cNombre1, cNombre2, cRazonSocial, 
+			--															cRfc, cNumeroCliente, '', '', 
+			--															pTipoCuenta, cTipoCliente, iStatusBusqueda, pIp, 
+			--															pMac)
+			--			INTO cCodRetSp, iRegsProc;
+			--		END FOREACH;
+			--	-- Eliminamos de la tabla temporal
+			--		DELETE FROM sw_ro_resulper_homonimos
+			--		WHERE id_oficio = pIdOficio 
+			--			AND id_busqueda = pIdBusqueda;
+			--	END IF;
+			--END FOREACH;
+		END IF;
+		IF iNoRegistros = 1 THEN -- Se encontro un cliente
+			SET ISOLATION TO DIRTY READ;
+			FOREACH
+				EXECUTE PROCEDURE bdinteg:sp_cnsif_buscacte(pIdUsuario, pIdFuncion, pTipoBusquedaPersona, pNombre1, 
+															pNombre2, pApPaterno, pApMaterno, dFechaNacimiento,
+															pRazonSocial, pNumRegistro, pRecuperacion)
+				INTO cCodRet, cNumeroCliente, cRfc, cNivelCliente, 
+						cNombre1, cNombre2, cApPaterno, cApMaterno, 
+						cRazonSocial
+				EXECUTE PROCEDURE bdinteg:"informix".sp_cnsif_valida_nivelacceso_funcionalidad(pIdUsuario, pIdFuncion) INTO cCodRet, iNivel;
+				IF iNivel=0 THEN
+					LET cCodRet = '00076';
+					RETURN cCodRet, '', '', '', '', '', '', '', '', '', '', '', '', '';
+				ELSE
+					IF  cNivelCliente::INT < iNivel::INT THEN
+						LET cCodRet = '00075';
+						RETURN cCodRet, '', '', '', '', '', '', '', '', '', '', '', '', '';
+					END IF;
+				END IF;
+				-- Se busca el tipo de cliente y el tipo de persona
+				SET ISOLATION TO DIRTY READ;
+				FOREACH
+				SELECT tpo_persona, tipo_cliente 
+				INTO cTipoPersona, cTipoCliente 
+				FROM bdinteg:si_cliente 
+				WHERE numcte = cNumeroCliente
+				UNION
+				SELECT '01' as tpo_persona, '1' as tipo_cliente 
+				FROM bditransfer:tf_maecte 
+				WHERE numcte_tf = cNumeroCliente
+				END FOREACH;
+
+				LET cEtiqueta = 'LOCALIZADO';
+				LET iStatusBusqueda = 1;
+				-- Se almacena la busqueda
+				EXECUTE PROCEDURE sp_sw_ro_bitacoraresultados(pIdUsuario, pIdBusqueda, pIdOficio,cApPaterno, 
+																cApMaterno, cNombre1, cNombre2, cRazonSocial, 
+																cRfc, cNumeroCliente, '', '',
+																pTipoCuenta, cTipoCliente, iStatusBusqueda, pIp, 
+																pMac)
+				INTO cCodRetSp, iIdGenerado;
+				IF cCodRetSp <> '00000' THEN
+					RETURN cCodRetSp, cNumeroCliente, cRfc, cNivelCliente, 
+							pNombre1, pNombre2, pApPaterno, pApMaterno, 
+							pRazonSocial, cTipoPersona, cTipoCliente, iStatusBusqueda, 
+							cEtiqueta, 0;
+				END IF;
+				-- Se almacena al cliente encontrado
+				EXECUTE PROCEDURE sp_sw_ro_bitacoracteenc(pIdUsuario, pIdBusqueda, pIdOficio, iIdGenerado, 
+															cNumeroCliente, cApPaterno, cApMaterno, cNombre1, 
+															cNombre2, cRazonSocial, cRfc, pIp, 
+															pMac)
+				INTO cCodRetSp, iRegsProc;
+				IF cCodRetSp <> '00000' THEN
+					RETURN cCodRetSp, cNumeroCliente, cRfc, cNivelCliente, 
+							pNombre1, pNombre2, pApPaterno, pApMaterno, 
+							pRazonSocial, cTipoPersona, cTipoCliente, iStatusBusqueda, 
+							cEtiqueta, 0;
+				END IF;
+				-- Se buscan las cuentas y participaciones del cliente
+				IF cTipoCliente = '1' THEN
+					EXECUTE PROCEDURE sp_sw_ro_consctascteparticipacion(pIdUsuario, pIdFuncion, pIdOficio, pIdBusqueda, 
+																		iRegsProc, cNumeroCliente, pRecuperacion, pIp, 
+																		pMac) 
+					INTO cCodRetSp;
+					IF cCodRetSp <> '00000' THEN
+						RETURN cCodRetSp, 'En 1 part', cRfc, cNivelCliente, 
+								pNombre1, pNombre2, pApPaterno, pApMaterno, 
+								pRazonSocial, cTipoPersona, cTipoCliente, iStatusBusqueda, 
+								cEtiqueta, iRegsProc;
+					END IF;
+				ELIF cTipoCliente = '2' THEN
+					EXECUTE PROCEDURE sp_sw_ro_buscaparticipacion(pIdUsuario, pIdOficio, pIdBusqueda, iRegsProc, 
+																	cNumeroCliente, pIp, pMac) 
+					INTO cCodRetSp;
+					IF cCodRetSp <> '00000' THEN
+						RETURN cCodRetSp, 'en 2 part', cRfc, cNivelCliente,
+								pNombre1, pNombre2, pApPaterno, pApMaterno, 
+								pRazonSocial, cTipoPersona, cTipoCliente, iStatusBusqueda, 
+								cEtiqueta, iRegsProc;
+					END IF;
+				END IF;
+				RETURN cCodRet, cNumeroCliente, cRfc, cNivelCliente, 
+						pNombre1, pNombre2, pApPaterno, pApMaterno, 
+						pRazonSocial, cTipoPersona, cTipoCliente, iStatusBusqueda, 
+						cEtiqueta, iRegsProc;
+			END FOREACH;
+		END IF;
+	END
+
+END PROCEDURE;

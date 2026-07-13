@@ -1,0 +1,1960 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%             00001000
+                                                                                  00002000
+ BEGIN JOB S500/WFL/LINEA/24MTP005 (STRING PARAMETRO);                            00003000
+                                                                                  00004000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%             00005000
+%%                   VERSIONES DE WFL Y PROGRAMAS                  %%             00006000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%             00007000
+REAL                                                                              00008000
+     RELWFL :=  24          ,MTPWFL := 005                                        00009000
+    ;                                                                             00010000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%             00011000
+%%          WFL DIARIO DEL SISTEMA DE S500 (LINEA)                 %%             00012000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%             00013000
+%%            PROGRAMA        !        OBJETIVO                    %%             00014000
+%%-----------------------------------------------------------------%%             00015000
+%%                            !                                    %%             00016000
+%%       S500/OBJECT/P010     !        APLICACION                  %%             00017000
+%%       S500/OBJECT/P014     !        CONSULTOR                   %%             00018000
+%%       S500/OBJECT/P015     !        DISPERSADOR                 %%             00019000
+%%       S500/OBJECT/P020     !                                    %%             00020000
+%%       S500/OBJECT/P038     !        MONITOR                     %%             00021000
+%%       S500/OBJECT/P050     !        ACTIVA MEDIOS               %%             00022000
+%%       S500/OBJECT/P060     !                                    %%             00023000
+%%       S500/OBJECT/P080     !        CUENTA ORDENANTE            %%             00023005
+%%       S500/OBJECT/P091     !                                    %%             00024000
+%%       S500/OBJECT/P093     !                                    %%             00025000
+%%                            !                                    %%             00026000
+%%                                                                 %%             00027000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%             00028000
+%%                                                                 %%             00029000
+%%      PARA INCLUIR UN PROGRAMA NUEVO (POR EJEMPLO EL PXXX):      %%             00030000
+%%                                                                 %%             00031000
+%%  - INCLUIR EL NOMBRE DEL PROGRAMA EN LOS COMENTARIOS DONDE SE   %%             00032000
+%%    LISTAN TODOS LOS PROGRAMAS QUE EJECUTA EL WFL.               %%             00033000
+%%                                                                 %%             00034000
+%%  - DECLARAR LA VARIABLE "TXXX" ENTRE LOS TASK PARA LA ASIGNA-   %%             00035000
+%%    CION DE TAREAS.                                              %%             00036000
+%%                                                                 %%             00037000
+%%  - DECLARAR LA VARIABLE "PXXX" ENTRE LOS STRING PARA ASIGNAR    %%             00038000
+%%    NOMBRE DEL PASO.                                             %%             00039000
+%%                                                                 %%             00040000
+%%  - INCLUIR UNA SUBRUTINA "SUBXXX" DONDE SE EJECUTE EL PROGRAMA  %%             00041000
+%%    QUE INCLUYA ON TASKFAULT, ON RESTART, ASIGNACION DE          %%             00042000
+%%    TASKVALUE, FILE EQUATES, ETC. SEGUN NECESITE EL PROGRAMA.    %%             00043000
+%%                                                                 %%             00044000
+%%  - SI SE NECESITA NUEVO PARAMETRO DE INICIO DEL WFL, INCLUIRLO  %%             00045000
+%%    EN EL MENU (INSTRUCTIONS AL PRINCIPIO DEL MAIN BODY) Y EN EL %%             00046000
+%%    "CASE AUX OF" DE ASIGNACION DE NUMERO DE PASO.               %%             00047000
+%%                                                                 %%             00048000
+%%  - INCLUIR EL PARAMETRO DE CORRESOLO EN EL "CASE AUX OF" DE     %%             00049000
+%%    ASIGNACION DE NUMERO DE PASO.                                %%             00050000
+%%                                                                 %%             00051000
+%%  - INCLUIRLO EN EL "CASE PASO OF" PARA EJECUCION DE LA          %%             00052000
+%%    SUBRUTINA SUBXXX.                                            %%             00053000
+%%                                                                 %%             00054000
+%%                                L.MARIN, NOVIEMBRE DE 1991.      %%             00055000
+%%                                                                 %%             00056000
+%%  - INCLUIR LA REMOCION DE BACKUPS REMUEVEBACKUPS(XXX);          %%             00057000
+%%    ANTES DEL LLAMADO DE LA SUBRUTINA SUBXXX                     %%             00058000
+%%                                                                 %%             00059000
+%%  - INCLUIR EN LA SUBRUTINA REMUEVEFILES LA REMOCION             %%             00060000
+%%    DE ARCHIVOS QUE EL NUEVO PASO GENERE.                        %%             00061000
+%%                                                                 %%             00062000
+%%  - SE INCLUYE PASO P038 Y RUTINAS DE ALTA Y BAJA                %%             00063000
+%%                                                                 %%             00064000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%             00065000
+                                                                                  00066000
+INTEGER    % PARA TASKVALUES                                                      00067000
+      VALUE010                                                                    00068000
+     ,VALUE014                                                                    00069000
+     ,VALUE015                                                                    00070000
+     ,VALUE020                                                                    00071000
+     ,VALUE038                                                                    00072000
+     ,VALUE050                                                                    00073000
+     ,VALUE060                                                                    00074000
+     ,VALUE091                                                                    00075000
+     ,VALUE093                                                                    00076000
+     ;                                                                            00077000
+TASK       % PARA TAREAS                                                          00078000
+      T010                                                                        00079000
+     ,T014                                                                        00080000
+     ,T015                                                                        00081000
+     ,T020                                                                        00082000
+     ,T038                                                                        00083000
+     ,T050                                                                        00084000
+     ,T060                                                                        00085000
+     ,T091                                                                        00086000
+     ,T093                                                                        00087000
+     ,TCOMS                                                                       00088000
+     ,TCHECAME                                                                    00089000
+     ,TBASEORI                                                                    00090000
+     ,TBASEAUX                                                                    00091000
+     ,T005                                                                        00091100
+     ,SACATFALLA                                                                  00091200
+     ;                                                                            00092000
+                                                                                  00093000
+INTEGER   % PARA FECHAS NODO Y AUXILIARES                                         00094000
+          FECHAY, NODO, NODOSIST,                                                 00095000
+          FECHAHOST, PASO, MIXPRO                                                 00096000
+         ;                                                                        00097000
+STRING    % PARA ACCEPTS, PARAMETROS, NOMBRES DE PACK, ETC.                       00098000
+          OPCION, MENSAJE, MSGHDR                                                 00099000
+         ,PACK1, PACK2, PACKDMSII, SOFTDMS                                        00100000
+         ,PARAM, SUBPARAM                                                         00101000
+         ,AUX,   AUX1, AUX2, AUX3, AUX4                                           00102000
+         ,AUX5,  AUX6, AUX7, AUX8, AUX9                                           00103000
+         ,QPASO, QBASE, HNAME                                                     00104000
+         ,PREG, TIT, TITLEL020, QPACK, QMTP, QMTPANT, IXX                         00105000
+         ,TITLEL021,TITLEL022,TITLEL023,TITLEL024,TITLEL025                       00106000
+         ,TITLEL026,TITLEL027,TITLEL028,TITLEL029,TITLEPXXX,QTITLEXX              00107000
+         ,P010,P014,P015,P020,P038,P050,P060,P091,P100                            00108000
+         ,S000P100, S500L020,TITLEL039,TITLEL040,TITLEL019,P005                   00109000
+         ,TIT2,FECHVERS,TITLEL070                                                 00109100
+         ;                                                                        00110000
+ INTEGER IDIASEM,IFECHAHOY                                                        00111000
+         ,IFECHAINIMES,IFECHAFINMES,IFECHAANT,IFECHAPROX                          00112000
+         ,IDIA,IMES,IDIAANT,IDIAPROX,CONT,IFESTIVO, FECHALIST                     00113000
+         ;                                                                        00114000
+ BOOLEAN LUNES,MARTES,MIERCOLES,JUEVES,VIERNES                                    00115000
+        ,SABADO,DOMINGO,DIAFINSEM,DIA25                                           00116000
+        ,FESTIVO,DIA1MES,DIA1SEM,DIA5,DIA15,DIA23,DIA24,DIA29,DIA30               00117000
+        ,ESPRODUCCION, MTPOK, INSTALAL020                                         00118000
+        ,ESPBAUAT                                                                 00119000
+        ;                                                                         00120000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                 00121000
+%%   PARA INCLUIR NOMBRES DE PACKS Y JOBATRRIBUTOS POR INCLUDE  %                 00122000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                 00123000
+                                                                                  00124000
+$ INCLUDE S500/WFL/INCLUDE/LINEA/06MTP002 ON CAPTACION                            00125000
+                                                                                  00126000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                 00127000
+%%%%%                CORRE       SACATIT                        %                 00128000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                 00129000
+ SUBROUTINE SACATIT(STRING IDD);                                                  00130000
+ BEGIN                                                                            00131000
+    TASK SACAT;                                                                   00132000
+    RETRYPASO:                                                                    00133000
+    SACAT(STATUS = NEVERUSED);                                                    00134000
+    RUN *S006/OBJECT/SACATIT ON DISK(IDD, TIT REFERENCE)[SACAT];                  00135000
+    IF (SACAT(TASKVALUE) NEQ 0 OR SACAT ISNT COMPLETEDOK) THEN                    00136000
+       BEGIN                                                                      00137000
+          MENSAJE:= MSGHDR                                                        00138000
+                  & "NO PUDE OBTENER TITULO DE "                                  00139000
+                  & IDD &" RETRY SI-NO";                                          00140000
+          PREG:=ACCEPT(MENSAJE);                                                  00141000
+          IF PREG = "SI" THEN                                                     00142000
+             GO TO RETRYPASO                                                      00143000
+          ELSE                                                                    00144000
+            BEGIN                                                                 00145000
+              MENSAJE:= MSGHDR                                                    00146000
+                      & "DAME NOMBRE DE PROGRAMA "                                00147000
+                      & "SXXX/OBJECT/PXXX/XXMTPXXX";                              00148000
+             TIT:=ACCEPT(MENSAJE);                                                00149000
+            END;                                                                  00150000
+       END;                                                                       00151000
+ END;                                                                             00152000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%             00153000
+    SUBROUTINE SEPARATITLE(STRING PARAMTIT);                                      00154000
+       BEGIN                                                                      00155000
+         SUBROUTINE SEPARAESTE(STRING SUBAUX);                                    00156000
+           BEGIN                                                                  00157000
+             SUBPARAM := TAIL(SUBPARAM," ");                                      00158000
+             SUBAUX   := HEAD(SUBPARAM,NOT " ");                                  00159000
+             SUBPARAM := TAIL(SUBPARAM,NOT " ");                                  00160000
+           END;                                                                   00161000
+         SUBPARAM := PARAMTIT;                                                    00162000
+         SEPARAESTE(QTITLEXX);                                                    00163000
+         SEPARAESTE(IXX);                                                         00164000
+         SEPARAESTE(QPACK);                                                       00165000
+       END;                                                                       00166000
+                                                                                  00167000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                      00168000
+    SUBROUTINE VERSIONESL020;                                                     00169000
+       BEGIN                                                                      00170000
+          SACATIT("S500L019SDOS");                                                00170100
+          TITLEPXXX := TIT;                                                       00170200
+          SEPARATITLE(TITLEPXXX);                                                 00170300
+          TITLEL019 := QTITLEXX;                                                  00170400
+          SACATIT("S500L020SDOS");                                                00171000
+          TITLEPXXX := TIT;                                                       00172000
+          SEPARATITLE(TITLEPXXX);                                                 00173000
+          TITLEL020 := QTITLEXX;                                                  00174000
+          SACATIT("S500L021SDOS");                                                00175000
+          TITLEPXXX :=TIT;                                                        00176000
+          SEPARATITLE(TITLEPXXX);                                                 00177000
+          TITLEL021 := QTITLEXX;                                                  00178000
+          SACATIT("S500L022SDOS");                                                00179000
+          TITLEPXXX :=TIT;                                                        00180000
+          SEPARATITLE(TITLEPXXX);                                                 00181000
+          TITLEL022 := QTITLEXX;                                                  00182000
+          SACATIT("S500L023SDOS");                                                00183000
+          TITLEPXXX := TIT;                                                       00184000
+          SEPARATITLE(TITLEPXXX);                                                 00185000
+          TITLEL023 := QTITLEXX;                                                  00186000
+          SACATIT("S500L024SDOS");                                                00187000
+          TITLEPXXX :=TIT;                                                        00188000
+          SEPARATITLE(TITLEPXXX);                                                 00189000
+          TITLEL024 := QTITLEXX;                                                  00190000
+          SACATIT("S500L025SDOS");                                                00191000
+          TITLEPXXX :=TIT;                                                        00192000
+          SEPARATITLE(TITLEPXXX);                                                 00193000
+          TITLEL025 := QTITLEXX;                                                  00194000
+          SACATIT("S500L026SDOS");                                                00194002
+          TITLEPXXX := TIT;                                                       00194004
+          SEPARATITLE(TITLEPXXX);                                                 00194006
+          TITLEL026 := QTITLEXX;                                                  00194008
+          SACATIT("S500L027SDOS");                                                00194010
+          TITLEPXXX := TIT;                                                       00194012
+          SEPARATITLE(TITLEPXXX);                                                 00194014
+          TITLEL027 := QTITLEXX;                                                  00194016
+          SACATIT("S500L028SDOS");                                                00194018
+          TITLEPXXX := TIT;                                                       00194020
+          SEPARATITLE(TITLEPXXX);                                                 00194022
+          TITLEL028 := QTITLEXX;                                                  00194024
+          SACATIT("S500L029SDOS");                                                00194026
+          TITLEPXXX := TIT;                                                       00194028
+          SEPARATITLE(TITLEPXXX);                                                 00194030
+          TITLEL029 := QTITLEXX;                                                  00194032
+       END;                                                                       00195000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                      00196000
+    SUBROUTINE VERSIONESL039;                                                     00197000
+       BEGIN                                                                      00198000
+          SACATIT("S500L039BD04");                                                00199000
+          TITLEPXXX := TIT;                                                       00200000
+          SEPARATITLE(TITLEPXXX);                                                 00201000
+          TITLEL039 := QTITLEXX;                                                  00202000
+       END;                                                                       00203000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                      00204000
+    SUBROUTINE VERSIONESL040;                                                     00205000
+       BEGIN                                                                      00206000
+          SACATIT("S500L040LIGA");                                                00207000
+          TITLEPXXX := TIT;                                                       00208000
+          SEPARATITLE(TITLEPXXX);                                                 00209000
+          TITLEL040 := QTITLEXX;                                                  00210000
+       END;                                                                       00211000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                      00211010
+    SUBROUTINE VERSIONESL070;                                                     00211020
+       BEGIN                                                                      00211030
+          SACATIT("S500L070");                                                    00211040
+          TITLEPXXX := TIT;                                                       00211050
+          SEPARATITLE(TITLEPXXX);                                                 00211060
+          TITLEL070 := QTITLEXX;                                                  00211070
+       END;                                                                       00211080
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                00212000
+%%                                                              %%                00213000
+%%      C A L C U L A    L A    F E C H A   D E   P R O C E S O %%                00214000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                00215000
+ SUBROUTINE CALCULA ( INTEGER IFECHAHOY );                                        00216000
+  BEGIN                                                                           00217000
+    SACATIT("S000FECHAS");S000P100:=TIT;                                          00218000
+%%  RUN *S000/OBJECT/FECHAS/WFL/2K          ON PACK (                             00219000
+    RUN #TIT (                                                                    00220000
+       IFECHAHOY      REFERENCE                                                   00221000
+      ,IFESTIVO       REFERENCE                                                   00222000
+      ,IFECHAPROX     REFERENCE                                                   00223000
+      ,IFECHAANT      REFERENCE                                                   00224000
+      ,IFECHAFINMES   REFERENCE                                                   00225000
+      ,IFECHAINIMES   REFERENCE                                                   00226000
+      ,IDIASEM        REFERENCE                                                   00227000
+      ,IDIAANT        REFERENCE                                                   00228000
+      ,IDIAPROX       REFERENCE);                                                 00229000
+ END;                                                                             00230000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                    00231000
+    SUBROUTINE FECHAS ( INTEGER IFECHAHOY );                                      00232000
+       BEGIN                                                                      00233000
+          CALCULA ( IFECHAHOY );                                                  00234000
+          FECHAY := IFECHAHOY;                                                    00235000
+          IDIA   := IFECHAHOY MOD 100;                                            00236000
+          IMES   := IFECHAHOY DIV 100 MOD 100;                                    00237000
+          IF IFESTIVO = 1 THEN FESTIVO    := FALSE                                00238000
+          ELSE                 FESTIVO    := TRUE ;                               00239000
+          CASE IDIASEM OF                                                         00240000
+            BEGIN                                                                 00241000
+               (0):DOMINGO  := TRUE;                                              00242000
+               (1):LUNES    := TRUE;                                              00243000
+               (2):MARTES   := TRUE;                                              00244000
+               (3):MIERCOLES:= TRUE;                                              00245000
+               (4):JUEVES   := TRUE;                                              00246000
+               (5):VIERNES  := TRUE;                                              00247000
+               (6):SABADO   := TRUE;                                              00248000
+            END;                                                                  00249000
+ %     CALCULO DE DIA ULTIMO HABIL DE MES                                         00250000
+  IF IFECHAHOY DIV 100 MOD 10 NEQ IFECHAPROX DIV 100 MOD 10 THEN                  00251000
+     DIA30 := TRUE                                                                00252000
+  ELSE                                                                            00253000
+     DIA30 := FALSE;                                                              00254000
+ %     CALCULO DE PRIMER DIA HABIL DE MES                                         00255000
+  IF IFECHAHOY DIV 100 MOD 10 NEQ IFECHAANT  DIV 100 MOD 10 THEN                  00256000
+     DIA1MES := TRUE                                                              00257000
+  ELSE                                                                            00258000
+     DIA1MES := FALSE;                                                            00259000
+ %   CALCULO DE PROCESO SEMANAL (FIN DE SEMANA)                                   00260000
+  IF IDIAPROX < IDIASEM  THEN                                                     00261000
+     DIAFINSEM := TRUE                                                            00262000
+  ELSE                                                                            00263000
+     DIAFINSEM := FALSE;                                                          00264000
+ %     CALCULO DE PROCESO QUINCENAL                                               00265000
+  IF IFECHAHOY MOD 100 = 15 OR                                                    00266000
+     DIA30                  OR                                                    00267000
+     ( 15 > IFECHAHOY MOD 100 AND 15 < IFECHAPROX MOD 100 )                       00268000
+  THEN                                                                            00269000
+     DIA15 := TRUE                                                                00270000
+  ELSE                                                                            00271000
+     DIA15 := FALSE;                                                              00272000
+ %      CALCULO DE PROCESO MULTIPLO DE DIA 5 ( 5,10,15,20,25,30)                  00273000
+  IF IFECHAHOY MOD 100 MOD 5 = 0 OR                                               00274000
+     DIA30                       OR                                               00275000
+     DIA15                       OR                                               00276000
+     ( 5  > IFECHAHOY MOD 100 AND  5 < IFECHAPROX MOD 100 ) OR                    00277000
+     ( 10 > IFECHAHOY MOD 100 AND 10 < IFECHAPROX MOD 100 ) OR                    00278000
+     ( 25 > IFECHAHOY MOD 100 AND 25 < IFECHAPROX MOD 100 ) OR                    00279000
+     ( 30 > IFECHAHOY MOD 100 AND 30 < IFECHAPROX MOD 100 )                       00280000
+  THEN                                                                            00281000
+     DIA5  := TRUE                                                                00282000
+  ELSE                                                                            00283000
+     DIA5  := FALSE;                                                              00284000
+ %     CALCULO DE PROCESO AL DIA 24                                               00285000
+  IF IFECHAHOY MOD 100 = 24  OR                                                   00286000
+     ( 24 > IFECHAHOY MOD 100 AND 24 < IFECHAPROX MOD 100 )                       00287000
+  THEN                                                                            00288000
+     DIA24 := TRUE                                                                00289000
+  ELSE                                                                            00290000
+     DIA24 := FALSE;                                                              00291000
+ %     CALCULO DE PROCESO AL DIA 25                                               00292000
+  IF IFECHAHOY MOD 100 = 25  OR                                                   00293000
+     ( 25 > IFECHAHOY MOD 100 AND 25 < IFECHAPROX MOD 100 )                       00294000
+  THEN                                                                            00295000
+     DIA25 := TRUE                                                                00296000
+  ELSE                                                                            00297000
+     DIA25 := FALSE;                                                              00298000
+ %     CALCULO DE PROCESO AL DIA 23                                               00299000
+  IF ( IFECHAHOY MOD 100 = 23  OR                                                 00300000
+     ( 23 > IFECHAHOY MOD 100 AND 23 < IFECHAPROX MOD 100 ))                      00301000
+     AND NOT ( DIA24 )                                                            00302000
+  THEN                                                                            00303000
+     DIA23 := TRUE                                                                00304000
+  ELSE                                                                            00305000
+     DIA23 := FALSE;                                                              00306000
+ %     CALCULO DE PENULTIMO DIA HABIL DE MES                                      00307000
+                                                                                  00308000
+  IF IFECHAPROX = IFECHAFINMES THEN                                               00309000
+     DIA29 := TRUE                                                                00310000
+  ELSE                                                                            00311000
+     DIA29 := FALSE;                                                              00312000
+ %       CALCULO DE PRIMER DIA HABIL DE LA SEMANA                                 00313000
+  IF IDIASEM  < IDIAANT THEN                                                      00314000
+     DIA1SEM := TRUE                                                              00315000
+  ELSE                                                                            00316000
+     DIA1SEM := FALSE;                                                            00317000
+ %       CALCULO DE PROCESO DE DIAS INHABILES ENTRE SEMANA                        00318000
+  IF IDIASEM < IDIAPROX THEN  % ENCIENDE BOOL.DE DIAS PUENTE ENTRE SEM            00319000
+   BEGIN                                                                          00320000
+    CONT := IDIASEM;                                                              00321000
+    DO BEGIN                                                                      00322000
+     CASE CONT OF                                                                 00323000
+      BEGIN                                                                       00324000
+       (0):DOMINGO   := TRUE;                                                     00325000
+       (1):LUNES     := TRUE;                                                     00326000
+       (2):MARTES    := TRUE;                                                     00327000
+       (3):MIERCOLES := TRUE;                                                     00328000
+       (4):JUEVES    := TRUE;                                                     00329000
+       (5):VIERNES   := TRUE;                                                     00330000
+       (6):SABADO    := TRUE;                                                     00331000
+      END;                                                                        00332000
+     CONT := CONT + 1;                                                            00333000
+    END UNTIL CONT = IDIAPROX ;                                                   00334000
+   END;                                                                           00335000
+ % CALCULO DE PROCESO DE DIAS INHABILES AL INICIO DE LA SEMANA                    00336000
+  IF IDIAANT GEQ IDIASEM THEN % ENC. BOOLEAN PUENTE INICIO DE SEMANA              00337000
+   BEGIN                                                                          00338000
+    CONT := 1;                                                                    00339000
+    DO BEGIN                                                                      00340000
+     CASE CONT OF                                                                 00341000
+      BEGIN                                                                       00342000
+       (1):LUNES     := TRUE;                                                     00343000
+       (2):MARTES    := TRUE;                                                     00344000
+       (3):MIERCOLES := TRUE;                                                     00345000
+       (4):JUEVES    := TRUE;                                                     00346000
+       (5):VIERNES   := TRUE;                                                     00347000
+      END;                                                                        00348000
+     CONT := CONT + 1;                                                            00349000
+    END UNTIL CONT GEQ IDIASEM ;                                                  00350000
+   END;                                                                           00351000
+ % CALCULO DE PROCESO DE DIAS INHABILES AL FIN DE LA SEMANA                       00352000
+   IF IDIASEM < 5 AND IDIAPROX LEQ IDIASEM THEN % ENC.BOO.PUENT FIN SEM           00353000
+   BEGIN                                                                          00354000
+    CONT := IDIASEM;                                                              00355000
+    DO BEGIN                                                                      00356000
+     CASE CONT OF                                                                 00357000
+      BEGIN                                                                       00358000
+       (1):LUNES     := TRUE;                                                     00359000
+       (2):MARTES    := TRUE;                                                     00360000
+       (3):MIERCOLES := TRUE;                                                     00361000
+       (4):JUEVES    := TRUE;                                                     00362000
+       (5):VIERNES   := TRUE;                                                     00363000
+      END;                                                                        00364000
+     CONT := CONT + 1;                                                            00365000
+    END UNTIL CONT = 6;                                                           00366000
+   END;                                                                           00367000
+END;                                                                              00368000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%            00369000
+%%                                                                 %%             00370000
+%%                      S E P A R A P A R A M                      %%             00371000
+%%         SEPARA  PALABRAS CLAVES DEL PARAMETRO DE INICIO         %%             00372000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%             00373000
+    SUBROUTINE SEPARAPARAM;                                                       00374000
+       BEGIN                                                                      00375000
+         SUBROUTINE SEPARAESTE(STRING SUBAUX);                                    00376000
+           BEGIN                                                                  00377000
+             SUBPARAM := TAIL(SUBPARAM," ");                                      00378000
+             SUBAUX   := HEAD(SUBPARAM,NOT " ");                                  00379000
+             SUBPARAM := TAIL(SUBPARAM,NOT " ");                                  00380000
+           END;                                                                   00381000
+         SUBPARAM := PARAM;                                                       00382000
+         SEPARAESTE(AUX);                                                         00383000
+         SEPARAESTE(AUX1);                                                        00384000
+         SEPARAESTE(AUX2);                                                        00385000
+         SEPARAESTE(AUX3);                                                        00386000
+         SEPARAESTE(AUX4);                                                        00387000
+         SEPARAESTE(AUX5);                                                        00388000
+         SEPARAESTE(AUX6);                                                        00389000
+         SEPARAESTE(AUX7);                                                        00390000
+         SEPARAESTE(AUX8);                                                        00391000
+         SEPARAESTE(AUX9);                                                        00392000
+       END;                                                                       00393000
+                                                                                  00394000
+ SUBROUTINE FALLA(STRING  PROGRAMA,STRING IDD);                                   00394020
+   BEGIN                                                                          00394022
+       MENSAJE := MSGHDR&"O>030406<"                                              00394024
+                &"FALLA PROGRAMA " & PROGRAMA                                     00394026
+                &", INDICA OPCION:"                                               00394028
+                &", 'R'=REINTENTO(CON ROLLBACK SI ES NECESARIO)"                  00394030
+                &", 'C'=CONTINUA WFL"                                             00394040
+                &", 'T'=TERMINA WFL"                                              00394060
+                &", 'V'=VERSION DIFERENTE EN REINTENTO";                          00394080
+       DO BEGIN                                                                   00394100
+            OPCION := ACCEPT(MENSAJE);                                            00394120
+            OPCION := HEAD(TAIL(OPCION," "),NOT" ");                              00394140
+       END UNTIL OPCION = "R" OR OPCION = "C"                                     00394160
+              OR OPCION = "T" OR OPCION = "V";                                    00394180
+       IF OPCION = "V"  THEN                                                      00394181
+          BEGIN                                                                   00394182
+            MENSAJE:= MSGHDR & "O>030405<"                                        00394183
+                    &"DAME LA FECHA DEL FILE/VERSIONES";                          00394184
+            FECHVERS :=ACCEPT(MENSAJE);                                           00394185
+            FECHVERS :="CAMBIA S500 " &FECHVERS;                                  00394186
+            START *S006/WFL/CAMBIAVER (FECHVERS);                                 00394187
+            MENSAJE:= MSGHDR & "O>030405<"                                        00394188
+                    & "DAME OK CUANDO TERMINE S006/WFL/CAMBIAVER";                00394189
+            WAIT (MENSAJE,OK);                                                    00394190
+            WAIT (90);    % (Dar Tiempo que termine CAMBIAVER)                    00394200
+            RETRYPASO:                                                            00394202
+            SACATFALLA (STATUS=NEVERUSED);                                        00394204
+            RUN *S006/OBJECT/SACATIT ON DISK                                      00394206
+                (IDD,TIT2 REFERENCE)[SACATFALLA];                                 00394208
+            IF (SACATFALLA(TASKVALUE) > 0                                         00394210
+            OR  SACATFALLA ISNT COMPLETEDOK) THEN                                 00394212
+             BEGIN                                                                00394214
+               MENSAJE:= MSGHDR & "O>030405<"                                     00394220
+                       & "S500 NO PUDE OBTENER TITULO DE "                        00394222
+                       & IDD                                                      00394224
+                       & " RETRY SI-NO";                                          00394226
+               PREG := ACCEPT(MENSAJE);                                           00394228
+               IF PREG = "SI" THEN                                                00394230
+                  GO TO RETRYPASO                                                 00394240
+               ELSE                                                               00394242
+            BEGIN                                                                 00394244
+              MENSAJE:= MSGHDR & "O>030405<"                                      00394246
+                      & "DAME NOMBRE DE PROGRAMA "                                00394248
+                      & "S500/OBJECT/PXXX/XXMTPXXX";                              00394250
+              TIT2:=ACCEPT(MENSAJE);                                              00394260
+            END;                                                                  00394262
+         END;                                                                     00394264
+    END;                                                                          00394266
+ ELSE                                                                             00394268
+ IF OPCION = "T" THEN                                                             00394270
+    GO FIN;                                                                       00394280
+                                                                                  00394300
+                                                                                  00394320
+                                                                                  00394340
+                                                                                  00394360
+                                                                                  00394380
+ END;                                                                             00394400
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00395000
+% COPIA DE GUARDFILE                                           %                  00396000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00397000
+    SUBROUTINE COPIAGUARDFILE(STRING NOMBASE,STRING VERMTP);                      00398000
+      BEGIN                                                                       00399000
+        SECURITY S500/FILE/GUARDFILE/#NOMBASE/#VERMTP PUBLIC IO;                  00400000
+        COPY     S500/FILE/GUARDFILE/#NOMBASE/#VERMTP AS                          00401000
+                 S500/FILE/GUARDFILE/#NOMBASE                                     00402000
+             FROM #PACK1(PACK) TO #PACK1(PACK);                                   00403000
+      END;                                                                        00404000
+                                                                                  00405000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00406000
+% COPIA DE LA L020 COMO L021,L022,L023,L024,L025,                                 00407000
+% L026,L027,L028,L029 VIA PARAMETRO %                                             00407002
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00408000
+    SUBROUTINE COPIAL020PAR;                                                      00409000
+      BEGIN                                                                       00410000
+        SECURITY S500/OBJECT/L020/SALDOS/#AUX1 PUBLIC IO;                         00411000
+        ALTER    S500/OBJECT/L019/SALDOS/#AUX1 (SETUSERCODE=TRUE);                00412000
+        COPY     S500/OBJECT/L019/SALDOS/#AUX1 AS                                 00413000
+                 S500/OBJECT/L021/SALDOS/#AUX1,                                   00414000
+                 S500/OBJECT/L019/SALDOS/#AUX1 AS                                 00415000
+                 S500/OBJECT/L022/SALDOS/#AUX1,                                   00416000
+                 S500/OBJECT/L019/SALDOS/#AUX1 AS                                 00417000
+                 S500/OBJECT/L023/SALDOS/#AUX1,                                   00418000
+                 S500/OBJECT/L019/SALDOS/#AUX1 AS                                 00419000
+                 S500/OBJECT/L024/SALDOS/#AUX1,                                   00420000
+                 S500/OBJECT/L019/SALDOS/#AUX1 AS                                 00421000
+                 S500/OBJECT/L025/SALDOS/#AUX1,                                   00422000
+                 S500/OBJECT/L019/SALDOS/#AUX1 AS                                 00422002
+                 S500/OBJECT/L026/SALDOS/#AUX1,                                   00422004
+                 S500/OBJECT/L019/SALDOS/#AUX1 AS                                 00422006
+                 S500/OBJECT/L027/SALDOS/#AUX1,                                   00422008
+                 S500/OBJECT/L019/SALDOS/#AUX1 AS                                 00422010
+                 S500/OBJECT/L028/SALDOS/#AUX1,                                   00422012
+                 S500/OBJECT/L019/SALDOS/#AUX1 AS                                 00422014
+                 S500/OBJECT/L029/SALDOS/#AUX1                                    00422016
+             FROM #PACK1(PACK) TO #PACK1(PACK);                                   00423000
+      END;                                                                        00424000
+                                                                                  00425000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00426000
+% COPIA DE LA L020 COMO L021,L022,L023,L024,L025                                  00427000
+% L026,L027,L028,L029 VIA VERSIONES %                                             00427002
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00428000
+    SUBROUTINE COPIAL020VER;                                                      00429000
+      BEGIN                                                                       00430000
+        SECURITY #TITLEL020 PUBLIC IO;                                            00431000
+        ALTER    #TITLEL020 (SETUSERCODE=TRUE);                                   00432000
+        COPY #TITLEL019 AS #TITLEL021,                                            00433000
+             #TITLEL019 AS #TITLEL022,                                            00434000
+             #TITLEL019 AS #TITLEL023,                                            00435000
+             #TITLEL019 AS #TITLEL024,                                            00436000
+             #TITLEL019 AS #TITLEL025,                                            00437000
+             #TITLEL019 AS #TITLEL026,                                            00437002
+             #TITLEL019 AS #TITLEL027,                                            00437004
+             #TITLEL019 AS #TITLEL028,                                            00437006
+             #TITLEL019 AS #TITLEL029                                             00437008
+             FROM #PACK1(PACK) TO #PACK1(PACK);                                   00438000
+      END;                                                                        00439000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00440000
+%ASIGNA A LA L039 SEC PUBLICA Y CON SETUSERCODE, VIA PARAMETRO %                  00441000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00442000
+ SUBROUTINE COPIAL039PAR;                                                         00443000
+   BEGIN                                                                          00444000
+     SECURITY S500/OBJECT/L039/ACCESOBD04/#AUX1 PUBLIC IO;                        00445000
+     ALTER    S500/OBJECT/L039/ACCESOBD04/#AUX1 (SETUSERCODE=TRUE);               00446000
+     SECURITY S500BD04TARJETAS/CONTROL PUBLIC IO;                                 00447000
+   END;                                                                           00448000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00449000
+%ASIGNA A LA L039 SEC PUBLICA Y CON SETUSERCODE, VIA VERSIONES %                  00450000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00451000
+ SUBROUTINE COPIAL039VER;                                                         00452000
+   BEGIN                                                                          00453000
+     SECURITY #TITLEL039 PUBLIC IO;                                               00454000
+     ALTER    #TITLEL039 (SETUSERCODE=TRUE);                                      00455000
+     SECURITY S500BD04TARJETAS/CONTROL PUBLIC IO;                                 00456000
+   END;                                                                           00457000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00458000
+%ASIGNA A LA L040 SEC PUBLICA Y CON SETUSERCODE, VIA PARAMETRO %                  00459000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00460000
+ SUBROUTINE COPIAL040PAR;                                                         00461000
+   BEGIN                                                                          00462000
+     SECURITY S500/OBJECT/L040/LIGAS/#AUX1 PUBLIC IO;                             00463000
+     ALTER    S500/OBJECT/L040/LIGAS/#AUX1 (SETUSERCODE=TRUE);                    00464000
+   END;                                                                           00465000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00466000
+%ASIGNA A LA L040 SEC PUBLICA Y CON SETUSERCODE, VIA VERSIONES %                  00467000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00468000
+ SUBROUTINE COPIAL040VER;                                                         00469000
+   BEGIN                                                                          00470000
+     SECURITY #TITLEL040 PUBLIC IO;                                               00471000
+     ALTER    #TITLEL040 (SETUSERCODE=TRUE);                                      00472000
+   END;                                                                           00473000
+                                                                                  00474000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00474010
+%ASIGNA A LA L070 SEC PUBLICA Y CON SETUSERCODE, VIA VERSIONES %                  00474020
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00474030
+ SUBROUTINE COPIAL070VER;                                                         00474040
+   BEGIN                                                                          00474050
+     SECURITY #TITLEL070 PUBLIC IO;                                               00474060
+     ALTER    #TITLEL070 (SETUSERCODE=TRUE);                                      00474070
+   END;                                                                           00474080
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00474090
+%ASIGNA A LA L070 SEC PUBLICA Y CON SETUSERCODE, VIA PARAMETRO %                  00474100
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00474110
+    SUBROUTINE COPIAL070PAR;                                                      00474120
+      BEGIN                                                                       00474130
+        SECURITY S500/OBJECT/L070/#AUX1 PUBLIC IO;                                00474140
+        ALTER    S500/OBJECT/L070/#AUX1 (SETUSERCODE=TRUE);                       00474150
+      END;                                                                        00474160
+                                                                                  00474170
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00475000
+%%            SUBE TODOS                                      %%                  00476000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00477000
+    SUBROUTINE SUBETODOS;                                                         00478000
+       BEGIN                                                                      00479000
+         DO BEGIN                                                                 00480000
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00481000
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00482000
+             DATA COMMANDS                                                        00483000
+             ENABLE PROGRAM S500P010                                              00484000
+             ENABLE PROGRAM S500P014                                              00485000
+             ENABLE PROGRAM S500P016                                              00485100
+             ENABLE PROGRAM S500P020                                              00486000
+             ENABLE PROGRAM S500P038                                              00487000
+             ENABLE PROGRAM S500P050                                              00488000
+             ENABLE PROGRAM S500P055                                              00488010
+             ENABLE PROGRAM S500P060                                              00489000
+             ENABLE PROGRAM S500P080                                              00489005
+             ENABLE PROGRAM S500P091                                              00490000
+             ENABLE PROGRAM S500P093                                              00491000
+?                                                                                 00492000
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00493000
+                BEGIN                                                             00494000
+                   MENSAJE:= MSGHDR                                               00495000
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00496000
+                   WAIT(MENSAJE,OK);                                              00497000
+                END                                                               00498000
+             ELSE                                                                 00498050
+             IF (FILE S500BD06TELETON/CONTROL IS RESIDENT) THEN                   00498100
+                BEGIN                                                             00498200
+                   RUN (S100)COMS/UTILITY/SENDTOMCS                               00498300
+                       ("*SYSTEM/COMS", "*")[TCOMS];                              00498400
+                   DATA COMMANDS                                                  00498500
+                   ENABLE PROGRAM S500P045                                        00498600
+                   ENABLE PROGRAM S500P046                                        00498700
+?                                                                                 00498800
+                END;                                                              00498900
+            END                                                                   00499000
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00500000
+       END;                                                                       00501000
+                                                                                  00502000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00503000
+%%            SUBE PASO P010                                  %%                  00504000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00505000
+    SUBROUTINE SUBEP010;                                                          00506000
+       BEGIN                                                                      00507000
+         DO BEGIN                                                                 00508000
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00509000
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00510000
+             DATA COMMANDS                                                        00511000
+             ENABLE PROGRAM S500P010                                              00512000
+?                                                                                 00513000
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00514000
+                BEGIN                                                             00515000
+                   MENSAJE:= MSGHDR                                               00516000
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00517000
+                   WAIT(MENSAJE,OK);                                              00518000
+                END;                                                              00519000
+            END                                                                   00520000
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00521000
+       END;                                                                       00522000
+                                                                                  00523000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00523020
+%%            SUBE PASO P016                                  %%                  00523040
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00523060
+    SUBROUTINE SUBEP016;                                                          00523080
+       BEGIN                                                                      00523100
+         DO BEGIN                                                                 00523120
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00523140
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00523160
+             DATA COMMANDS                                                        00523180
+             ENABLE PROGRAM S500P016                                              00523200
+?                                                                                 00523220
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00523240
+                BEGIN                                                             00523260
+                   MENSAJE:= MSGHDR                                               00523280
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00523300
+                   WAIT(MENSAJE,OK);                                              00523320
+                END;                                                              00523340
+            END                                                                   00523360
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00523380
+       END;                                                                       00523400
+                                                                                  00523500
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00524000
+%%            SUBE PASO P014                                  %%                  00525000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00526000
+    SUBROUTINE SUBEP014;                                                          00527000
+       BEGIN                                                                      00528000
+         DO BEGIN                                                                 00529000
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00530000
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00531000
+             DATA COMMANDS                                                        00532000
+             ENABLE PROGRAM S500P014                                              00533000
+?                                                                                 00534000
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00535000
+                BEGIN                                                             00536000
+                   MENSAJE:= MSGHDR                                               00537000
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00538000
+                   WAIT(MENSAJE,OK);                                              00539000
+                END;                                                              00540000
+            END                                                                   00541000
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00542000
+       END;                                                                       00543000
+                                                                                  00544000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00545000
+%%            SUBE PASO P015                                  %%                  00546000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00547000
+    SUBROUTINE SUBEP015;                                                          00548000
+       BEGIN                                                                      00549000
+         DO BEGIN                                                                 00550000
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00551000
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00552000
+             DATA COMMANDS                                                        00553000
+             ENABLE PROGRAM S500P015                                              00554000
+?                                                                                 00555000
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00556000
+                BEGIN                                                             00557000
+                   MENSAJE:= MSGHDR                                               00558000
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00559000
+                   WAIT(MENSAJE,OK);                                              00560000
+                END;                                                              00561000
+            END                                                                   00562000
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00563000
+       END;                                                                       00564000
+                                                                                  00565000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00566000
+%%            SUBE PASO P020                                  %%                  00567000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00568000
+    SUBROUTINE SUBEP020;                                                          00569000
+       BEGIN                                                                      00570000
+         DO BEGIN                                                                 00571000
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00572000
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00573000
+             DATA COMMANDS                                                        00574000
+             ENABLE PROGRAM S500P020                                              00575000
+?                                                                                 00576000
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00577000
+                BEGIN                                                             00578000
+                   MENSAJE:= MSGHDR                                               00579000
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00580000
+                   WAIT(MENSAJE,OK);                                              00581000
+                END;                                                              00582000
+            END                                                                   00583000
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00584000
+       END;                                                                       00585000
+                                                                                  00586000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00587000
+%%            SUBE PASO P025                                  %%                  00588000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00589000
+    SUBROUTINE SUBEP025;                                                          00590000
+       BEGIN                                                                      00591000
+         DO BEGIN                                                                 00592000
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00593000
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00594000
+             DATA COMMANDS                                                        00595000
+             ENABLE PROGRAM S500P025                                              00596000
+?                                                                                 00597000
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00598000
+                BEGIN                                                             00599000
+                   MENSAJE:= MSGHDR                                               00600000
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00601000
+                   WAIT(MENSAJE,OK);                                              00602000
+                END;                                                              00603000
+            END                                                                   00604000
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00605000
+       END;                                                                       00606000
+                                                                                  00607000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00608000
+%%            SUBE PASO P038                                  %%                  00609000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00610000
+    SUBROUTINE SUBEP038;                                                          00611000
+       BEGIN                                                                      00612000
+         DO BEGIN                                                                 00613000
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00614000
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00615000
+             DATA COMMANDS                                                        00616000
+             ENABLE PROGRAM S500P038                                              00617000
+?                                                                                 00618000
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00619000
+                BEGIN                                                             00620000
+                   MENSAJE:= MSGHDR                                               00621000
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00622000
+                   WAIT(MENSAJE,OK);                                              00623000
+                END;                                                              00624000
+            END                                                                   00625000
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00626000
+       END;                                                                       00627000
+                                                                                  00627100
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00627205
+    SUBROUTINE SUBEP045;                                                          00627210
+       BEGIN                                                                      00627215
+         DO BEGIN                                                                 00627220
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00627225
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00627230
+             DATA COMMANDS                                                        00627235
+             ENABLE PROGRAM S500P045                                              00627240
+?                                                                                 00627245
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00627250
+                BEGIN                                                             00627255
+                   MENSAJE:= MSGHDR                                               00627260
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00627265
+                   WAIT(MENSAJE,OK);                                              00627270
+                END;                                                              00627275
+            END                                                                   00627280
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00627285
+       END;                                                                       00627290
+                                                                                  00627295
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00627300
+    SUBROUTINE SUBEP046;                                                          00627400
+       BEGIN                                                                      00627405
+         DO BEGIN                                                                 00627410
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00627415
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00627420
+             DATA COMMANDS                                                        00627425
+             ENABLE PROGRAM S500P046                                              00627430
+?                                                                                 00627435
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00627440
+                BEGIN                                                             00627445
+                   MENSAJE:= MSGHDR                                               00627450
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00627455
+                   WAIT(MENSAJE,OK);                                              00627460
+                END;                                                              00627465
+            END                                                                   00627470
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00627475
+       END;                                                                       00627480
+                                                                                  00627485
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00628000
+%%            SUBE PASO P050                                  %%                  00629000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00630000
+    SUBROUTINE SUBEP050;                                                          00631000
+       BEGIN                                                                      00632000
+         DO BEGIN                                                                 00633000
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00634000
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00635000
+             DATA COMMANDS                                                        00636000
+             ENABLE PROGRAM S500P050                                              00637000
+?                                                                                 00638000
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00639000
+                BEGIN                                                             00640000
+                   MENSAJE:= MSGHDR                                               00641000
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00642000
+                   WAIT(MENSAJE,OK);                                              00643000
+                END;                                                              00644000
+            END                                                                   00645000
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00646000
+       END;                                                                       00647000
+                                                                                  00648000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00648020
+%%            SUBE PASO P055                                  %%                  00648040
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00648060
+    SUBROUTINE SUBEP055;                                                          00648080
+       BEGIN                                                                      00648100
+         DO BEGIN                                                                 00648120
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00648140
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00648160
+             DATA COMMANDS                                                        00648180
+             ENABLE PROGRAM S500P055                                              00648200
+?                                                                                 00648220
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00648240
+                BEGIN                                                             00648260
+                   MENSAJE:= MSGHDR                                               00648280
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00648300
+                   WAIT(MENSAJE,OK);                                              00648320
+                END;                                                              00648340
+            END                                                                   00648360
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00648380
+       END;                                                                       00648400
+                                                                                  00648420
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00649000
+%%            SUBE PASO P060                                  %%                  00650000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00651000
+    SUBROUTINE SUBEP060;                                                          00652000
+       BEGIN                                                                      00653000
+         DO BEGIN                                                                 00654000
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00655000
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00656000
+             DATA COMMANDS                                                        00657000
+             ENABLE PROGRAM S500P060                                              00658000
+?                                                                                 00659000
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00660000
+                BEGIN                                                             00661000
+                   MENSAJE:= MSGHDR                                               00662000
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00663000
+                   WAIT(MENSAJE,OK);                                              00664000
+                END;                                                              00665000
+            END                                                                   00666000
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00667000
+       END;                                                                       00668000
+                                                                                  00669000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00669005
+%%            SUBE PASO P080                                  %%                  00669010
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00669015
+    SUBROUTINE SUBEP080;                                                          00669020
+       BEGIN                                                                      00669025
+         DO BEGIN                                                                 00669030
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00669035
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00669040
+             DATA COMMANDS                                                        00669045
+             ENABLE PROGRAM S500P080                                              00669050
+?                                                                                 00669055
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00669060
+                BEGIN                                                             00669065
+                   MENSAJE:= MSGHDR                                               00669070
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00669075
+                   WAIT(MENSAJE,OK);                                              00669080
+                END;                                                              00669085
+            END                                                                   00669090
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00669095
+       END;                                                                       00669100
+                                                                                  00669105
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00669110
+%%            BAJA PASO P080                                  %%                  00669115
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00669120
+    SUBROUTINE BAJAP080;                                                          00669125
+       BEGIN                                                                      00669130
+         DO BEGIN                                                                 00669135
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00669140
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00669145
+             DATA COMMANDS                                                        00669150
+            DISABLE PROGRAM S500P080                                              00669155
+?                                                                                 00669160
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00669165
+                BEGIN                                                             00669170
+                   MENSAJE := MSGHDR                                              00669175
+                         & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";              00669180
+                   WAIT(MENSAJE,OK);                                              00669185
+                END;                                                              00669190
+            END                                                                   00669195
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00669200
+       END;                                                                       00669205
+                                                                                  00669210
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00670000
+%%            SUBE PASO P091                                  %%                  00671000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00672000
+    SUBROUTINE SUBEP091;                                                          00673000
+       BEGIN                                                                      00674000
+         DO BEGIN                                                                 00675000
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00676000
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00677000
+             DATA COMMANDS                                                        00678000
+             ENABLE PROGRAM S500P091                                              00679000
+?                                                                                 00680000
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00681000
+                BEGIN                                                             00682000
+                   MENSAJE:= MSGHDR                                               00683000
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00684000
+                   WAIT(MENSAJE,OK);                                              00685000
+                END;                                                              00686000
+            END                                                                   00687000
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00688000
+       END;                                                                       00689000
+                                                                                  00690000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00691000
+%%            SUBE PASO P093                                  %%                  00692000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00693000
+    SUBROUTINE SUBEP093;                                                          00694000
+       BEGIN                                                                      00695000
+         DO BEGIN                                                                 00696000
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00697000
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00698000
+             DATA COMMANDS                                                        00699000
+             ENABLE PROGRAM S500P093                                              00700000
+?                                                                                 00701000
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00702000
+                BEGIN                                                             00703000
+                   MENSAJE:= MSGHDR                                               00704000
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00705000
+                   WAIT(MENSAJE,OK);                                              00706000
+                END;                                                              00707000
+            END                                                                   00708000
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00709000
+       END;                                                                       00710000
+                                                                                  00711000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00712000
+%%            BAJA TODOS                                      %%                  00713000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00714000
+    SUBROUTINE BAJATODOS;                                                         00715000
+       BEGIN                                                                      00716000
+         DO BEGIN                                                                 00717000
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00718000
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00719000
+             DATA COMMANDS                                                        00720000
+             DISABLE PROGRAM S500P010                                             00721000
+             DISABLE PROGRAM S500P014                                             00722000
+             DISABLE PROGRAM S500P016                                             00722100
+             DISABLE PROGRAM S500P020                                             00723000
+             DISABLE PROGRAM S500P038                                             00724000
+             DISABLE PROGRAM S500P050                                             00725000
+             DISABLE PROGRAM S500P055                                             00725010
+             DISABLE PROGRAM S500P060                                             00726000
+             DISABLE PROGRAM S500P080                                             00726005
+             DISABLE PROGRAM S500P091                                             00727000
+             DISABLE PROGRAM S500P093                                             00728000
+?                                                                                 00729000
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00730000
+                BEGIN                                                             00731000
+                   MENSAJE:= MSGHDR                                               00732000
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00733000
+                   WAIT(MENSAJE,OK);                                              00734000
+                END                                                               00735000
+             ELSE                                                                 00735100
+             IF (FILE S500BD06TELETON/CONTROL IS RESIDENT) THEN                   00735200
+                BEGIN                                                             00735250
+                   RUN (S100)COMS/UTILITY/SENDTOMCS                               00735300
+                       ("*SYSTEM/COMS", "*")[TCOMS];                              00735400
+                   DATA COMMANDS                                                  00735500
+                   DISABLE PROGRAM S500P045                                       00735600
+                   DISABLE PROGRAM S500P046                                       00735700
+?                                                                                 00735800
+                END;                                                              00735900
+            END                                                                   00736000
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00737000
+       END;                                                                       00738000
+                                                                                  00739000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00740000
+%%            BAJA PASO P010                                  %%                  00741000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00742000
+    SUBROUTINE BAJAP010;                                                          00743000
+       BEGIN                                                                      00744000
+         DO BEGIN                                                                 00745000
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00746000
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00747000
+             DATA COMMANDS                                                        00748000
+            DISABLE PROGRAM S500P010                                              00749000
+?                                                                                 00750000
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00751000
+                BEGIN                                                             00752000
+                   MENSAJE:= MSGHDR                                               00753000
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00754000
+                   WAIT(MENSAJE,OK);                                              00755000
+                END;                                                              00756000
+            END                                                                   00757000
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00758000
+       END;                                                                       00759000
+                                                                                  00760000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00760020
+%%            BAJA PASO P016                                  %%                  00760040
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00760060
+    SUBROUTINE BAJAP016;                                                          00760080
+       BEGIN                                                                      00760100
+         DO BEGIN                                                                 00760120
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00760140
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00760160
+             DATA COMMANDS                                                        00760180
+             DISABLE PROGRAM S500P016                                             00760200
+?                                                                                 00760220
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00760240
+                BEGIN                                                             00760260
+                   MENSAJE:= MSGHDR                                               00760280
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00760300
+                   WAIT(MENSAJE,OK);                                              00760320
+                END;                                                              00760340
+            END                                                                   00760360
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00760380
+       END;                                                                       00760400
+                                                                                  00760500
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00761000
+%%            BAJA PASO P014                                  %%                  00762000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00763000
+    SUBROUTINE BAJAP014;                                                          00764000
+       BEGIN                                                                      00765000
+         DO BEGIN                                                                 00766000
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00767000
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00768000
+             DATA COMMANDS                                                        00769000
+            DISABLE PROGRAM S500P014                                              00770000
+?                                                                                 00771000
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00772000
+                BEGIN                                                             00773000
+                   MENSAJE:= MSGHDR                                               00774000
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00775000
+                   WAIT(MENSAJE,OK);                                              00776000
+                END;                                                              00777000
+            END                                                                   00778000
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00779000
+       END;                                                                       00780000
+                                                                                  00781000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00782000
+%%            BAJA PASO P015                                  %%                  00783000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00784000
+    SUBROUTINE BAJAP015;                                                          00785000
+       BEGIN                                                                      00786000
+         DO BEGIN                                                                 00787000
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00788000
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00789000
+             DATA COMMANDS                                                        00790000
+            DISABLE PROGRAM S500P015                                              00791000
+?                                                                                 00792000
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00793000
+                BEGIN                                                             00794000
+                   MENSAJE:= MSGHDR                                               00795000
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00796000
+                   WAIT(MENSAJE,OK);                                              00797000
+                END;                                                              00798000
+            END                                                                   00799000
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00800000
+       END;                                                                       00801000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00802000
+%%            BAJA PASO P020                                  %%                  00803000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00804000
+    SUBROUTINE BAJAP020;                                                          00805000
+       BEGIN                                                                      00806000
+         DO BEGIN                                                                 00807000
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00808000
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00809000
+             DATA COMMANDS                                                        00810000
+            DISABLE PROGRAM S500P020                                              00811000
+?                                                                                 00812000
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00813000
+                BEGIN                                                             00814000
+                   MENSAJE:= MSGHDR                                               00815000
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00816000
+                   WAIT(MENSAJE,OK);                                              00817000
+                END;                                                              00818000
+            END                                                                   00819000
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00820000
+       END;                                                                       00821000
+                                                                                  00822000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00823000
+%%            BAJA PASO P025                                  %%                  00824000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00825000
+    SUBROUTINE BAJAP025;                                                          00826000
+       BEGIN                                                                      00827000
+         DO BEGIN                                                                 00828000
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00829000
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00830000
+             DATA COMMANDS                                                        00831000
+            DISABLE PROGRAM S500P025                                              00832000
+?                                                                                 00833000
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00834000
+                BEGIN                                                             00835000
+                   MENSAJE:= MSGHDR                                               00836000
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00837000
+                   WAIT(MENSAJE,OK);                                              00838000
+                END;                                                              00839000
+            END                                                                   00840000
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00841000
+       END;                                                                       00842000
+                                                                                  00843000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00844000
+%%            BAJA PASO P038                                  %%                  00845000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00846000
+    SUBROUTINE BAJAP038;                                                          00847000
+       BEGIN                                                                      00848000
+         DO BEGIN                                                                 00849000
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00850000
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00851000
+             DATA COMMANDS                                                        00852000
+            DISABLE PROGRAM S500P038                                              00853000
+?                                                                                 00854000
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00855000
+                BEGIN                                                             00856000
+                   MENSAJE:= MSGHDR                                               00857000
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00858000
+                   WAIT(MENSAJE,OK);                                              00859000
+                END;                                                              00860000
+            END                                                                   00861000
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00862000
+       END;                                                                       00863000
+                                                                                  00864000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00864100
+    SUBROUTINE BAJAP045;                                                          00864110
+       BEGIN                                                                      00864120
+         DO BEGIN                                                                 00864130
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00864140
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00864150
+             DATA COMMANDS                                                        00864160
+            DISABLE PROGRAM S500P045                                              00864170
+?                                                                                 00864180
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00864190
+                BEGIN                                                             00864200
+                   MENSAJE:= MSGHDR                                               00864210
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00864220
+                   WAIT(MENSAJE,OK);                                              00864230
+                END;                                                              00864240
+            END                                                                   00864250
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00864260
+       END;                                                                       00864270
+                                                                                  00864280
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00864290
+    SUBROUTINE BAJAP046;                                                          00864300
+       BEGIN                                                                      00864310
+         DO BEGIN                                                                 00864320
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00864330
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00864340
+             DATA COMMANDS                                                        00864350
+            DISABLE PROGRAM S500P046                                              00864360
+?                                                                                 00864370
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00864380
+                BEGIN                                                             00864390
+                   MENSAJE:= MSGHDR                                               00864400
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00864410
+                   WAIT(MENSAJE,OK);                                              00864420
+                END;                                                              00864430
+            END                                                                   00864440
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00864450
+       END;                                                                       00864460
+                                                                                  00864470
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00865000
+%%            BAJA PASO P050                                  %%                  00866000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00867000
+    SUBROUTINE BAJAP050;                                                          00868000
+       BEGIN                                                                      00869000
+         DO BEGIN                                                                 00870000
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00871000
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00872000
+             DATA COMMANDS                                                        00873000
+            DISABLE PROGRAM S500P050                                              00874000
+?                                                                                 00875000
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00876000
+                BEGIN                                                             00877000
+                   MENSAJE:= MSGHDR                                               00878000
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00879000
+                   WAIT(MENSAJE,OK);                                              00880000
+                END;                                                              00881000
+            END                                                                   00882000
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00883000
+       END;                                                                       00884000
+                                                                                  00885000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00885020
+%%            BAJA PASO P055                                  %%                  00885040
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00885060
+    SUBROUTINE BAJAP055;                                                          00885080
+       BEGIN                                                                      00885100
+         DO BEGIN                                                                 00885120
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00885140
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00885160
+             DATA COMMANDS                                                        00885180
+            DISABLE PROGRAM S500P055                                              00885200
+?                                                                                 00885220
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00885240
+                BEGIN                                                             00885260
+                   MENSAJE:= MSGHDR                                               00885280
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00885300
+                   WAIT(MENSAJE,OK);                                              00885320
+                END;                                                              00885340
+            END                                                                   00885360
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00885380
+       END;                                                                       00885400
+                                                                                  00885420
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00886000
+%%            BAJA PASO P060                                  %%                  00887000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00888000
+    SUBROUTINE BAJAP060;                                                          00889000
+       BEGIN                                                                      00890000
+         DO BEGIN                                                                 00891000
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00892000
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00893000
+             DATA COMMANDS                                                        00894000
+            DISABLE PROGRAM S500P060                                              00895000
+?                                                                                 00896000
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00897000
+                BEGIN                                                             00898000
+                   MENSAJE:= MSGHDR                                               00899000
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00900000
+                   WAIT(MENSAJE,OK);                                              00901000
+                END;                                                              00902000
+            END                                                                   00903000
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00904000
+       END;                                                                       00905000
+                                                                                  00906000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00907000
+%%            BAJA PASO P091                                  %%                  00908000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00909000
+    SUBROUTINE BAJAP091;                                                          00910000
+       BEGIN                                                                      00911000
+         DO BEGIN                                                                 00912000
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00913000
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00914000
+             DATA COMMANDS                                                        00915000
+            DISABLE PROGRAM S500P091                                              00916000
+?                                                                                 00917000
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00918000
+                BEGIN                                                             00919000
+                   MENSAJE:= MSGHDR                                               00920000
+                   & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";                    00921000
+                   WAIT(MENSAJE,OK);                                              00922000
+                END;                                                              00923000
+            END                                                                   00924000
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00925000
+       END;                                                                       00926000
+                                                                                  00927000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00928000
+%%            BAJA PASO P093                                  %%                  00929000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00930000
+    SUBROUTINE BAJAP093;                                                          00931000
+       BEGIN                                                                      00932000
+         DO BEGIN                                                                 00933000
+             RUN (S100)COMS/UTILITY/SENDTOMCS                                     00934000
+                 ("*SYSTEM/COMS", "*")[TCOMS];                                    00935000
+             DATA COMMANDS                                                        00936000
+            DISABLE PROGRAM S500P093                                              00937000
+?                                                                                 00938000
+             IF TCOMS(TASKVALUE) NEQ 1 THEN                                       00939000
+                BEGIN                                                             00940000
+                   MENSAJE := MSGHDR                                              00941000
+                         & " DAR OK CUANDO SYSTEM/COMS ESTE ACTIVO";              00942000
+                   WAIT(MENSAJE,OK);                                              00943000
+                END;                                                              00944000
+            END                                                                   00945000
+         UNTIL TCOMS (TASKVALUE) = 1;                                             00946000
+       END;                                                                       00947000
+                                                                                  00948000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00949000
+%%            SUBE  PASO  PXXX                                %%                  00950000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00951000
+    SUBROUTINE SUBEPASO(STRING SUBEPASO);                                         00952000
+       BEGIN                                                                      00953000
+          IF SUBEPASO = "P010" THEN SUBEP010                                      00954000
+          ELSE                                                                    00955000
+          IF SUBEPASO = "P016" THEN SUBEP016                                      00955100
+          ELSE                                                                    00955200
+          IF SUBEPASO = "P014" THEN SUBEP014                                      00956000
+          ELSE                                                                    00957000
+          IF SUBEPASO = "P015" THEN SUBEP015                                      00958000
+          ELSE                                                                    00959000
+          IF SUBEPASO = "P020" THEN SUBEP020                                      00960000
+          ELSE                                                                    00961000
+          IF SUBEPASO = "P025" THEN                                               00962000
+             IF HNAME = "ACYPBETA" OR HNAME = "VDMKAPPA"                          00963000
+                        THEN SUBEP025                                             00964000
+             ELSE                                                                 00965000
+                DISPLAY MSGHDR & "ESTE PASO SOLO SE PUEDE " &                     00966000
+                       "DAR DE ALTA EN ACYPBETA O VDMKAPPA"                       00967000
+          ELSE                                                                    00968000
+          IF SUBEPASO = "P038" THEN SUBEP038                                      00969000
+          ELSE                                                                    00970000
+          IF SUBEPASO = "P050" THEN SUBEP050                                      00971000
+          ELSE                                                                    00972000
+          IF SUBEPASO = "P055" THEN SUBEP055                                      00972100
+          ELSE                                                                    00972200
+          IF SUBEPASO = "P060" THEN SUBEP060                                      00973000
+          ELSE                                                                    00974000
+          IF SUBEPASO = "P080" THEN SUBEP080                                      00974010
+          ELSE                                                                    00974020
+          IF SUBEPASO = "P091" THEN SUBEP091                                      00975000
+          ELSE                                                                    00976000
+          IF SUBEPASO = "P093" THEN SUBEP093                                      00977000
+          ELSE                                                                    00978000
+             DISPLAY MSGHDR & "PASO INVALIDO VERIFICAR "                          00979000
+                            & PARAM;                                              00980000
+       END;                                                                       00981000
+                                                                                  00982000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00983000
+%%            BAJA      PASO  PXXX                            %%                  00984000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  00985000
+    SUBROUTINE BAJAPASO(STRING BAJOPASO);                                         00986000
+       BEGIN                                                                      00987000
+          IF BAJOPASO = "P010" THEN BAJAP010                                      00988000
+          ELSE                                                                    00989000
+          IF BAJOPASO = "P016" THEN BAJAP016                                      00989100
+          ELSE                                                                    00989200
+          IF BAJOPASO = "P014" THEN BAJAP014                                      00990000
+          ELSE                                                                    00991000
+          IF BAJOPASO = "P015" THEN BAJAP015                                      00992000
+          ELSE                                                                    00993000
+          IF BAJOPASO = "P020" THEN BAJAP020                                      00994000
+          ELSE                                                                    00995000
+          IF BAJOPASO = "P025" THEN                                               00996000
+             IF HNAME = "ACYPBETA" OR HNAME ="VDMKAPPA"                           00997000
+                THEN BAJAP025                                                     00998000
+             ELSE                                                                 00999000
+                DISPLAY MSGHDR & "ESTE PASO SOLO SE PUEDE " &                     01000000
+                        "DAR DE BAJA EN ACYPBETA O VDMKAPPA"                      01001000
+          ELSE                                                                    01002000
+          IF BAJOPASO = "P038" THEN BAJAP038                                      01003000
+          ELSE                                                                    01004000
+          IF BAJOPASO = "P050" THEN BAJAP050                                      01005000
+          ELSE                                                                    01006000
+          IF BAJOPASO = "P055" THEN BAJAP055                                      01006100
+          ELSE                                                                    01006200
+          IF BAJOPASO = "P060" THEN BAJAP060                                      01007000
+          ELSE                                                                    01008000
+          IF BAJOPASO = "P080" THEN BAJAP080                                      01008010
+          ELSE                                                                    01008020
+          IF BAJOPASO = "P091" THEN BAJAP091                                      01009000
+          ELSE                                                                    01010000
+          IF BAJOPASO = "P093" THEN BAJAP093                                      01011000
+          ELSE                                                                    01012000
+             DISPLAY MSGHDR & "PASO NO EXISTE VERIFICAR "                         01013000
+                            & PARAM;                                              01014000
+       END;                                                                       01015000
+                                                                                  01016000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%             01017000
+%%  CANCELA  S500BD01CAPTACION                                     %%             01018000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%             01019000
+    SUBROUTINE CANCELABD;                                                         01020000
+       BEGIN                                                                      01021000
+          ON RESTART,   GO CANCELARBD;                                            01022000
+          ON TASKFAULT, GO CANCELARBD;                                            01023000
+          CANCELARBD:                                                             01024000
+             RUN #("*SYSTEM/DMUTILITY" ON SOFTDMS)                                01025000
+                  ("DB=S500BD01CAPTACION CANCEL");                                01026000
+       END;                                                                       01027000
+                                                                                  01028000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%             01029000
+%%  CANCELA  S500BD02AUXILIAR                                      %%             01030000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%             01031000
+    SUBROUTINE CANCELABDAUX;                                                      01032000
+       BEGIN                                                                      01033000
+          ON RESTART,   GO CANCELARBDAUX;                                         01034000
+          ON TASKFAULT, GO CANCELARBDAUX;                                         01035000
+          CANCELARBDAUX:                                                          01036000
+             RUN #("*SYSTEM/DMUTILITY" ON SOFTDMS)                                01037000
+                  ("DB=S500BD02AUXILIAR CANCEL");                                 01038000
+       END;                                                                       01039000
+                                                                                  01040000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%             01041000
+%%   RESPALDA S500BD01CAPTACION ON LINE                            %%             01042000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%             01043000
+     SUBROUTINE SUBEBASEORIGINAL (STRING TITRESPBD);                              01044000
+        BEGIN                                                                     01045000
+           ON RESTART,                                                            01046000
+            BEGIN                                                                 01047000
+               CANCELABD;                                                         01048000
+               MENSAJE := MSGHDR                                                  01049000
+                       & "CAIDA DEL EQUIPO, MONTAR CARTUCHOS "                    01050000
+                       & " PARA REINTENTAR RESPALDO";                             01051000
+               WAIT (MENSAJE,OK);                                                 01052000
+               GO SUBEBDBDLINE;                                                   01053000
+            END;                                                                  01054000
+                                                                                  01055000
+           ON TASKFAULT,                                                          01056000
+            BEGIN                                                                 01057000
+               CANCELABD;                                                         01058000
+               OPCION := "";                                                      01059000
+               WHILE OPCION NEQ "SI"                                              01060000
+                 AND OPCION NEQ "NO"                                              01061000
+                 AND OPCION NEQ "RD" DO                                           01062000
+                 BEGIN                                                            01063000
+                    MENSAJE:= MSGHDR                                              01064000
+                            & "FALLA RESPALDO S500BD01CAPTACION"                  01065000
+                            & ", 'SI' = REINTENTO A CARTUCHO"                     01066000
+                            & ", 'RD' = REINTENTO A DISCO"                        01067000
+                            & ", 'NO' = CONTINUAR WFL";                           01068000
+                    OPCION := ACCEPT(MENSAJE);                                    01069000
+                    OPCION := HEAD(TAIL(OPCION," "),NOT " ");                     01070000
+                 END;                                                             01071000
+               IF OPCION = "RD" THEN                                              01072000
+                  BEGIN                                                           01073000
+                     RESPDISK:= "SI";                                             01074000
+                     MENSAJE := MSGHDR                                            01075000
+                             & "DAME FAMILIA PARA RESPALDAR";                     01076000
+                     FAMRESP :=ACCEPT(MENSAJE);                                   01077000
+                     GO SUBEBDBDLINE;                                             01078000
+                  END;                                                            01079000
+               IF OPCION = "SI" THEN                                              01080000
+                  BEGIN                                                           01081000
+                     RESPDISK:= "NO";                                             01082000
+                     GO SUBEBDBDLINE                                              01083000
+                  END                                                             01084000
+               ELSE                                                               01085000
+                  GO FINSUBBDLINE                                                 01086000
+            END;                                                                  01087000
+                                                                                  01088000
+           SUBEBDBDLINE:                                                          01089000
+           TBASEORI(STATUS = NEVERUSED);                                          01090000
+                                                                                  01091000
+           IF RESPDISK = "SI" THEN                                                01092000
+              RUN #("*SYSTEM/DMUTILITY" ON SOFTDMS)                               01093000
+                   ("DB=S500BD01CAPTACION OFFLINE DUMP=TO S500"                   01094000
+                  & TITRESPBD & STRING(FECHAHOST,6)                               01095000
+                  & " ON " & FAMRESP                                              01096000
+                  & "(" & FILES  & ") " ) [TBASEORI];                             01097000
+           ELSE                                                                   01098000
+              RUN #("*SYSTEM/DMUTILITY" ON SOFTDMS)                               01099000
+                   ("DB=S500BD01CAPTACION OPTIONS "& WORKERS                      01100000
+                 & " OFFLINE DUMP=TO S500"                                        01101000
+                 & TITRESPBD & STRING(FECHAHOST,6)                                01102000
+                 & "(" & TAPES  & DENSITYBD01 & ") " ) [TBASEORI];                01103000
+                                                                                  01104000
+           FINSUBBDLINE:                                                          01105000
+                                                                                  01106000
+        END;                                                                      01107000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%             01108000
+%%   RESPALDA S500BD02AUXILIAR  ON LINE                            %%             01109000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%             01110000
+     SUBROUTINE SUBEBASEAUXILIAR (STRING TITRESPBD);                              01111000
+        BEGIN                                                                     01112000
+           ON RESTART,                                                            01113000
+            BEGIN                                                                 01114000
+               CANCELABDAUX;                                                      01115000
+               MENSAJE := MSGHDR                                                  01116000
+                       & "CAIDA DEL EQUIPO, MONTAR CARTUCHOS "                    01117000
+                       & " PARA REINTENTAR RESPALDO";                             01118000
+               WAIT (MENSAJE,OK);                                                 01119000
+               GO SUBEBD02LINE;                                                   01120000
+            END;                                                                  01121000
+                                                                                  01122000
+           ON TASKFAULT,                                                          01123000
+            BEGIN                                                                 01124000
+               CANCELABDAUX;                                                      01125000
+               OPCION := "";                                                      01126000
+               WHILE OPCION NEQ "SI"                                              01127000
+                 AND OPCION NEQ "NO"                                              01128000
+                 AND OPCION NEQ "RD" DO                                           01129000
+                 BEGIN                                                            01130000
+                    MENSAJE:= MSGHDR                                              01131000
+                            & "FALLA RESPALDO S500BD02AUXILIAR"                   01132000
+                            & ", 'SI' = REINTENTO A CARTUCHO"                     01133000
+                            & ", 'RD' = REINTENTO A DISCO"                        01134000
+                            & ", 'NO' = CONTINUAR WFL";                           01135000
+                    OPCION := ACCEPT(MENSAJE);                                    01136000
+                    OPCION := HEAD(TAIL(OPCION," "),NOT " ");                     01137000
+                 END;                                                             01138000
+               IF OPCION = "RD" THEN                                              01139000
+                  BEGIN                                                           01140000
+                     RESPDISK:= "SI";                                             01141000
+                     MENSAJE := MSGHDR                                            01142000
+                             & "DAME FAMILIA PARA RESPALDAR";                     01143000
+                     FAMRESP :=ACCEPT(MENSAJE);                                   01144000
+                     GO SUBEBD02LINE;                                             01145000
+                  END;                                                            01146000
+               IF OPCION = "SI" THEN                                              01147000
+                  BEGIN                                                           01148000
+                     RESPDISK:= "NO";                                             01149000
+                     GO SUBEBD02LINE                                              01150000
+                  END                                                             01151000
+               ELSE                                                               01152000
+                  GO FINSUBBD02LINE                                               01153000
+            END;                                                                  01154000
+                                                                                  01155000
+           SUBEBD02LINE:                                                          01156000
+           TBASEAUX(STATUS = NEVERUSED);                                          01157000
+                                                                                  01158000
+           IF RESPDISK = "SI" THEN                                                01159000
+              RUN #("*SYSTEM/DMUTILITY" ON SOFTDMS)                               01160000
+                   ("DB=S500BD02AUXILIAR  OFFLINE DUMP=TO S500"                   01161000
+                  & TITRESPBD & STRING(FECHAHOST,6)                               01162000
+                  & " ON " & FAMRESP                                              01163000
+                  & "(" & FILES2 & ") " ) [TBASEORI];                             01164000
+           ELSE                                                                   01165000
+              RUN #("*SYSTEM/DMUTILITY" ON SOFTDMS)                               01166000
+                   ("DB=S500BD02AUXILIAR  OPTIONS "& WORKERS2                     01167000
+                 & " OFFLINE DUMP=TO S500"                                        01168000
+                 & TITRESPBD & STRING(FECHAHOST,6)                                01169000
+                 & "(" & TAPES2 & DENSITYBD02 & ") " ) [TBASEORI];                01170000
+                                                                                  01171000
+           FINSUBBD02LINE:                                                        01172000
+                                                                                  01173000
+        END;                                                                      01174000
+                                                                                  01174020
+  SUBROUTINE  VALIDAINSTALAL020;                                                  01174050
+  BEGIN                                                                           01174100
+    RETRYINSTALA:                                                                 01174150
+    INSTALAL020:= TRUE;                                                           01174200
+    SACATIT("S000UTIGMIX");                                                       01174250
+    RUN #TIT ("(S500)S500/OBJECT/P014","FIRST","PGM")  [T014];                    01174300
+    MIXPRO := T014(VALUE);                                                        01174350
+    IF MIXPRO > 0 THEN                                                            01174400
+       BEGIN                                                                      01174450
+          INSTALAL020:= FALSE;                                                    01174500
+          MENSAJE := MSGHDR & "O>030406< "                                        01174550
+          & "NO SE PUEDE INSTALAR L020 EL S500P014 ESTA ACTIVO " &                01174600
+             "DE DEBAJA EL P014 Y DEME <SI> PARA CONTINUAR" &                     01174650
+             " EN CASO CONTRARIO DEME <NO> PARA SALIR " ;                         01174700
+             PREG := ACCEPT(MENSAJE);                                             01174750
+             IF PREG = "SI" THEN                                                  01174800
+                GO TO RETRYINSTALA;                                               01174850
+             ELSE                                                                 01174900
+             IF PREG = "NO" THEN                                                  01174905
+                DISPLAY MSGHDR & "O>030406< "                                     01174910
+                & "NO SE INSTALA LA L020 ";                                       01174915
+           END;                                                                   01174920
+       END VALIDAINSTALAL020;                                                     01174925
+                                                                                  01174926
+ SUBROUTINE SUB005 (INTEGER VALUE005);                                            01174927
+    BEGIN                                                                         01174928
+    ON RESTART,                                                                   01174929
+       BEGIN                                                                      01174930
+       GO PASO005;                                                                01174931
+       END;                                                                       01174932
+    ON TASKFAULT,                                                                 01174933
+       BEGIN                                                                      01174934
+       FALLA(P005,"S500P005");                                                    01174935
+       IF OPCION = "C" THEN                                                       01174936
+          GO BACKFORZA005                                                         01174937
+       ELSE                                                                       01174938
+       IF OPCION = "V" THEN                                                       01174939
+          BEGIN                                                                   01174940
+             P005:=TIT2;                                                          01174941
+             GO PASO005;                                                          01174942
+          END;                                                                    01174943
+       ELSE                                                                       01174944
+          GO PASO005;                                                             01174945
+       END;                                                                       01174946
+   PASO005:                                                                       01174947
+   T005(STATUS = NEVERUSED);                                                      01174948
+%  JOBATRIBUTOS;                                                                  01174949
+%  TASKATRIBUTOS;                                                                 01174950
+   RUN  #P005 [T005]; VALUE= VALUE005;                                            01174951
+   BDNAME = #("S500/LIST/P005");                                                  01174952
+  FILE TASKFILE (USERBACKUPNAME,TITLE = #("S500/TASKFILE/P005/"&                  01174953
+           STRING(FECHALIST,6) / TIMEDATE(HHMMSS)));                              01174954
+  ON RESTART, GO BACKFORZA005;                                                    01174955
+  ON TASKFAULT, GO BACKFORZA005;                                                  01174957
+  BACKFORZA005:                                                                   01174959
+  RUN  SYSTEM/FORZA("S500/LIST/P005");                                            01174961
+  END;                                                                            01174963
+                                                                                  01174977
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%             01175000
+%%                                                                 %%             01176000
+%%            M E N U    <MIX>IB 1, <MIX>IB 2, <MIX>IB 3           %%             01177000
+%%                                                                 %%             01178000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%             01179000
+%                                                                                 01180000
+ INSTRUCTION 1  PARAMETROS DE INICIO DE S500/WFL/LINEA* * * * * * *               01181000
+*                                                                  *              01182000
+* "SUBELINEA"...........  = LEVANTA LA LINEA TOTAL                 *              01183000
+* "BAJALINEA"...........  = BAJA    LA LINEA TOTAL                 *              01184000
+* "SUBEPASO PXXX".......  = LEVANTA PASO PXXX                      *              01185000
+* "BAJAPASO PXXX".........= BAJA    PASO PXXX                      *              01186000
+* "SUBEBASE ORIGINAL".....= RESPALDO S500BD01CAPTACION             *              01187000
+* "SUBEBASE AUXILIAR".....= RESPALDO S500BD02AUXILIAR              *              01188000
+* "INSTALAL020"...........= INSTALACION L020,L021 L022....         *              01189000
+* "COPIAGUARD BASE MTP"...= COPIA ARCHIVO GUARDFILE PARA UNA BD    *              01190000
+* "SUBETELETON"...........= LEVANTA LA LINEA DEL TELETON           *              01190100
+* "BAJATELETON"...........= BAJA    LA LINEA DEL TELETON           *              01190200
+* "TERMINA".............  = TERMINA WFL SIN PARAMETRO              *              01191000
+* "BAJAESCALONADAP010" ...... = BAJA COPIA X COPIA P010 Y P016     *              01192000
+*                                                                  *              01193000
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *;               01194000
+%                                                                                 01195000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%             01196000
+%%          INICIO  WFL/LINEA                                      %%             01197000
+%%          MANEJO DE OPCIONES  "MENU"                             %%             01198000
+%%          INICIALIZA FECHAS Y NODO                               %%             01199000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%             01200000
+                                                                                  01201000
+   ON RESTART, GO INICIAWFL;                                                      01202000
+   INICIAWFL:                                                                     01203000
+   JOBATRIBUTOS;                                                                  01204000
+   SOFTDMS := "PACK";                                                             01205000
+   ESPRODUCCION := FALSE;                                                         01206000
+   ESPBAUAT     := FALSE;                                                         01207000
+   NODO         := 0;                                                             01208000
+   HNAME        := MYSELF(HOSTNAME);                                              01209000
+                                                                                  01210000
+   CASE HNAME  OF                                                                 01211000
+     BEGIN                                                                        01212000
+       ("VDMALFA"):          % PRODUCCION MEXICO                                  01213000
+           BEGIN                                                                  01214000
+                        NODO := 10;                                               01215000
+                ESPRODUCCION := TRUE;                                             01216000
+           END;                                                                   01217000
+       ("MONBETA"):          % PRODUCCION MONTERREY                               01218000
+           BEGIN                                                                  01219000
+                        NODO := 04;                                               01220000
+                ESPRODUCCION := TRUE;                                             01221000
+           END;                                                                   01222000
+       ("ACYPGAMA"):         % PRUEBAS UAT MEXICO                                 01223000
+           BEGIN                                                                  01224000
+                        NODO := 10;                                               01225000
+                    ESPBAUAT := TRUE;                                             01226000
+           END;                                                                   01227000
+       ("ACYPOMEGA"):         % PRUEBAS UAT MEXICO                                01228000
+           BEGIN                                                                  01229000
+                        NODO := 10;                                               01230000
+                    ESPBAUAT := TRUE;                                             01231000
+           END;                                                                   01232000
+       ("MONALFA"):          % PRUEBAS UAT MONTERREY                              01233000
+           BEGIN                                                                  01234000
+                        NODO := 04;                                               01235000
+                    ESPBAUAT := TRUE;                                             01236000
+           END;                                                                   01237000
+       ("ACYPBETA"):         % PRUEBAS INTERNAS MONTERREY                         01238000
+           BEGIN                                                                  01239000
+                        NODO := 04;                                               01240000
+           END;                                                                   01241000
+       ("VDMKAPPA"):          % PRUEBAS INTERNAS MONTERREY                        01242000
+           BEGIN                                                                  01243000
+                        NODO := 04;                                               01244000
+                    ESPBAUAT := TRUE;                                             01244050
+           END;                                                                   01245000
+       ("VDMBETA"):          % PRUEBAS INTERNAS SIT MEXICO                        01246000
+           BEGIN                                                                  01247000
+                        NODO := 10;                                               01248000
+           END;                                                                   01249000
+       ("SITBETA"):          % PRUEBAS SIT      MONTERREY                         01249100
+           BEGIN                                                                  01249110
+                        NODO := 04;                                               01249120
+           END;                                                                   01249130
+         ELSE:               % HOST DESCONOCIDO                                   01250000
+           BEGIN                                                                  01251000
+              MENSAJE := MSGHDR                                                   01252000
+                      & " HOST NO RECONOCIDO," & HNAME                            01253000
+                      & " ASUMO UAT NODO 10 ";                                    01254000
+                        NODO := 10;                                               01255000
+                    ESPBAUAT := TRUE;                                             01255100
+           END;                                                                   01256000
+                                                                                  01257000
+     END;                    % CASE NODO                                          01258000
+                                                                                  01259000
+                                                                                  01260000
+                                                                                  01261000
+  RUN *S006/OBJECT/CHECAME ON DISK ("S500JLINEA")[TCHECAME];                      01262000
+                                                                                  01263000
+  IF TCHECAME (TASKVALUE) < 0 THEN                                                01264000
+     BEGIN                                                                        01265000
+        DISPLAY MSGHDR                                                            01266000
+                & " VERSION DE WFL/LINEA INCORRECTA ";                            01267000
+        GO TO FIN;                                                                01268000
+     END;                                                                         01269000
+                                                                                  01270000
+ PARAM := PARAMETRO;                                                              01271000
+ AUX := HEAD(TAIL(PARAM," "),NOT " ");                                            01272000
+ MENU:                                                                            01273000
+ IF  AUX = "M"                                                                    01274000
+    OR AUX = "MENU" THEN                                                          01275000
+    BEGIN                                                                         01276000
+       MENSAJE:= MSGHDR                                                           01277000
+               & "DA '<MIX> IB 1' PARA VER MENU "                                 01278000
+               & "Y DAME PARAMETRO DE INICIO";                                    01279000
+       PARAM := ACCEPT(MENSAJE);                                                  01280000
+       AUX   := HEAD(TAIL(PARAM," "),NOT " ");                                    01281000
+    END;                                                                          01282000
+ IF AUX = "M" OR AUX = "MENU" THEN GO MENU;                                       01283000
+                                                                                  01284000
+ SEPARAPARAM;                                                                     01285000
+                                                                                  01286000
+ MYJOB(JOBSUMMARYTITLE = #("S500/CARATULA/LINEA"                                  01287000
+                         / STRING(FECHAHOST,6)                                    01288000
+                         / STRING(MYJOB(MIXNUMBER),7)));                          01289000
+                                                                                  01290000
+ FECHAS(FECHAHOST);                                                               01291000
+                                                                                  01292000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  01293000
+%%                                                            %%                  01294000
+%%                 ASIGNA PASO SEGUN PARAMETRO                %%                  01295000
+%%                                                            %%                  01296000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  01297000
+ CASE AUX OF                                                                      01298000
+  BEGIN                                                                           01299000
+    ("TERMINA"):                                                                  01300000
+      BEGIN                                                                       01301000
+        PASO := 99;  %TERMINA WFL POR PARAMETRO                                   01302000
+      END;                                                                        01303000
+                                                                                  01304000
+    ("SUBELINEA"):                  %% LEVANTA LA LINEA COMPLETA                  01305000
+      BEGIN                                                                       01306000
+        PASO := 1;                                                                01307000
+      END;                                                                        01308000
+                                                                                  01309000
+     ("BAJALINEA"):                 %% BAJA    LA LINEA COMPLETA                  01310000
+       BEGIN                                                                      01311000
+        PASO := 2;                                                                01312000
+       END;                                                                       01313000
+                                                                                  01314000
+    ("SUBEPASO"):                   %% LEVANTA PASO QPASO                         01315000
+      BEGIN                                                                       01316000
+        QPASO := AUX1;                                                            01317000
+        PASO  := 3;                                                               01318000
+      END;                                                                        01319000
+                                                                                  01320000
+    ("BAJAPASO"):                   %% BAJA    PASO QPASO                         01321000
+      BEGIN                                                                       01322000
+        QPASO := AUX1;                                                            01323000
+        PASO := 4;                                                                01324000
+      END;                                                                        01325000
+                                                                                  01326000
+    ("SUBEBASE"):                   %% RESPALDO DE BASE ON LINE                   01327000
+      BEGIN                                                                       01328000
+         QBASE := AUX1;                                                           01329000
+          PASO := 5;                                                              01330000
+      END;                                                                        01331000
+    ("INSTALAL020"):                %% INSTALA L020/L021,L022,                    01332000
+      BEGIN                                                                       01333000
+          PASO := 6;                                                              01334000
+      END;                                                                        01335000
+    ("COPIAGUARD"):                 %% COPIA GUARDFILE DE BD                      01336000
+      BEGIN                                                                       01337000
+          PASO := 7;                                                              01338000
+      END;                                                                        01339000
+    ("INSTALAL039"):                 %% COPIA GUARDFILE DE BD                     01340000
+      BEGIN                                                                       01341000
+          PASO := 8;                                                              01342000
+      END;                                                                        01343000
+    ("INSTALAL040"):                 %% COPIA GUARDFILE DE BD                     01344000
+      BEGIN                                                                       01345000
+          PASO := 9;                                                              01346000
+      END;                                                                        01347000
+    ("SUBETELETON"):                                                              01347050
+      BEGIN                                                                       01347100
+          PASO := 10                                                              01347150
+      END;                                                                        01347200
+    ("BAJATELETON"):                                                              01347250
+      BEGIN                                                                       01347300
+          PASO := 11                                                              01347350
+      END;                                                                        01347400
+    ("BAJAESCALONADAP010"):                                                       01348000
+      BEGIN                                                                       01348100
+         PASO := 12                                                               01349000
+      END;                                                                        01349100
+    ("INSTALAL070"):                                                              01349110
+      BEGIN                                                                       01349120
+         PASO := 13                                                               01349130
+      END;                                                                        01349140
+                                                                                  01349200
+    ELSE:   PASO := 9999999999; % INVALIDA                                        01350000
+  END;                          % END DEL CASE                                    01351000
+                                                                                  01352000
+                                                                                  01353000
+                                                                                  01354000
+                                                                                  01355000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%              01356000
+%%%%                                                              %%              01357000
+%%     LLAMA SUBRUTINAS CORRESPONDIENTES AL PASO SELECCIONADO     %%              01358000
+%%%%                                                              %%              01359000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%              01360000
+                                                                                  01361000
+  CASE PASO OF                                                                    01362000
+   BEGIN                                                                          01363000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 1                01364000
+    (1): % SUBELINEA                                                              01365000
+        BEGIN                                                                     01366000
+           SUBETODOS;                                                             01367000
+           SACATIT("S500P005");P005:=TIT;                                         01367100
+           SUB005(26);                                                            01367200
+          %SUBEP010;                                                              01368000
+          %SUBEP014;                                                              01369000
+          %SUBEP050;                                                              01370000
+          %SUBEP060;                                                              01371000
+          %SUBEP091;                                                              01372000
+          %SUBEP093;                                                              01373000
+        END;                                                                      01374000
+                                                                                  01375000
+    (2): % BAJALINEA                                                              01376000
+        BEGIN                                                                     01377000
+           SACATIT("S500P005");P005:=TIT;                                         01377100
+           SUB005(24);                                                            01377200
+           BAJATODOS;                                                             01378000
+          %BAJAP010;                                                              01379000
+          %BAJAP014;                                                              01380000
+          %BAJAP050;                                                              01381000
+          %BAJAP060;                                                              01382000
+          %BAJAP091;                                                              01383000
+          %BAJAP093;                                                              01384000
+        END;                                                                      01385000
+                                                                                  01386000
+    (3):                % SUBEPASO                                                01387000
+        BEGIN                                                                     01388000
+           SUBEPASO(QPASO);                                                       01389000
+        END;                                                                      01390000
+                                                                                  01391000
+    (4):                % BAJAPASO                                                01392000
+        BEGIN                                                                     01393000
+           BAJAPASO(QPASO);                                                       01394000
+        END;                                                                      01395000
+                                                                                  01396000
+    (5):                % RESPALDO DE BASE                                        01397000
+        BEGIN                                                                     01398000
+           IF QBASE = "ORIGINAL" THEN                                             01399000
+              SUBEBASEORIGINAL ("B1OLEVE");                                       01400000
+           ELSE                                                                   01401000
+           IF QBASE = "AUXILIAR" THEN                                             01402000
+              SUBEBASEAUXILIAR ("B2OLEVE");                                       01403000
+           ELSE                                                                   01404000
+              DISPLAY MSGHDR                                                      01405000
+                   & "VERIFICAR NOMBRE DE BASE <"                                 01406000
+                   & QBASE & "> "                                                 01407000
+                   & "Y VOLVER A INTENTAR ";                                      01408000
+        END;                                                                      01409000
+                                                                                  01410000
+    (6):                % INSTALA L020/L020                                       01411000
+        BEGIN                                                                     01412000
+        SACATIT("S500P005");P005:=TIT;                                            01412020
+        SUB005(25);                                                               01412040
+          VALIDAINSTALAL020;                                                      01412100
+          IF INSTALAL020 THEN                                                     01412200
+             BEGIN                                                                01412300
+              IF AUX1 = "" THEN                                                   01413000
+              BEGIN                                                               01414000
+                VERSIONESL020;                                                    01415000
+                COPIAL020VER;                                                     01416000
+              END                                                                 01417000
+              ELSE                                                                01418000
+                COPIAL020PAR;                                                     01419000
+              END                                                                 01420000
+          END;                                                                    01421000
+    (7):                % COPIA GUARFILE                                          01422000
+        BEGIN                                                                     01423000
+           IF AUX1 = "S500BD01CAPTACION" OR                                       01424000
+              AUX1 = "S500BD02AUXILIAR"  OR                                       01425000
+              AUX1 = "S500BD03MSGAAPLI"  OR                                       01426000
+              AUX1 = "S500BD04TARJETAS"  OR                                       01427000
+              AUX1 = "S500BD05MAPLI"     OR                                       01427100
+              AUX1 = "S500BD06TELETON"   THEN                                     01427200
+                BEGIN                                                             01428000
+                    IF AUX2 = "" THEN                                             01429000
+                        DISPLAY MSGHDR & "VERSION  INVALIDA: " & AUX2             01430000
+                    ELSE                                                          01431000
+                        COPIAGUARDFILE(AUX1,AUX2);                                01432000
+                END                                                               01433000
+           ELSE                                                                   01434000
+                BEGIN                                                             01435000
+                    DISPLAY MSGHDR                                                01436000
+                  & "ERROR EN PARAMETRO: NOMBRE BASE DE DATOS: " & AUX1           01437000
+                  & "  FAVOR DE VERIFICAR ";                                      01437100
+                END;                                                              01438000
+        END;                                                                      01439000
+    (8):                % INSTALA L039                                            01440000
+        BEGIN                                                                     01441000
+          IF AUX1 = "" THEN                                                       01442000
+          BEGIN                                                                   01443000
+             VERSIONESL039;                                                       01444000
+             COPIAL039VER;                                                        01445000
+          END                                                                     01446000
+          ELSE                                                                    01447000
+            COPIAL039PAR;                                                         01448000
+        END;                                                                      01449000
+    (9):                % INSTALA L040                                            01450000
+        BEGIN                                                                     01451000
+          IF AUX1 = "" THEN                                                       01452000
+          BEGIN                                                                   01453000
+             VERSIONESL040;                                                       01454000
+             COPIAL040VER;                                                        01455000
+          END                                                                     01456000
+          ELSE                                                                    01457000
+            COPIAL040PAR;                                                         01458000
+        END;                                                                      01459000
+                                                                                  01459050
+     (10):                % SUBE LINEA TELETON                                    01459100
+         BEGIN                                                                    01459150
+            SUBEP045;                                                             01459200
+            SUBEP046;                                                             01459250
+         END;                                                                     01459300
+     (11):                % BAJA LINEA TELETON                                    01459350
+         BEGIN                                                                    01459400
+            BAJAP045;                                                             01459450
+            BAJAP046;                                                             01459500
+         END;                                                                     01459550
+     (12):                                                                        01460000
+         BEGIN                                                                    01460100
+           SACATIT("S500P005");P005:=TIT;                                         01460200
+           SUB005(50);                                                            01460300
+         END;                                                                     01460400
+     (13):                % INSTALA L070                                          01460410
+        BEGIN                                                                     01460420
+          IF AUX1 = "" THEN                                                       01460430
+          BEGIN                                                                   01460440
+             VERSIONESL070;                                                       01460450
+             COPIAL070VER;                                                        01460460
+          END                                                                     01460470
+          ELSE                                                                    01460480
+            COPIAL070PAR;                                                         01460490
+        END;                                                                      01460500
+                                                                                  01461000
+    (99):     % FIN WFL                                                           01462000
+         BEGIN                                                                    01463000
+           DISPLAY MSGHDR & "TERMINO WFL POR PARAMETRO "                          01464000
+                          & PARAM;                                                01465000
+         END;                                                                     01466000
+                                                                                  01467000
+     ELSE: BEGIN                                                                  01468000
+            DISPLAY MSGHDR & "PARAMETRO INVALIDO "                                01469000
+                           & "VERIFICAR: " & PARAM;                               01470000
+            AUX:="MENU";                                                          01471000
+           END;                                                                   01472000
+   END;            %FIN DEL CASE DEL PASO                                         01473000
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%              01474000
+     IF AUX="MENU" THEN                                                           01475000
+     GO MENU;                                                                     01476000
+%%%%%%%%%    FIN     FIN      FIN     FIN      FIN   %%%%%%%%%%%%%%               01477000
+   FIN:                                                                           01478000
+                                                                                  01479000
+END JOB                                                                           01480000

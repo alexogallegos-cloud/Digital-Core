@@ -107,6 +107,7 @@ Soy un **Application Modernization Lead** especializado en Strangler-Fig sobre m
 - ADR-SPE-AM-003: Data migration strategy (CDC · dual-write · bulk + delta).
 - ADR-SPE-AM-004: Target runtime per capability (Kubernetes · Cloud Run · Lambda).
 - ADR-SPE-AM-005: AI-assisted tooling stack (Amazon Q Developer Transform · GitHub Copilot · custom agents).
+- ADR-SPE-AM-006: [cuando aplique] Manejo de tipos propietarios del datastore origen — rounding financiero, semántica de tipos legacy, equivalencia en target DB. Obligatorio para proyectos "base de datos como aplicación" (Informix, Oracle Forms, SQL Server stored-proc-heavy).
 
 ---
 
@@ -116,6 +117,24 @@ Soy un **Application Modernization Lead** especializado en Strangler-Fig sobre m
 - SLO-AM-02: Latencia P95 del nuevo ≤ baseline del legacy + 0% (no degradación).
 - SLO-AM-03: Throughput del nuevo ≥ baseline del legacy.
 - Hereda SLO-SPE-01 a 04 del offering 03.
+
+---
+
+## Sub-agentes de Ejecución (★ Digital Core)
+
+Agentes especializados que viven dentro de esta L4 para proyectos con datastores propietarios o patrón "base de datos como aplicación" — donde el análisis RE del sistema legacy requiere profundidad técnica específica antes de invocar el SME de construcción.
+
+Todos implementan la **mecánica de extracción** de su tecnología para el método HVM-wide **Gemelo Cognitivo del Sistema** ([../metodologia-gemelo-cognitivo.md](../metodologia-gemelo-cognitivo.md)) — el *qué/por qué* es constante; cada specialist aporta el *cómo*.
+
+| Scope | Sub-agente | Cuándo se activa |
+|---|---|---|
+| **Informix SPL** — análisis RE (Etapas 0–4) | [Specialist - Informix SPL](Fase%200%20-%20Discover/Specialist%20-%20Informix%20SPL/CLAUDE.md) | Proyectos donde la lógica de negocio vive como Stored Procedures IBM Informix SPL (patrón "base de datos como aplicación") — p.ej. BanCoppel `SPE-AM-001` |
+| **Oracle Forms + PL/SQL** — análisis RE | [Specialist - Oracle Forms PL-SQL](Fase%200%20-%20Discover/Specialist%20-%20Oracle%20Forms%20PL-SQL/CLAUDE.md) `[STATE: PROPOSED]` | Apps Oracle Forms/Reports + lógica en packages/triggers PL/SQL (`.fmb`/`.pll` + esquema). Stub hasta deal real. |
+| **SQL Server T-SQL** — análisis RE | [Specialist - SQL Server T-SQL](Fase%200%20-%20Discover/Specialist%20-%20SQL%20Server%20T-SQL/CLAUDE.md) `[STATE: PROPOSED]` | Core/apps con lógica en stored procs T-SQL ("DB como aplicación" sobre SQL Server). Stub hasta deal real. |
+
+> Para monolitos Java EE / .NET Framework / Spring legacy sin datastores propietarios, no hay sub-agentes locales — el análisis lo ejecuta directamente Software Engineering SME via `[INVOKE]`.
+
+**Calidad estructural del AS-IS (transversal):** el assessment de salud del código legacy contra **ISO/IEC 5055:2021** lo ejecuta el sub-specialist HVM-wide **Code Quality Assessment** (`Solutioning/Delivery - SME/Technology/Software Engineering/Specialist - Code Quality Assessment/`) — no es un sub-agente local. Cada Specialist de RE de arriba le aporta la *mecánica de detección* de su dialecto (call graph, corpus, nodos de decisión SPL/PL-SQL/T-SQL); el Code Quality specialist aporta el *estándar* (los 4 factores ISO 5055) y el juicio deuda->7R->pricing. Su output es la **Capa Transversal - Calidad** del portal del Gemelo Cognitivo, y alimenta `ADR-SPE-AM-001` (decisión 7R por capability).
 
 ---
 
@@ -203,4 +222,4 @@ Hereda checklist del sub-offering HVM + criterios AM:
 
 ---
 
-*Última actualización: 2026-05-28 · v0.1 · Promovido desde sección interna de HVM a L4 propio.*
+*Última actualización: 2026-07-06 · v0.2 · Sub-agentes de RE alineados al método HVM-wide Gemelo Cognitivo; añadidos stubs Oracle Forms/PL-SQL y SQL Server T-SQL `[STATE: PROPOSED]`. v0.1 (2026-05-28): promovido desde HVM a L4 propio.*

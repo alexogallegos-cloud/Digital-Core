@@ -1,0 +1,1312 @@
+CREATE PROCEDURE "informix".consctesfircaja(pEmpresa char(3), pNumeroCuenta char(20), pNumeroCliente char(20))
+	-- DATOS A REGRESAR --
+	RETURNING
+	char(5),    -- Codigo de retorno
+	char(20),   -- # Cliente
+	char(26),   -- Apellido paterno
+	char(26),   -- Apellido materno
+	char(26),   -- Nombre 1
+	char(26),   -- Nombre 2
+	char(13),   -- RFC
+	char(16),   -- # Tarjeta
+	date,    --	Expiracion
+	char(4),    -- Producto tarjeta
+	money(14,2), -- Limite de retiro maximo por mes
+	char(1),    -- Status tarjeta
+	char(8),    -- Tipo de cliente
+	char(10),   --Fecha de Nacimiento
+	char(4),    --Producto de la cuenta
+	char(2);    --Parentesco
+
+	-- VARIABLES --
+	DEFINE vCodRet  char(5);
+	DEFINE vTipCte  char(1);
+	Define vSecuencia char(1);
+	DEFINE vNumCte	char(20);
+	DEFINE vApePat  char(26);
+	DEFINE vApeMat  char(26);
+	DEFINE vNombre1 char(26);
+	DEFINE vNombre2 char(26);
+	DEFINE vRFC     char(13);
+	DEFINE vNumTarj char(16);
+	DEFINE Vexpiracion date;
+	DEFINE Vprodtarjeta char(4);
+	DEFINE vLimTar  money(14,2);
+	DEFINE vTipoCte char(8);
+	DEFINE vStatTjt char(1);
+	DEFINE vFechaNac char(10);
+	DEFINE vProductoCuenta char(4);
+	DEFINE vCantReg smallint;
+	DEFINE vParentesco char(2);
+
+--set debug file to "/respaldosbd/consctesfircaja.out";
+--trace on;
+
+	SET ISOLATION TO DIRTY READ;
+	SET LOCK MODE TO wait 3;
+
+
+	-- INICIALIZACION DE VARIABLES --
+	LET vCodRet  = "000";
+	LET vCantReg = 0;
+	LET vTipCte = "";
+	LET vNumCte = "";
+	LET vApePat = "";
+	LET vApeMat = "";
+	LET vNombre1 = "";
+	LET vNombre2 = "";
+	LET vRFC = "";
+	LET vNumTarj = "";
+	LET Vexpiracion = "";
+	LET Vprodtarjeta = "";
+	LET vLimTar = "";
+	LET vTipoCte = "";
+	LET vStatTjt = "";
+	LET vFechaNac = "";
+	LET vProductoCuenta = "";
+	LET vParentesco = "";
+	LET vSecuencia = "";
+
+
+
+		-- CICLO PARA OBTENER A LOS FIRMANTES Y LAS TARJETAS DE DEBITO EN CASO DE QUE TENGAN --
+
+	FOREACH
+		SELECT DISTINCT
+			sc_fir.secuencia,si_cte.numcte, si_cte.apell_paterno, si_cte.apell_materno, si_cte.nombre1, si_cte.nombre2, si_cte.rfc, 'Firmante' AS tipo_cliente,si_pf.fecha_nac, sc_mcq.producto, sc_fir.parentesco
+		INTO
+			vSecuencia, vNumCte, vApePat, vApeMat, vNombre1, vNombre2, vRFC, vTipoCte, vFechaNac, vProductoCuenta, vParentesco
+		FROM
+			bdicheq:"informix".sc_maechq sc_mcq,
+			bdicheq:"informix".sc_firmantes AS sc_fir,
+			bdinteg:"informix".si_cliente AS si_cte,
+			bdinteg:"informix".si_ctepf AS si_pf
+		WHERE
+			--sc_fir.empresa =  pEmpresa AND sc_fir.cuenta =  pNumeroCuenta AND sc_fir.numcte != pNumeroCliente AND
+			--sc_fir.numcte = si_cte.numcte AND si_cte.empresa = pEmpresa AND sc_fir.numcte = si_pf.numcte  AND
+			--sc_mcq.empresa = pEmpresa AND sc_mcq.cuenta = pNumeroCuenta
+			sc_fir.empresa =  pEmpresa AND sc_fir.cuenta =  pNumeroCuenta AND sc_fir.numcte = si_cte.numcte 
+			AND si_cte.empresa = pEmpresa AND sc_fir.numcte = si_pf.numcte  AND
+			sc_mcq.empresa = pEmpresa AND sc_mcq.cuenta = pNumeroCuenta
+			Order By sc_fir.secuencia
+
+
+		-- OBTENER LA TARJETA DEL FIRMANTE --
+
+		SELECT DISTINCT
+			sc_tjt.expiracion, sc_tjt.prodtarjeta, sc_tjt.num_tarjeta, sc_tjt.limite_aut, sc_tjt.status_tar
+		INTO
+			Vexpiracion, Vprodtarjeta, vNumTarj, vLimTar, vStatTjt
+		FROM
+			bdicheq:"informix".sc_tarjeta AS sc_tjt
+		WHERE
+			sc_tjt.empresa = pEmpresa AND
+			sc_tjt.cuenta = pNumeroCuenta AND
+			sc_tjt.numcte = vNumCte AND
+			sc_tjt.status_tar = 'A' AND
+			sc_tjt.tipo_tarjeta = 'A';
+
+
+		IF vNumTarj IS NULL THEN
+			LET vNumTarj = "Sin tarjeta";
+			LET vLimTar = 0;
+			LET vStatTjt = "";
+		END IF
+
+		LET vCantReg = vCantReg + 1;
+
+		RETURN vCodRet, vNumCte, vApePat, vApeMat, vNombre1, vNombre2, vRFC, vNumTarj, Vexpiracion, Vprodtarjeta, vLimTar, vStatTjt, vTipoCte, vFechaNac, vProductoCuenta, vParentesco  WITH RESUME;
+	END FOREACH;
+
+	IF vCantReg = 0 THEN
+		LET vCodRet  = "000";
+		LET vNumCte  = "";
+		LET vApePat  = "";
+		LET vApeMat  = "";
+		LET vNombre1 = "";
+		LET vNombre2 = "";
+		LET vRFC     = "";
+		LET vNumTarj = "";
+		LET Vexpiracion = "";
+		LET Vprodtarjeta = "";
+		LET vLimTar  = 0;
+		LET vStatTjt = "";
+		LET vTipoCte = "";
+		LET vFechaNac = "";
+		LET vParentesco  = "";
+
+		RETURN vCodRet, vNumCte, vApePat, vApeMat, vNombre1, vNombre2, vRFC, vNumTarj, Vexpiracion, Vprodtarjeta, vLimTar, vStatTjt, vTipoCte, vFechaNac, vProductoCuenta, vParentesco;
+	END IF
+END PROCEDURE
+DOCUMENT
+'DESCRIPCION: Se modifica para que consulte todos los status de tarjetas',
+'             incluyendo las tarjetas canceladas',
+'EJECUTADO O LLAMADO POR: AsigAdic.exe',
+'AUTOR : Martin Eduardo Miranda Miranda',
+'FECHA : 14/Septiembre/2010',
+'BD    : BDICHEQ',
+'DESCRIPCION: Se modifica para que muestre el titular y los firmantes ademas de que se ordene por secuencia',
+'AUTOR : Martin Eduardo Miranda Miranda',
+'FECHA : 07/abril/2011',
+'BD    : BDICHEQ';
+
+CREATE PROCEDURE "informix".sp_obtieneproducto(pProductoRecibe CHAR(4))
+	RETURNING CHAR(6),CHAR(4),CHAR(40);
+
+	--DECLARACION DE VARIABLES
+		DEFINE cEmpresa		    CHAR(3);
+		DEFINE iSqlErr          INTEGER;
+		DEFINE cCodRet          CHAR(6);
+		DEFINE cProducto        CHAR(4);
+		DEFINE cDescripProd     CHAR(40);	
+        DEFINE cProductoRecibe  CHAR(4);
+		
+		
+	--CREA EL ARCHIVO DE MONITOREO DEL PROCESO
+	--SET DEBUG FILE TO "/tmp/sp_ObtieneProducto.out";
+	--TRACE ON;
+
+	--INICIALIZACION DE  VARIABLES
+		LET cEmpresa= '';
+		LET cCodRet= '000000';
+		LET cProducto= '';
+		LET cDescripProd= '';
+		LET cProductoRecibe= ''; 
+		
+	BEGIN
+	--CREA EL CONTROL DE ERRORES
+		ON EXCEPTION SET iSqlErr
+			IF iSqlErr != 0 THEN
+				LET cCodRet= iSqlErr;
+				RETURN cCodRet,cProducto,cDescripProd;
+			END IF;
+		END EXCEPTION;
+        
+        set isolation to dirty read;
+        set lock mode to wait 3;
+
+        IF pProductoRecibe = '' THEN
+            LET cCodRet = '000001'; -- PARAMETRO PRODUCTO VACIO
+            RETURN cCodRet,cProducto,cDescripProd;			
+        END IF;
+		
+		SELECT producto
+		INTO cProducto
+		FROM BDICHEQ:sc_producto
+		WHERE producto = pProductoRecibe;
+
+        IF cProducto IS NULL OR cProducto = '' THEN
+            LET cCodRet = '000002'; -- PRODUCTO NO EXISTE EN CATALOGO
+            RETURN cCodRet,cProducto,cDescripProd;
+        END IF;
+           	  	  
+        --OBTENGO DOCUMENTO ESPECIFICO	    		
+	
+			SELECT nombre
+			INTO cDescripProd
+			FROM BDICHEQ:sc_producto
+			WHERE producto = pProductoRecibe;	
+			
+			RETURN cCodRet,cProducto,cDescripProd;		
+
+	END
+END PROCEDURE
+DOCUMENT
+'DESCRIPCION: Genera una consulta en las tablas sc_producto',
+'tomando como parametro o dato de entrada,el Codigo de Producto para obtener el Producto y la Descripcion',
+'AUTOR: Guadalupe Payan',
+'FECHA: Enero 2011',
+'VERSION: 201103',
+'BD: DBICHEQ';
+
+CREATE PROCEDURE "informix".sp_ctamec_obtieneproductosxtipper (pEmpresa CHAR(3), 
+										pFisica CHAR(1), 
+										pTipoPersona CHAR(2), 
+										pCuenta CHAR(20),
+										pCodProd CHAR(4))
+
+	-- DATOS A REGRESAR --
+	RETURNING
+	CHAR(5) AS COD_RET,    -- Codigo de retorno
+	CHAR(4) AS COD_PROD,    -- Codigo del producto
+	CHAR(40) AS DESC_PROD,   -- Descripcion del producto
+	CHAR(1) AS ES_FISICA,    -- Es Fisica
+	CHAR(2) AS TIPO_PERSONA,    -- Tipo Persona
+	CHAR(20) AS DESC_TIPPER;   -- Descripcion del tipo de persona
+	
+	--	VARIABLES CONTROL DE ERRORES --
+	DEFINE cCodRet  CHAR(5);
+	DEFINE iSqlErr  INTEGER;
+	
+	-- VARIABLES --
+	DEFINE cCodProd	CHAR(4);
+	DEFINE cDesc    CHAR(40);
+	DEFINE cFisica  CHAR(1);
+	DEFINE cTipo    CHAR(2);
+	DEFINE cDescPer CHAR(20);
+	
+	DEFINE iParam SMALLINT;
+	DEFINE iDatos SMALLINT;
+	
+	-- INICIALIZACION DE VARIABLES --
+	LET cCodRet  = "000";
+	LET cCodProd = "";
+	LET cDesc = "";
+	LET cFisica = "";
+	LET cTipo = "";
+	LET cDescPer = "";
+	LET iSqlErr = 0;	
+	LET iParam = 0;
+	LET iDatos = 0;
+
+	--SET DEBUG FILE TO "/dbexport/victor/sp_ctamec_obtieneproductosxtipper.out";
+	--TRACE ON;	
+	
+	-- CONTROL DE ERRORES --	
+BEGIN
+	ON EXCEPTION SET iSqlErr
+        IF iSqlErr <> 0 THEN
+            LET cCodRet = iSqlErr;
+            RETURN cCodRet,cCodProd,cDesc,cFisica,cTipo,cDescper;
+        END IF
+	END EXCEPTION;
+	
+    set isolation to dirty read;
+	SET LOCK MODE TO WAIT 3;
+
+	--SE VERIFICA QUE SE TENGA AL MENOS UN PARAMETRO
+	IF pEmpresa = "" AND pFisica = "" AND pTipoPersona = "" AND pCuenta = "" AND pCodProd = "" THEN 
+		LET cCodRet = "110"; 										--codigo de falta de parametros??
+		RETURN cCodRet, cCodProd, cDesc, cFisica, cTipo, cDescPer;
+	END IF
+	
+	IF pFisica = "" THEN
+		LET pFisica = NULL;
+	END IF
+	
+	IF pTipoPersona = "" THEN
+		LET pTipoPersona = NULL;
+	END IF
+	
+	IF pCuenta = "" THEN
+		LET pCuenta = NULL;
+	END IF
+	
+	IF pCodProd = "" THEN
+		LET pCodProd = NULL;
+	END IF
+	
+	LET pFisica = UPPER(pFisica);
+	
+	IF pFisica IS NULL AND pCuenta IS NULL AND pCodProd IS NULL THEN -- --SE REALIZA LA BUSQUEDA POR TIPO DE PERSONA 01 ,02,03,04
+		
+		LET cTipo = pTipoPersona;
+		LET iParam = 1;
+		
+		FOREACH		
+			SELECT DISTINCT sc_prod.producto, sc_prod.nombre, si_tipo.tpo_persona, si_tipo.descripcion, si_tipo.es_fisica
+			INTO cCodProd, cDesc, cTipo, cDescPer, cFisica
+			FROM bdicheq:"informix".sc_producto sc_prod, bdinteg:"informix".si_tipper si_tipo
+			WHERE sc_prod.tpper_valida = CAST(si_tipo.tpo_persona AS SMALLINT)
+			AND sc_prod.tpper_valida = CAST(pTipoPersona AS SMALLINT)
+			ORDER BY producto
+						
+			LET iDatos = 1;
+			
+			RETURN cCodRet,cCodProd,cDesc,cFisica,cTipo,cDescper WITH RESUME;
+		END FOREACH;
+	
+	ELIF pFisica IS NULL AND pTipoPersona IS NULL AND pCodProd IS NULL THEN -- --SE REALIZA LA BUSQUEDA POR CUENTA
+		
+		LET iParam = 1;
+		
+		SELECT producto --SE OBTIENE EL PRODUCTO
+		INTO cCodProd
+		FROM bdicheq:"informix".sc_maechq
+		WHERE empresa = pEmpresa		
+		AND	cuenta = pCuenta;
+		
+		IF cCodProd IS NULL THEN --NO EXISTE EL NUMERO DE CUENTA
+			LET cCodRet = '200';
+			RETURN cCodRet,cCodProd,cDesc,cFisica,cTipo,cDescper;
+		END IF;
+		
+		SELECT nombre, tpper_valida --SE OBTIENE LA DESCRIPCION DEL PRODUCTO Y EL TIPO DE PERSONA PARA EL PRODUCTO
+		INTO cDesc, cTipo
+		FROM bdicheq:"informix".sc_producto
+		WHERE producto = cCodProd;
+		
+		IF cDesc IS NULL THEN --NO EXISTE EL NUMERO DE PRODUCTO
+			LET cCodRet = '300';
+			RETURN cCodRet,cCodProd,cDesc,cFisica,cTipo,cDescper;
+		END IF;
+		
+		SELECT tpo_persona, descripcion, es_fisica --SE OBTIENE TIPO PERSONA, DESCRIPCION DEL TIPO Y SI ES FISICA
+		INTO cTipo, cDescPer, cFisica
+		FROM bdinteg:"informix".si_tipper
+		WHERE CAST(tpo_persona AS SMALLINT) = cTipo;
+		
+		IF cDesc IS NULL THEN --NO EXISTE EL TIPO DE PERSONA
+			LET cCodRet = '300';
+			RETURN cCodRet,cCodProd,cDesc,cFisica,cTipo,cDescper;
+		END IF;		
+		
+		RETURN cCodRet,cCodProd,cDesc,cFisica,cTipo,cDescper;
+		
+	ELIF pTipoPersona IS NULL AND pCuenta IS NULL AND pCodProd IS NULL THEN -- --SE REALIZA LA BUSQUEDA SI ES FISICA O MORAL	S N
+		
+		LET cFisica = pFisica;
+		LET iParam = 1;
+		
+		LET pEmpresa = pEmpresa;
+		
+		FOREACH --SE OBTIENEN VARIOS PARAMETROS 
+			SELECT DISTINCT sc_prod.producto, sc_prod.nombre, si_tipo.tpo_persona, si_tipo.descripcion
+			INTO cCodProd, cDesc, cTipo, cDescPer
+			FROM bdicheq:"informix".sc_producto sc_prod, bdinteg:"informix".si_tipper si_tipo
+			WHERE sc_prod.empresa = pEmpresa
+			AND sc_prod.tpper_valida  = CAST(si_tipo.tpo_persona AS SMALLINT)
+			AND si_tipo.es_fisica = pFisica
+			ORDER BY producto
+			
+			LET iDatos = 1;
+			
+			RETURN cCodRet,cCodProd,cDesc,cFisica,cTipo,cDescPer WITH RESUME;
+        END FOREACH;
+		
+	ELIF pFisica IS NULL AND pCuenta IS NULL AND pTipoPersona IS NULL THEN -- --SE REALIZA LA BUSQUEDA POR TIPO DE PRODUCTO
+		
+		LET cCodProd = pCodProd;		
+		
+		SELECT nombre, tpper_valida --SE OBTIENE LA DESCIPCION DEL PRODUCTO Y EL TIPO DE PERSONA
+		INTO cDesc, cTipo
+		FROM bdicheq:"informix".sc_producto
+		WHERE producto = pCodProd;
+		
+		IF cDesc IS NULL THEN --NO EXISTE EL PRODUCTO
+			LET cCodRet = '500';
+			RETURN cCodRet,cCodProd,cDesc,cFisica,cTipo,cDescper;
+		END IF;
+		
+		SELECT tpo_persona, descripcion, es_fisica --SE OBTIENE TIPO DE PERSONA, DESCRIPCION DE LA PERSONA Y SI ES FISICA
+		INTO cTipo, cDescPer, cFisica
+		FROM bdinteg:"informix".si_tipper
+		WHERE CAST (tpo_persona AS SMALLINT) = cTipo;
+		
+		IF cDescPer IS NULL THEN --NO EXISTE EL TIPO DE PERSONA
+			LET cCodRet = '600';
+			RETURN cCodRet,cCodProd,cDesc,cFisica,cTipo,cDescper;
+		END IF;
+		
+		LET iParam = 1;
+		
+		RETURN cCodRet,cCodProd,cDesc,cFisica,cTipo,cDescPer;
+		
+	END IF;
+	
+	IF iParam = 0 THEN --VALIDA QUE NO SE OBTUVIERON PARAMETROS
+		LET cCodRet = '400';
+		RETURN cCodRet,cCodProd,cDesc,cFisica,cTipo,cDescper;
+	END IF
+	IF iDatos = 0 THEN --VALIDA QUE NO SE OBTUVIERON DATOS
+		LET cCodRet = '600'; 
+		RETURN cCodRet,cCodProd,cDesc,cFisica,cTipo,cDescper;
+	END IF
+END
+END PROCEDURE
+DOCUMENT
+'Procedimiento   : ObtenerProductosTipoPersona',
+'Versión         : 1.0',
+'Creado por      : Victor Hugo Nuñez Velazquez',
+'Fecha creacion  : 10 Junio 2011',
+'Descripcion     : Obtiene Los tipo de productos';
+
+CREATE PROCEDURE "informix".sp_ctamec_obtieneprocrecursos (pEmpresa CHAR(3), pClave CHAR(2))
+
+	-- DATOS A REGRESAR --
+	RETURNING
+	CHAR(5) AS COD_RET,    -- Codigo de retorno
+	CHAR(2) AS PROCEDENCIA,    -- Procedencia
+	CHAR(60) AS DESCRIPCION;   -- Descripcion
+	
+	--	VARIABLES CONTROL DE ERRORES --
+	DEFINE cCodRet  CHAR(5);
+	DEFINE iSqlErr  INTEGER;
+	
+	-- VARIABLES --
+	DEFINE cCodProc	CHAR(2);
+	DEFINE cDesc    CHAR(60);
+	DEFINE iParam SMALLINT;
+		
+	-- INICIALIZACION DE VARIABLES --
+	LET cCodRet  = "000";
+	LET cCodProc = "";
+	LET cDesc = "";
+	LET iParam = 0;
+	LET iSqlErr = 0;
+
+	--SET DEBUG FILE TO "/dbexport/victor/sp_ctamec_obtieneprocrecursos.out";
+	--TRACE ON;
+	
+	-- CONTROL DE ERRORES --	
+	BEGIN
+	ON EXCEPTION SET iSqlErr
+        IF iSqlErr <> 0 THEN
+            LET cCodRet = iSqlErr;
+            RETURN cCodRet,cCodProc,cDesc;
+        END IF
+	END EXCEPTION;
+
+    set isolation to dirty read;
+	SET LOCK MODE TO WAIT 3;
+	
+	--SE VERIFICA QUE ALMENOS SE INCLUYA EL PARAMETRO EMPRESA
+	IF pEmpresa = "" THEN
+		LET cCodRet = "110";
+	RETURN cCodRet, cCodProc, cDesc;
+	END IF
+		
+	IF pClave = "" THEN
+		LET pClave = NULL;
+	END IF
+	
+	IF pClave IS NULL THEN
+	--SE REALIZA UNA CONSULTA COMPLETA Y REGRESA TODOS LOS REGISTROS
+		LET iParam = 1;
+		FOREACH
+			SELECT procedencia, descripcion
+			INTO cCodProc,cDesc
+			FROM bdinteg:"informix".si_tipo_procedencia 
+			ORDER BY procedencia
+			RETURN cCodRet,cCodProc,cDesc WITH RESUME;
+			
+		END FOREACH;
+		
+	ELSE 
+	--SE REALIZA UNA BUSQUEDA CON CRITERIO
+		LET cCodProc = pClave;
+		
+		SELECT procedencia, descripcion
+		INTO cCodProc, cDesc 
+		FROM bdinteg:"informix".si_tipo_procedencia 
+		WHERE empresa = pempresa
+		AND procedencia = pClave;
+
+		IF cCodProc IS NULL THEN --NO EXISTE EL TIPO DE PROCEDENCIA
+			LET cCodRet = '200';
+			RETURN cCodRet,cCodProc,cDesc;
+		END IF;
+		
+		RETURN cCodRet,cCodProc,cDesc;
+		
+	END IF;
+	
+	IF iParam = 0 THEN --NO HAY DATOS EN LA TABLA
+		LET cCodRet = '300';
+		RETURN cCodRet,cCodProc,cDesc;
+	END IF
+	
+END
+END PROCEDURE 
+DOCUMENT
+'Procedimiento   : ObtenerProcedenciaRecursos',
+'Versión         : 1.0',
+'Creado por      : Victor Hugo Nuñez Velazquez',
+'Fecha creacion  : 10 Junio 2011',
+'Descripcion     : Obtiene la procedencia de los recursos incluyendo por criterio';
+
+CREATE PROCEDURE "informix".sp_ctamec_obtienetipnummovtos (pEmpresa CHAR(3), pCodigo CHAR(2))
+
+	-- DATOS A REGRESAR --
+	RETURNING
+	CHAR(5) AS COD_RET,    -- Codigo de retorno
+	CHAR(2) AS COD_NUM_MOV,    -- Codigo del Numero de Movimientos
+	CHAR(60) AS DESCRIPCION,   -- Descripcion
+	CHAR(16) AS DE,   -- De
+	CHAR(16) AS A;   -- A
+	
+	--	VARIABLES CONTROL DE ERRORES --
+	DEFINE cCodRet  CHAR(5);
+	DEFINE iSqlErr  INTEGER;
+	
+	-- VARIABLES --
+	DEFINE cCodNum	CHAR(2);
+	DEFINE cDesc    CHAR(60);
+	DEFINE cMovInicial		CHAR(16);
+	DEFINE cMovFin		CHAR(16);
+	DEFINE iParam SMALLINT;
+	
+
+	
+	-- INICIALIZACION DE VARIABLES --
+	LET cCodRet  = "000";
+	LET cCodNum = "";
+	LET cDesc = "";
+	LET cMovInicial = "";
+	LET cMovFin = "";
+	LET iParam = 0;
+	LET iSqlErr = 0;
+
+	--SET DEBUG FILE TO "/dbexport/victor/sp_ctamec_obtienetipnummovtos.out";
+	--TRACE ON;
+	
+	-- CONTROL DE ERRORES --	
+BEGIN
+	ON EXCEPTION SET iSqlErr
+        IF iSqlErr <> 0 THEN
+            LET cCodRet = iSqlErr;
+            RETURN cCodRet, cCodNum, cDesc, cMovInicial, cMovFin;
+        END IF
+	END EXCEPTION;
+	
+    set isolation to dirty read;
+	SET LOCK MODE TO WAIT 3;
+	
+	--SE VERIFICA QUE ALMENOS SE INCLUYA EL PARAMETRO EMPRESA
+	IF pEmpresa = "" THEN
+		LET cCodRet = "110";
+	RETURN cCodRet, cCodNum, cDesc, cMovInicial, cMovFin;
+	END IF
+		
+	IF pCodigo = "" THEN
+		LET pCodigo = NULL;
+	END IF
+	
+	IF pCodigo IS NULL THEN
+	--SE REALIZA UNA CONSULTA COMPLETA Y REGRESA TODOS LOS REGISTROS
+		LET iParam = 1;
+		FOREACH
+			SELECT codnummo, descripcion, de, a
+			INTO cCodNum,cDesc, cMovInicial, cMovFin
+			FROM bdinteg:"informix".si_tipo_nummov
+			ORDER BY codnummo
+			
+			RETURN cCodRet, cCodNum, cDesc, cMovInicial, cMovFin WITH RESUME;
+		END FOREACH;
+		
+	ELSE 
+	--SE REALIZA UNA BUSQUEDA CON CRITERIO
+		LET cCodNum = pCodigo;
+		
+		SELECT codnummo, descripcion, de, a
+		INTO cCodNum,cDesc, cMovInicial, cMovFin
+		FROM bdinteg:"informix".si_tipo_nummov
+		WHERE empresa = pempresa
+		AND codnummo = pCodigo;
+		
+		IF cCodNum IS NULL THEN --NO EXISTE EL CODIGO DEL MOVIMIENTO
+			LET cCodRet = '200';
+			RETURN cCodRet, cCodNum, cDesc, cMovInicial, cMovFin;
+		END IF;
+		
+		RETURN cCodRet, cCodNum, cDesc, cMovInicial, cMovFin;
+		
+	END IF;
+	
+	IF iParam = 0 THEN --NO HAY DATOS EN LA TABLA
+		LET cCodRet = '300';
+		RETURN cCodRet, cCodNum, cDesc, cMovInicial, cMovFin;
+	END IF
+	
+END	
+END PROCEDURE
+DOCUMENT
+'Procedimiento   : ObtenerNumeroMovtos',
+'Versión         : 1.0',
+'Creado por      : Victor Hugo Nuñez Velazquez',
+'Fecha creacion  : 10 Junio 2011',
+'Descripcion     : Obtiene El numero de Movimientos';
+
+CREATE PROCEDURE "informix".sp_ctamec_obtienetipmontomovtos (pEmpresa CHAR(3), pCodigo CHAR(2))
+
+	-- DATOS A REGRESAR --
+	RETURNING
+	CHAR(5) AS COD_RET,    -- Codigo de retorno
+	CHAR(2) AS COD_NUM_MOV,    -- Codigo del Monto de Movimientos
+	CHAR(60) AS DESCRIPCION,   -- Descripcion
+	CHAR(16) AS DE,   -- De
+	CHAR(16) AS A;   -- A
+	
+	--	VARIABLES CONTROL DE ERRORES --
+	DEFINE cCodRet  CHAR(5);
+	DEFINE iSqlErr  INTEGER;
+	
+	-- VARIABLES --
+	DEFINE cCodNum	CHAR(2);
+	DEFINE cDesc    CHAR(60);
+	DEFINE cMontoInicia		CHAR(16);
+	DEFINE cMontoFin		CHAR(16);
+	DEFINE iParam SMALLINT;
+	
+
+	
+	-- INICIALIZACION DE VARIABLES --
+	LET cCodRet  = "000";
+	LET cCodNum = "";
+	LET cDesc = "";
+	LET cMontoInicia = "";
+	LET cMontoFin = "";
+	LET iParam = 0;
+	LET iSqlErr = 0;
+	
+
+	--SET DEBUG FILE TO "/dbexport/victor/sp_ctamec_obtienetipmontomovtos.out";
+	--TRACE ON;
+	
+	-- CONTROL DE ERRORES --	
+BEGIN
+	ON EXCEPTION SET iSqlErr
+        IF iSqlErr <> 0 THEN
+            LET cCodRet = iSqlErr;
+            RETURN TRIM(cCodRet), TRIM(cCodNum), TRIM(cDesc), TRIM(cMontoInicia), TRIM(cMontoFin);
+        END IF
+	END EXCEPTION;
+	
+    set isolation to dirty read;
+	SET LOCK MODE TO WAIT 3;
+	
+
+	
+	--SE VERIFICA QUE ALMENOS SE INCLUYA EL PARAMETRO EMPRESA
+	IF pEmpresa = "" THEN
+		LET cCodRet = "110";
+	RETURN TRIM(cCodRet), TRIM(cCodNum), TRIM(cDesc), TRIM(cMontoInicia), TRIM(cMontoFin);
+	END IF
+		
+	IF pCodigo = "" THEN
+		LET pCodigo = NULL;
+	END IF
+	
+	IF pCodigo IS NULL THEN
+	--SE REALIZA UNA CONSULTA COMPLETA Y REGRESA TODOS LOS REGISTROS
+		
+		FOREACH
+			SELECT codnummonto, descripcion, de, a
+			INTO cCodNum,cDesc, cMontoInicia, cMontoFin
+			FROM bdinteg:"informix".si_tipo_montomov
+			ORDER BY codnummonto
+			
+			LET iParam = 1;
+			
+			RETURN TRIM(cCodRet), TRIM(cCodNum), TRIM(cDesc), TRIM(cMontoInicia), TRIM(cMontoFin) WITH RESUME;
+		END FOREACH;
+		
+	ELSE 
+	--SE REALIZA UNA BUSQUEDA CON CRITERIO
+		LET cCodNum = pCodigo;
+		
+		SELECT codnummonto, descripcion, de, a
+		INTO cCodNum,cDesc, cMontoInicia, cMontoFin
+		FROM bdinteg:"informix".si_tipo_montomov
+		WHERE empresa = pempresa
+		AND codnummonto = pCodigo;
+		
+		IF cCodNum IS NULL THEN --NO EXISTE EL CODIGO DEL MONTO
+			LET cCodRet = '200';
+			RETURN TRIM(cCodRet), TRIM(cCodNum), TRIM(cDesc), TRIM(cMontoInicia), TRIM(cMontoFin);
+		END IF;
+		
+		RETURN TRIM(cCodRet), TRIM(cCodNum), TRIM(cDesc), TRIM(cMontoInicia), TRIM(cMontoFin);
+		
+	END IF;
+	
+	IF iParam = 0 THEN --NO HAY DATOS EN LA TABLA
+		LET cCodRet = '300';
+		RETURN TRIM(cCodRet), TRIM(cCodNum), TRIM(cDesc), TRIM(cMontoInicia), TRIM(cMontoFin);
+	END IF
+	
+END	
+END PROCEDURE
+DOCUMENT
+'Procedimiento   : ObtenerMontoMovtosSPL',
+'Versión         : 1.0',
+'Creado por      : Victor Hugo Nuñez Velazquez',
+'Fecha creacion  : 10 Junio 2011',
+'Descripcion     : Obtiene El monto de los movimientos';
+
+CREATE PROCEDURE "informix".sp_ctamec_obtienetipmontomovtosmens (pEmpresa CHAR(3), pCodigo CHAR(2))
+
+	-- DATOS A REGRESAR --
+	RETURNING
+	CHAR(5) AS COD_RET,    -- Codigo de retorno
+	CHAR(2) AS COD_NUM_MOV_MES,    -- Codigo del Monto de Movimientos Mensual
+	CHAR(60) AS DESCRIPCION,   -- Descripcion
+	CHAR(16) AS DE,   -- De
+	CHAR(16) AS A;   -- A
+	
+	--	VARIABLES CONTROL DE ERRORES --
+	DEFINE cCodRet  CHAR(5);
+	DEFINE iSqlErr  INTEGER;
+	
+	-- VARIABLES --
+	DEFINE cCodNum	CHAR(2);
+	DEFINE cDesc    CHAR(60);
+	DEFINE cMontoInicia		CHAR(16);
+	DEFINE cMontoFin		CHAR(16);
+	DEFINE iParam SMALLINT;
+	
+
+	
+	-- INICIALIZACION DE VARIABLES --
+	LET cCodRet  = "000";
+	LET cCodNum = "";
+	LET cDesc = "";
+	LET cMontoInicia = "";
+	LET cMontoFin = "";
+	LET iParam = 0;
+	LET iSqlErr = 0; 
+	
+
+	--SET DEBUG FILE TO "/dbexport/victor/sp_ctamec_obtienetipmontomovtosmens.out";
+	--TRACE ON;
+	
+	-- CONTROL DE ERRORES --	
+BEGIN
+	ON EXCEPTION SET iSqlErr
+        IF iSqlErr <> 0 THEN
+            LET cCodRet = iSqlErr;
+            RETURN cCodRet, cCodNum, cDesc, cMontoInicia, cMontoFin;
+        END IF
+	END EXCEPTION;
+	
+    set isolation to dirty read;
+	SET LOCK MODE TO WAIT 3;
+	
+
+	
+	--SE VERIFICA QUE ALMENOS SE INCLUYA EL PARAMETRO EMPRESA
+	IF pEmpresa = "" THEN
+		LET cCodRet = "110";
+	RETURN cCodRet, cCodNum, cDesc, cMontoInicia, cMontoFin;
+	END IF
+		
+	IF pCodigo = "" THEN
+		LET pCodigo = NULL;
+	END IF
+	
+	IF pCodigo IS NULL THEN
+	--SE REALIZA UNA CONSULTA COMPLETA Y REGRESA TODOS LOS REGISTROS
+		
+		FOREACH
+			SELECT codigo, descripcion, de, a
+			INTO cCodNum,cDesc, cMontoInicia, cMontoFin
+			FROM bdinteg:"informix".si_tipo_montomes
+			ORDER BY codigo
+			
+			LET iParam = 1;
+			
+			RETURN cCodRet, cCodNum, cDesc, cMontoInicia, cMontoFin WITH RESUME;
+		END FOREACH;
+		
+	ELSE 
+	--SE REALIZA UNA BUSQUEDA CON CRITERIO
+		LET cCodNum = pCodigo;
+		
+		SELECT codigo, descripcion, de, a
+		INTO cCodNum,cDesc, cMontoInicia, cMontoFin
+		FROM bdinteg:"informix".si_tipo_montomes
+		WHERE empresa = pempresa
+		AND codigo = pCodigo;
+		
+		IF cCodNum IS NULL THEN --NO EXISTE EL CODIGO DEL MONTO
+			LET cCodRet = '200';
+			RETURN cCodRet, cCodNum, cDesc, cMontoInicia, cMontoFin;
+		END IF;
+		
+		RETURN cCodRet, cCodNum, cDesc, cMontoInicia, cMontoFin;
+		
+	END IF;
+	
+	IF iParam = 0 THEN --NO HAY DATOS EN LA TABLA
+		LET cCodRet = '300';
+		RETURN cCodRet, cCodNum, cDesc, cMontoInicia, cMontoFin;
+	END IF
+	
+END	
+END PROCEDURE
+DOCUMENT
+'Procedimiento   : ObtenerMontoMovtosMensualSPL',
+'Versión         : 1.0',
+'Creado por      : Victor Hugo Nuñez Velazquez',
+'Fecha creacion  : 10 Junio 2011',
+'Descripcion     : Obtiene El monto de los movimientos por Mes';
+
+CREATE PROCEDURE "informix".sp_ctamec_regisrecterc( pUsuario CHAR(20),
+									   pNumCte		CHAR(20),
+									   pCuenta      CHAR(20),
+									   pTipoRec		CHAR(1),
+									   pSecuencia	SMALLINT,
+									   pTipoPer		CHAR(2),
+									   pNumPer		CHAR(2),
+									   pNombre		CHAR(40),
+									   pNacion		CHAR(40),
+									   pRfc			CHAR(13),
+									   pFirma		CHAR(25),
+									   pDomicilio 	CHAR(200))
+									   
+	
+	-- DATOS A REGRESAR --
+	RETURNING
+	CHAR(5) AS COD_RET;    -- Codigo de retorno
+
+
+	--	VARIABLES CONTROL DE ERRORES --
+	DEFINE cCodRet  CHAR(5);
+	DEFINE iSqlErr  INTEGER;
+
+	
+		-- VARIABLES --
+	DEFINE cNumCta		CHAR(20);
+	DEFINE cNumCte  CHAR(20);
+	DEFINE dFecha  DATE;
+	
+	-- INICIALIZACION DE VARIABLES --
+	LET cCodRet  = "000";
+	LET cNumCta = "";
+	LET cNumCte = "";
+	LET iSqlErr = 0;
+	LET dFecha = "";
+	
+	--SET DEBUG FILE TO "/dbexport/victor/sp_ctamec_regisrecterc.out";
+	--TRACE ON;
+	
+	-- CONTROL DE ERRORES --	
+BEGIN
+	ON EXCEPTION SET iSqlErr
+        IF iSqlErr <> 0 THEN
+            LET cCodRet = iSqlErr;
+            RETURN TRIM(cCodRet);
+        END IF
+	END EXCEPTION;
+	
+    set isolation to dirty read;
+	SET LOCK MODE TO WAIT 3;
+	
+	IF pNumCte = "" THEN
+		LET pNumCte = NULL;
+	END IF
+	
+	IF pCuenta = "" THEN
+		LET pCuenta = NULL;
+	END IF
+	
+	IF pTipoRec = "" THEN
+		LET pTipoRec = NULL;
+	END IF
+	
+	IF pTipoPer = "" THEN
+		LET pTipoPer = NULL;
+	END IF
+	
+	IF pNombre = "" THEN
+		LET pNombre = NULL;
+	END IF
+	
+	IF pNacion = "" THEN
+		LET pNacion = NULL;
+	END IF
+	
+	IF pRfc = "" THEN
+		LET pRfc = NULL;
+	END IF
+	
+	IF pFirma = "" THEN
+		LET pFirma = NULL;
+	END IF
+	
+	IF pDomicilio = "" THEN
+		LET pDomicilio = NULL;
+	END IF
+	
+	
+	--VERIFICA QUE NO FALTE NINGUN PARAMETRO
+	IF pNumCte IS NULL OR pCuenta IS NULL OR pTipoRec IS NULL OR pSecuencia IS NULL OR pNombre IS NULL OR pNacion IS NULL OR pRfc IS NULL OR pFirma IS NULL OR pDomicilio IS NULL THEN 
+		LET cCodRet = "110";
+	RETURN TRIM(cCodRet);
+	END IF
+	
+	--VERIFICA QUE SI EXISTA EL NUMERO DE CUENTA
+	SELECT cuenta INTO cNumCta
+	FROM bdicheq:"informix".sc_maechq WHERE cuenta = pCuenta;
+	
+	IF cNumCta IS NULL THEN
+		LET cCodRet = '200'; --no existe el numero de cuenta
+	RETURN TRIM(cCodRet);
+	END IF
+	
+	--VERIFICA QUE SI EXISTA EL NUMERO DE CLIENTE
+	SELECT numcte INTO cNumCte
+	FROM bdinteg:"informix".si_cliente WHERE numcte = pNumCte;
+	
+	IF  cNumCte IS NULL THEN
+		LET cCodRet = '260'; --no existe el numero de cliente 
+	RETURN TRIM(cCodRet);
+	END IF
+	
+	IF pSecuencia = 1 THEN --SI ES EL PRIMER REGISTRO BORRO TODOS LOS REGISTROS QUE TENGAN EL NUMERO DE CUENTA Y EL TIPO DE RECURSO
+		DELETE FROM bdicheq:"informix".sc_recterceros
+		WHERE cuenta_emp = pCuenta AND tipo_recurso = pTipoRec;
+	END IF;
+   
+   SELECT fecha_hoy --SE OBTIENE LA FECHA ACTUAL 
+   INTO dFecha 
+   FROM bdicheq:"informix".sc_fechas 
+   WHERE empresa = '001';
+   
+   
+	INSERT INTO bdicheq:"informix".sc_recterceros(num_cliente_emp,razon_social,cuenta_emp,tipo_recurso,secuencia,tipo_persona,num_persona,rfc,nacionalidad,firma_elec,domicilio,user_insert,fecha_insert)
+	VALUES (pNumCte,pNombre,pCuenta,pTipoRec,pSecuencia,pTipoPer,pNumPer,pRfc,pNacion,pFirma,pDomicilio,pUsuario,dFecha);
+	
+	RETURN TRIM(cCodRet);
+
+END;
+END PROCEDURE
+DOCUMENT
+'Procedimiento   : RegistrarRecursosDeTerceros',
+'Versión         : 1.0',
+'Creado por      : Victor Hugo Nuñez Velazquez',
+'Fecha creacion  : 23 Junio 2011',
+'Descripcion     : Registra los Terceros';
+
+CREATE PROCEDURE "informix".sp_firmantessif( pempresa       CHAR(3),
+									   pcuenta        CHAR(20),
+									   psecuencia     SMALLINT,
+									   pnumcte        CHAR(20),
+									   papellidos     CHAR(30),
+									   pnombre        CHAR(30),
+									   preg_firma     CHAR(1),
+									   ptipo_firma    CHAR(1),
+									   pcombinacion   CHAR(120),
+									   pparentesco    CHAR(2))
+
+RETURNING CHAR(5);
+
+DEFINE cod_ret            CHAR(5);
+DEFINE longitud           SMALLINT;
+DEFINE vnum_cte           CHAR(20);
+DEFINE vtipocte           CHAR(1);
+DEFINE sql_err, isam_err  INTEGER;
+DEFINE v_long_cta         CHAR(2);
+
+LET vtipocte              = '';
+
+SET ISOLATION TO DIRTY READ;
+SET LOCK MODE TO WAIT 3;
+
+-- SET DEBUG FILE TO "/home/sysifx/vlv/sp_firmantesSIF.out";
+-- TRACE ON;
+
+BEGIN
+
+   ON EXCEPTION SET sql_err, isam_err
+      IF sql_err <> 0 OR isam_err <> 0 THEN
+         LET cod_ret = sql_err;
+         RETURN cod_ret;
+      END IF;
+   END EXCEPTION;
+   
+   LET cod_ret = '000';
+   
+   -- SE VALIDAN LOS PARAMETROS
+   IF pcuenta IS NULL OR psecuencia IS NULL OR pnumcte IS NULL THEN
+	  LET cod_ret = '110';
+	  RETURN cod_ret;
+   END IF
+   
+   -- SI LA SECUENCIA ES 1 SE DAN DE ALTA LOS FIRMANTES
+   IF psecuencia = 1 THEN
+      DELETE FROM bdicheq:"informix".sc_firmantes
+      WHERE empresa = pempresa AND cuenta = pcuenta;
+	  
+    --Actualiza el Maenoc por las Firmas Registradas
+      UPDATE bdicheq:"informix".sc_maenoc SET reg_firmas = preg_firma
+      WHERE  empresa = pempresa AND cuenta = pcuenta;
+	  
+   END IF;
+   
+   -- SE EXTRAE EL NUMERO DE CLIENTE POSEEDOR DE LA CUENTA
+   SELECT num_cte INTO vnum_cte
+   FROM bdicheq:"informix".sc_maechq WHERE cuenta = pcuenta;
+   
+   -- SE VALIDA LA EXISTENCIA DE LA CUENTA
+   IF NOT vnum_cte IS NULL THEN
+      SELECT tipo_cliente INTO vtipocte
+      FROM bdinteg:"informix".si_cliente
+      WHERE numcte = vnum_cte;
+   END IF
+   
+   --Registra los sp_firmantesSIF que se autorizaron para la cuenta.
+   INSERT INTO bdicheq:"informix".sc_firmantes(empresa,cuenta,secuencia,numcte,apellidos,nombre,reg_firma,tipo_firma,combinacion,parentesco)
+   VALUES                                     (pempresa,pcuenta,psecuencia,pnumcte,papellidos,pnombre,preg_firma,ptipo_firma,pcombinacion,pparentesco);
+   
+   -- SE CREA EL CLIENTE LA RELACION
+   INSERT INTO bdinteg:"informix".si_cterelacionado(empresa,numcte,sistema,cuenta,tipo_relacion,parentesco,tipo_cliente_ori,user_insert,fecha_insert)
+   VALUES                                          (pempresa,pnumcte,"SC",pcuenta,"02",pparentesco,vtipocte,USER,CURRENT);
+   
+   RETURN cod_ret;
+END;
+END PROCEDURE
+DOCUMENT
+'MODIFICO: Valentin Lopez',
+'FECHA: 09 de Junio del 2011',
+'DESCRIPCION: Registra un historial de sp_firmantesSIF que sean autorizados para la cuenta.',
+'VERSION: 20110609.1146',
+'BD: BDICHEQ';
+
+CREATE PROCEDURE "informix".sp_ctamec_actnvadirecenviochq(pEmpresa CHAR(3), pCuenta CHAR(20), pDireccEnvio CHAR(2))
+
+RETURNING 
+	CHAR(6)   AS CodRet,
+	CHAR(60)  AS Mensaje;
+
+-- ****************************************************************************
+-- Declaracion de variables
+-- ****************************************************************************
+	
+DEFINE vCodRet            CHAR(6);
+DEFINE cMensaje           CHAR(60);
+DEFINE sql_err, isam_err  INT;   
+
+-- ****************************************************************************
+-- Inicializar variables
+-- ****************************************************************************
+	
+LET vCodRet        = "000";
+LET cMensaje       = "Actualizacion Terminada";
+
+SET ISOLATION DIRTY READ ;
+SET LOCK MODE TO WAIT 3;
+
+ --SET DEBUG FILE TO "/home/sysifx/vlv/sp_ctamec_actnvadirecenviochq.out";
+ --TRACE ON;
+
+BEGIN
+
+	ON EXCEPTION SET sql_err,isam_err
+		IF sql_err <> 0 OR isam_err <> 0 THEN
+			LET vCodRet = sql_err;
+			
+			RETURN vCodRet,cMensaje;
+		END IF;
+	END EXCEPTION;
+	
+	-- VALIDACION DE PARAMETROS
+	IF pEmpresa = '' OR pCuenta = '' OR pDireccEnvio = '' THEN
+	   LET vCodRet = '002';
+	   LET cMensaje = 'Faltan parametros para su ejecucion.';
+	   RETURN vCodRet,cMensaje;
+	END IF;
+	
+	-- SE REALIZA FORMATEO DE LOS PARAMETROS
+	LET pDireccEnvio = pDireccEnvio::SMALLINT;
+	LET pCuenta = TRIM(pCuenta);
+    
+	IF EXISTS (SELECT direcc_envio FROM bdicheq:"informix".sc_maechq WHERE cuenta = pCuenta) THEN -- SE VALIDA QUE LA CUENTA SI EXISTE
+	   
+	   -- SE REALZIA LA ACTUALIZACION
+	   UPDATE bdicheq:"informix".sc_maechq  SET direcc_envio = pDireccEnvio WHERE cuenta = pCuenta;
+	   
+	   RETURN vCodRet,cMensaje;
+	   
+	ELSE -- SE VALIDA QUE LA CUENTA NO EXISTE
+	   
+	   -- SE ASIGNA CODIGO DE ERROR Y MENSAJE DESCRIPTIVO
+	   LET vCodRet = '001';
+	   LET cMensaje = 'No se encuentra la cuenta que desea consultar.';
+	   RETURN vCodRet,cMensaje;
+	   
+	END IF;
+
+END;    
+END PROCEDURE
+DOCUMENT
+'MODIFICO: Valentin Lopez',
+'FECHA: 14 de Junio del 2011',
+'DESCRIPCION: Actualiza la nueva direccion de envio',
+'VERSION: 20110614.0911',
+'BD: BDICHEQ';
+
+CREATE PROCEDURE "informix".sp_ctamec_obtienectactesxprod(pEmpresa CHAR(3), pNumCliente CHAR(20), pProducto CHAR(4))
+
+RETURNING 
+	CHAR(6)   AS CodRet,
+	CHAR(20)  AS Cuenta,
+	CHAR(4)   AS Producto;
+
+-- ****************************************************************************
+-- Declaracion de variables
+-- ****************************************************************************
+	
+DEFINE vCodRet            CHAR(6);
+DEFINE cCuenta            CHAR(20);
+DEFINE cNumCte            CHAR(20);
+DEFINE cProducto          CHAR(4);
+DEFINE cContador          SMALLINT;
+
+DEFINE sql_err, isam_err  INT;   
+
+-- ****************************************************************************
+-- Inicializar variables
+-- ****************************************************************************
+	
+LET vCodRet        = "000";
+LET cCuenta        = "";
+LET cNumCte        = "";
+LET cProducto      = "";
+
+SET ISOLATION DIRTY READ ;
+SET LOCK MODE TO WAIT 3;
+
+ -- SET DEBUG FILE TO "/home/sysifx/vlv/sp_ctamec_obtienectactesxprod.out";
+ -- TRACE ON;
+
+BEGIN
+
+	ON EXCEPTION SET sql_err,isam_err
+		IF sql_err <> 0 OR isam_err <> 0 THEN
+			
+   		    LET vCodRet = sql_err;
+			RETURN vCodRet,cCuenta,cProducto;
+		END IF;
+	END EXCEPTION;
+	
+	IF pEmpresa = '' OR pNumCliente = '' OR pProducto = '' THEN
+	-- Falta parametros para su ejecucion.
+	   LET vCodRet = '002';
+	   RETURN vCodRet,cCuenta,cProducto;
+	END IF;
+	
+	IF EXISTS (SELECT cuenta FROM bdicheq:"informix".sc_maechq WHERE num_cte = pNumCliente) THEN 
+	   LET cContador = 0;
+	
+	   --Consulta todas la cuentas que pertenecen a este cliente y ese producto.
+	   FOREACH
+		 
+			SELECT cuenta, num_cte, producto 
+			INTO cCuenta, cNumCte, cProducto
+			FROM bdicheq:"informix".sc_maechq
+			WHERE producto = pProducto
+			AND num_cte = pNumCliente
+			AND empresa = pEmpresa
+			ORDER BY num_cte, cuenta
+		    
+			LET cContador = cContador + 1;
+		 
+		RETURN vCodRet,cCuenta,cProducto WITH RESUME; 
+		
+	   END FOREACH;
+	 
+	 IF cContador = 0 THEN 
+	 -- No existen registros de esa cuenta
+	    LET vCodRet = '003';
+		RETURN vCodRet,cCuenta,cProducto;
+	 END IF;
+	   
+	ELSE
+	 --El cliente no tiene cuentas.
+	   LET vCodRet = '001';
+	   RETURN vCodRet,cCuenta,cProducto;
+	   
+	END IF;
+
+END;    
+END PROCEDURE
+DOCUMENT
+'MODIFICO: Valentin Lopez',
+'FECHA: 15 de Junio del 2011',
+'DESCRIPCION: Consulta todas la cuentas que pertenecen a este cliente y el producto',
+'VERSION: 20110615.1011',
+'BD: BDICHEQ';
+
+CREATE PROCEDURE "informix".sp_consulta_instruccionautoridad(pNumCta CHAR(20))
+
+--------------------------------------------------------------------
+--DOCUMENTACIÓN
+--Consulta por Instrucción de Autoridad
+--Realizó: Nancy Sevilla Camacho
+--Fecha: 18/05/2011                    
+--------------------------------------------------------------------
+
+--DATOS A REGRESAR---
+RETURNING
+CHAR(5),      -- Código de Retorno
+CHAR(20),     -- Cuenta
+CHAR(60),     -- Denominación o Razón Social
+CHAR(20),     -- Número de Cliente
+CHAR(60);     -- Nombre del titular
+
+--DEFINICION DE VARIABLES--
+DEFINE iSqlErr INTEGER;
+DEFINE cCodRet CHAR(5);	
+---------------------------	
+DEFINE cCuenta CHAR(20);
+DEFINE cRazonSoc CHAR(60);
+DEFINE cNumCte CHAR(20);
+DEFINE cNomTitular CHAR(60);
+
+--INICIALIZACION DE VARIABLES--
+LET iSqlErr = 0;
+LET cCodRet = '00000';
+LET cCuenta  = '';
+LET cRazonSoc = '';
+LET cNumCte = '';
+LET cNomTitular = '';
+	
+	--SET DEBUG FILE TO "/home/informix/sp_consulta_instruccionautoridad.out";
+	--TRACE ON;
+
+    set isolation to dirty read;
+	SET LOCK MODE TO WAIT 3;
+
+	-- INICIO DEL PROCEDIMIENTO
+	BEGIN
+	-- MANEJADOR DE ERRORES
+		ON EXCEPTION SET iSqlErr
+			IF iSqlErr <> 0 THEN
+				LET cCodRet = iSqlErr;
+				RETURN cCodRet,
+					   cCuenta,
+					   cRazonSoc,
+					   cNumCte,
+					   cNomTitular;
+			END IF;
+		END EXCEPTION;	
+		
+		IF pNumCta IS NULL OR pNumCta = '' THEN
+		
+			LET cCodRet = "102"; -- Parámetro de entrada vacío
+		
+		ELSE
+
+			-- Obtiene Número de cuenta, Denominación o Razón Social, Número de cliente y Titular			   
+			SELECT a.cuenta,
+				   b.numcte,
+				   b.razon_social,
+				   TRIM(c.nombre) || ' ' || TRIM(c.apellidos)
+			  INTO cCuenta,
+				   cNumCte,
+				   cRazonSoc,
+				   cNomTitular
+			  FROM bdicheq:"informix".sc_maechq a,
+				   bdinteg:"informix".si_cliente b,
+				   bdicheq:"informix".sc_firmantes c
+			 WHERE a.cuenta = pNumCta
+			   AND a.num_cte = b.numcte
+			   AND a.cuenta = c.cuenta
+			   AND c.tipo_firma = 'A';			   
+			   
+			 IF cCuenta IS NULL OR cCuenta = '' OR cNumCte IS NULL OR cNumCte = '' OR 
+			    cRazonSoc IS NULL OR cRazonSoc = '' OR cNomTitular IS NULL OR cNomTitular = '' THEN
+				LET cCodRet = "101"; -- No se encontró información relacionada a la cuenta			  
+			END IF;		
+			
+		   
+		END IF;
+
+		RETURN cCodRet,
+			   cCuenta,
+			   cRazonSoc,
+			   cNumCte,
+			   cNomTitular;									
+	END
+END PROCEDURE;

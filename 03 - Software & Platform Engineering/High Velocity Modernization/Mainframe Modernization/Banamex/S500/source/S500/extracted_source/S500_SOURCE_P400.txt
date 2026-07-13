@@ -1,0 +1,1034 @@
+100100$SET STACK LIST      LINEINFO MAP FREE  ERRORLIMIT = 6                        
+100200*****$SET TADS (FREQUENCY)                                                    
+100300*****************************************************************             
+100400*        PARA MANEJO DE INCLUDE  BASE DE DATOS                  *             
+100500*****************************************************************             
+100600$SET BDB00R21 BDB02R01 BDB39R12 BDB39R08 BDB37R05 BDB38R07                    
+100610*$SET BDB03R09                                                                
+100700*****************************************************************             
+100800*        PARA INCLUDE MANEJO DE LIBRERIAS                       *             
+100900*****************************************************************             
+101000$SET S100VERSIONES S000LIBLJ S006LOCSUP                                       
+101100*                                                                             
+101200 IDENTIFICATION DIVISION.                                                     
+101300 PROGRAM-ID.     P335-EDOCTA.                                                 
+101400*                                                                             
+101500 ENVIRONMENT DIVISION.                                                        
+101600 CONFIGURATION SECTION.                                                       
+101700 INPUT-OUTPUT SECTION.                                                        
+101800 FILE-CONTROL.                                                                
+101900          SELECT  ARCHED1    ASSIGN TO DISK.                                  
+102000          SELECT  SORTED1    ASSIGN TO SORT DISK.                             
+102100          SELECT  ARCHEDO    ASSIGN TO DISK.                                  
+102150*         SELECT  ARCHIMTY   ASSIGN TO DISK                                   
+102155*                      ORGANIZATION IS INDEXED                                
+102160*                      ACCESS MODE  IS DYNAMIC                                
+102165*                      RECORD KEY   IS IND-NUM-CTO.                           
+102200/                                                                             
+102300 DATA DIVISION.                                                               
+102400 FILE SECTION.                                                                
+102500 FD  ARCHED1                                                                  
+102600     VA OF  AREASIZE  10000                                                   
+102700     BLOCK  CONTAINS  100 RECORDS                                             
+102750     RECORD CONTAINS  360 CHARACTERS                                          
+102800     VALUE OF TITLE   IS  WS-ETIQ-EDOCT1.                                     
+102900 01  REG-ARCHED1.                                                             
+103000     05 ED1-TIP-REG       PIC 9(06).                                          
+103100     05 ED1-NUM-GPO       PIC 9(10).                                          
+103200     05 ED1-NUM-CTE       PIC 9(04).                                          
+103300     05 ED1-ARCHED1       PIC X(340).                                         
+103400*                                                                             
+103500 FD  ARCHEDO                                                                  
+103600     VA OF  AREASIZE  10000                                                   
+103700     BLOCK  CONTAINS  100 RECORDS                                             
+103750     RECORD CONTAINS  360 CHARACTERS                                          
+103800     VALUE OF TITLE   IS  WS-ETIQ-EDOCTA.                                     
+103900 01  REG-ARCHEDO          PIC X(360).                                         
+104000*                                                                             
+104100 SD  SORTED1                                                                  
+104110     BLOCK  CONTAINS  100 RECORDS                                             
+104120     RECORD CONTAINS  360 CHARACTERS.                                         
+104200 01  REG-SORTED1.                                                             
+104300     05 SD1-TIP-REG       PIC 9(06).                                          
+104400     05 SD1-NUM-GPO       PIC 9(10).                                          
+104500     05 SD1-NUM-CTE       PIC 9(04).                                          
+104600     05 SD1-SORTED1       PIC X(340).                                         
+104700*                                                                             
+104705*FD  ARCHIMTY                                                                 
+104710*    BLOCK  CONTAINS   90 RECORDS                                             
+104715*    RECORD CONTAINS  180 CHARACTERS                                          
+104720*    VALUE OF TITLE    IS WS-ETIQ-ARCHIMTY                                    
+104725*    VALUE OF PROTECTION IS 2.                                                
+104730*01  REG-ARCHIMTY.                                                            
+104735*    05 IND-NUM-CTO       PIC 9(12).                                          
+104740*    05 IND-CON-COM       PIC 9(06).                                          
+104745*    05 IND-DIA-CIC       PIC 9(02).                                          
+104750*    05 IND-PRO-CIC       PIC 9(12)V99.                                       
+104755*    05 IND-TIP-PER       PIC 9(02).                                          
+104760*    05 IND-NOM-CTE       PIC X(36).                                          
+104765*    05 IND-STA-CTO       PIC 9(02).                                          
+104770*    05 IND-TAS-ANT       PIC 9(03)V9999.                                     
+104775*    05 IND-INT-CAP       PIC 9(12)V99.                                       
+104780*    05 IND-IMP-RET       PIC 9(12)V99.                                       
+104782*    05 IND-TAS-BTA       PIC 9(03)V9999.                                     
+104784*    05 IND-CVE-COBRO     PIC 9(02).                                          
+104786*    05 IND-IMP-COM-CAP   PIC 9(06)V99.                                       
+104788*    05 FILLER            PIC X(54).                                          
+104790*                                                                             
+104800 DATA-BASE SECTION.                                                           
+104900 DB  S500BD01CAPTACION.                                                       
+105000 01  S500B00CTRLPASO.                                                         
+105100 01  S500B02CONTROL.                                                          
+105150*01  S500B03CONTRATOS.                                                        
+105200 01  S500B37GRUPOCPE.                                                         
+105300 01  S500B38SUBGPOS.                                                          
+105400 01  S500B39CTASCPE.                                                          
+105500/                                                                             
+105600 WORKING-STORAGE SECTION.                                                     
+105700*                                                                             
+105720 77  WB-NO-EXIS-SGPO      PIC 9(01) VALUE 1.                                  
+105740     88 NO-EXIS-SGPO                VALUE 0.                                  
+105800 77  WKS-PROD-NETOS       PIC S9(12)V99.                                      
+105900 77  WB-EOF-B39           PIC 9(01).                                          
+106000     88 EOF-B39  VALUE 1.                                                     
+106010*77  WS-EXISTE-B03        PIC 9(01) VALUE 0.                                  
+106200 77  W77-MY-PASO          PIC 9(04).                                          
+106300 77  WS-RESUL             PIC 9(08).                                          
+106400 77  WS-RESIDUO           PIC 9(08).                                          
+106500 77  WS-CLIENTES          PIC 9(08).                                          
+106600 77  WS-REGISTROS         PIC 9(08).                                          
+106620 77  WS-CTAS-STAT-OKSG    PIC 9(04).                                          
+106640 77  WS-CTAS-STAT-OKGP    PIC 9(04).                                          
+106700 77  WB-PRIM-VEZ          PIC 9(01).                                          
+106800     88 PRIM-VEZ  VALUE 0.                                                    
+106900 77  WS-GPO-ANT           PIC 9(10).                                          
+107000 77  WS-SGP-ANT           PIC 9(04).                                          
+107100 77  WS-GPO-NVO           PIC 9(10).                                          
+107200 77  WS-SGP-NVO           PIC 9(04).                                          
+107300 77  WS-SORT-ESPACIO      PIC 9(12).                                          
+107400 77  WS-AREA-ESPACIO      PIC 9(12).                                          
+107500 77  WS-LASTRECORD        PIC 9(10).                                          
+107600 77  WB-FIN-SORTED1       PIC 9(01).                                          
+107700     88 FIN-SORTED1 VA 1.                                                     
+107710 77  WB-TIP-REG-VAL       PIC 9(06).                                          
+107720     88 TIP-REG-VAL       VALUE 000000, 100000, 100001, 700000,               
+107730                                701000, 701100, 701110, 701111,               
+107740                                701119, 701190, 709000, 990000.               
+107750 77  W77-RESULT-L020      PIC S9(4).                                          
+107800 01  WKS-MDA              PIC 9(12).                                          
+107900 01  WKS-MDA-R REDEFINES                                                      
+108000     WKS-MDA.                                                                 
+108100     05 WKS-MDA-SUC       PIC 9(04).                                          
+108200     05 WKS-MDA-CTA       PIC 9(08).                                          
+109500*                                                                             
+109600***  ACUMULADOS POR SUBGPO, GRUPO Y GRAL P/REGISTROS EN ARCHED1 *             
+109700*                                                                             
+109800 01  WKS-ACUM-ARCHED1.                                                        
+109900     05 WKS-ACUM-X-CTE.                                                       
+110000        10 WKS-SPROM-X-CTE   PIC  9(12)V99.                                   
+110100        10 WKS-CHEQS-X-CTE   PIC  9(12)V99.                                   
+110200        10 WKS-EXENT-X-CTE   PIC  9(12)V99.                                   
+110300        10 WKS-PRODS-X-CTE   PIC  9(12)V99.                                   
+110400        10 WKS-COMIS-X-CTE   PIC  9(12)V99.                                   
+110500        10 WKS-PNETO-X-CTE   PIC S9(12)V99.                                   
+110600        10 WKS-SDISR-X-CTE   PIC  9(12)V99.                                   
+110700     05 WKS-ACUM-X-GPO.                                                       
+110800        10 WKS-SPROM-X-GPO   PIC  9(12)V99.                                   
+110900        10 WKS-CHEQS-X-GPO   PIC  9(12)V99.                                   
+111000        10 WKS-EXENT-X-GPO   PIC  9(12)V99.                                   
+111100        10 WKS-PRODS-X-GPO   PIC  9(12)V99.                                   
+111200        10 WKS-COMIS-X-GPO   PIC  9(12)V99.                                   
+111300        10 WKS-PNETO-X-GPO   PIC S9(12)V99.                                   
+111400        10 WKS-SDISR-X-GPO   PIC  9(12)V99.                                   
+111500     05 WKS-ACUM-X-GRL.                                                       
+111600        10 WKS-SPROM-X-GRL   PIC  9(12)V99.                                   
+111700        10 WKS-CHEQS-X-GRL   PIC  9(12)V99.                                   
+111800        10 WKS-EXENT-X-GRL   PIC  9(12)V99.                                   
+111900        10 WKS-PRODS-X-GRL   PIC  9(12)V99.                                   
+112000        10 WKS-COMIS-X-GRL   PIC  9(12)V99.                                   
+112100        10 WKS-PNETO-X-GRL   PIC S9(12)V99.                                   
+112200        10 WKS-SDISR-X-GRL   PIC  9(12)V99.                                   
+112300        05 WKS-CHQ-GIR-10P   PIC  9(12)V99.                                   
+112400        05 WKS-IVA-GIR-10P   PIC  9(12)V99.                                   
+112500        05 WKS-CHQ-GIR-15P   PIC  9(12)V99.                                   
+112600        05 WKS-IVA-GIR-15P   PIC  9(12)V99.                                   
+112700*                                                                             
+112800 COPY "S500/INC/WOR/25MTP002".                                                
+112900*                                                                             
+113000 01  WS-ETIQ-EDOCTA.                                                          
+113100     03  FILLER                   PIC X(21) VALUE                             
+113200                          "S500/FILE/S050/12/12/".                            
+113300     03  WS-ETIQ-FECHA-EDOCTA     PIC 9(06).                                  
+113400     03  FILLER                   PIC X(01) VALUE ".".                        
+113500*                                                                             
+113600 01  WS-ETIQ-EDOCT1.                                                          
+113700     03  FILLER                   PIC X(21) VALUE                             
+113800                          "S500/FILE/S051/12/12/".                            
+113900     03  WS-ETIQ-FECHA-EDOCT1     PIC 9(06).                                  
+114000     03  FILLER                   PIC X(01) VALUE ".".                        
+114100*                                                                             
+114110*01  WS-ETIQ-ARCHIMTY.                                                        
+114120*    05 FILLER                 PIC X(15) VALUE                                
+114130*                              "S500/FILE/S500/".                             
+114140*    05 WS-CPI-CSIO            PIC 99    VALUE 10.                            
+114150*    05 FILLER                 PIC X(1)  VALUE "/".                           
+114160*    05 WS-CPI-CSID            PIC 99    VALUE 10.                            
+114170*    05 FILLER                 PIC X(08) VALUE "/CPEIND/".                    
+114180*    05 WS-ETIQ-FECHA-ARCHI    PIC 9(6).                                      
+114190*    05 FILLER                 PIC X VALUE ".".                               
+114195*                                                                             
+114200*****************************************************************             
+114300*            DESCRIPCION DEL ARCHIVO DE ENTRADA CSF             *             
+114400*****************************************************************             
+114500  01 REGISTRO-HEADER.                                                         
+114600      05 RDR-TIPO-REG                     PIC  9(06).                         
+114700*                 000000                                                      
+114800      05 RDR-NODO                         PIC  9(02).                         
+114900      05 RDR-TIPO-ENVIO                   PIC  9(02).                         
+115000      05 RDR-FECPROC                      PIC  9(06).                         
+115100      05 RDR-NUM-ARCH                     PIC  9(02).                         
+115200      05 RDR-OPCION                       PIC  X(02).                         
+115300      05 RDR-TIPOGEN                      PIC  X(03).                         
+115400*                                                                             
+115500  01 REGISTRO-DATOS-SEL.                                                      
+115600      05  REL-TIPO-REG                    PIC  9(06).                         
+115700*                 100000                                                      
+115800      05  REL-SUC.                                                            
+115900        10  REL-SUC-NUM                   PIC  9(04).                         
+116000        10  REL-SUC-NOM                   PIC  X(20).                         
+116100        10  REL-SUC-DIR.                                                      
+116200          15  REL-SUC-DOM                 PIC  X(40).                         
+116300          15  REL-SUC-COL                 PIC  X(40).                         
+116400          15  REL-SUC-POB                 PIC  X(40).                         
+116500          15  REL-SUC-EDO                 PIC  X(21).                         
+116600          15  REL-SUC-CRZP                PIC  X(06).                         
+116700          15  REL-SUC-CENREP              PIC  9(06).                         
+116800          15  REL-SUC-CODPOS              PIC  9(06).                         
+116900*                                                                             
+117000  01 REGISTRO-RESUMEN-CPE.                                                    
+117100      05  RCP-TIPO-REG                    PIC  9(06).                         
+117200      05  RCP-FECHA-INI                   PIC  9(06).                         
+117300      05  RCP-FECHA-FIN                   PIC  9(06).                         
+117400*     05  RCP-SDO-PROM-GRUPO              PIC  9(10)V99.                      
+117450      05  RCP-SDO-PROM-GRUPO              PIC  9(12)V99.                      
+117500      05  RCP-TASA-GRUPO                  PIC  9(03)V99.                      
+117600      05  RCP-PROD-GRUPO                  PIC  9(08)V99.                      
+117700      05  RCP-CHEQUES-GRUPO               PIC  9(06).                         
+117800      05  RCP-COM-CHQ-GRUPO               PIC  9(08)V99.                      
+117900      05  RCP-CTA-APLIC                   PIC  9(16).                         
+118000      05  RCP-CTA-APLIC-R REDEFINES        RCP-CTA-APLIC.                     
+118100        10 RCP-SUC-PAGO                   PIC  9(04).                         
+118200        10 RCP-CTA-PAGO                   PIC  9(12).                         
+118300 01 REGISTRO-HDR-SUPGPO.                                                      
+118400      05 RHS-TIPO-REG                     PIC  9(06).                         
+118500      05 RHS-NUM-SUPGPO                   PIC  9(12).                         
+118600      05 RHS-NOM-SUPGPO                   PIC  X(55).                         
+118700 01 REGISTRO-HDR-GRUPO.                                                       
+118800      05 RHG-TIPO-REG                     PIC  9(06).                         
+118900      05 RHG-NUM-GRUPO                    PIC  9(12).                         
+119000      05 RHG-NOM-GRUPO                    PIC  X(55).                         
+119100 01 REGISTRO-HDR-CLIENTE.                                                     
+119200      05 RHC-TIPO-REG                     PIC  9(06).                         
+119300      05 RHC-NUM-CLIENTE                  PIC  9(12).                         
+119400      05 RHC-NOM-CLIENTE                  PIC  X(55).                         
+119500 01 REGISTRO-DET-CUENTAS.                                                     
+119600      05 RDC-TIPO-REG                     PIC  9(06).                         
+119700*                 701111                                                      
+119800      05 RDC-NUM-CTE-CTA                  PIC  9(12).                         
+119900      05 RDC-NOM-CTE-CTA                  PIC  X(55).                         
+120000      05 RDC-SUC-CTA                      PIC  9(04).                         
+120100      05 RDC-NUM-CTA                      PIC  9(12)      .                   
+120200**    05 RDC-SDOPROM-CTA                  PIC  9(08)V99   .                   
+120250      05 RDC-SDOPROM-CTA                  PIC  9(12)V99   .                   
+120300      05 RDC-TASA-PROD                    PIC  9(02)V99   .                   
+120400      05 RDC-TASA-ADIC                    PIC  9(02)V99.                      
+120500      05 RDC-CHEQUES-TOT                  PIC  9(06)   .                      
+120600      05 RDC-CHEQUES-EXE                  PIC  9(06)   .                      
+120700      05 RDC-PROD-PERIODO                 PIC  9(08)V99 .                     
+120800      05 RDC-COMISION                     PIC  9(08)V99 .                     
+120900      05 RDC-PROD-NETOS                   PIC  9(08)V99 .                     
+121000      05 RDC-SIGNO                        PIC  X(01).                         
+121100      05 RDC-TASA-ISR                     PIC  9(02)V99 .                     
+121200      05 RDC-SDO-ISR                      PIC  9(08)V99 .                     
+121300 01 REGISTRO-TOT-CLIENTE.                                                     
+121400      05 RTC-TIPO-REG                     PIC  9(06).                         
+121500*                 701119                                                      
+121600**    05 RTC-SDOPROM-CTA                  PIC  9(09)V99   .                   
+121650      05 RTC-SDOPROM-CTA                  PIC  9(12)V99   .                   
+121700      05 RTC-CHEQUES-TOT                  PIC  9(06)      .                   
+121800      05 RTC-CHEQUES-EXE                  PIC  9(06)      .                   
+121900      05 RTC-PROD-PERIODO                 PIC  9(08)V99   .                   
+122000      05 RTC-COMISION                     PIC  9(08)V99   .                   
+122100      05 RTC-PROD-NETOS                   PIC  9(08)V99   .                   
+122200      05 RTC-SIGNO                        PIC  X(01).                         
+122300      05 RTC-SDO-ISR                      PIC  9(08)V99   .                   
+122400 01 REGISTRO-TOT-GRUPO.                                                       
+122500      05 RTG-TIPO-REG                     PIC  9(06)      .                   
+122600*                 701190                                                      
+122700**    05 RTG-SDOPROM-CTA                  PIC  9(09)V99   .                   
+122750      05 RTG-SDOPROM-CTA                  PIC  9(12)V99   .                   
+122800      05 RTG-CHEQUES-TOT                  PIC  9(06)      .                   
+122900      05 RTG-CHEQUES-EXE                  PIC  9(06)      .                   
+123000      05 RTG-PROD-PERIODO                 PIC  9(08)V99   .                   
+123100      05 RTG-COMISION                     PIC  9(08)V99   .                   
+123200      05 RTG-PROD-NETOS                   PIC  9(08)V99   .                   
+123300      05 RTG-SIGNO                        PIC  X(01).                         
+123400      05 RTG-SDO-ISR                      PIC  9(08)V99   .                   
+123500      05 RTG-TOT-CHQ-GIR-10P              PIC  9(08)V99   .                   
+123600      05 RTG-IVA-CHQ-GIR-10P              PIC  9(08)V99   .                   
+123700      05 RTG-TOT-CHQ-GIR-15P              PIC  9(08)V99   .                   
+123800      05 RTG-IVA-CHQ-GIR-15P              PIC  9(08)V99   .                   
+125200                                                                              
+125300 01   REGISTRO-TOTAL-GENERAL.                                                 
+125400      05 RTR-TIPO-REG                     PIC  9(06)      .                   
+125500**    05 RTR-SDOPROM-CTA                  PIC 9(09)V99.                       
+125550      05 RTR-SDOPROM-CTA                  PIC 9(12)V99.                       
+125600      05 RTR-CHEQUES-TOT                  PIC  9(06) .                        
+125700      05 RTR-CHEQUES-EXE                  PIC  9(06)      .                   
+125800      05 RTR-PROD-PERIODO                 PIC  9(08)V99   .                   
+125900      05 RTR-COMISION                     PIC  9(08)V99   .                   
+126000      05 RTR-PROD-NETOS                   PIC  9(08)V99   .                   
+126100      05 RTR-SIGNO                        PIC  X(01).                         
+126200      05 RTR-SDO-ISR                      PIC  9(08)V99   .                   
+126300      05 RTR-TOT-CHQ-GIR-10P              PIC  9(08)V99   .                   
+126400      05 RTR-IVA-CHQ-GIR-10P              PIC  9(08)V99   .                   
+126500      05 RTR-TOT-CHQ-GIR-15P              PIC  9(08)V99   .                   
+126600      05 RTR-IVA-CHQ-GIR-15P              PIC  9(08)V99   .                   
+126700 01 REGISTRO-TRAILER.                                                         
+126800      05 RTT-TIPO-REG                     PIC  9(06).                         
+126900      05 RTT-TOT-CLIENTES                 PIC  9(06).                         
+127000      05 RTT-TOT-REGISTROS                PIC  9(06).                         
+127100*                                                                             
+127200  01 REGISTRO-DATOS-CTE.                                                      
+127300      05  RTE-TIPO-REG                    PIC  9(06).                         
+127400*                 100001                                                      
+127500      05  RTE-NUM                         PIC  9(12).                         
+127600      05  RTE-FOLIO                       PIC  9(06).                         
+127700      05  RTE-AGRUP                       PIC  9(12).                         
+127800      05  RTE-NOM                         PIC  X(55).                         
+127900      05  RTE-RFC                         PIC  X(16).                         
+128000      05  RTE-RFC-R REDEFINES RTE-RFC.                                        
+128100        10  RTE-RFC-SIG                   PIC  X(04).                         
+128200        10  RTE-RFC-FEC                   PIC  9(06).                         
+128300        10  RTE-RFC-HMCLV                 PIC  X(06).                         
+128400      05  RTE-DIR.                                                            
+128500        10  RTE-DOM                       PIC  X(36).                         
+128600        10  RTE-COL                       PIC  X(24).                         
+128700        10  RTE-POB                       PIC  X(20).                         
+128800        10  RTE-EDO                       PIC  X(21).                         
+128900        10  RTE-CODPOS                    PIC  9(06).                         
+129000        10  RTE-CENREP                    PIC  9(06).                         
+129100      05 RTE-PERSBCO                      PIC  9(02).                         
+129200      05 RTE-SEGMENTO                     PIC  9(02).                         
+129300      05 RTE-TIPOPER                      PIC  9(02).                         
+129400      05 RTE-NUMEDO                       PIC  9(02).                         
+129500      05 RTE-REPRESENTANTE                PIC  X(55).                         
+129600      05 RTE-EJECUTIVO                    PIC  X(36).                         
+129610*                                                                             
+129620 01  REGISTRO-SORTED1.                                                        
+129630     05 RS1-TIP-REG       PIC 9(06).                                          
+129640     05 RS1-NUM-GPO       PIC 9(10).                                          
+129650     05 RS1-NUM-CTE       PIC 9(04).                                          
+129660     05 RS1-TIP-REG2      PIC 9(06).                                          
+129670     05 RS1-RESTO         PIC X(334).                                         
+129700*                                                                             
+129800******************************************************************            
+129900*         F E C H A   I N I C I A L   D E   C I C L O                         
+130000******************************************************************            
+130100 01  WS-FECHA-INICIO.                                                         
+130200     02  WS-FEC-INI-AA               PIC 9(004).                              
+130300     02  WS-FEC-INI-MM               PIC 9(002).                              
+130400     02  WS-FEC-INI-DD               PIC 9(002).                              
+130500 01 WS-FECHA-INICIO-R REDEFINES WS-FECHA-INICIO.                              
+130600    02   WS-FEC-INI-COMPLETO         PIC 9(08).                               
+130700******************************************************************            
+130800*         F E C H A   F I N A L   D E   C I C L O                             
+130900******************************************************************            
+131000 01  WS-FECHA-FINAL.                                                          
+131100     02  WS-FEC-FIN-AA               PIC 9(004).                              
+131200     02  WS-FEC-FIN-MM               PIC 9(002).                              
+131300     02  WS-FEC-FIN-DD               PIC 9(002).                              
+131400 01  WS-FECHA-FINALR REDEFINES WS-FECHA-FINAL.                                
+131500     02 WS-FEC-FIN-COMPLETO          PIC 9(08).                               
+131505*****************************************************************             
+131510*         F E C H A   DE PROCESO                                              
+131515*****************************************************************             
+131520 01  WS-FECHA-PROCE.                                                          
+131525     02  WS-FEC-PROCE-AA               PIC 9(004).                            
+131530     02  WS-FEC-PROCE-MM               PIC 9(002).                            
+131535     02  WS-FEC-PROCE-DD               PIC 9(002).                            
+131540 01  WS-FECHA-PROCER REDEFINES WS-FECHA-PROCE                                 
+131545                                       PIC 9(08).                             
+131550****************************************************************              
+131600******************************************************************            
+131700*         T A B L A   D E   L O S   M E S E S                                 
+131800******************************************************************            
+131900 01  WS-MESES.                                                                
+132000     02  FILLER     PIC X(22) VALUE "ENE ENERO           31".                 
+132100     02  FILLER     PIC X(22) VALUE "FEB FEBRERO         28".                 
+132200     02  FILLER     PIC X(22) VALUE "MAR MARZO           31".                 
+132300     02  FILLER     PIC X(22) VALUE "ABR ABRIL           30".                 
+132400     02  FILLER     PIC X(22) VALUE "MAY MAYO            31".                 
+132500     02  FILLER     PIC X(22) VALUE "JUN JUNIO           30".                 
+132600     02  FILLER     PIC X(22) VALUE "JUL JULIO           31".                 
+132700     02  FILLER     PIC X(22) VALUE "AGO AGOSTO          31".                 
+132800     02  FILLER     PIC X(22) VALUE "SEP SEPTIEMBRE      30".                 
+132900     02  FILLER     PIC X(22) VALUE "OCT OCTUBRE         31".                 
+133000     02  FILLER     PIC X(22) VALUE "NOV NOVIEMBRE       30".                 
+133100     02  FILLER     PIC X(22) VALUE "DIC DICIEMBRE       31".                 
+133200 01  WS-TABLA-MESES REDEFINES WS-MESES.                                       
+133300     02 WS-TABLA-MES OCCURS 12 TIMES.                                         
+133400        03 WS-TBL-MES                PIC X(03).                               
+133500        03 FILLER                    PIC X(01).                               
+133600        03 WS-MES-LARGO              PIC X(15).                               
+133700        03 FILLER                    PIC X(01).                               
+133800        03 WS-NUM-DIAS               PIC 9(02).                               
+133810*STF-JATL-INC00318628663-INC0046798403-INI                                    
+133820 01 WS-GRUPO-B37                     PIC 9(10) VALUE ZEROS.                   
+133830 01 WS-CONTRATO-CTE                  PIC 9(12) VALUE ZEROS.                   
+133840 01 WS-TIPO-PERSONA-PAGO             PIC 9(02) VALUE ZEROS.                   
+133850 01 WS-TIPO-PERSONA                  PIC 9(02) VALUE ZEROS.                   
+133855 01 WS-TIPO-PERSONA-PAGO-ANT         PIC 9(02) VALUE ZEROS.                   
+133860*STF-JATL-INC00318628663-INC0046798403-FIN                                    
+133900*                                                                             
+134000 PROCEDURE DIVISION.                                                          
+134100*===================                                                          
+134200 000-CONTROL-PROGRAMA SECTION.                                                
+134300 000-CONTROL-PROGR.                                                           
+134400*------------------                                                           
+134500     PERFORM 100-INICIA.                                                      
+134550     IF B02-NUM-CSI = 10                                                      
+134600        PERFORM 200-GENERA-EDOCTA UNTIL EOF-B39                               
+134700        PERFORM 300-TERMINA                                                   
+134800        PERFORM 400-CLASIFICA-EDOCTA THRU                                     
+134900                400-CLASIF-EXIT                                               
+134920     ELSE                                                                     
+134940        PERFORM 330-CIERRA-BASE.                                              
+135000     STOP RUN.                                                                
+135100*                                                                             
+135200 100-INICIA.                                                                  
+135300*-----------                                                                  
+135400     MOVE 11 TO WS-STATUS-BASE                                                
+135500     PERFORM 120-ABRE-BASE UNTIL WS-DB-NOTERROR                               
+135520     PERFORM 10000006-LOCSUP                                                  
+135550     PERFORM 122-OBTEN-B02CONTROL                                             
+135552                                                                              
+135570     IF B02-NUM-CSI = 10                                                      
+135590        PERFORM 110-CHECA-VERSION                                             
+135800        PERFORM 140-GRABA-REG-HEADER                                          
+136000        PERFORM 160-B39SXGPOSBGMDA-FINDN.                                     
+136100*                                                                             
+136200 110-CHECA-VERSION.                                                           
+136300*------------------                                                           
+136400     MOVE 2          TO W77-USO-LIBLJ.                                        
+136500     MOVE 051010     TO WS-0101-CODI-MSG.                                     
+136600     MOVE 02         TO WS-0101-TIPO-MSG.                                     
+136700     MOVE "S500P335" TO W77-S000-MY-ID.                                       
+136800     MOVE       335  TO W77-MY-PASO.                                          
+136900     MOVE     "P335" TO WS-0101-PASO-MSG.                                     
+137000     MOVE "25MTP003" TO WS-0101-MTP-MSG W77-S000-MY-VERSION.                  
+137100                                                                              
+137200     PERFORM  10000100-VERSIONES.                                             
+137300     PERFORM  20000100-CHECAME-VERSION.                                       
+137400     IF S000-CTR-CVEERROR < 0                                                 
+137500        STRING "ERROR DE VERSION "                                            
+137600               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+137700        PERFORM 70000050-MENSAJE                                              
+137800        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                              
+137900*                                                                             
+138000 120-ABRE-BASE.                                                               
+138100*--------------                                                               
+138150     MOVE 0 TO WS-STATUS-BASE                                                 
+138200     OPEN INQUIRY S500BD01CAPTACION                                           
+138260       ON EXCEPTION                                                           
+138280          IF DMSTATUS(OPENERROR)                                              
+138300             IF DMSTATUS(DMERRORTYPE) = 39                                    
+138320                MOVE DMSTATUS(DMERRORTYPE) TO WS-STATUS-BASE                  
+138340                WAIT (60)                                                     
+138360             ELSE                                                             
+138380                MOVE DMSTATUS(DMERRORTYPE) TO WS-STATUS-BASE                  
+138400                STRING "ERROR AL OPEN DE LA BD; ST BASE: "                    
+138420                        WS-STATUS-BASE                                        
+138440                        DELIMITED BY SIZE INTO WS-0101-TEXT-MSG               
+138460                PERFORM 70000050-MENSAJE                                      
+138480                CALL SYSTEM DMTERMINATE                                       
+138500          ELSE                                                                
+138520             MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE                      
+138540             STRING "ERROR AL OPEN DE LA BD; ST BASE: "                       
+138560                     WS-STATUS-BASE                                           
+138580                     DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                  
+138600             PERFORM 70000050-MENSAJE                                         
+138620             CALL SYSTEM DMTERMINATE.                                         
+138800*                                                                             
+140700 122-OBTEN-B02CONTROL.                                                        
+140800*---------------------                                                        
+140900     PERFORM  90000002-B02CONTROL-FIND.                                       
+141000     IF WS-STATUS-BASE > 0                                                    
+141100        STRING "ERR LOCK B00CTRLPASO ", WS-STATUS-BASE                        
+141200               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+141300        PERFORM 70000050-MENSAJE                                              
+141400        CALL SYSTEM DMTERMINATE.                                              
+141500*                                                                             
+141540     IF B02-NUM-CSI = 10                                                      
+141545        MOVE B02-FECHA-LINEA TO  WS-FECHA-PROCER                              
+141550        IF WS-FEC-PROCE-MM = 01                                               
+141555           MOVE  12 TO WS-FEC-PROCE-MM                                        
+141560           MOVE WS-NUM-DIAS (WS-FEC-PROCE-MM) TO WS-FEC-PROCE-DD              
+141565           COMPUTE WS-FEC-PROCE-AA = WS-FEC-PROCE-AA - 1                      
+141570        ELSE                                                                  
+141572           COMPUTE WS-FEC-PROCE-MM = WS-FEC-PROCE-MM - 1                      
+141575           MOVE WS-NUM-DIAS (WS-FEC-PROCE-MM) TO WS-FEC-PROCE-DD.             
+141585                                                                              
+141587     IF B02-NUM-CSI  = 10                                                     
+141600        MOVE WS-FECHA-PROCER     TO WS-FEC-INI-COMPLETO                       
+141700                                    WS-FEC-FIN-COMPLETO                       
+141750        PERFORM 132-ESTABLECE-FECHAS                                          
+141800        MOVE WS-FEC-FIN-COMPLETO TO WS-ETIQ-FECHA-EDOCTA                      
+141900                                    WS-ETIQ-FECHA-EDOCT1                      
+141950*                                   WS-ETIQ-FECHA-ARCHI                       
+142000        OPEN OUTPUT ARCHED1.                                                  
+142100*       OPEN INPUT  ARCHIMTY.                                                 
+142110*                                                                             
+142500 132-ESTABLECE-FECHAS.                                                        
+142600*---------------------                                                        
+142700     MOVE 1 TO WS-FEC-INI-DD.                                                 
+142800     MOVE WS-NUM-DIAS (WS-FEC-INI-MM) TO WS-FEC-FIN-DD                        
+142900     DIVIDE     WS-FEC-INI-AA   BY   4                                        
+143000     GIVING     WS-RESUL                                                      
+143100     REMAINDER  WS-RESIDUO                                                    
+143200     IF WS-RESIDUO = 0                                                        
+143300        IF WS-FEC-INI-MM = 02                                                 
+143400           ADD 1 TO WS-FEC-FIN-DD.                                            
+143500*                                                                             
+143600 140-GRABA-REG-HEADER.                                                        
+143700*---------------------                                                        
+143800      MOVE  000000             TO RDR-TIPO-REG                                
+143900                                  ED1-TIP-REG                                 
+144000      MOVE "LAS"               TO RDR-TIPOGEN                                 
+144100      MOVE  12                 TO RDR-NODO                                    
+144200      MOVE   1                 TO RDR-TIPO-ENVIO                              
+144300      MOVE WS-FEC-FIN-COMPLETO TO RDR-FECPROC                                 
+144400      MOVE   1                 TO RDR-NUM-ARCH                                
+144500      MOVE "CP"                TO RDR-OPCION                                  
+144600      MOVE ZEROS               TO ED1-NUM-GPO                                 
+144700                                  ED1-NUM-CTE                                 
+144800      MOVE REGISTRO-HEADER     TO ED1-ARCHED1                                 
+144900      PERFORM 350-GRABA-ARCHED1 THRU 350-GRABA-EXIT.                          
+145500*                                                                             
+145600 160-B39SXGPOSBGMDA-FINDN.                                                    
+145700*-------------------------                                                    
+145800     PERFORM 90000039-B39SXGPOSBGMDA-FINDN                                    
+145900     IF WS-STATUS-BASE > 0                                                    
+146000        IF WS-DB-NOTFOUND                                                     
+146100           MOVE  1  TO  WB-EOF-B39                                            
+146200        ELSE                                                                  
+146300           STRING "ERR FIND B39SXGPOSBGMDA ", WS-STATUS-BASE                  
+146400                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                     
+146500           PERFORM 70000050-MENSAJE                                           
+146600           CALL SYSTEM DMTERMINATE.                                           
+146700*                                                                             
+148100 200-GENERA-EDOCTA.                                                           
+148200*------------------                                                           
+148300     IF PRIM-VEZ                                                              
+148400        MOVE 1           TO WB-PRIM-VEZ                                       
+148500        MOVE B39-GRUPO   TO WS-GPO-ANT                                        
+148600                            WS-GRUPO                                          
+148700        MOVE B39-SUB-GPO TO WS-SGP-ANT                                        
+148800                            WS-SUBGPO.                                        
+148802*STF-JATL-INC00318628663-INC0046798403-INI                                    
+148804        MOVE B39-TPO-PERS TO  WS-TIPO-PERSONA-PAGO.                           
+148806*STF-JATL-INC00318628663-INC0046798403-FIN                                    
+148810**                                                                            
+148820**                                                                            
+148980*    IF NOT EOF-B39 AND WS-EXISTE-B03 = 1                                     
+148990     IF NOT EOF-B39                                                           
+149000        IF B39-GRUPO   NOT = WS-GPO-ANT                                       
+149020           IF WS-CTAS-STAT-OKGP > 0                                           
+149050              MOVE ZEROS TO WS-CTAS-STAT-OKGP                                 
+149070                            WS-CTAS-STAT-OKSG                                 
+149100              PERFORM 205-CAMBIO-GRUPO                                        
+149120           ELSE                                                               
+149140              NEXT SENTENCE                                                   
+149200        ELSE                                                                  
+149300        IF B39-SUB-GPO NOT = WS-SGP-ANT                                       
+149350           IF WS-CTAS-STAT-OKSG > 0                                           
+149370              MOVE ZEROS TO WS-CTAS-STAT-OKSG                                 
+149400              PERFORM 207-CAMBIO-SUBGPO.                                      
+149450                                                                              
+149452*    IF NOT EOF-B39                                                           
+149454*       MOVE 1         TO WS-EXISTE-B03                                       
+149456*       MOVE B39-CONTRATO    TO WS-NUM-CONTRATO                               
+149458*       PERFORM 90000003-B03SXCTO-FIND                                        
+149460*       IF WS-DB-NOTERROR                                                     
+149462*          NEXT SENTENCE                                                      
+149464*       ELSE                                                                  
+149466*          MOVE B39-CONTRATO TO IND-NUM-CTO                                   
+149468*          READ ARCHIMTY INVALID KEY                                          
+149470*               MOVE 0 TO WS-EXISTE-B03.                                      
+149472                                                                              
+149500     IF NOT EOF-B39                                                           
+149530        MOVE B39-GRUPO   TO WS-GPO-ANT                                        
+149532        MOVE B39-SUB-GPO TO WS-SGP-ANT                                        
+149535*       IF WS-EXISTE-B03 = 1 AND (B39-STATUS = 0 OR 1)                        
+149536        IF B39-STATUS = 0 OR 1                                                
+149540           ADD 1 TO WS-CTAS-STAT-OKSG                                         
+149590                    WS-CTAS-STAT-OKGP                                         
+149592*STF-JATL-INC00318628663-INC0046798403-INI                                    
+149594           MOVE B39-TPO-PERS TO WS-TIPO-PERSONA-PAGO-ANT                      
+149596*STF-JATL-INC00318628663-INC0046798403-FIN                                    
+149600           PERFORM 250-GRABA-POR-CTA.                                         
+149900                                                                              
+149950     IF NOT EOF-B39                                                           
+150000        PERFORM 160-B39SXGPOSBGMDA-FINDN.                                     
+150100*                                                                             
+150200 205-CAMBIO-GRUPO.                                                            
+150300*-----------------                                                            
+150400*    MOVE B39-GRUPO   TO WS-GPO-NVO                                           
+150500     MOVE WS-GPO-ANT  TO WS-GRUPO                                             
+150600*    MOVE B39-SUB-GPO TO WS-SGP-NVO                                           
+150700     MOVE WS-SGP-ANT  TO WS-SUBGPO                                            
+150800     PERFORM 210-OBTEN-GPO                                                    
+150900     PERFORM 220-OBTEN-SGP                                                    
+151000     PERFORM 230-GRABA-POR-GRUPO                                              
+151100     PERFORM 240-GRABA-POR-SGRUPO                                             
+151200     MOVE LOW-VALUES TO WKS-ACUM-X-CTE                                        
+151300     MOVE LOW-VALUES TO WKS-ACUM-X-GPO.                                       
+151400*    MOVE WS-GPO-NVO TO WS-GRUPO                                              
+151500*    MOVE WS-SGP-NVO TO WS-SUBGPO                                             
+151700*    MOVE B39-GRUPO   TO WS-GPO-ANT                                           
+151800*    MOVE B39-SUB-GPO TO WS-SGP-ANT.                                          
+151900*                                                                             
+152000 207-CAMBIO-SUBGPO.                                                           
+152100*------------------                                                           
+152200     MOVE WS-GPO-ANT  TO WS-GRUPO                                             
+152300*    MOVE B39-SUB-GPO TO WS-SGP-NVO                                           
+152400     MOVE WS-SGP-ANT  TO WS-SUBGPO                                            
+152500     PERFORM 220-OBTEN-SGP                                                    
+152600     PERFORM 240-GRABA-POR-SGRUPO                                             
+152700     MOVE LOW-VALUES TO WKS-ACUM-X-CTE.                                       
+152800*    MOVE WS-SGP-NVO TO WS-SUBGPO.                                            
+153000*    MOVE B39-SUB-GPO TO WS-SGP-ANT.                                          
+153100*                                                                             
+153200 210-OBTEN-GPO.                                                               
+153300*--------------                                                               
+153500     PERFORM 90000037-B37SXGPO-FIND                                           
+153600     IF WS-STATUS-BASE > 0                                                    
+153700        STRING "ERR LOCK B37SXGPO ", WS-STATUS-BASE                           
+153800               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+153900        PERFORM 70000050-MENSAJE                                              
+154000        CALL SYSTEM DMTERMINATE.                                              
+154100*                                                                             
+154200 220-OBTEN-SGP.                                                               
+154300*--------------                                                               
+154400     MOVE 1 TO WB-NO-EXIS-SGPO                                                
+154500     PERFORM 90000038-B38SXGPOSBGPO-FIND                                      
+154600     IF WS-STATUS-BASE > 0                                                    
+154620        IF WS-DB-NOTFOUND                                                     
+154640           MOVE 0 TO WB-NO-EXIS-SGPO                                          
+154660        ELSE                                                                  
+154700           STRING "ERR FIND B38SXGPOSBGPO ", WS-STATUS-BASE                   
+154800                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                     
+154900           PERFORM 70000050-MENSAJE                                           
+155000           CALL SYSTEM DMTERMINATE.                                           
+155100*                                                                             
+155200 230-GRABA-POR-GRUPO.                                                         
+155300*--------------------                                                         
+155320*STF-JATL-INC00318628663-INC0046798403-INI                                    
+155340     MOVE B37-TPO-PERS TO WS-TIPO-PERSONA                                     
+155360     MOVE B37-GRUPO    TO WS-GRUPO-B37                                        
+155380*STF-JATL-INC00318628663-INC0046798403-FIN                                    
+155400*                                                                             
+155500***  GRABA DATOS GENERALES ***                                                
+155600*                                                                             
+155700     ADD                      1                TO WS-CLIENTES                 
+155800                                                  WS-REGISTROS                
+155900     MOVE                    100000            TO REL-TIPO-REG                
+156000                                                  ED1-TIP-REG                 
+156100     MOVE                         0            TO REL-SUC-NUM                 
+156200     MOVE "VENUSTIANO CARRANZA #63 3ER. PISO"  TO REL-SUC-DOM                 
+156300     MOVE "BANCA CORPORATIVA       "           TO REL-SUC-NOM                 
+156400     MOVE "CENTRO  "                           TO REL-SUC-COL                 
+156500     MOVE "MEXICO  "                           TO REL-SUC-POB                 
+156600     MOVE "DISTRITO FEDERAL"                   TO REL-SUC-EDO                 
+156700     MOVE 06000                                TO REL-SUC-CODPOS              
+156800     MOVE SPACES                               TO REL-SUC-CRZP                
+156900     MOVE ZEROES                               TO REL-SUC-CENREP              
+157000     MOVE B37-GRUPO                            TO ED1-NUM-GPO                 
+157100     MOVE ZEROS                                TO ED1-NUM-CTE                 
+157200     MOVE REGISTRO-DATOS-SEL                   TO ED1-ARCHED1                 
+157300     PERFORM 350-GRABA-ARCHED1 THRU 350-GRABA-EXIT.                           
+158100*                                                                             
+158200***  GRABA REG DATOS GRALES DEL CTE ***                                       
+158300*                                                                             
+158400     MOVE 100001                  TO RTE-TIPO-REG                             
+158500                                     ED1-TIP-REG                              
+158600     MOVE WS-CLIENTES             TO RTE-NUM                                  
+158700                                     RTE-FOLIO                                
+158800     MOVE ZEROS                   TO RTE-AGRUP                                
+158900     MOVE B37-NOMBRE              TO RTE-NOM                                  
+159020     MOVE SPACES                  TO RTE-RFC-SIG                              
+159040                                     RTE-RFC-HMCLV                            
+159060     MOVE ZEROS                   TO RTE-RFC-FEC                              
+159100     MOVE B37-DOMICILIO           TO RTE-DOM                                  
+159200     MOVE SPACES                  TO RTE-COL                                  
+159300     MOVE B37-CIUDAD              TO RTE-POB                                  
+159400     MOVE SPACES                  TO RTE-EDO                                  
+159500     MOVE B37-COD-POSTAL          TO RTE-CODPOS                               
+159600     MOVE ZEROS                   TO RTE-CENREP                               
+159700                                     RTE-PERSBCO                              
+159800                                     RTE-SEGMENTO                             
+159900                                     RTE-TIPOPER                              
+160000                                     RTE-NUMEDO                               
+160100     MOVE B37-REPRES              TO RTE-REPRESENTANTE                        
+160200     MOVE SPACES                  TO RTE-EJECUTIVO                            
+160300     MOVE B37-GRUPO               TO ED1-NUM-GPO                              
+160400     MOVE ZEROS                   TO ED1-NUM-CTE                              
+160500     MOVE REGISTRO-DATOS-CTE      TO ED1-ARCHED1                              
+160600***  ADD  1                       TO WS-REGISTROS                             
+160700     PERFORM 350-GRABA-ARCHED1 THRU 350-GRABA-EXIT.                           
+161500*                                                                             
+161600***  GRABA REG. RESUMEN CPE X GPO ***                                         
+161700*                                                                             
+161800     MOVE 700000                  TO RCP-TIPO-REG                             
+161900                                     ED1-TIP-REG                              
+162000     MOVE WS-FEC-INI-COMPLETO     TO RCP-FECHA-INI                            
+162100     MOVE WS-FEC-FIN-COMPLETO     TO RCP-FECHA-FIN                            
+162200     MOVE B37-SDO-PROMEDIO        TO RCP-SDO-PROM-GRUPO                       
+162210*STF-JATL-INC00318628663-INC0046798403-INI                                    
+162220  IF WS-GRUPO-B37  IS EQUAL TO  WS-GRUPO  AND  WS-SUBGPO > 0                  
+162230     IF WS-TIPO-PERSONA = 2 AND WS-TIPO-PERSONA-PAGO-ANT = 4                  
+162240        MOVE B37-TASA-BRT-GPO       TO  RCP-TASA-GRUPO                        
+162250     ELSE                                                                     
+162260        MOVE B37-TASA-NTA-GPO       TO  RCP-TASA-GRUPO                        
+162270  ELSE                                                                        
+162300     MOVE B37-TASA-NTA-GPO        TO RCP-TASA-GRUPO.                          
+162350*STF-JATL-INC00318628663-INC0046798403-FIN                                    
+162400     MOVE B37-RENDIMIENTOS        TO RCP-PROD-GRUPO                           
+162500     MOVE B37-CHQS-GIRADOS        TO RCP-CHEQUES-GRUPO                        
+162600     MOVE WKS-COMIS-X-GPO         TO RCP-COM-CHQ-GRUPO                        
+162700     IF B37-OPCION = 1 OR 3 OR 5 OR 7 OR 9                                    
+162800        MOVE ZEROS                TO RCP-SUC-PAGO                             
+162900                                     RCP-CTA-PAGO                             
+163000     ELSE                                                                     
+163100        MOVE B37-MDA-PAGO         TO WKS-MDA                                  
+163200        MOVE WKS-MDA-SUC          TO RCP-SUC-PAGO                             
+163300        MOVE WKS-MDA-CTA          TO RCP-CTA-PAGO.                            
+163400     MOVE B37-GRUPO               TO ED1-NUM-GPO                              
+163500     MOVE ZEROS                   TO ED1-NUM-CTE                              
+163600     MOVE REGISTRO-RESUMEN-CPE    TO ED1-ARCHED1                              
+163700     ADD  1                       TO WS-REGISTROS                             
+163800     PERFORM 350-GRABA-ARCHED1 THRU 350-GRABA-EXIT.                           
+163850*                                                                             
+163900***  GRABA EL HEADER DEL SUPER GRUPO (DUMMY)  ***                             
+163950*                                                                             
+164000     MOVE 701000          TO RHS-TIPO-REG                                     
+164050                             ED1-TIP-REG                                      
+164100     MOVE ZEROS           TO RHS-NUM-SUPGPO                                   
+164150     MOVE SPACES          TO RHS-NOM-SUPGPO                                   
+164200     MOVE B37-GRUPO       TO ED1-NUM-GPO                                      
+164250     MOVE ZEROS           TO ED1-NUM-CTE                                      
+164300     MOVE REGISTRO-HDR-SUPGPO                                                 
+164350                          TO ED1-ARCHED1                                      
+164400     ADD  1               TO WS-REGISTROS                                     
+164450     PERFORM 350-GRABA-ARCHED1 THRU 350-GRABA-EXIT.                           
+164600*                                                                             
+164700***  GRABA EL HEADER DEL GRUPO ***                                            
+164800*                                                                             
+164900     MOVE 701100          TO RHG-TIPO-REG                                     
+165000                             ED1-TIP-REG                                      
+165100     MOVE B37-GRUPO       TO RHG-NUM-GRUPO                                    
+165200     MOVE B37-NOMBRE      TO RHG-NOM-GRUPO                                    
+165300     MOVE B37-GRUPO       TO ED1-NUM-GPO                                      
+165400     MOVE ZEROS           TO ED1-NUM-CTE                                      
+165500     MOVE REGISTRO-HDR-GRUPO                                                  
+165600                          TO ED1-ARCHED1                                      
+165700     ADD  1               TO WS-REGISTROS                                     
+165800     PERFORM 350-GRABA-ARCHED1 THRU 350-GRABA-EXIT.                           
+166600*                                                                             
+166700***  GRABA EL REGISTRO TOTAL DE GRUPO ***                                     
+166800*                                                                             
+166900     MOVE 701190             TO RTG-TIPO-REG                                  
+167000                                ED1-TIP-REG                                   
+167100     MOVE WKS-SPROM-X-GPO    TO RTG-SDOPROM-CTA                               
+167200     MOVE WKS-CHEQS-X-GPO    TO RTG-CHEQUES-TOT                               
+167300     MOVE WKS-EXENT-X-GPO    TO RTG-CHEQUES-EXE                               
+167400     MOVE WKS-PRODS-X-GPO    TO RTG-PROD-PERIODO                              
+167500     MOVE WKS-COMIS-X-GPO    TO RTG-COMISION                                  
+167600     MOVE WKS-PNETO-X-GPO    TO RTG-PROD-NETOS                                
+167700     MOVE SPACES             TO RTG-SIGNO                                     
+167800     IF WKS-PNETO-X-GPO < 0                                                   
+167900        MOVE "-"             TO RTG-SIGNO.                                    
+168000     MOVE B37-ISR-RETENIDO   TO RTG-SDO-ISR                                   
+168100     MOVE B37-COMIS-10       TO RTG-TOT-CHQ-GIR-10P                           
+168200     ADD  B37-COMIS-10       TO WKS-CHQ-GIR-10P                               
+168300     MOVE B37-IVA-10         TO RTG-IVA-CHQ-GIR-10P                           
+168400     ADD  B37-IVA-10         TO WKS-IVA-GIR-10P                               
+168500     MOVE B37-COMIS-15       TO RTG-TOT-CHQ-GIR-15P                           
+168600     ADD  B37-COMIS-15       TO WKS-CHQ-GIR-15P                               
+168700     MOVE B37-IVA-15         TO RTG-IVA-CHQ-GIR-15P                           
+168800     ADD  B37-IVA-15         TO WKS-IVA-GIR-15P                               
+168900     MOVE B37-GRUPO          TO ED1-NUM-GPO                                   
+169000     MOVE 9998               TO ED1-NUM-CTE                                   
+169100     MOVE REGISTRO-TOT-GRUPO TO ED1-ARCHED1                                   
+169200     ADD  1                  TO WS-REGISTROS                                  
+169300     PERFORM 350-GRABA-ARCHED1 THRU 350-GRABA-EXIT.                           
+169320*                                                                             
+169340***  SE GENERA REGISTRO DEL CLIENTE                                           
+169360***  CON LA MISMA INFORMACION DEL GRUPO (VS 700000)                           
+169380*                                                                             
+169400     MOVE 709000             TO RTR-TIPO-REG                                  
+169420                                ED1-TIP-REG                                   
+169440     MOVE WKS-SPROM-X-GPO    TO RTR-SDOPROM-CTA                               
+169460     MOVE WKS-CHEQS-X-GPO    TO RTR-CHEQUES-TOT                               
+169480     MOVE WKS-EXENT-X-GPO    TO RTR-CHEQUES-EXE                               
+169500     MOVE WKS-PRODS-X-GPO    TO RTR-PROD-PERIODO                              
+169520     MOVE WKS-COMIS-X-GPO    TO RTR-COMISION                                  
+169540     MOVE WKS-PNETO-X-GPO    TO RTR-PROD-NETOS                                
+169560     MOVE SPACES             TO RTR-SIGNO                                     
+169580     IF WKS-PNETO-X-GPO < 0                                                   
+169600        MOVE "-"             TO RTR-SIGNO.                                    
+169620     MOVE B37-ISR-RETENIDO   TO RTR-SDO-ISR                                   
+169640     MOVE B37-COMIS-10       TO RTR-TOT-CHQ-GIR-10P                           
+169660     MOVE B37-IVA-10         TO RTR-IVA-CHQ-GIR-10P                           
+169680     MOVE B37-COMIS-15       TO RTR-TOT-CHQ-GIR-15P                           
+169700     MOVE B37-IVA-15         TO RTR-IVA-CHQ-GIR-15P                           
+169720     MOVE B37-GRUPO          TO ED1-NUM-GPO                                   
+169820     MOVE 9999               TO ED1-NUM-CTE                                   
+169840     ADD  1                  TO WS-REGISTROS                                  
+169870     MOVE REGISTRO-TOTAL-GENERAL TO ED1-ARCHED1                               
+169920     PERFORM 350-GRABA-ARCHED1 THRU 350-GRABA-EXIT.                           
+170100*                                                                             
+170200 250-GRABA-POR-CTA.                                                           
+170300*------------------                                                           
+170350*                                                                             
+170400     MOVE 701111                  TO RDC-TIPO-REG                             
+170500                                     ED1-TIP-REG                              
+170600     MOVE B39-SUB-GPO             TO RDC-NUM-CTE-CTA                          
+170700     MOVE B39-NOMBRE              TO RDC-NOM-CTE-CTA                          
+170800***  MOVE B39-SUCPROM             TO RDC-SUC-CTA                              
+170900***  MOVE B39-NUM-MDA             TO RDC-NUM-CTA                              
+170920     MOVE B39-NUM-MDA             TO WKS-MDA                                  
+170940     MOVE WKS-MDA-SUC             TO RDC-SUC-CTA                              
+170960     MOVE WKS-MDA-CTA             TO RDC-NUM-CTA                              
+171000     MOVE B39-SDO-PROMEDIO        TO RDC-SDOPROM-CTA                          
+171100     ADD  B39-SDO-PROMEDIO        TO WKS-SPROM-X-CTE                          
+171200                                     WKS-SPROM-X-GPO                          
+171300                                     WKS-SPROM-X-GRL                          
+171400     MOVE B39-TASA-NTA-500        TO RDC-TASA-PROD                            
+171420*STF-JATL-INC00318628663-INC0046798403-INI                                    
+171440  IF WS-TIPO-PERSONA-PAGO = 4                                                 
+171460      MOVE  B39-TASA-BRT-152      TO RDC-TASA-ADIC                            
+171480  ELSE                                                                        
+171500      COMPUTE RDC-TASA-ADIC =         B39-TASA-NTA-500                        
+171600                                    - B39-TASA-NTA-152.                       
+171650*STF-JATL-INC00318628663-INC0046798403-FIN                                    
+171700     MOVE B39-CHQS-GIRADO         TO RDC-CHEQUES-TOT                          
+171800     ADD  B39-CHQS-GIRADO         TO WKS-CHEQS-X-CTE                          
+171900                                     WKS-CHEQS-X-GPO                          
+172000                                     WKS-CHEQS-X-GRL                          
+172100     MOVE B39-CHQS-EXENTO         TO RDC-CHEQUES-EXE                          
+172200     ADD  B39-CHQS-EXENTO         TO WKS-EXENT-X-CTE                          
+172300                                     WKS-EXENT-X-GPO                          
+172400                                     WKS-EXENT-X-GRL                          
+172500     COMPUTE RDC-PROD-PERIODO =      B39-REND-PAG-152                         
+172520                                   + B39-ISR-RET-152                          
+172600***                                + B39-REND-PAG-500                         
+172700     ADD RDC-PROD-PERIODO         TO WKS-PRODS-X-CTE                          
+172800                                     WKS-PRODS-X-GPO                          
+172900                                     WKS-PRODS-X-GRL                          
+173000     MOVE B39-COM-COBRADA         TO RDC-COMISION                             
+173050     ADD  B39-IVA-COBRADO         TO RDC-COMISION                             
+173100     ADD  B39-COM-COBRADA         TO WKS-COMIS-X-CTE                          
+173200                                     WKS-COMIS-X-GPO                          
+173300                                     WKS-COMIS-X-GRL                          
+173320     ADD  B39-IVA-COBRADO         TO WKS-COMIS-X-CTE                          
+173340                                     WKS-COMIS-X-GPO                          
+173360                                     WKS-COMIS-X-GRL                          
+173400*    COMPUTE WKS-PROD-NETOS =        RDC-PROD-PERIODO                         
+173500*                                  - B39-COM-COBRADA                          
+173600***                                - B39-ISR-RET-500                          
+173700*                                  - B39-ISR-RET-152                          
+173800*                                  - B39-IVA-COBRADO                          
+173900     MOVE B39-REND-PAG-152        TO RDC-PROD-NETOS                           
+174000     ADD  B39-REND-PAG-152        TO WKS-PNETO-X-CTE                          
+174100                                     WKS-PNETO-X-GPO                          
+174200                                     WKS-PNETO-X-GRL                          
+174300     MOVE SPACES                  TO RDC-SIGNO                                
+174400     IF B39-REND-PAG-152 < 0                                                  
+174500        MOVE "-"                  TO RDC-SIGNO.                               
+174600***  COMPUTE RDC-TASA-ISR =          B39-TASA-ISR-500                         
+174700***                                + B39-TASA-ISR-152                         
+174720***  IF B39-TASA-ISR-500  > 0                                                 
+174740***     MOVE B39-TASA-ISR-500     TO RDC-TASA-ISR                             
+174760***  ELSE                                                                     
+174780     MOVE B39-TASA-ISR-152        TO RDC-TASA-ISR.                            
+174800***  COMPUTE RDC-SDO-ISR =           B39-ISR-RET-500                          
+174900***                                + B39-ISR-RET-152.                         
+174910     MOVE B39-ISR-RET-152         TO RDC-SDO-ISR.                             
+174920***  IF RDC-SIGNO = "-"                                                       
+174940***     IF WKS-PROD-NETOS NOT > RDC-SDO-ISR                                   
+174960***        MOVE ZEROS             TO RDC-SDO-ISR.                             
+175000     ADD     RDC-SDO-ISR          TO WKS-SDISR-X-CTE                          
+175100                                     WKS-SDISR-X-GPO                          
+175200                                     WKS-SDISR-X-GRL                          
+175300     MOVE B39-GRUPO               TO ED1-NUM-GPO                              
+175400     MOVE B39-SUB-GPO             TO ED1-NUM-CTE                              
+175500     MOVE REGISTRO-DET-CUENTAS    TO ED1-ARCHED1                              
+175600     ADD  1                       TO WS-REGISTROS                             
+175700     PERFORM 350-GRABA-ARCHED1 THRU 350-GRABA-EXIT.                           
+176500*                                                                             
+176600 240-GRABA-POR-SGRUPO.                                                        
+176700*---------------------                                                        
+176800*    -- GRABA HEADER POR CTE (SUBGPO)                                         
+176900*                                                                             
+177000     MOVE 701110                  TO RHC-TIPO-REG                             
+177100                                     ED1-TIP-REG                              
+177110     IF NO-EXIS-SGPO                                                          
+177120        MOVE WS-SUBGPO            TO RHC-NUM-CLIENTE                          
+177125        MOVE SPACES               TO RHC-NOM-CLIENTE                          
+177130        MOVE " SIN SUB-GRUPO"     TO RHC-NOM-CLIENTE                          
+177140        MOVE WS-GRUPO             TO ED1-NUM-GPO                              
+177150        MOVE WS-SUBGPO            TO ED1-NUM-CTE                              
+177160     ELSE                                                                     
+177200        MOVE B38-SUB-GPO          TO RHC-NUM-CLIENTE                          
+177300        MOVE B38-NOMBRE           TO RHC-NOM-CLIENTE                          
+177400        MOVE B38-GRUPO            TO ED1-NUM-GPO                              
+177500        MOVE B38-SUB-GPO          TO ED1-NUM-CTE.                             
+177600     MOVE REGISTRO-HDR-CLIENTE    TO ED1-ARCHED1                              
+177700     ADD  1                       TO WS-REGISTROS                             
+177800     PERFORM 350-GRABA-ARCHED1 THRU 350-GRABA-EXIT.                           
+178600*                                                                             
+178700*    -- GRABA TOTAL POR CTE (SUBGPO)                                          
+178800*                                                                             
+178900     MOVE 701119                  TO RTC-TIPO-REG                             
+179000                                     ED1-TIP-REG                              
+179100     MOVE WKS-SPROM-X-CTE         TO RTC-SDOPROM-CTA                          
+179200     MOVE WKS-CHEQS-X-CTE         TO RTC-CHEQUES-TOT                          
+179300     MOVE WKS-EXENT-X-CTE         TO RTC-CHEQUES-EXE                          
+179400     MOVE WKS-PRODS-X-CTE         TO RTC-PROD-PERIODO                         
+179500     MOVE WKS-COMIS-X-CTE         TO RTC-COMISION                             
+179600     MOVE WKS-PNETO-X-CTE         TO RTC-PROD-NETOS                           
+179700     MOVE SPACES                  TO RTC-SIGNO                                
+179800     IF WKS-PNETO-X-CTE < 0                                                   
+179900        MOVE "-"                  TO RTC-SIGNO.                               
+180000     MOVE WKS-SDISR-X-CTE         TO RTC-SDO-ISR                              
+180020     IF NO-EXIS-SGPO                                                          
+180040        MOVE WS-GRUPO             TO ED1-NUM-GPO                              
+180060        MOVE WS-SUBGPO            TO ED1-NUM-CTE                              
+180080     ELSE                                                                     
+180100        MOVE B38-GRUPO            TO ED1-NUM-GPO                              
+180200        MOVE B38-SUB-GPO          TO ED1-NUM-CTE.                             
+180300     MOVE REGISTRO-TOT-CLIENTE    TO ED1-ARCHED1                              
+180400     ADD  1                       TO WS-REGISTROS                             
+180500     PERFORM 350-GRABA-ARCHED1 THRU 350-GRABA-EXIT.                           
+181300*                                                                             
+181400 300-TERMINA.                                                                 
+181500*------------                                                                 
+181505*                                                                             
+181510***  GRABA LOS REGISTROS DEL ULTIMO SUBGPO, GRUPO QUE PROCESO                 
+181515*                                                                             
+181520     MOVE WS-GPO-ANT  TO WS-GRUPO                                             
+181525     MOVE WS-SGP-ANT  TO WS-SUBGPO                                            
+181530     PERFORM 210-OBTEN-GPO                                                    
+181535     PERFORM 220-OBTEN-SGP                                                    
+181540     PERFORM 230-GRABA-POR-GRUPO                                              
+181545     PERFORM 240-GRABA-POR-SGRUPO                                             
+181550*                                                                             
+181700     PERFORM 320-GRABA-TRAILER.                                               
+181800     PERFORM 330-CIERRA-BASE.                                                 
+181860     CLOSE ARCHED1 SAVE.                                                      
+181862*    CLOSE ARCHIMTY SAVE.                                                     
+181865     OPEN  INPUT   ARCHED1                                                    
+181870     MOVE ATTRIBUTE LASTRECORD OF ARCHED1 TO WS-LASTRECORD                    
+181890     CLOSE ARCHED1 SAVE.                                                      
+181900*                                                                             
+184900 320-GRABA-TRAILER.                                                           
+185000*------------------                                                           
+185100     MOVE 990000          TO RTT-TIPO-REG                                     
+185200                             ED1-TIP-REG                                      
+185300     MOVE WS-CLIENTES     TO RTT-TOT-CLIENTES                                 
+185400     MOVE WS-REGISTROS    TO RTT-TOT-REGISTROS                                
+185500     MOVE 9999999999      TO ED1-NUM-GPO                                      
+185600     MOVE 9999            TO ED1-NUM-CTE                                      
+185700     MOVE REGISTRO-TRAILER TO ED1-ARCHED1                                     
+185800     PERFORM 350-GRABA-ARCHED1 THRU 350-GRABA-EXIT.                           
+186400*                                                                             
+186500 330-CIERRA-BASE.                                                             
+186600*----------------                                                             
+186700     CLOSE S500BD01CAPTACION                                                  
+186800        ON EXCEPTION                                                          
+186900           STRING "ERR AL ABRIR BASE "                                        
+187000                   DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                    
+187100           PERFORM 70000050-MENSAJE                                           
+187200           CALL SYSTEM DMTERMINATE.                                           
+187300*                                                                             
+187310 350-GRABA-ARCHED1.                                                           
+187320*------------------                                                           
+187330     WRITE REG-ARCHED1 INVALID KEY                                            
+187340          STRING "ERROR WRITE ARCHED1; REG: " ED1-TIP-REG                     
+187350                " GPO: " ED1-NUM-GPO " SGP: " ED1-NUM-CTE                     
+187360                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                     
+187370          PERFORM 70000050-MENSAJE                                            
+187380          CHANGE ATTRIBUTE STATUS OF MYSELF TO - 1.                           
+187382 350-GRABA-EXIT.                                                              
+187384           EXIT.                                                              
+187390*                                                                             
+187400 COPY "S500/INC/PRO/25MTP002".                                                
+187500*                                                                             
+187600 400-CLASIFICA-EDOCTA SECTION.                                                
+187700 400-CLASIFIC-EDOCT.                                                          
+187800*-------------------                                                          
+188100**   COMPUTE WS-SORT-ESPACIO = (WS-LASTRECORD + 3) * 60 * 2.5                 
+188200**   COMPUTE WS-AREA-ESPACIO = (60 * 2500 ) + 1500                            
+188210                                                                              
+188220     COMPUTE WS-SORT-ESPACIO = (WS-LASTRECORD + 10) * 60 * 3.5                
+188230     COMPUTE WS-AREA-ESPACIO =                                                
+188240                       ((WS-LASTRECORD / 16) * 63) + 1500.                    
+188250     IF WS-AREA-ESPACIO < 400000                                              
+188260        MOVE 400000 TO WS-AREA-ESPACIO                                        
+188270     ELSE                                                                     
+188280     IF WS-AREA-ESPACIO > 258435000                                           
+188290        MOVE 25843500 TO WS-AREA-ESPACIO.                                     
+188300                                                                              
+188310     MOVE WS-SORT-ESPACIO   TO WS-MSG-N-14.                                   
+188320     MOVE WS-AREA-ESPACIO   TO WS-MSG-N-12.                                   
+188330     STRING "DISK-SIZE =" WS-MSG-N-14                                         
+188340            ", MEMORY-SIZE =" WS-MSG-N-12                                     
+188350            ", PARA SORT ARCHED1 "                                            
+188360            DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                           
+188370     PERFORM 70000050-MENSAJE.                                                
+188380                                                                              
+188400     SORT SORTED1 ON ASCENDING KEY SD1-NUM-GPO                                
+188500                                   SD1-NUM-CTE                                
+188550                                   SD1-TIP-REG                                
+188600          USING  ARCHED1                                                      
+188700          OUTPUT PROCEDURE 410-GENERO-ARCHEDO                                 
+188800          MEMORY SIZE WS-AREA-ESPACIO WORDS                                   
+188900          DISK   SIZE WS-SORT-ESPACIO WORDS.                                  
+189000 400-CLASIF-EXIT.                                                             
+189100            EXIT.                                                             
+189200*                                                                             
+189300 410-GENERO-ARCHEDO SECTION.                                                  
+189400 410-GENERO-ARCHEC.                                                           
+189500*------------------                                                           
+189600     OPEN OUTPUT ARCHEDO                                                      
+189700     PERFORM 420-GENERA-ARCHEDO UNTIL FIN-SORTED1                             
+189800     CLOSE ARCHEDO SAVE.                                                      
+189900 410-EXIT.                                                                    
+190000     EXIT.                                                                    
+190100*                                                                             
+190200 420-GENERA-ARCHEDO.                                                          
+190300*-------------------                                                          
+190400     RETURN SORTED1 AT END                                                    
+190500            MOVE 1 TO WB-FIN-SORTED1.                                         
+190600*                                                                             
+190700     IF NOT FIN-SORTED1                                                       
+190720        MOVE REG-SORTED1  TO REGISTRO-SORTED1                                 
+190740        MOVE RS1-TIP-REG2 TO WB-TIP-REG-VAL                                   
+190760        IF TIP-REG-VAL                                                        
+190800           WRITE REG-ARCHEDO FROM SD1-SORTED1 INVALID KEY                     
+190900                 STRING "ERROR AL WRITE ARCHEDO "                             
+191000                         DELIMITED BY SIZE INTO WS-0101-TEXT-MSG              
+191100                 PERFORM 70000050-MENSAJE                                     
+191200                 CHANGE ATTRIBUTE STATUS OF MYSELF TO - 1.                    
+191300*                                                                             

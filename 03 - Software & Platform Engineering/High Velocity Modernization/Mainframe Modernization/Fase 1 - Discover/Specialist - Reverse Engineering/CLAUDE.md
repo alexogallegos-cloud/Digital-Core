@@ -58,6 +58,27 @@ completo        Dependency       ERD lógico       negocio          contexts
 
 ---
 
+## Alineación con el Gemelo Cognitivo (método HVM-wide)
+
+Este specialist **implementa la columna COBOL / z-OS** del método [Gemelo Cognitivo del Sistema](../../../metodologia-gemelo-cognitivo.md). Las 5 Etapas de abajo son la **mecánica de extracción** para mainframe; el Gemelo es el marco HVM-wide que las convierte en un modelo cognitivo consultable — el mismo método que aplica el Specialist Informix SPL en Application Modernization, con distinta mecánica. El grafo de dependencias (Etapa 1 + `graph-viz/render_graph.py`) es el extractor de la Capa 4/5 para esta columna.
+
+| Etapa mainframe (mecánica) | Capa(s) del Gemelo | Emite al JSON normalizado (§6 del método) |
+|---|---|---|
+| Etapa 0 · Setup & Inventory | (base) | `meta`, `objetos` |
+| Etapa 1 · Static Analysis (call graph, PERFORM/CALL, dead code, NFR) | Capa 4 · Intención + Capa 5 · Fronteras | `callgraph` |
+| Etapa 2 · Data RE (DMSII/VSAM, copybooks, lineage) | Capa 4 + Capa 7 · Equivalencia | `acceso`, `riesgos_tipo` |
+| Etapa 3 · Business Logic Extraction | Capa 4 · Intención | (reglas) |
+| Etapa 4 · Domain Decomposition (bounded contexts, wave map) | Capa 5 · Fronteras | (dominios) |
+
+**Capas 1–3 del Gemelo (Lenguaje · Almas · Biografía) enriquecen el RE mainframe** — en COBOL/z-OS los vestigios suelen ser MÁS ricos que en Informix:
+- **Capa 1 · Lenguaje:** vocabulario desde nombres de párrafos, data items y copybooks → vocabulario controlado con término canónico (deduplicando alias; forma completa, firma del SME).
+- **Capa 2 · Almas:** los headers de cabecera de programa + bloques `CHANGE-LOG`/`MODIFICATION` en COBOL suelen declarar autor/fecha/ticket con MÁS cobertura que Informix → autoría declarada + estilometría (dialectos, convención de nombres por librería/PDS). *Ley de Conway.*
+- **Capa 3 · Biografía:** fechas de CHANGE-LOG + niveles de versión + calendario JCL → curva de evolución y relevo generacional por era.
+
+> El **renderer cognitivo** (vocabulario, almas, biografía, portal) es tech-agnóstico y HVM-wide; se alimenta del JSON normalizado (§6 del método). La visualización del grafo mainframe ya existe en `graph-viz/render_graph.py`.
+
+---
+
 ## ETAPA 0 — Setup & Inventory
 
 ### Objetivo
@@ -730,3 +751,5 @@ Luego servir con `python -m http.server --directory <carpeta>` (o abrir el HTML 
 ---
 
 *Última actualización: 2026-05-31 · Etapas 0-4 (antes Fase 0-4) · NFR Etapa 1.4 · HITL Etapa 4.1 · REORG 2026-05-31: carpeta de fase · sigil ★ Digital Core*
+
+*v-nota 2026-07-06 · Alineado al método HVM-wide **Gemelo Cognitivo del Sistema** — este specialist implementa la columna COBOL / z-OS (§4 del método). Las 5 Etapas son la mecánica de extracción mainframe; el marco vive en [../../../metodologia-gemelo-cognitivo.md](../../../metodologia-gemelo-cognitivo.md).*

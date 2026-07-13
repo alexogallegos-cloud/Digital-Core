@@ -1,0 +1,1 @@
+CREATE PROCEDURE "informix".iso8601_weekday(dateval DATE DEFAULT TODAY) RETURNING CHAR(10);    DEFINE rv CHAR(10);    DEFINE dw CHAR(4);    LET dw = WEEKDAY(dateval);    IF dw = 0 THEN            LET dw = 7;    END IF;    RETURN iso8601_weeknum(dateval) || '-' || dw;END PROCEDURE;

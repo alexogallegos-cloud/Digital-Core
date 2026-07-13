@@ -1,0 +1,71 @@
+# Vocabulario Controlado — S151
+> Gemelo Cognitivo · Capa 1 · Lenguaje
+> Actualizado: 2026-07-13 · v2.0 · Limpieza de ruido + corrección de significados + enriquecimiento bancario
+
+| # | Termino | Frecuencia | Categoria | Confianza | Evidencia | Significado |
+|---|---------|-----------|-----------|-----------|-----------|-------------|
+| 1 | `CONTABILIDAD` | 40 | ENTIDAD | alta | dominio | Contabilidad bancaria (GL) — S151 es el sistema de libro mayor de Banamex que registra todos los asientos contables. Recibe movimientos de S500 via S151REGISTRA y de sistemas C402, C600, S804, S707, S203 (Tandem) y Citibank |
+| 2 | `MOVIMIENTOS` | 27 | ENTIDAD | alta | bcop-cruzada | Movimientos contables bancarios — registros de transacciones que afectan la posición de cuentas GL. BD10MOVDIA151 almacena todos los movimientos del día. Consulta por S500 y otros sistemas vía S151REGISTRA |
+| 3 | `MOVIMIENTO` | 7 | ENTIDAD | alta | bcop-cruzada | Movimiento contable — registro unitario de una transacción en el libro mayor. Cada movimiento tiene: clave de trayectoria (CVETRA), importe, fecha, cuenta y sistema origen |
+| 4 | `SALDO` | 7 | ENTIDAD | alta | bcop-cruzada | Saldo contable GL — posición acumulada de una cuenta del libro mayor. S151 mantiene saldos diarios en BD02ADSALDO y saldos del período en BD11SDOS151 |
+| 5 | `PD` | 37 | ACCION | alta | dominio | Proceso Diario — identificador del ciclo batch nocturno de S151 que cierra el día contable y genera los saldos del siguiente día. Orquestado por WFL LOTE (7.7K LOC) |
+| 6 | `BOOK` | 37 | ENTIDAD | alta | dominio | Libro contable GL — estructura DMSII que agrupa los movimientos por tipo de cuenta contable según el catálogo de cuentas Banamex. Referenciado en BD12MC001S151 (catálogo contable MC001) |
+| 7 | `CVETRA` | 5 | ENTIDAD | alta | dominio | Clave de trayectoria contable — identifica el tipo de asiento GL: el par débito/crédito que corresponde a cada tipo de movimiento bancario. Librería L040 (PROGRAM-ID TOTXCVETRA) calcula totales agrupados por CVETRA |
+| 8 | `LOTE` | 28 | ENTIDAD | alta | bcop-cruzada | Lote de procesamiento batch nocturno S151 — WFL LOTE (7.7K LOC) secuencia todos los programas de cierre del día contable: P005 (Tesorería), P130 (concentrador), P131 (CFR), P150 (CITI), P158 (contratos), P199 (migración S500) y otros |
+| 9 | `LINEA` | 11 | ENTIDAD | alta | dominio | Modo de procesamiento online del GL — WFL LINEA inicia 22 tasks COMS (T005 a T612) que atienden consultas y posteos GL en tiempo real |
+| 10 | `CONTROL` | 31 | ENTIDAD | alta | dominio | Módulo de control del proceso GL — BD99CONTROL almacena el estado de cada paso del lote batch: fechas, parámetros y estados. Gestionado por LIBCONTROL |
+| 11 | `LIBCONTROL` | 28 | ENTIDAD | alta | dominio | Librería de control de proceso GL — gestiona el registro y validación de cada paso del WFL LOTE. La librería de control más referenciada del sistema S151 |
+| 12 | `AJUSTES` | 3 | ENTIDAD | alta | dominio | Asientos de ajuste contable — correcciones manuales o automáticas para cuadrar el libro mayor cuando hay diferencias entre sistemas. Programa P117 detecta diferencias contables. Flag CNBV |
+| 13 | `BIFINDB` | 6 | ENTIDAD | alta | dominio | Base de datos BIFIN (S151BD13BIFIN) — información financiera bilateral entre Banamex y Citibank para procesos de conciliación. Alimenta los reportes que generan los programas P150 y P151 |
+| 14 | `LOCSUP` | 6 | ENTIDAD | alta | dominio | Servicio de calendario de días hábiles bancarios del sistema S006 — S151 lo invoca via librería L001 para validar fechas antes de ejecutar cierres y posteos contables |
+| 15 | `LIBLJ` | 11 | ENTIDAD | alta | dominio | Librería de utilidades de Jobs Unisys (S000LIBLJ) — invocada desde WFL para manejo de errores y control de flujo entre programas batch del ciclo GL |
+| 16 | `CTLVERS` | 11 | ENTIDAD | alta | dominio | Módulo de control de versiones que valida compatibilidad entre librería cargada y versión del sistema S151 antes de ejecutar — punto de fallo crítico si hay desalineación de versiones |
+| 17 | `REPORTES` | 13 | ENTIDAD | alta | bcop-cruzada | Reportes regulatorios/operativos — archivos estructurados generados por S151 para CNBV, Citibank (ALR/AHR/OCM via P150/P151), Tesorería de la Federación y otros destinatarios regulatorios |
+| 18 | `DATOSADIC` | 5 | ENTIDAD | alta | dominio | Datos adicionales del movimiento contable — información extendida que acompaña cada registro de movimiento en BD10MOVDIA151. Presente como entidad DASDL en SET CMEMP |
+| 19 | `MOVDB` | 8 | ACCION | alta | dominio | Acción de movimiento en base de datos DMSII — operación de inserción o actualización de un movimiento contable en BD10MOVDIA151 dentro del ciclo GL |
+| 20 | `MONITOREO` | 4 | ENTIDAD | alta | bcop-cruzada | Monitoreo operacional del GL — integrado con Splunk via WFL_SPLUNK (MTP006). El programa P810 carga datos de sistemas y conceptos en BD10MOVDIA151 para consulta de movimientos diarios en tiempo real |
+| 21 | `SOPORTE` | 10 | ENTIDAD | alta | dominio | Módulo de soporte técnico del GL — estructura de módulos auxiliares para la operación y mantenimiento del sistema S151 |
+| 22 | `DISPLAY` | 17 | ACCION | alta | dominio | Despliegue / impresión de datos — genera reportes de movimientos y saldos en pantalla o impresora. Presente también como entidad DASDL (DISPLAY ON CMEMP) en BD de S151 |
+| 23 | `MENSAJE` | 3 | ENTIDAD | alta | bcop-cruzada | Mensaje — estructura de comunicación entre procesos del GL. Punto de intercambio entre módulos online y batch del sistema S151 |
+| 24 | `FORZA` | 2 | MODIF | alta | dominio | Indicador de reproceso forzado — permite ejecutar un proceso batch que ya corrió, saltando las validaciones de doble ejecución del ciclo GL |
+| 25 | `ACC` | 5 | ACCION | media | dominio | Acceso / acción sobre registro DMSII (abreviatura interna) — operación de lectura o escritura sobre una base de datos DMSII dentro del contexto del libro mayor |
+| 26 | `DMSII` | 15 | ENTIDAD | alta | dominio | Base de datos relacional nativa de Unisys MCP — gestor de datos de S151. BD02ADSALDO (saldos acumulados), BD10MOVDIA151 (movimientos diarios), BD11SDOS151 (saldos), BD12MC001S151 (catálogo contable), BD13BIFIN (bilateral Citi), BD99CONTROL (control) |
+| 27 | `WFL` | — | ENTIDAD | alta | dominio | Work Flow Language — lenguaje de orquestación de Unisys MCP. WFL LOTE secuencia el cierre diario del GL; WFL LINEA inicia los tasks COMS online; WFL SPLUNK integra observabilidad moderna |
+| 28 | `S151REGISTRA` | — | ENTIDAD | alta | dominio | Interfaz de registro de movimientos GL — librería ALGOL en versiones R2 a R5. Usada por S500/P130, P142, P144 para postear asientos al libro mayor S151. La versión activa es L002R5. Punto de integración crítico cross-system |
+| 29 | `TESOFE` | — | ENTIDAD | alta | dominio | Tesorería de la Federación — receptor de archivos de comisiones de gobierno generados por S151. Programa P005 (EXTRACTOR) carga archivos Tesorería como primer paso del WFL LOTE |
+| 30 | `CITI` | — | ENTIDAD | alta | dominio | Citibank — sistema externo con el cual S151 intercambia datos de conciliación bilateral. Programas P150 y P151 generan archivos ALR/AHR/OCM para Citi. BD13BIFIN almacena datos bilaterales de la relación Banamex-Citi |
+| 31 | `SPLUNK` | 4 | ENTIDAD | alta | dominio | Herramienta de observabilidad moderna integrada con S151 via WFL_SPLUNK (MTP006 — la versión más reciente del sistema). El programa P810 carga datos de movimientos diarios para monitoreo en tiempo real |
+| 32 | `CRONOS2K` | — | ENTIDAD | alta | patron-unisys | Código de parche Y2K presente en múltiples programas S151 — patrón $SET OLDCODE, a2k_base_year. Afecta librerías L002R* y L011, y programas P167, P177, P178, P195, P197. Riesgo para modernización |
+| 33 | `MTP` | — | ENTIDAD | alta | patron-unisys | Maintenance Technical Package — release del sistema Unisys. Versión activa en S151: 25MTP003 para procesos principales. WFL_SPLUNK usa MTP006, indicando integración posterior a la versión base |
+| 34 | `S080L710` | 9 | ENTIDAD | media | dominio | Job WFL S080/L710 — trabajo externo referenciado en S151 para integración con el sistema S080 (operaciones y tarifas). Presente en catálogo de jobs del sistema |
+| 35 | `CCW ON PACK` | 70 | ENTIDAD | alta | patron-unisys | Entidad DASDL — miembro de SET (acceso relacional nativo MCP). La más frecuente en S151 con 70 ocurrencias. Estructura de acceso a registros del PACK contable |
+| 36 | `LIBCONTROL ON CMEMP` | 28 | ENTIDAD | alta | patron-unisys | Entidad DASDL — acceso al SET de control de proceso GL sobre la base de datos CMEMP (BD99CONTROL) |
+| 37 | `MOVTOS ON CMEMP` | 12 | ENTIDAD | alta | patron-unisys | Entidad DASDL — acceso al SET de movimientos contables sobre CMEMP (BD10MOVDIA151). El SET de mayor volumen del sistema GL |
+| 38 | `COMISIONES2K ON CLIENTES` | 10 | ENTIDAD | alta | patron-unisys | Entidad DASDL — registro de comisiones en la estructura de clientes S151. Sufijo 2K indica código de parche Y2K integrado en la estructura |
+| 39 | `DATOSADIC ON CMEMP` | 9 | ENTIDAD | alta | patron-unisys | Entidad DASDL — datos adicionales del movimiento contable en SET CMEMP. Extiende el registro base de movimientos con información operativa adicional |
+| 40 | `DISPLAY ON CMEMP` | 7 | ENTIDAD | media | patron-unisys | Entidad DASDL — estructura de despliegue de datos en SET CMEMP. Formato de presentación de movimientos GL para consulta online |
+| 41 | `INTELLIMATCH ON CMEMP` | 2 | ENTIDAD | baja | patron-unisys | Entidad DASDL — referencia al sistema de conciliación IntelliMatch en la estructura de datos CMEMP. Plataforma de reconciliación automatizada de movimientos GL |
+| 42 | `PUNTEO ON CMEMP` | 4 | ENTIDAD | media | patron-unisys | Entidad DASDL — registro de punteo de saldos en SET CMEMP. Marca movimientos contabilizados vs pendientes en el proceso de cierre |
+| 43 | `P109` | 32 | PREFIJO | alta | dominio | Mayor programa S151 por LOC (19K LOC) — el proceso batch más grande del sistema contable. Flag CNBV. Proceso de cierre diario principal |
+| 44 | `P010` | 19 | PREFIJO | alta | dominio | Servidor COMS principal S151 (PROGRAM-ID LINEA, 18K LOC) — punto de entrada online del GL. Ver ANO-010: colisión de PID LINEA con P053 |
+| 45 | `P050` | 15 | PREFIJO | alta | dominio | Acceso a saldos T050 (P050ADSALDOS, 15K LOC) — gestiona acceso y actualización de saldos en BD02ADSALDO. El programa online más grande de S151 |
+| 46 | `P130` | 21 | PREFIJO | alta | dominio | Concentrador batch S151 (13K LOC) — proceso principal de concentración de movimientos en BD10MOVDIA151. Paso central del WFL LOTE |
+| 47 | `P131` | 19 | PREFIJO | alta | dominio | Agrupador contable esquema CFR (11K LOC) — agrupa movimientos por esquema CFR en BD10MOVDIA151 y BD12MC001S151 |
+| 48 | `P150` | 19 | PREFIJO | alta | dominio | Generación archivos ALR/AHR/OCM CITI (12K LOC) — genera reportes de movimientos Citibank para conciliación bilateral. Paso del WFL LOTE |
+| 49 | `P151` | 18 | PREFIJO | alta | dominio | Generación archivos CITI 2 (17K LOC) — complemento de P150 para reportes regulatorios Citibank. Procesa movimientos de conciliación |
+| 50 | `P158` | 18 | PREFIJO | alta | dominio | Movimientos por contrato (13K LOC) — genera reporte único de movimientos agrupados por contrato bancario. Paso del WFL LOTE en S151 |
+| 51 | `P052` | 20 | PREFIJO | alta | dominio | Acumulación/Validación T052 (ACCIVAL, 13K LOC) — acumula y valida saldos en BD02ADSALDO. Tarea ONLINE crítica del sistema GL |
+| 52 | `P053` | 16 | PREFIJO | alta | dominio | Servidor LINEA T053 (LINEA, 12K LOC) — segundo servidor COMS del GL. Ver ANO-010: colisión de PROGRAM-ID LINEA con P010 |
+| 53 | `P015` | 12 | PREFIJO | alta | dominio | Servidor asíncrono S151 (PROGRAM-ID ASINCRONO, 12K LOC) — gestiona operaciones asíncronas del sistema GL. Procesa en segundo plano sin bloquear los servidores COMS |
+| 54 | `P005` | 13 | PREFIJO | alta | dominio | Extractor Tesorería (PROGRAM-ID EXTRACTOR, 3.6K LOC) — carga archivos para proceso TESOFE como primer paso del WFL LOTE |
+| 55 | `P199` | 8 | PREFIJO | alta | dominio | Migración saldos S500 (2.7K LOC, WFL LOTE) — migra saldos desde el sistema S500 al S151 como paso final del lote nocturno |
+| 56 | `P122` | 10 | PREFIJO | alta | dominio | Carga movimientos multi-sistema (2.2K LOC) — integra datos de C402, C600, S804, S707, S203 (Tandem) vía L002 para generar archivos de movimientos GL |
+| 57 | `P167` | 14 | PREFIJO | alta | dominio | Saldos contratos S500 prod 001/066 (7.8K LOC) — genera archivo con saldos de contratos de cheques (001) y cuenta maestra (066) desde el sistema S500. Código CRONOS 2000 |
+| 58 | `P115` | 10 | PREFIJO | alta | dominio | Compensación/Registro (S151-P115-COMPENREG, 7K LOC) — proceso de compensación y registro contable en el GL. Flag CNBV |
+| 59 | `P117` | 7 | PREFIJO | alta | dominio | Diferencias contables (S151-P117-DIFERENCIAS) — proceso de detección y manejo de diferencias entre registros contables. Flag CNBV |
+| 60 | `P810` | — | PREFIJO | alta | dominio | Carga periódica sistemas/Splunk (ALGOL, 4.1K LOC, VERSION 0.25.6) — carga datos de sistemas y conceptos en BD10MOVDIA151 para consulta de MOVDIA. Programa moderno de monitoreo e integración con Splunk |
+| 61 | `L002R5` | 14 | PREFIJO | alta | dominio | S151REGISTRA versión R5 activa (ALGOL, 7.4K LOC) — la versión más reciente de la librería de registro GL. SHARING=SHAREDBYALL. Usada por S500/P130, P142, P144 para postear asientos al libro mayor |
+| 62 | `L011` | — | PREFIJO | alta | dominio | Consulta de movimientos BD10MOVDIA151 (ALGOL, 7.2K LOC, CRONOS 2000) — gran librería de consulta con código Y2K. SHARING=PRIVATE. Flag CNBV |
+| 63 | `L030` | 16 | PREFIJO | alta | dominio | Mayor librería COBOL del S151 (COBOL, 19.2K LOC) — librería compartida de gran tamaño. PROGRAM-ID S151LIB030. Accede BD10MOVDIA151 |
+| 64 | `L001` | 5 | PREFIJO | alta | dominio | Librería de control de BD S151 (ALGOL, 3.1K LOC) — gestiona fechas y calendarios via LOCSUP. Accede BD99CONTROL. Define códigos de error 1-13 del sistema GL |
+| 65 | `L040` | 12 | PREFIJO | alta | dominio | Totales por clave de trayectoria (COBOL, 4.1K LOC) — calcula totales agrupados por CVETRA. PROGRAM-ID TOTXCVETRA. Librería clave para cuadre del libro mayor |

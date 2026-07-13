@@ -1,0 +1,931 @@
+$SET LIST SINGLE ERROR LIMIT 1000 ALLINFO                               00000100          
+$SET ZIP                                                                00000110          
+$RESET DMCONTROL                                                        00000150          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00000200          
+% NOTA:                                                                 00000202          
+%    CADA QUE SE MODIFIQUE POPULATION DE UN DATA SET                    00000204          
+%    SE DEBE LIBERAR EL P104 (LOS TIENE EN HARD-CODE)                   00000206          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%       00000208          
+%    RELEASE                    2025.07_M_MEX_XPR_ALL                   00000209          
+%    CF SOFTWARE LEVEL          SSR 62.0 (62.087.8009)                  00000210          
+%    PHYSICAL DATABASE          S500BD02AUXILIAR      %  STRUCTURE 01   00000300          
+%    PACK-DMSII-ACCESSROUTINES  PACK                                    00000350          
+%    OWNER                      BANAMEX                                 00000400          
+%    DESCRIPTION                DESCRIPTION/S500BD02AUXILIAR/25MTP001   00000410          
+%    CAMBIO   INCLUIR NUEVOS CAMPOS EN LOS DATA SET:                    00000420          
+%             S500B03ACONTRATOS                                         00000425          
+%                                                                       00000426          
+%    LA REORGANIZACION SE HACE ON-LINE                                  00000435          
+%                                                                       00000450          
+%    DUMPSTAMP = FALSE, (PARA RESPALDOS POR MODIFICACIONES )            00000470          
+%                       (1 PALABRA MENOS POR BLOCK)                     00000490          
+%                                                                       00000492          
+%   SE AÑADEN CAMPOS A LA ESTRUCTURA S500B03AUXCTOS                     00000494          
+%                                                                       00000496          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00000500          
+%     BASE DE DATOS AUXILIAR UTILIZADA EN EL PROCESO BATCH, PARA       %00000600          
+%     QUE LA LINEA SIGA FUNCIONANDO, YA QUE EL BATCH AFECTARA LA       %00000700          
+%     BASE DE DATOS ORIGINAL.                                          %00000800          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00000900          
+ UPDATE;                                                                00000950          
+ DEFAULTS                                                               00001000          
+ (                                                                      00001050          
+   DATA SET                                                             00001100          
+   (                                                                    00001110          
+      BUFFERS  = 001 + 001 PER RANDOM USER OR 003 PER SERIAL USER,      00001200          
+      PACK     = CAPTACION,                                             00001300          
+      CHECKSUM = TRUE,                                                  00001400          
+      REBLOCK  = FALSE,                                                 00001500          
+      LOCK TO MODIFY DETAILS = FALSE                                    00001600          
+   ),                                                                   00001690          
+   SET                                                                  00001700          
+   (                                                                    00001710          
+      BUFFERS  = 001 + 001 PER RANDOM USER OR 003 PER SERIAL USER,      00001800          
+      PACK     = CAPTACION,                                             00001900          
+      CHECKSUM = TRUE                                                   00002000          
+   ),                                                                   00002090          
+      ALPHA      (INITIALVALUE = BLANKS),                               00002100          
+      BOOLEAN    (INITIALVALUE = FALSE ),                               00002200          
+      NUMBER     (INITIALVALUE = 0 ),                                   00002300          
+      REAL       (INITIALVALUE = 0)                                     00002400          
+ );                                                                     00002500          
+ OPTIONS                                                                00002600          
+ (                                                                      00002610          
+      ADDRESSCHECK,                                                     00002700          
+      AUDIT,                                                            00002800          
+      STATISTICS,                                                       00002900          
+      INDEPENDENTTRANS                                                  00003000          
+%     REAPPLYCOMPLETED                                                  00003100          
+ );                                                                     00003200          
+ PARAMETERS                                                             00003300          
+ (                                                                      00003310          
+      ALLOWEDCORE    = 700000,                                          00003400          
+      RESIDENT LIMIT = 400000,                                          00003500          
+      OVERLAYGOAL    = 0005,                                            00003600          
+      CONTROLPOINT   = 0002,                                            00003700          
+      SYNCPOINT      = 0020                                             00003800          
+ );                                                                     00003890          
+      ACCESSROUTINES = *SYSTEM/ACCESSROUTINES  ON PACK;                 00003900          
+      DMSUPPORT      = (S500)DMSUPPORT/S500BD02AUXILIAR/25MTP001        00004000          
+                             ON CAPTACION;                              00004010          
+      RECOVERY       = *SYSTEM/DMRECOVERY ON PACK;                      00004100          
+      DATARECOVERY   = *SYSTEM/DMDATARECOVERY ON PACK;                  00004200          
+      RECONSTRUCT    = (S500)RECONSTRUCT/S500BD02AUXILIAR/25MTP001      00004300          
+                             ON CAPTACION;                              00004310          
+ AUDIT TRAIL                                                            00004400          
+ (                                                                      00004410          
+      AREAS         = 0100,                                             00004500          
+      AREASIZE      = 150,                                              00004600          
+      BLOCKSIZE     = 1800 WORDS,                                       00004700          
+      UPDATE-EOF    = 150,                                              00004800          
+      CHECKSUM      = TRUE,                                             00004900          
+      PACK          = AUDIT,                                            00005000          
+      QUICKCOPY APPEND MAXFILESPERTAPE=1 TO TAPESET                     00005100          
+      AND REMOVE JOB *DATABASE/WFL/COPYAUDIT ON PACK                    00005110          
+ );                                                                     00005200          
+ CONTROL FILE                                                           00005300          
+ (                                                                      00005310          
+       PACK = CAPTACION,                                                00005320          
+       USERCODE = S500                                                  00005350          
+ );                                                                     00005360          
+                                                                        00005400          
+ S500BD02AUXILIAR                                                       00005420          
+ (                                                                      00005422          
+       GUARDFILE = (S500)S500/FILE/GUARDFILE/S500BD02AUXILIAR           00005440          
+                         ON CAPTACION                                   00005460          
+ );                                                                     00005500          
+$SET PAGE                                                               00005501          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 00005502          
+%     DATA SET DE CONTROL                                               00005504          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 00005506          
+ S500B01ACONTROL DIRECT  DATA SET    %PREFIX = B01A   %  STRUCTURE 02   00005510          
+ (                                   % INICIO DATA SET                  00005511          
+    B01A-NUM-COPIA              NUMBER (02);                            00005512          
+    B01A-ULT-AUTORIZ            NUMBER (08);                            00005518          
+    B01A-ULT-REGLOG             NUMBER (08);                            00005520          
+    B01A-USO-FUT-01             NUMBER (06);                            00005521          
+ ),                                  % FIN DATA SET                     00005524          
+% RECORDSIZE  =  2 WORDS,  % 24 CHARACTERS COMP                         00005526          
+  AREASIZE    =  1 BLOCKS,                                              00005528          
+  BLOCKSIZE   = 14 RECORDS,                                             00005530          
+  CHECKSUM    = TRUE,                                                   00005532          
+  POPULATION  = 20,                                                     00005534          
+  MEMORY RESIDENT = ALL;                                                00005536          
+%                                                                       00005538          
+  B01AAXCOPIA ACCESS TO S500B01ACONTROL               %  STRUCTURE 03   00005540          
+              KEY  IS B01A-NUM-COPIA                                    00005542          
+              NO DUPLICATES;                                            00005546          
+$SET PAGE                                                               00005600          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 00005700          
+%     DATA SET DE CONTROL                                               00005800          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 00005900          
+ S500B02ACONTROL  DATA SET      %PREFIX = B02A        %  STRUCTURE 04   00005950          
+ (                              % INICIO DATA SET                       00005952          
+    B02A-NUM-CSI                NUMBER (02);                            00006000          
+    B02A-FECHA-LINEA            NUMBER (08);                            00006100          
+    B02A-STATUS-BASE            NUMBER (02);                            00006200          
+    B02A-IND-SDOPEN             NUMBER (01);                            00006300          
+    B02A-CTR-RECUPERA           NUMBER (01);                            00006305          
+    B02A-TC-LLAMADO             NUMBER (02);                            00006310          
+    B02A-TC-TCAMBIO             NUMBER (08,04);                         00006315          
+    B02A-TC-LINEA               NUMBER (08,04);                         00006317          
+    B02A-PGOPEND-S408           NUMBER (01);                            00006320          
+    B02A-HAY-ST2113             NUMBER (01);                            00006325          
+    B02A-LIBERA-SDOPEN          NUMBER (01);                            00006330          
+    B02A-STA-DISP-LSDO          NUMBER (01);                            00006335          
+    B02A-DCORTE-6611            NUMBER (02);                            00006340          
+    B02A-PCOBP-IND-LIB          NUMBER (01);                            00006342          
+    B02A-IND-ENVIOS711          NUMBER (01);                            00006344          
+%%   Indicador para dejar de Mandar FRAUDLINK De MTY a VDM S711         00006345          
+%%     0 = Se sigue Enviando                                            00006347          
+%%     1 = Se Deja de Enviar                                            00006348          
+%%                                                                      00006350          
+    B02A-IND-FUNC-DYR           NUMBER (01);  %IND D&R ENCENDIDO        00006352          
+                                              %0 = activado             00006355          
+                                              %1 = apagado spei         00006360          
+                                              %2 = apagado ret          00006365          
+                                              %3 = apagado spei y ret   00006370          
+    B02A-USO-FUT-01             NUMBER (08);                            00006380          
+    B02A-USO-FUT-02             NUMBER (04);                            00006381          
+    B02A-USO-FUT-03             NUMBER (08);                            00006382          
+    B02A-USO-FUT-04             NUMBER (04);                            00006383          
+    B02A-USO-FUT-05             NUMBER (01);                            00006384          
+    B02A-USO-FUT-06             NUMBER (02);                            00006385          
+    B02A-USO-FUT-07             NUMBER (06);                            00006386          
+    B02A-USO-FUT-08             NUMBER (02);                            00006387          
+    B02A-USO-FUT-09             NUMBER (04);                            00006388          
+    B02A-USO-FUT-10             NUMBER (04);                            00006389          
+ ),                             % FIN DATA SET                          00006402          
+% RECORDSIZE  = 7 + 2 = 9  WORDS, %  84 + 24 = 108 CHARACTERS COMP      00006405          
+  AREASIZE    = 1 BLOCKS,                                               00006410          
+  BLOCKSIZE   = 3 RECORDS,                                              00006415          
+  CHECKSUM    = TRUE,                                                   00006420          
+  EXTENDED    = TRUE,                                                   00006422          
+  POPULATION  = 10,                                                     00006425          
+  MEMORY RESIDENT = ALL;                                                00006435          
+%                                                                       00006445          
+% KEYENTRYSIZE   2 WORDS                                                00006450          
+  B02ASXCSI SET OF S500B02ACONTROL                    %  STRUCTURE 05   00006455          
+            KEY (B02A-NUM-CSI)                                          00006465          
+            INDEX SEQUENTIAL,                                           00006475          
+            NO DUPLICATES,                                              00006485          
+  TABLESIZE       = 12  ENTRIES,                                        00006490          
+  MEMORY RESIDENT = ALL;                                                00006495          
+%                                                                       00006500          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00006600          
+%     DATASET DE CONTRATOS                                              00006700          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00006800          
+ S500B03AUXCTOS   DATA SET      %PREFIX = B03A        %  STRUCTURE 06   00006900          
+ (                              % INICIO DATA SET                       00006910          
+    B03A-SUC-PROMOT             NUMBER (04);                            00007000          
+    B03A-NUM-CONTRATO           NUMBER (12);                            00007100          
+    B03A-NUM-CLIENTE            NUMBER (12);                            00007200          
+    B03A-NUM-PRODUCTO           NUMBER (04);                            00007300          
+    B03A-NUM-INSTRUM            NUMBER (04);                            00007400          
+    B03A-MONEDA                 NUMBER (03);                            00007500          
+    B03A-CTA-CONCENT            NUMBER (02);                            00007600          
+      %   = CUENTA NORMAL                                               00007700          
+      %   = CUENTA CONCENTRADORA                                        00007800          
+    B03A-FEC-APERTURA           NUMBER (08);                            00007900          
+    B03A-DIA-CORTE              NUMBER (02);                            00008000          
+    B03A-DIA-CORTEANT           NUMBER (02);                            00008100          
+    B03A-SDO-ANTERIOR           NUMBER (S16,02);                        00008200          
+    B03A-SDO-ACTUAL             NUMBER (S16,02);                        00008300          
+    B03A-SDO-PENDIEN            NUMBER (14,02);                         00008400          
+    B03A-FEC-SDOPEN             NUMBER (08);                            00008405          
+    B03A-SDO-SBC                NUMBER (14,02);                         00008500          
+    B03A-SBC-LOCAL              NUMBER (14,02);                         00008520          
+    B03A-SBC-FORANEO            NUMBER (14,02);                         00008540          
+    B03A-FILLER1                NUMBER (14,02);                         00008560          
+    B03A-FILLER2                NUMBER (14,02);                         00008580          
+    B03A-SDO-X-RECUP            NUMBER (14,02);                         00008600          
+    B03A-AUT-PENDIENT           NUMBER (14,02);                         00008700          
+    B03A-SDO-PROTEGI            NUMBER (14,02);                         00008800          
+    B03A-TIPO-PERSONA           NUMBER (02);                            00008900          
+    B03A-FEC-ULTMOV             NUMBER (08);                            00009100          
+    B03A-STATUS                 NUMBER (01);                            00009200          
+    B03A-TIPO-BLOQUEO           NUMBER (02);                            00009300          
+    B03A-STATUS-BD              NUMBER (01);                            00009400          
+    B03A-RESTRICCIONE           NUMBER (02);                            00009500          
+    B03A-REST-CTACONC           NUMBER (02);                            00009600          
+    B03A-ESTACION-LB            NUMBER (04);                            00009610          
+    B03A-IND-2DAREF             NUMBER (02);                            00009700          
+    B03A-MODVAL-CTCON           NUMBER (02);                            00009800          
+    B03A-INST-CAPIT             NUMBER (S12,02);                        00009900          
+    B03A-SDO-FINCORTE           NUMBER (S16,02);                        00010200          
+    B03A-FEC-CORTE              NUMBER (08) OCCURS 3 TIMES;             00010210          
+    B03A-IND-LINCREDI           NUMBER (02);                            00010300          
+    B03A-CTA-PRODEMPRE          NUMBER (01);                            00010350          
+    B03A-TASA-ANTERIO           NUMBER (07,03);                         00010400          
+    B03A-TASA-ANT-ANT           NUMBER (07,03);                         00010500          
+    B03A-LIMITE-CREDI           NUMBER (14,02);                         00010600          
+    B03A-SDO-CREDITO            NUMBER (14,02);                         00010700          
+    B03A-NUM-MOVS               NUMBER (05);                            00010800          
+    B03A-NIV-SEGLOGICA          NUMBER (01);                            00010810          
+        % 0 NO VALIDA                                                   00010812          
+        % 1 VALIDA CHEQUE PAGADO                                        00010814          
+        % 2 VALIDA CHEQUE PAGADO E INEXISTENTE                          00010816          
+        % 3 VALIDA CHEQUE PAGADO, INEXISTENTE Y NO LIBERADO             00010818          
+    B03A-NOMBRE                 ALPHA  (36);                            00010900          
+    B03A-TIPO-CUENTA            NUMBER (02);                            00011000          
+    B03A-PRODUCTO-NVO           NUMBER (04);                            00011100          
+    B03A-INSTRUM-NVO            NUMBER (04);                            00011200          
+    B03A-FEC-CAMBPROD           NUMBER (08);                            00011210          
+    B03A-PRODUCTO-ANT           NUMBER (04);                            00011220          
+    B03A-INSTRUM-ANT            NUMBER (04);                            00011230          
+    B03A-IMP-CGOSDIA            NUMBER (14,02);                         00011300          
+    B03A-IMP-ABOSDIA            NUMBER (14,02);                         00011400          
+    B03A-COMIS-S408             NUMBER (14,02);                         00011500          
+    B03A-CTOS-DETRASP GROUP OCCURS 3 TIMES                              00011550          
+    (                           % INICIO GPO B03A-CTOS-DETRASP          00011552          
+       B03A-TRAS-CTO            NUMBER (12)                             00011600          
+    );                          % FIN GPO B03A-CTOS-DETRASP             00011690          
+    B03A-MODULO-DIGIT           NUMBER (02);                            00011700          
+    B03A-SECTOR                 NUMBER (02);                            00011750          
+    B03A-ULT-AUTS408            NUMBER (14);                            00011800          
+    B03A-RSLT-S408              NUMBER (02);                            00011850          
+    B03A-FEC-LCINV              NUMBER (08);                            00011860          
+    B03A-SBC-1DIA               NUMBER (14, 2);                         00011862          
+    B03A-IND-SBC-B26            NUMBER (02);                            00011864          
+        % 00 = NO HAY SBC EN B26                                        00011866          
+        % 01 = SI HAY SBC EN B26                                        00011868          
+    B03A-REF-NUM-MIN            NUMBER (02);                            00011870          
+    B03A-REF-NUM-MAX            NUMBER (02);                            00011872          
+    B03A-REF-ALF-MIN            NUMBER (02);                            00011874          
+    B03A-REF-ALF-MAX            NUMBER (02);                            00011876          
+    B03A-SERV-CEPAE             NUMBER (01);                            00011877          
+        % 0= SIN SERVICIO DEPOSITOS CPAE                                00011878          
+        % 1= CON SERVICIO DEPOSITOS CPAE                                00011879          
+    B03A-SERVCITIDIRE           NUMBER (01);                            00011880          
+        % 0= SIN SERVICIO CITIDIRECT Y SIN CBII                         00011881          
+        % 1= CON SERVICIO CITIDIRECT Y CON FILTROS CBII                 00011882          
+        % 2= CON SERVICIO CITIDIRECT Y SIN CBII                         00011883          
+    B03A-NUM-TEF                NUMBER (16);                            00011884          
+        % = 0     SIN CALIFICACION DE TEF                               00011885          
+        % = 9(s)  DESCALIFICADO    DE TEF                               00011886          
+        % > 0     NUMERO DE TEF                                         00011887          
+    B03A-FECHA-DEPNOM           NUMBER (08);                            00011888          
+        % FECHA ULTIMO DEPOSITO NOMINA X TEF (AAAAMMDD)                 00011889          
+    B03A-ESQ-TARIFARI           NUMBER (01);                            00011890          
+        % 0 = ESQUEMA DE COMISIONES TRADICIONAL                         00011891          
+        % 1 = ESQUEMA DE COMISIONES POR RENTA                           00011892          
+        % 2 = ESQUEMA DE COMISIONES POR TRANSACCION                     00011893          
+    B03A-MDA-ASIGNADO           NUMBER (01);                            00011894          
+        % 0 = SIN MEDIOS ASIGNADOS                                      00011895          
+        % 1 = CHEQUERA                                                  00011896          
+        % 2 = TARJETA                                                   00011897          
+        % 3 = CHEQUERA Y TARJETA                                        00011898          
+    B03A-RESUMEN-MCC            NUMBER (01);                            00011899          
+        % 0 = NO COBRA COMISION RESUMEN MCC                             00011900          
+        % 1 = SI COBRA COMISION RESUMEN MCC                             00011901          
+    B03A-GEN-EDOCTA             NUMBER (01);                            00011902          
+        % 0   = SIN INFORMACI¿N (APERTURA SIN 1ER CORTE)                00011903          
+        % 1   = SI GENERA ESTADO DE CUENTA                              00011904          
+        % 1   = NO GENERA ESTADO DE CUENTA                              00011905          
+    B03A-CTO-BCAINST            NUMBER (01);                            00011906          
+       % 0 = CONTRATO NORMAL                                            00011907          
+       % 1 = CONTRATO DE BANCA INSTITUCIONAL                            00011908          
+    B03A-NUMDEP-CICLO           NUMBER (06);                            00011909          
+    B03A-IMPDEP-CICLO           NUMBER (14,2);                          00011915          
+    B03A-RETSOR-XDIA            NUMBER (08,2);                          00011920          
+    B03A-RETSOR-XCIC            NUMBER (08,2);                          00011925          
+    B03A-COBRCOM-6614            NUMBER (01);                           00011932          
+    B03A-MES-PROM-MIN            NUMBER (01);                           00011934          
+    B03A-MES-ABO-EXCE            NUMBER (01);                           00011936          
+    B03A-IMPDEPSR-DIA           NUMBER (14,02);                         00011938          
+    B03A-IMPDEPSR-CIC           NUMBER (14,02);                         00011940          
+    B03A-NUM-GPOSOCIO           NUMBER (04);                            00011942          
+    B03A-MED-ACCESO-TJ     GROUP                                        00011944          
+    (B03A-MED-ACC-BIN           NUMBER (06);                            00011946          
+     B03A-MED-ACC-SER           NUMBER (10)                             00011948          
+    );                                                                  00011950          
+    B03A-IND-ALERTA             NUMBER (04);                            00011952          
+    B03A-IMPRETCR-DIA           NUMBER (12,2);                          00011954          
+    B03A-IMPDEPCR-DIA           NUMBER (12,2);                          00011956          
+    B03A-NUM-TEF-INFO           NUMBER (16);                            00011958          
+    B03A-IND-CANCAUTO           NUMBER (01);                            00011960          
+    B03A-NUM-MOVSNC             NUMBER (06);                            00011962          
+    B03A-NUM-MOVSCGO            NUMBER (06);                            00011964          
+    B03A-NUM-MOVSABO            NUMBER (06);                            00011966          
+    B03A-FECH-BENEF             NUMBER (08);                            00011968          
+    B03A-FECACT-BATCH           NUMBER (08);                            00011970          
+    B03A-STA-BENEF              NUMBER (02);                            00011972          
+    B03A-MIGR-S111              NUMBER (01);                            00011974          
+    B03A-PCOBP-PENDTE           NUMBER (14,2);                          00011976          
+    B03A-IND-PROTECSDO          NUMBER (01);                            00011978          
+    B03A-LIB-SDOPROTEG          NUMBER (02);                            00011980          
+%% SALDO PROTEGIDO PARCIAL POR ORDEN JUDICIAL                           00011981          
+    B03A-SDOPROT-BLOQ           NUMBER (14,02);                         00011982          
+    B03A-SDOPROT-ANT            NUMBER (14,02);                         00011983          
+%% IMPORTE SOLICITADO POR BLOQUEO DE ORDEN JUDICAL                      00011985          
+    B03A-IMPSOL-BLOQ            NUMBER (14,02);                         00011986          
+    B03A-SDO-CONGBENE           NUMBER (S14,02);                        00011987          
+    B03A-IND-PROTNOM            NUMBER (02);                            00011989          
+    B03A-FECHA-MIGRA            NUMBER (08);                            00011990          
+    B03A-NIVEL-CTAEXP           NUMBER (02);                            00011992          
+    B03A-IMPDEP-CTAEXP          NUMBER (14,02);                         00011994          
+    B03A-SDOMES-SINMOV          NUMBER (02);                            00012000          
+    B03A-ESQ-REND               NUMBER (01);                            00012002          
+    B03A-SGTO-REND              NUMBER (02);                            00012004          
+    B03A-FEC-RENDNVO            NUMBER (08);                            00012006          
+    B03A-VALREF-INTBCO          NUMBER (01);                            00012008          
+                                                                        00012010          
+    B03A-NUM-CTASC-TES          NUMBER (16); % cta cheques de la SC     00012012          
+    B03A-USO-CTANT-TES          NUMBER (02); % Uso cuenta Anterior      00012014          
+    B03A-NUM-SUCCC-TES          NUMBER (04);                            00012016          
+    B03A-NUM-CTOCC-TES          NUMBER (12);                            00012018          
+    % > 0, CONTRATO DE CONTROL AL QUE ESTA LIGADO LA SUBCUENTA          00012020          
+    % = 0, EL CONTRATO ES CUENTA DE CONTROL                             00012022          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                                00012023          
+%% Campos Asignaciones y Techos TESOFE                                  00012024          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                                00012026          
+    B03A-SDO-AOACT-TES          NUMBER (S16,02);                        00012028          
+% Asig Otorgadas Actuales = asig a subcuentas des-asig a sc             00012030          
+    B03A-SDO-ARACT-TES          NUMBER (S16,02);                        00012032          
+% Asig recibidas Actual = asignaciones des-asignaciones                 00012034          
+    B03A-SDO-TRACT-TES          NUMBER (S16,02);                        00012036          
+%%Techo recibido actual = +asignaciones des-asignaciones                00012038          
+    B03A-SDO-TAACT-TES          NUMBER (S16,02);                        00012040          
+%%Techo asignado actual = +asignaciones des-asignaciones                00012042          
+    B03A-SDO-DAACT-TES          NUMBER (S16,02);                        00012044          
+% disponible de lo asignado actual                                      00012045          
+    B03A-IMPSOLBLO-TES          NUMBER (S16,02);                        00012046          
+%Sdo Bloq TESOFE                                                        00012047          
+    B03A-SDO-CONG-DYR           NUMBER (16,02);                         00012050          
+    B03A-IND-SIRH-TESOFE        NUMBER (01);                            00012052          
+    B03A-IND-MARORD             NUMBER (02);                            00012054          
+    B03A-IND-FECMCO             NUMBER (08);                            00012056          
+%SE AGREGAN CAMPOS NUEVOS                                               00012058          
+    B03A-GBNP-SERV-IND          NUMBER (01); %Indicador de GBNP         00012059          
+                                             %0 - desactivado           00012060          
+                                             %1 - pre-activado          00012061          
+                                             %2 - activadoNP            00012062          
+    B03A-IND-CTAINTER           NUMBER (01); %MARCA INTERMENDIACION,    00012063          
+                                             %0 APAGADA, 1 ENCENDIDA    00012064          
+    B03A-IND-BNE-DIV            NUMBER (01); %Ind movtos a BNE          00012066          
+    B03A-MARCA-CLON             NUMBER (01); %Marca para clonacion      00012068          
+    B03A-FECHA-CLON             NUMBER (08); %Fecha clonacion           00012070          
+    B03A-EXTNET-CTA-MADRE       NUMBER (02); %Ind cta concentrad madre  00012072          
+    B03A-SDO-BLOQ-GCE           NUMBER (16,02); %Imp Sdo Bloq GCE       00012074          
+    B03A-USO-FUT-01             NUMBER (02);                            00012076          
+    B03A-USO-FUT-02             NUMBER (06);                            00012078          
+    B03A-USO-FUT-03             NUMBER (04);                            00012080          
+    B03A-USO-FUT-04             NUMBER (08);                            00012082          
+    B03A-USO-FUT-05             NUMBER (01);                            00012084          
+    B03A-USO-FUT-06             NUMBER (06);                            00012086          
+    B03A-USO-FUT-08             NUMBER (16,02);                         00012088          
+    B03A-USO-FUT-09             NUMBER (16,02);                         00012090          
+    B03A-USO-FUT-10             NUMBER (14,02);                         00012092          
+    B03A-USO-FUT-11             NUMBER (10);                            00012094          
+    B03A-USO-FUT-12             NUMBER (02);                            00012095          
+    B03A-USO-FUT-13             NUMBER (06);                            00012096          
+    B03A-USO-FUT-14             NUMBER (04);                            00012097          
+ ),                             %% FIN DATA SET                         00012098          
+% RECORDSIZE = 99 + 2 = 101  WORDS,   1140 + 24 = 1164  DIGITOS COMP    00012099          
+  AREASIZE     =  27435 BLOCKS  %1650 BLOCKS,                           00012100          
+  BLOCKSIZE    =   27 RECORDS   %22 RECORDS,                            00012150          
+  BUFFERS = 001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,           00012200          
+  PACK = CAPTACION                               ,                      00012300          
+  CHECKSUM = TRUE,                                                      00012400          
+  EXTENDED = TRUE,                                                      00012450          
+  POPULATION = 20000000;                                                00012500          
+%                                                                       00012600          
+% KEYENTRYSIZE   2 WORDS                                                00012690          
+  B03ASXCTO SET OF S500B03AUXCTOS                     %  STRUCTURE 07   00012700          
+            KEY (B03A-NUM-CONTRATO)                                     00012800          
+            INDEX SEQUENTIAL,                                           00012900          
+            NO DUPLICATES,                                              00013000          
+  MEMORY RESIDENT = ALL,                                                00013005          
+% AREASIZE        = 100 TABLES,                                         00013100          
+  BUFFERS         = 10000 + 001 PER RANDOM USER OR 002 PER SERIAL USER, 00013150          
+  CHECKSUM        = TRUE,                                               00013200          
+  LOADFACTOR      = 90,                                                 00013250          
+  POPULATION      = 20000000,                                           00013300          
+  TABLESIZE       = 357 ENTRIES;                                        00013400          
+$SET PAGE                                                               00013500          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 00013600          
+%     MOVIMIENTOS DE LA BASE AUXILIAR                                 % 00013700          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 00013800          
+ S500B04AUXMOVTOS  DATA SET     %PREFIX = B04         %  STRUCTURE 08   00013900          
+ (                              % INICIO DATA SET                       00013910          
+    B04A-SUC-PROMOTORA          NUMBER (04);                            00014000          
+    B04A-NUM-CONTRATO           NUMBER (12);                            00014100          
+    B04A-NUM-PRODUCTO           NUMBER (04);                            00014200          
+    B04A-NUM-INSTRUM            NUMBER (04);                            00014300          
+    B04A-MONEDA                 NUMBER (03);                            00014400          
+    B04A-AUTORIZACION           NUMBER (14);                            00014500          
+           % SUC-TRANS   NUMBER (04)                                    00014600          
+           % CAJ-TRANS   NUMBER (04)                                    00014700          
+           % AUTORIZ     NUMBER (08)                                    00014800          
+    B04A-SUC-OPERADOR           NUMBER (04);                            00014820          
+    B04A-CAJ-OPERADOR           NUMBER (02);                            00014840          
+    B04A-SUC-S028               NUMBER (04);                            00014842          
+    B04A-CAJ-S028               NUMBER (02);                            00014846          
+    B04A-NUM-NOMINA             NUMBER (08);                            00014860          
+    B04A-AUT-LSERVICI           NUMBER (08);                            00014900          
+    B04A-PORCENT-LSER           NUMBER (06,03);                         00014950          
+    B04A-FEC-VALOR              NUMBER (08);                            00015000          
+    B04A-FEC-MAQUINA            NUMBER (08);                            00015050          
+    B04A-HORA-MOVTO             NUMBER (06);                            00015200          
+    B04A-CLAVE-MOVTO            NUMBER (04);                            00015300          
+    B04A-CLAVE-OIRGEN           NUMBER (04);                            00015410          
+    B04A-CLAVE-DAVISO           NUMBER (02);                            00015420          
+    B04A-IND-IVA                NUMBER (01);                            00015430          
+           % 0 = NO SE COBRO IVA                                        00015440          
+           % 1 = IVA AL 10%                                             00015450          
+           % 2 = IVA AL 15%                                             00015460          
+    B04A-IMPORTE                NUMBER (14,02);                         00015500          
+    B04A-2DO-IMPORTE            NUMBER (14,02);                         00015600          
+    B04A-TIPO-CGIROS            NUMBER (02);                            00015700          
+           % 1 = DEPOSITO BANAMEX                                       00015800          
+           % 2 = DEPOSITO OTROS BANCOS                                  00015900          
+           % 3 = DEPOSITO MIXTO                                         00016000          
+           % 4 = BONIFICACION                                           00016100          
+           % 5 = DEVOLUCION BANAMEX                                     00016200          
+           % 6 = DEVOLUCION O. BANCOS                                   00016300          
+    B04A-BANCO                  NUMBER (04);                            00016400          
+    B04A-CAUSA-DEVOL            NUMBER (02);                            00016500          
+    B04A-FEC-DEPOSITO           NUMBER (08);                            00016600          
+    B04A-STATUS-MOVTO           NUMBER (02);                            00016700          
+    B04A-TCODE-ORIGEN           NUMBER (06);                            00016800          
+    B04A-REFER-INTERN           NUMBER (23);                            00016900          
+    B04A-IND-LEYENDA            NUMBER (03);                            00016920          
+           % 1 = SOLO EN MOVS DIARIOS                                   00016940          
+           % 2 = ADICIONA EN EDO. DE CTA.                               00016960          
+           % 3 = REMPLAZA EN EDO. DE CTA.                               00016980          
+    B04A-REFER-ALFA             ALPHA  (40);                            00017000          
+    B04A-REFER-NUME             NUMBER (12);                            00017100          
+    B04A-TIPO-MEDACCE           NUMBER (02);                            00017400          
+           % 0 = CONTRATO                                               00017500          
+           % 1 = CHEQUERA                                               00017600          
+           % 2 = TARJETA                                                00017700          
+           % 3 = PIN                                                    00017750          
+    B04A-MED-ACCESO             NUMBER (16);                            00017800          
+    B04A-MED-ENTREGA            NUMBER (02);                            00017900          
+    B04A-ORIGEN-MOVTO           NUMBER (01);                            00018300          
+           % 0 = LOCAL                                                  00018400          
+           % 1 = FORANEO                                                00018500          
+    B04A-IND-APERTURA           NUMBER (01);                            00018600          
+    B04A-OTROS-MOVSAD  GROUP OCCURS 5 TIMES                             00018700          
+    (                           % INICIO GPO B04A-OTROS-MOVSAD          00018710          
+         B04A-CVE-MOVAD         NUMBER (04);                            00018800          
+         B04A-IMP-MOVAD         NUMBER (14,02);                         00018900          
+         B04A-REF-MOVAD         NUMBER (12);                            00019000          
+         B04A-CPP-PRIORIDAD     NUMBER (02);                            00019050          
+         B04A-ACT-ADIC-ACUM-DYR NUMBER (01);                            00019060          
+         B04A-USO-FILLER        NUMBER (01);                            00019070          
+    );                          % FIN GPO B04A-OTROS-MOVSAD             00019090          
+    B04A-COMIS-PEND    GROUP OCCURS 4 TIMES                             00019200          
+    (                           % INICIO GPO B03A-COMIS-PEND            00019210          
+         B04A-IND-COMPEND       NUMBER (02);                            00019220          
+         B04A-IMP-COMPEND       NUMBER (06,02)                          00019240          
+    );                          % FIN GPO B03A-COMIS-PEND               00019290          
+    B04A-SUBCAUSA-DEV           ALPHA  (01);                            00019300          
+    B04A-IND-MOVSADS            NUMBER (01);                            00019400          
+    B04A-STATUS-BD              NUMBER (01);                            00019800          
+    B04A-CVE-RECHAZO            NUMBER (04);                            00019900          
+    B04A-AUT-3ERNIV             NUMBER (08);                            00019920          
+    B04A-CONTRATO-ORI           NUMBER (12);                            00019940          
+    B04A-CVE-AVISO              NUMBER (02);                            00019995          
+    B04A-AUTLOG                 NUMBER (08);                            00019997          
+    B04A-BANCO-ORIGEN           NUMBER (04);                            00020003          
+%       0002 = BANAMEX                                                  00020004          
+%       0012 = BANCOMER                                                 00020005          
+    B04A-MSG-FOL24HR            NUMBER (08);                            00020006          
+    B04A-TARJ-CRCHQRA           NUMBER (16);                            00020007          
+    B04A-NUM-MOVSNC             NUMBER (06);                            00020008          
+    B04A-NUM-MOVSCGO            NUMBER (06);                            00020009          
+    B04A-NUM-MOVSABO            NUMBER (06);                            00020010          
+    B04A-ID-CSI                 NUMBER (10);                            00020012          
+    B04A-IND-USO-SC-CC5         NUMBER (01);                            00020013          
+    B04A-ACT-ACUM-DYR           NUMBER (01);                            00020014          
+    B04A-USO-FUT-01             NUMBER (04);                            00020070          
+    B04A-USO-FUT-02             NUMBER (02);                            00020072          
+    B04A-USO-FUT-04             NUMBER (06);                            00020073          
+    B04A-USO-FUT-05             NUMBER (02);                            00020074          
+ ),                             %% FIN DATA SET                         00020085          
+% RECORDSIZE = 51+2=52 WORDS,  % 600 + 24 =8624 CHARACTERS COMP         00020090          
+%              WASTED SPACE PER BLOCK  0 WORDS                          00020092          
+  AREASIZE   = 275 BLOCKS,                                              00020100          
+  BLOCKSIZE  = 26 RECORDS,                                              00020200          
+  BUFFERS    = 001 + 001 PER RANDOM USER OR 004 PER SERIAL USER,        00020300          
+  PACK       = CAPTACION                               ,                00020400          
+  CHECKSUM   = TRUE,                                                    00020500          
+  DUMPSTAMP  = FALSE,                                                   00020550          
+  EXTENDED   = TRUE,                                                    00020570          
+  POPULATION = 3000000;                                                 00020600          
+%                                                                       00020700          
+% KEYENTRYSIZE   4 WORDS                                                00020790          
+  B04ASXCTOAUT SET OF S500B04AUXMOVTOS                %  STRUCTURE 09   00020800          
+               KEY (B04A-NUM-CONTRATO,                                  00020900          
+                    B04A-AUTORIZACION)                                  00021000          
+               INDEX SEQUENTIAL,                                        00021100          
+               NO DUPLICATES,                                           00021200          
+  AREASIZE   = 72 BLOCKS,                                               00021300          
+  CHECKSUM   = TRUE,                                                    00021400          
+  POPULATION = 3000000,                                                 00021500          
+  TABLESIZE  = 186 ENTRIES;                                             00021600          
+$SET PAGE                                                               00027000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00027002          
+%     DATA SET PARA DETALLAR LAS CLAVES DE TRANSACCION ADICIONALES     %00027004          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00027006          
+ S500B13AMOVCVES  DATA SET      %PREFIX = B13         %  STRUCTURE 13   00027008          
+ (                              % INICIO DATA SET                       00027009          
+    B13A-NUM-CONTRATO           NUMBER (12);                            00027010          
+    B13A-AUTORIZACION           NUMBER (14);                            00027012          
+    B13A-CLAVES-TRANS GROUP  OCCURS 0010 TIMES                          00027013          
+    (                           % INICIO GPO B13A-CLAVES-TRANS          00027014          
+      B13A-CLAVE-MOVTO          NUMBER (04);                            00027015          
+      B13A-IMPORTE              NUMBER (14,02);                         00027016          
+      B13A-REF-MOVAD            NUMBER (12);                            00027017          
+      B13A-CPP-PRIORIDAD        NUMBER (02);                            00027018          
+      B13A-ACT-ADIC-ACUM-DYR    NUMBER (01);                            00027019          
+      B13A-USO-FILLER           NUMBER (01)                             00027020          
+    );                          % FIN GPO B13A-CLAVES-TRANS             00027021          
+    B13A-USO-FUT-01             NUMBER (06);                            00027022          
+ ),                             % FIN DATA SET                          00027024          
+% RECORDSIZE    = 31 + 2 = 32 WORDS, % 360 + 24 = 384 COMP,             00027025          
+  AREASIZE      = 100 BLOCKS,                                           00027026          
+  BLOCKSIZE     =  09 RECORDS,                                          00027028          
+  EXTENDED      = TRUE,                                                 00027029          
+  CHECKSUM      = TRUE,                                                 00027030          
+  POPULATION    = 500000,                                               00027032          
+  REBLOCK       = TRUE,                                                 00027034          
+  REBLOCKFACTOR = 5;                                                    00027036          
+%                                                                       00027038          
+% KEYENTRYSIZE   4 WORDS                                                00027039          
+  B13ASXCTOAUT SET OF S500B13AMOVCVES                 %  STRUCTURE 14   00027040          
+               KEY (B13A-NUM-CONTRATO,                                  00027042          
+                    B13A-AUTORIZACION)                                  00027044          
+               INDEX SEQUENTIAL,                                        00027046          
+               NO DUPLICATES,                                           00027048          
+  AREASIZE   = 30 TABLES,                                               00027050          
+  CHECKSUM   = TRUE,                                                    00027052          
+  LOADFACTOR = 66,                                                      00027054          
+  POPULATION = 500000,                                                  00027056          
+  TABLESIZE  = 096 ENTRIES;                                             00027058          
+$SET PAGE                                                               00027060          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  00027100          
+%     MENSAJES ENTRE BANCOS                                          %  00027110          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  00027120          
+ S500B21AUXINTBCO DIRECT DATA SET %PREFIX = B21A      %  STRUCTURE 17   00027130          
+ (                                % INICIO DATA SET                     00027132          
+    B21A-AUT-INTERBAN            NUMBER (06);                           00027140          
+     % SECUENCIAL                                                       00027142          
+    B21A-AUTORIZACION            NUMBER (14);                           00027150          
+     % SUC-TRANS  NUMBER (04)                                           00027160          
+     % CAJ-TRANS  NUMBER (02)                                           00027170          
+     % AUTORIZ    NUMBER (08)                                           00027180          
+    B21A-MDA-OTR-BCO  GROUP                                             00027190          
+    (                            % INICIO GPO B21A-MDA-OTR-BCO          00027192          
+        B21A-LLAV-PZA            NUMBER (03);                           00027200          
+        B21A-LLAV-MON            NUMBER (01);                           00027210          
+        B21A-LLAV-CTA            NUMBER (07);                           00027220          
+        B21A-LLAV-DIG            NUMBER (01)                            00027230          
+    );                           % FIN GPO B21A-MDA-OTR-BCO             00027239          
+    B21A-BANCO-DEST              NUMBER (04);                           00027240          
+        % 012=BANCOMER                                                  00027241          
+    B21A-REFER-NUME              NUMBER (12);                           00027250          
+        % NUMERO DE CHEQUE                                              00027252          
+    B21A-IMPORTE                 NUMBER (15,02);                        00027260          
+    B21A-IND-FIRMA               NUMBER (01);                           00027270          
+        % 0 = NO REQUIERE FIRMA                                         00027280          
+        % 1 = SI REQUIERE FIRMA                                         00027290          
+    B21A-TIPO-CHEQUER            NUMBER (02);                           00027300          
+        % 00 = PROGRASA                                                 00027310          
+        % 01 = RESPONSIVA                                               00027320          
+    B21A-DIG-SEGURID             NUMBER (02);                           00027330          
+    B21A-NOMBRE-CLIEN            ALPHA  (29);                           00027360          
+    B21A-FEC-MAQUINA             NUMBER (08);                           00027370          
+    B21A-HORA-MAQUINA            NUMBER (06);                           00027380          
+    B21A-NUM-NOMINA              NUMBER (08);                           00027390          
+    B21A-TCODE-ORIGEN            NUMBER (06);                           00027400          
+    B21A-CLAVE-MOVTO             NUMBER (04);                           00027410          
+    B21A-CSI-ORIGEN              NUMBER (02);                           00027420          
+    B21A-AUT-S151                NUMBER (08);                           00027430          
+    B21A-AUT-3ERNIV              NUMBER (08);                           00027440          
+    B21A-MED-ENTREGA             NUMBER (02);                           00027450          
+    B21A-NUM-NOMFUN1             NUMBER (08);                           00027460          
+    B21A-NUM-NOMFUN2             NUMBER (08);                           00027470          
+    B21A-STATUS-MOVTO            NUMBER (02);                           00027480          
+        % 1 = ENVIADO                                                   00027490          
+        % 2 = CONFIRMADO OK                                             00027500          
+        % 3 = CONFIRMADO NO OK                                          00027510          
+    B21A-STATUS-ELIM             NUMBER (02);                           00027520          
+        % 0 = ACTIVO                                                    00027530          
+        % 1 = ENVIO ELIMINADO                                           00027540          
+        % 2 = CONF ELIMINADO OK                                         00027550          
+        % 3 = CONF ELIMINADO NO OK                                      00027560          
+    B21A-NUM-SEQ                 NUMBER (08);                           00027562          
+    B21A-PREFIJO-ORIG            ALPHA  (01);                           00027564          
+    B21A-SA2-OPERA               ALPHA  (10);                           00027566          
+ ),                              %% FIN DATA SET                        00027570          
+% RECORDSIZE  =  19 WORDS,  % 114 CHARACTERS DISPLAY,                   00027580          
+  AREASIZE    = 600 RECORDS,                                            00027590          
+  BLOCKSIZE   =   3 RECORDS,                                            00027600          
+  CHECKSUM    = TRUE,                                                   00027610          
+  POPULATION  = 360000,                                                 00027620          
+  REBLOCK     = TRUE,                                                   00027630          
+  REBLOCKFACTOR = 12;                                                   00027640          
+%                                                                       00027650          
+% KEYENTRYSIZE   4 WORDS                                                00027655          
+  B21ASXMDAAUT  SET OF S500B21AUXINTBCO               %  STRUCTURE 18   00027660          
+                KEY (B21A-MDA-OTR-BCO,                                  00027670          
+                B21A-AUTORIZACION)                                      00027672          
+                INDEX SEQUENTIAL,                                       00027680          
+                NO DUPLICATES,                                          00027690          
+  AREASIZE   = 30 TABLES,                                               00027700          
+  CHECKSUM   = TRUE,                                                    00027710          
+  POPULATION = 360000,                                                  00027720          
+  LOADFACTOR = 66,                                                      00027730          
+  TABLESIZE  = 104 ENTRIES;                                             00027740          
+%                                                                       00027750          
+  B21AAXLLAVE ACCESS TO S500B21AUXINTBCO              %  STRUCTURE 19   00027760          
+              KEY IS B21A-AUT-INTERBAN                                  00027770          
+              NO DUPLICATES;                                            00027780          
+%                                                                       00027790          
+$SET PAGE                                                               00027996          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00028000          
+ S500B26AUXSDOSBC  DATA SET  %PREFIX = B26A           %  STRUCTURE 20   00028002          
+ (                           % INICIO DATA SET                          00028003          
+    B26A-NUM-CONTRATO        NUMBER (12)  REQUIRED;                     00028004          
+    B26A-SALDOS-SBC  GROUP OCCURS 5 TIMES                               00028006          
+    (                        %% INICIO GRP B26A-SALDOS-SBC              00028007          
+        B26A-SDO-SBC         NUMBER (14,2)                              00028008          
+    );                       %% FIN GPO B26A-SALDOS-SBC                 00028009          
+ ),                          %% FIN DATA SET                            00028010          
+                                                                        00028012          
+% RECORDSIZE    =   07 WORDS,  % 082 CHARACTERS COMP,                   00028014          
+  AREASIZE      = 1000 RECORDS,                                         00028016          
+  BLOCKSIZE     =    4 RECORDS,                                         00028018          
+  CHECKSUM      = TRUE,                                                 00028020          
+  POPULATION    = 700000,                                               00028022          
+  REBLOCK       = TRUE,                                                 00028024          
+  REBLOCKFACTOR = 50;                                                   00028026          
+%                                                                       00028028          
+% KEYENTRYSIZE   2 WORDS                                                00028029          
+  B26ASXCTO SET OF S500B26AUXSDOSBC                   %  STRUCTURE 21   00028030          
+            KEY (B26A-NUM-CONTRATO)                                     00028032          
+            INDEX SEQUENTIAL,                                           00028034          
+            NO DUPLICATES,                                              00028036          
+  AREASIZE   = 50 TABLES,                                               00028038          
+  BUFFERS    = 3000 + 001 PER RANDOM USER OR 2 PER SERIAL USER,         00028040          
+  CHECKSUM   = TRUE,                                                    00028042          
+  LOADFACTOR = 66,                                                      00028044          
+  POPULATION = 700000,                                                  00028046          
+  TABLESIZE  = 118 ENTRIES,                                             00028048          
+  MEMORY RESIDENT = ALL;                                                00028050          
+                                                                        00028051          
+$SET PAGE                                                               00028052          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00028053          
+%     MENSAJES ENTRE APLICACIONES                                      %00028054          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00028055          
+ S500B46AUXDIAL DIRECT DATA SET % PREFIX = B46A       %  STRUCTURE 22   00028056          
+ (                              % INICIO DATA SET                       00028057          
+    B46A-LLAVE                  NUMBER (08);                            00028058          
+    B46A-LL-IDENT GROUP                                                 00028059          
+    (                           % INICIO GPO B46A-LL-IDENT              00028060          
+      B46A-SUC-TRANSMIT           NUMBER (04);                          00028061          
+      B46A-CAJ-TRANSMIT           ALPHA  (03);                          00028062          
+      B46A-NUM-SEQ                NUMBER (08);                          00028063          
+      B46A-FEC-MOVTO              NUMBER (08);                          00028064          
+      B46A-HORA-MOVTO             NUMBER (06)                           00028065          
+    );                          % FIN GPO B46A-LL-IDENT                 00028066          
+    B46A-NUM-CONTRATO           NUMBER (12);                            00028067          
+    B46A-AUTORIZACION           NUMBER (14);                            00028068          
+    B46A-SUC-OPERADORA          NUMBER (04);                            00028069          
+    B46A-CAJ-OPERADORA          NUMBER (02);                            00028070          
+    B46A-SUC-S028               NUMBER (04);                            00028071          
+    B46A-CAJ-S028               NUMBER (02);                            00028072          
+    B46A-NUM-NOMINA             NUMBER (08);                            00028073          
+    B46A-FEC-MAQUINA            NUMBER (08);                            00028074          
+    B46A-HORA-MAQUINA           NUMBER (06);                            00028075          
+    B46A-TCODE-ORIGEN           NUMBER (06);                            00028076          
+    B46A-SIST-ORIGEN            NUMBER (04);                            00028077          
+    B46A-CODIGO-ORIGE           NUMBER (02);                            00028078          
+    B46A-SCOD-ORIGEN            NUMBER (03);                            00028079          
+    B46A-NUM-PRODUCTO           NUMBER (04);                            00028080          
+    B46A-NUM-INSTRUM            NUMBER (04);                            00028081          
+    B46A-MONEDA                 NUMBER (03);                            00028082          
+    B46A-CLAVE-MOVTO            NUMBER (04);                            00028083          
+    B46A-IMPORTE                NUMBER (14,02);                         00028084          
+    B46A-STATUS-MOVTO           NUMBER (02);                            00028085          
+    B46A-STATUS-ELIM            NUMBER (02);                            00028086          
+    B46A-REFER-NUME             NUMBER (12);                            00028087          
+    B46A-CODIGO-DEST            NUMBER (04);                            00028088          
+    B46A-PREFIJO-ORI            ALPHA  (01);                            00028089          
+    B46A-STATUS-BD              NUMBER (02);                            00028090          
+    B46A-CSI-ORIGEN             NUMBER (02);                            00028091          
+    B46A-TIPO-MEDACCE           NUMBER (02);                            00028092          
+         % 0 = CONTRATO                                                 00028093          
+         % 1 = CHEQUERA                                                 00028094          
+         % 2 = TARJETA                                                  00028095          
+    B46A-IND-IMPDOCTO           NUMBER (02);                            00028096          
+    B46A-MED-ACCESO             NUMBER (16);                            00028097          
+    B46A-CONTRATO-ORI           NUMBER (12);                            00028098          
+    B46A-AUT-3ERNIV             NUMBER (08);                            00028099          
+    B46A-SUC-PROM               NUMBER (04);                            00028100          
+    B46A-CLAVE-MOVTO2           NUMBER (04);                            00028101          
+    B46A-IMPORTE2               NUMBER (14,02);                         00028102          
+    B46A-CLAVE-MOVTO3           NUMBER (04);                            00028103          
+    B46A-IMPORTE3               NUMBER (14,02);                         00028104          
+    B46A-AUT-A-ELIM             NUMBER (14);                            00028105          
+    B46A-MED-ENTREGA            NUMBER (02);                            00028106          
+    B46A-NUM-NOMFUN1            NUMBER (08);                            00028107          
+    B46A-NUM-NOMFUN2            NUMBER (08);                            00028108          
+    B46A-REFER-INTERN           NUMBER (23);                            00028109          
+    B46A-FILLER                 NUMBER (01);                            00028110          
+    B46A-BANCO-ORIGEN           NUMBER (04);                            00028111          
+        % 0002 = BANAMEX                                                00028112          
+        % 0012 = BANCOMER                                               00028113          
+    B46A-ID-CSI                 NUMBER (10);                            00028114          
+    B46A-USO-FUT-01             NUMBER (10);                            00028115          
+    B46A-USO-FUT-02             NUMBER (06);                            00028116          
+    B46A-USO-FUT-03             NUMBER (08);                            00028117          
+    B46A-USO-FUT-04             NUMBER (04);                            00028118          
+ ),                             %% FIN DATA SET                         00028120          
+% RECORDSIZE =  29+2 = 31 WORDS, % 348+24=372 CHARACTERS COMP           00028121          
+  AREASIZE     = 200 BLOCKS,                                            00028122          
+  BLOCKSIZE    =  27 RECORDS,                                           00028123          
+  EXTENDED     =  TRUE,                                                 00028124          
+  POPULATION   = 3000000;                                               00028125          
+% KEYENTRYSIZE   5 WORDS                                                00028126          
+  B46ASXCTOAUT SET OF S500B46AUXDIAL                %  STRUCTURE 23     00028127          
+               KEY (B46A-NUM-CONTRATO,                                  00028128          
+                    B46A-AUTORIZACION)                                  00028129          
+               INDEX SEQUENTIAL,                                        00028130          
+               DUPLICATES,                                              00028131          
+% AREASIZE   =  63 TABLES,                                              00028132          
+  POPULATION =  3000000,                                                00028133          
+  TABLESIZE  =  191 ENTRIES;                                            00028134          
+%                                                                       00028135          
+  B46AAXLLAVE ACCESS TO S500B46AUXDIAL              %  STRUCTURE 24     00028136          
+              KEY IS B46A-LLAVE                                         00028137          
+              NO DUPLICATES;                                            00028138          
+%                                                                       00028170          
+$SET PAGE                                                               00028171          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00028172          
+%     DATA SET PARA CONTROL MOV. DEL DIA CUENTAS MOVILES               %00028173          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00028174          
+ S500B47AUXMOVDIA DATA SET      %PREFIX = B47A     %  STRUCTURE 25      00028175          
+ (                              %% INICIO DATA SET                      00028176          
+    B47A-SUC-PROMOTORA          NUMBER (04);                            00028177          
+    B47A-NUM-CONTRATO           NUMBER (12) REQUIRED;                   00028178          
+    B47A-NUM-PRODUCTO           NUMBER (04);                            00028179          
+    B47A-NUM-INSTRUM            NUMBER (04);                            00028180          
+    B47A-MONEDA                 NUMBER (03);                            00028181          
+    B47A-AUTORIZACION           NUMBER (14) REQUIRED;                   00028182          
+           % SUC-TRANS  NUMBER (04)                                     00028183          
+           % CAJ-TRANS  NUMBER (02)                                     00028184          
+           % AUTORIZ    NUMBER (08)                                     00028185          
+    B47A-SUC-OPERADORA          NUMBER (04);                            00028186          
+    B47A-CAJ-OPERADORA          NUMBER (02);                            00028187          
+    B47A-SUC-S028               NUMBER (04);                            00028188          
+    B47A-CAJ-S028               NUMBER (02);                            00028189          
+    B47A-NUM-NOMINA             NUMBER (08);                            00028190          
+    B47A-AUT-S151               NUMBER (08);                            00028191          
+    B47A-FEC-MAQUINA            NUMBER (08);                            00028192          
+    B47A-HORA-MOVTO             NUMBER (06);                            00028193          
+    B47A-CLAVE-MOVTO            NUMBER (04);                            00028194          
+    B47A-CLAVE-ORIGEN           NUMBER (04);                            00028195          
+    B47A-IMPORTE                NUMBER (14,02);                         00028196          
+    B47A-STATUS-MOVTO           NUMBER (02);                            00028197          
+    B47A-TCODE-ORIGEN           NUMBER (06);                            00028198          
+    B47A-PROCESO-ORIG           NUMBER (02);                            00028199          
+    B47A-REFER-INTERN           NUMBER (23);                            00028200          
+    B47A-IND-LEYENDA            NUMBER (01);                            00028201          
+    B47A-REFER-NUME             NUMBER (12);                            00028202          
+    B47A-TIPO-MEDACCES          NUMBER (02);                            00028203          
+    B47A-MED-ACCESO             NUMBER (16);                            00028204          
+    B47A-MED-ENTREGA            NUMBER (02);                            00028205          
+    B47A-ORIGEN-MOVTO           NUMBER (01);                            00028206          
+    B47A-AUT-3ERNIV             NUMBER (08);                            00028207          
+    B47A-NUM-NOMFUN1            NUMBER (08);                            00028208          
+    B47A-NUM-NOMFUN2            NUMBER (08);                            00028209          
+    B47A-REFER-ALFA             ALPHA  (40);                            00028210          
+    B47A-CD-SUREF-CTE           ALPHA  (16);                            00028211          
+    B47A-CD-AUT-NIO             ALPHA  (16);                            00028212          
+    B47A-REF-ADC-01             ALPHA  (35);                            00028213          
+    B47A-REF-ADC-02             ALPHA  (35);                            00028214          
+    B47A-REF-ADC-03             ALPHA  (35);                            00028215          
+    B47A-REF-ADC-04             ALPHA  (35);                            00028216          
+    B47A-ID-CSI                 NUMBER (10);                            00028217          
+    B47A-USO-FUT-06             NUMBER (08);                            00028218          
+    B47A-USO-FUT-07             NUMBER (06);                            00028223          
+    B47A-USO-FUT-08             NUMBER (04);                            00028228          
+ ),                             %% FIN DATA SET                         00028230          
+% RECORDSIZE      = 54 +2=56 WORDS,  %  648+240672 CHARACTERS COMP,     00028232          
+%                      WASTED SPACE PER BLOCK 3 WORDS                   00028233          
+  AREASIZE        = 1300 BLOCKS,                                        00028234          
+  BLOCKSIZE       =    8 RECORDS,                                       00028236          
+  CHECKSUM        =      TRUE,                                          00028238          
+  POPULATION      = 6000000,                                            00028240          
+  REBLOCK         =      TRUE,                                          00028242          
+  EXTENDED        =      TRUE,                                          00028244          
+  DUMPSTAMP       =      FALSE,                                         00028246          
+  REBLOCKFACTOR   = 50;                                                 00028248          
+%                                                                       00028250          
+% KEYENTRYSIZE   4 WORDS                                                00028252          
+  B47ASXCTOAUT SET OF S500B47AUXMOVDIA              %  STRUCTURE 26     00028254          
+               KEY (B47A-NUM-CONTRATO,                                  00028256          
+                    B47A-AUTORIZACION)                                  00028258          
+               INDEX SEQUENTIAL,                                        00028260          
+               NO DUPLICATES,                                           00028262          
+% AREASIZE        =   91 TABLES,                                        00028264          
+  BUFFERS         = 3000 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  00028266          
+  CHECKSUM        =      TRUE,                                          00028268          
+  POPULATION      = 6000000,                                            00028270          
+  LOADFACTOR      = 66,                                                 00028272          
+  TABLESIZE       = 246  ENTRIES;                                       00028274          
+%                                                                       00028276          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00028300          
+%     DATASET PARA ACUMULADOS DE DEPOSITOS Y RETIROS POR CTE AUXILIAR  %00028350          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00028400          
+ S500B52AUXCTLDEPR          DATA SET  %PREFIX = B52   %  STRUCTURE 10   00028450          
+ (                          %% INICIO DATASET                           00028500          
+    B52A-NUM-CLIENTE         NUMBER (12) REQUIRED;                      00028550          
+    B52A-CSI                 NUMBER (02) REQUIRED;                      00028600          
+    B52A-FEC-UPDATE          NUMBER (08) REQUIRED;                      00028650          
+    B52A-TIP-PER             NUMBER (02);                               00028700          
+    B52A-UBI-GEO             NUMBER (02);                               00028750          
+    B52A-ACUM-DEP-DIA        NUMBER (18,02);                            00028800          
+    B52A-ACUM-DEP-MEN        NUMBER (18,02);                            00028850          
+    B52A-ACUM-RET-DIA        NUMBER (18,02);                            00028900          
+    B52A-ACUM-RET-MEN        NUMBER (18,02);                            00028950          
+    B52A-FEC-CREA            NUMBER (08);                               00029000          
+    B52A-FEC-ACUM            NUMBER (08);                               00029050          
+    B52A-LIM-DEP-DIA         NUMBER (18,02);                            00029100          
+    B52A-LIM-DEP-MEN         NUMBER (18,02);                            00029150          
+    B52A-LIM-RET-DIA         NUMBER (18,02);                            00029200          
+    B52A-LIM-RET-MEN         NUMBER (18,02);                            00029250          
+    B52A-FEC-LIM-DIA         NUMBER (08);                               00029300          
+    B52A-FEC-LIM-MEN         NUMBER (08);                               00029350          
+    B52A-IND-BLOQUEO         NUMBER (02);                               00029400          
+    B52A-FEC-BLOQUEO         NUMBER (08);                               00029450          
+    B52A-SDO-CON-DEP         NUMBER (18,02);                            00029500          
+    B52A-INTE-RET-DIA        NUMBER (08);                               00029550          
+    B52A-INTE-RET-MEN        NUMBER (08);                               00029600          
+    B52A-FEC-AC-INTE         NUMBER (08);                               00029650          
+    B52A-IND-REPLICA         NUMBER (02);                               00029700          
+    B52A-USO-FUT1            NUMBER (04);                               00029750          
+    B52A-USO-FUT2            NUMBER (04);                               00029800          
+    B52A-USO-FUT3            NUMBER (04);                               00029850          
+    B52A-USO-FUT4            NUMBER (06);                               00029900          
+    B52A-USO-FUT5            NUMBER (02);                               00029950          
+    B52A-USO-FUT6            ALPHA  (06);                               00030000          
+    B52A-USO-FUT7            ALPHA  (06);                               00030020          
+    B52A-USO-FUT8            ALPHA  (06);                               00030040          
+  ),                         %% FIN DATA SET                            00030050          
+%                                                                       00030100          
+% RECORDSIZE  =  26+2 = 28 WORDS,  % 312 + 24= 336 CHARACTERS COMP,     00030150          
+  AREASIZE    = 4500 BLOCKS,                                            00030200          
+  BLOCKSIZE   =  016 RECORDS,                                           00030250          
+  CHECKSUM    = TRUE,                                                   00030300          
+  EXTENDED    = TRUE,                                                   00030400          
+  DUMPSTAMP   = FALSE,                                                  00030420          
+  POPULATION  = 60000000;                                               00030450          
+%                                                                       00030500          
+% KEYENTRYSIZE   2 WORDS                                                00030550          
+  B52ASXCTE SET OF S500B52AUXCTLDEPR                 %  STRUCTURE 11    00030600          
+            KEY (B52A-NUM-CLIENTE),                                     00030650          
+            INDEX SEQUENTIAL,                                           00030700          
+            NO DUPLICATES,                                              00030750          
+% AREASIZE        =   25 TABLES,                                        00030800          
+  CHECKSUM        =      TRUE,                                          00030900          
+  POPULATION      = 60000000,                                           00030950          
+  LOADFACTOR      = 66,                                                 00031000          
+  TABLESIZE       = 567  ENTRIES,                                       00031050          
+  MEMORY RESIDENT = ALL;                                                00031070          
+%                                                                       00031100          
+  B52ASXCSIFECH SET OF S500B52AUXCTLDEPR             %  STRUCTURE 12    00031150          
+            KEY (B52A-CSI, B52A-FEC-UPDATE)                             00031200          
+            INDEX SEQUENTIAL,                                           00031250          
+            DUPLICATES,                                                 00031300          
+% AREASIZE        =   25 TABLES,                                        00031350          
+  CHECKSUM        =      TRUE,                                          00031450          
+  POPULATION      = 60000000,                                           00031500          
+  LOADFACTOR      = 66,                                                 00031550          
+  TABLESIZE       = 568  ENTRIES,                                       00031600          
+  MEMORY RESIDENT = ALL;                                                00031620          
+%                                                                       00031650          
+$SET PAGE                                                               00059900          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%       00060000          
+%     RESTART DATASET                                                  %00060100          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00060200          
+ S500B91AUXREIN RESTART DATA SET %PREFIX = B91        %  STRUCTURE 15   00060300          
+ (                               % INICIO DATA SET                      00060400          
+    B91A-IDPROG                  ALPHA  (04);                           00060500          
+    B91A-USERINFO                ALPHA  (20);                           00060600          
+ ),                              % FIN DATA SET                         00060700          
+  AREASIZE   =  25 BLOCKS,                                              00060800          
+  BLOCKSIZE  =   4 RECORDS,                                             00060900          
+  BUFFERS    = 001 + 002 PER RANDOM USER OR 003 PER SERIAL USER,        00061000          
+  CHECKSUM   = TRUE,                                                    00061100          
+  POPULATION = 1000;                                                    00061200          
+%                                                                       00061300          
+% KEYENTRYSIZE   3 WORDS                                                00061400          
+  B91ASXIDPROG SET OF S500B91AUXREIN                  %  STRUCTURE 16   00061500          
+               KEY (B91A-IDPROG)                                        00061600          
+               INDEX SEQUENTIAL,                                        00061700          
+               DUPLICATES;                                              00061800          
+%                                                                       00061900          

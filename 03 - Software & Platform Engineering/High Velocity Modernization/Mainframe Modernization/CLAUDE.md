@@ -32,6 +32,19 @@ Soy un **Mainframe Modernization Lead** con experiencia banca / seguros LATAM en
 
 ---
 
+## Vocabulario del Ciclo Metodológico
+
+Dos términos con jerarquía distinta — usarlos consistentemente evita ambigüedad en specs, handoffs y status reports:
+
+| Término | Alcance | Valores | Dónde vive |
+|---------|---------|---------|------------|
+| **Fase** | Macro-etapa de la metodología de modernización | Fase 1 (Discover) · Fase 2 (Regulatory) · Fase 3 (Test & Equivalence) · Fase 4 (Encapsulate) · Fase 5 (Modernize) · Fase 6 (Data Migration) · Fase 7 (Operations & Economics) · Fase 8 (Decommission) | Carpetas `Fase N - …/` en el filesystem |
+| **Etapa** | Sub-paso **dentro de Fase 1 (Discover)** — definido por el Specialist - Reverse Engineering | Etapa 0 (Setup & Inventory) · Etapa 1 (Static Analysis) · Etapa 2 (Data RE) · Etapa 3 (Business Logic Extraction) · Etapa 4 (Domain Decomposition) | `CLAUDE.md` del Specialist RE · sección §SDLC de los specs de componente |
+
+**Regla de escritura:** en specs de componente, el campo "Fase SDLC Actual" sigue el patrón `DISCOVER — Etapa N (nombre)`. Nunca reemplazar "Fase" por "Etapa" para las 8 fases, ni "Etapa" por "Fase" para los sub-pasos de Discover.
+
+---
+
 ## Cuándo se Invoca este Solution
 
 - Cliente con core bancario / sistema de pólizas en mainframe (z/OS, IBM i, Unisys) con plan de salida del MIPS.
@@ -135,14 +148,26 @@ Soy un **Mainframe Modernization Lead** con experiencia banca / seguros LATAM en
 ### (A) Sub-agentes de ejecución ALOJADOS en este offering (mudados del SME, 2026-05-30)
 Son subcarpetas locales de este L4 — no se invocan cross-ecosystem, se ejecutan aquí.
 
-`[REORG 2026-05-30]` Los specialists se agruparon en **carpetas de fase** (`Fase N - …/`) para que el orden de ejecución sea visible en el filesystem. Las fases externas (2, 3, 6, 8) tienen **carpeta-puntero** con solo un `README.md` que apunta al SME GenAI que las ejecuta — ver plano (C).
+`[REORG 2026-05-30 · actualizado 2026-07-02]` Los specialists se agruparon en **carpetas de fase** (`Fase N - …/`) para que el orden de ejecución sea visible en el filesystem. Las fases externas (2, 3, 6, 8) tienen una **carpeta-puntero** con `README.md` completo (objetivo · prerequisitos · outputs canónicos · packet `[INVOKE]`) — ver plano (C).
+
+**Fase 1 (DISCOVER)** tiene sub-estructura interna de 5 **Etapas** (ver §"Vocabulario del Ciclo Metodológico"):
+
+| Etapa dentro de Fase 1 | Specialist responsable |
+|---|---|
+| Etapa 0 — Setup & Inventory | Specialist - Reverse Engineering |
+| Etapa 1 — Static Analysis | Specialist - Static Analysis Tooling + Specialist - Reverse Engineering |
+| Etapa 2 — Data RE (Data Dictionary · ERD · Data Lineage) | Specialist - Reverse Engineering |
+| Etapa 3 — Business Logic Extraction (reglas de negocio · flujos funcionales) | Specialist - Reverse Engineering |
+| Etapa 4 — Domain Decomposition (bounded contexts · wave map) | Specialist - Reverse Engineering |
 
 | Fase metodología | Sub-agente (local) — ruta |
-|-------------------|--------------------|
-| Fase 1 — Discover (metodología RE) | `Fase 1 - Discover/Specialist - Reverse Engineering/` (+ `graph-viz/`, `benchmark/`) |
-| Fase 1 — Discover (tooling) | `Fase 1 - Discover/Specialist - Static Analysis Tooling/` |
+|---|---|
+| Fase 1 — Discover (RE · Etapas 0–4) | `Fase 1 - Discover/Specialist - Reverse Engineering/` (+ `graph-viz/`, `benchmark/`) |
+| Fase 1 — Discover (tooling · soporte Etapa 1) | `Fase 1 - Discover/Specialist - Static Analysis Tooling/` |
+| Fase 1 — Discover (síntesis Etapas 0–4 → decisión 7R · gate de salida Fase 1) | `Fase 1 - Discover/Specialist - 7R Assessment/` |
 | Fase 4 — Encapsulate | `Fase 4 - Encapsulate/Specialist - Encapsulation/` |
 | Fase 5 — Modernize (transpilación) | `Fase 5 - Modernize/Specialist - Transpilation/` |
+| Fase 5 — Modernize (arquitectura batch target · gate previo a transpilación batch) | `Fase 5 - Modernize/Specialist - Batch Architecture/` |
 | Fase 7 — z/OS Operations (condicional) | `Fase 7 - Operations & Economics/Specialist - z OS Operations & Sysprog/` *(`[STATE: PROPOSED]`)* |
 | Fase 7 + 8 — MIPS + IBM economics | `Fase 7 - Operations & Economics/Specialist - MIPS Economics/` |
 | Enablement (fuera del camino crítico) | `Enablement/Training - Synthetic Codebase Lab/` (corpus sintético + benchmark) |
@@ -252,4 +277,4 @@ Hereda checklist del sub-offering HVM + criterios MM:
 
 ---
 
-*Última actualización: 2026-05-28 · v0.1 · Promovido desde sección interna de HVM a L4 propio.*
+*Última actualización: 2026-07-11 · v0.3 · Añadidos Specialist - 7R Assessment (Fase 1 · gate de síntesis) y Specialist - Batch Architecture (Fase 5 · gate previo a transpilación batch). v0.2 · Vocabulario Fase/Etapa unificado; tabla de sub-agentes Fase 1 expandida con ETAPAs 0–4; carpetas externas con READMEs completos. v0.1 (2026-05-28): L4 promovido desde HVM.*

@@ -1,0 +1,466 @@
+100100$SET LIST                                                                     
+100200$SET ERRORLIST                                                                
+100300$SET ERRORLIMIT = 100                                                         
+100500$SET BDB00R01                                                                 
+100600$SET BDB00R02 BDB00R03 BDB00R04                                               
+100700$SET BDB02R01                                                                 
+100800$SET BDB03R08 BDB03R02 BDB03R04                                               
+100900$SET BDB03R12                                                                 
+101000$SET BDB09R06                                                                 
+101100$SET BDB09R10                                                                 
+101200$SET BDB91                                                                    
+101300****************************************************************              
+101400$SET LINEINFO                                                                 
+101500$SET S000LIBLJ                                                                
+101600$SET FECHA2000                                                                
+101700$SET S006LOCSUP                                                               
+101800$SET S100VERSIONES                                                            
+101900****************************************************************              
+102000*                                                                             
+102100*   PARA ACTUALIZAR B03-AUT-PENDIENTE, B03-FILLER1,                           
+102200*                   B03-FILLER1                                               
+102300*   A TOSDOS LOS CONTRATOS QUE CUMPLAN CON LA SIGUIENTE REGLA                 
+102302*    IF B02-IND-AUTPEND NOT = B03-CTR-AUTSPEND                                
+102304*       IF (B03-AUT-PENDIENTE > 0)                                            
+102306*       OR (B03-FILLER1       > 0)                                            
+102308*       OR (B03-FILLER2       > 0)                                            
+102310*          IF B03-FILLER1 > B03-FILLER2                                       
+102312*             COMPUTE B03-AUT-PENDIENTE = B03-FILLER1                         
+102314*                                       - B03-FILLER2                         
+102316*              MOVE W77-B02-IND-AUTPEND TO B03-CTR-AUTSPEND                   
+102318*              MOVE ZERO                TO B03-FILLER1                        
+102320*                                          B03-FILLER2                        
+102322*              MOVE 1                    TO WKS-SI-B03                        
+102324*           ELSE                                                              
+102326*              MOVE ZERO                TO B03-AUT-PENDIENTE                  
+102328*                                          B03-FILLER1                        
+102330*                                          B03-FILLER2                        
+102332*              MOVE W77-B02-IND-AUTPEND TO B03-CTR-AUTSPEND                   
+102334*       ELSE                                                                  
+102336*          NEXT SENTENCE                                                      
+102338*    ELSE                                                                     
+102340*    IF (B03-FILLER1 > 0)                                                     
+102342*    OR (B03-FILLER2 > 0)                                                     
+102344*        MOVE ZERO TO B03-FILLER1 B03-FILLER2                                 
+102346                                                                              
+102400*   DEL SISTEMA DE CAPTACION                                                  
+102500*   VERSION - MAR/2021.                                                       
+102600*                                                                             
+102700*****************************************************************             
+102800* I D E N T I F I C A T I O N      D I V I S I O N.                           
+102900*****************************************************************             
+103000 IDENTIFICATION DIVISION.                                                     
+103100 PROGRAM-ID. ACTB03.                                                          
+103200                                                                              
+103300*****************************************************************             
+103400* E N V I R O N M E N T       D I V I S I O N.                                
+103500*****************************************************************             
+103600 ENVIRONMENT DIVISION.                                                        
+103700 CONFIGURATION SECTION.                                                       
+103800 INPUT-OUTPUT SECTION.                                                        
+103900*****************************************************************             
+104000* F I L E     C O N T R O L.                                                  
+104100*****************************************************************             
+104200 FILE-CONTROL.                                                                
+104300****************************************************************              
+104400* D A T A              D I V I S I O N.                                       
+104500****************************************************************              
+104600 DATA DIVISION.                                                               
+104700                                                                              
+104800****************************************************************              
+104900* F I L E              S E C T I O N.                                         
+105000****************************************************************              
+105100 FILE SECTION.                                                                
+105200                                                                              
+105300****************************************************************              
+105400* D A T A     B A S E       S E C T I O N.                                    
+105500****************************************************************              
+105600 DATA-BASE SECTION.                                                           
+105700 DB S500BD01CAPTACION.                                                        
+105800 01 S500B02CONTROL.                                                           
+105900 01 S500B03CONTRATOS.                                                         
+106000 01 S500B09CIFRAS.                                                            
+106100 01 S500B91REINICIO.                                                          
+106200                                                                              
+106300****************************************************************              
+106400* W O R K I N G        S T O R A G E.                                         
+106500****************************************************************              
+106600 WORKING-STORAGE SECTION.                                                     
+106700                                                                              
+106800**********************************************************                    
+106900**                 <12345678901234567890>                                     
+107000** NOMBRE HOST     <ACYPBETA.           >  DESARROLLO MTY                     
+107100**                 <VDMBETA.            >  PBAS INTEGRALES VDM                
+107200**                 <MONALFA.            >  UAT MTY                            
+107300**                 <ACYPGAMA.           >  UAT VDM                            
+107400**                 <VDMALFA.            >  PRODUCCION VDM                     
+107500**                 <MONBETA.            >  PRODUCCION MTY                     
+107600**                                                                            
+107700***********************************************************                   
+107800 01  WKS-NAME-HOST.                                                           
+107900     02 WKS-MY-HOST         PIC X(20).                                        
+108000     02 RD-WKS-MY-HOST      REDEFINES  WKS-MY-HOST.                           
+108100        04 WKS-MY-HOST-05   PIC X(05).                                        
+108200        04 WKS-MY-HOST-15   PIC X(15).                                        
+108300                                                                              
+108400**********************************************************                    
+108500****************************************************************              
+108600* VARIABLE UTILIZADAS PARA EL MANEJO DE ERRORES Y LLAVES DE                   
+108700* ACCESO A LA BASE DE DATOS Y LIBRERIAS.                                      
+108800****************************************************************              
+108900                                                                              
+109000                                                                              
+109100                                                                              
+109200****************************************************************              
+109300* VARIABLES UTILIZADAS PARA CAPTURAR LA FECHA DEL REG. DE CONTROL             
+109400* PARA PODER OBTENER LA FECHA A PARTIR DE LA CUAL SERAN ACEPTADOS             
+109500* LOS MOVIMIENTOS DE AHORROS.                                                 
+109600****************************************************************              
+109700 01 WS-FECHA-MOV        PIC 9(8).                                             
+109800 01 WS-FECHA-MOV-AMD REDEFINES WS-FECHA-MOV.                                  
+109900    02 WS-FECHA-AA      PIC 9(04).                                            
+110000    02 WS-FECHA-MM      PIC 99.                                               
+110100    02 WS-FECHA-DD      PIC 99.                                               
+110200                                                                              
+110300****************************************************************              
+110400* CAMPOS UTILIZADOS DENTRO DEL PROGRAMA.                                      
+110500****************************************************************              
+110550 77 WS-PARAM-121                PIC 9 RECEIVED BY CONTENT.                    
+110600 77 W77-1VEZ                    PIC 9.                                        
+110700 77 W77-2VEZ                    PIC 9.                                        
+110800 77 W77-3VEZ                    PIC 9.                                        
+110900 77 W77-MY-CSI                  PIC 99.                                       
+111000 77 W77-BAN-B03                 PIC 9.                                        
+111100 77 W77-BAN-B09                 PIC 9.                                        
+111200 77 W77-EDIT-SDO-ANT            PIC ZZZ,ZZZ,ZZZ,ZZZ.ZZ-.                      
+111300 77 W77-EDIT-SDO-ACT            PIC ZZZ,ZZZ,ZZZ,ZZZ.ZZ-.                      
+111400 77 W77-EDIT-IMPORTE            PIC ZZZ,ZZZ,ZZZ,ZZZ.ZZ-.                      
+111500 77 W77-TEM-CONTRATO            PIC 9(12).                                    
+111600 77 W77-TEM-IMPORTE             PIC 9(12)V99.                                 
+111610 77 W77-TEM-SUMA-RESTA          PIC 9(01).                                    
+111612 88 W88-TEM-SUMA                VALUE 1.                                      
+111614 88 W88-TEM-RESTA               VALUE 2.                                      
+111700 77 W77-B09-IMPORTE             PIC 9(12)V99.                                 
+111800 77 W77-ES-PRUEBA               PIC 9(01).                                    
+111820 01 W77-EOF-B03                 PIC 9(02).                                    
+111840 77 W77-NEXT-CTO                PIC 9(02)      COMP   VALUE 0.                
+111860 77 W77-TOT-B03-CTOS-LEI        PIC 9(12)             VALUE 0.                
+111880 77 W77-TOT-B03-CTOS-ACT        PIC 9(12)             VALUE 0.                
+111885 77 W77-TOT-B03-CTOS-LOCK       PIC 9(12)      COMP   VALUE 0.                
+111892 01 W77-EDIT-B03-CTOS-LEI       PIC ZZZ,ZZZ,ZZZ,ZZZ.                          
+111894 01 W77-EDIT-B03-CTOS-ACT       PIC ZZZ,ZZZ,ZZZ,ZZZ.                          
+111896 01 W77-EDIT-B03-CTOS-LOCK      PIC ZZZ,ZZZ,ZZZ,ZZZ.                          
+111898 01 WKS-SI-B03                  PIC 9(02).                                    
+111900 01 W77-EDIT-B02-IND-AUTPEND    PIC ZZ.                                       
+111920 77 W77-B02-IND-AUTPEND         PIC 9(02).                                    
+111930 77 W77-B02-CTR-AUTSPENDEAS     PIC 9(02).                                    
+111940 01 W77-AMBIENTE                PIC 9(01).                                    
+111950    88 W88-ES-PRODUCCION           VALUE 0.                                   
+112000    88 W88-ES-DESARROLLO           VALUE 1.                                   
+112100    88 W88-ES-UAT                  VALUE 2.                                   
+112120 77 W77-TEM-PCOBP-PENDTE        PIC 9(12)V99.                                 
+112140 77 W77-TEM-IND-PROTECSDO       PIC 9(01).                                    
+112160 77 W77-TEM-LIB-SDOPROTEG       PIC 9(02).                                    
+112180 77 W77-TEM-IND-PROTNOM         PIC 9(02).                                    
+112182 77 W77-EDIT-PCOBP-PENDTE       PIC ZZZ,ZZZ,ZZZ,ZZZ.ZZ-.                      
+112184 77 W77-EDIT-IND-PROTECSDO      PIC 9.                                        
+112186 77 W77-EDIT-LIB-SDOPROTEG      PIC 9(02).                                    
+112188 77 W77-EDIT-IND-PROTNOM        PIC 9(02).                                    
+112200                                                                              
+112300                                                                              
+112400                                                                              
+112500****************************************************************              
+112600****************************************************************              
+112700****************************************************************              
+112800 COPY "S500/INC/WOR/25MTP003".                                                
+112900                                                                              
+113000****************************************************************              
+113100* P R O C E D U R E         D I V I S I O N.                                  
+113200****************************************************************              
+113300 PROCEDURE DIVISION USING WS-PARAM-121.                                       
+113400**********                                                                    
+113500****************************************************************              
+113600****************************************************************              
+113700*          R U T I N A               P R I N C I P A L.                       
+113800****************************************************************              
+113900****************************************************************              
+114000 00000000-PRINCIPAL.                                                          
+114100     PERFORM 10000000-INICIO.                                                 
+114200     PERFORM 20000000-OPEN.                                                   
+114300     PERFORM 50000000-PROCESO.                                                
+114400     PERFORM 70000000-CIERRO.                                                 
+114500     STOP RUN.                                                                
+114600                                                                              
+114700*****************************************************************             
+114800 10000000-INICIO.                                                             
+114820     PERFORM 10000100-VERSIONES.                                              
+114840                                                                              
+114900     MOVE 051010         TO WS-0101-CODI-MSG                                  
+115000     MOVE 02             TO WS-0101-TIPO-MSG                                  
+115100     MOVE 2              TO W77-USO-LIBLJ.                                    
+115200     MOVE "P121"         TO WS-0101-PASO-MSG.                                 
+115300     MOVE "25MTP005"     TO WS-0101-MTP-MSG W77-S000-MY-VERSION.              
+115320                                                                              
+115340     MOVE "S500P121"     TO W77-S000-MY-ID                                    
+115500     MOVE ATTRIBUTE HOSTNAME  OF MYSELF TO WKS-NAME-HOST.                     
+116000                                                                              
+116500     PERFORM 20000050-CHECO-VER    THRU 20000050-EXIT.                        
+117500                                                                              
+117600*****************************************************************             
+117700*                                                                             
+117800*                         O P E N.                                            
+117900*      R U T I N A S    P A R A   A P E R T U R A   D E                       
+118000*                B A S E   Y   A R C H I V O S.                               
+118100*                                                                             
+118200*****************************************************************             
+118300 20000000-OPEN.                                                               
+118400     PERFORM 20000100-ABRO-BASE.                                              
+118600                                                                              
+118700     STRING "INICIO PROCESO EN ", WKS-MY-HOST                                 
+118800            " CSI=" W77-MY-CSI                                                
+118900            " FECHA=" WS-FECHA-MOV                                            
+119000            DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                           
+119100     PERFORM 70000050-MENSAJE.                                                
+119200                                                                              
+119300******************************************************************            
+119400* ABRO LA BASE DE DATOS DE UPDATE YA QUE SERA ACTUALIZADA.                    
+119500******************************************************************            
+119600 20000100-ABRO-BASE.                                                          
+119700     OPEN UPDATE  S500BD01CAPTACION                                           
+119800          ON EXCEPTION                                                        
+119900          MOVE "ERROR AL ABRIR LA BASE  " TO WS-0101-TEXT-MSG                 
+120000          PERFORM 70000050-MENSAJE                                            
+120100          CALL SYSTEM DMTERMINATE.                                            
+120200                                                                              
+120300     PERFORM 90000002-B02CONTROL-FIND.                            131500      
+120400     MOVE B02-CTR-AUTSPEND  TO W77-B02-IND-AUTPEND                            
+120500                               W77-EDIT-B02-IND-AUTPEND.                      
+120550     MOVE B02-CTR-AUTSPENDEAS TO W77-B02-CTR-AUTSPENDEAS.                     
+120600     MOVE B02-FECHA-LOTE    TO WS-FECHA-MOV.                                  
+120700     MOVE B02-NUM-CSI       TO W77-MY-CSI.                                    
+120800                                                                              
+120900     STRING "B02-CTR-AUTSPEND  " W77-EDIT-B02-IND-AUTPEND                     
+121000            "B02-FECHA-LOTE    " WS-FECHA-MOV                                 
+121100            "B02-NUM-CSI       " W77-MY-CSI                                   
+121200            DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                           
+121300     PERFORM 70000050-MENSAJE.                                                
+121400                                                                              
+123400****************************************************************              
+123500****************************************************************              
+123600* R U T I N A S     D E   A P L I C A C I O N     D E   L O S                 
+123700*                    M O V I M I E N T O S.                                   
+123800****************************************************************              
+123900****************************************************************              
+124300                                                                              
+124400****************************************************************              
+124500* PROCESOS NECESARIOS PARA LA APLICACION DE MOVIMIENTOS EN B03.               
+124600****************************************************************              
+124700 50000000-PROCESO.                                                            
+124800 IF WS-PARAM-121 = 1                                                          
+124900    PERFORM 50000100-PROCESO-PLANCHADO                                        
+125000 ELSE                                                                         
+125100    STRING "PARAMETRO NO RECONOCIDO ",WS-PARAM-121                            
+125200            DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                           
+125300    PERFORM 70000050-MENSAJE.                                                 
+125400                                                                              
+125500 50000100-PROCESO-PLANCHADO.                                                  
+125600     IF W77-MY-CSI = 10                                                       
+125700        PERFORM 50005001-APLI-DES-VDM                                         
+125800     ELSE                                                                     
+125900     IF W77-MY-CSI = 04                                                       
+126000        PERFORM 50005005-APLI-DES-MTY                                         
+126100     ELSE                                                                     
+126200        STRING "NODO ERRONEO", W77-MY-CSI                                     
+126300               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+126400        PERFORM 70000050-MENSAJE.                                             
+133000                                                                              
+133200****************************************************************              
+133300* ACTUALIZA DESARROLLO PARA CSI VDM                                           
+133400* EN COBERTURA DE VDM ACTUALIZA.                                              
+133500****************************************************************              
+133550 50005001-APLI-DES-VDM.                                                       
+133600                                                                              
+133650     SET S500B03CONTRATOS  TO BEGINNING.                                      
+133700     MOVE 0 TO W77-EOF-B03.                                                   
+133750     PERFORM 50100005-LEE-B03  UNTIL W77-EOF-B03 = 1.                         
+133800     PERFORM 50100005-TOTALES.                                                
+134000                                                                              
+134100****************************************************************              
+134200* ACTUALIZA DESARROLLO PARA CSI MTY                                           
+134300* EN COBERTURA DE MTY NO ACTUALIZA.                                           
+134400****************************************************************              
+134500 50005005-APLI-DES-MTY.                                                       
+134600                                                                              
+134800     SET S500B03CONTRATOS  TO BEGINNING.                                      
+134900     MOVE 0 TO W77-EOF-B03.                                                   
+135000     PERFORM 50100005-LEE-B03  UNTIL W77-EOF-B03 = 1.                         
+135100     PERFORM 50100005-TOTALES.                                                
+135500                                                                              
+135600******************************************************************            
+135700* ACCESO B03 PARA MODIFICAR AUTORIZACIONES PENDIEMTES                         
+135800******************************************************************            
+135980 50100005-LEE-B03.                                                            
+136000                                                                              
+136020     PERFORM 90000003-B03CONTRATOS-FINDN.                                     
+136040     IF WS-STATUS-BASE > 0                                                    
+136060        IF WS-DB-NOTFOUND                                                     
+136080           MOVE 1                     TO  W77-EOF-B03                         
+136100           MOVE 1                     TO  W77-NEXT-CTO.                       
+136110                                                                              
+136115     IF W77-EOF-B03 = 0                                                       
+136120        MOVE B03-NUM-CONTRATO            TO WS-MSG-CTO                        
+136140        ADD 1 TO W77-TOT-B03-CTOS-LEI                                         
+136150*       B03-STATUS=0 ACTIVO    B03-STATUS=1 BLOQUEADO                         
+136200        IF B03-STATUS = 0 OR 1                                                
+136220           PERFORM 50110000-ACTUALIZACION.                                    
+136240                                                                              
+136260 50110000-ACTUALIZACION.                                                      
+136280                                                                              
+136300     PERFORM 90000003-B03CONTRATOS-LOCK.                                      
+136320     IF WS-STATUS-BASE > 0                                                    
+136340        STRING "ERR LOCK B03CONTRATOS CTO=", WS-MSG-CTO                       
+136380               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+136400        PERFORM 70000050-MENSAJE                                              
+136460        CALL SYSTEM DMTERMINATE.                                              
+136480                                                                              
+136500     ADD  1                     TO W77-TOT-B03-CTOS-LOCK.                     
+136510     MOVE 0                     TO WKS-SI-B03.                                
+136520                                                                              
+136540  IF W77-B02-IND-AUTPEND NOT = B03-CTR-AUTSPEND                               
+136545     IF  W77-B02-CTR-AUTSPENDEAS NOT = B03-CTR-AUTSPEND                       
+136550*    CONTRATO NO PLANCHADO                                                    
+136560        IF (B03-AUT-PENDIENTE > 0)                                            
+136580          OR (B03-FILLER1 > 0)                                                
+136600          OR (B03-FILLER2 > 0)                                                
+136620            IF B03-FILLER1 > B03-FILLER2                                      
+136640              COMPUTE B03-AUT-PENDIENTE = B03-FILLER1                         
+136660                                        - B03-FILLER2                         
+136680               MOVE W77-B02-IND-AUTPEND  TO B03-CTR-AUTSPEND                  
+136700               MOVE ZERO                 TO B03-FILLER1                       
+136720                                            B03-FILLER2                       
+136740               MOVE 1                    TO WKS-SI-B03                        
+136760            ELSE                                                              
+136770*           NO REALIZARON COMPRAS O CANCELARON TODAS LAS COMPRAS              
+136780               MOVE ZERO                 TO B03-AUT-PENDIENTE                 
+136800                                            B03-FILLER1                       
+136820                                            B03-FILLER2                       
+136840               MOVE W77-B02-IND-AUTPEND  TO B03-CTR-AUTSPEND                  
+136860               MOVE 1                    TO WKS-SI-B03                        
+136865        ELSE                                                                  
+136870          NEXT SENTENCE                                                       
+136880     ELSE                                                                     
+136890*    CONTRATO PLANCHADO                                                       
+136892        MOVE W77-B02-IND-AUTPEND  TO B03-CTR-AUTSPEND                         
+136894        MOVE 1                    TO WKS-SI-B03                               
+136900        IF (B03-FILLER1 > 0)                                      304400      
+136920        OR (B03-FILLER2 > 0)                                      304450      
+136940             MOVE ZERO TO B03-FILLER1 B03-FILLER2                 304500      
+136960***          MOVE 1    TO WKS-SI-B03.                                         
+137020        ELSE                                                                  
+137022          NEXT SENTENCE                                                       
+137024  ELSE                                                                        
+137026* CONTRATO PLANCHADO                                                          
+137028     IF (B03-FILLER1 > 0)                                                     
+137030     OR (B03-FILLER2 > 0)                                                     
+137032          MOVE ZERO TO B03-FILLER1 B03-FILLER2                                
+137034          MOVE 1    TO WKS-SI-B03.                                            
+137036                                                                              
+137040     IF WKS-SI-B03 = 1                                                        
+137042        PERFORM 00000000-ACT-B03.                                             
+137044                                                                              
+137046     FREE S500B03CONTRATOS.                                                   
+137048                                                                              
+137050 00000000-ACT-B03.                                                            
+137052                                                                              
+137060        PERFORM 90000000-BEGIN-TRANSACTION                                    
+137080        IF WS-STATUS-BASE > 0                                                 
+137100           IF WS-STATUS-BASE = 15                                             
+137120              NEXT SENTENCE                                                   
+137140           ELSE                                                               
+137160              CALL SYSTEM DMTERMINATE.                                        
+137180                                                                              
+137200        PERFORM 90000003-B03CONTRATOS-STORE.                                  
+137220                                                                              
+137240        ADD 1 TO W77-TOT-B03-CTOS-ACT.                                        
+137260                                                                              
+137280        IF WS-STATUS-BASE > 0                                                 
+137300           STRING " ERR STORE CONTRATOS ",                                    
+137320              " CTO=", WS-MSG-CTO                                             
+137340              " STA DB=", WS-STATUS-BASE                                      
+137400              DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                         
+137450              PERFORM 70000050-MENSAJE                                        
+137480           CALL SYSTEM DMTERMINATE.                                           
+137500                                                                              
+137520        PERFORM 90000000-END-TRANSACTIONNOAU                                  
+137540        IF WS-STATUS-BASE > 0                                                 
+137560           IF WS-STATUS-BASE = 15                                             
+137580              NEXT SENTENCE                                                   
+137600           ELSE                                                               
+137620              CALL SYSTEM DMTERMINATE.                                        
+137640                                                                              
+139620                                                                              
+149000******************************************************************            
+149100* R U T I N A S      F I N A L E S     D E L     P R O C E S O.               
+149200*****************************************************************             
+149300                                                                              
+149400*****************************************************************             
+149500* RUTINA QUE SE EJECUTA ANTES DE FINALIZAR EL PROGRAMA.                       
+149600*****************************************************************             
+149700 70000000-CIERRO.                                                             
+149800     PERFORM 70000600-CLOSE.                                                  
+149900                                                                              
+150000                                                                              
+150100                                                                              
+150200****************************************************************              
+150300* CIERRO ARCHIVO Y BASE.                                                      
+150400****************************************************************              
+150500 70000600-CLOSE.                                                              
+150600     CLOSE S500BD01CAPTACION                                                  
+150700           ON EXCEPTION                                                       
+150800           MOVE "ERROR AL CERRAR LA BASE "  TO WS-0101-TEXT-MSG               
+150900           PERFORM 70000050-MENSAJE                                           
+151000           CALL SYSTEM DMTERMINATE.                                           
+151200                                                                              
+151400                                                                              
+151600                                                                              
+151700****************************************************************              
+151800****************************************************************              
+151900* R U T I N A S    P A R A    E L   D E S P L I E G U E   D E                 
+152000*                        M S G.                                               
+152100****************************************************************              
+152200****************************************************************              
+152210 50100005-TOTALES.                                                            
+152220     MOVE W77-TOT-B03-CTOS-LEI TO W77-EDIT-B03-CTOS-LEI.                      
+152230     STRING "CONTRATOS LEIDOS " W77-EDIT-B03-CTOS-LEI                         
+152240           DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                            
+152250     PERFORM 70000050-MENSAJE.                                                
+152260                                                                              
+152270     MOVE W77-TOT-B03-CTOS-ACT TO W77-EDIT-B03-CTOS-ACT.                      
+152280     STRING "CONTRATOS ACTUALIZADOS " W77-EDIT-B03-CTOS-ACT                   
+152290           DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                            
+152300     PERFORM 70000050-MENSAJE.                                                
+152310                                                                              
+152320     MOVE W77-TOT-B03-CTOS-LOCK TO W77-EDIT-B03-CTOS-LOCK.                    
+152330     STRING "CONTRATOS LOCK " W77-EDIT-B03-CTOS-LOCK                          
+152340           DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                            
+152350     PERFORM 70000050-MENSAJE.                                                
+152352                                                                              
+152354******************************************************************352020      
+152356* VERIFICO QUE LA VERSION QUE ESTOY CORRIENDO SEA LA DE VERSIONES.352030      
+152358******************************************************************352040      
+152360 20000050-CHECO-VER.                                              352050      
+152362     PERFORM 20000100-CHECAME-VERSION.                            352060      
+152364     IF S000-CTR-CVEERROR < 0                                     352070      
+152366        MOVE "VER. EJECUTADA DIF. A VERSIONES" TO WS-0101-TEXT-MSG352100      
+152368        PERFORM 70000050-MENSAJE                                  352110      
+152370        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                  352120      
+152372 20000050-EXIT.                                                   352130      
+152374    EXIT.                                                         352140      
+152400                                                                              
+152700                                                                              
+152800****************************************************************              
+152900* COPY QUE CONTIENE LAS RUTINAS DE ACCESO A LA BASE DE DATOS.                 
+153000****************************************************************              
+153100 COPY "S500/INC/PRO/25MTP004".                                                
+153200                                                                              
+153300****************************************************************              
