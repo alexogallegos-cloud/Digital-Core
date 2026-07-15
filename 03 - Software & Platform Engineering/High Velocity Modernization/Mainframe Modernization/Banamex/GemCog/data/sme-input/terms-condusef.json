@@ -1,0 +1,171 @@
+{
+  "entidad": "CONDUSEF",
+  "total": 15,
+  "terminos": [
+    {
+      "termino_canonico": "WS-CAP-PROMCOMIS",
+      "significado": "Promedio consolidado de saldo utilizado para el cálculo de comisiones; incluye el saldo de la cuenta cheque más los promedios de productos de inversión vinculados (fondos, BCA, inversión a plazo, 8412).",
+      "categoria": "VARIABLE_CALCULO",
+      "capacidad_negocio": "Promedios y Saldos",
+      "regla_negocio": "Si WS-CAP-PROMCOMIS >= saldo promedio mínimo requerido (WS-SDO-MANEJO), no se cobra comisión de manejo de cuenta. Regula la exención por saldo promedio mínimo de la CONDUSEF.",
+      "formula_ref": "WS-CAP-PROMCOMIS = WS-CAP-PROMCICLO + WS-CAP-PROMFONDO + WS-CAP-PROMINVPLA + WS-CAP-PROMBCAINV + WS-CAP-PROM8412",
+      "participa_en_formula": true,
+      "pendiente_validacion_sme": false,
+      "fuente": "vocab-cap03-promedios-saldos.json"
+    },
+    {
+      "termino_canonico": "WS-CAP-PROMEDIO",
+      "significado": "Promedio de saldo final consolidado de la cuenta; resultado de sumar WS-CAP-PROMCICLO más WS-CAP-PROMRENDI y en algunos esquemas también WS-CAP-PROMCOMIS. Es el valor que se usa para determinar si aplica comisión y para el reporte R02-PROMEDIOS.",
+      "categoria": "VARIABLE_CALCULO",
+      "capacidad_negocio": "Promedios y Saldos",
+      "regla_negocio": "Se compara contra WS-XLMTESUP y WS-XLMTEINF para determinar si el cliente cae en excepción de saldo promedio. Se reporta en R02-PROMEDIOS y en el estado de cuenta del cliente.",
+      "formula_ref": "WS-CAP-PROMEDIO = WS-CAP-PROMCICLO + WS-CAP-PROMRENDI [+ WS-CAP-PROMCOMIS segun esquema]",
+      "participa_en_formula": true,
+      "pendiente_validacion_sme": false,
+      "fuente": "vocab-cap03-promedios-saldos.json"
+    },
+    {
+      "termino_canonico": "20039000-DAME-COMISION",
+      "significado": "Procedimiento central que consulta el catálogo S080 (via rutina L700-TARIFAS) para obtener el importe de comisión vigente dado producto/instrumento/moneda/fecha/esquema; es el único punto de acceso a tarifas de comisión para todos los tipos de cargo bancario",
+      "categoria": "REGLA_NEGOCIO",
+      "capacidad_negocio": "Comisiones y Tarifas",
+      "regla_negocio": "Cada tipo de comisión (manejo de cuenta, aniversario, retiro cajero, etc.) llama a este procedimiento con el código de tarifa S080 correspondiente; el resultado determina si se cobra y el importe; invocado mas de 40 veces en el modulo de cierre mensual",
+      "formula_ref": "F-COMISION = S080(CVTARIF, PRODUCTO, INSTRUM, MONEDA, PERSONA, PLAZO=ESQCOM, FECHVIG)",
+      "participa_en_formula": true,
+      "pendiente_validacion_sme": false,
+      "fuente": "vocab-cap04-comisiones-tarifas.json"
+    },
+    {
+      "termino_canonico": "20530000-COMIS-MENSUAL",
+      "significado": "Procedimiento orquestador del proceso de comisiones al corte mensual; determina el esquema de comision aplicable, verifica status de cuenta (vigente/bloqueada) y llama a cada tipo de cargo mensual; excluye cuentas TESOFE y sub-cuentas CONCENSO del cobro estandar",
+      "categoria": "REGLA_NEGOCIO",
+      "capacidad_negocio": "Comisiones y Tarifas",
+      "regla_negocio": "Dispatcher que aplica hasta 15 tipos de comision mensual segun el esquema de la cuenta; cuentas TESOFE reciben tratamiento especial (exentas de comision estandar pero con generacion de clave 0505 para cheques girados)",
+      "formula_ref": null,
+      "participa_en_formula": false,
+      "pendiente_validacion_sme": false,
+      "fuente": "vocab-cap04-comisiones-tarifas.json"
+    },
+    {
+      "termino_canonico": "20530400-COMISION-ANIVERSARIO",
+      "significado": "Procedimiento de aplicacion de la comision de aniversario (cuota anual de cuenta de cheque); aplica el cargo de tarifa S080 #017 cuando la clave de comision #4 del instrumento esta activa (TB-B05-CVECOMI(inst,4) > 0); equivalente a la anualidad bancaria",
+      "categoria": "REGLA_NEGOCIO",
+      "capacidad_negocio": "Comisiones y Tarifas",
+      "regla_negocio": "Cargo anual que se aplica en el mes de aniversario de apertura de la cuenta; requiere que la clave de comision #4 del instrumento (TB-B05-CVECOMI(inst,4)) este activa; usa WS-COM-ANIVE cargado desde tarifa 017",
+      "formula_ref": null,
+      "participa_en_formula": false,
+      "pendiente_validacion_sme": false,
+      "fuente": "vocab-cap04-comisiones-tarifas.json"
+    },
+    {
+      "termino_canonico": "20530500-COMISION-MANEJO-CTA",
+      "significado": "Procedimiento de aplicacion de la comision mensual por manejo de cuenta de cheque (tarifa S080 #018); verifica si el saldo promedio (SBC) supera WS-SDO-MANEJO para determinar exencion; distingue entre clientes personas fisicas e institucionales (CI) con umbrales diferentes",
+      "categoria": "REGLA_NEGOCIO",
+      "capacidad_negocio": "Comisiones y Tarifas",
+      "regla_negocio": "Comision exenta si el saldo promedio mensual supera el umbral definido en S080 tarifa 018; requiere que la clave de comision #5 del instrumento (TB-B05-CVECOMI(inst,5)) este activa; aplica al corte mensual de cada cuenta de cheque vigente",
+      "formula_ref": "COBRO = WS-COM-MANEJO si SBC < WS-SDO-MANEJO (personas fisicas) / WS-COM-MANEJO-CI si SBC < WS-SDO-MANEJO-CI (institucionales)",
+      "participa_en_formula": true,
+      "pendiente_validacion_sme": false,
+      "fuente": "vocab-cap04-comisiones-tarifas.json"
+    },
+    {
+      "termino_canonico": "WS-S080-0201-CVTARIF",
+      "significado": "Campo de entrada de la interfaz S080 que contiene el codigo numerico de tarifa a consultar; cada tipo de comision tiene su codigo S080 fijo (015=cheques girados, 017=aniversario, 018=manejo de cuenta, 019=cajero Banamex, 026=ret BCAELC, 027=ret cajeros, etc.) o es parametrico desde B05-CLAVE-TARIF",
+      "categoria": "PARAMETRO",
+      "capacidad_negocio": "Comisiones y Tarifas",
+      "regla_negocio": "El codigo de tarifa es el selector primario del tipo de comision en S080; los campos 1 y 2 del resultado son importe y saldo minimo para personas fisicas; los campos 3 y 4 son los equivalentes institucionales; resultado en WS-S080-0201-RESULT (0=ok, 1=nivel)",
+      "formula_ref": "TARIFA-S080 = L700-TARIFAS(CVTARIF, PRODUCTO, INSTRUM, MONEDA, PERSONA, PLAZO=ESQCOM, FECHVIG)",
+      "participa_en_formula": true,
+      "pendiente_validacion_sme": false,
+      "fuente": "vocab-cap04-comisiones-tarifas.json"
+    },
+    {
+      "termino_canonico": "WS-COM-MANEJO",
+      "significado": "Monto de comision mensual por manejo de cuenta para personas fisicas; cargado desde tarifa S080 #018 campo 1; array tridimensional por instrumento (31) x tipo persona (2) x esquema de comision (210); aplica cuando el SBC del mes es menor al umbral WS-SDO-MANEJO",
+      "categoria": "VARIABLE_CALCULO",
+      "capacidad_negocio": "Comisiones y Tarifas",
+      "regla_negocio": "Comision mensual por manejo de cuenta personas fisicas (tarifa S080 018 campo 1); cero si el saldo promedio mensual supera el umbral de exencion; distinguido de WS-COM-MANEJO-CI (campo 3, institucionales)",
+      "formula_ref": "CARGO-MANEJO = WS-COM-MANEJO(inst, pers, esqc) si SBC < WS-SDO-MANEJO(inst, pers, esqc)",
+      "participa_en_formula": true,
+      "pendiente_validacion_sme": false,
+      "fuente": "vocab-cap04-comisiones-tarifas.json"
+    },
+    {
+      "termino_canonico": "WS-COM-ANIVE",
+      "significado": "Monto de comision de aniversario (cuota anual de la cuenta de cheque); cargado desde tarifa S080 #017 campo 1 durante el proceso COMI-ANIVERSARIO; array tridimensional por instrumento (31) x tipo persona (2) x esquema (210); aplica una vez al anno en el mes de aniversario",
+      "categoria": "VARIABLE_CALCULO",
+      "capacidad_negocio": "Comisiones y Tarifas",
+      "regla_negocio": "Tarifa anual cobrada una vez al anno; el proceso itera hasta 210 esquemas para cargar todos los valores vigentes; cargado via PIDE-COMANIVERSARIO que llama a 20039000-DAME-COMISION con CVTARIF=tarifa 017; regulado CNBV/CONDUSEF",
+      "formula_ref": "CARGO-ANIVE = WS-COM-ANIVE(inst, pers, esqc) en mes de aniversario de apertura del contrato",
+      "participa_en_formula": true,
+      "pendiente_validacion_sme": false,
+      "fuente": "vocab-cap04-comisiones-tarifas.json"
+    },
+    {
+      "termino_canonico": "WS-TOTAL-COMIS-CAPIT",
+      "significado": "Estructura raiz de control de comisiones capitalizadas; OCCURS 60 veces (una por tipo de comision); contiene: indicador de cobro (HAY-COBRO), importe con IVA, importe sin IVA, IVA cobrado, comision pendiente, comision exenta, numero de operaciones gravadas/exentas, clave de comision y clave IVA; base para el asiento contable mensual",
+      "categoria": "CONTROL",
+      "capacidad_negocio": "Comisiones y Tarifas",
+      "regla_negocio": "Acumulador mensual por tipo de comision (hasta 60 tipos) que separa importe con/sin IVA, cargo pendiente y exento; cada entrada referenciada por WS-CAP-CVECOMI (clave PIC 9(04)); base para generacion de asiento contable de comisiones del cierre",
+      "formula_ref": null,
+      "participa_en_formula": false,
+      "pendiente_validacion_sme": false,
+      "fuente": "vocab-cap04-comisiones-tarifas.json"
+    },
+    {
+      "termino_canonico": "WSO-77-COMISIONES-EPP",
+      "significado": "Estructura de salida de pantalla 50077 (EPP Estado de Posicion) que presenta hasta 3 comisiones pendientes con detalle completo: clave de cobro, tipo de pago, importe original, importe protegido (con posible bonificacion), saldo disponible, fechas de ultimo pago, importe del ultimo pago, fecha de linea, autorizacion de aplicacion diferida, fecha de vencimiento, status y ultima actualizacion",
+      "categoria": "CAMPO_WS",
+      "capacidad_negocio": "Comisiones y Tarifas",
+      "regla_negocio": "Despliega comisiones pendientes con historial de pago; clave de cobro referencia el tipo de cargo; importe original vs importe-protegido permite identificar si fue objeto de bonificacion; WSO-77-SALDO muestra saldo disponible tras comision pendiente; dato regulatorio por CNBV/CONDUSEF",
+      "formula_ref": null,
+      "participa_en_formula": false,
+      "pendiente_validacion_sme": false,
+      "fuente": "vocab-cap04-comisiones-tarifas.json"
+    },
+    {
+      "termino_canonico": "SBC",
+      "significado": "Saldo Base de Comisiones — importe sobre el cual se calculan las comisiones bancarias por manejo de cuenta. Se mantiene en seis variantes: saldo hoy, saldo ayer, promedio 5 días, promedio 6 días-hoy, saldo hoy en moneda local (LOC) y saldo hoy en moneda foránea (FOR). Las ventanas temporales distintas soportan diferentes esquemas de cobro de comisiones por producto.",
+      "categoria": "VARIABLE_CALCULO",
+      "capacidad_negocio": "Comisiones y Tarifas",
+      "regla_negocio": "Si el SBC-HOY es menor al saldo mínimo exigido (WKS-IMP-SALMIN-CG), el sistema aplica la comisión por manejo de cuenta según el esquema de comisiones del producto; la variante LOC/FOR permite tratar cuentas duales MN/USD",
+      "formula_ref": "SBC = saldo promedio disponible del período de referencia (ventana de 1, 5 o 6 días según esquema de comisión del producto en ESQCOMIS)",
+      "participa_en_formula": true,
+      "pendiente_validacion_sme": false,
+      "fuente": "vocab-cap02-movimientos.json"
+    },
+    {
+      "termino_canonico": "ESQCOMIS",
+      "significado": "Esquema de comisiones — tabla paramétrica incluida via $SET que define las reglas de cobro de comisiones aplicables por producto de captación. Contiene los umbrales de saldo mínimo exigido, las tarifas de comisión y las condiciones de exención para cada esquema de comisión registrado en el catálogo de S080.",
+      "categoria": "PARAMETRO",
+      "capacidad_negocio": "Comisiones y Tarifas",
+      "regla_negocio": "El esquema de comisiones debe estar registrado en el catálogo de tarifas S080 y publicado en el Buró de Entidades Financieras conforme a disposiciones CONDUSEF sobre comisiones bancarias; cualquier cambio requiere notificación previa a Banxico",
+      "formula_ref": null,
+      "participa_en_formula": false,
+      "pendiente_validacion_sme": false,
+      "fuente": "vocab-cap02-movimientos.json"
+    },
+    {
+      "termino_canonico": "WKS-IMP-SALMIN-CG",
+      "significado": "Importe de salario mínimo para cálculo de comisiones en Cuenta Global (CG) — umbral de referencia basado en el salario mínimo vigente, por debajo del cual se exime el cobro de la comisión por manejo de cuenta. La variante S080-CG indica que el valor se obtiene del catálogo de tarifas S080 y se aplica específicamente a productos de Cuenta Global.",
+      "categoria": "PARAMETRO",
+      "capacidad_negocio": "Comisiones y Tarifas",
+      "regla_negocio": "La regulación bancaria mexicana (Disposiciones de carácter general Banxico cuentas básicas) exige que las cuentas con saldo promedio igual o superior al salario mínimo mensual queden exentas de comisión por manejo de cuenta",
+      "formula_ref": "IF SBC-HOY >= WKS-IMP-SALMIN-CG THEN EXENTO-COMISION = TRUE ELSE APLICA-COMISION = TRUE",
+      "participa_en_formula": true,
+      "pendiente_validacion_sme": false,
+      "fuente": "vocab-cap02-movimientos.json"
+    },
+    {
+      "termino_canonico": "S016L422",
+      "significado": "Librería de cálculo de comisiones del sistema S016 — conjunto de módulos include que implementan las reglas de negocio para el cálculo y aplicación de comisiones bancarias por producto de captación. Los sufijos R01/R03/R05 indican registros o versiones funcionales distintas; S016L428 y S016L428R02 cubren un subconjunto adicional de esquemas de comisión.",
+      "categoria": "INTERFAZ",
+      "capacidad_negocio": "Comisiones y Tarifas",
+      "regla_negocio": "Las comisiones calculadas por S016 deben estar previamente registradas en el catálogo de tarifas S080 y publicadas en el Buró de Entidades Financieras CONDUSEF; cualquier nueva comisión requiere aprobación CNBV",
+      "formula_ref": null,
+      "participa_en_formula": false,
+      "pendiente_validacion_sme": false,
+      "fuente": "vocab-cap02-movimientos.json"
+    }
+  ]
+}
