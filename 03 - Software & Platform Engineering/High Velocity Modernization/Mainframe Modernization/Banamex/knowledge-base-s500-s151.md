@@ -3,7 +3,7 @@
 
 **Generado:** 2026-07-11  
 **Fuente canónica:** Source extraído de producción MCP  
-**Scope:** 113 archivos S500 + 104 archivos S151 = 217 archivos totales  
+**Scope:** 114 archivos S500 + 105 archivos S151 = 219 archivos totales  
 **Propósito:** Fuente de verdad para análisis de modernización mainframe. Alimenta portales HTML de análisis.  
 **Paths de source:**  
 - S500: `Banamex/S500/source/S500/extracted_source/`  
@@ -15,7 +15,7 @@
 
 | Métrica | S500 | S151 | Total |
 |---------|------|------|-------|
-| Archivos totales | 113 | 104 | 217 |
+| Archivos totales | 114 | 105 | 219 |
 | Programas COBOL | 65 | 79 | 144 |
 | Programas ALGOL | 15 | 16 | 31 |
 | Bases de datos DMSII | 7 | 6 | 13 |
@@ -666,6 +666,7 @@ Todos los programas SOURCE_P de S500 que tienen DATA-BASE SECTION en su COBOL ac
 | L001 | S151BD99CONTROL | Parámetros y fechas de control |
 | L002R2-R5 (S151REGISTRA) | S151BD10MOVDIA151 | Registro de movimientos GL |
 | L011 | S151BD10MOVDIA151 | Consulta de movimientos diarios |
+| **L014** | **S151BD13BIFIN** | **Pantallas online 28/29/30: B07PROTCOB, B08TDMIGCAP, B10DOMI** |
 | P050 | S151BD02ADSALDO, BD10MOVDIA151 | Saldos acumulados |
 | P052 | S151BD02ADSALDO | Acumulación de saldos |
 | P130 (S151) | S151BD10MOVDIA151 | Concentrador |
@@ -673,6 +674,311 @@ Todos los programas SOURCE_P de S500 que tienen DATA-BASE SECTION en su COBOL ac
 | P197 | S151BD02ADSALDO, BD11SDOS151 | Saldos mensuales |
 | P602, P677, P680 | S151BD99CONTROL | Mantenimiento de control |
 | P606, P630, P690 | S151BD10MOVDIA151 | Lectura de movimientos |
+
+### S151BD13BIFIN — Catálogo de Datasets (DASDL verificado en source)
+
+> Archivo fuente: `DASDL_S151BD13BIFIN.txt` (715 LOC). BD de integración financiera multi-sistema.
+> AREAS=150, AREASIZE=100, BLOCKSIZE=1800. Opción INDEPENDENTTRANS activa.
+
+| Dataset DMSII | Función (literal del DASDL) | Clave principal | Accedido por |
+|---|---|---|---|
+| B00 (global) | CSI, STAPROC, FECPROC, FECOPER, CTL-BIFIN, CTL-CITIDIR, CONS-BIFIN | — (global) | — |
+| S151B01TOTPROD | Totales por producto: num/imp cargos y abonos × sistema | SISTEMA+CSI+FECHA+PRODUCTO+INSTSERV+MONEDA+CPAE+T | Batch GL |
+| S151B02POSICION | Posición financiera: saldo inicial/final número e importe, STA-ENVIO | SISTEMA+CSI+FECHA+PRODUCTO+INSTSERV+MONEDA | Batch GL |
+| S151B03ALARMAS | Alarmas: sucursal/cuenta, hora transmisión, autorizaciones 3 niveles | SISTEMA+CSI+FECHA+PRODUCTO+INSTSERV+MONEDA | L014 (pantalla 28) |
+| S151B04CTLCITIDIR | Control CitiDirect: dos índices (SISTEMA+FECHA y FECHA_ENVIO) | SISTEMA+FECHA / FECHA_ENVIO | P150/P171 CITI batch |
+| S151B05BATCH | Totales batch por sistema y producto | SISTEMA+PRODUCTO | Batch GL |
+| S151B06CTLENVIO | Control de envíos a sistemas externos (key=NUM_MENS) | NUM_MENS | Batch envíos |
+| S151B07PROTCOB | Protección de cobros: 4 SETs + 2 SUBSETs (fecha, auto, proceso, cliente) | NUM_ID+FECHA | L014 (pantalla 28) |
+| S151B08TDMIGCAP | Migración captación — pantalla 29: 7 índices (fecha, BIN, tarjeta, autorización) | FECHA+SUC+CTO / FECHA+TAR / BIN | L014 (pantalla 29) |
+| S151B09TICKETSBN | Tickets banco: fecha+máquina, cuenta+total+ticket | FECHA+MAQ / CTA+TOT+TK | — |
+| S151B99REINICTL | **RESTART DATA SET** — `%PREFIJO S151B19REINICTL`. B99-REI-PROGRAM (NUMBER 8) + B99-REI-USERINFO (ALPHA 176). POPULATION=100 | — (restart) | Recovery/restart |
+| S151B10DOMI | Domiciliación — pantalla 30 (declarado en L014, en BD13BIFIN) | — | L014 (pantalla 30) |
+
+### S151BD02ADSALDO — Catálogo de Datasets (DASDL verificado en source)
+
+> Archivo fuente: `DASDL_S151BD02ADSALDO.txt` (716 LOC). BD de saldos acumulados.
+> DEFAULTS: PACK=S067REMESAS (pack externo compartido con BD11 y BD12).
+> Globals B92: CSI, FECHA, FECHA-FIL, FECHA-CAR, SISTEMA, SISFILE, CSIOK, SUCOK, ARRIBO.
+
+| Dataset DMSII | Descripción literal DASDL | Tipo | POPULATION |
+|---|---|---|---|
+| S151B91REINICIO | RESTART DATA SET | RESTART | 100 |
+| S151B01SDOGLOB | SALDOS GLOBALES POR SISTEMA | STANDARD | 1,000 |
+| S151B02SDOSUC | SALDOS GLOBALES POR SUCURSAL | STANDARD | 4,000 |
+| S151B03SDOCTE | SALDOS GLOBALES POR SUC/CTE | STANDARD | 500,000 |
+| S151B04SDOEXC | SALDOS POR EXCEPCION — **$SET OMIT: deshabilitado en compilación** | STANDARD | 1,000 |
+| S151B05SDOCNC | SALDOS POR CONCEPTOS | STANDARD | 500,000 |
+| S151B06SDOCNCCSI | SALDOS POR CONCEPTOS TOT CSI | STANDARD | 500,000 |
+| S151B07TOTSDO | SALDOS POR CONCEPTOS S.A.R. | STANDARD | 1,000 |
+| S151B08GLOSAR | SALDOS GLOBALES S.A.R | STANDARD | 500,000 |
+| S151B09RECIMP | SALDOS RECEPCION IMPUESTOS — **$SET OMIT: deshabilitado en compilación** | STANDARD | — |
+| S151B10FECHVAL | SALDOS FECHA VALOR | STANDARD | 500,000 |
+| S151B11CANFVAL | CANCELACION DE SALDOS F. VALOR | STANDARD | 500,000 |
+| S151B12CVIGVEN | SDOS. CARTERA VIGENTE Y VENCIDA — **$SET OMIT: deshabilitado en compilación** | STANDARD | — |
+| S151B13AUDITORIA | (sin título literal en source) | DATA SET | 500 |
+| S151B14CONOPECRUZ | (sin título literal en source) | DATA SET | 100,000 · MEMORY RESIDENT=ALL |
+| S151B15MOVOPECRUZ | (sin título literal en source) | DATA SET | 100,000 · MEMORY RESIDENT=ALL |
+
+### S151BD10MOVDIA151 — Catálogo de Datasets (DASDL verificado en source)
+
+> Archivo fuente: `DASDL_S151BD10MOVDIA151.txt` (1,204 LOC). BD principal de movimientos diarios. Volumen máximo: 5 días × 52.5M movimientos = 262.5M registros por semana.
+> Los sets MOVTOS son DIRECT DATA SET (acceso directo por clave). Patrón por día: B_1MOVTOS + B_2IMPADI + B_3CSISUCCAJ + B_4CSISUCCAJ.
+
+| Dataset DMSII | Descripción literal DASDL | Tipo | POPULATION |
+|---|---|---|---|
+| S151B01MOVTOS | DIA LUNES semana 1 | DIRECT DATA SET | 52,500,000 |
+| S151B02IMPADI | (sin título literal en source) | DATA SET | 6,000,000 |
+| S151B03CSISUCCAJ | (sin título literal en source) | DATA SET | 80,000 |
+| S151B04CSISUCCAJ | (sin título literal en source) | DATA SET | 80,000 |
+| S151B11MOVTOS | DIA MARTES semana 1 | DIRECT DATA SET | 52,500,000 |
+| S151B12IMPADI | (sin título literal en source) | DATA SET | 6,000,000 |
+| S151B13CSISUCCAJ | (sin título literal en source) | DATA SET | 80,000 |
+| S151B14CSISUCCAJ | (sin título literal en source) | DATA SET | 80,000 |
+| S151B21MOVTOS | DIA MIERCOLES semana 1 | DIRECT DATA SET | 52,500,000 |
+| S151B22IMPADI | (sin título literal en source) | DATA SET | 6,000,000 |
+| S151B23CSISUCCAJ | (sin título literal en source) | DATA SET | 80,000 |
+| S151B24CSISUCCAJ | (sin título literal en source) | DATA SET | 80,000 |
+| S151B31MOVTOS | DIA JUEVES semana 1 | DIRECT DATA SET | 52,500,000 |
+| S151B32IMPADI | (sin título literal en source) | DATA SET | 6,000,000 |
+| S151B33CSISUCCAJ | (sin título literal en source) | DATA SET | 80,000 |
+| S151B34CSISUCCAJ | (sin título literal en source) | DATA SET | 80,000 |
+| S151B41MOVTOS | DIA VIERNES semana 1 | DIRECT DATA SET | 52,500,000 |
+| S151B42IMPADI | (sin título literal en source) | DATA SET | 6,000,000 |
+| S151B43CSISUCCAJ | (sin título literal en source) | DATA SET | 80,000 |
+| S151B44CSISUCCAJ | (sin título literal en source) | DATA SET | 80,000 |
+| S151B50TOTXCVE | (sin título literal en source) | DATA SET | 80,000 |
+| S151B99REINICIO | **RESTART DATA SET** — B99-REI-PGM (ALPHA 18) + B99-REI-USER-INFO (ALPHA 162) | RESTART | 100 |
+
+### S151BD11SDOS151 — Catálogo de Datasets (DASDL verificado en source)
+
+> Archivo fuente: `DASDL_S151BD11SDOS151.txt` (333 LOC). BD de saldos S151.
+> DEFAULTS: PACK=S067REMESAS. Globals: CSI, FEC, STA, NIVACTDIA (OCCURS 31 TIMES).
+> Nota: B99 RESTART declarado pero bajo $SET OMIT — deshabilitado en compilación.
+
+| Dataset DMSII | Descripción literal DASDL | Tipo | POPULATION |
+|---|---|---|---|
+| S151B20SDOMENCON | (sin título literal en source — campo B20-SDO-KEYAM ampliado a 6 dígitos tras CRONOS 2000) | DATA SET | 12,000,000 |
+| S151B21SDMENCON1 | (sin título literal en source) | DATA SET | 12,000,000 |
+| S151B70POSICION | (sin título literal en source) | DATA SET | 1,000,000 · PACKNAME=S067REMESAS |
+| S151B71POSDIAAD1 | (sin título literal en source) | DATA SET | 1,000,000 · PACKNAME=S067REMESAS |
+| S151B72POSCONTA | (sin título literal en source) | DATA SET | 1,000,000 · PACKNAME=S067REMESAS |
+| S151B80EDOCTA | estado de cuenta por contrato | DATA SET | 5,000,000 |
+
+### S151BD12MC001S151 — Catálogo de Datasets (DASDL verificado en source)
+
+> Archivo fuente: `DASDL_S151BD12MC001S151.txt` (640 LOC). BD contable de movimientos por contrato.
+> DEFAULTS: PACK=S067REMESAS. Tres grupos: ciclo activo (B01-B04), informativos (B11-B14), en error (B51-B54).
+
+| Dataset DMSII | Descripción literal DASDL | Tipo | POPULATION |
+|---|---|---|---|
+| S151B01MOVCTO | movimientos por contrato ciclo activo | DIRECT DATA SET | 25,000,000 |
+| S151B02IMPADI | importes adicionales ciclo activo | DATA SET | 12,500,000 |
+| S151B03DATADI | datos adicionales ciclo activo | DATA SET | 12,500,000 |
+| S151B04CONDATADI | continuación datos adicionales | DATA SET | 12,500,000 |
+| S151B11MOVINFCTO | movimientos informativos por contrato | DIRECT DATA SET | 5,000,000 |
+| S151B12IMPINFADI | (sin título literal en source) | DATA SET | 2,500,000 |
+| S151B13DATINFADI | (sin título literal en source) | DATA SET | 2,500,000 |
+| S151B14CONDATADI | (sin título literal en source) | DATA SET | 2,500,000 |
+| S151B51MOVERRCTO | movimientos en error por contrato | DIRECT DATA SET | 5,000,000 |
+| S151B52IMPADIERR | (sin título literal en source) | DATA SET | 2,500,000 |
+| S151B53DATADIERR | (sin título literal en source) | DATA SET | 2,500,000 |
+| S151B54CONDATERR | (sin título literal en source) | DATA SET | 2,500,000 |
+
+### S151BD99CONTROL — Catálogo de Datasets (DASDL verificado en source)
+
+> Archivo fuente: `DASDL_S151BD99CONTROL.txt` (538 LOC). BD de control del sistema S151.
+> Globals B00: B00-GLO-CSI, B00-GLO-STAPROC, B00-GLO-FECPROC, B00-GLO-FECOPER, B00-GLO-FECULTACT (campos CRONOS 2000), B00-GLO-CONTROL1, B00-GLO-DIREC (OCCURS 20 TIMES: SISTEMA + STATUS + FEC-SIST + STATSIST).
+
+| Dataset DMSII | Descripción literal DASDL | Tipo | POPULATION |
+|---|---|---|---|
+| S151B01SISDIA | información sistema por día | DATA SET | 999 |
+| S151B02ARCINTER | archivos de interfaz — S028, S250, S030, S015, S050, S253, S264, S275, SSIG, S750, S136 | DATA SET | 999 |
+| S151B03SISMEN | información sistema mensual — CTL-MEN (OCCURS 500 TIMES) | DATA SET | 999 |
+| S151B04SISTEM | sistemas/productos/instrumentos | DATA SET | 999 |
+| S151B05PROCESOS | procesos ejecutados por sistema | DATA SET | 5,000 |
+| S151B09CONXSIS | conceptos por sistema | DATA SET | 999 |
+| S151B10MOVPORSUC | movimientos por sucursal/caja/producto/transacción | DATA SET | 8,000,000 |
+| S151B11MOVPORCTE | movimientos por cliente | DATA SET | 10,000,000 |
+| S151B12POSICION | posición contable | DATA SET | 9,000 |
+| S151B13AUDITORIA | auditoría — tipo búsqueda/sistema/moneda/importe/días | DATA SET | 100 |
+| S151B14ARCDIAORI | archivos diarios origen | DATA SET | 100,000 |
+| S151B15ARCDIADES | archivos diarios destino | DATA SET | 100 |
+| S151B99REINICTL | **RESTART DATA SET** — B99-REI-PROGRAM (NUMBER 8) + B99-REI-USERINFO (ALPHA 176) | RESTART | 100 |
+
+### S500BD01CAPTACION — Catálogo de Datasets (DASDL verificado en source)
+
+> Archivo fuente: `S500_DASDL_CAPTACION.txt` (4,168 LOC). BD principal de captación. Archivo DASDL más grande de ambos sistemas.
+> Nota: No existe B10 (salto B09→B11). No existe B49 (salto B48→B50). B28-B34 todos nombrados COMICOB con distintos STRUCTURE numbers.
+
+| Dataset DMSII | Tipo | PREFIX / STRUCTURE (literal DASDL) |
+|---|---|---|
+| S500B00CTRLPASO | DATA SET | B00 / STR 77 |
+| S500B01CONTROL | DIRECT DATA SET | B01 / STR 02 |
+| S500B02CONTROL | DATA SET | B02 / STR 04 |
+| S500B03CONTRATOS | DATA SET | B03 / STR 06 |
+| S500B04MOVIMIENTO | DATA SET | B04 / STR 08 |
+| S500B05INSTRUMEN | DATA SET | B05 / STR 12 |
+| S500B06HISTORICO | DATA SET | B06 / STR 14 |
+| S500B07MOVDIA | DATA SET | B07 / STR 16 |
+| S500B08DEVOLUCION | DATA SET | B08 / STR 18 |
+| S500B09CIFRAS | DATA SET | B09 / STR 20 |
+| S500B11FVALOR | DATA SET | B11 / STR 25 |
+| S500B12COMPEN | DATA SET | B12 / STR 27 |
+| S500B13MOVCVES | DATA SET | B13 / STR 29 |
+| S500B14TOTCVES | DATA SET | B14 / STR 31 |
+| S500B15ARCHIVO | DATA SET | B15 / STR 33 |
+| S500B16TABLAS | DATA SET | B16 / STR 35 |
+| S500B17CVESXFUN | DIRECT DATA SET | B17 / STR 37 |
+| S500B18CVESXINST | DATA SET | B18 / STR 39 |
+| S500B19CANCELA | DATA SET | B19 / STR 44 |
+| S500B20DEVMENSUAL | DATA SET | B20 / STR 19 |
+| S500B21INTERBANC | DIRECT DATA SET | B21 / STR 26 |
+| S500B22ESQCONT | DATA SET | B22 / STR 50 |
+| S500B23MODULOS | DIRECT DATA SET | B23 / STR 52 |
+| S500B24PAGOSPEND | DATA SET | B24 / STR 54 |
+| S500B25PGOSPENDPE | DATA SET | B25 / STR 56 |
+| S500B26SDOSBC | DATA SET | B26 / STR 59 |
+| S500B27MOVSBC | DATA SET | B27 / STR 61 |
+| S500B28COMICOB | DATA SET | B28 / STR 63 |
+| S500B29COMICOB | DATA SET | B29 / STR 65 |
+| S500B30COMICOB | DATA SET | B30 / STR 67 |
+| S500B31COMICOB | DATA SET | B31 / STR 69 |
+| S500B32COMICOB | DATA SET | B32 / STR 71 |
+| S500B33COMICOB | DATA SET | B33 / STR 73 |
+| S500B34COMICOB | DATA SET | B34 / STR 75 |
+| S500B35NUMTEF | DATA SET | B35 / STR 79 |
+| S500B36GRUPOCOM | DATA SET | B36 / STR 81 |
+| S500B37GRUPOCPE | DATA SET | B37 / STR 83 |
+| S500B38SUBGPOS | DATA SET | B38 / STR 86 |
+| S500B39CTASCPE | DATA SET | B39 / STR 88 |
+| S500B40BINGPOPREP | DATA SET | B40 / STR 93 |
+| S500B41BIN | DATA SET | B41 / STR 95 |
+| S500B42GPO | DATA SET | B42 / STR 97 |
+| S500B43NUMGPOSOC | DATA SET | B43 / STR 99 |
+| S500B44CTOSEVOL | DATA SET | B44 / STR 101 |
+| S500B45GPOSOCREND | DATA SET | B45 / STR 103 |
+| S500B46DIALOGO | DIRECT DATA SET | B46 / STR 105 |
+| S500B47MOVDIA | DATA SET | B47 / STR 108 |
+| S500B48CTOSGCE | DATA SET | B48 / STR 22 |
+| S500B50LIGASTESO | DATA SET | B50 / STR 115 |
+| S500B51RCTAORI | DATA SET | B51 / STR 118 |
+| S500B52CTRLDEPRET | DATA SET | B52 / STR 120 |
+| S500B53ENVREPLICA | DIRECT DATA SET | B53 / STR 123 |
+| S500B54RECREPLICA | DIRECT DATA SET | B54 / STR 126 |
+| S500B55LIMDEPRET | DATA SET | B55 / STR 129 |
+| S500B56MAKERCHEK | DATA SET | (sin prefijo/estructura en source) |
+| S500B57PANTASUC | DATA SET | (sin prefijo/estructura en source) |
+| S500B91REINICIO | RESTART DATA SET | B91 / STR 41 |
+
+### S500BD02AUXILIAR — Catálogo de Datasets (DASDL verificado en source)
+
+> Archivo fuente: `S500_DASDL_AUXILIAR.txt` (931 LOC). BD auxiliar de proceso batch — tablas de trabajo y staging.
+> Los datasets replican estructura de BD01CAPTACION con sufijo "A" en el prefijo (B01A, B02A, B03A, B21A, B26A, B46A, B47A).
+
+| Dataset DMSII | Tipo | PREFIX / STRUCTURE (literal DASDL) |
+|---|---|---|
+| S500B01ACONTROL | DIRECT DATA SET | B01A / STR 02 |
+| S500B02ACONTROL | DATA SET | B02A / STR 04 |
+| S500B03AUXCTOS | DATA SET | B03A / STR 06 |
+| S500B04AUXMOVTOS | DATA SET | B04 / STR 08 |
+| S500B13AMOVCVES | DATA SET | B13 / STR 13 |
+| S500B21AUXINTBCO | DIRECT DATA SET | B21A / STR 17 |
+| S500B26AUXSDOSBC | DATA SET | B26A / STR 20 |
+| S500B46AUXDIAL | DIRECT DATA SET | B46A / STR 22 |
+| S500B47AUXMOVDIA | DATA SET | B47A / STR 25 |
+| S500B52AUXCTLDEPR | DATA SET | B52 / STR 10 |
+| S500B91AUXREIN | RESTART DATA SET | B91 / STR 15 |
+
+### S500BD03MSGAAPLI — Catálogo de Datasets (DASDL verificado en source)
+
+> Archivo fuente: `S500_DASDL_MSGAAPLI.txt` (219 LOC). BD de mensajes inter-aplicación (ventana de 24h).
+
+| Dataset DMSII | Tipo | PREFIX / STRUCTURE (literal DASDL) |
+|---|---|---|
+| S500B00MCONTROL | DATA SET | B00M / STR 02 |
+| S500B01MMOVSFM | DIRECT DATA SET | B01 / STR 04 |
+| S500B91MSGREIN | RESTART DATA SET | B91 / STR 08 |
+
+### S500BD04TARJETAS — Catálogo de Datasets (DASDL verificado en source)
+
+> Archivo fuente: `S500_DASDL_TARJETAS.txt` (1,346 LOC). BD de pre-registro de tarjetas de débito.
+> Nota: No existe B02P (salto de B01 a B03). Prefijos con sufijo "P" (tarjetas). B01PCONTROL usa prefijo B01M, no B01P.
+
+| Dataset DMSII | Tipo | PREFIX / STRUCTURE (literal DASDL) |
+|---|---|---|
+| S500B01PCONTROL | DATA SET | B01M / STR 02 |
+| S500B03PREALTAS | DATA SET | B03P / STR 03 |
+| S500B04PTEF | DATA SET | B04P / STR 08 |
+| S500B05PHISCTAGLB | DATA SET | B05P / STR 10 |
+| S500B06PCTRLARCH | DATA SET | B06P |
+| S500B07PARCHIVOS | DATA SET | B07P |
+| S500B08PCTRARRIBO | DATA SET | B08P |
+| S500B09PMOTOR | DATA SET | B09P |
+| S500B10PDEPURA | DATA SET | B10P |
+| S500B11PCVETRAARC | DATA SET | B11P |
+| S500B12PCLONNING | DATA SET | (sin prefijo/estructura en source) |
+| S500B13PREGCOMEPP | DATA SET | (sin prefijo/estructura en source) |
+| S500B14PREGREWEPP | DATA SET | (sin prefijo/estructura en source) |
+| S500B15PCTLBUCKET | DATA SET | (sin prefijo/estructura en source) |
+| S500B16PLIGCTOTAJ | DATA SET | (sin prefijo/estructura en source) |
+| S500B17PCTLALERTA | DATA SET | (sin prefijo/estructura en source) |
+| S500B18PENVIOSDOS | DATA SET | (sin prefijo/estructura en source) |
+| S500B19PSDOTAR111 | DATA SET | (sin prefijo/estructura en source) |
+| S500B91PREINICIO | RESTART DATA SET | B91P / STR 06 |
+
+### S500BD05MAPLI — Catálogo de Datasets (DASDL verificado en source)
+
+> Archivo fuente: `S500_DASDL_MAPLI.txt` (323 LOC). BD de mapeo librería-aplicación. Objetivo: registro de información por paso para monitoreo de actividad.
+> NOTA CRÍTICA: los datasets usan prefijo S038 (sistema MAPLI compartido con usercode S038), no S500B. PHYSICAL DATABASE: S500BD05MAPLI.
+
+| Dataset DMSII | Descripción literal DASDL | Tipo | POPULATION |
+|---|---|---|---|
+| S038B01CONTROL | REGISTRO DE CONTROL — B01-NUM-NODO (NUMBER 2), B01-FEC-PROCESO (NUMBER 8), B01-NOM-EQUIPO (ALPHA 20) | DATA SET · MEMORY RESIDENT=ALL | 5 |
+| S038B02PROGRAMAS | DETALLE DE PROGRAMAS — tipo/nombre/estatus PGM, tiempos inicio/fin, corrida, MIX | DATA SET · MEMORY RESIDENT=ALL | 15,000 |
+| S038B03ACTIVIDAD | DETALLE DE ACTIVIDADES DE CADA PROGRAMA — B03-NOM-ACTIVIDAD (ALPHA 40), estatus, registros a procesar, tiempos | DATA SET | 300,000 |
+| S038B91REINICIO | RESTART DATA SET — B91-IDPROG (ALPHA 4) + B91-USERINFO (ALPHA 26) | RESTART | 1,000 |
+
+### S500BD06TELETON — Catálogo de Datasets (DASDL verificado en source)
+
+> Archivo fuente: `S500_DASDL_TELETON.txt` (355 LOC). BD del proceso Teleton — donativos con tarjeta, evento Teleton 2016.
+> Nota: No existe B03T (salto de B02T a B04T). B00T y B01T tienen MEMORY RESIDENT=ALL.
+
+| Dataset DMSII | Descripción literal DASDL | Tipo | POPULATION |
+|---|---|---|---|
+| S500B00TGLOBAL | REGISTRO DE GLOBALES — B00T-NUM-CSI, B00T-FEC-LINEA, B00T-IMP-AUTORI, B00T-IMP-SUPERV, B00T-NUM-DIALOGO, B00T-PASO-ENTRA/SALE | DATA SET · MEMORY RESIDENT=ALL | 10 |
+| S500B01TCONTROL | REGISTRO DE CONTROL POR CADA COPIA — B01T-NUM-COPIA, B01T-ULT-LOG, B01T-ULT-AUTS151 | DATA SET · MEMORY RESIDENT=ALL | 10 |
+| S500B02TMOVTOS | DETALLE DE MOVIMIENTOS — B02T-CUENTA-TARJ, B02T-AUTORIZA, B02T-FEC-MAQUINA, B02T-CLAVE-MOVTO, B02T-IMPORTE, B02T-STA-MOVTO (00=vigente, 01=cancelado, 15=nocontable referido) | DATA SET | 1,000,000 |
+| S500B04TBINES | BINES VALIDOS DE TARJETAS — B04T-NUM-BIN, B04T-NUM-EMISOR, B04T-NUM-NEGOCIO, B04T-VALIDO-TELE | DATA SET · MEMORY RESIDENT=ALL | 2,000 |
+| S500B05TDIALOGO | MENSAJES ENVIADOS AL S500 O S036 (BASE 24, AUTORIZADOR) — B05T-STATUS (01-08), B05T-ORIGEN, B05T-HEADER (ALPHA 36), B05T-TEXTO (ALPHA 424) | DIRECT DATA SET | 2,000,000 |
+| S500B91TREINICIO | RESTART DATA SET — B91T-PROGNAME (ALPHA 6) + B91T-JOBNO (NUMBER 4) + B91T-TASKNO (NUMBER 4) + B91T-USERINFO (ALPHA 152) | RESTART | (sin POPULATION literal) |
+
+### S500BD07ATRIBUCTAS — Catálogo de Datasets (DASDL verificado en source)
+
+> Archivo fuente: `S500_DASDL_ATRIBUCTA.txt` (272 LOC). BD para calificar atributos a contratos que aún no existen en S500 como cuenta ordenante — proyecto CAN 2021.
+> Nota: El nombre en DMSUPPORT es S500BD07ATRIBUCTA (sin 'S' final); el nombre de registro DMSII es S500BD07ATRIBUCTA.
+
+| Dataset DMSII | Descripción literal DASDL | Tipo | POPULATION |
+|---|---|---|---|
+| S500B01CONTRATOS | REGISTRO DE CONTRATOS — B01-NUM-CONTRATO (NUMBER 12), B01-GRP-NUMERICO (GROUP OCCURS 5 TIMES), B01-GRP-ALFA (GROUP OCCURS 5 TIMES), B01-IND-PANTALLA (NUMBER 4) | DATA SET · MEMORY RESIDENT=ALL | 30,000,000 |
+| S500B02CONTROL | REGISTRO DE CONTROL — B02-NUM-TIPREG (NUMBER 2), B02-NUM-CSI (NUMBER 2), B02-GRP-ARC (GROUP OCCURS 5 TIMES: STA-PROCESO + FECHA-ARC + SEC-ARC + REG-ARC + ALFA-FILLER) | DATA SET | 100 |
+| S500B91REINICIO | RESTART DATA SET — B91-IDPROG (ALPHA 4) + B91-USERINFO (ALPHA 26) | RESTART | 1,000 |
+
+### ADMWIN — Header COMS de S500 (archivo: S500_SOURCE_COPY_ADMWIN.txt)
+
+> COPY member de 127 LOC incluido en programas ONLINE de S500. Define la estructura de enrutamiento COMS entre sistemas.
+
+Campos clave:
+- `MYSELF-USERCODE`: identifica S500 como sistema origen ("S" + 500)
+- `COMS-HDR-APLDES`: aplicación destino
+- `COMS-HDR-CSIDES`: CSI destino (Communication System Identifier)
+- `COMS-HDR-SCREEN`: pantalla destino (5 chars — ej. "15112", "00028", "00030")
+- `COMS-HDR-STASUC`: sucursal origen
+- `COMS-HDR-STACAJ`: caja origen
+- `COMS-AMP-DESSIS`: sistema destino (3 dígitos — enruta a cualquiera de los 19 sistemas)
+- `COMS-AMP-PASSER` (VA 70): número de pantalla de paso (Sistema 100 → Paso 10)
+
+**Arquitectura de 19 sistemas**: S500 usa ADMWIN + COMS para dialogar con S151 y otros sistemas. El campo `COMS-AMP-DESSIS` (3 dígitos) permite routing a sistemas 001-999. S151 sirve como concentrador GL de los 19 sistemas origen.
 
 ---
 

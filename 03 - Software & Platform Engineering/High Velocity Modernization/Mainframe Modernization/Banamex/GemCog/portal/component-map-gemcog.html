@@ -3,319 +3,811 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>GemCog · Mapa de Componentes — Banamex Unisys ClearPath MCP</title>
+<title>GemCog · Mapa de Componentes (Grafo) — Banamex Unisys MCP</title>
 <style>
-:root{--bg:#071c23;--bg2:#0a2530;--panel:#0e2e3a;--line:#1a4555;--txt:#F0F8FA;--muted:#7fb8c8;--hbar:#6CC5D8;--red:#E8344A}
+:root{
+  --bg:#071c23;--bg2:#0a2530;--panel:#0e2e3a;--line:#1a4555;
+  --red:#C1272D;--gold:#6CC5D8;--txt:#F0F8FA;--muted:#7fb8c8;--muted2:#5a98a8;
+}
 *{box-sizing:border-box;margin:0;padding:0}
-body{display:flex;height:100vh;background:var(--bg);color:var(--txt);font-family:'Inter',system-ui,sans-serif;overflow:hidden;flex-direction:column}
-header{background:linear-gradient(135deg,#071c23,#0e2e3a);border-bottom:2px solid var(--hbar);padding:10px 18px;display:flex;align-items:center;gap:14px;flex-shrink:0}
-header img{height:22px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
-header h1{font-size:15px;font-weight:800}
-header .sub{font-size:9px;color:var(--muted);margin-top:2px}
-#tiles{display:flex;gap:8px;padding:8px 18px;flex-shrink:0;border-bottom:1px solid var(--line);flex-wrap:wrap;background:var(--bg2)}
-.tile{background:var(--panel);border-radius:6px;padding:5px 12px;border-left:3px solid var(--hbar)}
-.tile .n{font-size:18px;font-weight:800;color:var(--hbar)}.tile .l{font-size:8px;color:var(--muted);text-transform:uppercase}
-#wrap{display:flex;flex:1;overflow:hidden}
-#chart{flex:1;position:relative;overflow:hidden}
+body{display:flex;height:100vh;background:var(--bg);color:var(--txt);
+  font-family:'Inter',system-ui,sans-serif;overflow:hidden}
+
+/* ── SIDEBAR ──────────────────────────────────────────────── */
+#sidebar{width:240px;min-width:240px;height:100vh;background:var(--bg2);
+  border-right:1px solid var(--line);overflow-y:auto;padding:10px;
+  display:flex;flex-direction:column;gap:8px;
+  scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+#sidebar::-webkit-scrollbar{width:4px}
+#sidebar::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.pt{font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted2);
+  text-transform:uppercase;margin-bottom:3px}
+.pb{background:var(--panel);border-radius:6px;padding:8px 10px}
+
+/* ── SCOPE BANNER ─────────────────────────────────────────── */
+#scope-banner{background:linear-gradient(135deg,#071c23,#0e2e3a);
+  border:1px solid var(--line);border-bottom:3px solid var(--gold);
+  border-radius:6px;padding:9px 11px}
+#scope-banner img{height:18px;margin-bottom:7px;display:block;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+#scope-banner h2{font-size:13px;font-weight:800;color:var(--txt)}
+#scope-banner .sub{font-size:9px;color:var(--muted2);margin-top:2px}
+#scope-banner .warn{font-size:9px;color:#93c5fd;margin-top:5px;
+  background:rgba(30,58,138,.3);border-radius:3px;padding:3px 6px}
+
+/* ── LOAD STATUS ──────────────────────────────────────────── */
+#load-status{font-size:9px;border-radius:4px;padding:5px 8px;line-height:1.4}
+#load-status.ok  {background:rgba(5,46,22,.5);color:#86efac;border:1px solid #14532d}
+#load-status.err {background:rgba(69,26,26,.5);color:#fca5a5;border:1px solid #7f1d1d}
+#load-status.wait{background:rgba(10,37,48,.7);color:var(--muted);border:1px solid var(--line)}
+
+/* ── DOMAIN NAV ───────────────────────────────────────────── */
+#dom-nav{display:flex;flex-direction:column;gap:2px}
+.dom-btn{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:4px;
+  cursor:pointer;border:1px solid transparent;background:var(--panel);
+  transition:background .15s,border-color .15s;
+  font-size:9px;color:var(--txt);text-align:left;width:100%}
+.dom-btn:hover{background:#0f2a38;border-color:var(--line)}
+.dom-btn.active{background:#0e2e3a;border-color:rgba(108,197,216,.4)}
+.dom-btn.expanded{background:#0e2e3a;border-color:var(--gold)}
+.dom-swatch{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.dom-name{font-weight:700;font-size:9px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dom-cnt{font-size:8px;color:var(--muted2);flex-shrink:0}
+.dom-badge{font-size:7px;font-weight:700;padding:1px 4px;border-radius:2px;flex-shrink:0}
+.db-reg{background:#7c2d12;color:#fca5a5}
+.db-crit{background:#7f1d1d;color:#fca5a5}
+.sys-head{font-size:8px;font-weight:700;color:var(--gold);text-transform:uppercase;
+  letter-spacing:.08em;padding:3px 6px 1px;margin-top:4px}
+
+/* ── LEGEND ───────────────────────────────────────────────── */
+.leg-row{display:flex;align-items:center;gap:6px;margin:2px 0;font-size:9px;color:var(--muted2)}
+.leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.leg-line{width:16px;height:0;flex-shrink:0}
+
+/* ── NODE INFO ────────────────────────────────────────────── */
+#ni-label{font-size:11px;font-weight:700;color:var(--txt);margin-bottom:4px;
+  font-family:'Cascadia Code','Consolas',monospace;word-break:break-all}
+.ni-row{font-size:9px;color:var(--muted2);margin:2px 0}
+.ni-row span{color:var(--txt)}
+.ni-notes{font-size:8px;color:var(--muted2);font-style:italic;margin-top:4px;line-height:1.4}
+
+/* ── META ─────────────────────────────────────────────────── */
+.meta-row{display:flex;justify-content:space-between;font-size:9px;margin:2px 0;color:var(--muted2)}
+.meta-row b{color:var(--txt)}
+
+/* ── SVG ──────────────────────────────────────────────────── */
+#svg-wrap{flex:1;position:relative;overflow:hidden}
 #svg{width:100%;height:100%}
-#side{width:280px;min-width:280px;background:var(--bg2);border-left:1px solid var(--line);overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
-#side::-webkit-scrollbar{width:5px}#side::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
-.pt{font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin:4px 0 6px}
-.leg-row{display:flex;align-items:center;gap:7px;padding:4px 6px;border-radius:4px;cursor:pointer;font-size:9px;border:1px solid transparent}
-.leg-row:hover{background:var(--panel)}.leg-row.off{opacity:.3}
-.leg-row i{width:10px;height:10px;border-radius:2px;flex-shrink:0}
-.leg-row .ln{flex:1;font-weight:600}.leg-row .lc{color:var(--muted);font-size:8px}
-#detail{background:var(--panel);border-radius:7px;padding:10px 12px;border:1px solid var(--line)}
-#detail .dh{font-family:'Cascadia Code','Consolas',monospace;font-size:14px;font-weight:800;margin-bottom:4px;color:#fff}
-#detail .ds{font-size:10px;color:var(--muted);line-height:1.5}
-#detail .dm{font-size:9px;color:var(--muted);margin-top:6px;display:flex;flex-wrap:wrap;gap:6px}
-#detail .dm b{color:#9ab0c0}
-#detail .dr{display:flex;align-items:center;gap:5px;margin-top:6px;font-size:8px;color:var(--muted)}
-.rtag{padding:2px 6px;border-radius:10px;font-size:7px;font-weight:700;background:#2a1500;color:#fdba74}
-.cell{cursor:pointer;rx:2;ry:2}
-.cell-lbl{font-family:'Cascadia Code','Consolas',monospace;fill:#fff;font-size:8.5px;font-weight:700;dominant-baseline:hanging;pointer-events:none}
-.cell-sub{font-family:'Inter',sans-serif;fill:rgba(255,255,255,.5);font-size:7px;dominant-baseline:hanging;pointer-events:none}
-.dom-lbl{fill:rgba(255,255,255,.25);font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;pointer-events:none}
-.glow{filter:brightness(1.3) drop-shadow(0 0 4px rgba(108,197,216,.5))}
-#filters{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.fchk{appearance:none;width:11px;height:11px;border-radius:2px;border:1px solid var(--line);background:var(--panel);cursor:pointer;position:relative;flex-shrink:0}
-.fchk:checked{background:var(--hbar);border-color:var(--hbar)}
-.fchk:checked::after{content:'✓';position:absolute;top:-1px;left:1px;font-size:9px;color:#071c23;font-weight:900}
-label{font-size:9px;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:4px}
-.bar-wrap{margin-top:4px}
-.bar-row{display:flex;align-items:center;gap:6px;margin-bottom:3px}
-.bar-lbl{font-size:8px;color:var(--muted);width:72px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bar-bg{flex:1;height:7px;background:var(--line);border-radius:3px;overflow:hidden}
-.bar-fill{height:100%;border-radius:3px;transition:width .3s}
-.bar-v{font-size:7px;color:var(--muted);width:32px}
+#hint{position:absolute;top:12px;left:50%;transform:translateX(-50%);
+  background:rgba(7,28,35,.9);border:1px solid var(--line);border-radius:20px;
+  padding:6px 18px;font-size:10px;color:var(--muted2);z-index:50;pointer-events:none;
+  transition:opacity .6s}
+#hint b{color:var(--gold)}
+
+/* ── SCOPE RINGS ──────────────────────────────────────────── */
+.scope-ring{fill:none;stroke-width:1.5;stroke-dasharray:8 4;opacity:.22}
+.scope-ring.s500{stroke:var(--red)}
+.scope-ring.s151{stroke:var(--gold)}
+.scope-label{font-size:9px;text-anchor:middle;opacity:.45;
+  letter-spacing:.09em;font-family:inherit;font-weight:700}
+.scope-label.s500{fill:var(--red)}
+.scope-label.s151{fill:var(--gold)}
+
+/* ── LINKS ────────────────────────────────────────────────── */
+.link{fill:none;transition:opacity .2s}
+.link.contains  {stroke:#3a7a8a;stroke-width:1;stroke-dasharray:5 3;stroke-opacity:.42}
+.link.calls     {stroke:#4a8a9a;stroke-width:.9;stroke-opacity:.4}
+.link.uses      {stroke:#4a6a3a;stroke-width:.7;stroke-opacity:.28}
+.link.cross-sys {stroke:var(--red);stroke-width:2;stroke-opacity:.75}
+.link.depends-on{stroke:#a08830;stroke-width:1;stroke-dasharray:6 3;stroke-opacity:.42}
+.link.hl-contains  {stroke:var(--gold);stroke-width:1.5;stroke-opacity:1;stroke-dasharray:5 3}
+.link.hl-calls     {stroke:#90e0f0;stroke-width:1.4;stroke-opacity:1}
+.link.hl-uses      {stroke:#8aaa5a;stroke-width:1.2;stroke-opacity:1}
+.link.hl-cross-sys {stroke:var(--red);stroke-width:2.8;stroke-opacity:1}
+.link.hl-depends-on{stroke:#d4a800;stroke-width:1.5;stroke-opacity:1;stroke-dasharray:6 3}
+
+/* ── NODES ────────────────────────────────────────────────── */
+.node{cursor:pointer}
+.node circle{transition:opacity .2s,filter .15s}
+.node text{fill:var(--txt);text-anchor:middle;pointer-events:none;
+  font-family:inherit;dominant-baseline:hanging;transition:opacity .2s}
+.node.dimmed circle{opacity:.07}
+.node.dimmed text{opacity:.05}
+.link.dimmed{opacity:.04 !important}
+.node.selected circle{stroke:#fff !important;stroke-width:2.5;
+  filter:drop-shadow(0 0 8px rgba(255,255,255,.6))}
+
+/* ── TOOLTIP ──────────────────────────────────────────────── */
+#tip{position:fixed;background:rgba(7,28,35,.97);border:1px solid var(--line);
+  border-radius:6px;padding:9px 22px 9px 11px;font-size:11px;color:var(--txt);
+  pointer-events:auto;max-width:290px;z-index:9999;display:none;
+  box-shadow:0 4px 20px rgba(0,0,0,.7)}
+#tip-close{position:absolute;top:5px;right:7px;cursor:pointer;color:var(--muted2);
+  font-size:13px;line-height:1;-webkit-user-select:none;user-select:none}
+#tip-close:hover{color:var(--txt)}
+#tip .tt{font-weight:700;margin-bottom:5px;font-size:12px;
+  font-family:'Cascadia Code','Consolas',monospace;word-break:break-all}
+#tip .tr{font-size:10px;color:var(--muted2);margin:2px 0}
+#tip .tr span{color:var(--txt)}
+#tip .tn{font-size:9px;color:var(--muted2);margin-top:5px;font-style:italic;line-height:1.4}
 </style>
 </head>
 <body>
-<header>
-  <img src="../banamex-logo.png" alt="Banamex">
+
+<!-- ════════════ SIDEBAR ════════════ -->
+<div id="sidebar">
+
+  <div id="scope-banner">
+    <img src="../banamex-logo.png" alt="Banamex">
+    <h2>GemCog · Mapa de Componentes</h2>
+    <div class="sub">Banamex · Unisys ClearPath MCP · DISCOVER Etapa 0</div>
+    <div class="sub">S500 Cargos &amp; Abonos + S151 GL Contable</div>
+    <div class="warn">⚑ Grafo de fuerza D3 · Click dominio para expandir programas</div>
+  </div>
+
+  <div id="load-status" class="wait">Cargando grafos de dependencias…</div>
+
   <div>
-    <h1>Mapa de Componentes · GemCog — Banamex Unisys ClearPath MCP</h1>
-    <div class="sub">S500 Cargos &amp; Abonos (114 pgm · 898K LOC) + S151 Movimientos Contables (104 pgm · 445K LOC) · tamaño proporcional a LOC</div>
-  </div>
-</header>
-<div id="tiles">
-  <div class="tile"><div class="n">218</div><div class="l">Programas totales</div></div>
-  <div class="tile"><div class="n">1.34M</div><div class="l">Líneas de código</div></div>
-  <div class="tile"><div class="n">7</div><div class="l">Dominios</div></div>
-  <div class="tile"><div class="n">114</div><div class="l">Pgm S500</div></div>
-  <div class="tile"><div class="n">104</div><div class="l">Pgm S151</div></div>
-  <div class="tile"><div class="n" id="t-reg">—</div><div class="l">Pgm regulatorios</div></div>
-</div>
-<div id="wrap">
-  <div id="chart"><svg id="svg"></svg></div>
-  <div id="side">
-    <div class="pt">Dominios — click para aislar</div>
-    <div id="leg"></div>
-    <div class="pt" style="margin-top:4px">Filtros</div>
-    <div id="filters">
-      <label><input class="fchk" type="checkbox" id="fReg"> Solo regulatorios</label>
-      <label><input class="fchk" type="checkbox" id="fLarge"> LOC > 2000</label>
+    <div class="pt">Dominios — click para expandir</div>
+    <div id="dom-nav">
+      <div class="sys-head">S500 — Cargos &amp; Abonos</div>
+      <button class="dom-btn" data-dom="d_s500_captacion" onclick="onDomBtn('d_s500_captacion')">
+        <div class="dom-swatch" style="background:#1e6878"></div>
+        <span class="dom-name">CAPTACIÓN</span>
+        <span class="dom-badge db-crit">CRIT</span>
+        <span class="dom-cnt">72</span>
+      </button>
+      <button class="dom-btn" data-dom="d_s500_control" onclick="onDomBtn('d_s500_control')">
+        <div class="dom-swatch" style="background:#1e3a5e"></div>
+        <span class="dom-name">CONTROL</span>
+        <span class="dom-cnt">41</span>
+      </button>
+      <button class="dom-btn" data-dom="d_s500_tarjetas" onclick="onDomBtn('d_s500_tarjetas')">
+        <div class="dom-swatch" style="background:#3a2a5e"></div>
+        <span class="dom-name">TARJETAS</span>
+        <span class="dom-cnt">1</span>
+      </button>
+
+      <div class="sys-head" style="margin-top:6px">S151 — Movimientos Contables</div>
+      <button class="dom-btn" data-dom="d_s151_contabilidad" onclick="onDomBtn('d_s151_contabilidad')">
+        <div class="dom-swatch" style="background:#1a4a3a"></div>
+        <span class="dom-name">CONTABILIDAD</span>
+        <span class="dom-badge db-reg">CNBV</span>
+        <span class="dom-cnt">40</span>
+      </button>
+      <button class="dom-btn" data-dom="d_s151_movimientos" onclick="onDomBtn('d_s151_movimientos')">
+        <div class="dom-swatch" style="background:#3a3018"></div>
+        <span class="dom-name">MOVIMIENTOS</span>
+        <span class="dom-cnt">27</span>
+      </button>
+      <button class="dom-btn" data-dom="d_s151_control" onclick="onDomBtn('d_s151_control')">
+        <div class="dom-swatch" style="background:#1a3048"></div>
+        <span class="dom-name">CONTROL</span>
+        <span class="dom-cnt">21</span>
+      </button>
+      <button class="dom-btn" data-dom="d_s151_reportes" onclick="onDomBtn('d_s151_reportes')">
+        <div class="dom-swatch" style="background:#38245a"></div>
+        <span class="dom-name">REPORTES</span>
+        <span class="dom-badge db-reg">CNBV</span>
+        <span class="dom-cnt">13</span>
+      </button>
+      <button class="dom-btn" data-dom="d_s151_ajustes" onclick="onDomBtn('d_s151_ajustes')">
+        <div class="dom-swatch" style="background:#4a1a1a"></div>
+        <span class="dom-name">AJUSTES</span>
+        <span class="dom-cnt">3</span>
+      </button>
     </div>
-    <div class="pt" style="margin-top:4px">Componente seleccionado</div>
-    <div id="detail"><div class="ds" style="color:var(--muted);font-size:10px">Haz click en una celda del mapa</div></div>
-    <div class="pt" style="margin-top:4px">Distribución por dominio (LOC)</div>
-    <div class="bar-wrap" id="bars"></div>
+    <div style="font-size:8px;color:#4a7888;font-style:italic;margin-top:4px">
+      El número = programas en el dominio. Click para expandir.
+    </div>
   </div>
+
+  <div class="pb">
+    <div class="pt">Tipos de nodo</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#1c4a5a;border:1.5px solid rgba(255,255,255,.4)"></div>Sistema (S500 / S151)</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#1e6878"></div>Dominio funcional</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#2a6a5a"></div>Programa COBOL</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#1a5070"></div>Librería ALGOL</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#7a5020"></div>Job WFL (batch)</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#405828;border:1px solid var(--gold)"></div>DMSII (schema BD)</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#3a3018"></div>Include / Copybook</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#5a1a10;border:1.5px solid var(--red)"></div>Interface crítica cross-sys</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#6B2020"></div>Sistema externo reg.</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#1a2a5e"></div>Sistema externo técnico</div>
+    <div class="pt" style="margin-top:7px">Aristas</div>
+    <div class="leg-row"><div class="leg-line" style="border-top:2px dashed #3a7a8a;margin-top:4px"></div>contains (agrupa)</div>
+    <div class="leg-row"><div class="leg-line" style="border-top:2.5px solid var(--red);margin-top:4px"></div>cross-system S500→S151</div>
+    <div class="leg-row"><div class="leg-line" style="border-top:1.5px solid #4a8a9a;margin-top:4px"></div>calls (COBOL CALL)</div>
+    <div class="leg-row"><div class="leg-line" style="border-top:1px dashed #a08830;margin-top:4px"></div>depends-on (externo)</div>
+    <div class="leg-row" style="margin-top:5px;font-size:8px;font-style:italic;color:#4a7888">
+      Click dominio = expande · Click nodo = aísla · Click fondo = reset
+    </div>
+  </div>
+
+  <div class="pb">
+    <div class="pt">Métricas GemCog</div>
+    <div class="meta-row">Sistemas<b>2 (S500 + S151)</b></div>
+    <div class="meta-row">Programas totales<b>218</b></div>
+    <div class="meta-row">LOC totales<b>1.34M</b></div>
+    <div class="meta-row">DMSII schemas<b>13 (7 S500 · 6 S151)</b></div>
+    <div class="meta-row">Dominios funcionales<b>8</b></div>
+    <div class="meta-row">Sistemas externos<b>7+</b></div>
+    <div class="meta-row">Integración crítica<b style="color:var(--red)">S151REGISTRA</b></div>
+    <div class="meta-row">Equivalencia mínima<b style="color:#86efac">≥ 99.99%</b></div>
+  </div>
+
+  <div class="pb" id="node-info-box">
+    <div class="pt">Nodo seleccionado</div>
+    <div id="ni-label" style="color:var(--muted2);font-size:10px;font-weight:400">
+      Click en un nodo para ver detalles
+    </div>
+    <div id="ni-body"></div>
+  </div>
+
 </div>
+
+<!-- ════════════ SVG ════════════ -->
+<div id="svg-wrap">
+  <svg id="svg"></svg>
+  <div id="hint">Click en un <b>dominio</b> para desplegar sus programas COBOL/ALGOL</div>
+</div>
+
+<div id="tip"></div>
+
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script>
-const COLORS={'ONLINE':'#E8344A','BATCH-CAP':'#5AB5CA','GL-LINK':'#E8883A','TARJETAS':'#3295AC','LIBRARY':'#2A6A7A','ANOMALIAS':'#666677'};
-const DOMLBL={'ONLINE':'ONLINE · COMS','BATCH-CAP':'BATCH CAPTACIÓN','GL-LINK':'GL · S151REGISTRA','TARJETAS':'TARJETAS · BD04','LIBRARY':'LIBRARY','ANOMALIAS':'ANOMALÍAS'};
-const DOMDESC={'ONLINE':'Servidores COMS y procesos en línea','BATCH-CAP':'Proceso batch de captación (BD01CAPTACION)','GL-LINK':'Programas con $SET S151REGISTRA — postean al GL S151','TARJETAS':'Programas BD04TARJETAS','LIBRARY':'Librerías y módulos compartidos','ANOMALIAS':'Archivos con anomalías en el source'};
+// ════════════════════════════════════════════════════════════════
+// GemCog Banamex — COMPONENT MAP (Grafo de fuerza D3)
+// Unisys ClearPath MCP · S500 Cargos & Abonos + S151 GL
+// DISCOVER Etapa 0 · 2026-07-13
+// Modelado en BCOPCore BanCoppel component-map-bcop.html
+// ════════════════════════════════════════════════════════════════
 
-// Programa → {dom, loc, reg[], biz}  — datos reales S500 Banamex Unisys ClearPath MCP
-const PGMS=[
-  // ONLINE — servidores COMS y procesos en línea (14 pgm)
-  {n:'P010',d:'ONLINE',l:26328,r:[],b:'Servidor COMS principal — gestiona todas las transacciones online de captación · LINCOMS'},
-  {n:'P015',d:'ONLINE',l:8867,r:[],b:'Dispersador de operaciones — distribuye transacciones a módulos · DISPERSADOR'},
-  {n:'P020',d:'ONLINE',l:22006,r:[],b:'Servidor COMS secundario (instancia 2 — ver ANO-003) · LINCOMS'},
-  {n:'P038',d:'ONLINE',l:2898,r:[],b:'Monitor de aplicaciones MAPLI · S500P038'},
-  {n:'P045',d:'ONLINE',l:6847,r:[],b:'Proceso Teleton — gestión donaciones sucursales especiales · S500P045'},
-  {n:'P046',d:'ONLINE',l:51,r:[],b:'Stub ONLINE — envío de cancelaciones (ALGOL) · ALGOL-COMS'},
-  {n:'P050',d:'ONLINE',l:1834,r:[],b:'Activa Medios online · P050LIN'},
-  {n:'P055',d:'ONLINE',l:1665,r:[],b:'Proceso online 55 · P055LIN'},
-  {n:'P060',d:'ONLINE',l:379,r:[],b:'Servidor ECO Transit — integración TransIT OLTP · ECO-TRANSIT'},
-  {n:'P075',d:'ONLINE',l:238,r:[],b:'Notificación cambio de día → P080 via L080 · P075'},
-  {n:'P080',d:'ONLINE',l:9274,r:[],b:'Gestor Cuenta Ordenante online · S500P080'},
-  {n:'P091',d:'ONLINE',l:56,r:[],b:'Módulo asíncrono 91 (ALGOL) · ALGOL-ASYNC'},
-  {n:'P093',d:'ONLINE',l:57,r:[],b:'Módulo asíncrono 93 (ALGOL) · ALGOL-ASYNC'},
-  {n:'P280',d:'ONLINE',l:1649,r:[],b:'Servidor COMS terciario (instancia 3 — ver ANO-003) · LINCOMS'},
-  // BATCH-CAP — proceso batch de captación BD01CAPTACION (47 pgm)
-  {n:'P005',d:'BATCH-CAP',l:2667,r:[],b:'Proceso inicial S500 — archivos FILE-DEPTEM, FILE-DEPURADOS · P005'},
-  {n:'P100',d:'BATCH-CAP',l:593,r:[],b:'Obtención y validación de fecha de proceso · FECHA-DE-PROCESO'},
-  {n:'P101',d:'BATCH-CAP',l:817,r:[],b:'Proceso batch 101 · P101'},
-  {n:'P102',d:'BATCH-CAP',l:4728,r:[],b:'Manejo de include para BD · P102'},
-  {n:'P103',d:'BATCH-CAP',l:332,r:['CNBV'],b:'FraudLink — genera archivo S711 para sistema regulatorio · P103'},
-  {n:'P105',d:'BATCH-CAP',l:10278,r:[],b:'Proceso batch 105 · S500P105'},
-  {n:'P106',d:'BATCH-CAP',l:1350,r:[],b:'Modificación de archivos del sistema · MOD-ARCH'},
-  {n:'P107',d:'BATCH-CAP',l:2281,r:[],b:'Proceso batch 107 · P107'},
-  {n:'P108',d:'BATCH-CAP',l:1863,r:[],b:'Proceso batch 108 · P108'},
-  {n:'P109',d:'BATCH-CAP',l:2845,r:[],b:'Proceso batch 109 · P109'},
-  {n:'P110',d:'BATCH-CAP',l:5190,r:[],b:'Proceso batch 110 · S500P110'},
-  {n:'P115',d:'BATCH-CAP',l:2331,r:[],b:'Proceso batch 115 · P115'},
-  {n:'P117',d:'BATCH-CAP',l:2165,r:[],b:'Proceso batch 117 · P117'},
-  {n:'P120',d:'BATCH-CAP',l:4770,r:[],b:'Proceso batch 120 · P120'},
-  {n:'P121',d:'BATCH-CAP',l:466,r:[],b:'Actualización ACTB03 · ACTB03'},
-  {n:'P125',d:'BATCH-CAP',l:2460,r:[],b:'Proceso batch 125 · P125'},
-  {n:'P127',d:'BATCH-CAP',l:2927,r:[],b:'Proceso batch 127 · P127'},
-  {n:'P140',d:'BATCH-CAP',l:2427,r:[],b:'Monitor de aplicaciones en modo BATCH · S500BATCH'},
-  {n:'P155',d:'BATCH-CAP',l:1782,r:[],b:'Comparativo de balances (ver ANO-004) · COMPARATIVO'},
-  {n:'P160',d:'BATCH-CAP',l:2102,r:[],b:'Comparativo de balances 2 (ver ANO-004) · COMPARATIVO'},
-  {n:'P161',d:'BATCH-CAP',l:551,r:[],b:'Proceso batch 161 · S500P161'},
-  {n:'P164',d:'BATCH-CAP',l:2631,r:[],b:'Proceso batch 164 · P164'},
-  {n:'P165',d:'BATCH-CAP',l:5643,r:[],b:'Resultado de dispersión masiva de fondos · S500P165'},
-  {n:'P168',d:'BATCH-CAP',l:2097,r:[],b:'Proceso batch 168 · P168'},
-  {n:'P174',d:'BATCH-CAP',l:1112,r:[],b:'Generación de archivos DOS desde datos de captación · GENARCHSDOS'},
-  {n:'P176',d:'BATCH-CAP',l:1545,r:[],b:'Proceso batch 176 · S500P176'},
-  {n:'P178',d:'BATCH-CAP',l:1717,r:[],b:'Proceso batch 178 · S500P178'},
-  {n:'P179',d:'BATCH-CAP',l:486,r:[],b:'Proceso batch 179 · S500P179'},
-  {n:'P180',d:'BATCH-CAP',l:5038,r:[],b:'Reporteador general de movimientos y saldos · REPORTEADOR'},
-  {n:'P181',d:'BATCH-CAP',l:2044,r:[],b:'Proceso batch 181 · P181'},
-  {n:'P184',d:'BATCH-CAP',l:391,r:[],b:'Inventario CPE — Certificados de Participación · P184-INVCPE'},
-  {n:'P185',d:'BATCH-CAP',l:397,r:[],b:'Proceso batch 185 · P185'},
-  {n:'P186',d:'BATCH-CAP',l:5400,r:[],b:'Proceso batch 186 · P186'},
-  {n:'P187',d:'BATCH-CAP',l:1881,r:[],b:'Proceso batch 187 · P187'},
-  {n:'P188',d:'BATCH-CAP',l:1308,r:[],b:'Proceso batch 188 · P188'},
-  {n:'P189',d:'BATCH-CAP',l:2218,r:[],b:'Proceso batch 189 · P189'},
-  {n:'P190',d:'BATCH-CAP',l:1672,r:[],b:'Proceso batch 190 · P190'},
-  {n:'P191',d:'BATCH-CAP',l:3065,r:[],b:'Proceso batch 191 · S500P191'},
-  {n:'P195',d:'BATCH-CAP',l:2656,r:[],b:'Proceso batch 195 · P195'},
-  {n:'P197',d:'BATCH-CAP',l:4117,r:[],b:'Proceso batch 197 · P197'},
-  {n:'P199',d:'BATCH-CAP',l:1831,r:[],b:'Proceso batch 199 · P199'},
-  {n:'P200',d:'BATCH-CAP',l:1553,r:[],b:'Proceso batch 200 · P200'},
-  {n:'P290',d:'BATCH-CAP',l:2659,r:[],b:'Proceso batch 290 · S500P290'},
-  {n:'P305',d:'BATCH-CAP',l:1803,r:[],b:'Proceso batch 305 · S500P305'},
-  {n:'P310',d:'BATCH-CAP',l:1098,r:[],b:'Carga batch de datos · P310-CARGA'},
-  {n:'P320',d:'BATCH-CAP',l:1330,r:[],b:'Proceso batch 320 · P320'},
-  {n:'P330',d:'BATCH-CAP',l:7821,r:[],b:'Cálculos de productos especiales (inversiones, pagarés) · CALCULOS-PROD-ESP'},
-  // GL-LINK — programas con $SET S151REGISTRA, postean al GL S151 (4 pgm)
-  {n:'P130',d:'GL-LINK',l:15881,r:['CNBV'],b:'Proceso batch principal — integración GL via S151REGISTRA · P130'},
-  {n:'P142',d:'GL-LINK',l:14569,r:[],b:'Proceso batch crédito-captación — usa S151REGISTRA · P142'},
-  {n:'P144',d:'GL-LINK',l:14497,r:[],b:'Proceso batch crédito-captación 2 — usa S151REGISTRA · P144'},
-  {n:'P131',d:'GL-LINK',l:3394,r:[],b:'Proceso batch 131 · S500P131'},
-  // TARJETAS — programas BD04TARJETAS (4 pgm)
-  {n:'P420',d:'TARJETAS',l:983,r:[],b:'Concentrador de saldos para tarjetas · CONCENTRADOR-SALDOSTB'},
-  {n:'P430',d:'TARJETAS',l:1035,r:[],b:'Cuenta MAX 2da Etapa · S500P430'},
-  {n:'P629',d:'TARJETAS',l:655,r:[],b:'Carga de BD06 TELETON (migrado de S501) · P629'},
-  {n:'P630',d:'TARJETAS',l:1359,r:[],b:'Tarjetas intercambiables (migrado de S501/P110) · S500P630'},
-  // LIBRARY — librerías compartidas (15 pgm)
-  {n:'L010',d:'LIBRARY',l:13806,r:[],b:'Librería de control principal — ciclo de vida de transacciones · L010-CONTROL'},
-  {n:'L019',d:'LIBRARY',l:573,r:[],b:'Librería de consulta de saldos (ALGOL) · L019-SALDOS'},
-  {n:'L030',d:'LIBRARY',l:981,r:[],b:'Librería de gestión de tiempos · L030-TIEMPOS'},
-  {n:'L035',d:'LIBRARY',l:5401,r:[],b:'Librería MAPLI — mapeo de aplicaciones · L035-MAPLI'},
-  {n:'L039',d:'LIBRARY',l:11747,r:[],b:'Librería de acceso BD04TARJETAS (ALGOL) · L039-ACCESOBD04'},
-  {n:'L040',d:'LIBRARY',l:371,r:[],b:'Librería LIGAS — vínculos entre cuentas (ALGOL) · L040-LIGAS'},
-  {n:'L045',d:'LIBRARY',l:72,r:[],b:'Librería Teleton (ALGOL) · L045-TELETON'},
-  {n:'L046',d:'LIBRARY',l:300,r:[],b:'Librería de revocación (ALGOL) · L046-REVOCA'},
-  {n:'L050',d:'LIBRARY',l:6400,r:[],b:'Librería de utilidades generales (ALGOL) · L050'},
-  {n:'L060',d:'LIBRARY',l:252,r:[],b:'Librería de consulta de formatos (ALGOL) · L060-CONSULFOR'},
-  {n:'L070',d:'LIBRARY',l:353,r:[],b:'Librería de utilidades 70 (ALGOL) · L070'},
-  {n:'L080',d:'LIBRARY',l:1671,r:[],b:'Librería de utilidades 80 — notificación P080 · L080'},
-  {n:'L081',d:'LIBRARY',l:2800,r:[],b:'Librería de utilidades 81 · L081'},
-  {n:'L091',d:'LIBRARY',l:514,r:[],b:'Librería comunicaciones asíncronas 91 · L091-ASINCRONA'},
-  {n:'L093',d:'LIBRARY',l:515,r:[],b:'Librería comunicaciones asíncronas 93 · L093-ASINCRONA'},
-  // ANOMALIAS — archivos con anomalías de source detectadas (5 pgm)
-  {n:'P335',d:'ANOMALIAS',l:5099,r:[],b:'ANOMALÍA: filename P335 pero PID=S500P400 (cruzado) · S500P400-ANO002'},
-  {n:'P400',d:'ANOMALIAS',l:1034,r:[],b:'ANOMALÍA: filename P400 pero PID=P335-EDOCTA (Estado de Cuenta) · P335-EDOCTA-ANO002'},
-  {n:'P104',d:'ANOMALIAS',l:4511,r:[],b:'TEMPLATE/PLACEHOLDER — PID=S500PXXX · S500PXXX-ANO005'},
-  {n:'P170',d:'ANOMALIAS',l:3482,r:[],b:'ARCHIVO BINARIO — EBCDIC sin conversión · BINARIO-ANO006'},
-  {n:'P315',d:'ANOMALIAS',l:2067,r:[],b:'ARCHIVO BINARIO — EBCDIC sin conversión · BINARIO-ANO006'},
+const S500_GRAPH = '../data/S500/dependency-graph-s500.json';
+const S151_GRAPH = '../data/S151/dependency-graph-s151.json';
+
+// Programas regulatorios — requieren golden master obligatorio
+const REG_PGMS = new Set([
+  'P130','P142','P144','P109','P151','P158',
+  'P108','P131','P150','P107','P167','P169',
+]);
+
+// Excepciones: programas con IDs que no siguen el patrón L→ALGOL
+const ALGOL_EXCEPTIONS = new Set(['P810']);
+
+// Config por dominio: sistema origen, nombre de dominio en el JSON, color
+const DOM_CONFIG = {
+  'd_s500_captacion':    {system:'s500', domain:'CAPTACION',    color:'#1e6878'},
+  'd_s500_control':      {system:'s500', domain:'CONTROL',      color:'#1e3a5e'},
+  'd_s500_tarjetas':     {system:'s500', domain:'TARJETAS',     color:'#3a2a5e'},
+  'd_s151_contabilidad': {system:'s151', domain:'CONTABILIDAD', color:'#1a4a3a'},
+  'd_s151_movimientos':  {system:'s151', domain:'MOVIMIENTOS',  color:'#3a3018'},
+  'd_s151_control':      {system:'s151', domain:'CONTROL',      color:'#1a3048'},
+  'd_s151_reportes':     {system:'s151', domain:'REPORTES',     color:'#38245a'},
+  'd_s151_ajustes':      {system:'s151', domain:'AJUSTES',      color:'#4a1a1a'},
+};
+
+// ── NODOS BASE (siempre visibles) ─────────────────────────────
+const baseNodes = [
+  // SISTEMAS
+  {id:'s500', label:'S500\nCargos & Abonos', type:'sistema', system:'s500',
+   color:'#122830', loc:898596, critical:true,
+   notes:'114 programas · 898K LOC · OLTP + BATCH nocturno · BD01CAPTACION · Cuentas de cheque/ahorro Banamex'},
+  {id:'s151', label:'S151\nMovimentos Contables', type:'sistema', system:'s151',
+   color:'#0e2a20', loc:444992, critical:true,
+   notes:'104 programas · 445K LOC · BATCH nocturno · General Ledger Banamex · CNBV reportes · Receptor de S500 vía S151REGISTRA'},
+
+  // DOMINIOS S500
+  {id:'d_s500_captacion', label:'CAPTACIÓN\n72 pgm', type:'dominio', system:'s500', domain:'CAPTACION',
+   color:'#1e6878', loc:593608,
+   notes:'72 programas · 594K LOC · BD01CAPTACION principal · Cuentas de ahorro, cheques, depósitos · Núcleo transaccional del sistema · P130/P142/P144 postean al GL'},
+  {id:'d_s500_control', label:'CONTROL\n41 pgm', type:'dominio', system:'s500', domain:'CONTROL',
+   color:'#1e3a5e', loc:304988,
+   notes:'41 programas · Servidores COMS (P010/P020/P280) · Monitor MAPLI · WFL LINEA y REORG · Orquestación del sistema online y batch'},
+  {id:'d_s500_tarjetas', label:'TARJETAS\n1 pgm', type:'dominio', system:'s500', domain:'TARJETAS',
+   color:'#3a2a5e', loc:2692,
+   notes:'BD04TARJETAS · 1 programa · Pre-registro de tarjetas débito asociadas a cuentas de captación · L039_ACCESOBD04'},
+
+  // DOMINIOS S151
+  {id:'d_s151_contabilidad', label:'CONTABILIDAD\n40 pgm', type:'dominio', system:'s151', domain:'CONTABILIDAD',
+   color:'#1a4a3a', loc:180000, reg:['CNBV'],
+   notes:'40 programas · General Ledger bancario · BD02ADSALDO · BD11SDOS151 · Destino de asientos desde S500 vía S151REGISTRA · Reportes regulatorios CNBV'},
+  {id:'d_s151_movimientos', label:'MOVIMIENTOS\n27 pgm', type:'dominio', system:'s151', domain:'MOVIMIENTOS',
+   color:'#3a3018', loc:120000,
+   notes:'27 programas · BD10MOVDIA151 · Movimientos contables diarios · P010/P050/P052 del GL · Consultas desde S500 y sistemas externos'},
+  {id:'d_s151_control', label:'CONTROL\n21 pgm', type:'dominio', system:'s151', domain:'CONTROL',
+   color:'#1a3048', loc:90000,
+   notes:'21 programas · ALGOL L002R2/R3/R4/R5 · L011/L012 · WFL LOTE 25MTP003 · Orquestación batch nocturno del GL'},
+  {id:'d_s151_reportes', label:'REPORTES\n13 pgm', type:'dominio', system:'s151', domain:'REPORTES',
+   color:'#38245a', loc:40000, reg:['CNBV'],
+   notes:'13 programas · P606 · Generación de reportes regulatorios CNBV · Fuente de información de supervisión bancaria'},
+  {id:'d_s151_ajustes', label:'AJUSTES\n3 pgm', type:'dominio', system:'s151', domain:'AJUSTES',
+   color:'#4a1a1a', loc:10000,
+   notes:'3 programas · P360 · P330 · Ajustes contables y correcciones al libro mayor General Ledger'},
+
+  // INTERFACES CRÍTICAS
+  {id:'ext_s151reg', label:'S151REGISTRA\nInterface GL', type:'externo-crit', color:'#3a1208',
+   notes:'Interface crítica S500 → S151 · Usada por P130, P142, P144 en BATCH nocturno · Postea asientos contables al General Ledger · Audit trail regulatorio CNBV · Golden master ≥ 99.99% obligatorio'},
+
+  // EXTERNOS REGULATORIOS
+  {id:'ext_cnbv', label:'CNBV · S711\nFraudLink', type:'externo-reg', color:'#6B2020',
+   notes:'S711 FraudLink · P103 genera archivo de movimientos (claves 2001/2444/2496) desde BD01CAPTACION · Reporte regulatorio CNBV · Equivalencia ≥ 99.99%'},
+
+  // EXTERNOS TÉCNICOS
+  {id:'ext_s006', label:'S006\nLOCSUP / Cal.', type:'externo-tech', color:'#1a2a5e',
+   notes:'S006LOCSUP · Localidades, sucursales y calendarios bancarios · Usado por P010, P005, L010_CONTROL · Fechas de proceso operativo'},
+  {id:'ext_s080', label:'S080\nUDIs / Tarifas', type:'externo-tech', color:'#1a2a5e',
+   notes:'S080BD01CON · Cotización de UDIs · Tarifas bancarias · Usado por P080 (Cuenta Ordenante) y L010_CONTROL'},
+  {id:'ext_s408', label:'S408\nCrédito', type:'externo-tech', color:'#1a2a5e',
+   notes:'S408LINCRED · Librería de crédito · P142 y P144 (proceso crédito-captación) · Cross-reference entre captación y crédito'},
 ];
 
-let hiddenDoms=new Set();
-let selPgm=null;
+// ── ARISTAS BASE (nivel sistema/dominio) ──────────────────────
+const baseEdges = [
+  // S500 contiene sus dominios
+  {source:'s500', target:'d_s500_captacion', type:'contains'},
+  {source:'s500', target:'d_s500_control',   type:'contains'},
+  {source:'s500', target:'d_s500_tarjetas',  type:'contains'},
+  // S151 contiene sus dominios
+  {source:'s151', target:'d_s151_contabilidad', type:'contains'},
+  {source:'s151', target:'d_s151_movimientos',  type:'contains'},
+  {source:'s151', target:'d_s151_control',      type:'contains'},
+  {source:'s151', target:'d_s151_reportes',     type:'contains'},
+  {source:'s151', target:'d_s151_ajustes',      type:'contains'},
 
-function domLOC(){
-  const t={};
-  PGMS.forEach(p=>{t[p.d]=(t[p.d]||0)+p.l;});
-  return t;
+  // INTEGRACIÓN CRÍTICA: S500 CAPTACION → S151 GL vía S151REGISTRA
+  {source:'d_s500_captacion', target:'ext_s151reg',         type:'cross-sys'},
+  {source:'ext_s151reg',      target:'d_s151_contabilidad', type:'cross-sys'},
+
+  // S151 flujos internos (nivel dominio)
+  {source:'d_s151_movimientos', target:'d_s151_contabilidad', type:'calls'},
+  {source:'d_s151_control',     target:'d_s151_movimientos',  type:'calls'},
+  {source:'d_s151_control',     target:'d_s151_contabilidad', type:'calls'},
+  {source:'d_s151_ajustes',     target:'d_s151_contabilidad', type:'calls'},
+  {source:'d_s151_reportes',    target:'d_s151_movimientos',  type:'calls'},
+
+  // Externos
+  {source:'d_s500_captacion', target:'ext_cnbv',  type:'depends-on'},
+  {source:'d_s500_captacion', target:'ext_s408',  type:'depends-on'},
+  {source:'d_s500_control',   target:'ext_s006',  type:'depends-on'},
+  {source:'d_s500_control',   target:'ext_s080',  type:'depends-on'},
+  {source:'d_s151_reportes',  target:'ext_cnbv',  type:'depends-on'},
+];
+
+// ════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════
+let CG_S500 = null;
+let CG_S151 = null;
+let expandedDom = null;
+let dynNodes = [];
+let dynEdges = [];
+let selectedId = null;
+
+const nodeMap = {};
+baseNodes.forEach(n => nodeMap[n.id] = n);
+
+const TYPE_LABELS = {
+  sistema:       'Sistema Unisys ClearPath MCP',
+  dominio:       'Dominio funcional',
+  cobol:         'Programa COBOL',
+  algol:         'Librería ALGOL',
+  wfl:           'Job WFL (orquestador batch)',
+  dasdl:         'Schema DMSII (base de datos)',
+  inc:           'Include / Copybook',
+  'externo-crit':'Interface crítica cross-system',
+  'externo-reg': 'Sistema externo regulatorio',
+  'externo-tech':'Sistema externo tecnológico',
+};
+
+// ── RADIOS ────────────────────────────────────────────────────
+function r(d) {
+  if (d.type === 'sistema')      return Math.max(24, 15 + Math.sqrt(d.loc / 3000));
+  if (d.type === 'dominio')      return Math.max(15, 8  + Math.sqrt(d.loc / 2200));
+  if (d.type === 'cobol')        return Math.max(4,  3  + Math.sqrt((d.loc || 200) / 900));
+  if (d.type === 'algol')        return Math.max(4,  3  + Math.sqrt((d.loc || 200) / 900));
+  if (d.type === 'wfl')          return 8;
+  if (d.type === 'dasdl')        return 9;
+  if (d.type === 'inc')          return 5;
+  if (d.type === 'externo-crit') return 13;
+  if (d.type === 'externo-reg')  return 10;
+  if (d.type === 'externo-tech') return 9;
+  return 5;
 }
-function buildBars(){
-  const totals=domLOC();
-  const mx=Math.max(...Object.values(totals));
-  document.getElementById('bars').innerHTML=Object.entries(DOMLBL).map(([k,v])=>`
-    <div class="bar-row">
-      <span class="bar-lbl" title="${v}">${v}</span>
-      <div class="bar-bg"><div class="bar-fill" style="width:${100*totals[k]/mx}%;background:${COLORS[k]}"></div></div>
-      <span class="bar-v">${(totals[k]/1000).toFixed(0)}K</span>
-    </div>`).join('');
+
+// ── CLASIFICAR PROGRAMA ───────────────────────────────────────
+function classifyPgm(node) {
+  const lay = (node.layer || '').toUpperCase();
+  const id  = node.id || '';
+  if (lay === 'WFL')   return 'wfl';
+  if (lay === 'DA')    return 'dasdl';
+  if (lay === 'INC')   return 'inc';
+  if (lay === 'UTIL')  return 'algol';
+  // BL y ONLINE: ALGOL si el ID comienza con L+dígito, o es excepción conocida
+  if (/^L\d/.test(id) || ALGOL_EXCEPTIONS.has(id)) return 'algol';
+  return 'cobol';
 }
-function buildLeg(){
-  const domCnts={};PGMS.forEach(p=>{domCnts[p.d]=(domCnts[p.d]||0)+1;});
-  document.getElementById('leg').innerHTML=Object.entries(DOMLBL).map(([k,v])=>`
-    <div class="leg-row" id="lr-${k}" onclick="toggleDom('${k}')">
-      <i style="background:${COLORS[k]}"></i>
-      <span class="ln">${v}</span>
-      <span class="lc">${domCnts[k]} pgm</span>
-    </div>`).join('');
+
+function pgmColor(node, domColor) {
+  const t = classifyPgm(node);
+  if (t === 'wfl')   return '#7a5020';
+  if (t === 'dasdl') return '#405828';
+  if (t === 'inc')   return '#3a3a18';
+  if (t === 'algol') return '#1a5070';
+  return domColor; // cobol hereda el color del dominio
 }
-function toggleDom(k){
-  if(hiddenDoms.has(k))hiddenDoms.delete(k);else hiddenDoms.add(k);
-  document.getElementById('lr-'+k).classList.toggle('off',hiddenDoms.has(k));
-  render();
-}
-function visible(){
-  const onlyReg=document.getElementById('fReg').checked;
-  const onlyLarge=document.getElementById('fLarge').checked;
-  return PGMS.filter(p=>{
-    if(hiddenDoms.has(p.d))return false;
-    if(onlyReg&&!p.r.length)return false;
-    if(onlyLarge&&p.l<=2000)return false;
-    return true;
-  });
-}
-function render(){
-  const svg=document.getElementById('svg');
-  const W=document.getElementById('chart').clientWidth;
-  const H=document.getElementById('chart').clientHeight;
-  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
-  while(svg.firstChild)svg.removeChild(svg.firstChild);
-  const pgms=visible();
-  const regCount=pgms.filter(p=>p.r.length).length;
-  document.getElementById('t-reg').textContent=PGMS.filter(p=>p.r.length).length;
-  if(!pgms.length){const t=document.createElementNS('http://www.w3.org/2000/svg','text');t.setAttribute('x',W/2);t.setAttribute('y',H/2);t.setAttribute('fill','#7fb8c8');t.setAttribute('text-anchor','middle');t.setAttribute('font-size','13');t.textContent='Sin programas visibles — ajusta los filtros';svg.appendChild(t);return;}
 
-  // Agrupar por dominio preservando orden canónico
-  const domOrder=['ONLINE','BATCH-CAP','GL-LINK','TARJETAS','LIBRARY','ANOMALIAS'];
-  const groups=domOrder.filter(d=>!hiddenDoms.has(d)).map(d=>({
-    key:d,children:pgms.filter(p=>p.d===d)
-  })).filter(g=>g.children.length);
+// ── SVG SETUP ─────────────────────────────────────────────────
+const svgEl = document.getElementById('svg');
+const W = svgEl.clientWidth  || (window.innerWidth  - 240);
+const H = svgEl.clientHeight || window.innerHeight;
+const svg = d3.select('#svg').attr('viewBox', `0 0 ${W} ${H}`);
+const g = svg.append('g');
 
-  const root=d3.hierarchy({children:groups.map(g=>({...g,children:g.children.map(p=>({...p,value:p.l}))}))})
-    .sum(d=>d.value||0)
-    .sort((a,b)=>b.value-a.value);
+const zoomBehavior = d3.zoom().scaleExtent([.05, 8])
+  .on('zoom', e => g.attr('transform', e.transform));
+svg.call(zoomBehavior);
+svg.on('click', e => {
+  if (e.target === svgEl || e.target.tagName === 'svg') {
+    setSelected(null);
+    document.getElementById('tip').style.display = 'none';
+    document.querySelectorAll('.dom-btn').forEach(b => b.classList.remove('active'));
+  }
+});
 
-  d3.treemap().size([W,H]).padding(2).paddingTop(18).paddingInner(1)(root);
+// Centros de los dos sistemas (fijos en el SVG)
+const CX_S500 = W * 0.30, CY_S500 = H * 0.50;
+const CX_S151 = W * 0.70, CY_S151 = H * 0.50;
+const RING_R  = Math.min(W, H) * 0.22;
 
-  const svgEl=d3.select('#svg');
+// Scope rings
+g.append('circle').attr('class','scope-ring s500')
+  .attr('cx',CX_S500).attr('cy',CY_S500).attr('r',RING_R);
+g.append('text').attr('class','scope-label s500')
+  .attr('x',CX_S500).attr('y',CY_S500 - RING_R - 11)
+  .text('S500 — CARGOS & ABONOS');
+g.append('circle').attr('class','scope-ring s151')
+  .attr('cx',CX_S151).attr('cy',CY_S151).attr('r',RING_R);
+g.append('text').attr('class','scope-label s151')
+  .attr('x',CX_S151).attr('y',CY_S151 - RING_R - 11)
+  .text('S151 — GL MOVIMIENTOS CONTABLES');
 
-  // Grupos de dominio
-  root.children.forEach(gnode=>{
-    const k=gnode.data.key;
-    const col=COLORS[k];
-    // dominio label
-    const lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
-    lbl.setAttribute('class','dom-lbl');
-    lbl.setAttribute('x',gnode.x0+5);
-    lbl.setAttribute('y',gnode.y0+12);
-    lbl.textContent=DOMLBL[k];
-    svg.appendChild(lbl);
+// Arrowheads
+const defs = svg.append('defs');
+[
+  {id:'arr-cross', c:'#C1272D'},
+  {id:'arr-calls', c:'#4a8a9a'},
+  {id:'arr-dep',   c:'#a08830'},
+].forEach(m => {
+  defs.append('marker').attr('id', m.id)
+    .attr('viewBox','0 -4 8 8').attr('refX',14).attr('refY',0)
+    .attr('markerWidth',5).attr('markerHeight',5).attr('orient','auto')
+    .append('path').attr('d','M0,-4L8,0L0,4').attr('fill',m.c).attr('opacity',.7);
+});
 
-    (gnode.children||[]).forEach(node=>{
-      const p=node.data;
-      const w=node.x1-node.x0,h=node.y1-node.y0;
-      const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
-      rect.setAttribute('class','cell');
-      rect.setAttribute('x',node.x0);rect.setAttribute('y',node.y0);
-      rect.setAttribute('width',w);rect.setAttribute('height',h);
-      rect.setAttribute('fill',col);rect.setAttribute('opacity',p.r.length?'0.95':'0.7');
-      rect.setAttribute('stroke',p.r.length?'#fdba74':'rgba(255,255,255,.08)');
-      rect.setAttribute('stroke-width',p.r.length?'1.5':'0.5');
-      rect.setAttribute('rx','2');
-      rect.addEventListener('mouseenter',()=>rect.setAttribute('class','cell glow'));
-      rect.addEventListener('mouseleave',()=>rect.setAttribute('class','cell'));
-      rect.addEventListener('click',()=>showDetail(p,col));
-      svg.appendChild(rect);
-      if(w>36&&h>14){
-        const t=document.createElementNS('http://www.w3.org/2000/svg','text');
-        t.setAttribute('class','cell-lbl');
-        t.setAttribute('x',node.x0+3);t.setAttribute('y',node.y0+3);
-        t.setAttribute('clip-path',`inset(0 ${Math.max(0,42-w)}px)`);
-        t.textContent=p.n;
-        svg.appendChild(t);
-      }
-      if(w>60&&h>24){
-        const s=document.createElementNS('http://www.w3.org/2000/svg','text');
-        s.setAttribute('class','cell-sub');
-        s.setAttribute('x',node.x0+3);s.setAttribute('y',node.y0+14);
-        s.textContent=(p.l/1000).toFixed(1)+'K LOC'+(p.r.length?' · REG':'');
-        svg.appendChild(s);
-      }
+// Fix sistema nodes at center of each ring
+const s500Node = baseNodes.find(n => n.id === 's500');
+const s151Node = baseNodes.find(n => n.id === 's151');
+s500Node.fx = CX_S500; s500Node.fy = CY_S500;
+s151Node.fx = CX_S151; s151Node.fy = CY_S151;
+
+// ── FORCE SIMULATION ──────────────────────────────────────────
+const sim = d3.forceSimulation()
+  .force('link', d3.forceLink().id(d => d.id)
+    .distance(l => {
+      const stype = nodeMap[l.source.id || l.source]?.type;
+      const ttype = nodeMap[l.target.id || l.target]?.type;
+      if (l.type === 'cross-sys')  return 260;
+      if (l.type === 'depends-on') return 190;
+      if (stype === 'sistema' && ttype === 'dominio') return 90;
+      if (stype === 'dominio' && ['cobol','algol','wfl','dasdl','inc'].includes(ttype)) return 52;
+      if (l.type === 'calls' && stype === 'dominio')  return 70;
+      if (l.type === 'calls')  return 48;
+      if (l.type === 'uses')   return 38;
+      return 120;
+    })
+    .strength(l => {
+      const stype = nodeMap[l.source.id || l.source]?.type;
+      if (l.type === 'depends-on') return 0.04;
+      if (l.type === 'cross-sys')  return 0.07;
+      if (stype === 'sistema')     return 0.10;
+      if (stype === 'dominio' && l.type === 'contains') return 0.72; // programa se pega a su dominio
+      if (l.type === 'calls' || l.type === 'uses')      return 0.35;
+      return 0.12;
+    }))
+  .force('charge', d3.forceManyBody().strength(d => {
+    if (d.type === 'sistema')       return -1400;
+    if (d.type === 'dominio')       return -550;
+    if (d.type === 'externo-crit')  return -220;
+    if (d.type === 'externo-reg')   return -180;
+    if (d.type === 'externo-tech')  return -150;
+    return -42;
+  }))
+  // Dominios orbitan alrededor de su sistema
+  .force('radial-s500-doms', d3.forceRadial(RING_R * 0.52, CX_S500, CY_S500)
+    .strength(d => (d.system === 's500' && d.type === 'dominio') ? 0.18 : 0))
+  .force('radial-s151-doms', d3.forceRadial(RING_R * 0.52, CX_S151, CY_S151)
+    .strength(d => (d.system === 's151' && d.type === 'dominio') ? 0.18 : 0))
+  // Externos se empujan a la periferia
+  .force('radial-ext', d3.forceRadial(Math.min(W,H) * 0.52, W / 2, H / 2)
+    .strength(d => ['externo-crit','externo-reg','externo-tech'].includes(d.type) ? 0.20 : 0))
+  .force('collision', d3.forceCollide(d => r(d) + 3).iterations(3))
+  .on('tick', ticked);
+
+// ── CAPAS SVG ─────────────────────────────────────────────────
+const linkG = g.append('g');
+const nodeG = g.append('g');
+let linkSel = linkG.selectAll('line');
+let nodeSel = nodeG.selectAll('g.node');
+
+function allNodes() { return baseNodes.concat(dynNodes); }
+function allEdges() { return baseEdges.concat(dynEdges); }
+const edgeKey = e => `${e.source.id||e.source}__${e.target.id||e.target}__${e.type}`;
+
+function restart() {
+  const N = allNodes(), E = allEdges();
+  N.forEach(n => nodeMap[n.id] = n);
+
+  // LINKS
+  linkSel = linkG.selectAll('line').data(E, edgeKey);
+  linkSel.exit().remove();
+  linkSel = linkSel.enter().append('line')
+    .attr('class', d => `link ${d.type}`)
+    .attr('marker-end', d =>
+      d.type === 'cross-sys'  ? 'url(#arr-cross)' :
+      d.type === 'calls'      ? 'url(#arr-calls)' :
+      d.type === 'depends-on' ? 'url(#arr-dep)'   : null)
+    .attr('stroke-width', d => d.type === 'cross-sys' ? 2.2 : null)
+    .merge(linkSel);
+
+  // NODES
+  nodeSel = nodeG.selectAll('g.node').data(N, d => d.id);
+  nodeSel.exit().remove();
+  const ent = nodeSel.enter().append('g')
+    .attr('class', d => ['node', d.type, d.critical ? 'critical' : ''].filter(Boolean).join(' '))
+    .call(d3.drag()
+      .on('start', (e,d) => { if (!e.active) sim.alphaTarget(.3).restart(); d.fx=d.x; d.fy=d.y; })
+      .on('drag',  (e,d) => { d.fx=e.x; d.fy=e.y; })
+      .on('end',   (e,d) => { if (!e.active) sim.alphaTarget(0);
+        // sistemas quedan fijos; el resto libres tras drag
+        if (d.type !== 'sistema') { d.fx=null; d.fy=null; }
+      }));
+
+  ent.append('circle')
+    .attr('r', r)
+    .attr('fill', d => d.color || '#2a4a5a')
+    .attr('stroke', d =>
+      d.type === 'sistema'       ? 'rgba(255,255,255,.45)' :
+      d.type === 'dominio'       ? 'rgba(255,255,255,.25)' :
+      d.type === 'externo-crit'  ? '#C1272D'               :
+      d.type === 'dasdl'         ? '#6CC5D8'               :
+      'rgba(255,255,255,.10)')
+    .attr('stroke-width', d =>
+      d.type === 'externo-crit' ? 1.8 :
+      d.type === 'dasdl'        ? 1.4 :
+      d.type === 'sistema'      ? 1.8 : null)
+    .on('click',     (e,d) => { e.stopPropagation(); clickNode(d); })
+    .on('mouseover', (e,d) => showTip(e,d));
+
+  ent.append('text')
+    .attr('dy', d => r(d) + 3)
+    .style('font-size', d =>
+      d.type === 'sistema' ? '11px' :
+      d.type === 'dominio' ? '9.5px' : '7.5px')
+    .style('font-weight', d =>
+      (d.type === 'sistema' || d.type === 'dominio') ? '700' : '400')
+    .each(function(d) {
+      const sel = d3.select(this), parts = d.label.split('\n');
+      if (parts.length > 1) {
+        sel.selectAll('tspan').data(parts).join('tspan')
+          .attr('x', 0)
+          .attr('dy', (_, i) => i === 0 ? 0 : '1.1em')
+          .text(s => s);
+      } else { sel.text(d.label); }
     });
+
+  nodeSel = ent.merge(nodeSel);
+  sim.nodes(N);
+  sim.force('link').links(E);
+  sim.alpha(0.75).restart();
+}
+
+function ticked() {
+  linkSel
+    .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+    .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+  nodeSel.attr('transform', d => `translate(${d.x},${d.y})`);
+}
+
+// ════════════════════════════════════════════════════════════════
+// DRILL-DOWN — expandir programas de un dominio
+// ════════════════════════════════════════════════════════════════
+function collapse() {
+  if (!expandedDom) return;
+  dynNodes = []; dynEdges = [];
+  const prev = expandedDom; expandedDom = null;
+  document.querySelector(`.dom-btn[data-dom="${prev}"]`)?.classList.remove('expanded');
+  restart();
+}
+
+function expandDomain(domId) {
+  if (expandedDom === domId) { collapse(); return; }
+  collapse();
+
+  const cfg = DOM_CONFIG[domId];
+  if (!cfg) return;
+  const cg = cfg.system === 's500' ? CG_S500 : CG_S151;
+  if (!cg) { return; } // datos aún no cargados
+
+  const pgms   = cg.nodes.filter(n => n.domain === cfg.domain);
+  const pgmSet = new Set(pgms.map(p => p.id));
+
+  dynNodes = pgms.map(p => ({
+    id:     `${cfg.system}:${p.id}`,
+    label:  p.id,
+    type:   classifyPgm(p),
+    color:  pgmColor(p, cfg.color),
+    system: cfg.system,
+    domain: cfg.domain,
+    domId:  domId,
+    loc:    p.loc,
+    layer:  p.layer,
+    access: p.access,
+    reg:    REG_PGMS.has(p.id),
+    notes:
+      `${p.layer} · ${(p.loc||0).toLocaleString('es-MX')} LOC · acceso DMSII: ${p.access||'none'}` +
+      (REG_PGMS.has(p.id) ? ' · ⚑ Regulatorio — golden master ≥ 99.99% obligatorio' : ''),
+  }));
+
+  dynEdges = [];
+  // dominio → programa
+  pgms.forEach(p => dynEdges.push({source: domId, target: `${cfg.system}:${p.id}`, type:'contains'}));
+
+  // aristas intra-dominio (calls, uses, library)
+  cg.edges.forEach(e => {
+    if (!pgmSet.has(e.from) || !pgmSet.has(e.to)) return;
+    const sid = `${cfg.system}:${e.from}`;
+    const tid = `${cfg.system}:${e.to}`;
+    const t = e.type === 'call' ? 'calls' : 'uses';
+    dynEdges.push({source: sid, target: tid, type: t});
+  });
+
+  // deduplicar aristas
+  const seen = new Set();
+  dynEdges = dynEdges.filter(e => {
+    const k = edgeKey(e);
+    if (seen.has(k)) return false;
+    seen.add(k); return true;
+  });
+
+  expandedDom = domId;
+  document.querySelector(`.dom-btn[data-dom="${domId}"]`)?.classList.add('expanded');
+  restart();
+  setTimeout(() => focusNode(domId, 1.3), 300);
+}
+
+// ════════════════════════════════════════════════════════════════
+// SELECCIÓN / TOOLTIP / INFO
+// ════════════════════════════════════════════════════════════════
+function getNeighborIds(id) {
+  const s = new Set([id]);
+  allEdges().forEach(e => {
+    const a = e.source.id || e.source, b = e.target.id || e.target;
+    if (a === id) s.add(b);
+    if (b === id) s.add(a);
+  });
+  return s;
+}
+
+function setSelected(id) {
+  selectedId = id;
+  if (!id) {
+    nodeSel.classed('dimmed', false).classed('selected', false);
+    linkSel.classed('dimmed', false).attr('class', d => `link ${d.type}`);
+    return;
+  }
+  const nb = getNeighborIds(id);
+  nodeSel.classed('dimmed',   d => !nb.has(d.id))
+         .classed('selected', d => d.id === id);
+  linkSel.each(function(d) {
+    const a = d.source.id || d.source, b = d.target.id || d.target;
+    const conn = (a === id || b === id);
+    d3.select(this).classed('dimmed', !conn)
+      .attr('class', !conn ? `link ${d.type} dimmed` : `link hl-${d.type}`);
   });
 }
 
-function showDetail(p,col){
-  selPgm=p;
-  const detail=document.getElementById('detail');
-  detail.innerHTML=`<div class="dh" style="color:${col}">${p.n}</div>
-    <div class="ds">${p.b}</div>
-    <div class="dm"><span>Dominio: <b>${DOMLBL[p.d]}</b></span><span>LOC: <b>${p.l.toLocaleString('es-MX')}</b></span></div>
-    ${p.r.length?`<div class="dr">${p.r.map(r=>`<span class="rtag">${r}</span>`).join('')}</div>`:'<div class="dr" style="color:var(--line)">Sin restricción regulatoria directa</div>'}`;
+function clickNode(d) {
+  if (d.type === 'sistema' || d.type === 'dominio') {
+    onDomBtn(d.id);
+    return;
+  }
+  if (selectedId === d.id) { setSelected(null); }
+  else { setSelected(d.id); showInfo(d); }
 }
 
-document.getElementById('fReg').addEventListener('change',render);
-document.getElementById('fLarge').addEventListener('change',render);
+function showTip(e, d) {
+  const tip = document.getElementById('tip');
+  const reg = d.reg
+    ? `<div class="tr" style="color:#fdba74">⚑ Regulatorio — golden master ≥ 99.99% obligatorio</div>` : '';
+  const sys = d.system
+    ? `<div class="tr">Sistema: <span>${d.system === 's500' ? 'S500 Cargos & Abonos' : 'S151 GL Contable'}</span></div>` : '';
+  const dom = d.domain
+    ? `<div class="tr">Dominio: <span>${d.domain}</span></div>` : '';
+  const loc = d.loc
+    ? `<div class="tr">LOC: <span>${d.loc.toLocaleString('es-MX')}</span></div>` : '';
+  const acc = (d.access && d.access !== 'none')
+    ? `<div class="tr">DMSII acceso: <span style="color:#86efac">${d.access}</span></div>` : '';
+  const expand = (d.type === 'sistema' || d.type === 'dominio')
+    ? `<div class="tr" style="color:var(--gold)">► Click para expandir programas</div>` : '';
+  tip.innerHTML = `
+    <span id="tip-close" onclick="document.getElementById('tip').style.display='none'">✕</span>
+    <div class="tt">${d.label.replace(/\n/g, ' ')}</div>
+    <div class="tr">Tipo: <span>${TYPE_LABELS[d.type] || d.type}</span></div>
+    ${sys}${dom}${loc}${acc}${reg}${expand}
+    <div class="tn">${d.notes || ''}</div>`;
+  tip.style.display = 'block';
+  tip.style.left = Math.min(e.pageX + 14, window.innerWidth - 310) + 'px';
+  tip.style.top  = Math.max(e.pageY - 10, 5) + 'px';
+}
 
-buildLeg();
-buildBars();
-window.addEventListener('resize',render);
+function showInfo(d) {
+  document.getElementById('ni-label').textContent = d.label.replace(/\n/g, ' ');
+  document.getElementById('ni-body').innerHTML = `
+    <div class="ni-row">Tipo: <span>${TYPE_LABELS[d.type] || d.type}</span></div>
+    ${d.system ? `<div class="ni-row">Sistema: <span>${d.system.toUpperCase()}</span></div>` : ''}
+    ${d.domain ? `<div class="ni-row">Dominio: <span>${d.domain}</span></div>` : ''}
+    ${d.loc    ? `<div class="ni-row">LOC: <span>${d.loc.toLocaleString('es-MX')}</span></div>` : ''}
+    ${d.layer  ? `<div class="ni-row">Layer: <span>${d.layer}</span></div>` : ''}
+    ${d.access && d.access !== 'none'
+      ? `<div class="ni-row">DMSII: <span style="color:#86efac">${d.access}</span></div>` : ''}
+    ${d.reg ? `<div class="ni-row" style="color:#fdba74">⚑ Golden master obligatorio</div>` : ''}
+    <div class="ni-notes">${d.notes || ''}</div>`;
+}
+
+function focusNode(id, scale = 1.4) {
+  const nd = nodeMap[id];
+  if (!nd || nd.x == null) return;
+  svg.transition().duration(600)
+    .call(zoomBehavior.transform,
+      d3.zoomIdentity.translate(W/2, H/2).scale(scale).translate(-nd.x, -nd.y));
+}
+
+// ════════════════════════════════════════════════════════════════
+// DOM BUTTON
+// ════════════════════════════════════════════════════════════════
+function onDomBtn(domId) {
+  document.querySelectorAll('.dom-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.dom-btn[data-dom="${domId}"]`)?.classList.add('active');
+  expandDomain(domId);
+}
+
+// ════════════════════════════════════════════════════════════════
+// CARGA DE DATOS E INICIALIZACIÓN
+// ════════════════════════════════════════════════════════════════
+Promise.all([
+  fetch(S500_GRAPH).then(r => r.json()),
+  fetch(S151_GRAPH).then(r => r.json()),
+]).then(([s500, s151]) => {
+  CG_S500 = s500;
+  CG_S151 = s151;
+  const st = document.getElementById('load-status');
+  st.className = 'ok';
+  st.textContent =
+    `✓ S500: ${s500.nodes.length} nodos · ${s500.edges.length} aristas  |  ` +
+    `S151: ${s151.nodes.length} nodos · ${s151.edges.length} aristas`;
+  // Ocultar hint después de un momento
+  setTimeout(() => {
+    document.getElementById('hint').style.opacity = '0';
+  }, 4000);
+}).catch(err => {
+  const st = document.getElementById('load-status');
+  st.className = 'err';
+  st.textContent = `Error cargando grafos: ${err.message} — servir vía HTTP, no file://`;
+});
+
+// Renderizar la vista base inmediatamente (sin esperar datos de drill-down)
+restart();
 </script>
-<script src="https://d3js.org/d3.v7.min.js" onload="render()"></script>
 </body>
 </html>

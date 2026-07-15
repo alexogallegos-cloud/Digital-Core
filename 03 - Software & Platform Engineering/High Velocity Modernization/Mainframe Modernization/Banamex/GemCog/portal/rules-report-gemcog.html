@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>GemCog · Reglas de Negocio — Banamex Unisys ClearPath MCP</title>
+<title>GemCog · Reglas de Negocio — S500 + S151 · Banamex Unisys ClearPath MCP</title>
 <style>
-:root{--bg:#071c23;--bg2:#0a2530;--panel:#0e2e3a;--line:#1a4555;--txt:#F0F8FA;--muted:#7fb8c8;--hbar:#6CC5D8;--red:#E8344A}
+:root{--bg:#071c23;--bg2:#0a2530;--panel:#0e2e3a;--line:#1a4555;--txt:#F0F8FA;--muted:#7fb8c8;--hbar:#6CC5D8;--red:#C1272D}
 *{box-sizing:border-box;margin:0;padding:0}
 body{display:flex;height:100vh;background:var(--bg);color:var(--txt);font-family:'Inter',system-ui,sans-serif;overflow:hidden;flex-direction:column}
 header{background:linear-gradient(135deg,#071c23,#0e2e3a);border-bottom:2px solid var(--hbar);padding:10px 18px;display:flex;align-items:center;gap:14px;flex-shrink:0}
@@ -39,6 +39,7 @@ td{padding:6px 12px;vertical-align:top;line-height:1.4}
 .td-desc{color:#c8dde4;max-width:340px;line-height:1.5}
 .td-line{font-family:'Cascadia Code','Consolas',monospace;font-size:9px;color:var(--muted)}
 .dom-REP{background:#2a1a0e;color:#fdba74}.dom-CTL{background:#0e2530;color:#6ee7b7}.dom-SEC{background:#1a0e2a;color:#c4b5fd}.dom-TAR{background:#0e2a3a;color:#7dd3fc}
+.dom-CON{background:#0e1225;color:#a5d8ff}.dom-MOV{background:#0e2510;color:#b8f5b8}.dom-CTL151{background:#25100e;color:#f5b8d8}
 #empty{display:flex;align-items:center;justify-content:center;padding:60px;color:var(--muted);font-size:13px;text-align:center}
 </style>
 </head>
@@ -46,13 +47,25 @@ td{padding:6px 12px;vertical-align:top;line-height:1.4}
 <header>
   <img src="../banamex-logo.png" alt="Banamex">
   <div>
-    <h1>Reglas de Negocio y Fórmulas · GemCog — Banamex Unisys ClearPath MCP</h1>
-    <div class="sub">COBOL IF / EVALUATE / COMPUTE / PERFORM · Business Logic Extraction · Etapa 3</div>
+    <h1>Reglas de Negocio y Fórmulas · GemCog — S500 + S151 · Banamex Unisys ClearPath MCP</h1>
+    <div class="sub">COBOL/ALGOL IF/EVALUATE/COMPUTE/PERFORM · Business Logic Extraction · Revalidado contra fuente 2026-07-14 · S500 (55 reglas · 5 programas) + S151 (23 reglas · 3 programas) · 13 fórmulas COMPUTE documentadas · ⚠ P015/P130 colisionan en ambos sistemas</div>
   </div>
 </header>
 <div id="ctrl">
   <span class="lbl">Dominio</span>
-  <select id="fDom"><option value="">Todos</option><option value="REP">REPORTERIA (FraudLink/S711)</option><option value="CTL">CONTROL (Fecha / Día)</option><option value="SEC">SEGURIDAD (Scrambling)</option><option value="TAR">TARJETAS (Teleton/AMEX)</option></select>
+  <select id="fDom"><option value="">Todos</option>
+    <optgroup label="── S500 Cargos y Abonos ──">
+      <option value="REP">REPORTERIA S500 (FraudLink/S711)</option>
+      <option value="CTL">CONTROL S500 (Fecha / Día)</option>
+      <option value="SEC">SEGURIDAD S500 (Scrambling)</option>
+      <option value="TAR">TARJETAS S500 (BD04 · Intercambio)</option>
+    </optgroup>
+    <optgroup label="── S151 Movimientos Contables GL ──">
+      <option value="CON">CONTABILIDAD GL (S151REGISTRA)</option>
+      <option value="MOV">MOVIMIENTOS S151 (Agrupador)</option>
+      <option value="CTL151">CONTROL-GL S151 (Base Semanal)</option>
+    </optgroup>
+  </select>
   <span class="lbl">Tipo</span>
   <select id="fType"><option value="">Todos</option><option value="IF">IF</option><option value="EVALUATE">EVALUATE</option><option value="COMPUTE">COMPUTE</option><option value="PERFORM">PERFORM</option><option value="CALL">CALL</option></select>
   <span class="lbl">Regulatorio</span>
@@ -78,156 +91,292 @@ td{padding:6px 12px;vertical-align:top;line-height:1.4}
 </div>
 <script>
 const RULES=[
-  // P103 — FRAUDLINK → S711/CNBV (PROGRAM-ID: P103, JUL/2005, 332 LOC)
-  {dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:160,type:'IF',
-   desc:'Al iniciar el proceso, se verifica que la versión del programa coincida con la registrada en el catálogo de versiones del banco. Si existe discrepancia, el proceso se cancela y no genera el archivo de reporte de fraude.',
-   reg:[]},
-  {dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:177,type:'IF',
-   desc:'Si el registro de control de la base de depósitos bancarios no puede leerse al inicio, el proceso se cancela sin generar el archivo de reporte de fraude hacia el sistema FraudLink de la CNBV.',
-   reg:['CNBV']},
-  {dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:219,type:'IF',
-   desc:'Para cada movimiento del día, si el resultado de búsqueda indica fin de archivo, el proceso concluye normalmente. Cualquier error distinto al fin de archivo provoca la cancelación del proceso de reporte.',
-   reg:[]},
-  {dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:229,type:'IF',
-   desc:'Los movimientos con estatus de cancelación o anulación son excluidos del reporte de fraude. Solo los movimientos con estatus vigente generan registro en el archivo FraudLink enviado a la CNBV.',
-   reg:['CNBV']},
-  {dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:241,type:'IF',
-   desc:'Los movimientos con código de transacción 2001, 2444 o 2496 se reportan al sistema de prevención de fraude FraudLink de la CNBV. El registro incluye sucursal de operación, medio de acceso, fecha de proceso, importe y número de referencia.',
-   reg:['CNBV']},
-  {dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:254,type:'IF',
-   desc:'Cada movimiento puede tener hasta 5 sub-movimientos secundarios. Si alguno de estos sub-movimientos tiene código de transacción 2001, 2444 o 2496, también genera un registro independiente en el archivo FraudLink de la CNBV.',
-   reg:['CNBV']},
-  {dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:237,type:'IF',
-   desc:'Si un movimiento tiene sub-movimientos registrados en la tabla de claves de movimientos adicionales, el proceso consulta hasta 10 entradas de esa tabla. Los sub-movimientos con código 2001, 2444 o 2496 generan registros adicionales en el archivo FraudLink.',
-   reg:['CNBV']},
-  {dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:300,type:'COMPUTE',
-   desc:'Cada registro de detalle generado en el archivo FraudLink acumula el importe de la transacción en el total del día. Al finalizar el proceso, se escribe un registro de cierre con el total de registros reportados y el importe acumulado.',
-   reg:['CNBV']},
 
-  // P100 — FECHA DE PROCESO (PROGRAM-ID: FECHA-DE-PROCESO, MAR96/AGO2018, 593 LOC)
-  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:95,type:'IF',
-   desc:'Si el proceso se ejecuta en el servidor de desarrollo, se omite la verificación de versión y se habilita el modo de diagnóstico. En todos los demás ambientes, la verificación de versión contra el catálogo del banco es obligatoria.',
-   reg:[]},
-  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:160,type:'IF',
-   desc:'Si la versión del programa no coincide con el catálogo de versiones del banco (en ambientes distintos a desarrollo), el proceso se cancela y no devuelve ninguna fecha de proceso al workflow solicitante.',
-   reg:[]},
-  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:285,type:'IF',
-   desc:'Cuando se solicita la fecha de la última aplicación de archivo (opción 3 sin días de retroceso), el proceso consulta la base de datos de tarjetas de débito en lugar de la base de captación. En cualquier otra opción, consulta la base de captación.',
-   reg:[]},
-  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:333,type:'IF',
-   desc:'Si el registro de control de la base de captación está vacío o no existe, el proceso se cancela de forma irrecuperable. Sin este registro no es posible calcular ninguna fecha de proceso, ya que contiene la fecha de línea y el número de nodo del banco.',
-   reg:[]},
-  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:176,type:'IF',
-   desc:'Cuando se solicita el nodo especial de la base (opción 31), el proceso retorna el valor almacenado en el campo de uso futuro del registro de control sin calcular fecha alguna. Esta opción se usa para identificar el nodo de procesamiento activo.',
-   reg:[]},
-  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:176,type:'IF',
-   desc:'Si se proporciona una combinación inválida de parámetros (opción con valor y días de retroceso simultáneamente, o valores fuera del rango definido), el proceso retorna la fecha de línea del registro de control sin cálculo adicional.',
-   reg:[]},
-  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:375,type:'IF',
-   desc:'En la opción de captura manual de fecha (opción 5), el proceso solicita la fecha al operador y valida que el año esté entre 1989 y 2999, el mes entre 1 y 12, y el día entre 1 y 31. Si la fecha es inválida, la solicita nuevamente.',
-   reg:[]},
-  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:377,type:'IF',
-   desc:'La opción 9 retorna el indicador de activación de la campaña Teletón almacenado en el registro de control de la base de captación. Este dato determina si el banco está procesando donaciones Teletón en la fecha de proceso activa.',
-   reg:[]},
-  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:381,type:'COMPUTE',
-   desc:'Al calcular el último día de febrero para determinar el fin de mes anterior, si el año es divisible entre 4 (año bisiesto), se asigna 29 días. Para todos los demás meses, se consulta la tabla fija de días por mes del calendario gregoriano.',
-   reg:[]},
-  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:212,type:'IF',
-   desc:'Si el servicio de calendario de días hábiles bancarios responde con error al proyectar la fecha hacia atrás, el proceso se cancela. Este servicio externo es obligatorio para calcular fechas con retroceso de días hábiles.',
-   reg:[]},
-  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:388,type:'IF',
-   desc:'La opción 7 retorna el primer día calendario del mes en curso, derivado de la fecha de línea del registro de control. Esta fecha se utiliza en procesos de corte mensual de captación.',
-   reg:[]},
-  {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:393,type:'IF',
-   desc:'La opción 8 retorna la fecha de línea del registro de control sin ningún retroceso ni cálculo. Se usa cuando el proceso necesita exactamente la fecha del lote activo de la base de captación.',
-   reg:[]},
+// ═══════════════════════════════════════════════════════════════════════════
+// REVALIDADO 2026-07-14 contra código fuente real (S500_SOURCE_*.txt,
+// ALGOL_L002R2.txt, COBOL_P130.txt, COBOL_P015.txt) + vocabulario/catálogo
+// DASDL (vocab-s500.html, vocab-s151.html). 78 reglas totales (antes ~63):
+// 55 S500 (P103·8 + P100·13 + P075·5 + P655·10 + S500P630·19) + 23 S151
+// (L002R2·5 + P130·11 + P015·7). Correcciones factuales de fondo marcadas
+// "CORRECCIÓN"/"CORREGIDA" en la descripción; reglas nuevas encontradas en
+// el código marcadas "NUEVA"/"NUEVA REGLA".
+// ═══════════════════════════════════════════════════════════════════════════
 
-  // P075 — CAMBIO DE DIA → P080 (PROGRAM-ID: P075, 238 LOC)
-  {dom:'CTL',pgm:'P075',pgm_name:'S500/P075 Cambio-de-Dia',line:154,type:'IF',
-   desc:'Al iniciar el proceso de cierre del día bancario, se verifica la versión del programa contra el catálogo de versiones del banco. Si la versión no coincide, el proceso se cancela y no notifica el cambio de día al procesador central.',
-   reg:[]},
-  {dom:'CTL',pgm:'P075',pgm_name:'S500/P075 Cambio-de-Dia',line:160,type:'IF',
-   desc:'El proceso de notificación de cierre de día solo se ejecuta cuando el parámetro de control recibido es exactamente 1. Cualquier otro valor provoca la cancelación del proceso con registro del valor incorrecto recibido.',
-   reg:[]},
-  {dom:'CTL',pgm:'P075',pgm_name:'S500/P075 Cambio-de-Dia',line:177,type:'CALL',
-   desc:'Antes de notificar el cambio de día, se resuelve dinámicamente el título de la librería de procesamiento central consultando el catálogo de versiones del banco. Esto garantiza que la notificación se envíe a la versión correcta del procesador.',
-   reg:[]},
-  {dom:'CTL',pgm:'P075',pgm_name:'S500/P075 Cambio-de-Dia',line:195,type:'CALL',
-   desc:'El proceso notifica al procesador central que el día bancario ha concluido llamando al punto de entrada de inicialización de lote. Si la llamada retorna cualquier código de error, el proceso de cierre del día se cancela con estatus negativo.',
-   reg:[]},
-  {dom:'CTL',pgm:'P075',pgm_name:'S500/P075 Cambio-de-Dia',line:189,type:'IF',
-   desc:'Si la notificación de cambio de día al procesador central retorna un resultado de error, el proceso registra el incidente en el log de operación y finaliza con estatus de fallo, señalando que el cierre del día no fue reconocido por el procesador.',
-   reg:[]},
+// ---------------------------------------------------------------------------
+// P103 — FraudLink → S711/CNBV (PROGRAM-ID: P103, JUL/2005, 332 LOC)
+// ---------------------------------------------------------------------------
+{dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:160,type:'IF',
+ desc:'Antes de generar el reporte diario hacia FraudLink, el programa valida que la versión que se está ejecutando coincida con la registrada en el catálogo central de versiones del banco (librería S100VERSIONES); si no coincide, aborta la tarea y el archivo de salida hacia FraudLink nunca llega a abrirse — no se genera ningún reporte ese día. Técnicamente: la validación ocurre en el paragraph 10000100-TIT-LIBS (PERFORM 10000100-VERSIONES → 20000100-CHECAME-VERSION); IF S000-CTR-CVEERROR < 0 se emite el mensaje "ERROR DE VERSION" y se cancela con CHANGE ATTRIBUTE STATUS OF MYSELF TO -1 (mecanismo de cancelación distinto al CALL SYSTEM DMTERMINATE usado en el resto del programa).',
+ reg:[]},
+{dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:177,type:'IF',
+ desc:'Si el registro maestro de control de captación (S500B02CONTROL) no puede leerse correctamente, el proceso cancela antes de abrir el archivo de salida y no se genera el reporte hacia FraudLink/CNBV (S711) ese día. Técnicamente: en 20000100-ABRE-BASE, tras PERFORM 90000002-B02CONTROL-FIND sobre S500B02CONTROL (base de captación S500BD01CAPTACION), IF WS-STATUS-BASE > 0 el proceso cancela vía CALL SYSTEM DMTERMINATE antes de abrir el archivo E03-CVES2001. Ese mismo registro de control aporta B02-NUM-CSI (nodo/instancia) y B02-FECHA-LOTE (fecha de proceso batch, no la fecha de línea), usados como cabecera del archivo.',
+ reg:['CNBV']},
+{dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:219,type:'IF',
+ desc:'El programa recorre secuencialmente todos los movimientos del día para evaluarlos como posible reporte a FraudLink; al llegar al final del archivo termina el ciclo de forma normal, pero cualquier otro error de lectura aborta el proceso completo. Técnicamente: en el ciclo principal (50001000-PROCESO), tras cada PERFORM 90000007-B07MOVDIA-FINDN (lectura secuencial de S500B07MOVDIA), IF WS-STATUS-BASE > 0: valor 1 marca W77-EOF-B07 = 1 (fin de archivo, término normal del ciclo UNTIL); cualquier otro valor distinto de cero cancela el proceso vía CALL SYSTEM DMTERMINATE.',
+ reg:[]},
+{dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:229,type:'IF',
+ desc:'Ciertos movimientos se excluyen del análisis de fraude antes de evaluar su código de transacción: si el estado del movimiento (B07-STATUS-MOVTO) es igual a 1, se descarta sin generar ningún registro; cualquier otro valor continúa hacia la evaluación de código de transacción (MOV-ORIG, OPERO5-B07, MOVS-B13). Nota de verificación: el catálogo DASDL solo documenta B07-STATUS-MOVTO como "Estado del movimiento en curso", sin enumerar sus valores posibles — no hay confirmación en las fuentes revisadas de que el valor 1 signifique específicamente cancelación o anulación; esa interpretación queda como hipótesis razonable de convención bancaria, no como hecho verificado.',
+ reg:['CNBV']},
+{dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:241,type:'IF',
+ desc:'Los movimientos con código de transacción 2001, 2444 o 2496 — las claves que el banco monitorea para prevención de fraude — se reportan a FraudLink/CNBV (S711) con sucursal, medio de acceso, fecha, código e importe. Técnicamente (50001100-MOV-ORIG, IF B07-CLAVE-MOVTO = 2001 OR 2444 OR 2496): el registro incluye WKS-SUC-OPE (sucursal, primeros 4 dígitos de B07-AUTORIZACION vía REDEFINES RD-WKS-AUTORIZ-MOV — los otros 2+8 dígitos, caja y secuencia, se descomponen pero no se usan en este registro), B07-MED-ACCESO (medio de acceso; catálogo B07-TIPO-MEDACCES: 0=Contrato,1=Chequera,2=Tarjeta,3=PIN, aunque el campo destino conserva el nombre legado WKS-REG-E03-CHQRA), B02-FECHA-LOTE (fecha de proceso batch), B07-CLAVE-MOVTO (código de transacción) y B07-IMPORTE más B07-REFER-NUME (referencia). WKS-SUC-OPE se calcula una sola vez por movimiento padre (línea 232) y se reutiliza en los registros de sus sub-movimientos B07 y B13.',
+ reg:['CNBV']},
+{dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:254,type:'IF',
+ desc:'El monitoreo de fraude no se limita al movimiento principal: cada movimiento puede traer hasta 5 sub-movimientos asociados (grupo "Otros Movimientos SAD"), y cada uno de ellos con código 2001, 2444 o 2496 genera también su propio registro independiente en el archivo FraudLink. Técnicamente (50001200-OPERO5-B07, PERFORM ... 5 TIMES desde 50001000-PROCESO): IF B07-CVE-MOVAD (W77-IND-B07) = 2001 OR 2444 OR 2496, cada sub-movimiento del grupo B07-OTROS-MOVSAD (×5) genera su registro con el mismo WKS-SUC-OPE del movimiento padre pero su propio código/importe/referencia (B07-CVE-MOVAD, B07-IMP-MOVAD, B07-REF-MOVAD indexados por W77-IND-B07).',
+ reg:['CNBV']},
+{dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:236,type:'IF',
+ desc:'El reporte a FraudLink alcanza también un tercer nivel de detalle: cuando el movimiento indica que existen claves de transacción adicionales asociadas al contrato, el programa las revisa una por una (hasta 10) y genera un registro FraudLink adicional por cada una que tenga un código de fraude monitoreado. Técnicamente: si B07-IND-MOVSADS > 0, se ejecuta 50001300-MOVS-B13, que localiza S500B13MOVCVES por B07-NUM-CONTRATO (FK) + B07-AUTORIZACION; si existe (W77-SIN-B13 = 0), recorre hasta 10 veces (50001350-BUSCA-B13) el grupo B13-CLAVES-TRANS×10 de ese contrato/autorización. Cada entrada con B13-CLAVE-MOVTO(idx) = 2001, 2444 o 2496 genera un registro FraudLink adicional con B13-IMPORTE(idx) y B13-REF-MOVAD(idx).',
+ reg:['CNBV']},
+{dom:'REP',pgm:'P103',pgm_name:'S500/P103 FraudLink',line:300,type:'COMPUTE',
+ desc:'Cada vez que se escribe un registro en el archivo FraudLink, el programa acumula un conteo de registros y una suma de importes reportados; al cerrar el archivo, ambos totales se escriben como registro de cierre (trailer), permitiendo que FraudLink/CNBV valide que recibió el archivo completo, sin registros perdidos ni duplicados. Técnicamente, la operación se implementa como una pareja de ADD, no como una sentencia COMPUTE (paragraph 50002000-ESC-ARCHIVO, ejecutado por cada registro escrito). Fórmula: WKS-NUM-REG = WKS-NUM-REG + 1 (ADD 1 TO WKS-NUM-REG; contador PIC 9(08), inicia en 0) y WKS-IMP-TOT = WKS-IMP-TOT + WKS-REG-E03-IMPORTE (ADD WKS-REG-E03-IMPORTE TO WKS-IMP-TOT; acumulador PIC 9(12)V99, inicia en 0). Al cerrar (80000000-TERMINA → 20000700-GEN-TRAILER) se escribe el registro tipo "9" WKS-E03-TRAILER con WKS-NUM-REG y WKS-IMP-TOT como total de cierre del archivo. Nota técnica: WKS-REG-E03-IMPORTE es PIC 9(11)V99 (11 enteros) mientras B07-IMPORTE/B13-IMPORTE de origen son NUMBER 14,2 en el DASDL — un importe individual con más de 11 dígitos enteros se truncaría al mover al registro de detalle (riesgo estructural de bajo impacto práctico, no observado como incidente real).',
+ reg:['CNBV']},
 
-  // P655 — SCRAMBLING / PROTECCION DE DATOS (PROGRAM-ID: P655, MARZO/2004, 860 LOC)
-  {dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:291,type:'IF',
-   desc:'Al iniciar, el proceso identifica el ambiente de ejecución según el nombre del servidor. Los servidores de producción bancaria activan el bloqueo inmediato del proceso. Los servidores de prueba permiten continuar con la protección de datos sensibles de titulares.',
-   reg:[]},
-  {dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:304,type:'IF',
-   desc:'El proceso de enmascaramiento de datos sensibles de titulares de cuenta está bloqueado en ambientes de producción bancaria. Si se detecta un servidor productivo, el proceso se cancela de forma inmediata y no modifica ningún dato de cliente.',
-   reg:[]},
-  {dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:321,type:'COMPUTE',
-   desc:'El tamaño del bloque de contratos a enmascarar en cada ciclo se calcula restando la hora actual (horas + minutos + segundos) de un máximo de 1,800 registros en pruebas o 200 en desarrollo interno. Esto introduce variabilidad basada en la hora de ejecución para evitar patrones predecibles.',
-   reg:[]},
-  {dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:327,type:'IF',
-   desc:'El tamaño del bloque de contratos para enmascaramiento siempre debe ser un número par. Si al calcular el tamaño resulta impar, se reduce en uno para garantizar que el intercambio de nombres entre titulares sea simétrico y no quede ningún nombre sin asignar.',
-   reg:[]},
-  {dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:441,type:'IF',
-   desc:'Si el archivo de control de enmascaramiento ya existe con los mismos parámetros de nodo, fecha de proceso y número de contrato, el proceso reanuda desde el último contrato procesado. Este mecanismo de recuperación garantiza la continuidad ante interrupciones del batch.',
-   reg:[]},
-  {dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:585,type:'IF',
-   desc:'En conjuntos impares de contratos dentro de un bloque, el contrato en la posición central recibe un nombre sintético de espera que no puede intercambiarse con otro en ese ciclo. Los contratos en posiciones pares intercambian sus nombres entre sí.',
-   reg:[]},
-  {dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:609,type:'MOVE',
-   desc:'Para cada grupo de productos de crédito especiales, se reemplaza el nombre del representante legal con el texto sintético "REPRESENTANTE LEGAL GRUPO" seguido del número de grupo, y el domicilio con "DOMICILIO DEL GRUPO" seguido del mismo número. Esto protege la identidad real en ambientes de prueba.',
-   reg:[]},
-  {dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:631,type:'IF',
-   desc:'Para las cuentas vinculadas a grupos de crédito especiales, si el contrato existe en la base de contratos se asigna el nombre ya enmascarado de ese contrato. Si el contrato no existe en la base, se genera un nombre secuencial de prueba para no dejar el campo de nombre en blanco.',
-   reg:[]},
+// ---------------------------------------------------------------------------
+// P100 — Fecha-de-Proceso (PROGRAM-ID: FECHA-DE-PROCESO, MAR96/AGO2018, 593 LOC)
+// NOTA: la mayoría de las líneas del catálogo original no correspondían al
+// punto real del código (offset variable); cada línea fue re-localizada por
+// contenido (grep) — ver anotaciones [LÍNEA CORREGIDA]/[LÍNEA AJUSTADA].
+// ---------------------------------------------------------------------------
+{dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:195,type:'IF',
+ desc:'El programa identifica si se ejecuta en el servidor de desarrollo (ACYPBETA) y, de ser así, omite la verificación de versión contra el catálogo central de versiones del banco; en cualquier otro servidor la verificación es obligatoria. Aunque el código conserva restos de un "modo de diagnóstico" asociado a este mismo indicador, esas líneas (los DISPLAY condicionados a WKS-ES-DES = 1, líneas 201-207 y 213-216) están comentadas — código inactivo — en la versión actual: el único efecto real del servidor de desarrollo hoy es omitir el checeo de versión. Técnicamente: en 00000000-PRINCIPAL se obtiene ATTRIBUTE HOSTNAME OF MYSELF; IF WKS-MY-HOST = "ACYPBETA. " activa WKS-ES-DES = 1 (indicador de servidor de desarrollo), consultado en la línea 260 (IF WKS-ES-DES = 0 PERFORM 20000050-CHECO-VER) para omitir la verificación solo en ese host.',
+ reg:[]},
+{dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:273,type:'IF',
+ desc:'Fuera del servidor de desarrollo, el programa valida su versión contra el catálogo central antes de calcular cualquier fecha; si la versión ejecutada no es la vigente, cancela sin devolver la fecha de proceso al workflow que la solicitó (parámetro WS-VAL-FEC). Técnicamente: en 20000050-CHECO-VER (alcanzado solo si WKS-ES-DES = 0), tras PERFORM 20000100-CHECAME-VERSION, IF S000-CTR-CVEERROR < 0 se emite "VER. EJECUTADA DIF. A VERSIONES" y se cancela con CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.',
+ reg:[]},
+{dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:285,type:'IF',
+ desc:'Cuando el workflow solicita específicamente la opción 3 sin días de retroceso, el programa consulta la base de Tarjetas en vez de la de Captación, y retorna la fecha del último archivo de prealtas aplicado desde Tarjetas — un dato que se aplica todos los días, incluidos festivos. Cualquier otra combinación de opción/días consulta S500BD01CAPTACION (captación) en su lugar. Técnicamente: la condición IF WKS-VAL-OPCI = 3 AND WKS-VAL-DANT = 0 se evalúa dos veces — en 20001000-ABRO-BASE (línea 285) decide abrir S500BD04TARJETAS en vez de S500BD01CAPTACION; en 20002000-FECHA-PRO (línea 321) decide ejecutar 20002500-FECHA-BD04 en vez de 20002010-FECHA-BD01 — y retorna B01P-ULT-ARCHAPLI junto con B01P-NUM-CSI como nodo.',
+ reg:[]},
+{dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:334,type:'IF',
+ desc:'Si el registro maestro de control (S500B02CONTROL) no puede leerse o está vacío, el programa no tiene forma de calcular ninguna fecha de proceso — de ahí dependen tanto la fecha de línea como el nodo — y cancela la ejecución. Técnicamente: en 20002010-FECHA-BD01, tras PERFORM 90000002-B02CONTROL-FIND, IF WS-STATUS-BASE > 0: valor 1 (registro vacío/inexistente) cancela con "ERROR REG. DE CONTROL VACIO" vía CALL SYSTEM DMTERMINATE; cualquier otro código también cancela.',
+ reg:[]},
+{dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:346,type:'IF',
+ desc:'Con la opción "31" (opción 3 y un día de retroceso), el programa no calcula ninguna fecha: solo informa el nodo de procesamiento activo, dejando en ceros el resto de la respuesta. Técnicamente: IF WKS-VAL-OPCI = 3 AND WKS-VAL-DANT = 1, retorna en WS-NODO-S el valor de B02-USO-FUTURO-05 — campo declarado en el DASDL como "reservado para uso futuro" (NUMBER de 2 dígitos), reutilizado operativamente para exponer el nodo de procesamiento activo — y WKS-PARAM100 se llena de ceros.',
+ reg:[]},
+{dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:352,type:'IF',
+ desc:'Si el workflow solicitante envía una combinación de parámetros inválida — opción y días de retroceso a la vez, o la opción 3 con más de un día de retroceso — el programa no intenta interpretar la intención: simplemente devuelve la fecha de línea tal cual, sin ninguna proyección. Técnicamente: IF (WKS-VAL-OPCI > 0 AND WKS-VAL-DANT > 0) OR (WKS-VAL-OPCI = 3 AND WKS-VAL-DANT > 1), se ejecuta 20002600-FEC-LINEA y retorna B02-FECHA-LINEA directamente.',
+ reg:[]},
+{dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:419,type:'IF',
+ desc:'La opción 5 permite capturar una fecha manualmente en vez de calcularla: el programa la solicita por teclado y la valida (año entre 1989-2999, mes 1-12, día 1-31); si es inválida, muestra "LA FECHA ESTA MAL TECLEADA" y vuelve a pedirla hasta que el operador ingrese una fecha correcta. La fecha capturada se proyecta después con la misma lógica que las demás opciones (20002200-PROY-FEC). Técnicamente: 20002100-PIDO-FECHA usa ACCEPT FECHA y evalúa IF DIAOK AND MESOK AND ANOOK (niveles 88: AANO 1989-2999, MMES 1-12, DDIA 1-31); si es válida, WS-1VEZ = 1 termina el PERFORM ... UNTIL (línea 375-376).',
+ reg:[]},
+{dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:367,type:'IF',
+ desc:'La opción 9 no calcula ninguna fecha: se usa para consultar si la campaña Teletón está activa, reutilizando el mismo campo de salida que normalmente lleva la fecha calculada para transportar ese indicador, junto con el nodo de procesamiento. Técnicamente: IF WKS-VAL-OPCI = 9, se limpia WKS-PARAM100 y se mueve B02-ACT-TELETON (campo DASDL "Activación de campaña Teletón") al campo de salida WS-FEC-CALCULADA-AMD, junto con B02-NUM-CSI como nodo en WS-NODO-S.',
+ reg:[]},
+{dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:472,type:'COMPUTE',
+ desc:'La opción 6 calcula el último día del mes anterior a la fecha de línea — útil para procesos de cierre o corte mensual que necesitan referenciar el mes previo completo. Fórmula exacta: partiendo de WS-FEC-DIAMES = B02-FECHA-LINEA, se retrocede un mes (IF WS-FDM-MM = 1 → WS-FDM-MM = 12 y SUBTRACT 1 FROM WS-FDM-AAAA; ELSE SUBTRACT 1 FROM WS-FDM-MM). Luego WS-FDM-DD = WS-T-DIAS-X-MES(WS-FDM-MM), tabla fija de 12 posiciones (31,28,31,30,31,30,31,31,30,31,30,31). Si el mes resultante es 2 (febrero): DIVIDE WS-FDM-AAAA BY 4 GIVING WS-COCIENTE-BI REMAINDER WS-RESIDUO-BI; IF WS-RESIDUO-BI = 0 → WS-FDM-DD = 29 (sustituye el 28 por defecto de la tabla). Resultado: WS-FEC-CALCULADA-AMD = WS-FEC-DIAMES. Hallazgo: el criterio de bisiesto implementado es "divisible entre 4" puro — no aplica la excepción gregoriana de siglo (no bisiesto si divisible entre 100 y no entre 400); dado que el nivel 88 ANOOK permite años 1989-2999, el año 2100 se calcularía incorrectamente como bisiesto (WS-FDM-DD=29 cuando el calendario gregoriano real indica 28). Despachada desde el IF WKS-VAL-OPCI = 6 hacia 20002300-FEC-ULTDIAMES, con la aritmética resuelta en líneas 466-476.',
+ reg:[]},
+{dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:533,type:'IF',
+ desc:'El cálculo de fechas proyectadas depende de una librería externa de calendario bancario (S006LOCSUP), que resuelve la resta de días naturales o hábiles sobre la fecha de línea; si esa librería no puede accesarse, el proceso cancela en vez de devolver una fecha potencialmente incorrecta. Técnicamente: en 40000000-CALL-FECPRO (invocado desde 20002200-PROY-FEC), tras PERFORM 20000006-LOCSUP, IF WS-S006-FUNCION > 0 se arma "ERROR AL ACCESAR LOCSUP" con WS-MSG-RS y se cancela vía CALL SYSTEM DMTERMINATE.',
+ reg:[]},
+{dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:386,type:'IF',
+ desc:'La opción 7 retorna el primer día calendario del mes de la fecha de línea (año/mes de la fecha de línea, día forzado a 01), tal como documenta el comentario fuente del programa ("SE REGRESA LA FECHA... PRIMER DIA CALENDARIO DEL MES DE LA FECHA DE LINEA"). Técnicamente: PERFORM 20002400-FEC-1ERDIAMES (MOVE 1 TO WS-FDM-DD). Nota de alcance: no hay evidencia en comentarios ni en la lógica del programa de que esta opción esté ligada específicamente a procesos de corte mensual de captación; esa asociación no se confirma como hecho verificado.',
+ reg:[]},
+{dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:391,type:'IF',
+ desc:'La opción 8 devuelve la fecha de línea (la fecha operativa "en línea" del sistema) tal cual, sin ninguna proyección, junto con el nodo de procesamiento. No debe confundirse con la fecha de lote (batch): ambas son campos distintos dentro del mismo registro de control S500B02CONTROL (B02-FECHA-LINEA vs. B02-FECHA-LOTE), y esta opción específicamente entrega la de línea, no la de lote. Técnicamente: PERFORM 20002600-FEC-LINEA retorna B02-FECHA-LINEA junto con B02-NUM-CSI.',
+ reg:[]},
+{dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:443,type:'COMPUTE',
+ desc:'Esta es la ruta de cálculo por defecto del programa: cuando el workflow solicitante no pide una opción especial (o pide las opciones 0, 1, 2 o 4), el programa proyecta la fecha de línea hacia atrás un número de días que depende de la opción recibida, usando la misma librería externa de calendario bancario. Fórmula: WS-S006-FECHA2 (días a proyectar hacia atrás desde B02-FECHA-LINEA) = WKS-VAL-DANT si WKS-VAL-DANT > 0; si no, = 1 si WKS-VAL-OPCI = 1; en cualquier otro caso (opciones 0, 2, 4) = 2. Con WS-S006-FORMATO = 12 y WS-S006-FUNCION = 15 se invoca la librería externa S006LOCSUP (vía 40000000-CALL-FECPRO) para restar esos días a B02-FECHA-LINEA; el resultado regresa en WS-S006-FECHA1 → WS-FEC-CALCULADA-AMD. Si WKS-VAL-OPCI = 5, este resultado se descarta y se sustituye por la fecha capturada manualmente (FECHA, vía 20002100-PIDO-FECHA). Técnicamente, esta ruta se resuelve en 20002200-PROY-FEC (invocada por la opción 0 sin parámetros, las opciones 1/2/4, y cualquier opción "01"-"09").',
+ reg:[]},
 
-  // S500P630 — TARJETAS INTERCAMBIABLES / TELETON (PROGRAM-ID: S500P630, migrado S501→S500 jun-oct 2016, 1359 LOC)
-  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:175,type:'IF',
-   desc:'En ambientes de prueba y pre-producción, se omite la verificación de versión del programa. En ambientes productivos, el proceso verifica su versión contra el catálogo del banco antes de procesar cualquier movimiento de tarjeta de la campaña Teletón.',
-   reg:[]},
-  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:182,type:'MOVE',
-   desc:'El archivo de movimientos de tarjetas (destinado al sistema S244) se genera con cabecera identificadora: cadena "TELETON", origen de cadena 00 y número de ventana 01 para la fecha de proceso en curso. Estas etiquetas identifican el origen de los cargos en el sistema de liquidación.',
-   reg:[]},
-  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:192,type:'IF',
-   desc:'Los movimientos de tarjeta con estatus normal generan dos archivos de salida: el archivo de movimientos para el sistema S244 (Teletón) y el archivo de punteo para conciliación con el Libro Mayor. Los movimientos con estatus distinto de normal o AMEX no generan ningún archivo.',
-   reg:[]},
-  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:192,type:'IF',
-   desc:'Los movimientos de tarjeta American Express (estatus 15) solo generan el archivo de punteo para el Libro Mayor y se envían directamente al sistema de liquidación de American Express (INTELAR). Los movimientos AMEX no se incluyen en el archivo Teletón del sistema S244.',
-   reg:[]},
-  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:194,type:'IF',
-   desc:'El tipo de transacción en el archivo S244 se determina por el campo de autorización: si el campo está en ceros o espacios, la transacción se clasifica como captura manual (tipo 1); si contiene un número de autorización electrónica válido, se clasifica como automática (tipo 0).',
-   reg:[]},
-  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:197,type:'IF',
-   desc:'El BIN adquirente de la referencia de trazabilidad se determina por el primer dígito del número de tarjeta: si el primer dígito es 3 o 4 (franquicias American Express o Visa clásica), se asigna BIN 454061; para cualquier otro primer dígito, se asigna BIN 543006.',
-   reg:[]},
-  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:199,type:'COMPUTE',
-   desc:'El dígito verificador de la referencia de 23 posiciones se calcula con el algoritmo de módulo 10 con pesos alternos (1 y 2) sobre los primeros 22 dígitos: se multiplica cada dígito por su peso, se suman los dígitos del resultado, se divide entre 10, y el dígito verificador es (10 menos el residuo).',
-   reg:[]},
-  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:199,type:'CALL',
-   desc:'Para construir la referencia de trazabilidad, la fecha de la transacción se convierte a día juliano llamando al servicio de cálculo de fechas bancario. El día juliano resultante se incorpora como componente de identificación temporal de la transacción.',
-   reg:[]},
-  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:207,type:'MOVE',
-   desc:'El registro de movimiento American Express generado para INTELAR lleva valores fijos de producto: identificador de establecimiento 9355195968, moneda peso mexicano, tipo de transacción "REGULAR", cero cuotas y tipo de tarjeta "CREDITO".',
-   reg:[]},
-  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:214,type:'IF',
-   desc:'En el archivo de punteo para conciliación con el Libro Mayor, el número de autorización registrado se determina según el código de transacción origen: si el código es 500, se usa el formato de 10 dígitos; para cualquier otro código, se usa el formato estándar de 6 dígitos de autorización.',
-   reg:[]},
-  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:214,type:'MOVE',
-   desc:'Cada registro de punteo enviado al Libro Mayor lleva el código de producto Teletón (500) y el código de moneda peso mexicano (1) como valores fijos. Estos códigos permiten la identificación y conciliación contable de todos los movimientos de tarjetas de la campaña.',
-   reg:[]},
-  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:222,type:'CALL',
-   desc:'El archivo de movimientos American Express se envía al sistema de liquidación INTELAR. Si el primer envío falla, el proceso espera 3 segundos y realiza un segundo intento. Si el segundo intento también falla, el error queda registrado en el log de operación.',
-   reg:[]},
-  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:227,type:'IF',
-   desc:'Al concluir el proceso, si la terminación fue normal, se actualiza el registro de control global del sistema Teletón registrando el paso 630 como completado con confirmación transaccional. Si hubo terminación anormal, el proceso finaliza con estatus de error sin actualizar el control.',
-   reg:[]},
-  {dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:229,type:'CALL',
-   desc:'Tras completar la generación de archivos y el envío a INTELAR, el proceso lanza el workflow bancario de transferencia de archivos para mover físicamente los archivos generados (Teletón S244 y AMEX) al destino final de procesamiento de la fecha de proceso.',
-   reg:[]},
+// ---------------------------------------------------------------------------
+// P075 — CAMBIO DE DIA → P080 (PROGRAM-ID: P075, 238 LOC)
+// ---------------------------------------------------------------------------
+{dom:'CTL',pgm:'P075',pgm_name:'S500/P075 Cambio-de-Dia',line:154,type:'IF',
+ desc:'Al arrancar, el programa valida contra el catálogo central de versiones del banco (CHECAME IN CTLVERS, PERFORM 20000100-CHECAME-VERSION) que su propia versión de software (identificada como "S500P075", versión "25MTP003") sigue vigente y autorizada para ejecutarse. Si la validación falla (S000-CTR-CVEERROR negativo), registra el mensaje "ERROR DE VERSION" y marca el estatus de terminación del programa como fallido (CHANGE ATTRIBUTE STATUS OF MYSELF = -1) — pero esta marca de error NO detiene el flujo: no hay STOP RUN ni salto de párrafo asociado, así que el programa continúa de inmediato con la resolución de la librería central L080 (PERFORM 100000-L080), la cual reinicia el indicador de error a cero y evalúa de forma independiente su propia llamada (DAME_TIT). En consecuencia, un fallo de versión aquí deja el estatus final del run marcado como error, pero por sí solo no impide que se intente la notificación de cambio de día a P080 (ver regla línea 160).',
+ reg:[]},
+{dom:'CTL',pgm:'P075',pgm_name:'S500/P075 Cambio-de-Dia',line:160,type:'IF',
+ desc:'El aviso de cierre del día bancario hacia el procesador central (PERFORM 200000-INIBATCH) solo se dispara si se cumplen dos condiciones anidadas: que la resolución de la librería central L080 haya sido exitosa (S000-CTR-CVEERROR = 0, ver regla línea 177) y, dentro de esa rama, que el parámetro recibido en la ejecución (W77-PARAM-WFL, RECEIVED BY CONTENT) sea exactamente 1. Si la librería se resolvió bien pero ese parámetro no es 1, el programa arma el mensaje "VALUE ERRONEO PARA EJECUTAR P075 <valor>" con el valor recibido (WS-MSG-N-04), lo registra (70000050-MENSAJE) y marca su estatus de terminación como fallido; en ambos casos el programa termina con el mismo STOP RUN final (línea 169), ya que no existe una ruta de cancelación anticipada distinta entre ellos.',
+ reg:[]},
+{dom:'CTL',pgm:'P075',pgm_name:'S500/P075 Cambio-de-Dia',line:177,type:'CALL',
+ desc:'Antes de avisar el cierre del día bancario, el programa necesita ubicar la versión física correcta y vigente del procesador central (librería lógica "S500L080CTRL", S000-CTR-LIBID), y la resuelve dinámicamente contra el catálogo central de versiones (DAME_TIT IN CTLVERS, PERFORM 20000100-DAME-TIT-VERS), aplicando el título resuelto con CHANGE ATTRIBUTE TITLE OF "S500L080CTRL" para que la llamada posterior a INIBATCH (línea 195) apunte a la versión correcta. Si esta resolución falla (S000-CTR-CVEERROR distinto de 0), el programa registra el mensaje "ERROR EN CALL CTLVERS S500L080 RESULT=<código>", pero SIN marcar el estatus de terminación como fallido. El efecto práctico es silencioso: al fallar la resolución, la condición de la regla anterior (línea 160) queda en falso y el programa omite el aviso de cambio de día a P080, terminando por STOP RUN sin notificarlo y sin ninguna señal de error en el estatus de salida del programa.',
+ reg:[]},
+{dom:'CTL',pgm:'P075',pgm_name:'S500/P075 Cambio-de-Dia',line:195,type:'CALL',
+ desc:'Este es el paso que efectivamente notifica al procesador central que el día bancario concluyó: el programa invoca el entry point de inicialización de lote (INIBATCH) de la librería central L080 (resuelta dinámicamente en el paso anterior, línea 177) mediante CALL "S500L080INIBATCHP080 IN S500L080CTRL" GIVING WKS-L080-RESULT (párrafo 205000-INIBATCH-CALL). El código de resultado queda en WKS-L080-RESULT y se evalúa de inmediato al retornar de esta llamada (ver regla línea 189).',
+ reg:[]},
+{dom:'CTL',pgm:'P075',pgm_name:'S500/P075 Cambio-de-Dia',line:189,type:'IF',
+ desc:'Si el procesador central rechaza o falla al reconocer el cierre del día bancario (WKS-L080-RESULT > 0 tras el llamado a INIBATCH), el programa registra el mensaje "ERROR EN LLAMADO INIBATCH" (70000050-MENSAJE) y marca su estatus de terminación como fallido (CHANGE ATTRIBUTE STATUS OF MYSELF = -1). A diferencia de la validación de versión (línea 154), aquí sí hay consecuencia real: esta es la última acción antes de retornar al módulo de control (000000-MODULO-DE-CONTROL), cuya única instrucción restante es el STOP RUN final — es decir, el run sí termina con estatus de fallo visible, señalando correctamente que el procesador central no reconoció el cierre del día bancario.',
+ reg:[]},
+
+// ---------------------------------------------------------------------------
+// P655 — SCRAMBLING / PROTECCION DE DATOS (PROGRAM-ID: P655, MARZO/2004, 860 LOC)
+// ---------------------------------------------------------------------------
+{dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:291,type:'IF',
+ desc:'Al arrancar, el programa determina si se está ejecutando en un servidor productivo o de prueba del banco, obteniendo el nombre del servidor (ATTRIBUTE HOSTNAME OF MYSELF, WKS-MY-HOST) y comparándolo contra dos listas cerradas de nombres exactos: "VDMALFA." o "MONBETA." se clasifican como producción (W77-ES-PRODUCCION); "VDMBETA.", "ACYPGAMA.", "ACYPBETA.", "MONALFA." o "ACYPOMEGA." se clasifican como prueba (W77-ES-PRUEBA), y específicamente "ACYPBETA." se marca además como prueba interna (W77-ES-PBA-INTERNA — el nombre de campo es "PBA-INTERNA", de PRUEBA, no "desarrollo interno"). Esta clasificación es la que gobierna el intento de bloqueo de producción evaluado en la siguiente regla (línea 304).',
+ reg:[]},
+{dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:304,type:'IF',
+ desc:'El programa detecta si se ejecuta en un servidor productivo del banco (indicador W77-ES-PRODUCCION) y, de ser así, arma el mensaje de error "NO CORRE EN PRODUCCION; HOST: <hostname>", lo registra (70000050-MENSAJE) y marca su estatus de terminación como fallido (CHANGE ATTRIBUTE STATUS OF MYSELF = -1). Sin embargo, esta señal de error NO detiene la ejecución: la instrucción no incluye STOP RUN ni GOBACK, y el párrafo no tiene una ruta de salida anticipada, por lo que el programa continúa incondicionalmente, abre la base de datos productiva y ejecuta el enmascaramiento de nombres y domicilios de titulares (B03CONTRATOS/B37GRUPOCPE/B39CTASCPE) igual que en cualquier otro ambiente. En la práctica, el único control real de "no correr en producción" es que el job/WFL no programe este proceso en los servidores productivos (VDMALFA o MONBETA) — el código en sí no tiene un corte de ejecución que lo impida.',
+ reg:[]},
+{dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:321,type:'COMPUTE',
+ desc:'El tamaño del bloque de contratos que se intercambiarán entre sí en cada ciclo de enmascaramiento no es fijo: se calcula a partir de la hora exacta de arranque del proceso batch (ACCEPT WKS-TIME-MAQ FROM TIME, línea 286), precisamente para que el tamaño de bloque no sea predecible entre corridas. Fórmula exacta: si el host es "ACYPBETA." (ambiente de prueba interna), `W77-CONTA-01 = 200 - WKS-TIME-HH - WKS-TIME-MM - WKS-TIME-SS`; en cualquier otro host (VDMBETA, ACYPGAMA, MONALFA, ACYPOMEGA, o cualquier hostname no reconocido — la rama ELSE no tiene condición adicional), `W77-CONTA-01 = 1800 - WKS-TIME-HH - WKS-TIME-MM - WKS-TIME-SS`, donde WKS-TIME-HH/MM/SS son la hora, minuto y segundo del reloj del sistema al arrancar el batch. El resultado (W77-CONTA-01, PIC 9(06)) se ajusta después a un número par (ver regla línea 327): si el residuo de dividirlo entre 2 no es cero, se le resta 1.',
+ reg:[]},
+{dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:327,type:'IF',
+ desc:'El tamaño de bloque calculado (fórmula de la regla línea 321) debe ser siempre un número par, para que el intercambio de nombres entre titulares (50002000-MODIF-NOMBRE) sea simétrico y ningún contrato quede sin nombre asignado dentro del bloque. Para garantizarlo, el programa divide W77-CONTA-01 entre 2 (DIVIDE W77-CONTA-01 BY 2 GIVING W77-TOT-DIV REMAINDER W77-DIV-RESTO); si el residuo no es cero (tamaño impar), le resta 1 (SUBTRACT 1 FROM W77-CONTA-01).',
+ reg:[]},
+{dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:392,type:'IF',
+ desc:'El proceso de enmascaramiento puede reanudarse desde donde quedó si se interrumpió una corrida anterior, en vez de reiniciar desde cero cada vez. Para decidir esto, el programa verifica si ya existe en disco un archivo de control/checkpoint específico de esta corrida ("S500/FILE/SCRBLING/<CSI>/<fecha>.", con CSI = W77-MY-CSI tomado de B02-NUM-CSI, y fecha = B02-FECHA-LOTE). Si existe, lo abre en modo I-O, lee su registro de encabezado (20000400-LEE-ARCH) y evalúa si corresponde a una reanudación válida (20000500-REINICIO, ver regla línea 441). Si no existe, lo crea desde cero: escribe un encabezado inicial con el contador en cero (WKS-I99-HEAD-CTO = ZERO, párrafo 20000300-GEN-ARCH), lo cierra y reabre en modo I-O, y continúa el proceso como una corrida nueva, sin punto de reanudación.',
+ reg:[]},
+{dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:441,type:'IF',
+ desc:'Para decidir si la reanudación desde el checkpoint es válida, el programa compara el encabezado leído del archivo de control (tipo de registro, identificador de nodo/CSI, fecha de proceso y contador de contrato — WKS-I99-HEAD-TPO, WKS-I99-HEAD-CSI, WKS-I99-HEAD-FEC, WKS-I99-HEAD-CTO) contra los valores de la corrida actual (CSI del nodo — W77-MY-CSI, tomado de B02-NUM-CSI — y fecha de proceso — WKS-FECHA-PROCESO, tomada de B02-FECHA-LOTE). Si coinciden y el contador de contrato es mayor a cero, el proceso retoma desde ese número de contrato (WS-NUM-CONTRATO/WS-MSG-CTO) y restaura el tamaño de bloque calculado en la corrida anterior (WKS-I99-HEAD-BLQ sobreescribe el W77-CONTA-01 recién calculado al arrancar, ver regla línea 321), buscando el punto exacto de reanudación (20000600-BUSCA-REINICIO). Si el nodo, la fecha o el contrato no coinciden, se descarta el encabezado existente y se regenera desde cero (20000300-GEN-ARCH), como corrida nueva. Adicionalmente, si al buscar el punto de reanudación el contrato correspondiente ya no se encuentra o no puede bloquearse en la tabla de contratos (B03CONTRATOS), el mecanismo de reanudación se abandona: el contador (WKS-I99-HEAD-CTO) se reinicia a cero y ambos cursores de lectura (S500B03CONTRATOS y S500B03CONTRATOSW) regresan al inicio del archivo (BEGINNING) — es decir, el proceso reanuda desde el principio en vez de fallar.',
+ reg:[]},
+{dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:585,type:'IF',
+ desc:'Como el enmascaramiento de nombres funciona intercambiando el nombre de un contrato por el de otro dentro del mismo bloque, un bloque con número impar de contratos dejaría uno sin pareja. Esta lógica (50002060-VAL-REGS) resuelve ese caso, y solo aplica al ÚLTIMO bloque de la corrida — el que cierra por fin de archivo del cursor de contratos (W77-EOF-B03 = 1 en 50000200-ACT-B03) — ya que todos los bloques "completos" anteriores tienen por construcción un tamaño par (ver regla línea 327) y nunca la necesitan. En ese último bloque parcial, si el conteo de contratos leídos es impar (DIVIDE W77-LEIDOS BY 2 GIVING W77-TOT-DIV REMAINDER W77-DIV-RESTO, residuo distinto de cero), se calcula la posición central (COMPUTE W77-REG-MEDIO = W77-TOT-DIV + 1). En 50002000-MODIF-NOMBRE, al contrato en esa posición central (W77-IND-BXX = W77-REG-MEDIO) no se le asigna el nombre de otro contrato del bloque: recibe el nombre ya enmascarado (con sufijo " PRUEBA") del PRIMER contrato leído en todo el archivo (W77-NOMBRE-PTE, capturado una sola vez en 50002000-SUBE-TABLA cuando W77-TOT-LEIDOS = 1) — no un texto sintético genérico. El resto de los contratos del bloque sí reciben el nombre de otro contrato de la tabla por índice (WKS-TB-NOM-PREF), completando el intercambio normal.',
+ reg:[]},
+{dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:609,type:'MOVE',
+ desc:'Para cada grupo CPE (Cuenta Pago Empresa, según el catálogo DASDL) del archivo S500B37GRUPOCPE, recorrido secuencialmente vía LOCK NEXT hasta fin de archivo (50001000-ACT-B37), el programa reemplaza el nombre del representante legal por el texto sintético "REPRESENTANTE LEGAL GRUPO <número de grupo>" (campo B37-REPRES, 36 caracteres exactos) y el domicilio por "DOMICILIO DEL GRUPO <número de grupo>" (campo B37-DOMICILIO, 30 de los 40 caracteres del campo, resto en blanco), ambos indexados por el mismo número de grupo (WS-B37-NGPO/WS-B37-DGPO) para mantener la correlación entre los dos campos sintéticos. El nombre o razón social propio del grupo (B37-NOMBRE) NO se toca — solo se enmascaran el representante legal y el domicilio.',
+ reg:[]},
+{dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:631,type:'IF',
+ desc:'Para cada cuenta CPE (S500B39CTASCPE, procesadas en 50002100-NOMB-B39), el programa busca el contrato de captación vinculado a esa cuenta (B39-CONTRATO) dentro de los contratos ya procesados en B03CONTRATOS (90000003-B03SXCTOW-FIND). Si lo encuentra (W77-NO-B03 = 0), copia el nombre YA enmascarado de ese contrato hacia la cuenta CPE (MOVE B03-NOMBRE OF S500B03CONTRATOSW TO B39-NOMBRE), garantizando que el nombre de la cuenta sea consistente con el de su contrato vinculado. Si no lo encuentra, genera un nombre sintético secuencial en su lugar: incrementa un contador (W77-SEQ-NOMB, arranca en 10000, incrementa de 12 en 12) y construye el nombre como "NOMBRE DE PRUEBA <secuencia>", evitando dejar el campo en blanco. Este procesamiento ocurre después de haber terminado B03 y B37, en ese orden (50000000-PROCESOS), precisamente para que el nombre de B03 ya esté enmascarado cuando B39 lo copia.',
+ reg:[]},
+{dom:'SEC',pgm:'P655',pgm_name:'S500/P655 Scrambling',line:291,type:'IF',
+ desc:'La lista cerrada de nombres de servidor que el programa reconoce (líneas 291-300, ver regla línea 291) no cubre toda la topología real de nodos del banco, y esto abre un riesgo de seguridad: P655 reconoce ambos nombres de los pares VDMALFA/MONBETA (producción), ACYPGAMA/MONALFA (prueba) y VDMBETA/ACYPBETA (prueba), pero NUNCA compara contra "VDMKAPPA." — el nombre pasivo del par ACYPOMEGA/VDMKAPPA. Si el programa se ejecutara en un host no contemplado en esta lista fija de 7 nombres (por ejemplo, tras un failover a VDMKAPPA, o ante un nodo nuevo), ni la clasificación de producción (W77-ES-PRODUCCION) ni la de prueba (W77-ES-PRUEBA) se activarían, y el intento de bloqueo de producción (regla línea 304 — que de por sí tampoco detiene la ejecución) nunca se dispararía siquiera: el programa trataría un host desconocido como no-productivo y continuaría el enmascaramiento de datos sin ninguna advertencia. El control de ambiente es, por diseño, una lista cerrada de nombres exactos que falla en modo abierto (fail-open) ante cualquier host no anticipado, en lugar de ser una clasificación de producción validada externamente.',
+ reg:[]},
+
+// ---------------------------------------------------------------------------
+// S500P630 — TARJETAS INTERCAMBIABLES / TELETON (PROGRAM-ID: S500P630, migrado S501→S500 jun-oct 2016, 1359 LOC)
+// ---------------------------------------------------------------------------
+{dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:172,type:'PERFORM',
+ desc:'Si el proceso batch de tarjetas Teletón es interrumpido externamente (interrupción tipo HI, cambio del atributo TASKVALUE) mientras procesa un movimiento, el programa deja un rastro de auditoría antes de continuar: registra en el log de operación el número de autorización de la transacción que se estaba procesando en ese momento, permitiendo reconstruir en qué movimiento se encontraba el proceso al momento de la interrupción. Implementado en la sección declarativa INTERRUPT-SECCION (USE AS INTERRUPT PROCEDURE): deshabilita nuevas interrupciones (DISALLOW INTERRUPT), captura el nuevo valor (W77-MY-VALUE), registra la autorización (STRING "AUTORIZACION ", WKS-AUTORIZACION) y, al terminar, vuelve a habilitar interrupciones (ALLOW INTERRUPT).',
+ reg:[]},
+{dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:175,type:'IF',
+ desc:'Antes de procesar cualquier movimiento de tarjeta de la campaña Teletón, el programa valida que su propia versión esté autorizada para ejecutarse, evitando que una versión no vigente procese cargos o el punteo contable. En los hosts de prueba ("ACYPBETA. " o "VDMBETA.  ") esta validación se omite y se asume estatus OK; en cualquier otro host (producción) se llama a "CHECAME IN CTLVERS" para validar el par programa/versión (W77-S000-MY-ID="S500P630", W77-S000-MY-VERSION="25MTP004") contra el catálogo central de versiones del banco (librería CTLVERS). Si el resultado es negativo, el programa se marca con estatus -1 (terminación forzada) sin procesar movimiento alguno.',
+ reg:[]},
+{dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:176,type:'IF',
+ desc:'El programa resuelve en tiempo de ejecución — no de forma fija — la ubicación de la librería bancaria de cálculo de fechas que usará más adelante para obtener el día juliano de cada movimiento (párrafo 935-ARMA-REF23, llamada a DAME_DIAJUL2K, ver regla de la línea 199), lo que permite actualizar esa librería sin recompilar S500P630. Para ello llama a "DAME_TIT IN CTLVERS" con la clave "S000LIBFEC" y obtiene el título vigente (WKS-LIBVER-TITULO) del catálogo central de versiones. Si la consulta falla (WKS-LIBVER-STATUS<0), registra el error en el log y usa como respaldo la ruta fija "(S000)S000/CALCULA/FECHAS/OBJ/LIB ON PACK."; si tiene éxito, usa el título devuelto por CTLVERS.',
+ reg:[]},
+{dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:182,type:'MOVE',
+ desc:'Todo archivo de cargos que S500P630 entrega al sistema S244 queda etiquetado como proveniente de la cadena comercial Teletón, para que S244 identifique y procese correctamente su origen. El archivo (dataset I04-MOVS244) se abre en modo salida y su registro de cabecera (WKS-I04-R-00-HEADER) se graba con WKS-I04-SIST-DESTINO="S244", WKS-I04-NOM-CADENA="TELETON", WKS-I04-ORI-CADENA=00 y WKS-I04-NUM-VENTANA=01, usando la fecha de línea vigente (B00T-FEC-LINEA) como fecha de proceso.',
+ reg:[]},
+{dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:189,type:'IF',
+ desc:'El proceso batch de tarjetas Teletón determina cuándo dejar de leer movimientos pendientes (S500B02TMOVTOS) según tres desenlaces posibles en cada lectura: si no hay error, continúa con el siguiente movimiento; si llegó al final de los datos (NOTFOUND), concluye la lectura normalmente (W77-EOF-BASE=1); si ocurre cualquier otro error de base de datos, registra el problema en el log (999-MGS-DMSII) y fuerza la terminación del proceso (CALL SYSTEM DMTERMINATE) en vez de continuar con datos potencialmente inconsistentes. Implementado en el ciclo principal 900-LEE-B02, evaluando el estatus (W88-DB-NOTERROR / NOTFOUND / otro) tras cada PERFORM 997-S500B02TMOVTOS-FINDN.',
+ reg:[]},
+{dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:192,type:'IF',
+ desc:'Cada movimiento de tarjeta vigente (estatus contable 00, según catálogo DASDL) genera dos salidas: un registro de detalle hacia el archivo S244/Teletón (PERFORM 930-GRABA-I04) y un registro de punteo contra el Libro Mayor S151 (PERFORM 960-GRABA-I08), de modo que el cargo queda reflejado tanto en la cadena comercial como en la contabilidad. Los movimientos con estatus distinto de 00 (vigente) o 15 (Amex) no generan ningún archivo de salida.',
+ reg:[]},
+{dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:192,type:'IF',
+ desc:'Los movimientos American Express (estatus contable 15 — "no contable referido" según catálogo DASDL) se liquidan por una vía distinta a la cadena comercial Teletón: no entran al archivo S244, pero sí generan el punteo contra el Libro Mayor (PERFORM 960-GRABA-I08) y un registro en el archivo AMEXMNL que se transmite a INTELAR (PERFORM 991-ASIGNA-VALORES-DETALLE y 991-ESCRIBE-AMEXMN).',
+ reg:[]},
+{dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:194,type:'IF',
+ desc:'Cada cargo reportado a S244 se clasifica como captura manual o automática según si el movimiento tiene o no una autorización electrónica de Base24: sin número de autorización (campo B02T-AUT-B24 en "000000" o espacios) se marca como manual (WKS-I04-TIPO-TRAN=1); con un número de autorización de Base24 válido, se marca como automática (WKS-I04-TIPO-TRAN=0). Determinado en el párrafo 930-GRABA-I04.',
+ reg:[]},
+{dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:197,type:'IF',
+ desc:'Para los movimientos de tarjeta vigentes (no aplica a American Express, que sigue una ruta de procesamiento aparte), el BIN adquirente que se asigna a la referencia de 23 posiciones depende del primer dígito del número de tarjeta: dígitos 3 o 4 reciben el BIN 454061; cualquier otro primer dígito recibe el BIN 543006. Esta segmentación de BIN es independiente de la franquicia Amex: el párrafo que la calcula (935-ARMA-REF23, campo WKS-I04-RE-BINADQ a partir del primer dígito WKS-I04-DIG-TARJ) solo se ejecuta para movimientos con estatus contable 00, por lo que los movimientos Amex (estatus 15) nunca llegan a esta rutina — el dígito 3 aquí no identifica tarjetas Amex, sino otra segmentación de BIN dentro del universo de tarjetas vigentes.',
+ reg:[]},
+{dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:199,type:'COMPUTE',
+ desc:'La referencia de 23 posiciones que identifica cada movimiento de tarjeta Teletón (usada para trazabilidad y conciliación) incluye un dígito verificador de control, calculado con una técnica tipo Luhn módulo 10 sobre los primeros 22 dígitos de la referencia, que permite detectar errores de captura o transcripción. Fórmula exacta (párrafo 940-CALCULA-DIGITO): para cada uno de los primeros 22 dígitos (WKS-DIG-REF23(1) a WKS-DIG-REF23(22), redefinición de WKS-NUM-REF23/WKS-I04-REF-23), se calcula WKS-RS-PESO(i) = WKS-DIG-REF23(i) × peso(i), con peso(i)=1 si i es impar (1,3,...,21) y peso(i)=2 si i es par (2,4,...,22) — 22 sentencias COMPUTE independientes escritas una por una, no un loop. Cada WKS-RS-PESO(i) (rango 0-18) se redefine en dos dígitos WKS-DG1-PESO(i) (decena) y WKS-DG2-PESO(i) (unidad), y ambos se acumulan en WKS-SUMA-RS-PESO = suma de (WKS-DG1-PESO(i)+WKS-DG2-PESO(i)) para i=1..22 — equivalente a sumar los dígitos del producto cuando este es mayor o igual a 10 (ej. producto 18 aporta 1+8=9). Luego DIVIDE WKS-SUMA-RS-PESO BY 10 GIVING WKS-SUMA-RS-PESO REMAINDER WKS-REMAINDER obtiene el residuo, y COMPUTE WKS-DIGITO-CALCULADO = 10 - WKS-REMAINDER da el dígito verificador. Caso límite verificado en el fuente: si WKS-REMAINDER=0, el resultado aritmético es 10, pero WKS-DIGITO-CALCULADO es PIC 9 (un solo dígito, sin cláusula ON SIZE ERROR), por lo que el valor trunca a 0 — el dígito verificador válido cuando el residuo es cero es 0, no 10. El resultado se coloca en la posición 23 de la referencia (WKS-I04-RE-DIGVER), posición que no participa en el cálculo.',
+ reg:[]},
+{dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:199,type:'CALL',
+ desc:'La referencia de 23 posiciones de cada movimiento Teletón incluye un componente de 3 dígitos de día juliano que la ubica temporalmente. Ese día juliano se obtiene convirtiendo la fecha de proceso del movimiento (B02T-FEC-MAQUINA, vía W77-LIB-FEC-IN-2K) mediante la llamada "DAME_DIAJUL2K IN FECHAS" (librería bancaria de cálculo de fechas, resuelta dinámicamente vía CTLVERS al inicio del programa — ver regla de la línea 176), y el resultado (WKS-LF-OUT-DIA) se coloca en WKS-I04-RE-DIAJUL dentro de la referencia (935-ARMA-REF23).',
+ reg:[]},
+{dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:205,type:'MOVE',
+ desc:'El proceso Teletón es un mecanismo de recaudación unidireccional: únicamente genera cargos (donativos vía tarjeta) hacia el sistema S244, nunca abonos. Por eso el registro trailer del archivo S244 (970-GRABA-TRAILERS) reporta el contador y suma de cargos acumulados durante el proceso (WKS-I04-NUM-CARGOS/WKS-I04-IMP-CARGOS, acumulados de B02T-IMPORTE de cada movimiento grabado en 930-GRABA-I04), pero siempre fija en cero los campos de abonos (WKS-I04-NUM-ABONOS=0, WKS-I04-IMP-ABONOS=0).',
+ reg:[]},
+{dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:207,type:'MOVE',
+ desc:'Todo donativo Teletón realizado con tarjeta American Express se reporta a INTELAR bajo un mismo número de establecimiento/negocio fijo, como transacción regular en moneda nacional, de crédito y sin meses sin intereses — valores fijos WKS-R00-NUM-EST=9355195968, WKS-R00-IND-MON="MNX ", WKS-R00-TIPO-TRANS="REGULAR ", WKS-R00-CUOTAS=0 y WKS-R00-TIPO-TARJ="CREDITO   ", asignados en 991-ASIGNA-VALORES-DETALLE para el registro AMEXMNL. El número de tarjeta y el importe del donativo se toman de B02T-CUENTA-TARJ y B02T-IMPORTE respectivamente, este último formateado en el subproceso 993-BUSCA-IMPORTE/993-EDITA-IMPORTE (ver regla línea 210).',
+ reg:[]},
+{dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:210,type:'PERFORM',
+ desc:'El importe del donativo que se envía a American Express (campo WKS-R00-IMP-TRAN, 13 caracteres) debe llegar sin ceros de relleno y con punto decimal explícito, tal como lo exige el layout plano de intercambio con Amex. Para lograrlo, el importe numérico B02T-IMPORTE (PIC 9(10)V99, movido a WS-IMPORTE-N) se recorre carácter por carácter: 993-BUSCA-IMPORTE avanza el índice W77-I mientras encuentra ceros a la izquierda; 993-EDITA-IMPORTE copia los dígitos restantes a WKS-IMP-AMEX, insertando el punto decimal justo antes de la posición 11 (donde inician los 2 dígitos decimales del PIC V99).',
+ reg:[]},
+{dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:214,type:'IF',
+ desc:'El número de autorización que se reporta al Libro Mayor en el punteo contable (WKS-I08-PUN-AUTAPL) se arma en uno de dos formatos, según el canal de origen de la transacción (B02T-TCODE-ORIG, catálogo DASDL): si el movimiento viene del código de transacción 500, se usa el formato "AUT emulador" (WKS-AUTORIZ10: prefijo de 2 + autorización de 10 dígitos); para cualquier otro código de origen, se usa el formato "AUT C218" (WKS-AUTORIZ: sucursal-trans 4 + caja-trans 2 + autorización 6 dígitos). Ambos son redefiniciones de B02T-AUTORIZA/WKS-AUTORIZACION documentadas en el catálogo DASDL. Implementado en 960-GRABA-I08.',
+ reg:[]},
+{dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:214,type:'MOVE',
+ desc:'Para que el Libro Mayor (S151) pueda identificar y conciliar todos los movimientos de tarjetas de la campaña Teletón, cada registro de punteo (960-GRABA-I08) se etiqueta con producto y moneda fijos: WKS-I08-PUN-PRODUCTO=500 (producto Teletón), WKS-I08-PUN-MONEDA=1 (peso mexicano), WKS-I08-PUN-LIBRO=0 y WKS-I08-PUN-INST=1 (institución). La sucursal y caja de origen (WKS-I08-PUN-SUCINI/CAJAINI) se toman de B02T-SUC-S028/B02T-CAJ-S028 (sistema S028, catálogo DASDL) y la caja convertida (WKS-I08-PUN-CAJA-500) de B02T-CAJA-CONV.',
+ reg:[]},
+{dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:222,type:'CALL',
+ desc:'El archivo de movimientos American Express se transmite a INTELAR con un reintento automático ante fallas transitorias, sin detener el proceso batch si la transmisión no se logra. El envío (archivo identificado por WKS-TIT-I09-INTELAR, movido a WS-ID-ARCHI) se hace llamando a "INTELARSND IN ADMONXFERS" (párrafo 999-0080-CALL-INTELAR); si el resultado WS-RSLT-SNT indica error (mayor a cero), el proceso espera 3 segundos (WAIT(3)) y reintenta una sola vez; si el segundo intento también falla, se registra "NO SE ENVIO A INTELAR=>" con el nombre del archivo en el log de operación (TEXTO-LJ), pero el proceso continúa. Esta llamada solo ocurre si el proceso terminó en forma normal (W77-FIN-ANORMAL=0).',
+ reg:[]},
+{dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:227,type:'IF',
+ desc:'Al concluir, el programa deja constancia del resultado en el flujo de diálogo BD06TELETON: si terminó de forma anormal (W77-FIN-ANORMAL=1), registra "TERMINACION ANORMAL" en el log y se marca a sí mismo con estatus -1 (CHANGE ATTRIBUTE STATUS OF MYSELF TO -1); si terminó normalmente (W77-FIN-ANORMAL=0), confirma el avance del diálogo bloqueando S500B00TGLOBAL (LOCK) y actualizando B00T-PASO-ENTRA/B00T-PASO-SALE a 630 (paso de entrada/salida del flujo, catálogo DASDL, coincide con el número de programa S500P630) dentro de una transacción BEGIN/END-TRANSACTION SYNC. Implementado en el párrafo 999999-FIN.',
+ reg:[]},
+{dom:'TAR',pgm:'S500P630',pgm_name:'S500/P630 TarIntercam',line:229,type:'CALL',
+ desc:'Si el proceso terminó normalmente, los archivos generados (S244 Teletón y AMEX) se transfieren automáticamente al host S006 mediante un job de workflow: el proceso arma WKS-LANZA-TX940 con la llave WKS-TX940-LLAVE="S501T01" y la fecha de línea (B00T-FEC-LINEA), y ejecuta CALL SYSTEM WFL para lanzar el job "BEGIN JOB S500/WFL/COPIARCH/01MTP001", que transfiere los archivos vía XFER hacia el host S006 (START (S006)S006/WFL/P940/01MTP001). La llave "S501T01" es un nombre heredado del programa origen S501/P110, previo a la migración jun-oct 2016 a S500/P630, que no se actualizó al migrar. En el host de prueba ACYPBETA se usa un código de acceso alterno (WKS-ACCESS-ACYPBETA) para esa transferencia. Implementado en 999999-TRANSFIERE-P940 (solo si W77-FIN-ANORMAL=0).',
+ reg:[]},
+
+// ═══════════════════════════════════════════════════════════════════════════
+// S151 — MOVIMIENTOS CONTABLES (GENERAL LEDGER)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ---------------------------------------------------------------------------
+// ─── S151 — CONTABILIDAD GL (domain: CON) ────────────────────────────────
+// L002R2 — S151REGISTRA (ALGOL, interfaz crítica cross-system S500→GL, 444,992 LOC sistema)
+// ---------------------------------------------------------------------------
+{dom:'CON',pgm:'S151/L002R2',pgm_name:'S151/L002R2 S151REGISTRA',line:608,type:'IF',
+ desc:'Al iniciar cada jornada contable (NIVLOG=0), S151REGISTRA escribe el registro de cabecera ("header") del libro Mayor del día: identificador "HD", fecha en 8 dígitos (CCAAMMDD), autorización inicial en cero y estado en cero. Este header es el punto de entrada para todos los asientos contables del día, que llegan vía ENLACE_8D desde S500/P142 (específicamente hacia este objeto L002R2; los objetos hermanos L002R3/L002R4/L002R5 atienden a P144/P010/otros programas respectivamente — P130 NO es invocador de este ACL, según la arquitectura documentada en BC-04 de kb-capa5-fronteras.md).',
+ reg:[]},
+{dom:'CON',pgm:'S151/L002R2',pgm_name:'S151/L002R2 S151REGISTRA',line:621,type:'IF',
+ desc:'Cuando llega un asiento de función GL válida (IDFFUNCION(ALOG)=1), S151REGISTRA determina si el asiento trae texto descriptivo extendido y, de ser así, lo adjunta como un registro descriptor ligado a ese asiento del Libro Mayor. Mecanismo: escanea 530 bytes de ALOG desde el offset+445 (SCAN P_ALOG FOR LEN_REG:530 UNTIL NEQ 48"00"); si encuentra contenido no-cero (LEN_REG>0), escribe el descriptor en DES[NIVDES+1] con (NIVLOG+1) en 8 dígitos + 1,060 bytes de texto (tomados de ALOG offset+890) + 10 dígitos en cero + bandera 01, incrementa NIVDES y guarda ese nivel en APUN_DESC. Si no hay texto adicional, APUN_DESC queda en 0 (sin descriptor, sin encadenar a un descriptor anterior). En ambos casos, el registro del asiento (BLOG, escrito a LOG[NIVLOG+1]) lleva 890 bytes de datos de movimiento (DFFUNCION) + 8 dígitos de apuntador APUN_DESC + 2 dígitos de bandera de estado activo (%STA). La primera vez que NIVDES=0 en el día, además se inicializa "HD"+FECDIA en DES[0] y se reescribe LOG[0] con el nivel y bandera 1.',
+ reg:[]},
+{dom:'CON',pgm:'S151/L002R2',pgm_name:'S151/L002R2 S151REGISTRA',line:675,type:'EVALUATE',
+ desc:'La eliminación de un asiento GL valida 6 condiciones en cascada antes de ejecutarse: (1) nivel autorización > NIVLOG → error 15; (2) falla de lectura del registro → error 9; (3) discrepancia de sistema origen → error 9; (4) función ≠ 1 (no es asiento GL) → error 11; (5) autorización de eliminación = 0 → error 12; (6) estado ya = 2 (asiento ya cancelado) → error 13. Solo si pasa las 6 condiciones, el asiento se marca cancelado en todos sus niveles: se marca un segundo indicador en el offset+358 de ALOG2 y se agrega un nuevo registro en el nivel NIVLOG+1 que documenta el propio evento de cancelación, en vez de solamente reescribir los niveles previos.',
+ reg:['CNBV']},
+{dom:'CON',pgm:'S151/L002R2',pgm_name:'S151/L002R2 S151REGISTRA',line:697,type:'PERFORM',
+ desc:'Garantiza que ningún nivel de un asiento GL quede activo sin su cabecera cancelada — requerimiento de integridad del libro mayor para auditorías CNBV: al cancelar un asiento, S151REGISTRA recorre en cascada todos los niveles anteriores (vía IDFAUTANT) marcando estado=2 (cancelado) en cada registro, iterando hasta que el apuntador anterior sea cero. Si el nivel recién leído resulta apuntar a sí mismo (AUT_ANTER = IDFAUTANT(BLOG) tras la lectura), la rutina limpia DFAUTANT(BLOG) a 00 para cortar el ciclo y evitar una recursión infinita en la cadena.',
+ reg:['CNBV']},
+{dom:'CON',pgm:'S151/L002R2',pgm_name:'S151/L002R2 S151REGISTRA',line:731,type:'COMPUTE',
+ desc:'GRABASDO alimenta el reporte regulatorio de Saldos (SDO) del Proyecto TESOFE (SAT/Tesorería de la Federación, desde 2019), escribiendo esos registros en 10 canales paralelos SDO1–SDO10 (arreglo SDOS[0..9]) — uno por cada fecha contable simultánea en proceso (indexado por NUM_FEC contra FEC_DIA[], NO por día de la semana). Cada canal está definido MAXRECSIZE=65 WORDS (UNITS=WORDS ⇒ 65 palabras Unisys = 390 bytes/registro). Evolución confirmada por comentarios en código: 30 palabras (original) → 36 palabras ("CODIGO DE RENOVACION CRONOS 2000", Y2K) → 65 palabras ("CAMBIO PROYECTO TESOFE 2019", vigente). Registro de DETALLE (ASDO, exactamente 390 bytes): DFSDOFUNC offset+0(2) función · DFSDOSIST offset+2(4) sistema · DFSDOPROD offset+6(4) producto · DFSDOINST offset+10(4) instrumento · DFSDOCONTR offset+14(20) contrato · DFSDOEDCTA offset+34(2) estado de cuenta · DFSDOFECPR offset+36(8) fecha de proceso · DFSDOFECIN offset+44(8) fecha inicial · DFSDOFECFI offset+52(8) fecha final · DFSDOFECUL offset+60(8) fecha última actualización · DFSDOSTAT desde offset+68 en adelante (bloque de posición/saldo hasta completar 390 bytes). Registro de HEADER (BSDO, primer registro de cada canal, NIVSDO=0): "HD" + FECDIA(8 dígitos) + 8 dígitos en cero + relleno reservado de 356 posiciones.',
+ reg:['SAT']},
+
+// ---------------------------------------------------------------------------
+// ─── S151 — MOVIMIENTOS (domain: MOV) ────────────────────────────────────
+// P130 (S151) — AGRUPADOR (⚠ distinto de S500/P130 que es el programa de sucursales)
+// ---------------------------------------------------------------------------
+{dom:'MOV',pgm:'S151/P130',pgm_name:'S151/P130 Agrupador ⚠COLISIÓN-P130',line:6399,type:'IF',
+ desc:'⚠ COLISIÓN: en S151, P130 es el AGRUPADOR de movimientos (distinto de S500/P130 programa de sucursales). Al iniciar, clasifica el tipo de cuenta por número de sistema: sistemas 402 (BIVA) y 600 (crédito especial) → tipo "C" (crédito); todos los demás sistemas → tipo "S" (savings/captación). Esta clasificación determina el formato de los registros para el Libro Mayor y los interfaces S028/S254. La letra resultante (WKS-SISTEMA-LETRA) se propaga a los campos de agrupación, control, título y error del programa (WKS-START-S-C, WKS-SIS-S-C, WKS-MC-S-C, WKS-DES-S-C, WKS-ERR-S-C, entre otros).',
+ reg:[]},
+{dom:'MOV',pgm:'S151/P130',pgm_name:'S151/P130 Agrupador ⚠COLISIÓN-P130',line:6430,type:'IF',
+ desc:'El programa resuelve el número de Centro de Servicio (CSI) de cada movimiento según el sistema y el nodo donde se ejecuta (CALL "CSIID OF SOPORTECOMS" → WKS-DH-NOMEQUIPO): para sistemas 404 y 414, el nodo ACYPBETA o VDMBETA asigna CSI=04 (WKS-DH-NUMCSI; cualquier otro nodo no reasigna el CSI); para sistema 403, ese mismo par de nodos asigna CSI=04 y cualquier otro nodo asigna CSI=10. Este CSI se propaga a los campos de agrupación, control y error del movimiento (W77-CSI-PROCESO, WKS-AG-CSI, WKS-CSI-OR, WKS-HD-CSI, WKS-ERR-CSI, entre otros) y más adelante determina el nodo de impresión por defecto (WKS-SUC-NODO-IMP = CSI×100, ver regla COMPUTE línea 6865). Nota importante: no existe en este programa el esquema de "8 nodos en 4 pares activo-activo" (ACYPGAMA↔MONALFA, VDMALFA↔MONBETA, ACYPBETA↔VDMBETA, ACYPOMEGA↔VDMKAPPA) que se documentaba antes en esta regla — esa arquitectura fue verificada exhaustivamente contra el código fuente (ninguno de esos 6 nombres de nodo aparece en el programa) y no existe en S151/P130; lo real es la resolución de CSI descrita arriba.',
+ reg:[]},
+{dom:'MOV',pgm:'S151/P130',pgm_name:'S151/P130 Agrupador ⚠COLISIÓN-P130',line:6780,type:'IF',
+ desc:'Al cerrar las descripciones contables del día (párrafo 10100-CIERRA-DESC), P130 resuelve primero qué versión de la librería "LIB-REGISTRA" usar: si el control de versiones SÍ resuelve el título (WKS-CTLVERS-STATUS ≥ 0 tras CALL "DAME_TIT IN CTRLVERS"), usa el título devuelto (WKS-CTLVERS-TITULO); si falla (status<0), P130 emite un aviso y usa el título fijo por defecto sin release ni MTP — mismo patrón de resolución de librería documentado para S151/P015 y S151LIBCONTROL, que garantiza continuidad del cierre nocturno aunque la librería no esté auditada por control de versiones. Inmediatamente después, P130 llama "CONTROLES IN LIB-REGISTRA" para cerrar los archivos de movimientos y descripciones del sistema en proceso. Nota importante: este punto del código NO contiene enrutamiento hacia el sistema de intercompañías S702 — la lógica que se documentaba antes aquí (archivos E01, CSI 10/12, redirección a S702, pares de nodos) no existe en S151/P130: se verificó exhaustivamente que "PROTCOB", "S500ALRCD" y "S701OCMCD" no aparecen en el código fuente, y "S702" solo aparece como sufijo de campos de una estructura de datos REDEFINES, sin relación con enrutamiento.',
+ reg:[]},
+{dom:'MOV',pgm:'S151/P130',pgm_name:'S151/P130 Agrupador ⚠COLISIÓN-P130',line:7019,type:'IF',
+ desc:'Los sistemas 84, 87, 403 y 500 cargan el catálogo 1077 "REL INTER VS U NEGOC" (relaciones intercompañía vs. unidades de negocio) vía CPPE-CATALOGO/WKS-NUM-CATA y las rutinas 15500-ARMA-1ER-LLAMADA-L710-CP + 14900-CARGA-INTERCOMPANY. El código comentado inmediato ("IF W77-SISTEMA-PARAM = 500") indica que esta carga originalmente aplicaba solo al sistema 500 y se amplió después para incluir también 84, 87 y 403. Este catálogo mapea identificadores de corporativo a unidades de negocio bancarias, necesario para la segregación contable entre entidades legales del grupo financiero Banamex-Citigroup en el Libro Mayor.',
+ reg:[]},
+{dom:'MOV',pgm:'S151/P130',pgm_name:'S151/P130 Agrupador ⚠COLISIÓN-P130',line:7107,type:'IF',
+ desc:'El código de moneda de cada movimiento (W77-IND, tomado de CDPS-CVE-REGISTRO vía catálogo L700) debe estar en el rango 1-99 (límite del catálogo L700). Si es válido, su descripción corta (CDPS-DCORTA) se guarda en WKS-DES-MONEDA(W77-IND); si un código está fuera de rango, se activa la rutina de error 98200-ERROR-EN-LIMITE-CD y el lote no puede continuar. El sistema S151 soporta hasta 99 tipos de moneda distintos en el Libro Mayor; el peso mexicano tiene código 1.',
+ reg:[]},
+{dom:'MOV',pgm:'S151/P130',pgm_name:'S151/P130 Agrupador ⚠COLISIÓN-P130',line:7184,type:'IF',
+ desc:'El programa valida que los códigos de tipo de transacción (W77-IND, de CPPS-DATOS(*,1)) estén en el rango 1-10,000; fuera de rango activa 98400-ERROR-EN-LIMITE-CP y detiene la carga. Para cada tipo válido (variante estándar, párrafo 12550-CARGA-TRAN) se cargan 6 atributos que gobiernan el procesamiento posterior del movimiento: WKS-PT-EXISTE=1 (bandera de existencia), WKS-PT-NUM-LEYEN (número de leyenda descriptiva), WKS-PT-EVENTO (código de evento contable), WKS-PT-CGENTRA (atributo adicional, sin glosa explícita en comentarios de código), WKS-PT-NATS028 (indicador de inclusión en el archivo MOVSXTERM, interfaz S028) e WKS-PT-INDS254 (indicador para la interfaz S254, usado más adelante — línea 8638 — para centralizar la sucursal promotora en sistemas de crédito). La variante para sistemas con esquema FORM4 (párrafo 12575-CARGA-TRAN) valida el mismo rango y aplica el mismo error 98400, pero omite EXISTE y EVENTO (solo carga NUM-LEYEN, CGENTRA, NATS028, INDS254 e INDBITA — indicador de generación de bitácora operativa, también parte del set de 6 atributos en ambas variantes).',
+ reg:[]},
+{dom:'MOV',pgm:'S151/P130',pgm_name:'S151/P130 Agrupador ⚠COLISIÓN-P130',line:7007,type:'IF',
+ desc:'El sistema 402 (BIVA — Bolsa Institucional de Valores) carga exclusivamente el catálogo 209 "ESTR.REG.BIVA" desde L710 (CPPE-CATALOGO/WKS-NUM-CATA, vía 15500-ARMA-1ER-LLAMADA-L710-CP + 14600-CARGA-CAT-209). Este catálogo define la estructura de los registros de posición de valores enviados a BIVA para liquidación. La CNBV exige que los registros BIVA cumplan el formato exacto del catálogo 209; una discrepancia provoca rechazo en la bolsa y falta de liquidación.',
+ reg:['CNBV']},
+{dom:'MOV',pgm:'S151/P130',pgm_name:'S151/P130 Agrupador ⚠COLISIÓN-P130',line:6865,type:'COMPUTE',
+ desc:'Cuando la consulta a la estructura de sucursal (CALL "LIBEST IN ESTRUCTURA") falla, o tiene éxito pero no trae un nodo de impresión explícito (WKS-EST-NODO-IMP ≤ 0), P130 calcula un nodo de impresión por defecto para que el movimiento no quede sin destino de impresión: WKS-SUC-NODO-IMP(W77-IND) = W77-CSI-PROCESO × 100 (el mismo patrón exacto se repite para RM-NODO-IMP en la línea 8453). Es decir, el nodo sintético se deriva multiplicando por 100 el número de CSI ya resuelto para el sistema (ver regla de resolución de CSI, línea 6430). Si la estructura SÍ trae un nodo explícito (WKS-EST-NODO-IMP>0), ese valor se usa en su lugar y este cálculo no se ejecuta.',
+ reg:[]},
+{dom:'MOV',pgm:'S151/P130',pgm_name:'S151/P130 Agrupador ⚠COLISIÓN-P130',line:7234,type:'COMPUTE',
+ desc:'Para repartir el catálogo de leyendas descriptivas (usadas en los reportes y descripciones de movimientos, párrafo 12950-LEYENDAS) en 4 tablas paralelas dentro del límite de memoria del programa, P130 banda el espacio de 10,000 leyendas según la clave W77-IND (rango válido 1-10,000; fuera de rango dispara 98200-ERROR-EN-LIMITE-CD, el mismo error de la regla de moneda): IND>9000 → IND=IND-9000, guarda en WS-LEY-TRAN4(IND); si no, IND>6000 → IND=IND-6000, en WS-LEY-TRAN3(IND); si no, IND>3000 → IND=IND-3000, en WS-LEY-TRAN2(IND); si no (IND≤3000) → sin ajuste, en WS-LEY-TRAN1(IND). El mismo patrón de bandas (-9000/-6000/-3000 con las mismas 3 comparaciones) se repite idéntico en otros 3 puntos del programa (líneas ~10817-10827, ~11671-11681, ~11845-11855) para catálogos análogos de reportería.',
+ reg:[]},
+{dom:'MOV',pgm:'S151/P130',pgm_name:'S151/P130 Agrupador ⚠COLISIÓN-P130',line:8041,type:'COMPUTE',
+ desc:'Al leer cada registro del log de movimientos GL (párrafo 20300-LEER-LOG151, READ LOG151 INTO A00-R01-REGMOV), P130 recupera el texto descriptivo extendido del asiento cuando existe: si el registro trae apuntador de descriptor (A00-R01-APUDES > 0), calcula W77-APUDES = A00-R01-APUDES + 1 y lee con esa llave el registro complementario en LOG151-COMP (READ ... INTO A01-R01-DATOS). A00-R01-APUDES es el mismo apuntador de cadena de descriptores (APUN_DESC) que S151/L002R2 escribe al registrar el asiento (ver regla COMPUTE de L002R2, línea 621) — evidencia directa de que P130 consume, del lado COBOL, la cadena de descriptores que el ACL ALGOL construye al postear el asiento contable.',
+ reg:[]},
+{dom:'MOV',pgm:'S151/P130',pgm_name:'S151/P130 Agrupador ⚠COLISIÓN-P130',line:10537,type:'COMPUTE',
+ desc:'Antes de generar la bitácora de movimientos (párrafo 30000-GENERA-BITACORA), P130 calcula el tamaño de memoria y disco necesarios para ordenar el archivo completo de movimientos del día: W77-TOT-REG-SORT = LASTRECORD de MOVIMIENTOS (total de registros del archivo); W77-TOT-MEMORIA = (17+3)×2000+1500 palabras; W77-TOT-DISCO = 17 × W77-TOT-REG-SORT × 2.25 palabras. Estos valores alimentan directamente "SORT SMOVIMIENTOS ... MEMORY SIZE W77-TOT-MEMORIA WORDS DISK SIZE W77-TOT-DISCO WORDS", ordenado por SM-NODO-IMP/SM-SUC-INIC/SM-CAJA-INIC/SM-FONDO/SM-TIPO-CRED/SM-AUT-S151 cuando W88-SIST-CRED (sistemas de crédito). La misma fórmula (X+3)×2000+1500 / X×registros×2.25 se repite con constante 31 en otros 4 SORTs del programa y con constante 8 en 2 más — cada SORT tiene su propio factor fijo (17/31/8), ajustado al perfil de llave que ordena en ese punto del programa.',
+ reg:[]},
+
+// ---------------------------------------------------------------------------
+// ─── S151 — CONTROL-GL (domain: CTL151) ──────────────────────────────────
+// P015 (S151) — ACTMOV (⚠ distinto de S500/P015)
+// ---------------------------------------------------------------------------
+{dom:'CTL151',pgm:'S151/P015',pgm_name:'S151/P015 ActMov ⚠COLISIÓN-P015',line:2476,type:'EVALUATE',
+ desc:'⚠ COLISIÓN: en S151, P015 es el actualizador de la base de movimientos semanal BD10MOVDIA151 (distinto de S500/P015). Permite hasta 10 instancias paralelas procesando los 5 días laborables del ciclo contable semanal: el parámetro de entrada mapea la sesión al día de la semana (WKS-ENTRY-PARAM → W77-DIA-SEM) — entradas 1 o 6 → día 1 (lunes); 2 o 7 → día 2 (martes); 3 o 8 → día 3; 4 o 9 → día 4; 5 o 10 → día 5 (viernes).',
+ reg:[]},
+{dom:'CTL151',pgm:'S151/P015',pgm_name:'S151/P015 ActMov ⚠COLISIÓN-P015',line:2243,type:'IF',
+ desc:'Este control evita duplicación de asientos contables en reprocesos nocturnos: si la base semanal de movimientos (BD10MOVDIA151, particionada Lunes-Viernes) ya contiene registros para el día en proceso (B00-GLOB-NIV-BASE(W77-DIA-SEM) > 0), se ejecuta el subproceso 000050-VERIFICA-DATOS (que valida, según WKS-ENTRY-PARAM, la existencia de la primera entrada en B01SXAUTS151/B11SXAUTS151/B21SXAUTS151 — accesos sobre el dataset S151B01MOVTOS) antes de agregar nuevos movimientos. Si el nivel de base es cero, el día está sin inicializar y el proceso agrega movimientos directamente.',
+ reg:[]},
+{dom:'CTL151',pgm:'S151/P015',pgm_name:'S151/P015 ActMov ⚠COLISIÓN-P015',line:2127,type:'IF',
+ desc:'Este mecanismo garantiza continuidad del batch nocturno de contabilidad aunque la librería no esté auditada por control de versiones: si CTLVERS no puede localizar la librería S151LIBCONTROL (CALL "DAME_TIT IN CTRLVERS" sobre la clave "S151L001CTL" retorna WKS-CTLVERS-STATUS < 0), P015 emite un aviso informativo y resuelve la ruta directamente a "(S151)S151/OBJECT/L001/CONTROL ON CMEMP." sin número de release ni MTP. Si CTLVERS sí resuelve el título, se usa ese título (WKS-CTLVERS-TITULO).',
+ reg:[]},
+{dom:'CTL151',pgm:'S151/P015',pgm_name:'S151/P015 ActMov ⚠COLISIÓN-P015',line:2070,type:'IF',
+ desc:'Para evitar avisos duplicados durante el cierre del proceso batch nocturno, P015 controla la repetición de la interrupción de hardware HI-4 (dentro de la sección declarativa HI-INTERRUPT con DISALLOW/ALLOW INTERRUPT): verifica si ya ocurrió una interrupción previa del mismo tipo (W88-DOBLEHI4) — la primera HI-4 registra "TERMINACION DEL ASIN1 POR HI 4" y continúa; la segunda HI-4 suprime el mensaje para evitar recursión infinita. La interrupción HI-20, en cambio, solo reporta el nivel actual de la base de datos (W77-NIV-BASE) sin detener el proceso batch. W77-DOBLEHI4 se fija en 1 al llegar al fin normal del proceso, por lo que la supresión de HI-4 protege específicamente contra interrupciones repetidas durante el cierre/terminación del batch.',
+ reg:[]},
+{dom:'CTL151',pgm:'S151/P015',pgm_name:'S151/P015 ActMov ⚠COLISIÓN-P015',line:2838,type:'COMPUTE',
+ desc:'Para avanzar de forma secuencial dentro de la base semanal de movimientos y leer el siguiente registro contable, P015 calcula la llave de posicionamiento W77-LLAVE = W77-NIV-BASE + 2, usada para posicionar (SEEK L01-DATOS RECORD / SEEK L02-DATOS RECORD) antes de leer (READ ... INTO A00-R01-REGMOV). El mismo patrón +2 se repite en varios puntos del programa (p.ej. 001300-LEE-BLOCK1 línea 2838, 002000-LEE-NEXT línea 11973) cada vez que P015 avanza el nivel de la base — es el equivalente, del lado COBOL/base semanal, del esquema NIVLOG+1 que usa el ACL ALGOL (S151/L002R2) para encadenar niveles del asiento.',
+ reg:[]},
+{dom:'CTL151',pgm:'S151/P015',pgm_name:'S151/P015 ActMov ⚠COLISIÓN-P015',line:11944,type:'COMPUTE',
+ desc:'Mecanismo de auto-corrección que evita que la base semanal de movimientos de P015 quede desincronizada respecto del log GL autoritativo que escribe S151/L002R2 — control relevante para la integridad del rastro de auditoría del Libro Mayor (párrafo 001750-CORR-ARCH; comentario original en código: "CDDB MODIF DE AUTO CORRECCION DEL REG 99 EN ARCH MOVTOS"). Mecanismo: P015 resuelve la librería LIB-L002 (001800-LIGA-L002, mismo mecanismo CTLVERS que para S151LIBCONTROL, con fallback a "(S151)S151/OBJECT/L002/REGISTRA ON CMEMP") y llama directamente "CONTROLES IN LIB-L002" — el mismo entry point CONTROLES que expone S151/L002R2 (S151REGISTRA) y que también invoca S151/P130 (línea 6790/6810, "CONTROLES IN LIB-REGISTRA"). El resultado (nivel NIVLOG actual del ACL) se guarda en W77-NIV-BASE-L002 y se le resta 2: COMPUTE W77-NIV-BASE-L002 = W77-NIV-BASE-L002 - 2. Si ese valor queda por encima del nivel propio de P015 (W77-NIV-BASE), P015 avanza leyendo registros (002000-LEE-NEXT, llave W77-NIV-BASE+2) hasta emparejar ambos niveles.',
+ reg:['CNBV']},
+{dom:'CTL151',pgm:'S151/P015',pgm_name:'S151/P015 ActMov ⚠COLISIÓN-P015',line:10859,type:'COMPUTE',
+ desc:'Mecanismo con el que P015 descuenta de los totales acumulados de la semana los importes/contadores de abonos y cargos (NUM-AB, IMP-AB, NUM-CR, IMP-CR) de una sucursal-caja (WKS-SUC-*) previamente sumada por error o que debe reprocesarse, indexado por W77-REM/W77-SUMA (párrafo 043000-RESTA-SUCCAJ-LUNES y variantes homólogas). Fórmula: B03-NUM-AB(W77-SUMA) = B03-NUM-AB(W77-SUMA) - WKS-SUC-NUM-ABO(W77-REM,W77-SUMA), repetida con la misma estructura para NUM-CR/IMP-AB/IMP-CR. El mismo patrón de resta (4 fórmulas idénticas en forma) se repite para los pares de acumulador B03/B04 (lunes), B13/B14 (martes), B23/B24 (miércoles), B33/B34 (jueves) y B43/B44 (viernes, en párrafos 043xxx-RESTA-SUCCAJ-*).',
+ reg:[]},
 ];
 
 let sortCol=null, sortDir=1;
