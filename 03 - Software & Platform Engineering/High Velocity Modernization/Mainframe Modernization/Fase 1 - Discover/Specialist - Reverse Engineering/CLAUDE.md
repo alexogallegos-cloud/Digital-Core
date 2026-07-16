@@ -79,6 +79,380 @@ Este specialist **implementa la columna COBOL / z-OS** del método [Gemelo Cogni
 
 ---
 
+## Capa 1 del Gemelo Cognitivo — Vocabulario Controlado
+
+Esta sección documenta el proceso canónico para generar, enriquecer y mantener el **vocabulario controlado** (Capa 1 del Gemelo Cognitivo) a partir de los copybooks COBOL del sistema bajo análisis.
+
+El vocabulario controlado es el artefacto fundacional: toda la Capa 2 (Almas), Capa 3 (Biografía) y los análisis de equivalencia dependen de un lexicón con significados de negocio confirmados y niveles de confianza explícitos.
+
+---
+
+### 1.1 — Pipeline de Generación (6 pasos)
+
+```
+PASO 1     PASO 2     PASO 3      PASO 4         PASO 5     PASO 6       PASO 7
+────────   ────────   ────────    ────────        ────────   ────────     ────────
+Extracción Curación   Expansión   Enriquecim.     Merge      Alcance      Render
+           manual     CAP Wave 1  CAP Wave 2
+Parsear    Términos   ~3K campos  ~8K campos      Actualiz.  Swarm de     Generar
+copybooks  de negocio "interes."  sparse          vocab-     agentes CAP  vocab-
+→ JSON     con sig.   c88/PIC-    por familia     {sys}.md   ~400 campos  {sys}.html
+vocab-     validado   DECIMAL/    de interfaz                /agente      con filtro
+campos.json           OCCURS                                              Alcance
+```
+
+**Paso 1 — Extracción:**
+Parsear todos los copybooks INC/CPY del sistema. Para cada campo COBOL producir un registro JSON con: `nombre`, `nivel`, `tipo` (ALFANUMERICO / NUMERICO / NUMERICO_DECIMAL / COMP / COMP-3 / COMP-3-SIGNED / ALFANUMERICO_EDICION), `pic`, `dominio`, `value`, `occurs`, `redefine`, `descripcion` (si existe en el fuente), `condiciones_88` (lista de valores), `grupo_01` (nombre del nivel-01 contenedor), `fuente` (nombre del copybook).
+
+Output canónico: `vocab-campos-{sistema}.json`.
+
+**Paso 2 — Curación manual:**
+Términos de negocio de alto valor (entidades, acciones, modificadores, prefijos) se curan manualmente con significado completo y confianza `alta`. Estos forman la **Sección 1** del MD y nunca se sobreescriben por automatización. Columnas: `# | Termino | Frecuencia | Categoria | Confianza | Evidencia | Significado | Alcance` (S1 recibe `N/A-componente` en la columna Alcance).
+
+**Paso 3 — Expansión CAP Wave 1 (campos "interesantes"):**
+Un swarm de agentes CAP procesa los campos con señal fuerte:
+- Tiene `condiciones_88` (valores de negocio documentados en el código)
+- Tipo `NUMERICO_DECIMAL` (campo de monto, tasa, saldo — semánticamente rico)
+- Tiene `descripcion` original del fuente (comentario inline)
+- Tiene `OCCURS` (array — implica dimensionalidad de negocio)
+
+Excluir: `RD-*`, `RD1-*`, `RD2-*`, `WS-WORK*`, `WS-FILL*`, `FILLER` (ruido estructural).
+
+Lote: ~300 campos/agente, round-robin. Script: `make-batches.py`.
+
+**Paso 4 — Enriquecimiento CAP Wave 2 (campos sparse restantes):**
+Tras el Wave 1, auditar cobertura (`audit-vocab.py`). Todos los campos que aún tienen descripción sparse (`niv:XX tipo:YY · PIC ...`) forman el Wave 2. Agrupar por **familia de interfaz** para que cada agente reciba contexto coherente de un mismo sistema:
+
+| Familia | Patrón de nombre | Sistema |
+|---------|-----------------|---------|
+| S151 | `WS-S151-*`, `WKS-S151-*` | Movimientos Contables (GL) |
+| S016 | `WS-S016-*`, `WKS-S016-*` | Datos de cuentahabientes |
+| S080 | `WS-S080-*`, `WKS-S080-*` | Tarifas y comisiones |
+| TASA | `*-TA-BRKT-*`, `*-TA-CURVA-*`, `*-TA-GRUPO-*` | Tablas de tasas de interés |
+| S500L020 | `WS-S500L020-*`, `WKS-S500L020-*` | Librería L020 interna |
+| S127 | `WS-S127-*`, `WKS-S127-*` | Interfaz sistema externo |
+| IFACE | `WS-I-RCZO-*`, `WS-I-ACEP-*`, `WS-I-*` | Buffers rechazo/aceptación |
+| WSO92 | `WSO-92-*`, `WSI-87-*`, `WKS-L710-*` | Pantallas COMS online |
+| GENERAL | todo lo demás | Flags, indicadores, contadores |
+
+Lote: ~310 campos/agente, familia-cohesivo (1 familia por batch donde el volumen lo permite). Script: `make-batches2.py`.
+
+**Paso 5 — Merge:**
+Leer todos los `result-capNN.json` (formato `{"nombre": {"descripcion": "...", "confianza": "alta|media|baja"}}`), construir un diccionario unificado, y actualizar las columnas **Confianza** y **Significado** de la Sección 2 del MD sin tocar la Sección 1. Script: `merge-results.py`.
+
+**Paso 6 — Clasificacion de Alcance (columna 8):**
+Una vez que el vocabulario tiene significados de negocio (post-merge), un **swarm de agentes CAP** clasifica cada campo en uno de 6 valores de Alcance que revelan su rol arquitectonico en el sistema. Los GRUPOs/ESTRUCTURAs reciben `N/A-componente` automaticamente (sin agente); los campos S1 curados tambien reciben `N/A-componente`.
+
+**6 valores canonicos de Alcance (mutuamente excluyentes, en orden de prioridad):**
+
+| Alcance | Criterio de clasificacion |
+|————-|—————————————|
+| `Interfaz-Externo` | nombre inicia `500-` con dom R01/R02; contiene TCP/TCPIP/TRF/TVM/BNE; fuentes incluyen COBOL_P052; fuentes P115+WS-TVM-* |
+| `Control-proceso` | nombre contiene STATUS/-ST-/PUNTEO/CONTINUACION/LLAVE-CTE/RESTART/PASO-PROC |
+| `Persistente-BD` | dominio en {R00,R01,R02,MOV,ENT,SAL,DET,A00} sin prefijo WKS-/WS-/500- |
+| `Parametrico-Catalogo` | VALUE con codigo fijo de negocio no trivial (condiciones 88 con valores semanticos) |
+| `Efimero` | todo lo demas (WKS-, WS-, BIT, BITNF, ERR, flags de trabajo) |
+| `N/A-componente` | GRUPO/ESTRUCTURA contenedora, o S1 curado — sin clasificacion de campo |
+
+Script de batches: `make-batches-alcance.py` (~400 campos/batch). Resultado por agente: `{"nombre": "Alcance-valor"}`. Merge: `merge-alcance.py`. Distribucion de referencia (Banamex S151, 20,114 campos): Efimero 67.2% · Interfaz-Externo 24.4% · Persistente-BD 7.1% · Parametrico-Catalogo 0.75% · Control-proceso 0.59%.
+
+**Paso 7 — Render HTML:**
+Generar `vocab-{sistema}.html` desde el MD actualizado. El HTML incluye filtros por Categoría, Confianza y Evidencia + búsqueda de texto. Script: `gen-vocab-html-from-md.py`. Servir desde el servidor local del GemCog portal.
+
+---
+
+### 1.2 — Formato del MD de Vocabulario
+
+El archivo `vocab-{sistema}.md` tiene **dos secciones separadas por un encabezado canónico**:
+
+```
+## Campos COBOL — Copybooks INC
+```
+
+**Sección 1 — Términos curados** (antes del separador):
+
+Términos de negocio extraídos manualmente con significado validado. Categorías de la Sección 1:
+
+| Categoría | Qué representa |
+|-----------|---------------|
+| ENTIDAD | Sustantivo de negocio (cuenta, cliente, movimiento, cargo) |
+| ACCION | Verbo de negocio (acreditar, debitar, capitalizacion, liquidacion) |
+| MODIF | Modificador que califica una entidad (activo, cancelado, pendiente) |
+| PREFIJO | Prefijo técnico recurrente (WS-, CAP-, ES-, TA-) |
+
+**Sección 2 — Campos COBOL de copybooks** (después del separador):
+
+Campos generados automáticamente por el pipeline. Categorías de la Sección 2:
+
+| Categoría | Tipo COBOL | Descripción |
+|-----------|-----------|-------------|
+| ESTRUCTURA | nivel-01 group | Nombre de grupo raíz (copybook container) |
+| CAMPO-COMP | COMP, COMP-3 | Campo binario o packed decimal sin decimales |
+| CAMPO-DECIMAL | NUMERICO_DECIMAL | Campo numérico con posiciones decimales (V9) |
+| CAMPO-ALFA | ALFANUMERICO | Campo alfanumérico (X) |
+| CAMPO-NUM | NUMERICO | Campo numérico entero sin decimales (9) |
+| CAMPO-EDICION | ALFANUMERICO_EDICION | Campo de edición (Z, $, ., -, /) |
+| GRUPO | nivel intermedio | Grupo no nivel-01 que contiene subcampos |
+
+**Esquema de columnas (8 columnas, aplicable a ambas secciones):**
+
+```
+| # | Termino | Frecuencia | Categoria | Confianza | Evidencia | Significado | Alcance |
+```
+
+| Columna | Contenido en S1 (curado) | Contenido en S2 (COBOL campos) |
+|---------|--------------------------|-------------------------------|
+| # | Número secuencial | Número secuencial |
+| Termino | Término canónico (texto) | Nombre COBOL exacto (en backticks `` ` ``) |
+| Frecuencia | Ocurrencias en el corpus | Ocurrencias en el corpus |
+| Categoria | ENTIDAD / ACCION / MODIF / PREFIJO | ESTRUCTURA / CAMPO-* / GRUPO |
+| Confianza | `alta` / `media` / `baja` | `alta` / `media` / `baja` |
+| Evidencia | `dominio` / `patron-unisys` / `bcop-cruzada` | Nombre del copybook fuente |
+| Significado | Descripción de negocio completa | Auto-generado por CAP, o raw sparse |
+| Alcance | `N/A-componente` (siempre) | Uno de: `Persistente-BD` · `Interfaz-Externo` · `Efimero` · `Parametrico-Catalogo` · `Control-proceso` · `N/A-componente` |
+
+**Fuentes de evidencia (columna Evidencia) para campos COBOL:**
+
+| Evidencia | Copybook / archivo fuente |
+|-----------|--------------------------|
+| `inc-wor-das` | INC-WORK-DAS (working storage principal) |
+| `inc-wor-can` | INC-WORK-CAN (working storage canónico) |
+| `inc-pro` | INC-PROCEDURE (sección de procedimiento) |
+| `src-p130` | Fuente programa P130 |
+| `inc-p010` | INC-P010 |
+| `inc-l010` | INC-L010 (librería L010) |
+| `inc-mapli` | INC-MAPLI (mapeo de librerías) |
+| `inc-l020` | INC-L020 (librería L020) |
+
+**Descripción sparse (antes de enriquecer):**
+```
+niv:02 tipo:COMP · PIC 9(02) · dom:CAPITALIZACION
+```
+Formato: `niv:{nivel} tipo:{tipo} · PIC {pic}[ · dom:{dominio}][ · OCCURS {n}][ · VALUE {v}][ · {n} cond88]`
+
+El patrón `^niv:\d+ tipo:\w+` distingue un campo sparse de uno enriquecido.
+
+**Descripción enriquecida (después de CAP):**
+```
+Número de dígitos decimales de capitalización. Controla la precisión del cálculo de intereses capitalizables. alta
+```
+Formato libre en prosa de negocio, máximo 350 caracteres. No debe incluir el carácter `|` (reemplazar con `/`).
+
+---
+
+### 1.3 — Reglas para Mantener MDs Segmentados
+
+**Regla 1 — La Sección 1 es sagrada:**
+Los términos curados de la Sección 1 **nunca se tocan** con scripts automáticos. El merge script (`merge-results.py`) solo modifica líneas que están después del separador `## Campos COBOL`. Si se necesita corregir un término curado, editar el MD manualmente.
+
+**Regla 2 — Separador obligatorio:**
+El separador exacto `## Campos COBOL — Copybooks INC` debe existir en el MD. Los scripts lo buscan con `"## Campos COBOL" in line` — nunca cambiar el texto antes de `—`. Si el sistema tiene múltiples copybooks en secciones distintas, agregar sub-separadores `### {familia}` dentro de la Sección 2 (no afectan el parser del separador principal).
+
+**Regla 3 — Merge es idempotente:**
+El merge puede ejecutarse múltiples veces. Si un campo ya fue enriquecido y aparece en un resultado nuevo, la descripción nueva reemplaza la anterior. Esto permite re-enriquecer campos con baja confianza si se obtiene mejor evidencia.
+
+**Regla 4 — No regenerar la Sección 2 desde cero después del primer enriquecimiento:**
+La regeneración borra todas las descripciones enriquecidas. Si se agregan nuevos copybooks o campos al sistema, **appender** las nuevas filas al final de la Sección 2 con descripción sparse, luego correr solo las waves necesarias para los campos nuevos (no todas).
+
+**Regla 5 — Numerar campos (#) con el parser, no manualmente:**
+El número `#` en la Sección 2 se puede re-secuenciar con un script que lee el MD de arriba abajo. No asignar números manualmente ya que el MD puede tener más de 12,000 filas.
+
+**Regla 6 — Audit antes de Wave 2:**
+Siempre correr `audit-vocab.py` después de cada wave antes de lanzar la siguiente. El audit reporta:
+- Total de campos COBOL (excluyendo ESTRUCTURA)
+- RICH: tienen descripción de negocio (no sparse)
+- SPARSE: aún en formato `niv:XX tipo:YY`
+- Top 30 prefijos sparse con más campos pendientes
+
+No lanzar Wave 2 si Wave 1 no completó > 95% de sus batches.
+
+**Regla 7 — Un archivo por sistema:**
+`vocab-s500.md` para S500, `vocab-s151.md` para S151, etc. No mezclar campos de sistemas distintos en un mismo MD aunque compartan copybooks. Los copybooks compartidos aparecen en ambos MDs con sus propias frecuencias de uso por sistema.
+
+**Regla 8 — Confianza reflejan evidencia real:**
+- `alta`: campo tiene condiciones_88 explícitas en el código, o descripción inline en el fuente, o el significado es inequívoco por convención de nombre + PIC (ej. `WS-SALDO-ACTUAL PIC S9(13)V9(2) COMP-3`)
+- `media`: prefijo de dominio claro pero descripción inferida sin condiciones_88 ni texto fuente
+- `baja`: abreviatura ambigua, nombre genérico (STATUS, FLAG, IND sin sufijo clarificador) o campo con REDEFINES sin contexto
+
+No usar `alta` por defecto. Un campo `baja` sin enriquecer es más honesto que un `alta` inventado.
+
+---
+
+### 1.4 — Scripts del Pipeline (ubicación canónica)
+
+Los scripts del pipeline viven en el scratchpad de sesión durante el desarrollo. Al estabilizarlos, moverlos a `GemCog/pipeline/` del engagement:
+
+| Script | Función | Input | Output |
+|--------|---------|-------|--------|
+| `make-batches.py` | Wave 1 batch generator | `vocab-campos-{sys}.json` | `batch-cap{NN}.json` (10 batches) |
+| `make-batches2.py` | Wave 2 batch generator (sparse, por familia) | `vocab-{sys}.md` | `batch2-cap{NN}.json` (26 batches) |
+| `merge-results.py` | Merge CAP results → MD | `result-cap{NN}.json` + `vocab-{sys}.md` | `vocab-{sys}.md` actualizado |
+| `audit-vocab.py` | Cobertura rich vs sparse | `vocab-{sys}.md` | Reporte consola |
+| `gen-vocab-html-from-md.py` | MD → HTML con filtros | `vocab-{sys}.md` | `vocab-{sys}.html` |
+|  | Alcance batch generator |  +  |  (~400 campos/batch) |
+|  | Merge Alcance results → MD |  +  |  actualizado con columna Alcance |
+
+**Formato de resultado de agente CAP:**
+```json
+{
+  "WS-CAP-ES-SALDO-ACT": {
+    "descripcion": "Saldo actual de la cuenta de captación. Representa el saldo disponible del cuentahabiente en el momento de la transacción.",
+    "confianza": "alta"
+  },
+  "WS-CAP-ES-TIPO-MOV": {
+    "descripcion": "Tipo de movimiento aplicado a la cuenta. Determina si la operación es cargo (débito) o abono (crédito).",
+    "confianza": "media"
+  }
+}
+```
+
+**Prompt canónico para agentes CAP (adaptable por sistema y familia):**
+
+```
+Eres un especialista en sistemas bancarios mainframe Unisys ClearPath MCP.
+Analiza los campos COBOL del sistema [SISTEMA] — [DESCRIPCION_SISTEMA].
+
+Para cada campo, genera:
+1. descripcion: descripción de negocio en español, 1-3 oraciones, máximo 350 chars.
+   - Explica QUÉ representa este campo en el contexto del negocio bancario
+   - Si tiene condiciones_88, menciona los valores clave y su significado
+   - Si es numérico decimal, menciona qué tipo de importe/tasa representa
+   - NO describas el tipo COBOL — describe el negocio
+2. confianza: "alta" | "media" | "baja"
+   - alta: significado inequívoco por nombre + PIC + context, o con condiciones_88 claras
+   - media: inferido razonablemente del prefijo/sufijo y dominio
+   - baja: abreviatura ambigua o nombre genérico sin contexto suficiente
+
+Contexto del sistema: [CONTEXTO_FAMILIA]
+
+Responde ÚNICAMENTE con JSON válido:
+{"NOMBRE_CAMPO": {"descripcion": "...", "confianza": "alta|media|baja"}, ...}
+```
+
+---
+
+---
+
+### 1.5 — Paso 8: Agente de Quality Assurance del Vocabulario
+
+Después del merge final y antes de publicar el HTML como artefacto de entrega, un **agente QA** valida que el vocabulario cumple los estándares de calidad. Es el gate de salida de Capa 1 antes de alimentar Capa 2 (Almas) y antes de publicar el HTML definitivo en el portal.
+
+**Cuándo ejecutar:** obligatorio después de Wave 2 merge. Si el QA detecta issues críticos, corregir y re-correr merge antes de regenerar el HTML.
+
+**Dimensiones que verifica:**
+
+| Dimensión | Criterio de aceptación |
+|-----------|----------------------|
+| Cobertura | ≥ 95% de campos COBOL con descripción de negocio (no sparse) |
+| Confianza coherente | 0 campos `alta` con descripción genérica sin detalle |
+| Descripciones vacías | 0 campos con Significado vacío o solo whitespace |
+| Encoding correcto | 0 pipes `|` sin escapar en columna Significado (rompen el MD) |
+| Longitud razonable | < 2% de campos fuera del rango 15–350 chars |
+| Sección 1 intacta | Conteo de filas S1 = conteo esperado (merge no la tocó) |
+| Separador presente y único | Exactamente 1 ocurrencia de `## Campos COBOL` |
+| Confianza válida | Solo `alta`, `media`, `baja` |
+| Categorías válidas | Solo valores del conjunto canónico definido en §1.2 |
+
+**Script canónico: `qa-vocab.py`**
+
+```python
+#!/usr/bin/env python3
+"""QA del vocabulario controlado — gate de salida Capa 1."""
+import re
+from pathlib import Path
+from collections import Counter
+
+MD = Path("vocab-{sistema}.md")   # ajustar path por engagement
+SPARSE_RE = re.compile(r"^niv:\d+ tipo:\w+")
+VALID_CONF = {"alta", "media", "baja"}
+VALID_ALCANCE = {"Persistente-BD", "Interfaz-Externo", "Efimero", "Parametrico-Catalogo", "Control-proceso", "N/A-componente"}
+VALID_CAT  = {"ENTIDAD","ACCION","MODIF","PREFIJO",
+              "ESTRUCTURA","CAMPO-COMP","CAMPO-DECIMAL",
+              "CAMPO-ALFA","CAMPO-NUM","CAMPO-EDICION","GRUPO"}
+MIN_DESC, MAX_DESC = 15, 350
+
+text  = MD.read_text(encoding="utf-8")
+lines = text.split("\n")
+sep_idx   = next((i for i,l in enumerate(lines) if "## Campos COBOL" in l), None)
+sep_count = sum(1 for l in lines if "## Campos COBOL" in l)
+
+issues, s1_count = [], 0
+pipe_err = bad_conf = bad_cat = empty = short_d = long_d = 0
+rich = sparse = 0
+
+in_s2 = False
+for i, line in enumerate(lines):
+    if sep_idx and i == sep_idx:
+        in_s2 = True
+    if not line.startswith("|") or line.startswith("| #") or line.startswith("|---"):
+        continue
+    cols = line.strip("|").split("|")
+    if len(cols) < 7:
+        continue
+    cat, conf, sig = cols[3].strip(), cols[4].strip(), cols[6].strip()
+    nom = cols[1].strip().strip("`")
+    if not in_s2:
+        s1_count += 1
+        continue
+    if cat == "ESTRUCTURA":
+        continue
+    if SPARSE_RE.match(sig):
+        sparse += 1
+    else:
+        rich += 1
+    if not sig:
+        empty += 1; issues.append(f"EMPTY: {nom[:40]}")
+    if "|" in sig:
+        pipe_err += 1; issues.append(f"PIPE: {nom[:40]}")
+    if conf not in VALID_CONF:
+        bad_conf += 1; issues.append(f"BAD-CONF '{conf}': {nom[:40]}")
+    if cat not in VALID_CAT:
+        bad_cat += 1; issues.append(f"BAD-CAT '{cat}': {nom[:40]}")
+    if sig and len(sig) < MIN_DESC:
+        short_d += 1
+    if sig and len(sig) > MAX_DESC:
+        long_d += 1
+
+total = rich + sparse
+coverage = 100 * rich / total if total else 0
+gate_ok  = coverage >= 95 and pipe_err == 0 and empty == 0 and bad_conf == 0 and sep_count == 1
+
+print(f"=== QA Vocabulario — {MD.name} ===")
+print(f"S1 términos curados : {s1_count}")
+print(f"S2 campos COBOL     : {total}  (RICH={rich}  SPARSE={sparse})")
+print(f"Cobertura           : {coverage:.1f}%  {'[OK]' if coverage >= 95 else '[WARN: < 95%]'}")
+print(f"Separadores         : {sep_count}  {'[OK]' if sep_count == 1 else '[ERROR]'}")
+print(f"Pipes sin escapar   : {pipe_err}  {'[OK]' if pipe_err == 0 else '[ERROR]'}")
+print(f"Descripciones vacías: {empty}  {'[OK]' if empty == 0 else '[ERROR]'}")
+print(f"Confianza inválida  : {bad_conf}  {'[OK]' if bad_conf == 0 else '[ERROR]'}")
+print(f"Categoría inválida  : {bad_cat}  {'[OK]' if bad_cat == 0 else '[WARN]'}")
+print(f"Desc corta (<{MIN_DESC}c)  : {short_d}")
+print(f"Desc larga (>{MAX_DESC}c): {long_d}")
+if issues:
+    print(f"\nPrimeros issues ({min(len(issues),20)} de {len(issues)}):")
+    for x in issues[:20]:
+        print(f"  {x}")
+print(f"\n{'[GATE OK] — listo para HTML' if gate_ok else '[GATE FAIL] — corregir antes de publicar HTML'}")
+```
+
+**Gate de salida — criterios bloqueantes:**
+- [ ] Cobertura ≥ 95%
+- [ ] 0 pipes sin escapar en Significado
+- [ ] 0 descripciones vacías
+- [ ] 0 valores de Confianza fuera de `{alta, media, baja}`
+- [ ] Exactamente 1 separador `## Campos COBOL`
+- [ ] 0 valores de Alcance fuera del conjunto canónico `{Persistente-BD, Interfaz-Externo, Efimero, Parametrico-Catalogo, Control-proceso, N/A-componente}`
+
+Solo después de `[GATE OK]` se regenera el HTML final y se publica en el portal del Gemelo Cognitivo.
+
+**Micro-wave de corrección:** si el gate falla por campos residuales sparse o con `baja` confianza que son corregibles, lanzar un agente CAP adicional solo con esos campos, mergear, y re-correr QA hasta `[GATE OK]`.
+
+---
+
+*Sección añadida 2026-07-15 · Vocabulario Controlado Capa 1 · Pipeline Wave 1+2 + QA gate documentado desde engagement Banamex S500 (11,194 campos, 26 agentes Wave 2). 2026-07-16: Paso 6 Alcance añadido al pipeline â swarm 51 agentes S151 (20,114 campos) produjo 8ª columna; Paso 7 Render y Paso 8 QA renumerados; §1.2 actualizado a 8 columnas con tabla de valores Alcance + §1.4 scripts Alcance + §1.5 QA gate Alcance*
+
+---
+
 ## ETAPA 0 — Setup & Inventory
 
 ### Objetivo

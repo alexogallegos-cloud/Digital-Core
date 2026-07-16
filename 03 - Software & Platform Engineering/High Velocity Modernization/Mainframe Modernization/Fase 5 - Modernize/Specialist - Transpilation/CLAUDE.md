@@ -121,6 +121,152 @@ END-EXEC.                               │
 
 ---
 
+## Patrones de Performance Arquitectónico — COBOL→Java
+
+La transpilación 1:1 preserva semántica pero hereda el modelo de ejecución secuencial del mainframe. Sin los patrones siguientes, el servicio Java corre funcionalmente correcto pero con latencia 3-10× superior al legacy — lo que bloquea el DoD-SPE-MM-05 (SLA del nuevo ≤ SLA mainframe).
+
+### P1 — I/O de Archivos Secuenciales
+
+| COBOL | Problema | Java correcto |
+|-------|----------|---------------|
+| `FILE-CONTROL` secuencial · `READ NEXT RECORD` | Lectura byte a byte → overhead de syscall por registro | `BufferedReader` con buffer size calibrado al record length · Spring Batch `FlatFileItemReader` con `chunk-size` entre 500–2000 registros según volumen |
+| `WRITE` a archivo de salida por registro | Flush por registro | `BufferedWriter` · flush solo al final del chunk |
+
+**Regla de chunk size**: chunk-size = (TPS legacy × latencia P95 aceptable en ms) / 1000. Partir de 1000 y afinar con profiling.
+
+### P2 — Cursor COBOL → JDBC (evitar row-by-row)
+
+El patrón más frecuente de regresión: cursor COBOL que procesa 500K registros → JDBC `while(rs.next())` con lógica de negocio por fila.
+
+```java
+// MAL — row-by-row con lógica pesada por fila
+while (rs.next()) {
+    process(rs.getBigDecimal("IMPORTE")); // llamada costosa 500K veces
+}
+
+// BIEN — fetch size alto + chunk en memoria
+stmt.setFetchSize(1000);                  // hint al driver JDBC
+List<BigDecimal> chunk = new ArrayList<>(1000);
+while (rs.next()) {
+    chunk.add(rs.getBigDecimal("IMPORTE"));
+    if (chunk.size() == 1000) { processBatch(chunk); chunk.clear(); }
+}
+if (!chunk.isEmpty()) processBatch(chunk);
+```
+
+**Regla**: `setFetchSize()` obligatorio en cualquier cursor que maneje > 10K filas. Default de JDBC (1 fila) es el principal causante de regresión vs. mainframe.
+
+### P3 — BigDecimal en Hot Path
+
+`new BigDecimal(String)` implica parseo de String → lento en loops de alto volumen.
+
+| Uso | Costo relativo | Patrón correcto |
+|-----|---------------|-----------------|
+| `new BigDecimal("0.00")` dentro de loop | Alto | Constante estática fuera del loop |
+| `new BigDecimal(rsValue)` en cursor loop | Alto si rsValue es String | `rs.getBigDecimal(col)` directamente · el driver JDBC construye BigDecimal sin parseo extra |
+| `BigDecimal.valueOf(long, scale)` | Bajo | Preferido para valores enteros con escala fija |
+| Suma acumulada en loop | Medio | `sum = sum.add(value)` es correcto · evitar `new BigDecimal(sum.toString())` intermedio |
+
+```java
+// MAL
+BigDecimal total = new BigDecimal("0.00"); // en cada iteración
+total = total.add(new BigDecimal(importeStr)); // doble parseo
+
+// BIEN
+private static final BigDecimal ZERO = BigDecimal.ZERO.setScale(4, RoundingMode.HALF_EVEN);
+BigDecimal total = ZERO;
+total = total.add(rs.getBigDecimal("IMPORTE")); // driver construye BigDecimal directamente
+```
+
+### P4 — WORKING-STORAGE → Scope de Thread
+
+COBOL es single-threaded por invocación: `WORKING-STORAGE` es privada a la instancia del programa. En Java el equivalente incorrecto es un campo de instancia en un bean `@Singleton` — que comparten todos los threads.
+
+| Situación | Riesgo | Patrón correcto |
+|-----------|--------|-----------------|
+| Campo de instancia en `@Service` para acumuladores de batch | Race condition · datos corruptos | Variables locales por método · o `@StepScope` en Spring Batch |
+| Estructuras de trabajo (`WORKING-STORAGE SECTION`) compartidas | Corrupción silenciosa bajo carga | `ThreadLocal` si el ciclo de vida lo requiere · preferir variables locales |
+| Programas COBOL que se llaman en paralelo (JCL PARALLEL) | WORKING-STORAGE independiente por cada ejecución | Bean separado por thread · `prototype` scope |
+
+**Regla**: toda variable que en COBOL vivía en `WORKING-STORAGE` y acumula estado entre párrafos debe ser **local al método** en Java, no campo de instancia. Si el estado cruza métodos dentro de un paso de batch, usar clase interna de estado por chunk.
+
+### P5 — Batch Job Single-Threaded → Spring Batch Partitioned
+
+Un programa COBOL batch que procesa 10M registros en un JCL step se traduce naturalmente a un loop Java de 10M iteraciones. Sin particionado, el job tarda N× más que el mainframe (que usaba DFSORT o procesamiento nativo).
+
+```
+[Spring Batch]
+PartitionedStep
+├── Partitioner    → divide el dataset (por rango de ID · por fecha · por BC)
+├── Step (thread 1) → chunk 1 de N
+├── Step (thread 2) → chunk 2 de N
+└── Step (thread N) → chunk N de N
+```
+
+**Regla de particionado**: activar cuando el job procesa > 1M registros o debe completar en < 60% del tiempo del legacy. Número de particiones = número de cores disponibles × 0.75 (dejar headroom para GC y I/O).
+
+**Gate**: el `Specialist - Batch Architecture` es co-owner de este patrón. Invocar antes de decidir la estructura del job si el programa COBOL procesa > 500K registros.
+
+### P6 — CALL a Subprogramas → No Explosión de Microservicios
+
+En COBOL, `CALL 'SUBPROG'` es un salto en memoria — costo ≈ 0. Traducirlo a un HTTP call entre microservicios introduce latencia de red en cada invocación del loop.
+
+| Situación | Patrón correcto |
+|-----------|-----------------|
+| Subprograma llamado dentro de un loop (procesamiento de cada registro) | **Internalizar**: mover la lógica al mismo servicio Java como método privado |
+| Subprograma de utilidad general (formateo · validación · lookup de tabla) | **Shared library (Maven module)** · no microservicio |
+| Subprograma que cruza bounded context | Sí puede ser microservicio / API call — pero fuera del hot path; cachear el resultado si es lookup |
+
+**Regla**: si el `CALL` ocurre dentro de un `PERFORM ... UNTIL` (loop), el subprograma va **internalizado** en el mismo servicio o módulo Maven — nunca como HTTP call.
+
+### P7 — Connection Pooling (HikariCP)
+
+COBOL establece la conexión DB al inicio del job y la cierra al final — una conexión por instancia. Java sin pool hace `getConnection()` en cada transaction — overhead de handshake JDBC × número de transacciones.
+
+**Configuración mínima HikariCP calibrada al legacy**:
+
+```yaml
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: ${TPS_LEGACY * 1.2}   # headroom sobre el TPS del mainframe
+      minimum-idle: ${TPS_LEGACY * 0.3}
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+```
+
+**Regla**: `maximum-pool-size` se calibra midiendo el TPS peak del programa COBOL en mainframe (dato de la Fase 1 · `metrics-report-gemcog.html`). Nunca dejar el default de HikariCP (10 conexiones) en producción bancaria.
+
+### P8 — Strings COBOL Fixed-Length
+
+`PIC X(N)` se rellena con espacios a la derecha. La comparación en COBOL ignora trailing spaces. En Java, `String.equals()` no los ignora — divergencia silenciosa y overhead de `trim()` si se hace en cada iteración.
+
+```java
+// BIEN — trim centralizado en el mapper, no en el loop de negocio
+public static String fromCobolString(String cobolStr) {
+    return cobolStr == null ? "" : cobolStr.stripTrailing();
+}
+// Llamar UNA VEZ al leer del ResultSet / file record · no en cada comparación
+```
+
+**Regla**: el trim de COBOL strings se hace en el **mapper de entrada** (al leer del archivo o BD), nunca en la lógica de negocio. La lógica trabaja con Strings ya limpios.
+
+---
+
+### Checklist de Performance Antes de Handoff a Equivalence Testing
+
+- [ ] `setFetchSize()` configurado en todos los cursors que manejan > 10K filas.
+- [ ] Constantes `BigDecimal` estáticas para ZERO y valores frecuentes · no `new BigDecimal(String)` en loops.
+- [ ] `WORKING-STORAGE` traducida a variables locales · ningún campo de instancia acumulador en beans `@Singleton`.
+- [ ] Jobs > 1M registros tienen diseño de particionado revisado con `Specialist - Batch Architecture`.
+- [ ] `CALL` dentro de loops internalizados como métodos · no HTTP calls.
+- [ ] HikariCP configurado con `maximum-pool-size` calibrado al TPS peak del legacy.
+- [ ] COBOL strings trimmeados en el mapper de entrada, no en lógica de negocio.
+- [ ] Profiling en QA con dataset representativo antes de declarar SLA equivalente al mainframe.
+
+---
+
 ## Ratio Review Humano por Tipo de Lógica
 
 Calibración por tipo de código transpilado:
@@ -213,4 +359,4 @@ Calibración por tipo de código transpilado:
 
 ---
 
-*Última actualización: 2026-05-28 · v0.1 · Sub-specialist creado para resolver GAP 5. Hosting bajo el offering Mainframe Modernization (DC). Peer de Specialist - Reverse Engineering (analysis) y Specialist - Static Analysis Tooling (tools). · REORG 2026-05-31: reubicado a carpeta de fase · sigil ★ Digital Core*
+*Última actualización: 2026-07-14 · v0.2 · Añadida sección §"Patrones de Performance Arquitectónico" (P1–P8): I/O chunked · cursor fetchSize · BigDecimal hot path · WORKING-STORAGE scope · Spring Batch partitioned · CALL→método interno · HikariCP · COBOL string trimming. Checklist de performance antes de handoff a Equivalence Testing. v0.1 (2026-05-28): Sub-specialist creado para resolver GAP 5. REORG 2026-05-31: reubicado a carpeta de fase · sigil ★ Digital Core*

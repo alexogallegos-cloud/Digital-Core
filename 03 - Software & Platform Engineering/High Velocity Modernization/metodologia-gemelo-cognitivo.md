@@ -65,6 +65,19 @@ Del lenguaje a la intención. **El lenguaje primero.**
 
 **Capa 1 · Lenguaje — *el idioma del gemelo.*** El vocabulario del negocio fosilizado en los identificadores. Antes de saber *qué hace*, el gemelo aprende a *hablar* el idioma del sistema.
 - **Se destila:** identificadores → vocabulario controlado (átomos, compuestos, convenciones), con nivel de confiabilidad por fuente y **término canónico único por concepto** (se preserva todo alias para trazabilidad).
+- **Artefacto canónico — `vocab-{sistema}.md`:** tabla de 8 columnas con esquema `# | Termino | Frecuencia | Categoria | Confianza | Evidencia | Significado | Alcance`. La columna **Alcance** clasifica cada campo en uno de 6 valores mutuamente excluyentes que revelan el rol arquitectónico del campo — fundamental para decidir qué persiste, qué se integra y qué desaparece en el target:
+
+  | Alcance | Significado |
+  |---------|-------------|
+  | `Persistente-BD` | Campo que persiste en base de datos (DMSII, VSAM, SQL) — core del modelo de dominio |
+  | `Interfaz-Externo` | Campo de mensaje o buffer de interfaz con sistema externo (TCP/IP, TRF, BNE) — contrato de integración |
+  | `Efimero` | Working storage, variables de trabajo, acumuladores — sin persistencia fuera del job/transacción |
+  | `Parametrico-Catalogo` | Campo con valores fijos de negocio codificados (condiciones 88, VALUE hardcoded) |
+  | `Control-proceso` | Campo de control de flujo de batch/online (status, restart, punteo, llave-CTE) |
+  | `N/A-componente` | Grupo/estructura contenedora, o término curado S1 — clasificación no aplica |
+
+  La clasificación se obtiene por **swarm de agentes CAP** (~400 campos/agente, heurísticas de prioridad) + auto-clasificación automática de GRUPOs/ESTRUCTURAs. **Distribución de referencia (Banamex S151, 20,114 campos clasificados):** Efimero 67.2% · Interfaz-Externo 24.4% · Persistente-BD 7.1% · Parametrico-Catalogo 0.75% · Control-proceso 0.59%.
+
 - **Hallazgo recurrente · deuda de nombrado:** el mismo concepto se escribe bajo múltiples alias (sinónimos, abreviaturas, plurales, anglicismos: cliente/cte, movimiento/mov/movto, status/estatus). Inconsistencia acumulada entre dialectos/generaciones; se normaliza al sembrar el target (Capa 5/6). Regla canónica: *forma completa singular en español, frecuencia como desempate, firma del SME.*
 
 **Capa 2 · Almas — *la memoria social.*** Quién pensó el código y qué dialecto hablaba. Cientos de personas lo tocaron; cada una dejó un vestigio.
@@ -201,6 +214,91 @@ Lo que todo extractor debe emitir para que el renderer tech-agnóstico funcione 
 
 ---
 
+## 7a · Modelo de datos para Capa 4 — Capacidades, Tareas y Flujos
+
+La Capa 4 (Intención) produce el modelo de capacidades de negocio del sistema legacy. Para que ese modelo sea consultable, trazable y útil como especificación del target, se estructura en una jerarquía de cinco niveles con artefactos concretos.
+
+### Jerarquía de conocimiento
+
+```
+Dominio → Subdominio → Capacidad → Proceso → Tarea → Regla de Negocio
+                                                  ↕
+                                            Casuística (secuencia de tareas)
+                                                  ↕
+                                            Diagrama Mermaid (flujo/secuencia)
+```
+
+La **Tarea** es la unidad atómica: es el nivel donde la regla ancla, la secuencia ordena y el diagrama visualiza. Intentar vincular reglas directamente a Capacidades o Procesos produce trazabilidad imprecisa — la regla siempre se activa en el contexto de una tarea específica.
+
+### IDs canónicos
+
+| Tipo | Formato | Ejemplo |
+|------|---------|---------|
+| Tarea | `T-{SLUG_CAPACIDAD}-{NNN}` | `T-TEL-001`, `T-ATM-003` |
+| Casuística | `CS-{SLUG_CAPACIDAD}-{NN}` | `CS-TEL-01`, `CS-ATM-02` |
+| Regla de negocio | `RN-{SISTEMA}-{NNN}` | `RN-S151-042`, `RN-S500-017` |
+
+`{SLUG_CAPACIDAD}` es el identificador corto de la capacidad (3-5 caracteres, mayúsculas). Ejemplos: `TEL` (Telecomunicaciones), `ATM` (ATM/Cajeros), `INT` (Intereses), `COM` (Comisiones).
+
+### Estructura de archivo por capacidad (`cap-{slug}.md`)
+
+Un archivo por capacidad cubierta, con secciones en este orden:
+
+```markdown
+# Capacidad: {Nombre} [{Sistema}]
+> Dominio: X · Subdominio: Y · Cobertura: S500/S151/compartida/gap
+
+## Inventario de Tareas
+| ID | Tarea | Programa | Componente fuente | Tipo |
+|----|-------|----------|-------------------|------|
+| T-{SLUG}-001 | {descripción imperativa} | P010 | COBOL_P010.txt | validación |
+
+## Casuísticas
+### CS-{SLUG}-01: {Nombre casuística}
+**Tipo:** happy-path / error / edge-case
+**Condición de entrada:** {precondición}
+**Resultado:** {postcondición / efecto}
+**Secuencia:** T-{X}-001 → T-{X}-002 → T-{X}-003
+
+## Diagrama
+```mermaid
+sequenceDiagram
+  ...
+```
+
+## Reglas vinculadas
+| Tarea | Regla | Componente fuente | Descripción |
+|-------|-------|-------------------|-------------|
+| T-{X}-001 | RN-{S}-NNN | COBOL_P010.txt | {descripción breve} |
+```
+
+### Tipos válidos de Tarea
+
+| Tipo | Cuándo usarlo |
+|------|---------------|
+| `validación` | Verifica una condición antes de continuar |
+| `consulta` | Lee datos sin modificarlos |
+| `escritura` | Persiste o actualiza un campo |
+| `contable` | Genera un asiento o movimiento GL |
+| `control` | Maneja flujo de batch (restart, punteo, control de llave) |
+
+### Flujo de construcción (orden obligatorio)
+
+1. **Inventario de tareas** — derivado del código fuente + reglas ya extraídas del catálogo RN-NNN
+2. **Casuísticas** — agrupar tareas en secuencias por escenario (happy path primero, luego errores, luego edge cases)
+3. **Diagrama Mermaid** — generado mecánicamente de la secuencia de cada casuística
+4. **Vincular reglas** — cruzar cada tarea contra el catálogo `RN-{SISTEMA}-NNN`
+
+No construir el diagrama antes de tener las casuísticas. No vincular reglas antes de tener el inventario de tareas. El orden garantiza trazabilidad completa de código → tarea → casuística → diagrama → regla.
+
+### Relación con los otros artefactos del Gemelo (Capa 1 y 2)
+
+- **Vocabulario (Capa 1):** los nombres de las Tareas usan el término canónico del vocab (`vocab-{sistema}.md`), no sinónimos. El `{SLUG_CAPACIDAD}` deriva del término canónico de la capacidad.
+- **Reglas (Capa 2):** el catálogo `RN-{SISTEMA}-NNN` es el input de la columna "Reglas vinculadas". Una regla puede vincularse a múltiples tareas si es distribuida (`[REGLA-DISTRIBUIDA]`).
+- **Fronteras (Capa 5):** los bounded contexts del target se derivan agrupando Capacidades de la misma Capa 4 — la jerarquía Dominio → Capacidad es el insumo directo de la decisión 7R por capability.
+
+---
+
 ## 8 · Notas de honestidad
 
 - El gemelo es **probabilístico**: la cobertura de autoría y fechas depende de los vestigios disponibles (varía por tecnología, §4). Se declara por fuente, no se infla.
@@ -216,4 +314,4 @@ Primera implementación completa del método, sobre **IBM Informix IDS 14.10** (
 
 ---
 
-*Gemelo Cognitivo del Sistema · método HVM-wide · v2.1 · Añadido el hilo transversal **Calidad AS-IS** anclado a ISO/IEC 5055:2021 (§3) con mecánica de detección por tecnología (§4) y ejecutor **Code Quality Assessment** HVM-wide (§7) — resuelve la salud estructural del código legacy como input de la decisión 7R/pricing/equivalencia, complementaria a la equivalencia funcional del target. v2.0: generalizado a cross-tecnología (Informix · COBOL · Oracle Forms · T-SQL) con adaptadores (§4), toolkit renderer+extractores (§5) y contrato JSON normalizado (§6). Instancia de referencia: BanCoppel BCOPCore.*
+*Gemelo Cognitivo del Sistema · método HVM-wide · v2.2 · Añadido artefacto canónico Capa 1: esquema 8 columnas con columna **Alcance** (6 valores: Persistente-BD · Interfaz-Externo · Efêmero · Parametrico-Catalogo · Control-proceso · N/A-componente), pipeline swarm de agentes CAP y distribución de referencia Banamex S151 (20,114 campos). v2.1: Añadido el hilo transversal **Calidad AS-IS** anclado a ISO/IEC 5055:2021 (§3) con mecánica de detección por tecnología (§4) y ejecutor **Code Quality Assessment** HVM-wide (§7) — resuelve la salud estructural del código legacy como input de la decisión 7R/pricing/equivalencia, complementaria a la equivalencia funcional del target. v2.0: generalizado a cross-tecnología (Informix · COBOL · Oracle Forms · T-SQL) con adaptadores (§4), toolkit renderer+extractores (§5) y contrato JSON normalizado (§6). Instancia de referencia: BanCoppel BCOPCore.*

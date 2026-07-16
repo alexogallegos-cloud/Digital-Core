@@ -165,9 +165,11 @@ Son subcarpetas locales de este L4 — no se invocan cross-ecosystem, se ejecuta
 | Fase 1 — Discover (RE · Etapas 0–4) | `Fase 1 - Discover/Specialist - Reverse Engineering/` (+ `graph-viz/`, `benchmark/`) |
 | Fase 1 — Discover (tooling · soporte Etapa 1) | `Fase 1 - Discover/Specialist - Static Analysis Tooling/` |
 | Fase 1 — Discover (síntesis Etapas 0–4 → decisión 7R · gate de salida Fase 1) | `Fase 1 - Discover/Specialist - 7R Assessment/` |
+| Fase 1 — Discover (output interactivo · chatbot RAG sobre la KB del gemelo) | `Fase 1 - Discover/Specialist - GemCog Chatbot/` |
 | Fase 4 — Encapsulate | `Fase 4 - Encapsulate/Specialist - Encapsulation/` |
 | Fase 5 — Modernize (transpilación) | `Fase 5 - Modernize/Specialist - Transpilation/` |
 | Fase 5 — Modernize (arquitectura batch target · gate previo a transpilación batch) | `Fase 5 - Modernize/Specialist - Batch Architecture/` |
+| Fase 5 — Modernize · Capa 6 Siembra (Ubiquitous Language target · OpenAPI/AsyncAPI por BC · scaffold Maven) | `Fase 5 - Modernize/Specialist - Domain Seeding/` |
 | Fase 7 — z/OS Operations (condicional) | `Fase 7 - Operations & Economics/Specialist - z OS Operations & Sysprog/` *(`[STATE: PROPOSED]`)* |
 | Fase 7 + 8 — MIPS + IBM economics | `Fase 7 - Operations & Economics/Specialist - MIPS Economics/` |
 | Enablement (fuera del camino crítico) | `Enablement/Training - Synthetic Codebase Lab/` (corpus sintético + benchmark) |
@@ -277,4 +279,4 @@ Hereda checklist del sub-offering HVM + criterios MM:
 
 ---
 
-*Última actualización: 2026-07-11 · v0.3 · Añadidos Specialist - 7R Assessment (Fase 1 · gate de síntesis) y Specialist - Batch Architecture (Fase 5 · gate previo a transpilación batch). v0.2 · Vocabulario Fase/Etapa unificado; tabla de sub-agentes Fase 1 expandida con ETAPAs 0–4; carpetas externas con READMEs completos. v0.1 (2026-05-28): L4 promovido desde HVM.*
+*Última actualización: 2026-07-14 · v0.5 · Añadido Specialist - Domain Seeding (Fase 5 · Capa 6 Siembra — Ubiquitous Language target · OpenAPI/AsyncAPI por BC · scaffold Maven). v0.4 (2026-07-13): Añadido Specialist - GemCog Chatbot. v0.3 (2026-07-11): Añadidos Specialist - 7R Assessment y Specialist - Batch Architecture. v0.2 · Vocabulario Fase/Etapa unificado. v0.1 (2026-05-28): L4 promovido desde HVM.*

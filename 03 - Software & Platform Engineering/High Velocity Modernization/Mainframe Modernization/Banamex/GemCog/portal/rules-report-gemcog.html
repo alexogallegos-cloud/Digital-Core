@@ -40,6 +40,8 @@ td{padding:6px 12px;vertical-align:top;line-height:1.4}
 .td-line{font-family:'Cascadia Code','Consolas',monospace;font-size:9px;color:var(--muted)}
 .dom-REP{background:#2a1a0e;color:#fdba74}.dom-CTL{background:#0e2530;color:#6ee7b7}.dom-SEC{background:#1a0e2a;color:#c4b5fd}.dom-TAR{background:#0e2a3a;color:#7dd3fc}
 .dom-CON{background:#0e1225;color:#a5d8ff}.dom-MOV{background:#0e2510;color:#b8f5b8}.dom-CTL151{background:#25100e;color:#f5b8d8}
+.td-proc{font-size:8px;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap;display:inline-block}
+.proc-BATCH{background:#1a1a3a;color:#a5b4fc}.proc-ONLINE{background:#0e2a1a;color:#86efac}.proc-MIXED{background:#2a1a0a;color:#fdba74}
 #empty{display:flex;align-items:center;justify-content:center;padding:60px;color:var(--muted);font-size:13px;text-align:center}
 </style>
 </head>
@@ -68,6 +70,8 @@ td{padding:6px 12px;vertical-align:top;line-height:1.4}
   </select>
   <span class="lbl">Tipo</span>
   <select id="fType"><option value="">Todos</option><option value="IF">IF</option><option value="EVALUATE">EVALUATE</option><option value="COMPUTE">COMPUTE</option><option value="PERFORM">PERFORM</option><option value="CALL">CALL</option></select>
+  <span class="lbl">Proceso</span>
+  <select id="fProc"><option value="">Todos</option><option value="BATCH">BATCH</option><option value="ONLINE">ONLINE</option><option value="MIXED">MIXED</option></select>
   <span class="lbl">Regulatorio</span>
   <select id="fReg"><option value="">Todos</option><option value="CNBV">CNBV</option><option value="Banxico">Banxico</option><option value="SAT">SAT</option><option value="CONDUSEF">CONDUSEF</option></select>
   <input type="text" id="fTxt" placeholder="Buscar programa, regla…">
@@ -79,6 +83,7 @@ td{padding:6px 12px;vertical-align:top;line-height:1.4}
   <tr>
     <th data-col="dom">Dominio</th>
     <th data-col="pgm">Programa</th>
+    <th data-col="proc">Proceso</th>
     <th data-col="line">Línea</th>
     <th data-col="type">Tipo</th>
     <th data-col="desc">Regla / Fórmula</th>
@@ -97,9 +102,9 @@ const RULES=[
 // ALGOL_L002R2.txt, COBOL_P130.txt, COBOL_P015.txt) + vocabulario/catálogo
 // DASDL (vocab-s500.html, vocab-s151.html). 78 reglas totales (antes ~63):
 // 55 S500 (P103·8 + P100·13 + P075·5 + P655·10 + S500P630·19) + 23 S151
-// (L002R2·5 + P130·11 + P015·7). Correcciones factuales de fondo marcadas
-// "CORRECCIÓN"/"CORREGIDA" en la descripción; reglas nuevas encontradas en
-// el código marcadas "NUEVA"/"NUEVA REGLA".
+// (L002R2·5 + P130·11 + P015·7). Cada descripción abre con el efecto de
+// negocio y cierra con el detalle técnico verificado (párrafo, variables,
+// campos DASDL) como soporte.
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ---------------------------------------------------------------------------
@@ -132,9 +137,8 @@ const RULES=[
 
 // ---------------------------------------------------------------------------
 // P100 — Fecha-de-Proceso (PROGRAM-ID: FECHA-DE-PROCESO, MAR96/AGO2018, 593 LOC)
-// NOTA: la mayoría de las líneas del catálogo original no correspondían al
-// punto real del código (offset variable); cada línea fue re-localizada por
-// contenido (grep) — ver anotaciones [LÍNEA CORREGIDA]/[LÍNEA AJUSTADA].
+// NOTA: los números de línea fueron re-localizados por contenido (grep)
+// contra el código fuente real antes de documentar cada regla.
 // ---------------------------------------------------------------------------
 {dom:'CTL',pgm:'P100',pgm_name:'S500/P100 Fecha-de-Proceso',line:195,type:'IF',
  desc:'El programa identifica si se ejecuta en el servidor de desarrollo (ACYPBETA) y, de ser así, omite la verificación de versión contra el catálogo central de versiones del banco; en cualquier otro servidor la verificación es obligatoria. Aunque el código conserva restos de un "modo de diagnóstico" asociado a este mismo indicador, esas líneas (los DISPLAY condicionados a WKS-ES-DES = 1, líneas 201-207 y 213-216) están comentadas — código inactivo — en la versión actual: el único efecto real del servidor de desarrollo hoy es omitir el checeo de versión. Técnicamente: en 00000000-PRINCIPAL se obtiene ATTRIBUTE HOSTNAME OF MYSELF; IF WKS-MY-HOST = "ACYPBETA. " activa WKS-ES-DES = 1 (indicador de servidor de desarrollo), consultado en la línea 260 (IF WKS-ES-DES = 0 PERFORM 20000050-CHECO-VER) para omitir la verificación solo en ese host.',
@@ -381,17 +385,21 @@ const RULES=[
 
 let sortCol=null, sortDir=1;
 
+const PROC_MAP={P103:'BATCH',P100:'MIXED',P075:'BATCH',P655:'BATCH',S500P630:'ONLINE',L002R2:'MIXED',P130:'BATCH',P015:'BATCH'};
+function pgm2proc(pgm){return PROC_MAP[pgm]||'BATCH';}
 function dom2cls(d){return 'dom-'+d;}
 function reg2tag(r){const m={CNBV:'cnbv',Banxico:'banxico',SAT:'sat',CONDUSEF:'condusef'};return `<span class="rtag ${m[r]||''}">${r}</span>`;}
 function type2cls(t){return 't-'+t;}
 
 function getFiltered(){
   const dom=document.getElementById('fDom').value;
+  const proc=document.getElementById('fProc').value;
   const type=document.getElementById('fType').value;
   const reg=document.getElementById('fReg').value;
   const txt=document.getElementById('fTxt').value.toLowerCase();
   return RULES.filter(r=>{
     if(dom&&r.dom!==dom)return false;
+    if(proc&&pgm2proc(r.pgm)!==proc)return false;
     if(type&&r.type!==type)return false;
     if(reg&&!r.reg.includes(reg))return false;
     if(txt&&!r.pgm.toLowerCase().includes(txt)&&!r.desc.toLowerCase().includes(txt))return false;
@@ -404,6 +412,7 @@ function render(){
   if(sortCol){
     rows=rows.slice().sort((a,b)=>{
       let av=a[sortCol],bv=b[sortCol];
+      if(sortCol==='proc'){av=pgm2proc(a.pgm);bv=pgm2proc(b.pgm);}
       if(typeof av==='number')return (av-bv)*sortDir;
       return String(av).localeCompare(String(bv))*sortDir;
     });
@@ -414,14 +423,15 @@ function render(){
   document.getElementById('cntT').textContent=RULES.length;
   if(!rows.length){tbody.innerHTML='';empty.style.display='flex';return;}
   empty.style.display='none';
-  tbody.innerHTML=rows.map(r=>`<tr>
+  tbody.innerHTML=rows.map(r=>{const p=pgm2proc(r.pgm);return `<tr>
     <td><span class="td-dom ${dom2cls(r.dom)}">${r.dom}</span></td>
     <td class="td-pgm">${r.pgm}</td>
+    <td><span class="td-proc proc-${p}">${p}</span></td>
     <td class="td-line">${r.line}</td>
     <td><span class="td-type ${type2cls(r.type)}">${r.type}</span></td>
     <td class="td-desc">${r.desc}</td>
     <td><div class="td-reg">${r.reg.map(reg2tag).join('')}</div></td>
-  </tr>`).join('');
+  </tr>`;}).join('');
 }
 
 document.querySelectorAll('thead th').forEach(th=>{
@@ -433,7 +443,7 @@ document.querySelectorAll('thead th').forEach(th=>{
     render();
   });
 });
-['fDom','fType','fReg','fTxt'].forEach(id=>{
+['fDom','fProc','fType','fReg','fTxt'].forEach(id=>{
   document.getElementById(id).addEventListener('input',render);
   document.getElementById(id).addEventListener('change',render);
 });

@@ -1,0 +1,293 @@
+openapi: "3.1.0"
+
+info:
+  title: "Tarjetas Service"
+  version: "0.1.0-seed"
+  summary: "API de tarjetas débito de captación — modernización S500 Banamex"
+  description: |
+    Contrato sembrado desde el Gemelo Cognitivo GemCog v2.2.
+
+    **Bounded Context**: BC-03 Tarjetas Débito
+    **Sistema origen**: S500 (Unisys ClearPath MCP · ALGOL)
+    **Wave de transpilación**: Wave 1
+
+    Gestiona las tarjetas de débito asociadas a cuentas de captación.
+    Incluye tarjetas originales S500 y tarjetas intercambiables migradas desde S501 (2016).
+
+    **Nota de seguridad**: El enmascaramiento de PAN (SCRAMBLING) está activo solo en
+    QA/UAT — bloqueado en producción. Ver P655 / ADR-SPE-MM-002.
+
+x-gemcog-source:
+  sistema: "S500"
+  bounded_context: "BC-03"
+  bc_name: "Tarjetas Débito"
+  vocab_version: "v2.2"
+  capa: 6
+  programas_origen:
+    - "S500/L039 (ACCESOBD04 ALGOL 11.7K LOC — la librería más grande de S500)"
+    - "S500/P630 (tarjetas intercambiables 1.3K LOC)"
+    - "S500/P655 (scrambling datos Mar/2004)"
+  equivalencia_objetivo: "≥ 99.99%"
+  notas:
+    - "L039 es ALGOL — durante coexistencia: adapter RETAIN. En Wave 1 se refactoriza la lógica COBOL que la invoca."
+    - "P630: tarjetas migradas desde S501 Jun-Oct 2016 — verificar compatibilidad de estructura."
+    - "PCI-DSS: PAN nunca en logs; enmascaramiento en no-producción via P655."
+
+servers:
+  - url: "http://localhost:8083"
+    description: "Local dev"
+  - url: "https://api-dev.banamex-internal.mx/tarjetas/v0"
+    description: "DEV"
+
+tags:
+  - name: "tarjetas"
+    description: "Gestión de tarjetas débito de captación"
+  - name: "intercambio"
+    description: "Tarjetas intercambiables migradas desde S501"
+
+paths:
+
+  # ── Tarjetas ────────────────────────────────────────────────────────────────
+
+  /tarjetas:
+    get:
+      operationId: "listarTarjetasPorCuenta"
+      summary: "Listar tarjetas débito de una cuenta"
+      tags: ["tarjetas"]
+      description: |
+        Devuelve las tarjetas débito asociadas a una cuenta de captación.
+        **Origen**: S500/L039 (ALGOL adapter · ACCESOBD04) · BD04TARJETAS
+        **vocab**: TARJETAS → TarjetaDebito (UL §4 BC-03)
+      parameters:
+        - name: "numeroCuenta"
+          in: "query"
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9]{13}$"
+      responses:
+        "200":
+          description: "Lista de tarjetas"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListaTarjetas"
+        "404":
+          $ref: "#/components/responses/NoEncontrado"
+
+  /tarjetas/{pan}:
+    parameters:
+      - name: "pan"
+        in: "path"
+        required: true
+        description: "Primary Account Number (PAN) de la tarjeta — enmascarado en logs"
+        schema:
+          type: string
+          pattern: "^[0-9]{16}$"
+
+    get:
+      operationId: "consultarTarjeta"
+      summary: "Consultar datos de una tarjeta débito"
+      tags: ["tarjetas"]
+      description: |
+        Devuelve los datos de una tarjeta débito.
+        **Origen**: S500/L039 (ACCESOBD04) · BD04TARJETAS
+        ⚠ PCI-DSS: PAN nunca se devuelve en claro — siempre enmascarado (XXXX XXXX XXXX 1234).
+      responses:
+        "200":
+          description: "Datos de la tarjeta"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TarjetaDebito"
+        "404":
+          $ref: "#/components/responses/NoEncontrado"
+
+    put:
+      operationId: "actualizarEstadoTarjeta"
+      summary: "Actualizar estado de una tarjeta (bloqueo/activación)"
+      tags: ["tarjetas"]
+      description: |
+        Actualiza el estado operativo de una tarjeta débito.
+        **Origen**: S500/L039 · BD04TARJETAS
+      security:
+        - BearerAuth: ["tarjetas:write"]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActualizacionEstadoTarjeta"
+      responses:
+        "200":
+          description: "Estado actualizado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TarjetaDebito"
+        "400":
+          $ref: "#/components/responses/ErrorValidacion"
+        "404":
+          $ref: "#/components/responses/NoEncontrado"
+
+  /tarjetas/{pan}/intercambio:
+    parameters:
+      - name: "pan"
+        in: "path"
+        required: true
+        schema:
+          type: string
+          pattern: "^[0-9]{16}$"
+
+    get:
+      operationId: "consultarDatosIntercambio"
+      summary: "Consultar datos de intercambio de una tarjeta (S501)"
+      tags: ["intercambio"]
+      description: |
+        Devuelve los datos de intercambio de una tarjeta migrada desde S501.
+        **Origen**: S500/P630 (1.3K LOC) · BD04TARJETAS
+        **vocab**: TARINTERCAM → TarjetaIntercambio (UL §4 BC-03)
+        Aplica solo a tarjetas migradas Jun-Oct 2016 desde S501/P110.
+      x-gemcog-programa: "S500/P630"
+      responses:
+        "200":
+          description: "Datos de intercambio"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TarjetaIntercambio"
+        "404":
+          description: "Tarjeta no encontrada o no es intercambiable"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+
+  responses:
+    ErrorValidacion:
+      description: "Error de validación de entrada"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NoEncontrado:
+      description: "Recurso no encontrado"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+
+    EstadoTarjeta:
+      type: string
+      enum: ["ACTIVA", "BLOQUEADA_TEMPORAL", "BLOQUEADA_DEFINITIVA", "CANCELADA", "NO_ACTIVADA"]
+
+    TipoTarjeta:
+      type: string
+      enum: ["DEBITO_STANDARD", "DEBITO_INTERCAMBIABLE"]
+      description: |
+        DEBITO_INTERCAMBIABLE = tarjeta migrada desde S501 (Jun-Oct 2016).
+        vocab: TARINTERCAM → TarjetaIntercambio
+
+    TarjetaDebito:
+      type: object
+      description: "Tarjeta débito asociada a cuenta de captación"
+      required: ["panEnmascarado", "numeroCuenta", "estado", "tipo", "fechaEmision"]
+      properties:
+        panEnmascarado:
+          type: string
+          pattern: "^XXXX XXXX XXXX [0-9]{4}$"
+          description: "PAN siempre enmascarado (PCI-DSS). Nunca en claro en API."
+          example: "XXXX XXXX XXXX 1234"
+        numeroCuenta:
+          type: string
+          pattern: "^[0-9]{13}$"
+        estado:
+          $ref: "#/components/schemas/EstadoTarjeta"
+        tipo:
+          $ref: "#/components/schemas/TipoTarjeta"
+        fechaEmision:
+          type: string
+          format: date
+        fechaVencimiento:
+          type: string
+          pattern: "^[0-9]{2}/[0-9]{2}$"
+          description: "MM/AA"
+        esTarjetaIntercambio:
+          type: boolean
+          default: false
+      # [GEMCOG-SOURCE: S500/L039 ACCESOBD04 · BD04TARJETAS · vocab: TARJETAS]
+
+    ListaTarjetas:
+      type: object
+      properties:
+        numeroCuenta:
+          type: string
+          pattern: "^[0-9]{13}$"
+        tarjetas:
+          type: array
+          items:
+            $ref: "#/components/schemas/TarjetaDebito"
+        total:
+          type: integer
+
+    TarjetaIntercambio:
+      type: object
+      description: |
+        Tarjeta intercambiable migrada desde S501.
+        **vocab**: TARINTERCAM → TarjetaIntercambio (UL §4 BC-03)
+      required: ["panEnmascarado", "sistemaOrigen", "fechaMigracion"]
+      properties:
+        panEnmascarado:
+          type: string
+          pattern: "^XXXX XXXX XXXX [0-9]{4}$"
+        sistemaOrigen:
+          type: string
+          enum: ["S501"]
+          description: "Sistema desde el que fue migrada (siempre S501)"
+        programaOrigenS501:
+          type: string
+          description: "Programa origen en S501 (S501/P110)"
+          example: "S501/P110"
+        fechaMigracion:
+          type: string
+          format: date
+          description: "Fecha de migración de S501 a S500 (Jun-Oct 2016)"
+        estadoIntercambio:
+          type: string
+          enum: ["ACTIVA", "BLOQUEADA", "CANCELADA"]
+      # [GEMCOG-SOURCE: S500/P630 1.3K LOC · BD04TARJETAS · vocab: TARINTERCAM]
+
+    ActualizacionEstadoTarjeta:
+      type: object
+      required: ["estado", "motivo"]
+      properties:
+        estado:
+          $ref: "#/components/schemas/EstadoTarjeta"
+        motivo:
+          type: string
+          minLength: 5
+          description: "Motivo del cambio de estado (obligatorio para auditoría)"
+
+    ErrorResponse:
+      type: object
+      required: ["codigo", "mensaje", "timestamp"]
+      properties:
+        codigo:
+          type: string
+        mensaje:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string

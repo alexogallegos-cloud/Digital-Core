@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GemCog Asistente · S500 + S151 · Banamex</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080d1a;--red:#CE1126;--gold:#C8960C;
+  --gold-light:#F0C040;--navy:#001F5B;
+  --ink:#F0F8FA;--muted:#b0bcc8;--muted2:#7a8898;
+  --glass:rgba(255,255,255,.055);--glassb:rgba(255,255,255,.10);
+  --user-bg:rgba(200,150,12,.10);--user-border:rgba(200,150,12,.25);
+  --bot-bg:rgba(255,255,255,.048);--bot-border:rgba(255,255,255,.08);
+  --input-bg:rgba(255,255,255,.07);--input-border:rgba(255,255,255,.13);
+}
+html,body{height:100%;background:var(--bg);color:var(--ink);overflow:hidden;
+  font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Calibri,sans-serif;
+  -webkit-font-smoothing:antialiased}
+
+/* ── Aurora background ── */
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;
+  background:radial-gradient(circle,rgba(0,31,91,.7),transparent 70%);animation:f1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;
+  background:radial-gradient(circle,rgba(206,17,38,.22),transparent 70%);animation:f2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;
+  background:radial-gradient(circle,rgba(200,150,12,.07),transparent 70%);animation:f3 32s ease-in-out infinite}
+@keyframes f1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes f2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes f3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+.grain{position:fixed;inset:0;z-index:-1;opacity:.045;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* ── Nav ── */
+nav{position:fixed;top:0;left:0;right:0;z-index:50;
+  display:flex;align-items:center;gap:14px;padding:10px 24px;
+  backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);
+  background:rgba(4,8,18,.88);border-bottom:1px solid rgba(255,255,255,.07)}
+.nav-logo{display:flex;align-items:center;gap:10px}
+.nav-bnmx-pill{display:flex;align-items:center;gap:8px;
+  background:linear-gradient(135deg,#CE1126,#9c0d1e);
+  border-radius:22px;padding:6px 14px 6px 9px;flex-shrink:0}
+.nav-eagle{width:22px;height:22px;color:#fff;flex-shrink:0}
+.nav-bnmx-text{font-size:13px;font-weight:900;color:#fff;letter-spacing:.08em}
+.nav-subtitle{font-size:11px;color:var(--muted2);margin-top:1px}
+.nav-spacer{flex:1}
+.nav-tags{display:flex;gap:7px}
+.tag{padding:4px 10px;border-radius:20px;font-size:10.5px;font-weight:700;
+  letter-spacing:.04em;border:1px solid}
+.tag-s500{color:#ffb8c0;border-color:rgba(206,17,38,.35);background:rgba(206,17,38,.08)}
+.tag-s151{color:var(--gold-light);border-color:rgba(200,150,12,.3);background:rgba(200,150,12,.07)}
+.tag-kb{color:var(--muted);border-color:rgba(255,255,255,.1);background:rgba(255,255,255,.04)}
+.dot-live{width:6px;height:6px;border-radius:50%;background:#4ade80;
+  box-shadow:0 0 8px #4ade80;display:inline-block;margin-right:5px;animation:pulse 2.4s infinite}
+@keyframes pulse{50%{opacity:.35}}
+
+/* ── Layout ── */
+.layout{display:flex;height:100vh;padding-top:53px}
+.sidebar{width:260px;flex-shrink:0;display:flex;flex-direction:column;gap:12px;
+  padding:16px 14px;border-right:1px solid rgba(255,255,255,.06);overflow-y:auto}
+@media(max-width:860px){.sidebar{display:none}}
+.chat-area{flex:1;display:flex;flex-direction:column;min-width:0;max-width:900px;margin:0 auto;width:100%}
+
+/* ── Sidebar cards ── */
+.s-card{padding:16px;border-radius:16px;
+  background:var(--glass);border:1px solid var(--glassb);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.s-label{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--gold);margin-bottom:10px}
+.s-item{font-size:12.5px;color:var(--muted);line-height:1.7}
+.s-item b{color:var(--ink);font-weight:600}
+.s-divider{height:1px;background:rgba(255,255,255,.06);margin:10px 0}
+.s-scope{font-size:11px;color:var(--muted2);line-height:1.6}
+.s-scope .name{color:var(--ink);font-weight:600;font-size:12px}
+
+/* ── Chat messages ── */
+.messages{flex:1;overflow-y:auto;padding:24px 20px 16px;
+  display:flex;flex-direction:column;gap:18px;scroll-behavior:smooth}
+.messages::-webkit-scrollbar{width:4px}
+.messages::-webkit-scrollbar-track{background:transparent}
+.messages::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}
+
+.msg{display:flex;gap:12px;max-width:100%;animation:msgIn .3s cubic-bezier(.16,1,.3,1)}
+@keyframes msgIn{from{opacity:0;transform:translateY(10px)}}
+.msg.user{flex-direction:row-reverse}
+
+.avatar{width:34px;height:34px;border-radius:10px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800}
+.avatar.bot{background:linear-gradient(135deg,#CE1126,#9c0d1e);color:#fff}
+.avatar.user{background:rgba(200,150,12,.15);color:var(--gold-light);font-size:12px}
+
+.bubble{max-width:78%;padding:14px 18px;border-radius:18px;font-size:14px;line-height:1.65}
+.bubble.bot{background:var(--bot-bg);border:1px solid var(--bot-border);
+  border-top-left-radius:4px;
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.bubble.user{background:var(--user-bg);border:1px solid var(--user-border);
+  border-top-right-radius:4px;text-align:right}
+.bubble p{margin-bottom:8px}
+.bubble p:last-child{margin-bottom:0}
+.bubble code{background:rgba(200,150,12,.12);border:1px solid rgba(200,150,12,.22);
+  border-radius:4px;padding:1px 6px;font-size:12px;color:var(--gold-light);
+  font-family:'SF Mono',ui-monospace,'Courier New',monospace}
+.bubble pre{background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.08);
+  border-radius:10px;padding:14px;overflow-x:auto;margin:10px 0;
+  font-family:'SF Mono',ui-monospace,'Courier New',monospace;font-size:12px;
+  color:#dde8f0;line-height:1.6}
+.bubble pre code{background:transparent;border:none;padding:0;color:inherit}
+.bubble strong{color:var(--ink);font-weight:700}
+.bubble ul,
+.bubble ol{padding-left:18px;margin:6px 0}
+.bubble li{margin-bottom:4px}
+
+/* Citations */
+.citations{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.07)}
+.cite-label{font-size:10px;color:var(--muted2);text-transform:uppercase;
+  letter-spacing:.1em;font-weight:700;margin-bottom:7px;cursor:pointer;
+  display:flex;align-items:center;gap:6px}
+.cite-label::after{content:'▸';transition:.2s;display:inline-block}
+.cite-label.open::after{transform:rotate(90deg)}
+.cite-list{display:none;flex-direction:column;gap:6px}
+.cite-list.open{display:flex}
+.cite-item{padding:8px 10px;border-radius:8px;
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06)}
+.cite-src{font-size:10.5px;color:var(--gold-light);font-weight:700;margin-bottom:3px}
+.cite-snip{font-size:11.5px;color:var(--muted2);line-height:1.5}
+
+/* Welcome */
+.welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  flex:1;gap:18px;padding:30px;text-align:center}
+.welcome-brand{display:flex;flex-direction:column;align-items:center;gap:10px}
+.welcome-eagle-svg{width:68px;height:68px;color:#fff;
+  filter:drop-shadow(0 0 22px rgba(206,17,38,.45))}
+.welcome-wordmark{font-size:22px;font-weight:900;letter-spacing:.12em;color:var(--red)}
+.welcome h2{font-size:22px;font-weight:800;letter-spacing:-.02em}
+.welcome p{font-size:14px;color:var(--muted);max-width:48ch;line-height:1.6}
+.suggestions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:8px}
+.sug{padding:8px 14px;border-radius:20px;font-size:12px;color:var(--muted);
+  background:var(--glass);border:1px solid var(--glassb);cursor:pointer;
+  transition:.2s;text-align:left;line-height:1.4}
+.sug:hover{color:var(--ink);background:rgba(200,150,12,.10);border-color:rgba(200,150,12,.28)}
+
+/* Loading dots */
+.loading{display:flex;align-items:center;gap:5px;padding:8px 0}
+.loading span{width:7px;height:7px;border-radius:50%;background:var(--muted2);animation:dot 1.4s infinite}
+.loading span:nth-child(2){animation-delay:.2s}
+.loading span:nth-child(3){animation-delay:.4s}
+@keyframes dot{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
+
+/* ── Input area ── */
+.input-area{padding:14px 20px 18px;border-top:1px solid rgba(255,255,255,.06)}
+.input-row{display:flex;gap:10px;align-items:flex-end;
+  background:var(--input-bg);border:1px solid var(--input-border);
+  border-radius:18px;padding:10px 14px;
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  transition:.2s}
+.input-row:focus-within{border-color:rgba(200,150,12,.38)}
+#userInput{flex:1;background:transparent;border:none;outline:none;
+  color:var(--ink);font-size:14px;resize:none;font-family:inherit;
+  min-height:24px;max-height:180px;line-height:1.55;padding:2px 0}
+#userInput::placeholder{color:var(--muted2)}
+#userInput::-webkit-scrollbar{width:3px}
+#userInput::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px}
+.send-btn{width:34px;height:34px;border-radius:10px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,#CE1126,#9c0d1e);color:#fff;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  transition:.2s;font-size:15px}
+.send-btn:hover{transform:scale(1.07);box-shadow:0 4px 16px rgba(206,17,38,.45)}
+.send-btn:disabled{opacity:.4;transform:none;cursor:default;box-shadow:none}
+.input-footer{font-size:10px;color:var(--muted2);text-align:center;margin-top:8px}
+
+/* ── Error toast ── */
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+  background:rgba(206,17,38,.15);border:1px solid rgba(206,17,38,.35);
+  color:#ffb8c0;padding:10px 18px;border-radius:12px;font-size:13px;
+  backdrop-filter:blur(16px);z-index:100;opacity:0;transition:.3s;pointer-events:none}
+.toast.show{opacity:1}
+
+/* ── New chat button ── */
+.new-chat-btn{padding:8px 14px;border-radius:12px;border:1px solid var(--glassb);
+  background:var(--glass);color:var(--muted);font-size:11.5px;font-weight:600;
+  cursor:pointer;transition:.2s;backdrop-filter:blur(10px)}
+.new-chat-btn:hover{color:var(--ink);border-color:rgba(200,150,12,.32)}
+</style>
+</head>
+<body>
+
+<div class="aurora"><div class="blob"></div></div>
+<div class="grain"></div>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-logo">
+    <div class="nav-bnmx-pill">
+      <svg class="nav-eagle" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="24" cy="28" rx="8" ry="11" fill="currentColor"/>
+        <path d="M16 24 C10 20 4 22 3 15 C8 19 13 20 16 24Z" fill="currentColor"/>
+        <path d="M32 24 C38 20 44 22 45 15 C40 19 35 20 32 24Z" fill="currentColor"/>
+        <circle cx="24" cy="14" r="7" fill="currentColor"/>
+        <path d="M29 13 C32 14 33 16 31 17 C29 16 28 15 29 13Z" fill="#F0C040"/>
+        <path d="M20 38 C18 41 17 44 19 44 M24 39 L24 44 M28 38 C30 41 31 44 29 44" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      </svg>
+      <span class="nav-bnmx-text">BANAMEX</span>
+    </div>
+    <div>
+      <div class="nav-subtitle">Asistente de Modernización · Mainframe</div>
+    </div>
+  </div>
+  <div class="nav-spacer"></div>
+  <div class="nav-tags">
+    <span class="tag tag-s500">S500 Cargos</span>
+    <span class="tag tag-s151">S151 Contable</span>
+    <span class="tag tag-kb"><span class="dot-live"></span>KB Conectada</span>
+  </div>
+  <button class="new-chat-btn" onclick="newChat()">+ Nueva sesión</button>
+</nav>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="s-card">
+      <div class="s-label">Scope de la KB</div>
+      <div class="s-item"><b>S500</b> — Cargos &amp; Abonos</div>
+      <div class="s-scope">110 programas · COBOL + ALGOL<br>7 DBs DMSII · WFL/LOTE+LINEA</div>
+      <div class="s-divider"></div>
+      <div class="s-item"><b>S151</b> — Movimientos Contables GL</div>
+      <div class="s-scope">105 programas · COBOL + ALGOL<br>6 DBs DMSII · WFL/LOTE+LINEA</div>
+      <div class="s-divider"></div>
+      <div class="s-scope" style="color:var(--muted2)">
+        Total: <b style="color:var(--ink)">741,669</b> LOC<br>
+        Plataforma: <b style="color:var(--ink)">Unisys ClearPath MCP</b><br>
+        Fase: <b style="color:var(--gold)">DISCOVER · Etapas 0–3</b>
+      </div>
+    </div>
+
+    <div class="s-card">
+      <div class="s-label">Artefactos indexados</div>
+      <div class="s-scope">
+        <span style="color:var(--gold)">◆</span> knowledge-base-s500-s151.md<br>
+        <span style="color:var(--gold)">◆</span> vocab, souls, gemelo (JSON→MD)<br>
+        <span style="color:var(--gold)">◆</span> dependency graphs<br>
+        <span style="color:var(--gold)">◆</span> business-rules, data-dictionary<br>
+        <span style="color:var(--gold)">◆</span> functional-groups, specs<br>
+        <span style="color:var(--gold)">◆</span> Código fuente COBOL · ALGOL<br>
+        <span style="color:var(--gold)">◆</span> DASDL · WFL · INC<br>
+        <span style="color:var(--muted2)">◆</span> Anomalías ANO-001 a ANO-009
+      </div>
+    </div>
+
+    <div class="s-card">
+      <div class="s-label">Sistemas externos</div>
+      <div class="s-scope">
+        S000 · S006 · S016 · S050<br>
+        S080 · S100 · S408 · S711<br>
+        C402 · C600 · S804 · S707<br>
+        S203 · S028 · S115 · S264
+      </div>
+    </div>
+  </aside>
+
+  <!-- Chat -->
+  <div class="chat-area">
+    <div class="messages" id="messages">
+      <!-- Welcome screen -->
+      <div class="welcome" id="welcome">
+        <div class="welcome-brand">
+          <svg class="welcome-eagle-svg" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+            <ellipse cx="24" cy="28" rx="8" ry="11" fill="currentColor"/>
+            <path d="M16 24 C10 20 4 22 3 15 C8 19 13 20 16 24Z" fill="currentColor"/>
+            <path d="M32 24 C38 20 44 22 45 15 C40 19 35 20 32 24Z" fill="currentColor"/>
+            <circle cx="24" cy="14" r="7" fill="currentColor"/>
+            <path d="M29 13 C32 14 33 16 31 17 C29 16 28 15 29 13Z" fill="#CE1126"/>
+            <path d="M20 38 C18 41 17 44 19 44 M24 39 L24 44 M28 38 C30 41 31 44 29 44" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="welcome-wordmark">BANAMEX</div>
+        </div>
+        <h2>Asistente del Gemelo Cognitivo</h2>
+        <p>Haz preguntas sobre la arquitectura, programas, flujos y reglas de negocio de los sistemas <strong style="color:var(--red)">S500</strong> y <strong style="color:var(--red)">S151</strong> del mainframe Unisys ClearPath de Banamex.</p>
+        <div class="suggestions">
+          <div class="sug" onclick="suggest(this)">¿Qué hace el programa P010 de S500?</div>
+          <div class="sug" onclick="suggest(this)">¿Cuáles son los programas ONLINE de S500?</div>
+          <div class="sug" onclick="suggest(this)">Explica la anomalía ANO-001 (swap de WFLs)</div>
+          <div class="sug" onclick="suggest(this)">¿Qué bases de datos DMSII usa S151?</div>
+          <div class="sug" onclick="suggest(this)">¿Cómo se integran S500 y S151?</div>
+          <div class="sug" onclick="suggest(this)">¿Qué es S151REGISTRA y dónde se usa?</div>
+          <div class="sug" onclick="suggest(this)">Describe los grupos funcionales de S500</div>
+          <div class="sug" onclick="suggest(this)">¿Qué programas tienen validación CNBV?</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <div class="input-row">
+        <textarea id="userInput" placeholder="Pregunta sobre S500, S151, programas COBOL, reglas de negocio…" rows="1"
+          onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Enviar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
+      <div class="input-footer">
+        Powered by Accenture · Amazon Bedrock
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Error toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+const API = "{{API_ENDPOINT}}";
+let isLoading = false;
+let msgCount  = 0;
+let conversationHistory = [];  // [{role, content}] para multi-turn
+
+// ── Markdown parser mínimo ────────────────────────────────────────────────────
+function renderMd(text) {
+  // Code blocks (triple backtick)
+  text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
+    `<pre><code>${escHtml(code.trim())}</code></pre>`);
+  // Inline code
+  text = text.replace(/`([^`]+)`/g, (_, c) => `<code>${escHtml(c)}</code>`);
+  // Bold
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // Italic
+  text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // Headers
+  text = text.replace(/^### (.+)$/gm, '<strong style="font-size:13.5px;color:var(--ink)">$1</strong>');
+  text = text.replace(/^## (.+)$/gm,  '<strong style="font-size:14px;color:var(--ink)">$1</strong>');
+  text = text.replace(/^# (.+)$/gm,   '<strong style="font-size:15px;color:var(--gold)">$1</strong>');
+  // Lists
+  text = text.replace(/^\s*[-•]\s+(.+)$/gm, '<li>$1</li>');
+  text = text.replace(/(<li>.*<\/li>\n?)+/gs, '<ul>$&</ul>');
+  // Paragraphs
+  text = text.split(/\n\n+/).map(p =>
+    p.trim() && !p.startsWith('<') ? `<p>${p.replace(/\n/g,'<br>')}</p>` : p
+  ).join('\n');
+  return text;
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Añadir mensaje ────────────────────────────────────────────────────────────
+function addMsg(role, html, citations) {
+  const welcome = document.getElementById('welcome');
+  if (welcome) welcome.remove();
+
+  const msgs = document.getElementById('messages');
+  const el   = document.createElement('div');
+  el.className = `msg ${role}`;
+  msgCount++;
+
+  const avLabel = role === 'user' ? 'Tú' : 'B';
+  el.innerHTML = `
+    <div class="avatar ${role}">${avLabel}</div>
+    <div class="bubble ${role} md-content">
+      ${html}
+      ${citations && citations.length ? renderCitations(citations) : ''}
+    </div>`;
+  msgs.appendChild(el);
+  msgs.scrollTop = msgs.scrollHeight;
+  return el;
+}
+
+function renderCitations(cites) {
+  const id = `cites-${Date.now()}`;
+  return `<div class="citations">
+    <div class="cite-label" onclick="toggleCites('${id}',this)">
+      ${cites.length} fuente${cites.length > 1 ? 's' : ''} consultada${cites.length > 1 ? 's' : ''}
+    </div>
+    <div class="cite-list" id="${id}">
+      ${cites.map(c => `
+        <div class="cite-item">
+          <div class="cite-src">${escHtml(c.source)}</div>
+          <div class="cite-snip">${escHtml(c.snippet || '')}</div>
+        </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function toggleCites(id, label) {
+  const list = document.getElementById(id);
+  list.classList.toggle('open');
+  label.classList.toggle('open');
+}
+
+// ── Loading ───────────────────────────────────────────────────────────────────
+function addLoading() {
+  const msgs = document.getElementById('messages');
+  const el = document.createElement('div');
+  el.className = 'msg bot';
+  el.id = 'loading-msg';
+  el.innerHTML = `
+    <div class="avatar bot">B</div>
+    <div class="bubble bot">
+      <div class="loading">
+        <span></span><span></span><span></span>
+      </div>
+    </div>`;
+  msgs.appendChild(el);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function removeLoading() {
+  const el = document.getElementById('loading-msg');
+  if (el) el.remove();
+}
+
+// ── Send ──────────────────────────────────────────────────────────────────────
+async function sendMessage() {
+  if (isLoading) return;
+  const input = document.getElementById('userInput');
+  const text  = input.value.trim();
+  if (!text) return;
+
+  isLoading = true;
+  setDisabled(true);
+  input.value = '';
+  autoResize(input);
+
+  addMsg('user', `<p>${escHtml(text)}</p>`, null);
+  addLoading();
+
+  // Añadir pregunta al historial antes de enviar
+  conversationHistory.push({ role: 'user', content: text });
+
+  try {
+    const resp = await fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: text,
+        history: conversationHistory.slice(-6),  // últimos 6 mensajes
+      }),
+    });
+
+    removeLoading();
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    const answer = data.response || '';
+
+    // Guardar respuesta en historial para multi-turn
+    conversationHistory.push({ role: 'assistant', content: answer });
+
+    addMsg('bot', renderMd(answer), data.citations || []);
+
+  } catch (err) {
+    removeLoading();
+    // Quitar la pregunta fallida del historial
+    conversationHistory.pop();
+    showToast(`Error: ${err.message}`);
+    addMsg('bot',
+      `<p style="color:#ffb8c0">Lo siento, hubo un error al procesar tu consulta.</p>
+       <p style="color:var(--muted2);font-size:12px">${escHtml(err.message)}</p>`,
+      null);
+  } finally {
+    isLoading = false;
+    setDisabled(false);
+    input.focus();
+  }
+}
+
+function setDisabled(val) {
+  document.getElementById('sendBtn').disabled = val;
+  document.getElementById('userInput').disabled = val;
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 180) + 'px';
+}
+
+function suggest(el) {
+  const input = document.getElementById('userInput');
+  input.value = el.textContent.trim();
+  autoResize(input);
+  input.focus();
+}
+
+function newChat() {
+  if (isLoading) return;
+  conversationHistory = [];
+  const msgs = document.getElementById('messages');
+  msgs.innerHTML = `
+    <div class="welcome" id="welcome">
+      <div class="welcome-brand">
+        <svg class="welcome-eagle-svg" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="24" cy="28" rx="8" ry="11" fill="currentColor"/>
+          <path d="M16 24 C10 20 4 22 3 15 C8 19 13 20 16 24Z" fill="currentColor"/>
+          <path d="M32 24 C38 20 44 22 45 15 C40 19 35 20 32 24Z" fill="currentColor"/>
+          <circle cx="24" cy="14" r="7" fill="currentColor"/>
+          <path d="M29 13 C32 14 33 16 31 17 C29 16 28 15 29 13Z" fill="#CE1126"/>
+          <path d="M20 38 C18 41 17 44 19 44 M24 39 L24 44 M28 38 C30 41 31 44 29 44" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+        </svg>
+        <div class="welcome-wordmark">BANAMEX</div>
+      </div>
+      <h2>Asistente del Gemelo Cognitivo</h2>
+      <p>Haz preguntas sobre la arquitectura, programas, flujos y reglas de negocio de los sistemas <strong style="color:var(--red)">S500</strong> y <strong style="color:var(--red)">S151</strong> del mainframe Unisys ClearPath de Banamex.</p>
+      <div class="suggestions">
+        <div class="sug" onclick="suggest(this)">¿Qué hace el programa P010 de S500?</div>
+        <div class="sug" onclick="suggest(this)">¿Cuáles son los programas ONLINE de S500?</div>
+        <div class="sug" onclick="suggest(this)">Explica la anomalía ANO-001 (swap de WFLs)</div>
+        <div class="sug" onclick="suggest(this)">¿Qué bases de datos DMSII usa S151?</div>
+        <div class="sug" onclick="suggest(this)">¿Cómo se integran S500 y S151?</div>
+        <div class="sug" onclick="suggest(this)">¿Qué es S151REGISTRA y dónde se usa?</div>
+        <div class="sug" onclick="suggest(this)">Describe los grupos funcionales de S500</div>
+        <div class="sug" onclick="suggest(this)">¿Qué programas tienen validación CNBV?</div>
+      </div>
+    </div>`;
+  msgCount = 0;
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+</script>
+</body>
+</html>
