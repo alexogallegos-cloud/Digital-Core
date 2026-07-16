@@ -20,7 +20,7 @@
 | Cuenta | Industria | Rev FY26 | Pipeline FY27 | Weighted | Estado |
 |--------|-----------|----------|---------------|---------|--------|
 | Santander | Banca | — | — | — | Sin iniciar |
-| Citi / Banamex | Banca | — | — | — | Sin iniciar |
+| Citi / Banamex | Banca | $6.50M | ~$1.6M – $2.2M | ~$0.7M | Plan draft |
 | Banorte | Banca | — | — | — | Sin iniciar |
 | BBVA | Banca | — | — | — | Sin iniciar |
 | Sabadell | Banca | — | — | — | Sin iniciar |
@@ -106,7 +106,7 @@ Estados posibles: `Sin iniciar` · `SCAN en progreso` · `Plan draft` · `Plan c
 | Cuenta | SCAN | Plan draft | Plan completo | Revisión Q1 | Revisión Q2 | Revisión Q3 |
 |--------|------|-----------|--------------|-------------|-------------|-------------|
 | Santander | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ |
-| Citi / Banamex | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ |
+| Citi / Banamex | ☑ | ☑ | ☐ | ☐ | ☐ | ☐ |
 | Banorte | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ |
 | BBVA | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ |
 | Sabadell | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ |

@@ -108,6 +108,7 @@ Soy un **Application Modernization Lead** especializado en Strangler-Fig sobre m
 - ADR-SPE-AM-004: Target runtime per capability (Kubernetes · Cloud Run · Lambda).
 - ADR-SPE-AM-005: AI-assisted tooling stack (Amazon Q Developer Transform · GitHub Copilot · custom agents).
 - ADR-SPE-AM-006: [cuando aplique] Manejo de tipos propietarios del datastore origen — rounding financiero, semántica de tipos legacy, equivalencia en target DB. Obligatorio para proyectos "base de datos como aplicación" (Informix, Oracle Forms, SQL Server stored-proc-heavy).
+- ADR-SPE-AM-007: [cuando aplique SAP] Estrategia de migración SAP — brownfield (in-place upgrade) vs. greenfield (reimplementación) vs. bluefield (selective data migration). Obligatorio para proyectos SAP ECC → S/4HANA.
 
 ---
 
@@ -129,6 +130,7 @@ Todos implementan la **mecánica de extracción** de su tecnología para el mét
 | Scope | Sub-agente | Cuándo se activa |
 |---|---|---|
 | **Informix SPL** — análisis RE (Etapas 0–4) | [Specialist - Informix SPL](Fase%200%20-%20Discover/Specialist%20-%20Informix%20SPL/CLAUDE.md) | Proyectos donde la lógica de negocio vive como Stored Procedures IBM Informix SPL (patrón "base de datos como aplicación") — p.ej. BanCoppel `SPE-AM-001` |
+| **SAP ABAP** — análisis RE (Etapas 0–4) | [Specialist - SAP ABAP](Fase%200%20-%20Discover/Specialist%20-%20SAP%20ABAP/CLAUDE.md) `[STATE: ACTIVE]` | Landscapes SAP ECC / S/4HANA con customizaciones Z/Y significativas — análisis de programas ABAP, BADIs, ABAP Dictionary, RFC map y S/4HANA Simplification Assessment. Instancia de referencia: Gentera `SPE-AM-002` |
 | **Oracle Forms + PL/SQL** — análisis RE | [Specialist - Oracle Forms PL-SQL](Fase%200%20-%20Discover/Specialist%20-%20Oracle%20Forms%20PL-SQL/CLAUDE.md) `[STATE: PROPOSED]` | Apps Oracle Forms/Reports + lógica en packages/triggers PL/SQL (`.fmb`/`.pll` + esquema). Stub hasta deal real. |
 | **SQL Server T-SQL** — análisis RE | [Specialist - SQL Server T-SQL](Fase%200%20-%20Discover/Specialist%20-%20SQL%20Server%20T-SQL/CLAUDE.md) `[STATE: PROPOSED]` | Core/apps con lógica en stored procs T-SQL ("DB como aplicación" sobre SQL Server). Stub hasta deal real. |
 
@@ -222,4 +224,4 @@ Hereda checklist del sub-offering HVM + criterios AM:
 
 ---
 
-*Última actualización: 2026-07-06 · v0.2 · Sub-agentes de RE alineados al método HVM-wide Gemelo Cognitivo; añadidos stubs Oracle Forms/PL-SQL y SQL Server T-SQL `[STATE: PROPOSED]`. v0.1 (2026-05-28): promovido desde HVM a L4 propio.*
+*Última actualización: 2026-07-16 · v0.3 · Añadido Specialist - SAP ABAP `[STATE: ACTIVE]` con instancia de referencia Gentera `SPE-AM-002`; ADR-SPE-AM-007 para estrategia de migración SAP. v0.2 (2026-07-06): sub-agentes RE alineados al Gemelo Cognitivo; stubs Oracle Forms y SQL Server T-SQL. v0.1 (2026-05-28): promovido desde HVM a L4 propio.*
