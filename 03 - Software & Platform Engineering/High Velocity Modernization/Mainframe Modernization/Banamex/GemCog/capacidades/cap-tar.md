@@ -210,3 +210,43 @@ Regla: RN-S500-045 — Asignación de BIN adquirente por primer dígito
 *cap-tar.md · v1.0 · 2026-07-16 · Piloto Capa 4 (Inventario de Tareas) + Capa 5 (Casuísticas + Diagrama Mermaid)*
 *Capacidades: 2.2.6 ATM · 2.2.7 PoS · Sistema: S500 · Programa: S500P630 (TARINTERCAM)*
 *Cross-referencia: RN-S500-037..055 · rules-catalog/rules-s500.md · capability-map.md · kb-capa3-capacidades.md*
+
+---
+
+## Ampliación — S500P630 Teletón/AMEX (RN-S500-047..055)
+
+> Continuación del programa S500P630; complementa las reglas RN-S500-037..046 ya vinculadas.
+> Las reglas RN-S500-047..052 se ligan a tareas pre-existentes (T-TAR-009, T-TAR-011..013, T-TAR-015) o generan una tarea nueva de formateo (T-TAR-016). Las reglas RN-S500-053..055 cubren el cierre del proceso (transmisión INTELAR, diálogo BD06TELETON, transferencia WFL) y dan lugar a las tareas nuevas T-TAR-017..019.
+
+### Inventario de Tareas adicionales
+
+| ID | Nombre | Programa | Componente fuente | Tipo | Complejidad | Riesgo migración |
+|----|--------|----------|-------------------|------|-------------|------------------|
+| T-TAR-016 | Formatear importe AMEX sin ceros con decimal explícito (993-BUSCA-IMPORTE / 993-EDITA-IMPORTE) | S500P630 | COBOL_S500P630.txt | formateo | media | ALTO |
+| T-TAR-017 | Transmitir archivo AMEX a INTELAR con reintento único ante falla transitoria (ADMONXFERS/INTELARSND) | S500P630 | COBOL_S500P630.txt | integración | alta | ALTO |
+| T-TAR-018 | Registrar resultado en diálogo BD06TELETON al concluir el proceso (999999-FIN) | S500P630 | COBOL_S500P630.txt | control | alta | CRÍTICO |
+| T-TAR-019 | Transferir archivos generados a S006 mediante job WFL heredado (999999-TRANSFIERE-P940) | S500P630 | COBOL_S500P630.txt | orquestación | alta | CRÍTICO |
+
+### Reglas de negocio vinculadas
+
+| ID regla | Enunciado breve | Programa | Tarea(s) | Criticidad |
+|----------|----------------|----------|----------|------------|
+| RN-S500-047 | Día juliano de 3 dígitos obtenido vía DAME_DIAJUL2K (librería S000LIBFEC resuelta dinámicamente por CTLVERS) y colocado en WKS-I04-RE-DIAJUL dentro de la referencia de 23 posiciones (935-ARMA-REF23) | S500P630 | T-TAR-009 | alta |
+| RN-S500-048 | Proceso Teletón es unidireccional: solo cargos hacia S244; WKS-I04-NUM-ABONOS y WKS-I04-IMP-ABONOS siempre fijados en cero en el trailer (970-GRABA-TRAILERS) | S500P630 | T-TAR-013, T-TAR-015 | alta |
+| RN-S500-049 | Donativo AMEX reportado a INTELAR con establecimiento fijo 9355195968, tipo REGULAR, crédito sin meses sin intereses, moneda MNX (991-ASIGNA-VALORES-DETALLE) | S500P630 | T-TAR-012 | alta |
+| RN-S500-050 | Importe de donativo AMEX serializado sin ceros de relleno y con punto decimal explícito en posición 11, dependiente del PIC 9(10)V99 de B02T-IMPORTE (993-BUSCA-IMPORTE / 993-EDITA-IMPORTE) | S500P630 | T-TAR-016 | alta |
+| RN-S500-051 | Número de autorización en punteo I08 selecciona formato AUT emulador (WKS-AUTORIZ10: prefijo 2 + autorización 10 dígitos) o AUT C218 (WKS-AUTORIZ: suc-trans 4 + caja-trans 2 + aut 6 dígitos) según B02T-TCODE-ORIG=500 (960-GRABA-I08) | S500P630 | T-TAR-011 | alta |
+| RN-S500-052 | Registro de punteo I08 etiquetado con producto 500, moneda 1 (MXN), libro 0, institución 1; sucursal y caja tomadas de B02T-SUC-S028 / B02T-CAJ-S028 (sistema S028) y B02T-CAJA-CONV (960-GRABA-I08) | S500P630 | T-TAR-011 | alta |
+| RN-S500-053 | Archivo AMEX transmitido a INTELAR mediante INTELARSND (librería ADMONXFERS); reintento único tras espera de 3 s si WS-RSLT-SNT>0; proceso continúa aunque el segundo intento falle (best-effort, solo si W77-FIN-ANORMAL=0) | S500P630 | T-TAR-017 | alta |
+| RN-S500-054 | Al concluir, registra resultado en BD06TELETON: terminación anormal → CHANGE ATTRIBUTE STATUS OF MYSELF TO -1; terminación normal → LOCK S500B00TGLOBAL + BEGIN/END-TRANSACTION actualiza B00T-PASO-ENTRA/SALE=630 (999999-FIN) | S500P630 | T-TAR-018 | alta |
+| RN-S500-055 | Si proceso termina normalmente, lanza job WFL "S500/WFL/COPIARCH/01MTP001" (CALL SYSTEM WFL) con llave heredada "S501T01" (origen S501/P110, no actualizada en migración 2016) para transferir archivos S244 y AMEX al host S006 (999999-TRANSFIERE-P940) | S500P630 | T-TAR-019 | alta |
+
+### Hallazgos de migración adicionales S500P630
+
+| Riesgo | Tarea | Severidad | Acción requerida |
+|--------|-------|-----------|-----------------|
+| `CHANGE ATTRIBUTE STATUS OF MYSELF` + `LOCK` + `BEGIN/END-TRANSACTION` sobre BD06TELETON (nativos Unisys MCP/DMSII, sin equivalente directo) | T-TAR-018 | 🟠 CRÍTICO | Reemplazar por patrón de estado transaccional: flag de estado + saga pattern o outbox; preservar semántica de paso B00T-PASO=630 para integridad del flujo nocturno BD06TELETON |
+| `CALL SYSTEM WFL` para lanzar job de orquestación batch (específico Unisys MCP, sin equivalente directo) | T-TAR-019 | 🟠 CRÍTICO | Sustituir por orquestador de workflows moderno (Apache Airflow, AWS Step Functions, BPEL u equivalente) con transferencia SFTP/S3 al host destino; coordinación con equipo S006 obligatoria |
+| Llave "S501T01" heredada de S501/P110, no actualizada en la migración de junio-octubre 2016 | T-TAR-019 | 🟡 ALTO | Validar contra catálogo de llaves WFL vigente antes de migrar; una llave incorrecta puede desviar archivos de producción sin error visible |
+| Librería `ADMONXFERS` / función `INTELARSND` propietaria Unisys MCP para transmisión INTELAR | T-TAR-017 | 🟡 ALTO | Sustituir por mecanismo cloud-native de transferencia con misma semántica best-effort (1 reintento, 3 s espera, continúa si falla); documentar comportamiento en runbook operacional |
+| Formateo artesanal de importe AMEX: posición de punto decimal hardcodeada en pos. 11, acoplada al PIC 9(10)V99 de B02T-IMPORTE | T-TAR-016 | 🟡 ALTO | Reemplazar por serialización tipada; validar bit-a-bit contra INTELAR en ambiente de prueba antes de producción para evitar rechazo de archivos |

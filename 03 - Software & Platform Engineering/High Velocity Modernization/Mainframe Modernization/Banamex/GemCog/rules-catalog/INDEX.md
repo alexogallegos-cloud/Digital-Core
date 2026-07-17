@@ -41,10 +41,10 @@
 | rules-s151-p108-p150.md | P108 GL Bitácora · P150 Reportes CITI | 60 | RN-S151-121..180 | ✅ completo |
 | rules-s151-p021-p120.md | P021 (ALGOL) · P120 Concentrador | 24 | RN-S151-181..185 · 201..207 · 221..232 | ✅ con vocab |
 | rules-s151-p010.md | P010 — Gateway online MOVIMIENTOS | 32 | RN-S151-241..272 | ✅ con vocab |
-| rules-s151-p178-p138.md | P178 Saldos · P138 Posición global | 40 | RN-S151-281..300 · 311..330 | ✅ con vocab |
+| rules-s151-p050-p052.md | P050 CONCENTRACIÓN DE SALDOS · P052 ACCIVAL (Holdings) | 40 | RN-S151-281..300 · 311..330 | ✅ con vocab |
 | rules-s151-p151.md | P151 — Transformador IBM-Citibank ALR/AHR/OCM | 30 | RN-S151-331..360 | ✅ extraído |
 | rules-s151-p158.md | P158 — Movimientos por contrato | 30 | RN-S151-361..390 | ✅ extraído |
-| rules-s151-p050-p052.md | P050 · P052 — Intereses/comisiones | 20 | RN-S151-391..400 · 411..420 | ✅ con vocab |
+| rules-s151-p178-p138.md | P178 Verificación Saldos · P138 Posición Global | 20 | RN-S151-391..400 · 411..420 | ✅ con vocab |
 | rules-s151-p199-p600.md | P199 · P610 · P612 · P677 | 70 | RN-S151-421..490 | ✅ con vocab |
 | rules-s151-dasdl.md | DASDL BD10 · BD13 · BD99 · BD02 | 35 | RN-S151-491..525 | ✅ con vocab |
 | rules-s151-l030.md | L030 — Librería contable batch | 25 | RN-S151-526..550 | ✅ extraído |

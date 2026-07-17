@@ -281,3 +281,128 @@ sequenceDiagram
 *cap-ods.md · v1.0 · 2026-07-16*
 *Capacidad: 9.1.1 Operational Data Stores · Sistema: S500+S151 · DASDL BD10·BD11·BD12·BD13·BD99·BD02*
 *Cross-referencia: RN-S151-491..525 · rules-s151-dasdl.md · capability-map.md*
+
+---
+
+## Ampliación — L030 Biblioteca Maestra S151LIB030 (RN-S151-526..550)
+
+> L030 (PROGRAM-ID: S151LIB030, 19,253 LOC, COBOL) es la biblioteca COBOL de plataforma cargada por TODOS los programas S151 mediante `CANCEL`. No es transpilable directamente: usa CHANGE ATTRIBUTE TITLE/LIBACCESS/FUNCTIONNAME, OPEN/CLOSE INQUIRY sobre DMSII, y el patrón `CANCEL` de Unisys MCP para carga/descarga dinámica de librerías — ninguno de estos mecanismos tiene equivalente en Java/cloud. L030 DEBE reimplementarse como 4–6 microservicios de plataforma. Contiene: catálogo CVETRAN (hasta 10,000 entradas) + 2,000 leyendas cargados en memoria al inicio, jerarquía CSI de 7 niveles con límites hardcoded, ventana deslizante de 10 semi-días para saldos, y manejo de 21 tipos de error DMSII.
+
+### Inventario de Tareas adicionales
+
+| ID | Nombre | Programa | Tipo | Complejidad | Riesgo migración |
+|----|--------|----------|------|-------------|------------------|
+| T-ODS-028 | Redefinir L030 como plataforma de 6 microservicios: sistema-fechas-service, catalogo-transacciones-service, control-batch-service, consulta-movimientos-service, estructura-organizacional-service, cliente-enrichment-service | L030 | PLATAFORMA | ALTA | CRÍTICO — punto de fallo único; todos los programas S151 dependen de L030 en runtime |
+| T-ODS-029 | Implementar sistema-fechas-service: reemplazar THECALENDAR (FUNCION=13 = próximo día hábil, FUNCION=18 = validar día hábil), CRONOS-2000 parche Y2K, cálculo de fecha de semana para BASESEMANAL | L030 | PLATAFORMA | ALTA | CRÍTICO — calendario bancario Banxico Circular 14/2017; sin equivalente cloud nativo |
+| T-ODS-030 | Implementar catalogo-transacciones-service: carga inicial de CVETRAN (≤10,000 entradas) + leyendas (≤2,000 entradas) en caché de memoria al startup; exponer API de lookup por código de transacción | L030 | PLATAFORMA | MEDIA | ALTO — si CVETRAN supera 10K en producción, el hardcoded OCCURS falla silenciosamente |
+| T-ODS-031 | Implementar control-batch-service: gestionar ventana deslizante de 10 semi-días para saldos, control de PROCESO/FECHAS, contadores de secuencia SECOK/SECINF/SECERR como estado de sesión batch | L030 | PLATAFORMA | ALTA | ALTO — ventana de 10 semi-días es hardcoded; el tamaño de ventana debe configurarse externamente |
+| T-ODS-032 | Implementar consulta-movimientos-service: reemplazar OPEN INQUIRY BASESEMANAL con nombre dinámico (BD varía por día de semana) — en target: connection routing a tabla particionada por semana | L030 | PLATAFORMA | ALTA | ALTO — naming dinámico de DMSII no tiene equivalente directo; el router de conexión debe conocer el esquema de naming |
+| T-ODS-033 | Implementar estructura-organizacional-service: jerarquía CSI 7 niveles (Comité→Área→División→Dirección→Regional→Operación→Sucursal) con catálogo en BD; reemplazar tabla hardcoded de L030 | L030 | PLATAFORMA | MEDIA | ALTO — jerarquía hardcoded en código COBOL; cualquier reorganización bancaria post-separación Citi requiere recompilación |
+| T-ODS-034 | Implementar cliente-enrichment-service: enriquecimiento de movimientos con datos de cliente (RFC, CURP, segmento); extraer lógica de L030 que llama a programas de consulta de perfil | L030 | PLATAFORMA | MEDIA | MEDIO — dependencias de L030 hacia otros programas S151 deben mapearse antes del diseño |
+| T-ODS-035 | Migrar patrón CANCEL de Unisys MCP: auditar todos los `CANCEL L030` en S151; rediseñar como inicialización de contexto vía dependency injection en target (Spring @Bean / CDI) | L030 | PLATAFORMA | ALTA | CRÍTICO — CANCEL no es transpilable; requiere rediseño arquitectónico completo; riesgo de lifecycle incorrecto de servicios compartidos |
+| T-ODS-036 | Migrar CHANGE ATTRIBUTE TITLE/LIBACCESS/FUNCTIONNAME: reemplazar capacidad de modificación dinámica de atributos de archivo Unisys por configuración externalizada (ConfigMap o tabla de parámetros) | L030 | PLATAFORMA | ALTA | CRÍTICO — CHANGE ATTRIBUTE modifica metadatos de archivos en tiempo de ejecución; no existe en sistemas POSIX/cloud |
+| T-ODS-037 | Migrar OPEN/CLOSE INQUIRY de L030: reemplazar apertura read-only de DMSII por pool de conexiones de solo lectura con routing por nombre de BD; cerrar con DMTERMINATE → close de transacción | L030 | PLATAFORMA | ALTA | ALTO — OPEN INQUIRY es modo de acceso DMSII específico; semántica de aislamiento difiere del MVCC en PostgreSQL/Oracle |
+| T-ODS-038 | Mapear los 21 tipos de error DMSII de L030 a códigos de error canónicos del sistema target: NOTFOUND (EOF), DEADLOCK, DUPLICADO, DMSII-UNAVAIL, etc. — implementar traducciones de error en cada microservicio | L030 | PLATAFORMA | MEDIA | ALTO — si un error DMSII no está mapeado, propaga como excepción no controlada; los 21 tipos deben estar todos cubiertos |
+| T-ODS-039 | Externalizar tabla CSI hardcoded (7 niveles, topes de sucursales por nivel) a catálogo en BD: tabla `csi_jerarquia` con tipo, código_csi, código_padre, estado_activo | L030 | PLATAFORMA | MEDIA | ALTO — restructuración post-separación Citi puede requerir nuevos CSIs; cambio en código COBOL requería compilación |
+| T-ODS-040 | Externalizar ventana deslizante de 10 semi-días a parámetro configurable en tabla de parámetros del sistema (SYSPARAMS); exponer via API de configuración del control-batch-service | L030 | PLATAFORMA | BAJA | MEDIO — valor hardcoded aumenta el riesgo de diferencias silenciosas si el negocio cambia el período de retención |
+| T-ODS-041 | Validar límite OCCURS 10K de CVETRAN contra datos reales de producción: extraer COUNT de CVETRAN en DMSII y comparar con techo del OCCURS; planificar migración si está cerca del límite | L030 | PLATAFORMA | BAJA | ALTO — si CVETRAN tiene >10,000 entradas en producción, la carga se trunca silenciosamente y los tipos de transacción faltantes producen rechazos |
+| T-ODS-042 | Migrar leyendas (≤2,000) a tabla multiidioma si el negocio requiere ES/EN; en caso contrario, cargar como tabla `leyendas_transaccion(codigo, descripcion)` en BD con refresh diario | L030 | PLATAFORMA | BAJA | BAJO |
+| T-ODS-043 | Documentar mapa de equivalencias CVETRAN legacy → códigos de transacción en sistema target (enum o catálogo ISO 20022 si aplica SAR/SPEI) | L030 | PLATAFORMA | MEDIA | MEDIO — sin este mapa, los reportes regulatorios SAR y Banxico pueden clasificar movimientos incorrectamente |
+| T-ODS-044 | Migrar modo CONSULTA-INQUIETA (read-write) vs CONSULTA-QUIETA (read-only) de L030: implementar como nivel de aislamiento de transacción en target (READ COMMITTED vs REPEATABLE READ) | L030 | PLATAFORMA | MEDIA | MEDIO — semántica de INQUIETA permite ver cambios no commiteados en DMSII; en SQL estándar esto sería READ UNCOMMITTED — auditar si se usa realmente |
+| T-ODS-045 | Migrar gestión de secuencias L030 (batch counters OK/INF/ERR) a secuencias nativas de BD o tabla de estado de ejecución batch con lock optimista | L030 | PLATAFORMA | BAJA | BAJO |
+| T-ODS-046 | Implementar circuit breaker para reemplazar CANCEL+error de L030: si un microservicio de plataforma falla al inicializar, propagar fallo al programa batch padre y abortar limpiamente (no silencioso) | L030 | PLATAFORMA | MEDIA | ALTO — CANCEL sin manejo de error propaga fallo silencioso; en target, un microservicio caído debe notificarse explícitamente |
+| T-ODS-047 | Migrar filtros de CSI activo/inactivo: leer ESTADO_CSI desde catálogo en BD; eliminar comparaciones contra constantes hardcoded en L030 (ej. IF CSI=0 NEXT SENTENCE) | L030 | PLATAFORMA | BAJA | MEDIO |
+| T-ODS-048 | Diseñar API de status de sistemas S151 dependientes para reemplazar CHANGE ATTRIBUTE STATUS de L030: GET /sistemas/{id}/status → {activo, enMantto, fechaHoraUltimoArriba} | L030 | PLATAFORMA | MEDIA | ALTO — status de sistemas es consultado por P103 y otros; si la API no está disponible, P103 no puede calcular la fecha de proceso |
+| T-ODS-049 | Documentar interfaz de entrada de L030 (parámetros WFL posicionales: fecha, CSI, modo, sistema-origen, etc.) y definir API contract formal (OpenAPI 3.0) para cada microservicio target | L030 | PLATAFORMA | MEDIA | ALTO — sin API contract documentado, cada programa S151 que llama a L030 debe ser analizado individualmente para migración |
+| T-ODS-050 | Definir estrategia de coexistencia L030: durante el período transitorio, el microservicio puede actuar como proxy hacia DMSII para programas no-migrados — implementar adapter con client Unisys DMSII SDK | L030 | PLATAFORMA | ALTA | ALTO — migración big-bang de L030 no es viable; se necesita proxy/facade para coexistencia |
+| T-ODS-051 | Migrar manejo de DMTERMINATE de L030: en target, equivalente es close de UnitOfWork / commit o rollback de transacción según resultado del batch | L030 | PLATAFORMA | BAJA | MEDIO |
+| T-ODS-052 | Validar equivalencia comportamental L030 legacy vs 6 microservicios target con datos reales de producción: 100% de casos de CVETRAN, CSI, fechas, y secuencias deben producir resultados idénticos | L030 | PLATAFORMA | ALTA | CRÍTICO — sin validación de equivalencia, los programas S151 que consumen L030 pueden producir saldos incorrectos sin detectarse |
+
+### Reglas de negocio vinculadas
+
+| ID regla | Enunciado breve | Programa | Criticidad |
+|----------|----------------|----------|-----------|
+| RN-S151-526 | L030 (S151LIB030, 19,253 LOC) es la biblioteca central de plataforma: NOT transpilable; debe reimplementarse como 4–6 microservicios | L030 | CRÍTICA |
+| RN-S151-527 | Patrón CANCEL: todos los programas S151 cargan L030 con `CANCEL S151LIB030` — mecanismo propietario Unisys MCP para carga/descarga dinámica de librerías, sin equivalente JVM/cloud | L030 | CRÍTICA |
+| RN-S151-528 | CHANGE ATTRIBUTE TITLE: modifica el título de archivo DMSII en runtime — permite routing dinámico de BD (ej. BASESEMANAL → BD de la semana actual); sin equivalente POSIX | L030 | CRÍTICA |
+| RN-S151-529 | CHANGE ATTRIBUTE LIBACCESS/FUNCTIONNAME: modifica metadatos de librería en runtime — patrón de extensión dinámica de L030 propio de Unisys MCP | L030 | CRÍTICA |
+| RN-S151-530 | OPEN INQUIRY BASESEMANAL: apertura de BD DMSII en modo read-only con nombre dinámico (varía por día de semana); routing a BD correcta es responsabilidad de L030 | L030 | ALTA |
+| RN-S151-531 | CLOSE INQUIRY + DMTERMINATE: cierre de sesión DMSII; equivalente a commit/rollback + close de conexión en sistema target | L030 | ALTA |
+| RN-S151-532 | Catálogo CVETRAN: hasta 10,000 tipos de transacción cargados en tabla OCCURS al startup de L030; lookup por código; si supera 10K la carga se trunca silenciosamente | L030 | ALTA |
+| RN-S151-533 | Leyendas de transacción: hasta 2,000 descripciones cargadas en tabla OCCURS paralela a CVETRAN; usadas para generar reportes y mensajes de error | L030 | MEDIA |
+| RN-S151-534 | Jerarquía CSI de 7 niveles hardcoded: Comité→Área→División→Dirección→Regional→Operación→Sucursal; límites de sucursales por nivel son constantes en código COBOL | L030 | ALTA |
+| RN-S151-535 | Ventana deslizante de 10 semi-días: L030 gestiona un buffer de 10 semi-días de saldos para cálculo de variaciones — valor hardcoded en código | L030 | ALTA |
+| RN-S151-536 | 21 tipos de error DMSII: L030 interpreta todos los códigos de retorno DMSII y los clasifica en NOTFOUND (EOF normal), DUPLICADO, DEADLOCK, DMSII-UNAVAIL y 17 errores adicionales | L030 | ALTA |
+| RN-S151-537 | Contadores de secuencia batch: L030 gestiona SECOK (registros OK), SECINF (informativos), SECERR (errores) como estado de sesión — NUMBER(08), techo 99,999,999 | L030 | MEDIA |
+| RN-S151-538 | Modo CONSULTA-INQUIETA vs CONSULTA-QUIETA: L030 abre DMSII en modo de aislamiento distinto según el modo solicitado por el programa llamador | L030 | MEDIA |
+| RN-S151-539 | Parámetros WFL posicionales: L030 recibe 9+ parámetros posicionales desde el WFL invocador; no hay nombre de parámetro, solo posición — frágil ante reordenamientos | L030 | ALTA |
+| RN-S151-540 | Proxy de status de sistemas: L030 consulta CHANGE ATTRIBUTE STATUS para determinar si sistemas S084/S087/S408/S500/S701 están activos antes de continuar | L030 | ALTA |
+| RN-S151-541 | Calendario bancario Banxico: L030/sistema-fechas-service debe conocer el calendario de días inhábiles publicado en Circular 14/2017; actualización anual obligatoria | L030 | CRÍTICA |
+| RN-S151-542 | CRONOS-2000 en L030: L030 aplica el parche Y2K propio de Banamex para interpretar fechas de 6 dígitos como AAAAMMDD de 8; verificar que aplica consistentemente | L030 | ALTA |
+| RN-S151-543 | Cálculo de BASESEMANAL: el nombre del BD de movimientos varía por día de la semana (lunes=BD01, etc.); L030 calcula el nombre en runtime según fecha de proceso | L030 | ALTA |
+| RN-S151-544 | Circuit breaker implícito: si CANCEL de L030 falla, el programa S151 llamador recibe SET MYSELF(STATUS) TO -1 y aborta — sin retry, sin logging estructurado | L030 | ALTA |
+| RN-S151-545 | Coexistencia transitoria: durante migración, L030 debe operar como facade/proxy hacia DMSII para programas no migrados mientras los microservicios target maduran | L030 | ALTA |
+| RN-S151-546 | Filtro CSI activo: L030 excluye CSIs con estado=0 de todos los cálculos; la lista de CSIs activos está hardcoded como constantes COBOL | L030 | ALTA |
+| RN-S151-547 | Enrichment de cliente: L030 enriquece movimientos con datos de perfil de cliente llamando a sub-programas de S151; las dependencias exactas deben mapearse | L030 | MEDIA |
+| RN-S151-548 | Secuencias de BD en target: los contadores SECOK/SECINF/SECERR de L030 deben migrarse a SEQUENCE o tabla de estado de ejecución en BD target con lock para concurrencia | L030 | MEDIA |
+| RN-S151-549 | Validación de equivalencia obligatoria: cada microservicio que reemplaza un módulo de L030 debe tener suite de pruebas de equivalencia con datos DMSII exportados como fixture | L030 | CRÍTICA |
+| RN-S151-550 | Actualización anual: sistema-fechas-service requiere proceso gobernado de actualización del calendario bancario Banxico cada enero — sin proceso definido, el servicio queda con días inhábiles obsoletos | L030 | CRÍTICA |
+
+### Hallazgos de migración L030
+
+| # | Hallazgo | Tipo | Impacto | Recomendación |
+|---|---------|------|---------|---------------|
+| ODS-L030-H01 | Patrón CANCEL + CHANGE ATTRIBUTE: mecanismos propietarios Unisys MCP (carga dinámica de librerías y modificación de atributos en runtime) — sin equivalente en JVM, .NET ni cloud | Portabilidad | CRÍTICO | No transpilir L030. Diseñar los 6 microservicios de plataforma como primer milestone de la migración S151; todos los demás programas dependen de que L030-target esté estable primero |
+| ODS-L030-H02 | CVETRAN 10,000 entradas cargadas en OCCURS al startup: el techo es hardcoded; si producción supera 10K tipos de transacción, la carga se trunca sin error visible | Corrección | ALTO | Medir COUNT(CVETRAN) en DMSII de producción antes de la migración; en catalogo-transacciones-service, usar List<Cvetran> sin límite fijo; implementar alerta si el catálogo supera 9,500 entradas |
+| ODS-L030-H03 | Jerarquía CSI de 7 niveles con límites hardcoded: cualquier reorganización bancaria post-separación Citi requiere recompilación de L030 | Extensibilidad | ALTO | Externalizar jerarquía a tabla `csi_jerarquia` en BD target antes del cutover; verificar estructura actual con equipo de operaciones Banamex para capturar CSIs post-separación ya activos |
+
+---
+
+## Ampliación — P606 Lectura de Archivos de Movimientos LEE-ARCHMOVYDES (RN-S151-561..570)
+
+> P606 (PROGRAM-ID: LEE-ARCHMOVYDES, 2,675 LOC, COBOL) lee y decodifica registros físicos de 990 bytes (estructura 450+540 bytes) desde el archivo de movimientos diarios. El riesgo principal de migración es FILXAPL: un grupo de 15+ REDEFINES polimórficos que interpreta el mismo bloque de bytes como distintas estructuras según el sistema origen del movimiento. El transpilador automático no puede inferir el tipo correcto en tiempo de compilación — requiere análisis dinámico con datos reales de todos los sistemas origen activos.
+
+### Inventario de Tareas adicionales
+
+| ID | Nombre | Programa | Tipo | Complejidad | Riesgo migración |
+|----|--------|----------|------|-------------|------------------|
+| T-ODS-053 | Diseñar modelo de datos para registro de 990 bytes: 450 bytes de cabecera (identificación, fechas, importes) + 540 bytes de cuerpo (FILXAPL polimórfico por sistema origen) — mapear a entidad Java/Kotlin con herencia | P606 | BATCH | ALTA | CRÍTICO — si el layout de 990 bytes no está correctamente documentado para todos los sistemas origen, los campos se interpretan erróneamente |
+| T-ODS-054 | Deserializar 15+ REDEFINES polimórficos de FILXAPL: crear discriminador por sistema origen (SIST-ORIGEN o equivalente) y clases de layout específicas por sistema (LayoutSistema01, LayoutSistema02, etc.) | P606 | BATCH | ALTA | CRÍTICO — REDEFINES polimórficos son el riesgo #1 de transpilación P606; sin cobertura de todos los sistemas origen con datos reales, el discriminador es incompleto |
+| T-ODS-055 | Implementar filtro de catálogo 523: leer catálogo de tipos de movimiento con código ≥ 523 que habilitan el procesamiento de registros en LEE-ARCHMOVYDES; integrar con catalogo-transacciones-service | P606 | BATCH | MEDIA | ALTO — si catálogo 523 tiene entradas faltantes, movimientos válidos son descartados silenciosamente |
+| T-ODS-056 | Migrar OCCURS 5 (slots de asientos por movimiento): en target implementar como List<AsientoContable> con tamaño dinámico; validar que ningún movimiento real usa más de 5 slots | P606 | BATCH | MEDIA | MEDIO — si en producción existen movimientos con >5 asientos, los slots extra se pierden silenciosamente |
+| T-ODS-057 | Migrar triple fecha por movimiento: fecha de proceso (FECPRO), fecha valor (FECVAL), fecha operación (FECOPER) — mapear a 3 columnas DATE distintas en tabla target; verificar semántica de cada fecha con equipo de negocio | P606 | BATCH | BAJA | MEDIO — confusión entre las 3 fechas produce errores en reportes regulatorios de antigüedad de saldos |
+| T-ODS-058 | Clasificar movimientos por tipo de libro: LIBRO-CONTABLE (contabilidad estándar) vs INTERCOMPANY (entre entidades del grupo) vs FILIAL (sucursal virtual) — implementar como enum + routing a tabla target correspondiente | P606 | BATCH | MEDIA | ALTO — mezclar INTERCOMPANY con LIBRO-CONTABLE produce errores de consolidación contable; la clasificación debe ser explícita en el modelo target |
+| T-ODS-059 | Implementar triple pista de auditoría AUT: AUT-AUTORIZACION (quién autorizó), AUT-RECHAZO (quién rechazó y razón), AUT-OVERRIDE (quién hizo override y justificación) — mapear a tabla `auditoria_movimiento` en target | P606 | BATCH | MEDIA | ALTO — las 3 huellas de auditoría son requerimiento regulatorio CNBV; si se pierde alguna durante la migración, el banco puede tener observaciones de auditoría |
+| T-ODS-060 | Enriquecer movimientos con datos S087 GATN/GATR: leer catálogo de garantías (GATN=tipo de garantía neta, GATR=garantía real) y asociar al movimiento; integrar con consulta-movimientos-service o estructura-organizacional-service | P606 | BATCH | MEDIA | MEDIO — datos de garantía afectan el cálculo de provisiones CNBV; si el enriquecimiento falla, el riesgo crediticio se subreporta |
+| T-ODS-061 | Documentar los 9 parámetros posicionales de entrada de P606 (fecha, sistema, CSI, modo de proceso, filtros 1..5) como API contract OpenAPI 3.0; validar rango de valores en entrada | P606 | BATCH | BAJA | MEDIO — parámetros posicionales WFL son frágiles; la inversión de dos parámetros produce resultados incorrectos sin error visible |
+| T-ODS-062 | Validar equivalencia de P606 target vs legacy con datos reales: procesar 100% de los sistemas origen activos (obtener lista de SIST-ORIGEN distintos en producción), comparar registro a registro la salida de decodificación | P606 | BATCH | ALTA | CRÍTICO — si algún layout de REDEFINES no está cubierto, los movimientos de ese sistema origen se corrompen; la validación es el único mecanismo de detección |
+
+### Reglas de negocio vinculadas
+
+| ID regla | Enunciado breve | Programa | Criticidad |
+|----------|----------------|----------|-----------|
+| RN-S151-561 | Registro físico de 990 bytes con estructura binaria 450+540: 450 bytes de cabecera estándar + 540 bytes de cuerpo polimórfico FILXAPL por sistema origen | P606 | CRÍTICA |
+| RN-S151-562 | OCCURS 5: hasta 5 slots de asientos contables por registro de movimiento — si un movimiento genera más de 5 asientos, los excedentes no se procesan sin error | P606 | ALTA |
+| RN-S151-563 | Triple fecha: FECPRO (fecha de proceso batch), FECVAL (fecha valor bancaria), FECOPER (fecha de la operación original) — semántica distinta para SLA y conciliación | P606 | ALTA |
+| RN-S151-564 | FILXAPL 15+ REDEFINES polimórficos: el mismo bloque de 540 bytes se interpreta como layouts distintos según SIST-ORIGEN del movimiento — no inferible en tiempo de compilación por transpilador automático | P606 | CRÍTICA |
+| RN-S151-565 | Filtro catálogo 523: sólo se procesan movimientos cuyo tipo de transacción tiene código habilitado en catálogo ≥523; movimientos fuera del catálogo son descartados silenciosamente | P606 | ALTA |
+| RN-S151-566 | LIBRO-CONTABLE: clasificación principal de movimiento — determina la tabla contable en la que se registra el asiento; valor por defecto para movimientos ordinarios | P606 | ALTA |
+| RN-S151-567 | INTERCOMPANY / FILIAL: clasificaciones alternativas que cambian el routing contable del movimiento hacia entidades del grupo o sucursales virtuales; exigen validación cruzada de saldos consolidados | P606 | ALTA |
+| RN-S151-568 | Triple pista de auditoría AUT: tres campos de auditoría obligatorios (autorización, rechazo, override) por movimiento — requerimiento CNBV; deben persistirse intactos en target | P606 | CRÍTICA |
+| RN-S151-569 | S087 GATN/GATR: catálogo de garantías leído por P606 para enriquecer movimientos crediticios — afecta cálculo de provisiones CNBV Circular B-6 | P606 | ALTA |
+| RN-S151-570 | 9 parámetros posicionales WFL: P606 recibe 9 parámetros de filtrado en posición fija desde el WFL orquestador — sin nombres, sin validación de tipos en COBOL | P606 | ALTA |
+
+### Hallazgos de migración P606
+
+| # | Hallazgo | Tipo | Impacto | Recomendación |
+|---|---------|------|---------|---------------|
+| ODS-P606-H01 | FILXAPL 15+ REDEFINES polimórficos: el discriminador de layout depende de SIST-ORIGEN cuyo catálogo completo no está en el DASDL — el transpilador automático no puede resolver el tipo correcto para cada sistema origen | Transpilación | CRÍTICO | Obtener lista de todos los SIST-ORIGEN distintos en producción (query DMSII); para cada uno, capturar una muestra de registros reales y verificar manualmente qué layout de REDEFINES aplica; documentar como `discriminator-map-filxapl.json` antes de escribir el deserializador target |
+| ODS-P606-H02 | Triple pista de auditoría AUT: 3 campos de auditoría por movimiento son requerimiento CNBV — si el modelo target los coloca en tabla separada, la clave foránea debe ser NOT NULL y el proceso de migración debe garantizar 100% de cobertura | Regulatorio | ALTO | Incluir AUT-AUTORIZACION, AUT-RECHAZO, AUT-OVERRIDE en el esquema target como columnas NOT NULL en la tabla principal de movimientos (no en tabla separada) para evitar joins en reportes de auditoría |
+
+---
+
+*cap-ods.md · v1.1 · 2026-07-16 · Ampliación L030 (RN-S151-526..550) + P606 (RN-S151-561..570)*
+*Capacidad: 9.1.1 Operational Data Stores · Sistema: S500+S151 · DASDL BD10·BD11·BD12·BD13·BD99·BD02*
+*Programas biblioteca: L030 (S151LIB030, 19,253 LOC) · P606 (LEE-ARCHMOVYDES, 2,675 LOC)*
+*Reglas: RN-S151-491..525 · RN-S151-526..550 · RN-S151-561..570 · 60 reglas · 62 tareas*
+*Cross-referencia: rules-s151-dasdl.md · rules-s151-l030.md · rules-s151-p602-p606-p620-p630.md · vocab-s151.md · capability-map.md*

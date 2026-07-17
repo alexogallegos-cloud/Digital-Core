@@ -275,3 +275,55 @@ Regla: RN-S151-008 — Gate equivalencia S500↔S151 via INDS151=2 y guía conta
 *cap-rec.md · v1.0 · 2026-07-16 · Capa 4 (Inventario de Tareas) + Capa 5 (Casuísticas + Diagrama Mermaid)*
 *Capacidad: 6.7.1 Financial Reconciliation · Sistema: S151 · Programa: P112 (PUNTEO POR CLAVES DE TRANSACCION)*
 *Cross-referencia: RN-S151-001..020 · rules-catalog/rules-s151-p112.md · capability-map.md · kb-capa3-capacidades.md*
+
+---
+
+## Ampliación — P178 Verificación de Saldos (RN-S151-391..400)
+
+> P178 verifica saldos DMSII (B70SXPOSICION) contra archivos de sistema origen (S500, S555, S084, S408); polling P025 STABDSAL como gate de cierre; corrección automática con política "origen siempre gana"; envío de archivo SDOS a S500/S555 vía INTELAR.
+
+### Inventario de Tareas adicionales
+
+| ID | Nombre | Programa | Tipo | Complejidad | Riesgo migración |
+|----|--------|----------|------|-------------|------------------|
+| T-REC-017 | Esperar gate P025 STABDSAL: CALL CONSISMEN en LIB-CONTROL; loop WAIT(900) mientras STABDSAL < 3; STABDSAL=99 aborta; STABDSAL>4 AND ≠5 detecta doble ejecución | P178 | BATCH | MEDIA | 🟠 ALTO |
+| T-REC-018 | Filtrar archivo A01-SDOENT: solo tipo-registro=81 (saldos); para S500/S555 además PRD=1 AND INS=3 hardcoded; otros tipos (80/82/99/00) leídos pero no procesados | P178 | BATCH | BAJA | 🟡 MEDIO |
+| T-REC-019 | Cargar conceptos de saldo válidos por sistema (1520000-CARGA-REL-SALDOS): S084→13 conceptos {2,313,301,302,303,306,308,309,311,314,315,316,317}; S408→8 conceptos {320..328}; resto solo concepto 2 (Saldo Actual) | P178 | BATCH | MEDIA | 🟡 MEDIO |
+| T-REC-020 | Auto-crear contrato faltante en B20BXSDOMENCON (220100-REG-INEXISTENTES): contratos presentes en S500/S555 pero ausentes en S151; vía 329000-PROCESA-BIT; registrar totales WKS-NUMCTO-S151/SNNN/NUMDIF-SNNN en R01-REPMES | P178 | BATCH | MEDIA | 🟡 MEDIO |
+| T-REC-021 | Comparar saldo B70 vs. WKS-TAB-IMP con tolerancia CERO (200034-COMPARA-SDOS): NOT = en packed decimal S9(13)V99 COMP; cualquier diferencia de centavo activa W77-DIFERENCIAS=1 → STORE posterior | P178 | BATCH | ALTA | 🔴 CRÍTICO |
+| T-REC-022 | Aplicar corrección automática GL (200011-PROCESO-POSICIONNEXT): sistema origen siempre gana; B70-SDO-SD(d) = WKS-TAB-IMP si difiere; STORE si W77-DIFERENCIAS≠0; FREE si W77-DIFERENCIAS=0; política explícita de reconciliación | P178 | BATCH | ALTA | 🔴 CRÍTICO |
+| T-REC-023 | Calcular índice buffer circular B71 saldos diarios (200050-IMPRIME-B71): WKS-IND = (B71-SDO-KEYIND × 12) − 2 + W77-P; iterar W77-P de 1 a 11; imprimir leyenda WKS-SDOS-LEY(WKS-IND) si CNTMOV > 0 | P178 | BATCH | MEDIA | 🟡 MEDIO |
+| T-REC-024 | Validar límites tabla 3D WKS-TAB-IMP (25 productos × 15 instrumentos × 19 monedas): ignorar silenciosamente cualquier registro con índice fuera de rango — sin log, sin contador de descartados | P178 | BATCH | MEDIA | 🟠 ALTO |
+| T-REC-025 | Patrón LOCK→proceso→STORE/FREE sobre B70SXPOSICION: LOCK NEXT por KEYCSI+KEYFEC; comparar 9 saldos (W77-D 1..9); STORE si algún saldo difiere; FREE si todos iguales; optimiza escrituras DMSII | P178 | BATCH | MEDIA | 🟡 MEDIO |
+| T-REC-026 | Generar archivo SDOS CSV (53 bytes/registro: fecha,producto,instrumento,moneda,sdoant,sdoact) y enviar a S500/S555 vía INTELARSND IN ADMONXFERS; nombre dinámico: S151/FILE/INTS/15104S09/{CSI}/{V|M}ST2{MMDD}/TXT | P178 | BATCH | ALTA | 🔴 CRÍTICO |
+
+### Reglas de negocio vinculadas
+
+| ID regla | Enunciado breve | Programa | Criticidad |
+|----------|----------------|----------|-----------|
+| RN-S151-391 | Gate P025 STABDSAL: polling WAIT(900); STABDSAL=99 aborta; STABDSAL>4 AND ≠5 detecta doble ejecución; sin límite de retries | P178 | 🟠 ALTO |
+| RN-S151-392 | Filtro tipo-81 + PRD=1 INS=3 para S500/S555; registros tipo ≠81 o PRD/INS incorrectos ignorados silenciosamente sin contador | P178 | 🟡 MEDIO |
+| RN-S151-393 | Conceptos de saldo hardcoded por sistema (1520000-CARGA-REL-SALDOS): S084→13, S408→8, otros→solo concepto 2; dependencia bidireccional con catálogo 185 | P178 | 🟡 MEDIO |
+| RN-S151-394 | Auto-creación contrato faltante en B20BXSDOMENCON: solo S500/S555; LOCK/STORE DMSII sin transacción explícita; alta silenciosa sin alerta de volumen anormal | P178 | 🟡 MEDIO |
+| RN-S151-395 | Tolerancia CERO packed decimal S9(13)V99: NOT = activa STORE; ULP de punto flotante en transpilación genera actualizaciones espurias en GL | P178 | 🔴 CRÍTICO |
+| RN-S151-396 | Origen siempre gana (política explícita): W77-DIFERENCIAS=1 → STORE B70 con valor del sistema origen; sin audit trail de valor anterior/nuevo en código AS-IS | P178 | 🔴 CRÍTICO |
+| RN-S151-397 | Buffer B71 índice = (KEYIND×12)−2+W77-P; KEYIND=0 produce índice negativo → SUBSCRIPT-RANGE; CNTMOV=0 oculta saldos sin contador | P178 | 🟡 MEDIO |
+| RN-S151-398 | Límite tabla 25×15×19: productos/instrumentos/monedas fuera de rango ignorados silenciosamente — diferencias GL no detectadas ni reportadas | P178 | 🟠 ALTO |
+| RN-S151-399 | LOCK→STORE/FREE condicional: FREE si todos los 9 saldos iguales; STORE si cualquiera difiere; W77-EOF-MOVTOSEM≠0 deja registro bloqueado sin resolver | P178 | 🟡 MEDIO |
+| RN-S151-400 | INTELAR (INTELARSND IN ADMONXFERS): protocolo propietario Unisys; error loguea pero no aborta → S500/S555 sin archivo de saldos; sin retry automático | P178 | 🔴 CRÍTICO |
+
+### Hallazgos de migración P178
+
+| Riesgo | Tarea | Severidad | Acción requerida |
+|--------|-------|-----------|-----------------|
+| Aritmética packed decimal COMP (S9(13)V99): cualquier ULP de punto flotante en transpilación genera STORE erróneo en GL — conciliación contable comprometida | T-REC-021 | 🔴 CRÍTICO | Transpiler DEBE usar BigDecimal con ROUND_HALF_UP; golden-master ≥ 99.99% en aritmética de saldos; bloquea cutover hasta validación completa |
+| Corrección automática GL sin audit trail: B70 sobreescrito con valor de origen sin log de valor anterior, nuevo, timestamp ni sistema origen | T-REC-022 | 🔴 CRÍTICO | Implementar audit trail explícito (valor-anterior, valor-nuevo, sistema origen, timestamp) en cada corrección; documentar política "origen gana" como regla de negocio versionada |
+| INTELAR no existe en arquitecturas cloud/Java: sin equivalente, S500/S555 no reciben confirmación de saldos y pueden generar alarmas de cuadre | T-REC-026 | 🔴 CRÍTICO | Reemplazar por S3 presigned PUT / MQ / REST; mantener naming convention exacto del archivo; bloquea cutover hasta implementar y validar con S500/S555 |
+| Tabla 3D 25×15×19: si catálogos de S500/S084 superan estos límites, diferencias GL son ignoradas silenciosamente sin ninguna alerta | T-REC-024 | 🟠 ALTO | Verificar en producción actual si algún catálogo excede los límites; implementar como Map en target con alarma explícita al descartar registro fuera de rango |
+| Polling WAIT(900) sin límite de retries: si P025 falla permanentemente, P178 entra en bucle infinito de espera sin alarma | T-REC-017 | 🟠 ALTO | Reimplementar con Thread.sleep(900_000) + máximo configurable de retries + alarma P1 inmediata si STABDSAL=99 o timeout superado |
+
+---
+
+*cap-rec.md · v1.1 · 2026-07-16 · Ampliación P178 (RN-S151-391..400)*
+*Capacidad: 6.7.1 Financial Reconciliation · Sistema: S151 · Programas: P112 + P178*
+*Cross-referencia: RN-S151-001..020 · RN-S151-391..400 · rules-catalog/rules-s151-p112.md · rules-catalog/rules-s151-p178-p138.md · capability-map.md*

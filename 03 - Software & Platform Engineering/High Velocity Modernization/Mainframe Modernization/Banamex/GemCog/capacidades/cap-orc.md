@@ -245,3 +245,161 @@ sequenceDiagram
 *cap-orc.md · v1.0 · 2026-07-16*
 *Capacidad: 6.7.2 Operational Reconciliation · Sistema: S500+S151 · S151REGISTRA (15 programas)*
 *Cross-referencia: RN-S500-153..172 · rules-s500-s151registra-p103fraude.md · capability-map.md*
+
+---
+
+## Ampliación — P021 Cierre S500 (RN-S151-181..185) — ⚠️ ALGOL
+
+> ⚠️ ALGOL ClearPath MCP — NO transpilable; requiere reescritura completa.
+> Envía HI (Halt/Initialize) a pasos 9, 12 y 2 de S500 en doble ciclo (antes y después de WAIT 5 min).
+> Invocado desde WFL_LOTE paso 54 vía SUB021. Dependencias de runtime: CTLVERS (DAME_TIT) + S151L001 (B05PROCESOS + DCKEYIN).
+
+### Inventario de Tareas adicionales
+
+| ID | Nombre | Programa | Tipo | Complejidad | Riesgo migración |
+|----|--------|----------|------|-------------|------------------|
+| T-ORC-016 | Cargar librerías ALGOL runtime: CTLVERS + S151L001 en tiempo de ejecución | P021 | BATCH | BAJA (lógica) / MUY ALTA (lenguaje) | CRÍTICA |
+| T-ORC-017 | Ejecutar primer ciclo APLICA_HI — pasos 9, 12, 2 de S500 vía B05PROCESOS + DCKEYIN | P021 | BATCH | BAJA (lógica) / MUY ALTA (lenguaje) | CRÍTICA |
+| T-ORC-018 | WAIT(300) — sleep incondicional 5 minutos entre ciclos sin verificación de estado S500 | P021 | BATCH | BAJA | ALTA |
+| T-ORC-019 | Ejecutar segundo ciclo APLICA_HI — pasos 9, 12, 2 sin validación de éxito del ciclo anterior | P021 | BATCH | BAJA (lógica) / MUY ALTA (lenguaje) | CRÍTICA |
+
+### Reglas de negocio vinculadas
+
+| ID regla | Enunciado breve | Programa | Criticidad |
+|----------|----------------|----------|-----------|
+| RN-S151-181 | P021 es ALGOL — no transpilable; reescritura completa obligatoria; ningún transpiler COBOL→Java lo procesa | P021 | CRÍTICA |
+| RN-S151-182 | Control de cierre S500: envía HI a pasos 9, 12 y 2 en orden exacto vía B05PROCESOS (obtiene Mix ID) + DCKEYIN | P021 | ALTA |
+| RN-S151-183 | WAIT(300): sleep hardcodeado 5 minutos — ciego, sin polling ni verificación de respuesta de S500 | P021 | ALTA |
+| RN-S151-184 | Doble ciclo APLICA_HI sin validación de éxito intermedio — S500 puede quedar en estado indeterminado si el primer ciclo falla parcialmente | P021 | ALTA |
+| RN-S151-185 | Dependencias ALGOL de runtime: CTLVERS (función DAME_TIT) + S151L001 (función B05PROCESOS, 3.1K LOC) — sin equivalente cloud | P021 | CRÍTICA |
+
+### Hallazgos de migración P021
+
+| # | Hallazgo | Tipo | Impacto | Recomendación |
+|---|---------|------|---------|---------------|
+| ORC-P021-H01 | ALGOL puro — no transpilable; lógica funcional simple (~100 LOC) pero lenguaje totalmente incompatible con tooling de transpilación | Lenguaje legacy | CRITICAL | Reescribir como job step en orquestador moderno (Airflow, Temporal o Step Functions); la lógica equivalente es un loop de señalización con retry |
+| ORC-P021-H02 | DCKEYIN es primitiva MCP de consola de operador — sin equivalente cloud ni en Linux | Vendor lock-in | CRITICAL | Reemplazar por API de control de procesos del orquestador target; documentar el protocolo de señalización HI hacia S500 modernizado |
+| ORC-P021-H03 | S151L001 (B05PROCESOS, 3.1K LOC ALGOL) debe analizarse como componente independiente antes de migrar P021 — gestiona el estado de todos los pasos de S500 | Dependencia técnica | CRITICAL | Inventariar todas las funciones de S151L001; crear equivalentes como servicio de estado de proceso (Redis, BD de estado o motor de orquestación) |
+| ORC-P021-H04 | WAIT(300) hardcodeado — sleep incondicional de 5 minutos viola arquitectura reactiva cloud y bloquea threads | Hardcode | HIGH | Reemplazar por espera activa (poll de estado de S500) con timeout configurable; parametrizar el valor 300 como variable de entorno |
+| ORC-P021-H05 | Pasos S500 (9, 12, 2) hardcodeados — si S500 cambia su estructura de pasos, P021 falla silenciosamente sin error | Hardcode | HIGH | Externalizar números de paso como parámetro de configuración; documentar dependencia de secuencia (9 antes de 12 antes de 2) con el equipo S500 |
+
+---
+
+## Ampliación — P602+P620+P630 Control de Estado y Directorio (RN-S151-551..560, RN-S151-571..590)
+
+> P602: semáforo de habilitación de procesamiento vía LIBCTL/B04SISTEM (gate F01+F37).
+> P620: alta/baja del directorio interno de archivos batch (operación atómica sobre archivo plano).
+> P630: consulta/actualización de fecha de header en archivos de movimientos por sistema (MOV/DES/CB2/CTD).
+
+### Inventario de Tareas adicionales
+
+| ID | Nombre | Programa | Tipo | Complejidad | Riesgo migración |
+|----|--------|----------|------|-------------|------------------|
+| T-ORC-020 | Resolver LIBCTL dinámicamente vía CTLVERS (S151L001CTL); fallback hardcodeado ON CMEMP si falla | P602 | BATCH/CONTROL | MEDIA | ALTA |
+| T-ORC-021 | Gate F01+F37: consultar B04SISTEM y actualizar ESTATUS con PARAM-SISTEMA/PARAM-ESTATUS recibidos del WFL | P602 | BATCH/CONTROL | MEDIA | ALTA |
+| T-ORC-022 | Alta/Baja de directorio S151 (OPCION A/B, validación profundidad >2 slashes, tope retención 4 días, deduplicación DIR+PACK+CSI) | P620 | BATCH/CONTROL | MEDIA | MEDIA |
+| T-ORC-023 | Consulta (FILE="CON") o Actualización de fecha header (REWRITE "HD") en archivos MOV/DES/CB2/CTD del sistema indicado | P630 | BATCH/CONTROL | MEDIA | ALTA |
+
+### Reglas de negocio vinculadas
+
+| ID regla | Enunciado breve | Programa | Criticidad |
+|----------|----------------|----------|-----------|
+| RN-S151-551 | Gate de dos fases: F01 (consulta) requerida antes de F37 (cambio) en B04SISTEM — ambos errores son no-fatales | P602 | ALTA |
+| RN-S151-552 | Resolución dinámica de LIBCTL vía CTLVERS (S151L001CTL) — CHANGE ATTRIBUTE TITLE dinámico | P602 | ALTA |
+| RN-S151-553 | Fallback hardcodeado: "(S151)S151/OBJECT/L001/CONTROL  ON CMEMP" — dos espacios entre "L001" y "ON" | P602 | MEDIA |
+| RN-S151-554 | PARAM-SISTEMA (9(03)) y PARAM-ESTATUS (9(02)) como interfaz externa de control del ciclo de vida — sin validación interna | P602 | ALTA |
+| RN-S151-555 | Error en consulta/actualización B04 es no-fatal: solo log vía LIB-DISP; estado de B04SISTEM puede quedar desfasado | P602 | ALTA |
+| RN-S151-558 | ESTATUS en B04SISTEM como semáforo de habilitación: 2=en proceso, 3=cierre iniciado, 4=cierre completo (relevante CNBV) | P602 | ALTA |
+| RN-S151-560 | S151L001CTL es la librería de control central con fan-in alto: P602, P610, P630, P655 — punto único de falla del sistema | P602 | CRÍTICA |
+| RN-S151-571 | Alta/Baja exclusivos OPCION A/B; error de parámetro termina con STOP RUN pero sin STATUS=-1 — invisible al JCL | P620 | MEDIA |
+| RN-S151-573 | Retención máx 4 días hardcodeada en PARAM-DIA — truncado si excede; no parametrizable sin recompilación | P620 | MEDIA |
+| RN-S151-574 | Prevención de duplicados: inserción rechazada si DIR+PACK+CSI ya existe en el directorio | P620 | MEDIA |
+| RN-S151-577 | Operación atómica: lectura → copia TEMP (SAVE) → reemplazo original (PURGE+RENAME); sin rollback si falla a mitad | P620 | ALTA |
+| RN-S151-581 | Bifurcación FILE="CON" (consulta de fechas) vs actualización de header por tipo (MOV/DES/CB2/CTD) | P630 | ALTA |
+| RN-S151-583 | Conversión fecha 6→8 dígitos: ADD 20000000 — asume siglo XXI; sin soporte para fechas pre-2000 | P630 | ALTA |
+| RN-S151-584 | Header del archivo de movimiento identificado por "HD" en primeros 2 bytes del registro de 450 bytes | P630 | ALTA |
+| RN-S151-586 | B01SISDIA F1 como fuente de verdad de pack y fecha; fallo en P630 → STATUS=-1 (fatal, a diferencia de P602) | P630 | ALTA |
+| RN-S151-587 | CLOSE WITH SAVE/RELEASE/PURGE — semántica de persistencia MCP sin equivalente directo en Java; riesgo de transpilación incorrecta | P630 | CRÍTICA |
+| RN-S151-590 | WKS-SISTEMA=500 hardcodeado para activar archivos CB2/CTD (exclusivos S500) — patrón distribuido en múltiples programas P600 | P630 | MEDIA |
+
+### Hallazgos de migración P602+P620+P630
+
+| # | Hallazgo | Tipo | Impacto | Recomendación |
+|---|---------|------|---------|---------------|
+| ORC-P602-H01 | CHANGE ATTRIBUTE TITLE/BYFUNCTION — mecanismo MCP de resolución dinámica de librerías sin equivalente Java | Vendor lock-in | HIGH | Reemplazar con lookup de configuración en servicio de catálogo (ConfigMap, Consul, AppConfig); la ruta física de LIBCTL se convierte en URL de servicio |
+| ORC-P602-H02 | Errores de B04SISTEM son no-fatales — el semáforo de estado puede quedar inconsistente sin ninguna alerta al caller | Control de estado | HIGH | En el target, los errores de escritura en el semáforo de estado deben ser fatales con alerting P1; el estado inconsistente de B04 es observable por CNBV |
+| ORC-P602-H03 | S151L001CTL como hub central con fan-in en P602, P610, P630, P655 — punto único de falla del ecosistema de control | Arquitectura | CRITICAL | Diseñar el servicio equivalente como microservicio de administración de estado con HA (active-active); no replicar el monolito ALGOL |
+| ORC-P620-H01 | Directorio de archivos en archivo plano secuencial sin concurrencia — operación de copia total para cada alta/baja | Persistencia | HIGH | Migrar a tabla relacional con PK(DIR, PACK, CSI), índice único y manejo de concurrencia ACID; eliminar el patrón de copia-y-reemplazo |
+| ORC-P620-H02 | Retención máx 4 días hardcodeada — inflexible para fines de semana largos (3 días) y políticas regulatorias de retención extendida | Hardcode | MEDIUM | Parametrizar en configuración; validar con equipo de operaciones si la política de 4 días aplica en todos los contextos |
+| ORC-P630-H01 | CLOSE WITH SAVE/RELEASE/PURGE — sin equivalente directo en Java; transpilación incorrecta produce archivos sin persistencia o sin borrado | Vendor lock-in | CRITICAL | Mapear explícitamente en el equivalence test: SAVE→COMMIT/flush, RELEASE→no-op (modo lectura), PURGE→DELETE física; documentar como ADR de equivalencia |
+| ORC-P630-H02 | REWRITE de header es no-fatal (INVALID KEY solo muestra texto) — fecha del archivo puede quedar incorrecta sin señal al proceso caller | Control calidad | HIGH | En el target, actualizar metadata de lote debe ser transaccional y fatal si falla; agregar alerting con el título del archivo afectado |
+| ORC-P630-H03 | CB2/CTD exclusivos S500 con código 500 hardcodeado en múltiples programas P600 — patrón distribuido, mantenimiento rígido | Hardcode | MEDIUM | Externalizar en catálogo de tipos de archivo por sistema; centralizar la regla en una sola configuración en el target |
+
+---
+
+## Ampliación — P655+P670+P680+P690 Ciclo de Jornada y Archivo (RN-S151-591..632)
+
+> P655: semáforo inicio/fin jornada (FUNCION=2→ESTATUS=2 / FUNCION=3→ESTATUS=3) vía secuencia CONSISDIA→CONSISMEN→B04→MANTB04.
+> P670: backup de archivos de movimientos (CLOSE WITH SAVE, rotación a nuevo archivo cada 16M líneas, CRONOS2K).
+> P680: volcado de S151BD99CONTROL (6 datasets B01→B09) — único punto de restauración de emergencia; contiene BUG activo en línea 537.
+> P690: cierre definitivo de movimientos FUNCION=99→FUNCION=11+STATUS=1, con AUT-S151 base-0 y FECCONT desde B01SISDIA.
+
+### Inventario de Tareas adicionales
+
+| ID | Nombre | Programa | Tipo | Complejidad | Riesgo migración |
+|----|--------|----------|------|-------------|------------------|
+| T-ORC-024 | P655 FUNCION=2: apertura de jornada — CONSISDIA→CONSISMEN→B04SISTEM(F1)→MANTB04SISTEM(F37) escribiendo ESTATUS=2 | P655 | BATCH | ALTA | ALTA |
+| T-ORC-025 | P655 FUNCION=3: cierre de jornada — misma secuencia escribiendo ESTATUS=3 en B04SISTEM | P655 | BATCH | ALTA | ALTA |
+| T-ORC-026 | P670: backup/archive de archivos de movimientos con CLOSE WITH SAVE, rotación automática a sufijo secuencial a las 16M líneas y CRONOS2K | P670 | BATCH | ALTA | ALTA |
+| T-ORC-027 | P680: volcado S151BD99CONTROL — 6 datasets en transacción BEGIN NO-AUDIT/END AUDIT DMSII; patrón LOCK/CREATE/STORE/FREE | P680 | BATCH | ALTA | CRÍTICA |
+| T-ORC-028 | P690: cierre definitivo — recorre FUNCION=99, asigna AUT-S151 base-0, estampa FECCONT+SISTEMA, escribe FUNCION=11+STATUS=1 atómicamente | P690 | BATCH | ALTA | ALTA |
+
+### Reglas de negocio vinculadas
+
+| ID regla | Enunciado breve | Programa | Criticidad |
+|----------|----------------|----------|-----------|
+| RN-S151-591 | 7 parámetros de entrada P655: W77-FUNCION, W77-SISTEMA, W77-NOMPACMOV, W77-NOMDES, W77-NOMERR, W77-NOMSAL, W77-NOMBDSAL | P655 | ALTA |
+| RN-S151-592 | Solo FUNCION=2 o 3 activa escritura en B04SISTEM; otros valores → no-op silencioso sin error al caller | P655 | ALTA |
+| RN-S151-593 | Identidad función→estatus: W77-FUNCION IS el valor escrito directamente en B04-ESTATUS (sin tabla de conversión) | P655 | ALTA |
+| RN-S151-594 | Secuencia obligatoria: CONSISDIA→CONSISMEN→B04SISTEM(F1 consulta)→MANTB04SISTEM(F37 cambio); romperla invalida coherencia | P655 | CRÍTICA |
+| RN-S151-599 | FUNCION=2→ESTATUS=2 (habilita procesamiento batch); FUNCION=3→ESTATUS=3 (bloquea nuevas operaciones, fin de jornada) | P655 | ALTA |
+| RN-S151-600 | B04SISTEM(F1 consulta) requerida antes de MANTB04SISTEM(F37); error en F1 es no-fatal — P655 continúa hacia escritura | P655 | ALTA |
+| RN-S151-601 | OPCION1="INICI"+OPCION2="BACK" abre nuevo archivo backup; OPCION2="PAGE" salta página; ELSE avanza N líneas | P670 | ALTA |
+| RN-S151-603 | CLOSE MOVIMIENTOS WITH SAVE por cada sección — múltiples archivos físicos producidos por ejecución de P670 | P670 | ALTA |
+| RN-S151-604 | Rotación: al superar 16,000,000 líneas, abre nuevo archivo con sufijo WKS-CONT secuencial y resetea contador | P670 | ALTA |
+| RN-S151-607 | CRONOS2K: A2K-BASE-YEAR=50 — AA<50→siglo=20 (XXI); AA≥50→siglo=19 (XX); en 2050 los backups se fechan incorrectamente | P670 | ALTA |
+| RN-S151-617 | Volcado en orden B01→B02→B03→B04→B05→B09 — orden crítico; restaurar fuera de secuencia produce inconsistencias | P680 | CRÍTICA |
+| RN-S151-619 | Transacción DMSII: BEGIN NO-AUDIT / END AUDIT S151B99REINICTL — sin rollback automático si el proceso aborta dentro del bloque | P680 | CRÍTICA |
+| RN-S151-620 | Patrón LOCK/CREATE/STORE/FREE por registro en DMSII — LOCK sin timeout configurable, riesgo de espera indefinida | P680 | ALTA |
+| RN-S151-621 | BUG-PRODUCCION línea 537: MOVE A03-R00-SECERRHI TO B03-SIS-SECINFHI (campo incorrecto) — corrompe backup de B03SISMEN silenciosamente en cada ejecución | P680 | CRÍTICA |
+| RN-S151-623 | Loop B03SISMEN limitado a 5 ciclos (hardcode) aunque la BD declara hasta 99 — backup incompleto si hay más de 5 ciclos activos | P680 | ALTA |
+| RN-S151-624 | P680 es el único punto de restauración de emergencia de S151BD99CONTROL — sin alternativa ni replicación | P680 | CRÍTICA |
+| RN-S151-625 | Transición FUNCION=99 (pendiente) → FUNCION=11+STATUS=1 (cerrado) — solo registros con FUNCION=99 son tocados | P690 | ALTA |
+| RN-S151-626 | Límite de procesamiento por día de semana: WKS-B01-NIVARCMOV(WKS-DIASEM) — dinámico desde B01SISDIA, varía por día | P690 | ALTA |
+| RN-S151-628 | AUT-S151 = WKS-CONTADOR - 1 (numeración base-0) — primer AUT-S151 del día es 0; cambiar a base-1 rompe trazabilidad histórica | P690 | ALTA |
+| RN-S151-629 | FECCONT ← WKS-B01-FECCON — fecha contable oficial del movimiento propagada desde B01SISDIA, no es la fecha física de proceso | P690 | ALTA |
+| RN-S151-632 | Ruta MOVS{NNN}/{FECCON} ON {PACK} resuelta desde CONSISDIA — fallo en CONSISDIA → STATUS=-1, archivo queda con FUNCION=99 sin cerrar | P690 | ALTA |
+
+### Hallazgos de migración P655+P670+P680+P690
+
+| # | Hallazgo | Tipo | Impacto | Recomendación |
+|---|---------|------|---------|---------------|
+| ORC-P655-H01 | CONSISDIA+CONSISMEN como prerequisito del semáforo de jornada — si falla la resolución del pack, el semáforo B04 no se actualiza | Dependencia técnica | HIGH | En el target, el semáforo de inicio/fin de jornada debe desacoplarse de la resolución de packs; usar eventos del orquestador (start_of_day / end_of_day) en lugar de dependencia de LIBCTL |
+| ORC-P655-H02 | Error en B04SISTEM(F1 consulta) es no-fatal en P655 — continúa hacia escritura aunque la consulta previa haya fallado | Control de estado | HIGH | En el target, la consulta previa debe ser obligatoria y fatal antes de actualizar el semáforo; escritura ciega sin lectura previa genera estados inconsistentes |
+| ORC-P670-H01 | CLOSE WITH SAVE — operación Unisys MCP de persistencia de archivos físicos; sin equivalente directo en Linux/cloud | Vendor lock-in | HIGH | Reemplazar con escritura a object storage (S3/GCS/Azure Blob) con registro de metadata en tabla de auditoría; eliminar la semántica MCP de "archivo que se persiste al cerrar" |
+| ORC-P670-H02 | CRONOS2K activo (A2K-BASE-YEAR=50) — en el año 2050 los backups de movimientos generados por P670 se fecharán con siglo=19 (año 1950) | Bug latente | HIGH | Migrar a java.time.LocalDate en el target; eliminar completamente el copybook CRONOS2K y su lógica de pivote de siglo |
+| ORC-P670-H03 | Límite de 16M líneas por archivo hardcodeado — concepto de "archivo partido" innecesario en cloud object storage | Hardcode | MEDIUM | Eliminar la partición en el target; usar object storage sin límite de tamaño con naming por fecha/batch-id |
+| ORC-P680-H01 | BUG ACTIVO en producción (RN-S151-621, línea 537): SECERRHI copiado en SECINFHI — backup de B03SISMEN incorrecto en cada ejecución diaria | Bug activo | CRITICAL | No replicar el bug en el target; corregir el campo destino a B03-SIS-SECERRHI; escalar urgentemente al equipo de producción Banamex para evaluación de impacto en datos históricos |
+| ORC-P680-H02 | P680 es el único punto de restauración de S151BD99CONTROL — sin replicación, sin snapshot alternativo, sin HA | Resiliencia | CRITICAL | En el target, usar BD relacional con replicación activa-pasiva y snapshots automáticos (RDS Multi-AZ / Cloud SQL HA); P680 se vuelve obsoleto por diseño |
+| ORC-P680-H03 | LOCK DMSII sin timeout — deadlock potencial si otro proceso retiene el bloqueo de un registro de BD de control | Concurrencia | HIGH | En el target, todo acceso a estado compartido debe tener timeout configurable (optimistic locking o SELECT FOR UPDATE con timeout) y retry con back-off exponencial |
+| ORC-P680-H04 | Transacción NO-AUDIT durante el volcado — si el proceso aborta a mitad, no hay audit trail del estado parcial en el log DMSII | Auditoría | HIGH | En el target, cada snapshot de BD de control debe registrarse con begin/commit en tabla de auditoría con timestamp; nunca usar modo NO-AUDIT en operaciones de control |
+| ORC-P690-H01 | AUT-S151 base-0 (WKS-CONTADOR - 1) — convención base-0 debe replicarse exactamente; cambiar a base-1 rompe trazabilidad de movimientos históricos | Trazabilidad | HIGH | Documentar como ADR de equivalencia; validar con SME que AUT-S151=0 es válido para el primer movimiento del día antes de migrar |
+| ORC-P690-H02 | Loop UNTIL FECCON = FECARCMOV(W77-IND) sin límite de iteraciones — riesgo de loop infinito si FECCON no está en el array | Bug latente | HIGH | En el target, reemplazar el lookup lineal por una query SQL con NOT NULL check y límite de filas; agregar control de timeout y log de error si la fecha no se encuentra |
+| ORC-P690-H03 | Estado final requiere FUNCION=11 Y STATUS=1 — un movimiento con FUNCION=11 pero STATUS distinto de 1 queda en estado inconsistente sin alerta | Integridad | HIGH | En el target, escribir ambos campos en una sola operación atómica (UPDATE tabla SET funcion=11, status=1 WHERE id=?); validar coherencia con constraint de BD |
+
+---
+
+*cap-orc.md · v1.1 · 2026-07-16*
+*Ampliación: P021 (RN-S151-181..185) + P602+P620+P630 (RN-S151-551..560, 571..590) + P655+P670+P680+P690 (RN-S151-591..632)*
+*Tareas T-ORC-016..028 · 13 tareas adicionales · Hallazgos: 5 (P021) + 8 (P602+P620+P630) + 12 (P655+P670+P680+P690)*
+*Cross-referencia: rules-s151-p021-p120.md · rules-s151-p602-p606-p620-p630.md · rules-s151-p655-p670-p671-p680-p690.md*

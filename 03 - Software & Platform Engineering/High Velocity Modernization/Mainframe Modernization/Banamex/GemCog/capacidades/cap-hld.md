@@ -281,3 +281,53 @@ flowchart TD
 *BIAN 4.1.2 · Holdings · Common Customer View*
 *Reglas: 40 (RN-S151-281..300 · RN-S151-311..330) · Tareas: 22*
 *Cross-referencia: rules-catalog/rules-s151-p050-p052.md · capability-map.md · kb-capa3-capacidades.md*
+
+---
+
+## Ampliación — P138 Posición Global (RN-S151-411..420)
+
+> P138 (PROGRAM-ID: REPORTECSIS) acumula saldos de CSI04 (Monterrey) + CSI10 (VDM) por subcuenta→cuenta→moneda; restricción S701 solo CSI10; verifica ejecución de sistemas fuente vía archivo de control CORP.; genera reporte de posición global ordenado y paginado por moneda.
+
+### Inventario de Tareas adicionales
+
+| ID | Nombre | Programa | Tipo | Complejidad | Riesgo migración |
+|----|--------|----------|------|-------------|------------------|
+| T-HLD-023 | Determinar centros de cómputo a procesar: S701→solo CSI10 hardcoded; demás sistemas→CSI04 + CSI10; ATTRIBUTE RESIDENT verifica existencia de archivo antes de abrir; operador elige C/R si archivo ausente | P138 | BATCH | MEDIA | 🟡 MEDIO |
+| T-HLD-024 | Resolver nombre de moneda para reporte (005500-NOMBRE-MONEDA): IF-ELSE hardcoded — código 1=PESOS, 3=UDIS, 5=DOLARES, cualquier otro=DESCONOCIDA; X(10) con relleno de espacios para longitud fija | P138 | BATCH | BAJA | 🟡 MEDIO |
+| T-HLD-025 | Acumular 4 saldos (SDOANT/CARGO/ABONO/SDOACT) en 3 niveles jerárquicos (005100-ACUMULA): subcuenta 12d → cuenta 4d → moneda; ruptura de control con impresión de subtotales al cambiar cada nivel; acumuladores S9(16)V99 | P138 | BATCH | ALTA | 🟠 ALTO |
+| T-HLD-026 | Verificar ejecución de sistemas fuente vía archivo de control CORP. (000010-LEE-CONTROL): leer tabla WKS-TABLA-CONTROL (máx 10 sistemas); sentinel WKS-DET-SIST=999; validar fecha de proceso ≤ WKS-HD-FECPRO antes de procesar | P138 | BATCH | MEDIA | 🟡 MEDIO |
+| T-HLD-027 | Proyectar próxima fecha hábil (009000-PROYECTA-FECHA): CALL THECALENDAR IN LOCSUP FUN=13 FORMAT=12; incremento "00000001" (1 día hábil); iterar hasta WKS-HD-FECPRO; WKS-FECHA8D=0 activa W77-FECHA-FIN=1 sin procesar | P138 | BATCH | MEDIA | 🟠 ALTO |
+| T-HLD-028 | Doble pasada CSI04+CSI10 con acumulación en A01-ARCH-POS (002000-PROCESO + 002100-MUEVE-ARCHIVO1): calcular espacio dinámico; SORT ASCENDING KEY MON, CUENTA-12; base del reporte de posición global | P138 | BATCH | MEDIA | 🟡 MEDIO |
+| T-HLD-029 | Modo de operación dual vía W77-SISTEMA-PARAMETRO: 999=PERFORM 000010-TODOS hasta sentinel (itera WKS-TABLA-CONTROL); valor específico (84/87/408/500/701)=000150-FECHA-UNO; abort si sistema no encontrado | P138 | BATCH | BAJA | 🟢 BAJO |
+| T-HLD-030 | Consultar nombre de subcuenta en S080 (005200-IMPRIME-SCTA): catálogo 182 para cuentas generales (clave directa WKS-CUENTA-ANT); catálogo 183 para cuenta 5000 (offset COMPUTE = WKS-CUENTA-ANT − 500000000000) vía L700_CONSUL_DESC | P138 | BATCH | MEDIA | 🟡 MEDIO |
+| T-HLD-031 | Actualizar archivo de control post-proceso (008100-ACT-FECHAP): REWRITE A01-REG-CONTROL con WKS-FECHA8D→WKS-DET-FECPRO; INVALID KEY → CHANGE ATTRIBUTE STATUS OF MYSELF TO -1 (abort); handshake de completitud para WFL LOTE | P138 | BATCH | MEDIA | 🟡 MEDIO |
+| T-HLD-032 | Paginar reporte a 56 líneas/página (002200-CHECA-SALTO-HOJA): encabezado de 5 líneas; cambio de moneda fuerza MOVE 57 TO WKS-NUM-LINEAS garantizando nueva página; REG-REPORTE de 132 caracteres | P138 | BATCH | BAJA | 🟢 BAJO |
+
+### Reglas de negocio vinculadas
+
+| ID regla | Enunciado breve | Programa | Criticidad |
+|----------|----------------|----------|-----------|
+| RN-S151-411 | Posición global = CSI04+CSI10; S701 solo CSI10 hardcoded; ATTRIBUTE RESIDENT verifica archivo antes de abrir; operador C/R si ausente | P138 | 🟡 MEDIO |
+| RN-S151-412 | 3 monedas hardcoded (1/3/5=PESOS/UDIS/DOLARES); cualquier otra=DESCONOCIDA; codificación interna Banamex ≠ ISO 4217 | P138 | 🟡 MEDIO |
+| RN-S151-413 | Ruptura de control 3 niveles: subcuenta→cuenta→moneda; acumuladores S9(16)V99 COMP; nueva página al cambiar moneda (MOVE 57); orden SORT es prerrequisito | P138 | 🟠 ALTO |
+| RN-S151-414 | Archivo control CORP.: tabla WKS-TABLA-CONTROL máx 10 sistemas; sentinel 999; fecha sistema ≤ FECPRO header; >10 registros → SUBSCRIPT-RANGE | P138 | 🟡 MEDIO |
+| RN-S151-415 | THECALENDAR FUN=13 FORMAT=12: próximo día hábil bancario México; propietario Unisys; WKS-FECHA8D=0 → W77-FECHA-FIN=1 sin procesar registros | P138 | 🟠 ALTO |
+| RN-S151-416 | Doble pasada MUEVE-ARCHIVO1: CSI04 primero → CSI10 siempre; acumular en A01-ARCH-POS; SORT por (MON, CUENTA-12); espacio dinámico 70000-CALCULA-ESPACIO | P138 | 🟡 MEDIO |
+| RN-S151-417 | Parámetro 999=todos (PERFORM UNTIL WKS-T-SIS=999); valor específico=un sistema; sentinel ausente → bucle infinito + SUBSCRIPT-RANGE | P138 | 🟢 BAJO |
+| RN-S151-418 | Catálogos 182/183 hardcoded en S080; cuenta 5000 → catálogo 183 con offset 500,000,000,000; error catálogo → WLI-NOMBRE en blanco sin alerta | P138 | 🟡 MEDIO |
+| RN-S151-419 | REWRITE archivo control con fecha procesada; sin transacción que envuelva reporte+REWRITE; fallo → abort CHANGE STATUS=-1; sentinel 999 antes del sistema → "NO SE ENCONTRO REGISTRO" | P138 | 🟡 MEDIO |
+| RN-S151-420 | Paginación 56 líneas: WKS-NUM-LINEAS > 56 → nueva página; MOVE 57 garantiza ruptura al cambiar moneda; encabezado 5 líneas; REG-REPORTE 132 caracteres (impresora de línea) | P138 | 🟢 BAJO |
+
+### Hallazgos de migración P138
+
+| Riesgo | Tarea | Severidad | Acción requerida |
+|--------|-------|-----------|-----------------|
+| Acumuladores S9(16)V99 COMP (16+2 dígitos): `long` de Java desborda para montos bancarios de Banamex; resultado incorrecto silencioso en subtotales | T-HLD-025 | 🟠 ALTO | Usar BigDecimal en todos los acumuladores de los 3 niveles; implementar break-control como state machine explícita; validar con golden-master del mes de mayor volumen |
+| THECALENDAR FUN=13 — función propietaria Unisys MCP: no existe en cloud/Java; su ausencia hace que P138 no pueda proyectar fechas hábiles en modo iterativo | T-HLD-027 | 🟠 ALTO | Implementar servicio de calendario con festivos Banxico/CNBV (actualizables vía configuración); usar java.time.LocalDate + tabla de festivos; bloquea modo multi-fecha hasta implementar |
+
+---
+
+*cap-hld.md · v1.1 · 2026-07-16 · Ampliación P138 (RN-S151-411..420)*
+*BIAN 4.1.2 · Holdings · Common Customer View*
+*Reglas: 50 (RN-S151-281..300 · RN-S151-311..330 · RN-S151-411..420) · Tareas: 32*
+*Cross-referencia: rules-catalog/rules-s151-p050-p052.md · rules-catalog/rules-s151-p178-p138.md · capability-map.md · kb-capa3-capacidades.md*

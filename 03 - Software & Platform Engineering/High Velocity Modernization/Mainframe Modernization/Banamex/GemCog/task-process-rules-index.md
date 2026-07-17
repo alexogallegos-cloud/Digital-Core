@@ -1,7 +1,7 @@
 # Índice Transversal: Tarea → Proceso → Regla · Banamex GemCog
 > Gemelo Cognitivo · Capa 4 (Tareas) + Capa 5 (Casuísticas/Procesos) + referencia a Capa 2 (Reglas)
 > Sistemas: S500 (Captación) + S151 (Movimientos Contables GL) · Unisys ClearPath MCP
-> Última actualización: 2026-07-16 · v1.5 · +MQ (7T·7R) · +FSV/ACC/SPI merges (0T·15R) · **20/20 COMPLETO**
+> Última actualización: 2026-07-16 · v2.0 · +mapeo 376 reglas → 10 caps ampliadas + cap-cfr.md nuevo · **21/21 · 527T · 783R**
 
 ---
 
@@ -9,27 +9,28 @@
 
 | Slug | Capacidad | ID | Dominio | Sistema | Tareas | Reglas vinculadas | Cap file |
 |------|-----------|-----|---------|---------|--------|-------------------|----------|
-| TAR | ATM · PoS — Liquidación Tarjetas | 2.2.6 · 2.2.7 | Channels | S500 | 15 | 10 (+9 pend.) | [cap-tar.md](capacidades/cap-tar.md) |
+| TAR | ATM · PoS — Liquidación Tarjetas | 2.2.6 · 2.2.7 | Channels | S500 | 19 | 19 | [cap-tar.md](capacidades/cap-tar.md) |
 | TEL | Teller — Gateway Online/Sucursal | 2.1.1 | Channels | S151+S500 | 19 | 33 | [cap-tel.md](capacidades/cap-tel.md) |
 | DEP | Deposits — Conciliación B01↔B03 | 5.1.1 | Product Processing | S500 | 15 | 16 | [cap-dep.md](capacidades/cap-dep.md) |
 | CMP | Compliance & Regulation — FraudLink | 6.5.2 | Common Services | S500 | 9 | 9 | [cap-cmp.md](capacidades/cap-cmp.md) |
-| PAY | Payments — Cargos y Abonos Core | 6.1.3 | Common Services | S500 | 13 | 17 (+3 pend.) | [cap-pay.md](capacidades/cap-pay.md) |
-| INT | Interest & Fees — P130 Rendimientos | 6.1.5 | Common Services | S500 | 28 | 29 | [cap-int.md](capacidades/cap-int.md) |
-| ORC | Operational Reconciliation — S151REGISTRA | 6.7.2 | Common Services | S500+S151 | 15 | 20 | [cap-orc.md](capacidades/cap-orc.md) |
-| REC | Financial Reconciliation — Punteo | 6.7.1 | Common Services | S151 | 16 | 20 | [cap-rec.md](capacidades/cap-rec.md) |
-| GL | Finance (GL) — Motor de Asientos | 7.1.1 | Enterprise Support | S151 | 16 | 18 (+22 pend.) | [cap-gl.md](capacidades/cap-gl.md) |
-| SCH | Scheduling — Cierre Día + Oracle Fechas | 8.1.1 | Technology Tools | S500+S151 | 15 | 18 | [cap-sch.md](capacidades/cap-sch.md) |
-| ODS | Operational Data Stores — Modelo DMSII | 9.1.1 | Insights & Information | S500+S151 | 27 | 35 (+4 pend.) | [cap-ods.md](capacidades/cap-ods.md) |
+| PAY | Payments — Cargos y Abonos Core | 6.1.3 | Common Services | S500 | 13 | 22 (+3 pend.) | [cap-pay.md](capacidades/cap-pay.md) |
+| INT | Interest & Fees + Integraciones CITI/IBM/ACL | 6.1.5 | Common Services | S500+S151 | 78 | 159 | [cap-int.md](capacidades/cap-int.md) |
+| ORC | Operational Reconciliation — Batch Lifecycle | 6.7.2 | Common Services | S500+S151 | 28 | 61 | [cap-orc.md](capacidades/cap-orc.md) |
+| REC | Financial Reconciliation — Punteo + P178 | 6.7.1 | Common Services | S151 | 26 | 30 | [cap-rec.md](capacidades/cap-rec.md) |
+| GL | Finance (GL) — Motor de Asientos + P108 | 7.1.1 | Enterprise Support | S151 | 62 | 70 | [cap-gl.md](capacidades/cap-gl.md) |
+| SCH | Scheduling — Cierre Día + P103 Períodos | 8.1.1 | Technology Tools | S500+S151 | 22 | 25 | [cap-sch.md](capacidades/cap-sch.md) |
+| ODS | Operational Data Stores — DMSII + L030 + P606 | 9.1.1 | Insights & Information | S500+S151 | 62 | 70 | [cap-ods.md](capacidades/cap-ods.md) |
 | SEC | Security — Enmascaramiento PII | T.3.5 | Transversal | S500 | 10 | 11 (+1 pend.) | [cap-sec.md](capacidades/cap-sec.md) |
-| RPT | Analytics/Reporting — Ciclo Control + Reporte Regulatorio | T.3.4 | Transversal | S151 | 31 | 70 | [cap-rpt.md](capacidades/cap-rpt.md) |
-| ADJ | GL Adjustments & Sync — BC-09 Extracción/Integración Saldos | 7.1.1-bc09 | Enterprise Support | S151 | 38 | 37 | [cap-adj.md](capacidades/cap-adj.md) |
-| HLD | Holdings — Servidor de Saldos P050+P052 | 4.1.2 | Common Customer View | S151 | 22 | 40 | [cap-hld.md](capacidades/cap-hld.md) |
+| RPT | Analytics/Reporting — Ciclo Control + P120 SAR | T.3.4 | Transversal | S151 | 40 | 82 | [cap-rpt.md](capacidades/cap-rpt.md) |
+| ADJ | GL Adjustments & Sync — BC-09 | 7.1.1-bc09 | Enterprise Support | S151 | 38 | 37 | [cap-adj.md](capacidades/cap-adj.md) |
+| HLD | Holdings — Saldos P050+P052+P138 | 4.1.2 | Common Customer View | S151 | 32 | 50 | [cap-hld.md](capacidades/cap-hld.md) |
 | STA | Statements — Generador MOVSXCONT P158 | 6.1.4 | Common Services | S500+S151 | 17 | 30 | [cap-sta.md](capacidades/cap-sta.md) |
 | MQ | MQ/Async — TIPO-PROC 33-37 · L091-L093 | T.2.3 | Transversal | S500 | 7 | 7 | [cap-mq.md](capacidades/cap-mq.md) |
+| CFR | CFR Regulatory Reporting — P130+P131 Serie B CNBV | T.4.1 | Transversal | S151 | 30 | 42 | [cap-cfr.md](capacidades/cap-cfr.md) |
 | FSV | Financial Servicing — LIBOR + FECVENCIMIENTO | 6.6.1 | Common Services | S500 | — | 2 | merge → [cap-int.md](capacidades/cap-int.md) |
 | ACC | Access Control — FACULTAD · Q015 · HI 41/42 | 10.1.1 | Integration & Interfaces | S500+S151 | — | 8 | merge → [cap-sec.md](capacidades/cap-sec.md) |
 | SPI | Payment Schemes — SPEI · CLABE · NIO | T.1.3 | Transversal | S500+S151 | — | 5 | merge → [cap-pay.md](capacidades/cap-pay.md) |
-| **Total** | | | | | **313** | **435** | |
+| **Total** | | | | | **527** | **783** | |
 
 **Tipos de tarea:** `validación` · `consulta` · `escritura` · `contable` · `control` · `seguridad` · `reporte`
 
@@ -1041,16 +1042,17 @@
 
 ## Pendientes de vinculación (resumen)
 
+> Sesión 2026-07-16: se mapearon ~376 reglas → 10 caps ampliadas + cap-cfr.md nuevo. Quedan ~43 reglas sin vincular.
+
 | Capacidad | Reglas sin mapear | Descripción |
 |-----------|-------------------|-------------|
-| GL | RN-S151-039..060 (22) | Validación importe, banco/sector, BD11SDOS151, cierre |
-| TAR | RN-S500-047..055 (9) | Día juliano, campos punteo I08, AMEXMNL, cierre |
-| SEC | T-SEC-007 (1 regla sin ID) | Shuffling B03CONTRATOS — pendiente numeración |
+| SEC | T-SEC-007 (1 regla sin ID) | Shuffling B03CONTRATOS — pendiente numeración formal |
 | ODS | T-ODS-025 (semántica B03SDOCTE), T-ODS-019 (fecha juliana), T-ODS-009 (cross-equipo S067) | Pendientes de validación con negocio / operaciones |
 | PAY | Catálogo 174 recarga (TASKVALUE no identificado), estado DIVESTITURE | Pendientes de confirmación regulatoria / legal |
+| S500 | RN-S500-056..078 (23 reglas) | Reglas de programas S151 almacenadas en namespace S500 (rules-s500.md); pendiente re-clasificación o cap propio |
 
 ---
 
-*task-process-rules-index.md · v1.5 · 2026-07-16*
-*Fuente: 20 capacidades — cap-gl · cap-rec · cap-tar · cap-sec · cap-cmp · cap-pay · cap-int · cap-orc · cap-sch · cap-ods · cap-rpt · cap-adj · cap-dep · cap-tel · cap-hld · cap-sta · cap-mq · merges FSV/ACC/SPI*
-*Swarm: 20 agentes en paralelo + coordinador · Total: 313 tareas · 435 reglas vinculadas · 826 reglas en catálogo · **GemCog Capa 3 — COBERTURA COMPLETA 20/20***
+*task-process-rules-index.md · v2.0 · 2026-07-16*
+*Fuente: 21 capacidades — cap-gl · cap-rec · cap-tar · cap-sec · cap-cmp · cap-pay · cap-int · cap-orc · cap-sch · cap-ods · cap-rpt · cap-adj · cap-dep · cap-tel · cap-hld · cap-sta · cap-mq · cap-cfr · merges FSV/ACC/SPI*
+*Swarm: 27 agentes en paralelo + coordinador · Total: **527 tareas · 783 reglas vinculadas** · 826 reglas en catálogo · ~43 sin vincular · **GemCog Capa 3 — COBERTURA 94.8% · 21/21 cap files***

@@ -396,3 +396,58 @@ flowchart TD
 *Programas: P199 (CTASMIGCAP, 2,753 LOC) · P610 (CALLLIBCTL, 1,768 LOC) · P612 (WFL Dispatcher, 87 LOC) · P677 (Control Generator, 1,094 LOC)*
 *Reglas: RN-S151-421..490 · 70 reglas · 31 tareas*
 *Cross-referencia: rules-s151-p199-p600.md · vocab-s151.md · capability-map.md*
+
+---
+
+## Ampliación — P120 Concentrador SAR y Reportes Regulatorios (RN-S151-221..232)
+
+> P120 (PROGRAM-ID: EXTRACTOR, 1,318 LOC, COBOL) concentra saldos diarios de S151BD02ADSALDO y genera 4 reportes: (1) Concentración de saldos por sucursal/sistema, (2) Saldos por conceptos de caja, (3) Saldos SAR (IMSS/ISSSTE/INFONAVIT) para Banxico, (4) Concentración para Banxico Tesorería. Contiene un bug confirmado desde 1991 (RN-S151-228): INFONAVIT saldo anterior siempre = 0, con ISSSTE inflado. Impacto regulatorio SAR potencial — HITL urgente requerido.
+
+### Inventario de Tareas adicionales
+
+| ID | Nombre | Programa | Tipo | Complejidad | Riesgo migración |
+|----|--------|----------|------|-------------|------------------|
+| T-RPT-032 | Abrir S151BD02ADSALDO (SDOSUC y SDOCNC), configurar 4 encabezados de reportes y determinar fecha base Cronos-2000 (AA1+AA2/MM/DD) | P120 | BATCH | MEDIA | MEDIO — parche Y2K con REDEFINES puede ser incompleto; verificar todos los campos de fecha usan 4 dígitos |
+| T-RPT-033 | Loop 2000-PROCESO: leer S151B02SDOSUC e iterar hasta 20 sistemas por sucursal (OCCURS 20) — grabar CVES=10/20/30 en archivo CONCENTRA | P120 | BATCH | MEDIA | ALTO — OCCURS 20 hardcoded; si sucursal supera 20 sistemas, los excedentes se pierden silenciosamente |
+| T-RPT-034 | Para cada sistema/sucursal: calcular variación (SACT-SANT) con edición PIC ZZZ,ZZZ,ZZZ,ZZ9.99- y grabar registros CVES=20 (sucursal) y CVES=30 (globales) | P120 | BATCH | BAJA | MEDIO — edición negativa Unisys; en PDF/digital el signo negativo debe renderizarse diferenciado |
+| T-RPT-035 | Loop 3000-CONCEPTOS: leer S151B05SDOCNC y acumular 6 conceptos de caja (cobro, caja, IMSS-operativo, aduana, concentraciones Banxico, retiros) en tabla OCCURS 7 | P120 | BATCH | BAJA | BAJO — conceptos estables; distinguir IMSS-operativo del IMSS-SAR del reporte 3 |
+| T-RPT-036 | Acumular totales SAR para Banxico: sumar posiciones hardcoded B07-S333 en índices 1,4,6,7,9,10 (CSIs activos) para IMPAB+IMPOR+IMPFV | P120 | BATCH | MEDIA | ALTO — 3 COMPUTE duplicados con las mismas posiciones; si se activa nuevo CSI, los 3 COMPUTE deben actualizarse manualmente |
+| T-RPT-037 | Acumular totales globales SAR desde B08-GLOSAR: IMSS/ISSSTE/INFONAVIT × saldo anterior/actual × tipo aportación — con BUG: ANT-INFO siempre=0, ANT-ISTE inflado | P120 | BATCH | MEDIA | CRÍTICO — BUG regulatorio activo desde 1991; HITL obligatorio antes de migrar |
+| T-RPT-038 | Generar reporte "SALDOS S.A.R." (módulo 6000) con tabla CSI hardcoded (10 entradas, 6 activos: HER/MON/LEO/VER/CEN/VDM) | P120 | BATCH | MEDIA | ALTO — tabla CSI hardcoded debe externalizarse; verificar vigencia post-separación Citi |
+| T-RPT-039 | Generar reporte "CONCENTRACION PARA BANXICO TESORERIA" (módulo 8000) con 13 líneas de aportaciones SAR (OBL/VOL × IMSS/ISSSTE/INFONAVIT + inflación + intereses) | P120 | BATCH | MEDIA | CRÍTICO — afectado por BUG RN-S151-228 (ANT-INFO=0); reporte regulatorio entregado a Banxico puede ser incorrecto |
+| T-RPT-040 | Abortar con SET MYSELF(STATUS) TO -1 ante error DMSII (FIND NEXT) o INVALID KEY en WRITE de CONCENTRA — distinguir NOTFOUND (EOF normal) de error real | P120 | BATCH | BAJA | ALTO — archivo CONCENTRA puede quedar parcial al abortar; P130/P131 downstream pueden leer datos incompletos |
+
+### Reglas de negocio vinculadas
+
+| ID regla | Enunciado breve | Programa | Criticidad |
+|----------|----------------|----------|-----------|
+| RN-S151-221 | Flujo de 8 módulos secuenciales (ABRE→PROCESO→CONCEPTOS→B07→B08→SAR→TESORERIA→CIERRA) con flags 77-EOF=1/2 | P120 | ALTA |
+| RN-S151-222 | 4 reportes físicos PRINTER: Concentración saldos (R1), Conceptos caja (R2), SAR (R3), Banxico Tesorería (R4) | P120 | ALTA |
+| RN-S151-223 | Archivo CONCENTRA 90 bytes discriminado por CVES: 01=header, 10=cliente, 20=sucursal, 30=globales, 90=trailer — tipos mixtos PIC X vs COMP | P120 | ALTA |
+| RN-S151-224 | OCCURS 20 por sucursal: hasta 20 sistemas de saldo; sistema=0 excluido; desbordamiento silencioso | P120 | ALTA |
+| RN-S151-225 | 6 conceptos de caja por sucursal en S151B05SDOCNC: cobro, caja, IMSS-oper, aduana, concentraciones Banxico, retiros | P120 | MEDIA |
+| RN-S151-226 | Tabla CSI hardcoded 10 entradas: CSI 1=HER, 4=MON, 6=BAJ, 7=VER, 9=MOR, 10=VDM; posiciones 2,3,5,8 vacías | P120 | ALTA |
+| RN-S151-227 | Posiciones SAR hardcoded (1,4,6,7,9,10) en 3 COMPUTE de B07-S333 (IMPAB+IMPOR+IMPFV) — antipatrón duplicado | P120 | ALTA |
+| RN-S151-228 | BUG CONFIRMADO: ADD B08-GSAR-ANT-INFO TO 77-ANT-ISTE (línea 1198) — 77-ANT-INFO siempre=0; 77-ANT-ISTE inflado | P120 | CRÍTICA |
+| RN-S151-229 | Variación VARI-DET = SACT - SANT con edición PIC ZZZ,ZZZ,ZZZ,ZZ9.99- (signo negativo al final) | P120 | BAJA |
+| RN-S151-230 | Fecha base Cronos-2000 con REDEFINES de siglo (AA1+AA2/MM/DD) — parche Y2K puede ser incompleto | P120 | MEDIA |
+| RN-S151-231 | Reporte Banxico Tesorería: 13 líneas SAR (OBL/VOL × IMSS/ISSSTE/INFONAVIT + INF-IMSS + INF-ISTE + INT-IMSS + INT-ISTE + IPR-INFO + IDE-INFO + ANT-INFO-BUG) | P120 | CRÍTICA |
+| RN-S151-232 | SET MYSELF(STATUS) TO -1 ante error DMSII o INVALID KEY en WRITE; NOTFOUND es EOF normal — no es error | P120 | ALTA |
+
+### Hallazgos de migración P120
+
+| # | Hallazgo | Tipo | Impacto | Recomendación |
+|---|---------|------|---------|---------------|
+| RPT-P120-H01 | BUG ACTIVO DESDE 1991: 77-ANT-INFO siempre=0 en reporte SAR — DET-ANT-ISTE inflado con INFONAVIT+ISSSTE mezclados | Correctitud regulatoria | CRÍTICO | HITL OBLIGATORIO con equipo Tesorería/SAR antes de migrar; decidir: (a) corregir en target → reportes históricos inconsistentes, (b) mantener equivalencia exacta con bug |
+| RPT-P120-H02 | 4 reportes son PRINTER físico (impresora) — no existen en arquitectura cloud/digital | Portabilidad | ALTO | Convertir R1-R4 a PDF o API de consulta; reimplementar paginación y encabezados explícitamente; R3 y R4 tienen relevancia regulatoria SAR |
+| RPT-P120-H03 | OCCURS 20 por sucursal: desbordamiento silencioso si sucursal tiene más de 20 sistemas activos | Corrección | ALTO | Verificar con DBA el máximo actual de sistemas por sucursal en BD; migrar a List<SaldoSistema> sin límite fijo |
+| RPT-P120-H04 | Tabla CSI hardcoded (10 entradas) y posiciones SAR hardcoded (1,4,6,7,9,10): acoplamiento estructural de regiones bancarias al código | Extensibilidad | ALTO | Externalizar tabla CSI a catálogo en BD; reemplazar COMPUTE con suma dinámica sobre CSIs activos del catálogo |
+| RPT-P120-H05 | Conceptos "actualización por inflación" (INF-IMSS, INF-ISTE) e "intereses SHCP" son del SAR pre-AFORES (1992) — verificar vigencia | Obsolescencia | MEDIO | Confirmar con equipo SAR si estos conceptos siguen siendo reportados activamente o son campos históricos siempre = 0 |
+
+---
+
+*cap-rpt.md · v1.1 · 2026-07-16 · Ampliación P120 (RN-S151-221..232)*
+*Capacidad: T.3.4 Analytics/Reporting · Sistema: S151 · Dominio: T — Transversal*
+*Programas: P199 · P610 · P612 · P677 · P120 (EXTRACTOR, 1,318 LOC)*
+*Reglas: RN-S151-421..490 · RN-S151-221..232 · 82 reglas · 40 tareas*
+*Cross-referencia: rules-s151-p199-p600.md · rules-s151-p021-p120.md · vocab-s151.md · capability-map.md*

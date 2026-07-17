@@ -9,11 +9,12 @@
 
 | Métrica | Valor |
 |---------|-------|
-| Capacidades en el modelo | 104 |
-| Cubiertas por S500 o S151 | 20 (19.2%) |
-| `cap-{slug}.md` generados | 20 / 20 ✅ |
-| `cap-{slug}.md` pendientes | 0 / 20 |
+| Capacidades en el modelo | 104 + 1 extensión CFR |
+| Cubiertas por S500 o S151 | 21 (20.2%) |
+| `cap-{slug}.md` generados | 21 / 21 ✅ |
+| `cap-{slug}.md` pendientes | 0 / 21 |
 | Reglas disponibles para doc. | 826 (644 S151 + 182 S500) |
+| Reglas vinculadas | ~783 / 826 (94.8%) |
 
 ---
 
@@ -130,6 +131,7 @@
 | T.3.3 | Content Mgmt. | Transversal | — | — | _(gap)_ |
 | **T.3.4** | **Analytics / Reporting** | **Transversal** | **S151** | [cap-rpt.md](capacidades/cap-rpt.md) | ✅ |
 | **T.3.5** | **Security** | **Transversal** | **S500+S151** | [cap-sec.md](capacidades/cap-sec.md) | ✅ |
+| **T.4.1** | **CFR Regulatory Reporting Pipeline** | **Transversal** | **S151** | [cap-cfr.md](capacidades/cap-cfr.md) | ✅ |
 
 ---
 
@@ -159,6 +161,7 @@
 | ✅ DONE | Financial Servicing | FSV→INT | S500 | RN-S500-133/135 · 2 reglas (merge cap-int.md) | LIBOR flag compilación condicional + FECVENCIMIENTO exclusivo GL |
 | ✅ DONE | Access Control | ACC→SEC | S500+S151 | RN-S151-244..262/272 · 8 reglas (merge cap-sec.md) | FACULTAD 1/2/3, Q015 hardcoded por pantalla, toggle HI 41/42 sin auditoría |
 | ✅ DONE | Payment Schemes SPEI/CLABE | SPI→PAY | S500+S151 | RN-S500-110/111/121/163+RN-S151-263 · 5 reglas (merge cap-pay.md) | SPEI HA, topología cross-CSI, NIO SPEI, CVETRAN 4449 |
+| ✅ DONE | CFR Regulatory Reporting Pipeline | CFR (T.4.1) | S151 | RN-S151-061..080 (P130) + 091..112 (P131) · 42 reglas | SETID=BNMEX hardcodeado — punto de quiebre Citi/Banamex; 7 catálogos CFR→Serie B CNBV |
 
 ---
 
@@ -183,6 +186,6 @@ Operational Data Stores [9.1.1]
 
 ---
 
-*capability-map.md · v1.4 · 2026-07-16*
+*capability-map.md · v1.5 · 2026-07-16*
 *Fuente: capability-model-taxonomy.md + rules-catalog/INDEX.md + kb-capa3-capacidades.md*
-*COBERTURA COMPLETA: 20/20 capacidades S500+S151 documentadas — GemCog Capa 3 cerrada*
+*COBERTURA COMPLETA: 21/21 capacidades S500+S151 documentadas · ~783/826 reglas vinculadas (94.8%) — GemCog Capa 3 cerrada*

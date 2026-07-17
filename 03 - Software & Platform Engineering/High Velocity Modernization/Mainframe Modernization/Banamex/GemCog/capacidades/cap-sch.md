@@ -252,3 +252,49 @@ sequenceDiagram
 *cap-sch.md · v1.0 · 2026-07-16 · Capa 4 (Inventario de Tareas) + Capa 5 (Casuísticas + Diagrama Mermaid)*
 *Capacidad: 8.1.1 Scheduling · Sistema: S500+S151 · Programas: P075 · P100*
 *Cross-referencia: RN-S500-022..026 · RN-S500-009..021 · rules-catalog/rules-s500.md · capability-map.md*
+
+---
+
+## Ampliación — P103 Control de Fechas y Período Corporativo (RN-S151-201..207)
+
+> P103 (563 LOC, COBOL) gestiona el período contable corporativo en modo dual: CONSULTA (W77-PARAMETRO=01) lee y proyecta la FECPRO activa; PROYECTA (W77-PARAMETRO=02) calcula la próxima fecha hábil bancaria, valida el estado de 5 sistemas dependientes y avanza el archivo de control CORP. Es el primer programa del lote batch S151 — sin él ningún downstream tiene fecha de proceso válida.
+
+### Inventario de Tareas adicionales
+
+| ID | Nombre | Programa | Tipo | Complejidad | Riesgo migración |
+|----|--------|----------|------|-------------|------------------|
+| T-SCH-016 | Detectar modo de operación por W77-PARAMETRO: CONSULTA (01) vs PROYECTA (02) | P103 | BATCH | BAJA | ALTO — sin WHEN OTHER, parámetro inválido no genera error explícito |
+| T-SCH-017 | Leer archivo secuencial S151/FILE/CONTROL/CORP: extraer header FECPRO (8 dig, AAAAMMDD) y CSI | P103 | BATCH | MEDIA | ALTO — archivo secuencial sin transacciones ACID; corrupción del header afecta todo el lote |
+| T-SCH-018 | Iterar registros de detalle del archivo CORP hasta sentinel WKS-DET-SIST=999 o EOF | P103 | BATCH | BAJA | MEDIO — sentinel 999 es antipatrón en BD relacional; debe migrar a flag booleano |
+| T-SCH-019 | Validar estado de 5 sistemas dependientes (S084, S087, S408, S500, S701): comparar WKS-DET-FECPRO vs WKS-HD-FECPRO | P103 | BATCH | BAJA | MEDIO — validación informativa, no aborta aunque sistemas críticos fallen; riesgo de inconsistencia silenciosa |
+| T-SCH-020 | Calcular próxima fecha hábil bancaria vía THECALENDAR IN LOCSUP FUNCION=13 FORMATO=12 (+1 día hábil) | P103 | BATCH | ALTA | CRÍTICO — THECALENDAR es servicio propietario Unisys; debe reemplazarse con servicio de calendario bancario Banxico |
+| T-SCH-021 | Actualizar header del archivo CORP con nueva FECPRO vía REWRITE I-O + CLOSE WITH SAVE | P103 | BATCH | MEDIA | ALTO — REWRITE no es transaccional; re-ejecución doble de modo PROYECTA avanza FECPRO doble sin detección |
+| T-SCH-022 | Abortar con SET MYSELF(STATUS) TO -1 ante error de THECALENDAR (W77-FUNCION > 0) o fallo de REWRITE (INVALID KEY) | P103 | BATCH | BAJA | ALTO — primitiva Unisys MCP sin equivalente Java; debe mapearse a exit code != 0 para el orquestador |
+
+### Reglas de negocio vinculadas
+
+| ID regla | Enunciado breve | Programa | Criticidad |
+|----------|----------------|----------|-----------|
+| RN-S151-201 | Modo dual W77-PARAMETRO: 01=CONSULTA (lee FECPRO) / 02=PROYECTA (calcula y avanza) | P103 | ALTA |
+| RN-S151-202 | Archivo S151/FILE/CONTROL/CORP como maestro de fechas: header CSI+FECPRO + detalles por sistema | P103 | ALTA |
+| RN-S151-203 | THECALENDAR FUNCION=13: calcula próxima fecha hábil bancaria según calendario Banxico | P103 | CRÍTICA |
+| RN-S151-204 | Sentinel WKS-DET-SIST=999 termina el loop de detalles del archivo CORP | P103 | MEDIA |
+| RN-S151-205 | Validación informativa de S084, S087, S408, S500, S701: "SE EJECUTO CORRECTAMENTE" vs "NO HA SIDO PROCESADO DESDE" | P103 | ALTA |
+| RN-S151-206 | REWRITE del header CORP con W77-FECHA-PROFUT: no idempotente — doble ejecución avanza FECPRO dos días hábiles | P103 | ALTA |
+| RN-S151-207 | SET MYSELF(STATUS) TO -1 ante error THECALENDAR o REWRITE — notifica WFL; sin rollback del archivo parcialmente modificado | P103 | ALTA |
+
+### Hallazgos de migración P103
+
+| # | Hallazgo | Tipo | Impacto | Recomendación |
+|---|---------|------|---------|---------------|
+| SCH-P103-H01 | THECALENDAR IN LOCSUP (Unisys) no tiene equivalente en cloud — única fuente de calendario bancario Banxico | Portabilidad | CRÍTICO | Implementar servicio de calendario bancario MX con actualización anual desde publicaciones oficiales Banxico (Circular 14/2017); exportar calendario actual de THECALENDAR antes del cutover |
+| SCH-P103-H02 | CHANGE ATTRIBUTE VALUE OF MYSELF (modo CONSULTA) escribe FECPRO en directorio de tareas MCP — sin equivalente Java | Portabilidad | ALTO | Sustituir con escritura en registro compartido (Redis, tabla BD) legible por todos los programas del lote |
+| SCH-P103-H03 | Re-ejecución del modo PROYECTA avanza FECPRO doble — no hay idempotencia ni detección de "ya ejecutado hoy" | Corrección | ALTO | Implementar check previo: si FECPRO ya es > fecha_actual_lote, no avanzar; registrar flag de ejecución diaria |
+| SCH-P103-H04 | Archivo secuencial CORP sin transacciones ACID — falla entre lectura y REWRITE deja estado corrupto | Confiabilidad | ALTO | Migrar a tabla relacional con transacción ACID; COMMIT solo tras éxito completo del modo PROYECTA |
+| SCH-P103-H05 | Sistemas monitoreados (S084, S087, S408, S500, S701) están hardcoded en el archivo CORP — nuevos sistemas post-separación Citi no aparecen | Extensibilidad | MEDIO | Externalizar lista de sistemas a catálogo en BD; agregar endpoint de registro de sistemas al servicio de control de fechas |
+
+---
+
+*cap-sch.md · v1.1 · 2026-07-16 · Ampliación P103 (RN-S151-201..207)*
+*Capacidad: 8.1.1 Scheduling · Sistema: S500+S151 · Programas: P075 · P100 · P103*
+*Cross-referencia: RN-S500-022..026 · RN-S500-009..021 · RN-S151-201..207 · rules-catalog/rules-s500.md · rules-catalog/rules-s151-p021-p120.md · capability-map.md*
