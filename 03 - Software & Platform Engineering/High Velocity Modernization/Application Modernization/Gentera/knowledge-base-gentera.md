@@ -57,6 +57,7 @@ Del análisis de `/CBB/CL_DB_TVARVC` (`source/CLASS/_CBB_CL_DB_TVARVC.abap`):
 | Hallazgo | Detalle | Impacto RE |
 |---|---|---|
 | **Namespace registrado `/CBB/`** | Compartamos Banco tiene namespace SAP formal, no Z/Y | Inventario TADIR debe incluir `/CBB/%` además de Z/Y |
+| **Segundo namespace `/CBCR/`** | Mensaje de clase `/CBCR/CM_ZVAL` detectado en el mismo archivo — namespace diferente | TADIR query debe incluir también `'/CBCR/%'`; puede ser namespace de un componente/partner |
 | **Contexto IFRS** | Message class `/CBB/MSG_IFRS_CN` — IFRS 9 probable | `[REGLA-REGULATORIA]` — alta sensibilidad contable |
 | **Developer: GBELTRAN** (Gabriel Alejandro Beltran Reyes) | Fecha 02.05.2022 · OTs `BSDK925874 / BSDK926605` | Capa 2 · implementador externo con sistema de tickets propio |
 | **Patrón feature flag sobre TVARVC** | `IS_EVENT_ACTIVE` → controla activación de procesos de negocio | Tabla `TVARVC` es crítica para entender qué procesos están activos |

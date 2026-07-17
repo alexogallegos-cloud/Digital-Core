@@ -27,10 +27,14 @@ source/
 
 ## Namespace del cliente: `/CBB/` (Compartamos Banco)
 
-**IMPORTANTE:** el código de Gentera NO usa prefijos Z/Y — usa el namespace registrado `/CBB/`. El inventario TADIR debe filtrar por:
+**IMPORTANTE:** el código de Gentera NO usa prefijos Z/Y — usa namespace(s) registrado(s). El inventario TADIR debe filtrar por:
 ```abap
-WHERE obj_name LIKE 'Z%' OR obj_name LIKE 'Y%' OR obj_name LIKE '/CBB/%'
+WHERE obj_name LIKE 'Z%' OR obj_name LIKE 'Y%'
+   OR obj_name LIKE '/CBB/%'   -- namespace principal: Compartamos Banco
+   OR obj_name LIKE '/CBCR/%'  -- segundo namespace detectado (confirmar propietario con Basis)
 ```
+
+> **NOTA 2026-07-16:** el segundo namespace `/CBCR/` fue detectado en el primer archivo ABAP (`/CBCR/CM_ZVAL` referenciado como clase de mensaje). Puede ser un namespace de partner/add-on. Confirmar con el equipo Basis si es código propio de Gentera.
 
 ## Convención de nombres de archivo
 
