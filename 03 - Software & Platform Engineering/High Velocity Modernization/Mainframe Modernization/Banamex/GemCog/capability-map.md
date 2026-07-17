@@ -11,8 +11,8 @@
 |---------|-------|
 | Capacidades en el modelo | 104 |
 | Cubiertas por S500 o S151 | 20 (19.2%) |
-| `cap-{slug}.md` generados | 11 / 20 |
-| `cap-{slug}.md` pendientes | 9 / 20 |
+| `cap-{slug}.md` generados | 12 / 20 |
+| `cap-{slug}.md` pendientes | 8 / 20 |
 | Reglas disponibles para doc. | 826 (644 S151 + 182 S500) |
 
 ---
@@ -151,6 +151,7 @@
 | P1 | Deposits | DEP | S500 | RN-S500-NNN (P100 + P020) | Cuentas de captación — productos de depósito |
 | P1 | Payment Schemes (SPEI/CLABE) | SPI | S500 | RN-S500-NNN (L091-L093) | SPEI + CLABE + MQ async |
 | ✅ DONE | Analytics / Reporting | RPT | S151 | RN-S151-421..490 (P199+P610+P612+P677) | Reportes Serie B CNBV · P199 bridge · P610 dispatcher |
+| ✅ DONE | GL Adjustments & Sync | ADJ | S151 | RN-S151-710..749 (P312+P330+P360) | BC-09 · pipeline extracción/integración saldos GL · no migratable as-is |
 | P2 | Operational Reconciliation (Teller) | TEL | S500 | pendiente | Teller / canal sucursal |
 
 ---

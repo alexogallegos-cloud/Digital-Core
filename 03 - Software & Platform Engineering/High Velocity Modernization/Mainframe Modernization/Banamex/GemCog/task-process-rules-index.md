@@ -20,7 +20,8 @@
 | ODS | Operational Data Stores — Modelo DMSII | 9.1.1 | Insights & Information | S500+S151 | 27 | 35 (+4 pend.) | [cap-ods.md](capacidades/cap-ods.md) |
 | SEC | Security — Enmascaramiento PII | T.3.5 | Transversal | S500 | 10 | 11 (+1 pend.) | [cap-sec.md](capacidades/cap-sec.md) |
 | RPT | Analytics/Reporting — Ciclo Control + Reporte Regulatorio | T.3.4 | Transversal | S151 | 31 | 70 | [cap-rpt.md](capacidades/cap-rpt.md) |
-| **Total** | | | | | **195** | **257** | |
+| ADJ | GL Adjustments & Sync — BC-09 Extracción/Integración Saldos | 7.1.1-bc09 | Enterprise Support | S151 | 38 | 37 | [cap-adj.md](capacidades/cap-adj.md) |
+| **Total** | | | | | **233** | **294** | |
 
 **Tipos de tarea:** `validación` · `consulta` · `escritura` · `contable` · `control` · `seguridad` · `reporte`
 
@@ -745,6 +746,6 @@
 
 ---
 
-*task-process-rules-index.md · v1.2 · 2026-07-16*
-*Fuente: cap-gl · cap-rec · cap-tar · cap-sec · cap-cmp · cap-pay · cap-int · cap-orc · cap-sch · cap-ods · cap-rpt*
-*Swarm: 11 agentes en paralelo + coordinador · Total: 195 tareas · 257 reglas vinculadas · 826 reglas en catálogo*
+*task-process-rules-index.md · v1.3 · 2026-07-16*
+*Fuente: cap-gl · cap-rec · cap-tar · cap-sec · cap-cmp · cap-pay · cap-int · cap-orc · cap-sch · cap-ods · cap-rpt · cap-adj*
+*Swarm: 12 agentes en paralelo + coordinador · Total: 233 tareas · 294 reglas vinculadas · 826 reglas en catálogo*
