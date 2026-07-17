@@ -11,8 +11,8 @@
 |---------|-------|
 | Capacidades en el modelo | 104 |
 | Cubiertas por S500 o S151 | 20 (19.2%) |
-| `cap-{slug}.md` generados | 12 / 20 |
-| `cap-{slug}.md` pendientes | 8 / 20 |
+| `cap-{slug}.md` generados | 14 / 20 |
+| `cap-{slug}.md` pendientes | 6 / 20 |
 | Reglas disponibles para doc. | 826 (644 S151 + 182 S500) |
 
 ---
@@ -30,7 +30,7 @@
 | 1.1.2 | Partnering means | Ecosystem Management | — | — | _(gap)_ |
 | 1.1.3 | Agreements & SLA | Ecosystem Management | — | — | _(gap)_ |
 | 1.1.4 | Review | Ecosystem Management | — | — | _(gap)_ |
-| **2.1.1** | **Teller** | **Channels** | **S500** | pendiente | ⏳ |
+| **2.1.1** | **Teller** | **Channels** | **S151+S500** | [cap-tel.md](capacidades/cap-tel.md) | ✅ |
 | 2.1.2 | Retail Salesforce | Channels | — | — | _(gap)_ |
 | 2.1.3 | Contact Centre (Phone) | Channels | — | — | _(gap)_ |
 | 2.1.4 | Contact Centre (Web) | Channels | — | — | _(gap)_ |
@@ -69,7 +69,7 @@
 | 4.5.2 | Delegations, PoA | Common Customer View | — | — | _(gap)_ |
 | 4.5.3 | Signatures | Common Customer View | — | — | _(gap)_ |
 | 4.6.1 | Prospect Management | Common Customer View | — | — | _(gap)_ |
-| **5.1.1** | **Deposits** | **Product Processing** | **S500** | pendiente | ⏳ |
+| **5.1.1** | **Deposits** | **Product Processing** | **S500** | [cap-dep.md](capacidades/cap-dep.md) | ✅ |
 | 5.1.2 | Lending | Product Processing | — | — | _(gap)_ |
 | 5.1.3 | Corp Finance | Product Processing | — | — | _(gap)_ |
 | 5.1.4 | Asset Mgmt. | Product Processing | — | — | _(gap)_ |
@@ -148,11 +148,11 @@
 | ✅ DONE | Payments | PAY | S500 | RN-S500-108..152 (P020 LINCOMS) | Cargos y abonos core — incluyendo DIVESTITURE flag |
 | ✅ DONE | Operational Reconciliation | ORC | S500+S151 | RN-S500-153..182 (S151REGISTRA) | Flag compilación condicional — 2 variantes REGISTRA1/2 |
 | P1 | Access Control | ACC | S500 | RN-S500-027..036 (P655, compartido SEC) | L010_CONTROL + P655 scrambling |
-| P1 | Deposits | DEP | S500 | RN-S500-NNN (P100 + P020) | Cuentas de captación — productos de depósito |
+| ✅ DONE | Deposits | DEP | S500 | RN-S500-134, 138..152 · P142+P144 · 16 reglas | BIT-ACTBANDERA, conciliación B01↔B03, contratos captación |
 | P1 | Payment Schemes (SPEI/CLABE) | SPI | S500 | RN-S500-NNN (L091-L093) | SPEI + CLABE + MQ async |
 | ✅ DONE | Analytics / Reporting | RPT | S151 | RN-S151-421..490 (P199+P610+P612+P677) | Reportes Serie B CNBV · P199 bridge · P610 dispatcher |
 | ✅ DONE | GL Adjustments & Sync | ADJ | S151 | RN-S151-710..749 (P312+P330+P360) | BC-09 · pipeline extracción/integración saldos GL · no migratable as-is |
-| P2 | Operational Reconciliation (Teller) | TEL | S500 | pendiente | Teller / canal sucursal |
+| ✅ DONE | Teller — Gateway Online/Sucursal | TEL | S151+S500 | RN-S151-241..272 + RN-S500-143 · 33 reglas | P010 dispatcher, FACULTAD/Q015, integración MDA |
 
 ---
 
@@ -177,6 +177,6 @@ Operational Data Stores [9.1.1]
 
 ---
 
-*capability-map.md · v1.1 · 2026-07-16*
+*capability-map.md · v1.2 · 2026-07-16*
 *Fuente: capability-model-taxonomy.md + rules-catalog/INDEX.md + kb-capa3-capacidades.md*
 *Próxima actualización: al generar cap-sec.md (Security T.3.5, P0) y cap-cmp.md (Compliance P1)*

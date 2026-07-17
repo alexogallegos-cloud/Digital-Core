@@ -1,7 +1,7 @@
 # Índice Transversal: Tarea → Proceso → Regla · Banamex GemCog
 > Gemelo Cognitivo · Capa 4 (Tareas) + Capa 5 (Casuísticas/Procesos) + referencia a Capa 2 (Reglas)
 > Sistemas: S500 (Captación) + S151 (Movimientos Contables GL) · Unisys ClearPath MCP
-> Última actualización: 2026-07-16 · v1.0 · Swarm 4 agentes (REC · TAR · SEC · CMP) + coordinador (GL)
+> Última actualización: 2026-07-16 · v1.2 · +DEP (15T·16R) · +TEL (19T·33R)
 
 ---
 
@@ -10,6 +10,8 @@
 | Slug | Capacidad | ID | Dominio | Sistema | Tareas | Reglas vinculadas | Cap file |
 |------|-----------|-----|---------|---------|--------|-------------------|----------|
 | TAR | ATM · PoS — Liquidación Tarjetas | 2.2.6 · 2.2.7 | Channels | S500 | 15 | 10 (+9 pend.) | [cap-tar.md](capacidades/cap-tar.md) |
+| TEL | Teller — Gateway Online/Sucursal | 2.1.1 | Channels | S151+S500 | 19 | 33 | [cap-tel.md](capacidades/cap-tel.md) |
+| DEP | Deposits — Conciliación B01↔B03 | 5.1.1 | Product Processing | S500 | 15 | 16 | [cap-dep.md](capacidades/cap-dep.md) |
 | CMP | Compliance & Regulation — FraudLink | 6.5.2 | Common Services | S500 | 9 | 9 | [cap-cmp.md](capacidades/cap-cmp.md) |
 | PAY | Payments — Cargos y Abonos Core | 6.1.3 | Common Services | S500 | 13 | 17 (+3 pend.) | [cap-pay.md](capacidades/cap-pay.md) |
 | INT | Interest & Fees — P130 Rendimientos | 6.1.5 | Common Services | S500 | 28 | 29 | [cap-int.md](capacidades/cap-int.md) |
@@ -21,7 +23,7 @@
 | SEC | Security — Enmascaramiento PII | T.3.5 | Transversal | S500 | 10 | 11 (+1 pend.) | [cap-sec.md](capacidades/cap-sec.md) |
 | RPT | Analytics/Reporting — Ciclo Control + Reporte Regulatorio | T.3.4 | Transversal | S151 | 31 | 70 | [cap-rpt.md](capacidades/cap-rpt.md) |
 | ADJ | GL Adjustments & Sync — BC-09 Extracción/Integración Saldos | 7.1.1-bc09 | Enterprise Support | S151 | 38 | 37 | [cap-adj.md](capacidades/cap-adj.md) |
-| **Total** | | | | | **233** | **294** | |
+| **Total** | | | | | **267** | **343** | |
 
 **Tipos de tarea:** `validación` · `consulta` · `escritura` · `contable` · `control` · `seguridad` · `reporte`
 
@@ -71,6 +73,125 @@
 | T-TAR-014 | RN-S500-037 | Rastro de auditoría ante interrupción de proceso (TASKVALUE) |
 
 > **RN-S500-047..055** (9 reglas pendientes de mapeo): día juliano, armado campos punteo I08, datos AMEXMNL, contadores cierre.
+
+---
+
+### TEL — Teller — Gateway Online/Sucursal [S151+S500]
+> Dominio: 2 · Channels · Capacidad: 2.1.1
+> Programa: P010 LINEA (Gateway Online) · Reglas: RN-S151-241..272 + RN-S500-143
+
+#### Inventario de Tareas
+
+| ID | Tarea | Programa / Componente | Tipo |
+|----|-------|-----------------------|------|
+| T-TEL-001 | Inicialización del gateway: carga de sistemas y bibliotecas | P010 — LIB-CONS{NNN}, B04SISTEM | configuración |
+| T-TEL-002 | Control del ciclo de vida del proceso online (daemon) | P010 — W77-FIN, SMCOMS | control |
+| T-TEL-003 | Gestión de tres fechas independientes de proceso | P010 — P81, P84, CRONOS2K | validación |
+| T-TEL-004 | Gate de estatus de sistema: STASIS=3/5 | P010 — B04SISTEM, P86 | control |
+| T-TEL-005 | Autorización por FACULTAD y control de acceso | P010 — WKS-TAB-FAC, SEGURIDAD | seguridad |
+| T-TEL-006 | Validación de seguridad Q015 y toggle HI 41/42 | P010 — WS-FAC-CVETRAN, W77-VALIDA-SEG | seguridad |
+| T-TEL-007 | Configuración de bases de datos por TIPBD y ciclos de proceso | P010 — B03, P83 | configuración |
+| T-TEL-008 | Retención histórica: ciclo de hasta 10 fechas archivadas | P010 — B01, WKS-TAB-FECPROC | consulta |
+| T-TEL-009 | Routing entre nodos CSI: restricción, redirect y excepciones | P010 — WKS-MSGHDR-RES, S016_L422 | arquitectura |
+| T-TEL-010 | Gestión del Medio de Acceso (MDA) y campo NIO | P010 — P18/P19/P20, WKS-ENT-P18MDA | consulta |
+| T-TEL-011 | Control especial de sistemas 1, 66 y 264 | P010 — WKS-SIS-NUME, LIB-CONS0264 | control |
+| T-TEL-012 | Sucursal 859 hardcodeada en Panel 24 | P010 — W77-SUC-CAPTURA, P24 | configuración |
+| T-TEL-013 | Bitácora de auditoría CNBV (before/after) | P010 — GRABA_BITACORA, S151L010 | auditoría |
+| T-TEL-014 | Monitor de traza y control dinámico de bases de datos | P010 — W77-MONITOR, HI 40NNN/44NNN | operación |
+| T-TEL-015 | Administración de archivos batch P82 (NOMARC/NOMPAC) | P010 — P82, WKS-ENT-P82NOMARC | configuración |
+| T-TEL-016 | Validación numérica universal vía JUSTIFIER IN LOCSUP | P010 — LOCSUP (S006), WKS-FUNCION | validación |
+| T-TEL-017 | Menú de selección de pantalla (P01, 1-99) | P010 — WKS-ENT-P01NUMTRA | UI |
+| T-TEL-018 | Validación de supervisor y doble control administrativo | P010 — CVE-SUP, ERR035 | seguridad |
+| T-TEL-019 | SUC-PROMOTORA por CSI en activaciones masivas BIT-ACTBANDERA | P144 — WKS-SUC-PROMOTORA, WKS-CSIL | escritura |
+
+#### Reglas vinculadas
+
+| Tarea | Regla | Descripción |
+|-------|-------|-------------|
+| T-TEL-001 | RN-S151-241 | P010 (LINEA) es dispatcher puro, no motor GL. ~30 bibliotecas de consulta. Sin lógica GL en PROCEDURE DIVISION |
+| T-TEL-001 | RN-S151-258 | Inicialización: carga B04SISTEM FUN=02 + 16+ CHANGE ATTRIBUTE TITLE hardcodeados. Sistema 501 excluido deliberadamente |
+| T-TEL-002 | RN-S151-257 | Loop principal daemon: PERFORM UNTIL W77-FIN=1. HI 4=fin normal, HI 6=emergencia |
+| T-TEL-002 | RN-S151-261 | Terminación ordenada: 999999-FIN llama SMCOMS DISABLE PROGRAM antes de STOP RUN |
+| T-TEL-003 | RN-S151-242 | Tres fechas independientes por sistema: FECPRO, FECCON, FEC151. Pueden diverger; permite ajustes diferidos |
+| T-TEL-003 | RN-S151-253 | Y2K pivote año 50: AA < 50 → siglo 20, AA ≥ 50 → siglo 19. Bug latente a partir de 2050 |
+| T-TEL-003 | RN-S151-254 | Fecha válida debe pertenecer a {FECCON, FECPRO} ∪ {FECPROC(1..10)}. Error 19 si fuera del conjunto |
+| T-TEL-004 | RN-S151-243 | Gate de estatus: solo STASIS=3 o STASIS=5 habilitan routing online. Cargado de B04SISTEM |
+| T-TEL-005 | RN-S151-244 | FACULTAD: 1=solo sucursal propia, 2=cross-sucursal, 3=denegado. Tabla hasta 5000 sucursales × sistemas |
+| T-TEL-005 | RN-S151-247 | Pantalla P17 (Totales Nacionales) bloqueada para FACULTAD=1. Solo FACULTAD=2 puede acceder |
+| T-TEL-005 | RN-S151-262 | Mapeo resultado FACULTAD: 0=no evaluado, 1=autorizado, 3=denegado+error 87. Externo retorna -9=suspendido |
+| T-TEL-006 | RN-S151-245 | Códigos Q015{NNN} hardcodeados por pantalla. 25+ pantallas con su propio código de seguridad |
+| T-TEL-006 | RN-S151-246 | Toggle HI 41=seguridad ON / HI 42=seguridad OFF. Sin trazabilidad en bitácora. Riesgo CNBV CUB severo |
+| T-TEL-007 | RN-S151-249 | TIPBD 1-7 como máscara implícita: BD10 siempre activa. TIPBD=0 o >7 estado indefinido |
+| T-TEL-007 | RN-S151-266 | P83 configura ciclos de proceso: NUMCICDIA y NUMCICMES. Requiere CVE-SUP |
+| T-TEL-008 | RN-S151-250 | Hasta 10 fechas históricas por sistema. Límite fijo OCCURS 10: 11° día no consultable online |
+| T-TEL-009 | RN-S151-251 | Restricción CSI-nodo: RESCSI define nodo destino. MODSIS=0 override la restricción |
+| T-TEL-009 | RN-S151-255 | Routing inter-CSI: MSGHDR-RES=2 → redirect. Sistema 264 = siempre local |
+| T-TEL-009 | RN-S151-267 | Routing MDA: llama S016 para CSI de cuenta. Error 10=cuenta no existe. CSI≠local → redirect |
+| T-TEL-009 | RN-S151-269 | Nodo especial CSI=32: 3 bypasses — skip entidades, override CSI, omite bitácora. No parametrizable |
+| T-TEL-010 | RN-S151-252 | MDA = 22 bytes: CVEMDA+SUCMDA+NUMMDA(16). NUMMDA puede contener número de tarjeta → riesgo PCI-DSS |
+| T-TEL-010 | RN-S151-263 | Campo NIO X(16) en P12/P14/P18 desde 2006-07-28. Posible NIO SPEI Banxico |
+| T-TEL-011 | RN-S151-256 | Sistemas 1 y 66 son nacionales sin sucursal: SUC-NUME>0 → error 99 |
+| T-TEL-011 | RN-S151-270 | Sistema 264: siempre proceso local + inicialización especial. Sistema 501 excluido deliberadamente |
+| T-TEL-012 | RN-S151-248 | Sucursal 859 hardcodeada en Panel 24. No parametrizable; cambio requiere recompilación |
+| T-TEL-013 | RN-S151-259 | Bitácora CNBV: before/after en operaciones P81-P86. Excepción: CSI=32+RES=2 omite bitácora |
+| T-TEL-014 | RN-S151-260 | Monitor de traza: HI 2=debug ON, HI 3=debug OFF. Sin persistencia al reinicio |
+| T-TEL-014 | RN-S151-268 | HI 40NNN/44NNN/45 controlan BD en runtime. Toggle no idempotente |
+| T-TEL-015 | RN-S151-265 | P82 administra NOMARC/NOMPAC de 13 subsistemas batch. Sin validación de existencia |
+| T-TEL-016 | RN-S151-264 | Validación numérica universal vía JUSTIFIER IN LOCSUP. Fallo afecta toda validación del hub |
+| T-TEL-017 | RN-S151-271 | Menú P01: NUMTRA 1-99 selecciona pantalla. Valores válidos hardcodeados en IF-ELSE cascada |
+| T-TEL-018 | RN-S151-272 | Doble control: CVE-SUP numérico y >0 para P81/P82/P83/P84/P86. Error 35 si inválido |
+| T-TEL-019 | RN-S500-143 | SUC-PROMOTORA en BIT-ACTBANDERA: CSI=10 (VDM)→0432; CSI=04 (MTY)→0366. Sin lógica paramétrica |
+
+---
+
+## Dominio 5 — Product Processing
+
+---
+
+### DEP — Deposits — Conciliación B01↔B03 y BIT-ACTBANDERA [S500]
+> Dominio: 5 · Product Processing · Capacidad: 5.1.1
+> Programas: P142 · P144 · Reglas: RN-S500-134 + RN-S500-138..152
+
+#### Inventario de Tareas
+
+| ID | Tarea | Programa / Componente | Tipo |
+|----|-------|-----------------------|------|
+| T-DEP-001 | Invocación S408LINCRED para operaciones de crédito-captación (habilitación, disposición, pago-abono, eliminación) | P142 / S408LINCRED · OPERCRED | control |
+| T-DEP-002 | Apertura de BD07ATRIBUCTA y BD01CAPTACION en modo INQUIRY (solo lectura, sin modificación) | P144 / OPEN INQUIRY | control |
+| T-DEP-003 | Override de fecha de proceso vía parámetro TASKVALUE (WKS-TSK-FECH) y proyección de siguiente hábil | P144 / S006LOCSUP · WKS-TSK-FECH | control |
+| T-DEP-004 | Identificación de nodo CSI local y configuración de pares host cross-CSI (VDM=10, MTY=04) | P144 / WKS-CSIL · WKS-HOST-ORIG-XFER-XX | control |
+| T-DEP-005 | Escritura de cabecera BIT-ACTBANDERA (TIPREG=01, SISCTE=500, NUMARC=09, DESCTE=MARCA MASIVA ORDENANTE) | P144 / BIT-TIT-SEC · BIT-ACTBANDERA | escritura |
+| T-DEP-006 | Escaneo secuencial completo de B01CONTRATOS (SET TO BEGINNING + FIND NEXT hasta STATUS-BASE=1) | P144 / S500B01CONTRATOS · WKS-FIN-B01 | consulta |
+| T-DEP-007 | Lookup de B03CONTRATOS por índice secundario B03SXCTO (búsqueda exacta por número de contrato) | P144 / B03SXCTO · WKS-CONTRATO-B01 | consulta |
+| T-DEP-008 | Comparación central B01 vs B03 — triple condición AND (coincidencia + CSI local + discrepancia ordenante) | P144 / 98000000-COMPARACION · B01-NUM-DATO(1) | validación |
+| T-DEP-009 | Skip silencioso de contratos cross-CSI no encontrados en B03 local (NEXT SENTENCE) | P144 / 90000001-CTO-NOEXISTE · WKS-CSIL | control |
+| T-DEP-010 | Log de contratos locales huérfanos ausentes en B03 (PROBLEMAS: "CTO NO EXISTE EN B03") | P144 / F02-PROBLEMAS · 50009000-PROB-TIEMPO | escritura |
+| T-DEP-011 | Determinación de SUC-PROMOTORA según CSI local (VDM=0432, MTY=0366) | P144 / WKS-SUC-PROMOTORA · WKS-CSIL | control |
+| T-DEP-012 | Escritura del registro de activación BIT-ACTBANDERA (CLAVE-TRANS=0935, IND-MARORD-A dinámico) | P144 / 50009000-ESC-REGISTRO · CLAVE-TRANS-0935 | escritura |
+| T-DEP-013 | Escritura de trailer BIT-ACTBANDERA y cierre WITH SAVE (NUMNCO=contador, importes en cero) | P144 / WKS-CONTADOR · CLOSE-WITH-SAVE | contable |
+| T-DEP-014 | Cierre de bases de datos y liberación de recursos (BD07ATRIBUCTA, BD01CAPTACION) | P144 / 70001000-CLOSE-BD07ATRIBUCTA | control |
+| T-DEP-015 | Instrumentación MAPLI para audit tracking de llamadas a librería (S038L035, TIPO-ACTI=2) | P144 / S038L035 · W77-ID-ACTXX-MAPLI | control |
+
+#### Reglas vinculadas
+
+| Tarea | Regla | Descripción |
+|-------|-------|-------------|
+| T-DEP-001 | RN-S500-134 | Interface S408LINCRED en P142: 30+ funciones (HABILITACION=10, DISPOSICION=23, PAGO-ABONO=35, ELIMINACION=42..48); error 99 ambiguo (DMSII o >1M autorizaciones/día) |
+| T-DEP-002 | RN-S500-148 | P144 abre BD07ATRIBUCTA y BD01CAPTACION en modo INQUIRY; nunca modifica datos; DMTERMINATE si BD falla |
+| T-DEP-003 | RN-S500-147 | Override de fecha via ATTRIBUTE TASKVALUE; proyecta +1 día hábil vía S006LOCSUP FUNCION=13; DMTERMINATE si LOCSUP falla |
+| T-DEP-004 | RN-S500-151 | Tabla de 8 pares host cross-CSI duplicada en P020/P142/P144 sin COPY book; riesgo de desincronización al añadir nodo CSI |
+| T-DEP-005 | RN-S500-144 | Cabecera BIT-ACTBANDERA: TIPREG=01, NODORI=WKS-CSIL, SISCTE=500, NUMARC=0009, DESCTE="MARCA MASIVA ORDENANTE" |
+| T-DEP-006 | RN-S500-146 | Escaneo completo sin filtro O(n); STATUS-BASE=2-99 → DMTERMINATE |
+| T-DEP-007 | RN-S500-150 | Lookup B03SXCTO por índice secundario; verificación redundante B01=B03 como protección ante corrupción de índice |
+| T-DEP-008 | RN-S500-138 | Propósito de P144: generar registro CLAVE-TRANS=0935 cuando indicador ordenante difiere entre B01 y B03 |
+| T-DEP-008 | RN-S500-139 | Comparación triple AND: CTO coincide + CSIL local + B01-NUM-DATO(1)≠B03-IND-MARORD → llama ESC-REGISTRO |
+| T-DEP-009 | RN-S500-140 | Skip silencioso: contrato cross-CSI ausente en B03 local → NEXT SENTENCE; falso negativo no detectable |
+| T-DEP-010 | RN-S500-141 | Log en PROBLEMAS: "CTO NO EXISTE {N} EN B03" para contratos locales huérfanos; sin contador en trailer |
+| T-DEP-011 | RN-S500-143 | SUC-PROMOTORA: CSI=10 (VDM)→0432; CSI=04 (MTY)→0366; hardcodeado, requiere recompilación si se añade nodo |
+| T-DEP-012 | RN-S500-142 | Registro activación: TIPREG=02, SUC=0511, CAJA=05, CLAVE-TRANS=0935, IMPORTE=0; dinámicos: IND-MARORD-A, FEC-MARORD-A |
+| T-DEP-013 | RN-S500-145 | Trailer: TIPREG=09, NUMNCO=WKS-CONTADOR; importes en cero; CLOSE WITH SAVE; WKS-CONTADOR=0 es ejecución válida |
+| T-DEP-014 | RN-S500-149 | BUG copy-paste: CLOSE-BD07ATRIBUCTA dice "BD CAPTACION" en lugar de "BD ATRIBUCTA"; confunde operadores en incidentes |
+| T-DEP-015 | RN-S500-152 | MAPLI audit tracking: S038L035 instrumenta llamadas; W77-ID-ERR-LIB-MAPLI=1 suprime tormenta de errores |
 
 ---
 
