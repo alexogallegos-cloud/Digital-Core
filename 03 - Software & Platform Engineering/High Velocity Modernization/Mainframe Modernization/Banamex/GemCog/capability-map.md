@@ -11,8 +11,8 @@
 |---------|-------|
 | Capacidades en el modelo | 104 |
 | Cubiertas por S500 o S151 | 20 (19.2%) |
-| `cap-{slug}.md` generados | 14 / 20 |
-| `cap-{slug}.md` pendientes | 6 / 20 |
+| `cap-{slug}.md` generados | 16 / 20 |
+| `cap-{slug}.md` pendientes | 4 / 20 |
 | Reglas disponibles para doc. | 826 (644 S151 + 182 S500) |
 
 ---
@@ -54,7 +54,7 @@
 | 3.1.6 | Customer Finance Mgmt. | Marketing & Distribution | — | — | _(gap)_ |
 | 3.1.7 | Brand Management | Marketing & Distribution | — | — | _(gap)_ |
 | 4.1.1 | Demographics | Common Customer View | — | — | _(gap)_ |
-| **4.1.2** | **Holdings** | **Common Customer View** | **S500** | pendiente | ⏳ |
+| **4.1.2** | **Holdings** | **Common Customer View** | **S151** | [cap-hld.md](capacidades/cap-hld.md) | ✅ |
 | 4.1.3 | Roles & Relationships | Common Customer View | — | — | _(gap)_ |
 | 4.1.4 | Ref. Satellite | Common Customer View | — | — | _(gap)_ |
 | 4.1.5 | Segmentation | Common Customer View | — | — | _(gap)_ |
@@ -81,7 +81,7 @@
 | 6.1.1 | Master Contract Mgmt. | Common Services | — | — | _(gap)_ |
 | 6.1.2 | Cash Mgmt. | Common Services | — | — | _(gap)_ |
 | **6.1.3** | **Payments** | **Common Services** | **S500** | [cap-pay.md](capacidades/cap-pay.md) | ✅ |
-| **6.1.4** | **Statements** | **Common Services** | **S500** | pendiente | ⏳ |
+| **6.1.4** | **Statements** | **Common Services** | **S500+S151** | [cap-sta.md](capacidades/cap-sta.md) | ✅ |
 | **6.1.5** | **Interest & Fees** | **Common Services** | **S500** | [cap-int.md](capacidades/cap-int.md) | ✅ |
 | 6.2.1 | Operational Risk | Common Services | — | — | _(gap)_ |
 | 6.2.2 | Financial Risk | Common Services | — | — | _(gap)_ |
@@ -153,6 +153,8 @@
 | ✅ DONE | Analytics / Reporting | RPT | S151 | RN-S151-421..490 (P199+P610+P612+P677) | Reportes Serie B CNBV · P199 bridge · P610 dispatcher |
 | ✅ DONE | GL Adjustments & Sync | ADJ | S151 | RN-S151-710..749 (P312+P330+P360) | BC-09 · pipeline extracción/integración saldos GL · no migratable as-is |
 | ✅ DONE | Teller — Gateway Online/Sucursal | TEL | S151+S500 | RN-S151-241..272 + RN-S500-143 · 33 reglas | P010 dispatcher, FACULTAD/Q015, integración MDA |
+| ✅ DONE | Holdings | HLD | S151 | RN-S151-281..300 (P050) + RN-S151-311..330 (P052) · 40 reglas | TC=10 fallback CRÍTICO, LIB-L006, COMS 93 funciones, CONLI CNBV R10 |
+| ✅ DONE | Statements | STA | S500+S151 | RN-S151-361..390 (P158) · 30 reglas | MOVSXCONT→S050, Y2K-2049, WFL auto-submisión, 9 archivos de salida |
 
 ---
 
@@ -177,6 +179,6 @@ Operational Data Stores [9.1.1]
 
 ---
 
-*capability-map.md · v1.2 · 2026-07-16*
+*capability-map.md · v1.3 · 2026-07-16*
 *Fuente: capability-model-taxonomy.md + rules-catalog/INDEX.md + kb-capa3-capacidades.md*
-*Próxima actualización: al generar cap-sec.md (Security T.3.5, P0) y cap-cmp.md (Compliance P1)*
+*Próxima actualización: cap-mq.md (T.2.3 MQ/Async) + merges FSV→INT · ACC→SEC · SPI→PAY → 20/20*

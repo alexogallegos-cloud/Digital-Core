@@ -1,7 +1,7 @@
 # Índice Transversal: Tarea → Proceso → Regla · Banamex GemCog
 > Gemelo Cognitivo · Capa 4 (Tareas) + Capa 5 (Casuísticas/Procesos) + referencia a Capa 2 (Reglas)
 > Sistemas: S500 (Captación) + S151 (Movimientos Contables GL) · Unisys ClearPath MCP
-> Última actualización: 2026-07-16 · v1.2 · +DEP (15T·16R) · +TEL (19T·33R)
+> Última actualización: 2026-07-16 · v1.4 · +HLD (22T·40R) · +STA (17T·30R)
 
 ---
 
@@ -23,7 +23,9 @@
 | SEC | Security — Enmascaramiento PII | T.3.5 | Transversal | S500 | 10 | 11 (+1 pend.) | [cap-sec.md](capacidades/cap-sec.md) |
 | RPT | Analytics/Reporting — Ciclo Control + Reporte Regulatorio | T.3.4 | Transversal | S151 | 31 | 70 | [cap-rpt.md](capacidades/cap-rpt.md) |
 | ADJ | GL Adjustments & Sync — BC-09 Extracción/Integración Saldos | 7.1.1-bc09 | Enterprise Support | S151 | 38 | 37 | [cap-adj.md](capacidades/cap-adj.md) |
-| **Total** | | | | | **267** | **343** | |
+| HLD | Holdings — Servidor de Saldos P050+P052 | 4.1.2 | Common Customer View | S151 | 22 | 40 | [cap-hld.md](capacidades/cap-hld.md) |
+| STA | Statements — Generador MOVSXCONT P158 | 6.1.4 | Common Services | S500+S151 | 17 | 30 | [cap-sta.md](capacidades/cap-sta.md) |
+| **Total** | | | | | **306** | **413** | |
 
 **Tipos de tarea:** `validación` · `consulta` · `escritura` · `contable` · `control` · `seguridad` · `reporte`
 
@@ -141,6 +143,88 @@
 | T-TEL-017 | RN-S151-271 | Menú P01: NUMTRA 1-99 selecciona pantalla. Valores válidos hardcodeados en IF-ELSE cascada |
 | T-TEL-018 | RN-S151-272 | Doble control: CVE-SUP numérico y >0 para P81/P82/P83/P84/P86. Error 35 si inválido |
 | T-TEL-019 | RN-S500-143 | SUC-PROMOTORA en BIT-ACTBANDERA: CSI=10 (VDM)→0432; CSI=04 (MTY)→0366. Sin lógica paramétrica |
+
+---
+
+## Dominio 4 — Common Customer View
+
+---
+
+### HLD — Holdings — Servidor de Saldos P050+P052 [S151]
+> Dominio: 4 · Common Customer View · Capacidad: 4.1.2
+> Programas: P050 (CONCENTRACIÓN DE SALDOS) · P052 (DISTRIBUCIÓN DE MOVIMIENTOS) · Reglas: RN-S151-281..300 + RN-S151-311..330
+
+#### Inventario de Tareas
+
+| ID | Tarea | Programa / Componente | Tipo |
+|----|-------|-----------------------|------|
+| T-HLD-001 | Inicializar P050: LIB-L006 FUN=10, CTLVERS, mapeo 8 sistemas financieros hardcoded, mapeo CSI→nodo (override CSI=32→12) | P050 / LIB-L006 · CTLVERS | control |
+| T-HLD-002 | Verificar día hábil bancario (THECALENDAR FUN=18; 0=hábil — convención invertida); avanzar al siguiente si inhábil (FUN=13) | P050 / LOCSUP · THECALENDAR | validación |
+| T-HLD-003 | Dispatcher COMS 93 ramas EVALUATE en 240-MANEJA-MSG; evaluación secuencial (no tabla de salto) | P050 / COMS · 240-MANEJA-MSG | control |
+| T-HLD-004 | Consultar saldos globales: UNSTRING por FS/"@", FIND NEXT B01SXCSI, escala ÷1000 si MONEDA=1 | P050 / BD02ADSALDO · 300-GLOBALES | consulta |
+| T-HLD-005 | Acumular B01-GLO-ACTUAL/ANTES por sistema financiero; array limitado a 20 posiciones | P050 / BD02ADSALDO · sección 2225 | contable |
+| T-HLD-006 | Consultar saldo de cliente: L422 Entry 84, índice B01SXCTE, 4 opciones; error R422-CTR-ERROR → fatal | P050 / L422 (S016) · BD02ADSALDO | consulta |
+| T-HLD-007 | Enriquecer con nombre de cliente: L422 OPCION=2; R422-CTR-ERROR≠0 → SPACES (falla silenciosa) | P050 / L422 (S016) | consulta |
+| T-HLD-008 | Controlar ventana SECORE (08:00-14:05 hardcoded); umbral dormancia S080/802/LLAVE2=98; fallback 180 días (Ley IC Art. 61) | P050 / S080 · BD99CONTROL | control |
+| T-HLD-009 | Filtro SECORE: NATURALEZA=2 (MRA 032) AND ORIGEN=1/2 (MRA 031); catálogo 523 via L710_CONSUL_DETALLE | P050 / catálogo 523 · L710 | validación |
+| T-HLD-010 | Excluir 32 sucursales MEX hardcoded (140, 275...999 comodín) de concentración SECORE | P050 / WORKING-STORAGE · WKS-SUCS-EXCLUIDAS | control |
+| T-HLD-011 | Eliminar saldo: WKS-HI=500 → LIB-L006 FUN=06 → DELETE BD02ADSALDO; irreversible sin auditoría previa | P050 / LIB-L006 · BD02ADSALDO | escritura |
+| T-HLD-012 | Obtener TC USD/MXN: L700_RAF_TAR S080; fallback TC=10 PELIGROSO (tipo de cambio efectivo 1.0); sin ROUNDED | P052 / L700_RAF_TAR · S080 | contable |
+| T-HLD-013 | Enrutar a centralización: microtransacciones <$5.01 USD, CVETRANs privilegiados 618/619/708/720, fuera de rango 1.01-9999.99×TC | P052 / WORKING-STORAGE | control |
+| T-HLD-014 | Calcular días sin movimiento: THECALENDAR FUN=2; FEC-ULT-MOV=0 → dormancia automática | P052 / LOCSUP · THECALENDAR | validación |
+| T-HLD-015 | Controlar umbral ATM: CVETRAN=1001 vs R08-IMP-CVE1001 de IMPORTEP052; no persiste entre ejecuciones | P052 / A08-IMPORTES | control |
+| T-HLD-016 | Filtrar y escribir SECORE: excluir CVETRAN=3002 y 4001; refs. alternativas 2226/2227/2228/1133-1138 | P052 / output SECORE | validación |
+| T-HLD-017 | Generar CONLI portabilidad nómina (CNBV R10): 5 condiciones AND; layout 160+12+8+4 chars; A07-CONLI-INT | P052 / A07-CONLI-INT | escritura |
+| T-HLD-018 | Generar archivos Tesorería: S408 (PRODUCTO 1303/1203, tipos 02/03/04); S403 (CVETRAN=2005/2011, SUC=519/870) | P052 / E01-408-TESO-2 · A05-MOVS403 | escritura |
+| T-HLD-019 | Generar archivo Factoraje S440: TASAREF de S403 o ZERO si S500; sucursales 519/870/869 hardcoded | P052 / E04-FACTORAJE | escritura |
+| T-HLD-020 | Generar PG: CVETRAN=2227/1134/1137 AND MONEDA=5 (USD obligatorio); mismos CVETRANs MXN no generan PG | P052 / A02-PG-ARCHIVO | escritura |
+| T-HLD-021 | Generar S274/BALCON: ventana corte B05 (4 cortes/día); TIPC: TIP-CTA-TRASP=1→40(CLABE), =3→3 | P052 / A06-S274-INT · A06-S274-BAL | escritura |
+| T-HLD-022 | Detectar fraude: tabla OCCURS 5000 PIC 9(01) COMP; A10-FRAUD 211 chars; módulo MARL-FRAUDES 2020 | P052 / A10-FRAUD-ARCHIVO | escritura |
+
+#### Reglas vinculadas
+
+| Tarea | Regla | Componente fuente | Descripción |
+|-------|-------|-------------------|-------------|
+| T-HLD-001 | RN-S151-298 | COBOL_P050.txt | Inicialización LIB-L006 FUN=10; fallo → ABORT P050 |
+| T-HLD-001 | RN-S151-300 | COBOL_P050.txt | Control CTLVERS para títulos dinámicos; fallback hardcoded a producción |
+| T-HLD-001 | RN-S151-284 | COBOL_P050.txt | Mapeo 8 sistemas financieros hardcoded (CHEQUES=1, CTA MAESTRA=66, HIPOTECARIOS=600) |
+| T-HLD-001 | RN-S151-285 | COBOL_P050.txt | Mapeo CSI→nodo; override especial CSI=32→nodo=12 sin documentación |
+| T-HLD-002 | RN-S151-281 | COBOL_P050.txt | THECALENDAR FUN=18: 0=hábil (convención invertida); solo CSI=4/10 |
+| T-HLD-002 | RN-S151-282 | COBOL_P050.txt | THECALENDAR FUN=13: avance al siguiente hábil (delta "00000001") |
+| T-HLD-002 | RN-S151-297 | COBOL_P050.txt | Corrección FECCON < FECHA-MAQUINA solo CSI=4/10 |
+| T-HLD-003 | RN-S151-294 | COBOL_P050.txt | Dispatcher COMS 93 funciones en 240-MANEJA-MSG; evaluación secuencial |
+| T-HLD-004 | RN-S151-295 | COBOL_P050.txt | 300-GLOBALES: UNSTRING por FS/"@"; FIND NEXT B01SXCSI |
+| T-HLD-004 | RN-S151-283 | COBOL_P050.txt | Escala ÷1000 para MXN (MONEDA=1); otras monedas directo |
+| T-HLD-005 | RN-S151-293 | COBOL_P050.txt | Acumulación B01-GLO-ACTUAL/ANTES array[20] por sistema |
+| T-HLD-006 | RN-S151-296 | COBOL_P050.txt | L422 Entry 84, B01SXCTE, 4 opciones; fallo → fatal |
+| T-HLD-007 | RN-S151-299 | COBOL_P050.txt | L422 OPCION=2 nombre; R422-CTR-ERROR≠0 → SPACES no-fatal |
+| T-HLD-008 | RN-S151-286 | COBOL_P050.txt | Ventana SECORE hardcoded 08000000-14050000; sin excepción emergencia |
+| T-HLD-008 | RN-S151-288 | COBOL_P050.txt | Umbral dormancia S080/802/LLAVE2=98; fallback 180 días (Ley IC Art. 61) |
+| T-HLD-009 | RN-S151-289 | COBOL_P050.txt | SECORE NATURALEZA=2 (MRA 032 08-MAY-2002) |
+| T-HLD-009 | RN-S151-290 | COBOL_P050.txt | SECORE ORIGEN=1/2 (MRA 031 02-MAY-2002); acumulativo |
+| T-HLD-009 | RN-S151-291 | COBOL_P050.txt | Catálogo 523: CVETRAN → NATURALEZA via L710_CONSUL_DETALLE |
+| T-HLD-010 | RN-S151-292 | COBOL_P050.txt | 32 sucursales excluidas MEX hardcoded (140..999 comodín) |
+| T-HLD-011 | RN-S151-287 | COBOL_P050.txt | DELETE BD02ADSALDO: HI=500 → LIB-L006 FUN=06; irreversible |
+| T-HLD-012 | RN-S151-311 | COBOL_P052.txt | TC USD/MXN L700_RAF_TAR S080; fallback TC=10 → efectivo 1.0 PELIGROSO |
+| T-HLD-012 | RN-S151-312 | COBOL_P052.txt | Conversión MONEDA=5 × TC sin ROUNDED → truncamiento acumulable |
+| T-HLD-013 | RN-S151-313 | COBOL_P052.txt | Microtransacciones USD <$5.01 → centralización; bypasa filtros |
+| T-HLD-013 | RN-S151-315 | COBOL_P052.txt | CVETRANs privilegiados 618/619/708/720 → centralización directa |
+| T-HLD-013 | RN-S151-318 | COBOL_P052.txt | Rango normal 1.01×TC a 9,999.99×TC; $9,999.99 probable umbral AML |
+| T-HLD-014 | RN-S151-316 | COBOL_P052.txt | THECALENDAR FUN=2 días calendario; FEC-ULT-MOV=0 → dormante automático |
+| T-HLD-014 | RN-S151-317 | COBOL_P052.txt | IND-DORMIDA=1 → ruta alternativa; cajero virtual especial siempre centraliza |
+| T-HLD-015 | RN-S151-314 | COBOL_P052.txt | CVETRAN=1001: umbral R08-IMP-CVE1001 de IMPORTEP052; no persiste |
+| T-HLD-016 | RN-S151-320 | COBOL_P052.txt | SECORE excluye CVETRAN=3002 y 4001 |
+| T-HLD-016 | RN-S151-321 | COBOL_P052.txt | Refs. alternativas 2226/2227/2228/1133-1138; 2227 doble tratamiento |
+| T-HLD-017 | RN-S151-319 | COBOL_P052.txt | CONLI CNBV R10: 5 condiciones AND; 160+12+8+4 chars |
+| T-HLD-018 | RN-S151-322 | COBOL_P052.txt | S408: PRODUCTO 1303(MXN/USD) / 1203(UDI); tipos 02/03/04 |
+| T-HLD-018 | RN-S151-323 | COBOL_P052.txt | S403: CVETRAN=2005/2011, SUC=519/870, CAJA=62 |
+| T-HLD-019 | RN-S151-324 | COBOL_P052.txt | S440 TASAREF: preserva de S403; ZERO para S500 |
+| T-HLD-019 | RN-S151-329 | COBOL_P052.txt | Factoraje: sucursales 519/CAJA=62, 870/CAJA=62, 869/cualquier caja |
+| T-HLD-020 | RN-S151-325 | COBOL_P052.txt | PG: CVETRAN=2227/1134/1137 AND MONEDA=5; MXN no genera PG |
+| T-HLD-021 | RN-S151-326 | COBOL_P052.txt | S274: ventana B05 hasta 4 cortes/día; BLOCK 42 records |
+| T-HLD-021 | RN-S151-327 | COBOL_P052.txt | BALCON: WKS-TAB-CLAVE-VALBCL flag=10 AND ORIGEN=1/3 |
+| T-HLD-021 | RN-S151-328 | COBOL_P052.txt | TIPC: TIP-CTA-TRASP=1→40(CLABE), =3→3; sin validación módulo 10 |
+| T-HLD-022 | RN-S151-330 | COBOL_P052.txt | Fraude OCCURS 5000 PIC 9(01) COMP; A10-FRAUD 211 chars; MARL-FRAUDES 2020 |
 
 ---
 
@@ -454,6 +538,70 @@
 | T-ORC-011 | RN-S500-158 | S500_INC_PRO_CAN.txt | Contingencia S151: encolar en archivo si WS-88-EN-CONTINGENCIA-S151=TRUE |
 | T-ORC-013 | RN-S500-159 | S500_INC_PRO_CAN.txt | Rechazos STATUS>0: log + R06 en BATCHP130 (5 CVETRANs e importes) |
 | T-ORC-015 | RN-S500-172 | S500_INC_WOR_CAN.txt | Contadores monitoreo: NUM-CALL(6d) · TOT-MOVS-ENV(8d) · NUM-MOVS-ENV(2d) |
+
+---
+
+### STA — Statements — Generador MOVSXCONT P158 [S500+S151]
+> Dominio: 6 · Common Services · Capacidad: 6.1.4
+> Programa: P158 (Generador MOVSXCONT) · Reglas: RN-S151-361..390
+> Nota: reglas etiquetadas T.3.4 por el extractor; re-mapeadas a BIAN 6.1.4 Statements (contenido es generación de estado de cuenta cliente, no reporte regulatorio interno)
+
+#### Inventario de Tareas
+
+| ID | Tipo | Descripción | Reglas fuente |
+|----|------|-------------|---------------|
+| T-STA-001 | control | Validar W77-SIST-PARAM ∈ {500,408,84,87,407,404,017}; 407/408 → alias "408"; fuera del conjunto → STOP RUN | RN-S151-361 |
+| T-STA-002 | arquitectura | 9 archivos de salida: 6×X(840)→S050 (MOVSXCONT y variantes) + 3×X(581)→S502/S701/S087; auxiliares REPDEVOL/TOTAL/LOG151×2/MOVBONIFICA | RN-S151-362 |
+| T-STA-003 | estructural | Sort 9 campos en ARCH-ORD: SUBNODO+SUCPROM+TIPO-PROD+CONTRATO+PROD+INSTRUM+SUCOPER+CAJAOPER+AUTS151; cuerpo X(739) post-Y2K; ruptura por WKS-LLAVE-ACTUAL≠ANTERIOR | RN-S151-363, RN-S151-371 |
+| T-STA-004 | escritura | MOVSXCONT con NODO-ORIGEN(2)/NODO-DESTINO(2) en nombre externo para paralelismo multi-nodo; MOVSXCONT-500 solo si SIST-PARAM=500 estrictamente | RN-S151-364, RN-S151-376 |
+| T-STA-005 | funcional | Gestión fechas período A2K-BRIDGE-EDOCTA-* en CCAAMMDD(8); pivote Y2K A2K-BASE-YEAR VALUE 50 (AA<50→2000+AA; AA>=50→1900+AA); expira 2049 | RN-S151-375, RN-S151-389 |
+| T-STA-006 | estructural | ARCH-ORD cuerpo X(739) post-CRONOS2K; CVECAUSA/FECDEV/BCO-ORI/DES/CVES-IMP×5/campos SUBC; WKS-SORT-HORA HH+MM+DD ("DD" probable mislabeling de segundos) | RN-S151-370, RN-S151-372, RN-S151-374 |
+| T-STA-007 | funcional | S087: WKS-SORT-REF-S087 REDEFINES REFERENCIA como PM(2)+NUMERO(14); MOVSXCONT-087 con path "S151MOV" para diferenciación en S050 | RN-S151-373, RN-S151-379 |
+| T-STA-008 | integración | MOVSXCONTESOF → S502 (CFDI/SAT); sufijo "ON IMPUESTOS"; X(581) | RN-S151-377 |
+| T-STA-009 | integración | MOVSXCONTESOF2 → S701/TESOFE (pagos gubernamentales); sufijo "ON PAGOS"; X(581) | RN-S151-378 |
+| T-STA-010 | control | Punteo S500: SALS500 en `S151/FILE/S{SIS}/PBATCH/{CSI}/{FEC}`; verifica residencia en mismo pack | RN-S151-380 |
+| T-STA-011 | operativo | Valida presencia P170 en CMEMP; genera WFL dinámicamente `BEGIN JOB; RUN {PROG}; VALUE={FP170}; END JOB.` + CALL SYSTEM WFL (patrón auto-submisión MCP) | RN-S151-381, RN-S151-382 |
+| T-STA-012 | control | CONSISDIA IN S151LIBCONTROL: FECPROC + NOMPACMOV de BD99; ATTRIBUTE VALUE OF MYSELF=0 → fecha BD99 (reprocesos); itera OCC-FECHAS OCCURS 10 | RN-S151-384, RN-S151-387, RN-S151-390 |
+| T-STA-013 | estructural | WKS-LLAVE-CTA(16) REDEFINES CTA-1(15)+CTA-2(1); WKS-LLAVE-NOD: NOD+SUBNODO como prefijo | RN-S151-385 |
+| T-STA-014 | operativo | LOG151 DISK secuencial 450B (audit trail principal); LOG151-COMP DISK RANDOM 540B (descriptivos); WKS-CIERRA-DESC antes del CLOSE | RN-S151-365, RN-S151-366, RN-S151-386 |
+| T-STA-015 | reporte | REPDEVOL (PRINTER X(132)): solo si hay devoluciones — obligatorio CONDUSEF; MOVBONIFICA: solo si hay bonificaciones; TOTAL: solo SIST=500 AND NUMCSI=10 | RN-S151-367, RN-S151-368, RN-S151-369 |
+| T-STA-016 | dato-negocio | Historial de productos captación cubiertos: 66/8, 66/9, 66/10, 500/1, 66/11, 66/12, 66/14, 66/90, 66/15; codificación PRODUCTO/INSTRUMENTO | RN-S151-383 |
+| T-STA-017 | estructural | Tabla meses hardcodeada X(36) = "ENEFEBMARABRMAYJUNJULAGOSEPOCTNOVDIC"; OCCURS 12×X(3); acceso fuera de rango (MM∉1..12) referencia memoria fuera del array | RN-S151-388 |
+
+#### Reglas vinculadas
+
+| Tarea | Regla | Componente fuente | Descripción |
+|-------|-------|-------------------|-------------|
+| T-STA-001 | RN-S151-361 | P158 MOVSXCONT | Validación SIST-PARAM: conjunto {500,408,84,87,407,404,017}; 407/408→alias "408"; fuera→STOP RUN |
+| T-STA-002 | RN-S151-362 | P158 MOVSXCONT | 9 archivos primarios: 6×X(840)→S050 + 3×X(581)→S502/S701/S087; más auxiliares |
+| T-STA-003 | RN-S151-363 | P158 MOVSXCONT | Clave sort 9 campos ARCH-ORD; cuerpo X(739) post-Y2K |
+| T-STA-004 | RN-S151-364 | P158 MOVSXCONT | MOVSXCONT-500 condicional: solo SIST-PARAM=500; sistema 408 (alias) no lo genera |
+| T-STA-014 | RN-S151-365 | P158 MOVSXCONT | LOG151 DISK secuencial 450B; audit trail principal de P158 |
+| T-STA-014 | RN-S151-366 | P158 MOVSXCONT | LOG151-COMP DISK RANDOM 540B; descriptivos adicionales por W77-LOG-KEY |
+| T-STA-015 | RN-S151-367 | P158 MOVSXCONT | REPDEVOL PRINTER X(132): generación condicional; obligatorio CONDUSEF |
+| T-STA-015 | RN-S151-368 | P158 MOVSXCONT | MOVBONIFICA PRINTER: generación condicional cuando hay bonificaciones |
+| T-STA-015 | RN-S151-369 | P158 MOVSXCONT | TOTAL PRINTER: solo SIST=500 AND NUMCSI=10; resumen ALR/AHR/ACC |
+| T-STA-006 | RN-S151-370 | P158 MOVSXCONT | Y2K CRONOS2K: ARCH-ORD expandido X(739); FECCONT/FECHVAL/FECOPER de 6→8 dígitos |
+| T-STA-003 | RN-S151-371 | P158 MOVSXCONT | Sort primario SUBNODO→CONTRATO; secundario PROD→AUTS151; paralelismo por nodo |
+| T-STA-006 | RN-S151-372 | P158 MOVSXCONT | WKS-SORT-REG: CVECAUSA(4), FECDEV(8), BCO-ORI/DES(5), CVES-IMP×5, campos SUBC |
+| T-STA-007 | RN-S151-373 | P158 MOVSXCONT | S087: REDEFINES REFERENCIA como PM(2)+NUMERO(14); MOVSXCONT-087 path S151MOV |
+| T-STA-006 | RN-S151-374 | P158 MOVSXCONT | WKS-SORT-HORA HH(2)+MM(2)+DD(2): subcampo "DD" probable mislabeling de segundos |
+| T-STA-005 | RN-S151-375 | P158 MOVSXCONT | A2K-BRIDGE-EDOCTA-*: FECINI, FECFIN, HDR-FEC-BASE, MOV-FECPROC en CCAAMMDD(8) |
+| T-STA-004 | RN-S151-376 | P158 MOVSXCONT | NODO-ORIGEN(2)/NODO-DESTINO(2) en nombre externo; paralelismo multi-nodo sin colisión |
+| T-STA-008 | RN-S151-377 | P158 MOVSXCONT | MOVSXCONTESOF → S502; "ON IMPUESTOS"; X(581); base para CFDI/SAT |
+| T-STA-009 | RN-S151-378 | P158 MOVSXCONT | MOVSXCONTESOF2 → S701/TESOFE; "ON PAGOS"; X(581) |
+| T-STA-007 | RN-S151-379 | P158 MOVSXCONT | MOVSXCONT-087 path especial "S151MOV" vs "MOV" estándar para S050 |
+| T-STA-010 | RN-S151-380 | P158 MOVSXCONT | SALS500 punteo en PBATCH; CSI(2) diferencia por Centro de Servicios |
+| T-STA-011 | RN-S151-381 | P158 MOVSXCONT | WKS-TIT-INMOV: valida P170 en CMEMP antes de continuar |
+| T-STA-011 | RN-S151-382 | P158 MOVSXCONT | Auto-submisión WFL: `BEGIN JOB; RUN {PROG}; VALUE={FP170}; END JOB.` |
+| T-STA-016 | RN-S151-383 | P158 MOVSXCONT | Historial productos: 66/8..66/15, 500/1; codificación PRODUCTO/INSTRUMENTO |
+| T-STA-012 | RN-S151-384 | P158 MOVSXCONT | CONSISDIA: FECPROC + NOMPACMOV de BD99; doble fuente fecha para reprocesos |
+| T-STA-013 | RN-S151-385 | P158 MOVSXCONT | WKS-LLAVE-CTA(16): CTA-1(15)+CTA-2(1); WKS-LLAVE-NOD: NOD+SUBNODO prefijo |
+| T-STA-014 | RN-S151-386 | P158 MOVSXCONT | WKS-CIERRA-DESC: FUNCION+LOGDESC1+LOGDESC2; actualizar antes del CLOSE LOG151-COMP |
+| T-STA-012 | RN-S151-387 | P158 MOVSXCONT | OCC-FECHAS OCCURS 10: ciclos históricos en BD99; búsqueda con W77-IND3 |
+| T-STA-017 | RN-S151-388 | P158 MOVSXCONT | WKS-TABLA-MESES X(36): "ENE..DIC"; OCCURS 12×X(3); hardcodeado para encabezados |
+| T-STA-005 | RN-S151-389 | P158 MOVSXCONT | A2K-BASE-YEAR VALUE 50: AA<50→2000+AA; AA>=50→1900+AA; expira 2049 |
+| T-STA-012 | RN-S151-390 | P158 MOVSXCONT | WKS-151-DATOS: NUMBASE+CSI+FECPROC+FECBASE1/2/3+STATUS1/2/3; STATUS=0=inactiva |
 
 ---
 
@@ -867,6 +1015,6 @@
 
 ---
 
-*task-process-rules-index.md · v1.3 · 2026-07-16*
-*Fuente: cap-gl · cap-rec · cap-tar · cap-sec · cap-cmp · cap-pay · cap-int · cap-orc · cap-sch · cap-ods · cap-rpt · cap-adj*
-*Swarm: 12 agentes en paralelo + coordinador · Total: 233 tareas · 294 reglas vinculadas · 826 reglas en catálogo*
+*task-process-rules-index.md · v1.4 · 2026-07-16*
+*Fuente: cap-gl · cap-rec · cap-tar · cap-sec · cap-cmp · cap-pay · cap-int · cap-orc · cap-sch · cap-ods · cap-rpt · cap-adj · cap-dep · cap-tel · cap-hld · cap-sta*
+*Swarm: 16 agentes en paralelo + coordinador · Total: 306 tareas · 413 reglas vinculadas · 826 reglas en catálogo*
