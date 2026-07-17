@@ -11,8 +11,8 @@
 |---------|-------|
 | Capacidades en el modelo | 104 |
 | Cubiertas por S500 o S151 | 20 (19.2%) |
-| `cap-{slug}.md` generados | 10 / 20 |
-| `cap-{slug}.md` pendientes | 10 / 20 |
+| `cap-{slug}.md` generados | 11 / 20 |
+| `cap-{slug}.md` pendientes | 9 / 20 |
 | Reglas disponibles para doc. | 826 (644 S151 + 182 S500) |
 
 ---
@@ -128,7 +128,7 @@
 | T.3.1 | Master Data Mgmt. | Transversal | — | — | _(gap)_ |
 | T.3.2 | Metadata Mgmt. | Transversal | — | — | _(gap)_ |
 | T.3.3 | Content Mgmt. | Transversal | — | — | _(gap)_ |
-| **T.3.4** | **Analytics / Reporting** | **Transversal** | **S151** | pendiente | ⏳ |
+| **T.3.4** | **Analytics / Reporting** | **Transversal** | **S151** | [cap-rpt.md](capacidades/cap-rpt.md) | ✅ |
 | **T.3.5** | **Security** | **Transversal** | **S500+S151** | [cap-sec.md](capacidades/cap-sec.md) | ✅ |
 
 ---
@@ -150,7 +150,7 @@
 | P1 | Access Control | ACC | S500 | RN-S500-027..036 (P655, compartido SEC) | L010_CONTROL + P655 scrambling |
 | P1 | Deposits | DEP | S500 | RN-S500-NNN (P100 + P020) | Cuentas de captación — productos de depósito |
 | P1 | Payment Schemes (SPEI/CLABE) | SPI | S500 | RN-S500-NNN (L091-L093) | SPEI + CLABE + MQ async |
-| P2 | Analytics / Reporting | RPT | S151 | RN-S151-421..490 (P199+P610+P612+P677) | Reportes Serie B CNBV |
+| ✅ DONE | Analytics / Reporting | RPT | S151 | RN-S151-421..490 (P199+P610+P612+P677) | Reportes Serie B CNBV · P199 bridge · P610 dispatcher |
 | P2 | Operational Reconciliation (Teller) | TEL | S500 | pendiente | Teller / canal sucursal |
 
 ---

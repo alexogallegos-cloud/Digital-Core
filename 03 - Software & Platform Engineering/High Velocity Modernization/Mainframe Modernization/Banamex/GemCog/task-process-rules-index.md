@@ -19,7 +19,8 @@
 | SCH | Scheduling — Cierre Día + Oracle Fechas | 8.1.1 | Technology Tools | S500+S151 | 15 | 18 | [cap-sch.md](capacidades/cap-sch.md) |
 | ODS | Operational Data Stores — Modelo DMSII | 9.1.1 | Insights & Information | S500+S151 | 27 | 35 (+4 pend.) | [cap-ods.md](capacidades/cap-ods.md) |
 | SEC | Security — Enmascaramiento PII | T.3.5 | Transversal | S500 | 10 | 11 (+1 pend.) | [cap-sec.md](capacidades/cap-sec.md) |
-| **Total** | | | | | **164** | **187** | |
+| RPT | Analytics/Reporting — Ciclo Control + Reporte Regulatorio | T.3.4 | Transversal | S151 | 31 | 70 | [cap-rpt.md](capacidades/cap-rpt.md) |
+| **Total** | | | | | **195** | **257** | |
 
 **Tipos de tarea:** `validación` · `consulta` · `escritura` · `contable` · `control` · `seguridad` · `reporte`
 
@@ -595,6 +596,143 @@
 
 ---
 
+### RPT — Analytics/Reporting — Ciclo de Control + Migración Regulatoria [S151]
+> Dominio: T · Transversal · Capacidad: T.3.4
+> Programas: P199 (CTASMIGCAP) · P610 (CALLLIBCTL) · P612 (WFL Dispatcher) · P677 (Control Generator)
+> Reglas: RN-S151-421..490 (70 reglas)
+
+#### Inventario de Tareas
+
+##### P199 — CTASMIGCAP: Puente Migración S500→S151
+
+| ID | Tarea | Componente fuente | Tipo |
+|----|-------|-------------------|------|
+| T-RPT-001 | Validar y cargar gate de migración desde catálogo 1565 de S080BD01CON (WKS-IND-MIGRACION) | P199 | control |
+| T-RPT-002 | Cargar catálogo CVETRAN (CAT6, tipos 4/5/6) desde S080BD01CON vía L710 paginado | P199 | control |
+| T-RPT-003 | Posicionar SEEK en MOVS500 al último AUT-S500 procesado +1 (reanudación por checkpoint CTLP199) | P199 | control |
+| T-RPT-004 | Filtrar registros por SUCTRAN=342 / CAJATRAN=36 (hardcodeado) | P199 | validación |
+| T-RPT-005 | Alta de movimiento en B08TDMIGCAP (FUNCION=1, condición triple: no-duplicado + CAT6 + filtro) | P199 | escritura |
+| T-RPT-006 | Cancelación de movimiento por autorización S151 (FUNCION=2, STATUS="CA") | P199 | escritura |
+| T-RPT-007 | Cancelación masiva por tipo de proceso (FUNCION=21, LOCK FIRST/NEXT B08SXFECNUMPRO) | P199 | escritura |
+| T-RPT-008 | Cancelación por rango de autorización (FUNCION=22, AUT-S151 > límite en B08SXFECAUT) | P199 | escritura |
+| T-RPT-009 | Acumular totales por BIN en tabla de memoria (máx 10 BINs; clasificar NATC=9 vs resto) | P199 | contable |
+| T-RPT-010 | Generar reporte R01-TOTALES (CEROS / CON ABONO / SOBREGIRO por BIN) al fin de ejecución | P199 | reporte |
+| T-RPT-011 | Commit por lotes de 20,000 registros (END-TRANSACTION AUDIT S151B99REINICTL + actualizar CTLP199) | P199 | control |
+| T-RPT-012 | Abrir S151BD13BIFIN UPDATE con retry hasta 6 intentos (WAIT 10s entre intentos) | P199 | control |
+| T-RPT-013 | Manejar duplicados B08 como no-fatal: log + continuar; otros errores → DMTERMINATE | P199 | control |
+
+##### P610 — CALLLIBCTL: Dispatcher LibCtl
+
+| ID | Tarea | Componente fuente | Tipo |
+|----|-------|-------------------|------|
+| T-RPT-014 | F01 — Grabar tamaño de ciclo actual en B03SISMEN | P610 | control |
+| T-RPT-015 | F02 — Desactivar base completa (STABDSAL=99) | P610 | control |
+| T-RPT-016 | F03 — Enviar señal fin de día a L002 (selección formato 6DIG vs 8DIG por sistema) | P610 | control |
+| T-RPT-017 | F04 — Desactivar ciclo (STABDSAL=1) | P610 | control |
+| T-RPT-018 | F05 — Grabar STABDSAL con valor explícito (1 / 3 / 5 / 99) | P610 | control |
+| T-RPT-019 | F06 — Actualizar ESTATUS en B04SISTEM (rango válido 2-4) | P610 | control |
+| T-RPT-020 | F07 — Crear archivo S804-E01-MOV vacío con cabecera HDR + trailer TLR | P610 | escritura |
+| T-RPT-021 | F08 — Actualizar fechas FECPRO/FECCON/FECPRO151 en registros CONTROL y CORP | P610 | escritura |
+| T-RPT-022 | F09 — Generar archivo TANDEM para ICA (destino Banxico, ruta XFER hardcodeada) | P610 | reporte |
+
+##### P612 — WFL Dispatcher Online
+
+| ID | Tarea | Componente fuente | Tipo |
+|----|-------|-------------------|------|
+| T-RPT-023 | Escanear archivos EJECUCIONWFL 01-99 por OPCION y STATUS=0 (primera coincidencia) | P612 | control |
+| T-RPT-024 | Despachar WFL sin parámetro (START simple) | P612 | control |
+| T-RPT-025 | Despachar WFL con parámetro (START con comillas, valor entre comillas dobles) | P612 | control |
+| T-RPT-026 | Marcar STATUS=1 en EJECUCIONWFL para prevenir re-ejecución del mismo WFL | P612 | control |
+
+##### P677 — Generador Datasets Control
+
+| ID | Tarea | Componente fuente | Tipo |
+|----|-------|-------------------|------|
+| T-RPT-027 | Gate inicial CONSISDIA F01 — validar consistencia del día antes de generar | P677 | validación |
+| T-RPT-028 | Validar día hábil y calcular número de día en ciclo (THECALENDAR F18 y F06) | P677 | control |
+| T-RPT-029 | Poblar FECARCMOV para días hábiles del período (tabla de fechas de archivo) | P677 | escritura |
+| T-RPT-030 | Gestionar buffer circular B03SISMEN — reemplazar ciclo más antiguo (MANTSISMEN F37) | P677 | control |
+| T-RPT-031 | Generar archivos de control F10-F19 (loop computado) solo cuando ESTATUS=3; cargar LIB-L002 | P677 | escritura |
+
+#### Reglas vinculadas
+
+| Tarea | Regla | Componente fuente | Descripción |
+|-------|-------|-------------------|-------------|
+| T-RPT-001 | RN-S151-421 | P199 | CTASMIGCAP: identidad como puente cross-system S500→S151 |
+| T-RPT-001 | RN-S151-422 | P199 | Gate catálogo 1565 — habilita/bloquea migración del día |
+| T-RPT-001 | RN-S151-444 | P199 | Override de fecha por TASKVALUE |
+| T-RPT-001 | RN-S151-445 | P199 | CSI routing: VDM vs MTY según NUMCSI-HOST |
+| T-RPT-001 | RN-S151-447 | P199 | Inicialización CTLP199 si no existe |
+| T-RPT-001 | RN-S151-448 | P199 | Ruta dinámica MOVS500 por sistema y fecha |
+| T-RPT-001 | RN-S151-449 | P199 | Ruta dinámica CTLP199 en pack CMEMP |
+| T-RPT-001 | RN-S151-450 | P199 | S080L710: catálogos CAT6 y CAT1565 por paginación |
+| T-RPT-002 | RN-S151-425 | P199 | Catálogo CVETRAN (CAT6) cargado de S080BD01CON al inicio |
+| T-RPT-002 | RN-S151-426 | P199 | Solo tipos 4/5/6 del CAT6 son cargados al catálogo de migración |
+| T-RPT-003 | RN-S151-423 | P199 | Reanudación por posición: SEEK al registro AUT-S500+1 |
+| T-RPT-003 | RN-S151-446 | P199 | Display file: rotación al superar 6,500 registros |
+| T-RPT-004 | RN-S151-424 | P199 | Filtro hardcodeado: SUCTRAN=342, CAJATRAN=36 |
+| T-RPT-004 | RN-S151-427 | P199 | Loop de 5 ocurrencias CVETRAN/IMPORTE por registro MOVS500 |
+| T-RPT-005 | RN-S151-428 | P199 | Función 1: alta de movimiento en B08 (condición triple) |
+| T-RPT-005 | RN-S151-432 | P199 | Estructura del registro B08TDMIGCAP |
+| T-RPT-005 | RN-S151-433 | P199 | STATUS "AC"/"CA": ciclo de vida del registro migrado |
+| T-RPT-005 | RN-S151-438 | P199 | Índices DMSII: tres sets sobre B08TDMIGCAP |
+| T-RPT-006 | RN-S151-429 | P199 | Función 2: cancelación por (FEC-MIG, AUT-S151) |
+| T-RPT-007 | RN-S151-430 | P199 | Función 21: cancelación masiva por tipo de proceso |
+| T-RPT-008 | RN-S151-431 | P199 | Función 22: cancelación por rango de autorización |
+| T-RPT-009 | RN-S151-434 | P199 | Acumulación por BIN: tabla de hasta 10 entradas en memoria |
+| T-RPT-009 | RN-S151-435 | P199 | Clasificación importe por NATC: saldo/alta/cero |
+| T-RPT-010 | RN-S151-441 | P199 | Reporte R01-TOTALES: tres categorías por BIN |
+| T-RPT-011 | RN-S151-436 | P199 | Commit transaccional por lotes de 20,000 registros |
+| T-RPT-011 | RN-S151-439 | P199 | Auditoría DMSII vía S151B99REINICTL (NO-AUDIT/AUDIT) |
+| T-RPT-012 | RN-S151-437 | P199 | DMSII S151BD13BIFIN: apertura con retry hasta 6 intentos |
+| T-RPT-013 | RN-S151-440 | P199 | Duplicados B08: no fatal, log y continúa |
+| T-RPT-013 | RN-S151-442 | P199 | Interrupción HI-4: parada controlada |
+| T-RPT-013 | RN-S151-443 | P199 | Interrupción HI-6: parada de emergencia sin checkpoint |
+| T-RPT-014 | RN-S151-452 | P610 | F01: graba tamaño de ciclo en B03SISMEN |
+| T-RPT-015 | RN-S151-453 | P610 | F02: desactiva base con STABDSAL=99 |
+| T-RPT-016 | RN-S151-455 | P610 | F03: envía señal fin de día a L002 (Función 98) |
+| T-RPT-016 | RN-S151-456 | P610 | F03: selección formato 6DIG vs 8DIG por sistema |
+| T-RPT-017 | RN-S151-454 | P610 | F04: desactiva ciclo con STABDSAL=1 |
+| T-RPT-018 | RN-S151-457 | P610 | F05: graba STABDSAL (valores 1, 3, 5, 99) |
+| T-RPT-019 | RN-S151-458 | P610 | F06: actualiza ESTATUS en B04SISTEM (rango 2-4) |
+| T-RPT-020 | RN-S151-459 | P610 | F07: crea archivo S804-E01-MOV vacío (HDR+TLR) |
+| T-RPT-021 | RN-S151-460 | P610 | F08: actualiza fechas en CONTROL/CORP |
+| T-RPT-022 | RN-S151-461 | P610 | F09: genera archivo TANDEM para ICA (Banxico) |
+| T-RPT-022 | RN-S151-462 | P610 | F09: ruta XFER del archivo ICA (destino hardcodeado) |
+| T-RPT-014 | RN-S151-451 | P610 | P610 es CALLLIBCTL: dispatcher de 9 funciones |
+| T-RPT-013 | RN-S151-463 | P610 | P610: función inválida → terminación anormal |
+| T-RPT-013 | RN-S151-464 | P610 | P610: carga de LIBCTL via CTLVERS con fallback |
+| T-RPT-013 | RN-S151-465 | P610 | P610: CANCEL de SOPORTECOMS y CTLVER post-uso |
+| T-RPT-023 | RN-S151-466 | P612 | P612: dispatcher WFL para LINEA online |
+| T-RPT-023 | RN-S151-467 | P612 | P612: escaneo de archivos EJECUCIONWFL 01-99 |
+| T-RPT-023 | RN-S151-468 | P612 | P612: match por OPCION y STATUS=0 |
+| T-RPT-024 | RN-S151-469 | P612 | P612: WFL sin parámetro — START simple |
+| T-RPT-025 | RN-S151-470 | P612 | P612: WFL con parámetro — START con comillas |
+| T-RPT-026 | RN-S151-471 | P612 | P612: STATUS=1 previene re-ejecución |
+| T-RPT-023 | RN-S151-472 | P612 | P612: primera coincidencia — solo un WFL por llamada |
+| T-RPT-025 | RN-S151-473 | P612 | P612: open I-O para escritura de STATUS |
+| T-RPT-023 | RN-S151-474 | P612 | P612: sin manejo de error de WFL (sin verificación post-START) |
+| T-RPT-023 | RN-S151-475 | P612 | P612: sin librerías externas — dispatcher puro |
+| T-RPT-027 | RN-S151-476 | P677 | P677: generador de datasets de control de sistema |
+| T-RPT-028 | RN-S151-477 | P677 | P677: validación de día hábil (THECALENDAR F18) |
+| T-RPT-028 | RN-S151-478 | P677 | P677: número de día en ciclo (THECALENDAR F06) |
+| T-RPT-029 | RN-S151-479 | P677 | P677: población de FECARCMOV para días hábiles |
+| T-RPT-029 | RN-S151-480 | P677 | P677: tres fechas igualadas a WKS-PARAM-FECHA |
+| T-RPT-027 | RN-S151-481 | P677 | P677: CONSISDIA F01 como gate inicial |
+| T-RPT-030 | RN-S151-482 | P677 | P677: B03SISMEN — búsqueda por AAMM actual |
+| T-RPT-030 | RN-S151-483 | P677 | P677: reemplazo del ciclo más antiguo (circular buffer) |
+| T-RPT-030 | RN-S151-484 | P677 | P677: MANTSISMEN F37 commit condicional |
+| T-RPT-027 | RN-S151-485 | P677 | P677: B04SISTEM — lectura con PRODUCTO=0, INSTRUM=0 |
+| T-RPT-031 | RN-S151-486 | P677 | P677: ESTATUS=3 dispara generación de archivos |
+| T-RPT-031 | RN-S151-487 | P677 | P677: cierre de archivos F10-F19 (loop computado) |
+| T-RPT-031 | RN-S151-488 | P677 | P677: LIB-L002 cargada solo con ESTATUS=3 |
+| T-RPT-027 | RN-S151-489 | P677 | P677: patrón de error universal → STATUS=-1 |
+| T-RPT-027 | RN-S151-490 | P677 | P677: parámetros de entrada sistema y fecha |
+
+> **Nota P199**: `[RIESGO-EQUIVALENCIA]` — P199 es el único puente S500↔S151 y debe rediseñarse (no migrarse) en la modernización. La lógica de transformación debe mapearse a integración event-driven entre los sistemas modernos equivalentes.
+
+---
+
 ## Pendientes de vinculación (resumen)
 
 | Capacidad | Reglas sin mapear | Descripción |
@@ -607,6 +745,6 @@
 
 ---
 
-*task-process-rules-index.md · v1.1 · 2026-07-16*
-*Fuente: capacidades/cap-gl.md · cap-rec.md · cap-tar.md · cap-sec.md · cap-cmp.md · cap-pay.md · cap-int.md · cap-orc.md · cap-sch.md · cap-ods.md*
-*Swarm: 10 agentes en paralelo + coordinador · Total: 164 tareas · 187 reglas vinculadas*
+*task-process-rules-index.md · v1.2 · 2026-07-16*
+*Fuente: cap-gl · cap-rec · cap-tar · cap-sec · cap-cmp · cap-pay · cap-int · cap-orc · cap-sch · cap-ods · cap-rpt*
+*Swarm: 11 agentes en paralelo + coordinador · Total: 195 tareas · 257 reglas vinculadas · 826 reglas en catálogo*
