@@ -11,9 +11,9 @@
 |---------|-------|
 | Capacidades en el modelo | 104 |
 | Cubiertas por S500 o S151 | 20 (19.2%) |
-| `cap-{slug}.md` generados | 5 / 20 |
-| `cap-{slug}.md` pendientes | 15 / 20 |
-| Reglas disponibles para doc. | 732 (550 S151 + 182 S500) |
+| `cap-{slug}.md` generados | 10 / 20 |
+| `cap-{slug}.md` pendientes | 10 / 20 |
+| Reglas disponibles para doc. | 826 (644 S151 + 182 S500) |
 
 ---
 
@@ -80,9 +80,9 @@
 | 5.1.9 | Custody & Funded Adm. | Product Processing | — | — | _(gap)_ |
 | 6.1.1 | Master Contract Mgmt. | Common Services | — | — | _(gap)_ |
 | 6.1.2 | Cash Mgmt. | Common Services | — | — | _(gap)_ |
-| **6.1.3** | **Payments** | **Common Services** | **S500** | pendiente | ⏳ |
+| **6.1.3** | **Payments** | **Common Services** | **S500** | [cap-pay.md](capacidades/cap-pay.md) | ✅ |
 | **6.1.4** | **Statements** | **Common Services** | **S500** | pendiente | ⏳ |
-| **6.1.5** | **Interest & Fees** | **Common Services** | **S500** | pendiente | ⏳ |
+| **6.1.5** | **Interest & Fees** | **Common Services** | **S500** | [cap-int.md](capacidades/cap-int.md) | ✅ |
 | 6.2.1 | Operational Risk | Common Services | — | — | _(gap)_ |
 | 6.2.2 | Financial Risk | Common Services | — | — | _(gap)_ |
 | 6.3.1 | AML | Common Services | — | — | _(gap)_ |
@@ -98,12 +98,12 @@
 | 6.6.2 | Non Financial Servicing | Common Services | — | — | _(gap)_ |
 | 6.6.3 | Intelligent Servicing (RPA) | Common Services | — | — | _(gap)_ |
 | **6.7.1** | **Financial Reconciliation** | **Common Services** | **S151** | [cap-rec.md](capacidades/cap-rec.md) | ✅ |
-| **6.7.2** | **Operational Reconciliation** | **Common Services** | **S500+S151** | pendiente | ⏳ |
+| **6.7.2** | **Operational Reconciliation** | **Common Services** | **S500+S151** | [cap-orc.md](capacidades/cap-orc.md) | ✅ |
 | **7.1.1** | **Finance (GL)** | **Enterprise Support Functions** | **S151** | [cap-gl.md](capacidades/cap-gl.md) | ✅ |
 | 7.1.2 | Talent & Organisation | Enterprise Support Functions | — | — | _(gap)_ |
 | 7.1.3 | IT | Enterprise Support Functions | — | — | _(gap)_ |
 | 7.1.4 | Corporate Services | Enterprise Support Functions | — | — | _(gap)_ |
-| **8.1.1** | **Scheduling** | **Technology Tools** | **S500+S151** | pendiente | ⏳ |
+| **8.1.1** | **Scheduling** | **Technology Tools** | **S500+S151** | [cap-sch.md](capacidades/cap-sch.md) | ✅ |
 | 8.1.2 | Business Process Mgmt. | Technology Tools | — | — | _(gap)_ |
 | 8.1.3 | AI Tools | Technology Tools | — | — | _(gap)_ |
 | 8.1.4 | EA Tools | Technology Tools | — | — | _(gap)_ |
@@ -111,7 +111,7 @@
 | 8.1.6 | Collaboration & Productivity | Technology Tools | — | — | _(gap)_ |
 | 8.1.7 | Project Management | Technology Tools | — | — | _(gap)_ |
 | 8.1.8 | RPA Tools | Technology Tools | — | — | _(gap)_ |
-| **9.1.1** | **Operational Data Stores** | **Insights & Information** | **S500+S151** | pendiente | ⏳ |
+| **9.1.1** | **Operational Data Stores** | **Insights & Information** | **S500+S151** | [cap-ods.md](capacidades/cap-ods.md) | ✅ |
 | 9.1.2 | Event Streams | Insights & Information | — | — | _(gap)_ |
 | 9.1.3 | Data Lakes | Insights & Information | — | — | _(gap)_ |
 | **10.1.1** | **Access Control** | **Integration & Interfaces** | **S500** | pendiente | ⏳ |
@@ -142,12 +142,16 @@
 | ✅ DONE | Financial Reconciliation | REC | S151 | RN-S151-001..020 (20, P112) | Conciliación diaria S500↔S151 — riesgo contable |
 | ✅ DONE | Security | SEC | S500+S151 | RN-S500-027..036 (10, P655) | PCI-DSS — scrambling de datos sensibles |
 | ✅ DONE | Compliance & Regulation | CMP | S500+S151 | RN-S500-001..008 (P103 FraudLink) | Regulatorio CNBV — reporte FraudLink |
-| P1 | Scheduling | SCH | S500+S151 | RN-S500-022..026 (P075 cierre día) | Control batch — gate de cierre diario |
-| P1 | Interest & Fees | INT | S500 | RN-S500-079..107 (29, P130-S500) | Cálculo intereses + retención ISR |
-| P2 | Operational Data Stores | ODS | S500+S151 | RN-S151-491..525 (DASDL) | Modelo DMSII — 6 bases de datos |
-| P2 | Access Control | ACC | S500 | RN-S500-027..036 (P655, compartido SEC) | L010_CONTROL + P655 scrambling |
-| P2 | Payments | PAY | S500 | RN-S500-108..152 (P020 LINCOMS) | Cargos y abonos core — incluyendo DIVESTITURE flag |
-| P2 | Operational Reconciliation | ORC | S500+S151 | RN-S500-153..182 (S151REGISTRA) | Flag compilación condicional — 2 variantes REGISTRA1/2 |
+| ✅ DONE | Scheduling | SCH | S500+S151 | RN-S500-009..026 (P100+P075) | Control batch — gate de cierre diario |
+| ✅ DONE | Interest & Fees | INT | S500 | RN-S500-079..107 (29, P130-S500) | Cálculo intereses + retención ISR |
+| ✅ DONE | Operational Data Stores | ODS | S500+S151 | RN-S151-491..525 (DASDL, 6 BDs) | Modelo DMSII — BD10·BD11·BD12·BD13·BD99·BD02 |
+| ✅ DONE | Payments | PAY | S500 | RN-S500-108..152 (P020 LINCOMS) | Cargos y abonos core — incluyendo DIVESTITURE flag |
+| ✅ DONE | Operational Reconciliation | ORC | S500+S151 | RN-S500-153..182 (S151REGISTRA) | Flag compilación condicional — 2 variantes REGISTRA1/2 |
+| P1 | Access Control | ACC | S500 | RN-S500-027..036 (P655, compartido SEC) | L010_CONTROL + P655 scrambling |
+| P1 | Deposits | DEP | S500 | RN-S500-NNN (P100 + P020) | Cuentas de captación — productos de depósito |
+| P1 | Payment Schemes (SPEI/CLABE) | SPI | S500 | RN-S500-NNN (L091-L093) | SPEI + CLABE + MQ async |
+| P2 | Analytics / Reporting | RPT | S151 | RN-S151-421..490 (P199+P610+P612+P677) | Reportes Serie B CNBV |
+| P2 | Operational Reconciliation (Teller) | TEL | S500 | pendiente | Teller / canal sucursal |
 
 ---
 
@@ -172,6 +176,6 @@ Operational Data Stores [9.1.1]
 
 ---
 
-*capability-map.md · v1.0 · 2026-07-16*
+*capability-map.md · v1.1 · 2026-07-16*
 *Fuente: capability-model-taxonomy.md + rules-catalog/INDEX.md + kb-capa3-capacidades.md*
 *Próxima actualización: al generar cap-sec.md (Security T.3.5, P0) y cap-cmp.md (Compliance P1)*

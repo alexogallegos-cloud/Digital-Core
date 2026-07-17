@@ -11,10 +11,15 @@
 |------|-----------|-----|---------|---------|--------|-------------------|----------|
 | TAR | ATM · PoS — Liquidación Tarjetas | 2.2.6 · 2.2.7 | Channels | S500 | 15 | 10 (+9 pend.) | [cap-tar.md](capacidades/cap-tar.md) |
 | CMP | Compliance & Regulation — FraudLink | 6.5.2 | Common Services | S500 | 9 | 9 | [cap-cmp.md](capacidades/cap-cmp.md) |
+| PAY | Payments — Cargos y Abonos Core | 6.1.3 | Common Services | S500 | 13 | 17 (+3 pend.) | [cap-pay.md](capacidades/cap-pay.md) |
+| INT | Interest & Fees — P130 Rendimientos | 6.1.5 | Common Services | S500 | 28 | 29 | [cap-int.md](capacidades/cap-int.md) |
+| ORC | Operational Reconciliation — S151REGISTRA | 6.7.2 | Common Services | S500+S151 | 15 | 20 | [cap-orc.md](capacidades/cap-orc.md) |
 | REC | Financial Reconciliation — Punteo | 6.7.1 | Common Services | S151 | 16 | 20 | [cap-rec.md](capacidades/cap-rec.md) |
 | GL | Finance (GL) — Motor de Asientos | 7.1.1 | Enterprise Support | S151 | 16 | 18 (+22 pend.) | [cap-gl.md](capacidades/cap-gl.md) |
+| SCH | Scheduling — Cierre Día + Oracle Fechas | 8.1.1 | Technology Tools | S500+S151 | 15 | 18 | [cap-sch.md](capacidades/cap-sch.md) |
+| ODS | Operational Data Stores — Modelo DMSII | 9.1.1 | Insights & Information | S500+S151 | 27 | 35 (+4 pend.) | [cap-ods.md](capacidades/cap-ods.md) |
 | SEC | Security — Enmascaramiento PII | T.3.5 | Transversal | S500 | 10 | 11 (+1 pend.) | [cap-sec.md](capacidades/cap-sec.md) |
-| **Total** | | | | | **66** | **68** | |
+| **Total** | | | | | **164** | **187** | |
 
 **Tipos de tarea:** `validación` · `consulta` · `escritura` · `contable` · `control` · `seguridad` · `reporte`
 
@@ -157,6 +162,178 @@
 
 ---
 
+### PAY — Payments — Cargos y Abonos Core [S500]
+> Dominio: 6 · Common Services · Capacidad: 6.1.3
+> Programa: P020 (LINCOMS) · P142 · P144 · Reglas: RN-S500-108..122
+
+#### Inventario de Tareas
+
+| ID | Tarea | Programa | Tipo |
+|----|-------|----------|------|
+| T-PAY-001 | Clasificación de CVETRAN en rangos NCO / CARGO / ABONO | P020 | validación |
+| T-PAY-002 | Validación contra catálogo 174 (CVETXN autorizado) | P020 | validación |
+| T-PAY-003 | Enrutamiento de copias COMS y asignación de TIPO-PROC S151 | P020 | control |
+| T-PAY-004 | Ordenamiento y generación del archivo posting S02 | P020 | contable |
+| T-PAY-005 | Asiento en libro mayor S151 (REGISTRAS500) | P020 | escritura |
+| T-PAY-006 | Cálculo de IVA e ISR sobre comisiones y rendimientos | P020 | contable |
+| T-PAY-007 | Procesamiento TEF — asignación y reasignación de cuentas | P020 | escritura |
+| T-PAY-008 | Replicación cross-CSI del estado TEF (I11-REPLICA) | P020 | control |
+| T-PAY-009 | Control de apagado diferenciado del gateway COMS | P020 | control |
+| T-PAY-010 | Toggle en caliente de integración S151 (TASKVALUE=3027) | P020 | control |
+| T-PAY-011 | Cierre de día contable — cancelación y recarga de librerías | P020 | contable |
+| T-PAY-012 | Decomiso EPP — bloque judicial (TASKVALUE=3019) | P020 | escritura |
+| T-PAY-013 | Proceso DIVESTITURE Citi→Banamex (TASKVALUE=3016) | P020 | control |
+
+#### Reglas vinculadas
+
+| Tarea | Regla | Componente fuente | Descripción |
+|-------|-------|-------------------|-------------|
+| T-PAY-001 | RN-S500-115 | P020 — WKS-CVETXN-NCO/ABO/CAR | Clasificación CVETRAN en rangos NCO (0-999), ABONO (1000-1999, 3000-3999), CARGO (2000-2999) |
+| T-PAY-002 | RN-S500-116 | P020 — WKS-CAT174-CVETXN | Validación CVETXN catálogo 174 dinámico; recargable en caliente |
+| T-PAY-003 | RN-S500-108 | P020 — WS-S151-TIPO-PROC | Asignación tipo-proceso S151 por copia: 1→33, 2→34, 3→35, 4→36, 5→37 |
+| T-PAY-003 | RN-S500-109 | P020 — WKS-SIGUIENTE | Tabla fija de failover de copias: 1→03, 2→01, 3→04, 4→02, 5→02 |
+| T-PAY-004 | RN-S500-117 | P020 — S02-KEY-CVETXN | Clave S02: CVETXN(4)+SUC+CTO+IMP+PROD+INST+MON; rechazos → I10-POSTING-E |
+| T-PAY-005 | RN-S500-108 | P020 — REGISTRAS500 | Posting GL S151 con TIPO-PROC diferenciado por copia |
+| T-PAY-005 | RN-S500-114 | P020 — WS-UTILIZA-S151-VA | Toggle en caliente S151 vía TASKVALUE=3027 |
+| T-PAY-006 | RN-S500-122 | P020 — WS-IVA-GRAL, WS-ISR-0 | IVA 16%/11% + ISR factor 0.50 hardcodeado en P020+P010+P142+P144 |
+| T-PAY-007 | RN-S500-110 | P020 — WS-SOLO-VDM | Hostname MTY: solo copias 1/2/3 VDM para TEF |
+| T-PAY-007 | RN-S500-121 | P020 — WS-88-ASIGNA-TEF | TEF CVETRANs: 759/760/761/762 (masivos vs simples) |
+| T-PAY-008 | RN-S500-111 | P020 — WKS-HOST-ORIG/DEST-XFER | 8 pares host cross-CSI hardcodeados para replicación TEF VDM↔MTY |
+| T-PAY-008 | RN-S500-112 | P020 — 50201400-I11-REPLICA | COPIA-5 modo LINEA: WAIT 1200s antes de replicar |
+| T-PAY-009 | RN-S500-113 | P020 — SMCOMS-DISABLE | TASKVALUE=3004 apaga cualquier copia; 3104 apaga solo COPIA-1 |
+| T-PAY-010 | RN-S500-114 | P020 — WS-UTILIZA-S151-VA | Toggle S151 — mismo mecanismo que T-PAY-005 |
+| T-PAY-011 | RN-S500-119 | P020 — CAMBIA-DIA-CONTABLE | Cancela 7 librerías + espera 5s + recarga; COPIA-3 cancela S500L050DYR |
+| T-PAY-012 | RN-S500-118 | P020 — DECOMISO-S111 | TASKVALUE=3019; CVETXN 534+575 reversión EPP |
+| T-PAY-013 | RN-S500-120 | P020 — WFL23 | TASKVALUE=3016 → bloque *INI/*FIN DIVESTITURE extraíble sin reiniciar |
+
+> **Pendientes**: recarga catálogo 174 (TASKVALUE no identificado) · estado DIVESTITURE pendiente confirmación legal · P142/P144 reglas propias no capturadas en este cap.
+
+---
+
+### INT — Interest & Fees — Rendimientos e ISR [S500]
+> Dominio: 6 · Common Services · Capacidad: 6.1.5
+> Programa: S500/P130 · WFL LINEA · Reglas: RN-S500-079..107
+
+#### Inventario de Tareas
+
+| ID | Tarea | Programa | Componente fuente | Tipo |
+|----|-------|----------|-------------------|------|
+| T-INT-001 | Calcular flags de calendario del día (DIA30 / DIA15 / DIA1MES) | WFL LINEA | S500_WFL_LOTE.txt | control |
+| T-INT-002 | Habilitar LINCOMS y programas online en COMS (SUBETODOS) | WFL LINEA | S500_WFL_LOTE.txt | control |
+| T-INT-003 | Detectar modo de proceso mensual (WKS-ES-MENSUAL = 0/1) | P130 | S500_SOURCE_P130.txt | control |
+| T-INT-004 | Inicializar identificador de asiento GL hacia S151 (W77-ID-P-S151 = 30/31/32) | P130 | S500_SOURCE_P130.txt | control |
+| T-INT-005 | Controlar bypass de emergencia de librería S151 (WKS-SIN-LBS151) | P130 | S500_SOURCE_P130.txt | control |
+| T-INT-006 | Validar tasas CETES/LIBOR como gate de proceso (VAL-CETES-LIBOR) | P130 | S500_SOURCE_P130.txt | validación |
+| T-INT-007 | Calcular saldo promedio anual por contrato (WKS-PROM-ANUAL) | P130 | S500_SOURCE_P130.txt | consulta |
+| T-INT-008 | Ajustar días del período por cancelación o cambio de producto (-1 día) | P130 | S500_SOURCE_P130.txt | validación |
+| T-INT-009 | Calcular saldo promedio extendido para ciclos parciales (WKS-PROM-ANUAL-EXT) | P130 | S500_SOURCE_P130.txt | consulta |
+| T-INT-010 | Evaluar capitalización por estado del contrato (50116000-ANALIZA-CAPITALIZ) | P130 | S500_SOURCE_P130.txt | control |
+| T-INT-011 | Capitalizar rendimiento periódico al vencimiento del ciclo (IND-RENDDIA = 0) | P130 | S500_SOURCE_P130.txt | escritura |
+| T-INT-012 | Acumular rendimiento diario y calcular tasa promedio en cierre mensual (IND-RENDDIA = 1) | P130 | S500_SOURCE_P130.txt | escritura |
+| T-INT-013 | Completar ISR valorizado de cancelación en línea USD (B06-IMPTO-VALMN · P010→P130) | P130 | S500_SOURCE_P130.txt | escritura |
+| T-INT-014 | Generar asiento GL rendimiento neto hacia S151 (CVE-COMUN 3000) | P130 | S500_SOURCE_P130.txt | contable |
+| T-INT-015 | Generar asiento GL ISR retenido hacia S151 (CVE-COMUN 4009) | P130 | S500_SOURCE_P130.txt | contable |
+| T-INT-016 | Generar asiento GL rendimiento bruto hacia S151 (CVE-COMUN 809) | P130 | S500_SOURCE_P130.txt | contable |
+| T-INT-017 | Convertir rendimientos e ISR USD a MXN para asientos GL (W77-TCAMBIO-VTA · ROUNDED) | P130 | S500_SOURCE_P130.txt | contable |
+| T-INT-018 | Clasificar contrato en archivo de rendimientos I05 por esquema ESQ-REND (TARIFA + REGION) | P130 | S500_SOURCE_P130.txt | escritura |
+| T-INT-019 | Registrar ISR de plan de ahorro EPP en cierre mensual (50120000-SALIDA-IMPUESTO) | P130 | S500_SOURCE_P130.txt | contable |
+| T-INT-020 | Evaluar pre-cancelación por saldo promedio mínimo insuficiente (50116650-VE-PRECANCEL) | P130 | S500_SOURCE_P130.txt | control |
+| T-INT-021 | Cobrar comisión por exceso de depósitos en el ciclo (50116660-VE-IMPDEPCICLO) | P130 | S500_SOURCE_P130.txt | contable |
+| T-INT-022 | Ejecutar traspaso automático a cuenta de beneficencia Art. 61 CUB (50113600-TRASP-BENEF) | P130 | S500_SOURCE_P130.txt | control |
+| T-INT-023 | Consultar comisión aplicable en catálogo S080 (DAME-COMISION) | P130 | S500_SOURCE_P130.txt | consulta |
+| T-INT-024 | Resolver esquema de comisión por tipo de persona PF/PM (20530130-DAME-ESQCOMI) | P130 | S500_SOURCE_P130.txt | consulta |
+| T-INT-025 | Despachar hasta 15 comisiones mensuales por contrato (20530000-COMIS-MENSUAL) | P130 | S500_SOURCE_P130.txt | control |
+| T-INT-026 | Cobrar comisión de manejo de cuenta con exención por SBC o nómina (tariff #018) | P130 | S500_SOURCE_P130.txt | contable |
+| T-INT-027 | Cobrar comisión de aniversario en fecha de vencimiento anual (tariff #017 · slot 4) | P130 | S500_SOURCE_P130.txt | contable |
+| T-INT-028 | Activar condicionalmente programas Telethon P045/P046 por archivo de control DMSII | WFL LINEA | S500_WFL_LOTE.txt | control |
+
+#### Reglas vinculadas
+
+| Tarea | Regla | Componente fuente | Descripción |
+|-------|-------|-------------------|-------------|
+| T-INT-001 | RN-S500-104 | S500_WFL_LOTE.txt | Detección último día hábil del mes (DIA30): IFECHAPROX MOD 100 = 1 |
+| T-INT-001 | RN-S500-105 | S500_WFL_LOTE.txt | Detección quincenal (DIA15) — activa también cuando DIA30=TRUE |
+| T-INT-002 | RN-S500-107 | S500_WFL_LOTE.txt | Habilitación LINCOMS al inicio del día (SUBETODOS) |
+| T-INT-003 | RN-S500-079 | S500_SOURCE_P130.txt | Modo mensual: WKS-ES-MENSUAL=1 si DIA30 |
+| T-INT-004 | RN-S500-080 | S500_SOURCE_P130.txt | W77-ID-P-S151 = 30/31/32 para tipo de asiento S151 |
+| T-INT-005 | RN-S500-081 | S500_SOURCE_P130.txt | Bypass emergencia S151 (WKS-SIN-LBS151): omite todos los asientos GL |
+| T-INT-006 | RN-S500-082 | S500_SOURCE_P130.txt | Gate CETES/LIBOR: ABORT si fuera de rango |
+| T-INT-007 | RN-S500-083 | S500_SOURCE_P130.txt | Saldo promedio anual: WKS-PROM-ANUAL = B06-ACUM-PROMANU / W77-DIAS-ANUAL |
+| T-INT-008 | RN-S500-084 | S500_SOURCE_P130.txt | Ajuste -1 día si B03-STATUS=2 (cancelado) o cambio de producto |
+| T-INT-009 | RN-S500-085 | S500_SOURCE_P130.txt | Saldo promedio extendido WKS-PROM-ANUAL-EXT para ciclo parcial |
+| T-INT-010 | RN-S500-086 | S500_SOURCE_P130.txt | Switch capitalización por B03-STATUS (0/1/5=vigente, 2=cancelado) |
+| T-INT-011 | RN-S500-087 | S500_SOURCE_P130.txt | Capitalización: B03-SDO-ACTUAL += WS-CAP-RENDNETO al vencimiento del ciclo |
+| T-INT-012 | RN-S500-088 | S500_SOURCE_P130.txt | Acumulación diaria: tasa = B03-INTS-CAPIT / WKS-SDOPROM-RENDIA × 36000 / B06-DIAPAG-RENDIA |
+| T-INT-013 | RN-S500-089 | S500_SOURCE_P130.txt | ISR valorizado no acumulado cancelación USD: compensación P010→P130 en B06-IMPTO-VALMN |
+| T-INT-014 | RN-S500-091 | S500_SOURCE_P130.txt | Asiento CVE 3000 (rendimiento neto) hacia S151REGISTRA |
+| T-INT-015 | RN-S500-092 | S500_SOURCE_P130.txt | Asiento CVE 4009 (ISR retenido) — 4 líneas GL para USD (partida doble MXN+USD) |
+| T-INT-016 | RN-S500-093 | S500_SOURCE_P130.txt | Asiento CVE 809 (rendimiento bruto = neto + ISR); base reportes Serie R-04 CNBV |
+| T-INT-017 | RN-S500-094 | S500_SOURCE_P130.txt | Conversión USD→MXN con W77-TCAMBIO-VTA y ROUNDED (half-up) |
+| T-INT-018 | RN-S500-095 | S500_SOURCE_P130.txt | Clasificación I05-RENDIMIENTOS: TARIFA 1-7 / REGION según B03-ESQ-REND |
+| T-INT-019 | RN-S500-090 | S500_SOURCE_P130.txt | ISR EPP en B06-ISR-RET-EPP; liberado a S151 solo en cierre mensual |
+| T-INT-020 | RN-S500-096 | S500_SOURCE_P130.txt | Pre-cancelación saldo mínimo: 50116650-VE-PRECANCEL en día de corte |
+| T-INT-021 | RN-S500-097 | S500_SOURCE_P130.txt | Comisión depósitos excedentes: 50116660-VE-IMPDEPCICLO en día de corte |
+| T-INT-022 | RN-S500-098 | S500_SOURCE_P130.txt | Traspaso Art. 61 CUB: primer viernes aniversario, MXN, STA-BENEF IN 3 8 |
+| T-INT-023 | RN-S500-099 | S500_SOURCE_P130.txt | Consulta DAME-COMISION en S080 (OCCURS 210 esquemas) |
+| T-INT-024 | RN-S500-103 | S500_SOURCE_P130.txt | PF (WS-IND-PERS=1) vs PM (WS-IND-PERS=2) — DAME-ESQCOMI |
+| T-INT-025 | RN-S500-100 | S500_SOURCE_P130.txt | Despachador hasta 15 comisiones mensuales (COMIS-MENSUAL) |
+| T-INT-026 | RN-S500-101 | S500_SOURCE_P130.txt | Comisión manejo cuenta con exención SBC o nómina (Circular Banxico) |
+| T-INT-027 | RN-S500-102 | S500_SOURCE_P130.txt | Comisión aniversario (tariff #017, slot 4 BD05); notificación CONDUSEF 30 días antes |
+| T-INT-028 | RN-S500-106 | S500_WFL_LOTE.txt | Activación P045/P046 Telethon por archivo S500BD06TELETON/CONTROL en DMSII |
+
+---
+
+### ORC — Operational Reconciliation — Registro S151 Condicional [S500+S151]
+> Dominio: 6 · Common Services · Capacidad: 6.7.2
+> Programa: 15 programas S500 (P102..P180) + INC_WOR_CAN + INC_PRO_CAN · Reglas: RN-S500-153..172
+
+#### Inventario de Tareas
+
+| ID | Tarea | Programa / Componente | Tipo |
+|----|-------|-----------------------|------|
+| T-ORC-001 | Validar versión de librería REGISTRAS500 (CTLVERS S151L002R500) — marcar WKS-88-REGISTRAS500=1 | S500_INC_PRO_CAN.txt | control |
+| T-ORC-002 | Inicializar constantes del mensaje S151: SISTEMA=500, fechas, CUENTA, SALDO-INI, IND-EDOCTA, IND-DATOS-ADIC | S500_INC_PRO_CAN.txt | control |
+| T-ORC-003 | Aplicar overrides de SUCPROM por CVETRAN (4159/4160→342; 4449→859; 2136/2137/2138→SUCTRAN) | S500_INC_PRO_CAN.txt | contable |
+| T-ORC-004 | Aplicar overrides de SUCS028/CAJS028 por perfil PIM y CVETRAN (3002/4001/3018/4016/3027/3047/1153) | S500_INC_PRO_CAN.txt | contable |
+| T-ORC-005 | Asignar código de moneda (MONEDA=1 para pesos MXN) por CVETRAN específico | S500_INC_PRO_CAN.txt | contable |
+| T-ORC-006 | Clasificar sobregiro (SGIRO=0/1/2) y tipo de proceso (TIPO-PROC=1/10/20) | S500_INC_WOR_CAN.txt | validación |
+| T-ORC-007 | Clasificar origen de operación (ORIGEN=1 local / 2 foráneo-enviado / 3 foráneo-recibido) | S500_INC_WOR_CAN.txt | validación |
+| T-ORC-008 | Acumular CVETRANs de entrada en slots 1..5 del mensaje (loop hasta 30 entradas, WS-S151-IND) | S500_INC_PRO_CAN.txt | contable |
+| T-ORC-009 | Propagar leyenda de clave principal a claves adicionales de corresponsales (CVETRAN 1119/1120/2200) | S500_INC_PRO_CAN.txt | escritura |
+| T-ORC-010 | Auto-flush al overflow: enviar mensaje parcial (slots 1-5 llenos) y encadenar con REFS151-ANT | S500_INC_PRO_CAN.txt | contable |
+| T-ORC-011 | Llamar CARGAMOV1 IN REGISTRAS500 con el mensaje acumulado (modo LINEA online) | S500_INC_PRO_CAN.txt | escritura |
+| T-ORC-012 | Modo contingencia: encolar mensaje en archivo cuando WS-88-EN-CONTINGENCIA-S151=TRUE | S500_INC_PRO_CAN.txt | control |
+| T-ORC-013 | Manejar rechazo STATUS > 0: grabar log de rechazos; en modo BATCHP130 escribir al R06 | S500_INC_PRO_CAN.txt | control |
+| T-ORC-014 | Limpiar slots de CVETRANs y actualizar SALDO-FIN → SALDO-INI del siguiente ciclo | S500_INC_PRO_CAN.txt | control |
+| T-ORC-015 | Actualizar contadores de monitoreo (W77-NUM-CALL-S151, W77-TOT-MOVS-ENV, W77-NUM-MOVS-ENV) | S500_INC_PRO_CAN.txt | control |
+
+#### Reglas vinculadas
+
+| Tarea | Regla | Componente fuente | Descripción |
+|-------|-------|-------------------|-------------|
+| T-ORC-001 | RN-S500-153 | S500_INC_PRO_CAN.txt | Validación versión S151 (CTLVERS S151L002R500); continúa aunque CVEERROR≠0 |
+| T-ORC-002 | RN-S500-154 | S500_INC_WOR_CAN.txt | Contrato CARGAMOV1: 8 funciones (REGMOV/ELIMOV/INICIO/FIN/ELIPASO/ELIAUT/BLO50/BLO01) |
+| T-ORC-002 | RN-S500-155 | S500_INC_WOR_CAN.txt | REGISTRA1 (CVETRAN 4 dígitos) vs REGISTRA2 (CVETRAN 6 dígitos + CVEDESVIO) |
+| T-ORC-002 | RN-S500-161 | S500_INC_PRO_CAN.txt | IND-DATOS-ADIC siempre=1 (hardcode de performance; trabajo extra en S151) |
+| T-ORC-002 | RN-S500-160 | S500_INC_PRO_CAN.txt | IND-EDOCTA: instrumento 6 de producto 500 → IND-EDOCTA=0; resto=1 |
+| T-ORC-003 | RN-S500-162 | S500_INC_PRO_CAN.txt | SUCPROM override 4159/4160→342 (comentario dice 350, código mueve 342 — discrepancia) |
+| T-ORC-003 | RN-S500-163 | S500_INC_PRO_CAN.txt | SUCPROM/SUCTRAN/SUCS028 override CVETRAN 4449/ACNOMINAPORTA→suc859, caj40 (SPEI CUT 2018) |
+| T-ORC-003 | RN-S500-164 | S500_INC_PRO_CAN.txt | SUCPROM override 2136/2137/2138→SUCTRAN (P&L a sucursal operadora) |
+| T-ORC-004 | RN-S500-165 | S500_INC_PRO_CAN.txt | SUCS028/CAJS028 por perfil PIM: CVETRANs 3002/4001/3018/4016 |
+| T-ORC-004 | RN-S500-166 | S500_INC_PRO_CAN.txt | SUCS028 hardcode CVETRAN 3027: cajero 55 |
+| T-ORC-004 | RN-S500-167 | S500_INC_PRO_CAN.txt | SUCS028 hardcode CVETRANs 3047 (caj92, suc342) y 1153+BIN554492 (caj60, suc7532) |
+| T-ORC-005 | RN-S500-168 | S500_INC_PRO_CAN.txt | MONEDA=1 (MXN) para CVETRANs 13/14 + WS-CVE-DDISPNOEFECMn, RNEGAFILMN, RDISPEFECAJMN |
+| T-ORC-006 | RN-S500-169 | S500_INC_WOR_CAN.txt | SGIRO: 0=no sobregiro · 1=línea vigente · 2=línea vencida (impacto IFRS 9) |
+| T-ORC-007 | RN-S500-170 | S500_INC_WOR_CAN.txt | ORIGEN: 1=local · 2=foráneo enviado · 3=foráneo recibido |
+| T-ORC-008 | RN-S500-156 | S500_INC_PRO_CAN.txt | Acumulación hasta 5 CVETRANs por mensaje (loop 30 entradas; slots 1→5) |
+| T-ORC-009 | RN-S500-171 | S500_INC_PRO_CAN.txt | Propagación LEYENDA/INDLEY clave principal → claves adicionales corresponsales |
+| T-ORC-010 | RN-S500-157 | S500_INC_PRO_CAN.txt | Auto-flush overflow: CALL parcial; REFS151→REFS151-ANT; slot 1 = CVETRAN desbordado |
+| T-ORC-011 | RN-S500-158 | S500_INC_PRO_CAN.txt | Contingencia S151: encolar en archivo si WS-88-EN-CONTINGENCIA-S151=TRUE |
+| T-ORC-013 | RN-S500-159 | S500_INC_PRO_CAN.txt | Rechazos STATUS>0: log + R06 en BATCHP130 (5 CVETRANs e importes) |
+| T-ORC-015 | RN-S500-172 | S500_INC_WOR_CAN.txt | Contadores monitoreo: NUM-CALL(6d) · TOT-MOVS-ENV(8d) · NUM-MOVS-ENV(2d) |
+
+---
+
 ## Dominio 7 — Enterprise Support Functions
 
 ---
@@ -213,6 +390,168 @@
 
 ---
 
+## Dominio 8 — Technology Tools
+
+---
+
+### SCH — Business Scheduling — Cierre de Día y Oracle de Fechas [S500+S151]
+> Dominio: 8 · Technology Tools · Capacidad: 8.1.1
+> Programa: P075 · P100 · Reglas: RN-S500-009..026
+
+#### Inventario de Tareas
+
+| ID | Tarea | Programa | Componente fuente | Tipo |
+|----|-------|----------|-------------------|------|
+| T-SCH-001 | Validar versión de P075 contra catálogo central CTLVERS (CHECAME) | P075 | COBOL_P075.txt | validación |
+| T-SCH-002 | Resolver título físico de librería L080 vía DAME_TIT IN CTLVERS | P075 | COBOL_P075.txt | control |
+| T-SCH-003 | Verificar parámetro de ejecución W77-PARAM-WFL = 1 antes de notificar cierre | P075 | COBOL_P075.txt | validación |
+| T-SCH-004 | Invocar INIBATCH de S500L080CTRL para notificar cierre del día bancario a P080 | P075 | COBOL_P075.txt | control |
+| T-SCH-005 | Evaluar WKS-L080-RESULT y marcar estatus de fallo si INIBATCH falla | P075 | COBOL_P075.txt | control |
+| T-SCH-006 | Detectar entorno de ejecución por hostname (ACYPBETA vs producción) | P100 | COBOL_P100.txt | control |
+| T-SCH-007 | Validar versión de P100 contra catálogo central CTLVERS (en producción) | P100 | COBOL_P100.txt | validación |
+| T-SCH-008 | Consultar S500B02CONTROL para obtener fecha de línea, fecha de lote y nodo activo | P100 | COBOL_P100.txt | consulta |
+| T-SCH-009 | Proyectar fecha de proceso hacia atrás N días hábiles/naturales vía S006LOCSUP función 15 | P100 | COBOL_P100.txt | control |
+| T-SCH-010 | Calcular último día del mes anterior a la fecha de línea (opción 6) | P100 | COBOL_P100.txt | control |
+| T-SCH-011 | Calcular primer día del mes de la fecha de línea (opción 7) | P100 | COBOL_P100.txt | control |
+| T-SCH-012 | Retornar fecha de línea sin proyección (opción 8 / fallback de parámetros inválidos) | P100 | COBOL_P100.txt | consulta |
+| T-SCH-013 | Consultar indicador de campaña Teletón activo en S500B02CONTROL (opción 9) | P100 | COBOL_P100.txt | consulta |
+| T-SCH-014 | Capturar y validar fecha manual por teclado (opción 5) con bucle de reintentos | P100 | COBOL_P100.txt | validación |
+| T-SCH-015 | Retornar nodo activo (B02-USO-FUTURO-05) sin fecha (opción 31) | P100 | COBOL_P100.txt | consulta |
+
+#### Reglas vinculadas
+
+| Tarea | Regla | Componente fuente | Descripción |
+|-------|-------|-------------------|-------------|
+| T-SCH-001 | RN-S500-022 | COBOL_P075.txt | Validación de versión sin corte de ejecución |
+| T-SCH-002 | RN-S500-024 | COBOL_P075.txt | Resolución dinámica de L080 con falla silenciosa |
+| T-SCH-003 | RN-S500-023 | COBOL_P075.txt | Notificación de cierre condicional a L080 por parámetro |
+| T-SCH-004 | RN-S500-025 | COBOL_P075.txt | Llamada INIBATCH notifica cierre del día bancario a P080 |
+| T-SCH-005 | RN-S500-026 | COBOL_P075.txt | Falla INIBATCH marca estatus de error visible |
+| T-SCH-006 | RN-S500-009 | COBOL_P100.txt | Detección servidor de desarrollo ACYPBETA |
+| T-SCH-007 | RN-S500-010 | COBOL_P100.txt | Cancelación por versión de software no vigente |
+| T-SCH-008 | RN-S500-012 | COBOL_P100.txt | Cancelación por registro de control vacío o ilegible |
+| T-SCH-009 | RN-S500-021 | COBOL_P100.txt | Proyección por defecto de fecha hacia atrás (S006LOCSUP func=15) |
+| T-SCH-009 | RN-S500-018 | COBOL_P100.txt | Cancelación por fallo de acceso a librería LOCSUP |
+| T-SCH-010 | RN-S500-017 | COBOL_P100.txt | Cálculo de último día del mes anterior (opción 6) |
+| T-SCH-011 | RN-S500-019 | COBOL_P100.txt | Retorno del primer día del mes (opción 7) |
+| T-SCH-012 | RN-S500-020 | COBOL_P100.txt | Retorno de fecha de línea sin proyección (opción 8) |
+| T-SCH-012 | RN-S500-014 | COBOL_P100.txt | Fallback a fecha de línea por parámetros inválidos |
+| T-SCH-013 | RN-S500-016 | COBOL_P100.txt | Consulta indicador campaña Teletón (opción 9) |
+| T-SCH-014 | RN-S500-015 | COBOL_P100.txt | Captura y validación manual de fecha (opción 5) |
+| T-SCH-015 | RN-S500-013 | COBOL_P100.txt | Retorno de nodo activo sin fecha (opción 31) |
+| T-SCH-015 | RN-S500-011 | COBOL_P100.txt | Selección BD04 Tarjetas vs BD01 Captación (opción 3) |
+
+---
+
+## Dominio 9 — Insights & Information
+
+---
+
+### ODS — Operational Data Stores — Modelo DMSII [S500+S151]
+> Dominio: 9 · Insights & Information · Capacidad: 9.1.1
+> Programa: DASDL S151BD10..BD02 · Reglas: RN-S151-491..525
+
+#### BD10 — Movimientos Diarios
+
+| ID | Tarea | Tipo | Reglas fuente |
+|----|-------|------|---------------|
+| T-ODS-001 | Selección del conjunto diario activo de BD10: leer `BD99.B01SISDIA.NOMBDSEM` y enrutar a B01/B11/B21/B31/B41MOVTOS según día hábil | control | RN-S151-491, RN-S151-492 |
+| T-ODS-002 | Lookup de movimiento individual por AUTS151 NUMBER(08) vía índice `B01SXAUTS151`; si PROCESO ≥ 15, acceso directo requerido | consulta | RN-S151-493, RN-S151-494 |
+| T-ODS-003 | Consulta movimientos cajero estándar (SUCINI > 0, PROCESO < 15) vía `B01BXMOVCAJ`, BUFFERS=2500+100/usuario | consulta | RN-S151-494, RN-S151-495 |
+| T-ODS-004 | Consulta movimientos sucursales especiales (859/100/342/110/511/870) vía `B01BXCAJ859` con clave KEY=AUTAPL (no AUTS151) | consulta | RN-S151-496 |
+| T-ODS-005 | Validación tipo/formato campo NIO: ALPHA(16) SPEI / CECOBAN NUMBER(08) / vacío válido en no-SPEI | validación | RN-S151-497 |
+| T-ODS-006 | Cuadre de caja por turno en B03CSISUCCAJ (clave MDE) y B04CSISUCCAJ (clave MDA) | contable | RN-S151-499 |
+| T-ODS-007 | Validación campos SAT Anexo 20: RFC-ORD ALPHA(13), RFC-BENEF ALPHA(18), NOM-BENEF ALPHA(120) | validación | RN-S151-500 |
+| T-ODS-008 | Consulta importes adicionales vía `S151B02IMPADI` (MEMORY=COARSE, 6M registros); NOT FOUND = caso normal | consulta | RN-S151-498 |
+
+#### BD11 — Saldos y Posición GL
+
+| ID | Tarea | Tipo | Reglas fuente |
+|----|-------|------|---------------|
+| T-ODS-009 | Actualización posición contable GL en `B72POSCONTA` (MEMORY=COARSE): clave 10 dimensiones; insumo R04C/R27C CNBV | contable | RN-S151-501, RN-S151-503, RN-S151-507 |
+| T-ODS-010 | Consulta saldos mensuales activos: acceder siempre al subset `B20BXSDOMENCON` (WHERE STAMOV=1, BIT VECTOR) | consulta | RN-S151-502, RN-S151-504 |
+| T-ODS-011 | Control generación estado de cuenta vía `S151B80EDOCTA` (MEMORY=COARSE, 5M): NOT FOUND → P158 omite estado de cuenta (falla silenciosa) | control | RN-S151-505 |
+| T-ODS-012 | Validación fecha de proceso: leer `B00.FEC NUMBER(08)` en formato CCAAMMDD (post-CRONOS2K) | validación | RN-S151-506 |
+
+#### BD12 — Movimientos por Contrato Tripartita
+
+| ID | Tarea | Tipo | Reglas fuente |
+|----|-------|------|---------------|
+| T-ODS-013 | Escritura movimiento tripartita al conjunto correcto: OK → `S151B01MOVCTO` (25M); INFO → `B11MOVINFCTO` (5M); ERROR → `B51MOVERRCTO` (5M) | escritura | RN-S151-508, RN-S151-509, RN-S151-512 |
+| T-ODS-014 | Consulta movimiento OK por contrato y período: índice `B01SXMOVCTO` (FECCON+KEYCONT+SEC) o `B01SXFCHVAL` (FECVAL) | consulta | RN-S151-510 |
+| T-ODS-015 | Ensamblaje leyenda completa OK: B01MOVCTO + B02IMPADI + B03DATADI (LEY1+REFLOCBNM) + B04CONDATADI (LEY2-5) | consulta | RN-S151-511, RN-S151-512 |
+| T-ODS-016 | Trazabilidad secuencias: leer/actualizar SECOK/SECINF/SECERR NUMBER(08) en B00; gaps = movimientos eliminados | control | RN-S151-513 |
+
+#### BD13 — BIFIN / Protección / Domiciliación
+
+| ID | Tarea | Tipo | Reglas fuente |
+|----|-------|------|---------------|
+| T-ODS-017 | Consulta protección de cobro en `S151B07PROTCOB` (150M) por clave `B07-AUT-PC NUMBER(12)` ≠ AUTS151 NUMBER(08) | consulta | RN-S151-514 |
+| T-ODS-018 | Gestión ciclo vida protección: STATUS 0→1→2 (procesable) / 3→4 (reversa) / 5 (eliminado); subset `B07SXAUTPROC` | control | RN-S151-515, RN-S151-518 |
+| T-ODS-019 | Control domiciliación `S151B10DOMI` (EXTENDED=TRUE, 150M): fecha juliana `AUTD-FECJUL NUMBER(07)` + cross-ref S702 | control | RN-S151-516 |
+| T-ODS-020 | Control envíos CitiDirect `S151B04CTLCITIDIR` (16M): ESTATUS + REINTENTOS NUMBER(03); alerta si REINTENTOS > umbral | control | RN-S151-517 |
+
+#### BD99 — Control del Sistema
+
+| ID | Tarea | Tipo | Reglas fuente |
+|----|-------|------|---------------|
+| T-ODS-021 | Acumulación movimientos por sucursal `S151B10MOVPORSUC` (8M, MEMORY=COARSE, BLOCKSIZE=4): clave 9 dims incluyendo SECTOR CNBV | contable | RN-S151-519 |
+| T-ODS-022 | Acumulación movimientos por cliente `S151B11MOVPORCTE` (10M, MEMORY=COARSE, BLOCKSIZE=7): mayor granularidad que por sucursal | contable | RN-S151-520 |
+| T-ODS-023 | Posición semanal `S151B12POSICION` (MEMORY=COARSE): DIAS-SEM OCCURS 5 (CARGO/ABONO por día hábil) | contable | RN-S151-521 |
+| T-ODS-024 | Tracking archivos diarios: BIT VECTOR WHERE STAARC=1 en B14ARCDIAORI/B15ARCDIADES; STAARC=1 tras proceso = riesgo reproceso con duplicados | control | RN-S151-522 |
+
+#### BD02 — Saldos Tesorería
+
+| ID | Tarea | Tipo | Reglas fuente |
+|----|-------|------|---------------|
+| T-ODS-025 | Consulta saldos tesorería por cliente `S151B03SDOCTE` (500K): clave compuesta LPAD(NUMERO1,10)+LPAD(NUMERO2,10) — validar semántica con negocio | consulta | RN-S151-523 |
+| T-ODS-026 | Conciliación interbancaria en tiempo real `B14CONOPECRUZ` (100K, MEMORY=ALL): LIQ = BNM_abonos − OTR_cargos; DIFGLO≠0 → reporte Banxico | contable | RN-S151-524 |
+| T-ODS-027 | Saldos SAR `S151B08GLOSAR`: desglose por organismo (IMSS/ISSSTE/INFONAVIT/FOVISSSTE/PEMEX) + 7 subcampos de tipo | consulta | RN-S151-525 |
+
+#### Reglas vinculadas (resumen consolidado)
+
+| Tarea | Regla | Componente fuente | Descripción |
+|-------|-------|-------------------|-------------|
+| T-ODS-001 | RN-S151-491 | DASDL_S151BD10MOVDIA151.txt | 5 conjuntos diarios independientes; selector por NOMBDSEM en BD99 |
+| T-ODS-001 | RN-S151-492 | DASDL_S151BD10MOVDIA151.txt | Cardinalidad 52.5M por conjunto; overflow sin reorganización si se supera |
+| T-ODS-002 | RN-S151-493 | DASDL_S151BD10MOVDIA151.txt | Lookup O(1) por AUTS151 vía B01SXAUTS151 |
+| T-ODS-002 | RN-S151-494 | DASDL_S151BD10MOVDIA151.txt | Filtro PROCESO<15 delimita movimientos activos en subsets |
+| T-ODS-003 | RN-S151-495 | DASDL_S151BD10MOVDIA151.txt | B01BXMOVCAJ: SUCINI>0 + PROCESO<15; BUFFERS=2500+100/usuario |
+| T-ODS-004 | RN-S151-496 | DASDL_S151BD10MOVDIA151.txt | [CRÍTICO] Sucursales 859/100/342/110/511/870: KEY=AUTAPL en BxxBXCAJ859 |
+| T-ODS-005 | RN-S151-497 | DASDL_S151BD10MOVDIA151.txt | NIO ALPHA(16) ≠ numérico; CECOBAN NUMBER(08); NIO vacío válido en no-SPEI |
+| T-ODS-006 | RN-S151-499 | DASDL_S151BD10MOVDIA151.txt | Cuadre caja: B03/B04CSISUCCAJ con MONEDA+BANCOS+MDE/MDA+SECREN |
+| T-ODS-007 | RN-S151-500 | DASDL_S151BD10MOVDIA151.txt | RFC-ORD(13) ≠ RFC-BENEF(18): asimetría SAT intencional |
+| T-ODS-008 | RN-S151-498 | DASDL_S151BD10MOVDIA151.txt | IMPADI MEMORY=COARSE; relación 0..1 con BxMOVTOS; NOT FOUND es caso normal |
+| T-ODS-009 | RN-S151-501 | DASDL_S151BD11SDOS151.txt | B72POSCONTA: clave 10 dims GL; insumo R04C/R27C CNBV |
+| T-ODS-009 | RN-S151-503 | DASDL_S151BD11SDOS151.txt | B70POSICION + B72POSCONTA MEMORY=COARSE para SLA de cierre contable |
+| T-ODS-009 | RN-S151-507 | DASDL_S151BD11SDOS151.txt | B70POSICION en PACKNAME=S067REMESAS: dependencia física cross-sistema |
+| T-ODS-010 | RN-S151-502 | DASDL_S151BD11SDOS151.txt | STAMOV=1 BIT VECTOR en B20BXSDOMENCON; consultar base directa produce duplicación aparente |
+| T-ODS-010 | RN-S151-504 | DASDL_S151BD11SDOS151.txt | B21SDMENCON1: KEYIND consecutivo + OCCURS 12 para hasta 12 períodos de saldo |
+| T-ODS-011 | RN-S151-505 | DASDL_S151BD11SDOS151.txt | B80EDOCTA (5M, COARSE): NOT FOUND → P158 omite estado de cuenta (falla silenciosa) |
+| T-ODS-012 | RN-S151-506 | DASDL_S151BD11SDOS151.txt | FEC NUMBER(08) post-CRONOS2K: leer como (06) trunca el siglo silenciosamente |
+| T-ODS-013 | RN-S151-508 | DASDL_S151BD12MC001S151.txt | [CRÍTICO] Tripartita OK/INFO/ERROR: físicamente independientes, SLOs distintos |
+| T-ODS-013 | RN-S151-509 | DASDL_S151BD12MC001S151.txt | SECTOR NUMBER(02) + BANCA NUMBER(02): obligatorios en R04C/R27C |
+| T-ODS-013 | RN-S151-512 | DASDL_S151BD12MC001S151.txt | INFO y ERROR tienen extensiones propias (B12/B13/B14 y B52/B53/B54) |
+| T-ODS-014 | RN-S151-510 | DASDL_S151BD12MC001S151.txt | Índices B01SXMOVCTO (FECCON+KEYCONT+SEC) y B01SXFCHVAL (FECVAL) |
+| T-ODS-015 | RN-S151-511 | DASDL_S151BD12MC001S151.txt | Leyenda completa OK: B01+B02+B03(LEY1+REFLOCBNM)+B04(LEY2-5) |
+| T-ODS-016 | RN-S151-513 | DASDL_S151BD12MC001S151.txt | SECOK/SECINF/SECERR NUMBER(08): techo 99.999.999; gaps = movimientos eliminados |
+| T-ODS-017 | RN-S151-514 | DASDL_S151BD13BIFIN.txt | [CRÍTICO] AUT-PC NUMBER(12) ≠ AUTS151 NUMBER(08): FK entre B07PROTCOB y BD10 no es directa |
+| T-ODS-018 | RN-S151-515 | DASDL_S151BD13BIFIN.txt | STATUS 6 valores: 0-2 procesables, 3-4 reversa, 5 eliminado sin enviar |
+| T-ODS-018 | RN-S151-518 | DASDL_S151BD13BIFIN.txt | B08TDMIGCAP (100M): STATUS ALPHA(02) 'AC'/'CA' — tipo distinto al STATUS NUMBER de B07 |
+| T-ODS-019 | RN-S151-516 | DASDL_S151BD13BIFIN.txt | B10DOMI EXTENDED=TRUE (150M): AUTD-FECJUL juliana; AUTD-AUT702 cross-ref S702 |
+| T-ODS-020 | RN-S151-517 | DASDL_S151BD13BIFIN.txt | B04CTLCITIDIR (16M): REINTENTOS NUMBER(03); NIO ALPHA(16) en mensajes SPEI |
+| T-ODS-021 | RN-S151-519 | DASDL_S151BD99CONTROL.txt | B10MOVPORSUC (8M): BLOCKSIZE=4, REBLOCKFACTOR=5; clave 9 dims incluyendo SECTOR |
+| T-ODS-022 | RN-S151-520 | DASDL_S151BD99CONTROL.txt | B11MOVPORCTE (10M): BLOCKSIZE=7, REBLOCKFACTOR=5 |
+| T-ODS-023 | RN-S151-521 | DASDL_S151BD99CONTROL.txt | B12POSICION: DIAS-SEM OCCURS 5 (CARGO/ABONO por día hábil) |
+| T-ODS-024 | RN-S151-522 | DASDL_S151BD99CONTROL.txt | B14/B15ARCDIAORI/ARCDIADES: BIT VECTOR STAARC=1; falla → reproceso con duplicados |
+| T-ODS-025 | RN-S151-523 | DASDL_S151BD02ADSALDO.txt | [SOSPECHOSO] B03SDOCTE NUMERO1(10)+NUMERO2(10): requiere validación negocio |
+| T-ODS-026 | RN-S151-524 | DASDL_S151BD02ADSALDO.txt | B14CONOPECRUZ/B15MOVOPECRUZ MEMORY=ALL (100K); DIFGLO≠0 → reporte Banxico |
+| T-ODS-027 | RN-S151-525 | DASDL_S151BD02ADSALDO.txt | B08GLOSAR: saldos SAR por IMSS/ISSSTE/INFONAVIT/FOVISSSTE/PEMEX |
+
+> **Pendientes ODS**: T-ODS-025 NUMERO1+NUMERO2 requiere validación de negocio · T-ODS-019 fecha base juliana no documentada en DASDL · T-ODS-009 B70POSICION en PACKNAME=S067REMESAS requiere coordinación cross-equipo · Advertencia operativa: sucursales 859/100/342/110/511/870 usan AUTAPL (no AUTS151) en BD10.
+
+---
+
 ## Dominio T — Transversal
 
 ---
@@ -263,9 +602,11 @@
 | GL | RN-S151-039..060 (22) | Validación importe, banco/sector, BD11SDOS151, cierre |
 | TAR | RN-S500-047..055 (9) | Día juliano, campos punteo I08, AMEXMNL, cierre |
 | SEC | T-SEC-007 (1 regla sin ID) | Shuffling B03CONTRATOS — pendiente numeración |
+| ODS | T-ODS-025 (semántica B03SDOCTE), T-ODS-019 (fecha juliana), T-ODS-009 (cross-equipo S067) | Pendientes de validación con negocio / operaciones |
+| PAY | Catálogo 174 recarga (TASKVALUE no identificado), estado DIVESTITURE | Pendientes de confirmación regulatoria / legal |
 
 ---
 
-*task-process-rules-index.md · v1.0 · 2026-07-16*
-*Fuente: capacidades/cap-gl.md · cap-rec.md · cap-tar.md · cap-sec.md · cap-cmp.md*
-*Swarm: 4 agentes en paralelo + coordinador · Total: 66 tareas · 68 reglas vinculadas*
+*task-process-rules-index.md · v1.1 · 2026-07-16*
+*Fuente: capacidades/cap-gl.md · cap-rec.md · cap-tar.md · cap-sec.md · cap-cmp.md · cap-pay.md · cap-int.md · cap-orc.md · cap-sch.md · cap-ods.md*
+*Swarm: 10 agentes en paralelo + coordinador · Total: 164 tareas · 187 reglas vinculadas*
