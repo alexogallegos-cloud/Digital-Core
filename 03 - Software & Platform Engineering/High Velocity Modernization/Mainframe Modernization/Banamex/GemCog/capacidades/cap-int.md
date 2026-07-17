@@ -207,6 +207,33 @@ sequenceDiagram
 
 ---
 
+---
+
+## Capacidad adicional: 6.6.1 Financial Servicing (merge)
+
+> BIAN: 6.6.1 · Financial Servicing · incorporado en cap-int.md por volumen reducido de reglas
+> Sistemas: S500 · Programas: P142
+
+### Contexto funcional
+
+La capacidad **Financial Servicing (6.6.1)** cubre los servicios financieros directos prestados al cliente en el contexto de contratos de captación a plazo (inversiones, pagarés) e instrumentos derivados. En S500, esta capacidad se materializa en el programa **P142** (extracción BD07→Teradata) mediante dos responsabilidades: (a) la comunicación de fechas de vencimiento y plazos de instrumentos al libro mayor S151 vía la estructura `WS-S151-0101`, garantizando que el GL refleje correctamente el calendario de vencimientos de captación; y (b) la interfaz compilada condicionalmente con la librería **S272LIBORDES**, diseñada para gestionar instrumentos derivados referenciados a LIBOR. Esta segunda responsabilidad está técnicamente inactiva desde la descontinuación del benchmark LIBOR en 2023 (sustituido por SOFR en USD y TIIE en MXN), aunque el código permanece en el fuente sin eliminación formal, lo que constituye deuda técnica con impacto regulatorio potencial.
+
+### Reglas vinculadas — 6.6.1 Financial Servicing
+
+| Tarea | Regla | Componente fuente | Descripción |
+|-------|-------|-------------------|-------------|
+| Comunicar fecha de vencimiento y plazo de inversión/pagaré al GL S151 | RN-S500-135 | P142 | Estructura S151-0101 con `WS-S151-0101-FECVENCIMIENTO` (PIC 9(08) COMP) y `WS-S151-0101-PLAZO` (PIC 9(04) COMP); FECVENCIMIENTO va exclusivamente a S151, no a Teradata |
+| Invocar S272LIBORDES para instrumentos derivados basados en LIBOR | RN-S500-133 | P142 | Interfaz compilada condicionalmente (`$SET OMIT = NOT S272LIBORDES`); NIVEL=02, NIPENT=04, PRODUCTO=00000001, TIPELE=06; archivo de control S067REMESAS; inactiva post-2023 pero sin eliminación formal |
+
+### Hallazgos de migración
+
+| Riesgo | Regla | Severidad | Acción requerida |
+|--------|-------|-----------|-----------------|
+| **LIBOR descontinuado — código activo en compilación condicional.** S272LIBORDES puede reactivarse si el flag `S272LIBORDES` se incluye en la compilación. Si el banco mantiene contratos legacy USD referenciados a LIBOR, la librería puede estar activa en producción sin evidencia explícita en el código mainline. | RN-S500-133 | 🟠 CRÍTICO | Verificar con el equipo de Mercados Financieros y Legal si existen contratos vigentes con cláusula LIBOR. Inventariar todos los registros en S067REMESAS. Coordinar la sustitución de LIBOR→SOFR/TIIE antes del cutover. En el sistema target, prohibir referencias a LIBOR y forzar el uso de tasa sustituta configurada externamente. |
+| **FECVENCIMIENTO se pasa a S151 pero NO a Teradata (CTOREP).** La separación de destinos es intencional en el legado; el sistema target debe preservar esta separación. Una migración que consolide ambos flujos puede introducir datos de vencimiento no autorizados en el data warehouse, con impacto en reportes CNBV. | RN-S500-135 | 🟡 ALTO | Documentar explícitamente en el ADR de integración que `FECVENCIMIENTO` y `PLAZO` son campos de GL exclusivo. Validar en pruebas de equivalencia que el campo no aparece en el registro CTOREP exportado a Teradata. |
+
+---
+
 *cap-int.md · v1.0 · 2026-07-16 · Capa 4 (Inventario de Tareas) + Capa 5 (Casuísticas + Diagrama Mermaid)*
 *Capacidad: 6.1.5 Interest & Fees · Sistema: S500 · Programas: S500/P130 · WFL LINEA*
 *Cross-referencia: RN-S500-079..107 · rules-catalog/rules-s500-p130.md · capability-map.md*

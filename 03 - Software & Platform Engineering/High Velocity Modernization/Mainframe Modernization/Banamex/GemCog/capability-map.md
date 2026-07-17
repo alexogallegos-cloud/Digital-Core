@@ -11,8 +11,8 @@
 |---------|-------|
 | Capacidades en el modelo | 104 |
 | Cubiertas por S500 o S151 | 20 (19.2%) |
-| `cap-{slug}.md` generados | 16 / 20 |
-| `cap-{slug}.md` pendientes | 4 / 20 |
+| `cap-{slug}.md` generados | 20 / 20 ✅ |
+| `cap-{slug}.md` pendientes | 0 / 20 |
 | Reglas disponibles para doc. | 826 (644 S151 + 182 S500) |
 
 ---
@@ -94,7 +94,7 @@
 | **6.5.2** | **Compliance & Regulation** | **Common Services** | **S500+S151** | [cap-cmp.md](capacidades/cap-cmp.md) | ✅ |
 | 6.5.3 | Pricing Management | Common Services | — | — | _(gap)_ |
 | 6.5.4 | Treasury | Common Services | — | — | _(gap)_ |
-| **6.6.1** | **Financial Servicing** | **Common Services** | **S500** | pendiente | ⏳ |
+| **6.6.1** | **Financial Servicing** | **Common Services** | **S500** | [cap-int.md](capacidades/cap-int.md) — merge | ✅ |
 | 6.6.2 | Non Financial Servicing | Common Services | — | — | _(gap)_ |
 | 6.6.3 | Intelligent Servicing (RPA) | Common Services | — | — | _(gap)_ |
 | **6.7.1** | **Financial Reconciliation** | **Common Services** | **S151** | [cap-rec.md](capacidades/cap-rec.md) | ✅ |
@@ -114,16 +114,16 @@
 | **9.1.1** | **Operational Data Stores** | **Insights & Information** | **S500+S151** | [cap-ods.md](capacidades/cap-ods.md) | ✅ |
 | 9.1.2 | Event Streams | Insights & Information | — | — | _(gap)_ |
 | 9.1.3 | Data Lakes | Insights & Information | — | — | _(gap)_ |
-| **10.1.1** | **Access Control** | **Integration & Interfaces** | **S500** | pendiente | ⏳ |
+| **10.1.1** | **Access Control** | **Integration & Interfaces** | **S500+S151** | [cap-sec.md](capacidades/cap-sec.md) — merge | ✅ |
 | 10.1.2 | Traffic Management | Integration & Interfaces | — | — | _(gap)_ |
 | 10.1.3 | API Catalogue | Integration & Interfaces | — | — | _(gap)_ |
 | T.1.1 | API (External) | Transversal | — | — | _(gap)_ |
 | T.1.2 | EDI | Transversal | — | — | _(gap)_ |
-| **T.1.3** | **Payment Schemes (SPEI/CLABE)** | **Transversal** | **S500** | pendiente | ⏳ |
+| **T.1.3** | **Payment Schemes (SPEI/CLABE)** | **Transversal** | **S500+S151** | [cap-pay.md](capacidades/cap-pay.md) — merge | ✅ |
 | T.1.4 | Cloud Integration | Transversal | — | — | _(gap)_ |
 | T.2.1 | API (Internal) | Transversal | — | — | _(gap)_ |
 | T.2.2 | ESB | Transversal | — | — | _(gap)_ |
-| **T.2.3** | **MQ / Async (L091-L093)** | **Transversal** | **S500** | pendiente | ⏳ |
+| **T.2.3** | **MQ / Async (L091-L093)** | **Transversal** | **S500** | [cap-mq.md](capacidades/cap-mq.md) | ✅ |
 | T.2.4 | Others | Transversal | — | — | _(gap)_ |
 | T.3.1 | Master Data Mgmt. | Transversal | — | — | _(gap)_ |
 | T.3.2 | Metadata Mgmt. | Transversal | — | — | _(gap)_ |
@@ -155,6 +155,10 @@
 | ✅ DONE | Teller — Gateway Online/Sucursal | TEL | S151+S500 | RN-S151-241..272 + RN-S500-143 · 33 reglas | P010 dispatcher, FACULTAD/Q015, integración MDA |
 | ✅ DONE | Holdings | HLD | S151 | RN-S151-281..300 (P050) + RN-S151-311..330 (P052) · 40 reglas | TC=10 fallback CRÍTICO, LIB-L006, COMS 93 funciones, CONLI CNBV R10 |
 | ✅ DONE | Statements | STA | S500+S151 | RN-S151-361..390 (P158) · 30 reglas | MOVSXCONT→S050, Y2K-2049, WFL auto-submisión, 9 archivos de salida |
+| ✅ DONE | MQ / Async | MQ | S500 | RN-S500-108/109/112/114/119/136/151 · 7 reglas | TIPO-PROC 33-37, WKS-SIGUIENTE failover, WAIT 1200s, topología cross-CSI triplicada |
+| ✅ DONE | Financial Servicing | FSV→INT | S500 | RN-S500-133/135 · 2 reglas (merge cap-int.md) | LIBOR flag compilación condicional + FECVENCIMIENTO exclusivo GL |
+| ✅ DONE | Access Control | ACC→SEC | S500+S151 | RN-S151-244..262/272 · 8 reglas (merge cap-sec.md) | FACULTAD 1/2/3, Q015 hardcoded por pantalla, toggle HI 41/42 sin auditoría |
+| ✅ DONE | Payment Schemes SPEI/CLABE | SPI→PAY | S500+S151 | RN-S500-110/111/121/163+RN-S151-263 · 5 reglas (merge cap-pay.md) | SPEI HA, topología cross-CSI, NIO SPEI, CVETRAN 4449 |
 
 ---
 
@@ -179,6 +183,6 @@ Operational Data Stores [9.1.1]
 
 ---
 
-*capability-map.md · v1.3 · 2026-07-16*
+*capability-map.md · v1.4 · 2026-07-16*
 *Fuente: capability-model-taxonomy.md + rules-catalog/INDEX.md + kb-capa3-capacidades.md*
-*Próxima actualización: cap-mq.md (T.2.3 MQ/Async) + merges FSV→INT · ACC→SEC · SPI→PAY → 20/20*
+*COBERTURA COMPLETA: 20/20 capacidades S500+S151 documentadas — GemCog Capa 3 cerrada*

@@ -258,6 +258,54 @@ Regla: RN-S500-036 — Riesgo de fail-open ante hostname no reconocido
 
 ---
 
-*cap-sec.md · v1.0 · 2026-07-16 · Capa 4 (Inventario de Tareas) + Capa 5 (Casuísticas + Diagrama Mermaid)*
-*Capacidad: T.3.5 Security (+ parcial 10.1.1 Access Control) · Sistema: S500 · Programa: P655 (SCRAMBLING)*
-*Cross-referencia: RN-S500-027..036 · rules-catalog/rules-s500.md · capability-map.md · kb-capa3-capacidades.md*
+## Capacidad adicional: 10.1.1 Access Control (merge)
+
+> BIAN: 10.1.1 · Access Control · incorporado en cap-sec.md por solapamiento técnico con T.3.5 Security
+> Sistemas: S500+S151 · Programas: P010 (LINEA) · P655 (SCRAMBLING) · Librería: SEGURIDAD (VALIDA_FACULTAD) / LIB-CONTROL (L010_CONTROL) · Mecanismos: FACULTAD / Q015 / HI 41/42
+
+### Contexto funcional
+
+El modelo de control de acceso de Banamex S151 opera en el programa **P010 (LINEA)** como hub dispatcher online. Cada petición al sistema es interceptada por el paragraph `300010-CHECA-ENTIDAD`, que evalúa el campo `W77-FACULTAD` para determinar el nivel de autorización de la sucursal operadora respecto al sistema consultado:
+
+| Valor FACULTAD | Semántica | Resultado (CVE-RESOL) |
+|---------------|-----------|----------------------|
+| 1 | Acceso restringido a la propia sucursal de captura | CVE-RESOL=1 (sucursal propia, pantalla ≠ 17) · CVE-RESOL=3 + MSG=87 (otra sucursal o Panel 17) |
+| 2 | Cross-sucursal autorizado | CVE-RESOL=1 (siempre; toda pantalla incluida P17) |
+| 3 | Acceso denegado incondicionalmente | CVE-RESOL=3 + MSG=87 (error de seguridad) |
+
+El nivel de FACULTAD se recupera de cinco tablas en memoria (`WKS-TAB-FAC` ... `WKS-TAB4-FAC`) indexadas por (sucursal × sistema), con cobertura de hasta 5000 sucursales en rangos de 1000. El resultado se propaga al campo `W77-CVE-RESOL` y se archiva en la bitácora CNBV (`WKS-BIT-CVE-RESULT`).
+
+Cada pantalla del hub tiene asignado un **código de transacción `Q015{NNN}` hardcodeado** que se valida contra el sistema externo `SEGURIDAD` mediante la llamada `VALIDA_FACULTAD IN SEGURIDAD`. El paragraph `420300-CALL-FACULTAD` ejecuta esta llamada; sus códigos negativos (-9=suspendido, -11..-2=error de validación) se mapean a MSG=78. La validación puede habilitarse (`HI 41` → `W77-VALIDA-SEG=1`) o deshabilitarse (`HI 42` → `W77-VALIDA-SEG=2`) en tiempo de ejecución sin reinicio del proceso y **sin registro en bitácora**.
+
+El programa **P655 (SCRAMBLING)**, documentado en la sección principal de esta capacidad, comparte con el control de acceso el mecanismo de clasificación de ambiente por hostname (`T-SEC-001` / `RN-S500-027`). El mismo defecto de fail-open ante host no reconocido que afecta al enmascaramiento PII afecta también al acceso sin control a las bases DMSII S500 — el hallazgo debe resolverse de forma unificada en la migración.
+
+### Reglas vinculadas — 10.1.1 Access Control
+
+| Tarea referenciada | Regla | Componente fuente | Descripción |
+|--------------------|-------|-------------------|-------------|
+| Modelo FACULTAD 1/2/3 | RN-S151-244 | COBOL_P010.txt (línea 12139) | Paragraph 300010-CHECA-ENTIDAD: sucursal propia / cross-sucursal / denegado; tablas WKS-TAB-FAC ... WKS-TAB4-FAC indexadas por (sucursal 1-4999 × sistema) |
+| Códigos Q015 por pantalla | RN-S151-245 | COBOL_P010.txt (línea 11552+) | Q015{NNN} hardcodeados para 25+ pantallas (111-130C, 181A/B/M/C); validados vía VALIDA_FACULTAD IN SEGURIDAD antes del dispatch |
+| Toggle de seguridad en tiempo real | RN-S151-246 | COBOL_P010.txt (líneas 10659/10665) | HI 41 → W77-VALIDA-SEG=1 (seguridad habilitada); HI 42 → W77-VALIDA-SEG=2 (bypass); sin registro en bitácora; estado inicial = 0 (sin validación en arranque) |
+| Bloqueo Panel 17 para FACULTAD=1 | RN-S151-247 | COBOL_P010.txt (línea 12174) | Totales Nacionales bloqueados para FACULTAD=1 cualquiera sea la sucursal; únicamente FACULTAD=2 permite acceso a P17 |
+| Resultado de FACULTAD → CVE-RESOL | RN-S151-262 | COBOL_P010.txt (línea 12173) | Mapeo completo: CVE-RESOL=1 (autorizado); CVE-RESOL=3 + MSG=87 (denegado); MSG=78 para suspendido/error externo (-9..-2) de VALIDA_FACULTAD |
+| Validación de supervisor | RN-S151-272 | COBOL_P010.txt | CVE-SUP requerido para operaciones de administración; error 35 si inválido |
+| Clasificación de ambiente (compartida con P655) | RN-S500-027 | COBOL_P655.txt | Lista cerrada de 7 hostnames — misma lógica de clasificación que governa el acceso a DMSII S500 y S151; ver T-SEC-001 |
+| Fail-open acceso a DMSII (compartido con P655) | RN-S500-036 | COBOL_P655.txt | Hostname no reconocido → acceso sin validación de ambiente activo en P655; riesgo de control de acceso unificado con T-SEC-002 |
+
+### Hallazgos de migración
+
+| Riesgo | Regla | Severidad | Acción requerida |
+|--------|-------|-----------|-----------------|
+| Modelo FACULTAD embebido en tablas en memoria (hasta 5000 sucursales × sistemas) — no externalizable en caliente | RN-S151-244 | 🔴 DEFECTO-PROD | Migrar a servicio de autorización (OAuth2 scope / RBAC) con granularidad sucursal × sistema; tablas in-memory deben persistirse en base de datos con hot-reload y API de consulta |
+| Q015{NNN} hardcodeados — catálogo de 25+ códigos de transacción no parametrizables; riesgo de omisión en transpilación | RN-S151-245 | 🟠 CRÍTICO | Exportar catálogo completo Q015 antes de transpilación; mapear a policy engine externalizado (OPA / Cedar); riesgo de compliance CNBV si algún código se omite o no se cubre la pantalla correspondiente |
+| Toggle HI 41/42 sin trazabilidad — bypass de seguridad no registrado en bitácora; W77-VALIDA-SEG=0 en arranque | RN-S151-246 | 🟠 CRÍTICO | Implementar en target como feature flag auditado con registro obligatorio (quién, cuándo, duración) y aprobación four-eyes (CNBV CUB); plataformas modernas no tienen equivalente de HI; valor inicial debe ser "seguridad habilitada" |
+| Panel P17 bloqueado por número hardcodeado (17) — no semántico; sin mecanismo de excepción de superusuario | RN-S151-247 | 🟡 ALTO | Mapear pantalla 17 a endpoint/recurso específico con scope de acceso definido en API Gateway; control previo al dispatch, no en lógica de negocio del microservicio |
+| Sucursal fuera del rango 1-4999 → WKS-TABn-FAC sin entrada; FACULTAD con valor indeterminado | RN-S151-244 | 🟡 ALTO | Documentar rango válido como invariante; implementar validación y rechazo explícito en capa de input antes del lookup RBAC target |
+| CVE-RESOL/MSG mapeo con códigos negativos de SEGURIDAD (-9..-2) → error genérico 78 sin semántica | RN-S151-262 | 🟡 MEDIO | En target, mapear a HTTP 401 (suspendido) / 403 (denegado) con códigos de error específicos; preservar traza del código original en log de auditoría |
+| Defecto fail-open compartido con P655 — mismo hostname no reconocido afecta acceso a bases DMSII S500 | RN-S500-036 | 🔴 DEFECTO-PROD | Resolver de forma unificada con la remediación de T-SEC-001/T-SEC-002 documentada en la sección principal: variable de entorno ENV=PROD/TEST + fail-closed ante valor no reconocido |
+
+---
+
+*cap-sec.md · v1.1 · 2026-07-16 · Capa 4 (Inventario de Tareas) + Capa 5 (Casuísticas + Diagrama Mermaid) + 10.1.1 Access Control (merge)*
+*Capacidades: T.3.5 Security + 10.1.1 Access Control · Sistemas: S500+S151 · Programas: P655 (SCRAMBLING) · P010 (LINEA)*
+*Cross-referencia: RN-S500-027..036 · RN-S151-244..247 · RN-S151-262 · rules-catalog/rules-s500.md · rules-catalog/rules-s151-p010.md · capability-map.md · kb-capa3-capacidades.md*

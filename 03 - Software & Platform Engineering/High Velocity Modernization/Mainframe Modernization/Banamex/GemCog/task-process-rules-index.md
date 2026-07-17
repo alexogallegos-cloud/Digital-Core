@@ -1,7 +1,7 @@
 # Índice Transversal: Tarea → Proceso → Regla · Banamex GemCog
 > Gemelo Cognitivo · Capa 4 (Tareas) + Capa 5 (Casuísticas/Procesos) + referencia a Capa 2 (Reglas)
 > Sistemas: S500 (Captación) + S151 (Movimientos Contables GL) · Unisys ClearPath MCP
-> Última actualización: 2026-07-16 · v1.4 · +HLD (22T·40R) · +STA (17T·30R)
+> Última actualización: 2026-07-16 · v1.5 · +MQ (7T·7R) · +FSV/ACC/SPI merges (0T·15R) · **20/20 COMPLETO**
 
 ---
 
@@ -25,7 +25,11 @@
 | ADJ | GL Adjustments & Sync — BC-09 Extracción/Integración Saldos | 7.1.1-bc09 | Enterprise Support | S151 | 38 | 37 | [cap-adj.md](capacidades/cap-adj.md) |
 | HLD | Holdings — Servidor de Saldos P050+P052 | 4.1.2 | Common Customer View | S151 | 22 | 40 | [cap-hld.md](capacidades/cap-hld.md) |
 | STA | Statements — Generador MOVSXCONT P158 | 6.1.4 | Common Services | S500+S151 | 17 | 30 | [cap-sta.md](capacidades/cap-sta.md) |
-| **Total** | | | | | **306** | **413** | |
+| MQ | MQ/Async — TIPO-PROC 33-37 · L091-L093 | T.2.3 | Transversal | S500 | 7 | 7 | [cap-mq.md](capacidades/cap-mq.md) |
+| FSV | Financial Servicing — LIBOR + FECVENCIMIENTO | 6.6.1 | Common Services | S500 | — | 2 | merge → [cap-int.md](capacidades/cap-int.md) |
+| ACC | Access Control — FACULTAD · Q015 · HI 41/42 | 10.1.1 | Integration & Interfaces | S500+S151 | — | 8 | merge → [cap-sec.md](capacidades/cap-sec.md) |
+| SPI | Payment Schemes — SPEI · CLABE · NIO | T.1.3 | Transversal | S500+S151 | — | 5 | merge → [cap-pay.md](capacidades/cap-pay.md) |
+| **Total** | | | | | **313** | **435** | |
 
 **Tipos de tarea:** `validación` · `consulta` · `escritura` · `contable` · `control` · `seguridad` · `reporte`
 
@@ -1003,6 +1007,38 @@
 
 ---
 
+### MQ — MQ / Async Gateway — TIPO-PROC 33-37 · L091-L093 [S500]
+> Dominio: T · Transversal · Capacidad: T.2.3
+> Programa: P020 (LINCOMS — 5 copias COMS) · Reglas: RN-S500-108/109/112/114/119/136/151
+
+#### Inventario de Tareas
+
+| ID | Tarea | Programa / Componente | Tipo |
+|----|-------|-----------------------|------|
+| T-MQ-001 | Asignar TIPO-PROC al mensaje S151 por número de copia COMS: COPIA-1→33, 2→34, 3→35, 4→36, 5→37 | P020 / WS-S151-TIPO-PROC | control |
+| T-MQ-002 | Failover de copia COMS: tabla WKS-SIGUIENTE fija (1→03, 2→01, 3→04, 4→02, 5→02); sin lógica de carga dinámica | P020 / WKS-SIGUIENTE | control |
+| T-MQ-003 | Generar réplica I11-REPLICA en COPIA-5 modo LINEA: envío cross-CSI VDM↔MTY con WAIT 1200s hardcodeado antes de replicar | P020 / 50201400-I11-REPLICA | escritura |
+| T-MQ-004 | Toggle en caliente de integración S151: TASKVALUE=3027 activa/desactiva WS-UTILIZA-S151-VA; aplica solo en PBA-LINEA (online), no en batch | P020 / WS-UTILIZA-S151-VA | control |
+| T-MQ-005 | Ciclo de cierre de día contable: CANCEL 7-8 librerías + WAIT 5s + recarga; COPIA-3 cancela adicionalmente S500L050DYR | P020 / CAMBIA-DIA-CONTABLE | contable |
+| T-MQ-006 | Topología cross-CSI en P142: 8 pares host VDM↔MTY + 6 pares adicionales hardcodeados; sin COPY book compartido con P020/P144 | P142 / WKS-HOST-ORIG/DEST-XFER | control |
+| T-MQ-007 | Topología cross-CSI duplicada en P144 sin COPY book: riesgo de desincronización al añadir nodo CSI — 3 programas con tablas independientes | P144 / WKS-HOST-ORIG-XFER-XX | control |
+
+#### Reglas vinculadas
+
+| Tarea | Regla | Componente fuente | Descripción |
+|-------|-------|-------------------|-------------|
+| T-MQ-001 | RN-S500-108 | P020 LINCOMS | TIPO-PROC por copia: 1→33, 2→34, 3→35, 4→36, 5→37 para routing S151 |
+| T-MQ-002 | RN-S500-109 | P020 LINCOMS | Tabla failover fija WKS-SIGUIENTE; sin load balancer dinámico |
+| T-MQ-003 | RN-S500-112 | P020 LINCOMS | I11-REPLICA COPIA-5: WAIT 1200s hardcodeado antes de replicar cross-CSI |
+| T-MQ-004 | RN-S500-114 | P020 LINCOMS | Toggle TASKVALUE=3027: activa/desactiva S151 en caliente (solo LINEA) |
+| T-MQ-005 | RN-S500-119 | P020 LINCOMS | Cierre contable: CANCEL librerías + WAIT 5s + recarga; COPIA-3 cancela S500L050DYR |
+| T-MQ-006 | RN-S500-136 | P142 | Topología cross-CSI P142: 8+6 pares host hardcodeados sin COPY book |
+| T-MQ-007 | RN-S500-151 | P144 | Topología cross-CSI P144 duplicada sin COPY book; 3 programas independientes |
+
+> **Hallazgo crítico T.2.3**: COMS no tiene equivalente directo en cloud. Arquitectura de 5 copias → reemplazar con Kafka/SQS + load balancer. WAIT 1200s → parametrizar. Topología cross-CSI triplicada → service discovery. L091-L092-L093 pendientes de análisis de código fuente en Fase 2.
+
+---
+
 ## Pendientes de vinculación (resumen)
 
 | Capacidad | Reglas sin mapear | Descripción |
@@ -1015,6 +1051,6 @@
 
 ---
 
-*task-process-rules-index.md · v1.4 · 2026-07-16*
-*Fuente: cap-gl · cap-rec · cap-tar · cap-sec · cap-cmp · cap-pay · cap-int · cap-orc · cap-sch · cap-ods · cap-rpt · cap-adj · cap-dep · cap-tel · cap-hld · cap-sta*
-*Swarm: 16 agentes en paralelo + coordinador · Total: 306 tareas · 413 reglas vinculadas · 826 reglas en catálogo*
+*task-process-rules-index.md · v1.5 · 2026-07-16*
+*Fuente: 20 capacidades — cap-gl · cap-rec · cap-tar · cap-sec · cap-cmp · cap-pay · cap-int · cap-orc · cap-sch · cap-ods · cap-rpt · cap-adj · cap-dep · cap-tel · cap-hld · cap-sta · cap-mq · merges FSV/ACC/SPI*
+*Swarm: 20 agentes en paralelo + coordinador · Total: 313 tareas · 435 reglas vinculadas · 826 reglas en catálogo · **GemCog Capa 3 — COBERTURA COMPLETA 20/20***
