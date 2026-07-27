@@ -1,7 +1,7 @@
 # Registro de Riesgos de Migración — Banamex GemCog S500 + S151
 > Taxonomía canónica: **N1 Dominio → N2 SubDominio → N3 Capacidad → N4 Proceso → N5 Flujo (Tarea)**
 > Sistemas: S500 (Captación/Cargos y Abonos) + S151 (GL — Movimientos Contables) · Unisys ClearPath MCP
-> Última actualización: 2026-07-27 · v3.5 · **171 riesgos** · 22/22 capacidades documentadas · GL enriquecido con validación SME (Regulatorio CNBV + Contabilidad Bancaria + SPEI) del batch P109 Ola 4
+> Última actualización: 2026-07-27 · v3.6 · **172 riesgos** · 22/22 capacidades documentadas · GL + ADJ enriquecidos con validación SME (Regulatorio CNBV + Contabilidad Bancaria + SPEI) de los batches P109 y BC-09 Ola 4
 > Indexado: ✅ 2026-07-17 — Registro de riesgos de migración
 
 ---
@@ -38,10 +38,10 @@
 | Métrica | Valor |
 |---------|-------|
 | Cap files cubiertos | 22/22 (TAR · GL · REC · SEC · CMP · DEP · HLD · ADJ · ODS · PAY · MQ · SCH · STA · TEL · INT · CFR · ORC · RPT · CPE) |
-| Total de riesgos registrados | 171 |
+| Total de riesgos registrados | 172 |
 | 🔴 DEFECTO-PROD | 7 |
-| 🟠 CRÍTICO | 60 |
-| 🟡 ALTO | 64 |
+| 🟠 CRÍTICO | 62 |
+| 🟡 ALTO | 63 |
 | 🟡 MEDIO | 39 |
 | 🟢 BAJO | 1 |
 
@@ -56,7 +56,7 @@
 | CMP | 6.5.2 Compliance & Regulation | 10 | — | 4 | 3 | 3 | — |
 | DEP | 5.1.1 Deposits | 7 | — | 2 | 2 | 3 | — |
 | HLD | 4.1.2 Holdings | 10 | — | 3 | 5 | 2 | — |
-| ADJ | 6.7.1+6.7.2 Reconciliation GL Sync | 8 | — | 3 | 4 | 1 | — |
+| ADJ | 6.7.1+6.7.2 Reconciliation GL Sync | 9 | — | 5 | 3 | 1 | — |
 | ODS | 9.1.1 Operational Data Stores | 13 | — | 4 | 4 | 5 | — |
 | PAY | 6.1.3 Payments | 2 | — | 1 | 1 | — | — |
 | MQ | T.2.3 Async Infrastructure | 1 | — | — | 1 | — | — |
@@ -321,8 +321,9 @@
 | MR-ADJ-04 | 🟡 ALTO | PROPIETARIO-MCP | T-ADJ-P330-003 · T-ADJ-P360-002 | ATTRIBUTE VALUE OF MYSELF — mecanismo propietario Unisys MCP para override de fecha de proceso en reprocesos históricos; no tiene equivalente directo en Java/Linux/cloud | Reemplazar por parámetro explícito de línea de comandos (`--fecha-proceso`) o variable de entorno `S151_FECHA_PROCESO`; fallback a consulta de tabla de control cuando el parámetro no se provee |
 | MR-ADJ-05 | 🟡 ALTO | PROPIETARIO-MCP | T-ADJ-P360-012 | CALL SYSTEM DMTERMINATE en P360 hace rollback atómico de toda la integración ante fallo de STORE — en JDBC/JPA no existe equivalente directo; múltiples transacciones independientes no son equivalentes | Envolver las 6 integraciones (B20..B80) en una sola transacción JTA; ante excepción no recuperable: rollback + log estructurado + notificación operacional |
 | MR-ADJ-06 | 🟡 ALTO | EQUIVALENCIA | T-ADJ-P330-013 | 6 extracciones en secuencia fija en P330 (B20→B21→B70→B71→B72→B80) — pueden paralelizarse en target si se confirma independencia de datos; en mainframe toma N×tiempo_lectura sin paralelismo | Analizar con SME si existe dependencia de datos entre las 6 estructuras; si son independientes: paralelizar con hilos/async + barrera de sincronización (CountDownLatch o CompletableFuture.allOf) |
-| MR-ADJ-07 | 🟡 ALTO | SILENCIOSO | T-ADJ-P360-010 · T-ADJ-P330-008 | B72POSCONTA: identidad contable SDOACT = SDOANT + CARGOS - ABONOS no validada en P330 (extrae) ni P360 (integra) — insumo directo de reportes R04C/R27C CNBV; descuadre en datos originales pasa sin detección | Agregar validación de cuadratura contable en el servicio equivalente de P360; reportar registros donde SDOACT ≠ SDOANT + CARGOS - ABONOS; agregar a suite de regresión regulatoria CNBV |
+| MR-ADJ-07 | 🟠 CRÍTICO | SILENCIOSO · REGULATORIO | T-ADJ-P360-010 · T-ADJ-P330-008 | B72POSCONTA: identidad contable SDOACT = SDOANT + CARGOS - ABONOS **no se valida en ningún punto de la cadena** (P330 extrae asumiendo que el origen cuadra, P360 reescribe sin validar) — insumo directo de R04C/R27C CNBV. SME Contable: el signo depende de NATCTA (1=deudora/2=acreedora, `[DATO-REQUERIDO]`); es antipatrón de control interno no tener cuadre en el punto de reescritura del saldo (Art. 144-148) | Agregar la validación de cuadre por cuenta (KEYCTA) respetando NATCTA como **gate de carga en el target** (control que el AS-IS no tiene); toda fila que no cuadre detiene la carga y genera asiento de ajuste auditable; regresión regulatoria CNBV |
 | MR-ADJ-08 | 🟡 MEDIO | HARDCODE | T-ADJ-P312-002 · T-ADJ-P312-004 | Nodo 04 (Monterrey) y filtro PRD=1/INS=3/MON=1 hardcoded en P312 — nuevos productos, instrumentos o coberturas para S084 Cobertura Monterrey requieren recompilación | Externalizar nodo, producto, instrumento y moneda como parámetros de configuración; documentar significado financiero de PRD=1/INS=3/MON=1 con SME de S084 antes de migrar |
+| MR-ADJ-09 | 🟠 CRÍTICO | EQUIVALENCIA · ATOMICIDAD | T-ADJ-P360-001 · T-ADJ-P360-012 | P360 reintegra con `CREATE + STORE` sobre la base DMSII destino — **no es idempotente**: re-ejecutar (RN-736 permite fecha explícita para reproceso) sobre una base ya integrada arriesga **duplicación** de saldos (si STORE inserta) o **pérdida del anterior** (si sobreescribe sin preservar). SME Contable: el riesgo dominante depende de la política de reproceso `[DATO-REQUERIDO]` (truncate-and-load vs upsert) | Definir y documentar la política de reproceso; en target hacer la carga idempotente (upsert por clave o truncate-por-período transaccional); la prueba de equivalencia debe probar **explícitamente el escenario de re-ejecución**, no solo la carga limpia |
 
 ---
 
