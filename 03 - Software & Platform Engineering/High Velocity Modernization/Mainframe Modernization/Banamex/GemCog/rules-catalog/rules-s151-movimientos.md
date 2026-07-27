@@ -58,10 +58,10 @@
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P053 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -93,10 +93,10 @@ WKS-TIT-MONITOR = "(S151)S151/FILE/MONITOR/P053/" + FECHA(6) + "/" + HORA(6) + "
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-RESILIENCIA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P053 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -130,10 +130,10 @@ FD A01-MONITOR
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P053 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -166,10 +166,10 @@ BLOCK  CONTAINS 10   RECORDS
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P053 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -203,10 +203,10 @@ OFICINA contiene:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | [LÓGICA-TEMPORAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P053 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -241,10 +241,10 @@ ELSE
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [MCP-ESPECÍFICO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P053 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -276,10 +276,10 @@ MENSAJE-LJ = SISTEMA-LJ "/" PASO-LJ "/" MTP-LJ ":" TIPO-LJ ">" CODIGO-LJ "<" TEX
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P053 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -316,10 +316,10 @@ CONSISDIA F06-F10 = gestión de niveles y estatus de archivos
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [MCP-ESPECÍFICO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P053 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -351,10 +351,10 @@ VALUE OF TITLE IS "(S151)S151/FILE/MONITOR/P053/..." + " ON CMEMP."
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [GESTIÓN-VERSIONES] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P053 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -389,10 +389,10 @@ $SET LISTOMITTED
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [GESTIÓN-VERSIONES] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P053 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -425,10 +425,10 @@ $SET LISTOMITTED
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P030 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -460,10 +460,10 @@ TASKFILE = "S151/TASKFILE/P030/" + NODO + "/" + FECHA(6) + "/" + MXNB
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-TRANSACCIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P030 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -496,10 +496,10 @@ WKS-MSG      PIC X(1920)   -- payload de datos (1926 - 6 bytes de header)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P030 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -531,10 +531,10 @@ STATION(8) = TIPO(1) + SUC(4) + PRIV(1) + CAJ(2)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [ARQUITECTURA-TRANSACCIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P030 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -568,10 +568,10 @@ IF WKS-TRANCODE-COMS = {código}
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [GESTIÓN-VERSIONES] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P030 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -600,10 +600,10 @@ IF WKS-TRANCODE-COMS = {código}
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [ARQUITECTURA-DISTRIBUIDA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P030 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -638,10 +638,10 @@ ELSE
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [ARQUITECTURA-TRANSACCIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P030 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -673,10 +673,10 @@ SA2-HEADER = SUCURSAL(4) + CAJA(2/3) + TRANNUM(8) + FECMOV(6) + HORA(6)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [REGLA-CONTROL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P030 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -712,10 +712,10 @@ SA2-HEADER = SUCURSAL(4) + CAJA(2/3) + TRANNUM(8) + FECMOV(6) + HORA(6)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [MCP-ESPECÍFICO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P030 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -744,10 +744,10 @@ SA2-HEADER = SUCURSAL(4) + CAJA(2/3) + TRANNUM(8) + FECMOV(6) + HORA(6)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P030 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -785,10 +785,10 @@ DISPATCH to specialist program via TASKFILE or message
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-DISTRIBUIDA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P014 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -821,10 +821,10 @@ INPUT from S500 (Cargos/Abonos system)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P014 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -859,10 +859,10 @@ FOR EACH movimiento IN A01-MOVS500:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [REGLA-CONTROL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P014 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -894,10 +894,10 @@ FD A02-CTL-PC PROTECTION IS PROTECTED
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P014 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -932,10 +932,10 @@ FD A03-DES
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P014 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -968,10 +968,10 @@ INDEX ARCH-DES ON KEY-CAT
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P014 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1004,10 +1004,10 @@ DATASET B07PROTCOB  -- Protection Cobros dataset
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [ARQUITECTURA-RESILIENCIA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P014 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1040,10 +1040,10 @@ WRITE L02-MONITOR   -- para seguimiento operativo en disco
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [ARQUITECTURA-DISTRIBUIDA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P014 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1075,10 +1075,10 @@ S500 → A01-MOVS500 → P014 → B07PROTCOB → L014 → Sucursal (online)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [GESTIÓN-VERSIONES] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P014 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1107,10 +1107,10 @@ S500 → A01-MOVS500 → P014 → B07PROTCOB → L014 → Sucursal (online)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P014 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1148,10 +1148,10 @@ IF saldo_cuenta < importe_cargo AND cliente tiene PROTCOB activo:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P055 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1184,10 +1184,10 @@ A04-CTAMRE-ARCHIVO-D -- USD (DOLAR), misma estructura
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [REGLA-CONTROL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P055 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1222,10 +1222,10 @@ A05-AUTORIZACIONES:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P055 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1261,10 +1261,10 @@ R01-REG-ENVIO:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P055 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1298,10 +1298,10 @@ CARGOS_NETO   = REG-CARG-PES  - REG-CARG-ELIM-PES
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P055 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1336,10 +1336,10 @@ Frecuencia de actualización: INTRADAY (tiempo real)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [REGLA-CONTROL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P055 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1373,10 +1373,10 @@ A03-CTL-ENVIO:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-DISTRIBUIDA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P055 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1410,10 +1410,10 @@ JOIN por AUT-S151 (llave de autorización)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-DISTRIBUIDA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P055 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1445,10 +1445,10 @@ S500 (fuente) → A01-MOVS500 → P055 → A04-CTAMRE (destino)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | [HARDCODE-IMPLÍCITO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P055 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1481,10 +1481,10 @@ TITLE A04-CTAMRE-ARCHIVO-D omite "PESO"     -- USD por exclusión
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P055 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1520,10 +1520,10 @@ TASKFILE = "S151/TASKFILE/P055/" + NODO + "/" + FECHA + "/" + MIX
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [MCP-ESPECÍFICO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L040 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1557,10 +1557,10 @@ PROGRAM-ID. TOTXCVETRA.
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L040 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1594,10 +1594,10 @@ CALL "TOTXCVETRA" USING funcion, sistema, fecha, [cvetran], resultado
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [REGLA-CONTROL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L040 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1639,10 +1639,10 @@ RETURN-CODE:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L040 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1676,10 +1676,10 @@ DB S151BD10MOVDIA151 ALIAS BASEMOVDIA
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [GESTIÓN-VERSIONES] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L040 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1714,10 +1714,10 @@ IF W77-CTLVER-RESULT ≠ 0
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [MCP-ESPECÍFICO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L040 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1750,10 +1750,10 @@ CALL DESPLIEGA USING MENSAJE-LJ, CONTADOR-LJ
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L040 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1787,10 +1787,10 @@ IF fecha_solicitada NOT BETWEEN FECCON AND FECPRO
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [ARQUITECTURA-RESILIENCIA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L040 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1824,10 +1824,10 @@ IF S151BD10MOVDIA151 no disponible: RETURN 7
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L040 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1863,10 +1863,10 @@ CALL TOTXCVETRA(funcion=25, sistema=S151, fecha=HOY)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [REGLA-CONTROL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L040 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1904,10 +1904,10 @@ IF SISTEMA not registered in BASEMOVDIA control:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P054 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1940,10 +1940,10 @@ A04-EXTNET-ARCHIVO-D -- USD, misma estructura
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P054 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1976,10 +1976,10 @@ A05-AUTORIZA OCCURS 5:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P054 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2014,10 +2014,10 @@ AUTORIZA-RECORD:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [REGLA-CONTROL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P054 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2050,10 +2050,10 @@ A05-STATUS: estado de la autorización
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P054 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2087,10 +2087,10 @@ NUMAUTORIZA = clave de autorización unificada
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [LÓGICA-TEMPORAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P054 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2123,10 +2123,10 @@ HORMOV PIC 9(6)  -- HHMMSS
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P054 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2161,10 +2161,10 @@ A05-AUTORIZACIONES:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P054 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2198,10 +2198,10 @@ Destino: sistema de compensación de Red Extendida
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [ARQUITECTURA-DISTRIBUIDA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P054 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2235,10 +2235,10 @@ S500 → A01-MOVS500 (450 bytes) + A02-DESS500 (540 bytes)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P054 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2277,10 +2277,10 @@ Total CONCEPTO = hasta 200 caracteres
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [ARQUITECTURA-DISTRIBUIDA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P005 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2315,10 +2315,10 @@ FD TESORERIA
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P005 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2351,10 +2351,10 @@ TESORERIA: RECORD CONTAINS 56 CHARACTERS (ASCII)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P005 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2387,10 +2387,10 @@ FD V00-REPORTE2 RECORD CONTAINS 132 CHARACTERS PRINTER
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P005 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2425,10 +2425,10 @@ FD SALDOS
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P005 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2461,10 +2461,10 @@ FD SDOS-SAL RECORD CONTAINS 156 CHARACTERS
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [LÓGICA-TEMPORAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P005 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2498,10 +2498,10 @@ WKS-DATE-ARRAY2 PIC X(21) DISPLAY WITH LOWER-BOUNDS
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P005 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2535,10 +2535,10 @@ S151BD02ADSALDO → P005 (EXTRACTOR) → TESORERIA (ASCII, 56 bytes)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | [GESTIÓN-VERSIONES] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P005 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2567,10 +2567,10 @@ S151BD02ADSALDO → P005 (EXTRACTOR) → TESORERIA (ASCII, 56 bytes)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [ARQUITECTURA-DISTRIBUIDA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P005 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2603,10 +2603,10 @@ MCP/EBCDIC → [EXTMODE IS ASCII] → Archivo 56 bytes ASCII
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | media |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P005 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2644,10 +2644,10 @@ V00-REPORTE2 = vista de gestión / Tesorería (132 cols)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [REGLA-CONTROL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P013 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2682,10 +2682,10 @@ ELSE
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [ARQUITECTURA-DISTRIBUIDA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P013 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2720,10 +2720,10 @@ FOR EACH movimiento:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [ARQUITECTURA-RESILIENCIA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P013 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2756,10 +2756,10 @@ FD A02-CTL-DM PROTECTION IS PROTECTED
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P013 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2793,10 +2793,10 @@ DB S151BD13BIFIN
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P013 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2829,10 +2829,10 @@ DATOS-MSJ PIC X(1000)  -- campo de mensaje de monitor
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P013 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2869,10 +2869,10 @@ Total: 40 bytes
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [REGLA-CONTROL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P013 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2908,10 +2908,10 @@ ELSE (BAN_HR = 0):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [ARQUITECTURA-DISTRIBUIDA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P013 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2944,10 +2944,10 @@ S702 → [confirmación] → P017 → S151BD13BIFIN.B10DOMI
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [REGLA-CONTROL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P013 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2982,10 +2982,10 @@ IF VALIDACION_FECHA AND VALIDACION_HORA:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [HARDCODE-IMPLÍCITO] |
 | **Confianza** | media |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P013 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3023,10 +3023,10 @@ SER(1) = subtipo de servicio
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P001 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3060,10 +3060,10 @@ READ A01-S151MOV AT POSITION W77-ULT-REG-LEIDO
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P001 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3096,10 +3096,10 @@ READ A02-S151DES AT POSITION W77-LOGKEY
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [ARQUITECTURA-RESILIENCIA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P001 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3133,10 +3133,10 @@ FD A02-S151DES RESERVE 0 AREAS
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-DISTRIBUIDA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P001 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3173,10 +3173,10 @@ FILXAPL(165) REDEFINES:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P001 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3212,10 +3212,10 @@ S087-FILXAPL:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P001 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3249,10 +3249,10 @@ FT01: FORMATO + DESCRIPCION + NATUTRAN
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [LÓGICA-TEMPORAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P001 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3286,10 +3286,10 @@ S252-FILXAPL:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [GESTIÓN-VERSIONES] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P001 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3318,10 +3318,10 @@ S252-FILXAPL:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P001 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3356,10 +3356,10 @@ FOR EACH movimiento IN A01-S151MOV:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [ARQUITECTURA-RESILIENCIA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P001 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3396,10 +3396,10 @@ A02-S151DES: RESERVE 0 (lectura directa a disco, sin buffer stale)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [MCP-ESPECÍFICO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P025 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3434,10 +3434,10 @@ L01-MOVTOS: 75 bytes, 144 rec/block
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P025 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3470,10 +3470,10 @@ L02-DESCRIP: 90 bytes, 120 rec/block
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P025 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3507,10 +3507,10 @@ L04-CTDR: 210 bytes, 50 rec/block  -- datos CTDR
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [ARQUITECTURA-RESILIENCIA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P025 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3547,10 +3547,10 @@ WKS-CATEGORIAS (17 strings):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P025 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3584,10 +3584,10 @@ DB S151BD10MOVDIA151 ALIAS BASESEM
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [GESTIÓN-VERSIONES] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P025 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3616,10 +3616,10 @@ DB S151BD10MOVDIA151 ALIAS BASESEM
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [GESTIÓN-VERSIONES] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P025 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3654,10 +3654,10 @@ DB S151BD10MOVDIA151 ALIAS BASESEM
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [GESTIÓN-VERSIONES] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P025 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3686,10 +3686,10 @@ DB S151BD10MOVDIA151 ALIAS BASESEM
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [GESTIÓN-VERSIONES] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P025 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3718,10 +3718,10 @@ DB S151BD10MOVDIA151 ALIAS BASESEM
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [GESTIÓN-VERSIONES] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P025 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3754,10 +3754,10 @@ DB S151BD10MOVDIA151 ALIAS BASESEM
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | [HARDCODE-IMPLÍCITO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P016 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3792,10 +3792,10 @@ IF HORA-ACTUAL < WKS-HORA-INICIO OR > WKS-HORA-LIMITE:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P016 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3829,10 +3829,10 @@ WKS-TABLA-PRDINST OCCURS 3000 TIMES:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P016 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3866,10 +3866,10 @@ NETO(i) = WKS-TABLA-TOTABO(i) - WKS-TABLA-TOTCGO(i)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P016 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3904,10 +3904,10 @@ IF WKS-TABLA-TOTCGO(i) > WKS-TABLA-ALERTAS(i).LIMTRNCAR:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P016 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3941,10 +3941,10 @@ WKS-TABLA-CPAE OCCURS 10000 TIMES
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | [HARDCODE-IMPLÍCITO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P016 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -3978,10 +3978,10 @@ IF SISTEMA IN W88-SISTEMAS-CFR:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P016 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4015,10 +4015,10 @@ DB S151BD13BIFIN ALIAS BIFINDB
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P016 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4050,10 +4050,10 @@ LOG_FILE = "(S151)S151/FILE/MOVS" + SISTEMA(4) + "/" + FECHA(8) + " ON " + PACK
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P016 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4086,10 +4086,10 @@ WKS-PARAMETRO(12) = FECHA(8) + SISTEMA(4)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [GESTIÓN-VERSIONES] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P016 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4122,10 +4122,10 @@ WKS-PARAMETRO(12) = FECHA(8) + SISTEMA(4)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [MCP-ESPECÍFICO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L020 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4160,10 +4160,10 @@ PROGRAM-ID. S151LIB020.
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L020 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4196,10 +4196,10 @@ DB S151BD12MC001S151 ALIAS MOVDB -- movimientos contables
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L020 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4234,10 +4234,10 @@ WKS-L710-ENT:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L020 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4272,10 +4272,10 @@ WKS-L710-SAL:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-TRANSACCIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L020 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4309,10 +4309,10 @@ WKS-MOV-DATOS PIC X(540) WITH LOWER-BOUNDS
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | L020 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4346,10 +4346,10 @@ CVEIMP(5 OCCURS):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | [ARQUITECTURA-DISTRIBUIDA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L020 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4384,10 +4384,10 @@ REFNUM REDEFINES:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | [ARQUITECTURA-DISTRIBUIDA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L020 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4421,10 +4421,10 @@ FIL-FUTURO REDEFINES para:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-DISTRIBUIDA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L020 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4458,10 +4458,10 @@ DATOS-ADIC(354) REDEFINES (por sistema llamador):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [REGLA-CONTROL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | L020 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4498,10 +4498,10 @@ IND-DATOS-ADIC(1) = '1' si DATOS-ADIC tiene datos válidos
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [MCP-ESPECÍFICO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L014 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4536,10 +4536,10 @@ PROGRAM-ID. S151L014.
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L014 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4575,10 +4575,10 @@ L014 = gateway online para los tres datasets
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | L014 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4616,10 +4616,10 @@ PANTALLA 29 (B08TDMIGCAP) - opciones de búsqueda:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | L014 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4657,10 +4657,10 @@ PANTALLA 30 (B10DOMI):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [LÓGICA-TEMPORAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L014 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4695,10 +4695,10 @@ WKS-CAL-FECHA2   = PIC 9(8) CCAAMMDD (fecha final)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [ARQUITECTURA-RESILIENCIA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L014 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4733,10 +4733,10 @@ LIBRARYLOCK:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | L014 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4774,10 +4774,10 @@ WKS-DATGEN:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L014 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4813,10 +4813,10 @@ WKS-SERVICIO(2):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | L014 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4850,10 +4850,10 @@ WKS-AUTORIZA-CONS(8)  = autorización → buscar por AUT-S151
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | L014 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4892,10 +4892,10 @@ Sucursal → [SA2 online] → L014 → S151BD13BIFIN
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P011 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4928,10 +4928,10 @@ TITLE = "(S151)S151/FILE/P011/MONITOR/{FECHA}/{HORA}/{MIX} ON CMEMP."
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | [HARDCODE-IMPLÍCITO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P011 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -4965,10 +4965,10 @@ TRANCODE = 015111  -- hardcoded
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [HARDCODE-IMPLÍCITO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P011 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5001,10 +5001,10 @@ W77-NODO-DES PIC 9(2) VALUE 16  -- nodo destino fijo
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | [HARDCODE-IMPLÍCITO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P011 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5037,10 +5037,10 @@ WKS-HORA-LIMITE VALUE 200000  -- 20:00:00
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P011 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5074,10 +5074,10 @@ DB S151BD13BIFIN:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [REGLA-CONTROL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P011 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5111,10 +5111,10 @@ KEY B03ALARMAS (48 bytes total):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P011 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5150,10 +5150,10 @@ B06CTLENVIO:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P011 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5186,10 +5186,10 @@ TASKFILE = "S151/TASKFILE/P011/" + NODO + "/" + SUBNODO
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [REGLA-CONTROL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P011 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5226,10 +5226,10 @@ IF SW-B06:      enviar control a B06CTLENVIO
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | [GESTIÓN-VERSIONES] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P011 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5262,10 +5262,10 @@ IF SW-B06:      enviar control a B06CTLENVIO
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-TRANSACCIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P020 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5299,10 +5299,10 @@ WKS-REG-MSG PIC X(864) WITH LOWER-BOUNDS
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-TRANSACCIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P020 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5337,10 +5337,10 @@ SA2-HEADER (36 bytes):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [REGLA-CONTROL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P020 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5378,10 +5378,10 @@ RSLTDO:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [ARQUITECTURA-TRANSACCIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P020 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5417,10 +5417,10 @@ WKS-SA0-DIRECCION:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P020 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5456,10 +5456,10 @@ STATION(8) = TIPO(1) + SUC(4) + PRIV(1) + CAJA(2)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P020 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5493,10 +5493,10 @@ WKS-DATOS-S151 contiene:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P020 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5530,10 +5530,10 @@ Total: 200 chars de concepto visible al cajero
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [ARQUITECTURA-DISTRIBUIDA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P020 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5568,10 +5568,10 @@ BDES-S264  = banco destino (en S264)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [ARQUITECTURA-DISTRIBUIDA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P020 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5600,10 +5600,10 @@ BDES-S264  = banco destino (en S264)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-TRANSACCIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P020 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5642,10 +5642,10 @@ WKS-HDR-LSNORGN-H  REDEFINES
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P071 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5678,10 +5678,10 @@ RECORD 1500 chars, BLOCK 10 records
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | [HARDCODE-IMPLÍCITO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P071 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5714,10 +5714,10 @@ W77-NUM-MOVTOS PIC 9(02) VALUE 25
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [ARQUITECTURA-TRANSACCIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P071 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5751,10 +5751,10 @@ PAYLOAD-OFFSET = 48 + 77 = 125 bytes
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [HARDCODE-IMPLÍCITO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P071 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5789,10 +5789,10 @@ W88-SISTEMAS-PUNTEO VALUE
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P071 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5825,10 +5825,10 @@ COPY "(S151)S151/FORMATO/LLAMADA/LIBCONTROL ON CMEMP."
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P071 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5865,10 +5865,10 @@ WKS-B01-CTL-DIA OCCURS 10 TIMES:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [MCP-ESPECÍFICO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P071 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5902,10 +5902,10 @@ COPY "(S000)S000/UTILITY/DESPLIEGA/FTE/CCW ON PACK."
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [REGLA-CONTROL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P071 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5943,10 +5943,10 @@ W77-RESULT-L011 PIC S9(11) BINARY
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P017 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -5981,10 +5981,10 @@ Ciclo domiciliación:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [ARQUITECTURA-RESILIENCIA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P017 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6017,10 +6017,10 @@ FD L02-MONITOR PROTECTION IS PROTECTED  -- log operativo
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-TRANSACCIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P017 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6058,10 +6058,10 @@ WKS-REG-MSG(534):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [REGLA-CONTROL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P017 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6096,10 +6096,10 @@ IF WKS-SA0-TRN-ORIG NOT (S702 OR C845):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [REGLA-CONTROL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P017 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6133,10 +6133,10 @@ IF WKS-SA0-TRN-DEST ≠ 0151:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P017 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6172,10 +6172,10 @@ WKS-AREA-MSG-OBL-SERV1:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P017 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6210,10 +6210,10 @@ WKS-AREA-MSG-OBL-SERV2 (campos internacionales):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-06 |
 | **bian_ref** | 6.1.3 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P017 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6250,10 +6250,10 @@ S702 → P017 → S151BD13BIFIN.B10DOMI → L014 → Sucursal
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P073 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6286,10 +6286,10 @@ RECORD 1500 chars, BLOCK 10 records
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-TRANSACCIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P073 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6323,10 +6323,10 @@ P071: W77-HDR-BNMX=48, W77-HDR-SA2=77  -- SA2 completo
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | [HARDCODE-IMPLÍCITO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P073 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6361,10 +6361,10 @@ P071 SISTEMAS-PUNTEO (18): P073 + 252 + 408
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P073 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6397,10 +6397,10 @@ COPY "(S151)S151/FORMATO/LLAMADA/LIBCONTROL ON CMEMP."
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P073 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6434,10 +6434,10 @@ WKS-B01-CTL-DIA OCCURS 10 TIMES:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [REGLA-CONTROL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P073 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6471,10 +6471,10 @@ W77-TOTAL-SISTEMAS PIC 9(04)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [MCP-ESPECÍFICO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P073 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6509,10 +6509,10 @@ Dependencias de librería:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [REGLA-CONTROL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P073 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6549,10 +6549,10 @@ W77-RESP-L011   PIC 9(04)          -- respuesta secundaria
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P090 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6587,10 +6587,10 @@ LIDE-TITLE = "(S151)S151/FILE/S502/RECLIDE/"
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P090 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6625,10 +6625,10 @@ A03-TOT-LIDE-UNI   = Unión/Nacional (DEPENDENTSPECS=TRUE)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P090 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6665,10 +6665,10 @@ TIPREG=2 (TRAIL):  TOTREG(8)+TOTNUMCAR(10)+TOTIMPCAR(18V99)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P090 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6706,10 +6706,10 @@ CUADRE: TOTIMPABO - TOTIMPCAR = posición neta de efectivo
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P090 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6745,10 +6745,10 @@ Destino: S502 → Banxico (liquidación)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P090 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6784,10 +6784,10 @@ WKS-COPY-L030:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [MCP-ESPECÍFICO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P090 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6823,10 +6823,10 @@ WKS-DATOS-HOST:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [MCP-ESPECÍFICO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P090 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6864,10 +6864,10 @@ FD ARCH-TOT-LIDE SECURITYTYPE IS PUBLIC
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-18 |
 | **bian_ref** | T.3.4 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P600 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6901,10 +6901,10 @@ PROGRAM-ID. CALLLIBCTL.  -- "Call Library Control"
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-18 |
 | **bian_ref** | T.3.4 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P600 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6941,10 +6941,10 @@ CONSISDIA F01 (FUNCION=01):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-18 |
 | **bian_ref** | T.3.4 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [LÓGICA-TEMPORAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P600 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -6978,10 +6978,10 @@ CONSISDIA F02:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-18 |
 | **bian_ref** | T.3.4 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | [LÓGICA-TEMPORAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P600 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -7016,10 +7016,10 @@ CONSISDIA F03:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-18 |
 | **bian_ref** | T.3.4 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [REGLA-CONTROL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P600 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -7055,10 +7055,10 @@ CONSISDIA F04:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-18 |
 | **bian_ref** | T.3.4 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [REGLA-CONTROL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P600 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -7094,10 +7094,10 @@ CONSISDIA F05:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-18 |
 | **bian_ref** | T.3.4 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [REGLA-CONTROL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P600 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -7132,10 +7132,10 @@ F10: NIVBASE + NIVARCM en una sola operación atómica
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-18 |
 | **bian_ref** | T.3.4 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [ARQUITECTURA-OPERACIONAL] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | P600 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |

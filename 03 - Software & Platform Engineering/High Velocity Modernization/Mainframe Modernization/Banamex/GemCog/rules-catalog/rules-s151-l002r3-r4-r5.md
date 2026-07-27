@@ -79,10 +79,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | ARQUITECTURA |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -105,10 +105,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | DATO_MAESTRO |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -131,10 +131,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | VALIDACION |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -157,10 +157,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | ALGORITMO |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -185,10 +185,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | RECUPERACION / OPERACIONES |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -211,10 +211,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | TIEMPO_REAL / RENDIMIENTO |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -237,10 +237,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | RENDIMIENTO / BUFFER |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -263,10 +263,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | TIEMPO_REAL / CONTROL |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -289,10 +289,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | PROCESO_BATCH / OPERACIONES |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -315,10 +315,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | SINCRONIZACIÓN |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -341,10 +341,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | COORDINACIÓN / CONDICIONAL |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -369,10 +369,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | ARQUITECTURA |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -395,10 +395,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | OPERACIONES |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -421,10 +421,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | INTERFAZ |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -447,10 +447,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | TRANSFORMACIÓN / TESOFE |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -473,10 +473,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | GESTIÓN_ARCHIVO |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -499,10 +499,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | FILTRO_DATOS |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -525,10 +525,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | CONSISTENCIA_DATOS |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -551,10 +551,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | AUDITORÍA |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -577,10 +577,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | OPERACIONES / SINCRONIZACIÓN |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -603,10 +603,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | VALIDACION / CONDICIONAL |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -629,10 +629,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | DATO_MAESTRO |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -653,10 +653,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | ARQUITECTURA |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -677,10 +677,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | COORDINACIÓN |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -703,10 +703,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | OPERACIONES |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -727,10 +727,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | S500 / ARQUITECTURA |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -753,10 +753,10 @@ L002R3 es la librería ALGOL (proceso MCP biblioteca) que gestiona los 10 canale
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | CONTROL_VERSIONES / OPERACIONES |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -792,10 +792,10 @@ L002R4 es una versión evolucionada de L002R3 con un modelo de dispatch explíci
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | ARQUITECTURA / INTERFAZ |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R4 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -833,10 +833,10 @@ FUNCION inválida → RESULT=2, GRABAMOV=FALSE, error "FUNCION NO VALIDA".
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | RENDIMIENTO / CONFIGURACIÓN |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R4 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -859,10 +859,10 @@ FUNCION inválida → RESULT=2, GRABAMOV=FALSE, error "FUNCION NO VALIDA".
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | RENDIMIENTO / CONFIGURACIÓN |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R4 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -883,10 +883,10 @@ FUNCION inválida → RESULT=2, GRABAMOV=FALSE, error "FUNCION NO VALIDA".
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | PROCESO_BATCH |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R4 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -907,10 +907,10 @@ FUNCION inválida → RESULT=2, GRABAMOV=FALSE, error "FUNCION NO VALIDA".
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | PROCESO_BATCH / SINCRONIZACIÓN |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R4 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -933,10 +933,10 @@ FUNCION inválida → RESULT=2, GRABAMOV=FALSE, error "FUNCION NO VALIDA".
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | DIFERENCIA_CRITICA |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R4 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -957,10 +957,10 @@ FUNCION inválida → RESULT=2, GRABAMOV=FALSE, error "FUNCION NO VALIDA".
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | SINCRONIZACIÓN / CONCURRENCIA |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R4 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -983,10 +983,10 @@ FUNCION inválida → RESULT=2, GRABAMOV=FALSE, error "FUNCION NO VALIDA".
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | VALIDACION |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R4 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1007,10 +1007,10 @@ FUNCION inválida → RESULT=2, GRABAMOV=FALSE, error "FUNCION NO VALIDA".
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | ROUTING / MULTI-DÍA |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R4 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1039,10 +1039,10 @@ RESULT=4 = "FECHA CONTABLE NO VALIDA"; continúa con DIA_SEMANA.
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | VARIANTE_SISTEMA |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R4 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1063,10 +1063,10 @@ RESULT=4 = "FECHA CONTABLE NO VALIDA"; continúa con DIA_SEMANA.
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | OBSERVABILIDAD / MONITOREO |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R4 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1089,10 +1089,10 @@ RESULT=4 = "FECHA CONTABLE NO VALIDA"; continúa con DIA_SEMANA.
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | REGISTRO / PROCESO |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R4 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1115,10 +1115,10 @@ RESULT=4 = "FECHA CONTABLE NO VALIDA"; continúa con DIA_SEMANA.
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | SINGLETON / CONCURRENCIA |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R4 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1141,10 +1141,10 @@ RESULT=4 = "FECHA CONTABLE NO VALIDA"; continúa con DIA_SEMANA.
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | OPERACIONES |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R4 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1165,10 +1165,10 @@ RESULT=4 = "FECHA CONTABLE NO VALIDA"; continúa con DIA_SEMANA.
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | DATO_MAESTRO / COORDINACIÓN |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R4 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1203,10 +1203,10 @@ L002R5 extiende el modelo de L002R4 con lanzamiento directo de P015/P016/P025 de
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | ARQUITECTURA |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R5 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1229,10 +1229,10 @@ L002R5 extiende el modelo de L002R4 con lanzamiento directo de P015/P016/P025 de
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | DIFERENCIA_CRITICA / COORDINACIÓN |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R5 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1261,10 +1261,10 @@ L002R5 extiende el modelo de L002R4 con lanzamiento directo de P015/P016/P025 de
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | RENDIMIENTO / SINCRONIZACIÓN |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R5 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1287,10 +1287,10 @@ L002R5 extiende el modelo de L002R4 con lanzamiento directo de P015/P016/P025 de
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | CONTROL_VERSIONES |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R5 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1313,10 +1313,10 @@ L002R5 extiende el modelo de L002R4 con lanzamiento directo de P015/P016/P025 de
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | COORDINACIÓN / CONDICIONAL |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R5 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1339,10 +1339,10 @@ L002R5 extiende el modelo de L002R4 con lanzamiento directo de P015/P016/P025 de
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | ESTADO_SISTEMA |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R5 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1367,10 +1367,10 @@ L002R5 extiende el modelo de L002R4 con lanzamiento directo de P015/P016/P025 de
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | TRANSFORMACIÓN / DATO_MAESTRO |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R5 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1393,10 +1393,10 @@ L002R5 extiende el modelo de L002R4 con lanzamiento directo de P015/P016/P025 de
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | DATO_HEREDADO / EQUIVALENCIA |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R5 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1419,10 +1419,10 @@ L002R5 extiende el modelo de L002R4 con lanzamiento directo de P015/P016/P025 de
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | DATO_MAESTRO |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R5 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1445,10 +1445,10 @@ L002R5 extiende el modelo de L002R4 con lanzamiento directo de P015/P016/P025 de
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | DATO_MAESTRO |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R5 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1471,10 +1471,10 @@ L002R5 extiende el modelo de L002R4 con lanzamiento directo de P015/P016/P025 de
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | DIFERENCIA_CRITICA |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R5 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1499,10 +1499,10 @@ L002R5 extiende el modelo de L002R4 con lanzamiento directo de P015/P016/P025 de
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | CLASIFICACIÓN / PROCESO |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R5 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1525,10 +1525,10 @@ L002R5 extiende el modelo de L002R4 con lanzamiento directo de P015/P016/P025 de
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | OBSERVABILIDAD |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R5 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1549,10 +1549,10 @@ L002R5 extiende el modelo de L002R4 con lanzamiento directo de P015/P016/P025 de
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | CONTROL |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R5 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1573,10 +1573,10 @@ L002R5 extiende el modelo de L002R4 con lanzamiento directo de P015/P016/P025 de
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-04 |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | DIFERENCIA_CRITICA / VALIDACION |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | L002R5 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |

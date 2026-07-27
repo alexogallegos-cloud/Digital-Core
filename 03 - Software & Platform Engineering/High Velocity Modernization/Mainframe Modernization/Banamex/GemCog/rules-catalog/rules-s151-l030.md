@@ -56,10 +56,10 @@
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | [HARDCODE-SOSPECHOSO] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Control interno (proyecto CRONOS 2000) |
 | **Programa ejecutor** | L030 (COBOL_L030.txt) — párrafos A2K-OBTAIN-CENTURY |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -107,10 +107,10 @@ IF fecha-6-digitos = 999999 → fecha completa = 99999999 (fecha máxima / abier
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Control interno batch |
 | **Programa ejecutor** | L030 — CONSISDIA Función 5 (WKS-CONSISDIA-F05) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -152,10 +152,10 @@ Parámetros de entrada: FUNCION=5, SISTEMA, CSI, VALOR (0 o 1).
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Control interno batch |
 | **Programa ejecutor** | L030 — CONSISDIA Función 7 (WKS-CONSISDIA-F07) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -197,10 +197,10 @@ El campo se actualiza por fecha — hay un arreglo de 10 slots (WKS-B01-CTL-DIA 
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [RIESGO-EQUIVALENCIA] [REGLA-DISTRIBUIDA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Arquitectura Unisys DMSII |
 | **Programa ejecutor** | L030 — 01-00600-ABRE-BASEDIA |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -255,10 +255,10 @@ El campo se actualiza por fecha — hay un arreglo de 10 slots (WKS-B01-CTL-DIA 
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [RIESGO-EQUIVALENCIA] [HARDCODE-SOSPECHOSO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Control interno |
 | **Programa ejecutor** | L030 — 11-00100-DAME-DATASET |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -307,10 +307,10 @@ Los slots 1-5 y 6-10 representan los mismos 5 días pero en diferentes semanas (
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [HARDCODE-SOSPECHOSO] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Catálogo interno S151/S500 |
 | **Programa ejecutor** | L030 — 01-00800-CLAVES |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -361,10 +361,10 @@ Si W77-IND >= 10001 → error de desbordamiento → log "CVETRAN > 10000".
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [HARDCODE-SOSPECHOSO] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Catálogo interno |
 | **Programa ejecutor** | L030 — 01-00830-CARGA-LEYENDAS-TRAN |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -408,10 +408,10 @@ Caso especial S500: carga además WKS-CATALOGO-LEYDEV (leyendas de devolución):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [REGLA-DISTRIBUIDA] [HARDCODE-SOSPECHOSO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
 | **Regulador** | N/A — Control interno |
 | **Programa ejecutor** | L030 — 01-00805-CARGA-CVETRAN (líneas 10726-10736) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -461,10 +461,10 @@ Formatos de catálogo (W77-CAT-FORMATO):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Control interno de movimientos |
 | **Programa ejecutor** | P11 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -509,10 +509,10 @@ ELSE
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [REGLA-DISTRIBUIDA] [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Control operacional |
 | **Programa ejecutor** | L030 — 11-00050-CONAPL y sub-párrafos |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -567,10 +567,10 @@ Flujo sin SECMOV (inicio):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | [LÓGICA-CONTABLE] [HARDCODE-SOSPECHOSO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Control de pantallas |
 | **Programa ejecutor** | L030 — inicio de cada función de consulta |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -616,10 +616,10 @@ Mecanismo:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | [REGLA-DISTRIBUIDA] [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Consulta operacional |
 | **Programa ejecutor** | L030 — 12-00050-CONXCTO-DIA |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -679,10 +679,10 @@ Manejo especial: MSG=61 → no se encontró primer movimiento
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Control interno (puede alimentar reportes CNBV) |
 | **Programa ejecutor** | L030 — 17-00300-CALCULA-VARIACION |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -736,10 +736,10 @@ Acumulación previa (17-00211-ACUMULA-TOTXCSI):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [LÓGICA-CONTABLE] [REGLA-DISTRIBUIDA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Control operacional |
 | **Programa ejecutor** | L030 — 16-00050-TOTXPROD-DIA (líneas 13620-13634) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -798,10 +798,10 @@ Moneda de contrato:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Reporte operacional interno |
 | **Programa ejecutor** | L030 — 17-00050-TOTNAL-DIA |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -852,10 +852,10 @@ Ciclos de 10 posiciones por registro D03 (WKS-D03 OCCURS):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | [LÓGICA-CONTABLE] [HARDCODE-SOSPECHOSO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Control interno mensual |
 | **Programa ejecutor** | L030 — WKS-S151B03SISMEN (campo CICLO OCCURS 99 TIMES) + funciones 15-22 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -904,10 +904,10 @@ Función 22 (MODIFICA STATUS BD): actualiza estatus de la base de movimientos de
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV — control de fecha valor vs. fecha proceso |
 | **Programa ejecutor** | L030 — CONSISDIA Funciones 2 y 3 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -954,10 +954,10 @@ Función 3 (actualiza FECPRO): para registrar cuándo corrió el batch.
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [REGLA-DISTRIBUIDA] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Arquitectura de sistemas |
 | **Programa ejecutor** | L030 — WKS-B01-FECPRO151 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1000,10 +1000,10 @@ Uso en DAME-FECPRO: solo se mueve FECPRO (no FECPRO151) a WKS-FECHA-PROCESO.
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [RIESGO-EQUIVALENCIA] [REGLA-DISTRIBUIDA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Arquitectura Unisys DMSII |
 | **Programa ejecutor** | L030 — WKS-TAB-ERRDMSII (líneas 6440-6487) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1054,10 +1054,10 @@ W77-RES-LIBCON (resultado retornado al llamador):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [REGLA-DISTRIBUIDA] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Integración S151 ↔ S500 |
 | **Programa ejecutor** | L030 — 12-00070-BUSCA-CLIENTE |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1112,10 +1112,10 @@ W77-RES-LIBCON (resultado retornado al llamador):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | [HARDCODE-SOSPECHOSO] [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Estructura organizacional del banco |
 | **Programa ejecutor** | L030 — WKS-ESTRUCTURA (OCCURS 2000 TIMES) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1170,10 +1170,10 @@ WKS-ESTRUCTURA OCCURS 2000 TIMES:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Control de versiones de software Unisys |
 | **Programa ejecutor** | L030 — 01-00040-LEVANTA-L001 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1227,10 +1227,10 @@ Función 55: CANCEL "S016L422" (descarga librería de memoria)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Control de integridad multi-CSI |
 | **Programa ejecutor** | L030 — 01-00200-INICIA-DATOS (líneas 10622-10629) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1280,10 +1280,10 @@ WKS-B03-RESCSI = CSI de respaldo (de CONSISMEN)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [REGLA-DISTRIBUIDA] |
 | **Confianza** | media |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Separación operativa Banamex / Citibank |
 | **Programa ejecutor** | P11 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1326,10 +1326,10 @@ Uso durante consulta de movimientos (referencia en 11-00300-SALIDA-P11SAL y peer
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Control de integridad histórica |
 | **Programa ejecutor** | L030 — WKS-S151B03SISMEN (campos SECOKHI |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |

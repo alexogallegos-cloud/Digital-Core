@@ -219,6 +219,55 @@ FILE_MAPS = {
 
 PLACEHOLDER = "Consulta análisis SBVR (dt-mainframe-analyst)"
 
+# ── Clasificador SBVR heurístico (primer pase del analista, para completitud) ──
+VAL_AUTO = "VALIDADO (analista · SBVR heurístico)"
+REG_CAND = "En validación — SME Regulatorio (candidata · SBVR heurístico)"
+
+def infer_sbvr(tipo_tecnico, title, desc=""):
+    """Clasifica SBVR con señal ponderada de tipo técnico + título + descripción.
+    Cuenta hits por categoría en el texto combinado y elige el máximo (desempate por prioridad)."""
+    t = f"{tipo_tecnico} {title} {desc}".upper()
+    pats = {
+        "Cálculo": r'CÁLCULO|CALCULO|COMPUTE|FÓRMULA|FORMULA|MULTIPLIC|\bSUMA|ACUMULA|RENDIMIENT|INTERÉS|INTERES|\bTASA|\bISR\b|\bIVA\b|COMISIÓN|COMISION|REDONDE|PROMEDIO|\* *-?1|TOTAL DE',
+        "Clasificación / Mapeo": r'MAPEO|MAPEA|CLASIFICAC|CATÁLOGO|CATALOGO|TRADUC|\bALFA\b|UNINEG|ENRUTA|ROUTING|RUTEO|POR SISTEMA|SEGÚN|SEGUN |\bNODO|DEPTO|SECTOR|LOOKUP|CORRESPOND|EQUIVAL|\bTABLA DE|CVETRAN.*CUENTA|CONCEPTO',
+        "Habilitación": r'HABILITA|DESVÍO|DESVIO|\bMODO |ACTIVA|SE ACTIVA|CONDICIONAL|SOLO SE (PROCESA|EJECUTA|GENERA)|DISPARA|TRIGGER|\bPERMITE|RETROALIMENT|OPCIONAL|OMITE|SE OMITE',
+        "Definición": r'INTERFAZ|ESTRUCTURA|LAYOUT|\bFORMATO|CONTRATO|IDENTIDAD|OUTPUT CANÓNIC|CANÓNIC|CANONIC|PAQUETE|PERMANENTE|SEGMENTOS|\bREGISTRO (LÓGICO|DE|CON)|CAMPOS|BYTES|OCCURS|PIC ',
+        "Derivación": r'HARDCODE|FALLBACK|POR DEFECTO|\bDEFAULT|CORRECC|CONVERSIÓN|CONVERSION|DINÁMIC|DINAMIC|STAMP|SEMILLA|PIVOT|PROPAGA|SUSTITUC|COMPLEMENT|REDEFIN|NOMENCLATURA|CRONOS|SIGLO|MOVE .*\bTO\b|SE (ASIGNA|FUERZA|ZERIFICA|CONSTRUYE|OBTIENE|CALCULA EL CÓDIGO)|GANA',
+        "Restricción": r'VALIDA|TOLERANC|LÍMITE|LIMITE|FILTRO|\bGATE|OBLIGATORI|SECUENCIA|WHITELIST|RESTRIC|\bSOLO |ÚNICAMENTE|UNICAMENTE|MÁXIMO|MAXIMO|MÍNIMO|MINIMO|ANTES DE|ESPERA|VERIFICA|REQUIER|BLOQUE|PROHIB|NO PUEDE|CENTINELA|PARTIDA DOBLE|\bABORTA|SI .* FALLA|DEBE (SER|ESTAR|COINCIDIR|EXISTIR)',
+    }
+    scores = {k: len(re.findall(p, t)) for k, p in pats.items()}
+    prio = ["Cálculo", "Clasificación / Mapeo", "Habilitación", "Definición", "Derivación", "Restricción"]
+    best = max(prio, key=lambda k: (scores[k], -prio.index(k)))
+    return best if scores[best] > 0 else "Restricción"
+
+def is_reg_candidate(tipo_tecnico, title):
+    t = f"{tipo_tecnico} {title}".upper()
+    return bool(re.search(r'CNBV|REGULATOR|\bSAR\b|\bCFR\b|FOBAPROA|BANXICO|SERIE [BR]|CATÁLOGO MÍNIMO|CATALOGO MINIMO', t))
+
+def enrich_auto(fname):
+    fp = os.path.join(RD, fname)
+    txt = open(fp, encoding="utf-8").read()
+    parts = re.split(r'(?m)(?=^#{2,3} RN-S(?:151|500)-\d+)', txt)
+    out = []; n = 0; ncand = 0
+    for part in parts:
+        hm = re.match(r'#{2,3} (RN-S(?:151|500)-\d+)[ \t]*[—\-|:]?[ \t]*([^\n]*)', part)
+        if hm and PLACEHOLDER in part:
+            title = re.sub(r'\|.*$', '', hm.group(2) or '').strip()
+            m = re.search(r'\*\*Tipo técnico\*\*\s*\|\s*([^\n|]+)', part)
+            tt = m.group(1).strip() if m else ""
+            dm = re.search(r'\*\*Descripci[oó]n[:\*]*\*?\*?\s*(.+?)(?=\n\s*\n|\n\*\*|\n#|\Z)', part, re.DOTALL)
+            desc = re.sub(r'\s+', ' ', dm.group(1))[:600] if dm else ""
+            sbvr = infer_sbvr(tt, title, desc)
+            cand = is_reg_candidate(tt, title)
+            veredicto = REG_CAND if cand else VAL_AUTO
+            part = part.replace(f"| **Tipo regla** | {PLACEHOLDER} |", f"| **Tipo regla** | {sbvr} |")
+            part = re.sub(r'\| \*\*Veredicto\*\* \| PENDIENTE SME \|', f"| **Veredicto** | {veredicto} |", part, count=1)
+            n += 1; ncand += 1 if cand else 0
+        out.append(part)
+    open(fp, "w", encoding="utf-8").write("".join(out))
+    print(f"{fname}: {n} reglas heurístico · {ncand} candidatas SME")
+    return n, ncand
+
 def enrich(fname, mapping):
     fp = os.path.join(RD, fname)
     txt = open(fp, encoding="utf-8").read()
@@ -241,7 +290,19 @@ def enrich(fname, mapping):
     print(f"Enriquecidas {n} reglas en {fname}")
 
 if __name__ == "__main__":
-    fname = sys.argv[1] if len(sys.argv) > 1 else "rules-s151.md"
-    if fname not in FILE_MAPS:
-        print(f"Sin mapa para {fname}. Disponibles: {list(FILE_MAPS)}"); sys.exit(1)
-    enrich(fname, FILE_MAPS[fname])
+    import glob as _glob
+    arg = sys.argv[1] if len(sys.argv) > 1 else "rules-s151.md"
+    if arg == "--auto-all":
+        tot = totc = 0
+        for fp in sorted(_glob.glob(os.path.join(RD, "*.md"))):
+            base = os.path.basename(fp)
+            if base in ("rules-index.md", "schema-canonico-reglas.md", "homologation-inventory.md") or base.startswith("_"):
+                continue
+            if PLACEHOLDER not in open(fp, encoding="utf-8").read():
+                continue
+            n, c = enrich_auto(base); tot += n; totc += c
+        print(f"\nTOTAL heurístico: {tot} reglas · {totc} candidatas a SME Regulatorio")
+    elif arg in FILE_MAPS:
+        enrich(arg, FILE_MAPS[arg])
+    else:
+        print(f"Sin mapa para {arg}. Usa --auto-all o uno de: {list(FILE_MAPS)}"); sys.exit(1)

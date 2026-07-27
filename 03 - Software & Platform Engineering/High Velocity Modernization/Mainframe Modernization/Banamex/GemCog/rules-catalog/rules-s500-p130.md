@@ -52,10 +52,10 @@
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | `[CONTROL]` `[BATCH-SCHEDULING]` `[CIERRE-MENSUAL]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV CUB Art. 2 (periodicidad de reportes Serie R de captación) |
 | **Programa ejecutor** | P130 (líneas 3026-3028) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -92,10 +92,10 @@ ELSE:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | `[GL-POSTING]` `[CONTABILIDAD]` `[CONTROL]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV CUB Serie R (identificación de proceso contable en reportes mensuales) |
 | **Programa ejecutor** | P130 (líneas 3070-3077 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -137,10 +137,10 @@ CALL S151REGISTRA (o S151REGISTRA2) USING WS-S151-0101-...
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | `[CONTROL]` `[EMERGENCIA]` `[BREAK-GLASS]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — (operacional interno; genera divergencia contable no regulada) |
 | **Programa ejecutor** | P130 (línea ~2900 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -178,10 +178,10 @@ ELSE (default = 0):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | `[CONTROL]` `[VALIDACIÓN-PREPROCESS]` `[GATE]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico Circular 3/2012 (tasas de referencia para captación) |
 | **Programa ejecutor** | P130 (PERFORM 40089900-VAL-CETES-LIBOR en flujo principal) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -222,10 +222,10 @@ PERFORM 40089900-VAL-CETES-LIBOR:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | `[CÁLCULO]` `[PROMEDIO-ANUAL]` `[BASE-RENDIMIENTO]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV CUB Anexo 33 (Series R-02 y B-05 — depósitos y rendimientos) |
 | **Programa ejecutor** | P130 (líneas 7531-7536) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -263,10 +263,10 @@ ELSE:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | `[REGLA-NEGOCIO]` `[AJUSTE-DÍAS]` `[CANCELACIÓN]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV CUB (el rendimiento se paga hasta el día anterior a la cancelación, no el día de cancelación) |
 | **Programa ejecutor** | P130 (líneas 7527-7529 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -306,10 +306,10 @@ IF W77-HAY-CAMB-PROD = 1 OR B03-STATUS = 2:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | `[CÁLCULO]` `[PROMEDIO-ANUAL-EXT]` `[CICLO-PARCIAL]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV CUB Anexo 33 (base para reportes de rendimiento real) |
 | **Programa ejecutor** | P130 (líneas 7540-7551) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -355,10 +355,10 @@ ELSE:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | `[REGLA-NEGOCIO]` `[SWITCH-CAPITALIZACIÓN]` `[ESTADO-CONTRATO]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV CUB (obligación de aplicar rendimientos a contratos vigentes; Art. 61 para cuentas inactivas) |
 | **Programa ejecutor** | P130 (líneas 7554-7601) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -412,10 +412,10 @@ ELSE:                                     -- Cancelado SIN pago de rendimientos
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | `[CÁLCULO]` `[RENDIMIENTO-PERIÓDICO]` `[CAPITALIZACIÓN]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV CUB (rendimiento al vencimiento del ciclo para instrumentos de plazo) |
 | **Programa ejecutor** | P130 (líneas 7620-7629 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -460,10 +460,10 @@ WKS-SI-B03 = 1                            -- flag: escribir BD03 en DMSII
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | `[CÁLCULO]` `[RENDIMIENTO-DIARIO]` `[TASA-PROMEDIO]` `[IPAB]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV CUB (cuentas de ahorro con rendimiento diario; IPAB — Instituto de Protección al Ahorro Bancario) |
 | **Programa ejecutor** | P130 (líneas 7630-7660 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -518,10 +518,10 @@ ELSE:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | `[REGLA-NEGOCIO]` `[ISR]` `[CANCELACIÓN]` `[FX-CONVERSIÓN]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | SAT ISR Art. 54 (retención de ISR sobre intereses bancarios; base para DIOT) |
 | **Programa ejecutor** | P130 (líneas 6626-6637; comentario explícito: "En una cancelación en línea |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -565,10 +565,10 @@ AND B03-STATUS = 2:                  -- cancelado por P010 en línea
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | `[REGLA-NEGOCIO]` `[ISR]` `[BENEFICIO-EMPLEADOS]` `[CIERRE-MENSUAL]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | SAT ISR Art. 93 (exención parcial de ISR en planes de ahorro para el retiro de empleados) |
 | **Programa ejecutor** | P130 (líneas 6648-6649) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -605,10 +605,10 @@ AND B06-ISR-RET-EPP > 0:            -- hay ISR acumulado de EPP en el mes
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | `[GL-POSTING]` `[RENDIMIENTO-NETO]` `[FX-CONVERSIÓN]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV CUB (obligación de contabilizar intereses pagados a clientes) |
 | **Programa ejecutor** | P130 (líneas 7663-7714) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -652,10 +652,10 @@ IF WS-CAP-RENDNETO > 0:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | `[GL-POSTING]` `[ISR]` `[FX-CONVERSIÓN]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | SAT ISR Art. 54 + CNBV CUB (obligación de contabilizar retención ISR en libros bancarios) |
 | **Programa ejecutor** | P130 (líneas 7716-7727) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -697,10 +697,10 @@ IF WS-CAP-IMPUESTO > 0:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | `[GL-POSTING]` `[RENDIMIENTO-BRUTO]` `[REPORTING-CNBV]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
 | **Regulador** | CNBV CUB Serie R-04 (rendimientos brutos de captación para Circular Única de Bancos) |
 | **Programa ejecutor** | P130 (líneas 7729-7732) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -741,10 +741,10 @@ IF WS-CAP-RENDBRTO > 0:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | `[CÁLCULO]` `[FX-CONVERSIÓN]` `[GL-POSTING]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico (uso del tipo de cambio venta para conversión en libros bancarios) |
 | **Programa ejecutor** | P130 (líneas 7710-7714 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -784,10 +784,10 @@ IF B03-MONEDA = 5 (USD):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | `[CLASIFICACIÓN]` `[RENDIMIENTO-REPORTING]` `[SERIE-R-CNBV]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
 | **Regulador** | CNBV CUB Anexo 33 (reportes de tasas y rendimientos por producto/instrumento/tarifa) |
 | **Programa ejecutor** | P130 (líneas 7782-7809 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -838,10 +838,10 @@ DEFAULT:               TARIFA=1, REGION=WS-IND-REGION    -- Tarifa estándar
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | `[REGLA-NEGOCIO]` `[CANCELACIÓN-AUTOMÁTICA]` `[SALDO-MÍNIMO]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CONDUSEF LTOSF Art. 4 (transparencia en condiciones de cancelación; 30 días de aviso previo) |
 | **Programa ejecutor** | P130 (líneas 6531-6537) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -883,10 +883,10 @@ ELSE:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | `[COMISIÓN]` `[DEPÓSITOS-EXCEDIDOS]` `[MENSUAL]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CONDUSEF LTOSF Art. 4 (transparencia en comisiones por operaciones que exceden el umbral gratuito) |
 | **Programa ejecutor** | P130 (líneas 6539-6545) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -926,10 +926,10 @@ ELSE:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | `[REGLA-NEGOCIO]` `[INACTIVIDAD]` `[BENEFICENCIA]` `[ART61]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV CUB Art. 61 (cuentas inactivas con saldo a favor deben transferirse a cuenta de beneficencia después del período de inactividad) |
 | **Programa ejecutor** | P130 (líneas 6600-6607) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -971,10 +971,10 @@ AND W77-SDO-MAX-BENF > 0:           -- saldo máximo para beneficencia configura
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | `[COMISIÓN]` `[TARIFA]` `[CONSULTA-CATÁLOGO]` `[CONDUSEF]` |
 | **Confianza** | alta (vocab-s500-v4.json, término 20039000-dame-comision) |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CONDUSEF LTOSF Art. 4 + LFPIORPI + BEF (Buró de Entidades Financieras — todas las comisiones cobradas deben estar en BEF) |
 | **Programa ejecutor** | P130 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1019,10 +1019,10 @@ F-COMISION = DAME-COMISION(
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | `[COMISIÓN]` `[DESPACHADOR]` `[MENSUAL]` `[MAYOR-RIESGO-CONDUSEF]` |
 | **Confianza** | alta (vocab-s500-v4.json, término 20530000-comis-mensual) |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CONDUSEF LTOSF Art. 4 (mayor riesgo regulatorio — volumen y variedad de comisiones mensuales) |
 | **Programa ejecutor** | P130 (COMIS-MENSUAL dispatcher; invocado en WKS-ES-MENSUAL=1) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1071,10 +1071,10 @@ CONCENSO → NOT processed here (vía separada)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | `[COMISIÓN]` `[MANEJO-CTA]` `[EXENCIÓN-SBC]` `[NÓMINA]` |
 | **Confianza** | alta (vocab-s500-v4.json, término 20530500-comision-manejo-cta) |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | Banxico Circular (exención incondicional para cuentas nómina) + CONDUSEF LTOSF Art. 4 |
 | **Programa ejecutor** | P130 (invocado desde COMIS-MENSUAL dispatcher) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1121,10 +1121,10 @@ WS-SDO-MANEJO = saldo mínimo de exención retornado por S080
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | `[COMISIÓN]` `[ANIVERSARIO]` `[ANUAL]` `[NOTIFICACIÓN-30-DÍAS]` |
 | **Confianza** | alta (vocab-s500-v4.json, término 20530400-comision-aniversario) |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CONDUSEF LTOSF Art. 4 (notificación obligatoria 30 días antes de cobro de comisión anual) |
 | **Programa ejecutor** | P130 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1163,10 +1163,10 @@ AND fecha_proceso = aniversario_contrato:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-08 |
 | **bian_ref** | 6.1.5 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | `[COMISIÓN]` `[CLASIFICACIÓN-PERSONA]` `[PF-PM]` |
 | **Confianza** | alta (vocab-s500-v4.json, término 20530130-dame-esqcomi) |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CONDUSEF (diferenciación de comisiones entre Persona Física y Persona Moral) |
 | **Programa ejecutor** | P130 (rutina DAME-ESQCOMI |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1216,10 +1216,10 @@ DAME-COMISION(PLAZO=ESQCOM, ...)             -- consulta S080 con ESQCOM como í
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | `[CALENDARIO]` `[CONTROL-BATCH]` `[CIERRE-MENSUAL]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV (el cierre mensual de captación debe ocurrir el último día hábil del mes) |
 | **Programa ejecutor** | WFL LINEA S500 (sección FECHAS) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1260,10 +1260,10 @@ DIA30 = TRUE IF: IFECHAPROX MOD 100 = 1 AND  -- mañana es día 1 del mes siguie
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | `[CALENDARIO]` `[CONTROL-BATCH]` `[QUINCENAL]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV (cortes quincenales de captación en ciertos instrumentos) |
 | **Programa ejecutor** | WFL LINEA S500 (sección FECHAS) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1303,10 +1303,10 @@ DIA15 = TRUE IF:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | `[CONTROL]` `[ACTIVACIÓN-CONDICIONAL]` `[CAMPAÑA]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — (carácter social; sin obligación regulatoria) |
 | **Programa ejecutor** | WFL LINEA S500 (sección SUBETODOS) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1350,10 +1350,10 @@ SUBETODOS:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | — (arquitectura/librería · no BC de negocio) |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | `[CONTROL]` `[SISTEMA]` `[COMS]` `[INICIO-DÍA]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — (operacional interno; afecta disponibilidad de servicios bancarios) |
 | **Programa ejecutor** | WFL LINEA S500 (sección SUBETODOS) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |

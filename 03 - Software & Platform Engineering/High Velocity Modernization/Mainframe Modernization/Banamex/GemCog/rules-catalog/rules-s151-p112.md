@@ -30,10 +30,10 @@ P112 (PUNTEO POR CLAVES DE TRANSACCION) es un programa batch que reconcilia movi
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-11 |
 | **bian_ref** | 6.7.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | — |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | p112 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -58,10 +58,10 @@ P112 (PUNTEO POR CLAVES DE TRANSACCION) es un programa batch que reconcilia movi
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-11 |
 | **bian_ref** | 6.7.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | — |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | p112 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -86,10 +86,10 @@ P112 (PUNTEO POR CLAVES DE TRANSACCION) es un programa batch que reconcilia movi
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-11 |
 | **bian_ref** | 6.7.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | — |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | p112 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -112,10 +112,10 @@ P112 (PUNTEO POR CLAVES DE TRANSACCION) es un programa batch que reconcilia movi
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-11 |
 | **bian_ref** | 6.7.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | — |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | p112 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -138,10 +138,10 @@ P112 (PUNTEO POR CLAVES DE TRANSACCION) es un programa batch que reconcilia movi
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-11 |
 | **bian_ref** | 6.7.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | — |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | p112 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -164,10 +164,10 @@ P112 (PUNTEO POR CLAVES DE TRANSACCION) es un programa batch que reconcilia movi
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-11 |
 | **bian_ref** | 6.7.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | — |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | p112 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -190,10 +190,10 @@ P112 (PUNTEO POR CLAVES DE TRANSACCION) es un programa batch que reconcilia movi
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-11 |
 | **bian_ref** | 6.7.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | — |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | p112 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -216,10 +216,10 @@ P112 (PUNTEO POR CLAVES DE TRANSACCION) es un programa batch que reconcilia movi
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-11 |
 | **bian_ref** | 6.7.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | — |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | p112 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -244,10 +244,10 @@ P112 (PUNTEO POR CLAVES DE TRANSACCION) es un programa batch que reconcilia movi
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-11 |
 | **bian_ref** | 6.7.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | — |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | p112 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -270,10 +270,10 @@ P112 (PUNTEO POR CLAVES DE TRANSACCION) es un programa batch que reconcilia movi
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-11 |
 | **bian_ref** | 6.7.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | — |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | p112 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -296,10 +296,10 @@ P112 (PUNTEO POR CLAVES DE TRANSACCION) es un programa batch que reconcilia movi
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-11 |
 | **bian_ref** | 6.7.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | — |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | p112 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -322,10 +322,10 @@ P112 (PUNTEO POR CLAVES DE TRANSACCION) es un programa batch que reconcilia movi
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-11 |
 | **bian_ref** | 6.7.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | — |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | p112 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -348,10 +348,10 @@ P112 (PUNTEO POR CLAVES DE TRANSACCION) es un programa batch que reconcilia movi
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-11 |
 | **bian_ref** | 6.7.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | — |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | p112 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -374,10 +374,10 @@ P112 (PUNTEO POR CLAVES DE TRANSACCION) es un programa batch que reconcilia movi
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-11 |
 | **bian_ref** | 6.7.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | — |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | p112 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -402,10 +402,10 @@ P112 (PUNTEO POR CLAVES DE TRANSACCION) es un programa batch que reconcilia movi
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-11 |
 | **bian_ref** | 6.7.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | — |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | p112 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -430,10 +430,10 @@ P112 (PUNTEO POR CLAVES DE TRANSACCION) es un programa batch que reconcilia movi
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-11 |
 | **bian_ref** | 6.7.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | — |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | p112 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -458,10 +458,10 @@ P112 (PUNTEO POR CLAVES DE TRANSACCION) es un programa batch que reconcilia movi
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-11 |
 | **bian_ref** | 6.7.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | — |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | p112 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -484,10 +484,10 @@ P112 (PUNTEO POR CLAVES DE TRANSACCION) es un programa batch que reconcilia movi
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-11 |
 | **bian_ref** | 6.7.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | — |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | p112 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -510,10 +510,10 @@ P112 (PUNTEO POR CLAVES DE TRANSACCION) es un programa batch que reconcilia movi
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-11 |
 | **bian_ref** | 6.7.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | — |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | p112 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -536,10 +536,10 @@ P112 (PUNTEO POR CLAVES DE TRANSACCION) es un programa batch que reconcilia movi
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-11 |
 | **bian_ref** | 6.7.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | — |
 | **Confianza** | — |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | — |
 | **Programa ejecutor** | p112 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |

@@ -81,10 +81,10 @@ P103 (664 LOC, autor José Luis Ibarra Lara, JUL/2005) es el programa **FRAUDLIN
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | Consulta SME Mainframe Migration |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | `[CONTROL]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Control interno de compatibilidad de versiones |
 | **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — sección `10000151-REGISTRA` (líneas 807–826) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -132,10 +132,10 @@ P103 (664 LOC, autor José Luis Ibarra Lara, JUL/2005) es el programa **FRAUDLIN
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | Consulta SME Mainframe Migration |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | `[LÓGICA-CONTABLE]` `[RIESGO-EQUIVALENCIA]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV CUB Serie R (cada función tiene impacto en asientos GL auditables) |
 | **Programa ejecutor** | `S500_INC_WOR_CAN.txt` (líneas 4258–4268 — comentario documental del contrato) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -185,10 +185,10 @@ CALL "CARGAMOV1 IN REGISTRAS500"
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | Consulta SME Mainframe Migration |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | `[RIESGO-EQUIVALENCIA]` `[HARDCODE-SOSPECHOSO]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — estructura interna de interfaz; impacto en reportes CNBV si el campo CVETRAN migra de 4 a 6 dígitos |
 | **Programa ejecutor** | `S500_INC_WOR_CAN.txt` (líneas 4312–4543 para Format1; 4546–4629+ para Format2) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -242,10 +242,10 @@ Formato 2 (S151REGISTRA2) — campos de CVETRAN de 6 dígitos + CVEDESVIO adicio
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | Consulta SME Mainframe Migration |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | `[LÓGICA-CONTABLE]` `[RIESGO-EQUIVALENCIA]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — optimización de rendimiento; pero el grouping define qué movimientos forman un asiento atómico |
 | **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-IMP` (líneas 4152–4253) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -308,10 +308,10 @@ Formato 2 (S151REGISTRA2) — campos de CVETRAN de 6 dígitos + CVEDESVIO adicio
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | Consulta SME Mainframe Migration |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | `[RIESGO-EQUIVALENCIA]` `[LÓGICA-CONTABLE]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV CUB — la atomicidad de asientos en GL es auditada; un flush parcial produce 2 asientos S151 por 1 movimiento S500 |
 | **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-IMP` rama ELSE final (líneas 4237–4252) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -358,10 +358,10 @@ MOVE IMPORTE-I(IND) TO IMPORTE1
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | Consulta SME Mainframe Migration |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | `[CONTROL]` `[RIESGO-EQUIVALENCIA]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV CUB — continuidad operativa; los movimientos en contingencia deben reprocesarse antes del cierre contable |
 | **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CALL` (líneas 3832–3852) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -415,10 +415,10 @@ IF WS-S151-0101-STATUS > 0:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | Consulta SME Mainframe Migration |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | `[CONTROL]` `[LÓGICA-CONTABLE]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV CUB — un movimiento rechazado por S151 no tiene asiento en el GL; es un gap contable auditable |
 | **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — post-CALL (líneas 3857–3891) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -465,10 +465,10 @@ IF WS-S151-0101-STATUS > 0:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | Consulta SME Mainframe Migration |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | `[HARDCODE-SOSPECHOSO]` `[REGLA-BANCARIA-MX]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV CONDUSEF — el estado de cuenta es obligatorio para cuentas de captación; esta excepción debe estar documentada |
 | **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3288–3292) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -515,10 +515,10 @@ ELSE:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | Consulta SME Mainframe Migration |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | `[HARDCODE-SOSPECHOSO]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — Control interno de performance |
 | **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (línea 3300) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -560,10 +560,10 @@ MOVE 1 TO WS-S151-0101-IND-DATOS-ADIC   -- siempre = 1 (ignora el input -I)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | Consulta SME Mainframe Migration |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | `[HARDCODE-SOSPECHOSO]` `[REGLA-BANCARIA-MX]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV — la sucursal promotora determina el libro contable de captación en el GL |
 | **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3388–3389) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -607,10 +607,10 @@ IF WS-S151-0101-CVETRAN-I(1) = 4159 OR 4160:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | Consulta SME Mainframe Migration |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | `[HARDCODE-SOSPECHOSO]` `[REGLA-BANCARIA-MX]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV — SPEI (Sistema de Pagos Electrónicos Interbancarios) tiene requerimientos de registro por punto de entrada |
 | **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3399–3408) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -657,10 +657,10 @@ IF WS-S151-0101-CVETRAN-I(1) = 4449 OR WS-CVE-ACNOMINAPORTA-PG:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | Consulta SME Mainframe Migration |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | `[HARDCODE-SOSPECHOSO]` `[REGLA-BANCARIA-MX]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV — asignación de P&L por sucursal operadora vs. promotora |
 | **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3395–3396) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -699,10 +699,10 @@ IF WS-S151-0101-CVETRAN-I(1) = 2136 OR 2137 OR 2138:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | Consulta SME Mainframe Migration |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | `[HARDCODE-SOSPECHOSO]` `[REGLA-BANCARIA-MX]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV — la sucursal del asiento S028 determina el registro de movimiento en el libro de captación especial |
 | **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3413–3444) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -755,10 +755,10 @@ IF CVETRAN-I(1) = 3002 OR 4001 OR 3018 OR 4016:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | Consulta SME Mainframe Migration |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | `[HARDCODE-SOSPECHOSO]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — regla de routing interno del libro S028 |
 | **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3446–3451) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -798,10 +798,10 @@ IF WS-S151-0101-CVETRAN-I(1) = 3027:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | Consulta SME Mainframe Migration |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | `[HARDCODE-SOSPECHOSO]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — routing S028 interno |
 | **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3453–3467) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -848,10 +848,10 @@ IF WS-S151-0101-CVETRAN-I(1) = 1153:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | Consulta SME Mainframe Migration |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | `[REGLA-BANCARIA-MX]` `[HARDCODE-SOSPECHOSO]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV CUB — la moneda del asiento GL debe corresponder a la moneda de la operación |
 | **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3481–3495) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -900,10 +900,10 @@ IF WS03-88-PIM-CTAPERDLS AND
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | Consulta SME Mainframe Migration |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | `[LÓGICA-CONTABLE]` `[REGLA-BANCARIA-MX]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV CUB — el sobregiro en líneas de crédito vigentes vs. vencidas tiene tratamiento contable diferente (provisiones IFRS 9) |
 | **Programa ejecutor** | `S500_INC_WOR_CAN.txt` — comentario del contrato CARGAMOV1 (línea ~406700) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -949,10 +949,10 @@ WS-S151-0101-TIPO-PROC-I:
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | Consulta SME Mainframe Migration |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | `[LÓGICA-CONTABLE]` `[REGLA-BANCARIA-MX]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV CUB — operaciones foráneas tienen tratamiento contable diferente (comisiones interbancarias, conciliación) |
 | **Programa ejecutor** | `S500_INC_WOR_CAN.txt` — campos 88 de ORIGEN (líneas ~4397–4400) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -989,10 +989,10 @@ WS-S151-0101-ORIGEN (PIC 9(02) COMP):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | Consulta SME Mainframe Migration |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | `[REGLA-BANCARIA-MX]` |
 | **Confianza** | media |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV CONDUSEF — las leyendas en el estado de cuenta deben reflejar la naturaleza real de la operación |
 | **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-IMP` / `20000151-CLAVES-CORRESP` (líneas 4260–4267) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1038,10 +1038,10 @@ WS-S151-0101-ORIGEN (PIC 9(02) COMP):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | Consulta SME Mainframe Migration |
 | **bian_ref** | — |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | `[CONTROL]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — monitoreo interno operativo |
 | **Programa ejecutor** | `S500_INC_WOR_CAN.txt` (líneas 4242–4248) + `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CALL` (línea 3810) + `20000151-CARGAMOV1-IMP` (líneas 4174–4241) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1098,10 +1098,10 @@ Incremento en CARGAMOV1-IMP (por cada CVETRAN procesado):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | `[REGLA-BANCARIA-MX]` `[CONTROL]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV — detección y control de fraude es obligación regulatoria; el feed a S711 soporta el proceso de bloqueo |
 | **Programa ejecutor** | `S500_SOURCE_P103.txt` — `00000000-MAIN-PARAGRAPH` (líneas 127500–128500) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1150,10 +1150,10 @@ Incremento en CARGAMOV1-IMP (por cada CVETRAN procesado):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | `[HARDCODE-SOSPECHOSO]` `[REQUIERE-LEGAL]` `[REGLA-BANCARIA-MX]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV — las claves de fraude son parte del catálogo regulatorio de tipos de movimiento; cambios requieren aprobación |
 | **Programa ejecutor** | `S500_SOURCE_P103.txt` — `50001100-MOV-ORIG` |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1210,10 +1210,10 @@ Incremento en CARGAMOV1-IMP (por cada CVETRAN procesado):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | `[LÓGICA-CONTABLE]` `[REGLA-DISTRIBUIDA]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV — la completitud del reporte de fraude requiere cubrir tanto el movimiento principal como sus conceptos adicionales |
 | **Programa ejecutor** | `S500_SOURCE_P103.txt` — flujo `50001000-PROCESO` → `50001300-MOVS-B13` (líneas 139500–153700) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1267,10 +1267,10 @@ Incremento en CARGAMOV1-IMP (por cada CVETRAN procesado):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Habilitación |
 | **Tipo técnico** | `[CONTROL]` `[REGLA-BANCARIA-MX]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — control interno de integridad de datos |
 | **Programa ejecutor** | `S500_SOURCE_P103.txt` — `50001000-PROCESO` (líneas 142110–142300) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1311,10 +1311,10 @@ Incremento en CARGAMOV1-IMP (por cada CVETRAN procesado):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | `[LÓGICA-CONTABLE]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — exhaustividad de cobertura de fraude |
 | **Programa ejecutor** | `S500_SOURCE_P103.txt` — `50001300-MOVS-B13` + `50001350-BUSCA-B13` (líneas 149500–156300) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1367,10 +1367,10 @@ Incremento en CARGAMOV1-IMP (por cada CVETRAN procesado):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Definición |
 | **Tipo técnico** | `[RIESGO-EQUIVALENCIA]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — contrato de interfaz con S711 |
 | **Programa ejecutor** | `S500_SOURCE_P103.txt` — `WKS-REG-E03-CVES` (líneas 119100–120700) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1420,10 +1420,10 @@ Areas: 1,000 bloques = 32,400,000 bytes máximo por archivo
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | `[HARDCODE-SOSPECHOSO]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — convenio de naming con S711 |
 | **Programa ejecutor** | `S500_SOURCE_P103.txt` — `WKS-TIT-E03-CVES` (líneas 115500–116700) + `20000100-ABRE-BASE` (líneas 137800–138900) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1471,10 +1471,10 @@ MOVE B02-FECHA-LOTE TO WKS-TIT-E03-FECH   -- fecha del lote del día
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | `[RIESGO-EQUIVALENCIA]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | N/A — formato de intercambio con S711 |
 | **Programa ejecutor** | `S500_SOURCE_P103.txt` — `WKS-E03-HEADER` + `WKS-E03-TRAILER` + `20000600-GEN-HEADER` + `20000700-GEN-TRAILER` (líneas 117100–139270) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1527,10 +1527,10 @@ Trailer (tipo "9", 60 chars):
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | `[HARDCODE-SOSPECHOSO]` |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV — el código de banco identifica la institución en el reporte de fraude |
 | **Programa ejecutor** | `S500_SOURCE_P103.txt` — `50001100-MOV-ORIG` |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1568,10 +1568,10 @@ MOVE 0002 TO WKS-REG-E03-BCO     -- banco = 0002 (Banamex) hardcoded
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-10 |
 | **bian_ref** | 6.5.2 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | `[REGLA-DISTRIBUIDA]` `[REQUIERE-LEGAL]` |
 | **Confianza** | media |
-| **Veredicto** | PENDIENTE SME |
+| **Veredicto** | VALIDADO (analista · SBVR heurístico) |
 | **Regulador** | CNBV — el bloqueo de cuentas por fraude tiene plazos y procedimientos regulatorios específicos |
 | **Programa ejecutor** | `S500_SOURCE_P103.txt` — comentario inicial (líneas 100500–100700) + `S500_INC_PRO_CAN.txt` — `20000006-ADMONXFERS` (líneas 1061–1084) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
