@@ -162,11 +162,59 @@ BC19_MAP = {
     "RN-S151-112": ("Derivación", VAL),
 }
 
+# Serie P600 (P655/P670/P671/P680/P690) — infraestructura: control batch, backup, interfaces, movimientos.
+# Multi-BC (BC-16/BC-18/BC-12/BC-15). REGCFR = SME Regulatorio (solo RN-614 CLABE CNBV).
+P600_MAP = {
+    "RN-S151-591": ("Definición", VAL),
+    "RN-S151-592": ("Restricción", VAL),
+    "RN-S151-593": ("Clasificación / Mapeo", VAL),
+    "RN-S151-594": ("Restricción", VAL),
+    "RN-S151-595": ("Derivación", VAL),
+    "RN-S151-596": ("Derivación", VAL),
+    "RN-S151-597": ("Derivación", VAL),
+    "RN-S151-598": ("Restricción", VAL),
+    "RN-S151-599": ("Clasificación / Mapeo", VAL),
+    "RN-S151-600": ("Restricción", VAL),
+    "RN-S151-601": ("Clasificación / Mapeo", VAL),
+    "RN-S151-602": ("Restricción", VAL),
+    "RN-S151-603": ("Restricción", VAL),
+    "RN-S151-604": ("Restricción", VAL),
+    "RN-S151-605": ("Derivación", VAL),
+    "RN-S151-606": ("Definición", VAL),
+    "RN-S151-607": ("Derivación", VAL),
+    "RN-S151-608": ("Derivación", VAL),
+    "RN-S151-609": ("Clasificación / Mapeo", VAL),
+    "RN-S151-610": ("Derivación", VAL),
+    "RN-S151-611": ("Clasificación / Mapeo", VAL),
+    "RN-S151-612": ("Restricción", VAL),
+    "RN-S151-613": ("Definición", VAL),
+    "RN-S151-614": ("Restricción", REGCFR),
+    "RN-S151-615": ("Definición", VAL),
+    "RN-S151-616": ("Clasificación / Mapeo", VAL),
+    "RN-S151-617": ("Restricción", VAL),
+    "RN-S151-618": ("Derivación", VAL),
+    "RN-S151-619": ("Restricción", VAL),
+    "RN-S151-620": ("Restricción", VAL),
+    "RN-S151-621": ("Derivación", VAL),
+    "RN-S151-622": ("Derivación", VAL),
+    "RN-S151-623": ("Restricción", VAL),
+    "RN-S151-624": ("Definición", VAL),
+    "RN-S151-625": ("Derivación", VAL),
+    "RN-S151-626": ("Restricción", VAL),
+    "RN-S151-627": ("Derivación", VAL),
+    "RN-S151-628": ("Cálculo", VAL),
+    "RN-S151-629": ("Derivación", VAL),
+    "RN-S151-630": ("Definición", VAL),
+    "RN-S151-631": ("Derivación", VAL),
+    "RN-S151-632": ("Derivación", VAL),
+}
+
 FILE_MAPS = {
     "rules-s151.md": P109_MAP,
     "rules-s151-p312-p330-p360.md": BC09_MAP,
     "rules-s151-p178-p138.md": BC11_MAP,
     "rules-s151-p130-p131.md": BC19_MAP,
+    "rules-s151-p655-p670-p671-p680-p690.md": P600_MAP,
 }
 
 PLACEHOLDER = "Consulta análisis SBVR (dt-mainframe-analyst)"
