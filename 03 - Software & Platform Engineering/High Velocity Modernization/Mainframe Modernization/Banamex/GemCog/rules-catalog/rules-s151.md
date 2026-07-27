@@ -452,7 +452,7 @@ ELSE → descarte silencioso (no WRITE)
 | **Tipo regla** | Derivación |
 | **Tipo técnico** | [HARDCODE-SOSPECHOSO] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — DATO-REQUERIDO (naturaleza del grupo 5xxxx) |
+| **Veredicto** | VALIDADO (lectura AS-IS; SME Contabilidad CNBV) — [ANTIPATRÓN] de control interno, no migrar literal |
 | **Regulador** | Integridad del catálogo mínimo (Anexo 34/35) + clasificación sectorial Serie R + control interno Art. 144-148 |
 | **Programa ejecutor** | P109 |
 | **Evidencia código** | COBOL_P109.txt:10920-10925 (párrafo 21121-MUEVE-CUENTAS-CONTABLES; `MOVE 5 TO RMC-CTA1-CONT` en :10921) |
@@ -502,8 +502,9 @@ IF RMC-CTA1-CONT = 0                             (:10920)
 |-----|--------|
 | **Validado por Lead** | Swarm dt-mainframe-analyst, 2026-07-27 — evidencia COBOL_P109.txt:10920-10925 |
 | **Validado por SME** | SME Regulatorio Mainframe (CNBV), 2026-07 — [CRÍTICO]; confirma y amplía (borra sectorización); sube el hallazgo del `MOVE 0` a SECTOR/BANCA/ACTIVIDAD |
-| **DATO-REQUERIDO (contabilidad Banamex)** | Naturaleza del grupo 5xxxx en el plan de cuentas. Hipótesis SME: 5 = Egresos/resultado deudor (P&L). Si es P&L, volcar asientos no resueltos ahí **infla el gasto/resultado del período** — exposición de estados financieros, no solo control. No asumir |
-| **Equivalencia (requisito SME)** | Cuantificar en 6 meses cuántos asientos tomaron el fallback y a qué importe acumulado; replicar exactamente el trío cuenta→5 + BANCA/SECTOR/ACTIVIDAD→0. Recomendación: externalizar el hardcode a configuración (ADR), no perpetuarlo |
+| **Validado por SME Contable** | SME Contabilidad Bancaria CNBV, 2026-07 — grupo 5 = **resultados deudores (gasto/P&L)**, naturaleza deudora, NO cuenta de control de balance. El fallback carga gasto contra el resultado del período (mal-clasificación Anexo 33 Serie D) y el cereo de sectorización degrada R04. Diseño correcto sería una transitoria vigilada de "partidas por identificar" conservando dimensiones, no gasto |
+| **DATO-REQUERIDO neto (catálogo Banamex)** | Cuenta 5 puntual a la que aterriza el fallback y materialidad del saldo histórico volcado ahí (¿hallazgo de auditoría o marginal?) |
+| **Equivalencia + migración (requisito SME)** | [ANTIPATRÓN] no transpilar el hardcode; externalizar a cuenta transitoria parametrizada conservando BANCA/SECTOR/ACTIVIDAD (ADR contable). Tolerancia cero determinística: cada asiento que caiga en el fallback es trigger de divergencia visible; contar y reportar los hits en parallel-run (si el AS-IS los ocultaba en gasto, el TO-BE debe exponerlos) |
 
 ---
 
@@ -521,7 +522,7 @@ IF RMC-CTA1-CONT = 0                             (:10920)
 | **Tipo regla** | Restricción |
 | **Tipo técnico** | [HARDCODE-SOSPECHOSO] [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — DATO-REQUERIDO (naturaleza de la cuenta 1503) |
+| **Veredicto** | VALIDADO (lectura AS-IS; SME Contabilidad CNBV) — exclusión legítima solo condicionada, ver validación |
 | **Regulador** | Vigilancia de cuentas puente/transitorias (CUB Criterios Anexo 33) + control interno Art. 144-148 |
 | **Programa ejecutor** | P109 |
 | **Evidencia código** | COBOL_P109.txt:14693-14703 (párrafo 40005-VALIDA-CTA-1503); literales de cuenta también en :14610, :15208, :15364, :15392 |
@@ -576,8 +577,9 @@ IF WS-CTA4-250-ANT = 1503
 |-----|--------|
 | **Validado por Lead** | Swarm dt-mainframe-analyst, 2026-07-27 — evidencia COBOL_P109.txt:14693-14703 |
 | **Validado por SME** | SME Regulatorio Mainframe (CNBV), 2026-07 — [CRÍTICO]; corrige alcance (6 acumuladores, no 2) y el sentido del riesgo (inverso) |
-| **DATO-REQUERIDO (contabilidad Banamex)** | Naturaleza y política de depuración de la cuenta 1503 y subcuentas 150399 / 150359; confirmar si deben seguir excluidas del cuadre en el catálogo destino |
-| **Equivalencia (requisito SME)** | Golden-master del cuadre con y sin movimientos a 1503/150399/150359: totales por las 4 dimensiones idénticos legacy vs nuevo. Inventariar y externalizar todos los literales de cuenta a configuración parametrizada |
+| **Validado por SME Contable** | SME Contabilidad Bancaria CNBV, 2026-07 — grupo 15 = **activo transitorio / operaciones en tránsito-liquidación**; 1503 = cuenta puente compensatoria; 150399/150359 = subcuentas de contrapartida. Excluir del cuadre del **paquete** es legítimo **solo si** la cuenta netea a cero **y** se concilia/depura por separado. El cereo de los 6 acumuladores puede ocultar un descuadre real → [ANTIPATRÓN] exclusión permanente de una transitoria de la conciliación (CUB Art. 144-148, vigilancia de saldos en tránsito) |
+| **DATO-REQUERIDO neto (catálogo Banamex)** | Contenido exacto de 1503/150399/150359 en Anexo 34/35 aplicado + existencia hoy de un proceso de conciliación y depuración con antigüedad de saldos. Si no existe, el hallazgo de control interno ya está en el AS-IS |
+| **Equivalencia + migración (requisito SME)** | Conservar la exclusión del cuadre **solo con** proceso explícito de conciliación/depuración de 1503 (ADR contable); nunca excluir de la conciliación contable. Verificar: (1) saldo neto de 1503 = 0 por paquete; si arrastra saldo ≠ 0 es descuadre oculto → hallazgo pre-cutover; (2) que ningún movimiento legítimo caiga en 1503 por error de esquema; (3) antigüedad de saldos histórica |
 
 ---
 
