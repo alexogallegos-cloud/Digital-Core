@@ -302,16 +302,20 @@ FOR n=1 TO 5: IF A00-R01-CVETRANn > 0 → WRITE REG-MOVIMIENTOS con CVETRANn/IMP
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-13 |
 | **bian_ref** | 7.1.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [LÓGICA-CONTABLE] [RIESGO-CNBV-REPORTE] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
-| **Regulador** | CNBV CUB Anexo 33 (indirectamente — el ESQCON implementa el mapeo) |
+| **Veredicto** | VALIDADO (mecánica en fuente + rationale SME regulatorio) |
+| **Regulador** | CUB Criterios de Contabilidad (Anexo 33) + Catálogo Mínimo (Anexo 34/35) + Control interno Art. 144-148 |
 | **Programa ejecutor** | P109 |
-| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
-| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+| **Evidencia código** | COBOL_P109.txt:10982 (párrafo 21122-MUEVE-ESQUEMA); rechazo registrado "ESQUEMA NO EXISTE" en :10849 y :10977, "ERROR READ, ARCHIVO ESQCON" en :10908 |
+| **Dataset DMSII** | Lee catálogos ARCH-CAT7 y ARCH-ESQCON (archivos indexados, no dataset DMSII de negocio); el asiento resuelto se escribe en registro RMC |
 
-**Descripción:** La resolución cuenta GL desde CVETRAN sigue 4 pasos: (1) Lookup `WKS-PT-INDS250(CVETRAN)` → agrupación contable; (2) Si `WKS-TIPO-CAT=2`: ruta alternativa CAT7 directa; (3) Lectura ARCH-CAT7 → índice de esquema `W77-IND3`; (4) Lectura ARCH-ESQCON → `WKS-EQ-NAT-MOV`, `WKS-EQ-CUENTA`, `WKS-EQ-CAUSA`. Si paso 3 falla → W77-IND3=0 → error "ESQUEMA NO EXISTE". Este es el corazón del motor GL.
+**Descripción:** La resolución cuenta GL desde CVETRAN sigue 4 pasos: (1) Lookup `WKS-PT-INDS250(CVETRAN)` → agrupación contable; (2) Si `WKS-TIPO-CAT=2`: ruta alternativa CAT7 directa; (3) Lectura ARCH-CAT7 → índice de esquema `W77-IND3`; (4) Lectura ARCH-ESQCON → `WKS-EQ-NAT-MOV`, `WKS-EQ-CUENTA`, `WKS-EQ-CAUSA`. Si paso 3 falla → W77-IND3=0 → se registra "ESQUEMA NO EXISTE" (con traza, no silencioso) y el movimiento queda fuera del asiento. Este es el corazón del motor GL.
+
+**Condición:** Se procesa un CVETRAN de un movimiento contabilizable.
+
+**Consecuencia:** Se resuelve la cuenta GL destino y la naturaleza del asiento vía la cadena INDS250→CAT7→ESQCON. Si el esquema no existe, se registra el rechazo y el movimiento no se contabiliza (la contrapartida sí, produciendo descuadre).
 
 **Trigger:** WRITE REG-MOVIMIENTOS completado para un CVETRANn
 
@@ -354,7 +358,15 @@ IF W77-IND3 = 0 → error "ESQUEMA NO EXISTE"
 | `WKS-EQ-NAT-MOV` | WSR-RCC-NAT-MOV | CAMPO-NUM | inc-p109 | Naturaleza del movimiento (1 dígito) para el reporte RCC. Indica si el movimiento es débito (cargo) o crédito (abono). |
 | `WKS-EQ-CUENTA` | WKS-CTA-CONT-ACT | CAMPO-COMP | inc-p109 | Número de cuenta contable actual en COMP de 12 dígitos. Almacena la cuenta GL del período en proceso. (Más cercano encontrado) |
 
-**Estado validación:** pendiente HITL
+**Rationale (validado por SME Regulatorio CNBV):** La cadena INDS250→CAT7→ESQCON es el motor de mapeo transacción→cuenta que materializa la política de clasificación contable del banco hacia el plan de cuentas interno, que a su vez reconcilia contra el catálogo mínimo (Anexo 34/35). No es "el mapeo del Anexo 33" (Anexo 33 son criterios de reconocimiento/valuación, no una tabla de cuentas). Corrección de hecho sobre la extracción previa: el rechazo **no es silencioso** — hay traza ("ESQUEMA NO EXISTE", "ERROR READ ARCHIVO ESQCON"); el problema es que el movimiento queda fuera del asiento (medio asiento perdido), lo que descuadra el cierre diario y contamina la Serie R.
+
+**Validación:**
+
+| Rol | Estado |
+|-----|--------|
+| **Validado por Lead** | Swarm dt-mainframe-analyst, 2026-07-27 — evidencia COBOL_P109.txt:10982 |
+| **Validado por SME** | SME Regulatorio Mainframe (CNBV), 2026-07 — [CRÍTICO] gap de asiento → descuadre Serie R; corrige "silencioso" y la atribución a Anexo 33 |
+| **Equivalencia (requisito SME)** | Resolución de cuenta **100% determinística** legacy vs nuevo (no 99.99%; ese umbral aplica al importe agregado). Migrar CAT7/ESQCON/INDS250 como snapshot con histórico de versiones. Reconciliar el conteo de rechazos "ESQUEMA NO EXISTE": el nuevo debe reportar exactamente los mismos |
 
 ---
 
@@ -369,16 +381,22 @@ IF W77-IND3 = 0 → error "ESQUEMA NO EXISTE"
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-13 |
 | **bian_ref** | 7.1.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
-| **Regulador** | NIF A-1 / principio de partida doble |
+| **Veredicto** | VALIDADO (mecánica en fuente + rationale SME regulatorio) |
+| **Regulador** | NIF A-1 dualidad económica (supletorio) + CUB Catálogo Mínimo Anexo 34 |
 | **Programa ejecutor** | P109 |
-| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
-| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+| **Evidencia código** | COBOL_P109.txt:10915-10917 (párrafo 21121-MUEVE-CUENTAS-CONTABLES; `IF WKS-EQ-NAT-MOV = 1 OR 2` en :10915) |
+| **Dataset DMSII** | Análisis interno: registro RMC → archivo MOVCONTABLES (verificar dataset DMSII destino BD10MOVDIA151) |
 
 **Descripción:** P109 implementa la partida doble mediante `WKS-EQ-NAT-MOV` del ESQCON. Solo los valores 1 (débito) y 2 (crédito) generan asiento. Cualquier otro valor descarta el asiento silenciosamente. El par débito/crédito garantiza el cuadre contable; el balance se verifica en sección 40000.
+
+**Condición:** El esquema contable (ESQCON) resuelto entrega una naturaleza de movimiento `WKS-EQ-NAT-MOV`.
+
+**Consecuencia:** Si la naturaleza es 1 (débito) o 2 (crédito), se puebla el registro contable (RMC-TIPO-MOV, RMC-NAT-MOV, RMC-CTA-CONT, RMC-CAUSA) y se genera el asiento. Cualquier otro valor descarta el asiento sin escribir y sin dejar traza.
+
+**Excepciones:** El descarte por naturaleza inválida es silencioso (no hay log ni contador de rechazo), lo que hace invisible un asiento faltante hasta el cuadre de sección 40000.
 
 **Trigger:** Resultado de lookup ESQCON con W77-IND3 > 0
 
@@ -408,7 +426,15 @@ ELSE → descarte silencioso (no WRITE)
 | `WKS-EQ-NAT-MOV` / `RMC-NAT-MOV` | WSR-RCC-NAT-MOV | CAMPO-NUM | inc-p109 | Naturaleza del movimiento (1 dígito) para el reporte RCC. Indica si el movimiento es débito (cargo) o crédito (abono) en el listado de cargos y créditos. |
 | `RMC-CTA-CONT` | WSR-RMC-CTA-CONT | CAMPO-EDICION | inc-pro | Número de cuenta contable del Registro de Movimientos Contables (RMC) formateado para edición/impresión. Edición Z(12), 12 dígitos con supresión de ceros. |
 
-**Estado validación:** pendiente HITL
+**Rationale (validado por SME Regulatorio CNBV):** El filtro NAT-MOV=1/2 materializa el postulado de dualidad económica (partida doble), exigible a bancos por supletoriedad del Anexo 33 de la CUB. El punto regulatoriamente peligroso no es que 1 y 2 generen asiento, sino que cualquier otro valor cae por el ELSE implícito **sin WRITE y sin log** (a diferencia de RN-S151-025, que sí registra el rechazo): un renglón ESQCON con NAT-MOV=3 descarta una pierna del asiento y deja la contrapartida huérfana, produciendo descuadre que se propaga al catálogo mínimo y a la Serie R. La decisión de convertir el descarte silencioso en excepción es del cliente y auditoría, no del transpiler.
+
+**Validación:**
+
+| Rol | Estado |
+|-----|--------|
+| **Validado por Lead** | Swarm dt-mainframe-analyst, 2026-07-27 — evidencia COBOL_P109.txt:10915-10917 |
+| **Validado por SME** | SME Regulatorio Mainframe (CNBV), 2026-07 — dualidad económica confirmada; descarte silencioso NAT-MOV≠1/2 es el riesgo real |
+| **Equivalencia (requisito SME)** | Sembrar dataset con NAT-MOV inválido (3-9) y confirmar descarte idéntico legacy vs nuevo (mismo conteo de registros no escritos). Inventariar catálogo ESQCON con NAT-MOV∉{1,2} como remediación pre-cutover |
 
 ---
 
@@ -423,16 +449,20 @@ ELSE → descarte silencioso (no WRITE)
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-13 |
 | **bian_ref** | 7.1.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Derivación |
 | **Tipo técnico** | [HARDCODE-SOSPECHOSO] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
-| **Regulador** | N/A |
+| **Veredicto** | En validación — DATO-REQUERIDO (naturaleza del grupo 5xxxx) |
+| **Regulador** | Integridad del catálogo mínimo (Anexo 34/35) + clasificación sectorial Serie R + control interno Art. 144-148 |
 | **Programa ejecutor** | P109 |
-| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
-| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+| **Evidencia código** | COBOL_P109.txt:10920-10925 (párrafo 21121-MUEVE-CUENTAS-CONTABLES; `MOVE 5 TO RMC-CTA1-CONT` en :10921) |
+| **Dataset DMSII** | Análisis interno: registro RMC → MOVCONTABLES |
 
-**Descripción:** Cuando el ESQCON entrega `RMC-CTA1-CONT = 0`, P109 aplica un fallback hardcoded: `MOVE 5 TO RMC-CTA1-CONT`. El prefijo 5 corresponde a cuentas de tipo 5000x en el plan contable de Banamex. Dirige el movimiento a cuentas de control hasta que el catálogo ESQCON se corrija.
+**Descripción:** Cuando el ESQCON entrega `RMC-CTA1-CONT = 0`, P109 aplica un fallback hardcoded: `MOVE 5 TO RMC-CTA1-CONT`. Además —y esto la extracción previa lo omitía— el mismo bloque ejecuta `MOVE 0 TO RMC-BANCA, RMC-SECTOR, RMC-ACTIVIDAD` (:10922-10925): el fallback no solo redirige la cuenta, también **borra los atributos de sectorización regulatoria** del movimiento. Dirige el asiento a cuentas de control (grupo 5) hasta que el catálogo ESQCON se corrija.
+
+**Condición:** El ESQCON no resuelve el primer dígito de la cuenta (`RMC-CTA1-CONT = 0`).
+
+**Consecuencia:** El primer dígito de la cuenta se fuerza a 5 (grupo de control) y se ceroan las dimensiones BANCA, SECTOR y ACTIVIDAD del asiento, que por tanto pierde su clasificación sectorial en la Serie R.
 
 **Trigger:** Resultado de lookup ESQCON con RMC-CTA1-CONT = 0
 
@@ -440,16 +470,21 @@ ELSE → descarte silencioso (no WRITE)
 
 | Campo COBOL | Tipo | Rol |
 |-------------|------|-----|
-| `RMC-CTA1-CONT` | PIC 9(n) | Dígito 1 de cuenta GL |
+| `RMC-CTA1-CONT` | PIC 9 COMP | Dígito 1 de cuenta GL (0 = no resuelto) |
+| `RMC-BANCA` / `RMC-SECTOR` / `RMC-ACTIVIDAD` | PIC 9 COMP | Dimensiones de sectorización regulatoria (ceradas en el fallback) |
 
 **Traza de código:**
 ```
-PROGRAMA: P109 · SECCIÓN: 21121-MUEVE-CUENTAS-CONTABLES · Líneas: ~10940
-IF RMC-CTA1-CONT = 0 → MOVE 5 TO RMC-CTA1-CONT
+21121-MUEVE-CUENTAS-CONTABLES (COBOL_P109.txt:10919-10925)
+MOVE WKS-EQ-CUENTA TO RMC-CTA-CONT              (:10919)
+IF RMC-CTA1-CONT = 0                             (:10920)
+   MOVE 5 TO RMC-CTA1-CONT                       (:10921)
+   MOVE 0 TO RMC-BANCA, RMC-SECTOR, RMC-ACTIVIDAD (:10922-10925)
 ```
 
 **Riesgos de migración:**
-- El prefijo 5 puede no ser válido en la nueva estructura de catálogo CNBV — revisar con equipo contable
+- El prefijo/grupo 5 debe validarse contra el catálogo destino — [DATO-REQUERIDO] su naturaleza exacta
+- Pérdida de BANCA/SECTOR/ACTIVIDAD debe replicarse o corregirse conscientemente (cambia la Serie R)
 - [HARDCODE-SOSPECHOSO]: el catálogo ESQCON debe corregirse para no producir CTA=0
 
 **Vocabulario en la fórmula:**
@@ -459,7 +494,16 @@ IF RMC-CTA1-CONT = 0 → MOVE 5 TO RMC-CTA1-CONT
 | `RMC-CTA1-CONT` | — | — | — | no encontrado en vocab-s151.md |
 | — (más cercano) | WKS-CTA-CONT-ACT | CAMPO-COMP | inc-p109 | Número de cuenta contable actual en COMP de 12 dígitos; almacena la cuenta GL del período en proceso. |
 
-**Estado validación:** pendiente HITL
+**Rationale (validado por SME Regulatorio CNBV):** Es la regla más delicada del batch. Dirigir movimientos no resueltos a una cuenta de control es un paliativo operativo que CNBV vería como deficiencia de control interno (Art. 144-148) si el saldo acumulado es material o persistente. El borrado de BANCA/SECTOR/ACTIVIDAD degrada la clasificación sectorial de la Serie R (p.ej. R04 cartera por sector). No hay norma que autorice el prefijo 5.
+
+**Validación:**
+
+| Rol | Estado |
+|-----|--------|
+| **Validado por Lead** | Swarm dt-mainframe-analyst, 2026-07-27 — evidencia COBOL_P109.txt:10920-10925 |
+| **Validado por SME** | SME Regulatorio Mainframe (CNBV), 2026-07 — [CRÍTICO]; confirma y amplía (borra sectorización); sube el hallazgo del `MOVE 0` a SECTOR/BANCA/ACTIVIDAD |
+| **DATO-REQUERIDO (contabilidad Banamex)** | Naturaleza del grupo 5xxxx en el plan de cuentas. Hipótesis SME: 5 = Egresos/resultado deudor (P&L). Si es P&L, volcar asientos no resueltos ahí **infla el gasto/resultado del período** — exposición de estados financieros, no solo control. No asumir |
+| **Equivalencia (requisito SME)** | Cuantificar en 6 meses cuántos asientos tomaron el fallback y a qué importe acumulado; replicar exactamente el trío cuenta→5 + BANCA/SECTOR/ACTIVIDAD→0. Recomendación: externalizar el hardcode a configuración (ADR), no perpetuarlo |
 
 ---
 
@@ -474,16 +518,20 @@ IF RMC-CTA1-CONT = 0 → MOVE 5 TO RMC-CTA1-CONT
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-13 |
 | **bian_ref** | 7.1.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Restricción |
 | **Tipo técnico** | [HARDCODE-SOSPECHOSO] [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
-| **Regulador** | N/A — cuenta puente interna |
+| **Veredicto** | En validación — DATO-REQUERIDO (naturaleza de la cuenta 1503) |
+| **Regulador** | Vigilancia de cuentas puente/transitorias (CUB Criterios Anexo 33) + control interno Art. 144-148 |
 | **Programa ejecutor** | P109 |
-| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
-| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+| **Evidencia código** | COBOL_P109.txt:14693-14703 (párrafo 40005-VALIDA-CTA-1503); literales de cuenta también en :14610, :15208, :15364, :15392 |
+| **Dataset DMSII** | Análisis interno: reporte de cuadre, sección 40000-GENERA-CUADRE-CONTABLE |
 
-**Descripción:** Durante la generación del cuadre (sección 40000), cuando la cuenta contable es 1503, P109 zerifica sus importes acumulados (CARGOS=0, ABONOS=0) y marca el registro como nulo. La cuenta 1503 es una cuenta puente/compensatoria que no debe aparecer en el cuadre final. Exclusión hardcoded aplicada en todas las ejecuciones.
+**Descripción:** Durante la generación del cuadre (sección 40000), cuando la cuenta contable es 1503, P109 zerifica los importes acumulados y marca el registro como nulo (`W77-PAQ-VACIO=1`). Corrección de alcance (SME): no zerifica dos acumuladores sino **seis** — `WKS-TCP-CARGOS`, `WKS-TCP-ABONOS`, `WKS-TRA-CARGOS`, `WKS-TRA-ABONOS`, `WKS-AUT-CARGOS`, `WKS-AUT-ABONOS` — es decir, exclusión transversal a las cuatro dimensiones del cuadre (transitorio y autorizado), con lógica relacionada sobre las subcuentas 150399 y 150359. La 1503 es cuenta puente/compensatoria que no debe aparecer en el cuadre final.
+
+**Condición:** El registro de cuadre pertenece a la cuenta 1503 (o subcuentas 150399000000 / 150359000000).
+
+**Consecuencia:** Se ceroan los seis acumuladores de cargos y abonos (simple, transitorio y autorizado) y el paquete se marca vacío, excluyendo la cuenta del cuadre.
 
 **Trigger:** Lectura de registro MOVCONTABLES con cuenta = 1503 durante sección 40000
 
@@ -492,18 +540,25 @@ IF RMC-CTA1-CONT = 0 → MOVE 5 TO RMC-CTA1-CONT
 | Campo COBOL | Tipo | Rol |
 |-------------|------|-----|
 | `WS-CTA4-250-ANT` | PIC 9(4) | Cuenta GL (4 dígitos iniciales) |
-| `WKS-TCP-CARGOS` | PIC 9(n) | Acumulado cargos |
-| `WKS-TCP-ABONOS` | PIC 9(n) | Acumulado abonos |
+| `WKS-TCP-CARGOS` / `WKS-TCP-ABONOS` | PIC S9(16)V99 COMP | Acumulado cargos/abonos simple |
+| `WKS-TRA-CARGOS` / `WKS-TRA-ABONOS` | PIC S9(16)V99 COMP | Acumulado transitorio |
+| `WKS-AUT-CARGOS` / `WKS-AUT-ABONOS` | PIC S9(16)V99 COMP | Acumulado autorizado |
+| `W77-PAQ-VACIO` | flag | Marca de paquete vacío |
 
 **Traza de código:**
 ```
-PROGRAMA: P109 · SECCIÓN: 40000-GENERA-CUADRE-CONTABLE · Líneas: ~14515
-IF WS-CTA4-250-ANT = 1503 → MOVE 0 TO WKS-TCP-CARGOS, WKS-TCP-ABONOS → void record
+40005-VALIDA-CTA-1503 (COBOL_P109.txt:14693-14703)
+IF WS-CTA4-250-ANT = 1503
+   MOVE 0 TO WKS-TCP-CARGOS, WKS-TCP-ABONOS,
+             WKS-TRA-CARGOS, WKS-TRA-ABONOS,
+             WKS-AUT-CARGOS, WKS-AUT-ABONOS
+   MOVE 1 TO W77-PAQ-VACIO
 ```
 
 **Riesgos de migración:**
-- Si la cuenta 1503 existe en el nuevo catálogo con uso diferente, la exclusión genera cuadres incorrectos
-- Validar con equipo contable si la cuenta 1503 debe seguir excluida en el nuevo sistema
+- Literales de cuenta (1503, 150399000000, 150359000000) hardcodeados en 6+ párrafos (:14610, :14696, :15208, :15325, :15364, :15392) — alto riesgo de migración incompleta si no se centralizan
+- Si 1503 se remapea en el nuevo plan, los literales quedan apuntando a la cuenta equivocada
+- Riesgo inverso: CNBV quiere que las cuentas puente/transitorias se vigilen; excluirlas del cuadre oculta lo que el regulador quiere ver
 
 **Vocabulario en la fórmula:**
 
@@ -513,7 +568,16 @@ IF WS-CTA4-250-ANT = 1503 → MOVE 0 TO WKS-TCP-CARGOS, WKS-TCP-ABONOS → void 
 | `WKS-TCP-CARGOS` | WKS-TCP-CARGOS | CAMPO-COMP | inc-p109 | Total de cargos por cuenta y período (COMP S9(16)V99). Suma firmada acumulada de cargos en el período de procesamiento contable del S151. |
 | `WKS-TCP-ABONOS` | WKS-TCP-ABONOS | CAMPO-COMP | inc-p109 | Total de abonos por cuenta y período (COMP S9(16)V99). Suma firmada acumulada de abonos en el período de procesamiento contable del S151. |
 
-**Estado validación:** pendiente HITL
+**Rationale (validado por SME Regulatorio CNBV):** La exclusión puede ser legítima para el reporte operativo de cuadre del día, pero no debe traducirse en "esta cuenta no se concilia nunca": CNBV vigila saldos en tránsito prolongados como observación de auditoría. El riesgo regulatorio es inverso al esperado — excluir la cuenta oculta precisamente lo que el regulador quiere ver.
+
+**Validación:**
+
+| Rol | Estado |
+|-----|--------|
+| **Validado por Lead** | Swarm dt-mainframe-analyst, 2026-07-27 — evidencia COBOL_P109.txt:14693-14703 |
+| **Validado por SME** | SME Regulatorio Mainframe (CNBV), 2026-07 — [CRÍTICO]; corrige alcance (6 acumuladores, no 2) y el sentido del riesgo (inverso) |
+| **DATO-REQUERIDO (contabilidad Banamex)** | Naturaleza y política de depuración de la cuenta 1503 y subcuentas 150399 / 150359; confirmar si deben seguir excluidas del cuadre en el catálogo destino |
+| **Equivalencia (requisito SME)** | Golden-master del cuadre con y sin movimientos a 1503/150399/150359: totales por las 4 dimensiones idénticos legacy vs nuevo. Inventariar y externalizar todos los literales de cuenta a configuración parametrizada |
 
 ---
 
@@ -1030,16 +1094,20 @@ IF W77-SISTEMA-PARAMETRO = 264 → OPEN DATALAKE + WRITE registros
 | **Fecha actualización** | 2026-07-27 |
 | **BC-ID** | BC-13 |
 | **bian_ref** | 7.1.1 |
-| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo regla** | Cálculo |
 | **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
-| **Veredicto** | PENDIENTE SME |
-| **Regulador** | NIF — convención de signos |
+| **Veredicto** | VALIDADO (mecánica en fuente + rationale SME regulatorio) |
+| **Regulador** | Convención de presentación interna consistente con dualidad económica — no es requisito normativo CNBV explícito |
 | **Programa ejecutor** | P109 |
-| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
-| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+| **Evidencia código** | COBOL_P109.txt:14618 y :15355 (`COMPUTE A00-R01-S250-CAR = (WKS-TCP-CARGOS * -1)`); campo firmado `A00-R01-S250-CAR PIC S9(16)V99` en :2905 |
+| **Dataset DMSII** | Análisis interno: reporte de cuadre, sección 40000 (campo de salida A00-R01-S250-CAR y su copia A00-R01-S115-CAR) |
 
-**Descripción:** Los cargos acumulados se invierten de signo antes de escribirse al reporte de cuadre: `COMPUTE A00-R01-S250-CAR = WKS-TCP-CARGOS * -1`. Los débitos se representan como valores negativos en el reporte; los abonos mantienen signo positivo. Convención de signos del plan contable de Banamex.
+**Descripción:** Los cargos acumulados se invierten de signo antes de escribirse al reporte de cuadre: `COMPUTE A00-R01-S250-CAR = WKS-TCP-CARGOS * -1`. Los débitos se representan como valores negativos en el reporte y los abonos mantienen signo positivo, de modo que la suma algebraica cargos+abonos = 0 evidencie el cuadre. Es una convención de presentación de signos.
+
+**Condición:** Se genera el registro de cuadre para una cuenta en la sección 40000.
+
+**Consecuencia:** El importe de cargos del reporte se calcula como el acumulado interno multiplicado por −1 (débitos negativos), mientras los abonos conservan signo positivo.
 
 **Trigger:** Acumulación de registros MOVCONTABLES en cuadre (sección 40000)
 
@@ -1066,7 +1134,15 @@ COMPUTE A00-R01-S250-CAR = WKS-TCP-CARGOS * -1
 | `WKS-TCP-CARGOS` | WKS-TCP-CARGOS | CAMPO-COMP | inc-p109 | Total de cargos por cuenta y período (COMP S9(16)V99). Suma firmada acumulada de cargos en el período de procesamiento contable del S151. |
 | `A00-R01-S250-CAR` | — | — | — | no encontrado en vocab-s151.md |
 
-**Estado validación:** pendiente HITL
+**Rationale (validado por SME Regulatorio CNBV):** Convención de presentación consistente con la dualidad económica (la suma debe netear a cero para demostrar cuadre). No hay norma CNBV que imponga el signo negativo del cargo; es criterio de reportería interna. El riesgo real de migración es aritmético, no regulatorio: un mal manejo del signo del packed decimal / del `S` del PIC, o una doble negación (acumulación firmada + `×−1`), invierte el cuadre completo.
+
+**Validación:**
+
+| Rol | Estado |
+|-----|--------|
+| **Validado por Lead** | Swarm dt-mainframe-analyst, 2026-07-27 — evidencia COBOL_P109.txt:14618, :15355, campo S9(16)V99 en :2905 |
+| **Validado por SME** | SME Regulatorio Mainframe (CNBV), 2026-07 — correcto; matiza "NIF" → convención de presentación interna; riesgo aritmético (signo/packed decimal), no regulatorio |
+| **Equivalencia (requisito SME)** | Golden-master byte a byte del campo A00-R01-S250-CAR y su copia A00-R01-S115-CAR: mismo signo, magnitud y 2 decimales. Casos borde de rounding y packed decimal (centavos, negativos de origen, −0 vs +0). Verificar que los consumidores downstream lean la misma convención |
 
 ---
 
