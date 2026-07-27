@@ -91,9 +91,82 @@ BC09_MAP = {
     "RN-S151-749": ("Restricción", VAL),
 }
 
+# BC-11 Reconciliación Financiera (P178 verificación saldos + P138 posición global). CONT = SME Contable.
+BC11_MAP = {
+    "RN-S151-391": ("Restricción", VAL),
+    "RN-S151-392": ("Restricción", VAL),
+    "RN-S151-393": ("Restricción", CONT),
+    "RN-S151-394": ("Habilitación", VAL),
+    "RN-S151-395": ("Restricción", CONT),
+    "RN-S151-396": ("Derivación", CONT),
+    "RN-S151-397": ("Cálculo", VAL),
+    "RN-S151-398": ("Restricción", VAL),
+    "RN-S151-399": ("Habilitación", VAL),
+    "RN-S151-400": ("Habilitación", VAL),
+    "RN-S151-411": ("Cálculo", CONT),
+    "RN-S151-412": ("Clasificación / Mapeo", VAL),
+    "RN-S151-413": ("Cálculo", CONT),
+    "RN-S151-414": ("Restricción", VAL),
+    "RN-S151-415": ("Cálculo", VAL),
+    "RN-S151-416": ("Restricción", VAL),
+    "RN-S151-417": ("Habilitación", VAL),
+    "RN-S151-418": ("Clasificación / Mapeo", CONT),
+    "RN-S151-419": ("Derivación", VAL),
+    "RN-S151-420": ("Definición", VAL),
+}
+
+# BC-19 CFR Reporting Regulatorio (P130 Agrupador + P131 Traductor, Serie B CNBV). REGCFR = SME Regulatorio.
+REGCFR = "En validación — SME Regulatorio CNBV (CFR Serie B)"
+BC19_MAP = {
+    "RN-S151-061": ("Restricción", VAL),
+    "RN-S151-062": ("Definición", VAL),
+    "RN-S151-063": ("Restricción", VAL),
+    "RN-S151-064": ("Restricción", VAL),
+    "RN-S151-065": ("Restricción", VAL),
+    "RN-S151-066": ("Derivación", VAL),
+    "RN-S151-067": ("Restricción", VAL),
+    "RN-S151-068": ("Restricción", VAL),
+    "RN-S151-069": ("Habilitación", VAL),
+    "RN-S151-070": ("Clasificación / Mapeo", VAL),
+    "RN-S151-071": ("Habilitación", VAL),
+    "RN-S151-072": ("Derivación", VAL),
+    "RN-S151-073": ("Definición", VAL),
+    "RN-S151-074": ("Clasificación / Mapeo", VAL),
+    "RN-S151-075": ("Habilitación", VAL),
+    "RN-S151-076": ("Habilitación", VAL),
+    "RN-S151-077": ("Definición", VAL),
+    "RN-S151-078": ("Clasificación / Mapeo", VAL),
+    "RN-S151-079": ("Derivación", VAL),
+    "RN-S151-080": ("Definición", VAL),
+    "RN-S151-091": ("Definición", VAL),
+    "RN-S151-092": ("Restricción", VAL),
+    "RN-S151-093": ("Clasificación / Mapeo", REGCFR),
+    "RN-S151-094": ("Clasificación / Mapeo", VAL),
+    "RN-S151-095": ("Clasificación / Mapeo", REGCFR),
+    "RN-S151-096": ("Clasificación / Mapeo", REGCFR),
+    "RN-S151-097": ("Clasificación / Mapeo", VAL),
+    "RN-S151-098": ("Clasificación / Mapeo", REGCFR),
+    "RN-S151-099": ("Clasificación / Mapeo", REGCFR),
+    "RN-S151-100": ("Clasificación / Mapeo", REGCFR),
+    "RN-S151-101": ("Derivación", REGCFR),
+    "RN-S151-102": ("Definición", VAL),
+    "RN-S151-103": ("Restricción", VAL),
+    "RN-S151-104": ("Habilitación", VAL),
+    "RN-S151-105": ("Clasificación / Mapeo", VAL),
+    "RN-S151-106": ("Clasificación / Mapeo", VAL),
+    "RN-S151-107": ("Clasificación / Mapeo", VAL),
+    "RN-S151-108": ("Clasificación / Mapeo", VAL),
+    "RN-S151-109": ("Restricción", VAL),
+    "RN-S151-110": ("Definición", REGCFR),
+    "RN-S151-111": ("Cálculo", REGCFR),
+    "RN-S151-112": ("Derivación", VAL),
+}
+
 FILE_MAPS = {
     "rules-s151.md": P109_MAP,
     "rules-s151-p312-p330-p360.md": BC09_MAP,
+    "rules-s151-p178-p138.md": BC11_MAP,
+    "rules-s151-p130-p131.md": BC19_MAP,
 }
 
 PLACEHOLDER = "Consulta análisis SBVR (dt-mainframe-analyst)"
