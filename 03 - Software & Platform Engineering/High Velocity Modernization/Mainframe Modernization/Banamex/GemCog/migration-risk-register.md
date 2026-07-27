@@ -1,7 +1,7 @@
 # Registro de Riesgos de Migración — Banamex GemCog S500 + S151
 > Taxonomía canónica: **N1 Dominio → N2 SubDominio → N3 Capacidad → N4 Proceso → N5 Flujo (Tarea)**
 > Sistemas: S500 (Captación/Cargos y Abonos) + S151 (GL — Movimientos Contables) · Unisys ClearPath MCP
-> Última actualización: 2026-07-27 · v3.6 · **172 riesgos** · 22/22 capacidades documentadas · GL + ADJ enriquecidos con validación SME (Regulatorio CNBV + Contabilidad Bancaria + SPEI) de los batches P109 y BC-09 Ola 4
+> Última actualización: 2026-07-27 · v3.7 · **175 riesgos** · 22/22 capacidades documentadas · GL/ADJ/REC/RPT/CFR enriquecidos con validación SME (Regulatorio CNBV + Contabilidad Bancaria + SPEI) de los batches P109, BC-09, BC-11, BC-19 Ola 4
 > Indexado: ✅ 2026-07-17 — Registro de riesgos de migración
 
 ---
@@ -38,9 +38,9 @@
 | Métrica | Valor |
 |---------|-------|
 | Cap files cubiertos | 22/22 (TAR · GL · REC · SEC · CMP · DEP · HLD · ADJ · ODS · PAY · MQ · SCH · STA · TEL · INT · CFR · ORC · RPT · CPE) |
-| Total de riesgos registrados | 172 |
+| Total de riesgos registrados | 175 |
 | 🔴 DEFECTO-PROD | 7 |
-| 🟠 CRÍTICO | 62 |
+| 🟠 CRÍTICO | 65 |
 | 🟡 ALTO | 63 |
 | 🟡 MEDIO | 39 |
 | 🟢 BAJO | 1 |
@@ -51,7 +51,7 @@
 |-----|-----------|---------|----|----|-----|-----|-----|
 | TAR | 2.2.6 ATM + 2.2.7 PoS | 7 | — | 2 | 3 | 2 | — |
 | GL | 7.1.1 Finance (GL) | 11 | 1 | 7 | 1 | 1 | 1 |
-| REC | 6.7.1 Financial Reconciliation | 12 | — | 6 | 3 | 3 | — |
+| REC | 6.7.1 Financial Reconciliation | 13 | — | 7 | 3 | 3 | — |
 | SEC | T.3.5 Security | 10 | 3 | 1 | 3 | 3 | — |
 | CMP | 6.5.2 Compliance & Regulation | 10 | — | 4 | 3 | 3 | — |
 | DEP | 5.1.1 Deposits | 7 | — | 2 | 2 | 3 | — |
@@ -64,9 +64,9 @@
 | SCH | 8.1.1 Business Scheduling | 7 | — | 3 | 3 | 1 | — |
 | STA | 6.1.4 Statements | 5 | — | 1 | 3 | 1 | — |
 | INT | 6.1.5 Interest & Fees | 9 | — | 3 | 4 | 2 | — |
-| CFR | T.4.1 Regulatory Reporting (CFR) | 11 | 1 | 4 | 3 | 3 | — |
+| CFR | T.4.1 Regulatory Reporting (CFR) | 12 | 1 | 5 | 3 | 3 | — |
 | ORC | 6.7.2 Operational Reconciliation | 11 | 1 | 5 | 3 | 2 | — |
-| RPT | T.3.4 Batch Control & Regulatory Extraction | 10 | 1 | 2 | 5 | 2 | — |
+| RPT | T.3.4 Batch Control & Regulatory Extraction | 11 | 1 | 3 | 5 | 2 | — |
 | CPE | T.6.1 CPE Mensual | 7 | — | 2 | 2 | 3 | — |
 | GOV | Migration Governance (Cross-Cutting) | 16 | — | 7 | 8 | 1 | — |
 | **TOTAL** | | **170** | **7** | **57** | **65** | **40** | **1** |
@@ -240,6 +240,7 @@
 |----|-----------|--------|--------------|----------------------|------------------|
 | MR-REC-11 | 🟠 CRÍTICO | EQUIVALENCIA | cap-adj · RN-S151-392 | Rama ELSE para sistemas S84/S87/S408 en P178 INPUT PROCEDURE no existe en el código fuente. El pseudocódigo documentaba que esos sistemas envían registros al SORT A02-SORT vía `210200-MUEVE-DATOS-APL`; el fuente real (COBOL_P178.txt L3513-3522) muestra que la tabla WKS-TAB-IMP para S84/S87/S408 se carga por `1520000-CARGA-REL-SALDOS` — ruta paralela, nunca por SORT. Un transpiler siguiendo la regla incorrecta añadiría lógica que envía registros al SORT para sistemas que no deben llegar ahí, generando duplicados en la conciliación de saldos. | Verificar que el rules-catalog fue corregido (QC Batch 3A ya aplicó la corrección). En transpilación: implementar la ruta `1520000-CARGA-REL-SALDOS` como carga directa a tabla; prohibir path al SORT para S84/S87/S408. Prueba de equivalencia obligatoria para los tres sistemas. |
 | MR-REC-12 | 🟠 CRÍTICO | EQUIVALENCIA | cap-adj · RN-S151-395 | `WKS-TAB-IMP(prod,inst,mon)` tiene PIC `S9(15)V9(02) COMP` (COBOL_P178.txt L2656) — documentado incorrectamente como `S9(13)V99 COMP`. Diferencia: rango de 9,999,999,999,999.99 → 999,999,999,999,999.99 (100× mayor). En Java/Kotlin la diferencia entre `BigDecimal` de 13 vs 15 dígitos provoca truncamiento silencioso de importes grandes. En un banco de la escala de Banamex, saldos GL de 15 dígitos son posibles para posiciones consolidadas. | Configurar explícitamente `MathContext(17, HALF_UP)` o `BigDecimal(15, 2)` en el target. Ejecutar golden master de P178 al 99.99% con datos representativos de saldos grandes. Validar que ningún importe de la tabla WKS-TAB-IMP supera los 13 dígitos en producción histórica — si sí, el truncamiento ya ocurrió y requiere auditoría. |
+| MR-REC-13 | 🟠 CRÍTICO | SILENCIOSO · REGULATORIO | cap-rec · RN-S151-396 · P178 | P178 corrige diferencias con "origen siempre gana": STORE que sobreescribe el saldo de S151/B70 **sin contrapartida, sin log y sin alerta**. SME Contable: si S151 postea asientos propios, rompe la articulación saldo-vs-auxiliar y salta la cuenta de diferencias en conciliación (deficiencia de control interno CUB Art. 144-148) | `[DATO-REQUERIDO]` decisivo: ¿S151 es libro posteador autoritativo o espejo derivado del extracto de origen? Espejo → aceptable como recálculo pero obligatorio en target: audit trail por corrección (anterior/nuevo/sistema/fecha) + alerta por volumen anómalo. Libro posteador → reemplazar overwrite por asiento de ajuste con contrapartida a cuenta de diferencias depurable |
 
 ---
 
@@ -447,6 +448,7 @@
 | MR-CFR-09 | 🟡 MEDIO | HARDCODE | T-CFR-018 | `LIBCON="CONTABLE  "` (10 chars con trailing spaces) hardcodeado en P131 — contrato de interfaz con S254/PeopleSoft que puede cambiar post-separación Citi/Banamex | Parametrizar LIBCON como configuración de entorno; verificar con equipo S254 si el valor es estable post-separación |
 | MR-CFR-10 | 🟡 MEDIO | HARDCODE | T-CFR-025 | `IDASIEN-VERS=1` y conversión `CVE-REG "05"→"01"` hardcodeados en PAQUETECONTABLE — valores de protocolo del interfaz con S254 embebidos en código; cualquier actualización de versión del protocolo PeopleSoft requiere recompilación | Externalizar la versión del protocolo y la conversión CVE-REG a configuración; añadir test de contrato que detecte cambios de versión en S254 antes de desplegar |
 | MR-CFR-11 | 🔴 DEFECTO-PROD | HARDCODE + REGULATORIO | cap-cfr · P108 CUIF extractor | P108 CUIF extractor — campo SECTOR hardcoded con valor 15 en lugar de 11 (sector correcto para depósitos a la vista según catálogo CNBV). El reporte CUIF enviado a CNBV clasifica incorrectamente el portafolio de captación; todos los asientos de P108 declaran sector 15 (préstamos) cuando el correcto es 11 (depósitos). Defecto con impacto directo en estadísticas macroeconómicas del sistema bancario mexicano. | `[HITL URGENTE con área Regulatoria y Compliance]`: (1) Determinar periodos afectados y volumen de asientos mal clasificados; (2) Evaluar obligación de corrección retroactiva del CUIF ante CNBV; (3) En el target: sector debe provenir de catálogo parametrizable por instrumento/producto — nunca literal hardcodeado. Coordinar notificación a CNBV antes del cutover de P108. |
+| MR-CFR-12 | 🟠 CRÍTICO | REGULATORIO · INTERFAZ | cap-cfr · RN-S151-110 · P131 | SETID="BNMEX" hardcoded en 14 ocurrencias de P131 (11 activas + 3 en comentarios), incluidas asignaciones directas A01-TRAD-SETID (~7369) y A01-TRADFS-SETID (~7393). El SetID de PeopleSoft (S254) determina la entidad legal a la que se atribuyen los asientos; TIPTRA=10 también hardcoded. Validado por SME Regulatorio: post-separación Citi/Banamex, un SetID no parametrizado atribuye asientos a la entidad legal equivocada → reporte regulatorio de la entidad incorrecta | Externalizar SETID y TIPTRA como parámetro desde el día 1; auditar las 14 ocurrencias; probar el pipeline contra S254 con **ambos** SetID (Citi legacy y Banamex separado) antes del go-live. `[DATO-REQUERIDO]` SetID objetivo y significado de TIPTRA=10 post-separación |
 
 ---
 
@@ -486,6 +488,7 @@
 | MR-RPT-08 | 🟡 ALTO | EQUIVALENCIA | T-RPT-011 | Commit por lotes de 20,000 registros con retry 6×10 s en P199: en JDBC/JPA la semántica de commit por lotes DMSII no es directamente equivalente — una granularidad de checkpoint diferente puede producir reprocesamiento incompleto o duplicado ante fallo | Documentar la granularidad de checkpoint en el ADR de equivalencia P199; en el target, implementar commit por lotes configurable con el mismo tamaño como default; crear test de reanudación ante fallo a mitad de lote |
 | MR-RPT-09 | 🟡 MEDIO | SILENCIOSO | T-RPT-025 | P612 marca `STATUS="1"` aunque el WFL de lanzamiento falle (sin `ON EXCEPTION`) — el lanzamiento erróneo queda permanentemente marcado como "ejecutado"; no puede relanzarse sin intervención manual | Implementar manejo de excepción en el lanzamiento WFL; si falla, registrar `STATUS="E"` distinguible; alertar al operador en dashboard de estado de jobs |
 | MR-RPT-10 | 🟡 MEDIO | PROPIETARIO-MCP | T-RPT-021 | `CANCEL` de SOPORTECOMS y CTLVER al finalizar P610 — liberación de memoria de tarea MCP propietaria; en Java/cloud la gestión de memoria es automática (GC) pero el patrón de retención de handles puede diferir | Verificar que los recursos equivalentes en el target (connection pools, buffers) se liberan explícitamente al finalizar P610; implementar try-finally para garantizar liberación ante cualquier path de salida |
+| MR-RPT-11 | 🟠 CRÍTICO | SILENCIOSO · REGULATORIO | cap-rpt · RN-S151-411 · P138 | Posición global = CSI04 (Monterrey) + CSI10 (VDM). SME Contable: si falta el archivo CSI04 y el operador elige continuar, el reporte de posición global **omite Monterrey sin salvedad en el encabezado** → subvalúa la posición reportada (defecto de integridad Serie R) | En target: fail-closed o bandera de salvedad explícita, nunca defaultear a "continuar" silencioso; la posición global debe ser suma exacta de ambos CSI sin doble conteo, o quedar marcada como parcial |
 
 ---
 
