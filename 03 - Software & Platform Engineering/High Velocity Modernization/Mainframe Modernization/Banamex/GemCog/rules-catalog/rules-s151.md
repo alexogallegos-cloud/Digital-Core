@@ -72,11 +72,21 @@ P710 → P005 → **P021** → P102 → P104 → **P103** → P107 → **P108** 
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | N/A — control de integridad |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-021 |
+| **Nombre** | Validación de cabecera LOG151 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control de integridad |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Antes de procesar cualquier movimiento, P109 valida que el archivo LOG151 tenga una cabecera válida: `A00-R00-HDR-HD = "HD"` Y `WKS-FECHA-PROCESO = A00-R00-HDR-FCH`. Si alguna condición falla, el proceso se aborta. Garantiza que el motor GL solo procese archivos generados en la fecha del ciclo correcto.
 
@@ -118,11 +128,21 @@ Lógica clave: IF A00-R00-HDR-HD ≠ "HD" OR WKS-FECHA-PROCESO ≠ A00-R00-HDR-F
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-022 |
+| **Nombre** | Centinela de fin de archivo FUNCION=99 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El fin del archivo LOG151 no usa el mecanismo AT END estándar de COBOL, sino un registro centinela lógico: cuando `A00-R01-FUNCION = 99`, P109 activa `W77-EOF = 1`. Permite que LOG151 tenga registros de control intercalados sin ambigüedad. Los registros FUNCION=99 nunca se procesan como asientos.
 
@@ -161,11 +181,21 @@ IF A00-R01-FUNCION = 99 → MOVE 1 TO W77-EOF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-023 |
+| **Nombre** | Filtro de selección de movimientos (FUNCION/STATUS) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** P109 aplica un filtro de dos dimensiones para determinar qué movimientos generan asientos GL. Solo FUNCION=1 (movimiento contabilizable) Y STATUS=1 (autorizado) o STATUS=2 (en proceso) generan asientos. STATUS=1 además dispara `GRABA-PUNTEO` (retroalimentación al sistema origen); STATUS=2 produce el asiento sin punteo. Otros registros se cuentan como ELIMINADOS.
 
@@ -204,11 +234,21 @@ STATUS=1 → además PERFORM GRABA-PUNTEO
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-024 |
+| **Nombre** | Hasta 5 CVETRANs (claves de transacción) por movimiento |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Cada registro de LOG151 puede contener hasta 5 pares CVETRAN/IMPORTE/ESQCON independientes (CVETRAN1..5). P109 genera un registro MOVIMIENTOS separado por cada CVETRAN mayor que cero. Permite que un movimiento comercial (pago con comisión e impuesto) genere múltiples líneas GL con distintos esquemas contables sin duplicar la cabecera.
 
@@ -255,11 +295,21 @@ FOR n=1 TO 5: IF A00-R01-CVETRANn > 0 → WRITE REG-MOVIMIENTOS con CVETRANn/IMP
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] [RIESGO-CNBV-REPORTE] |
-| **Base regulatoria** | CNBV CUB Anexo 33 (indirectamente — el ESQCON implementa el mapeo) |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-025 |
+| **Nombre** | Cadena de resolución ESQCON (CVETRAN → cuenta GL) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] [RIESGO-CNBV-REPORTE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | CNBV CUB Anexo 33 (indirectamente — el ESQCON implementa el mapeo) |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** La resolución cuenta GL desde CVETRAN sigue 4 pasos: (1) Lookup `WKS-PT-INDS250(CVETRAN)` → agrupación contable; (2) Si `WKS-TIPO-CAT=2`: ruta alternativa CAT7 directa; (3) Lectura ARCH-CAT7 → índice de esquema `W77-IND3`; (4) Lectura ARCH-ESQCON → `WKS-EQ-NAT-MOV`, `WKS-EQ-CUENTA`, `WKS-EQ-CAUSA`. Si paso 3 falla → W77-IND3=0 → error "ESQUEMA NO EXISTE". Este es el corazón del motor GL.
 
@@ -312,11 +362,21 @@ IF W77-IND3 = 0 → error "ESQUEMA NO EXISTE"
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | NIF A-1 / principio de partida doble |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-026 |
+| **Nombre** | Partida doble: NAT-MOV=1 (débito) / NAT-MOV=2 (crédito) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | NIF A-1 / principio de partida doble |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** P109 implementa la partida doble mediante `WKS-EQ-NAT-MOV` del ESQCON. Solo los valores 1 (débito) y 2 (crédito) generan asiento. Cualquier otro valor descarta el asiento silenciosamente. El par débito/crédito garantiza el cuadre contable; el balance se verifica en sección 40000.
 
@@ -356,11 +416,21 @@ ELSE → descarte silencioso (no WRITE)
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [HARDCODE-SOSPECHOSO] |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-027 |
+| **Nombre** | Cuenta contable por defecto cuando CTA1-CONT=0 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [HARDCODE-SOSPECHOSO] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Cuando el ESQCON entrega `RMC-CTA1-CONT = 0`, P109 aplica un fallback hardcoded: `MOVE 5 TO RMC-CTA1-CONT`. El prefijo 5 corresponde a cuentas de tipo 5000x en el plan contable de Banamex. Dirige el movimiento a cuentas de control hasta que el catálogo ESQCON se corrija.
 
@@ -397,11 +467,21 @@ IF RMC-CTA1-CONT = 0 → MOVE 5 TO RMC-CTA1-CONT
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [HARDCODE-SOSPECHOSO] [LÓGICA-CONTABLE] |
-| **Base regulatoria** | N/A — cuenta puente interna |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-028 |
+| **Nombre** | Exclusión de cuenta 1503 del cuadre contable |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [HARDCODE-SOSPECHOSO] [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — cuenta puente interna |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Durante la generación del cuadre (sección 40000), cuando la cuenta contable es 1503, P109 zerifica sus importes acumulados (CARGOS=0, ABONOS=0) y marca el registro como nulo. La cuenta 1503 es una cuenta puente/compensatoria que no debe aparecer en el cuadre final. Exclusión hardcoded aplicada en todas las ejecuciones.
 
@@ -441,11 +521,21 @@ IF WS-CTA4-250-ANT = 1503 → MOVE 0 TO WKS-TCP-CARGOS, WKS-TCP-ABONOS → void 
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [HARDCODE-SOSPECHOSO] |
-| **Base regulatoria** | N/A — mapeo histórico de CSI |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-029 |
+| **Nombre** | Mapeo hardcoded CSI=12 → CSI=10 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [HARDCODE-SOSPECHOSO] |
 | **Confianza** | media |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — mapeo histórico de CSI |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Durante la inicialización, P109 aplica: `IF CSI = 12 → MOVE 10 TO W77-CSI-PROCESO`. El CSI (Centro de Servicio Informático) 12 se trata igual al CSI 10 para todos los efectos. Probablemente refleja una fusión/renumeración histórica de centros de proceso.
 
@@ -482,11 +572,21 @@ IF CSI = 12 → MOVE 10 TO W77-CSI-PROCESO
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-030 |
+| **Nombre** | Umbral de memoria/disco para tabla S016 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | media |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Para sistemas S084 (tarjetas) y S087 (cheques), P109 carga la tabla de contratos S016 en memoria si el número de registros es < 4,500: `IF W77-NUMREG-LOG < 4500 → W77-ACCESO=1 (memoria)`. Si ≥ 4,500, fuerza acceso a disco. La tabla en memoria es `WKS-REG-MEM OCCURS 4500 TIMES`.
 
@@ -526,11 +626,21 @@ ELSE → MOVE 0 TO W77-ACCESO (disco)
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | N/A — modelo dimensional GL |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-031 |
+| **Nombre** | Clave de acumulación MOVCONTASORT (11 dimensiones) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — modelo dimensional GL |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Los asientos individuales se acumulan por clave compuesta de 11 dimensiones: FILIAL, ORIGEN, MONEDA, BANCO, SUC-PROM, FECVEN, PRODUCTO, INSTRUMENTO, SECTOR, CVETRAN, ESQCON. Mientras la clave no cambie: `ADD RMS-IMPORTE TO W77-IMP-SORT`. Al cambiar cualquier clave → write registro acumulado a MOVCONTABLES. Esta clave define la granularidad mínima del libro mayor GL.
 
@@ -579,11 +689,21 @@ WRITE MOVCONTABLES cuando cambia clave
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
-| **Base regulatoria** | N/A — arquitectura multi-sistema |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-032 |
+| **Nombre** | Enrutamiento por sistema (W77-SISTEMA-PARAMETRO) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — arquitectura multi-sistema |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** P109 es un motor multi-sistema controlado por `W77-SISTEMA-PARAMETRO` (PIC 9(3)). Sistemas conocidos: 17=S017, 18=S018, 84=S084 tarjetas, 87=S087 cheques, 264=S264 SPEI, 333, 402-408=crédito, 500=caja (ruta especial 20001), 501, 502=nómina, 701=hacienda, 702=CBII, 703=SWIFT, 711=cheques MICR. El sistema 500 es el único que usa ruta alternativa `PERFORM 20001`.
 
@@ -621,11 +741,21 @@ ELSE → PERFORM 20000-PROCESA-MOVIMIENTOS
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [HARDCODE-SOSPECHOSO] |
-| **Base regulatoria** | N/A — mapeo de productos cheques |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-033 |
+| **Nombre** | Mapeo instrumento→S016-INST para S087 (tabla hardcoded) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [HARDCODE-SOSPECHOSO] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — mapeo de productos cheques |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Para S087 (cheques), mapeo hardcoded de instrumento a contrato S016: INSTRUMENTO=1→38, =2→36, =4/7→35, =3/5→37, =8/9→39. Permite ubicar el contrato intercompany/fideicomiso correspondiente a cada tipo de cheque.
 
@@ -668,13 +798,29 @@ IF W77-SISTEMA-PARAMETRO = 087:
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | Banxico SPEI — liquidación interbancaria |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-034 |
+| **Nombre** | S264 MONEDA=1 → BANCO=0 (SPEI pesos sin dimensión banco) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Derivación |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | VALIDADO |
+| **Regulador** | CNBV (contabilidad regulatoria) — NO es reporte SPEI de Banxico |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | COBOL_P109.txt:10748-10753 (párrafo 21115-VERIFICA-SISTEMA, inicia en :10737) |
+| **Dataset DMSII** | — (opera sobre el registro de sort RMS en memoria; no accede DMSII directamente) |
 
-**Descripción:** Para S264 (SPEI), cuando MONEDA=1 (MXN), el código de banco se zerifica: `MOVE ZEROS TO RMS-BANCO`. Para divisas (MONEDA≠1), se usa `A00-R01-BCOS`. Las transferencias SPEI en pesos no se asocian a banco específico en el GL — la dimensión banco queda vacía para consolidar la posición del sistema de pagos sin fragmentarla por institución.
+**Descripción:** En el motor de asientos contables, las transferencias SPEI (sistema S264) reciben un tratamiento especial de la dimensión banco según la moneda. Cuando la transferencia es en pesos (MONEDA=1), el asiento se registra sin banco asociado, de modo que la posición del sistema de pagos se consolida a nivel global y no se fragmenta por institución. Cuando no es en pesos, el asiento conserva el banco de la contraparte, salvo que ese dato venga vacío.
+
+**Condición:** El movimiento se procesa bajo el sistema de pagos S264.
+
+**Consecuencia:** Si MONEDA=1, la dimensión banco del asiento se fija en ceros. En otro caso, si el banco de origen viene informado, se toma el banco real de la contraparte.
+
+**Excepciones (corregido por SME SPEI):** La rama MONEDA≠1 NO es "SPEI en divisa" — SPEI liquida exclusivamente en pesos. Esa rama corresponde a SPID (SPEI Directo, USD) o a liquidación por corresponsalía/nostro, que sí conservan el banco por ser liquidación bilateral. Además, en esa rama solo se mueve el banco real si `A00-R01-BCOS-R NOT = SPACES`; si viene en blanco, RMS-BANCO conserva su valor previo (guard confirmado en fuente :10752-10753, omitido en la versión anterior de la regla).
 
 **Trigger:** Procesamiento de movimiento S264
 
@@ -682,19 +828,23 @@ IF W77-SISTEMA-PARAMETRO = 087:
 
 | Campo COBOL | Tipo | Rol |
 |-------------|------|-----|
-| `A00-R01-MONEDA` | PIC 9(2) | 1=MXN, otro=divisa |
-| `RMS-BANCO` | PIC 9(n) | Dimensión banco en asiento GL |
+| `A00-R01-MONEDA` | PIC 9(04) COMP | 1=MXN, otro=SPID/divisa |
+| `RMS-BANCO` | PIC 9(04) COMP | Dimensión banco en el registro de asiento (sort RMS) |
+| `A00-R01-BCOS` | PIC 9(10) COMP | Banco real de la contraparte (rama no-MXN) |
+| `A00-R01-BCOS-R` | REDEFINES BCOS | Guard: solo aplica si NOT = SPACES |
 
-**Traza de código:**
+**Traza de código (verificada en fuente):**
 ```
-PROGRAMA: P109 · SECCIÓN: 21115-VERIFICA-SISTEMA · Líneas: ~10738
-IF W77-SISTEMA-PARAMETRO = 264:
-  IF MONEDA = 1 → MOVE ZEROS TO RMS-BANCO
-  ELSE → MOVE A00-R01-BCOS TO RMS-BANCO
+21115-VERIFICA-SISTEMA. (COBOL_P109.txt:10737)
+IF W77-SISTEMA-PARAMETRO = 264            (:10748)
+   IF A00-R01-MONEDA = 1                   (:10749)
+      MOVE ZEROS TO RMS-BANCO              (:10750)
+   ELSE
+      IF A00-R01-BCOS-R NOT = SPACES       (:10752)
+         MOVE A00-R01-BCOS TO RMS-BANCO    (:10753)
 ```
 
-**Riesgos de migración:**
-- En el nuevo sistema, SPEI en MXN debe seguir consolidándose sin dimensión banco para que los reportes Banxico cuadren
+**Riesgos de migración:** El nuevo sistema debe conservar banco=0 en SPEI pesos. La prueba de equivalencia NO es un test de conformidad SPEI, sino un **test de cuadre contable (reconciliation parity)**: correr el mismo lote en legacy y target y verificar que (1) la pierna en pesos consolida con banco=0, (2) la pierna no-MXN conserva banco real, y (3) ambos GL concilian contra los Avisos de Liquidación de Banxico y contra nostro/SPID respectivamente. Si el target conserva banco en SPEI pesos, genera subsaldos fantasma por contraparte que corrompen el cuadre.
 
 **Vocabulario en la fórmula:**
 
@@ -705,7 +855,15 @@ IF W77-SISTEMA-PARAMETRO = 264:
 | S264 (sistema) | A00-BIT264-* (múltiples) | CAMPO-NUM/DECIMAL | inc-p109 | Campos del sistema S264 (SPEI/compensación interbancaria): CSI-DEST, CSI-ORIG, CVETRAN, ESQCONT, IMPORTE, FUNCION, etc. — ampliamente documentados. |
 | S264 (sistema) | E00-R01-S264-* (múltiples) | CAMPO-NUM/ALFA | inc-pro | Registros de salida hacia S264: autorización, banco, importe, referencia, tipo de registro. |
 
-**Estado validación:** pendiente HITL
+**Rationale (validado por SME SPEI):** El asiento GL de SPEI en pesos se registra sin dimensión banco porque SPEI es un sistema RTGS/LBTR que liquida cada orden individual, bruta e irrevocablemente contra la cuenta de depósito única del participante en Banxico, sin netting multilateral; por tanto no existe posición bilateral neta en pesos frente a cada institución contraparte que amerite fragmentar el asiento. La rama no-MXN (SPID USD o corresponsalía) conserva el banco porque esas operaciones liquidan mediante relaciones bilaterales (cuentas nostro o estructura de cuentas USD segregada). La regla es una convención de contabilidad interna que refleja fielmente la mecánica de liquidación de cada moneda; su cumplimiento asociado es de contabilidad regulatoria CNBV, no de reporte SPEI Banxico.
+
+**Validación:**
+
+| Rol | Estado |
+|-----|--------|
+| **Validado por Lead** | Swarm dt-mainframe-analyst, 2026-07-27 — mecánica confirmada contra fuente COBOL_P109.txt:10748-10753 |
+| **Validado por SME** | SME SPEI, 2026-07 — rationale RTGS/LBTR confirmado; corrige premisa "SPEI divisa" → SPID/corresponsalía |
+| **DATO-REQUERIDO (contabilidad Banamex)** | (a) ¿la rama no-MXN enruta a SPID o a corresponsalía? (b) ¿existe requerimiento CNBV de desagregación por contraparte en ME que justifique conservar el banco? |
 
 ---
 
@@ -713,11 +871,21 @@ IF W77-SISTEMA-PARAMETRO = 264:
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-035 |
+| **Nombre** | Gate de actualización POSICION por tipo BD (WKS-B03-TIPBD) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** La actualización de la base de datos de posición solo se ejecuta cuando `WKS-B03-TIPBD = 1 OR 2 OR 5 OR 6`. Para otros tipos, la sección 50000 (POSICION) se omite, permitiendo ejecutar P109 en modo "solo cuadre" sin actualizar posición GL.
 
@@ -753,11 +921,21 @@ IF WKS-B03-TIPBD = 1 OR 2 OR 5 OR 6 → PERFORM 50000-POSICION
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-036 |
+| **Nombre** | CUADRE contable no se genera para S502 y S702 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El reporte de cuadre contable (sección 40000) se genera si `WKS-B03-NOMBDSAL NOT = SPACES` OR sistema es 502/702. Los sistemas S502 (nómina externa) y S702 (CBII) siempre fuerzan generación del cuadre; otros sistemas lo generan solo si NOMBDSAL está configurado.
 
@@ -794,11 +972,21 @@ IF (WKS-B03-NOMBDSAL NOT = SPACES) OR (W77-SISTEMA-PARAMETRO = 502 OR 702) → 4
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | N/A — trazabilidad de pagos |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-037 |
+| **Nombre** | Salida DATALAKE exclusiva para S264 (SPEI) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — trazabilidad de pagos |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El archivo DATALAKE solo se abre y escribe cuando `W77-SISTEMA-PARAMETRO = 264` (SPEI). Para todos los demás sistemas, DATALAKE no se genera. S264 es el único sistema que alimenta directamente la capa de datalake en tiempo de proceso batch, posiblemente para cumplir requisitos de trazabilidad de pagos electrónicos.
 
@@ -835,11 +1023,21 @@ IF W77-SISTEMA-PARAMETRO = 264 → OPEN DATALAKE + WRITE registros
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | NIF — convención de signos |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-038 |
+| **Nombre** | Negación de cargos en cuadre (CARGOS = TCP-CARGOS × −1) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | NIF — convención de signos |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Los cargos acumulados se invierten de signo antes de escribirse al reporte de cuadre: `COMPUTE A00-R01-S250-CAR = WKS-TCP-CARGOS * -1`. Los débitos se representan como valores negativos en el reporte; los abonos mantienen signo positivo. Convención de signos del plan contable de Banamex.
 
@@ -876,11 +1074,21 @@ COMPUTE A00-R01-S250-CAR = WKS-TCP-CARGOS * -1
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | N/A — reportería interna |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-039 |
+| **Nombre** | Cuatro dimensiones del reporte de cuadre contable |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — reportería interna |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** La sección 40000 genera cuatro vistas de cuadre: (1) por instrumento, (2) por producto, (3) por banco, (4) por sistema. En cada dimensión se acumulan: `RCC-CARTRA` (cargos transitorios), `RCC-ABOTRA` (abonos transitorios), `RCC-CARAUT` (cargos autorizados), `RCC-ABOAUT` (abonos autorizados). Son la base de los reportes de cuadre que operaciones usa para validar el cierre del día.
 
@@ -923,11 +1131,21 @@ Agrupación: instrumento / producto / banco / sistema
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
-| **Base regulatoria** | N/A — idempotencia de posición GL |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-040 |
+| **Nombre** | Ciclo completo de reemplazo de posición DMS (DELETE→CREATE→STORE) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — idempotencia de posición GL |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** La actualización de posición en DMSII sigue tres fases idempotentes: (1) **Elimina** (51000): borra todos los registros de posición del día actual via `LOCK FIRST/NEXT` + `DELETE`; (2) **Crea saldo inicial** (53000): por cada registro de POSICIONDIAANT ejecuta `CREATE` con SDOANT=día anterior, CARGOS=0, ABONOS=0; (3) **Actualiza** (54000): aplica movimientos del día — `LOCK` + acumula + `STORE`; si no existe: `CREATE` nuevo. Garantiza idempotencia: P109 puede re-ejecutarse y el resultado siempre es correcto.
 
@@ -972,11 +1190,21 @@ PROGRAMA: P109 · SECCIONES: 51000, 53000, 54000 · Líneas: 16626-16709
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [REGLA-CNBV] [HARDCODE-SOSPECHOSO] |
-| **Base regulatoria** | CNBV — clasificación de cartera hipotecaria |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-041 |
+| **Nombre** | S408: asignación de sector por instrumento (hardcoded CNBV) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [REGLA-CNBV] [HARDCODE-SOSPECHOSO] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | CNBV — clasificación de cartera hipotecaria |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Para S408 (crédito hipotecario) cuando sector=0, asigna sector CNBV por instrumento: instrumento 10→sector 31, instrumento 20→sector 32, otro→sector 0. Refleja la clasificación regulatoria CNBV de carteras hipotecarias donde el instrumento distingue el tipo (vivienda interés social vs media/residencial).
 
@@ -1018,11 +1246,21 @@ IF W77-SISTEMA-PARAMETRO=408 AND W77-SEC-SORT=0:
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-042 |
+| **Nombre** | Ruta especial S500 (efectivo/caja) via 20001 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El sistema 500 (efectivo/caja) es el único que ejecuta `PERFORM 20001-PROCESA-MOVIMIENTOS` en lugar del flujo normal `20000`. La sección 20001 omite ciertos pasos del flujo normal y va directamente a la acumulación, optimizando el proceso para el volumen masivo de operaciones de caja.
 
@@ -1059,11 +1297,21 @@ IF W77-SISTEMA-PARAMETRO = 500 → PERFORM 20001; ELSE → PERFORM 20000
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [REGLA-CNBV] |
-| **Base regulatoria** | SAT/SHCP — reportería fiscal |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-043 |
+| **Nombre** | Reporte HACIENDA condicional (solo S701) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [REGLA-CNBV] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | SAT/SHCP — reportería fiscal |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** La generación del reporte de Hacienda (SAT/SHCP) solo se ejecuta cuando `W77-SISTEMA-PARAMETRO = 701`. La sección 21500 es la variante S701 que obtiene cuentas de tablas separadas del ESQCON (`WKS-EQ-CUENTA1/2/3-S701`) y el NAT-MOV desde `W77-IND3` directamente.
 
@@ -1106,11 +1354,21 @@ Cuentas desde tablas S701 separadas del ESQCON estándar
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | NIF — continuidad de saldos |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-044 |
+| **Nombre** | Semilla de posición: SDOACT día anterior → SDOANT nuevo día |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | NIF — continuidad de saldos |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** La posición del día se inicializa tomando el saldo actual (`B72-SDO-SDOACT`) del día anterior y moviéndolo como `RPDA-SDOANT`. Al crear los registros del nuevo día: `SDOANT = RPDA-SDOANT`, `SDOACT = RPDA-SDOANT`, CARGOS=0, ABONOS=0. Invariante: `SDOACT[t] = SDOANT[t+1]`.
 
@@ -1151,11 +1409,21 @@ CREATE S151B72POSCONTA con B72-SDO-SDOANT = B72-SDO-SDOACT = RPDA-SDOANT, CARGOS
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-045 |
+| **Nombre** | POSGLOBAL: sistemas que guardan vs. purgan el archivo |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El archivo POSGLOBAL se cierra con SAVE (retiene para downstream) solo para sistemas: 084, 087, 408, 701, 264, 17, 18, 333, 702, 502. Para cualquier otro sistema: `CLOSE POSGLOBAL WITH PURGE`. Determina qué sistemas contribuyen a la posición global integrada.
 
@@ -1194,11 +1462,21 @@ ELSE → CLOSE POSGLOBAL WITH PURGE
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-046 |
+| **Nombre** | FID siempre=0 en llaves de POSICION (sin dimensión fideicomiso) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** En todas las operaciones de LOCK sobre S151B72POSCONTA, `B72-SDO-KEYFID` (fideicomiso) siempre es 0. La dimensión fideicomiso existe en la estructura de datos pero no se usa en la llave de posición de S151. La dimensionalidad efectiva de posición es: CSI + FECHA + BANCO + PRODUCTO + INSTRUMENTO + MONEDA + CUENTA + CAUSA + SECTOR (sin FID).
 
@@ -1235,11 +1513,21 @@ B72-SDO-KEYFID = 0 (constante en todas las operaciones)
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-047 |
+| **Nombre** | Seis vistas de posición con dimensiones distintas |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** P109 genera hasta 6 vistas del archivo POSICION: (1) por cuenta (50010), (2) por subcuenta+POSGLOBAL (50020), (3) por banco (50030), (4) por sector (50040), (5) por instrumento (50050), (6) por producto (50060). Las vistas 50030-50060 solo se generan `IF NOT W88-SIST-CEN-CONTABLE`, excluyendo el sistema de contabilidad central de los reportes detallados.
 
@@ -1276,11 +1564,21 @@ PROGRAMA: P109 · SECCIONES: 50010-50060 · Líneas: 16311-16574
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
-| **Base regulatoria** | N/A — integración bidireccional |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-048 |
+| **Nombre** | STATUS=1 dispara retroalimentación GRABA-PUNTEO al sistema origen |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — integración bidireccional |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Los movimientos con STATUS=1 (autorizados) disparan adicionalmente `PERFORM GRABA-PUNTEO` — escribe una confirmación de contabilización de vuelta al sistema origen. Los movimientos STATUS=2 generan asientos GL pero NO confirman al origen — quedan pendientes de confirmación. Esta distinción es crítica para sistemas de banca en línea que necesitan saber si su movimiento fue definitivamente contabilizado.
 
@@ -1317,11 +1615,21 @@ IF STATUS = 2 → solo asiento GL (sin confirmación)
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-049 |
+| **Nombre** | Asignación de código de banco por sistema |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El código de banco en el asiento GL (`RMS-BANCO`) se obtiene de campos distintos según el sistema: S018/S017 → `A00-R01-BCO-S018`; S703 (SWIFT) → `A00-R01-BCOS`; S264+MXN → 0; S264+divisa → `A00-R01-BCOS`. La variabilidad refleja que diferentes sistemas fuente almacenan el banco en campos distintos de LOG151.
 
@@ -1363,11 +1671,21 @@ IF S264+divisa → RMS-BANCO = A00-R01-BCOS
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-050 |
+| **Nombre** | RECHAZOS no se genera para S702 y S502 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El reporte de RECHAZOS (movimientos no contabilizados) se genera para todos los sistemas EXCEPTO S702 (CBII) y S502 (nómina externa). Esos dos sistemas manejan sus errores por un canal diferente. Condición: `IF W77-SISTEMA-PARAMETRO NOT = 702 OR 502`.
 
@@ -1404,11 +1722,21 @@ IF W77-SISTEMA-PARAMETRO NOT = 702 OR 502 → genera RECHAZOS
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | NIF — partida doble |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-051 |
+| **Nombre** | Validez de entrada ESQCON: NAT-MOV debe ser 1 o 2 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | NIF — partida doble |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Si el catálogo ESQCON tiene una entrada con `WKS-EQ-NAT-MOV` distinto de 1 o 2, el asiento se descarta SILENCIOSAMENTE — no se generan errores explícitos. Este comportamiento puede causar que movimientos contabilizados no aparezcan en el cuadre si el catálogo tiene entradas inválidas.
 
@@ -1445,11 +1773,21 @@ ELSE → descarte silencioso (sin WRITE, sin error)
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-052 |
+| **Nombre** | S087 fuerza PRODUCTO=087 en MOVCONTABLES |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Para S087 (cheques), independientemente del producto del movimiento original, P109 fuerza: `MOVE 087 TO RMC-PRODUCTO`. Asegura que todos los asientos GL de cheques se acumulen bajo producto 087, consolidando la posición de cheques en una sola dimensión.
 
@@ -1485,11 +1823,21 @@ IF W77-SISTEMA-PARAMETRO = 087 → MOVE 087 TO RMC-PRODUCTO
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | N/A — modelo dimensional GL |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-053 |
+| **Nombre** | MOVCONTASORT: 11 dimensiones como granularidad mínima GL |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — modelo dimensional GL |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El SORT de SMOVCONTASORT en 11 dimensiones (FILIAL, ORIGEN, MONEDA, BANCO, SUC-PROM, FECVEN, PRODUCTO, INSTRUMENTO, SECTOR, CVETRAN, ESQCON) define la granularidad de acumulación. Dos movimientos con diferencia en cualquier dimensión producen asientos separados; coincidencia en todas → se acumulan. Esta clave es la representación canónica del modelo dimensional GL de Banamex S151.
 
@@ -1529,11 +1877,21 @@ SORT ON ASCENDING: SMS-FILIAL, SMS-ORIGEN, SMS-MONEDA, SMS-BANCO, SMS-SUC-PROM,
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [REGLA-BANCARIA-MX] |
-| **Base regulatoria** | Banxico — calendario de días hábiles bancarios |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-054 |
+| **Nombre** | Cálculo de siguiente/anterior día hábil via THECALENDAR |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | Banxico — calendario de días hábiles bancarios |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** P109 usa la librería externa `THECALENDAR IN LOCSUP` para: (1) calcular el siguiente día hábil al de proceso (WKS-FUNCION=15, semilla "00000001"), y (2) determinar el día anterior para la semilla de posición. El formato 13 es Cronos 2000 (Y2K). Esta librería maneja el calendario bancario mexicano incluyendo festivos Banxico.
 
@@ -1572,11 +1930,21 @@ CALL "THECALENDAR" USING WKS-FUNCION=15, WKS-FECHA1, WKS-FECHA2="00000001", WKS-
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | N/A — multi-instancia MCP |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-055 |
+| **Nombre** | Renombrado dinámico de SALDOSDB via CHANGE ATTRIBUTE TITLE |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — multi-instancia MCP |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** P109 usa el mecanismo Unisys MCP `CHANGE ATTRIBUTE TITLE OF SALDOSDB TO WKS-NOMBRE-BASE-SALDOS` para cambiar en runtime el nombre físico de la base de datos de posición. El nombre se construye desde `WKS-B03-NOMBDSAL` (parámetro de configuración). Permite acceder a diferentes instancias (por CSI, por ambiente) sin recompilar.
 
@@ -1614,11 +1982,21 @@ CHANGE ATTRIBUTE TITLE OF SALDOSDB TO WKS-NOMBRE-BASE-SALDOS
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-056 |
+| **Nombre** | WKS-TIPO-CAT=2 activa ruta alternativa de lookup CAT7 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** La sección 21120 tiene bifurcación: `IF WKS-TIPO-CAT = 2` → ruta directa a CAT7 sin tabla en memoria WKS-PT-INDS250; para otros valores, primero verifica la tabla INDS250. El tipo 2 corresponde a un formato de catálogo diferente donde la agrupación contable se obtiene directamente de la CVETRAN.
 
@@ -1655,11 +2033,21 @@ ELSE → check WKS-PT-INDS250 → CAT7 → ARCH-ESQCON
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
-| **Base regulatoria** | N/A — registro definitivo de asientos GL |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-057 |
+| **Nombre** | MOVCONTABLES: output canónico del motor GL |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — registro definitivo de asientos GL |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** MOVCONTABLES es el output definitivo de P109. Cada registro contiene: FILIAL, PRODUCTO, INSTRUMENTO, SUC-PROM, MONEDA, CTA-CONT (PIC 9(12)), IMPORTE (PIC 9(14)V99), TIPO-MOV, NAT-MOV (1=débito/2=crédito), FOLIO, SECTOR, ACTIVIDAD, BANCA, CAUSA, ORIGEN, AUT-S151, CVETRAN, BANCO. Es el input de la sección 40000 (cuadre) y de todos los procesos downstream. La combinación TIPO-MOV + NAT-MOV + CTA-CONT + IMPORTE es la partida doble mínima.
 
@@ -1703,11 +2091,21 @@ WRITE REG-MOVCONTABLES con todos los campos canónicos
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-058 |
+| **Nombre** | POSICION: upsert (LOCK falla → CREATE nuevo registro) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Dentro de 54000, cuando `LOCK B72SXPOSCONTA` falla con EXCEPTION (llave no existe), P109 ejecuta `CREATE S151B72POSCONTA` en lugar de reportar error. Maneja el caso de combinaciones nuevas (banco/producto/instrumento/cuenta/causa/sector) que no tenían posición en el día anterior. El CREATE inicializa con las llaves del movimiento y SDOANT=0.
 
@@ -1751,11 +2149,21 @@ LOCK B72SXPOSCONTA → ON EXCEPTION → CREATE S151B72POSCONTA (SDOANT=0)
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-059 |
+| **Nombre** | Sort MOVCONTABLES por TIPO-MOV y NAT-MOV antes del cuadre |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Antes de la sección 40000, MOVCONTABLES se ordena con claves primarias `SRMC-TIPO-MOV` y `SRMC-NAT-MOV`. El cuadre contable está organizado primero por tipo de movimiento y luego por naturaleza (débito/crédito), agrupando asientos de la misma naturaleza para facilitar la verificación de balance.
 
@@ -1792,11 +2200,21 @@ SORT S250 ON ASCENDING KEY SRMC-TIPO-MOV, SRMC-NAT-MOV (+ dimensiones adicionale
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
-| **Base regulatoria** | N/A — reporting intercompany Citi |
-| **Programa(s)** | P109 |
+| **Identificador** | RN-S151-060 |
+| **Nombre** | Integración CIG/SCIG: frontera Citi-Banamex |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-13 |
+| **bian_ref** | 7.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | media |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — reporting intercompany Citi |
+| **Programa ejecutor** | P109 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** P109 genera el archivo SCIG (transmisión hacia CIG — Central Integrated General Ledger de Citi) con los asientos consolidados en formato de transmisión intercompany. Este archivo cruza la frontera Citi/Banamex y es crítico en el contexto de la separación corporativa: la migración de S151 debe mantener la producción del SCIG o reemplazarlo con un mecanismo equivalente hacia el nuevo sistema de contabilidad corporativa.
 
@@ -1944,6 +2362,3 @@ Los siguientes campos aparecen en reglas P109 pero no tienen entrada en vocab-s1
 | `THECALENDAR` | RN-054 | librería Unisys | Calendar lib MCP (externo, no campo) |
 | `SALDOSDB` | RN-055 | BD DMSII | Base de datos de posición (renombrado dinámico) |
 | `B72-SDO-KEY*` (4 campos) | RN-058 | CAMPO-COMP | Llaves del set DMS B72SXPOSCONTA |
-
-
----
