@@ -47,7 +47,7 @@
 | **Tipo regla** | Restricción |
 | **Tipo técnico** | [REPORTE-REGULATORIO] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO (analista) — falso positivo regulatorio (triaje SME 2026-07) |
 | **Regulador** | N/A — control interno |
 | **Programa ejecutor** | P103 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -93,7 +93,7 @@ Tipo de sentencia: IF
 | **Tipo regla** | Restricción |
 | **Tipo técnico** | [REPORTE-REGULATORIO] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO (analista) — falso positivo regulatorio (triaje SME 2026-07) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P103 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -141,7 +141,7 @@ Tipo de sentencia: IF
 | **Tipo regla** | Restricción |
 | **Tipo técnico** | [REPORTE-REGULATORIO] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO (analista) — falso positivo regulatorio (triaje SME 2026-07) |
 | **Regulador** | N/A — control interno |
 | **Programa ejecutor** | P103 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -188,7 +188,7 @@ Tipo de sentencia: IF
 | **Tipo regla** | Restricción |
 | **Tipo técnico** | [REPORTE-REGULATORIO] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO por SME Regulatorio (triaje 2026-07) — completitud reporte FraudLink [DATO-REQUERIDO ¿filing CNBV?] — 🟡 |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P103 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -234,7 +234,7 @@ Tipo de sentencia: IF
 | **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [REPORTE-REGULATORIO] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO por SME Regulatorio (triaje 2026-07) — monitoreo/reporte de fraude, CNBV CUB — 🟠 |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P103 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -286,7 +286,7 @@ Tipo de sentencia: IF
 | **Tipo regla** | Definición |
 | **Tipo técnico** | [REPORTE-REGULATORIO] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO por SME Regulatorio (triaje 2026-07) — completitud sub-movimientos SAD (fraude) — 🟠 |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P103 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -336,7 +336,7 @@ Tipo de sentencia: IF
 | **Tipo regla** | Definición |
 | **Tipo técnico** | [REPORTE-REGULATORIO] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO por SME Regulatorio (triaje 2026-07) — completitud claves B13 (fraude) — 🟠 |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P103 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -388,7 +388,7 @@ Tipo de sentencia: IF
 | **Tipo regla** | Cálculo |
 | **Tipo técnico** | [REPORTE-REGULATORIO] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO por SME Regulatorio (triaje 2026-07) — cuadre/trailer del reporte de fraude — 🟡 |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P103 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -2498,7 +2498,7 @@ Tipo de sentencia: CALL
 | **Tipo regla** | Cálculo |
 | **Tipo técnico** | COMPUTE |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO por SME Regulatorio (triaje 2026-07) — SAT/TESOFE saldos de cuentas gubernamentales (10 canales SDO) — 🟠 |
 | **Regulador** | SAT |
 | **Programa ejecutor** | S151/L002R2 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |

@@ -2026,7 +2026,7 @@ ELSE
 | **Tipo regla** | Definición |
 | **Tipo técnico** | [REGLA-BANCARIA-MX] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO por SME Regulatorio (triaje 2026-07) — Banxico tipo de cambio FIX, valuación ME (6 decimales) — 🟡 |
 | **Regulador** | Banxico |
 | **Programa ejecutor** | P165 (S500P165-RESULTADO-DISPERSION) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |

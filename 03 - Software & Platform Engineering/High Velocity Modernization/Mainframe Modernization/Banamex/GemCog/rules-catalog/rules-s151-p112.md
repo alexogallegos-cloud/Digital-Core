@@ -405,7 +405,7 @@ P112 (PUNTEO POR CLAVES DE TRANSACCION) es un programa batch que reconcilia movi
 | **Tipo regla** | Derivación |
 | **Tipo técnico** | — |
 | **Confianza** | — |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO por SME Regulatorio (triaje 2026-07) — CNBV catálogo de libros contables (FOBAPROA→IPAB residual) — 🟠 |
 | **Regulador** | — |
 | **Programa ejecutor** | p112 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |

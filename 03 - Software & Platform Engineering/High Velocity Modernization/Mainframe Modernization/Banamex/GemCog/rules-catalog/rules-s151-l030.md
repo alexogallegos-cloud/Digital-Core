@@ -411,7 +411,7 @@ Caso especial S500: carga además WKS-CATALOGO-LEYDEV (leyendas de devolución):
 | **Tipo regla** | Clasificación / Mapeo |
 | **Tipo técnico** | [REGLA-DISTRIBUIDA] [HARDCODE-SOSPECHOSO] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO (analista) — falso positivo regulatorio (triaje SME 2026-07) |
 | **Regulador** | N/A — Control interno |
 | **Programa ejecutor** | L030 — 01-00805-CARGA-CVETRAN (líneas 10726-10736) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |

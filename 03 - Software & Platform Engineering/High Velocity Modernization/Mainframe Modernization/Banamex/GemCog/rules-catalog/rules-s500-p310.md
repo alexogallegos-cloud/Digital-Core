@@ -104,7 +104,7 @@ ELSE
 | **Tipo regla** | Cálculo |
 | **Tipo técnico** | [REGLA-FISCAL-MX] [REGULATORIO] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO por SME Regulatorio (triaje 2026-07) — LISR Art. 54/135 retención ISR sobre rendimientos — 🟠 |
 | **Regulador** | SAT |
 | **Programa ejecutor** | P310 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -146,7 +146,7 @@ ELSE
 | **Tipo regla** | Cálculo |
 | **Tipo técnico** | [REGLA-FISCAL-MX] [REGULATORIO] [CAMBIO-2022] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO por SME Regulatorio (triaje 2026-07) — LISR ISR residentes en el extranjero; /100 sospechoso HITL — 🟠 |
 | **Regulador** | SAT |
 | **Programa ejecutor** | P310 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -187,7 +187,7 @@ IF WS-S080-0201-RESULT = 0 OR 1
 | **Tipo regla** | Cálculo |
 | **Tipo técnico** | [REGLA-FISCAL-MX] [REGULATORIO] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO por SME Regulatorio (triaje 2026-07) — LISR selección de tasa por tipo de persona (11/12/15) — 🟠 |
 | **Regulador** | SAT |
 | **Programa ejecutor** | P310 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -314,7 +314,7 @@ IF SEC-REG-DET ≠ WS-REGS-CPESEC-02 → DMTERMINATE
 | **Tipo regla** | Cálculo |
 | **Tipo técnico** | [REGLA-FISCAL-MX] [REGULATORIO] [CAMBIO-2022] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO por SME Regulatorio (triaje 2026-07) — LISR Art. 61 exención/beneficiario (STATUS 3/8) — 🟠 |
 | **Regulador** | SAT (art.61 ISR) |
 | **Programa ejecutor** | P310 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -505,7 +505,7 @@ ELSE (fallback)
 | **Tipo regla** | Cálculo |
 | **Tipo técnico** | [REGLA-FISCAL-MX] [REGULATORIO] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO por SME Regulatorio (triaje 2026-07) — LIVA Art. 2 IVA frontera 8% vs general 16% por zona — 🔴 pre-cutover |
 | **Regulador** | SAT |
 | **Programa ejecutor** | P310 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -633,7 +633,7 @@ AL CAMBIO DE GRUPO (o EOF)
 | **Tipo regla** | Derivación |
 | **Tipo técnico** | [REGLA-FISCAL-MX] [REGULATORIO] [HARDCODE-REGULATORIO] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO por SME Regulatorio (triaje 2026-07) — SAT constancias de retención; SAT-IDSISTEMA=S152 hardcodeado — 🔴 BLOQUEA CUTOVER |
 | **Regulador** | SAT |
 | **Programa ejecutor** | P310 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |

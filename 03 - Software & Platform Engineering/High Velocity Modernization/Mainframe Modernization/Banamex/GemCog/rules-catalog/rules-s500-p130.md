@@ -700,7 +700,7 @@ IF WS-CAP-IMPUESTO > 0:
 | **Tipo regla** | Cálculo |
 | **Tipo técnico** | `[GL-POSTING]` `[RENDIMIENTO-BRUTO]` `[REPORTING-CNBV]` |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO por SME Regulatorio (triaje 2026-07) — CNBV CUB Serie R-04 rendimientos brutos de captación — 🟠 |
 | **Regulador** | CNBV CUB Serie R-04 (rendimientos brutos de captación para Circular Única de Bancos) |
 | **Programa ejecutor** | P130 (líneas 7729-7732) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -787,7 +787,7 @@ IF B03-MONEDA = 5 (USD):
 | **Tipo regla** | Cálculo |
 | **Tipo técnico** | `[CLASIFICACIÓN]` `[RENDIMIENTO-REPORTING]` `[SERIE-R-CNBV]` |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO por SME Regulatorio (triaje 2026-07) — CNBV CUB Anexo 33 tasas y rendimientos por producto/instrumento — 🟠 |
 | **Regulador** | CNBV CUB Anexo 33 (reportes de tasas y rendimientos por producto/instrumento/tarifa) |
 | **Programa ejecutor** | P130 (líneas 7782-7809 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |

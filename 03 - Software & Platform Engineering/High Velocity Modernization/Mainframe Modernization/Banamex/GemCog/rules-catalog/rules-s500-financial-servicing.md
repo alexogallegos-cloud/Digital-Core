@@ -1283,7 +1283,7 @@ MYSELF.OPTIONS := * & 1[VALUE(BDBASE):1] & 1[VALUE(FAULT):1]
 | **Tipo regla** | Definición |
 | **Tipo técnico** | [REGULATORIO] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO (analista) — falso positivo regulatorio (triaje SME 2026-07) (preservar audit trail CUB Art. 50) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P106 (MOD-ARCH) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1323,7 +1323,7 @@ Resultado de cancelación en S016 (opción 5):
 | **Tipo regla** | Definición |
 | **Tipo técnico** | [REGULATORIO] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO (analista) — falso positivo regulatorio (triaje SME 2026-07) (preservar audit trail) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P106 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1365,7 +1365,7 @@ Resultado de cancelación en S016 (opción 5):
 | **Tipo regla** | Definición |
 | **Tipo técnico** | [REGULATORIO] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO (analista) — falso positivo regulatorio (triaje SME 2026-07) (preservar audit trail) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P106 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1566,7 +1566,7 @@ En reporte: CSI 04 → suc 3667 "CYSAU MTY CTROL PROD"
 | **Tipo regla** | Cálculo |
 | **Tipo técnico** | [REGULATORIO] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO (analista) — falso positivo regulatorio (triaje SME 2026-07) |
 | **Regulador** | CNBV |
 | **Programa ejecutor** | P106 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |

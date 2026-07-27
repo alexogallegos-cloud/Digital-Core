@@ -1436,7 +1436,7 @@ IF FACULTAD=2 → CVE-RESOL=1; IF FACULTAD=3 → CVE-RESOL=3 + MSG=87
 | **Tipo regla** | Restricción |
 | **Tipo técnico** | DATO-NEGOCIO |
 | **Confianza** | media |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO (analista) — falso positivo regulatorio (triaje SME 2026-07) [DATO-REQUERIDO ¿NIO = clave de rastreo SPEI?] |
 | **Regulador** | N/A — posible vinculación con Banxico SPEI (NIO = Número de Instrucción de Operación) |
 | **Programa ejecutor** | P010 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |

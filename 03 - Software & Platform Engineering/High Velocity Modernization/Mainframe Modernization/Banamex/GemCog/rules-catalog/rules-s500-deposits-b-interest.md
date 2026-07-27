@@ -674,7 +674,7 @@ Flujo B: I01-ARCMAKRCHECK --sort S01-ARCMAKRCHECK-- reporte "001MAKERCHECK"
 | **Tipo regla** | Cálculo |
 | **Tipo técnico** | [REGULATORIO] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO por SME Regulatorio (triaje 2026-07) — LPAB reporte IPAB / cuotas del seguro de depósitos — 🟠 |
 | **Regulador** | IPAB (Ley de Protección al Ahorro Bancario) |
 | **Programa ejecutor** | P168 |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
@@ -1675,7 +1675,7 @@ Entry point 2: REGRABA el registro de aviso procesado en GENMDA
 | **Tipo regla** | Habilitación |
 | **Tipo técnico** | [REGULATORIO] |
 | **Confianza** | alta |
-| **Veredicto** | En validación — SME Regulatorio (candidata · SBVR heurístico) |
+| **Veredicto** | VALIDADO por SME Regulatorio (triaje 2026-07) — 'Charity III' posible PLD/OFAC [DATO-REQUERIDO norma] — 🟡 |
 | **Regulador** | CNBV (beneficencia / Charity) |
 | **Programa ejecutor** | P050 (P050LIN) |
 | **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
