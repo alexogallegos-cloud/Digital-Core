@@ -50,8 +50,10 @@ def load_registry():
             if prog and bc:
                 key = (sys_, prog)
                 variants.setdefault(key, set()).add(full)
-                if key not in lut:            # primer match gana; colisión se reporta aparte
+                if key not in lut:            # base: primer match gana; colisión se reporta aparte
                     lut[key] = (bc, bian or "—")
+                if full and full.upper() != prog:   # llave exacta de variante (P010_PAR)
+                    lut[(sys_, full.upper())] = (bc, bian or "—")
     collisions = {k: v for k, v in variants.items() if len(v) > 1}
     return lut, collisions
 
@@ -74,13 +76,22 @@ def split_rules(text):
     return out
 
 def resolve_program(part, base):
-    raw = meta(part, "Programa(s) fuente", "Programa fuente", "Programa(s)", "Programa")
+    raw = meta(part, "Programa ejecutor", "Programa(s) fuente", "Programa fuente", "Programa(s)", "Programa")
     if not raw:
         fn = re.findall(r'-([pP]\d+)', base)
         raw = fn[0] if fn else ""
     first = re.split(r'[·,]', raw)[0].strip() if raw else ""
+    mf = re.search(r'P\d{2,4}_[A-Z0-9]+', (raw or "").upper())   # variante exacta P010_PAR
+    full = mf.group(0) if mf else None
     # norm_prog sobre el raw completo: captura P312 en "S151/P312", "P312 · P330", etc.
-    return (first or raw), (norm_prog(raw) or norm_prog(first))
+    return (first or raw), (norm_prog(raw) or norm_prog(first)), full
+
+# Overrides de archivos de arquitectura (no llevan BC de negocio)
+ARCH_FILES = ("algol-wfl-stubs", "l030", "dasdl")
+def arch_bc(fname):
+    if "l002" in fname: return ("BC-04", "—")   # ACL técnico S500<->S151
+    if any(a in fname for a in ARCH_FILES): return ("— (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio)", "—")
+    return None
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. Reporte de resolución sobre los 33 archivos
@@ -100,8 +111,8 @@ def resolution_report(lut):
         res = 0; forph = []
         for rid, title, part in rules:
             sys_ = "S500" if "S500" in rid else "S151"
-            first, pb = resolve_program(part, base)
-            if pb and (sys_, pb) in lut:
+            first, pb, full = resolve_program(part, base)
+            if (full and (sys_, full) in lut) or (pb and (sys_, pb) in lut) or arch_bc(base):
                 res += 1
             else:
                 forph.append((rid, first or "—", pb or "—"))
@@ -132,12 +143,21 @@ def split_head_table_body(part):
     body = "\n".join(lines[tend:]).strip()
     return head, "\n".join(lines[tstart:tend]), body
 
-def canonical_card(rid, title, part, sys_, lut):
+def canonical_card(rid, title, part, sys_, lut, fname=""):
     """Reescribe la tabla de metadatos a canónica; PRESERVA el cuerpo verbatim (cero pérdida)."""
     head, _oldtable, body = split_head_table_body(part)
     body = re.sub(r'\n*-{3,}\s*$', '', body).rstrip()   # quita separador --- final duplicado
-    first, pb = resolve_program(part, "")
-    bc, bian = lut.get((sys_, pb), ("Consulta SME Mainframe Migration", "—"))
+    first, pb, full = resolve_program(part, fname)
+    if full and (sys_, full) in lut:          # variante exacta (P010_PAR) gana
+        bc, bian = lut[(sys_, full)]
+    elif (sys_, pb) in lut:
+        bc, bian = lut[(sys_, pb)]
+    elif arch_bc(fname):                        # archivo de arquitectura
+        bc, bian = arch_bc(fname)
+    elif re.search(r'\bL\d{2,3}\b|L002|WFL|ALGOL', (first or ""), re.I):   # librería/WFL/ALGOL embebida
+        bc, bian = "— (arquitectura/librería · no BC de negocio)", "—"
+    else:                                        # copybook o programa sin mapear -> consulta dirigida
+        bc, bian = "Consulta SME Mainframe Migration", "—"
     tipo_tec = meta(part, "Tipo") or "—"
     regulador = meta(part, "Regulador", "Base regulatoria") or "—"
     conf = (meta(part, "Confianza") or "—").lower()
@@ -163,7 +183,7 @@ def canonical_card(rid, title, part, sys_, lut):
     )
     return f"{head}\n\n{table}\n{body}".rstrip() + "\n"
 
-def homologate_text(txt, sys_default, lut):
+def homologate_text(txt, lut, fname):
     """Reconstruye el archivo completo: preámbulo + reglas homologadas."""
     rules = split_rules(txt)
     if not rules: return txt, 0
@@ -175,21 +195,35 @@ def homologate_text(txt, sys_default, lut):
     cards = []
     for rid, title, part in rules:
         sys_ = "S500" if "S500" in rid else "S151"
-        cards.append(canonical_card(rid, title, part, sys_, lut))
+        cards.append(canonical_card(rid, title, part, sys_, lut, fname))
     return pre + "\n---\n\n".join(cards), len(rules)
+
+SKIP = ("rules-index.md", "schema-canonico-reglas.md", "homologation-inventory.md")
+def is_migrated(txt):
+    return "| **Identificador** |" in txt and "| **BC-ID** |" in txt
 
 def apply_file(fname, lut):
     fp = os.path.join(RD, fname)
     txt = open(fp, encoding="utf-8").read()
-    sys_ = "S500" if "s500" in fname else "S151"
-    new, n = homologate_text(txt, sys_, lut)
+    new, n = homologate_text(txt, lut, fname)
     open(fp, "w", encoding="utf-8").write(new)
     print(f"APLICADO: {fname} · {n} reglas homologadas (metadatos canónicos, cuerpo preservado)")
+
+def apply_all(lut):
+    for fp in sorted(glob.glob(os.path.join(RD, "*.md"))):
+        base = os.path.basename(fp)
+        if base in SKIP or base.startswith("_"): continue
+        txt = open(fp, encoding="utf-8").read()
+        if is_migrated(txt):
+            print(f"SKIP (ya migrado): {base}"); continue
+        apply_file(base, lut)
 
 if __name__ == "__main__":
     lut, collisions = load_registry()
     print(f"Lookup cargado: {len(lut)} entradas (sistema, programa) -> BC-ID\n")
-    if len(sys.argv) >= 3 and sys.argv[1] == "--apply":
+    if len(sys.argv) >= 2 and sys.argv[1] == "--apply-all":
+        apply_all(lut)
+    elif len(sys.argv) >= 3 and sys.argv[1] == "--apply":
         apply_file(sys.argv[2], lut)
     else:
         if collisions:

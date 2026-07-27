@@ -1,4 +1,5 @@
 # Reglas L030 — LIBRERÍA COBOL MAESTRA S151 (Wave 3)
+**Indexado:** ✅ 2026-07-17 — correlacionado vocab↔reglas↔capacidad (traceability-matrix.md)
 
 > **Tipo:** COBOL library (S151LIB030) — 19,253 LOC — Unisys ClearPath MCP
 > **CRÍTICO:** L030 es la librería de consulta y control que usan prácticamente todos los programas de visualización S151. Aunque la tarea la denomina "ALGOL L030", el archivo fuente es **COBOL** (`COBOL_L030.txt`, PROGRAM-ID: `S151LIB030`). No es transpilable con herramientas COBOL estándar sin revisión humana extensiva por su complejidad (Unisys DMSII, OPEN/CLOSE INQUIRY, CHANGE ATTRIBUTE, CANCEL). Debe ser **reimplementada desde cero** como servicio de plataforma en el sistema objetivo.
@@ -49,13 +50,20 @@
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-526 |
-| **Tipo** | [HARDCODE-SOSPECHOSO] [RIESGO-EQUIVALENCIA] |
+| **Nombre** | Determinación de siglo — pivote año 50 (Y2K) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [HARDCODE-SOSPECHOSO] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Control interno (proyecto CRONOS 2000) |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Librería Utilitaria de Fechas |
-| **Programa(s) fuente** | L030 (COBOL_L030.txt) — párrafos A2K-OBTAIN-CENTURY, A2K-CONV-AMD-TO-CAMD, A2K-CONV-MDA-TO-MDCA, A2K-CONV-DMA-TO-DMCA |
-| **Frecuencia** | por-transacción (cada conversión de fecha) |
-| **Sistemas downstream** | todos los programas S151 + S500 que usan fechas de 6 dígitos |
+| **Programa ejecutor** | L030 (COBOL_L030.txt) — párrafos A2K-OBTAIN-CENTURY |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```cobol
@@ -75,7 +83,7 @@ IF fecha-6-digitos = 999999 → fecha completa = 99999999 (fecha máxima / abier
 **Vocabulario en la fórmula:**
 | Término | Categoría | Alcance | Significado |
 |---------|-----------|---------|-------------|
-| A2K-BASE-YEAR | CONSTANTE-HARDCODE | L030 | Pivote de siglo: < 50 → siglo 20, >= 50 → siglo 19 |
+| A2K-BASE-YEAR | CONSTANTE-HARDCODE | L030 | Pivote de siglo: AA < 50 → CC=20 (años 2000-2049), AA >= 50 → CC=19 (años 1950-1999) [QC-P2: "siglo 20/19" se refiere al valor CC numérico, no al nombre del siglo] |
 | A2K-FEC-YEAR-AA | CAMPO-FECHA | L030 | Año de 2 dígitos a interpretar |
 | A2K-FEC-YEAR-CC | CAMPO-FECHA | L030 | Siglo calculado (19 ó 20) |
 
@@ -93,13 +101,20 @@ IF fecha-6-digitos = 999999 → fecha completa = 99999999 (fecha máxima / abier
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-527 |
-| **Tipo** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
+| **Nombre** | Habilitación/bloqueo del programa principal P000 vía STAREG |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Control interno batch |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Control de Ciclo Diario |
-| **Programa(s) fuente** | L030 — CONSISDIA Función 5 (WKS-CONSISDIA-F05) |
-| **Frecuencia** | bajo-demanda (antes/después del batch principal) |
-| **Sistemas downstream** | P000 (programa maestro del batch S151) |
+| **Programa ejecutor** | L030 — CONSISDIA Función 5 (WKS-CONSISDIA-F05) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -131,13 +146,20 @@ Parámetros de entrada: FUNCION=5, SISTEMA, CSI, VALOR (0 o 1).
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-528 |
-| **Tipo** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
+| **Nombre** | Control de disponibilidad del archivo de movimientos (STAARCLOG) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Control interno batch |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Control de Movimientos Diarios |
-| **Programa(s) fuente** | L030 — CONSISDIA Función 7 (WKS-CONSISDIA-F07) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | procesos asíncronos que leen el archivo de movimientos |
+| **Programa ejecutor** | L030 — CONSISDIA Función 7 (WKS-CONSISDIA-F07) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -169,13 +191,20 @@ El campo se actualiza por fecha — hay un arreglo de 10 slots (WKS-B01-CTL-DIA 
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-529 |
-| **Tipo** | [RIESGO-EQUIVALENCIA] [REGLA-DISTRIBUIDA] |
+| **Nombre** | Protocolo de apertura de la base semanal — OPEN INQUIRY BASESEMANAL |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [RIESGO-EQUIVALENCIA] [REGLA-DISTRIBUIDA] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Arquitectura Unisys DMSII |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Acceso a Base de Datos Diaria |
-| **Programa(s) fuente** | L030 — 01-00600-ABRE-BASEDIA, 01-00650-CIERRA-BASEDIA |
-| **Frecuencia** | por-inicialización (función 0 y funciones 60/61/68/69) |
-| **Sistemas downstream** | todos los procesos de consulta de movimientos (funciones 11-25) |
+| **Programa ejecutor** | L030 — 01-00600-ABRE-BASEDIA |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -220,13 +249,20 @@ El campo se actualiza por fecha — hay un arreglo de 10 slots (WKS-B01-CTL-DIA 
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-530 |
-| **Tipo** | [RIESGO-EQUIVALENCIA] [HARDCODE-SOSPECHOSO] |
+| **Nombre** | Ventana deslizante de 10 semi-días para localización de dataset diario |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [RIESGO-EQUIVALENCIA] [HARDCODE-SOSPECHOSO] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Control interno |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Ventana de Consulta Diaria |
-| **Programa(s) fuente** | L030 — 11-00100-DAME-DATASET, 11-00110-DAME-NUMSET, 12-00100-DAME-DATASET, 17-00100-DAME-DATASET |
-| **Frecuencia** | por-transacción (cada consulta de movimientos) |
-| **Sistemas downstream** | funciones 11, 12, 13, 14, 16, 17, 18, 19, 21, 24 |
+| **Programa ejecutor** | L030 — 11-00100-DAME-DATASET |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -265,13 +301,20 @@ Los slots 1-5 y 6-10 representan los mismos 5 días pero en diferentes semanas (
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-531 |
-| **Tipo** | [HARDCODE-SOSPECHOSO] [RIESGO-EQUIVALENCIA] |
+| **Nombre** | Catálogo de claves de transacción (CVETRAN) — límite 10,000 entradas |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [HARDCODE-SOSPECHOSO] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Catálogo interno S151/S500 |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Catálogo de Tipos de Movimiento |
-| **Programa(s) fuente** | L030 — 01-00800-CLAVES, 01-00805-CARGA-CVETRAN, 01-00811-MUEVE-CLAVES |
-| **Frecuencia** | por-inicialización (función 0) |
-| **Sistemas downstream** | todas las funciones de consulta que clasifican movimientos por CVETRA |
+| **Programa ejecutor** | L030 — 01-00800-CLAVES |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -312,13 +355,20 @@ Si W77-IND >= 10001 → error de desbordamiento → log "CVETRAN > 10000".
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-532 |
-| **Tipo** | [HARDCODE-SOSPECHOSO] [RIESGO-EQUIVALENCIA] |
+| **Nombre** | Catálogo de leyendas de transacción — límite 2,000 entradas |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [HARDCODE-SOSPECHOSO] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Catálogo interno |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Catálogo de Leyendas de Transacción |
-| **Programa(s) fuente** | L030 — 01-00830-CARGA-LEYENDAS-TRAN, 01-00831-LEYENDAS |
-| **Frecuencia** | por-inicialización (función 0) |
-| **Sistemas downstream** | pantallas de visualización de movimientos (S151 display screens) |
+| **Programa ejecutor** | L030 — 01-00830-CARGA-LEYENDAS-TRAN |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -352,13 +402,20 @@ Caso especial S500: carga además WKS-CATALOGO-LEYDEV (leyendas de devolución):
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-533 |
-| **Tipo** | [REGLA-DISTRIBUIDA] [HARDCODE-SOSPECHOSO] |
+| **Nombre** | Formato de catálogo CVETRA: sistemas CFR vs. sistemas estándar |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [REGLA-DISTRIBUIDA] [HARDCODE-SOSPECHOSO] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Control interno |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Clasificación de Sistemas |
-| **Programa(s) fuente** | L030 — 01-00805-CARGA-CVETRAN (líneas 10726-10736) |
-| **Frecuencia** | por-inicialización |
-| **Sistemas downstream** | sistemas con número 804, 404, 707, 203 (CFR) |
+| **Programa ejecutor** | L030 — 01-00805-CARGA-CVETRAN (líneas 10726-10736) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -398,13 +455,20 @@ Formatos de catálogo (W77-CAT-FORMATO):
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-534 |
-| **Tipo** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
+| **Nombre** | Estatus válido de movimiento para consulta: STA = 1 ó 2 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Control interno de movimientos |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Estado de Movimiento Contable |
-| **Programa(s) fuente** | L030 — 11-00070-BUSCA-MOVTO, 11-00300-SALIDA-P11SAL, 12-00200-BUSCA-REGISTRO |
-| **Frecuencia** | por-transacción |
-| **Sistemas downstream** | pantallas P11, P12, P15, P16, P17 de S151 |
+| **Programa ejecutor** | P11 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -439,13 +503,20 @@ ELSE
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-535 |
-| **Tipo** | [REGLA-DISTRIBUIDA] [LÓGICA-CONTABLE] |
+| **Nombre** | Consulta de movimientos por autorización de aplicación (función 11 — CONAPL) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [REGLA-DISTRIBUIDA] [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Control operacional |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Consulta de Movimientos por Aplicación |
-| **Programa(s) fuente** | L030 — 11-00050-CONAPL y sub-párrafos |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | pantalla P11 de S151, operadores bancarios |
+| **Programa ejecutor** | L030 — 11-00050-CONAPL y sub-párrafos |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -490,13 +561,20 @@ Flujo sin SECMOV (inicio):
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-536 |
-| **Tipo** | [LÓGICA-CONTABLE] [HARDCODE-SOSPECHOSO] |
+| **Nombre** | Paginación de resultados de consultas de movimientos |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] [HARDCODE-SOSPECHOSO] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Control de pantallas |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Paginación de Movimientos |
-| **Programa(s) fuente** | L030 — inicio de cada función de consulta |
-| **Frecuencia** | por-transacción |
-| **Sistemas downstream** | pantallas P11, P12, P15, P16, P17 de S151 |
+| **Programa ejecutor** | L030 — inicio de cada función de consulta |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -532,13 +610,20 @@ Mecanismo:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-537 |
-| **Tipo** | [REGLA-DISTRIBUIDA] [LÓGICA-CONTABLE] |
+| **Nombre** | Consulta de movimientos por contrato diaria (función 12 — CONXCTO-DIA) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [REGLA-DISTRIBUIDA] [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Consulta operacional |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Consulta de Movimientos por Cuenta/Contrato |
-| **Programa(s) fuente** | L030 — 12-00050-CONXCTO-DIA, 12-00070-BUSCA-CLIENTE, 12-00080-LLAMA-L422 |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | pantalla P12 de S151; llama a S016L422 para nombre de cliente |
+| **Programa ejecutor** | L030 — 12-00050-CONXCTO-DIA |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -588,13 +673,20 @@ Manejo especial: MSG=61 → no se encontró primer movimiento
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-538 |
-| **Tipo** | [LÓGICA-CONTABLE] |
+| **Nombre** | Cálculo de variación créditos-abonos en totales nacionales |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Control interno (puede alimentar reportes CNBV) |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Totales Nacionales Diarios |
-| **Programa(s) fuente** | L030 — 17-00300-CALCULA-VARIACION |
-| **Frecuencia** | cierre-diario |
-| **Sistemas downstream** | pantalla P17 de S151, reportes de operación |
+| **Programa ejecutor** | L030 — 17-00300-CALCULA-VARIACION |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -638,13 +730,20 @@ Acumulación previa (17-00211-ACUMULA-TOTXCSI):
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-539 |
-| **Tipo** | [LÓGICA-CONTABLE] [REGLA-DISTRIBUIDA] |
+| **Nombre** | Jerarquía de consulta en TOTXPROD-DIA: caja > sucursal > sistema |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] [REGLA-DISTRIBUIDA] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Control operacional |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Totales por Producto Diarios |
-| **Programa(s) fuente** | L030 — 16-00050-TOTXPROD-DIA (líneas 13620-13634) |
-| **Frecuencia** | bajo-demanda (consulta de totales del día) |
-| **Sistemas downstream** | pantallas P15, P16 de S151 |
+| **Programa ejecutor** | L030 — 16-00050-TOTXPROD-DIA (líneas 13620-13634) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -693,13 +792,20 @@ Moneda de contrato:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-540 |
-| **Tipo** | [LÓGICA-CONTABLE] |
+| **Nombre** | Total nacional diario — acumulación cross-CSI por ciclos (función 17) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Reporte operacional interno |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Totales Nacionales |
-| **Programa(s) fuente** | L030 — 17-00050-TOTNAL-DIA, 17-00200-AVANZA-REGISTRO, 17-00211-ACUMULA-TOTXCSI |
-| **Frecuencia** | cierre-diario / bajo-demanda |
-| **Sistemas downstream** | pantalla P17 de S151 |
+| **Programa ejecutor** | L030 — 17-00050-TOTNAL-DIA |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -740,13 +846,20 @@ Ciclos de 10 posiciones por registro D03 (WKS-D03 OCCURS):
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-541 |
-| **Tipo** | [LÓGICA-CONTABLE] [HARDCODE-SOSPECHOSO] |
+| **Nombre** | Control de ciclos mensuales en CONSISMEN — ciclos AAMM hasta 99 entradas |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] [HARDCODE-SOSPECHOSO] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Control interno mensual |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Control de Ciclo Mensual |
-| **Programa(s) fuente** | L030 — WKS-S151B03SISMEN (campo CICLO OCCURS 99 TIMES) + funciones 15-22 |
-| **Frecuencia** | cierre-mensual |
-| **Sistemas downstream** | procesos de cierre mensual S151 |
+| **Programa ejecutor** | L030 — WKS-S151B03SISMEN (campo CICLO OCCURS 99 TIMES) + funciones 15-22 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -785,13 +898,20 @@ Función 22 (MODIFICA STATUS BD): actualiza estatus de la base de movimientos de
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-542 |
-| **Tipo** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
+| **Nombre** | Separación fecha de consulta (FECCON) vs. fecha de proceso (FECPRO) en CONSISDIA |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV — control de fecha valor vs. fecha proceso |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Control de Fechas del Sistema |
-| **Programa(s) fuente** | L030 — CONSISDIA Funciones 2 y 3, 01-00220-DAME-FECPRO |
-| **Frecuencia** | por-inicialización + bajo-demanda |
-| **Sistemas downstream** | todos los programas que consultan la fecha de proceso S151 |
+| **Programa ejecutor** | L030 — CONSISDIA Funciones 2 y 3 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -828,13 +948,20 @@ Función 3 (actualiza FECPRO): para registrar cuándo corrió el batch.
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-543 |
-| **Tipo** | [REGLA-DISTRIBUIDA] [RIESGO-EQUIVALENCIA] |
+| **Nombre** | Fecha de proceso S151 independiente de S500 (FECPRO vs. FECPRO151) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [REGLA-DISTRIBUIDA] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Arquitectura de sistemas |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Sincronización de Fechas S151/S500 |
-| **Programa(s) fuente** | L030 — WKS-B01-FECPRO151, CONSISDIA Función 11 |
-| **Frecuencia** | por-inicialización del batch |
-| **Sistemas downstream** | procesos de reconciliación S151 ↔ S500 |
+| **Programa ejecutor** | L030 — WKS-B01-FECPRO151 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -867,13 +994,20 @@ Uso en DAME-FECPRO: solo se mueve FECPRO (no FECPRO151) a WKS-FECHA-PROCESO.
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-544 |
-| **Tipo** | [RIESGO-EQUIVALENCIA] [REGLA-DISTRIBUIDA] |
+| **Nombre** | Manejo de errores DMSII — catálogo de 21 tipos |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [RIESGO-EQUIVALENCIA] [REGLA-DISTRIBUIDA] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Arquitectura Unisys DMSII |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Control de Errores de Base de Datos |
-| **Programa(s) fuente** | L030 — WKS-TAB-ERRDMSII (líneas 6440-6487) |
-| **Frecuencia** | por-transacción (en errores) |
-| **Sistemas downstream** | todos los procesos que acceden a bases DMSII |
+| **Programa ejecutor** | L030 — WKS-TAB-ERRDMSII (líneas 6440-6487) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -914,13 +1048,20 @@ W77-RES-LIBCON (resultado retornado al llamador):
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-545 |
-| **Tipo** | [REGLA-DISTRIBUIDA] [RIESGO-EQUIVALENCIA] |
+| **Nombre** | Resolución de nombre de cliente vía S016L422 durante consulta de movimientos |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [REGLA-DISTRIBUIDA] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Integración S151 ↔ S500 |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Enriquecimiento de Datos de Cliente |
-| **Programa(s) fuente** | L030 — 12-00070-BUSCA-CLIENTE, 12-00080-LLAMA-L422 |
-| **Frecuencia** | por-transacción (consulta de movimientos con nombre) |
-| **Sistemas downstream** | S016L422 (30+ funciones de consulta S500) |
+| **Programa ejecutor** | L030 — 12-00070-BUSCA-CLIENTE |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -965,13 +1106,20 @@ W77-RES-LIBCON (resultado retornado al llamador):
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-546 |
-| **Tipo** | [HARDCODE-SOSPECHOSO] [LÓGICA-CONTABLE] |
+| **Nombre** | Jerarquía organizacional Banamex: 7 niveles CSI→Sucursal |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [HARDCODE-SOSPECHOSO] [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Estructura organizacional del banco |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Jerarquía Organizacional |
-| **Programa(s) fuente** | L030 — WKS-ESTRUCTURA (OCCURS 2000 TIMES), WKS-COMITE, WKS-AREA, WKS-DIVISION, WKS-DIRECCION, WKS-REGIONAL, WKS-OPECOM, WKS-SUCURSAL |
-| **Frecuencia** | por-inicialización |
-| **Sistemas downstream** | reportes por dimensión organizacional, pantallas de totales |
+| **Programa ejecutor** | L030 — WKS-ESTRUCTURA (OCCURS 2000 TIMES) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -1016,13 +1164,20 @@ WKS-ESTRUCTURA OCCURS 2000 TIMES:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-547 |
-| **Tipo** | [RIESGO-EQUIVALENCIA] |
+| **Nombre** | Control de versiones de librería vía CTRLVERS (DAME_TIT) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Control de versiones de software Unisys |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Gestión de Versiones de Librería |
-| **Programa(s) fuente** | L030 — 01-00040-LEVANTA-L001, 01-00300-ESTABLECE-LIBRERIAS |
-| **Frecuencia** | por-inicialización (función 0) |
-| **Sistemas downstream** | L001CTL, S016L422, S080BD01CON (ESTRUCTURA) |
+| **Programa ejecutor** | L030 — 01-00040-LEVANTA-L001 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -1066,13 +1221,20 @@ Función 55: CANCEL "S016L422" (descarga librería de memoria)
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-548 |
-| **Tipo** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
+| **Nombre** | Validación de consistencia CSI primario vs. CSI secundario (RESCSI) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] [RIESGO-EQUIVALENCIA] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Control de integridad multi-CSI |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Control de Consistencia CSI |
-| **Programa(s) fuente** | L030 — 01-00200-INICIA-DATOS (líneas 10622-10629) |
-| **Frecuencia** | por-inicialización |
-| **Sistemas downstream** | todos los procesos multi-CSI de S151 |
+| **Programa ejecutor** | L030 — 01-00200-INICIA-DATOS (líneas 10622-10629) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -1112,13 +1274,20 @@ WKS-B03-RESCSI = CSI de respaldo (de CONSISMEN)
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-549 |
-| **Tipo** | [REGLA-DISTRIBUIDA] |
+| **Nombre** | Flag de enrutamiento de transacciones a Citi (ENVCITI) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [REGLA-DISTRIBUIDA] |
 | **Confianza** | media |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Separación operativa Banamex / Citibank |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Enrutamiento de Transacciones |
-| **Programa(s) fuente** | L030 — 01-00811-MUEVE-CLAVES (WKS-CVE-ENVCITI), 11-00310-MUEVE-SALP11 |
-| **Frecuencia** | por-transacción |
-| **Sistemas downstream** | Sistema Citi (integración con Citibank) |
+| **Programa ejecutor** | P11 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -1151,13 +1320,20 @@ Uso durante consulta de movimientos (referencia en 11-00300-SALIDA-P11SAL y peer
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S151-550 |
-| **Tipo** | [LÓGICA-CONTABLE] |
+| **Nombre** | Contadores de secuencia histórica: SECOKHI, SECINFHI, SECERRHI |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura AS-IS · RETAIN/ENCAPSULATE · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LÓGICA-CONTABLE] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Control de integridad histórica |
-| **Capacidad bancaria** | 7.1.1 Finance (GL) — Auditoría de Procesamiento Histórico |
-| **Programa(s) fuente** | L030 — WKS-S151B03SISMEN (campos SECOKHI, SECINFHI, SECERRHI + funciones 11, 12, 13) |
-| **Frecuencia** | cierre-mensual |
-| **Sistemas downstream** | reportes de auditoría, control de calidad de procesamiento histórico |
+| **Programa ejecutor** | L030 — WKS-S151B03SISMEN (campos SECOKHI |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```

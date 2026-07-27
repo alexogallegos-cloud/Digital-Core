@@ -1,4 +1,5 @@
 # Reglas S500 S151REGISTRA · P103 Fraude
+**Indexado:** ✅ 2026-07-17 — correlacionado vocab↔reglas↔capacidad (traceability-matrix.md)
 
 > **S151REGISTRA:** Librería contable S500→S151 — TODA la contabilidad de S500 pasa por aquí
 > **P103:** Bloqueo de fraude — 664 LOC, 3 claves hardcoded (2001/2444/2496)
@@ -74,13 +75,20 @@ P103 (664 LOC, autor José Luis Ibarra Lara, JUL/2005) es el programa **FRAUDLIN
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-153 |
-| **Tipo** | `[CONTROL]` |
+| **Nombre** | Validación de versión de librería S151 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | Consulta SME Mainframe Migration |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[CONTROL]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Control interno de compatibilidad de versiones |
-| **Capacidad bancaria** | Integración GL · Interfaz S500→S151 |
-| **Programa(s) fuente** | `S500_INC_PRO_CAN.txt` — sección `10000151-REGISTRA` (líneas 807–826) |
-| **Frecuencia** | Por-sesión (se ejecuta una vez al inicio del programa, antes del primer CARGAMOV1) |
-| **Sistemas downstream** | S151 (General Ledger) |
+| **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — sección `10000151-REGISTRA` (líneas 807–826) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -118,13 +126,20 @@ P103 (664 LOC, autor José Luis Ibarra Lara, JUL/2005) es el programa **FRAUDLIN
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-154 |
-| **Tipo** | `[LÓGICA-CONTABLE]` `[RIESGO-EQUIVALENCIA]` |
+| **Nombre** | Contrato de interfaz CARGAMOV1 (8 funciones operacionales) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | Consulta SME Mainframe Migration |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[LÓGICA-CONTABLE]` `[RIESGO-EQUIVALENCIA]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV CUB Serie R (cada función tiene impacto en asientos GL auditables) |
-| **Capacidad bancaria** | Registro contable · Eliminación · Control de ciclo de movimiento |
-| **Programa(s) fuente** | `S500_INC_WOR_CAN.txt` (líneas 4258–4268 — comentario documental del contrato) |
-| **Frecuencia** | Por-transacción (función 1/2) · Por-ciclo (funciones 11/12/21/22/31/32) |
-| **Sistemas downstream** | S151 (via `CARGAMOV1 IN REGISTRAS500`) |
+| **Programa ejecutor** | `S500_INC_WOR_CAN.txt` (líneas 4258–4268 — comentario documental del contrato) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -164,13 +179,20 @@ CALL "CARGAMOV1 IN REGISTRAS500"
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-155 |
-| **Tipo** | `[RIESGO-EQUIVALENCIA]` `[HARDCODE-SOSPECHOSO]` |
+| **Nombre** | Dos formatos del mensaje S151: S151REGISTRA1 vs S151REGISTRA2 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | Consulta SME Mainframe Migration |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[RIESGO-EQUIVALENCIA]` `[HARDCODE-SOSPECHOSO]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — estructura interna de interfaz; impacto en reportes CNBV si el campo CVETRAN migra de 4 a 6 dígitos |
-| **Capacidad bancaria** | Integración GL · Evolución de interfaz |
-| **Programa(s) fuente** | `S500_INC_WOR_CAN.txt` (líneas 4312–4543 para Format1; 4546–4629+ para Format2) |
-| **Frecuencia** | Por-compilación (flag de formato elegido al compilar cada programa) |
-| **Sistemas downstream** | S151 (General Ledger) |
+| **Programa ejecutor** | `S500_INC_WOR_CAN.txt` (líneas 4312–4543 para Format1; 4546–4629+ para Format2) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -214,13 +236,20 @@ Formato 2 (S151REGISTRA2) — campos de CVETRAN de 6 dígitos + CVEDESVIO adicio
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-156 |
-| **Tipo** | `[LÓGICA-CONTABLE]` `[RIESGO-EQUIVALENCIA]` |
+| **Nombre** | Acumulación de hasta 5 CVETRANs por mensaje antes de enviar a S151 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | Consulta SME Mainframe Migration |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[LÓGICA-CONTABLE]` `[RIESGO-EQUIVALENCIA]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — optimización de rendimiento; pero el grouping define qué movimientos forman un asiento atómico |
-| **Capacidad bancaria** | Registro contable · Atomicidad de asientos |
-| **Programa(s) fuente** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-IMP` (líneas 4152–4253) |
-| **Frecuencia** | Por-transacción (evaluación para cada CVETRAN de entrada) |
-| **Sistemas downstream** | S151 (General Ledger) |
+| **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-IMP` (líneas 4152–4253) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -273,13 +302,20 @@ Formato 2 (S151REGISTRA2) — campos de CVETRAN de 6 dígitos + CVEDESVIO adicio
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-157 |
-| **Tipo** | `[RIESGO-EQUIVALENCIA]` `[LÓGICA-CONTABLE]` |
+| **Nombre** | Auto-flush al overflow de 5 slots: segunda llamada encadenada |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | Consulta SME Mainframe Migration |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[RIESGO-EQUIVALENCIA]` `[LÓGICA-CONTABLE]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV CUB — la atomicidad de asientos en GL es auditada; un flush parcial produce 2 asientos S151 por 1 movimiento S500 |
-| **Capacidad bancaria** | Registro contable · Partida doble |
-| **Programa(s) fuente** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-IMP` rama ELSE final (líneas 4237–4252) |
-| **Frecuencia** | Excepcional (solo cuando un movimiento S500 genera más de 5 CVETRANs S151) |
-| **Sistemas downstream** | S151 (2 asientos enlazados por REFS151-ANT) |
+| **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-IMP` rama ELSE final (líneas 4237–4252) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -316,13 +352,20 @@ MOVE IMPORTE-I(IND) TO IMPORTE1
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-158 |
-| **Tipo** | `[CONTROL]` `[RIESGO-EQUIVALENCIA]` |
+| **Nombre** | Modo contingencia S151: encolado en archivo cuando S151 no responde |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | Consulta SME Mainframe Migration |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[CONTROL]` `[RIESGO-EQUIVALENCIA]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV CUB — continuidad operativa; los movimientos en contingencia deben reprocesarse antes del cierre contable |
-| **Capacidad bancaria** | Continuidad operativa · Integración GL |
-| **Programa(s) fuente** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CALL` (líneas 3832–3852) |
-| **Frecuencia** | Excepcional (solo cuando S151 no está disponible) |
-| **Sistemas downstream** | Archivo de contingencia S151 → reprocesamiento posterior |
+| **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CALL` (líneas 3832–3852) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -366,13 +409,20 @@ IF WS-S151-0101-STATUS > 0:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-159 |
-| **Tipo** | `[CONTROL]` `[LÓGICA-CONTABLE]` |
+| **Nombre** | Manejo de rechazos STATUS > 0 de S151 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | Consulta SME Mainframe Migration |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[CONTROL]` `[LÓGICA-CONTABLE]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV CUB — un movimiento rechazado por S151 no tiene asiento en el GL; es un gap contable auditable |
-| **Capacidad bancaria** | Integridad contable · Manejo de errores GL |
-| **Programa(s) fuente** | `S500_INC_PRO_CAN.txt` — post-CALL (líneas 3857–3891) |
-| **Frecuencia** | Excepcional (rechazo S151) |
-| **Sistemas downstream** | Log de rechazos S151 · Archivo R06 (mensajes P130-BATCH) |
+| **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — post-CALL (líneas 3857–3891) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -409,13 +459,20 @@ IF WS-S151-0101-STATUS > 0:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-160 |
-| **Tipo** | `[HARDCODE-SOSPECHOSO]` `[REGLA-BANCARIA-MX]` |
+| **Nombre** | IND-EDOCTA: instrumento 6 de producto 500 excluye estado de cuenta en S151 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | Consulta SME Mainframe Migration |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[HARDCODE-SOSPECHOSO]` `[REGLA-BANCARIA-MX]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV CONDUSEF — el estado de cuenta es obligatorio para cuentas de captación; esta excepción debe estar documentada |
-| **Capacidad bancaria** | Estado de cuenta de cliente · Captación |
-| **Programa(s) fuente** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3288–3292) |
-| **Frecuencia** | Por-transacción (evaluada en cada llamada a CARGAMOV1) |
-| **Sistemas downstream** | S151 → S050 (estado de cuenta) · Bancanet |
+| **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3288–3292) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -452,13 +509,20 @@ ELSE:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-161 |
-| **Tipo** | `[HARDCODE-SOSPECHOSO]` |
+| **Nombre** | IND-DATOS-ADIC siempre = 1 (hardcode de optimización de performance) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | Consulta SME Mainframe Migration |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[HARDCODE-SOSPECHOSO]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — Control interno de performance |
-| **Capacidad bancaria** | Integración GL · Performance |
-| **Programa(s) fuente** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (línea 3300) |
-| **Frecuencia** | Por-transacción |
-| **Sistemas downstream** | S151 (usa este indicador para decidir si procesar datos adicionales) |
+| **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (línea 3300) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -490,13 +554,20 @@ MOVE 1 TO WS-S151-0101-IND-DATOS-ADIC   -- siempre = 1 (ignora el input -I)
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-162 |
-| **Tipo** | `[HARDCODE-SOSPECHOSO]` `[REGLA-BANCARIA-MX]` |
+| **Nombre** | SUCPROM override para CVETRANs 4159/4160 → sucursal 342 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | Consulta SME Mainframe Migration |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[HARDCODE-SOSPECHOSO]` `[REGLA-BANCARIA-MX]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV — la sucursal promotora determina el libro contable de captación en el GL |
-| **Capacidad bancaria** | Contabilidad por sucursal · Captación · Asignación de P&L |
-| **Programa(s) fuente** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3388–3389) |
-| **Frecuencia** | Por-transacción (solo si CVETRAN es 4159 o 4160) |
-| **Sistemas downstream** | S151 (SUCPROM determina la cuenta contable del asiento) |
+| **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3388–3389) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -530,13 +601,20 @@ IF WS-S151-0101-CVETRAN-I(1) = 4159 OR 4160:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-163 |
-| **Tipo** | `[HARDCODE-SOSPECHOSO]` `[REGLA-BANCARIA-MX]` |
+| **Nombre** | SUCPROM/SUCTRAN override CVETRAN 4449/ACNOMINAPORTA → sucursal 859 + cajero 40 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | Consulta SME Mainframe Migration |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[HARDCODE-SOSPECHOSO]` `[REGLA-BANCARIA-MX]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV — SPEI (Sistema de Pagos Electrónicos Interbancarios) tiene requerimientos de registro por punto de entrada |
-| **Capacidad bancaria** | Pagos interbancarios SPEI · Contabilidad por canal |
-| **Programa(s) fuente** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3399–3408) |
-| **Frecuencia** | Por-transacción SPEI |
-| **Sistemas downstream** | S151 (asiento con SUCPROM/SUCTRAN/SUCS028 y CAJOPER/CAJTRAN/CAJS028 hardcoded) |
+| **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3399–3408) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -573,13 +651,20 @@ IF WS-S151-0101-CVETRAN-I(1) = 4449 OR WS-CVE-ACNOMINAPORTA-PG:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-164 |
-| **Tipo** | `[HARDCODE-SOSPECHOSO]` `[REGLA-BANCARIA-MX]` |
+| **Nombre** | SUCPROM override CVETRANs 2136/2137/2138 → SUCTRAN de la operación |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | Consulta SME Mainframe Migration |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[HARDCODE-SOSPECHOSO]` `[REGLA-BANCARIA-MX]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV — asignación de P&L por sucursal operadora vs. promotora |
-| **Capacidad bancaria** | Contabilidad por sucursal · Captación especial |
-| **Programa(s) fuente** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3395–3396) |
-| **Frecuencia** | Por-transacción con CVETRANs 2136/2137/2138 |
-| **Sistemas downstream** | S151 (asiento imputado a SUCTRAN en lugar de sucursal promotora de la cuenta) |
+| **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3395–3396) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -608,13 +693,20 @@ IF WS-S151-0101-CVETRAN-I(1) = 2136 OR 2137 OR 2138:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-165 |
-| **Tipo** | `[HARDCODE-SOSPECHOSO]` `[REGLA-BANCARIA-MX]` |
+| **Nombre** | SUCS028/CAJS028 hardcode por perfil PIM (CVETRANs 3002/4001/3018/4016) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | Consulta SME Mainframe Migration |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[HARDCODE-SOSPECHOSO]` `[REGLA-BANCARIA-MX]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV — la sucursal del asiento S028 determina el registro de movimiento en el libro de captación especial |
-| **Capacidad bancaria** | Captación premium (PIM) · Contabilidad por segmento |
-| **Programa(s) fuente** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3413–3444) |
-| **Frecuencia** | Por-transacción con CVETRANs 3002/4001/3018/4016 y perfil PIM activo |
-| **Sistemas downstream** | S151 (SUCS028/CAJS028 determinan el asiento en el libro S028) |
+| **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3413–3444) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -657,13 +749,20 @@ IF CVETRAN-I(1) = 3002 OR 4001 OR 3018 OR 4016:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-166 |
-| **Tipo** | `[HARDCODE-SOSPECHOSO]` |
+| **Nombre** | SUCS028 hardcode para CVETRAN 3027 (cajero 55, sucursal nodo-dependiente) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | Consulta SME Mainframe Migration |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[HARDCODE-SOSPECHOSO]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — regla de routing interno del libro S028 |
-| **Capacidad bancaria** | Captación · Contabilidad por cajero/sucursal |
-| **Programa(s) fuente** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3446–3451) |
-| **Frecuencia** | Por-transacción CVETRAN 3027 |
-| **Sistemas downstream** | S151 (asiento S028 con cajero 55) |
+| **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3446–3451) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -693,13 +792,20 @@ IF WS-S151-0101-CVETRAN-I(1) = 3027:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-167 |
-| **Tipo** | `[HARDCODE-SOSPECHOSO]` |
+| **Nombre** | SUCS028 hardcode para CVETRANs 3047 y 1153 (cajeros especiales) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | Consulta SME Mainframe Migration |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[HARDCODE-SOSPECHOSO]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — routing S028 interno |
-| **Capacidad bancaria** | Captación · Contabilidad por canal |
-| **Programa(s) fuente** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3453–3467) |
-| **Frecuencia** | Por-transacción con CVETRAN 3047 o 1153 |
-| **Sistemas downstream** | S151 (asiento S028 con sucursal/cajero especial) |
+| **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3453–3467) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -736,13 +842,20 @@ IF WS-S151-0101-CVETRAN-I(1) = 1153:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-168 |
-| **Tipo** | `[REGLA-BANCARIA-MX]` `[HARDCODE-SOSPECHOSO]` |
+| **Nombre** | MONEDA=1 para operaciones en pesos (hardcode por CVETRAN) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | Consulta SME Mainframe Migration |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[REGLA-BANCARIA-MX]` `[HARDCODE-SOSPECHOSO]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV CUB — la moneda del asiento GL debe corresponder a la moneda de la operación |
-| **Capacidad bancaria** | Captación multidivisa · Contabilidad por moneda |
-| **Programa(s) fuente** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3481–3495) |
-| **Frecuencia** | Por-transacción |
-| **Sistemas downstream** | S151 (código de moneda del asiento contable) |
+| **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CTES` (líneas 3481–3495) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -781,13 +894,20 @@ IF WS03-88-PIM-CTAPERDLS AND
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-169 |
-| **Tipo** | `[LÓGICA-CONTABLE]` `[REGLA-BANCARIA-MX]` |
+| **Nombre** | SGIRO: indicador de sobregiro con distinción línea vigente vs. vencida |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | Consulta SME Mainframe Migration |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[LÓGICA-CONTABLE]` `[REGLA-BANCARIA-MX]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV CUB — el sobregiro en líneas de crédito vigentes vs. vencidas tiene tratamiento contable diferente (provisiones IFRS 9) |
-| **Capacidad bancaria** | Líneas de crédito asociadas a captación · Sobregiro |
-| **Programa(s) fuente** | `S500_INC_WOR_CAN.txt` — comentario del contrato CARGAMOV1 (línea ~406700) |
-| **Frecuencia** | Por-transacción con cargo que genera sobregiro |
-| **Sistemas downstream** | S151 (determina el asiento contable de sobregiro por tipo de línea) |
+| **Programa ejecutor** | `S500_INC_WOR_CAN.txt` — comentario del contrato CARGAMOV1 (línea ~406700) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -823,13 +943,20 @@ WS-S151-0101-TIPO-PROC-I:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-170 |
-| **Tipo** | `[LÓGICA-CONTABLE]` `[REGLA-BANCARIA-MX]` |
+| **Nombre** | ORIGEN: clasificación de operaciones local / foráneo enviado / foráneo recibido |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | Consulta SME Mainframe Migration |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[LÓGICA-CONTABLE]` `[REGLA-BANCARIA-MX]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV CUB — operaciones foráneas tienen tratamiento contable diferente (comisiones interbancarias, conciliación) |
-| **Capacidad bancaria** | Captación · Conciliación interbancaria |
-| **Programa(s) fuente** | `S500_INC_WOR_CAN.txt` — campos 88 de ORIGEN (líneas ~4397–4400) |
-| **Frecuencia** | Por-transacción |
-| **Sistemas downstream** | S151 (el ORIGEN determina el flujo de contabilidad para operaciones interbancarias) |
+| **Programa ejecutor** | `S500_INC_WOR_CAN.txt` — campos 88 de ORIGEN (líneas ~4397–4400) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -856,13 +983,20 @@ WS-S151-0101-ORIGEN (PIC 9(02) COMP):
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-171 |
-| **Tipo** | `[REGLA-BANCARIA-MX]` |
+| **Nombre** | Propagación de leyenda para corresponsales (CVETRANs 1119/1120/2200) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | Consulta SME Mainframe Migration |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[REGLA-BANCARIA-MX]` |
 | **Confianza** | media |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV CONDUSEF — las leyendas en el estado de cuenta deben reflejar la naturaleza real de la operación |
-| **Capacidad bancaria** | Corresponsales bancarios · Estado de cuenta |
-| **Programa(s) fuente** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-IMP` / `20000151-CLAVES-CORRESP` (líneas 4260–4267) |
-| **Frecuencia** | Por-transacción de corresponsal con CVETRAN principal 1119/1120/2200 |
-| **Sistemas downstream** | S151 → estado de cuenta del cliente |
+| **Programa ejecutor** | `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-IMP` / `20000151-CLAVES-CORRESP` (líneas 4260–4267) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -898,13 +1032,20 @@ WS-S151-0101-ORIGEN (PIC 9(02) COMP):
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-172 |
-| **Tipo** | `[CONTROL]` |
+| **Nombre** | Contadores de monitoreo de llamadas S151 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | Consulta SME Mainframe Migration |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[CONTROL]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — monitoreo interno operativo |
-| **Capacidad bancaria** | Integración GL · Monitoreo de volumen |
-| **Programa(s) fuente** | `S500_INC_WOR_CAN.txt` (líneas 4242–4248) + `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CALL` (línea 3810) + `20000151-CARGAMOV1-IMP` (líneas 4174–4241) |
-| **Frecuencia** | Acumulado por sesión/proceso |
-| **Sistemas downstream** | Log operativo de S500 |
+| **Programa ejecutor** | `S500_INC_WOR_CAN.txt` (líneas 4242–4248) + `S500_INC_PRO_CAN.txt` — `20000151-CARGAMOV1-CALL` (línea 3810) + `20000151-CARGAMOV1-IMP` (líneas 4174–4241) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -951,13 +1092,20 @@ Incremento en CARGAMOV1-IMP (por cada CVETRAN procesado):
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-173 |
-| **Tipo** | `[REGLA-BANCARIA-MX]` `[CONTROL]` |
+| **Nombre** | FRAUDLINK: objetivo y flujo general de P103 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-10 |
+| **bian_ref** | 6.5.2 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[REGLA-BANCARIA-MX]` `[CONTROL]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV — detección y control de fraude es obligación regulatoria; el feed a S711 soporta el proceso de bloqueo |
-| **Capacidad bancaria** | Detección de fraude · Bloqueo de cuentas · Reportes operativos |
-| **Programa(s) fuente** | `S500_SOURCE_P103.txt` — `00000000-MAIN-PARAGRAPH` (líneas 127500–128500) |
-| **Frecuencia** | Diaria (invocado desde S500B07MOVDIA y S500B13MOVCVES) |
-| **Sistemas downstream** | S711 (sistema de detección/gestión de fraude de Banamex) via INTELARSND |
+| **Programa ejecutor** | `S500_SOURCE_P103.txt` — `00000000-MAIN-PARAGRAPH` (líneas 127500–128500) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -996,13 +1144,20 @@ Incremento en CARGAMOV1-IMP (por cada CVETRAN procesado):
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-174 |
-| **Tipo** | `[HARDCODE-SOSPECHOSO]` `[REQUIERE-LEGAL]` `[REGLA-BANCARIA-MX]` |
+| **Nombre** | Trío de claves de fraude hardcoded: 2001 / 2444 / 2496 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-10 |
+| **bian_ref** | 6.5.2 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[HARDCODE-SOSPECHOSO]` `[REQUIERE-LEGAL]` `[REGLA-BANCARIA-MX]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV — las claves de fraude son parte del catálogo regulatorio de tipos de movimiento; cambios requieren aprobación |
-| **Capacidad bancaria** | Detección de fraude · Bloqueo por clave de movimiento |
-| **Programa(s) fuente** | `S500_SOURCE_P103.txt` — `50001100-MOV-ORIG`, `50001200-OPERO5-B07`, `50001350-BUSCA-B13` (líneas 144100–296100) |
-| **Frecuencia** | Por-movimiento (evaluada en cada registro B07 y B13) |
-| **Sistemas downstream** | S711 (recibe estos movimientos para procesamiento de fraude) |
+| **Programa ejecutor** | `S500_SOURCE_P103.txt` — `50001100-MOV-ORIG` |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -1049,13 +1204,20 @@ Incremento en CARGAMOV1-IMP (por cada CVETRAN procesado):
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-175 |
-| **Tipo** | `[LÓGICA-CONTABLE]` `[REGLA-DISTRIBUIDA]` |
+| **Nombre** | Fuentes duales: B07MOVDIA (principal) y B13MOVCVES (adicional) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-10 |
+| **bian_ref** | 6.5.2 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[LÓGICA-CONTABLE]` `[REGLA-DISTRIBUIDA]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV — la completitud del reporte de fraude requiere cubrir tanto el movimiento principal como sus conceptos adicionales |
-| **Capacidad bancaria** | Detección de fraude · Integridad del reporte |
-| **Programa(s) fuente** | `S500_SOURCE_P103.txt` — flujo `50001000-PROCESO` → `50001300-MOVS-B13` (líneas 139500–153700) |
-| **Frecuencia** | Por-movimiento B07 (con posible extensión a B13) |
-| **Sistemas downstream** | S711 |
+| **Programa ejecutor** | `S500_SOURCE_P103.txt` — flujo `50001000-PROCESO` → `50001300-MOVS-B13` (líneas 139500–153700) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -1099,13 +1261,20 @@ Incremento en CARGAMOV1-IMP (por cada CVETRAN procesado):
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-176 |
-| **Tipo** | `[CONTROL]` `[REGLA-BANCARIA-MX]` |
+| **Nombre** | Filtro de status B07: omite movimientos con STATUS-MOVTO = 1 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-10 |
+| **bian_ref** | 6.5.2 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[CONTROL]` `[REGLA-BANCARIA-MX]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — control interno de integridad de datos |
-| **Capacidad bancaria** | Control de proceso · Integridad de movimientos |
-| **Programa(s) fuente** | `S500_SOURCE_P103.txt` — `50001000-PROCESO` (líneas 142110–142300) |
-| **Frecuencia** | Por-movimiento B07 |
-| **Sistemas downstream** | S711 (solo recibe movimientos aplicados) |
+| **Programa ejecutor** | `S500_SOURCE_P103.txt` — `50001000-PROCESO` (líneas 142110–142300) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -1136,13 +1305,20 @@ Incremento en CARGAMOV1-IMP (por cada CVETRAN procesado):
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-177 |
-| **Tipo** | `[LÓGICA-CONTABLE]` |
+| **Nombre** | Escaneo de hasta 10 claves adicionales B13 por movimiento |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-10 |
+| **bian_ref** | 6.5.2 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[LÓGICA-CONTABLE]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — exhaustividad de cobertura de fraude |
-| **Capacidad bancaria** | Detección de fraude · Claves adicionales de movimiento |
-| **Programa(s) fuente** | `S500_SOURCE_P103.txt` — `50001300-MOVS-B13` + `50001350-BUSCA-B13` (líneas 149500–156300) |
-| **Frecuencia** | Por-movimiento B07 con B13 asociado |
-| **Sistemas downstream** | S711 |
+| **Programa ejecutor** | `S500_SOURCE_P103.txt` — `50001300-MOVS-B13` + `50001350-BUSCA-B13` (líneas 149500–156300) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -1185,13 +1361,20 @@ Incremento en CARGAMOV1-IMP (por cada CVETRAN procesado):
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-178 |
-| **Tipo** | `[RIESGO-EQUIVALENCIA]` |
+| **Nombre** | Estructura del registro de salida FRAUDLINK (60 caracteres fijos) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-10 |
+| **bian_ref** | 6.5.2 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[RIESGO-EQUIVALENCIA]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — contrato de interfaz con S711 |
-| **Capacidad bancaria** | Integración fraude · Formato de intercambio |
-| **Programa(s) fuente** | `S500_SOURCE_P103.txt` — `WKS-REG-E03-CVES` (líneas 119100–120700) |
-| **Frecuencia** | Por-registro de fraude extraído |
-| **Sistemas downstream** | S711 (consumer del archivo) |
+| **Programa ejecutor** | `S500_SOURCE_P103.txt` — `WKS-REG-E03-CVES` (líneas 119100–120700) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -1231,13 +1414,20 @@ Areas: 1,000 bloques = 32,400,000 bytes máximo por archivo
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-179 |
-| **Tipo** | `[HARDCODE-SOSPECHOSO]` |
+| **Nombre** | Ruta del archivo de salida S711: S500/FILE/S711/FRAUDLINK/{CSI}/{FECHA} |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-10 |
+| **bian_ref** | 6.5.2 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[HARDCODE-SOSPECHOSO]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — convenio de naming con S711 |
-| **Capacidad bancaria** | Integración fraude · Entrega de archivo |
-| **Programa(s) fuente** | `S500_SOURCE_P103.txt` — `WKS-TIT-E03-CVES` (líneas 115500–116700) + `20000100-ABRE-BASE` (líneas 137800–138900) |
-| **Frecuencia** | Una vez por ejecución de P103 |
-| **Sistemas downstream** | S711 (via INTELAR — sistema de mensajería Unisys entre subsistemas) |
+| **Programa ejecutor** | `S500_SOURCE_P103.txt` — `WKS-TIT-E03-CVES` (líneas 115500–116700) + `20000100-ABRE-BASE` (líneas 137800–138900) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -1275,13 +1465,20 @@ MOVE B02-FECHA-LOTE TO WKS-TIT-E03-FECH   -- fecha del lote del día
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-180 |
-| **Tipo** | `[RIESGO-EQUIVALENCIA]` |
+| **Nombre** | Header (tipo "1") y trailer (tipo "9") del archivo S711 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-10 |
+| **bian_ref** | 6.5.2 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[RIESGO-EQUIVALENCIA]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A — formato de intercambio con S711 |
-| **Capacidad bancaria** | Integración fraude · Integridad de archivo |
-| **Programa(s) fuente** | `S500_SOURCE_P103.txt` — `WKS-E03-HEADER` + `WKS-E03-TRAILER` + `20000600-GEN-HEADER` + `20000700-GEN-TRAILER` (líneas 117100–139270) |
-| **Frecuencia** | Una vez por ejecución (header al inicio, trailer al cierre) |
-| **Sistemas downstream** | S711 (valida header + trailer para procesar el archivo) |
+| **Programa ejecutor** | `S500_SOURCE_P103.txt` — `WKS-E03-HEADER` + `WKS-E03-TRAILER` + `20000600-GEN-HEADER` + `20000700-GEN-TRAILER` (líneas 117100–139270) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -1324,13 +1521,20 @@ Trailer (tipo "9", 60 chars):
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-181 |
-| **Tipo** | `[HARDCODE-SOSPECHOSO]` |
+| **Nombre** | BANCO=0002 hardcoded en todos los registros de salida |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-10 |
+| **bian_ref** | 6.5.2 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[HARDCODE-SOSPECHOSO]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV — el código de banco identifica la institución en el reporte de fraude |
-| **Capacidad bancaria** | Identificación institucional · Reporte de fraude |
-| **Programa(s) fuente** | `S500_SOURCE_P103.txt` — `50001100-MOV-ORIG`, `50001200-OPERO5-B07`, `50001350-BUSCA-B13` (3 ocurrencias) |
-| **Frecuencia** | Por-registro de fraude |
-| **Sistemas downstream** | S711 |
+| **Programa ejecutor** | `S500_SOURCE_P103.txt` — `50001100-MOV-ORIG` |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```
@@ -1358,13 +1562,20 @@ MOVE 0002 TO WKS-REG-E03-BCO     -- banco = 0002 (Banamex) hardcoded
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-182 |
-| **Tipo** | `[REGLA-DISTRIBUIDA]` `[REQUIERE-LEGAL]` |
+| **Nombre** | Destino S711: feed para bloqueo operativo por fraude |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-10 |
+| **bian_ref** | 6.5.2 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[REGLA-DISTRIBUIDA]` `[REQUIERE-LEGAL]` |
 | **Confianza** | media |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV — el bloqueo de cuentas por fraude tiene plazos y procedimientos regulatorios específicos |
-| **Capacidad bancaria** | Detección de fraude · Bloqueo de cuentas · Cadena de custodia |
-| **Programa(s) fuente** | `S500_SOURCE_P103.txt` — comentario inicial (líneas 100500–100700) + `S500_INC_PRO_CAN.txt` — `20000006-ADMONXFERS` (líneas 1061–1084) |
-| **Frecuencia** | Diaria (el archivo es enviado a S711 via INTELAR como parte del batch S500) |
-| **Sistemas downstream** | S711 (sistema destino) via INTELAR (middleware de mensajería Unisys) |
+| **Programa ejecutor** | `S500_SOURCE_P103.txt` — comentario inicial (líneas 100500–100700) + `S500_INC_PRO_CAN.txt` — `20000006-ADMONXFERS` (líneas 1061–1084) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / pseudocódigo:**
 ```

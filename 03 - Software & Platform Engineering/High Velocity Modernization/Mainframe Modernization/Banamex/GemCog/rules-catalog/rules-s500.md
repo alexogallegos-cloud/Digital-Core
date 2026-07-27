@@ -1,4 +1,5 @@
-# Catálogo de Reglas de Negocio — Sistema S500 (Captación / Cargos y Abonos)
+﻿# Catálogo de Reglas de Negocio — Sistema S500 (Captación / Cargos y Abonos)
+**Indexado:** ✅ 2026-07-17 — correlacionado vocab↔reglas↔capacidad (traceability-matrix.md)
 
 > **Sistema:** S500 — Cargos y Abonos de Cuentas de Cheque · Unisys ClearPath MCP · Banamex
 > **Extractor:** Specialist - Business Rules + Specialist - Reverse Engineering (Digital Core)
@@ -31,15 +32,26 @@
 ## Reglas extraídas
 
 ---
+
 ### RN-S500-001 — Validación de versión antes de generar reporte FraudLink
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [REPORTE-REGULATORIO] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P103 |
+| **Identificador** | RN-S500-001 |
+| **Nombre** | Validación de versión antes de generar reporte FraudLink |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-10 |
+| **bian_ref** | 6.5.2 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [REPORTE-REGULATORIO] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P103 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Antes de generar el reporte diario hacia FraudLink, el programa valida que la versión que se está ejecutando coincida con la registrada en el catálogo central de versiones del banco (librería S100VERSIONES); si no coincide, aborta la tarea y el archivo de salida hacia FraudLink nunca llega a abrirse — no se genera ningún reporte ese día. Técnicamente: la validación ocurre en el paragraph 10000100-TIT-LIBS (PERFORM 10000100-VERSIONES → 20000100-CHECAME-VERSION); IF S000-CTR-CVEERROR < 0 se emite el mensaje "ERROR DE VERSION" y se cancela con CHANGE ATTRIBUTE STATUS OF MYSELF TO -1 (mecanismo de cancelación distinto al CALL SYSTEM DMTERMINATE usado en el resto del programa).
 
@@ -71,11 +83,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [REPORTE-REGULATORIO] |
-| **Base regulatoria** | CNBV |
-| **Programa(s)** | P103 |
+| **Identificador** | RN-S500-002 |
+| **Nombre** | Cancelación si falla lectura del registro de control |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-10 |
+| **bian_ref** | 6.5.2 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [REPORTE-REGULATORIO] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | CNBV |
+| **Programa ejecutor** | P103 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Si el registro maestro de control de captación (S500B02CONTROL) no puede leerse correctamente, el proceso cancela antes de abrir el archivo de salida y no se genera el reporte hacia FraudLink/CNBV (S711) ese día. Técnicamente: en 20000100-ABRE-BASE, tras PERFORM 90000002-B02CONTROL-FIND sobre S500B02CONTROL (base de captación S500BD01CAPTACION), IF WS-STATUS-BASE > 0 el proceso cancela vía CALL SYSTEM DMTERMINATE antes de abrir el archivo E03-CVES2001. Ese mismo registro de control aporta B02-NUM-CSI (nodo/instancia) y B02-FECHA-LOTE (fecha de proceso batch, no la fecha de línea), usados como cabecera del archivo.
 
@@ -109,11 +131,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [REPORTE-REGULATORIO] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P103 |
+| **Identificador** | RN-S500-003 |
+| **Nombre** | Control de fin de archivo en ciclo de movimientos |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-10 |
+| **bian_ref** | 6.5.2 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [REPORTE-REGULATORIO] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P103 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El programa recorre secuencialmente todos los movimientos del día para evaluarlos como posible reporte a FraudLink; al llegar al final del archivo termina el ciclo de forma normal, pero cualquier otro error de lectura aborta el proceso completo. Técnicamente: en el ciclo principal (50001000-PROCESO), tras cada PERFORM 90000007-B07MOVDIA-FINDN (lectura secuencial de S500B07MOVDIA), IF WS-STATUS-BASE > 0: valor 1 marca W77-EOF-B07 = 1 (fin de archivo, término normal del ciclo UNTIL); cualquier otro valor distinto de cero cancela el proceso vía CALL SYSTEM DMTERMINATE.
 
@@ -146,11 +178,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [REPORTE-REGULATORIO] |
-| **Base regulatoria** | CNBV |
-| **Programa(s)** | P103 |
+| **Identificador** | RN-S500-004 |
+| **Nombre** | Exclusión de movimientos con estado 1 del análisis |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-10 |
+| **bian_ref** | 6.5.2 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [REPORTE-REGULATORIO] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | CNBV |
+| **Programa ejecutor** | P103 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Ciertos movimientos se excluyen del análisis de fraude antes de evaluar su código de transacción: si el estado del movimiento (B07-STATUS-MOVTO) es igual a 1, se descarta sin generar ningún registro; cualquier otro valor continúa hacia la evaluación de código de transacción (MOV-ORIG, OPERO5-B07, MOVS-B13). Nota de verificación: el catálogo DASDL solo documenta B07-STATUS-MOVTO como "Estado del movimiento en curso", sin enumerar sus valores posibles — no hay confirmación en las fuentes revisadas de que el valor 1 signifique específicamente cancelación o anulación; esa interpretación queda como hipótesis razonable de convención bancaria, no como hecho verificado.
 
@@ -182,11 +224,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [REPORTE-REGULATORIO] |
-| **Base regulatoria** | CNBV |
-| **Programa(s)** | P103 |
+| **Identificador** | RN-S500-005 |
+| **Nombre** | Reporte a FraudLink de códigos de transacción monitoreados |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-10 |
+| **bian_ref** | 6.5.2 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [REPORTE-REGULATORIO] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | CNBV |
+| **Programa ejecutor** | P103 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Los movimientos con código de transacción 2001, 2444 o 2496 — las claves que el banco monitorea para prevención de fraude — se reportan a FraudLink/CNBV (S711) con sucursal, medio de acceso, fecha, código e importe. Técnicamente (50001100-MOV-ORIG, IF B07-CLAVE-MOVTO = 2001 OR 2444 OR 2496): el registro incluye WKS-SUC-OPE (sucursal, primeros 4 dígitos de B07-AUTORIZACION vía REDEFINES RD-WKS-AUTORIZ-MOV — los otros 2+8 dígitos, caja y secuencia, se descomponen pero no se usan en este registro), B07-MED-ACCESO (medio de acceso; catálogo B07-TIPO-MEDACCES: 0=Contrato,1=Chequera,2=Tarjeta,3=PIN, aunque el campo destino conserva el nombre legado WKS-REG-E03-CHQRA), B02-FECHA-LOTE (fecha de proceso batch), B07-CLAVE-MOVTO (código de transacción) y B07-IMPORTE más B07-REFER-NUME (referencia). WKS-SUC-OPE se calcula una sola vez por movimiento padre (línea 232) y se reutiliza en los registros de sus sub-movimientos B07 y B13.
 
@@ -224,11 +276,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [REPORTE-REGULATORIO] |
-| **Base regulatoria** | CNBV |
-| **Programa(s)** | P103 |
+| **Identificador** | RN-S500-006 |
+| **Nombre** | Reporte de hasta 5 sub-movimientos SAD con código de fraude |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-10 |
+| **bian_ref** | 6.5.2 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [REPORTE-REGULATORIO] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | CNBV |
+| **Programa ejecutor** | P103 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El monitoreo de fraude no se limita al movimiento principal: cada movimiento puede traer hasta 5 sub-movimientos asociados (grupo "Otros Movimientos SAD"), y cada uno de ellos con código 2001, 2444 o 2496 genera también su propio registro independiente en el archivo FraudLink. Técnicamente (50001200-OPERO5-B07, PERFORM ... 5 TIMES desde 50001000-PROCESO): IF B07-CVE-MOVAD (W77-IND-B07) = 2001 OR 2444 OR 2496, cada sub-movimiento del grupo B07-OTROS-MOVSAD (×5) genera su registro con el mismo WKS-SUC-OPE del movimiento padre pero su propio código/importe/referencia (B07-CVE-MOVAD, B07-IMP-MOVAD, B07-REF-MOVAD indexados por W77-IND-B07).
 
@@ -264,11 +326,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [REPORTE-REGULATORIO] |
-| **Base regulatoria** | CNBV |
-| **Programa(s)** | P103 |
+| **Identificador** | RN-S500-007 |
+| **Nombre** | Reporte de hasta 10 claves adicionales B13 con código de fraude |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-10 |
+| **bian_ref** | 6.5.2 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [REPORTE-REGULATORIO] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | CNBV |
+| **Programa ejecutor** | P103 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El reporte a FraudLink alcanza también un tercer nivel de detalle: cuando el movimiento indica que existen claves de transacción adicionales asociadas al contrato, el programa las revisa una por una (hasta 10) y genera un registro FraudLink adicional por cada una que tenga un código de fraude monitoreado. Técnicamente: si B07-IND-MOVSADS > 0, se ejecuta 50001300-MOVS-B13, que localiza S500B13MOVCVES por B07-NUM-CONTRATO (FK) + B07-AUTORIZACION; si existe (W77-SIN-B13 = 0), recorre hasta 10 veces (50001350-BUSCA-B13) el grupo B13-CLAVES-TRANS×10 de ese contrato/autorización. Cada entrada con B13-CLAVE-MOVTO(idx) = 2001, 2444 o 2496 genera un registro FraudLink adicional con B13-IMPORTE(idx) y B13-REF-MOVAD(idx).
 
@@ -306,11 +378,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [REPORTE-REGULATORIO] |
-| **Base regulatoria** | CNBV |
-| **Programa(s)** | P103 |
+| **Identificador** | RN-S500-008 |
+| **Nombre** | Acumulación de contador e importe total para trailer de cierre |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-10 |
+| **bian_ref** | 6.5.2 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [REPORTE-REGULATORIO] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | CNBV |
+| **Programa ejecutor** | P103 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Cada vez que se escribe un registro en el archivo FraudLink, el programa acumula un conteo de registros y una suma de importes reportados; al cerrar el archivo, ambos totales se escriben como registro de cierre (trailer), permitiendo que FraudLink/CNBV valide que recibió el archivo completo, sin registros perdidos ni duplicados. Técnicamente, la operación se implementa como una pareja de ADD, no como una sentencia COMPUTE (paragraph 50002000-ESC-ARCHIVO, ejecutado por cada registro escrito). Fórmula: WKS-NUM-REG = WKS-NUM-REG + 1 (ADD 1 TO WKS-NUM-REG; contador PIC 9(08), inicia en 0) y WKS-IMP-TOT = WKS-IMP-TOT + WKS-REG-E03-IMPORTE (ADD WKS-REG-E03-IMPORTE TO WKS-IMP-TOT; acumulador PIC 9(12)V99, inicia en 0). Al cerrar (80000000-TERMINA → 20000700-GEN-TRAILER) se escribe el registro tipo "9" WKS-E03-TRAILER con WKS-NUM-REG y WKS-IMP-TOT como total de cierre del archivo. Nota técnica: WKS-REG-E03-IMPORTE es PIC 9(11)V99 (11 enteros) mientras B07-IMPORTE/B13-IMPORTE de origen son NUMBER 14,2 en el DASDL — un importe individual con más de 11 dígitos enteros se truncaría al mover al registro de detalle (riesgo estructural de bajo impacto práctico, no observado como incidente real).
 
@@ -345,11 +427,21 @@ Tipo de sentencia: COMPUTE (implementado como ADD en el fuente)
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | CONTROL-PROCESO |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P100 |
+| **Identificador** | RN-S500-009 |
+| **Nombre** | Detección servidor de desarrollo ACYPBETA |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-14 |
+| **bian_ref** | 8.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONTROL-PROCESO |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P100 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El programa identifica si se ejecuta en el servidor de desarrollo (ACYPBETA) y, de ser así, omite la verificación de versión contra el catálogo central de versiones del banco; en cualquier otro servidor la verificación es obligatoria. Aunque el código conserva restos de un "modo de diagnóstico" asociado a este mismo indicador, esas líneas (los DISPLAY condicionados a WKS-ES-DES = 1, líneas 201-207 y 213-216) están comentadas — código inactivo — en la versión actual: el único efecto real del servidor de desarrollo hoy es omitir el checeo de versión. Técnicamente: en 00000000-PRINCIPAL se obtiene ATTRIBUTE HOSTNAME OF MYSELF; IF WKS-MY-HOST = "ACYPBETA. " activa WKS-ES-DES = 1 (indicador de servidor de desarrollo), consultado en la línea 260 (IF WKS-ES-DES = 0 PERFORM 20000050-CHECO-VER) para omitir la verificación solo en ese host.
 
@@ -382,11 +474,21 @@ Tipo de sentencia: IF condicional
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | CONTROL-PROCESO |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P100 |
+| **Identificador** | RN-S500-010 |
+| **Nombre** | Cancelación por versión de software no vigente |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-14 |
+| **bian_ref** | 8.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONTROL-PROCESO |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P100 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Fuera del servidor de desarrollo, el programa valida su versión contra el catálogo central antes de calcular cualquier fecha; si la versión ejecutada no es la vigente, cancela sin devolver la fecha de proceso al workflow que la solicitó (parámetro WS-VAL-FEC). Técnicamente: en 20000050-CHECO-VER (alcanzado solo si WKS-ES-DES = 0), tras PERFORM 20000100-CHECAME-VERSION, IF S000-CTR-CVEERROR < 0 se emite "VER. EJECUTADA DIF. A VERSIONES" y se cancela con CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.
 
@@ -419,11 +521,21 @@ Tipo de sentencia: IF condicional
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | CONTROL-PROCESO |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P100 |
+| **Identificador** | RN-S500-011 |
+| **Nombre** | Selección BD04 Tarjetas vs BD01 Captación opción 3 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-14 |
+| **bian_ref** | 8.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONTROL-PROCESO |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P100 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Cuando el workflow solicita específicamente la opción 3 sin días de retroceso, el programa consulta la base de Tarjetas en vez de la de Captación, y retorna la fecha del último archivo de prealtas aplicado desde Tarjetas — un dato que se aplica todos los días, incluidos festivos. Cualquier otra combinación de opción/días consulta S500BD01CAPTACION (captación) en su lugar. Técnicamente: la condición IF WKS-VAL-OPCI = 3 AND WKS-VAL-DANT = 0 se evalúa dos veces — en 20001000-ABRO-BASE (línea 285) decide abrir S500BD04TARJETAS en vez de S500BD01CAPTACION; en 20002000-FECHA-PRO (línea 321) decide ejecutar 20002500-FECHA-BD04 en vez de 20002010-FECHA-BD01 — y retorna B01P-ULT-ARCHAPLI junto con B01P-NUM-CSI como nodo.
 
@@ -458,11 +570,21 @@ Tipo de sentencia: IF condicional (evaluada en dos secciones distintas)
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | CONTROL-PROCESO |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P100 |
+| **Identificador** | RN-S500-012 |
+| **Nombre** | Cancelación por registro de control vacío o ilegible |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-14 |
+| **bian_ref** | 8.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONTROL-PROCESO |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P100 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Si el registro maestro de control (S500B02CONTROL) no puede leerse o está vacío, el programa no tiene forma de calcular ninguna fecha de proceso — de ahí dependen tanto la fecha de línea como el nodo — y cancela la ejecución. Técnicamente: en 20002010-FECHA-BD01, tras PERFORM 90000002-B02CONTROL-FIND, IF WS-STATUS-BASE > 0: valor 1 (registro vacío/inexistente) cancela con "ERROR REG. DE CONTROL VACIO" vía CALL SYSTEM DMTERMINATE; cualquier otro código también cancela.
 
@@ -494,11 +616,21 @@ Tipo de sentencia: IF condicional
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | CONTROL-PROCESO |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P100 |
+| **Identificador** | RN-S500-013 |
+| **Nombre** | Retorno de nodo activo sin fecha con opción 31 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-14 |
+| **bian_ref** | 8.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONTROL-PROCESO |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P100 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Con la opción "31" (opción 3 y un día de retroceso), el programa no calcula ninguna fecha: solo informa el nodo de procesamiento activo, dejando en ceros el resto de la respuesta. Técnicamente: IF WKS-VAL-OPCI = 3 AND WKS-VAL-DANT = 1, retorna en WS-NODO-S el valor de B02-USO-FUTURO-05 — campo declarado en el DASDL como "reservado para uso futuro" (NUMBER de 2 dígitos), reutilizado operativamente para exponer el nodo de procesamiento activo — y WKS-PARAM100 se llena de ceros.
 
@@ -534,11 +666,21 @@ Tipo de sentencia: IF condicional
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | CONTROL-PROCESO |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P100 |
+| **Identificador** | RN-S500-014 |
+| **Nombre** | Fallback a fecha de línea por parámetros inválidos |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-14 |
+| **bian_ref** | 8.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONTROL-PROCESO |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P100 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Si el workflow solicitante envía una combinación de parámetros inválida — opción y días de retroceso a la vez, o la opción 3 con más de un día de retroceso — el programa no intenta interpretar la intención: simplemente devuelve la fecha de línea tal cual, sin ninguna proyección. Técnicamente: IF (WKS-VAL-OPCI > 0 AND WKS-VAL-DANT > 0) OR (WKS-VAL-OPCI = 3 AND WKS-VAL-DANT > 1), se ejecuta 20002600-FEC-LINEA y retorna B02-FECHA-LINEA directamente.
 
@@ -572,11 +714,21 @@ Tipo de sentencia: IF condicional (OR compuesto)
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | CONTROL-PROCESO |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P100 |
+| **Identificador** | RN-S500-015 |
+| **Nombre** | Captura y validación manual de fecha opción 5 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-14 |
+| **bian_ref** | 8.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONTROL-PROCESO |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P100 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** La opción 5 permite capturar una fecha manualmente en vez de calcularla: el programa la solicita por teclado y la valida (año entre 1989-2999, mes 1-12, día 1-31); si es inválida, muestra "LA FECHA ESTA MAL TECLEADA" y vuelve a pedirla hasta que el operador ingrese una fecha correcta. La fecha capturada se proyecta después con la misma lógica que las demás opciones (20002200-PROY-FEC). Técnicamente: 20002100-PIDO-FECHA usa ACCEPT FECHA y evalúa IF DIAOK AND MESOK AND ANOOK (niveles 88: AANO 1989-2999, MMES 1-12, DDIA 1-31); si es válida, WS-1VEZ = 1 termina el PERFORM ... UNTIL (línea 375-376).
 
@@ -609,11 +761,21 @@ Tipo de sentencia: IF condicional con PERFORM UNTIL (bucle de validación)
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | CONTROL-PROCESO |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P100 |
+| **Identificador** | RN-S500-016 |
+| **Nombre** | Consulta indicador campaña Teletón opción 9 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-14 |
+| **bian_ref** | 8.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONTROL-PROCESO |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P100 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** La opción 9 no calcula ninguna fecha: se usa para consultar si la campaña Teletón está activa, reutilizando el mismo campo de salida que normalmente lleva la fecha calculada para transportar ese indicador, junto con el nodo de procesamiento. Técnicamente: IF WKS-VAL-OPCI = 9, se limpia WKS-PARAM100 y se mueve B02-ACT-TELETON (campo DASDL "Activación de campaña Teletón") al campo de salida WS-FEC-CALCULADA-AMD, junto con B02-NUM-CSI como nodo en WS-NODO-S.
 
@@ -650,11 +812,21 @@ Tipo de sentencia: IF condicional
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | CONTROL-PROCESO |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P100 |
+| **Identificador** | RN-S500-017 |
+| **Nombre** | Cálculo de último día del mes anterior opción 6 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-14 |
+| **bian_ref** | 8.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONTROL-PROCESO |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P100 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** La opción 6 calcula el último día del mes anterior a la fecha de línea — útil para procesos de cierre o corte mensual que necesitan referenciar el mes previo completo. Fórmula exacta: partiendo de WS-FEC-DIAMES = B02-FECHA-LINEA, se retrocede un mes (IF WS-FDM-MM = 1 → WS-FDM-MM = 12 y SUBTRACT 1 FROM WS-FDM-AAAA; ELSE SUBTRACT 1 FROM WS-FDM-MM). Luego WS-FDM-DD = WS-T-DIAS-X-MES(WS-FDM-MM), tabla fija de 12 posiciones (31,28,31,30,31,30,31,31,30,31,30,31). Si el mes resultante es 2 (febrero): DIVIDE WS-FDM-AAAA BY 4 GIVING WS-COCIENTE-BI REMAINDER WS-RESIDUO-BI; IF WS-RESIDUO-BI = 0 → WS-FDM-DD = 29 (sustituye el 28 por defecto de la tabla). Resultado: WS-FEC-CALCULADA-AMD = WS-FEC-DIAMES. Hallazgo: el criterio de bisiesto implementado es "divisible entre 4" puro — no aplica la excepción gregoriana de siglo (no bisiesto si divisible entre 100 y no entre 400); dado que el nivel 88 ANOOK permite años 1989-2999, el año 2100 se calcularía incorrectamente como bisiesto (WS-FDM-DD=29 cuando el calendario gregoriano real indica 28). Despachada desde el IF WKS-VAL-OPCI = 6 hacia 20002300-FEC-ULTDIAMES, con la aritmética resuelta en líneas 466-476.
 
@@ -693,11 +865,21 @@ Tipo de sentencia: COMPUTE aritmético / IF condicional / DIVIDE
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | CONTROL-PROCESO |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P100 |
+| **Identificador** | RN-S500-018 |
+| **Nombre** | Cancelación por fallo de acceso a librería LOCSUP |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-14 |
+| **bian_ref** | 8.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONTROL-PROCESO |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P100 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El cálculo de fechas proyectadas depende de una librería externa de calendario bancario (S006LOCSUP), que resuelve la resta de días naturales o hábiles sobre la fecha de línea; si esa librería no puede accesarse, el proceso cancela en vez de devolver una fecha potencialmente incorrecta. Técnicamente: en 40000000-CALL-FECPRO (invocado desde 20002200-PROY-FEC), tras PERFORM 20000006-LOCSUP, IF WS-S006-FUNCION > 0 se arma "ERROR AL ACCESAR LOCSUP" con WS-MSG-RS y se cancela vía CALL SYSTEM DMTERMINATE.
 
@@ -730,11 +912,21 @@ Tipo de sentencia: IF condicional
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | CONTROL-PROCESO |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P100 |
+| **Identificador** | RN-S500-019 |
+| **Nombre** | Retorno del primer día del mes opción 7 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-14 |
+| **bian_ref** | 8.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONTROL-PROCESO |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P100 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** La opción 7 retorna el primer día calendario del mes de la fecha de línea (año/mes de la fecha de línea, día forzado a 01), tal como documenta el comentario fuente del programa ("SE REGRESA LA FECHA... PRIMER DIA CALENDARIO DEL MES DE LA FECHA DE LINEA"). Técnicamente: PERFORM 20002400-FEC-1ERDIAMES (MOVE 1 TO WS-FDM-DD). Nota de alcance: no hay evidencia en comentarios ni en la lógica del programa de que esta opción esté ligada específicamente a procesos de corte mensual de captación; esa asociación no se confirma como hecho verificado.
 
@@ -767,11 +959,21 @@ Tipo de sentencia: IF condicional / MOVE
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | CONTROL-PROCESO |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P100 |
+| **Identificador** | RN-S500-020 |
+| **Nombre** | Retorno de fecha de línea sin proyección opción 8 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-14 |
+| **bian_ref** | 8.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONTROL-PROCESO |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P100 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** La opción 8 devuelve la fecha de línea (la fecha operativa "en línea" del sistema) tal cual, sin ninguna proyección, junto con el nodo de procesamiento. No debe confundirse con la fecha de lote (batch): ambas son campos distintos dentro del mismo registro de control S500B02CONTROL (B02-FECHA-LINEA vs. B02-FECHA-LOTE), y esta opción específicamente entrega la de línea, no la de lote. Técnicamente: PERFORM 20002600-FEC-LINEA retorna B02-FECHA-LINEA junto con B02-NUM-CSI.
 
@@ -807,11 +1009,21 @@ Tipo de sentencia: IF condicional / PERFORM
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | CONTROL-PROCESO |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P100 |
+| **Identificador** | RN-S500-021 |
+| **Nombre** | Proyección por defecto de fecha hacia atrás |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-14 |
+| **bian_ref** | 8.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONTROL-PROCESO |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P100 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Esta es la ruta de cálculo por defecto del programa: cuando el workflow solicitante no pide una opción especial (o pide las opciones 0, 1, 2 o 4), el programa proyecta la fecha de línea hacia atrás un número de días que depende de la opción recibida, usando la misma librería externa de calendario bancario. Fórmula: WS-S006-FECHA2 (días a proyectar hacia atrás desde B02-FECHA-LINEA) = WKS-VAL-DANT si WKS-VAL-DANT > 0; si no, = 1 si WKS-VAL-OPCI = 1; en cualquier otro caso (opciones 0, 2, 4) = 2. Con WS-S006-FORMATO = 12 y WS-S006-FUNCION = 15 se invoca la librería externa S006LOCSUP (vía 40000000-CALL-FECPRO) para restar esos días a B02-FECHA-LINEA; el resultado regresa en WS-S006-FECHA1 → WS-FEC-CALCULADA-AMD. Si WKS-VAL-OPCI = 5, este resultado se descarta y se sustituye por la fecha capturada manualmente (FECHA, vía 20002100-PIDO-FECHA). Técnicamente, esta ruta se resuelve en 20002200-PROY-FEC (invocada por la opción 0 sin parámetros, las opciones 1/2/4, y cualquier opción "01"-"09").
 
@@ -850,11 +1062,21 @@ Tipo de sentencia: COMPUTE aritmético / IF condicional / CALL
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | CONTROL-PROCESO |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P075 |
+| **Identificador** | RN-S500-022 |
+| **Nombre** | Validación de versión sin corte de ejecución |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-14 |
+| **bian_ref** | 8.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONTROL-PROCESO |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P075 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Al arrancar, el programa valida contra el catálogo central de versiones del banco (CHECAME IN CTLVERS, PERFORM 20000100-CHECAME-VERSION) que su propia versión de software (identificada como "S500P075", versión "25MTP003") sigue vigente y autorizada para ejecutarse. Si la validación falla (S000-CTR-CVEERROR negativo), registra el mensaje "ERROR DE VERSION" y marca el estatus de terminación del programa como fallido (CHANGE ATTRIBUTE STATUS OF MYSELF = -1) — pero esta marca de error NO detiene el flujo: no hay STOP RUN ni salto de párrafo asociado, así que el programa continúa de inmediato con la resolución de la librería central L080 (PERFORM 100000-L080), la cual reinicia el indicador de error a cero y evalúa de forma independiente su propia llamada (DAME_TIT). En consecuencia, un fallo de versión aquí deja el estatus final del run marcado como error, pero por sí solo no impide que se intente la notificación de cambio de día a P080 (ver regla línea 160).
 
@@ -879,11 +1101,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | CONTROL-PROCESO |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P075 |
+| **Identificador** | RN-S500-023 |
+| **Nombre** | Notificación de cierre condicional a L080 y parámetro |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-14 |
+| **bian_ref** | 8.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONTROL-PROCESO |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P075 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El aviso de cierre del día bancario hacia el procesador central (PERFORM 200000-INIBATCH) solo se dispara si se cumplen dos condiciones anidadas: que la resolución de la librería central L080 haya sido exitosa (S000-CTR-CVEERROR = 0, ver regla línea 177) y, dentro de esa rama, que el parámetro recibido en la ejecución (W77-PARAM-WFL, RECEIVED BY CONTENT) sea exactamente 1. Si la librería se resolvió bien pero ese parámetro no es 1, el programa arma el mensaje "VALUE ERRONEO PARA EJECUTAR P075 <valor>" con el valor recibido (WS-MSG-N-04), lo registra (70000050-MENSAJE) y marca su estatus de terminación como fallido; en ambos casos el programa termina con el mismo STOP RUN final (línea 169), ya que no existe una ruta de cancelación anticipada distinta entre ellos.
 
@@ -908,11 +1140,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | CONTROL-PROCESO |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P075 |
+| **Identificador** | RN-S500-024 |
+| **Nombre** | Resolución dinámica de L080 con falla silenciosa |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-14 |
+| **bian_ref** | 8.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONTROL-PROCESO |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P075 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Antes de avisar el cierre del día bancario, el programa necesita ubicar la versión física correcta y vigente del procesador central (librería lógica "S500L080CTRL", S000-CTR-LIBID), y la resuelve dinámicamente contra el catálogo central de versiones (DAME_TIT IN CTLVERS, PERFORM 20000100-DAME-TIT-VERS), aplicando el título resuelto con CHANGE ATTRIBUTE TITLE OF "S500L080CTRL" para que la llamada posterior a INIBATCH (línea 195) apunte a la versión correcta. Si esta resolución falla (S000-CTR-CVEERROR distinto de 0), el programa registra el mensaje "ERROR EN CALL CTLVERS S500L080 RESULT=<código>", pero SIN marcar el estatus de terminación como fallido. El efecto práctico es silencioso: al fallar la resolución, la condición de la regla anterior (línea 160) queda en falso y el programa omite el aviso de cambio de día a P080, terminando por STOP RUN sin notificarlo y sin ninguna señal de error en el estatus de salida del programa.
 
@@ -937,11 +1179,21 @@ Tipo de sentencia: CALL
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | CONTROL-PROCESO |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P075 |
+| **Identificador** | RN-S500-025 |
+| **Nombre** | Llamada INIBATCH notifica cierre del día bancario |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-14 |
+| **bian_ref** | 8.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONTROL-PROCESO |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P075 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Este es el paso que efectivamente notifica al procesador central que el día bancario concluyó: el programa invoca el entry point de inicialización de lote (INIBATCH) de la librería central L080 (resuelta dinámicamente en el paso anterior, línea 177) mediante CALL "S500L080INIBATCHP080 IN S500L080CTRL" GIVING WKS-L080-RESULT (párrafo 205000-INIBATCH-CALL). El código de resultado queda en WKS-L080-RESULT y se evalúa de inmediato al retornar de esta llamada (ver regla línea 189).
 
@@ -966,11 +1218,21 @@ Tipo de sentencia: CALL
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | CONTROL-PROCESO |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P075 |
+| **Identificador** | RN-S500-026 |
+| **Nombre** | Falla INIBATCH marca estatus de error visible |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-14 |
+| **bian_ref** | 8.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONTROL-PROCESO |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P075 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Si el procesador central rechaza o falla al reconocer el cierre del día bancario (WKS-L080-RESULT > 0 tras el llamado a INIBATCH), el programa registra el mensaje "ERROR EN LLAMADO INIBATCH" (70000050-MENSAJE) y marca su estatus de terminación como fallido (CHANGE ATTRIBUTE STATUS OF MYSELF = -1). A diferencia de la validación de versión (línea 154), aquí sí hay consecuencia real: esta es la última acción antes de retornar al módulo de control (000000-MODULO-DE-CONTROL), cuya única instrucción restante es el STOP RUN final — es decir, el run sí termina con estatus de fallo visible, señalando correctamente que el procesador central no reconoció el cierre del día bancario.
 
@@ -995,11 +1257,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [SEGURIDAD] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P655 |
+| **Identificador** | RN-S500-027 |
+| **Nombre** | Clasificación de servidor productivo o de prueba |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-16 |
+| **bian_ref** | T.3.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [SEGURIDAD] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P655 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Al arrancar, el programa determina si se está ejecutando en un servidor productivo o de prueba del banco, obteniendo el nombre del servidor (ATTRIBUTE HOSTNAME OF MYSELF, WKS-MY-HOST) y comparándolo contra dos listas cerradas de nombres exactos: "VDMALFA." o "MONBETA." se clasifican como producción (W77-ES-PRODUCCION); "VDMBETA.", "ACYPGAMA.", "ACYPBETA.", "MONALFA." o "ACYPOMEGA." se clasifican como prueba (W77-ES-PRUEBA), y específicamente "ACYPBETA." se marca además como prueba interna (W77-ES-PBA-INTERNA — el nombre de campo es "PBA-INTERNA", de PRUEBA, no "desarrollo interno"). Esta clasificación es la que gobierna el intento de bloqueo de producción evaluado en la siguiente regla (línea 304).
 
@@ -1024,11 +1296,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [SEGURIDAD] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P655 |
+| **Identificador** | RN-S500-028 |
+| **Nombre** | Bloqueo de producción sin corte de ejecución real |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-16 |
+| **bian_ref** | T.3.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [SEGURIDAD] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P655 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El programa detecta si se ejecuta en un servidor productivo del banco (indicador W77-ES-PRODUCCION) y, de ser así, arma el mensaje de error "NO CORRE EN PRODUCCION; HOST: <hostname>", lo registra (70000050-MENSAJE) y marca su estatus de terminación como fallido (CHANGE ATTRIBUTE STATUS OF MYSELF = -1). Sin embargo, esta señal de error NO detiene la ejecución: la instrucción no incluye STOP RUN ni GOBACK, y el párrafo no tiene una ruta de salida anticipada, por lo que el programa continúa incondicionalmente, abre la base de datos productiva y ejecuta el enmascaramiento de nombres y domicilios de titulares (B03CONTRATOS/B37GRUPOCPE/B39CTASCPE) igual que en cualquier otro ambiente. En la práctica, el único control real de "no correr en producción" es que el job/WFL no programe este proceso en los servidores productivos (VDMALFA o MONBETA) — el código en sí no tiene un corte de ejecución que lo impida.
 
@@ -1053,11 +1335,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [SEGURIDAD] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P655 |
+| **Identificador** | RN-S500-029 |
+| **Nombre** | Tamaño de bloque variable según hora de arranque |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-16 |
+| **bian_ref** | T.3.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [SEGURIDAD] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P655 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El tamaño del bloque de contratos que se intercambiarán entre sí en cada ciclo de enmascaramiento no es fijo: se calcula a partir de la hora exacta de arranque del proceso batch (ACCEPT WKS-TIME-MAQ FROM TIME, línea 286), precisamente para que el tamaño de bloque no sea predecible entre corridas. Fórmula exacta: si el host es "ACYPBETA." (ambiente de prueba interna), `W77-CONTA-01 = 200 - WKS-TIME-HH - WKS-TIME-MM - WKS-TIME-SS`; en cualquier otro host (VDMBETA, ACYPGAMA, MONALFA, ACYPOMEGA, o cualquier hostname no reconocido — la rama ELSE no tiene condición adicional), `W77-CONTA-01 = 1800 - WKS-TIME-HH - WKS-TIME-MM - WKS-TIME-SS`, donde WKS-TIME-HH/MM/SS son la hora, minuto y segundo del reloj del sistema al arrancar el batch. El resultado (W77-CONTA-01, PIC 9(06)) se ajusta después a un número par (ver regla línea 327): si el residuo de dividirlo entre 2 no es cero, se le resta 1.
 
@@ -1082,11 +1374,21 @@ Tipo de sentencia: COMPUTE
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [SEGURIDAD] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P655 |
+| **Identificador** | RN-S500-030 |
+| **Nombre** | Ajuste de paridad par del bloque de intercambio |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-16 |
+| **bian_ref** | T.3.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [SEGURIDAD] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P655 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El tamaño de bloque calculado (fórmula de la regla línea 321) debe ser siempre un número par, para que el intercambio de nombres entre titulares (50002000-MODIF-NOMBRE) sea simétrico y ningún contrato quede sin nombre asignado dentro del bloque. Para garantizarlo, el programa divide W77-CONTA-01 entre 2 (DIVIDE W77-CONTA-01 BY 2 GIVING W77-TOT-DIV REMAINDER W77-DIV-RESTO); si el residuo no es cero (tamaño impar), le resta 1 (SUBTRACT 1 FROM W77-CONTA-01).
 
@@ -1111,11 +1413,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [SEGURIDAD] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P655 |
+| **Identificador** | RN-S500-031 |
+| **Nombre** | Reanudación del proceso desde checkpoint previo |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-16 |
+| **bian_ref** | T.3.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [SEGURIDAD] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P655 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El proceso de enmascaramiento puede reanudarse desde donde quedó si se interrumpió una corrida anterior, en vez de reiniciar desde cero cada vez. Para decidir esto, el programa verifica si ya existe en disco un archivo de control/checkpoint específico de esta corrida ("S500/FILE/SCRBLING/<CSI>/<fecha>.", con CSI = W77-MY-CSI tomado de B02-NUM-CSI, y fecha = B02-FECHA-LOTE). Si existe, lo abre en modo I-O, lee su registro de encabezado (20000400-LEE-ARCH) y evalúa si corresponde a una reanudación válida (20000500-REINICIO, ver regla línea 441). Si no existe, lo crea desde cero: escribe un encabezado inicial con el contador en cero (WKS-I99-HEAD-CTO = ZERO, párrafo 20000300-GEN-ARCH), lo cierra y reabre en modo I-O, y continúa el proceso como una corrida nueva, sin punto de reanudación.
 
@@ -1140,11 +1452,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [SEGURIDAD] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P655 |
+| **Identificador** | RN-S500-032 |
+| **Nombre** | Validación y restauración del estado de checkpoint |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-16 |
+| **bian_ref** | T.3.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [SEGURIDAD] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P655 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Para decidir si la reanudación desde el checkpoint es válida, el programa compara el encabezado leído del archivo de control (tipo de registro, identificador de nodo/CSI, fecha de proceso y contador de contrato — WKS-I99-HEAD-TPO, WKS-I99-HEAD-CSI, WKS-I99-HEAD-FEC, WKS-I99-HEAD-CTO) contra los valores de la corrida actual (CSI del nodo — W77-MY-CSI, tomado de B02-NUM-CSI — y fecha de proceso — WKS-FECHA-PROCESO, tomada de B02-FECHA-LOTE). Si coinciden y el contador de contrato es mayor a cero, el proceso retoma desde ese número de contrato (WS-NUM-CONTRATO/WS-MSG-CTO) y restaura el tamaño de bloque calculado en la corrida anterior (WKS-I99-HEAD-BLQ sobreescribe el W77-CONTA-01 recién calculado al arrancar, ver regla línea 321), buscando el punto exacto de reanudación (20000600-BUSCA-REINICIO). Si el nodo, la fecha o el contrato no coinciden, se descarta el encabezado existente y se regenera desde cero (20000300-GEN-ARCH), como corrida nueva. Adicionalmente, si al buscar el punto de reanudación el contrato correspondiente ya no se encuentra o no puede bloquearse en la tabla de contratos (B03CONTRATOS), el mecanismo de reanudación se abandona: el contador (WKS-I99-HEAD-CTO) se reinicia a cero y ambos cursores de lectura (S500B03CONTRATOS y S500B03CONTRATOSW) regresan al inicio del archivo (BEGINNING) — es decir, el proceso reanuda desde el principio en vez de fallar.
 
@@ -1169,11 +1491,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [SEGURIDAD] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P655 |
+| **Identificador** | RN-S500-033 |
+| **Nombre** | Enmascaramiento de último bloque con cantidad impar |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-16 |
+| **bian_ref** | T.3.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [SEGURIDAD] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P655 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Como el enmascaramiento de nombres funciona intercambiando el nombre de un contrato por el de otro dentro del mismo bloque, un bloque con número impar de contratos dejaría uno sin pareja. Esta lógica (50002060-VAL-REGS) resuelve ese caso, y solo aplica al ÚLTIMO bloque de la corrida — el que cierra por fin de archivo del cursor de contratos (W77-EOF-B03 = 1 en 50000200-ACT-B03) — ya que todos los bloques "completos" anteriores tienen por construcción un tamaño par (ver regla línea 327) y nunca la necesitan. En ese último bloque parcial, si el conteo de contratos leídos es impar (DIVIDE W77-LEIDOS BY 2 GIVING W77-TOT-DIV REMAINDER W77-DIV-RESTO, residuo distinto de cero), se calcula la posición central (COMPUTE W77-REG-MEDIO = W77-TOT-DIV + 1). En 50002000-MODIF-NOMBRE, al contrato en esa posición central (W77-IND-BXX = W77-REG-MEDIO) no se le asigna el nombre de otro contrato del bloque: recibe el nombre ya enmascarado (con sufijo " PRUEBA") del PRIMER contrato leído en todo el archivo (W77-NOMBRE-PTE, capturado una sola vez en 50002000-SUBE-TABLA cuando W77-TOT-LEIDOS = 1) — no un texto sintético genérico. El resto de los contratos del bloque sí reciben el nombre de otro contrato de la tabla por índice (WKS-TB-NOM-PREF), completando el intercambio normal.
 
@@ -1198,11 +1530,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [SEGURIDAD] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P655 |
+| **Identificador** | RN-S500-034 |
+| **Nombre** | Enmascaramiento de representante y domicilio en grupos CPE |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-16 |
+| **bian_ref** | T.3.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [SEGURIDAD] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P655 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Para cada grupo CPE (Cuenta Pago Empresa, según el catálogo DASDL) del archivo S500B37GRUPOCPE, recorrido secuencialmente vía LOCK NEXT hasta fin de archivo (50001000-ACT-B37), el programa reemplaza el nombre del representante legal por el texto sintético "REPRESENTANTE LEGAL GRUPO <número de grupo>" (campo B37-REPRES, 36 caracteres exactos) y el domicilio por "DOMICILIO DEL GRUPO <número de grupo>" (campo B37-DOMICILIO, 30 de los 40 caracteres del campo, resto en blanco), ambos indexados por el mismo número de grupo (WS-B37-NGPO/WS-B37-DGPO) para mantener la correlación entre los dos campos sintéticos. El nombre o razón social propio del grupo (B37-NOMBRE) NO se toca — solo se enmascaran el representante legal y el domicilio.
 
@@ -1227,11 +1569,21 @@ Tipo de sentencia: MOVE
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [SEGURIDAD] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P655 |
+| **Identificador** | RN-S500-035 |
+| **Nombre** | Consistencia de nombre enmascarado en cuentas CPE |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-16 |
+| **bian_ref** | T.3.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [SEGURIDAD] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P655 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Para cada cuenta CPE (S500B39CTASCPE, procesadas en 50002100-NOMB-B39), el programa busca el contrato de captación vinculado a esa cuenta (B39-CONTRATO) dentro de los contratos ya procesados en B03CONTRATOS (90000003-B03SXCTOW-FIND). Si lo encuentra (W77-NO-B03 = 0), copia el nombre YA enmascarado de ese contrato hacia la cuenta CPE (MOVE B03-NOMBRE OF S500B03CONTRATOSW TO B39-NOMBRE), garantizando que el nombre de la cuenta sea consistente con el de su contrato vinculado. Si no lo encuentra, genera un nombre sintético secuencial en su lugar: incrementa un contador (W77-SEQ-NOMB, arranca en 10000, incrementa de 12 en 12) y construye el nombre como "NOMBRE DE PRUEBA <secuencia>", evitando dejar el campo en blanco. Este procesamiento ocurre después de haber terminado B03 y B37, en ese orden (50000000-PROCESOS), precisamente para que el nombre de B03 ya esté enmascarado cuando B39 lo copia.
 
@@ -1256,11 +1608,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [SEGURIDAD] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | P655 |
+| **Identificador** | RN-S500-036 |
+| **Nombre** | Riesgo de fail-open ante hostname no reconocido |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-16 |
+| **bian_ref** | T.3.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [SEGURIDAD] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | P655 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** La lista cerrada de nombres de servidor que el programa reconoce (líneas 291-300, ver regla línea 291) no cubre toda la topología real de nodos del banco, y esto abre un riesgo de seguridad: P655 reconoce ambos nombres de los pares VDMALFA/MONBETA (producción), ACYPGAMA/MONALFA (prueba) y VDMBETA/ACYPBETA (prueba), pero NUNCA compara contra "VDMKAPPA." — el nombre pasivo del par ACYPOMEGA/VDMKAPPA. Si el programa se ejecutara en un host no contemplado en esta lista fija de 7 nombres (por ejemplo, tras un failover a VDMKAPPA, o ante un nodo nuevo), ni la clasificación de producción (W77-ES-PRODUCCION) ni la de prueba (W77-ES-PRUEBA) se activarían, y el intento de bloqueo de producción (regla línea 304 — que de por sí tampoco detiene la ejecución) nunca se dispararía siquiera: el programa trataría un host desconocido como no-productivo y continuaría el enmascaramiento de datos sin ninguna advertencia. El control de ambiente es, por diseño, una lista cerrada de nombres exactos que falla en modo abierto (fail-open) ante cualquier host no anticipado, en lugar de ser una clasificación de producción validada externamente.
 
@@ -1285,11 +1647,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [LOGICA-TARJETAS] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | S500P630 |
+| **Identificador** | RN-S500-037 |
+| **Nombre** | Rastro de auditoría ante interrupción de proceso |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-02 |
+| **bian_ref** | 2.2.6 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LOGICA-TARJETAS] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | S500P630 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Si el proceso batch de tarjetas Teletón es interrumpido externamente (interrupción tipo HI, cambio del atributo TASKVALUE) mientras procesa un movimiento, el programa deja un rastro de auditoría antes de continuar: registra en el log de operación el número de autorización de la transacción que se estaba procesando en ese momento, permitiendo reconstruir en qué movimiento se encontraba el proceso al momento de la interrupción. Implementado en la sección declarativa INTERRUPT-SECCION (USE AS INTERRUPT PROCEDURE): deshabilita nuevas interrupciones (DISALLOW INTERRUPT), captura el nuevo valor (W77-MY-VALUE), registra la autorización (STRING "AUTORIZACION ", WKS-AUTORIZACION) y, al terminar, vuelve a habilitar interrupciones (ALLOW INTERRUPT).
 
@@ -1314,11 +1686,21 @@ Tipo de sentencia: PERFORM
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [LOGICA-TARJETAS] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | S500P630 |
+| **Identificador** | RN-S500-038 |
+| **Nombre** | Validación de versión autorizada antes de procesar |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-02 |
+| **bian_ref** | 2.2.6 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LOGICA-TARJETAS] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | S500P630 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Antes de procesar cualquier movimiento de tarjeta de la campaña Teletón, el programa valida que su propia versión esté autorizada para ejecutarse, evitando que una versión no vigente procese cargos o el punteo contable. En los hosts de prueba ("ACYPBETA. " o "VDMBETA.  ") esta validación se omite y se asume estatus OK; en cualquier otro host (producción) se llama a "CHECAME IN CTLVERS" para validar el par programa/versión (W77-S000-MY-ID="S500P630", W77-S000-MY-VERSION="25MTP004") contra el catálogo central de versiones del banco (librería CTLVERS). Si el resultado es negativo, el programa se marca con estatus -1 (terminación forzada) sin procesar movimiento alguno.
 
@@ -1343,11 +1725,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [LOGICA-TARJETAS] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | S500P630 |
+| **Identificador** | RN-S500-039 |
+| **Nombre** | Resolución dinámica de librería de fechas CTLVERS |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-02 |
+| **bian_ref** | 2.2.6 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LOGICA-TARJETAS] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | S500P630 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El programa resuelve en tiempo de ejecución — no de forma fija — la ubicación de la librería bancaria de cálculo de fechas que usará más adelante para obtener el día juliano de cada movimiento (párrafo 935-ARMA-REF23, llamada a DAME_DIAJUL2K, ver regla de la línea 199), lo que permite actualizar esa librería sin recompilar S500P630. Para ello llama a "DAME_TIT IN CTLVERS" con la clave "S000LIBFEC" y obtiene el título vigente (WKS-LIBVER-TITULO) del catálogo central de versiones. Si la consulta falla (WKS-LIBVER-STATUS<0), registra el error en el log y usa como respaldo la ruta fija "(S000)S000/CALCULA/FECHAS/OBJ/LIB ON PACK."; si tiene éxito, usa el título devuelto por CTLVERS.
 
@@ -1372,11 +1764,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [LOGICA-TARJETAS] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | S500P630 |
+| **Identificador** | RN-S500-040 |
+| **Nombre** | Etiquetado de archivo S244 como cadena Teletón |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-02 |
+| **bian_ref** | 2.2.6 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LOGICA-TARJETAS] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | S500P630 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Todo archivo de cargos que S500P630 entrega al sistema S244 queda etiquetado como proveniente de la cadena comercial Teletón, para que S244 identifique y procese correctamente su origen. El archivo (dataset I04-MOVS244) se abre en modo salida y su registro de cabecera (WKS-I04-R-00-HEADER) se graba con WKS-I04-SIST-DESTINO="S244", WKS-I04-NOM-CADENA="TELETON", WKS-I04-ORI-CADENA=00 y WKS-I04-NUM-VENTANA=01, usando la fecha de línea vigente (B00T-FEC-LINEA) como fecha de proceso.
 
@@ -1401,11 +1803,21 @@ Tipo de sentencia: MOVE
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [LOGICA-TARJETAS] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | S500P630 |
+| **Identificador** | RN-S500-041 |
+| **Nombre** | Control de lectura y terminación ante errores DMSII |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-02 |
+| **bian_ref** | 2.2.6 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LOGICA-TARJETAS] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | S500P630 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El proceso batch de tarjetas Teletón determina cuándo dejar de leer movimientos pendientes (S500B02TMOVTOS) según tres desenlaces posibles en cada lectura: si no hay error, continúa con el siguiente movimiento; si llegó al final de los datos (NOTFOUND), concluye la lectura normalmente (W77-EOF-BASE=1); si ocurre cualquier otro error de base de datos, registra el problema en el log (999-MGS-DMSII) y fuerza la terminación del proceso (CALL SYSTEM DMTERMINATE) en vez de continuar con datos potencialmente inconsistentes. Implementado en el ciclo principal 900-LEE-B02, evaluando el estatus (W88-DB-NOTERROR / NOTFOUND / otro) tras cada PERFORM 997-S500B02TMOVTOS-FINDN.
 
@@ -1430,11 +1842,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [LOGICA-TARJETAS] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | S500P630 |
+| **Identificador** | RN-S500-042 |
+| **Nombre** | Doble salida vigente hacia S244 y S151 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-02 |
+| **bian_ref** | 2.2.6 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LOGICA-TARJETAS] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | S500P630 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Cada movimiento de tarjeta vigente (estatus contable 00, según catálogo DASDL) genera dos salidas: un registro de detalle hacia el archivo S244/Teletón (PERFORM 930-GRABA-I04) y un registro de punteo contra el Libro Mayor S151 (PERFORM 960-GRABA-I08), de modo que el cargo queda reflejado tanto en la cadena comercial como en la contabilidad. Los movimientos con estatus distinto de 00 (vigente) o 15 (Amex) no generan ningún archivo de salida.
 
@@ -1459,11 +1881,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [LOGICA-TARJETAS] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | S500P630 |
+| **Identificador** | RN-S500-043 |
+| **Nombre** | Ruta diferenciada para movimientos American Express |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-02 |
+| **bian_ref** | 2.2.6 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LOGICA-TARJETAS] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | S500P630 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Los movimientos American Express (estatus contable 15 — "no contable referido" según catálogo DASDL) se liquidan por una vía distinta a la cadena comercial Teletón: no entran al archivo S244, pero sí generan el punteo contra el Libro Mayor (PERFORM 960-GRABA-I08) y un registro en el archivo AMEXMNL que se transmite a INTELAR (PERFORM 991-ASIGNA-VALORES-DETALLE y 991-ESCRIBE-AMEXMN).
 
@@ -1488,11 +1920,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [LOGICA-TARJETAS] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | S500P630 |
+| **Identificador** | RN-S500-044 |
+| **Nombre** | Clasificación manual o automática por campo Base24 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-02 |
+| **bian_ref** | 2.2.6 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LOGICA-TARJETAS] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | S500P630 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Cada cargo reportado a S244 se clasifica como captura manual o automática según si el movimiento tiene o no una autorización electrónica de Base24: sin número de autorización (campo B02T-AUT-B24 en "000000" o espacios) se marca como manual (WKS-I04-TIPO-TRAN=1); con un número de autorización de Base24 válido, se marca como automática (WKS-I04-TIPO-TRAN=0). Determinado en el párrafo 930-GRABA-I04.
 
@@ -1517,11 +1959,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [LOGICA-TARJETAS] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | S500P630 |
+| **Identificador** | RN-S500-045 |
+| **Nombre** | Asignación de BIN adquirente por primer dígito |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-02 |
+| **bian_ref** | 2.2.6 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LOGICA-TARJETAS] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | S500P630 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Para los movimientos de tarjeta vigentes (no aplica a American Express, que sigue una ruta de procesamiento aparte), el BIN adquirente que se asigna a la referencia de 23 posiciones depende del primer dígito del número de tarjeta: dígitos 3 o 4 reciben el BIN 454061; cualquier otro primer dígito recibe el BIN 543006. Esta segmentación de BIN es independiente de la franquicia Amex: el párrafo que la calcula (935-ARMA-REF23, campo WKS-I04-RE-BINADQ a partir del primer dígito WKS-I04-DIG-TARJ) solo se ejecuta para movimientos con estatus contable 00, por lo que los movimientos Amex (estatus 15) nunca llegan a esta rutina — el dígito 3 aquí no identifica tarjetas Amex, sino otra segmentación de BIN dentro del universo de tarjetas vigentes.
 
@@ -1546,11 +1998,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [LOGICA-TARJETAS] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | S500P630 |
+| **Identificador** | RN-S500-046 |
+| **Nombre** | Dígito verificador tipo Luhn para referencia 23 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-02 |
+| **bian_ref** | 2.2.6 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LOGICA-TARJETAS] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | S500P630 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** La referencia de 23 posiciones que identifica cada movimiento de tarjeta Teletón (usada para trazabilidad y conciliación) incluye un dígito verificador de control, calculado con una técnica tipo Luhn módulo 10 sobre los primeros 22 dígitos de la referencia, que permite detectar errores de captura o transcripción. Fórmula exacta (párrafo 940-CALCULA-DIGITO): para cada uno de los primeros 22 dígitos (WKS-DIG-REF23(1) a WKS-DIG-REF23(22), redefinición de WKS-NUM-REF23/WKS-I04-REF-23), se calcula WKS-RS-PESO(i) = WKS-DIG-REF23(i) × peso(i), con peso(i)=1 si i es impar (1,3,...,21) y peso(i)=2 si i es par (2,4,...,22) — 22 sentencias COMPUTE independientes escritas una por una, no un loop. Cada WKS-RS-PESO(i) (rango 0-18) se redefine en dos dígitos WKS-DG1-PESO(i) (decena) y WKS-DG2-PESO(i) (unidad), y ambos se acumulan en WKS-SUMA-RS-PESO = suma de (WKS-DG1-PESO(i)+WKS-DG2-PESO(i)) para i=1..22 — equivalente a sumar los dígitos del producto cuando este es mayor o igual a 10 (ej. producto 18 aporta 1+8=9). Luego DIVIDE WKS-SUMA-RS-PESO BY 10 GIVING WKS-SUMA-RS-PESO REMAINDER WKS-REMAINDER obtiene el residuo, y COMPUTE WKS-DIGITO-CALCULADO = 10 - WKS-REMAINDER da el dígito verificador. Caso límite verificado en el fuente: si WKS-REMAINDER=0, el resultado aritmético es 10, pero WKS-DIGITO-CALCULADO es PIC 9 (un solo dígito, sin cláusula ON SIZE ERROR), por lo que el valor trunca a 0 — el dígito verificador válido cuando el residuo es cero es 0, no 10. El resultado se coloca en la posición 23 de la referencia (WKS-I04-RE-DIGVER), posición que no participa en el cálculo.
 
@@ -1575,11 +2037,21 @@ Tipo de sentencia: COMPUTE
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [LOGICA-TARJETAS] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | S500P630 |
+| **Identificador** | RN-S500-047 |
+| **Nombre** | Día juliano en referencia Teletón vía librería bancaria |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-02 |
+| **bian_ref** | 2.2.6 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LOGICA-TARJETAS] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | S500P630 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** La referencia de 23 posiciones de cada movimiento Teletón incluye un componente de 3 dígitos de día juliano que la ubica temporalmente. Ese día juliano se obtiene convirtiendo la fecha de proceso del movimiento (B02T-FEC-MAQUINA, vía W77-LIB-FEC-IN-2K) mediante la llamada "DAME_DIAJUL2K IN FECHAS" (librería bancaria de cálculo de fechas, resuelta dinámicamente vía CTLVERS al inicio del programa — ver regla de la línea 176), y el resultado (WKS-LF-OUT-DIA) se coloca en WKS-I04-RE-DIAJUL dentro de la referencia (935-ARMA-REF23).
 
@@ -1604,11 +2076,21 @@ Tipo de sentencia: CALL
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [LOGICA-TARJETAS] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | S500P630 |
+| **Identificador** | RN-S500-048 |
+| **Nombre** | Proceso Teletón genera solo cargos nunca abonos |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-02 |
+| **bian_ref** | 2.2.6 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LOGICA-TARJETAS] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | S500P630 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El proceso Teletón es un mecanismo de recaudación unidireccional: únicamente genera cargos (donativos vía tarjeta) hacia el sistema S244, nunca abonos. Por eso el registro trailer del archivo S244 (970-GRABA-TRAILERS) reporta el contador y suma de cargos acumulados durante el proceso (WKS-I04-NUM-CARGOS/WKS-I04-IMP-CARGOS, acumulados de B02T-IMPORTE de cada movimiento grabado en 930-GRABA-I04), pero siempre fija en cero los campos de abonos (WKS-I04-NUM-ABONOS=0, WKS-I04-IMP-ABONOS=0).
 
@@ -1633,11 +2115,21 @@ Tipo de sentencia: MOVE
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [LOGICA-TARJETAS] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | S500P630 |
+| **Identificador** | RN-S500-049 |
+| **Nombre** | AMEX Teletón reportado a INTELAR con establecimiento fijo |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-02 |
+| **bian_ref** | 2.2.6 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LOGICA-TARJETAS] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | S500P630 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Todo donativo Teletón realizado con tarjeta American Express se reporta a INTELAR bajo un mismo número de establecimiento/negocio fijo, como transacción regular en moneda nacional, de crédito y sin meses sin intereses — valores fijos WKS-R00-NUM-EST=9355195968, WKS-R00-IND-MON="MNX ", WKS-R00-TIPO-TRANS="REGULAR ", WKS-R00-CUOTAS=0 y WKS-R00-TIPO-TARJ="CREDITO   ", asignados en 991-ASIGNA-VALORES-DETALLE para el registro AMEXMNL. El número de tarjeta y el importe del donativo se toman de B02T-CUENTA-TARJ y B02T-IMPORTE respectivamente, este último formateado en el subproceso 993-BUSCA-IMPORTE/993-EDITA-IMPORTE (ver regla línea 210).
 
@@ -1662,11 +2154,21 @@ Tipo de sentencia: MOVE
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [LOGICA-TARJETAS] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | S500P630 |
+| **Identificador** | RN-S500-050 |
+| **Nombre** | Importe AMEX formateado sin ceros con decimal explícito |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-02 |
+| **bian_ref** | 2.2.6 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LOGICA-TARJETAS] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | S500P630 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El importe del donativo que se envía a American Express (campo WKS-R00-IMP-TRAN, 13 caracteres) debe llegar sin ceros de relleno y con punto decimal explícito, tal como lo exige el layout plano de intercambio con Amex. Para lograrlo, el importe numérico B02T-IMPORTE (PIC 9(10)V99, movido a WS-IMPORTE-N) se recorre carácter por carácter: 993-BUSCA-IMPORTE avanza el índice W77-I mientras encuentra ceros a la izquierda; 993-EDITA-IMPORTE copia los dígitos restantes a WKS-IMP-AMEX, insertando el punto decimal justo antes de la posición 11 (donde inician los 2 dígitos decimales del PIC V99).
 
@@ -1691,11 +2193,21 @@ Tipo de sentencia: PERFORM
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [LOGICA-TARJETAS] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | S500P630 |
+| **Identificador** | RN-S500-051 |
+| **Nombre** | Formato de autorización en punteo según canal de origen |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-02 |
+| **bian_ref** | 2.2.6 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LOGICA-TARJETAS] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | S500P630 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El número de autorización que se reporta al Libro Mayor en el punteo contable (WKS-I08-PUN-AUTAPL) se arma en uno de dos formatos, según el canal de origen de la transacción (B02T-TCODE-ORIG, catálogo DASDL): si el movimiento viene del código de transacción 500, se usa el formato "AUT emulador" (WKS-AUTORIZ10: prefijo de 2 + autorización de 10 dígitos); para cualquier otro código de origen, se usa el formato "AUT C218" (WKS-AUTORIZ: sucursal-trans 4 + caja-trans 2 + autorización 6 dígitos). Ambos son redefiniciones de B02T-AUTORIZA/WKS-AUTORIZACION documentadas en el catálogo DASDL. Implementado en 960-GRABA-I08.
 
@@ -1720,11 +2232,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [LOGICA-TARJETAS] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | S500P630 |
+| **Identificador** | RN-S500-052 |
+| **Nombre** | Punteo S151 etiquetado con producto 500 y moneda MXN |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-02 |
+| **bian_ref** | 2.2.6 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LOGICA-TARJETAS] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | S500P630 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Para que el Libro Mayor (S151) pueda identificar y conciliar todos los movimientos de tarjetas de la campaña Teletón, cada registro de punteo (960-GRABA-I08) se etiqueta con producto y moneda fijos: WKS-I08-PUN-PRODUCTO=500 (producto Teletón), WKS-I08-PUN-MONEDA=1 (peso mexicano), WKS-I08-PUN-LIBRO=0 y WKS-I08-PUN-INST=1 (institución). La sucursal y caja de origen (WKS-I08-PUN-SUCINI/CAJAINI) se toman de B02T-SUC-S028/B02T-CAJ-S028 (sistema S028, catálogo DASDL) y la caja convertida (WKS-I08-PUN-CAJA-500) de B02T-CAJA-CONV.
 
@@ -1749,11 +2271,21 @@ Tipo de sentencia: MOVE
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [LOGICA-TARJETAS] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | S500P630 |
+| **Identificador** | RN-S500-053 |
+| **Nombre** | Transmisión AMEX a INTELAR con reintento ante falla transitoria |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-02 |
+| **bian_ref** | 2.2.6 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LOGICA-TARJETAS] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | S500P630 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El archivo de movimientos American Express se transmite a INTELAR con un reintento automático ante fallas transitorias, sin detener el proceso batch si la transmisión no se logra. El envío (archivo identificado por WKS-TIT-I09-INTELAR, movido a WS-ID-ARCHI) se hace llamando a "INTELARSND IN ADMONXFERS" (párrafo 999-0080-CALL-INTELAR); si el resultado WS-RSLT-SNT indica error (mayor a cero), el proceso espera 3 segundos (WAIT(3)) y reintenta una sola vez; si el segundo intento también falla, se registra "NO SE ENVIO A INTELAR=>" con el nombre del archivo en el log de operación (TEXTO-LJ), pero el proceso continúa. Esta llamada solo ocurre si el proceso terminó en forma normal (W77-FIN-ANORMAL=0).
 
@@ -1778,11 +2310,21 @@ Tipo de sentencia: CALL
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [LOGICA-TARJETAS] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | S500P630 |
+| **Identificador** | RN-S500-054 |
+| **Nombre** | Registro de resultado en diálogo BD06TELETON al concluir |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-02 |
+| **bian_ref** | 2.2.6 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LOGICA-TARJETAS] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | S500P630 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Al concluir, el programa deja constancia del resultado en el flujo de diálogo BD06TELETON: si terminó de forma anormal (W77-FIN-ANORMAL=1), registra "TERMINACION ANORMAL" en el log y se marca a sí mismo con estatus -1 (CHANGE ATTRIBUTE STATUS OF MYSELF TO -1); si terminó normalmente (W77-FIN-ANORMAL=0), confirma el avance del diálogo bloqueando S500B00TGLOBAL (LOCK) y actualizando B00T-PASO-ENTRA/B00T-PASO-SALE a 630 (paso de entrada/salida del flujo, catálogo DASDL, coincide con el número de programa S500P630) dentro de una transacción BEGIN/END-TRANSACTION SYNC. Implementado en el párrafo 999999-FIN.
 
@@ -1807,11 +2349,21 @@ Tipo de sentencia: IF
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S500 |
-| **Tipo** | [LOGICA-TARJETAS] |
-| **Base regulatoria** | N/A — control interno |
-| **Programa(s)** | S500P630 |
+| **Identificador** | RN-S500-055 |
+| **Nombre** | Transferencia archivos a S006 mediante job WFL heredado |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-02 |
+| **bian_ref** | 2.2.6 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | [LOGICA-TARJETAS] |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — control interno |
+| **Programa ejecutor** | S500P630 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Si el proceso terminó normalmente, los archivos generados (S244 Teletón y AMEX) se transfieren automáticamente al host S006 mediante un job de workflow: el proceso arma WKS-LANZA-TX940 con la llave WKS-TX940-LLAVE="S501T01" y la fecha de línea (B00T-FEC-LINEA), y ejecuta CALL SYSTEM WFL para lanzar el job "BEGIN JOB S500/WFL/COPIARCH/01MTP001", que transfiere los archivos vía XFER hacia el host S006 (START (S006)S006/WFL/P940/01MTP001). La llave "S501T01" es un nombre heredado del programa origen S501/P110, previo a la migración jun-oct 2016 a S500/P630, que no se actualizó al migrar. En el host de prueba ACYPBETA se usa un código de acceso alterno (WKS-ACCESS-ACYPBETA) para esa transferencia. Implementado en 999999-TRANSFIERE-P940 (solo si W77-FIN-ANORMAL=0).
 
@@ -1833,301 +2385,574 @@ Tipo de sentencia: CALL
 ---
 
 ### RN-S500-056 — Header Libro Mayor del Día (NIVLOG=0)
+
 | Campo | Valor |
 |-------|-------|
-| **Tipo** | IF |
+| **Identificador** | RN-S500-056 |
+| **Nombre** | Header Libro Mayor del Día (NIVLOG=0) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura/librería · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | IF |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A |
-| **Programa** | S151/L002R2 |
-| **Frecuencia** | cierre-diario |
+| **Programa ejecutor** | S151/L002R2 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+
 **Fórmula:** Al NIVLOG=0 (inicio de jornada), escribe registro "HD"+fecha(CCAAMMDD)+autorización(0)+estado(0). Es el punto de entrada de todos los asientos GL del día; invocado desde S500/P142 vía ENLACE_8D.
 **Estado:** pendiente HITL
 
 ---
 
 ### RN-S500-057 — Descriptor Extendido de Asiento GL
+
 | Campo | Valor |
 |-------|-------|
-| **Tipo** | IF |
+| **Identificador** | RN-S500-057 |
+| **Nombre** | Descriptor Extendido de Asiento GL |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura/librería · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | IF |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A |
-| **Programa** | S151/L002R2 |
-| **Frecuencia** | por-transacción |
+| **Programa ejecutor** | S151/L002R2 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+
 **Fórmula:** IDFFUNCION=1 → escanea 530 bytes offset+445; si LEN_REG>0 escribe DES[NIVDES+1] con 1,060 bytes de texto. BLOG = 890 bytes de DFFUNCION + APUN_DESC(8 dígitos) + %STA(2 dígitos).
 **Estado:** pendiente HITL
 
 ---
 
 ### RN-S500-058 — Eliminación de Asiento GL (6 Condiciones en Cascada)
+
 | Campo | Valor |
 |-------|-------|
-| **Tipo** | EVALUATE |
+| **Identificador** | RN-S500-058 |
+| **Nombre** | Eliminación de Asiento GL (6 Condiciones en Cascada) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura/librería · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | EVALUATE |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV |
-| **Programa** | S151/L002R2 |
-| **Frecuencia** | por-transacción |
+| **Programa ejecutor** | S151/L002R2 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+
 **Fórmula:** 6 validaciones: nivel>NIVLOG→err15; falla lectura→err9; sistema origen distinto→err9; función≠1→err11; autorización eliminación=0→err12; estado ya=2→err13. Si pasa todas: marca estado=2 en todos los niveles y agrega registro de evento de cancelación en NIVLOG+1.
 **Estado:** pendiente HITL
 
 ---
 
 ### RN-S500-059 — Cancelación en Cascada de Niveles del Asiento GL
+
 | Campo | Valor |
 |-------|-------|
-| **Tipo** | PERFORM |
+| **Identificador** | RN-S500-059 |
+| **Nombre** | Cancelación en Cascada de Niveles del Asiento GL |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura/librería · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | PERFORM |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV |
-| **Programa** | S151/L002R2 |
-| **Frecuencia** | por-transacción |
+| **Programa ejecutor** | S151/L002R2 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+
 **Fórmula:** Recorre vía IDFAUTANT todos los niveles anteriores marcando estado=2. Si AUT_ANTER = IDFAUTANT(BLOG) tras lectura (auto-referencia), limpia DFAUTANT a 00 para cortar el ciclo y evitar recursión infinita.
 **Estado:** pendiente HITL
 
 ---
 
 ### RN-S500-060 — Reporte Regulatorio Saldos TESOFE/SAT (10 Canales SDO)
+
 | Campo | Valor |
 |-------|-------|
-| **Tipo** | COMPUTE |
+| **Identificador** | RN-S500-060 |
+| **Nombre** | Reporte Regulatorio Saldos TESOFE/SAT (10 Canales SDO) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura/librería · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | COMPUTE |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | SAT |
-| **Programa** | S151/L002R2 |
-| **Frecuencia** | cierre-diario |
+| **Programa ejecutor** | S151/L002R2 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+
 **Fórmula:** Escribe en SDO1–SDO10 (65 palabras Unisys = 390 bytes/registro). DETALLE: función(2)+sistema(4)+producto(4)+instrumento(4)+contrato(20)+edcta(2)+fecproceso(8)+fecini(8)+fecfin(8)+fecult(8)+saldo(offset+68). HEADER: "HD"+FECDIA(8)+8 ceros+relleno(356).
 **Estado:** pendiente HITL
 
 ---
 
 ### RN-S500-061 — Clasificación Cuenta Crédito/Captación por Número de Sistema
+
 | Campo | Valor |
 |-------|-------|
-| **Tipo** | IF |
+| **Identificador** | RN-S500-061 |
+| **Nombre** | Clasificación Cuenta Crédito/Captación por Número de Sistema |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | IF |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A |
-| **Programa** | S151/P130 |
-| **Frecuencia** | cierre-diario |
+| **Programa ejecutor** | S151/P130 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+
 **Fórmula:** Sistemas 402(BIVA) y 600(crédito especial) → WKS-SISTEMA-LETRA="C"; todos los demás → "S" (savings/captación). La letra se propaga a WKS-START-S-C, WKS-SIS-S-C, WKS-MC-S-C, WKS-DES-S-C, WKS-ERR-S-C y campos de agrupación.
 **Estado:** pendiente HITL
 
 ---
 
 ### RN-S500-062 — Resolución de CSI por Sistema y Nodo de Ejecución
+
 | Campo | Valor |
 |-------|-------|
-| **Tipo** | IF |
+| **Identificador** | RN-S500-062 |
+| **Nombre** | Resolución de CSI por Sistema y Nodo de Ejecución |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | IF |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A |
-| **Programa** | S151/P130 |
-| **Frecuencia** | cierre-diario |
+| **Programa ejecutor** | S151/P130 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+
 **Fórmula:** Sistemas 404/414: nodo ACYPBETA o VDMBETA → CSI=04 (otro nodo no reasigna). Sistema 403: ACYPBETA/VDMBETA → CSI=04, cualquier otro → CSI=10. W77-CSI-PROCESO se propaga a WKS-AG-CSI, WKS-CSI-OR, WKS-HD-CSI, WKS-ERR-CSI.
 **Estado:** pendiente HITL
 
 ---
 
 ### RN-S500-063 — Resolución Librería LIB-REGISTRA y Cierre de Descripciones
+
 | Campo | Valor |
 |-------|-------|
-| **Tipo** | IF |
+| **Identificador** | RN-S500-063 |
+| **Nombre** | Resolución Librería LIB-REGISTRA y Cierre de Descripciones |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | IF |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A |
-| **Programa** | S151/P130 |
-| **Frecuencia** | cierre-diario |
+| **Programa ejecutor** | S151/P130 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+
 **Fórmula:** CALL "DAME_TIT IN CTRLVERS": status≥0 → usa WKS-CTLVERS-TITULO; status<0 → aviso + ruta fija "(S151)S151/OBJECT/L002/REGISTRA ON CMEMP". Seguido de CALL "CONTROLES IN LIB-REGISTRA" para cerrar archivos de movimientos y descripciones del sistema en proceso.
 **Estado:** pendiente HITL
 
 ---
 
 ### RN-S500-064 — Carga Catálogo 1077 Intercompañía (Sistemas 84/87/403/500)
+
 | Campo | Valor |
 |-------|-------|
-| **Tipo** | IF |
+| **Identificador** | RN-S500-064 |
+| **Nombre** | Carga Catálogo 1077 Intercompañía (Sistemas 84/87/403/500) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | IF |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A |
-| **Programa** | S151/P130 |
-| **Frecuencia** | cierre-diario |
+| **Programa ejecutor** | S151/P130 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+
 **Fórmula:** Sistemas 84, 87, 403 y 500 cargan catálogo 1077 "REL INTER VS U NEGOC" vía CPPE-CATALOGO → 15500-ARMA-1ER-LLAMADA-L710-CP → 14900-CARGA-INTERCOMPANY. Mapea corporativo a unidades de negocio para segregación contable entre entidades legales del grupo Banamex-Citigroup.
 **Estado:** pendiente HITL
 
 ---
 
 ### RN-S500-065 — Validación Código de Moneda (Rango 1–99)
+
 | Campo | Valor |
 |-------|-------|
-| **Tipo** | IF |
+| **Identificador** | RN-S500-065 |
+| **Nombre** | Validación Código de Moneda (Rango 1–99) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | IF |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A |
-| **Programa** | S151/P130 |
-| **Frecuencia** | cierre-diario |
+| **Programa ejecutor** | S151/P130 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+
 **Fórmula:** W77-IND (de CDPS-CVE-REGISTRO vía catálogo L700) debe ser 1–99; fuera de rango → 98200-ERROR-EN-LIMITE-CD y el lote se detiene. Peso mexicano = código 1; GL soporta hasta 99 tipos de moneda.
 **Estado:** pendiente HITL
 
 ---
 
 ### RN-S500-066 — Validación y Carga de Atributos Tipo de Transacción (Rango 1–10,000)
+
 | Campo | Valor |
 |-------|-------|
-| **Tipo** | IF |
+| **Identificador** | RN-S500-066 |
+| **Nombre** | Validación y Carga de Atributos Tipo de Transacción (Rango 1–10,000) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | IF |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A |
-| **Programa** | S151/P130 |
-| **Frecuencia** | cierre-diario |
+| **Programa ejecutor** | S151/P130 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+
 **Fórmula:** W77-IND rango 1–10,000; fuera de rango → 98400-ERROR-EN-LIMITE-CP. Por tipo válido carga: WKS-PT-EXISTE, NUM-LEYEN, EVENTO, CGENTRA, NATS028 (interfaz S028), INDS254 (centralizar sucursal promotora en crédito), INDBITA (bitácora operativa).
 **Estado:** pendiente HITL
 
 ---
 
 ### RN-S500-067 — Carga Catálogo 209 BIVA para Sistema 402
+
 | Campo | Valor |
 |-------|-------|
-| **Tipo** | IF |
+| **Identificador** | RN-S500-067 |
+| **Nombre** | Carga Catálogo 209 BIVA para Sistema 402 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | IF |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV |
-| **Programa** | S151/P130 |
-| **Frecuencia** | cierre-diario |
+| **Programa ejecutor** | S151/P130 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+
 **Fórmula:** Sistema 402 (BIVA) carga exclusivamente catálogo 209 "ESTR.REG.BIVA" desde L710 vía 14600-CARGA-CAT-209. Define estructura de registros de posición de valores para liquidación en bolsa; discrepancia con formato exacto provoca rechazo CNBV y falta de liquidación.
 **Estado:** pendiente HITL
 
 ---
 
 ### RN-S500-068 — Nodo de Impresión por Defecto (CSI × 100)
+
 | Campo | Valor |
 |-------|-------|
-| **Tipo** | COMPUTE |
+| **Identificador** | RN-S500-068 |
+| **Nombre** | Nodo de Impresión por Defecto (CSI × 100) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | COMPUTE |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A |
-| **Programa** | S151/P130 |
-| **Frecuencia** | por-transacción |
+| **Programa ejecutor** | S151/P130 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+
 **Fórmula:** Si CALL "LIBEST IN ESTRUCTURA" falla o WKS-EST-NODO-IMP ≤ 0: WKS-SUC-NODO-IMP(W77-IND) = W77-CSI-PROCESO × 100. Si WKS-EST-NODO-IMP > 0, se usa ese valor. Mismo patrón para RM-NODO-IMP (línea 8453).
 **Estado:** pendiente HITL
 
 ---
 
 ### RN-S500-069 — Bandeo de Leyendas en 4 Tablas Paralelas
+
 | Campo | Valor |
 |-------|-------|
-| **Tipo** | COMPUTE |
+| **Identificador** | RN-S500-069 |
+| **Nombre** | Bandeo de Leyendas en 4 Tablas Paralelas |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | COMPUTE |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A |
-| **Programa** | S151/P130 |
-| **Frecuencia** | cierre-diario |
+| **Programa ejecutor** | S151/P130 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+
 **Fórmula:** IND>9000 → IND-9000 → WS-LEY-TRAN4; IND>6000 → IND-6000 → WS-LEY-TRAN3; IND>3000 → IND-3000 → WS-LEY-TRAN2; IND≤3000 → WS-LEY-TRAN1. Rango 1–10,000; fuera de rango → error 98200. Mismo patrón de bandas repetido en 3 puntos más del programa.
 **Estado:** pendiente HITL
 
 ---
 
 ### RN-S500-070 — Lectura Descriptores Encadenados del Log GL
+
 | Campo | Valor |
 |-------|-------|
-| **Tipo** | COMPUTE |
+| **Identificador** | RN-S500-070 |
+| **Nombre** | Lectura Descriptores Encadenados del Log GL |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | COMPUTE |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A |
-| **Programa** | S151/P130 |
-| **Frecuencia** | por-transacción |
+| **Programa ejecutor** | S151/P130 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+
 **Fórmula:** Si A00-R01-APUDES > 0: W77-APUDES = A00-R01-APUDES + 1; READ LOG151-COMP INTO A01-R01-DATOS. A00-R01-APUDES es el APUN_DESC que S151/L002R2 (ALGOL) escribe al postear el asiento; P130 (COBOL) lo consume en la agrupación nocturna.
 **Estado:** pendiente HITL
 
 ---
 
 ### RN-S500-071 — Cálculo Memoria/Disco para SORT de Movimientos Contables
+
 | Campo | Valor |
 |-------|-------|
-| **Tipo** | COMPUTE |
+| **Identificador** | RN-S500-071 |
+| **Nombre** | Cálculo Memoria/Disco para SORT de Movimientos Contables |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | COMPUTE |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A |
-| **Programa** | S151/P130 |
-| **Frecuencia** | cierre-diario |
+| **Programa ejecutor** | S151/P130 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+
 **Fórmula:** W77-TOT-MEMORIA = (17+3)×2000+1500 palabras; W77-TOT-DISCO = 17×LASTRECORD(MOVIMIENTOS)×2.25 palabras. Ordena por SM-NODO-IMP/SM-SUC-INIC/SM-CAJA-INIC/SM-FONDO/SM-TIPO-CRED/SM-AUT-S151. Factor fijo 17 varía en otros SORTs del programa (31 y 8).
 **Estado:** pendiente HITL
 
 ---
 
 ### RN-S500-072 — Mapeo de Parámetro de Entrada a Día de la Semana (≤10 Instancias)
+
 | Campo | Valor |
 |-------|-------|
-| **Tipo** | EVALUATE |
+| **Identificador** | RN-S500-072 |
+| **Nombre** | Mapeo de Parámetro de Entrada a Día de la Semana (≤10 Instancias) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-05 |
+| **bian_ref** | 6.6.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | EVALUATE |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A |
-| **Programa** | S151/P015 |
-| **Frecuencia** | cierre-diario |
+| **Programa ejecutor** | S151/P015 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+
 **Fórmula:** WKS-ENTRY-PARAM → W77-DIA-SEM: 1/6→día 1(lun); 2/7→día 2(mar); 3/8→día 3(mié); 4/9→día 4(jue); 5/10→día 5(vie). Permite hasta 10 instancias paralelas procesando los 5 días laborables del ciclo contable semanal BD10MOVDIA151.
 **Estado:** pendiente HITL
 
 ---
 
 ### RN-S500-073 — Control Anti-Duplicación de Asientos en Reprocesos Nocturnos
+
 | Campo | Valor |
 |-------|-------|
-| **Tipo** | IF |
+| **Identificador** | RN-S500-073 |
+| **Nombre** | Control Anti-Duplicación de Asientos en Reprocesos Nocturnos |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-05 |
+| **bian_ref** | 6.6.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | IF |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A |
-| **Programa** | S151/P015 |
-| **Frecuencia** | cierre-diario |
+| **Programa ejecutor** | S151/P015 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+
 **Fórmula:** B00-GLOB-NIV-BASE(W77-DIA-SEM) > 0 → ejecuta 000050-VERIFICA-DATOS (valida primera entrada en B01/B11/B21-SXAUTS151) antes de agregar. Si = 0, día sin inicializar → agrega directamente sin verificación previa.
 **Estado:** pendiente HITL
 
 ---
 
 ### RN-S500-074 — Continuidad Batch si CTLVERS No Resuelve S151LIBCONTROL
+
 | Campo | Valor |
 |-------|-------|
-| **Tipo** | IF |
+| **Identificador** | RN-S500-074 |
+| **Nombre** | Continuidad Batch si CTLVERS No Resuelve S151LIBCONTROL |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-05 |
+| **bian_ref** | 6.6.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | IF |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A |
-| **Programa** | S151/P015 |
-| **Frecuencia** | cierre-diario |
+| **Programa ejecutor** | S151/P015 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+
 **Fórmula:** CALL "DAME_TIT IN CTRLVERS" clave "S151L001CTL": status<0 → aviso informativo + ruta fija "(S151)S151/OBJECT/L001/CONTROL ON CMEMP." (sin release/MTP). Status≥0 → usa WKS-CTLVERS-TITULO. Garantiza continuidad del batch nocturno aunque la librería no esté auditada.
 **Estado:** pendiente HITL
 
 ---
 
 ### RN-S500-075 — Control Anti-Duplicación de Interrupción HI-4 en Cierre Batch
+
 | Campo | Valor |
 |-------|-------|
-| **Tipo** | IF |
+| **Identificador** | RN-S500-075 |
+| **Nombre** | Control Anti-Duplicación de Interrupción HI-4 en Cierre Batch |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-05 |
+| **bian_ref** | 6.6.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | IF |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A |
-| **Programa** | S151/P015 |
-| **Frecuencia** | cierre-diario |
+| **Programa ejecutor** | S151/P015 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+
 **Fórmula:** 1ª HI-4 → registra "TERMINACION DEL ASIN1 POR HI 4" y continúa; 2ª HI-4 (W88-DOBLEHI4 activo) → suprime mensaje para evitar recursión infinita. HI-20 → solo reporta W77-NIV-BASE sin detener proceso. W77-DOBLEHI4=1 al alcanzar fin normal.
 **Estado:** pendiente HITL
 
 ---
 
 ### RN-S500-076 — Clave de Posicionamiento Secuencial W77-LLAVE = NIV-BASE + 2
+
 | Campo | Valor |
 |-------|-------|
-| **Tipo** | COMPUTE |
+| **Identificador** | RN-S500-076 |
+| **Nombre** | Clave de Posicionamiento Secuencial W77-LLAVE = NIV-BASE + 2 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-05 |
+| **bian_ref** | 6.6.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | COMPUTE |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A |
-| **Programa** | S151/P015 |
-| **Frecuencia** | por-transacción |
+| **Programa ejecutor** | S151/P015 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+
 **Fórmula:** W77-LLAVE = W77-NIV-BASE + 2; usado en SEEK L01-DATOS RECORD / SEEK L02-DATOS RECORD antes de READ … INTO A00-R01-REGMOV. Es el equivalente COBOL del esquema NIVLOG+1 del ACL ALGOL (L002R2). Mismo patrón +2 repetido en varios puntos del programa.
 **Estado:** pendiente HITL
 
 ---
 
 ### RN-S500-077 — Auto-Corrección de Sincronización con Log GL de L002R2
+
 | Campo | Valor |
 |-------|-------|
-| **Tipo** | COMPUTE |
+| **Identificador** | RN-S500-077 |
+| **Nombre** | Auto-Corrección de Sincronización con Log GL de L002R2 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-05 |
+| **bian_ref** | 6.6.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | COMPUTE |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV |
-| **Programa** | S151/P015 |
-| **Frecuencia** | cierre-diario |
+| **Programa ejecutor** | S151/P015 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+
 **Fórmula:** CALL "CONTROLES IN LIB-L002" → W77-NIV-BASE-L002 = resultado - 2. Si W77-NIV-BASE-L002 > W77-NIV-BASE: avanza leyendo registros (002000-LEE-NEXT, llave W77-NIV-BASE+2) hasta igualar niveles con el log autoritativo de S151/L002R2.
 **Estado:** pendiente HITL
 
 ---
 
 ### RN-S500-078 — Descuento de Totales Acumulados por Sucursal-Caja en Semana Contable
+
 | Campo | Valor |
 |-------|-------|
-| **Tipo** | COMPUTE |
+| **Identificador** | RN-S500-078 |
+| **Nombre** | Descuento de Totales Acumulados por Sucursal-Caja en Semana Contable |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-05 |
+| **bian_ref** | 6.6.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | COMPUTE |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | N/A |
-| **Programa** | S151/P015 |
-| **Frecuencia** | cierre-diario |
+| **Programa ejecutor** | S151/P015 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
+
 **Fórmula:** B03-NUM-AB(W77-SUMA) = B03-NUM-AB(W77-SUMA) - WKS-SUC-NUM-ABO(W77-REM,W77-SUMA). Mismo patrón de 4 restas (NUM-AB/NUM-CR/IMP-AB/IMP-CR) repetido para pares B03/B04(lun) → B13/B14(mar) → B23/B24(mié) → B33/B34(jue) → B43/B44(vie).
 **Estado:** pendiente HITL
-
----
-

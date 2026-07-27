@@ -1,4 +1,5 @@
 # Catálogo de Reglas de Negocio — S500 P130 · WFL LINEA
+**Indexado:** ✅ 2026-07-17 — correlacionado vocab↔reglas↔capacidad (traceability-matrix.md)
 
 > **Sistema:** S500 — Cargos y Abonos de Cuentas de Cheque · Unisys ClearPath MCP · Banamex
 > **Extractor:** Specialist - Business Rules (Digital Core · Gemelo Cognitivo)
@@ -45,13 +46,20 @@
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-079 |
-| **Tipo** | `[CONTROL]` `[BATCH-SCHEDULING]` `[CIERRE-MENSUAL]` |
+| **Nombre** | Detección del Modo de Proceso Mensual (WKS-ES-MENSUAL) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[CONTROL]` `[BATCH-SCHEDULING]` `[CIERRE-MENSUAL]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV CUB Art. 2 (periodicidad de reportes Serie R de captación) |
-| **Capacidad bancaria** | Cierre periódico de cuentas de captación |
-| **Programa(s) fuente** | P130 (líneas 3026-3028) |
-| **Frecuencia** | DIARIA (evaluación); se activa 1 vez al mes |
-| **Sistemas downstream** | S151REGISTRA (activa posting tipo 30/31/32), P130-PROCESO-PRINCIPAL |
+| **Programa ejecutor** | P130 (líneas 3026-3028) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -78,13 +86,20 @@ ELSE:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-080 |
-| **Tipo** | `[GL-POSTING]` `[CONTABILIDAD]` `[CONTROL]` |
+| **Nombre** | Identificador de Asiento GL para S151 (W77-ID-P-S151) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[GL-POSTING]` `[CONTABILIDAD]` `[CONTROL]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV CUB Serie R (identificación de proceso contable en reportes mensuales) |
-| **Capacidad bancaria** | Registro contable de rendimientos en GL (S151) |
-| **Programa(s) fuente** | P130 (líneas 3070-3077, 5108-5201) |
-| **Frecuencia** | MENSUAL y EVENTO (cancelación) |
-| **Sistemas downstream** | S151REGISTRA, S151REGISTRA2 → S151 (GL) |
+| **Programa ejecutor** | P130 (líneas 3070-3077 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -116,13 +131,20 @@ CALL S151REGISTRA (o S151REGISTRA2) USING WS-S151-0101-...
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-081 |
-| **Tipo** | `[CONTROL]` `[EMERGENCIA]` `[BREAK-GLASS]` |
+| **Nombre** | Bypass de Emergencia de Librería S151 (WKS-SIN-LBS151) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[CONTROL]` `[EMERGENCIA]` `[BREAK-GLASS]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | — (operacional interno; genera divergencia contable no regulada) |
-| **Capacidad bancaria** | Control de integración contable de emergencia |
-| **Programa(s) fuente** | P130 (línea ~2900, comentario de documentación interno) |
-| **Frecuencia** | EVENTO (activación manual en emergencia operativa) |
-| **Sistemas downstream** | S151REGISTRA (omitido si activado), S151 (GL queda sin asientos) |
+| **Programa ejecutor** | P130 (línea ~2900 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -150,13 +172,20 @@ ELSE (default = 0):
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-082 |
-| **Tipo** | `[CONTROL]` `[VALIDACIÓN-PREPROCESS]` `[GATE]` |
+| **Nombre** | Validación de Tasas CETES/LIBOR como Gate de Proceso (VAL-CETES-LIBOR) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[CONTROL]` `[VALIDACIÓN-PREPROCESS]` `[GATE]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | Banxico Circular 3/2012 (tasas de referencia para captación) |
-| **Capacidad bancaria** | Control de calidad de datos de tasas antes de calcular rendimientos |
-| **Programa(s) fuente** | P130 (PERFORM 40089900-VAL-CETES-LIBOR en flujo principal) |
-| **Frecuencia** | DIARIA (cada ejecución del proceso, antes del PROCESO-PRINCIPAL) |
-| **Sistemas downstream** | S080 (catálogo de tasas de referencia), I07-TASASTARIF83 (tasas históricas pre-1983) |
+| **Programa ejecutor** | P130 (PERFORM 40089900-VAL-CETES-LIBOR en flujo principal) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -187,13 +216,20 @@ PERFORM 40089900-VAL-CETES-LIBOR:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-083 |
-| **Tipo** | `[CÁLCULO]` `[PROMEDIO-ANUAL]` `[BASE-RENDIMIENTO]` |
+| **Nombre** | Cálculo del Saldo Promedio Anual (WKS-PROM-ANUAL) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[CÁLCULO]` `[PROMEDIO-ANUAL]` `[BASE-RENDIMIENTO]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV CUB Anexo 33 (Series R-02 y B-05 — depósitos y rendimientos) |
-| **Capacidad bancaria** | Base de cálculo de rendimientos para contratos de captación |
-| **Programa(s) fuente** | P130 (líneas 7531-7536) |
-| **Frecuencia** | DIARIA (por cada contrato procesado) |
-| **Sistemas downstream** | I05-RENDIMIENTOS (archivo de salida → reportes R-01 a R-11 CNBV) |
+| **Programa ejecutor** | P130 (líneas 7531-7536) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -221,13 +257,20 @@ ELSE:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-084 |
-| **Tipo** | `[REGLA-NEGOCIO]` `[AJUSTE-DÍAS]` `[CANCELACIÓN]` |
+| **Nombre** | Ajuste de Días por Cancelación o Cambio de Producto (-1 día) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[REGLA-NEGOCIO]` `[AJUSTE-DÍAS]` `[CANCELACIÓN]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV CUB (el rendimiento se paga hasta el día anterior a la cancelación, no el día de cancelación) |
-| **Capacidad bancaria** | Cálculo de rendimiento en contratos cancelados o transferidos |
-| **Programa(s) fuente** | P130 (líneas 7527-7529, comentario explícito en código) |
-| **Frecuencia** | EVENTO (cancelación o cambio de producto) |
-| **Sistemas downstream** | `WKS-PROM-ANUAL` → `WKS-PROM-ANUAL-EXT` → I05-RENDIMIENTOS |
+| **Programa ejecutor** | P130 (líneas 7527-7529 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -257,13 +300,20 @@ IF W77-HAY-CAMB-PROD = 1 OR B03-STATUS = 2:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-085 |
-| **Tipo** | `[CÁLCULO]` `[PROMEDIO-ANUAL-EXT]` `[CICLO-PARCIAL]` |
+| **Nombre** | Saldo Promedio Anual Extendido para Ciclos Parciales (WKS-PROM-ANUAL-EXT) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[CÁLCULO]` `[PROMEDIO-ANUAL-EXT]` `[CICLO-PARCIAL]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV CUB Anexo 33 (base para reportes de rendimiento real) |
-| **Capacidad bancaria** | Cálculo de rendimientos en contratos con ciclos de corte parciales |
-| **Programa(s) fuente** | P130 (líneas 7540-7551) |
-| **Frecuencia** | DIARIA (por cada contrato, inmediatamente después de RN-S500-083) |
-| **Sistemas downstream** | I05-RENDIMIENTOS (campo SDOPROM y base de TBRTA) |
+| **Programa ejecutor** | P130 (líneas 7540-7551) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -299,13 +349,20 @@ ELSE:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-086 |
-| **Tipo** | `[REGLA-NEGOCIO]` `[SWITCH-CAPITALIZACIÓN]` `[ESTADO-CONTRATO]` |
+| **Nombre** | Decisión de Capitalización por Estado del Contrato (50116000-ANALIZA-CAPITALIZ) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[REGLA-NEGOCIO]` `[SWITCH-CAPITALIZACIÓN]` `[ESTADO-CONTRATO]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV CUB (obligación de aplicar rendimientos a contratos vigentes; Art. 61 para cuentas inactivas) |
-| **Capacidad bancaria** | Capitalización de rendimientos e ISR por estado del contrato |
-| **Programa(s) fuente** | P130 (líneas 7554-7601) |
-| **Frecuencia** | DIARIA (por cada contrato) |
-| **Sistemas downstream** | S151REGISTRA, I05-RENDIMIENTOS, DMSII BD03 |
+| **Programa ejecutor** | P130 (líneas 7554-7601) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -349,13 +406,20 @@ ELSE:                                     -- Cancelado SIN pago de rendimientos
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-087 |
-| **Tipo** | `[CÁLCULO]` `[RENDIMIENTO-PERIÓDICO]` `[CAPITALIZACIÓN]` |
+| **Nombre** | Rendimiento Periódico al Vencimiento del Ciclo (IND-RENDDIA = 0) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[CÁLCULO]` `[RENDIMIENTO-PERIÓDICO]` `[CAPITALIZACIÓN]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV CUB (rendimiento al vencimiento del ciclo para instrumentos de plazo) |
-| **Capacidad bancaria** | Capitalización de rendimiento e ISR en instrumentos de corte periódico |
-| **Programa(s) fuente** | P130 (líneas 7620-7629, sección 50116120-ANALIZA-RENDIMIENTOS) |
-| **Frecuencia** | DIARIA (evaluación); capitalización efectiva al vencimiento del ciclo del contrato |
-| **Sistemas downstream** | DMSII BD03 (B03-SDO-ACTUAL, B03-INTS-CAPIT), S151REGISTRA |
+| **Programa ejecutor** | P130 (líneas 7620-7629 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -390,13 +454,20 @@ WKS-SI-B03 = 1                            -- flag: escribir BD03 en DMSII
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-088 |
-| **Tipo** | `[CÁLCULO]` `[RENDIMIENTO-DIARIO]` `[TASA-PROMEDIO]` `[IPAB]` |
+| **Nombre** | Rendimiento Diario: Acumulación Diaria y Tasa Promedio en Cierre Mensual (IND-RENDDIA = 1) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[CÁLCULO]` `[RENDIMIENTO-DIARIO]` `[TASA-PROMEDIO]` `[IPAB]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV CUB (cuentas de ahorro con rendimiento diario; IPAB — Instituto de Protección al Ahorro Bancario) |
-| **Capacidad bancaria** | Acumulación diaria de rendimiento e ISR; cálculo de tasa promedio al cierre mensual |
-| **Programa(s) fuente** | P130 (líneas 7630-7660, sección 50116120-ANALIZA-RENDIMIENTOS) |
-| **Frecuencia** | DIARIA (acumulación) + MENSUAL (cierre: tasa promedio) |
-| **Sistemas downstream** | DMSII BD03 (B03-INTS-CAPIT, B03-ISRDIA-IPAB, B03-RENDIA-IPAB), BD06, IPAB |
+| **Programa ejecutor** | P130 (líneas 7630-7660 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -441,13 +512,20 @@ ELSE:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-089 |
-| **Tipo** | `[REGLA-NEGOCIO]` `[ISR]` `[CANCELACIÓN]` `[FX-CONVERSIÓN]` |
+| **Nombre** | ISR Valorizado No Acumulado en Cancelación en Línea (Compensación P010→P130) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[REGLA-NEGOCIO]` `[ISR]` `[CANCELACIÓN]` `[FX-CONVERSIÓN]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | SAT ISR Art. 54 (retención de ISR sobre intereses bancarios; base para DIOT) |
-| **Capacidad bancaria** | Retención correcta de ISR en cancelaciones online procesadas por P010 |
-| **Programa(s) fuente** | P130 (líneas 6626-6637; comentario explícito: "En una cancelación en línea, no se acumula el ISR Valorizado por el paso P010 y por eso se hace aquí") |
-| **Frecuencia** | EVENTO (cancelación en línea el mismo día de proceso) |
-| **Sistemas downstream** | DMSII BD06 (B06-IMPTO-VALMN) |
+| **Programa ejecutor** | P130 (líneas 6626-6637; comentario explícito: "En una cancelación en línea |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -481,13 +559,20 @@ AND B03-STATUS = 2:                  -- cancelado por P010 en línea
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-090 |
-| **Tipo** | `[REGLA-NEGOCIO]` `[ISR]` `[BENEFICIO-EMPLEADOS]` `[CIERRE-MENSUAL]` |
+| **Nombre** | ISR de Plan de Ahorro Empresarial (EPP) en Cierre Mensual |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[REGLA-NEGOCIO]` `[ISR]` `[BENEFICIO-EMPLEADOS]` `[CIERRE-MENSUAL]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | SAT ISR Art. 93 (exención parcial de ISR en planes de ahorro para el retiro de empleados) |
-| **Capacidad bancaria** | Retención y pago de ISR especial en cuentas EPP (Employee Pension Plan) |
-| **Programa(s) fuente** | P130 (líneas 6648-6649) |
-| **Frecuencia** | MENSUAL (solo cuando WKS-ES-MENSUAL = 1) |
-| **Sistemas downstream** | 50120000-SALIDA-IMPUESTO → S151REGISTRA (GL), reporte anual ISR |
+| **Programa ejecutor** | P130 (líneas 6648-6649) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -514,13 +599,20 @@ AND B06-ISR-RET-EPP > 0:            -- hay ISR acumulado de EPP en el mes
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-091 |
-| **Tipo** | `[GL-POSTING]` `[RENDIMIENTO-NETO]` `[FX-CONVERSIÓN]` |
+| **Nombre** | Asiento GL: Rendimiento Neto hacia S151 (CVE-COMUN 3000) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[GL-POSTING]` `[RENDIMIENTO-NETO]` `[FX-CONVERSIÓN]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV CUB (obligación de contabilizar intereses pagados a clientes) |
-| **Capacidad bancaria** | Asiento contable de rendimiento neto en GL por contrato |
-| **Programa(s) fuente** | P130 (líneas 7663-7714) |
-| **Frecuencia** | DIARIA (cada contrato con RENDNETO > 0) |
-| **Sistemas downstream** | S151REGISTRA → S151 (GL); WKS-VAL-CGOMN/CGODLS (totales del día) |
+| **Programa ejecutor** | P130 (líneas 7663-7714) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -554,13 +646,20 @@ IF WS-CAP-RENDNETO > 0:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-092 |
-| **Tipo** | `[GL-POSTING]` `[ISR]` `[FX-CONVERSIÓN]` |
+| **Nombre** | Asiento GL: ISR Retenido hacia S151 (CVE-COMUN 4009) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[GL-POSTING]` `[ISR]` `[FX-CONVERSIÓN]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | SAT ISR Art. 54 + CNBV CUB (obligación de contabilizar retención ISR en libros bancarios) |
-| **Capacidad bancaria** | Asiento contable de ISR retenido en GL |
-| **Programa(s) fuente** | P130 (líneas 7716-7727) |
-| **Frecuencia** | DIARIA (cada contrato con ISR > 0) |
-| **Sistemas downstream** | S151REGISTRA → S151 (GL); B06-IMPTO-VALMN (DMSII BD06) |
+| **Programa ejecutor** | P130 (líneas 7716-7727) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -592,13 +691,20 @@ IF WS-CAP-IMPUESTO > 0:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-093 |
-| **Tipo** | `[GL-POSTING]` `[RENDIMIENTO-BRUTO]` `[REPORTING-CNBV]` |
+| **Nombre** | Asiento GL: Rendimiento Bruto hacia S151 (CVE-COMUN 809) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[GL-POSTING]` `[RENDIMIENTO-BRUTO]` `[REPORTING-CNBV]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV CUB Serie R-04 (rendimientos brutos de captación para Circular Única de Bancos) |
-| **Capacidad bancaria** | Asiento de rendimiento bruto; base de cuadre para reportes Serie R |
-| **Programa(s) fuente** | P130 (líneas 7729-7732) |
-| **Frecuencia** | DIARIA (cada contrato con RENDBRTO > 0) |
-| **Sistemas downstream** | S151REGISTRA → S151 (GL); reportes Serie R CNBV |
+| **Programa ejecutor** | P130 (líneas 7729-7732) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -629,13 +735,20 @@ IF WS-CAP-RENDBRTO > 0:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-094 |
-| **Tipo** | `[CÁLCULO]` `[FX-CONVERSIÓN]` `[GL-POSTING]` |
+| **Nombre** | Conversión Cambiaria para Asientos GL en Cuentas USD (B03-MONEDA = 5) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[CÁLCULO]` `[FX-CONVERSIÓN]` `[GL-POSTING]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | Banxico (uso del tipo de cambio venta para conversión en libros bancarios) |
-| **Capacidad bancaria** | Conversión de rendimientos y comisiones USD a MXN para contabilidad homogénea |
-| **Programa(s) fuente** | P130 (líneas 7710-7714, 7720-7727 y equivalentes en sección de comisiones) |
-| **Frecuencia** | DIARIA (cada movimiento GL en cuentas denominadas en USD) |
-| **Sistemas downstream** | WKS-VAL-CGOMN/ABOMN (totales del día en MXN), S151REGISTRA |
+| **Programa ejecutor** | P130 (líneas 7710-7714 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -665,13 +778,20 @@ IF B03-MONEDA = 5 (USD):
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-095 |
-| **Tipo** | `[CLASIFICACIÓN]` `[RENDIMIENTO-REPORTING]` `[SERIE-R-CNBV]` |
+| **Nombre** | Clasificación de Contratos en Archivo de Rendimientos I05 (ESQ-REND) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[CLASIFICACIÓN]` `[RENDIMIENTO-REPORTING]` `[SERIE-R-CNBV]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV CUB Anexo 33 (reportes de tasas y rendimientos por producto/instrumento/tarifa) |
-| **Capacidad bancaria** | Clasificación de contratos por esquema de rendimiento para reportes regulatorios CNBV |
-| **Programa(s) fuente** | P130 (líneas 7782-7809, sección 50116150-ARMA-ARCH-RENDI) |
-| **Frecuencia** | DIARIA (por cada contrato escrito a I05-RENDIMIENTOS) |
-| **Sistemas downstream** | I05-RENDIMIENTOS (archivo → reportes R-01 a R-11 → CNBV Serie R) |
+| **Programa ejecutor** | P130 (líneas 7782-7809 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -712,13 +832,20 @@ DEFAULT:               TARIFA=1, REGION=WS-IND-REGION    -- Tarifa estándar
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-096 |
-| **Tipo** | `[REGLA-NEGOCIO]` `[CANCELACIÓN-AUTOMÁTICA]` `[SALDO-MÍNIMO]` |
+| **Nombre** | Pre-Cancelación por Saldo Promedio Mínimo (50116650-VE-PRECANCEL) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[REGLA-NEGOCIO]` `[CANCELACIÓN-AUTOMÁTICA]` `[SALDO-MÍNIMO]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CONDUSEF LTOSF Art. 4 (transparencia en condiciones de cancelación; 30 días de aviso previo) |
-| **Capacidad bancaria** | Cancelación automática de contratos que no mantienen saldo promedio mínimo |
-| **Programa(s) fuente** | P130 (líneas 6531-6537) |
-| **Frecuencia** | MENSUAL (día de corte: W77-HOY-CORTA > 0) |
-| **Sistemas downstream** | 50116650-VE-PRECANCEL → DMSII BD03 (cancelación), S151REGISTRA |
+| **Programa ejecutor** | P130 (líneas 6531-6537) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -750,13 +877,20 @@ ELSE:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-097 |
-| **Tipo** | `[COMISIÓN]` `[DEPÓSITOS-EXCEDIDOS]` `[MENSUAL]` |
+| **Nombre** | Comisión por Exceso de Depósitos en el Ciclo (50116660-VE-IMPDEPCICLO) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[COMISIÓN]` `[DEPÓSITOS-EXCEDIDOS]` `[MENSUAL]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CONDUSEF LTOSF Art. 4 (transparencia en comisiones por operaciones que exceden el umbral gratuito) |
-| **Capacidad bancaria** | Cobro de comisión por depósitos que exceden el número mensual gratuito |
-| **Programa(s) fuente** | P130 (líneas 6539-6545) |
-| **Frecuencia** | MENSUAL (día de corte, W77-HOY-CORTA > 0) |
-| **Sistemas downstream** | 50116660-VE-IMPDEPCICLO → S151REGISTRA |
+| **Programa ejecutor** | P130 (líneas 6539-6545) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -786,13 +920,20 @@ ELSE:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-098 |
-| **Tipo** | `[REGLA-NEGOCIO]` `[INACTIVIDAD]` `[BENEFICENCIA]` `[ART61]` |
+| **Nombre** | Traspaso Automático a Cuenta de Beneficencia (Art. 61 CUB) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[REGLA-NEGOCIO]` `[INACTIVIDAD]` `[BENEFICENCIA]` `[ART61]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV CUB Art. 61 (cuentas inactivas con saldo a favor deben transferirse a cuenta de beneficencia después del período de inactividad) |
-| **Capacidad bancaria** | Transferencia automática de saldos inactivos a cuenta de beneficencia |
-| **Programa(s) fuente** | P130 (líneas 6600-6607) |
-| **Frecuencia** | SEMANAL (primer viernes de aniversario del contrato: WKS-ES-1ERVIE-ANH = 1) |
-| **Sistemas downstream** | 50113600-TRASP-BENEF → DMSII BD03 (cancelación), S151REGISTRA |
+| **Programa ejecutor** | P130 (líneas 6600-6607) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -824,13 +965,20 @@ AND W77-SDO-MAX-BENF > 0:           -- saldo máximo para beneficencia configura
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-099 |
-| **Tipo** | `[COMISIÓN]` `[TARIFA]` `[CONSULTA-CATÁLOGO]` `[CONDUSEF]` |
-| **Confianza** | alta (vocab-s500-v4.json, término 20039000-DAME-COMISION) |
+| **Nombre** | Consulta Central de Comisión vía DAME-COMISION / S080 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[COMISIÓN]` `[TARIFA]` `[CONSULTA-CATÁLOGO]` `[CONDUSEF]` |
+| **Confianza** | alta (vocab-s500-v4.json, término 20039000-dame-comision) |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CONDUSEF LTOSF Art. 4 + LFPIORPI + BEF (Buró de Entidades Financieras — todas las comisiones cobradas deben estar en BEF) |
-| **Capacidad bancaria** | Recuperación de comisiones aplicables desde el catálogo central S080 |
-| **Programa(s) fuente** | P130, P142, P144, P010 (función transversal) |
-| **Frecuencia** | EVENTO (cada operación que genera comisión) |
-| **Sistemas downstream** | S080 (catálogo externo de tarifas; servicio DAME-COMISION) |
+| **Programa ejecutor** | P130 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -865,13 +1013,20 @@ F-COMISION = DAME-COMISION(
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-100 |
-| **Tipo** | `[COMISIÓN]` `[DESPACHADOR]` `[MENSUAL]` `[MAYOR-RIESGO-CONDUSEF]` |
-| **Confianza** | alta (vocab-s500-v4.json, término 20530000-COMIS-MENSUAL) |
+| **Nombre** | Despachador de Comisiones Mensuales (20530000-COMIS-MENSUAL) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[COMISIÓN]` `[DESPACHADOR]` `[MENSUAL]` `[MAYOR-RIESGO-CONDUSEF]` |
+| **Confianza** | alta (vocab-s500-v4.json, término 20530000-comis-mensual) |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CONDUSEF LTOSF Art. 4 (mayor riesgo regulatorio — volumen y variedad de comisiones mensuales) |
-| **Capacidad bancaria** | Proceso centralizado de hasta 15 tipos de comisiones mensuales por contrato |
-| **Programa(s) fuente** | P130 (COMIS-MENSUAL dispatcher; invocado en WKS-ES-MENSUAL=1) |
-| **Frecuencia** | MENSUAL |
-| **Sistemas downstream** | DAME-COMISION → S080, S151REGISTRA (asiento por cada comisión cobrada) |
+| **Programa ejecutor** | P130 (COMIS-MENSUAL dispatcher; invocado en WKS-ES-MENSUAL=1) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -910,13 +1065,20 @@ CONCENSO → NOT processed here (vía separada)
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-101 |
-| **Tipo** | `[COMISIÓN]` `[MANEJO-CTA]` `[EXENCIÓN-SBC]` `[NÓMINA]` |
-| **Confianza** | alta (vocab-s500-v4.json, término 20530500-COMISION-MANEJO-CTA) |
+| **Nombre** | Comisión de Manejo de Cuenta con Exención por Saldo Promedio (COMISION-MANEJO-CTA) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[COMISIÓN]` `[MANEJO-CTA]` `[EXENCIÓN-SBC]` `[NÓMINA]` |
+| **Confianza** | alta (vocab-s500-v4.json, término 20530500-comision-manejo-cta) |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | Banxico Circular (exención incondicional para cuentas nómina) + CONDUSEF LTOSF Art. 4 |
-| **Capacidad bancaria** | Cobro mensual de manejo de cuenta condicionado al saldo promedio de compensación (SBC) |
-| **Programa(s) fuente** | P130 (invocado desde COMIS-MENSUAL dispatcher) |
-| **Frecuencia** | MENSUAL |
-| **Sistemas downstream** | S080 tariff #018, S151REGISTRA |
+| **Programa ejecutor** | P130 (invocado desde COMIS-MENSUAL dispatcher) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -953,13 +1115,20 @@ WS-SDO-MANEJO = saldo mínimo de exención retornado por S080
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-102 |
-| **Tipo** | `[COMISIÓN]` `[ANIVERSARIO]` `[ANUAL]` `[NOTIFICACIÓN-30-DÍAS]` |
-| **Confianza** | alta (vocab-s500-v4.json, término 20530400-COMISION-ANIVERSARIO) |
+| **Nombre** | Comisión de Aniversario (20530400-COMISION-ANIVERSARIO) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[COMISIÓN]` `[ANIVERSARIO]` `[ANUAL]` `[NOTIFICACIÓN-30-DÍAS]` |
+| **Confianza** | alta (vocab-s500-v4.json, término 20530400-comision-aniversario) |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CONDUSEF LTOSF Art. 4 (notificación obligatoria 30 días antes de cobro de comisión anual) |
-| **Capacidad bancaria** | Cobro de comisión anual en fecha de aniversario del contrato |
-| **Programa(s) fuente** | P130 |
-| **Frecuencia** | ANUAL (fecha de aniversario del contrato) |
-| **Sistemas downstream** | S080 tariff #017, S151REGISTRA |
+| **Programa ejecutor** | P130 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -988,13 +1157,20 @@ AND fecha_proceso = aniversario_contrato:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-103 |
-| **Tipo** | `[COMISIÓN]` `[CLASIFICACIÓN-PERSONA]` `[PF-PM]` |
-| **Confianza** | alta (vocab-s500-v4.json, término 20530130-DAME-ESQCOMI) |
+| **Nombre** | Resolución de Esquema de Comisión PF vs PM (20530130-DAME-ESQCOMI) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-08 |
+| **bian_ref** | 6.1.5 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[COMISIÓN]` `[CLASIFICACIÓN-PERSONA]` `[PF-PM]` |
+| **Confianza** | alta (vocab-s500-v4.json, término 20530130-dame-esqcomi) |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CONDUSEF (diferenciación de comisiones entre Persona Física y Persona Moral) |
-| **Capacidad bancaria** | Determinación del esquema de comisión según tipo de persona jurídica |
-| **Programa(s) fuente** | P130 (rutina DAME-ESQCOMI, invocada por COMIS-MENSUAL) |
-| **Frecuencia** | EVENTO (cada cálculo de comisión mensual) |
-| **Sistemas downstream** | DAME-COMISION → S080 (OCCURS 210 esquemas) |
+| **Programa ejecutor** | P130 (rutina DAME-ESQCOMI |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -1034,13 +1210,20 @@ DAME-COMISION(PLAZO=ESQCOM, ...)             -- consulta S080 con ESQCOM como í
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-104 |
-| **Tipo** | `[CALENDARIO]` `[CONTROL-BATCH]` `[CIERRE-MENSUAL]` |
+| **Nombre** | Detección del Último Día Hábil del Mes (DIA30) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura/librería · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[CALENDARIO]` `[CONTROL-BATCH]` `[CIERRE-MENSUAL]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV (el cierre mensual de captación debe ocurrir el último día hábil del mes) |
-| **Capacidad bancaria** | Activación del cierre mensual de cuentas de captación (trigger de RN-S500-079) |
-| **Programa(s) fuente** | WFL LINEA S500 (sección FECHAS) |
-| **Frecuencia** | DIARIA (evaluación); se activa ~1 vez al mes |
-| **Sistemas downstream** | P130 (activa WKS-ES-MENSUAL=1), P142, P144, P010 (cierre mensual) |
+| **Programa ejecutor** | WFL LINEA S500 (sección FECHAS) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -1071,13 +1254,20 @@ DIA30 = TRUE IF: IFECHAPROX MOD 100 = 1 AND  -- mañana es día 1 del mes siguie
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-105 |
-| **Tipo** | `[CALENDARIO]` `[CONTROL-BATCH]` `[QUINCENAL]` |
+| **Nombre** | Detección del Quincenal (DIA15) para Comisiones y Cortes |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura/librería · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[CALENDARIO]` `[CONTROL-BATCH]` `[QUINCENAL]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | CNBV (cortes quincenales de captación en ciertos instrumentos) |
-| **Capacidad bancaria** | Activación del procesamiento quincenal de comisiones e intereses |
-| **Programa(s) fuente** | WFL LINEA S500 (sección FECHAS) |
-| **Frecuencia** | DIARIA (evaluación); se activa ~2 veces al mes |
-| **Sistemas downstream** | P130, P142, P144 (activan procesamiento quincenal) |
+| **Programa ejecutor** | WFL LINEA S500 (sección FECHAS) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -1107,13 +1297,20 @@ DIA15 = TRUE IF:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-106 |
-| **Tipo** | `[CONTROL]` `[ACTIVACIÓN-CONDICIONAL]` `[CAMPAÑA]` |
+| **Nombre** | Activación Condicional de Telethon (P045/P046 si BD06TELETON Residente) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura/librería · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[CONTROL]` `[ACTIVACIÓN-CONDICIONAL]` `[CAMPAÑA]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | — (carácter social; sin obligación regulatoria) |
-| **Capacidad bancaria** | Procesamiento de donaciones Telethon integrado en el flujo de captación |
-| **Programa(s) fuente** | WFL LINEA S500 (sección SUBETODOS) |
-| **Frecuencia** | DIARIA (evaluación del archivo de control) |
-| **Sistemas downstream** | P045 (captación Telethon), P046 (dispersión Telethon), DMSII BD06 partición TELETON |
+| **Programa ejecutor** | WFL LINEA S500 (sección SUBETODOS) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```
@@ -1147,13 +1344,20 @@ SUBETODOS:
 | Campo | Valor |
 |-------|-------|
 | **Identificador** | RN-S500-107 |
-| **Tipo** | `[CONTROL]` `[SISTEMA]` `[COMS]` `[INICIO-DÍA]` |
+| **Nombre** | Secuencia de Habilitación de LINCOMS al Inicio del Día (SUBETODOS) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | — (arquitectura/librería · no BC de negocio) |
+| **bian_ref** | — |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | `[CONTROL]` `[SISTEMA]` `[COMS]` `[INICIO-DÍA]` |
 | **Confianza** | alta |
+| **Veredicto** | PENDIENTE SME |
 | **Regulador** | — (operacional interno; afecta disponibilidad de servicios bancarios) |
-| **Capacidad bancaria** | Control de disponibilidad de todos los servicios en línea de captación |
-| **Programa(s) fuente** | WFL LINEA S500 (sección SUBETODOS) |
-| **Frecuencia** | DIARIA (inicio del proceso online, después de CALCULA y FECHAS) |
-| **Sistemas downstream** | Todos los LINCOMS de S500: P010, P014, P015, P016, P020, P038, P050, P055, P060, P080, P091, P093 |
+| **Programa ejecutor** | WFL LINEA S500 (sección SUBETODOS) |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Fórmula / Pseudocódigo**
 ```

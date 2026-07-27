@@ -1,4 +1,5 @@
 # Reglas P010 — GATEWAY ONLINE MOVIMIENTOS S151 (con vocabulario)
+**Indexado:** ✅ 2026-07-17 — correlacionado vocab↔reglas↔capacidad (traceability-matrix.md)
 
 > **Program-ID:** LINEA · ~18,943 LOC · Dispatcher online multi-sistema
 > **ROL:** Hub que enruta peticiones a ~30 bibliotecas LIB-CONS{NNN}; gestiona fechas, seguridad, bases de datos
@@ -51,15 +52,21 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | ARQUITECTURA |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-241 |
+| **Nombre** | P010 es hub de consultas multi-sistema, NO motor de posting GL |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | ARQUITECTURA |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** LINEA (P010) no registra asientos contables ni genera movimientos en el General Ledger. Su único rol es actuar como **dispatcher online**: recibe el mensaje del terminal, determina sistema y pantalla, y delega la lógica de consulta a la biblioteca LIB-CONS{NNN} correspondiente (ej. LIB-CONS0017, LIB-CONS0084, LIB-CONS0264). No existe lógica GL en su PROCEDURE DIVISION; toda lectura de datos de negocio ocurre en la biblioteca destino.
 
@@ -106,15 +113,21 @@ ELSE → rechazar petición sin dispatch
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | FECHA |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-242 |
+| **Nombre** | Tres fechas independientes por sistema: FECPRO, FECCON y FEC151 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | FECHA |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Cada sistema registrado en el hub mantiene **tres fechas de proceso independientes** administradas vía Pantalla 81: (1) `FECPRO` — fecha de proceso del día corriente; (2) `FECCON` — fecha de contabilización oficial del asiento GL; (3) `FEC151` — fecha interna propia del sistema 151. Estas tres fechas pueden diferir entre sí y se gestionan por separado, lo que permite reconciliaciones asíncronas entre el procesamiento operativo y el cierre contable.
 
@@ -163,15 +176,21 @@ Las tres fechas son independientes y pueden diverger entre sí
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | CONTROL-OPERACION |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-243 |
+| **Nombre** | Gate de estatus de sistema: STASIS=3 para operación normal (STASIS=5 alternativo) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONTROL-OPERACION |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El hub P010 solo enruta peticiones a sistemas cuyo `WKS-TAB-STASIS` sea igual a **3** (operación normal) o **5** (alternativo activo). Sistemas con STASIS diferente son excluidos del routing online. El valor de estatus se carga desde el dataset `B04SISTEM` durante la inicialización y se puede modificar vía Pantalla P86.
 
@@ -218,15 +237,21 @@ FOR cada sistema S cargado desde B04SISTEM:
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | SEGURIDAD |
-| **Ente regulador** | CNBV |
-| **Base regulatoria** | Disposiciones de carácter general aplicables a las instituciones de crédito (CUB) — segregación de funciones y controles de acceso por perfil |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-244 |
+| **Nombre** | Modelo de autorización de sucursal: FACULTAD 1/2/3 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | SEGURIDAD |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | Disposiciones de carácter general aplicables a las instituciones de crédito (CUB) — segregación de funciones y controles de acceso por perfil |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El paragraph `300010-CHECA-ENTIDAD` evalúa el campo `W77-FACULTAD` para determinar el nivel de autorización de la sucursal operadora respecto al sistema consultado: **FACULTAD=1** limita la operación a la propia sucursal de captura; **FACULTAD=2** autoriza consulta cross-sucursal; **FACULTAD=3** niega el acceso con error de seguridad (mensaje 87). El valor de FACULTAD se recupera de las tablas `WKS-TAB-FAC`, `WKS-TAB1-FAC` ... `WKS-TAB4-FAC` indexadas por (sucursal, sistema).
 
@@ -278,15 +303,21 @@ PERFORM 300010-CHECA-ENTIDAD:
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | SEGURIDAD |
-| **Ente regulador** | CNBV |
-| **Base regulatoria** | CUB — registro de facultades y control de acceso por transacción |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-245 |
+| **Nombre** | Códigos de transacción de seguridad hardcodeados Q015{NNN} por pantalla |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | SEGURIDAD |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | CUB — registro de facultades y control de acceso por transacción |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Cada pantalla del hub tiene asignado un código de transacción de seguridad `Q015{NNN}` hardcodeado en el COBOL. Estos códigos son consultados contra el sistema de seguridad `SEGURIDAD` vía `VALIDA_FACULTAD` para determinar si el usuario tiene permiso de operar la pantalla. El catálogo completo cubre pantallas 111–130C (consultas estándar) y pantallas 181A/B/M/C (administración). El código `Q015130C` identifica la pantalla de administración compuesta.
 
@@ -332,15 +363,21 @@ IF W77-VALIDA-SEG = 1 THEN
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | SEGURIDAD |
-| **Ente regulador** | CNBV |
-| **Base regulatoria** | CUB — trazabilidad de cambios a controles; riesgo de compliance si se deshabilita en producción |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-246 |
+| **Nombre** | Toggle de seguridad en tiempo de ejecución: HI 41/42 → W77-VALIDA-SEG=1/2 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | SEGURIDAD |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | CUB — trazabilidad de cambios a controles; riesgo de compliance si se deshabilita en producción |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El operador de sistemas puede habilitar (`HI 41` → `W77-VALIDA-SEG=1`) o deshabilitar (`HI 42` → `W77-VALIDA-SEG=2`) la validación de seguridad en **tiempo de ejecución** sin reinicio del programa. Este mecanismo es una función de soporte operativo que permite bypass de seguridad para pruebas o emergencias, pero representa un riesgo de compliance severo si se usa en producción sin controles compensatorios documentados.
 
@@ -385,15 +422,21 @@ IF W77-VALIDA-SEG = 1 → ejecutar validación Q015 por pantalla (RN-245)
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | CONTROL-ACCESO |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | Control interno — segregación de información por nivel de facultad |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-247 |
+| **Nombre** | Panel 17 (Totales Nacionales): bloqueado para FACULTAD=1 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONTROL-ACCESO |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | Control interno — segregación de información por nivel de facultad |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** La Pantalla P17 (Totales Nacionales — vista consolidada de movimientos a nivel nacional) está explícitamente bloqueada para operadores con `FACULTAD=1` (acceso solo a sucursal propia). Cuando FACULTAD=1 y el número de pantalla es 17, se establece `W77-CVE-RESOL=3` y se emite el mensaje de error 87 (SEG; NIVEL DE FACULTADES INSUFICIENTE). Esta restricción evita que cajeros o tellers de sucursal accedan a información de totales nacionales.
 
@@ -439,15 +482,21 @@ IF WKS-PAN-ENTNUMPAN = 17 AND W77-FACULTAD = 1 THEN
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | CONTROL-OPERACION |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | Control interno — sucursal especial de proceso centralizado |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-248 |
+| **Nombre** | Sucursal 859 hardcodeada en Panel 24 → W77-SUC-CAPTURA=859 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONTROL-OPERACION |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | Control interno — sucursal especial de proceso centralizado |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Cuando el usuario opera en el Panel P24 (seleccionado por número de sistema específico), el campo `W77-SUC-CAPTURA` se fija al valor **859** directamente en código, sin leer de parámetro ni tabla. La sucursal 859 es presumiblemente un centro de proceso centralizado o sucursal virtual de concentración. Esta asignación hace que para P24, la validación de facultad `FACULTAD=1` (solo sucursal propia) se resuelva siempre en modo centralizado. También aparece en combinación con `SIS-NUME=264` como excepción de enrutamiento (RN-270).
 
@@ -491,15 +540,21 @@ IF pantalla activa = P24 THEN
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | CONFIGURACION |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-249 |
+| **Nombre** | Configuración de bases de datos por TIPBD (1-7): tabla BD10/BD11/BD12/BD13 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONFIGURACION |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El campo `WKS-B03-TIPBD` (valores 1-7) determina qué combinación de bases de datos de movimientos (BD10, BD11, BD12, BD13) está activa para cada sistema. La lógica sigue una codificación bit-mask: TIPBD=1 activa las cuatro; TIPBD=2 activa BD10+BD11; TIPBD=3 activa BD10+BD12; TIPBD=4 activa BD10+BD13; TIPBD=5 activa BD10+BD11+BD12; TIPBD=6 activa BD10+BD11+BD13; TIPBD=7 activa BD10+BD12+BD13. BD10 siempre está activa (base de movimientos del día).
 
@@ -549,15 +604,21 @@ IF TIPBD IN (1,4,6,7) → MOVE 1 TO WKS-TAB-CONFBD13
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | RETENCION |
-| **Ente regulador** | CNBV |
-| **Base regulatoria** | Ley de Instituciones de Crédito Art. 56 — retención de información 7 años; CUB sobre archivo de información contable |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-250 |
+| **Nombre** | Ciclo de archivo: hasta 10 fechas de proceso históricas por sistema (FECARC/NIVARC/NIVBD/STA 1-10) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | RETENCION |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | Ley de Instituciones de Crédito Art. 56 — retención de información 7 años; CUB sobre archivo de información contable |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El dataset B01 mantiene hasta **10 fechas de proceso archivadas** por sistema (`WKS-B01-FECARCMOV(1..10)`), cada una con su nivel de archivo (`NIVARC`), nivel de base de datos (`NIVBD`) y estatus (`STA`). Esto permite consultas históricas de movimientos a fechas anteriores a la actual, con ventana de hasta 10 días de proceso. Las fechas > ZEROS se cargan en la tabla `WKS-TAB-FECPROC(sistema, fecha_idx)` durante la inicialización.
 
@@ -608,15 +669,21 @@ FOR j = 1 TO 10:
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | ARQUITECTURA |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-251 |
+| **Nombre** | Restricción CSI-nodo por sistema (RESCSI = NUMCSI-HOST) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | ARQUITECTURA |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El campo `WKS-B03-RESCSI` define a qué nodo CSI (Centro de Servicios Informáticos) está restringido cada sistema. Cuando `RESCSI = WKS-NUMCSI-HOST` (nodo local), el sistema solo puede ser consultado desde ese nodo. Este mecanismo implementa la topología distribuida de la red Unisys de Banamex, donde cada CSI es un nodo físico de cómputo. La restricción se evalúa en el routing para determinar si la petición puede ser procesada localmente o debe redirigirse.
 
@@ -664,15 +731,21 @@ ELSE
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | DATO-NEGOCIO |
-| **Ente regulador** | CNBV |
-| **Base regulatoria** | CUB — desglose por canal en reportes de transacciones; estadísticas de medios de pago |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-252 |
+| **Nombre** | MDA (Medio de Acceso) como dimensión del movimiento: CVEMDA(2)+SUCMDA(4)+NUMMDA(16) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | DATO-NEGOCIO |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | CUB — desglose por canal en reportes de transacciones; estadísticas de medios de pago |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El "Medio de Acceso" (MDA) es una dimensión de 22 bytes que identifica el canal por el que se originó el movimiento: clave de moneda del medio (`CVEMDA`, 2 dígitos), sucursal del medio (`SUCMDA`, 4 dígitos) y número del medio (`NUMMDA`, 16 dígitos). Esta dimensión aparece en las pantallas P18, P19 y P20 de consulta de movimientos. El MDA permite clasificar transacciones por canal (sucursal, ATM, SPEI, etc.) para fines de reporte regulatorio.
 
@@ -724,15 +797,21 @@ CALL biblioteca P18/P19/P20 con MDA como filtro de canal de acceso
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | DATO-FECHA |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | N/A — riesgo técnico de migración |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-253 |
+| **Nombre** | Y2K pivote año 50 (CRONOS2K): A2K-BASE-YEAR=50; sentinel 999999=sin fecha |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | DATO-FECHA |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — riesgo técnico de migración |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El copybook CRONOS2K implementa la solución Y2K de Unisys con una regla de pivote: años de 2 dígitos (`AA`) menores a **50** se interpretan como siglo 20XX; años ≥ 50 se interpretan como 19XX. Esta lógica se aplica en las rutinas `A2K-CPY-SECTION` de conversión de fechas. Adicionalmente, el valor **999999** (6 dígitos) es el sentinel de "sin fecha" (fecha nula); se mapea a `99999999` en formato de 8 dígitos durante la conversión.
 
@@ -780,15 +859,21 @@ ELSE → siglo = 19  (año 19XX)
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | VALIDACION |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | Control interno de integridad de datos |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-254 |
+| **Nombre** | Validación de fecha: conjunto {FECCON, FECPRO} ∪ {FECPROC(1..10)} — paragraph 420120-VALIDA-NUM-FEC |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | VALIDACION |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | Control interno de integridad de datos |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El paragraph `420120-VALIDA-NUM-FEC` valida que la fecha ingresada por el usuario sea miembro del conjunto de fechas válidas: (1) igual a `FECCON` del sistema, (2) igual a `FECPRO` del sistema, o (3) igual a alguna de las 10 fechas procesadas históricas `FECPROC(1..10)` del sistema. Si no pertenece a ninguna de estas, se emite error 19. La validación numérica previa usa `JUSTIFIER IN LOCSUP`.
 
@@ -840,15 +925,21 @@ ELSE → MOVE 19 TO W77-RES-MSG (fecha fuera del conjunto válido)
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | ARQUITECTURA |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-255 |
+| **Nombre** | Ruteo de mensajes entre nodos CSI: WKS-MSGHDR-RES=2 → redirect; sistema 264 excepción |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | ARQUITECTURA |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Cuando el campo `WKS-MSGHDR-RES=2` en el header del mensaje, P010 interpreta que la petición debe ser redirigida a otro nodo CSI (routing inter-nodo). En ese caso se modifica `WKS-MSGHDR-RES=3` y se copia el origen en el destino para redirigir. El sistema **264** es una excepción explícita que salta el routing CSI (`NEXT SENTENCE` cuando `SIS-NUME=264`), procesándose siempre localmente. Esta excepción también aplica al bypass de bitácora (ver RN-269).
 
@@ -896,15 +987,21 @@ IF WKS-MSGHDR-RES = 2 THEN
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | CONTROL-OPERACION |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | Control interno |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-256 |
+| **Nombre** | Sistemas 1 y 66: tratamiento especial (no sucursal → error 99) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONTROL-OPERACION |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | Control interno |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Los sistemas con número **1** o **66** reciben tratamiento especial en el routing de sucursal: si el campo `WKS-SUC-NUME` tiene valor (sucursal ingresada), se emite el error **99** y se fuerza un redirect de mensaje (cuando WKS-MSGHDR-RES=2). Esto indica que los sistemas 1 y 66 son de tipo "sin sucursal" o de nivel nacional — toda consulta que lleve una sucursal específica es inválida para estos sistemas.
 
@@ -949,15 +1046,21 @@ IF WKS-SIS-NUME IN (1, 66) AND WKS-SUC-NUME > ZEROS THEN
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | ARQUITECTURA |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-257 |
+| **Nombre** | Flujo de vida: loop infinito PERFORM UNTIL W77-FIN=1; HI 4=fin normal, HI 6=emergencia |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | ARQUITECTURA |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El programa LINEA se ejecuta como un proceso online persistente (daemon) en el nodo Unisys. El loop principal `PERFORM 200000-PROCESO UNTIL W77-FIN = 1` mantiene el programa activo indefinidamente, esperando mensajes. La terminación se activa mediante interrupciones del operador: `HI 4` = fin normal (cierre ordenado), `HI 6` = terminación de emergencia. Ambas rutas convergen en `PERFORM 999999-FIN` que ejecuta `SMCOMS DISABLE PROGRAM`.
 
@@ -1004,15 +1107,21 @@ PERFORM 999999-FIN → SMCOMS DISABLE PROGRAM + STOP RUN
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | CONFIGURACION |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-258 |
+| **Nombre** | Inicialización: carga de todos los sistemas activos (B04SISTEM FUN=02); CHANGE ATTRIBUTE TITLE para 16+ sistemas hardcoded |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONFIGURACION |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Durante la inicialización (paragraph `110000-CARGA-SISTEMAS`), P010 invoca `B04SISTEM IN LIB-CONTROL` para cargar todos los sistemas activos del catálogo. Posterior a esta carga, ejecuta un bloque de `CHANGE ATTRIBUTE TITLE OF "LIB-CONS{NNN}"` hardcodeados para 16+ sistemas específicos (S017, S018, S711, S500, S502, S335, S336, S084, S087, S151, S203, S252, S264, S402, S403, S404, S408, S414, S600, S701, S702, S703, S707, S804, S1151). Este mecanismo Unisys carga las bibliotecas de consulta en el espacio de proceso del nodo.
 
@@ -1059,15 +1168,21 @@ FOR cada sistema en lista hardcoded (16+):
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | AUDITORIA |
-| **Ente regulador** | CNBV |
-| **Base regulatoria** | LIC Art. 52 + CUB Circular Única de Bancos — pistas de auditoría para operaciones administrativas; registro before/after de cambios en parámetros del sistema |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-259 |
+| **Nombre** | Bitácora de auditoría: GRABA_BITACORA IN S151L010 con before/after (MSG-ANT=63b, MSG-POST=1142b); excepción CSI=32 AND RES=2 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | AUDITORIA |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | LIC Art. 52 + CUB Circular Única de Bancos — pistas de auditoría para operaciones administrativas; registro before/after de cambios en parámetros del sistema |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** P010 llama a `GRABA_BITACORA IN S151L010` para registrar toda operación administrativa (cambios en fechas, estatus, parámetros de BD) con el estado anterior (`WKS-BIT-MSG-ANT`, 63 bytes) y posterior (`WKS-BIT-MSG-POST`, 1142 bytes). La bitácora incluye: nómina del operador, fecha/hora de inicio y fin, estación, sistema, pantalla y código de resultado. **Excepción**: cuando `NUMCSI-HOST=32 AND MSGHDR-RES=2`, la bitácora se omite (nodo especial CSI=32 sin registro).
 
@@ -1124,15 +1239,21 @@ IF NOT (CSI-HOST=32 AND MSGHDR-RES=2) → CALL GRABA_BITACORA IN S151L010
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | OPERACION |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-260 |
+| **Nombre** | Monitor de traza: HI 2/3 → W77-MONITOR=1/0 (debug mode producción) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | OPERACION |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El programa incluye un modo de trazado/debug activable en tiempo de ejecución mediante interrupciones del operador: `HI 2` activa el monitor (`W77-MONITOR=1`) y `HI 3` lo desactiva (`W77-MONITOR=0`). Cuando el monitor está activo, el programa ejecuta bloques de `DISPLAY` adicionales con información de diagnóstico. Este es un mecanismo de troubleshooting de producción propio de la arquitectura Unisys MCP, sin equivalente directo en plataformas modernas.
 
@@ -1178,15 +1299,21 @@ IF W77-MONITOR = 1 → ejecutar DISPLAYs de diagnóstico adicionales en el flujo
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | OPERACION |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-261 |
+| **Nombre** | Terminación ordenada: SMCOMS DISABLE PROGRAM al apagado (HI 4 o HI 6) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | OPERACION |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Al recibir HI 4 (fin normal) o HI 6 (emergencia), P010 ejecuta el paragraph `999999-FIN` que invoca `SMCOMS OF SOPORTECOMS` con el comando `"DISABLE PROGRAM"`. Este comando Unisys MCP desregistra el programa del sistema de comunicaciones (COMS) para que no reciba más mensajes, antes de terminar la ejecución. Si SMCOMS retorna error, se registra en el log operativo pero la terminación continúa.
 
@@ -1235,15 +1362,21 @@ IF W77-MONITOR = 1 → ejecutar DISPLAYs de diagnóstico adicionales en el flujo
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | SEGURIDAD |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | Control interno |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-262 |
+| **Nombre** | Resultado de FACULTAD: mapeo código → CVE-RESOL (0/1→OK; 3→denegado con error 87; -9→suspendido) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | SEGURIDAD |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | Control interno |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** La evaluación de FACULTAD en `300010-CHECA-ENTIDAD` produce tres posibles resultados en `W77-CVE-RESOL`: **0** = no evaluado (inicial), **1** = acceso autorizado (FACULTAD=1 en propia sucursal, o FACULTAD=2 cross-sucursal), **3** = acceso denegado con error 87 (FACULTAD=1 en otra sucursal o FACULTAD=3). El paragraph `420300-CALL-FACULTAD` invoca `VALIDA_FACULTAD IN SEGURIDAD` para casos de validación externa; sus códigos negativos (-9=suspendido, -11..-2=error de validación) se mapean al campo `W77-RES-MSG` con código 78.
 
@@ -1293,15 +1426,21 @@ IF FACULTAD=2 → CVE-RESOL=1; IF FACULTAD=3 → CVE-RESOL=3 + MSG=87
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | DATO-NEGOCIO |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | N/A — posible vinculación con Banxico SPEI (NIO = Número de Instrucción de Operación) |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-263 |
+| **Nombre** | Campo NIO agregado 2006-07-28 en P12/P14/P18 — posible identificador SPEI/Banxico |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | DATO-NEGOCIO |
 | **Confianza** | media |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A — posible vinculación con Banxico SPEI (NIO = Número de Instrucción de Operación) |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El 2006-07-28 (FTF — Fábrica de Software) se agregó el campo `NIO` (Número de Identificación de Operación) en las pantallas P12, P14 y P18. El campo tiene tamaño X(01) en entrada y X(16) en salida, consistente con el NIO de 16 caracteres del sistema SPEI de Banxico para identificación única de instrucciones de transferencia. La confianza es media porque la anotación en el código solo dice "campo para NIO" sin precisar el sistema fuente.
 
@@ -1358,15 +1497,21 @@ DISPLAY WKS-SAL-P11NIO (X(16)) en pantalla de resultados
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | VALIDACION |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | Control interno de integridad de datos |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-264 |
+| **Nombre** | Validación numérica universal via JUSTIFIER IN LOCSUP — catálogo de 25+ procedimientos con códigos de error |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | VALIDACION |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | Control interno de integridad de datos |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** P010 usa la rutina `JUSTIFIER IN LOCSUP` (biblioteca S006) como mecanismo estándar de validación numérica de campos alfanuméricos ingresados por el usuario. La llamada recibe el campo en formato alfanumérico y retorna el resultado en `WKS-FUNCION`: si `WKS-FUNCION > ZEROS`, el campo contiene caracteres no numéricos. El catálogo de procedimientos que invocan JUSTIFIER incluye validación de fechas (420120), nóminas (420110), números de proceso (420130), sistemas, sucursales y más — más de 25 llamadas en total.
 
@@ -1414,15 +1559,21 @@ ELSE → campo válido; convertir a numérico para procesamiento
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | CONFIGURACION |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-265 |
+| **Nombre** | Panel P82: administración de 13 subsistemas de archivos batch (NOMARC/NOMPAC por sistema) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONFIGURACION |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** La Pantalla P82 permite administrar los nombres de archivos (`NOMARC`) y paquetes (`NOMPAC`) de los subsistemas batch de S151. Cada subsistema tiene un par NOMARC (34 chars, nombre del archivo) + NOMPAC (17 chars, nombre del paquete). El panel soporta al menos 13 subsistemas identificados por sufijos: 028, 250, 030, 015, 050SDO, 050MOV, y otros. Estos son los archivos del ciclo batch nocturno (PD) que cierran el día contable.
 
@@ -1471,15 +1622,21 @@ IF CVE-SUP válida THEN
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | CONFIGURACION |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-266 |
+| **Nombre** | Panel P83: NUMCICDIA/NUMCICMES, BD de saldos, 4 slots BD de movimientos rotativas |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONFIGURACION |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** La Pantalla P83 configura los ciclos de proceso del sistema: `NUMCICDIA` (número de ciclos por día, máx definido en dataset B03) y `NUMCICMES` (número de ciclos del mes). Además administra el tipo de BD a usar (`BDUSAR`, que alimenta a `TIPBD`, ver RN-249) y los 4 slots de bases de datos de movimientos rotativas. El ciclo mensual determina cuántas iteraciones del proceso nocturno se ejecutan antes de rotar la BD de movimientos histórica.
 
@@ -1533,15 +1690,21 @@ WRITE B03 → actualizar ciclos de proceso en dataset
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | ARQUITECTURA |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-267 |
+| **Nombre** | Ruteo de cuenta corriente a CSI vía S016_L422_CON_XMEDIO — error 10→sin cuenta |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | ARQUITECTURA |
 | **Confianza** | media |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Para consultas de movimientos por medio de acceso (pantallas P18/P19/P20), P010 llama al entry point `S016_L422_CON_XMEDIO` del sistema S016 (sistema de cuenta corriente/clientes) para obtener el CSI de la cuenta. Si el retorno del sistema es error **10**, significa que la cuenta no existe (`sin cuenta`). Esta dependencia con S016 introduce un acoplamiento runtime con el sistema de clientes de Banamex.
 
@@ -1588,15 +1751,21 @@ IF CSI_cuenta ≠ CSI_local → redirect cross-CSI para consulta
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | OPERACION |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-268 |
+| **Nombre** | Control dinámico de bases: HI 40NNN (BD10 toggle) y HI 44NNN (todas las BDs toggle) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | OPERACION |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El operador puede abrir o cerrar bases de datos en tiempo de ejecución mediante interrupciones HI: `HI 40NNN` (donde NNN es el número de sistema) abre/cierra la BD10 específica de ese sistema; `HI 44NNN` abre/cierra todas las BDs (BD10, BD11, BD12, BD13) del sistema NNN; `HI 45` opera sobre todas las bases de todos los sistemas. Este mecanismo permite el mantenimiento de bases sin detener el proceso online completo.
 
@@ -1646,15 +1815,21 @@ ON HI 45   → toggle TODAS las BDs de TODOS los sistemas activos
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | ARQUITECTURA |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-269 |
+| **Nombre** | NUMCSI-HOST=32 como nodo especial: override CSI de cuenta + sin bitácora |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | ARQUITECTURA |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El nodo CSI número **32** recibe tratamiento especial en múltiples puntos del código: (1) en la inicialización, si `NUMCSI-HOST=32`, se omite la carga de entidades de sucursal (`130050-CARGA-ENTSUC`); (2) en el routing de mensajes, CSI=32 fuerza el número de CSI de la cuenta al valor del host; (3) en la bitácora, CSI=32 con `RES=2` omite el registro de auditoría (ver RN-259). El nodo 32 parece ser un nodo centralizado de desarrollo, QA o proceso especial que no sigue las reglas de negocio estándar.
 
@@ -1700,15 +1875,21 @@ IF NUMCSI-HOST = 32 THEN
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | CONTROL-OPERACION |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-270 |
+| **Nombre** | Sistema 264 doble excepción: sin ruteo CSI + CHANGE ATTRIBUTE TITLE; sistema 501 comentado (fue incluido, luego excluido) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | CONTROL-OPERACION |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** El sistema **264** tiene dos excepciones hardcodeadas: (1) en el routing CSI, se salta el ruteo estándar (`NEXT SENTENCE`) procesándose siempre localmente; (2) en la inicialización, recibe `CHANGE ATTRIBUTE TITLE` propio (LIB-CONS0264). Adicionalmente, en la inicialización hay código comentado para el sistema **501** (`*CHANGE ATTRIBUTE TITLE OF "LIB-CONS0501"`), lo que indica que el sistema 501 estuvo incluido y fue excluido deliberadamente en una versión posterior — riesgo de historia de cambios incompleta.
 
@@ -1755,15 +1936,21 @@ IF SISTEMA = 264 THEN
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | UI |
-| **Ente regulador** | N/A |
-| **Base regulatoria** | N/A |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-271 |
+| **Nombre** | Pantalla P01: menú de selección (WKS-ENT-P01NUMTRA 1-99) |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | UI |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | N/A |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** La Pantalla P01 es el menú de entrada del hub S151 para consultas de sucursales del día. El usuario ingresa un número de transacción (`WKS-ENT-P01NUMTRA`, 1-99) que determina la pantalla a activar. El código valida que el número ingresado esté dentro de los valores permitidos (11, 12, 13, 15, 18, 19, y otros) antes de realizar el dispatch. Números fuera del rango válido retornan error.
 
@@ -1809,15 +1996,21 @@ ELSE → error: número de transacción inválido
 
 | Campo | Valor |
 |-------|-------|
-| **Sistema** | S151 |
-| **Tipo** | SEGURIDAD |
-| **Ente regulador** | CNBV |
-| **Base regulatoria** | CUB — doble control para operaciones administrativas de alto impacto; segregación de funciones en modificación de parámetros de sistema |
-| **Programa(s)** | P010 |
+| **Identificador** | RN-S151-272 |
+| **Nombre** | Validación de supervisor (CVE-SUP): error 35 si inválido → doble control en P81/P82/P83 |
+| **Versión** | v2 |
+| **Estado ciclo** | En validación |
+| **Fecha actualización** | 2026-07-27 |
+| **BC-ID** | BC-01 |
+| **bian_ref** | 2.1.1 |
+| **Tipo regla** | Consulta análisis SBVR (dt-mainframe-analyst) |
+| **Tipo técnico** | SEGURIDAD |
 | **Confianza** | alta |
-| **Capacidad bancaria** | 2.1.1 Channels — Assisted Touchpoints (Gateway Online) |
-| **Frecuencia** | bajo-demanda |
-| **Sistemas downstream** | todas las pantallas S151, bitácora auditoría CNBV, CSI routing |
+| **Veredicto** | PENDIENTE SME |
+| **Regulador** | CUB — doble control para operaciones administrativas de alto impacto; segregación de funciones en modificación de parámetros de sistema |
+| **Programa ejecutor** | P010 |
+| **Evidencia código** | Análisis fuente (dt-mainframe-analyst): elevar Traza de código a archivo:línea exacta |
+| **Dataset DMSII** | Análisis interno: derivar de Campos COBOL / DASDL |
 
 **Descripción:** Toda operación en las pantallas de administración del sistema (P81, P82, P83 y similares) requiere la validación de una clave de supervisor (`CVE-SUP`) mediante el paragraph `420100-VALIDA-CVE-SUP`. Si la clave no es válida (campo no numérico o igual a cero — condición `NOT W88-NUM-SUP`), se emite el código de error **35** (`ERR035`). Este mecanismo implementa el principio de doble control: el operador ingresa la operación y el supervisor la autoriza con su clave.
 
@@ -1863,5 +2056,3 @@ ELSE → error: número de transacción inválido
 **Riesgos de migración:** El doble control operador+supervisor debe replicarse en el target como flujo de aprobación (4-eyes principle): la operación administrativa queda en estado PENDIENTE hasta que un usuario con rol SUPERVISOR la aprueba. Este patrón puede implementarse con un workflow engine o con un endpoint de aprobación separado. La nómina del supervisor debe mapearse a un ID de usuario en el sistema IAM del target.
 
 **Estado validación:** pendiente HITL
-
----
