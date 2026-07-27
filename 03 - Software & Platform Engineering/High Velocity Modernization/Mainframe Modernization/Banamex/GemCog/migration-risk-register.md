@@ -1,7 +1,7 @@
 # Registro de Riesgos de Migración — Banamex GemCog S500 + S151
 > Taxonomía canónica: **N1 Dominio → N2 SubDominio → N3 Capacidad → N4 Proceso → N5 Flujo (Tarea)**
 > Sistemas: S500 (Captación/Cargos y Abonos) + S151 (GL — Movimientos Contables) · Unisys ClearPath MCP
-> Última actualización: 2026-07-27 · v3.7 · **175 riesgos** · 22/22 capacidades documentadas · GL/ADJ/REC/RPT/CFR enriquecidos con validación SME (Regulatorio CNBV + Contabilidad Bancaria + SPEI) de los batches P109, BC-09, BC-11, BC-19 Ola 4
+> Última actualización: 2026-07-27 · v3.8 · **181 riesgos** · 22/22 capacidades documentadas · GL/ADJ/REC/RPT/CFR/INT/TEL/TAR enriquecidos con validación SME (Regulatorio CNBV + Contabilidad Bancaria + SPEI) de los batches P109/BC-09/BC-11/BC-19 + triaje de 50 candidatas Ola 4
 > Indexado: ✅ 2026-07-17 — Registro de riesgos de migración
 
 ---
@@ -38,9 +38,9 @@
 | Métrica | Valor |
 |---------|-------|
 | Cap files cubiertos | 22/22 (TAR · GL · REC · SEC · CMP · DEP · HLD · ADJ · ODS · PAY · MQ · SCH · STA · TEL · INT · CFR · ORC · RPT · CPE) |
-| Total de riesgos registrados | 175 |
-| 🔴 DEFECTO-PROD | 7 |
-| 🟠 CRÍTICO | 65 |
+| Total de riesgos registrados | 181 |
+| 🔴 DEFECTO-PROD | 8 |
+| 🟠 CRÍTICO | 70 |
 | 🟡 ALTO | 63 |
 | 🟡 MEDIO | 39 |
 | 🟢 BAJO | 1 |
@@ -49,8 +49,8 @@
 
 | Cap | Capacidad | Riesgos | 🔴 | 🟠 | 🟡A | 🟡M | 🟢 |
 |-----|-----------|---------|----|----|-----|-----|-----|
-| TAR | 2.2.6 ATM + 2.2.7 PoS | 7 | — | 2 | 3 | 2 | — |
-| GL | 7.1.1 Finance (GL) | 11 | 1 | 7 | 1 | 1 | 1 |
+| TAR | 2.2.6 ATM + 2.2.7 PoS | 8 | — | 3 | 3 | 2 | — |
+| GL | 7.1.1 Finance (GL) | 12 | 1 | 8 | 1 | 1 | 1 |
 | REC | 6.7.1 Financial Reconciliation | 13 | — | 7 | 3 | 3 | — |
 | SEC | T.3.5 Security | 10 | 3 | 1 | 3 | 3 | — |
 | CMP | 6.5.2 Compliance & Regulation | 10 | — | 4 | 3 | 3 | — |
@@ -60,11 +60,11 @@
 | ODS | 9.1.1 Operational Data Stores | 13 | — | 4 | 4 | 5 | — |
 | PAY | 6.1.3 Payments | 2 | — | 1 | 1 | — | — |
 | MQ | T.2.3 Async Infrastructure | 1 | — | — | 1 | — | — |
-| TEL | 2.1.1 Teller | 4 | — | — | 3 | 1 | — |
+| TEL | 2.1.1 Teller | 5 | — | 1 | 3 | 1 | — |
 | SCH | 8.1.1 Business Scheduling | 7 | — | 3 | 3 | 1 | — |
 | STA | 6.1.4 Statements | 5 | — | 1 | 3 | 1 | — |
-| INT | 6.1.5 Interest & Fees | 9 | — | 3 | 4 | 2 | — |
-| CFR | T.4.1 Regulatory Reporting (CFR) | 12 | 1 | 5 | 3 | 3 | — |
+| INT | 6.1.5 Interest & Fees | 11 | — | 5 | 4 | 2 | — |
+| CFR | T.4.1 Regulatory Reporting (CFR) | 13 | 2 | 5 | 3 | 3 | — |
 | ORC | 6.7.2 Operational Reconciliation | 11 | 1 | 5 | 3 | 2 | — |
 | RPT | T.3.4 Batch Control & Regulatory Extraction | 11 | 1 | 3 | 5 | 2 | — |
 | CPE | T.6.1 CPE Mensual | 7 | — | 2 | 2 | 3 | — |
@@ -657,8 +657,23 @@
 
 ---
 
-*migration-risk-register.md · v3.4 · 2026-07-21 — CPE(7) + MR-GOV-16 = +8 riesgos · 170 riesgos totales · 22/22 capacidades BIAN + riesgos de gobernanza de migración*
-*Total: 170 riesgos · 🔴 DEFECTO-PROD: 7 · 🟠 CRÍTICO: 57 · 🟡 ALTO: 65 · 🟡 MEDIO: 40 · 🟢 BAJO: 1*
+## Hallazgos del triaje regulatorio Ola 4 (2026-07-27)
+
+> Críticos destapados por el lote SME Regulatorio consolidado (triaje de las 50 candidatas). RN-S151-124 (sector 15→11) ya estaba como MR-CFR-11.
+
+| ID | Sev | Patrón | Fuente | Riesgo | Mitigación |
+|----|-----|--------|--------|--------|-----------|
+| MR-CFR-13 | 🔴 DEFECTO-PROD | SILENCIOSO · REGULATORIO | cap-cfr · RN-S151-228 · P120 | Ley del SAR / Ley INFONAVIT Art. 39: el saldo anterior de INFONAVIT se escribe **siempre en cero** (`ADD B08-GSAR-ANT-INFO TO 77-ANT-ISTE` ~línea 1198 vuelca al acumulador de ISSSTE). El reporte SAR/Banxico Tesorería imprime DET-ANT-INFO=0 y DET-ANT-ISTE inflado. Defecto desde ~1991, confirmado por SME Regulatorio | Decisión HITL obligatoria: corregir en target genera **divergencia intencional** vs legacy → NO clasificar como fallo de equivalencia sino `[ADR]` de divergencia documentada con sign-off de risk + Banxico + reporte de reconciliación histórica |
+| MR-INT-10 | 🟠 CRÍTICO | INTERFAZ · REGULATORIO | cap-int · RN-S500-197 · P310 | `SAT-IDSISTEMA="S152"` hardcodeado en las constancias de retención — el SAT puede **rechazar el archivo** con identificador de sistema incorrecto post-migración (BLOQUEA CUTOVER) | Externalizar IDSISTEMA como parámetro; coordinar con SAT/tesorería el identificador aceptado post-cutover antes del go-live |
+| MR-INT-11 | 🟠 CRÍTICO | REGULATORIO | cap-int · RN-S500-194 · P310 | LIVA Art. 2: IVA frontera 8% vs general 16% por zona de sucursal — error del 50% en IVA declarado si la lógica frontera/general no se preserva exactamente | Golden-master de IVA por zona; validación obligatoria pre-cutover; externalizar tasas y catálogo de zonas fronterizas |
+| MR-TEL-05 | 🟠 CRÍTICO | SEGURIDAD · REGULATORIO | cap-tel · RN-S500-207 · P010 | LIC Art. 115 + Disposiciones PLD: bloqueo AML (restricciones 12-15, nivel-88 LAVADO-DE-DINERO) impuesto por autoridad, no removible por operador; rechaza toda operación y notifica al monitoreo | Replicar exactamente {12,13,14,15} como bloqueo duro no editable por rol operativo; preservar la notificación al monitoreo; coordinar UIF / Cybersecurity PLD |
+| MR-TAR-08 | 🟠 CRÍTICO | SILENCIOSO · REGULATORIO | cap-tar · RN-S500-221 · P110 | Aseguramiento de cuentas por orden judicial (triple copia BLOXORJUDICAL1/2/3 como reconciliación de embargos); silencioso-crítico. Complementa RN-S500-118 (EPP→S111) | Garantizar que ningún bloqueo judicial se pierda en la conciliación (idempotencia + reconciliación diaria); preservar las 3 copias |
+| MR-GL-12 | 🟠 CRÍTICO | REGULATORIO | cap-gl · RN-S151-139 · P108 | Archivo S115 = reporte regulatorio CNBV entregado por batch (catálogo de cuentas, sector, moneda, importe MXN); filing real. Cualquier drift de formato o umbral de materialidad es observable por el regulador | Preservar el formato S115 bit-exacto y los umbrales; encadena con RN-124 (sector 15→11, MR-CFR-11) y RN-167 (B-0111B, separación Citi) |
+
+---
+
+*migration-risk-register.md · v3.8 · 2026-07-27 — Ola 4: validación SME (Regulatorio CNBV + Contabilidad Bancaria + SPEI) de los batches P109/BC-09/BC-11/BC-19 + triaje de 50 candidatas · 181 riesgos totales · 22/22 capacidades + gobernanza de migración*
+*Total: 181 riesgos · 🔴 DEFECTO-PROD: 8 · 🟠 CRÍTICO: 70 · 🟡 ALTO: 63 · 🟡 MEDIO: 39 · 🟢 BAJO: 1*
 *Cobertura: TAR · GL · REC · SEC · CMP · DEP · HLD · ADJ · ODS · PAY · MQ · SCH · STA · TEL · INT · CFR · ORC · RPT · CPE*
 *Fuentes: cap-{tar,gl,rec,sec,cmp,dep,hld,adj,ods,pay,mq,cfr,orc,rpt,int,cpe}.md · rules-catalog/*
 *Taxonomía: N1 Dominio → N2 SubDominio → N3 Capacidad → N4 Proceso → N5 Flujo (Tarea)*
