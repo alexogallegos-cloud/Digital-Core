@@ -49,6 +49,53 @@ P109_MAP = {
     "RN-S151-060": ("Definición", VAL),
 }
 
+# BC-09 Ajustes GL (P312+P330+P360). CONT = requiere SME Contable (semántica contable/saldos).
+CONT = "En validación — SME Contabilidad Bancaria (semántica contable/saldos)"
+BC09_MAP = {
+    "RN-S151-710": ("Definición", VAL),
+    "RN-S151-711": ("Derivación", VAL),
+    "RN-S151-712": ("Derivación", VAL),
+    "RN-S151-713": ("Restricción", CONT),
+    "RN-S151-714": ("Restricción", CONT),
+    "RN-S151-715": ("Cálculo", CONT),
+    "RN-S151-716": ("Definición", VAL),
+    "RN-S151-717": ("Derivación", VAL),
+    "RN-S151-718": ("Habilitación", VAL),
+    "RN-S151-720": ("Derivación", VAL),
+    "RN-S151-721": ("Restricción", VAL),
+    "RN-S151-722": ("Derivación", VAL),
+    "RN-S151-723": ("Restricción", CONT),
+    "RN-S151-724": ("Restricción", CONT),
+    "RN-S151-725": ("Definición", VAL),
+    "RN-S151-726": ("Derivación", VAL),
+    "RN-S151-727": ("Definición", CONT),
+    "RN-S151-728": ("Cálculo", VAL),
+    "RN-S151-729": ("Clasificación / Mapeo", VAL),
+    "RN-S151-730": ("Restricción", VAL),
+    "RN-S151-731": ("Derivación", VAL),
+    "RN-S151-732": ("Restricción", VAL),
+    "RN-S151-735": ("Derivación", VAL),
+    "RN-S151-736": ("Derivación", VAL),
+    "RN-S151-737": ("Restricción", VAL),
+    "RN-S151-738": ("Restricción", VAL),
+    "RN-S151-739": ("Derivación", VAL),
+    "RN-S151-740": ("Clasificación / Mapeo", VAL),
+    "RN-S151-741": ("Clasificación / Mapeo", VAL),
+    "RN-S151-742": ("Clasificación / Mapeo", CONT),
+    "RN-S151-743": ("Clasificación / Mapeo", VAL),
+    "RN-S151-744": ("Cálculo", CONT),
+    "RN-S151-745": ("Clasificación / Mapeo", VAL),
+    "RN-S151-746": ("Restricción", VAL),
+    "RN-S151-747": ("Cálculo", VAL),
+    "RN-S151-748": ("Derivación", VAL),
+    "RN-S151-749": ("Restricción", VAL),
+}
+
+FILE_MAPS = {
+    "rules-s151.md": P109_MAP,
+    "rules-s151-p312-p330-p360.md": BC09_MAP,
+}
+
 PLACEHOLDER = "Consulta análisis SBVR (dt-mainframe-analyst)"
 
 def enrich(fname, mapping):
@@ -73,4 +120,7 @@ def enrich(fname, mapping):
     print(f"Enriquecidas {n} reglas en {fname}")
 
 if __name__ == "__main__":
-    enrich("rules-s151.md", P109_MAP)
+    fname = sys.argv[1] if len(sys.argv) > 1 else "rules-s151.md"
+    if fname not in FILE_MAPS:
+        print(f"Sin mapa para {fname}. Disponibles: {list(FILE_MAPS)}"); sys.exit(1)
+    enrich(fname, FILE_MAPS[fname])
