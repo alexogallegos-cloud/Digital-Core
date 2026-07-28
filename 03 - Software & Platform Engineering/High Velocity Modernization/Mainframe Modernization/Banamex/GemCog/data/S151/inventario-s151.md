@@ -1,5 +1,6 @@
 # Inventario Maestro — S151
 > Gemelo Cognitivo del Sistema · Etapa 0 · cobol-algol-dasdl-wfl-unisys-mcp
+> Indexado: ✅ 2026-07-17 — Capa 0 — inventario de programas (base del grafo)
 
 ## Resumen por tipo
 
