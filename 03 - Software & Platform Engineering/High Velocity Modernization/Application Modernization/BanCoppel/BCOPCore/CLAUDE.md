@@ -48,21 +48,21 @@ Estas dos lentes alimentan flujos de valor distintos y no deben mezclarse en el 
 |-----|---------------|--------------------|------|
 | Specialist — Informix SPL Analysis | `BCOPCore/dt/dt-spl-analysis/` | Código SPL — SPs, call graph, journeys, dead code, excepciones | DISCOVER |
 | Specialist — Code Quality Assessment | `SME/Technology/Software Engineering/Specialist - Code Quality Assessment/` | Salud del código AS-IS — ISO 5055, CWE, deuda técnica, 7R | DISCOVER |
-| DBA — IBM Informix IDS | `SME/Infrastructure/IBM Informix/` | Schema real — syscolumns, volúmenes, locks, performance baseline | DISCOVER |
+| DBA — IBM Informix IDS | `Delivery - SME/DBA IBM Informix/` | Schema real — syscolumns, volúmenes, locks, performance baseline | DISCOVER |
 
 ### Dominio y regulación
 
 | SME | Ruta canónica | Objeto de análisis | Fase |
 |-----|---------------|--------------------|------|
-| Industry Banking | `SME/Industry/Industry Banking/` | Banca retail MX — todos los dominios funcionales | DISCOVER → DESIGN |
-| Industry Banking Accounting | `SME/Industry/Industry Banking Accounting/` | D12-bdicont — CUB Anexo 33-36, catálogo mínimo, Serie R, contabilidad regulatoria CNBV | DISCOVER → DESIGN |
+| Industry Banking | `Delivery - SME/Industry Banking/` | Banca retail MX — todos los dominios funcionales | DISCOVER → DESIGN |
+| Industry Banking Accounting | `Delivery - SME/Industry Banking Accounting/` | D12-bdicont — CUB Anexo 33-36, catálogo mínimo, Serie R, contabilidad regulatoria CNBV | DISCOVER → DESIGN |
 | Industry Payments → SPEI | `SME/Industry/Industry Payments/SPEI/` | D08-bdispei — pagos interbancarios, certificación Banxico, SPEI/CoDi | DISCOVER → BUILD |
 
 ### Arquitectura target
 
 | SME | Ruta canónica | Objeto de análisis | Fase |
 |-----|---------------|--------------------|------|
-| Core Banking Transformation | `SME/Platform/Core Banking Transformation/` | Arquitectura target bancaria, ACL design, API contracts, strangler fig | DESIGN → BUILD |
+| Core Banking Transformation | `Delivery - SME/Core Banking Transformation/` | Arquitectura target bancaria, ACL design, API contracts, strangler fig | DESIGN → BUILD |
 | Cloud Architect — AWS Banking | `SME/Cloud/AWS/` | Arquitectura target AWS, servicios, costos estimados, cutover técnico | DESIGN → BUILD |
 
 ### Build y data
@@ -71,15 +71,15 @@ Estas dos lentes alimentan flujos de valor distintos y no deben mezclarse en el 
 |-----|---------------|--------------------|------|
 | Data & ML | `SME/Technology/Data & ML/` | CDC Debezium/Kafka, ETL, schema migration PostgreSQL, contratos de datos | BUILD |
 | Software Engineering | `SME/Technology/Software Engineering/` | Microservicios target Java 21, Latinia/StrikeIron integrations | BUILD |
-| Mainframe Migration | `SME/Infrastructure/Mainframe Migration/` | IBM POWER/AIX infra, metodología de migración, scheduler AIX | BUILD → RELEASE |
+| Mainframe Migration | `Delivery - SME/Mainframe Migration/` | IBM POWER/AIX infra, metodología de migración, scheduler AIX | BUILD → RELEASE |
 
 ### Calidad, seguridad y operaciones
 
 | SME | Ruta canónica | Objeto de análisis | Fase |
 |-----|---------------|--------------------|------|
 | QA Lead — Equivalencia Funcional | `SME/Technology/QA Equivalence/` | Golden master, MONEY rounding, parallel-run, criterios go/no-go | BUILD → TEST |
-| Cybersecurity | `SME/Technology/Cybersecurity/` | PII assessment, LFPDPPP, IAM, audit log CNBV, CONDUSEF | Todas |
-| SRE & AIOps | `SME/Value Delivery/SRE & AIOps/` | Observability, runbooks, SLOs, cutover operations, DR | RELEASE → OPERATE |
+| Cybersecurity | `Delivery - SME/Cybersecurity/` | PII assessment, LFPDPPP, IAM, audit log CNBV, CONDUSEF | Todas |
+| SRE & AIOps | `Delivery - SME/SRE & AIOps/` | Observability, runbooks, SLOs, cutover operations, DR | RELEASE → OPERATE |
 
 **Total: 14 SMEs** (roster v3.8 — 2 nuevos respecto a v0 del 2026-07-03: Industry Banking Accounting + Code Quality Assessment)
 
@@ -97,6 +97,7 @@ Seis Digital Twins de proyecto — uno por artefacto del Gemelo Cognitivo. Cada 
 | `dt-reglas/` | Reglas de negocio (1,308) | SPL Analysis · Industry Banking · Industry Banking Accounting | 1.0.0 |
 | `dt-capacidades/` | Mapa ETB L3 (261 caps) | Core Banking Transformation · Industry Banking | 1.0.0 |
 | `dt-riesgos/` | Risk register (44) | SPL Analysis · Cybersecurity · SRE & AIOps | 1.0.0 |
+| `dt-modelo-dominio/` | Modelo lógico negocio — 23 BCs ETB L2 | Core Banking Transformation · Industry Banking · DBA IBM Informix | 0.1.0 |
 
 Cada `dt/` contiene su propio `CLAUDE.md` con: declaración de SMEs heredados, versión (regla 12), gestión de conocimiento (regla 14), y capacidades por herencia (regla 15).
 

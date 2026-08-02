@@ -19,7 +19,7 @@ Las Almas son la Capa 2 del Gemelo Cognitivo: revelan la intención original del
 | SME | Ruta | Versión usada | Capacidades heredadas |
 |-----|------|---------------|-----------------------|
 | Specialist — Informix SPL Analysis | `BCOPCore/dt/dt-spl-analysis/` | 1.0.0 | Agrupación de SPs por dominio, análisis de call graph, detección de fronteras entre módulos |
-| Core Banking Transformation | `SME/Platform/Core Banking Transformation/` | activa | Conceptos de bounded context, ACL design, modelo de dominio bancario target |
+| Core Banking Transformation | `Delivery - SME/Core Banking Transformation/` | activa | Conceptos de bounded context, ACL design, modelo de dominio bancario target |
 
 ---
 

@@ -19,7 +19,7 @@ El vocabulario es la Capa 1 del Gemelo Cognitivo: es la lengua que el sistema ha
 | SME | Ruta | Versión usada | Capacidades heredadas |
 |-----|------|---------------|-----------------------|
 | Specialist — Informix SPL Analysis | `BCOPCore/dt/dt-spl-analysis/` | 1.0.0 | Lectura de código SPL, nomenclatura Informix, patrones de naming, dead code detection |
-| Industry Banking | `SME/Industry/Industry Banking/` | activa | Vocabulario del dominio banca retail MX, terminología regulatoria, semántica de productos |
+| Industry Banking | `Delivery - SME/Industry Banking/` | activa | Vocabulario del dominio banca retail MX, terminología regulatoria, semántica de productos |
 
 ---
 

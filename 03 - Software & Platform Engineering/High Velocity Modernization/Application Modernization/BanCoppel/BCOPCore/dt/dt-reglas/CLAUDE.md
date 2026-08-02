@@ -19,8 +19,8 @@ Las Reglas son la Capa 4 del Gemelo Cognitivo: son la intención de negocio codi
 | SME | Ruta | Versión usada | Capacidades heredadas |
 |-----|------|---------------|-----------------------|
 | Specialist — Informix SPL Analysis | `BCOPCore/dt/dt-spl-analysis/` | 1.0.0 | Extracción de reglas desde SPL, evidencia en código, clasificación por patrón (guard/calc/routing/threshold) |
-| Industry Banking | `SME/Industry/Industry Banking/` | activa | Contexto regulatorio de cada regla, clasificación CNBV/Banxico/CONDUSEF, productos bancarios |
-| Industry Banking Accounting | `SME/Industry/Industry Banking Accounting/` | activa | Reglas contables D12 — CUB Anexo 33-36, plan de cuentas, Series R, partidas dobles |
+| Industry Banking | `Delivery - SME/Industry Banking/` | activa | Contexto regulatorio de cada regla, clasificación CNBV/Banxico/CONDUSEF, productos bancarios |
+| Industry Banking Accounting | `Delivery - SME/Industry Banking Accounting/` | activa | Reglas contables D12 — CUB Anexo 33-36, plan de cuentas, Series R, partidas dobles |
 
 ---
 

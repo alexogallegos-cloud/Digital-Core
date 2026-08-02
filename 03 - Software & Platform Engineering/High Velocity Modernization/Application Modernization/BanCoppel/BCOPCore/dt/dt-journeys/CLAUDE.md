@@ -19,7 +19,7 @@ Los journeys son la Capa 3 del Gemelo Cognitivo: revelan cómo el sistema se com
 | SME | Ruta | Versión usada | Capacidades heredadas |
 |-----|------|---------------|-----------------------|
 | Specialist — Informix SPL Analysis | `BCOPCore/dt/dt-spl-analysis/` | 1.0.0 | Extracción de call graph, medición de fan-out, trazabilidad SP→journey |
-| Industry Banking | `SME/Industry/Industry Banking/` | activa | Nomenclatura de journeys en banca retail MX, flujos regulatorios, productos bancarios estándar |
+| Industry Banking | `Delivery - SME/Industry Banking/` | activa | Nomenclatura de journeys en banca retail MX, flujos regulatorios, productos bancarios estándar |
 
 ---
 

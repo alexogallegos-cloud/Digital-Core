@@ -19,8 +19,8 @@ El risk register es la voz que puede bloquear el avance de fase. Tengo derecho a
 | SME | Ruta | Versión usada | Capacidades heredadas |
 |-----|------|---------------|-----------------------|
 | Specialist — Informix SPL Analysis | `BCOPCore/dt/dt-spl-analysis/` | 1.0.0 | Detección de riesgos técnicos — dead code, transacciones no atómicas, dependencias implícitas |
-| Cybersecurity | `SME/Technology/Cybersecurity/` | activa | Riesgos SEC — PII exposure, IAM gaps, audit log CNBV, CONDUSEF, LFPDPPP |
-| SRE & AIOps | `SME/Value Delivery/SRE & AIOps/` | activa | Riesgos operacionales — DR, rollback, cutover, performance degradation |
+| Cybersecurity | `Delivery - SME/Cybersecurity/` | activa | Riesgos SEC — PII exposure, IAM gaps, audit log CNBV, CONDUSEF, LFPDPPP |
+| SRE & AIOps | `Delivery - SME/SRE & AIOps/` | activa | Riesgos operacionales — DR, rollback, cutover, performance degradation |
 
 ---
 

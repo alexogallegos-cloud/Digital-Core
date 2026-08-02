@@ -205,7 +205,7 @@ $head = @'
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Digital Core — Workspace Catalog</title>
 <style>
-:root{--purple:#A100FF;--ink:#1A1A2E;--bg:#f4f4f6;--card:#fff;--line:#dcdce4;--txt:#22222e;--muted:#63636f}
+:root{--purple:#6B21A8;--ink:#1A1A2E;--bg:#f5f5f5;--card:#fff;--line:#E0E0E0;--txt:#1A1A1A;--muted:#666666}
 *{box-sizing:border-box}
 body{margin:0;font-family:'Segoe UI',Roboto,Arial,sans-serif;background:var(--bg);color:var(--txt);font-size:15px;line-height:1.55}
 header{background:var(--ink);color:#fff;padding:20px 36px;display:flex;align-items:center;gap:18px;border-bottom:3px solid var(--purple)}
@@ -214,7 +214,7 @@ header{background:var(--ink);color:#fff;padding:20px 36px;display:flex;align-ite
 .htitle p{margin:2px 0 0;font-size:11.5px;opacity:.7}
 .bar{max-width:1100px;margin:0 auto;padding:20px 28px 0;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 #q{flex:1;min-width:220px;padding:9px 14px;border:1px solid var(--line);border-radius:6px;font-size:14px;outline:none;transition:.15s}
-#q:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgba(161,0,255,.1)}
+#q:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgba(107,33,168,.12)}
 .filters{display:flex;gap:6px;flex-wrap:wrap}
 .fchip{padding:5px 12px;border:1px solid var(--line);border-radius:20px;font-size:12px;cursor:pointer;background:#fff;transition:.15s;white-space:nowrap}
 .fchip.active{background:var(--purple);color:#fff;border-color:var(--purple)}
@@ -234,6 +234,16 @@ header{background:var(--ink);color:#fff;padding:20px 36px;display:flex;align-ite
 .mini-title{font-size:12px;font-weight:500;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mini-file{font-size:9.5px;color:var(--muted);font-family:Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .recents-empty{font-size:12px;color:var(--muted);font-style:italic;margin:0;padding:6px 0}
+
+/* Logo box */
+.logo-box{display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--line);background:#fff;overflow:hidden;flex-shrink:0}
+.logo-box img{object-fit:contain;display:block}
+
+/* Group nav */
+.groupnav{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px solid var(--line);box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.groupnav-inner{max-width:1100px;margin:0 auto;padding:7px 28px;display:flex;flex-wrap:wrap;gap:5px;overflow-x:auto}
+.gnav-chip{padding:3px 11px;border:1px solid var(--line);border-radius:14px;font-size:11.5px;cursor:pointer;background:#fff;text-decoration:none;color:var(--ink);white-space:nowrap;transition:.12s}
+.gnav-chip:hover{background:var(--purple);color:#fff;border-color:var(--purple)}
 
 /* Main catalog */
 main{max-width:1100px;margin:0 auto;padding:22px 28px 60px}
@@ -267,7 +277,7 @@ footer{text-align:center;color:var(--muted);font-size:11.5px;padding:18px;border
 </head>
 <body>
 <header>
-  <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#A100FF"/><text x="17" y="23" text-anchor="middle" font-family="Arial" font-size="20" font-weight="900" fill="white">&gt;</text></svg>
+  <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#6B21A8"/><text x="17" y="23" text-anchor="middle" font-family="Arial" font-size="20" font-weight="900" fill="white">&gt;</text></svg>
   <div class="htitle"><h1>Workspace Catalog</h1><p>Digital Core &middot; Solutioning &middot; SME &mdash; portales y archivos independientes</p></div>
 </header>
 <div class="bar">
@@ -276,6 +286,7 @@ footer{text-align:center;color:var(--muted);font-size:11.5px;padding:18px;border
   <span class="meta" id="meta">cargando...</span>
 </div>
 <div class="recents-wrap" id="recents"></div>
+<div class="groupnav" id="groupnav" style="display:none"><div class="groupnav-inner" id="groupnav-inner"></div></div>
 <main id="catalog"></main>
 <footer>Digital Core &middot; Solutioning &middot; SME &middot; Accenture &middot; uso interno &middot; generado
 '@
@@ -315,10 +326,30 @@ const BRANDS = {
   accenture:  { bg:'#A100FF', tx:'#FFFFFF', lbl:'>',    border:'#A100FF' },
 };
 
-function logoSvg(brand, size) {
-  const b  = BRANDS[brand] || BRANDS.accenture;
-  const W  = size || 38;
-  const R  = Math.round(W * 0.21);
+const LOGO_IMGS = {
+  accenture:  '/solutioning/Design%20-%20Studio/logos/Accenture_logo_hd.png',
+  banamex:    '/solutioning/Design%20-%20Studio/logos/Banamex-logo.png',
+  bancoppel:  '/solutioning/Design%20-%20Studio/logos/BanCoppel_logo.png',
+  bbva:       '/solutioning/Design%20-%20Studio/logos/BBVA-logo.png',
+  coppel:     '/solutioning/Design%20-%20Studio/logos/Coppel_logo.png',
+  gentera:    '/solutioning/Design%20-%20Studio/logos/Gentera-logo.png',
+  mapfre:     '/solutioning/Design%20-%20Studio/logos/Mapfre-logo.png',
+  monex:      '/solutioning/Design%20-%20Studio/logos/Monex_logo.png',
+  scotiabank: '/solutioning/Design%20-%20Studio/logos/Scotiabank_logo.png',
+  toyota:     '/solutioning/Design%20-%20Studio/logos/TALG-logo.png',
+};
+
+function logoEl(brand, size) {
+  const b   = BRANDS[brand] || BRANDS.accenture;
+  const W   = size || 38;
+  const img = LOGO_IMGS[brand];
+  if (img) {
+    const p = Math.round(W * 0.1);
+    return '<div class="logo-box" style="width:'+W+'px;height:'+W+'px;padding:'+p+'px">'
+      + '<img src="'+img+'" alt="'+brand+'" style="max-width:'+(W-p*2)+'px;max-height:'+(W-p*2)+'px">'
+      + '</div>';
+  }
+  const R   = Math.round(W * 0.21);
   const lbl = b.lbl;
   const fs  = lbl.length >= 4 ? W*0.224 : lbl.length === 3 ? W*0.276 : lbl.length === 2 ? W*0.342 : W*0.5;
   return '<svg width="'+W+'" height="'+W+'" viewBox="0 0 '+W+' '+W+'" fill="none">'
@@ -327,6 +358,8 @@ function logoSvg(brand, size) {
     + ' font-family="Arial,Helvetica,sans-serif" font-size="'+fs.toFixed(1)+'" font-weight="800" fill="'+b.tx+'">'+lbl+'</text>'
     + '</svg>';
 }
+
+function slugify(s) { return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
 
 const catalog   = document.getElementById('catalog');
 const recentsEl = document.getElementById('recents');
@@ -375,7 +408,7 @@ const newestFiles = [...FILES]
 function miniCard(x) {
   const b = BRANDS[x.brand] || BRANDS.accenture;
   return '<div class="mini-card" onclick="cardClick('+x.idx+',event)" style="border-left-color:'+b.border+'">'
-    + logoSvg(x.brand, 24)
+    + logoEl(x.brand, 24)
     + '<div class="mini-body">'
     +   '<div class="mini-title">'+x.title+'</div>'
     +   '<div class="mini-file">'+x.file+'</div>'
@@ -469,18 +502,30 @@ function render(filter) {
   visible.forEach(x => { if (!groups[x.group]) groups[x.group] = []; groups[x.group].push(x); });
 
   metaEl.innerHTML = '<b>' + visible.length + '</b> entradas';
+  const sortedGroups = Object.keys(groups).sort();
+
+  // Group nav bar
+  const gnav = document.getElementById('groupnav');
+  const gnavInner = document.getElementById('groupnav-inner');
+  if (sortedGroups.length) {
+    gnavInner.innerHTML = sortedGroups.map(g =>
+      '<a class="gnav-chip" href="#grp-'+slugify(g)+'">'+g+'</a>'
+    ).join('');
+    gnav.style.display = '';
+  } else { gnav.style.display = 'none'; }
+
   let html = '';
-  if (!Object.keys(groups).length) {
+  if (!sortedGroups.length) {
     html = '<p style="color:var(--muted);font-size:13.5px;padding:18px 0">Sin resultados.</p>';
   }
-  Object.keys(groups).sort().forEach(g => {
-    html += '<h2>' + g + '<span class="cnt">(' + groups[g].length + ')</span></h2><div class="grid">';
+  sortedGroups.forEach(g => {
+    html += '<h2 id="grp-'+slugify(g)+'">' + g + '<span class="cnt">(' + groups[g].length + ')</span></h2><div class="grid">';
     groups[g].forEach(x => {
       const b    = BRANDS[x.brand] || BRANDS.accenture;
       const ptag = isPortal(x) ? '<span class="tag">portal</span>' : '';
       html += '<div class="card" data-idx="'+x.idx+'" onclick="cardClick('+x.idx+',event)" style="border-left-color:'+b.border+'">'
         + '<div class="card-top">'
-        +   '<div class="clogo">'+logoSvg(x.brand, 38)+'</div>'
+        +   '<div class="clogo">'+logoEl(x.brand, 38)+'</div>'
         +   '<div class="cbody">'
         +     '<div class="ctitle">'+ptag+x.title+'</div>'
         +     '<div class="cfile">'+x.file+'</div>'

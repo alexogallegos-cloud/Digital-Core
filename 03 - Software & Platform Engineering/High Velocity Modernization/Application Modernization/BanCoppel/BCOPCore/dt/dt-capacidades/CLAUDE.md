@@ -18,8 +18,8 @@ Las Capacidades son el puente entre el Gemelo Cognitivo y la arquitectura target
 
 | SME | Ruta | Versión usada | Capacidades heredadas |
 |-----|------|---------------|-----------------------|
-| Core Banking Transformation | `SME/Platform/Core Banking Transformation/` | activa | ETB v5.0 framework, clasificación de capacidades bancarias, árbol L1→L2→L3 |
-| Industry Banking | `SME/Industry/Industry Banking/` | activa | Correspondencia entre dominios funcionales banca MX y capacidades ETB, productos y servicios bancarios |
+| Core Banking Transformation | `Delivery - SME/Core Banking Transformation/` | activa | ETB v5.0 framework, clasificación de capacidades bancarias, árbol L1→L2→L3 |
+| Industry Banking | `Delivery - SME/Industry Banking/` | activa | Correspondencia entre dominios funcionales banca MX y capacidades ETB, productos y servicios bancarios |
 
 ---
 
