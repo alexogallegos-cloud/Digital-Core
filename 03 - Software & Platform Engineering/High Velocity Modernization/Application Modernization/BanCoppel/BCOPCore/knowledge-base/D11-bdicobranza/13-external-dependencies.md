@@ -96,6 +96,8 @@ find /opt /home -name "*.cron" 2>/dev/null | head -20
 
 **Criticidad:** 🔴 CRÍTICA — 52 SPs de `bdicobranza` hacen cross-DB call
 
+> **ADVERTENCIA P655-R011 (pendiente DBA):** El SP `sp_obtener_datos_cv_web` contiene la llamada `bdicred: "informix".sp_consulta_saldocortemin` con un espacio entre `bdicred:` y `"informix"`. En IBM Informix, ese espacio puede causar error de resolución del endpoint cross-DB. El DBA debe verificar si la sintaxis es tolerada o si produce fallo silencioso. Este es uno de los mecanismos que explicaría el 97.37% de error del SP (junto con P655-R009 CHAR(5) y P655-R010 CWE-390).
+
 | SP de `bdicobranza` | Tablas accedidas en `bdicred` | Tipo |
 |----|----|----|  
 | `sp_cat_consulta_ultimo_convenio` | `bdicred:` | R |

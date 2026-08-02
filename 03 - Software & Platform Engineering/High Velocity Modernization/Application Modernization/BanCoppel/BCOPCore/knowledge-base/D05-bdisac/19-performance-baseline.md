@@ -156,10 +156,27 @@ export default function() {
 | `sp_conssdoticket_web` | 9,294 | 0 | 0.0% | — |
 | `totcomp2_web` | 8,569 | 0 | 0.0% | — |
 
+### SPs con alta tasa de error — Mecanismo verificado (errores_bus · 2026-08-01)
+
+> Fuente complementaria: `source/logs/errores_bus_2026-04-24_*.txt` · Estos SPs no aparecen en el top de volumen porque son accedidos por canales de error o por otros dominios; sus tasas y mecanismos se documentan en `D05/06-exceptions.md` LOG-DATA. Se incluyen aquí por su implicación directa en los SLOs del target.
+
+| SP | Llamadas/día | Error% | Mecanismo | Clasificación | Evidencia |
+|----|-------------|--------|-----------|---------------|-----------|
+| `sp_consultasaldocortemin` | 6,651 | 99.85% | CWE-390: ON EXCEPTION convierte fallo cross-DB en código numérico; `top_resp_codes: {}` vacío | Defecto de código | bdicred_sp_consultasaldocortemin_mx2.sql:42-44 |
+| `sp_consultaregtarjeta` | 6,560 | 97.29% | Gating query — `00002` = "tarjeta/lote no encontrado" es respuesta de negocio esperada | Diseño de negocio | intercard_sp_consultaregtarjeta.sql:29-34 |
+| `sp_cat_carac_tae` | 7,330 | 96.77% | [SME-PENDING] mecanismo no verificado en código fuente | Pendiente DBA | — |
+| `sp_reverso_msw` | 8,034 | 69.22% | Restricción de fecha: `cFechaFormat <> pFecha → '00400'` (reverso solo mismo día) | Restricción de negocio | bdisac_sp_reverso_msw.sql:60 |
+
+**Implicación para los SLOs del target:**
+- `sp_consultasaldocortemin`: el 99.85% es el baseline Informix **con defecto activo**. El SLO `Error rate < 0.01%` aplica al target post-fix, no al Informix actual. Recalibrar a `< 5%` post-corrección.
+- `sp_consultaregtarjeta` y `sp_reverso_msw`: las tasas son diseño de negocio. El target debe replicar los mismos códigos de retorno — no aplicar SLO de `< 0.01%` a estos SPs.
+- `sp_cat_carac_tae`: requiere verificación de código fuente antes de definir umbral SLO.
+
 ### Distribución horaria (llamadas con dominio mapeado)
 
 | Hora CDMX | Llamadas |
 |-----------|----------|
 
 *Generado por generate-kb-from-logs.py · 2026-08-01*
+*Actualizado: DT-Riesgos · 2026-08-01 · Mecanismo verificado en código para sp_consultasaldocortemin (CWE-390), sp_consultaregtarjeta (gating), sp_reverso_msw (restricción de fecha)*
 <!-- LOG-DATA-END -->

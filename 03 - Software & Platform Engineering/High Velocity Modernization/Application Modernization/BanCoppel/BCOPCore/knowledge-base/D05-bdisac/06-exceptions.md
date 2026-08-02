@@ -108,13 +108,64 @@ SPs que tienen bloques `ON EXCEPTION … END EXCEPTION` (patrones de recuperaci�
 
 ## Patrones de excepción críticos
 
+### CWE-390 — `sp_consultasaldocortemin_mx2` (VERIFICADO EN CÓDIGO · 2026-08-01)
+
+**Fuente:** `source/BCOPCore/informix/bdicred_sp_consultasaldocortemin_mx2.sql` líneas 42-44
+
+```sql
+ON EXCEPTION SET sSqlErr
+    LET cCodRet = sSqlErr;   -- convierte error Informix a código de retorno
+    RETURN cCodRet, vSaldoTotal;  -- sin log, sin relanzar
+END EXCEPTION;
 ```
-[SME-PENDING] ¿Existen patrones de excepción con comportamiento silencioso?
-Por ejemplo:
-- ON EXCEPTION → ROLLBACK → CONTINUE (sin log = error invisible)
-- Bucles con excepciones ignoradas
-- RAISE EXCEPTION sin mensaje legible
+
+El SP hace múltiples cross-DB hacia `bdicred:sd_fechas`, `bdicred:sd_maecredanexo` y `bdicred:sd_maecredanexocrd`. Si cualquiera de esas queries falla (host no disponible, lock timeout, tabla no encontrada), la excepción se convierte silenciosamente en el código de retorno. El ESB registra el error como código numérico de Informix en lugar de un código de negocio de 5 caracteres.
+
+**Resultado en producción:** `sp_consultasaldocortemin` aparece con 99.85% de error en los logs (`top_resp_codes: {}` vacío) — las fallas son excepciones cross-DB convertidas silenciosamente. No hay alertas operativas.
+
+**Clasificación:** Defecto de código — CWE-390 (Detection of Error Condition Without Action). Los 6,641 errores/día son fallos reales de dependencias cross-DB que el código no reporta correctamente.
+
+### Gating query — `sp_consultaregtarjeta` (VERIFICADO EN CÓDIGO · 2026-08-01)
+
+**Fuente:** `source/BCOPCore/informix/intercard_sp_consultaregtarjeta.sql` líneas 29-34
+
+```sql
+ON EXCEPTION SET sql_err
+    IF sql_err <> 0 THEN
+        LET cCodRet = sql_err;
+        RETURN TRIM(NVL(cCodRet,'')), ...;
+    END IF;
+END EXCEPTION;
 ```
+
+Este SP tiene dos modos: `pOpcion=1` (busca tarjeta por lote/número) y `pOpcion=2` (busca solicitud por número de tarjeta). El código `00002` = "tarjeta/lote no encontrado o cuenta vacía" es la respuesta de negocio **esperada** para la mayoría de las consultas. La tasa de 97.29% de error es diseño: es un gating query.
+
+**Clasificación:** Gating query — diseño de negocio (no defecto). Los 6,382 errores/día son respuestas "no encontrado" esperadas. Visible en `top_resp_codes` en los logs de producción.
+
+### Restricción de fecha — `sp_reverso_msw` (VERIFICADO EN CÓDIGO · 2026-08-01)
+
+**Fuente:** `source/BCOPCore/informix/bdisac_sp_reverso_msw.sql` línea 60
+
+```sql
+IF pOrigen = "" OR pCategoria = "" OR pConvenio = "" OR pFolio = "" OR cFechaFormat <> pFecha THEN
+    LET cCodRet = '00400';
+    RETURN cCodRet, cMensaje;
+END IF;
+```
+
+El SP solo permite reversiones el mismo día de la transacción (`cFechaFormat <> pFecha` retorna `'00400'` inmediatamente). Los intentos de reverso de días anteriores generan `'00400'` en el primer bloque de validación — antes de cualquier lógica de negocio.
+
+**Clasificación:** Restricción de negocio (no defecto). Los 5,561 errores/día (69.22%) son intentos legítimos de reverso de días anteriores rechazados por diseño. El error está registrado correctamente en `bitacora_reverso_msw`.
+
+**Nota importante:** `sp_reverso_msw` **no tiene relación con el flujo automático de APPRIZA**. APPRIZA usa `bitacora_aplicapago_hs`; este SP usa `sac_movimientos` y `sac_controlconvenios`. Son sistemas completamente separados.
+
+### Resumen de mecanismos verificados en código
+
+| SP | Error% prod | Mecanismo | Clasificación | Evidencia |
+|----|-------------|-----------|---------------|-----------|
+| `sp_consultasaldocortemin_mx2` | 99.85% | CWE-390: ON EXCEPTION sin log convierte fallo cross-DB en código numérico | Defecto de código | bdicred_sp_consultasaldocortemin_mx2.sql:42-44 |
+| `sp_consultaregtarjeta` | 97.29% | Gating query — `00002` = "no encontrado" es respuesta normal | Diseño de negocio | intercard_sp_consultaregtarjeta.sql:29-34 |
+| `sp_reverso_msw` | 69.22% | Restricción de fecha — `cFechaFormat <> pFecha → '00400'` en el mismo día | Restricción de negocio | bdisac_sp_reverso_msw.sql:60 |
 
 ---
 

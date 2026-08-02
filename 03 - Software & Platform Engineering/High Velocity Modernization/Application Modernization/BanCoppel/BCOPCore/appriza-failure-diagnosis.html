@@ -495,6 +495,70 @@ code {
   line-height: 1.3;
 }
 
+/* ── D05 DOMAIN HEALTH ── */
+.d05-section {
+  margin: 0 28px 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.d05-hdr {
+  background: #f0f2fb;
+  padding: 10px 16px 9px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.d05-hdr-title { font-size: 12px; font-weight: 700; color: var(--txt); }
+.d05-hdr-sub   { font-size: 10px; color: var(--dim); }
+.d05-table { width: 100%; border-collapse: collapse; }
+.d05-table th {
+  padding: 6px 14px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--dim);
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  background: #f8f9fd;
+}
+.d05-table td {
+  padding: 7px 14px;
+  font-size: 11px;
+  color: var(--txt);
+  border-bottom: 1px solid #eef0fa;
+  vertical-align: top;
+}
+.d05-table tr:last-child td { border-bottom: none; }
+.d05-sp  { font-family: monospace; font-size: 11px; color: var(--ancla); font-weight: 600; }
+.d05-src { font-size: 9px; color: #94a3b8; margin-top: 1px; }
+.d05-rate      { font-weight: 700; font-size: 12px; }
+.d05-rate-high { color: #ef4444; }
+.d05-rate-mid  { color: #f97316; }
+.d05-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.d05-badge-defecto  { background: #fee2e2; color: #dc2626; }
+.d05-badge-gating   { background: #fef3c7; color: #92400e; }
+.d05-badge-restrict { background: #dbeafe; color: #1e40af; }
+.d05-type { font-size: 10px; color: var(--dim); line-height: 1.4; }
+.d05-note {
+  padding: 7px 14px 8px;
+  font-size: 10px;
+  color: var(--dim);
+  border-top: 1px solid var(--border);
+  background: #f8f9fd;
+}
+.d05-table th:nth-child(1) { width: 26%; }
+.d05-table th:nth-child(2) { width:  9%; }
+.d05-table th:nth-child(3) { width: 16%; }
+
 /* Animations */
 @keyframes blink-err {
   0%,100% { opacity: 1; }
@@ -620,6 +684,63 @@ code {
     </div>
 
   </div>
+</div>
+
+<!-- ══════════ ESTADO DOMINIO D05 ══════════ -->
+<div class="d05-section">
+  <div class="d05-hdr">
+    <div class="d05-hdr-title">Salud del dominio D05 — bdisac</div>
+    <div class="d05-hdr-sub">SPs con tasa de error significativa · evidencia 2026-04-24 · mecanismo verificado desde código fuente</div>
+  </div>
+  <table class="d05-table">
+    <thead>
+      <tr>
+        <th>Stored Procedure</th>
+        <th>Tasa error</th>
+        <th>Tipo</th>
+        <th>Mecanismo confirmado en código</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <div class="d05-sp">sp_app_confirmpayment</div>
+          <div class="d05-src">bdisac · flujo principal APPRIZA</div>
+        </td>
+        <td><span class="d05-rate d05-rate-mid">8.64%</span></td>
+        <td><span class="d05-badge d05-badge-defecto">Defecto externo</span></td>
+        <td class="d05-type">APPRIZA retorna <code>codRetorno=9999</code> "operación terminó con error inesperado". Batch de reconciliación sin circuit breaker ni límite de intentos — 13 reintentos promedio antes de atascarse.</td>
+      </tr>
+      <tr>
+        <td>
+          <div class="d05-sp">sp_consultasaldocortemin</div>
+          <div class="d05-src">bdicred · llamada cross-DB desde D05</div>
+        </td>
+        <td><span class="d05-rate d05-rate-high">99.85%</span></td>
+        <td><span class="d05-badge d05-badge-defecto">Defecto código</span></td>
+        <td class="d05-type">Variante <code>_mx2</code>: <code>ON EXCEPTION SET sSqlErr → RETURN sSqlErr, 0</code> — errores SQL retornados como código numérico sin catalogar en <code>errores_bus</code>. Patrón CWE-390. Sin códigos de negocio en logs de producción.</td>
+      </tr>
+      <tr>
+        <td>
+          <div class="d05-sp">sp_consultaregtarjeta</div>
+          <div class="d05-src">intercard · llamada cross-DB desde D05</div>
+        </td>
+        <td><span class="d05-rate d05-rate-high">97.29%</span></td>
+        <td><span class="d05-badge d05-badge-gating">Gating query</span></td>
+        <td class="d05-type">Búsqueda de registro de tarjeta en <code>intercard</code>. Retorna <code>00002</code> (no encontrada) como respuesta de negocio normal. Tasa alta esperada por diseño: la mayoría de consultas no encuentran la tarjeta en el lote dado.</td>
+      </tr>
+      <tr>
+        <td>
+          <div class="d05-sp">sp_reverso_msw</div>
+          <div class="d05-src">bdisac · reversión manual MSW · NO en flujo APPRIZA</div>
+        </td>
+        <td><span class="d05-rate d05-rate-mid">69.22%</span></td>
+        <td><span class="d05-badge d05-badge-restrict">Restricción fecha</span></td>
+        <td class="d05-type">Línea 60: <code>IF cFechaFormat &lt;&gt; pFecha THEN RETURN '00400'</code> — solo permite reversiones del mismo día. Intentos en D+1 fallan inmediatamente. <code>00401</code> = folio no encontrado en <code>sac_movimientos</code>. SP independiente del flujo APPRIZA.</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="d05-note">Línea base del dominio D05-bdisac: 4.07% de error promedio (945,217 llamadas/día). <code>sp_app_confirmpayment</code> duplica esa línea base, confirmando anomalía real. <code>sp_consultasaldocortemin</code> y <code>sp_consultaregtarjeta</code> operan en bases independientes (bdicred, intercard) — sus tasas son propias de cada base, no de bdisac.</div>
 </div>
 
 <!-- ══════════ TIMELINE ══════════ -->

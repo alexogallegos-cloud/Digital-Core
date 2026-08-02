@@ -374,15 +374,17 @@ RIESGO: Exposición a sanción CONDUSEF si > 2 días hábiles sin notificación 
 
 ### SPs críticos para monitoring
 
-| SP | Llamadas/día | Error% | Alerta sugerida |
-|----|-------------|--------|-----------------|
-| `sp_consultasaldocortemin` | 6,651 | 99.85% | Alerta si error_rate > 49.9% en 5 min |
-| `sp_consultaregtarjeta` | 6,560 | 97.29% | Alerta si error_rate > 48.6% en 5 min |
-| `sp_cat_carac_tae` | 7,330 | 96.77% | Alerta si error_rate > 48.4% en 5 min |
-| `sp_reverso_msw` | 8,034 | 69.22% | Alerta si error_rate > 34.6% en 5 min |
-| `sp_app_recuperapayment` | 7,724 | 23.14% | Alerta si error_rate > 11.6% en 5 min |
-| `sp_consulta_cardif` | 11,736 | 8.78% | Alerta si error_rate > 4.4% en 5 min |
-| `sp_app_confirmpayment` | 61,686 | 8.64% | Alerta si error_rate > 4.3% en 5 min |
+> **LECTURA CORRECTA DE BASELINES (2026-08-01):** Los SPs con tasa > 50% tienen mecanismos verificados en código. Alertar si la tasa CAMBIA inesperadamente, no si es "alta". Leer la columna Mecanismo antes de crear alarmas.
+
+| SP | Llamadas/día | Error% | Mecanismo (verificado 2026-08-01) | Alerta sugerida |
+|----|-------------|--------|-----------------------------------|-----------------|
+| `sp_consultasaldocortemin` | 6,651 | 99.85% | **Defecto CWE-390** — ON EXCEPTION convierte fallo cross-DB en código numérico. 99.85% es baseline **con defecto activo**. | Alerta si rate BAJA de 90% sin fix notificado (cambio inesperado); recalibrar a `< 5%` post-corrección |
+| `sp_consultaregtarjeta` | 6,560 | 97.29% | **Gating query** — `00002` = "tarjeta/lote no encontrado" es respuesta de negocio esperada para mayoría de consultas | Alerta si rate BAJA de 87% (cambio en patrón de uso); NO alertar por alta tasa |
+| `sp_cat_carac_tae` | 7,330 | 96.77% | [SME-PENDING] mecanismo no verificado en código | Alerta si error_rate sale de rango [87%, 99.9%] en 5 min |
+| `sp_reverso_msw` | 8,034 | 69.22% | **Restricción de fecha** — reverso solo permitido el mismo día (`cFechaFormat <> pFecha → '00400'`); 69.22% son intentos de días anteriores rechazados por diseño | Alerta si rate BAJA de 50% (cambio inesperado de patrón de uso); NO alertar por alta tasa |
+| `sp_app_recuperapayment` | 7,724 | 23.14% | [SME-PENDING] mecanismo no verificado | Alerta si error_rate > 11.6% en 5 min |
+| `sp_consulta_cardif` | 11,736 | 8.78% | Respuestas Cardif (validar si gating) | Alerta si error_rate > 4.4% en 5 min |
+| `sp_app_confirmpayment` | 61,686 | 8.64% | APPRIZA codRetorno=9999 (ver INC-D05-04) | Alerta si error_rate > 4.3% en 5 min |
 
 *Generado por generate-kb-from-logs.py · 2026-08-01*
 <!-- LOG-DATA-END -->

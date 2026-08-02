@@ -187,6 +187,47 @@ python BCOPCore/digital-brain/brain.py query "bdicobranza reestructura fecha inc
 
 ---
 
+### INC-D11-04 — Perfil de cliente inaccesible: `sp_obtener_datos_cv_web` falla silenciosamente
+
+**Impacto:** Caja2 no puede acceder al perfil del cliente deudor. Con 49,701 fallas/día (97.37%), el proceso de cobranza opera virtualmente a ciegas. Los clientes son omitidos del ciclo de gestión sin ninguna alerta. Riesgo regulatorio CNBV CUB Art. 75.
+
+> **DEFECTO DE CÓDIGO CONOCIDO (P655-R009/R010):** Esta tasa del 97.37% es producida por defectos verificados en `bdicobranza_sp_obtener_datos_cv_web.sql` activos en producción — NO es un incidente de infraestructura.
+
+**Síntomas del estado actual (defecto activo):**
+- `bancoppel.bdicobranza.sp.errors` para `sp_obtener_datos_cv_web` sostenido ~97%
+- Logs Caja2: `estatus=error` sin código en `errores_bus` — firma de CWE-390 + CHAR(5)
+- Si la tasa **baja abruptamente** de 90% sin fix notificado: posible cambio no controlado
+
+**Causa raíz verificada en código:**
+
+```sql
+-- P655-R009: CHAR(5) trunca códigos Informix de 6 caracteres
+DEFINE cCodRet CHAR(5);    -- debe ser CHAR(6)
+
+-- P655-R010: ON EXCEPTION silencioso (CWE-390)
+ON EXCEPTION SET sSqlErr
+    LET cCodRet = sSqlErr; -- código truncado, sin bitácora
+    RETURN cCodRet, ...;
+END EXCEPTION;
+```
+
+**Resolución:**
+
+Estado actual (defecto activo en prod):
+1. No escalar como incidente nuevo — es estado crónico conocido
+2. Para cliente específico afectado: consultar directamente vía sesión DBA Informix
+3. Registrar evidencia CNBV de cualquier cliente con impacto confirmado
+
+Post-fix:
+1. Cambiar `CHAR(5)` → `CHAR(6)` en declaración de `cCodRet`; agregar logging en `ON EXCEPTION`
+2. Verificar P655-R011: espacio en `bdicred: "informix".sp_consulta_saldocortemin`
+3. Recalibrar alerta de error_rate a > 5% post-fix (hoy el 97.37% es el baseline)
+4. Golden master: id_cliente sin saldo corte → debe retornar `00001`, no error silencioso
+
+**RTO objetivo:** [SME-PENDING] — priorizar con DBA Informix.
+
+---
+
 ### INC-D11-03 — Cascada cobranza a crédito: bdicred (D03) degradado
 
 **Impacto:** bdicobranza tiene 74 cross-DB edges hacia bdicred (D03), el mayor volumen de dependencia externa del dominio (33.2% del total). Si bdicred está degradado, cobranza no puede acceder al estado del crédito para ejecutar la gestión: saldos, morosidad, historial de pagos. La gestión de cobranza activa queda paralizada.
@@ -258,9 +299,10 @@ python BCOPCore/digital-brain/brain.py query "bdicobranza bdicred independent fl
 
 ### SPs críticos para monitoring
 
-| SP | Llamadas/día | Error% | Alerta sugerida |
-|----|-------------|--------|-----------------|
-| `sp_obtener_datos_cv_web` | 51,043 | 97.37% | Alerta si error_rate > 48.7% en 5 min |
+| SP | Llamadas/día | Error% | Mecanismo | Alerta sugerida |
+|----|-------------|--------|-----------|-----------------|
+| `sp_obtener_datos_cv_web` | 51,043 | 97.37% | DEFECTO: CHAR(5) + CWE-390 (P655-R009/R010) | 97.37% es baseline con defecto activo. Ver INC-D11-04. Alertar si error_rate **baja** de 90% sin fix notificado (indicaría cambio no controlado). Post-fix: alertar si > 5%. |
 
 *Generado por generate-kb-from-logs.py · 2026-08-01*
+*Actualizado: DT-Riesgos · 2026-08-01 · Mecanismo verificado; INC-D11-04 agregado*
 <!-- LOG-DATA-END -->

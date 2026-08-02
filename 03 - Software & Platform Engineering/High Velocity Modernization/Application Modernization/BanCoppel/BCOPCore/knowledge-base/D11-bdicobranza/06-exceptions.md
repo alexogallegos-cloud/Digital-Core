@@ -104,16 +104,53 @@ SPs que tienen bloques `ON EXCEPTION … END EXCEPTION` (patrones de recuperaci�
 
 ## Patrones de excepción críticos
 
+### CWE-390 — Excepción silenciosa en `sp_obtener_datos_cv_web` (VERIFICADO EN CÓDIGO · P655-R010)
+
+**Fuente:** `source/BCOPCore/informix/bdicobranza_sp_obtener_datos_cv_web.sql` · Verificado: 2026-08-01
+
+Este SP muestra el patrón CWE-390 (*Detection of Error Condition Without Action*): el bloque `ON EXCEPTION` captura la excepción del motor Informix, la convierte a código numérico y la retorna como si fuera un código de negocio ordinario, sin escribir a bitácora ni relanzar la excepción.
+
+```sql
+-- Patrón CWE-390 detectado (líneas del SP):
+ON EXCEPTION SET sSqlErr
+    LET cCodRet = sSqlErr;   -- convierte integer de Informix a CHAR(5) ← BUG
+    RETURN cCodRet, ...;      -- retorna error como código de negocio
+END EXCEPTION;
 ```
-[SME-PENDING] ¿Existen patrones de excepción con comportamiento silencioso?
-Por ejemplo:
-- ON EXCEPTION → ROLLBACK → CONTINUE (sin log = error invisible)
-- Bucles con excepciones ignoradas
-- RAISE EXCEPTION sin mensaje legible
+
+**Consecuencia en producción:** el ESB recibe `estatus=error` pero `top_resp_codes: {}` vacío — el error existe pero su código es ilegible. El sistema llamante (Caja2) interpreta la respuesta vacía como "cliente sin perfil" y lo omite del ciclo de gestión **sin generar ninguna alerta**. Resultado: 49,701 perfiles no gestionados por día.
+
+### CHAR(5) — Truncación de código de error en `sp_obtener_datos_cv_web` (DEFECTO-PROD · P655-R009)
+
+**Fuente:** mismo archivo · Verificado: 2026-08-01
+
+La variable de retorno `cCodRet` está declarada `CHAR(5)`. Los códigos de error de Informix son enteros convertidos a cadena de hasta 6 caracteres (p. ej. `-00206`). La asignación `LET cCodRet = sSqlErr` **trunca el sexto carácter**, produciendo un código incompleto que el ESB no puede clasificar.
+
+```sql
+-- Declaración del SP:
+DEFINE cCodRet CHAR(5);    -- ← bug: debería ser CHAR(6) para cubrir códigos Informix de 4 dígitos + signo + padding
+
+-- Al ejecutar ON EXCEPTION:
+LET cCodRet = sSqlErr;     -- sSqlErr es INTEGER; la conversión a CHAR(5) trunca el código real
 ```
+
+**Fix requerido:** cambiar `CHAR(5)` → `CHAR(6)` y agregar logging en el bloque `ON EXCEPTION`. Requiere sesión con DBA IBM Informix para deploy en producción.
+
+**Impacto combinado CWE-390 + CHAR(5):** estos dos defectos se potencian mutuamente. Incluso si se corrige el CHAR, sin logging el error seguirá siendo invisible para operaciones. Ambos deben corregirse juntos.
+
+### Clasificación de los [SME-PENDING] anteriores
+
+Los patrones "comportamiento silencioso" que el análisis estático dejó como [SME-PENDING] están confirmados:
+
+| Patrón | Estado | SP confirmado |
+|--------|--------|--------------|
+| `ON EXCEPTION → RETURN código numérico sin log` | CONFIRMADO (CWE-390) | `sp_obtener_datos_cv_web` |
+| `RETURN con variable truncada (CHAR(5) vs. CHAR(6))` | CONFIRMADO (DEFECTO-PROD) | `sp_obtener_datos_cv_web` |
+| `ON EXCEPTION → ROLLBACK → CONTINUE sin log` | [SME-PENDING] otros SPs | Por confirmar en sesión DBA |
 
 ---
 *Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdicobranza_*.sql*
+*Actualizado: DT-Riesgos · 2026-08-01 · Verificación en código de CWE-390 + CHAR(5) en sp_obtener_datos_cv_web (P655-R009/R010)*
 
 <!-- LOG-DATA-BEGIN -->
 ## Hallazgos de producción — Logs 2026-04-24

@@ -115,7 +115,7 @@ export default function() {
 
 | SP | Llamadas/día | Errores/día | Error% | Códigos respuesta frecuentes |
 |----|-------------|-------------|--------|------------------------------|
-| `sp_obtener_datos_cv_web` | 51,043 | 49,701 | 97.37% | — |
+| `sp_obtener_datos_cv_web` | 51,043 | 49,701 | 97.37% | `{}` vacío (CWE-390 + CHAR(5) bug — P655-R009/R010) |
 | `sp_registro_ctetitular_cv_web` | 3,689 | 0 | 0.0% | — |
 | `sp_compac_registrarbitacora_ofi_bis` | 24 | 0 | 0.0% | — |
 
@@ -124,5 +124,16 @@ export default function() {
 | Hora CDMX | Llamadas |
 |-----------|----------|
 
+### Mecanismo verificado del 97.37% de error en `sp_obtener_datos_cv_web`
+
+> **Fuente:** Análisis de código fuente `bdicobranza_sp_obtener_datos_cv_web.sql` · 2026-08-01
+
+La tasa de 97.37% **no es un patrón de negocio diseñado**. Es un defecto de código real (P655-R009 + R010):
+- Variable `cCodRet CHAR(5)` trunca códigos Informix de 6 caracteres → el ESB no puede clasificar el código retornado
+- `ON EXCEPTION SET sSqlErr → LET cCodRet = sSqlErr → RETURN` (CWE-390) no escribe a bitácora — la excepción es invisible
+
+**Implicación para el SLO del target:** el criterio `Error rate < 0.01%` aplica al target **post-fix**, no al Informix con defecto activo. El baseline real del Informix es 97.37% porque el defecto está presente en producción.
+
 *Generado por generate-kb-from-logs.py · 2026-08-01*
+*Actualizado: DT-Riesgos · 2026-08-01 · Mecanismo verificado en código (P655-R009/R010)*
 <!-- LOG-DATA-END -->

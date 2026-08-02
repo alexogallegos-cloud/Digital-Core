@@ -804,17 +804,22 @@ code {
     </div>
 
     <div class="root-cause">
-      <div class="rc-title">Causa Raíz — Asimetría Escritura/Lectura</div>
+      <div class="rc-title">Causa Raíz — Verificada en código fuente · 2026-08-01</div>
       <div class="rc-body">
-        <code>sp_obtener_datos_cv_web</code> falla silenciosamente — <code>estatus=error</code> sin código en <code>errores_bus</code>.
-        La lectura del perfil del cliente no puede completarse. Posible índice dañado, permiso <code>SELECT</code> revocado o inconsistencia de esquema en <code>bdicobranza</code>. Con 49,701 perfiles no accesibles por día, el proceso de cobranza opera a ciegas.
+        Análisis del código fuente <code>bdicobranza_sp_obtener_datos_cv_web.sql</code> reveló dos defectos de código que se combinan para producir la falla silenciosa:
+        <br><br>
+        <strong>Defecto 1 — CHAR(5) trunca códigos de 6 dígitos (P655-R009 · DEFECTO-PROD):</strong>
+        La variable de retorno <code>cCodRet</code> está declarada <code>CHAR(5)</code>. Los códigos de error de Informix son enteros de 4 dígitos, pero el campo retornado al ESB tiene 6 caracteres (p. ej. <code>-00206</code>). La asignación <code>LET cCodRet = sSqlErr</code> trunca el código al quinto carácter, produciendo un valor que el ESB no puede clasificar. El resultado: <code>top_resp_codes: {}</code> vacío en los logs — la excepción existe pero su código es ilegible.
+        <br><br>
+        <strong>Defecto 2 — CWE-390 ON EXCEPTION silencioso (P655-R010):</strong>
+        El bloque <code>ON EXCEPTION SET sSqlErr</code> convierte la excepción en un entero que se retorna como código de negocio. No hay escritura en bitácora ni <code>RAISE EXCEPTION</code>. El ESB recibe un código numérico truncado, no lo reconoce como error catalogado, y lo registra como <code>estatus=error</code> sin entrada en <code>errores_bus</code>. Caja2 interpreta esto como "sin perfil" y omite al cliente.
       </div>
       <ul class="fix-list">
-        <li data-n="1">Verificar permisos <code>SELECT</code> sobre tabla <code>cv_web</code> / <code>titular_cv_web</code> en <code>bdicobranza</code></li>
-        <li data-n="2">Revisar índices con <code>UPDATE STATISTICS FOR TABLE</code> en Informix</li>
-        <li data-n="3">Ejecutar <code>sp_obtener_datos_cv_web</code> manualmente contra un <code>id_cliente</code> conocido para obtener el error real</li>
-        <li data-n="4">Comparar esquema entre <code>sp_registro_ctetitular_cv_web</code> y <code>sp_obtener_datos_cv_web</code> — verificar que referencian la misma tabla</li>
-        <li data-n="5">Habilitar log detallado en Caja2 para capturar el texto del error que hoy se descarta silenciosamente</li>
+        <li data-n="1"><strong>Fix inmediato (CHAR bug):</strong> cambiar la declaración de <code>cCodRet</code> de <code>CHAR(5)</code> a <code>CHAR(6)</code> en <code>sp_obtener_datos_cv_web</code> — valida con DBA Informix</li>
+        <li data-n="2"><strong>Fix de logging:</strong> agregar escritura a <code>bitacora_errores</code> dentro del bloque <code>ON EXCEPTION</code> antes del RETURN, para que los errores sean visibles en logs de producción</li>
+        <li data-n="3"><strong>Verificar dependencia cross-DB:</strong> el SP llama a <code>bdicred:"informix".sp_consulta_saldocortemin</code> — el espacio entre <code>bdicred:</code> e <code>"informix"</code> puede causar fallo en la resolución del endpoint (P655-R011, pendiente verificación DBA)</li>
+        <li data-n="4"><strong>Golden master para equivalencia:</strong> agregar casos de prueba con <code>id_cliente</code> sin saldo de corte — deben retornar <code>00001</code> (no en sistema) en lugar de error silencioso</li>
+        <li data-n="5"><strong>Alerta operativa:</strong> el 97.37% de error es el baseline actual con el defecto activo — post-fix el umbral de alerta debe recalibrarse a &lt;5%</li>
       </ul>
     </div>
   </div>

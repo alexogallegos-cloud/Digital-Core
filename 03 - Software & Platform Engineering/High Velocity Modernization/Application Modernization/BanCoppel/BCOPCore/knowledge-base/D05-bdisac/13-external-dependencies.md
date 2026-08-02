@@ -45,6 +45,7 @@ Las dependencias externas en SPL se manifiestan como: (1) nombres de proveedores
 | DEP-17 | Western Union (remesas) | Sistema externo | ALTA | Detectado en comentarios / nombres de SP |
 | DEP-18 | SOFOM (productos SAC) | Sistema externo | ALTA | Detectado en comentarios / nombres de SP |
 | DEP-19 | APPRIZA — CFPA (Confirmación Fondos Para Acreditación) | Sistema externo — remesas internacionales | CRITICA | Logs producción 2026-04-24 · P655-R003 |
+| DEP-20 | `intercard` (Tarjetas) | Cross-DB call (dominio interno) | 🟠 ALTA | 1 SP: `sp_consultaregtarjeta` · Verificado en código 2026-08-01 |
 
 ---
 
@@ -168,6 +169,8 @@ find /opt /home -name "*.cron" 2>/dev/null | head -20
 
 **Criticidad:** 🟠 ALTA — 8 SPs de `bdisac` hacen cross-DB call
 
+> **ADVERTENCIA CWE-390 (verificado 2026-08-01):** `bdicred:sp_consultasaldocortemin_mx2` (SP en `bdicred` llamado desde `bdisac`) tiene patrón CWE-390: `ON EXCEPTION SET sSqlErr → LET cCodRet = sSqlErr → RETURN` sin log. Cuando falla una de sus queries cross-DB internas (`bdicred:sd_fechas`, `bdicred:sd_maecredanexo`, `bdicred:sd_maecredanexocrd`), la excepción se convierte silenciosamente en código de retorno numérico. Esto produce el 99.85% de error que se observa en producción. Requiere fix en `bdicred` antes del cutover. Ver `06-exceptions.md §CWE-390` para análisis completo.
+
 | SP de `bdisac` | Tablas accedidas en `bdicred` | Tipo |
 |----|----|----|  
 | `sp_app_recuperapayment` | `bdicred:sd_movdia` | R |
@@ -176,7 +179,25 @@ find /opt /home -name "*.cron" 2>/dev/null | head -20
 | `sp_aplica_pago_con_cargo_msw` | `bdicred:sd_movdia` | R |
 | `sp_asignaanio` | `bdicred:sd_movdia`, `bdicred:sd_movhis` | R |
 
-**En el target:** cada cross-DB call se convierte en llamada API interna a `CréditosService`. Requiere definir contrato OpenAPI.
+**En el target:** cada cross-DB call se convierte en llamada API interna a `CréditosService`. Requiere definir contrato OpenAPI. El fix del CWE-390 en `sp_consultasaldocortemin_mx2` debe coordinarse con el equipo de `bdicred` (D10) antes del cutover de `bdisac`.
+
+### `intercard` — Tarjetas (DEP-20 · NUEVO · Verificado en código 2026-08-01)
+
+**Criticidad:** 🟠 ALTA — 1 SP de `bdisac` hace cross-DB call
+
+> **Fuente:** `source/BCOPCore/informix/intercard_sp_consultaregtarjeta.sql` · Verificado: 2026-08-01
+
+| SP de `bdisac` | Tablas accedidas en `intercard` | Tipo | Notas |
+|----|----|----|---|
+| `sp_consultaregtarjeta` | `intercard:` (tablas de tarjetas — [SME-PENDING] nombres exactos) | R | 2 modos: `pOpcion=1` busca por lote/número; `pOpcion=2` busca por número de tarjeta |
+
+**Patrón de uso:** gating query — retorna `00002` = "tarjeta/lote no encontrado" para la mayoría de las consultas. La tasa de 97.29% de error es el comportamiento esperado. El SP consulta si la tarjeta/solicitud existe antes de proceder con la operación principal.
+
+**Riesgo de migración:** `intercard` es una base de datos que no estaba en el catálogo inicial de 12 dominios. Requiere verificación de ownership: ¿es un dominio que también se va a modernizar? ¿O es una dependencia externa que se mantiene con encapsulamiento API?
+
+**En el target:** la cross-DB call se convierte en llamada API interna a `TarjetasService` (o `intercard` encapsulado). Requiere: (1) confirmar si `intercard` está en scope de modernización, (2) definir contrato API, (3) mapear los 2 modos de búsqueda como endpoints separados.
+
+**Acción requerida:** [SME-PENDING] DBA IBM Informix — identificar tablas exactas en `intercard` accedidas por `sp_consultaregtarjeta`, confirmar si pertenecen a un dominio existente (D01-D12) o si es un dominio adicional fuera del scope actual.
 
 ### `BDISAC` — BDISAC
 
