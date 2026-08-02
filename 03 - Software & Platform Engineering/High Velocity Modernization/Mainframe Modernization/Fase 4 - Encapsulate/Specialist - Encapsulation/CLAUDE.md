@@ -192,16 +192,16 @@ Diferencia clave: **z/OS Connect EE mapea 1:1** la transaction CICS a REST. El *
 | `Digital Core/03 S&PE/HVM/Mainframe Modernization` L4 | Fase 4 (paralelo Fase 3) | Encapsulate kickoff |
 | `Specialist - Reverse Engineering` | Fase 1-4 | Catálogo de transacciones CICS/IMS + business capability mapping → input para diseño de APIs |
 | `Specialist - Static Analysis Tooling` | Fase 4 | Tool de análisis identifica candidatas a Encapsulate |
-| `Delivery - SME/Industry/BIAN` | Fase 4 banca | Service Landscape v14 alignment para naming + capability boundaries |
-| `Delivery - SME/Industry/SPEI` | Fase 4 banca | Encapsulación de transacciones SPEI sender/receiver |
+| `SME/Industry/BIAN` | Fase 4 banca | Service Landscape v14 alignment para naming + capability boundaries |
+| `SME/Industry/SPEI` | Fase 4 banca | Encapsulación de transacciones SPEI sender/receiver |
 
 ### Downstream (a quién entrego)
 
 | Destino | Output |
 |---------|--------|
-| `Delivery - SME/Framework/Interoperability` | API contracts canónicos + governance |
-| `Delivery - SME/Technology/Software Engineering` | ACL implementation + integration con frontend modernizado |
-| `Delivery - SME/Technology/Cybersecurity/Cloud Security & DevSecOps` | Security policies + mTLS + OAuth flows |
+| `SME/Framework/Interoperability` | API contracts canónicos + governance |
+| `SME/Technology/Software Engineering` | ACL implementation + integration con frontend modernizado |
+| `SME/Technology/Cybersecurity/Cloud Security & DevSecOps` | Security policies + mTLS + OAuth flows |
 | `Specialist - Transpilation` (Fase 5) | API contract estable que sobrevive al refactor del CICS subyacente |
 | `Digital Core/03 S&PE/AINCE/Enterprise & Application Integration` | Handoff cuando E&A Integration consume estas APIs |
 | `Digital Core/07 AMS Reinvention` | Runbook de operación APIs + monitoreo · alerting |

@@ -22,11 +22,58 @@ Los SPs batch son invocados por un **scheduler externo** (cron AIX, UC4, Control
 
 ## Resumen de procesos batch identificados
 
-| SP | LOC | Frecuencia estimada | Target recomendado | Riesgo |
-|----|-----|--------------------|--------------------|--------|
-| [SME-PENDING] | — | Identificar con análisis dinámico del scheduler | Lambda / ECS | 🟡 MEDIO |
+| Job | SP principal | Frecuencia confirmada | Riesgo | Fuente |
+|-----|-------------|----------------------|--------|--------|
+| `RemesasAPPRIZAAutomaticas` | `sp_app_confirmpayment` | ~61,280 calls/día · cada ~20-60 min | ALTO — P655-R003 | Logs 2026-04-24 |
+| Otros batch de bdisac | [SME-PENDING] | Requiere inventario scheduler AIX | [SME-PENDING] | crontab -u informix |
 
 ## Detalle por proceso batch
+
+### BATCH-D05-01 · RemesasAPPRIZAAutomaticas — Reconciliación APPRIZA
+
+> **Fuente:** `source/logs/transacciones_bus_20260424_*.log` · Fecha: 2026-04-24
+
+| Atributo | Valor |
+|----------|-------|
+| Nombre en logs | `RemesasAPPRIZAAutomaticas` |
+| DSN | `ifx_bdisac_remesas` |
+| SP principal | `sp_app_confirmpayment` → APPRIZA (CFPA) |
+| SPs auxiliares | `sp_app_recordorder` (graba PENDIENTE), `sp_app_getorder` (consulta estado) |
+| Volumen producción | 61,280 llamadas/día · 56,117 exitosas · 5,163 fallidas (8.7%) |
+| Scheduler actual | [SME-PENDING] — cron AIX u orquestador externo; timing irregular en logs |
+| Target AWS | AWS EventBridge Scheduler + Step Functions |
+
+**Comportamiento observado en producción (transacción `id=714261829804`, 2026-04-24):**
+
+```
+18:03 — excepción en ConfirmPayment.java:179
+       → sp_app_recordorder registra PENDIENTE
+19:15 — batch encuentra PENDIENTE → reintenta → APPRIZA 9999
+19:45 — reintenta → APPRIZA 9999
+20:03 — reintenta → APPRIZA 9999
+...  (13 reintentos durante 5+ horas)
+23:59 — transacción sin resolver · estado final: PENDIENTE indefinido
+```
+
+**Defectos del diseño actual:**
+- Sin `max_retries` — ciclo infinito
+- Sin circuit breaker — no detecta degradación de APPRIZA
+- Sin backoff exponencial
+- Sin notificación al cliente ni devolución automática tras N fallos
+- UUID de sesión fijo `22e4e9ee-32ea-484e-b89f-2573549bc625` en todas las llamadas
+
+**Diseño target recomendado:**
+```
+EventBridge Scheduler → Step Functions
+  Retry: máx 3 intentos, backoff exponencial (1min → 5min → 30min)
+  On max_retries:
+    → INSERT INTO reconciliacion_remesas (estado='PENDIENTE_MANUAL')
+    → NotificaciónCliente (SMS/push)
+    → Flag regulatorio CNBV (Banxico Circular 14/2017 — plazo 2 días hábiles)
+  Circuit breaker (Resilience4j): 50% errores en 60s → OPEN; half-open tras 5min
+```
+
+
 
 ## Acción crítica: inventario del scheduler AIX
 
@@ -65,3 +112,15 @@ Los procesos de purga y archivado asumen disponibilidad nocturna exclusiva. En A
 
 ---
 *Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdisac_*.sql (análisis estático de 58 archivos SQL) · análisis de patrones de nombres + código*
+
+<!-- LOG-DATA-BEGIN -->
+## Procesos batch detectados en logs — 2026-04-24
+> Fuente: `source/logs/transacciones_bus_2026-04-24_*.txt` · Incorporado: 2026-08-01
+
+| Servicio | Referencia muestra | Hora primer disparo |
+|----------|-------------------|---------------------|
+| `RemesasAPPRIZAAutomaticas` | `GetPayment_20260424_184342` | — |
+| `RemesasBTSAutomaticas` | `payc_recupera_20260424_084553` | — |
+
+*Generado por generate-kb-from-logs.py · 2026-08-01*
+<!-- LOG-DATA-END -->

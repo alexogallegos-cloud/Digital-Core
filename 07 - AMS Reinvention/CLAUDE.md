@@ -315,7 +315,7 @@ AMS Reinvention combina autonomía operativa alta (resolución rápida de incide
 
 ---
 
-## Handoffs Canónicos hacia `Solutioning/Delivery - SME/`
+## Handoffs Canónicos hacia `SME/`
 
 | Fase | SME(s) responsable(s) |
 |------|------------------------|

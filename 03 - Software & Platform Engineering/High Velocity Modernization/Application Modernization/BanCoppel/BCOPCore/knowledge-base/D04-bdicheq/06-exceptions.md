@@ -128,3 +128,33 @@ Por ejemplo:
 
 ---
 *Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdicheq_*.sql*
+
+<!-- LOG-DATA-BEGIN -->
+## Hallazgos de producción — Logs 2026-04-24
+> Fuente: `source/logs/errores_bus_2026-04-24_*.txt` · Incorporado: 2026-08-01
+
+**Total errores del dominio:** 767 · **Códigos distintos:** 3
+
+| Código | Descripción | Volumen/día | Servicios afectados |
+|--------|-------------|-------------|---------------------|
+| `4395` | Unhandled exception en plugin IIB — NullPointerException en  | 517 | Cheques, SobresDigitales |
+| `4394` | Unhandled exception en plugin IIB — MbUserException genérica | 208 | Cheques, Tarjeta |
+| `3743` | Handle Timed-out — timeout en conexión SOAP/JNI con sistema  | 42 | Tarjeta |
+
+### SPs con mayor tasa de error
+
+| SP | Llamadas/día | Errores/día | Error% |
+|----|-------------|-------------|--------|
+| `sp_whatscoppel_consdos` | 32,975 | 16,048 | 48.67% |
+| `consnomtit` | 4,001 | 375 | 9.37% |
+| `sp_consmov_sd` | 2,260 | 127 | 5.62% |
+| `sp_insertarespuestacuestionario` | 2,831 | 110 | 3.89% |
+| `sp_retiro_sd` | 41,546 | 703 | 1.69% |
+| `ConsNomTitTar_web` | 1,719 | 28 | 1.63% |
+| `cons_sdos2_web` | 85,881 | 1,104 | 1.29% |
+| `cargo_ref` | 23,053 | 239 | 1.04% |
+| `sp_abono_sd` | 25,414 | 220 | 0.87% |
+| `sp_crea_sd` | 6,394 | 51 | 0.8% |
+
+*Generado por generate-kb-from-logs.py · 2026-08-01*
+<!-- LOG-DATA-END -->

@@ -2,6 +2,7 @@
 > Proyecto activo · Digital Core · Offering 03 S&PE · Sub-Offering: High Velocity Modernization · Solution: Mainframe Modernization
 > Fase SDLC actual: **DISCOVER — ETAPA 0 (Setup & Inventory)**
 > Fecha de inicio: 2026-06-30
+> Indexado: ✅ 2026-07-17 — README del proyecto/componente (contexto de conocimiento)
 
 ---
 

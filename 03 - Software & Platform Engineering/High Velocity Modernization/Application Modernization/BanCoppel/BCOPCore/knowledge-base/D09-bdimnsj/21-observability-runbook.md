@@ -1,157 +1,224 @@
-# D09 · Mensajería — Observabilidad y Runbook
+# Runbook de Observabilidad — D09 bdimnsj (Mensajería)
 
-> **Componente:** BCOPCore · SPE-AM-001 · OPERATE Phase
-> **Microservicio target:** MensajeríaService
-> **Wave:** Wave 1 · Riesgo: **BAJO**
-> **Última actualización:** 2026-07-03
+| Campo | Valor |
+|---|---|
+| Dominio | D09 — bdimnsj |
+| Nombre funcional | Mensajería |
+| Nivel de riesgo | BAJO |
+| Wave de migración | Wave 1 |
+| Total SPs | 1 |
+| LOC totales | 446 |
+| Instrucciones MONEY | 73 |
+| Cross-DB edges | 22 |
+| God procedures | ninguno detectado |
+| Versión runbook | 1.0 |
+| Última revisión | 2026-07-31 |
 
----
-**SME responsable:**
-- Specialist — Informix SPL Analysis (análisis estático y equivalencias)
-- DBA — IBM Informix IDS (schema real vía syscolumns — Etapa 2)
-- Cloud Architect — AWS Banking (arquitectura target y servicios AWS)
-- QA Lead — Equivalencia Funcional (golden master y criterios go/no-go)
-- Core Banking Transformation (ACL design y API contracts)
-- Industry Banking / Domain Expert BanCoppel (validación funcional)
-- Cybersecurity (PII, CNBV, LFPDPPP, PCI-DSS)
-- SRE & AIOps (observabilidad y runbooks)
-- Data & ML — Data Architect (migración de datos, CDC Debezium)
-
-> `[SME-PENDING]` = requiere sesión de validación con el experto indicado.
----
-
-
-## Arquitectura de observabilidad
-
-```
-[MensajeríaService (Lambda/ECS)]
-        │  structured logs (JSON)
-        ▼
-[CloudWatch Logs]  →  [CloudWatch Insights]  →  [Dashboard]
-        │
-        ├─ [X-Ray traces]  →  [Service Map]  →  [Anomaly detection]
-        │
-        └─ [CloudWatch Metrics]  →  [Alarms]  →  [SNS → PagerDuty/Teams]
-```
-
-## Métricas clave (Golden Signals)
-
-### 1. Latency — SPs principales
-
-| SP (origen Informix) | Métrica de latencia | Métrica de errores | SLO |
-|---------------------|--------------------|--------------------|-----|
-| `sp_registra_evento` | `bancoppel.bdimnsj.registra_evento.latency` | `bancoppel.bdimnsj.registra_evento.errors` | [SME-PENDING] ms |
-
-### 2. Traffic (throughput)
-
-| Métrica | Namespace | Descripción |
-|---------|-----------|------------|
-| `Invocations` | `AWS/Lambda` | Número total de invocaciones |
-| `ConcurrentExecutions` | `AWS/Lambda` | Ejecuciones concurrentes (alerta si > 80% del límite) |
-| `bancoppel.bdimnsj.requests.total` | Custom | Total de requests al microservicio |
-
-### 3. Errors
-
-| Métrica | Umbral de alarma | Severidad |
-|---------|-----------------|----------|
-| `Errors` (Lambda) | > 0.1% en 5 min | 🟠 WARNING |
-| `Throttles` (Lambda) | > 0 en 1 min | 🔴 CRITICAL |
-| `bancoppel.bdimnsj.errors.l4` (divergencias financieras) | > 0 | 🔴 CRITICAL (rollback) |
-| Aurora `DatabaseConnections` | > 80% del max | 🟠 WARNING |
-| Aurora `FreeLocalStorage` | < 20% | 🟠 WARNING |
-
-### 4. Saturation
-
-| Recurso | Métrica | Umbral |
-|---------|---------|--------|
-| Lambda concurrencia | `ConcurrentExecutions / ReservedConcurrency` | > 80% → scale review |
-| Aurora connections | `DatabaseConnections / MaxConnections` | > 80% → connection pooling |
-| MSK (Kafka) lag | `SumOffsetLag` | > 10,000 mensajes → investigate |
-
-## CloudWatch Dashboard — widgets obligatorios
-
-```json
-[
-  {"title": "Latencia p50/p95/p99", "type": "metric",
-    "metrics": [["bancoppel/bdimnsj", "latency.p50"], ["bancoppel/bdimnsj", "latency.p99"]]},
-  {"title": "Error rate", "type": "metric",
-    "metrics": [["bancoppel/bdimnsj", "errors.total"], ["bancoppel/bdimnsj", "errors.l4"]]},
-  {"title": "Throughput", "type": "metric",
-    "metrics": [["AWS/Lambda", "Invocations", "FunctionName", "bdimnsj-service"]]},
-  {"title": "Aurora connections", "type": "metric",
-    "metrics": [["AWS/RDS", "DatabaseConnections", "DBInstanceIdentifier", "bdimnsj-aurora"]]},
-  {"title": "X-Ray Service Map", "type": "trace_map"}
-]
-```
-
-## Runbook de incidentes
-
-### INC-D09-01: Alta latencia en endpoints
-
-```
-DETECTAR: Alarma CloudWatch latency.p99 > SLO + 20%
-DIAGNOSTICAR:
-  1. CloudWatch Insights: filtrar logs por RequestId de los requests lentos
-  2. X-Ray: identificar el tramo más lento en el trace
-  3. Aurora: verificar `aurora_db_instance_identifier` — ¿hay slow queries?
-  4. Lambda: verificar cold starts (init_duration en logs)
-RESOLVER:
-  A. Si cold start: activar Lambda SnapStart o aumentar concurrencia reservada
-  B. Si Aurora slow query: revisar explain plan, agregar índice
-  C. Si MSK lag: escalar particiones del topic
-ESCALAR si no resuelve en 30 min: SRE Lead + Cloud Architect AWS
-```
-
-### INC-D09-02: Divergencias financieras (L4)
-
-```
-DETECTAR: Alarma bancoppel.bdimnsj.errors.l4 > 0
-ACCIÓN INMEDIATA:
-  1. ROLLBACK automático: AppConfig feature flag al 0%
-  2. Tráfico vuelve a Informix
-  3. Notificación a: QA Lead + Domain Expert BanCoppel + Program Manager
-DIAGNOSTICAR (post-rollback):
-  1. Identificar el SP y los parámetros exactos que generaron la divergencia
-  2. Verificar si es MONEY rounding (RoundingMode.HALF_EVEN)
-  3. Verificar si es DATETIME timezone
-  4. Agregar caso de prueba al golden master
-ESCALAR: QA Lead + Specialist Informix SPL Analysis
-```
-
-### INC-D09-03: Falla total del microservicio
-
-```
-DETECTAR: Lambda Errors = 100% o Health Check falla
-DIAGNOSTICAR:
-  1. CloudWatch Logs: buscar stack trace en últimos 5 min
-  2. Aurora: verificar disponibilidad (failover si aplica)
-  3. AppConfig: verificar que feature flag no cambió inesperadamente
-RESOLVER:
-  A. Si Lambda falla: redeploy de la versión anterior (CodeDeploy rollback)
-  B. Si Aurora: activar failover manual a réplica
-  C. Si es incidente crítico: ejecutar DR plan
-RTO target: < 30 min (CNBV requirement para sistemas críticos)
-```
-
-## Logs estructurados — formato obligatorio
-
-```json
-{
-  "timestamp": "2026-07-03T22:00:00.000-06:00",
-  "level": "INFO",
-  "service": "bdimnsj-service",
-  "traceId": "1-xxx-xxx",
-  "spanId": "xxx",
-  "operation": "sp_nombre_equivalente",
-  "domain": "bdimnsj",
-  "wave": "Wave 1",
-  "durationMs": 45,
-  "outcome": "SUCCESS",
-  "requestId": "uuid"
-}
-```
-
-> **Nota:** Nunca loguear datos PII (num_cte, num_tarjeta, correo, celular). Solo loguear identificadores anonimizados.
+> **Nota de verificación:** la lógica de despacho del SP único debe validarse directamente en los fuentes antes de confirmar el comportamiento de idempotencia. Ver `BCOPCore/source/bdimnsj/`.
 
 ---
-*Generado por: SRE & AIOps · 2026-07-03 · [SME-PENDING] umbrales de alarma requieren validación con baseline real de QA Lead*
+
+## 1. Rol funcional
+
+bdimnsj es el dominio de mensajería del core bancario BanCoppel. Con un solo SP, actúa como dispatcher centralizado de notificaciones hacia clientes. Los dominios de aclaraciones (bdiaclaracion), cobranza (bdicobranza) y solicitudes (bdisolic) dependen de este dominio para toda comunicación saliente. bdiaclaracion registra 34 llamadas cross-DB hacia bdimnsj, lo que lo convierte en el principal llamador conocido.
+
+---
+
+## 2. Arquitectura de observabilidad
+
+### 2.1 Namespace de métricas
+
+```
+bancoppel.bdimnsj.sp.invocations          — invocaciones totales del SP
+bancoppel.bdimnsj.sp.errors               — errores del SP
+bancoppel.bdimnsj.sp.duration_ms          — latencia de ejecución
+bancoppel.bdimnsj.crossdb.bdinteg.calls   — llamadas cross-DB a bdinteg
+bancoppel.bdimnsj.crossdb.bdicred.calls   — llamadas cross-DB a bdicred
+bancoppel.bdimnsj.crossdb.bdisolic.calls  — llamadas cross-DB a bdisolic
+bancoppel.bdimnsj.messages.dispatched     — mensajes despachados exitosamente
+bancoppel.bdimnsj.messages.duplicate      — mensajes potencialmente duplicados (reintentos detectados)
+```
+
+### 2.2 Dependencias cross-DB
+
+| Base de datos destino | Edges | Prioridad de monitoreo |
+|---|---|---|
+| bdinteg | 9 | ALTA — hub de integración; si cae, bdimnsj pierde 40.9% de sus rutas |
+| bdicred | 7 | MEDIA |
+| bdisolic | 3 | MEDIA |
+| **Total** | **22** | |
+
+### 2.3 Llamadores conocidos que dependen de bdimnsj
+
+| Dominio llamador | Llamadas cross-DB registradas |
+|---|---|
+| bdiaclaracion | 34 |
+
+---
+
+## 3. Umbrales de alarma
+
+| Métrica | Umbral WARNING | Umbral CRITICAL | Acción inmediata |
+|---|---|---|---|
+| Lambda errors | > 0.1% en ventana de 5 min | > 1% en ventana de 5 min | Escalar a SRE on-call |
+| Aurora CPU | > 80% | > 90% | Revisar query plan del SP |
+| MSK consumer lag | > 10,000 mensajes | > 50,000 mensajes | Verificar throughput del dispatcher |
+| SP error rate | > 0.5% | > 2% | Revisar logs Informix bdimnsj |
+| Mensajes duplicados | > 0 en ventana de 15 min | > 5 en ventana de 15 min | Activar INC-D09-02 |
+| Cross-DB bdinteg latencia p99 | > 500 ms | > 2,000 ms | Activar INC-D09-03 |
+
+---
+
+## 4. Patrones de carga (basados en logs de producción)
+
+| Ventana | Tipo | Comportamiento esperado |
+|---|---|---|
+| 10:00–14:00 CDMX | Peak | Volumen máximo de mensajería; pico de llamadas desde bdiaclaracion y bdicobranza |
+| 02:00–06:00 CDMX | Off-peak | Tráfico mínimo; ideal para mantenimiento del SP o cambios de configuración |
+| 22:00–02:00 CDMX | Batch window | Posibles notificaciones de cierre nocturno; verificar que el SP no quede bloqueado por procesos batch de bdicred o bdisolic |
+
+---
+
+## 5. Incidentes operativos
+
+---
+
+### INC-D09-01 — Mensajería caída: el SP no responde
+
+**Impacto:** todos los dominios dependientes de notificaciones a clientes pierden capacidad de envío. bdiaclaracion (34 cross-DB), bdicobranza y bdisolic quedan con mensajería silenciosa sin error explícito hasta que su propio timeout expire.
+
+**Síntomas:**
+- `bancoppel.bdimnsj.sp.errors` sube por encima del umbral CRITICAL
+- Cero registros en `bancoppel.bdimnsj.messages.dispatched`
+- bdiaclaracion reporta timeouts en sus llamadas cross-DB a bdimnsj
+
+**Diagnóstico con brain.py:**
+
+```bash
+# Paso 1: verificar estado del SP en el grafo semántico
+python BCOPCore/digital-brain/brain.py query "bdimnsj SP status callers"
+
+# Paso 2: identificar todos los dominios que llaman a bdimnsj
+python BCOPCore/digital-brain/brain.py edges --target bdimnsj --direction inbound
+
+# Paso 3: revisar el SP único — obtener su definición y dependencias
+python BCOPCore/digital-brain/brain.py sp "bdimnsj" --show-body --show-callees
+```
+
+**Resolución:**
+
+1. Confirmar si el proceso Informix de bdimnsj está activo: revisar el log de instancia en el servidor AIX correspondiente.
+2. Si el SP está bloqueado por un lock de otra sesión, identificar la sesión bloqueante con `onstat -g loc` y evaluar kill solo con autorización del DBA Informix BanCoppel.
+3. Si el SP arrojó error de compilación tras un cambio reciente, revertir al último release estable y notificar al equipo de modernización.
+4. Confirmar restauración verificando que `bancoppel.bdimnsj.messages.dispatched` vuelve a incrementarse.
+5. Notificar a bdiaclaracion, bdicobranza y bdisolic que mensajería fue restaurada para que reintenten sus colas pendientes.
+
+**RTO objetivo:** [SME-PENDING]
+
+---
+
+### INC-D09-02 — Mensajes duplicados
+
+**Impacto:** clientes reciben notificaciones repetidas. Dado que el SP no tiene lógica de idempotencia visible en el análisis estático, cualquier reintento de un dominio llamador puede generar un despacho duplicado.
+
+> **Verificar antes de asumir:** revisar el cuerpo del SP en `BCOPCore/source/bdimnsj/` para confirmar si existe algún mecanismo de deduplicación no detectado en el análisis estático.
+
+**Síntomas:**
+- `bancoppel.bdimnsj.messages.duplicate` > 0
+- Quejas de clientes por SMS/email duplicado
+- Trazas de bdiaclaracion o bdicobranza con múltiples llamadas al mismo message-id en el mismo intervalo
+
+**Diagnóstico con brain.py:**
+
+```bash
+# Paso 1: identificar patrones de reintento desde los dominios llamadores
+python BCOPCore/digital-brain/brain.py query "bdimnsj duplicate retry caller pattern"
+
+# Paso 2: revisar la lógica del SP para encontrar mecanismos de deduplicación
+python BCOPCore/digital-brain/brain.py sp "bdimnsj" --show-body --show-callees
+
+# Paso 3: correlacionar con el caller que genera el reintento
+python BCOPCore/digital-brain/brain.py edges --target bdimnsj --direction inbound --detail
+```
+
+**Resolución:**
+
+1. Identificar cuál dominio genera el reintento: revisar logs de bdiaclaracion y bdicobranza en la misma ventana de tiempo.
+2. Si el reintento viene de un timeout mal configurado en el dominio llamador, ajustar el timeout para que sea mayor que la latencia p99 del SP (ver `bancoppel.bdimnsj.sp.duration_ms`).
+3. Como mitigación temporal: implementar una tabla de idempotencia en bdimnsj o en el dominio llamador. Esta decisión requiere aprobación del arquitecto de modernización ya que afecta el SP de producción.
+4. Registrar el patrón como deuda técnica en el backlog de Wave 1 para agregar idempotencia nativa al SP modernizado.
+
+**RTO objetivo:** [SME-PENDING]
+
+---
+
+### INC-D09-03 — Cross-DB a bdinteg bloqueado
+
+**Impacto:** 9 de los 22 cross-DB edges de bdimnsj apuntan a bdinteg (D02). Si bdinteg está degradado o caído, mensajería no puede enrutar aproximadamente el 40.9% de sus flujos.
+
+**Síntomas:**
+- `bancoppel.bdimnsj.crossdb.bdinteg.calls` cae a cero o aumenta en errores
+- Latencia p99 de cross-DB a bdinteg supera umbral CRITICAL (2,000 ms)
+- Mensajes que dependen de rutas via bdinteg quedan en cola sin despacho
+
+**Diagnóstico con brain.py:**
+
+```bash
+# Paso 1: verificar estado de bdinteg y sus dependencias
+python BCOPCore/digital-brain/brain.py query "bdinteg health status dependencies"
+
+# Paso 2: mapear cuáles flujos de bdimnsj requieren bdinteg
+python BCOPCore/digital-brain/brain.py edges --source bdimnsj --target bdinteg --detail
+
+# Paso 3: verificar si hay ruta alternativa para los mensajes afectados
+python BCOPCore/digital-brain/brain.py query "bdimnsj routing alternative bdinteg down"
+```
+
+**Resolución:**
+
+1. Confirmar con el equipo SRE si bdinteg (D02) tiene una alarma activa.
+2. Si bdinteg está en mantenimiento planificado, verificar si existe modo degradado documentado para mensajería. Si no existe, escalar al arquitecto de Wave 1.
+3. Una vez bdinteg restaurado, verificar que `bancoppel.bdimnsj.crossdb.bdinteg.calls` vuelve a valores normales y que los mensajes encolados se despachan.
+4. Si la degradación de bdinteg es recurrente, registrar en el risk register del proyecto como riesgo de dependencia crítica.
+
+**RTO objetivo:** [SME-PENDING]
+
+---
+
+## 6. SLOs
+
+| SLO | Objetivo | Estado |
+|---|---|---|
+| Disponibilidad del SP | [SME-PENDING] | Pendiente validación SME |
+| Latencia p99 de despacho | [SME-PENDING] | Pendiente validación SME |
+| Tasa de mensajes duplicados | [SME-PENDING] | Pendiente validación SME |
+
+---
+
+## 7. Contactos de escalamiento
+
+| Rol | Cuándo escalar |
+|---|---|
+| SRE on-call BanCoppel | Cualquier CRITICAL en las métricas del namespace `bancoppel.bdimnsj.*` |
+| DBA Informix BanCoppel | Locks o errores de instancia Informix en bdimnsj |
+| Arquitecto Wave 1 | Cambios al SP, decisiones de idempotencia, modo degradado sin bdinteg |
+| Equipo de Modernización BCOPCore | Defectos encontrados durante análisis de fuentes en `BCOPCore/source/bdimnsj/` |
+
+---
+
+*Generado por BCOPCore — DISCOVER Etapa 1 · BanCoppel Application Modernization · Accenture México*
+
+<!-- LOG-DATA-BEGIN -->
+## Patrones de incidente observados — Logs 2026-04-24
+> Fuente: `source/logs/errores_bus_2026-04-24_*.txt` · Incorporado: 2026-08-01
+
+**Error rate del dominio:** 0.0% (Normal)
+
+### Acciones por código de error
+
+| Código | Vol/día | Prioridad | Acción inmediata |
+|--------|---------|-----------|-----------------|
+| `3165` | 320 | MEDIA | Verificar certificado TLS del endpoint externo — puede estar vencido o |
+
+*Generado por generate-kb-from-logs.py · 2026-08-01*
+<!-- LOG-DATA-END -->

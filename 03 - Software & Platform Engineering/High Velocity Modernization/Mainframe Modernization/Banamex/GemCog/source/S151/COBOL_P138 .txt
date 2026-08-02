@@ -1,0 +1,1240 @@
+000001$SET LIST XREF MAP LINEINFO ERRORLIMIT = 100                      000100      
+000002*$SET TADS                                                        000200      
+000003 IDENTIFICATION DIVISION.                                         000300      
+000004 PROGRAM-ID. REPORTECSIS.                                         000400      
+000005 AUTHOR. LIC. MONTSERRAT GONZALEZ VALDEZ                          000500      
+000006         ING. LINO HECTOR TORRES CORONADO.                        000600      
+000007***************************************************************** 000700      
+000008*      REPORTE DE LA SUMA DE SALDOS POR CUENTA Y SUBCUENTA      * 000800      
+000009*      DE CSI'S   VDM  Y  MONTERREY.                            * 000900      
+000010*      ADEMAS VERIFICA EL ESTATUS DE EJECUCION  DE  LOS SIG.    * 001000      
+000011*      SISTEMAS : S084, S087, S408, S500 Y S701.                * 001100      
+000012*      SE MODIFICO PARA SER CONTROLADO POR FECHAS EN EL ARCHIVO * 001200      
+000013*         DE CONTROL.   MGV.                                    * 001300      
+000014*                                                               * 001400      
+000015*      RECOMPILACION POR EL UPGRADE DEL  MCP A 55               * 001410      
+000016*      20141208 15MTP001 MJGRG                                  * 001412      
+000017*                                                               * 001500      
+000018***************************************************************** 001600      
+000019                                                                  001700      
+000020 ENVIRONMENT DIVISION.                                            001800      
+000021 INPUT-OUTPUT SECTION.                                            001900      
+000022 FILE-CONTROL.                                                    002000      
+000023                                                                  002100      
+000024     SELECT A01-SUMACSIS      ASSIGN TO DISK                      002200      
+000025                              ORGANIZATION IS SEQUENTIAL.         002300      
+000026                                                                  002400      
+000027     SELECT A01-SORT          ASSIGN TO SORT.                     002500      
+000028                                                                  002600      
+000029     SELECT A01-ARCH-POS ASSIGN TO DISK.                          002700      
+000030                                                                  002800      
+000031                                                                  002900      
+000032     SELECT A01-CONTROL       ASSIGN TO DISK                      003000      
+000033                              ORGANIZATION IS SEQUENTIAL.         003100      
+000034                                                                  003200      
+000035      SELECT V01-REPORTE           ASSIGN TO PRINTER.             003300      
+000036                                                                  003320      
+000037      SELECT V00-REPORTE2          ASSIGN TO PRINTER.             003340      
+000038                                                                  003400      
+000039 DATA DIVISION.                                                   003500      
+000040 FILE SECTION.                                                    003600      
+000041                                                                  003700      
+000042 FD A01-SUMACSIS                                                  003800      
+000043     BLOCK CONTAINS             60 RECORDS                        003900      
+000044     VALUE OF DEPENDENTSPECS IS TRUE                              004000      
+000045     VALUE OF TITLE          IS WKS-TIT-CSIS1.                    004100      
+000046                                                                  004200      
+000047 01  A01-REG-SUMACSIS              PIC X(90).                     004300      
+000048                                                                  004400      
+000049 FD V00-REPORTE2                                                  004410      
+000050     VALUE OF TITLE IS WKS-TIT-REPORTE2.                          004420      
+000051                                                                  004430      
+000052 01 V00-R00-REPORTE2               PIC X(132).                    004440      
+000053                                                                  004450      
+000054 SD  A01-SORT.                                                    004500      
+000055                                                                  004600      
+000056 01  A01-REG-SORT.                                                004700      
+000057     03 A01-R00-MON                PIC  9(04).                    004800      
+000058     03 A01-R00-CUENTA-12          PIC  9(12).                    004900      
+000059     03 A01-R00-CUENTA REDEFINES   A01-R00-CUENTA-12.             005000      
+000060        05 A01-R00-NUMCTA          PIC  9(04).                    005100      
+000061        05 A01-R00-SUBCTA          PIC  9(08).                    005200      
+000062     03 A01-R00-SDOANT             PIC S9(16)V99.                 005300      
+000063     03 A01-R00-CARGO              PIC S9(16)V99.                 005400      
+000064     03 A01-R00-ABONO              PIC S9(16)V99.                 005500      
+000065     03 A01-R00-SDOACT             PIC S9(16)V99.                 005600      
+000066     03 FILLER                     PIC X(02).                     005700      
+000067                                                                  005800      
+000068 FD  A01-ARCH-POS.                                                005900      
+000069                                                                  006000      
+000070 01  A01-REG-SD-ARCH.                                             006100      
+000071     03 A01-R01-MON                PIC  9(04).                    006200      
+000072     03 A01-R01-CUENTA-12          PIC  9(12).                    006300      
+000073     03 A01-R01-CUENTA REDEFINES   A01-R01-CUENTA-12.             006400      
+000074        05 A01-R01-NUMCTA          PIC  9(04).                    006500      
+000075        05 A01-R01-SUBCTA          PIC  9(08).                    006600      
+000076     03 A01-R01-SDOANT             PIC S9(16)V99.                 006700      
+000077     03 A01-R01-CARGO              PIC S9(16)V99.                 006800      
+000078     03 A01-R01-ABONO              PIC S9(16)V99.                 006900      
+000079     03 A01-R01-SDOACT             PIC S9(16)V99.                 007000      
+000080     03 FILLER                     PIC X(02).                     007100      
+000081                                                                  007200      
+000082 FD  A01-CONTROL                                                  007300      
+000083     VALUE OF TITLE IS "(S151)S151/FILE/CONTROL/CORP."            007400      
+000084     VALUE OF DEPENDENTSPECS IS TRUE.                             007500      
+000085                                                                  007600      
+000086 01  A01-REG-CONTROL               PIC X(90).                     007700      
+000087                                                                  007800      
+000088 FD V01-REPORTE.                                                  007900      
+000089                                                                  008000      
+000090 01 REG-REPORTE                    PIC X(132).                    008100      
+000091                                                                  008200      
+000092 WORKING-STORAGE SECTION.                                         008300      
+000093                                                                  008400      
+000094*CODIGO PARA DISPLAYÀS INNECESARIOS AL OPERADOR.                  008451      
+000095*INICIO  COPY PARA CPBAS                                          CPBAS 1.    
+000096* COPY "(S151)S151/FORMATO/DISPLAY.".                             008471      
+000097                                                                  000100      
+000098*===============================================================* 000200      
+000099*         FORMATO PARA DISPLAYS                                 * 000300      
+000100*===============================================================* 000400      
+000101                                                                  000500      
+000102 01 WKS-TIT-REPORTE2.                                             000600      
+000103    02 FILLER                       PIC X(07) VALUE "(S151)S".    000700      
+000104    02 WKS-SIS-BACK2                PIC 9(03).                    000800      
+000105    02 FILLER                       PIC X(06) VALUE               000900      
+000106                                              "/LIST/".           001000      
+000107    02 WKS-PASO-BACK2               PIC X(04).                    001051      
+000108    02 FILLER                       PIC X(01) VALUE "/".          001071      
+000109    02 WKS-TR-CSI2                  PIC 9(02) VALUE 0.            001100      
+000110    02 FILLER                       PIC X(08) VALUE "00/R000/".   001200      
+000111    02 WKS-TR-FECHA-BACKUP2         PIC 9(06).                    001300      
+000112    02 FILLER                       PIC X(1)  VALUE "/".          001400      
+000113    02 WKS-TR-MIX2                  PIC 9(07).                    001500      
+000114    02 FILLER                       PIC X(11) VALUE               001600      
+000115                                              "/001MSGIMP.".      001700      
+000116                                                                  002100      
+000117 77 W77-CONT-HOJA2                        PIC  9(06).             002200      
+000118                                                                  002300      
+000119***********************************************************       002400      
+000120*             VARIABLES PARA OBTENER FECHA DE COMPILACION *       002500      
+000121***********************************************************       002600      
+000122 01 WKS-COMPILA2                           PIC 9(11) BINARY.      002700      
+000123*8D                                                               002800      
+000124 01 WKS-VERSION2                           PIC 9(06) COMP.        002900      
+000125 01 WKS-VERSION-R2   REDEFINES       WKS-VERSION2.                003000      
+000126    03 WKS-MES-VERSION2                    PIC 9(02) COMP.        003100      
+000127    03 WKS-DIA-VERSION2                    PIC 9(02) COMP.        003200      
+000128    03 WKS-AAA-VERSION2                    PIC 9(02) COMP.        003300      
+000129*8D                                                               003400      
+000130 01 WKS-FECHA-PRO-6D2                     PIC 9(08).              003500      
+000131 01 WKS-FECHA-PRO-6D-R2 REDEFINES WKS-FECHA-PRO-6D2.              003600      
+000132    03 WKS-FPRO-AA22                      PIC 9(04).              003800      
+000133    03 WKS-FPRO-MM2                       PIC 9(02).              003900      
+000134    03 WKS-FPRO-DD2                       PIC 9(02).              004000      
+000135                                                                  004100      
+000136 01 WKS-DATE-ARRAY2       PIC X(21) DISPLAY WITH LOWER-BOUNDS.    004200      
+000137                                                                  004300      
+000138 01 WKS-FECHA-HORA2.                                              004400      
+000139    02 WKS-FEMAQ8D2                       PIC 9(08).              004451      
+000140    02 WKS-FEMAQ8D2-RED REDEFINES       WKS-FEMAQ8D2.             004500      
+000141       03 WKS-FEMAQ2D2                    PIC 9(02).              004551      
+000142       03 WKS-FEMAQ6D2                    PIC 9(06).              004571      
+000143    02 WKS-TIME-MAQ2.                                             004600      
+000144       04 WKS-HMS-MAQ2                    PIC 9(06).              004700      
+000145       04 WKS-HMS-MAQ2-R REDEFINES      WKS-HMS-MAQ2.             004720      
+000146          06 WKS-HMS-MAQ2-HH              PIC 9(02).              004740      
+000147          06 WKS-HMS-MAQ2-MM              PIC 9(02).              004760      
+000148          06 WKS-HMS-MAQ2-SS              PIC 9(02).              004780      
+000149       04 WKS-DSS-MAQ2                    PIC 9(02).              004800      
+000150    02 FILLER                             PIC X(01).              004900      
+000151    02 WKS-RESTO2                         PIC X(04).              005000      
+000152                                                                  005100      
+000153*8D                                                               005200      
+000154****************** REPORTE DE MENSAJES *********************      005300      
+000155 01 WLI-ENCAB-12.                                                 005400      
+000156    03 FILLER                             PIC X(05) VALUE         005500      
+000157       "S151-".                                                   005600      
+000158    03 WLI-RB-E1-PASO                     PIC X(04).              005651      
+000159    03 FILLER                             PIC X(15) VALUE         005671      
+000160       "-001IMPMENSAJES".                                         005691      
+000161    03 FILLER                             PIC X(17) VALUE SPACES. 005700      
+000162    03 FILLER                             PIC X(34) VALUE         005800      
+000163       " ADMINISTRADOR   DE   MOVIMIENTOS ".                      005900      
+000164    03 FILLER                             PIC X(09) VALUE SPACES. 006000      
+000165    03 FILLER                             PIC X(26) VALUE         006100      
+000166       "FECHA DE LA INFORMACION : ".                              006200      
+000167    03 WLI-RB-E1-FECHA-INF2               PIC 9999/99/99.         006300      
+000168    03 WLI-RB-E1-FECHA-INF2-RED  REDEFINES WLI-RB-E1-FECHA-INF2.  006351      
+000169       05  WLI-RB-E1-ANIO41               PIC 99.                 006353      
+000170       05  WLI-RB-E1-ANIO42               PIC 99.                 006355      
+000171       05  WKS-SLASH1                         PIC X(01).          006356      
+000172       05  WLI-RB-E1-MES                  PIC 99.                 006357      
+000173       05  WKS-SLASH2                         PIC X(01).          006358      
+000174       05  WLI-RB-E1-DIA                  PIC 99.                 006359      
+000175 01 WKS-RB-E1-FECHA-INF2               PIC X(10).                 006361      
+000176 01 WKS-RB-E1-FECHA-INF2-RED REDEFINES WKS-RB-E1-FECHA-INF2.      006363      
+000177    03 WKS-RB-E1-FECHA-INF2-A1         PIC 9(02).                 006365      
+000178    03 WKS-RB-E1-FECHA-INF2-A2         PIC 9(02).                 006367      
+000179    03 FILLER                          PIC X(01).                 006371      
+000180    03 WKS-RB-E1-FECHA-INF2-MM         PIC 9(02).                 006376      
+000181    03 FILLER                          PIC X(01).                 006381      
+000182    03 WKS-RB-E1-FECHA-INF2-DD         PIC 9(02).                 006386      
+000183*8D                                                               006400      
+000184 01 WLI-ENCAB-22.                                                 006500      
+000185     03 FILLER                          PIC X(11) VALUE           006600      
+000186        "F.PROCESO: ".                                            006700      
+000187     03 WLI-RB-E2-FECHA-PROC2           PIC 9999/99/99.           006800      
+000188     03 FILLER                          PIC X(01) VALUE SPACES.   006900      
+000189     03 WLI-RB-E2-HORA-TIT2-HH          PIC 99.                   007000      
+000190     03 FILLER                          PIC X(01) VALUE ":".      007020      
+000191     03 WLI-RB-E2-HORA-TIT2-MM          PIC 99.                   007040      
+000192     03 FILLER                          PIC X(01) VALUE ":".      007060      
+000193     03 WLI-RB-E2-HORA-TIT2-SS          PIC 99.                   007080      
+000194     03 FILLER                          PIC X(14) VALUE SPACES.   007100      
+000195     03 FILLER                          PIC X(24) VALUE           007200      
+000196              "IMPRESION MENSAJES DEL S".                         007300      
+000197     03 WLI-RB-E3-SISTEMA2           PIC 9(03).                   007400      
+000198     03 FILLER                          PIC X(28) VALUE SPACES.   007500      
+000199     03 FILLER                          PIC X(14) VALUE           007600      
+000200        "TIPO PROCESO: ".                                         007700      
+000201     03 WLI-RB-E2-TIPO-PROC2            PIC X(13).                007800      
+000202*8D                                                               007900      
+000203 01 WLI-ENCAB-32.                                                 008000      
+000204     03 FILLER                     PIC X(11) VALUE SPACES.        008100      
+000205*       "VERSION  : ".                                            008200      
+000206*    03 WLI-RB-E3-VERSION2         PIC 9999/99/99.                008300      
+000207     03 FILLER                     PIC X(98) VALUE SPACES.        008400      
+000208     03 FILLER                     PIC X(07) VALUE                008500      
+000209        "HOJA : ".                                                008600      
+000210     03 WLI-RB-E3-HOJA2            PIC ZZZZZ9.                    008700      
+000211                                                                  008800      
+000212 01 WLI-ENCAB-42.                                                 008900      
+000213     03 FILLER                 PIC X(15) VALUE "TIPO DE MENSAJE". 009000      
+000214     03 FILLER                 PIC X(07) VALUE SPACES.            009100      
+000215     03 FILLER                 PIC X(07) VALUE "MENSAJE".         009200      
+000216                                                                  009300      
+000217 01 WLI-ENCAB-52.                                                 009400      
+000218    03 FILLER                     PIC X(07) VALUE SPACES.         009500      
+000219    03 WLI-TIPO-LJ                PIC X(02).                      009600      
+000220    03 FILLER                     PIC X(13) VALUE SPACES.         009700      
+000221    03 WLI-TEXTO-LJ               PIC X(108).                     009800      
+000222                                                                  009900      
+000223*INI - INFOWARE(AGREGA ENCABEZADO PARA RESULT DEL S016 PARA P169) 009905      
+000224 01 WLI-ENCAB-62.                                                 009910      
+000225    03 FILLER                     PIC X(07) VALUE SPACES.         009915      
+000226    03 WLI-RESULT                 PIC X(04).                      009920      
+000227    03 FILLER                     PIC X(11) VALUE SPACES.         009925      
+000228    03 WLI-TEXTO                  PIC X(110).                     009930      
+000229                                                                  009935      
+000230 01 WLI-TOT-ENVIO.                                                009940      
+000231    03 FILLER                     PIC X(22) VALUE SPACES.         009945      
+000232    03 FILLER                     PIC X(37) VALUE                 009950      
+000233       "TOTAL DE REGISTROS ENVIO CITIDIRECT: ".                   009955      
+000234    03 WLI-ENV-CTD                PIC X(04).                      009960      
+000235*FIN - INFOWARE                                                   009970      
+000236****************************************************************  010000      
+000237*                 CONTADORES DE HOJAS                          *  010100      
+000238****************************************************************  010200      
+000239                                                                  010300      
+000240  01 WKS-NUM-LINEAS2                 PIC 9(2) COMP VALUE 0.       010600      
+000241*TERMINA COPY PARA CPBAS                                          CPBAS 1.    
+000242                                                                  008491      
+000243*INICIO  COPY PARA CPBAS                                          CPBAS 1.    
+000244* COPY "(S000)S000/UTILITY/DESPLIEGA/FTE/CCW ON PACK.".           008500      
+000245**** PARAMETROS PARA LA BIBLIOTECA DE MENSAJES A OPERADOR LJ      100100      
+000246  77 CONTADOR-LJ       PIC 9(11) BINARY VALUE 0.                  100200      
+000247  01 MENSAJE-LJ.                                                  100300      
+000248     02 SISTEMA-LJ     PIC X(04).                                 100400      
+000249     02 FILLER         PIC X VALUE "/".                           100500      
+000250     02 PASO-LJ        PIC X(04).                                 100600      
+000251     02 FILLER         PIC X VALUE "/".                           100700      
+000252     02 MTP-LJ         PIC 9(03).                                 100800      
+000253     02 FILLER         PIC X VALUE ":".                           100900      
+000254     02 TIPO-LJ        PIC X.                                     101000      
+000255     02 FILLER         PIC X VALUE ">".                           101100      
+000256     02 CODIGO-LJ      PIC 9(06).                                 101200      
+000257     02 FILLER         PIC X VALUE "<".                           101300      
+000258     02 TEXTO-LJ       PIC X(250).                                101400      
+000259*TERMINA COPY PARA CPBAS                                          CPBAS 1.    
+000260                                                                  008520      
+000261*INICIO  COPY PARA CPBAS                                          CPBAS 1.    
+000262* COPY "(S151)S151/SOURCE/COPY/TOSORT/01MTP002 ON CMEMP."         008540      
+000263*                                      FROM 000100 TO 099999      008560      
+000264                                                                  000100      
+000265*----------------------------------------------------------------*000200      
+000266*     VARIABLES PARA EL CALCULO DINAMICO DE ESPACIO PARA SORT    *000300      
+000267*----------------------------------------------------------------*000400      
+000268 77  W77-FRAMESIZE                PIC  9(002) COMP.               000500      
+000269 77  W77-LASTRECORD               PIC  9(012) COMP.               000600      
+000270 77  W77-MAXRECSIZE               PIC  9(012) COMP.               000700      
+000271 77  W77-DISK-SIZE                PIC  9(018) COMP.               000800      
+000272 77  W77-MEMORY-SIZE              PIC  9(018) COMP.               000900      
+000273 77  W77-MEMORY-65K               PIC  9(018) COMP.               001000      
+000274 01  WS-CALC-WORD                 PIC  9(012)V99.                 001100      
+000275 01  WS-CALC-WORD-RED   REDEFINES WS-CALC-WORD.                   001200      
+000276     02 WS-WORD-ENT               PIC  9(012).                    001300      
+000277     02 WS-WORD-RES               PIC  9(002).                    001400      
+000278                                                                  001500      
+000279*TERMINA COPY PARA CPBAS                                          CPBAS 1.    
+000280                                                                  008600      
+000281 01  WKS-REGANT                    PIC X(180).                    008700      
+000282 01  WKS-PAGINAS                   PIC 9(06).                     008800      
+000283 01  W77-FECHA-FIN                 PIC 9(01)  VALUE 0.            008810      
+000284     88  W88-FECHA-FIN             VALUE 1.                       008815      
+000285 01  W77-FIN                       PIC 9(01)  VALUE 0.            008900      
+000286     88  W88-FIN                   VALUE 1.                       009000      
+000287 01  WKS-NUM-LINEAS                PIC 9(03)  VALUE 0.            009100      
+000288 01  WKS-REG-HD-CONTROL.                                          009200      
+000289     03  WKS-HD-CSI                PIC 9(02).                     009300      
+000290     03  WKS-HD-FECPRO             PIC 9(08).                     009400      
+000291     03  FILLER                    PIC X(80).                     009500      
+000292                                                                  009600      
+000293 01  WKS-REG-DET-CONTROL.                                         009700      
+000294     03  WKS-DET-SIST              PIC 9(03).                     009800      
+000295     03  WKS-DET-FECPRO            PIC 9(08).                     009900      
+000296     03  WKS-DET-INDPF             PIC 9(01).                     009901      
+000297                                                                  009902      
+000298 01 WKS-TABLA-CONTROL.                                            009903      
+000299    03 WKS-T-CTRL OCCURS 10 TIMES.                                009904      
+000300       05 WKS-T-SIS                PIC 9(03).                     009905      
+000301       05 WKS-T-FEC                PIC 9(08).                     009906      
+000302*                                                                 009907      
+000303 77 W77-FORMATO                    PIC S9(11) BINARY.             009951      
+000304 77 W77-FUNCION                    PIC S9(11) BINARY.             009952      
+000305 01 WKS-FECHA1                     PIC X(08).                     009953      
+000306 01 WKS-FECHA1-NUM REDEFINES  WKS-FECHA1  PIC 9(08).              009954      
+000307 01 WKS-FECHA2                     PIC 9(08).                     009955      
+000308                                                                  010000      
+000309 01  WKS-FECHA8D                    PIC 9(08).                    010100      
+000310 01  WKS-FECHA8D-R REDEFINES WKS-FECHA8D .                        010200      
+000311     03 WKS-AA-2D                   PIC 9(02).                    010300      
+000312     03 WKS-FEC-6D                  PIC 9(06).                    010400      
+000313                                                                  010500      
+000314 01 WKS-FECHA-PRO-8D                      PIC 9(08).              010600      
+000315 01 WKS-FECHA-PRO-8D-R REDEFINES WKS-FECHA-PRO-8D.                010700      
+000316    03 WKS-FPRO-AA1                       PIC 9(02).              010800      
+000317    03 WKS-FPRO-AA2                       PIC 9(02).              010900      
+000318    03 WKS-FPRO-MM                        PIC 9(02).              011000      
+000319    03 WKS-FPRO-DD                        PIC 9(02).              011100      
+000320                                                                  011200      
+000321 01 WKS-DATE-ARRAY        PIC X(21) DISPLAY WITH LOWER-BOUNDS.    011300      
+000322                                                                  011400      
+000323 01 WKS-FECHA-HORA.                                               011500      
+000324    02 WKS-FEMAQ8D                        PIC 9(08).              011600      
+000325    02 WKS-TIME-MAQ.                                              011700      
+000326       04 WKS-HH-MAQ                      PIC 9(06).              011800      
+000327       04 WKS-MM-MAQ                      PIC 9(06).              011820      
+000328       04 WKS-SS-MAQ                      PIC 9(06).              011840      
+000329       04 WKS-DSS-MAQ                     PIC 9(02).              011900      
+000330    02 FILLER                             PIC X(01).              012000      
+000331    02 WKS-RESTO                          PIC X(04).              012100      
+000332                                                                  012200      
+000333***********************************************************       012300      
+000334*             VARIABLES PARA OBTENER FECHA DE COMPILACION *       012400      
+000335***********************************************************       012500      
+000336*01 WS-COMPILA                            PIC 9(11) BINARY.       012600      
+000337                                                                  012700      
+000338*01 WS-VERSION                            PIC 9(06) COMP.         012800      
+000339*01 WS-VERSION-R    REDEFINES       WS-VERSION.                   012900      
+000340*   03 WS-MES-VERSION                     PIC 9(02) COMP.         013000      
+000341*   03 WS-DIA-VERSION                     PIC 9(02) COMP.         013100      
+000342*   03 WS-AAA-VERSION                     PIC 9(02) COMP.         013200      
+000343                                                                  013300      
+000344 77  W77-SISTEMA-PARAMETRO          PIC 9(03).                    013400      
+000345 77  W77-CUAL-PROCESO               PIC 9(03).                    013401      
+000346 77  W77-CONT-HOJA                  PIC 9(06).                    013500      
+000347 77  W77-VALUE                      PIC 9(08) .                   013600      
+000348 77  W77-RESP                       PIC 9 VALUE ZEROS.            013610      
+000349 77  W77-C-R                        PIC X VALUE SPACES.           013620      
+000350                                                                  013700      
+000351*****************************************                         013800      
+000352*          NOMBRES  DE  BACKUPS         *                         013900      
+000353*****************************************                         014000      
+000354  01 WKS-TIT-REPORTE.                                             014100      
+000355     02 FILLER                     PIC X(01) VALUE "S".           014200      
+000356     02 WKS-SIS-BACK               PIC 9(03).                     014300      
+000357     02 FILLER                     PIC X(11) VALUE "/LIST/P138/". 014400      
+000358     02 FILLER                     PIC X(10) VALUE "1000/C000/".  014500      
+000359     02 WKS-FEC-BACK               PIC 9(06).                     014600      
+000360     02 FILLER                     PIC X(1)  VALUE "/".           014700      
+000361     02 WKS-MIX-BACK               PIC 9(07) VALUE 0.             014800      
+000362     02 FILLER                     PIC X(14) VALUE                014900      
+000363                                         "/001POSGLO151.".        015000      
+000364                                                                  015100      
+000365******************************************************************015200      
+000366*           CATALOGOS DESCRIPTIVOS  S080                         *015300      
+000367******************************************************************015400      
+000368 77 S080-CD-SISTEMA                       PIC S9(11) BINARY.      015500      
+000369 77 S080-CD-PROGRAMA                      PIC S9(11) BINARY.      015600      
+000370 77 S080-CD-RESULT                        PIC S9(11) BINARY.      015700      
+000371 01 S080-CD-PARAMETRO-ENT.                                        015800      
+000372    02 S080-CDPE-CATALOGO                 PIC 9(06) COMP.         015900      
+000373    02 S080-CDPE-CLAVE                    PIC 9(02) COMP.         016000      
+000374    02 S080-CDPE-ORDEN-BUSQ               PIC 9(02) COMP.         016100      
+000375    02 S080-CDPE-REGISTROS                PIC 9(02) COMP.         016200      
+000376    02 S080-CDPE-CVE-REGIST               PIC 9(12).              016300      
+000377    02 S080-CDPE-CVE-REGIST-ASOC          PIC 9(12).              016400      
+000378    02 S080-CDPE-NIVEL-INI                PIC 9(02) COMP.         016500      
+000379    02 S080-CDPE-FECHA-CONS               PIC 9(06) COMP.         016600      
+000380    02 FILLER                             PIC X(14).              016700      
+000381                                                                  016800      
+000382 01 S080-CD-PARAMETRO-SAL.                                        016900      
+000383    02 S080-CDPS-NUM-REGISTRO             PIC 9(02) COMP.         017000      
+000384    02 S080-CDPS-NUM-CATALOGO             PIC 9(06) COMP.         017100      
+000385    02 S080-CDPS-FECHA-CONS               PIC 9(06) COMP.         017200      
+000386    02 S080-CDPS-NIVEL-INI                PIC 9(02) COMP.         017300      
+000387    02 S080-CDPS-DATOS.                                           017400      
+000388       04 S080-CDPS-CVE-REGIST            PIC 9(12).              017500      
+000389       04 S080-CDPS-CVE-REGIST-ASOC       PIC 9(12).              017600      
+000390       04 S080-CDPS-TEXTO-LARGO           PIC X(40).              017700      
+000391       04 S080-CDPS-TEXTO-CORTO           PIC X(20).              017800      
+000392       04 S080-CDPS-TEXTO-PANTALLA        PIC X(12).              017900      
+000393       04 S080-CDPS-TEXTO-ABREV           PIC X(05).              018000      
+000394       04 S080-CDPS-FECHA-ALTA            PIC 9(06) COMP.         018100      
+000395       04 S080-CDPS-FECHA-BAJA            PIC 9(06) COMP.         018200      
+000396       04 S080-CDPS-FECHA-ULTMOD          PIC 9(06) COMP.         018300      
+000397       04 FILLER                          PIC X(10).              018400      
+000398                                                                  018500      
+000399******************************************************************018600      
+000400*           CATALOGOS PARAMETRICOS  S080                         *018700      
+000401******************************************************************018800      
+000402 77 S080-CP-SISTEMA                       PIC S9(11) BINARY.      018900      
+000403 77 S080-CP-PROGRAMA                      PIC S9(11) BINARY.      019000      
+000404 77 S080-CP-RESULT                        PIC S9(11) BINARY.      019100      
+000405 01 S080-CP-PARAMETRO-ENT.                                        019200      
+000406    02 S080-CPPE-CATALOGO                 PIC 9(06) COMP.         019300      
+000407    02 S080-CPPE-CLAVE                    PIC 9(02) COMP.         019400      
+000408    02 S080-CPPE-ORDEN-BUSQ               PIC 9(02) COMP.         019500      
+000409    02 S080-CPPE-REGISTROS                PIC 9(02) COMP.         019600      
+000410    02 S080-CPPE-LLAVE1                   PIC 9(12).              019700      
+000411    02 S080-CPPE-LLAVE2                   PIC 9(12).              019800      
+000412    02 S080-CPPE-LLAVE3                   PIC X(12).              019900      
+000413    02 S080-CPPE-LLAVE4                   PIC X(12).              020000      
+000414    02 S080-CPPE-LLAVE5                   PIC X(12).              020100      
+000415    02 S080-CPPE-LLAVE6                   PIC X(12).              020200      
+000416    02 S080-CPPE-FECHA-VIG                PIC 9(06) COMP.         020300      
+000417    02 S080-CPPE-FECHA-CONS               PIC 9(06) COMP.         020400      
+000418    02 S080-CPPE-NIVEL-INI                PIC 9(02) COMP.         020500      
+000419    02 FILLER                             PIC X(11).              020600      
+000420                                                                  020700      
+000421 01 S080-CP-PARAMETRO-SAL.                                        020800      
+000422    02 S080-CPPS-NUM-REGISTRO             PIC 9(02) COMP.         020900      
+000423    02 S080-CPPS-NUM-CATALOGO             PIC 9(06) COMP.         021000      
+000424    02 S080-CPPS-FECHA-CONS               PIC 9(06) COMP.         021100      
+000425    02 S080-CPPS-NIVEL-INI                PIC 9(02) COMP.         021200      
+000426    02 FILLER                             PIC X(22).              021300      
+000427    02 S080-CPPS-REGISTROS.                                       021400      
+000428       04 S080-CPPS-DATOS OCCURS 28 TIMES PIC 9(12).              021500      
+000429       04 S080-CPPS-FECHA-ALTA            PIC 9(06) COMP.         021600      
+000430       04 S080-CPPS-FECHA-BAJA            PIC 9(06) COMP.         021700      
+000431       04 S080-CPPS-FECHA-ULTMOD          PIC 9(06) COMP.         021800      
+000432       04 S080-CPPS-FECHA-VIG             PIC 9(06) COMP.         021900      
+000433       04 FILLER                          PIC X(500).             022000      
+000434                                                                  022100      
+000435***************************************************************   022200      
+000436*          LIBRERIA CTLVERS       ( S006)                     *   022300      
+000437***************************************************************   022400      
+000438                                                                  022500      
+000439 01  WKS-CTLVERS-LIBRERIA            PIC X(12).                   022600      
+000440 01  WKS-CTLVERS-TITULO              PIC X(72).                   022700      
+000441 01  WKS-CTLVERS-STATUS              PIC S9(11) BINARY.           022800      
+000442                                                                  022900      
+000443 01  WKS-CTLVERS-NUMREG              PIC 9(02).                   023000      
+000444 01  WKS-CTLVERS-LIBID               PIC X(12).                   023100      
+000445 01  WKS-CTLVERS-LIBID-R REDEFINES WKS-CTLVERS-LIBID.             023200      
+000446     03 WKS-LIBID-NOMB               PIC X(09).                   023300      
+000447     03 WKS-LIBID-SIST               PIC X(03).                   023400      
+000448                                                                  023500      
+000449******************************************************************023600      
+000450*                      NOMBRE DEL ARCHIVO                        *023700      
+000451******************************************************************023800      
+000452 01  WKS-TIT-CSIS1.                                               023900      
+000453     02  FILLER                    PIC X(1)  VALUE "S".           024000      
+000454     02  WKS-SIST1                 PIC 9(03).                     024100      
+000455     02  FILLER                    PIC X(06) VALUE "/FILE/".      024200      
+000456     02  FILLER                    PIC X(03) VALUE "E01".         024300      
+000457     02  FILLER                    PIC X(01) VALUE "/".           024400      
+000458     02  WKS-CSIOR1                PIC 9(02).                     024500      
+000459     02  FILLER                    PIC X(01) VALUE "/".           024600      
+000460     02  FILLER                    PIC X(02) VALUE "10".          024700      
+000461     02  FILLER                    PIC X(06) VALUE "/S151/".      024800      
+000462     02  WKS-FECPRO                PIC X(06).                     024900      
+000463     02  FILLER                    PIC X(01) VALUE ".".           025000      
+000464                                                                  025100      
+000465                                                                  025200      
+000466*****************************************                         025300      
+000467*         ENCABEZADO DEL REPORTE        *                         025400      
+000468*****************************************                         025500      
+000469                                                                  025600      
+000470 01  WLI-TIT1-RESUM.                                              025700      
+000471     03 FILLER                     PIC X(22) VALUE                025800      
+000472        "S151-P138-001POSGLOBAL".                                 025900      
+000473     03 FILLER                     PIC X(23) VALUE SPACES.        026000      
+000474     03 FILLER                     PIC X(42) VALUE                026100      
+000475              "ADMINISTRACION  DE  SALDOS  Y  MOVIMIENTOS".       026200      
+000476     03 FILLER                     PIC X(09) VALUE SPACES.        026300      
+000477     03 FILLER                     PIC X(26) VALUE                026400      
+000478                              "FECHA DE LA INFORMACION : ".       026500      
+000479     03 WLI-RP-E1-FECHA-INF        PIC 9999/99/99.                026600      
+000480                                                                  026700      
+000481 01  WLI-TIT2-RESUM.                                              026800      
+000482     03 FILLER                     PIC X(11) VALUE                026900      
+000483        "F.PROCESO: ".                                            027000      
+000484     03 WLI-RP-E2-FECHA-PROC       PIC 9999/99/99.                027100      
+000485     03 FILLER                     PIC X      VALUE SPACE.        027200      
+000486     03 WLI-RP-E2-HH-TIT         PIC 99.                          027300      
+000487     03 FILLER                   PIC X VALUE ":".                 027320      
+000488     03 WLI-RP-E2-MM-TIT         PIC 99.                          027340      
+000489     03 FILLER                   PIC X VALUE ":".                 027360      
+000490     03 WLI-RP-E2-SS-TIT         PIC 99.                          027380      
+000491     03 FILLER                     PIC X(25) VALUE SPACES.        027400      
+000492     03 FILLER                     PIC X(21) VALUE                027500      
+000493              "POSICION GLOBAL DEL S".                            027600      
+000494     03 WLI-RP-E3-SISTEMA          PIC 9(03).                     027700      
+000495     03 FILLER                     PIC X(33) VALUE SPACES.        027800      
+000496     03 FILLER                     PIC X(20) VALUE                027900      
+000497        "TIPO PROCESO: DIARIO".                                   028000      
+000498                                                                  028100      
+000499 01 WLI-TIT3-RESUM.                                               028200      
+000500     03 FILLER                     PIC X(21) VALUE SPACES.        028300      
+000501*       "VERSION  : ".                                            028400      
+000502*    03 WLI-RP-E3-VERSION          PIC 9999/99/99.                028500      
+000503     03 FILLER                     PIC X(98) VALUE SPACES.        028600      
+000504     03 FILLER                     PIC X(07) VALUE                028700      
+000505        "HOJA : ".                                                028800      
+000506     03 WLI-RP-E3-HOJA             PIC ZZZZZ9.                    028900      
+000507                                                                  029000      
+000508 01  WLI-TIT4-RESUM.                                              029100      
+000509     03 FILLER        PIC X(20) VALUE "CONTADURIA: 907     ".     029110      
+000510     03 FILLER                     PIC X(11) VALUE                029200      
+000511        "MONEDA  : ".                                             029300      
+000512     03  WLI-NUM-MONEDA            PIC 9(02).                     029400      
+000513     03  FILLER                    PIC X(02) VALUE SPACES.        029500      
+000514     03  WLI-NOMBRE-MONEDA         PIC X(20) VALUE SPACES.        029600      
+000515                                                                  029700      
+000516 01  WLI-TITULO-RESUM.                                            029800      
+000517     03 FILLER                 PIC X(06) VALUE "CUENTA".          029900      
+000518     03 FILLER                 PIC X(11) VALUE SPACES.            030000      
+000519     03 FILLER                 PIC X(11) VALUE "N O M B R E".     030100      
+000520     03 FILLER                 PIC X(21) VALUE SPACES.            030200      
+000521     03 FILLER                 PIC X(14) VALUE "SALDO ANTERIOR".  030300      
+000522     03 FILLER                 PIC X(17) VALUE SPACES.            030400      
+000523     03 FILLER                 PIC X(06) VALUE "CARGOS".          030500      
+000524     03 FILLER                 PIC X(17) VALUE SPACES.            030600      
+000525     03 FILLER                 PIC X(06) VALUE "ABONOS".          030700      
+000526     03 FILLER                 PIC X(11) VALUE SPACES.            030800      
+000527     03 FILLER                 PIC X(12) VALUE "SALDO ACTUAL".    030900      
+000528                                                                  031000      
+000529                                                                  031010      
+000530 01  WS-TITULO-NO-INFORMACION.                                    031020      
+000531     03 FILLER                 PIC X(29) VALUE SPACES.            031030      
+000532     03 FILLER                 PIC X(46) VALUE                    031040      
+000533        "                           NO HUBO INFORMACION".         031050      
+000534                                                                  031060      
+000535 01  WLI-TOT-SUBCTA.                                              031100      
+000536     03 WLI-SCTA-CUENTA        PIC ZZZZZZZZZZZ9.                  031200      
+000537     03 FILLER                 PIC X(2) VALUE SPACES.             031300      
+000538     03 WLI-NOMBRE             PIC X(25).                         031400      
+000539     03 FILLER                 PIC X(02) VALUE SPACES.            031500      
+000540     03 WLI-SCTA-SDOANT        PIC -ZZ,ZZZ,ZZZ,ZZZ,ZZ9.99.        031600      
+000541     03 FILLER                 PIC X     VALUE SPACES.            031700      
+000542     03 WLI-SCTA-CARGOS        PIC -ZZ,ZZZ,ZZZ,ZZZ,ZZ9.99.        031800      
+000543     03 FILLER                 PIC X     VALUE SPACES.            031900      
+000544     03 WLI-SCTA-ABONOS        PIC -ZZ,ZZZ,ZZZ,ZZZ,ZZ9.99.        032000      
+000545     03 FILLER                 PIC X     VALUE SPACES.            032100      
+000546     03 WLI-SCTA-SDOACT        PIC -ZZ,ZZZ,ZZZ,ZZZ,ZZ9.99.        032200      
+000547                                                                  032300      
+000548 01 WLI-TOT-CTA.                                                  032400      
+000549    03 FILLER                 PIC X(18) VALUE "TOTAL DE LA CTA".  032500      
+000550    03 WLI-CTA-4DIG           PIC 9(04) VALUE 0.                  032600      
+000551    03 FILLER                 PIC X(19) VALUE SPACES.             032700      
+000552    03 WLI-CTA-SDOANT         PIC -ZZ,ZZZ,ZZZ,ZZZ,ZZ9.99.         032800      
+000553    03 FILLER                 PIC X     VALUE SPACES.             032900      
+000554    03 WLI-CTA-CARGOS         PIC -ZZ,ZZZ,ZZZ,ZZZ,ZZ9.99.         033000      
+000555    03 FILLER                 PIC X     VALUE SPACES.             033100      
+000556    03 WLI-CTA-ABONOS         PIC -ZZ,ZZZ,ZZZ,ZZZ,ZZ9.99.         033200      
+000557    03 FILLER                 PIC X     VALUE SPACES.             033300      
+000558    03 WLI-CTA-SDOACT         PIC -ZZ,ZZZ,ZZZ,ZZZ,ZZ9.99.         033400      
+000559                                                                  033500      
+000560 01 WLI-TOT-MONEDA.                                               033600      
+000561     03 FILLER                 PIC X(16) VALUE "TOTAL POR MONEDA".033700      
+000562     03 FILLER                 PIC X(05) VALUE SPACES.            033800      
+000563     03 FILLER                 PIC X(20) VALUE SPACES.            033900      
+000564     03 WLI-MON-SDOANT         PIC -ZZ,ZZZ,ZZZ,ZZZ,ZZ9.99.        034000      
+000565     03 FILLER                 PIC X     VALUE SPACES.            034100      
+000566     03 WLI-MON-CARGOS         PIC -ZZ,ZZZ,ZZZ,ZZZ,ZZ9.99.        034200      
+000567     03 FILLER                 PIC X     VALUE SPACES.            034300      
+000568     03 WLI-MON-ABONOS         PIC -ZZ,ZZZ,ZZZ,ZZZ,ZZ9.99.        034400      
+000569     03 FILLER                 PIC X     VALUE SPACES.            034500      
+000570     03 WLI-MON-SDOACT         PIC -ZZ,ZZZ,ZZZ,ZZZ,ZZ9.99.        034600      
+000571                                                                  034700      
+000572 01  WKS-TOTALES-SUB.                                             034800      
+000573     03 WKS-SUB-SDOANT             PIC S9(17)V9(02) COMP.         034900      
+000574     03 WKS-SUB-CARGO              PIC S9(17)V9(02) COMP.         035000      
+000575     03 WKS-SUB-ABONO              PIC S9(17)V9(02) COMP.         035100      
+000576     03 WKS-SUB-SDOACT             PIC S9(17)V9(02) COMP.         035200      
+000577                                                                  035300      
+000578 01  WKS-TOTALES-CTA.                                             035400      
+000579     03 WKS-CTA-SDOANT             PIC S9(17)V9(02) COMP.         035500      
+000580     03 WKS-CTA-CARGO              PIC S9(17)V9(02) COMP.         035600      
+000581     03 WKS-CTA-ABONO              PIC S9(17)V9(02) COMP.         035700      
+000582     03 WKS-CTA-SDOACT             PIC S9(17)V9(02) COMP.         035800      
+000583                                                                  035900      
+000584 01  WKS-TOTALES-MON.                                             036000      
+000585     03 WKS-MON-SDOANT             PIC S9(17)V9(02) COMP.         036100      
+000586     03 WKS-MON-CARGO              PIC S9(17)V9(02) COMP.         036200      
+000587     03 WKS-MON-ABONO              PIC S9(17)V9(02) COMP.         036300      
+000588     03 WKS-MON-SDOACT             PIC S9(17)V9(02) COMP.         036400      
+000589                                                                  036500      
+000590     03 WKS-MON-ANT                PIC 9(04) COMP.                036600      
+000591     03 WKS-CTA-ANT                PIC 9(04) COMP.                036700      
+000592     03 WKS-CUENTA-ANT             PIC 9(12) COMP.                036800      
+000593                                                                  036900      
+000594 PROCEDURE DIVISION     USING      W77-SISTEMA-PARAMETRO.         037000      
+000595                                                                  037005      
+000596 000000-INICIO.                                                   037010      
+000597*==============                                                   037015      
+000598    CHANGE ATTRIBUTE LIBACCESS    OF "LOCSUP" TO BYFUNCTION.      037016      
+000599    CHANGE ATTRIBUTE FUNCTIONNAME OF "LOCSUP" TO "LOCSUP".        037017      
+000600                                                                  037018      
+000601    PERFORM 000005-CARGA-CAT.                                     037020      
+000602    OPEN INPUT A01-CONTROL.                                       037025      
+000603    READ A01-CONTROL INTO WKS-REG-HD-CONTROL.                     037030      
+000604    MOVE WKS-HD-CSI      TO  WKS-TR-CSI2.                         037035      
+000605    PERFORM 000010-LEE-CONTROL VARYING W77-CUAL-PROCESO           037040      
+000606                         FROM 1 BY 1 UNTIL W88-FIN.               037045      
+000607    MOVE WKS-HD-FECPRO   TO  WKS-FECHA8D                          037050      
+000608                             WLI-RB-E1-FECHA-INF2.                037054      
+000609     MOVE "DIARIO"        TO  WLI-RB-E2-TIPO-PROC2.               037060      
+000610    MOVE ATTRIBUTE TASKVALUE OF MYSELF TO W77-VALUE.              037065      
+000611    MOVE  ATTRIBUTE STACKNO OF MYSELF  TO WKS-MIX-BACK.           037070      
+000612                                                                  037075      
+000613*CODIGO QUE EVITA LOS DISPLAYÀS INNECESARIOS AL OPERADOR          037080      
+000614*Y GENERA UN  REPORTE DE ESTOS.                                   037085      
+000615                                                                  037095      
+000616    MOVE ZEROS           TO  W77-FIN, W77-FECHA-FIN.              037100      
+000617    CLOSE A01-CONTROL WITH SAVE.                                  037105      
+000618    MOVE W77-SISTEMA-PARAMETRO    TO WKS-SIS-BACK2,               037106      
+000619                                     WLI-RB-E3-SISTEMA2.          037107      
+000620    PERFORM    001000-FORMATO-DISPLAY.                            037108      
+000621    IF W77-SISTEMA-PARAMETRO = 999                                037110      
+000622           MOVE 1 TO W77-CUAL-PROCESO                             037115      
+000623           PERFORM 000010-TODOS                                   037120      
+000624                   UNTIL WKS-T-SIS(W77-CUAL-PROCESO)=999          037125      
+000625    ELSE                                                          037130      
+000626      IF W77-RESP > 0 AND W77-RESP < W77-CUAL-PROCESO             037135      
+000627          PERFORM 000150-FECHA-UNO                                037140      
+000628       ELSE                                                       037145      
+000629          MOVE SPACES                   TO WLI-ENCAB-52, TEXTO-LJ 037147      
+000630          STRING "EL P138 NO PROCESA EL SISTEMA: ",               037150      
+000631              W77-SISTEMA-PARAMETRO                               037155      
+000632              DELIMITED BY SIZE INTO TEXTO-LJ                     037160      
+000633          MOVE TEXTO-LJ      TO WLI-TEXTO-LJ                      037162      
+000634          MOVE "I"           TO TIPO-LJ, WLI-TIPO-LJ              037165      
+000635          MOVE 010401        TO CODIGO-LJ                         037170      
+000636          PERFORM      000-030-IMPRIME-MENSAJE                    037172      
+000637          CALL "LJ IN LIB-DISP" USING CONTADOR-LJ, MENSAJE-LJ     037175      
+000638          CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                037180      
+000639    STOP RUN.                                                     037185      
+000640                                                                  037186      
+000641 001000-FORMATO-DISPLAY.                                          037187      
+000642*INICIO  COPY PARA CPBAS                                          CPBAS 1.    
+000643*     COPY "(S151)S151/FORMATO/PROCEDURE/DISPLAY.".               037188      
+000644                                                                  000100      
+000645*===============================================================* 000200      
+000646*         PROCEDIMIENTO PARA INICIAR VARIABLES DE ENCABEZADO    * 000300      
+000647*         PARA LLAMADO DE DISPLAY                               * 000400      
+000648*===============================================================* 000500      
+000649                                                                  000600      
+000650     CHANGE ATTRIBUTE LIBACCESS OF "GENERALSUPPORT"               000651      
+000651            TO BYFUNCTION.                                        000671      
+000652                                                                  000691      
+000653     CALL "CURRENT_DATE OF GENERALSUPPORT"                        000700      
+000654          USING WKS-DATE-ARRAY2.                                  000800      
+000655     MOVE WKS-DATE-ARRAY2          TO  WKS-FECHA-HORA2.           000900      
+000656     MOVE WKS-FEMAQ6D2             TO  WKS-TR-FECHA-BACKUP2.      001000      
+000657     MOVE WKS-FEMAQ8D2             TO  WLI-RB-E2-FECHA-PROC2.     001100      
+000658     MOVE WKS-HMS-MAQ2-HH          TO  WLI-RB-E2-HORA-TIT2-HH.    001200      
+000659     MOVE WKS-HMS-MAQ2-MM          TO  WLI-RB-E2-HORA-TIT2-MM.    001220      
+000660     MOVE WKS-HMS-MAQ2-SS          TO  WLI-RB-E2-HORA-TIT2-SS.    001240      
+000661                                                                  001300      
+000662     MOVE  ATTRIBUTE STACKNO OF MYSELF TO  WKS-TR-MIX2            001400      
+000663     SET V00-REPORTE2(USERBACKUPNAME)   TO VALUE TRUE             001500      
+000664     CHANGE ATTRIBUTE TITLE OF V00-REPORTE2 TO                    001600      
+000665                               WKS-TIT-REPORTE2.                  001700      
+000666*    CALL "COMPILETIME-15 IN COBOL74"                             001800      
+000667*                                  GIVING WKS-COMPILA2.           001900      
+000668*    MOVE WKS-COMPILA2              TO WKS-VERSION2.              002000      
+000669*    MOVE WKS-MES-VERSION2          TO WKS-FPRO-MM2               002051      
+000670*    MOVE WKS-DIA-VERSION2          TO WKS-FPRO-DD2               002056      
+000671*    MOVE WKS-AAA-VERSION2          TO WKS-FPRO-AA22              002061      
+000672                                                                  002066      
+000673*    IF WKS-AAA-VERSION2  < 50                                    002071      
+000674*       COMPUTE WKS-FPRO-AA22    = WKS-AAA-VERSION2 + 2000        002076      
+000675*    ELSE                                                         002081      
+000676*       COMPUTE WKS-FPRO-AA22    = WKS-AAA-VERSION2 + 1900.       002086      
+000677                                                                  002091      
+000678                                                                  002500      
+000679*    MOVE WKS-FECHA-PRO-6D2        TO WLI-RB-E3-VERSION2.         002600      
+000680     OPEN OUTPUT V00-REPORTE2.                                    002700      
+000681     MOVE 57               TO WKS-NUM-LINEAS2.                    002800      
+000682     PERFORM 000-050-CHECA-SALTO-HOJA2.                           002900      
+000683                                                                  003000      
+000684 000-050-CHECA-SALTO-HOJA2.                                       003051      
+000685*==========================                                       003071      
+000686    MOVE  WLI-RB-E1-FECHA-INF2 TO WKS-RB-E1-FECHA-INF2.           003073      
+000687     IF WKS-RB-E1-FECHA-INF2-A2 < 50                              003075      
+000688        MOVE 20              TO WKS-RB-E1-FECHA-INF2-A1           003077      
+000689     ELSE                                                         003079      
+000690        MOVE 19              TO WKS-RB-E1-FECHA-INF2-A1.          003081      
+000691     MOVE WKS-RB-E1-FECHA-INF2-A1 TO WLI-RB-E1-ANIO41.            003083      
+000692     MOVE WKS-RB-E1-FECHA-INF2-A2 TO WLI-RB-E1-ANIO42.            003085      
+000693     MOVE "/"                     TO WKS-SLASH1.                  003086      
+000694     MOVE WKS-RB-E1-FECHA-INF2-MM TO WLI-RB-E1-MES.               003087      
+000695     MOVE "/"                     TO WKS-SLASH2.                  003088      
+000696     MOVE WKS-RB-E1-FECHA-INF2-DD TO WLI-RB-E1-DIA.               003089      
+000697     IF  WKS-NUM-LINEAS2 > 56                                     003091      
+000698         MOVE SPACES             TO    V00-R00-REPORTE2           003100      
+000699         ADD 1                   TO    W77-CONT-HOJA2             003200      
+000700         MOVE W77-CONT-HOJA2     TO    WLI-RB-E3-HOJA2            003300      
+000701         WRITE V00-R00-REPORTE2 FROM  WLI-ENCAB-12 AFTER PAGE     003400      
+000702         WRITE V00-R00-REPORTE2 FROM  WLI-ENCAB-22 AFTER 1        003500      
+000703         WRITE V00-R00-REPORTE2 FROM  WLI-ENCAB-32 AFTER 1        003600      
+000704         WRITE V00-R00-REPORTE2 FROM  WLI-ENCAB-42 AFTER 4        003700      
+000705         MOVE SPACES             TO V00-R00-REPORTE2              003800      
+000706         WRITE V00-R00-REPORTE2      AFTER 1                      003900      
+000707         MOVE           9        TO WKS-NUM-LINEAS2.              004000      
+000708                                                                  004100      
+000709 000-030-IMPRIME-MENSAJE.                                         004200      
+000710*========================                                         004300      
+000711*LP                                                               004400      
+000712     WRITE V00-R00-REPORTE2 FROM WLI-ENCAB-52   AFTER 1           004500      
+000713     ADD             2       TO WKS-NUM-LINEAS2                   004600      
+000714     PERFORM 000-050-CHECA-SALTO-HOJA2.                           004700      
+000715                                                                  004800      
+000716*TERMINA COPY PARA CPBAS                                          CPBAS 1.    
+000717                                                                  037189      
+000718 000010-LEE-CONTROL.                                              037190      
+000719*======================                                           037195      
+000720    READ A01-CONTROL INTO WKS-REG-DET-CONTROL                     037200      
+000721                  AT END MOVE 1 TO W77-FIN.                       037205      
+000722    IF NOT W88-FIN                                                037210      
+000723       MOVE WKS-DET-SIST    TO WKS-T-SIS(W77-CUAL-PROCESO)        037215      
+000724       MOVE WKS-DET-FECPRO  TO WKS-FECHA8D                        037220      
+000725       PERFORM 009000-PROYECTA-FECHA                              037225      
+000726       MOVE WKS-FECHA8D     TO WKS-T-FEC(W77-CUAL-PROCESO)        037301      
+000727       IF WKS-DET-SIST = 999 MOVE 1 TO W77-FIN.                   037302      
+000728    IF W77-SISTEMA-PARAMETRO = WKS-DET-SIST                       037304      
+000729       MOVE W77-CUAL-PROCESO TO W77-RESP.                         037305      
+000730 000010-TODOS.                                                    037332      
+000731*=============                                                    037333      
+000732     MOVE WKS-T-SIS(W77-CUAL-PROCESO) TO W77-SISTEMA-PARAMETRO.   037334      
+000733     MOVE WKS-T-FEC(W77-CUAL-PROCESO) TO WKS-FECHA8D.             037335      
+000734     PERFORM 000050-UNO UNTIL W88-FECHA-FIN.                      037336      
+000735     ADD 1       TO W77-CUAL-PROCESO.                             037337      
+000736     MOVE ZEROS  TO W77-FECHA-FIN.                                037338      
+000737 000050-UNO.                                                      037397      
+000738*===========                                                      037398      
+000739    MOVE WKS-FEC-6D      TO  WKS-FEC-BACK, WKS-FECPRO.            037406      
+000740    IF WKS-FECHA8D IS NOT > WKS-HD-FECPRO                         037410      
+000741       PERFORM 001000-INICIAL                                     037499      
+000742       IF W77-RESP = 3                                            037500      
+000743          OPEN OUTPUT A01-ARCH-POS                                037504      
+000744          PERFORM 002000-PROCESO UNTIL W88-FIN                    037506      
+000745          MOVE ZEROS   TO      W77-FIN                            037600      
+000746          OPEN I-O A01-CONTROL                                    037710      
+000747          PERFORM 008100-ACT-FECHAP UNTIL W88-FIN                 037720      
+000748          CLOSE A01-CONTROL WITH SAVE                             037730      
+000749          MOVE SPACES                   TO WLI-ENCAB-52, TEXTO-LJ 037830      
+000750          MOVE "I"     TO TIPO-LJ, WLI-TIPO-LJ                    038400      
+000751          MOVE 010401  TO CODIGO-LJ                               038500      
+000752          STRING "FIN POSICION GLOBAL DEL : S",                   038600      
+000753            W77-SISTEMA-PARAMETRO ," CON FECHA: ",WKS-FECHA8D     038700      
+000754            DELIMITED BY SIZE INTO TEXTO-LJ                       038800      
+000755          MOVE TEXTO-LJ           TO WLI-TEXTO-LJ                 038820      
+000756          PERFORM      000-030-IMPRIME-MENSAJE                    038840      
+000757       ELSE                                                       038850      
+000758          PERFORM 001000-PROCESO.                                 038860      
+000759                                                                  038870      
+000760*         CALL "LJ IN LIB-DISP" USING CONTADOR-LJ, MENSAJE-LJ.    038900      
+000761    IF W77-VALUE > 0  MOVE 1 TO W77-FECHA-FIN                     038905      
+000762       ELSE PERFORM 009000-PROYECTA-FECHA.                        038910      
+000763                                                                  039100      
+000764 000005-CARGA-CAT.                                                039200      
+000765*=================                                                039300      
+000766     CHANGE ATTRIBUTE LIBACCESS OF "GENERALSUPPORT"               039400      
+000767            TO BYFUNCTION.                                        039500      
+000768     CHANGE ATTRIBUTE LIBACCESS    OF "CTRLVER" TO BYFUNCTION.    039600      
+000769     CHANGE ATTRIBUTE FUNCTIONNAME OF "CTRLVER" TO "CTLVERS".     039700      
+000770                                                                  039800      
+000771     MOVE "S151"                   TO SISTEMA-LJ                  039900      
+000772                                      S080-CD-SISTEMA.            040000      
+000773     MOVE "P138"                   TO PASO-LJ                     040010      
+000774                                      WKS-PASO-BACK2              040012      
+000775                                       WLI-RB-E1-PASO             040014      
+000776                                      S080-CD-PROGRAMA.           040020      
+000777     MOVE "001"                    TO MTP-LJ.                     040030      
+000778     CHANGE ATTRIBUTE TITLE OF "LIB-DISP"    TO                   040040      
+000779        "(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK.".          040050      
+000780     MOVE "S080BD01CON"            TO WKS-CTLVERS-LIBRERIA        040060      
+000781     CALL "DAME_TIT IN CTRLVER"                                   040070      
+000782          USING  WKS-CTLVERS-LIBRERIA                             040080      
+000783                 WKS-CTLVERS-TITULO                               040090      
+000784          GIVING WKS-CTLVERS-STATUS.                              040100      
+000785                                                                  040110      
+000786     IF WKS-CTLVERS-STATUS < 0                                    040120      
+000787        MOVE SPACES                   TO WLI-ENCAB-52, TEXTO-LJ   040125      
+000788        MOVE "ERROR AL OBTENER NOMBRE S080BD01CON"                040130      
+000789                                   TO TEXTO-LJ                    040140      
+000790        MOVE "O"                   TO TIPO-LJ                     040150      
+000791        MOVE 020901                TO CODIGO-LJ                   040160      
+000792        CALL "LJ IN LIB-DISP" USING CONTADOR-LJ, MENSAJE-LJ       040170      
+000793        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1                   040180      
+000794     ELSE                                                         040190      
+000795        CHANGE ATTRIBUTE TITLE OF "S080BD01CON" TO                040200      
+000796               WKS-CTLVERS-TITULO.                                040210      
+000797                                                                  040220      
+000798 000150-FECHA-UNO.                                                040222      
+000799*================                                                 040223      
+000800     IF W77-VALUE > 0  MOVE W77-VALUE TO  WKS-FECHA8D             040225      
+000801     ELSE MOVE WKS-T-FEC(W77-RESP) TO  WKS-FECHA8D.               040227      
+000802     PERFORM 000050-UNO UNTIL W88-FECHA-FIN.                      040229      
+000803 001000-INICIAL.                                                  040600      
+000804*===============                                                  040605      
+000805     MOVE ZEROS             TO W77-FIN, W77-RESP, W77-CONT-HOJA.  040700      
+000806     MOVE W77-SISTEMA-PARAMETRO    TO WKS-SIST1, WKS-SIS-BACK,    040800      
+000807                                      WLI-RP-E3-SISTEMA.          040900      
+000808*                                     WKS-SIS-BACK2,              041000      
+000809*                                     WLI-RB-E3-SISTEMA2.         041100      
+000810*    PERFORM    001000-FORMATO-DISPLAY.                           041151      
+000811     MOVE SPACES                   TO WLI-ENCAB-52, TEXTO-LJ.     041200      
+000812     MOVE "I"                      TO TIPO-LJ, WLI-TIPO-LJ        041900      
+000813     MOVE 010401                   TO CODIGO-LJ                   042000      
+000814     STRING "INICIO POSICION GLOBAL DEL : S",                     042100      
+000815            W77-SISTEMA-PARAMETRO ," CON FECHA: ",WKS-FECHA8D     042200      
+000816            DELIMITED BY SIZE INTO TEXTO-LJ.                      042300      
+000817     MOVE TEXTO-LJ                 TO WLI-TEXTO-LJ                042320      
+000818     PERFORM      000-030-IMPRIME-MENSAJE.                        042340      
+000819*    CALL "LJ IN LIB-DISP" USING CONTADOR-LJ, MENSAJE-LJ.         042400      
+000820                                                                  044300      
+000821**LP MOVE 19                       TO WKS-FPRO-AA1                044400      
+000822     IF W77-SISTEMA-PARAMETRO  = 701                              044500      
+000823        MOVE 3                     TO W77-RESP                    044600      
+000824     ELSE                                                         044700      
+000825        MOVE "04"                  TO  WKS-CSIOR1                 044890      
+000826        PERFORM 8000-CHECA-RESIDENCIA.                            044900      
+000827     IF W77-RESP = 3 THEN                                         044910      
+000828        MOVE "10"                  TO WKS-CSIOR1                  044920      
+000829        MOVE ZEROS                 TO W77-RESP                    044925      
+000830        PERFORM 8000-CHECA-RESIDENCIA.                            044930      
+000831     IF W77-RESP < 3 THEN                                         044960      
+000832        MOVE SPACES                   TO WLI-ENCAB-52, TEXTO-LJ   044965      
+000833        MOVE "I"                   TO TIPO-LJ, WLI-TIPO-LJ        044970      
+000834        MOVE 010401                TO CODIGO-LJ                   044980      
+000835        STRING "EL SISTEMA: ", W77-SISTEMA-PARAMETRO,             044990      
+000836            " NO SE PROCESO PARA LA FECHA ", WKS-FECHA8D          045000      
+000837            DELIMITED BY SIZE INTO TEXTO-LJ                       045010      
+000838        MOVE TEXTO-LJ              TO WLI-TEXTO-LJ                045012      
+000839        PERFORM  000-030-IMPRIME-MENSAJE.                         045014      
+000840*       CALL "LJ IN LIB-DISP" USING CONTADOR-LJ, MENSAJE-LJ.      045020      
+000841                                                                  045600      
+000842 001000-PROCESO.                                                  045610      
+000843*===============                                                  045615      
+000844                                                                  045620      
+000845     SET V01-REPORTE(USERBACKUPNAME)    TO VALUE TRUE             045625      
+000846     CHANGE ATTRIBUTE TITLE OF V01-REPORTE TO                     045630      
+000847                                       WKS-TIT-REPORTE.           045635      
+000848     OPEN OUTPUT V01-REPORTE.                                     045640      
+000849     PERFORM 002200-CHECA-SALTO-HOJA.                             045645      
+000850     MOVE SPACES                        TO REG-REPORTE.           045650      
+000851     WRITE REG-REPORTE                  AFTER 1.                  045655      
+000852     MOVE WS-TITULO-NO-INFORMACION      TO REG-REPORTE.           045660      
+000853     WRITE REG-REPORTE.                                           045665      
+000854     CLOSE V01-REPORTE WITH SAVE.                                 045670      
+000855                                                                  045675      
+000856 002000-PROCESO.                                                  045700      
+000857*==============                                                   045800      
+000858     MOVE ZEROS                         TO W77-FIN.               045810      
+000859     SET V01-REPORTE(USERBACKUPNAME)    TO VALUE TRUE             045830      
+000860     CHANGE ATTRIBUTE TITLE OF V01-REPORTE TO                     045840      
+000861                                       WKS-TIT-REPORTE.           045850      
+000862     OPEN OUTPUT V01-REPORTE.                                     045860      
+000863     IF W77-SISTEMA-PARAMETRO = 701                               045870      
+000864        NEXT SENTENCE                                             045880      
+000865     ELSE                                                         045890      
+000866        MOVE "04"                     TO  WKS-CSIOR1              045900      
+000867        CHANGE ATTRIBUTE TITLE OF A01-SUMACSIS TO WKS-TIT-CSIS1   046000      
+000868        OPEN INPUT  A01-SUMACSIS                                  046100      
+000869        MOVE ZERO                     TO W77-FIN                  046200      
+000870        PERFORM 002100-MUEVE-ARCHIVO1 UNTIL W88-FIN               046300      
+000871        CLOSE A01-SUMACSIS WITH SAVE.                             046400      
+000872     MOVE "10"                     TO      WKS-CSIOR1.            046500      
+000873     CHANGE ATTRIBUTE TITLE OF A01-SUMACSIS TO WKS-TIT-CSIS1.     046600      
+000874     OPEN INPUT  A01-SUMACSIS.                                    046700      
+000875     MOVE ZERO                     TO W77-FIN.                    046800      
+000876     PERFORM 002100-MUEVE-ARCHIVO1 UNTIL W88-FIN.                 046900      
+000877      CLOSE A01-SUMACSIS WITH SAVE.                               047000      
+000878      CLOSE A01-ARCH-POS WITH SAVE.                               047100      
+000879     OPEN INPUT A01-ARCH-POS                                      047105      
+000880     COMPUTE W77-FRAMESIZE        =                               047110      
+000881          (ATTRIBUTE FRAMESIZE  OF A01-ARCH-POS)                  047115      
+000882     COMPUTE W77-MAXRECSIZE       =                               047120      
+000883          (ATTRIBUTE MAXRECSIZE OF A01-ARCH-POS)                  047125      
+000884     COMPUTE W77-LASTRECORD       =                               047130      
+000885          (ATTRIBUTE LASTRECORD OF A01-ARCH-POS                   047135      
+000886                               +   1)                             047140      
+000887     CLOSE A01-ARCH-POS           WITH SAVE.                      047145      
+000888     PERFORM                      70000-CALCULA-ESPACIO.          047150      
+000889     SORT A01-SORT ASCENDING KEY A01-R00-MON,                     047200      
+000890                                 A01-R00-CUENTA                   047300      
+000891          MEMORY SIZE IS W77-MEMORY-SIZE WORDS                    047320      
+000892          DISK   SIZE IS W77-DISK-SIZE   WORDS                    047340      
+000893          USING  A01-ARCH-POS                                     047400      
+000894          GIVING A01-ARCH-POS.                                    047500      
+000895     OPEN INPUT A01-ARCH-POS.                                     047600      
+000896                                                                  047700      
+000897*=================================================================047800      
+000898*====                    SALIDA DEL SORT                      ====047900      
+000899*=================================================================048000      
+000900                                                                  048100      
+000901     MOVE WKS-FECHA8D              TO  WLI-RP-E1-FECHA-INF.       048200      
+000902*                                      WLI-RB-E1-FECHA-INF2.      048300      
+000903     CALL "CURRENT_DATE OF GENERALSUPPORT"                        048400      
+000904          USING WKS-DATE-ARRAY.                                   048500      
+000905                                                                  048600      
+000906     MOVE WKS-DATE-ARRAY           TO  WKS-FECHA-HORA             048700      
+000907     MOVE WKS-FEMAQ8D              TO  WLI-RP-E2-FECHA-PROC       048800      
+000908     MOVE WKS-HH-MAQ               TO  WLI-RP-E2-HH-TIT           048900      
+000909     MOVE WKS-MM-MAQ               TO  WLI-RP-E2-MM-TIT           048920      
+000910     MOVE WKS-SS-MAQ               TO  WLI-RP-E2-SS-TIT           048940      
+000911                                                                  049000      
+000912*    CALL "COMPILETIME-15 IN COBOL74"                             049100      
+000913*                         GIVING WS-COMPILA                       049200      
+000914*    MOVE WS-COMPILA               TO  WS-VERSION                 049300      
+000915*    MOVE WS-DIA-VERSION           TO  WKS-FPRO-DD                049400      
+000916*    MOVE WS-MES-VERSION           TO  WKS-FPRO-MM                049500      
+000917*    MOVE WS-AAA-VERSION           TO  WKS-FPRO-AA2               049600      
+000918*    MOVE WKS-FECHA-PRO-8D         TO  WLI-RP-E3-VERSION.         049700      
+000919                                                                  049800      
+000920     MOVE ZEROS                    TO W77-FIN.                    049900      
+000921     READ A01-ARCH-POS AT END MOVE 1 TO W77-FIN.                  050000      
+000922                                                                  050100      
+000923     IF W77-FIN = 0                                               050200      
+000924        MOVE A01-R01-MON           TO WKS-MON-ANT                 050300      
+000925        MOVE A01-R01-NUMCTA        TO WKS-CTA-ANT                 050400      
+000926        MOVE A01-R01-CUENTA-12     TO WKS-CUENTA-ANT              050500      
+000927        MOVE        57             TO WKS-NUM-LINEAS              050600      
+000928        PERFORM 005500-NOMBRE-MONEDA                              050700      
+000929        PERFORM 005100-ACUMULA UNTIL W88-FIN.                     050800      
+000930     PERFORM 002200-CHECA-SALTO-HOJA.                             050900      
+000931     PERFORM 005200-IMPRIME-SCTA.                                 051000      
+000932     PERFORM 005300-IMPRIME-CTA.                                  051100      
+000933     PERFORM 005400-IMPRIME-MONEDA.                               051200      
+000934     CLOSE A01-ARCH-POS WITH PURGE.                               051300      
+000935     CLOSE V01-REPORTE WITH SAVE.                                 051310      
+000936                                                                  051400      
+000937 002100-MUEVE-ARCHIVO1.                                           051500      
+000938*======================                                           051600      
+000939     READ A01-SUMACSIS INTO A01-REG-SD-ARCH                       051700      
+000940          AT END MOVE 1 TO W77-FIN.                               051800      
+000941                                                                  051900      
+000942     IF NOT W88-FIN                                               052000      
+000943        WRITE A01-REG-SD-ARCH.                                    052100      
+000944                                                                  052200      
+000945 005100-ACUMULA.                                                  052300      
+000946*===============                                                  052400      
+000947                                                                  052500      
+000948     IF A01-R01-MON = WKS-MON-ANT                                 052600      
+000949        IF A01-R01-NUMCTA = WKS-CTA-ANT                           052700      
+000950           IF A01-R01-CUENTA-12 = WKS-CUENTA-ANT                  052800      
+000951              ADD A01-R01-SDOANT   TO WKS-SUB-SDOANT              052900      
+000952                                      WKS-CTA-SDOANT              053000      
+000953                                      WKS-MON-SDOANT              053100      
+000954              ADD A01-R01-CARGO    TO WKS-SUB-CARGO               053200      
+000955                                      WKS-CTA-CARGO               053300      
+000956                                      WKS-MON-CARGO               053400      
+000957              ADD A01-R01-ABONO    TO WKS-SUB-ABONO               053500      
+000958                                      WKS-CTA-ABONO               053600      
+000959                                      WKS-MON-ABONO               053700      
+000960              ADD A01-R01-SDOACT   TO WKS-SUB-SDOACT              053800      
+000961                                      WKS-CTA-SDOACT              053900      
+000962                                      WKS-MON-SDOACT              054000      
+000963           ELSE                                                   054100      
+000964              PERFORM 002200-CHECA-SALTO-HOJA                     054200      
+000965              PERFORM 005200-IMPRIME-SCTA                         054300      
+000966              MOVE A01-R01-CUENTA-12 TO WKS-CUENTA-ANT            054400      
+000967              MOVE A01-R01-SDOANT  TO WKS-SUB-SDOANT              054500      
+000968              MOVE A01-R01-CARGO   TO WKS-SUB-CARGO               054600      
+000969              MOVE A01-R01-ABONO   TO WKS-SUB-ABONO               054700      
+000970              MOVE A01-R01-SDOACT  TO WKS-SUB-SDOACT              054800      
+000971              ADD  A01-R01-SDOANT  TO WKS-CTA-SDOANT              054900      
+000972                                      WKS-MON-SDOANT              055000      
+000973              ADD  A01-R01-CARGO   TO WKS-CTA-CARGO               055100      
+000974                                      WKS-MON-CARGO               055200      
+000975              ADD  A01-R01-ABONO   TO WKS-CTA-ABONO               055300      
+000976                                      WKS-MON-ABONO               055400      
+000977              ADD  A01-R01-SDOACT  TO WKS-CTA-SDOACT              055500      
+000978                                      WKS-MON-SDOACT              055600      
+000979        ELSE                                                      055700      
+000980           PERFORM 002200-CHECA-SALTO-HOJA                        055800      
+000981           PERFORM 005200-IMPRIME-SCTA                            055900      
+000982           PERFORM 005300-IMPRIME-CTA                             056000      
+000983           MOVE A01-R01-NUMCTA     TO WKS-CTA-ANT                 056100      
+000984           MOVE A01-R01-CUENTA-12  TO WKS-CUENTA-ANT              056200      
+000985           MOVE A01-R01-SDOANT     TO WKS-SUB-SDOANT              056300      
+000986                                      WKS-CTA-SDOANT              056400      
+000987           MOVE A01-R01-CARGO      TO WKS-SUB-CARGO               056500      
+000988                                      WKS-CTA-CARGO               056600      
+000989           MOVE A01-R01-ABONO      TO WKS-SUB-ABONO               056700      
+000990                                      WKS-CTA-ABONO               056800      
+000991           MOVE A01-R01-SDOACT     TO WKS-SUB-SDOACT              056900      
+000992                                      WKS-CTA-SDOACT              057000      
+000993           ADD  A01-R01-SDOANT     TO WKS-MON-SDOANT              057100      
+000994           ADD  A01-R01-CARGO      TO WKS-MON-CARGO               057200      
+000995           ADD  A01-R01-ABONO      TO WKS-MON-ABONO               057300      
+000996           ADD  A01-R01-SDOACT     TO WKS-MON-SDOACT              057400      
+000997     ELSE                                                         057500      
+000998        PERFORM 002200-CHECA-SALTO-HOJA                           057600      
+000999        PERFORM 005200-IMPRIME-SCTA                               057700      
+001000        PERFORM 005300-IMPRIME-CTA                                057800      
+001001        PERFORM 005400-IMPRIME-MONEDA                             057900      
+001002        MOVE A01-R01-NUMCTA       TO WKS-CTA-ANT                  058000      
+001003        MOVE A01-R01-CUENTA-12    TO WKS-CUENTA-ANT               058100      
+001004        MOVE A01-R01-MON          TO WKS-MON-ANT                  058200      
+001005        PERFORM 005500-NOMBRE-MONEDA                              058300      
+001006        MOVE A01-R01-SDOANT       TO WKS-SUB-SDOANT               058400      
+001007                                     WKS-CTA-SDOANT               058500      
+001008                                     WKS-MON-SDOANT               058600      
+001009        MOVE A01-R01-CARGO        TO WKS-SUB-CARGO                058700      
+001010                                     WKS-CTA-CARGO                058800      
+001011                                     WKS-MON-CARGO                058900      
+001012        MOVE A01-R01-ABONO        TO WKS-SUB-ABONO                059000      
+001013                                     WKS-CTA-ABONO                059100      
+001014                                     WKS-MON-ABONO                059200      
+001015        MOVE A01-R01-SDOACT       TO WKS-SUB-SDOACT               059300      
+001016                                     WKS-CTA-SDOACT               059400      
+001017                                     WKS-MON-SDOACT.              059500      
+001018                                                                  059600      
+001019     READ A01-ARCH-POS AT END MOVE 1 TO W77-FIN.                  059700      
+001020                                                                  059800      
+001021 002200-CHECA-SALTO-HOJA.                                         059900      
+001022*=========================                                        060000      
+001023       IF  WKS-NUM-LINEAS > 56                                    060100      
+001024           MOVE SPACES             TO    REG-REPORTE              060200      
+001025           ADD 1                   TO    W77-CONT-HOJA            060300      
+001026           MOVE W77-CONT-HOJA      TO    WLI-RP-E3-HOJA           060400      
+001027           WRITE REG-REPORTE FROM  WLI-TIT1-RESUM AFTER PAGE      060500      
+001028           WRITE REG-REPORTE FROM  WLI-TIT2-RESUM AFTER 1         060600      
+001029           WRITE REG-REPORTE FROM  WLI-TIT3-RESUM AFTER 1         060700      
+001030           WRITE REG-REPORTE FROM  WLI-TIT4-RESUM AFTER 2         060800      
+001031           WRITE REG-REPORTE FROM  WLI-TITULO-RESUM AFTER 2       060900      
+001032           MOVE SPACES             TO REG-REPORTE                 061000      
+001033           WRITE REG-REPORTE       AFTER 1                        061100      
+001034           MOVE           9        TO WKS-NUM-LINEAS.             061200      
+001035                                                                  061300      
+001036 005200-IMPRIME-SCTA.                                             061400      
+001037*====================                                             061500      
+001038     MOVE WKS-CUENTA-ANT           TO WLI-SCTA-CUENTA.            061600      
+001039     MOVE WKS-SUB-SDOANT           TO WLI-SCTA-SDOANT.            061700      
+001040     MOVE WKS-SUB-CARGO            TO WLI-SCTA-CARGOS.            061800      
+001041     MOVE WKS-SUB-ABONO            TO WLI-SCTA-ABONOS.            061900      
+001042     MOVE WKS-SUB-SDOACT           TO WLI-SCTA-SDOACT.            062000      
+001043     MOVE 151                      TO S080-CD-SISTEMA             062100      
+001044     MOVE 138                      TO S080-CD-PROGRAMA            062200      
+001045     IF WKS-CTA-ANT = 5000                                        062300      
+001046        MOVE 183                   TO S080-CDPE-CATALOGO          062400      
+001047        COMPUTE S080-CDPE-CVE-REGIST = WKS-CUENTA-ANT   -         062500      
+001048                                       500000000000               062600      
+001049     ELSE                                                         062700      
+001050        MOVE 182                   TO S080-CDPE-CATALOGO          062800      
+001051        MOVE WKS-CUENTA-ANT        TO S080-CDPE-CVE-REGIST.       062900      
+001052     MOVE 20                       TO S080-CDPE-CLAVE             063000      
+001053     MOVE 1                        TO S080-CDPE-ORDEN-BUSQ        063100      
+001054     MOVE 1                        TO S080-CDPE-REGISTROS         063200      
+001055     MOVE 0                        TO                             063300      
+001056                                      S080-CDPE-CVE-REGIST-ASOC   063400      
+001057     MOVE 0                        TO S080-CDPE-NIVEL-INI         063500      
+001058     MOVE WKS-FEC-6D               TO S080-CDPE-FECHA-CONS        063600      
+001059     MOVE 0                               TO S080-CDPE-FECHA-CONS 063700      
+001060                                                                  063800      
+001061     CALL "L700_CONSUL_DESC IN S080BD01CON"                       063900      
+001062           USING S080-CD-SISTEMA                                  064000      
+001063                 S080-CD-PROGRAMA                                 064100      
+001064                 S080-CD-PARAMETRO-ENT                            064200      
+001065                 S080-CD-PARAMETRO-SAL                            064300      
+001066           GIVING S080-CD-RESULT                                  064400      
+001067                                                                  064500      
+001068     IF S080-CD-RESULT = 0 OR = 1                                 064600      
+001069        MOVE S080-CDPS-TEXTO-CORTO        TO WLI-NOMBRE           064700      
+001070     ELSE                                                         064800      
+001071        MOVE SPACES                       TO WLI-NOMBRE.          064900      
+001072                                                                  065000      
+001073     WRITE REG-REPORTE FROM WLI-TOT-SUBCTA  AFTER 1.              065100      
+001074     ADD           2               TO WKS-NUM-LINEAS.             065200      
+001075     MOVE    LOW-VALUES            TO WKS-TOTALES-SUB.            065300      
+001076                                                                  065400      
+001077                                                                  065500      
+001078 005300-IMPRIME-CTA.                                              065600      
+001079*================                                                 065700      
+001080     MOVE WKS-CTA-ANT              TO WLI-CTA-4DIG.               065800      
+001081     MOVE WKS-CTA-SDOANT           TO WLI-CTA-SDOANT.             065900      
+001082     MOVE WKS-CTA-CARGO            TO WLI-CTA-CARGOS.             066000      
+001083     MOVE WKS-CTA-ABONO            TO WLI-CTA-ABONOS.             066100      
+001084     MOVE WKS-CTA-SDOACT           TO WLI-CTA-SDOACT.             066200      
+001085     WRITE REG-REPORTE FROM WLI-TOT-CTA AFTER 2.                  066300      
+001086     MOVE SPACES                   TO REG-REPORTE                 066400      
+001087     WRITE REG-REPORTE                                            066500      
+001088     ADD           3               TO WKS-NUM-LINEAS.             066600      
+001089     MOVE    LOW-VALUES            TO WKS-TOTALES-CTA.            066700      
+001090                                                                  066800      
+001091 005400-IMPRIME-MONEDA.                                           066900      
+001092*===================                                              067000      
+001093     MOVE WKS-MON-SDOANT           TO WLI-MON-SDOANT.             067100      
+001094     MOVE WKS-MON-CARGO            TO WLI-MON-CARGOS.             067200      
+001095     MOVE WKS-MON-ABONO            TO WLI-MON-ABONOS.             067300      
+001096     MOVE WKS-MON-SDOACT           TO WLI-MON-SDOACT.             067400      
+001097     WRITE REG-REPORTE FROM WLI-TOT-MONEDA AFTER 2 .              067500      
+001098     MOVE A01-R01-MON              TO WKS-MON-ANT                 067600      
+001099     MOVE    57                    TO WKS-NUM-LINEAS.             067700      
+001100     MOVE    LOW-VALUES            TO WKS-TOTALES-MON.            067800      
+001101                                                                  067900      
+001102                                                                  068000      
+001103 005500-NOMBRE-MONEDA.                                            068100      
+001104*---------------------                                            068200      
+001105     IF WKS-MON-ANT = 1                                           068300      
+001106        MOVE WKS-MON-ANT     TO WLI-NUM-MONEDA                    068400      
+001107        MOVE  "PESOS"        TO WLI-NOMBRE-MONEDA                 068500      
+001108     ELSE                                                         068600      
+001109     IF WKS-MON-ANT = 3                                           068700      
+001110        MOVE WKS-MON-ANT     TO WLI-NUM-MONEDA                    068800      
+001111        MOVE  "UDIS "        TO WLI-NOMBRE-MONEDA                 068900      
+001112     ELSE                                                         069000      
+001113     IF WKS-MON-ANT = 5                                           069100      
+001114        MOVE WKS-MON-ANT     TO WLI-NUM-MONEDA                    069200      
+001115        MOVE  "DOLARES"      TO WLI-NOMBRE-MONEDA                 069300      
+001116     ELSE                                                         069400      
+001117        MOVE WKS-MON-ANT     TO WLI-NUM-MONEDA                    069500      
+001118        MOVE  "DESCONOCIDA"  TO WLI-NOMBRE-MONEDA.                069600      
+001119                                                                  069700      
+001120 8000-CHECA-RESIDENCIA.                                           069800      
+001121*======================                                           069900      
+001122     CHANGE ATTRIBUTE TITLE OF A01-SUMACSIS TO WKS-TIT-CSIS1.     070100      
+001123     IF ATTRIBUTE RESIDENT OF A01-SUMACSIS = 1 THEN               070200      
+001124        MOVE 3                 TO W77-RESP                        070210      
+001125     ELSE                                                         070220      
+001126        MOVE SPACES            TO WLI-ENCAB-52, TEXTO-LJ          070270      
+001127        MOVE SPACES            TO TEXTO-LJ                        070300      
+001128        STRING "NO EXISTE ARCHIVO ", WKS-TIT-CSIS1                070400      
+001129               " (C) CONTINUO  o (R) REINTENTO "                  070410      
+001130               DELIMITED BY SIZE INTO TEXTO-LJ                    070500      
+001131        MOVE TEXTO-LJ          TO WLI-TEXTO-LJ                    070550      
+001132        MOVE "I"               TO TIPO-LJ                         070600      
+001133                                  WLI-TIPO-LJ                     070650      
+001134        MOVE 010401            TO CODIGO-LJ                       070700      
+001135        MOVE ZEROS             TO W77-RESP                        070710      
+001136        PERFORM 8500-VALIDA-RESIDENCIA UNTIL W77-RESP > 0.        070800      
+001137 8500-VALIDA-RESIDENCIA.                                          071000      
+001138*======================                                           071010      
+001139     PERFORM      000-030-IMPRIME-MENSAJE.                        071015      
+001140     CALL "LJ IN LIB-DISP" USING CONTADOR-LJ, MENSAJE-LJ.         071020      
+001141     MOVE SPACES               TO W77-C-R.                        071030      
+001142     ACCEPT W77-C-R.                                              071040      
+001143     IF (W77-C-R = "C") OR (W77-C-R = "c") THEN                   071050      
+001144        MOVE 1                 TO W77-RESP                        071060      
+001145     ELSE                                                         071160      
+001146     IF (W77-C-R = "R") OR (W77-C-R = "r") THEN                   071200      
+001147        IF ATTRIBUTE RESIDENT OF A01-SUMACSIS = 1 THEN            071210      
+001148                  MOVE 3       TO W77-RESP.                       071220      
+001149     STRING "NO EXISTE ARCHIVO, (C) CONTINUO o (R) REINTENTO"     072140      
+001150          DELIMITED BY SIZE INTO TEXTO-LJ.                        072150      
+001151     MOVE "I"             TO TIPO-LJ.                             072160      
+001152     MOVE 010401          TO CODIGO-LJ.                           072170      
+001153                                                                  072400      
+001154  008100-ACT-FECHAP.                                              072500      
+001155*===================                                              072600      
+001156     READ A01-CONTROL INTO WKS-REG-DET-CONTROL                    072700      
+001157          AT END MOVE 1            TO W77-FIN.                    072800      
+001158                                                                  072900      
+001159     IF WKS-DET-SIST = 999                                        073000      
+001160        MOVE SPACES                   TO WLI-ENCAB-52, TEXTO-LJ   073050      
+001161        MOVE "E"                TO TIPO-LJ, WLI-TIPO-LJ           073100      
+001162        MOVE 010105             TO CODIGO-LJ                      073200      
+001163        STRING "NO SE ENCONTRO REGISTRO DE ",                     073300      
+001164         "CONTROL DEL S",W77-SISTEMA-PARAMETRO                    073400      
+001165          DELIMITED BY SIZE INTO TEXTO-LJ                         073500      
+001166        MOVE TEXTO-LJ            TO WLI-TEXTO-LJ                  073520      
+001167        PERFORM  000-030-IMPRIME-MENSAJE                          073540      
+001168        CALL "LJ IN LIB-DISP" USING CONTADOR-LJ,                  073600      
+001169                                    MENSAJE-LJ                    073700      
+001170        CHANGE ATTRIBUTE STATUS OF  MYSELF TO -1                  073800      
+001171     ELSE                                                         073900      
+001172        IF WKS-DET-SIST = W77-SISTEMA-PARAMETRO                   074000      
+001173           MOVE 1            TO W77-FIN                           074100      
+001174           MOVE WKS-FECHA8D  TO WKS-DET-FECPRO                    074200      
+001175           REWRITE  A01-REG-CONTROL FROM WKS-REG-DET-CONTROL      074300      
+001176                 INVALID KEY                                      074400      
+001177                 MOVE SPACES                   TO WLI-ENCAB-52    074450      
+001178                                                  TEXTO-LJ        074470      
+001179                 STRING "ERROR AL ACTUALIZAR STATUS SISTEMA :"    074500      
+001180                        W77-SISTEMA-PARAMETRO                     074600      
+001181                 DELIMITED BY SIZE                                074700      
+001182                 INTO TEXTO-LJ                                    074800      
+001183                 MOVE TEXTO-LJ           TO WLI-TEXTO-LJ          074850      
+001184                 MOVE "E"                TO TIPO-LJ, WLI-TIPO-LJ  074900      
+001185                 MOVE 010105             TO CODIGO-LJ             075000      
+001186                 PERFORM  000-030-IMPRIME-MENSAJE                 075100      
+001187                 CALL "LJ IN LIB-DISP" USING CONTADOR-LJ,         075200      
+001188                                             MENSAJE-LJ           075300      
+001189                 CHANGE ATTRIBUTE STATUS OF  MYSELF TO -1.        075400      
+001190                                                                  075500      
+001191 009000-PROYECTA-FECHA.                                           075600      
+001192    IF WKS-FECHA8D  > 0                                           075605      
+001193       MOVE WKS-FECHA8D    TO WKS-FECHA1                          075610      
+001194       MOVE "00000001"     TO WKS-FECHA2                          075620      
+001195       MOVE 13             TO W77-FUNCION                         075630      
+001196       MOVE 12             TO W77-FORMATO                         075640      
+001197       CALL "THECALENDAR IN LOCSUP" USING                         075650      
+001198            W77-FUNCION, WKS-FECHA1, WKS-FECHA2, W77-FORMATO      075660      
+001199       MOVE WKS-FECHA1-NUM TO WKS-FECHA8D                         075665      
+001200    ELSE                                                          075667      
+001201       MOVE 1 TO W77-FECHA-FIN.                                   075669      
+001202    IF WKS-FECHA1 > WKS-HD-FECPRO  MOVE 1 TO W77-FECHA-FIN.       075670      
+001203                                                                  076000      
+001204*INICIO  COPY PARA CPBAS                                          CPBAS 1.    
+001205* COPY "(S151)S151/SOURCE/COPY/TOSORT/01MTP002 ON CMEMP."         077000      
+001206*                                      FROM 100000 TO 999999      078000      
+001207                                                                  100000      
+001208*----------------------------------------------------------------*100100      
+001209*   PROCEDIMIENTO DE CALCULO DINAMICO DE ESPACIO PARA EL SORT    *100200      
+001210*----------------------------------------------------------------*100300      
+001211 70000-CALCULA-ESPACIO.                                           100400      
+001212*======================                                           100500      
+001213     IF W77-FRAMESIZE             =   8                           100600      
+001214        COMPUTE WS-CALC-WORD      =   W77-MAXRECSIZE              100700      
+001215                                  /   6                           100800      
+001216        IF WS-WORD-RES            >   ZEROS                       100900      
+001217           COMPUTE W77-MAXRECSIZE =   WS-WORD-ENT                 101000      
+001218                                  +   1                           101100      
+001219        ELSE                                                      101200      
+001220           COMPUTE W77-MAXRECSIZE =   WS-WORD-ENT                .101300      
+001221     COMPUTE W77-MEMORY-65K  =   66000 * W77-MAXRECSIZE     .     101400      
+001222                                                                  101402      
+001223     COMPUTE W77-MEMORY-SIZE ROUNDED                              101500      
+001224                                  =   (W77-MAXRECSIZE + 3)        101600      
+001225                                  *   (W77-LASTRECORD / 16)       101700      
+001226                                  +   1500                       .101750      
+001227                                                                  101770      
+001228     IF W77-MEMORY-SIZE > 258435000                               101800      
+001229        MOVE 258435000              TO W77-MEMORY-SIZE            101820      
+001230     ELSE                                                         101850      
+001231     IF W77-MEMORY-SIZE < 400000                                  101870      
+001232        MOVE W77-MEMORY-65K         TO W77-MEMORY-SIZE.           101900      
+001233                                                                  101990      
+001234     COMPUTE W77-DISK-SIZE ROUNDED                                102000      
+001235                                  =  (W77-MAXRECSIZE + 3)         102100      
+001236                                  *   W77-LASTRECORD              102200      
+001237                                  *   3.5                        .102300      
+001238                                                                  102400      
+001239*TERMINA COPY PARA CPBAS                                          CPBAS 1.    
+001240                                                                  079000      

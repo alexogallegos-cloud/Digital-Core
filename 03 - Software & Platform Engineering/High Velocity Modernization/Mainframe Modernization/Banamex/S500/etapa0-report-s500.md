@@ -1,4 +1,5 @@
 # ETAPA 0 — Setup & Inventory Report
+> Indexado: ✅ 2026-07-17 — Capa 0 — inventario/setup report
 ## SPE-MM-001 · S500 — Cargos y Abonos de Cuentas de Cheque
 > Banamex · Unisys ClearPath MCP · Digital Core — Mainframe Modernization
 > Fecha: 2026-06-30 · Generado por: Specialist - Reverse Engineering

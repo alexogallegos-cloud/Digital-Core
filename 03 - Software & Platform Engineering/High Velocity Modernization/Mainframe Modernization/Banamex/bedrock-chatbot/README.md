@@ -1,4 +1,5 @@
 # GemCog Chatbot — Banamex S500 + S151
+> Indexado: ✅ 2026-07-17 — README del proyecto/componente (contexto de conocimiento)
 
 Chatbot HTML hosteado en AWS S3. Backend: Lambda + API Gateway.
 RAG personalizado con **Pinecone Free Tier** (vector store gratuito)

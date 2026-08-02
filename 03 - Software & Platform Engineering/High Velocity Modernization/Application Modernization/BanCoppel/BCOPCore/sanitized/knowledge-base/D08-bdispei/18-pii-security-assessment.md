@@ -15,8 +15,8 @@
 - Cybersecurity (PII, CNBV, LFPDPPP, PCI-DSS)
 - SRE & AIOps (observabilidad y runbooks)
 - Data & ML — Data Architect (migración de datos, CDC Debezium)
-- **SME Regulatorio — Banxico** (`Solutioning/Delivery - SME/Regulatory/Banxico/`)
-- **SME Regulatorio — CNBV** (`Solutioning/Delivery - SME/Regulatory/CNBV/`)
+- **SME Regulatorio — Banxico** (`SME/Regulatory/Banxico/`)
+- **SME Regulatorio — CNBV** (`SME/Regulatory/CNBV/`)
 
 > `[SME-PENDING]` = requiere sesión de validación con el experto indicado.
 ---

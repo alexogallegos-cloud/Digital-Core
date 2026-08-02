@@ -352,7 +352,7 @@ Cuando el cliente o el PO empujan a "lanzar ya, ajustamos después" omitiendo ob
 
 ---
 
-## Handoffs Canónicos hacia `Solutioning/Delivery - SME/`
+## Handoffs Canónicos hacia `SME/`
 
 | Fase | SME(s) responsable(s) |
 |------|------------------------|

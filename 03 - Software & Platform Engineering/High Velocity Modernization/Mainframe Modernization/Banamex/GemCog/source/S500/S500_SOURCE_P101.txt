@@ -1,0 +1,817 @@
+100100$SET LIST STACK LINEINFO FREE ERRORLIMIT=150                                  
+100300                                                                              
+100500***********************************************************                   
+100700*  PROGRAMA PARA CONTROL DE LA EJECUCION DEL WFL/LOTE     *                   
+100900*  EN EL ARCHIVO                                          *                   
+101100*     S500/FILE/CTRLWFL/XX/AAAMMDD/CTRLS500WFLLOTE        *                   
+101300*  AL INICIO DE CADA PASO ACTUALIZADOR                    *                   
+101500*     GUARDA INFORMACION PARA HACER ROLLBACK              *                   
+101700*                                                         *                   
+101900*  Y AL FINAL DE CADA PASO ACTUALIZADOR                   *                   
+102100*    SE ACTUALIZA PARA INDICAR QUE YA NO REQUIER ROLLBACK *                   
+102300*                                                         *                   
+102500*  ADEMAS POR CADA PROCESO (PASO) QUE TERMINA             *                   
+102700*    SE GENERA UN ARCHIVO                                 *                   
+102900*       S500/FILE/CTRLWFL/XX/AAAMMDD/(VARIABLE)           *                   
+103100*  Y EL WFL/LOTE VALIDA LA RESIDENCIA DEL ARCHIVO         *                   
+103300*  PARA NO REPETIR EL PROCESO                             *                   
+103320*                                                         *                   
+103340*  SE HABILITA LA LECTURA DE ARCHIVO PARA EFECTUAR        *                   
+103360*  PROCESO ESPECIAL DESPUES DE DETERMINADO PASO           *                   
+103370*  Y REGRESA STRING AL WFL LOTE PARA SU EJECUCION         *                   
+103380*  SUPLIENDO EL PARAMETRO DIARIOYESP                      *                   
+103400*                                                         *                   
+103500***********************************************************                   
+103700* EL PASO CORRE CON EL PARAMETRO:                         *                   
+103900*    OPCION                                               *                   
+104100*         1 = INICIO WFL                                  *                   
+104300*         2 = INICIO PASO ACTUALIZADOR (ACCESA BASE)      *                   
+104500*         3 = FIN    PASO ACTUALIZADOR                    *                   
+104700*         4 = VALIDA REINICIO WFL                         *                   
+104900*         5 = FIN    WFL                                  *                   
+104910*         6 = TRUENE POR INCIDENTE DE PASO BATCH          *                   
+104920*         7 = LEE    ARCHIVO PARA PROCESO ESPECIAL        *                   
+105100*         8 = FIN    PASO SIN ROLLBACK GEN ARCH/=         *                   
+105300*         9 = GENERA ARCH CONTROL VACIO (SIN USO)         *                   
+105500*                                                         *                   
+105700*    FECHA = FECHA EL BATCH DE LA BASE  AAAAMMDD          *                   
+105900*                                                         *                   
+106100*    CSI   = NUMERO DE CSI DE LA BASE   04, 10            *                   
+106300*                                                         *                   
+106500*    NUM/JOB = JOB DEL WFL/LOTE (05 POSICIONES)           *                   
+106700*                                                         *                   
+106900*    NOMBRE DEL ARCHIVO = DATO VARIABLE  (15 POSICIONES)  *                   
+107100*                         POR CADA PROCESO O PASO         *                   
+107300*                                                         *                   
+107500*                                                         *                   
+107700*    RUN $S500/OBJECT/P101/15MTP003                       *                   
+107900*        ("2200501150499999S500P130CORTCOM")              *                   
+107910*          31 POSICIONES EXACTAS                          *                   
+108100*                                                         *                   
+108300*    EL PARAMETRO LO ARMA EL WFL/LOTE                     *                   
+108500*    CON INFORMACION DEL PASO P100                        *                   
+108700***********************************************************                   
+108900*  REGRESA EL PARAMETRO:                                  *                   
+109100*    OPCION WFL:         1 = SIN REINICIO                 *                   
+109300*                        2 = CON REINICIO                 *                   
+109500*                                                         *                   
+109700*    OPCION ROLLBACK     1 = NO REQUIER ROLLBAK           *                   
+109900*                        2 = SI REQUIER ROLLBAK           *                   
+110100*                                                         *                   
+110300*    DATOS PARA ROLLBACK = JOB   (5)                      *                   
+110500*                          MIX   (5)                      *                   
+110700*                          FECHA (8) AAAAMMDD             *                   
+110900*                          HORA  (6) HHMMSS               *                   
+111100*                                                         *                   
+111110*    DATOS PARA EFECTUAR PROCESO ESPECIAL                 *                   
+111120*              "PXXX P750/NAMEPASO/XXMTP000 VVVVVVVVV"    *                   
+111122*                                                         *                   
+111130*    PXXX                  = PASO ANTERIOR AL PROCESO     *                   
+111132*                            Verificar en el WFL/LOTE     *                   
+111133*                            Los permitidos               *                   
+111135*                                                         *                   
+111140*    P750/NAMEPASO/VERSION = PASO ESPECIAL                *                   
+111142*                                                         *                   
+111145*    VVVVVVVVVVVV          = VALUE AL PASO ESPECIAL       *                   
+111150*                                                         *                   
+111300***********************************************************                   
+111500 IDENTIFICATION DIVISION.                                                     
+111700 PROGRAM-ID. P101.                                                            
+111900 ENVIRONMENT DIVISION.                                                        
+112100 CONFIGURATION SECTION.                                                       
+112300 INPUT-OUTPUT SECTION.                                                        
+112500 FILE-CONTROL.                                                                
+112700                                                                              
+112900     SELECT I99-CTRLWFL    ASSIGN TO DISK.                                    
+113100                                                                              
+113300     SELECT I88-CTRLPASO   ASSIGN TO DISK.                                    
+113350                                                                              
+113400     SELECT I55-ARCHPROC   ASSIGN TO DISK.                                    
+113500                                                                              
+113700 DATA  DIVISION.                                                              
+113900 FILE  SECTION.                                                               
+114100                                                                              
+114300********************************************************                      
+114500 FD I99-CTRLWFL                                                               
+114700    BLOCK   CONTAINS     2 RECORDS                                            
+114900    RECORD  CONTAINS   180 CHARACTERS                                         
+115100    VALUE OF                                                                  
+115300             AREAS         IS 1                                               
+115500             AREASIZE      IS 2                                               
+115700             SECURITYTYPE  IS PUBLIC                                          
+115900             TITLE         IS WKS-I99-TITLE.                                  
+116100                                                                              
+116300 01 I99-REGCTRL.                                                              
+116500    02 FD-I99-WFL-FECPROC        PIC 9(08).                                   
+116700    02 FD-I99-WFL-NUMCSI         PIC 9(02).                                   
+116900    02 FD-I99-WFL-NUMJOB         PIC 9(05).                                   
+117100    02 FD-I99-WFL-STATUS         PIC 9(01).                                   
+117300    02 FD-I99-DATOS-PASO.                                                     
+117500       04 FD-I99-PASO-NUMJOB     PIC 9(05).                                   
+117700       04 FD-I99-PASO-NUMMIX     PIC 9(05).                                   
+117900       04 FD-I99-PASO-FECINI     PIC 9(08).                                   
+118100       04 FD-I99-PASO-HORAINI    PIC 9(06).                                   
+118300       04 FD-I99-PASO-STATUS     PIC 9(01).                                   
+118500       04 FD-I99-PASO-ROLLBACK   PIC 9(01).                                   
+118700       04 FD-I99-PASO-NUMPASO    PIC X(15).                                   
+118900                                                                              
+119100*************************************************************                 
+119300 FD I88-CTRLPASO                                                              
+119500    BLOCK   CONTAINS       2   RECORDS                                        
+119700    RECORD  CONTAINS     180   CHARACTERS                                     
+119900    VALUE OF                                                                  
+120100            AREAS         IS 1                                                
+120300            AREASIZE      IS 2                                                
+120500            SECURITYTYPE  IS PUBLIC                                           
+120700            TITLE         IS WKS-TIT-ARCHCWFL.                                
+120900                                                                              
+121100 01 FD-I01-ARCHCWFL       PIC X(180).                                         
+121300                                                                              
+121350*********************************************************                     
+121400 FD I55-ARCHPROC                                                              
+121410     RECORD  CONTAINS      60 CHARACTERS                                      
+121420     BLOCK   CONTAINS      06 RECORDS                                         
+121430     VALUE OF                                                                 
+121440             SECURITYTYPE  IS PUBLIC                                          
+121450             TITLE         IS WKS-TIT-ARCHESPE.                               
+121460                                                                              
+121470  01 FD-I55-ARCHPESPE.                                                        
+121475     02 FD-I55-00-TPOREG   PIC 9(02).                                         
+121480     02 FD-I55-00-HEADER.                                                     
+121485        04 FD-I55-01-CSI   PIC 9(02).                                         
+121490        04 FD-I55-01-FECH  PIC 9(08).                                         
+121495        04 FD-I55-01-PASO  PIC X(04).                                         
+121500        04 FILLER          PIC X(44).                                         
+121505     02 FD-I55-00-DATOS    REDEFINES FD-I55-00-HEADER.                        
+121510        04 FD-I55-DATESPE.                                                    
+121512           06 FILLER              PIC X(01).                                  
+121515           06 FD-I55-03-PASOANT   PIC X(04).                                  
+121520           06 FILLER              PIC X(01).                                  
+121525           06 FD-I55-03-PASOESP   PIC X(25).                                  
+121530           06 FILLER              PIC X(01).                                  
+121535           06 FD-I55-03-VALUESP   PIC X(12).                                  
+121540           06 FILLER              PIC X(01).                                  
+121545        04 FILLER          PIC X(13).                                         
+121550                                                                              
+121555     02 FD-I55-00-TRAILER  REDEFINES FD-I55-00-HEADER.                        
+121560        04 FD-I55-99-NREG  PIC 9(04).                                         
+121565        04 FILLER          PIC X(54).                                         
+121600***********************************************************                   
+121700 DATA-BASE SECTION.                                                           
+121900                                                                              
+122100 DB  S500BD01CAPTACION.                                                       
+122300 01  S500B00CTRLPASO.                                                         
+122500 01  S500B02CONTROL.                                                          
+122700 01  S500B91REINICIO.                                                         
+122900                                                                              
+123100***********************************************************                   
+123300                                                                              
+123500 WORKING-STORAGE SECTION.                                                     
+123600 77  W77-HAY-ARCHESPE        PIC 9(02)   COMP   VALUE 0.                      
+123700 77  W77-SET-MAXCARDS        PIC 9(02)   COMP   VALUE 9.                      
+123900 77  W77-ERR-PARAM           PIC 9.                                           
+124100 77  W77-PARAM-WFL           PIC X(31) RECEIVED BY CONTENT.                   
+124300                                                                              
+124490** PARAM ENTE LONGITUD 31 BYTES                                               
+124500 01 WKS-PARAM-ENT.                                                            
+124700*************************************************************                 
+124900* VALORES DEL CAMPO WKS-WFL-P-OPCION                        *                 
+125100*      1 = INICIO WFL                                       *                 
+125300*      2 = INICIO PASO REQ ROLLBACK   (ACTUALIZA BASE)      *                 
+125500*      3 = FIN    PASO ROLLBACK Y GEN ARCH/CTRL             *                 
+125700*      4 = VALIDA REINICIO WFL                              *                 
+125900*      5 = FIN    WFL                                       *                 
+125910*      6 = TRUENE POR INCIDENTE DE PASO BATCH               *                 
+125920*      7 = LEE    ARCHIVO PARA PROCESO ESPECIAL             *                 
+126100*      8 = FIN    PASO SIN ROLLBACK GEN ARCH/CTRL           *                 
+126300*                                                           *                 
+126500*************************************************************                 
+126700    02 WKS-WFL-P-OPCION      PIC 9.                                           
+126900    88 W88-WFL-P-OPCION-OK   VALUE 1 THRU 7, 8.                               
+127100    02 WKS-WFL-P-FECJOB      PIC 9(08).                                       
+127300    02 WKS-WFL-P-NUMCSI      PIC 9(02).                                       
+127500    88 W88-WFL-P-NUMCSI-OK   VALUE 04, 10.                                    
+127700    02 WKS-WFL-P-NUMJOB      PIC 9(05).                                       
+127900    88 W88-WFL-P-NUMJOB-OK   VALUE 00001 THRU 99999.                          
+128100    02 WKS-WFL-P-NUMPASO     PIC X(15).                                       
+128300                                                                              
+128500***********************************************************                   
+128700 01 WKS-PARAM-SAL.                                                            
+128900    02 WKS-SAL-P-OPC-REINI       PIC 9(01).                                   
+129100    02 FILLER                    PIC X         VALUE " ".                     
+129300    02 WKS-SAL-P-OPC-ROLL        PIC 9(01).                                   
+129500    02 FILLER                    PIC X         VALUE " ".                     
+129700    02 WKS-SAL-P-PARAMROLLB      PIC X(27).                                   
+129900                                                                              
+129950***********************************************************                   
+129970 01 WKS-PARAM-SAL-ESP.                                                        
+129990    02 WKS-SAL-P-ESP-PASOANT     PIC X(04).                                   
+130010    02 WKS-SAL-P-ESP-FILL-01     PIC X(01)   VALUE " ".                       
+130030    02 WKS-SAL-P-ESP-NAMEPASO    PIC X(25).                                   
+130050    02 WKS-SAL-P-ESP-FILL-02     PIC X(01)   VALUE " ".                       
+130070    02 WKS-SAL-P-ESP-VALUE       PIC X(12).                                   
+130075    02 WKS-SAL-P-ESP-FILL-03     PIC X(01)   VALUE " ".                       
+130090                                                                              
+130100*****************************************************                         
+130300 01 WKS-TIT-ARCHESPE.                                                         
+130320    02 FILLER               PIC X(18) VALUE                                   
+130340                            "S500/FILE/CTRLWFL/".                             
+130360    02 WKS-I55-TIT-CSI      PIC 9(02).                                        
+130380    02 FILLER               PIC X(01) VALUE "/".                              
+130400    02 WKS-I55-TIT-FECH     PIC 9(08).                                        
+130420    02 FILLER               PIC X(01) VALUE "/".                              
+130430    02 WKS-TIT-I01-ARPTE    PIC X(15) VALUE                                   
+130432                           "ESPECIALENLOTED".                                 
+130435    02 FILLER               PIC X(02) VALUE ".".                              
+130450                                                                              
+130500*******************************************************                       
+130700                                                                              
+130900                                                                              
+131100                                                                              
+131300                                                                              
+131500                                                                              
+131700                                                                              
+131900                                                                              
+132100                                                                              
+132300                                                                              
+132500                                                                              
+132700                                                                              
+132900***********************************************************                   
+133100                                                                              
+133300                                                                              
+133500                                                                              
+133700*****************************************************************             
+133900*                                                               *             
+134100*       PARAMETROS PARA LA LIBRERIA DE CONTROL DE VERSIONES     *             
+134300*                                                               *             
+134500*****************************************************************             
+134700 77  WKS-88-CTLVERS        PIC 99      COMP  VALUE 0.                         
+134900 77  W77-S000-MY-ID        PIC X(12).                                         
+135100 77  W77-S000-MY-VERSION   PIC X(08).                                         
+135300 01  S000-CTR-LIBID        PIC X(12).                                         
+135500 01  S000-CTR-NOMLIB       PIC X(72).                                         
+135700 01  S000-CTR-CVEERROR     PIC S9(11)  BINARY.                                
+135900                                                                              
+136100*****************************************************************             
+136300                                                                              
+136500                                                                              
+136700                                                                              
+136900                                                                              
+137100************************************************************                  
+137300 01 WKS-VARIABLE-PASO.                                                        
+137500    02 WKS-HORA-MAQ          PIC 9(8).                                        
+137700    02 RD-WKS-HORA-MAQ       REDEFINES WKS-HORA-MAQ.                          
+137900       04 WS-HRAMAQ-HH       PIC 9(2).                                        
+138100       04 WS-HRAMAQ-MM       PIC 9(2).                                        
+138300       04 WS-HRAMAQ-SS       PIC 9(2).                                        
+138500       04 WS-HRAMAQ-CC       PIC 9(2).                                        
+138700    02 R2-WKS-HORA-MAQ       REDEFINES WKS-HORA-MAQ.                          
+138900       04 WS-HRAMAQ-HHMMSS   PIC 9(06).                                       
+139100       04 FILLER             PIC 9(02).                                       
+139300                                                                              
+139500    02 WKS-FECHA-MAQUINA     PIC X(10) TYPE IS NUMERIC-DATE.                  
+139700    02 R-WKS-FECHA-MAQUINA   REDEFINES WKS-FECHA-MAQUINA.                     
+139900       04 WKS-FECMQ-MES      PIC 9(02).                                       
+140100       04 FILLER             PIC X.                                           
+140300       04 WKS-FECMQ-DIA      PIC 9(02).                                       
+140500       04 FILLER             PIC X.                                           
+140700       04 WKS-FECMQ-ANIO     PIC 9(04).                                       
+140900                                                                              
+141100    02 WKS-FECHA-MAQ-AMD     PIC 9(08).                                       
+141300    02 RD-WKS-FECMAQ-AMD     REDEFINES WKS-FECHA-MAQ-AMD.                     
+141500       04 WKS-FECMAQ-AAAA    PIC 9(04).                                       
+141700       04 WKS-FECMAQ-MM      PIC 9(02).                                       
+141900       04 WKS-FECMAQ-DD      PIC 9(02).                                       
+142100                                                                              
+142300                                                                              
+142500    02 WKS-NUMJOB-PASO       PIC 9(05).                                       
+142700    02 WKS-NUMMIX-PASO       PIC 9(05).                                       
+142900                                                                              
+143100    02 WS-STATUS-BASE        PIC 9(02).                                       
+143300    88 WS-DB-NOTERROR        VALUE 00.                                        
+143500    88 WS-DB-ERROR           VALUE 1 THRU 99.                                 
+143700    88 WS-DB-NOTFOUND        VALUE 01.                                        
+143900    88 WS-DB-DUPLICATES      VALUE 02.                                        
+144100    88 WS-DB-DEADLOCK        VALUE 03.                                        
+144300    88 WS-DB-DATAERROR       VALUE 04.                                        
+144500    88 WS-DB-NOTLOCKED       VALUE 05.                                        
+144700    88 WS-DB-KEYCHANGED      VALUE 06.                                        
+144900    88 WS-DB-SYSTEMERROR     VALUE 07.                                        
+145100    88 WS-DB-READONLY        VALUE 08.                                        
+145300    88 WS-DB-IOERROR         VALUE 09.                                        
+145500    88 WS-DB-LIMITERROR      VALUE 10.                                        
+145700    88 WS-DB-OPENERROR       VALUE 11.                                        
+145900    88 WS-DB-CLOSEERROR      VALUE 12.                                        
+146100    88 WS-DB-NORECORD        VALUE 13.                                        
+146300    88 WS-DB-INUSE           VALUE 14.                                        
+146500    88 WS-DB-AUDITERROR      VALUE 15.                                        
+146700    88 WS-DB-ABORT           VALUE 16.                                        
+146900    88 WS-DB-SECURITYERROR   VALUE 17.                                        
+147100    88 WS-DB-VERSIONERROR    VALUE 18.                                        
+147300    88 WS-DB-FATALERROR      VALUE 19.                                        
+147500    88 WS-DB-INTEGRITYERROR  VALUE 20.                                        
+147700    88 WS-DB-PARAMETERERROR  VALUE 21.                                        
+147900                                                                              
+148100                                                                              
+148300                                                                              
+148500                                                                              
+148700                                                                              
+148900****************************************************************              
+149100 01  WKS-I99-TITLE.                                                           
+149300     02 FILLER              PIC X(18) VALUE "S500/FILE/CTRLWFL/".             
+149500     02 WKS-TIT-ARCH-CSI    PIC 9(02).                                        
+149700     02 FILLER              PIC X     VALUE "/".                              
+149900     02 WKS-TIT-ARCH-FEC    PIC 9(08).                                        
+150100     02 FILLER              PIC X     VALUE "/".                              
+150300     02 WKS-TIT-ARCH-WFL    PIC X(15) VALUE "CTRLS500WFLLOTE".                
+150500     02 FILLER              PIC X     VALUE ".".                              
+150700                                                                              
+150900************************************************************                  
+151100 01  WKS-TIT-ARCHCWFL.                                                        
+151300     02 FILLER              PIC X(18) VALUE "S500/FILE/CTRLWFL/".             
+151500     02 WKS-TIT-I01-CSI     PIC 9(02).                                        
+151700     02 FILLER              PIC X     VALUE "/".                              
+151900     02 WKS-TIT-I01-FECH    PIC 9(08).                                        
+152100     02 FILLER              PIC X     VALUE "/".                              
+152300     02 WKS-TIT-I01-PASO    PIC X(15) VALUE "S151P17701".                     
+152500     02 FILLER              PIC X     VALUE ".".                              
+152700                                                                              
+152900*************************************************                             
+153100 01  WKS-VARIABLES-PASO.                                                      
+153300     02 WKS-PARAM-FECHA       PIC 9(08).                                      
+153500     02 RD-WKS-PARAM-FECHA    REDEFINES WKS-PARAM-FECHA.                      
+153700        04 WKS-PARAM-AAAA     PIC 9(04).                                      
+153900        88 W88-PARAM-AA-OK    VALUE 2004 THRU 2099.                           
+154100        04 WKS-PARAM-MM       PIC 9(02).                                      
+154300        88 W88-PARAM-MM-OK    VALUE 01 THRU 12.                               
+154500        04 WKS-PARAM-DD       PIC 9(02).                                      
+154700        88 W88-PARAM-DD-OK    VALUE 01 THRU 31.                               
+154705*                                                                             
+154710**************************************************************                
+154715**** PARAMETROS PARA LA BIBLIOTECA DE MENSAJES A OPERADOR LJ                  
+154720*************************************************                             
+154725**  TIPO-LJ = "I" MSG A CONSOLA Y SUMLOG                                      
+154730**  TIPO-LJ = "O" MSG A CONSOLA Y SUMLOG, Y QUEDA EN STOP                     
+154735**  TIPO-LJ = "E" MSG A SUMLOG                                                
+154740**  TIPO-LJ = "X" MSG A SUMLOG                                                
+154745**             X = CUALQUIER LETRA DIFERENTE DE "I" "O".                      
+154750**                SE RECOMIENDA UTILIZAR "E".                                 
+154755********************************************************                      
+154760  77 CONTADOR-LJ       PIC 9(11) BINARY VALUE 0.                              
+154765  01 MENSAJE-LJ.                                                              
+154770     02 SISTEMA-LJ     PIC X(04)        VALUE "S500".                         
+154775     02 FILLER         PIC X VALUE "/".                                       
+154780     02 PASO-LJ        PIC X(04)        VALUE "P101".                         
+154785     02 FILLER         PIC X VALUE "/".                                       
+154790     02 MTP-LJ         PIC 9(03)        VALUE 003.                            
+154795     02 FILLER         PIC X VALUE ":".                                       
+154800     02 TIPO-LJ        PIC X            VALUE "E".                            
+154805     02 FILLER         PIC X VALUE ">".                                       
+154825     02 CODIGO-LJ      PIC 9(06)        VALUE 051010.                         
+154845     02 FILLER         PIC X VALUE "<".                                       
+154865     02 TEXTO-LJ       PIC X(250)       VALUE " ".                            
+154885                                                                              
+155700                                                                              
+155900                                                                              
+156100**************************************************************                
+156300 PROCEDURE DIVISION  USING W77-PARAM-WFL.                                     
+156500*=======================================                                      
+156700 0000000-CTRLPGM.                                                             
+156710                                                                              
+156722     MOVE "S500P101"   TO W77-S000-MY-ID.                                     
+156724     MOVE "25MTP003"   TO W77-S000-MY-VERSION.                                
+156726     MOVE "P101"       TO B91-IDPROG.                                         
+156770                                                                              
+156900     PERFORM 1000000-INICIO.                                                  
+157100**   PERFORM 1000100-VERSIONES.                                               
+157300     PERFORM 1000200-VALIDA-PARAM.                                            
+157500     PERFORM 5000000-PRINCIPAL.                                               
+157700                                                                              
+157720     IF WKS-WFL-P-OPCION = 7                                                  
+157740        IF W77-ERR-PARAM = 1                                                  
+157760           SET MYSELF (TASKSTRING) TO WKS-PARAM-SAL                           
+157780        ELSE                                                                  
+157800           SET MYSELF (TASKSTRING) TO WKS-PARAM-SAL-ESP                       
+157820     ELSE                                                                     
+157900        SET MYSELF (TASKSTRING) TO WKS-PARAM-SAL.                             
+158100                                                                              
+158300     STOP RUN.                                                                
+158500                                                                              
+158700                                                                              
+158900****************************************************************              
+159100 1000000-INICIO.                                                              
+159300     ACCEPT WKS-HORA-MAQ         FROM TIME.                                   
+159500     ACCEPT WKS-FECHA-MAQUINA    FROM DATE.                                   
+159700     MOVE ATTRIBUTE MIXNUMBER OF MYSELF  TO WKS-NUMMIX-PASO.                  
+159900     MOVE ATTRIBUTE JOBNUMBER OF MYJOB   TO WKS-NUMJOB-PASO.                  
+160100                                                                              
+160120     CHANGE ATTRIBUTE TITLE OF "LIBLJ" TO                                     
+160140            "(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK.".                  
+161100                                                                              
+161300                                                                              
+161500                                                                              
+161700     MOVE WKS-FECMQ-ANIO       TO WKS-FECMAQ-AAAA.                            
+161900     MOVE WKS-FECMQ-MES        TO WKS-FECMAQ-MM.                              
+162100     MOVE WKS-FECMQ-DIA        TO WKS-FECMAQ-DD.                              
+162300                                                                              
+162500************************************************************                  
+162700 1000100-VERSIONES.                                                           
+162900     CHANGE ATTRIBUTE LIBACCESS OF "CTLVERS" TO BYFUNCTION.                   
+163100     CHANGE ATTRIBUTE FUNCTIONNAME OF "CTLVERS" TO "CTLVERS".                 
+163300                                                                              
+163500     CALL "CHECAME IN CTLVERS"                                                
+163700           USING   W77-S000-MY-ID                                             
+163900                   W77-S000-MY-VERSION                                        
+164100           GIVING  S000-CTR-CVEERROR.                                         
+164300                                                                              
+164500     IF S000-CTR-CVEERROR < 0                                                 
+165100        MOVE "ERROR DE VERSION "    TO TEXTO-LJ                               
+165300        PERFORM 70000050-MENSAJE                                              
+165500        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                              
+165700                                                                              
+165900****************************************************************              
+166100 1000200-VALIDA-PARAM.                                                        
+166300     MOVE ZERO TO W77-ERR-PARAM.                                              
+166500                                                                              
+166700     MOVE W77-PARAM-WFL        TO WKS-PARAM-ENT.                              
+166900     MOVE WKS-WFL-P-FECJOB     TO WKS-PARAM-FECHA.                            
+167100                                                                              
+167300     IF W88-WFL-P-OPCION-OK                                                   
+167500    AND W88-PARAM-AA-OK                                                       
+167700    AND W88-PARAM-MM-OK                                                       
+167900    AND W88-PARAM-DD-OK                                                       
+168100    AND W88-WFL-P-NUMCSI-OK                                                   
+168300    AND W88-WFL-P-NUMJOB-OK                                                   
+168500    AND WKS-WFL-P-NUMPASO NOT = " "                                           
+168700        NEXT SENTENCE                                                         
+168900     ELSE                                                                     
+169100        MOVE 1                    TO W77-ERR-PARAM                            
+169110        MOVE "PARAMETRO ERRONEO " TO TEXTO-LJ                                 
+169120        PERFORM 70000050-MENSAJE.                                             
+169200                                                                              
+169220     STRING "PARAMETRO RECIBIDO <", WKS-PARAM-ENT ">"                         
+169222            DELIMITED BY SIZE INTO TEXTO-LJ                                   
+169224     PERFORM 70000050-MENSAJE.                                                
+169300                                                                              
+169500***************************************************************               
+169700 5000000-PRINCIPAL.                                                           
+169900     IF W77-ERR-PARAM > 0                                                     
+170100        MOVE 5           TO WKS-SAL-P-OPC-REINI                               
+170300        MOVE 5           TO WKS-SAL-P-OPC-ROLL                                
+170500        MOVE "ERRPARAM"  TO WKS-SAL-P-PARAMROLLB                              
+171300     ELSE                                                                     
+171500        PERFORM 5002000-BUSCA-PROCESO.                                        
+171700                                                                              
+171900                                                                              
+175700************************************************************                  
+175900 5002000-BUSCA-PROCESO.                                                       
+176100     MOVE WKS-WFL-P-NUMCSI       TO WKS-TIT-ARCH-CSI.                         
+176300     MOVE WKS-WFL-P-FECJOB       TO WKS-TIT-ARCH-FEC.                         
+176500                                                                              
+176700     IF WKS-WFL-P-OPCION = 1                                                  
+176900        PERFORM 5002200-INICIO-WFL                                            
+177100     ELSE                                                                     
+177120     IF WKS-WFL-P-OPCION = 6                                                  
+177125        PERFORM 80000090-FALLA-PASO                                           
+177160     ELSE                                                                     
+177165     IF WKS-WFL-P-OPCION = 7                                                  
+177170        PERFORM 80000200-PROESO-ESPE                                          
+177175     ELSE                                                                     
+177300        PERFORM 5003000-QUE-PROCESO.                                          
+177500                                                                              
+177700*************************************************************                 
+177900 5002200-INICIO-WFL.                                                          
+178100     OPEN OUTPUT I99-CTRLWFL.                                                 
+178300                                                                              
+178500     MOVE WKS-WFL-P-FECJOB            TO FD-I99-WFL-FECPROC.                  
+178700     MOVE WKS-WFL-P-NUMCSI            TO FD-I99-WFL-NUMCSI.                   
+178900     MOVE WKS-WFL-P-NUMJOB            TO FD-I99-WFL-NUMJOB.                   
+179100     MOVE 1                           TO FD-I99-WFL-STATUS.                   
+179300                                                                              
+179500     MOVE ZEROS                       TO FD-I99-DATOS-PASO.                   
+179700     MOVE "XXXXXXXXXXXXXXX"           TO FD-I99-PASO-NUMPASO.                 
+179900                                                                              
+180100     PERFORM 6002000-ESCRIBE-ARCHIVO.                                         
+180300                                                                              
+180500     MOVE 0                  TO WKS-SAL-P-OPC-REINI.                          
+180700     MOVE 0                  TO WKS-SAL-P-OPC-ROLL.                           
+180900     MOVE "OK"               TO WKS-SAL-P-PARAMROLLB.                         
+181100                                                                              
+181300     CLOSE I99-CTRLWFL WITH SAVE.                                             
+181500                                                                              
+181700************************************************************                  
+181900 5003000-QUE-PROCESO.                                                         
+182100     SET I99-CTRLWFL (TITLE)  TO WKS-I99-TITLE.                               
+182300                                                                              
+182500     IF ATTRIBUTE RESIDENT OF I99-CTRLWFL = VALUE TRUE                        
+182700        IF WKS-WFL-P-OPCION = 2                                               
+182900           PERFORM 5003200-INICIO-PASO                                        
+183100        ELSE                                                                  
+183300        IF WKS-WFL-P-OPCION = 3                                               
+183500           PERFORM 5003400-FIN-PASO                                           
+183700        ELSE                                                                  
+183900        IF WKS-WFL-P-OPCION = 4                                               
+184100           PERFORM 5005000-VAL-REINICIO                                       
+184300        ELSE                                                                  
+184500        IF WKS-WFL-P-OPCION = 5                                               
+184700           PERFORM 5009000-FIN-WFL                                            
+184900        ELSE                                                                  
+185100           PERFORM 5004000-VALGEN-ARCH-PASO                                   
+185300     ELSE                                                                     
+185500     IF WKS-WFL-P-OPCION = 4                                                  
+185700        PERFORM 5005500-SIN-REINICIO                                          
+185900     ELSE                                                                     
+186100        MOVE 7                      TO WKS-SAL-P-OPC-REINI                    
+186300        MOVE 7                      TO WKS-SAL-P-OPC-ROLL                     
+186500        MOVE "NOHAYARCHIVO"         TO WKS-SAL-P-PARAMROLLB.                  
+186700                                                                              
+186900*************************************************************                 
+187100 5003200-INICIO-PASO.                                                         
+187300     OPEN I-O I99-CTRLWFL.                                                    
+187500                                                                              
+187700     PERFORM 6001000-LEE-ARCHIVO.                                             
+187900                                                                              
+188100     IF FD-I99-WFL-STATUS = 1                                                 
+188300        IF FD-I99-PASO-STATUS = 0 OR 2                                        
+188500           MOVE 1                      TO FD-I99-PASO-STATUS                  
+188700           MOVE 1                      TO FD-I99-PASO-ROLLBACK                
+188900           MOVE WKS-NUMMIX-PASO        TO FD-I99-PASO-NUMMIX                  
+189100           MOVE WKS-NUMJOB-PASO        TO FD-I99-PASO-NUMJOB                  
+189300           MOVE WKS-FECHA-MAQ-AMD      TO FD-I99-PASO-FECINI                  
+189500           MOVE WS-HRAMAQ-HHMMSS       TO FD-I99-PASO-HORAINI                 
+189700           MOVE WKS-WFL-P-NUMPASO      TO FD-I99-PASO-NUMPASO                 
+189900           PERFORM 6002000-ESCRIBE-ARCHIVO                                    
+190100           MOVE 0                      TO WKS-SAL-P-OPC-REINI                 
+190300           MOVE 0                      TO WKS-SAL-P-OPC-ROLL                  
+190500           MOVE "OK"                   TO WKS-SAL-P-PARAMROLLB                
+190700           PERFORM 5003210-ACCESA-BASE                                        
+190900        ELSE                                                                  
+191100           MOVE 8                      TO WKS-SAL-P-OPC-REINI                 
+191300           MOVE 8                      TO WKS-SAL-P-OPC-ROLL                  
+191500           MOVE "HAYPASOSINFIN"        TO WKS-SAL-P-PARAMROLLB                
+191700     ELSE                                                                     
+191900        MOVE 9                         TO WKS-SAL-P-OPC-REINI                 
+192100        MOVE 9                         TO WKS-SAL-P-OPC-ROLL                  
+192300        MOVE "NOINICIOWFL"             TO WKS-SAL-P-PARAMROLLB.               
+192500                                                                              
+192700     CLOSE I99-CTRLWFL WITH SAVE.                                             
+192900                                                                              
+193100**************************************************************                
+193300 5003210-ACCESA-BASE.                                                         
+193500     OPEN UPDATE S500BD01CAPTACION.                                           
+193700                                                                              
+193900***  LOCK FIRST S500B02CONTROL                                                
+194100***       ON EXCEPTION                                                        
+194300***          MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE.                     
+194500***                                                                           
+194700     BEGIN-TRANSACTION NO-AUDIT S500B91REINICIO                               
+194900           ON EXCEPTION                                                       
+195100              MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE.                    
+195300                                                                              
+195500***  STORE S500B02CONTROL                                                     
+195700***        ON EXCEPTION                                                       
+195900***           MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE.                    
+196100                                                                              
+196300     END-TRANSACTION AUDIT S500B91REINICIO SYNC                               
+196500         ON EXCEPTION                                                         
+196700            MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE.                      
+196900                                                                              
+197100     CLOSE S500BD01CAPTACION.                                                 
+197300                                                                              
+197500     CHANGE ATTRIBUTE MAXCARDS OF MYSELF TO W77-SET-MAXCARDS.                 
+197700                                                                              
+197900                                                                              
+198100*****************************************************                         
+198300 5003400-FIN-PASO.                                                            
+198500     PERFORM 5003420-FINPASO-CTRL.                                            
+198700                                                                              
+198900     IF WKS-SAL-P-OPC-REINI = 0                                               
+199100        PERFORM 5004500-GEN-ARCH-PASO.                                        
+199300                                                                              
+199500**************************************************************                
+199700 5003420-FINPASO-CTRL.                                                        
+199900     OPEN I-O I99-CTRLWFL.                                                    
+200100                                                                              
+200300     PERFORM 6001000-LEE-ARCHIVO.                                             
+200500                                                                              
+200700     IF FD-I99-WFL-STATUS = 1                                                 
+200900        IF FD-I99-PASO-STATUS = 1                                             
+201100           MOVE 2  TO FD-I99-PASO-STATUS                                      
+201300           MOVE 0  TO FD-I99-PASO-ROLLBACK                                    
+201500           PERFORM 6002000-ESCRIBE-ARCHIVO                                    
+201700           MOVE 0                  TO WKS-SAL-P-OPC-REINI                     
+201900           MOVE 0                  TO WKS-SAL-P-OPC-ROLL                      
+202100           MOVE "OK"               TO WKS-SAL-P-PARAMROLLB                    
+202300        ELSE                                                                  
+202500           MOVE 8                  TO WKS-SAL-P-OPC-REINI                     
+202700           MOVE 8                  TO WKS-SAL-P-OPC-ROLL                      
+202900           MOVE "NOINICIOPASO"     TO WKS-SAL-P-PARAMROLLB                    
+203100     ELSE                                                                     
+203300        MOVE 9                  TO WKS-SAL-P-OPC-REINI                        
+203500        MOVE 9                  TO WKS-SAL-P-OPC-ROLL                         
+203700        MOVE "NOINICIOWFL"      TO WKS-SAL-P-PARAMROLLB.                      
+203900                                                                              
+204100     CLOSE I99-CTRLWFL WITH SAVE.                                             
+204300                                                                              
+204500*****************************************************                         
+204700 5004000-VALGEN-ARCH-PASO.                                                    
+204900                                                                              
+205100      OPEN I-O I99-CTRLWFL.                                                   
+205300                                                                              
+205500      PERFORM 6001000-LEE-ARCHIVO.                                            
+205700                                                                              
+205900      IF FD-I99-WFL-STATUS = 1                                                
+206100         PERFORM 5004500-GEN-ARCH-PASO                                        
+206120      ELSE                                                                    
+206140         MOVE 9                   TO WKS-SAL-P-OPC-REINI                      
+206160         MOVE 9                   TO WKS-SAL-P-OPC-ROLL                       
+206180         MOVE "NOINICIOWFL"       TO WKS-SAL-P-PARAMROLLB.                    
+206300                                                                              
+206500********************************************************                      
+206700 5004500-GEN-ARCH-PASO.                                                       
+206900                                                                              
+207100     MOVE WKS-WFL-P-NUMCSI  TO WKS-TIT-I01-CSI.                               
+207300     MOVE WKS-WFL-P-FECJOB  TO WKS-TIT-I01-FECH.                              
+207500     MOVE WKS-WFL-P-NUMPASO TO WKS-TIT-I01-PASO.                              
+207700                                                                              
+207900     OPEN OUTPUT   I88-CTRLPASO.                                              
+208100                                                                              
+208300     MOVE " "      TO FD-I01-ARCHCWFL.                                        
+208500                                                                              
+208700     STRING "ESTE PASO YA CORRIO HOY ", WKS-WFL-P-FECJOB                      
+208900            " EN JOB " WKS-NUMJOB-PASO                                        
+209100             DELIMITED BY SIZE INTO FD-I01-ARCHCWFL.                          
+209300                                                                              
+209500     WRITE FD-I01-ARCHCWFL.                                                   
+209700                                                                              
+209900     MOVE 0                  TO WKS-SAL-P-OPC-REINI.                          
+210100     MOVE 0                  TO WKS-SAL-P-OPC-ROLL.                           
+210300     MOVE "OK"               TO WKS-SAL-P-PARAMROLLB.                         
+210500                                                                              
+210700     CLOSE I88-CTRLPASO WITH SAVE.                                            
+210900                                                                              
+211100******************************************************************            
+211300 5005000-VAL-REINICIO.                                                        
+213100                                                                              
+213300     OPEN INPUT I99-CTRLWFL.                                                  
+213500                                                                              
+213700     PERFORM 6001000-LEE-ARCHIVO.                                             
+213900                                                                              
+214100     IF FD-I99-WFL-STATUS = 1                                                 
+214300        IF FD-I99-PASO-STATUS = 1                                             
+214500           PERFORM 5005400-CON-ROLLBACK                                       
+214700        ELSE                                                                  
+214900           PERFORM 5005300-SIN-ROLLBACK                                       
+215100     ELSE                                                                     
+215300        PERFORM 5005500-SIN-REINICIO.                                         
+215500                                                                              
+215700     CLOSE I99-CTRLWFL  WITH SAVE.                                            
+215900                                                                              
+216100****************************************************************              
+216300 5005300-SIN-ROLLBACK.                                                        
+216500     MOVE 1              TO WKS-SAL-P-OPC-ROLL.                               
+216700     MOVE 2              TO WKS-SAL-P-OPC-REINI.                              
+216900     MOVE "CONREINICIO"  TO WKS-SAL-P-PARAMROLLB.                             
+217100                                                                              
+217300****************************************************************              
+217500 5005400-CON-ROLLBACK.                                                        
+217700     MOVE 2            TO WKS-SAL-P-OPC-ROLL.                                 
+217900     MOVE 2            TO WKS-SAL-P-OPC-REINI.                                
+218100                                                                              
+218300     STRING FD-I99-PASO-NUMJOB, " ", FD-I99-PASO-NUMMIX, " ",                 
+218500            FD-I99-PASO-FECINI, " ", FD-I99-PASO-HORAINI                      
+218700            DELIMITED BY SIZE INTO WKS-SAL-P-PARAMROLLB.                      
+218900                                                                              
+219100****************************************************************              
+219300 5005500-SIN-REINICIO.                                                        
+219500     MOVE 1              TO WKS-SAL-P-OPC-ROLL.                               
+219700     MOVE 1              TO WKS-SAL-P-OPC-REINI.                              
+219900     MOVE "SINREINICIO"  TO WKS-SAL-P-PARAMROLLB.                             
+220100                                                                              
+220300****************************************************************              
+220500                                                                              
+220700                                                                              
+220900                                                                              
+221100                                                                              
+221300                                                                              
+221500                                                                              
+221700****************************************************************              
+221900 5009000-FIN-WFL.                                                             
+222100     OPEN I-O I99-CTRLWFL.                                                    
+222300                                                                              
+222500     PERFORM 6001000-LEE-ARCHIVO.                                             
+222700                                                                              
+222900     IF FD-I99-WFL-STATUS = 1                                                 
+223100        IF FD-I99-PASO-STATUS = 0 OR 2                                        
+223300           MOVE 2  TO FD-I99-WFL-STATUS                                       
+223500           PERFORM 6002000-ESCRIBE-ARCHIVO                                    
+223700           MOVE 0                  TO WKS-SAL-P-OPC-REINI                     
+223900           MOVE 0                  TO WKS-SAL-P-OPC-ROLL                      
+224100           MOVE "OK"               TO WKS-SAL-P-PARAMROLLB                    
+224300        ELSE                                                                  
+224500           MOVE 8                  TO WKS-SAL-P-OPC-REINI                     
+224700           MOVE 8                  TO WKS-SAL-P-OPC-ROLL                      
+224900           MOVE "HAYPASOSINFIN"    TO WKS-SAL-P-PARAMROLLB                    
+225100     ELSE                                                                     
+225300        MOVE 9                  TO WKS-SAL-P-OPC-REINI                        
+225500        MOVE 9                  TO WKS-SAL-P-OPC-ROLL                         
+225700        MOVE "NOINICIOWFL"      TO WKS-SAL-P-PARAMROLLB.                      
+225900                                                                              
+226100     CLOSE I99-CTRLWFL WITH SAVE.                                             
+226300                                                                              
+226500                                                                              
+226700********************************************************                      
+226900 6001000-LEE-ARCHIVO.                                                         
+227100     READ I99-CTRLWFL.                                                        
+227300                                                                              
+227500*********************************************************                     
+227700                                                                              
+227900                                                                              
+228100                                                                              
+228300**********************************************************                    
+228500 6002000-ESCRIBE-ARCHIVO.                                                     
+228700     WRITE I99-REGCTRL.                                                       
+228900                                                                              
+229100********************************************************                      
+229200 80000090-FALLA-PASO.                                                         
+229210     MOVE "I"     TO TIPO-LJ.                                                 
+229220     MOVE "EN EL LOTE POSIBLE INCIDENTE PASO DE BATCH "                       
+229230       TO TEXTO-LJ.                                                           
+229240     PERFORM 70000050-MENSAJE                                                 
+229250                                                                              
+229260     CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                                 
+229290*********************************************************                     
+229300 80000200-PROESO-ESPE.                                                        
+229302     PERFORM 80000215-VE-RESIDEN-ESPE.                                        
+229304     IF W77-HAY-ARCHESPE = 1                                                  
+229306        PERFORM 80000202-CONT-ESPE                                            
+229308     ELSE                                                                     
+229310        MOVE 1  TO W77-ERR-PARAM.                                             
+229312                                                                              
+229314**********************************************************                    
+229315 80000202-CONT-ESPE.                                                          
+229317     OPEN INPUT I55-ARCHPROC.                                                 
+229320     READ I55-ARCHPROC AT END                                                 
+229325          MOVE 1           TO W77-ERR-PARAM.                                  
+229330                                                                              
+229335     IF W77-ERR-PARAM = 0                                                     
+229340        IF FD-I55-00-TPOREG = 01                                              
+229345       AND FD-I55-01-PASO  = "P101"                                           
+229350       AND FD-I55-01-CSI   = WKS-WFL-P-NUMCSI                                 
+229355       AND FD-I55-01-FECH  = WKS-WFL-P-FECJOB                                 
+229360           PERFORM 80000210-LEE-REG-ESPE                                      
+229365        ELSE                                                                  
+229370          MOVE 1           TO W77-ERR-PARAM.                                  
+229375                                                                              
+229380     IF W77-ERR-PARAM > 0                                                     
+229385          MOVE 5           TO WKS-SAL-P-OPC-REINI                             
+229390          MOVE 5           TO WKS-SAL-P-OPC-ROLL                              
+229395          MOVE "ERRARCHH"  TO WKS-SAL-P-PARAMROLLB.                           
+229396                                                                              
+229397     CLOSE I55-ARCHPROC WITH SAVE.                                            
+229400                                                                              
+229402*********************************************************                     
+229405 80000210-LEE-REG-ESPE.                                                       
+229410     READ I55-ARCHPROC AT END                                                 
+229415          MOVE 1           TO W77-ERR-PARAM.                                  
+229420                                                                              
+229425     IF W77-ERR-PARAM = 0                                                     
+229430        IF FD-I55-00-TPOREG = 03                                              
+229435           MOVE FD-I55-03-PASOANT  TO WKS-SAL-P-ESP-PASOANT                   
+229440           MOVE FD-I55-03-PASOESP  TO WKS-SAL-P-ESP-NAMEPASO                  
+229445           MOVE FD-I55-03-VALUESP  TO WKS-SAL-P-ESP-VALUE                     
+229450        ELSE                                                                  
+229455           MOVE 1           TO W77-ERR-PARAM                                  
+229460     ELSE                                                                     
+229465        MOVE 1           TO W77-ERR-PARAM.                                    
+229470                                                                              
+229475     IF W77-ERR-PARAM = 1                                                     
+229480        MOVE 5           TO WKS-SAL-P-OPC-REINI                               
+229485        MOVE 5           TO WKS-SAL-P-OPC-ROLL                                
+229490        MOVE "ERRARCHD"  TO WKS-SAL-P-PARAMROLLB.                             
+229495                                                                              
+229800******************************************************                        
+229810 80000215-VE-RESIDEN-ESPE.                                                    
+229812     MOVE WKS-WFL-P-NUMCSI       TO WKS-I55-TIT-CSI.                          
+229814     MOVE WKS-WFL-P-FECJOB       TO WKS-I55-TIT-FECH.                         
+229815     DISPLAY " BUSCO ARCH "  WKS-TIT-ARCHESPE.                                
+229816     SET I55-ARCHPROC (TITLE)    TO WKS-TIT-ARCHESPE.                         
+229818                                                                              
+229820     IF ATTRIBUTE RESIDENT OF I55-ARCHPROC = VALUE TRUE                       
+229821        DISPLAY " SI ESTA RESIDENTE "                                         
+229822        MOVE 1 TO W77-HAY-ARCHESPE                                            
+229824     ELSE                                                                     
+229834        DISPLAY " NO ESTA RESIDENTE "                                         
+229836        MOVE 0 TO W77-HAY-ARCHESPE.                                           
+229844                                                                              
+229850******************************************************                        
+229900 70000050-MENSAJE.                                                            
+230100     CALL "LJ IN LIBLJ" USING CONTADOR-LJ, MENSAJE-LJ.                        
+230300     MOVE " " TO TEXTO-LJ.                                                    
+230500                                                                              
+230700********************************************************                      
+230900                                                                              
+231100                                                                              
+231300                                                                              
+231500                                                                              
+231700***********************************************************                   

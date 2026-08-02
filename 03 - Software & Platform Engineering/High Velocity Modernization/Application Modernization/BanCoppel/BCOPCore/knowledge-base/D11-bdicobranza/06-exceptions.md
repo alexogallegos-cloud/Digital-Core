@@ -114,3 +114,10 @@ Por ejemplo:
 
 ---
 *Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdicobranza_*.sql*
+
+<!-- LOG-DATA-BEGIN -->
+## Hallazgos de producción — Logs 2026-04-24
+> Fuente: `source/logs/errores_bus_2026-04-24_*.txt` · Incorporado: 2026-08-01
+
+> Sin errores registrados para este dominio en el período analizado.
+<!-- LOG-DATA-END -->

@@ -1,6 +1,10 @@
-# Capacidad: Payments — Cargos y Abonos Core [S500]
+# BC-06 · Pagos e Interbancario
 > Dominio: 6 · Common Services · Capacidad: 6.1.3
 > Cobertura: S500 · Programa principal: P020 (LINCOMS) · Contexto: P142 (Teradata) · P144 (Conciliación B01/B03)
+> Reglas vinculadas: RN-S500-108..152 · RN-S500-501..526 · RN-S151-970..979 · RN-S151-1010..1039 · RN-S151-1050..1059 · RN-S151-1080..1099 · RN-S151-1108..1115 (149 reglas · trazabilidad automática 2026-07-27)
+> Jerarquía: **N1** Dominio 6 · Common Services → **N2** Subdominio Core Services → **N3** Capacidad 6.1.3 Payments → **N4-5** Procesos/Flujo de tareas (ver Inventario de Tareas) → **N6** Reglas (ver Reglas vinculadas)
+> Indexado: ✅ 2026-07-27 — correlacionado vocab↔reglas↔capacidad (build-traceability.py)
+> bian_ref: 6.1.3 Payments
 
 ---
 
@@ -26,23 +30,38 @@ P142 (batch diario) extrae atributos de contrato hacia Teradata (CREDITOS CAN); 
 
 ---
 
-## Inventario de Tareas
+## Procesos de negocio (L4)
 
-| ID | Nombre | Tipo | Programa | Reglas vinculadas |
-|----|--------|------|----------|-------------------|
-| T-PAY-001 | Clasificación de CVETRAN en rangos NCO / CARGO / ABONO | validación | P020 | RN-S500-115 |
-| T-PAY-002 | Validación contra catálogo 174 (CVETXN autorizado) | validación | P020 | RN-S500-116 |
-| T-PAY-003 | Enrutamiento de copias COMS y asignación de TIPO-PROC S151 | control | P020 | RN-S500-108, RN-S500-109 |
-| T-PAY-004 | Ordenamiento y generación del archivo posting S02 | contable | P020 | RN-S500-117 |
-| T-PAY-005 | Asiento en libro mayor S151 (REGISTRAS500) | escritura | P020 | RN-S500-108, RN-S500-114 |
-| T-PAY-006 | Cálculo de IVA e ISR sobre comisiones y rendimientos | contable | P020 | RN-S500-122 |
-| T-PAY-007 | Procesamiento TEF — asignación y reasignación de cuentas | escritura | P020 | RN-S500-110, RN-S500-121 |
-| T-PAY-008 | Replicación cross-CSI del estado TEF (I11-REPLICA) | control | P020 | RN-S500-111, RN-S500-112 |
-| T-PAY-009 | Control de apagado diferenciado del gateway COMS | control | P020 | RN-S500-113 |
-| T-PAY-010 | Toggle en caliente de integración S151 (TASKVALUE=3027) | control | P020 | RN-S500-114 |
-| T-PAY-011 | Cierre de día contable — cancelación y recarga de librerías | contable | P020 | RN-S500-119 |
-| T-PAY-012 | Decomiso EPP — bloque judicial (TASKVALUE=3019) | escritura | P020 | RN-S500-118 |
-| T-PAY-013 | Proceso DIVESTITURE Citi→Banamex (TASKVALUE=3016) | control | P020 | RN-S500-120 |
+| ID L4 | Proceso | Sistema | Tareas L5 |
+|-------|---------|---------|-----------|
+| **6.1.3.1** | Autorización de pago | S500 | T-PAY-001, T-PAY-002 |
+| **6.1.3.2** | Contabilización GL | S500+S151 | T-PAY-003, T-PAY-004, T-PAY-005 |
+| **6.1.3.3** | Cálculo fiscal IVA/ISR | S500 | T-PAY-006 |
+| **6.1.3.4** | Pagos interbancarios SPEI/TEF | S500+S151 | T-PAY-007, T-PAY-008 |
+| **6.1.3.5** | Controles operativos | S500 | T-PAY-009, T-PAY-010, T-PAY-011 |
+| **6.1.3.6** | Cumplimiento regulatorio | S500 | T-PAY-012, T-PAY-013 |
+| **6.1.3.7** | Validación CLABE | gap | — |
+| **6.1.3.8** | Gestión de disputas | gap | — |
+
+---
+
+## Inventario de Tareas (L5)
+
+| ID L5 | Proceso L4 | Nombre | Tipo | Programa | Reglas vinculadas |
+|-------|-----------|--------|------|----------|-------------------|
+| T-PAY-001 | 6.1.3.1 | Clasificación de CVETRAN en rangos NCO / CARGO / ABONO | validación | P020 | RN-S500-115 |
+| T-PAY-002 | 6.1.3.1 | Validación contra catálogo 174 (CVETXN autorizado) | validación | P020 | RN-S500-116 |
+| T-PAY-003 | 6.1.3.2 | Enrutamiento de copias COMS y asignación de TIPO-PROC S151 | control | P020 | RN-S500-108, RN-S500-109 |
+| T-PAY-004 | 6.1.3.2 | Ordenamiento y generación del archivo posting S02 | contable | P020 | RN-S500-117 |
+| T-PAY-005 | 6.1.3.2 | Asiento en libro mayor S151 (REGISTRAS500) | escritura | P020 | RN-S500-108, RN-S500-114 |
+| T-PAY-006 | 6.1.3.3 | Cálculo de IVA e ISR sobre comisiones y rendimientos | contable | P020 | RN-S500-122 |
+| T-PAY-007 | 6.1.3.4 | Procesamiento TEF — asignación y reasignación de cuentas | escritura | P020 | RN-S500-110, RN-S500-121 |
+| T-PAY-008 | 6.1.3.4 | Replicación cross-CSI del estado TEF (I11-REPLICA) | control | P020 | RN-S500-111, RN-S500-112 |
+| T-PAY-009 | 6.1.3.5 | Control de apagado diferenciado del gateway COMS | control | P020 | RN-S500-113 |
+| T-PAY-010 | 6.1.3.5 | Toggle en caliente de integración S151 (TASKVALUE=3027) | control | P020 | RN-S500-114 |
+| T-PAY-011 | 6.1.3.5 | Cierre de día contable — cancelación y recarga de librerías | contable | P020 | RN-S500-119 |
+| T-PAY-012 | 6.1.3.6 | Decomiso EPP — bloque judicial (TASKVALUE=3019) | escritura | P020 | RN-S500-118 |
+| T-PAY-013 | 6.1.3.6 | Proceso DIVESTITURE Citi→Banamex (TASKVALUE=3016) | control | P020 | RN-S500-120 |
 
 ---
 
@@ -172,12 +191,12 @@ sequenceDiagram
 ## Capacidad adicional: T.1.3 Payment Schemes — SPEI / CLABE (merge)
 
 > BIAN: T.1.3 · Payment Schemes (SPEI/CLABE) · incorporado en cap-pay.md por integración con P020 core de pagos
-> Sistemas: S500+S151 · Programas: P020 (LINCOMS) · S151REGISTRA · P010 (S151) · Librerías: L091/L092/L093 (MQ SPEI — sin regla documentada en catálogo, pendiente análisis de código fuente)
+> Sistemas: S500+S151 · Programas: P020 (LINCOMS) · S151REGISTRA · P010 (S151) · Librerías: L091 y L093 (MQ SPEI — sin regla documentada en catálogo, pendiente análisis de código fuente)
 > Regulación: SPEI (Banxico, Circular 14/2017); CLABE (Circular 22/2010 Banxico); NIO (Número de Identificación de Operación asignado por Banxico por instrucción SPEI)
 
 ### Contexto funcional
 
-**SPEI** (Sistema de Pagos Electrónicos Interbancarios) es la infraestructura de pagos en tiempo real de Banxico que permite transferencias entre cualquier banco mexicano. Opera 24×7, con liquidación en tiempo real, y es obligatorio para transferencias interbancarias desde 2004. S500 participa como banco emisor/receptor en la red SPEI vía el sistema de archivos TEF y las librerías L091/L092/L093.
+**SPEI** (Sistema de Pagos Electrónicos Interbancarios) es la infraestructura de pagos en tiempo real de Banxico que permite transferencias entre cualquier banco mexicano. Opera 24×7, con liquidación en tiempo real, y es obligatorio para transferencias interbancarias desde 2004. S500 participa como banco emisor/receptor en la red SPEI vía el sistema de archivos TEF y las librerías L091 y L093.
 
 **CLABE** (Clave Bancaria Estandarizada) es el identificador de 18 dígitos requerido en toda transferencia SPEI. Sus 18 posiciones codifican: banco (3 dígitos), ciudad (3), cuenta (11), dígito verificador (1). La fórmula del dígito verificador usa ponderadores [3, 7, 1] aplicados módulo 10. La regulación base es la Circular 22/2010 de Banxico. No se encontraron reglas de validación CLABE explícitas en el código fuente de P020 ni S151REGISTRA — su presencia en el sistema debe confirmarse con SME (ver H-T13-02).
 
@@ -185,7 +204,7 @@ sequenceDiagram
 
 **CVETRAN 4449** es la clave de transacción S500 que identifica pagos SPEI interbancarios (pago electrónico interbancario). El campo `WS-CVE-ACNOMINAPORTA-PG` es la clave dinámica equivalente para nómina portable interbancaria (portabilidad de nómina vía SPEI, regulada por Banxico desde 2010). Ambos CVETRANs activan el override a sucursal 859 (punto de acceso SPEI de Banamex) con cajero 40 en S151REGISTRA.
 
-**Librerías L091/L092/L093** son las librerías Unisys ClearPath MCP propietarias que actúan como conectores MQ hacia el switch SPEI de Banxico. Son los adaptadores de protocolo entre el stack COBOL/DMSII/COMS y la red SPEI. No tienen reglas de negocio documentadas en el catálogo actual; representan el punto de integración más crítico para la migración del canal de pagos interbancarios.
+**Librerías L091 y L093** son las librerías Unisys ClearPath MCP propietarias que actúan como conectores MQ hacia el switch SPEI de Banxico. Son los adaptadores de protocolo entre el stack COBOL/DMSII/COMS y la red SPEI. No tienen reglas de negocio documentadas en el catálogo actual; representan el punto de integración más crítico para la migración del canal de pagos interbancarios.
 
 ### Reglas vinculadas — T.1.3 Payment Schemes SPEI/CLABE
 
@@ -201,14 +220,14 @@ sequenceDiagram
 
 | # | Riesgo | Componente | Severidad | Acción recomendada |
 |---|--------|------------|-----------|-------------------|
-| H-T13-01 | **L091/L092/L093 sin reglas documentadas** — las librerías MQ conectoras al switch SPEI de Banxico son librerías propietarias Unisys sin equivalente directo en plataformas modernas y sin reglas en el catálogo actual. Son el único canal de conectividad SPEI del sistema. | L091/L092/L093 | 🔴 Crítica | Priorizar análisis de código fuente de L091/L092/L093 antes de diseñar la arquitectura target. El reemplazo candidato es un cliente Kafka o el SDK REST SPEI de Banxico (API para participantes). Requiere verificación con Banxico del protocolo target y certificación como participante digital. |
-| H-T13-02 | **CLABE sin validación explícita en código S500** — no se encontraron reglas de validación de CLABE (18 dígitos, dígito verificador con ponderadores [3,7,1] mod 10) en el catálogo de P020, S151REGISTRA ni P010. La validación puede estar delegada al switch SPEI o a un sistema upstream no catalogado. | P020 / S151REGISTRA | 🟠 Alta | Confirmar con SME si la validación de CLABE ocurre en L091/L092/L093 o en el switch SPEI. Si no existe en el stack MCP: implementar validación explícita en el microservicio de pagos target (librerías CLABE estándar disponibles en Java, Node, Python). |
+| H-T13-01 | **L091 y L093 sin reglas documentadas** — las librerías MQ conectoras al switch SPEI de Banxico son librerías propietarias Unisys sin equivalente directo en plataformas modernas y sin reglas en el catálogo actual. Son el único canal de conectividad SPEI del sistema. | L091 y L093 | 🔴 Crítica | Priorizar análisis de código fuente de L091 y L093 antes de diseñar la arquitectura target. El reemplazo candidato es un cliente Kafka o el SDK REST SPEI de Banxico (API para participantes). Requiere verificación con Banxico del protocolo target y certificación como participante digital. |
+| H-T13-02 | **CLABE sin validación explícita en código S500** — no se encontraron reglas de validación de CLABE (18 dígitos, dígito verificador con ponderadores [3,7,1] mod 10) en el catálogo de P020, S151REGISTRA ni P010. La validación puede estar delegada al switch SPEI o a un sistema upstream no catalogado. | P020 / S151REGISTRA | 🟠 Alta | Confirmar con SME si la validación de CLABE ocurre en L091 y L093 o en el switch SPEI. Si no existe en el stack MCP: implementar validación explícita en el microservicio de pagos target (librerías CLABE estándar disponibles en Java, Node, Python). |
 | H-T13-03 | **NIO con asimetría de tamaño en interfaz** — WKS-ENT-P12/14/18NIO es X(01) en entrada vs WKS-SAL-P12REFNIO X(16) en salida. El NIO de Banxico es de 16 chars. La asimetría sugiere que el campo de entrada puede ser un flag/indicador de filtro, no el NIO completo. | P010 S151 | 🟡 Media | Validar con SME si el campo de entrada X(01) es un selector de filtro o un truncamiento. En el target, el NIO debe modelarse como campo obligatorio de 16 chars en el schema de movimientos SPEI. Confianza media hasta HITL. |
 | H-T13-04 | **CVETRAN 4449 y sucursal 859 hardcodeados** — el routing de pagos SPEI interbancarios a sucursal 859 (cajero 40) está hardcodeado en S151REGISTRA. Un cambio de estructura organizacional o nuevo punto SPEI requiere recompilación y coordinación con S151. | S151REGISTRA | 🟡 Media | Externalizar el mapeo CVETRAN→sucursal/cajero a tabla de parámetros. En el target, la lógica de enrutamiento de pagos SPEI debe ser configurable sin redeployment, idealmente como regla en un motor de pagos o tabla administrada. |
 | H-T13-05 | **Topología SPEI HA duplicada en 3 programas** — la tabla de 8 pares host para replicación TEF/SPEI está duplicada en P020, P142 y P144 sin COPY book compartido (ver también H-PAY-04). Un cambio de nodo SPEI requiere actualizar los tres programas en ventana coordinada. | P020 / P142 / P144 | 🟠 Alta | Centralizar en COPY book único o servicio de configuración. En el target, reemplazar con service discovery o ConfigMap de topología SPEI administrable en caliente. Referencia cruzada: H-PAY-04. |
 
 ---
 
-*cap-pay.md · v1.1 · 2026-07-16*
+*cap-pay.md · v1.2 · 2026-07-19*
 *Capacidad: 6.1.3 Payments + T.1.3 Payment Schemes SPEI/CLABE · Sistema: S500+S151 · Programas: P020 LINCOMS · P142 · P144 · S151REGISTRA · P010*
 *Cross-referencia: RN-S500-108..152 · RN-S500-163 · RN-S151-263 · rules-s500-p020-p142-p144.md · rules-s500-s151registra-p103fraude.md · rules-s151-p010.md · capability-map.md*

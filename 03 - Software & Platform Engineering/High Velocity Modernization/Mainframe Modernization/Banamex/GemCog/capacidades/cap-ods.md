@@ -1,6 +1,10 @@
-# Capacidad: Operational Data Stores — Modelo DMSII [S500+S151]
+# BC-15 · Almacén Operacional DMSII
 > Dominio: 9 · Insights & Information · Capacidad: 9.1.1
 > Cobertura: S500+S151 · Bases de datos: BD10 · BD11 · BD12 · BD13 · BD99 · BD02
+> Reglas vinculadas: RN-S500-893 · RN-S500-903 · RN-S151-491..525 · RN-S151-561..570 · RN-S151-625..689 · RN-S151-1150..1160 (123 reglas · trazabilidad automática 2026-07-27)
+> Jerarquía: **N1** Dominio 9 · Insights & Information → **N2** Subdominio (General) → **N3** Capacidad 9.1.1 Operational Data Stores → **N4-5** Procesos/Flujo de tareas (ver Inventario de Tareas) → **N6** Reglas (ver Reglas vinculadas)
+> Indexado: ✅ 2026-07-27 — correlacionado vocab↔reglas↔capacidad (build-traceability.py)
+> bian_ref: 9.1.1 Operational Data Stores
 
 ---
 
@@ -299,7 +303,7 @@ sequenceDiagram
 | T-ODS-032 | Implementar consulta-movimientos-service: reemplazar OPEN INQUIRY BASESEMANAL con nombre dinámico (BD varía por día de semana) — en target: connection routing a tabla particionada por semana | L030 | PLATAFORMA | ALTA | ALTO — naming dinámico de DMSII no tiene equivalente directo; el router de conexión debe conocer el esquema de naming |
 | T-ODS-033 | Implementar estructura-organizacional-service: jerarquía CSI 7 niveles (Comité→Área→División→Dirección→Regional→Operación→Sucursal) con catálogo en BD; reemplazar tabla hardcoded de L030 | L030 | PLATAFORMA | MEDIA | ALTO — jerarquía hardcoded en código COBOL; cualquier reorganización bancaria post-separación Citi requiere recompilación |
 | T-ODS-034 | Implementar cliente-enrichment-service: enriquecimiento de movimientos con datos de cliente (RFC, CURP, segmento); extraer lógica de L030 que llama a programas de consulta de perfil | L030 | PLATAFORMA | MEDIA | MEDIO — dependencias de L030 hacia otros programas S151 deben mapearse antes del diseño |
-| T-ODS-035 | Migrar patrón CANCEL de Unisys MCP: auditar todos los `CANCEL L030` en S151; rediseñar como inicialización de contexto vía dependency injection en target (Spring @Bean / CDI) | L030 | PLATAFORMA | ALTA | CRÍTICO — CANCEL no es transpilable; requiere rediseño arquitectónico completo; riesgo de lifecycle incorrecto de servicios compartidos |
+| T-ODS-035 | Migrar **todos** los patrones CANCEL de Unisys MCP en S151: no solo `CANCEL L030/S151LIB030` sino también `CANCEL CTLVER` / `CANCEL SOPORTECOMS` / `CANCEL LIB-CONTROL` encontrados en P670 (líneas 1039-1041, RN-S151-598) y P610 (RN-S151-465); rediseñar cada variante como inicialización de contexto vía dependency injection en target (Spring @Bean / CDI) | L030 | PLATAFORMA | ALTA | CRÍTICO — CANCEL no es transpilable; requiere rediseño arquitectónico completo; auditar todos los programas S151 para inventario completo de patrones CANCEL antes de diseñar el target |
 | T-ODS-036 | Migrar CHANGE ATTRIBUTE TITLE/LIBACCESS/FUNCTIONNAME: reemplazar capacidad de modificación dinámica de atributos de archivo Unisys por configuración externalizada (ConfigMap o tabla de parámetros) | L030 | PLATAFORMA | ALTA | CRÍTICO — CHANGE ATTRIBUTE modifica metadatos de archivos en tiempo de ejecución; no existe en sistemas POSIX/cloud |
 | T-ODS-037 | Migrar OPEN/CLOSE INQUIRY de L030: reemplazar apertura read-only de DMSII por pool de conexiones de solo lectura con routing por nombre de BD; cerrar con DMTERMINATE → close de transacción | L030 | PLATAFORMA | ALTA | ALTO — OPEN INQUIRY es modo de acceso DMSII específico; semántica de aislamiento difiere del MVCC en PostgreSQL/Oracle |
 | T-ODS-038 | Mapear los 21 tipos de error DMSII de L030 a códigos de error canónicos del sistema target: NOTFOUND (EOF), DEADLOCK, DUPLICADO, DMSII-UNAVAIL, etc. — implementar traducciones de error en cada microservicio | L030 | PLATAFORMA | MEDIA | ALTO — si un error DMSII no está mapeado, propaga como excepción no controlada; los 21 tipos deben estar todos cubiertos |

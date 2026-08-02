@@ -1,9 +1,11 @@
-# cap-adj — GL Adjustments & Synchronization — Pipeline Extracción e Integración de Saldos [S151]
-> Capacidad bancaria: 7.1.1-bc09 · Dominio: 7 — Enterprise Support Functions
+# BC-09 · Ajustes GL
+> Capacidad bancaria: P312 → **6.7.1 Financial Reconciliation** · P330/P360 → **6.7.2 Operational Reconciliation** · Dominio: 6 — Common Services
 > Sistema: S151 (Contabilidad General Ledger) · Unisys ClearPath MCP / DMSII
 > Programas: P312 (SALDOS084) · P330 (Extracción DMSII→planos) · P360 (Integración planos→DMSII)
 > Reglas: RN-S151-710..718 · RN-S151-720..732 · RN-S151-735..749 (37 reglas)
-> Generado: 2026-07-16 · GemCog Capa 3
+> Generado: 2026-07-16 · GemCog Capa 3 · QC corregido 2026-07-17 (BIAN: 7.1.1→6.7.1/6.7.2 según inventario-s151.md)
+> Indexado: ✅ 2026-07-17 — Capa 3/4/5 — capacidad (ajustes/sincronización GL)
+> bian_ref: 6.7.1 + 6.7.2
 
 ---
 
@@ -315,6 +317,7 @@ sequenceDiagram
 
 ---
 
-*cap-adj.md · v1.0 · 2026-07-16 · GemCog Capa 3 — Inventario de Tareas + Casuísticas + Diagrama*
-*Capacidad: 7.1.1-bc09 GL Adjustments & Synchronization · Sistema: S151 · Programas: P312 · P330 · P360*
+*cap-adj.md · v1.1 · 2026-07-17 · GemCog Capa 3 — Inventario de Tareas + Casuísticas + Diagrama*
+*Capacidad: P312=6.7.1 Financial Reconciliation · P330/P360=6.7.2 Operational Reconciliation · Sistema: S151 · Programas: P312 · P330 · P360*
+*QC-corregido: BIAN 7.1.1 (incorrecto) → 6.7.1/6.7.2 según inventario-s151.md verificado 2026-07-17*
 *Cross-referencia: RN-S151-710..718 · RN-S151-720..732 · RN-S151-735..749 · rules-catalog/rules-s151-p312-p330-p360.md · kb-capa3-capacidades.md*

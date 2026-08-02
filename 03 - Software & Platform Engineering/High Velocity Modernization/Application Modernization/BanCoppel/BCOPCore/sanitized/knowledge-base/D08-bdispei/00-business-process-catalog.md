@@ -12,7 +12,7 @@
 - **SME — Modelo Operativo Bancario** (BIAN Service Domains · capacidades retail banking · cadena de valor · mapeo dominio técnico ↔ capacidad de negocio)
 - Data Architect (modelado target PostgreSQL / Aurora)
 - QA Lead — Equivalencia Funcional (golden master y criterios go/no-go)
-- **SME Regulatorio — Banxico** (`Solutioning/Delivery - SME/Regulatory/Banxico/`)
+- **SME Regulatorio — Banxico** (`SME/Regulatory/Banxico/`)
 
 > Secciones marcadas `[SME-PENDING]` requieren validación del Domain Expert o SME regulador antes de BUILD.
 ---

@@ -12,10 +12,10 @@
 - **SME — Modelo Operativo Bancario** (BIAN Service Domains · capacidades retail banking · cadena de valor · mapeo dominio técnico ↔ capacidad de negocio)
 - Data Architect (modelado target PostgreSQL / Aurora)
 - QA Lead — Equivalencia Funcional (golden master y criterios go/no-go)
-- **SME Regulatorio — CNBV** (`Solutioning/Delivery - SME/Regulatory/CNBV/`)
-- **SME Regulatorio — TESOFE** (`Solutioning/Delivery - SME/Regulatory/TESOFE/`)
-- **SME Regulatorio — IPAB** (`Solutioning/Delivery - SME/Regulatory/IPAB/`)
-- **SME Regulatorio — CONDUSEF** (`Solutioning/Delivery - SME/Regulatory/CONDUSEF/`)
+- **SME Regulatorio — CNBV** (`SME/Regulatory/CNBV/`)
+- **SME Regulatorio — TESOFE** (`SME/Regulatory/TESOFE/`)
+- **SME Regulatorio — IPAB** (`SME/Regulatory/IPAB/`)
+- **SME Regulatorio — CONDUSEF** (`SME/Regulatory/CONDUSEF/`)
 
 > Secciones marcadas `[SME-PENDING]` requieren validación del Domain Expert o SME regulador antes de BUILD.
 ---
@@ -165,10 +165,10 @@
 
 ## Reglas por regulador (SME dueño)
 
-- **CNBV** (`Solutioning/Delivery - SME/Regulatory/CNBV/`) — 106 reglas · Criterios contables CNBV + GAT — cálculo de intereses/rendimientos
-- **CONDUSEF** (`Solutioning/Delivery - SME/Regulatory/CONDUSEF/`) — 72 reglas · LTOSF Art.17 (CAT) + RECO — comisión debe estar registrada
-- **SAT** (`Solutioning/Delivery - SME/Regulatory/SAT/`) — 40 reglas · LIVA — IVA sobre comisiones (16% / 8% frontera)
-- **TESOFE** (`Solutioning/Delivery - SME/Regulatory/TESOFE/`) — 26 reglas · LTF — dispersión de recursos federales
+- **CNBV** (`SME/Regulatory/CNBV/`) — 106 reglas · Criterios contables CNBV + GAT — cálculo de intereses/rendimientos
+- **CONDUSEF** (`SME/Regulatory/CONDUSEF/`) — 72 reglas · LTOSF Art.17 (CAT) + RECO — comisión debe estar registrada
+- **SAT** (`SME/Regulatory/SAT/`) — 40 reglas · LIVA — IVA sobre comisiones (16% / 8% frontera)
+- **TESOFE** (`SME/Regulatory/TESOFE/`) — 26 reglas · LTF — dispersión de recursos federales
 
 ## `[RIESGO-EQUIVALENCIA]` en este dominio
 

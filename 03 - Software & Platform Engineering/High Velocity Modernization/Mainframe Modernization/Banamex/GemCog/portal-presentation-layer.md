@@ -1,4 +1,5 @@
 # GemCog Portal — Capa de Presentación
+> Indexado: ✅ 2026-07-17 — Capa de presentación del portal GemCog
 
 **Repositorio:** `Banamex/GemCog/portal/` · **Deploy:** `s3://bdtc-showcase-demo-frontend-ab0cf743/banamex/portal/`
 **Sistema de diseño:** Dark `#071c23` base · rojo `#E8344A` (S500) · azul-cielo `#6CC5D8` (S151) · glassmorphism consistente
@@ -228,6 +229,158 @@
 
 ---
 
+## 13. `flows/t-{cap}-{NNN}.html` — Flow Pages (Tareas L5)
+
+**Patrón de nombre:** `t-{slug}-{NNN}.html` donde slug = capacidad (pay, orc, gl, rec…) y NNN = número secuencial por capacidad.
+**Breadcrumb ID:** `6.X.X.N · Nombre del proceso L4 / T-CAP-NNN`
+**Servidor local de desarrollo:** `python -m http.server 7700` desde `portal/`
+
+---
+
+### Layout estándar (secciones en orden)
+
+| Sección | Clase / elemento | Obligatorio |
+|---------|-----------------|-------------|
+| Header sticky con breadcrumb | `<header>` + `.breadcrumb` | ✅ |
+| Título + meta (sistema, tipo, frecuencia, regla, confianza) | `header h1` + `.meta` | ✅ |
+| Flujo visual (Mermaid flowchart) | `.card` + `.mermaid-wrap.flow-pad` | ✅ |
+| Reglas centrales | `.card` + `.rule-block` (1–3 reglas) | ✅ |
+| Vocabulario controlado | `.card` + `.vocab-grid` + `.vocab-item` | ✅ |
+| Diagrama de secuencia (Mermaid) | `.card` + `.mermaid-wrap` | ✅ |
+| Riesgos de migración | `.card` + `.risk-table` | ✅ |
+| Secciones adicionales opcionales | variante-grid, slot-diagram, chain-box… | opcional |
+| Footer con referencias | `<footer>` | ✅ |
+| Tooltip flotante `#mmtip` | `<div id="mmtip">` + JS | ✅ |
+
+---
+
+### Design tokens (idénticos en todos los flows)
+
+```css
+--bg:#071c23   --bg2:#0a2530   --panel:#0e2e3a   --line:#1a4555
+--txt:#F0F8FA  --muted:#7fb8c8
+--on:#C1272D   (S500 / error / crítico)
+--on2:#6CC5D8  (S151 / info / teal)
+--on3:#1E8FA0  (S500+S151 / ambos)
+--acc:#6CC5D8  (accent text, links)
+```
+
+Badges de sistema: `.badge` = S500 rojo · `.badge.s151` = S151 sky · `.badge.ambos` = teal.
+
+---
+
+### Sistema de hover — contrato canónico
+
+#### Estructura de datos
+
+```javascript
+// Objeto de información de un nodo/término
+{
+  title: string,       // Nombre del concepto (obligatorio)
+  rule:  string?,      // ID de regla: "RN-S500-115" (opcional)
+  range: string?,      // Rango numérico: "0 THRU 999" — solo si aplica
+  sub:   string?,      // Subtipo COBOL: "PIC X(10)" — solo vocab-items
+  body:  string,       // Descripción (obligatorio)
+  warn:  string?       // Advertencia en amber — solo si hay riesgo
+}
+```
+
+#### Dos fuentes de datos
+
+| Fuente | Dónde se define | Cuándo usar |
+|--------|----------------|-------------|
+| `MINFO` | JS inline, objeto literal | Nodos del flowchart Mermaid (`.node` SVG) |
+| `VOCAB_EXTRA` | JS inline, mergeado con `buildVocab()` | Términos en diagramas sin card DOM |
+| `.vocab-item` DOM | HTML cards en sección Vocabulario | Términos con card visible — `buildVocab()` los lee |
+
+`buildVocab()` fusiona los `.vocab-item` del DOM con `VOCAB_EXTRA` (VOCAB_EXTRA tiene prioridad si hay colisión de clave).
+
+#### Render canónico del tooltip (ambas funciones)
+
+```javascript
+const renderTip = info =>
+  `<div class="mtt-title">${info.title}</div>` +
+  (info.rule  ? `<div class="mtt-rule">${info.rule}</div>`      : '') +
+  (info.range ? `<div class="mtt-range">${info.range}</div>`    : '') +
+  (info.sub   ? `<div class="mtt-sub">${info.sub}</div>`        : '') +
+  `<div class="mtt-body">${info.body}</div>` +
+  (info.warn  ? `<div class="mtt-warn">⚠ ${info.warn}</div>`   : '');
+```
+
+**Multi-match:** cuando un elemento SVG contiene varios términos del vocab, se muestran todos apilados separados por `<hr class="mmtip-sep">`.
+
+#### Posicionamiento del tooltip
+
+```javascript
+mmtip.style.left = Math.min(e.clientX + 14, innerWidth - 295) + 'px';
+mmtip.style.top  = (e.clientY + 12) + 'px';
+// max-width del #mmtip: 280px
+```
+
+#### `bindMermaidHovers()` — flowchart nodes
+
+- Selector: `.mermaid-wrap svg .node`
+- Match: `node.textContent.trim().toUpperCase().includes(KEY)`
+- Delay de inicio: `setTimeout(bindMermaidHovers, 400)` en `load`
+
+#### `bindVocabHovers()` — todos los SVGs (flowchart + secuencia)
+
+- Espera `svgs.length >= 2` (ambos diagramas renderizados); reintentos cada 300ms, máx 20
+- Selector: `'text,tspan,foreignObject span,foreignObject div,foreignObject p,.label,.messageText span'`
+- Filtra elementos con hijos (evita contenedores padre): `if(el.children.length && el.tagName!=='tspan') return`
+- Dedup por elemento: `if(el._vb) return; el._vb = true`
+- Delay de inicio: `setTimeout(bindVocabHovers, 500)` en `load`
+
+---
+
+### Clases CSS canónicas reutilizables (todas en el `<style>` del archivo)
+
+| Clase | Uso |
+|-------|-----|
+| `.breadcrumb-current` | Último segmento del breadcrumb (negrita, color txt) |
+| `.mmtip-sep` | Separador `<hr>` dentro del tooltip multi-match |
+| `.rule-tag-critico` | Badge de severidad CRÍTICO en rule-meta |
+| `.ctx-intro` | Párrafo introductorio de contexto (12px, #a0c8d8) |
+| `.slot-label` | Etiqueta de sección sobre diagramas de slots |
+| `.slot-desc` | Texto descriptivo dentro de un slot (9px, muted) |
+| `.slot-overflow-desc` | Texto de overflow en slot (9px, #ff6b6b) |
+| `.chain-detail` | Panel de detalle en chain-box (10px, muted, min-width 140px) |
+| `.hl-s151` | Texto highlight color S151/sky (`var(--on2)`) |
+
+**Regla:** ningún `style=""` inline en el HTML. Todo va a clases en el `<style>` del mismo archivo.
+
+---
+
+### `@keyframes` — restricciones
+
+- No usar `box-shadow` dentro de `@keyframes` (trigger Paint — hint de performance).
+- Usar `outline` o `border-color` para animaciones de pulso.
+
+---
+
+### Mermaid — configuración estándar
+
+```javascript
+mermaid.initialize({
+  startOnLoad: true,
+  theme: 'dark',
+  themeVariables: {
+    primaryColor:     '#0e2e3a',
+    primaryTextColor: '#F0F8FA',
+    primaryBorderColor: '#1E8FA0',   // teal para ORC/GL/REC
+    // '#C1272D' para flows de capacidades S500 puras (PAY)
+    lineColor:   '#6CC5D8',
+    background:  '#071c23',
+    mainBkg:     '#0e2e3a',
+    nodeBorder:  '#1a4555'
+  }
+});
+```
+
+`primaryBorderColor` varía por capacidad: `#C1272D` (S500) · `#6CC5D8` (S151) · `#1E8FA0` (S500+S151).
+
+---
+
 ## Resumen de Arquitectura de Presentación
 
 | Vista | Tipo de layout | Visualización principal | Datos externos |
@@ -244,3 +397,7 @@
 | `modelo-er` | Scroll horizontal | Canvas posicionado + SVG paths | — (inline) |
 | `rules-report-gemcog` | 100vh tabla filtrable | Tabla sorteable + filtros | — (inline) |
 | `modelo-capacidades` | Scroll + side panel | Matriz de celdas + slide panel | — (inline) |
+| `flows/t-pay-001` | Scroll, max 1100px | Mermaid flowchart + sequence | — (inline) |
+| `flows/t-pay-002` | Scroll, max 1100px | Mermaid sequence | — (inline) |
+| `flows/t-orc-001` | Scroll, max 1100px | Mermaid flowchart + sequence + risk table | — (inline) |
+| `flows/t-orc-002` | Scroll, max 1100px | Mermaid flowchart + sequence + slot diagram | — (inline) |

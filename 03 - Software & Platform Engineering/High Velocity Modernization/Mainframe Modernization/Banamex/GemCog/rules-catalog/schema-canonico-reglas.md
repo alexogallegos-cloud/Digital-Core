@@ -91,7 +91,7 @@ El template en `source/` permanece intacto como registro del autor.
 
 ## Ruteo de gaps a SME (para complementar, no inventar)
 
-Los `dt-*` del swarm **preparan** la consulta (extraen la evidencia, formulan la pregunta); el **SME** (exclusivamente en `Solutioning/Delivery - SME/`) la responde. Ver handoffs en `Mainframe Modernization/CLAUDE.md`.
+Los `dt-*` del swarm **preparan** la consulta (extraen la evidencia, formulan la pregunta); el **SME** (exclusivamente en `SME/`) la responde. Ver handoffs en `Mainframe Modernization/CLAUDE.md`.
 
 | Tipo de hueco | Quién lo prepara (swarm) | SME que complementa | Ejemplo de pregunta |
 |---------------|--------------------------|---------------------|---------------------|

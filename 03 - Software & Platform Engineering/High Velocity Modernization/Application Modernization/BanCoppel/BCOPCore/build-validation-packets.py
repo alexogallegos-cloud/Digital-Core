@@ -17,12 +17,12 @@ BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core
 BR = json.load(open(BASE + "business-rules.json", encoding="utf-8"))
 
 SME = {
- "CNBV":     "Solutioning/Delivery - SME/Regulatory/CNBV/",
- "Banxico":  "Solutioning/Delivery - SME/Regulatory/Banxico/",
- "CONDUSEF": "Solutioning/Delivery - SME/Regulatory/CONDUSEF/",
- "SAT":      "Solutioning/Delivery - SME/Regulatory/SAT/",
- "TESOFE":   "Solutioning/Delivery - SME/Regulatory/TESOFE/",
- "IPAB":     "Solutioning/Delivery - SME/Regulatory/IPAB/",
+ "CNBV":     "SME/Regulatory/CNBV/",
+ "Banxico":  "SME/Regulatory/Banxico/",
+ "CONDUSEF": "SME/Regulatory/CONDUSEF/",
+ "SAT":      "SME/Regulatory/SAT/",
+ "TESOFE":   "SME/Regulatory/TESOFE/",
+ "IPAB":     "SME/Regulatory/IPAB/",
 }
 DOMN = {"bdicheq":"D04","bdicred":"D03","bdisac":"D05","bdispei":"D08","bdicont":"D12",
         "bdisolic":"D06","bdiaclaracion":"D07","bdimnsj":"D09","bdicnweb":"D01",
@@ -139,7 +139,7 @@ for reg in ["CNBV", "Banxico", "CONDUSEF", "SAT", "TESOFE", "IPAB"]:
     L.append("")
 
 L += ["*Generado por Specialist — Informix SPL Analysis · Etapa 3 · fuente: business-rules.json · "
-      "coordina con SMEs en Solutioning/Delivery - SME/Regulatory/*"]
+      "coordina con SMEs en SME/Regulatory/*"]
 
 open(BASE + "regulatory-validation-packets-bcop.md", "w", encoding="utf-8").write("\n".join(L))
 tot = sum(len(v) for v in by_reg.values())

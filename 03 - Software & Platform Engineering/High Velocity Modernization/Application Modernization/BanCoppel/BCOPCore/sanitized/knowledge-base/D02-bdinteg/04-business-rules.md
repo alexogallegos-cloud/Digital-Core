@@ -12,7 +12,7 @@
 - **SME — Modelo Operativo Bancario** (BIAN Service Domains · capacidades retail banking · cadena de valor · mapeo dominio técnico ↔ capacidad de negocio)
 - Data Architect (modelado target PostgreSQL / Aurora)
 - QA Lead — Equivalencia Funcional (golden master y criterios go/no-go)
-- **SME Regulatorio — CNBV** (`Solutioning/Delivery - SME/Regulatory/CNBV/`)
+- **SME Regulatorio — CNBV** (`SME/Regulatory/CNBV/`)
 
 > Secciones marcadas `[SME-PENDING]` requieren validación del Domain Expert o SME regulador antes de BUILD.
 ---
@@ -31,9 +31,9 @@
 
 ## Reglas por regulador (SME dueño)
 
-- **CNBV** (`Solutioning/Delivery - SME/Regulatory/CNBV/`) — 12 reglas · Buró de Crédito — evaluación crediticia (LRSIC)
-- **CONDUSEF** (`Solutioning/Delivery - SME/Regulatory/CONDUSEF/`) — 11 reglas · LTOSF Art.17 (CAT) + RECO — comisión debe estar registrada
-- **TESOFE** (`Solutioning/Delivery - SME/Regulatory/TESOFE/`) — 1 reglas · LTF — dispersión de recursos federales
+- **CNBV** (`SME/Regulatory/CNBV/`) — 12 reglas · Buró de Crédito — evaluación crediticia (LRSIC)
+- **CONDUSEF** (`SME/Regulatory/CONDUSEF/`) — 11 reglas · LTOSF Art.17 (CAT) + RECO — comisión debe estar registrada
+- **TESOFE** (`SME/Regulatory/TESOFE/`) — 1 reglas · LTF — dispersión de recursos federales
 
 ## `[SME-PENDING]` Validación regulatoria
 

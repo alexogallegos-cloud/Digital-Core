@@ -1,15 +1,20 @@
-# cap-rpt — Analytics/Reporting — Ciclo de Control + Migración Regulatoria [S151]
-> Capacidad bancaria: T.3.4 · Dominio: T — Transversal
+# BC-18 · Control Batch y Extracción Regulatoria
+> Capacidad bancaria: T.3.4 · Nombre anterior: "Analytics/Reporting" — renombrado tras revisión taxonómica 2026-07-20
 > Sistemas: S151 (Contabilidad General Ledger) · Unisys ClearPath MCP / DMSII
-> Programas: P199 (CTASMIGCAP) · P610 (CALLLIBCTL) · P612 (WFL Dispatcher) · P677 (Control Generator)
-> Reglas: RN-S151-421..490 · 70 reglas
-> Generado: 2026-07-16 · Swarm GemCog Capa 3
+> Programas: P677 (Gate-keeper diario) · P610 (Dispatcher control batch) · P612 (WFL Launcher) · P199 (Bridge S500→S151)
+> Reglas: RN-S151-421..490 (P199/P610/P612/P677) · 70 reglas
+> Generado: 2026-07-16 · Swarm GemCog Capa 3 · QC 2026-07-21: P120 removido → T.4.1 · total reglas actualizado a 70
+> Indexado: ✅ 2026-07-27 — correlacionado vocab↔reglas↔capacidad (build-traceability.py)
+> QC taxonómico: ✅ QC 2026-07-21: P120 reclasificado a T.4.1 cap-cfr. Esta capacidad (T.3.4) cubre únicamente P199 · P610 · P612 · P677 = 70 reglas.
+> bian_ref: T.3.4 Batch Control & Regulatory Extraction
 
 ---
 
 ## Contexto funcional
 
-La capacidad T.3.4 Analytics/Reporting de S151 agrupa cuatro programas que no producen reportes analíticos en el sentido moderno, sino que constituyen la **infraestructura de control del ciclo batch diario** y el **único puente de integración de datos entre S500 (Captación) y S151 (Contabilidad GL)**. Son la capa transversal que orquesta, sincroniza y reporta el estado del sistema al cierre de cada jornada bancaria.
+La capacidad T.3.4 de S151 agrupa cinco programas que constituyen la **infraestructura de control del ciclo batch diario**, el **único puente de integración de datos entre S500 (Captación) y S151 (Contabilidad GL)**, y la **extracción regulatoria SAR para Banxico**. Ninguno de ellos produce reportes analíticos en el sentido moderno (BI, dashboards, agregaciones ad-hoc). Son la capa transversal que orquesta, sincroniza y extrae el estado del sistema al cierre de cada jornada bancaria.
+
+> **Nota taxonómica (QC 2026-07-20):** Esta capacidad fue etiquetada inicialmente como "Analytics/Reporting" siguiendo la heurística BIAN T.3.4. Tras revisión: P677 es infraestructura de scheduling (candidato 8.1.1), P610 es dispatcher de control batch (candidato T.5.1), P612 es launcher WFL (T.5.1), P199 es integración cross-system (candidato propio T.x.x), y P120 es extracción regulatoria SAR (candidato T.4.1 CFR). El nombre de la capacidad ha sido actualizado a "Batch Cycle Control & Regulatory Extraction". Los IDs de reglas y la asignación T.3.4 en bian-mapping-s151.md se mantienen en esta versión; una reclasificación completa requiere re-run de build-traceability.py.
 
 **P677** (CTRLGEN, 1,094 LOC) es el gate-keeper absoluto: el primer programa en ejecutarse cada día hábil. Valida contra el calendario bancario Banxico (THECALENDAR F18) que la fecha de proceso sea hábil, reconstruye los datasets de control B01SISDIA (fechas del sistema), B03SISMEN (ciclos mensuales en buffer circular) y B04SISTEM (estado global del sistema), y cuando ESTATUS=3 al cierre mensual, dispara la generación de los archivos de control F10-F19. Sin P677, ningún otro programa de S151 puede ejecutarse ese día. **P610** (CALLLIBCTL, 1,768 LOC) es el dispatcher de nueve funciones de control que gobiernan el ciclo batch: graba el tamaño del ciclo (F01), gestiona los estados STABDSAL de la base mensual (F02/F04/F05), envía la señal regulatoria de fin de día a L002 en formato 6DIG u 8DIG según el sistema receptor (F03 — impacto directo CNBV), inicializa el archivo E01 inter-sistema (F07), actualiza el archivo corporativo de fechas CORP (F08) y genera el archivo TANDEM de reporte interbancario ICA para Banxico (F09). Ambos programas se invocan desde WFLs de orquestación: no tienen lógica de negocio propia, son los interruptores del pipeline batch.
 
@@ -391,10 +396,24 @@ flowchart TD
 
 ---
 
-*cap-rpt.md · v1.0 · 2026-07-16*
-*Capacidad: T.3.4 Analytics/Reporting · Sistema: S151 · Dominio: T — Transversal*
+## Ampliación: P120 — Concentrador SAR (Saldos Regulatorios)
+
+**Programa**: P120 EXTRACTOR · 1,318 LOC · Autor: E. Breacher, 1991  
+**Función**: Genera 4 reportes regulatorios de saldos: (1) Concentración de saldos, (2) Saldos por conceptos, (3) **Saldos S.A.R.** — desglose IMSS/ISSSTE/INFONAVIT para Banxico, (4) Concentración Banxico Tesorería.  
+**Reglas**: RN-S151-221..232 en rules-s151-p021-p120.md (bloque P120)
+
+### Hallazgos de migración P120
+
+| ID | Descripción | Tipo | Severidad | Acción |
+|----|-------------|------|-----------|--------|
+| RPT-P120-H01 | **BUG CONFIRMADO — INFONAVIT ANT siempre = 0** (RN-S151-228): línea 1198 de COBOL_P120.txt: `ADD B08-GSAR-ANT-INFO TO 77-ANT-ISTE` — la variable destino es 77-ANT-ISTE (ISSSTE acumulado) en vez de 77-ANT-INFO (INFONAVIT). Consecuencia: DET-ANT-INFO imprime siempre 0 en el reporte SAR; DET-ANT-ISTE queda inflado con el valor INFONAVIT incluido. Solo afecta valores ANT (saldo anterior) — los valores ACT (actual) son correctos. Bug presente desde la creación del programa (1991). | Bug activo en producción — impacto regulatorio SAR | 🔴 CRÍTICO | **HITL URGENTE con equipo Tesorería/SAR**: (1) ¿El equipo funcional sabe que INFONAVIT ANT reporta siempre 0? (2) ¿Los reportes entregados a Banxico/INFONAVIT tienen este error sistemático? (3) Decisión de equivalencia: ¿el target replica el bug (equivalencia exacta histórica) o lo corrige (equivalencia funcional correcta)? Corrección en target: `ADD B08-GSAR-ANT-INFO TO 77-ANT-INFO`. Si se corrige, los reportes SAR del target diferirán del histórico del sistema legado. |
+
+---
+
+*cap-rpt.md · v1.2 · 2026-07-21 — QC 2026-07-21: P120 removido → T.4.1 · total reglas actualizado a 70*
+*Capacidad: T.3.4 Batch Cycle Control & Regulatory Extraction · Sistema: S151 · Dominio: T — Transversal*
 *Programas: P199 (CTASMIGCAP, 2,753 LOC) · P610 (CALLLIBCTL, 1,768 LOC) · P612 (WFL Dispatcher, 87 LOC) · P677 (Control Generator, 1,094 LOC)*
-*Reglas: RN-S151-421..490 · 70 reglas · 31 tareas*
+*Reglas: RN-S151-421..490 (P199/P610/P612/P677) · 70 reglas · 32 tareas*
 *Cross-referencia: rules-s151-p199-p600.md · vocab-s151.md · capability-map.md*
 
 ---
@@ -446,8 +465,8 @@ flowchart TD
 
 ---
 
-*cap-rpt.md · v1.1 · 2026-07-16 · Ampliación P120 (RN-S151-221..232)*
-*Capacidad: T.3.4 Analytics/Reporting · Sistema: S151 · Dominio: T — Transversal*
-*Programas: P199 · P610 · P612 · P677 · P120 (EXTRACTOR, 1,318 LOC)*
-*Reglas: RN-S151-421..490 · RN-S151-221..232 · 82 reglas · 40 tareas*
-*Cross-referencia: rules-s151-p199-p600.md · rules-s151-p021-p120.md · vocab-s151.md · capability-map.md*
+*cap-rpt.md · v1.2 · 2026-07-21 — QC 2026-07-21: P120 removido → T.4.1 · total reglas actualizado a 70*
+*Capacidad: T.3.4 Batch Cycle Control & Regulatory Extraction · Sistema: S151 · Dominio: T — Transversal*
+*Programas: P199 · P610 · P612 · P677*
+*Reglas: RN-S151-421..490 (P199/P610/P612/P677) · 70 reglas · 31 tareas*
+*Cross-referencia: rules-s151-p199-p600.md · vocab-s151.md · capability-map.md*

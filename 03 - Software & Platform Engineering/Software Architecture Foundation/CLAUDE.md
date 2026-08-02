@@ -60,7 +60,7 @@ Cuando el cliente / sponsor empuja a "diseña la arquitectura completa antes de 
 |-------------|------|--------------|
 | **Enterprise Architecture** | Business capabilities · roadmap multi-año · alignment IT-business | `Framework/IT Operating Model/` (operating model) + `Framework/Interoperability/` (integration architecture) + handoff TS&T (01) |
 | **Technology Architecture** | Reference architectures · stack standards · pattern library | `Technology/Software Engineering/` (refs SW) + `Cloud/Multi-Cloud Architect/` (refs cloud) + `Value Delivery/SRE & AIOps/` (refs reliability) |
-| **Agentic Architecture** | Sistemas con AI agents como first-class citizens · agent-to-agent · MCP · governance | `[GAP — capability emergente]` · boundary con `Digital Core/02 AI Enabled Enterprise` y `Solutioning/Delivery - SME/Technology/Cybersecurity/Security & Responsible AI/` |
+| **Agentic Architecture** | Sistemas con AI agents como first-class citizens · agent-to-agent · MCP · governance | `[GAP — capability emergente]` · boundary con `Digital Core/02 AI Enabled Enterprise` y `SME/Technology/Cybersecurity/Security & Responsible AI/` |
 | **Digitally Resilient & Sovereign Architecture** | Data residency · vendor independence · DORA EU · multi-cloud · disaster resilience | `Cloud/Multi-Cloud Architect/` + `Cybersecurity/Cloud Security/` + `Cybersecurity/Data Security/` + `Value Delivery/SRE & AIOps/` (resilience) |
 
 **Boundary crítico con TS&T (offering 01)**:

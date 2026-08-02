@@ -100,3 +100,23 @@ export default function() {
 
 ---
 *Generado por: QA Lead — Equivalencia Funcional · 2026-07-03 · [SME-PENDING] baseline real requerido de DBA Informix*
+
+<!-- LOG-DATA-BEGIN -->
+## Volúmenes de producción confirmados — Logs 2026-04-24
+> Fuente: `source/logs/transacciones_bus_2026-04-24_*.txt` · Incorporado: 2026-08-01
+
+**Total llamadas dominio:** 44 · **Total errores:** 0 · **Error rate global:** 0.0%
+
+### Top SPs por volumen
+
+| SP | Llamadas/día | Errores/día | Error% | Códigos respuesta frecuentes |
+|----|-------------|-------------|--------|------------------------------|
+| `sp_registra_evento` | 44 | 0 | 0.0% | `00000`=44 |
+
+### Distribución horaria (llamadas con dominio mapeado)
+
+| Hora CDMX | Llamadas |
+|-----------|----------|
+
+*Generado por generate-kb-from-logs.py · 2026-08-01*
+<!-- LOG-DATA-END -->

@@ -24,7 +24,7 @@ Este sub-offering limita hacia arriba con el offering 05 padre (que define el li
 
 **Honestidad técnica vs. marketing del slide**: el slide oficial describe este sub-offering como "powered by industry data products and data federated closer to LoBs using AI/Agents". El cuerpo de este documento declara **el límite real** de esa autonomía: el AI acelera la generación de schemas de data products, el perfilado de fuentes, la generación de pipelines dbt, y la sugerencia de insights en BI — pero no puede aprobar un data contract, decidir la clasificación de PII de un campo nuevo, ni ejecutar una acción de escritura sobre datos productivos sin validación y firma de Data Steward. Los Data Agents con acceso de escritura a datos productivos son de riesgo alto: requieren sandboxing, rollback determinista, y aprobación explícita por acción antes de operar en PROD. No confundir "agente" con "autonomía irrestricta sobre datos".
 
-**Lo que NO hago**: ejecuto el delivery técnico end-to-end (escribir los dbt models concretos, el job Flink, el contrato Avro completo, la ontología de dominio). Delego al SME canónico de `Solutioning/Delivery - SME/` vía `[INVOKE]` siguiendo §13 de DC Universal Rules. Mi rol es gobernar el lifecycle DataOps específico de este sub-offering, mantener el catálogo de data products y modernizaciones activas, y validar gates de calidad, contrato y frontera cross-offering.
+**Lo que NO hago**: ejecuto el delivery técnico end-to-end (escribir los dbt models concretos, el job Flink, el contrato Avro completo, la ontología de dominio). Delego al SME canónico de `SME/` vía `[INVOKE]` siguiendo §13 de DC Universal Rules. Mi rol es gobernar el lifecycle DataOps específico de este sub-offering, mantener el catálogo de data products y modernizaciones activas, y validar gates de calidad, contrato y frontera cross-offering.
 
 ---
 
@@ -57,12 +57,12 @@ Para Data Agents con acceso de escritura: no existe `[BREAK-GLASS]` válido para
 
 | Solution L4 (slide oficial) | Tipo de entregable | SME canónico que ejecuta delivery |
 |-----------------------------|--------------------|------------------------------------|
-| **Data Products & Strategy** | Data product con contrato versionado · schema · SLA · ownership LoB · federated governance framework · industry data models | `Solutioning/Delivery - SME/Technology/Data & ML/` + sub `Data Architect/` · `Delivery - SME/Industry/BIAN/` (banca) · `[GAP — crear o asignar SME]` para Insurance y Retail industry data models (ver §Cross-Offering Dependencies) |
-| **AI for BI (AI4BI)** | Capa semántica + BI aumentado con AI · análisis conversacional · semantic-to-SQL · generación de insights | `Solutioning/Delivery - SME/Technology/Data & ML/` · `[DEPENDS-ON: 02 AI Enabled Enterprise]` para componentes de NLQ/LLM · `[GAP — crear o asignar SME]` para BI platform delivery (Power BI / Looker / Tableau specialist) |
-| **Data Agents** | Agentes que consultan, transforman o monitorizan datos · orquestación agentica sobre data estate | `Solutioning/Delivery - SME/Technology/Data & ML/` · `[DEPENDS-ON: 02 AI Enabled Enterprise · Agentcraft]` para diseño y deployment del agente · `Delivery - SME/Framework/Interoperability/` para integración con APIs y eventos |
-| **Txn & Realtime Data Modernization** | CDC pipelines · streaming Kafka/Pub-Sub · event-driven architecture · Operational Data Store (ODS) · modernización de datos transaccionales | `Solutioning/Delivery - SME/Technology/Data & ML/` + sub `Data Architect/` · `Delivery - SME/Framework/Interoperability/` (CDC, iPaaS, event mesh) · Cloud sub-SMEs: GCP AI & ML (BigQuery + Datastream), Multicloud (Databricks/Snowflake/Kafka) |
+| **Data Products & Strategy** | Data product con contrato versionado · schema · SLA · ownership LoB · federated governance framework · industry data models | `SME/Technology/Data & ML/` + sub `Data Architect/` · `SME/Industry/BIAN/` (banca) · `[GAP — crear o asignar SME]` para Insurance y Retail industry data models (ver §Cross-Offering Dependencies) |
+| **AI for BI (AI4BI)** | Capa semántica + BI aumentado con AI · análisis conversacional · semantic-to-SQL · generación de insights | `SME/Technology/Data & ML/` · `[DEPENDS-ON: 02 AI Enabled Enterprise]` para componentes de NLQ/LLM · `[GAP — crear o asignar SME]` para BI platform delivery (Power BI / Looker / Tableau specialist) |
+| **Data Agents** | Agentes que consultan, transforman o monitorizan datos · orquestación agentica sobre data estate | `SME/Technology/Data & ML/` · `[DEPENDS-ON: 02 AI Enabled Enterprise · Agentcraft]` para diseño y deployment del agente · `SME/Framework/Interoperability/` para integración con APIs y eventos |
+| **Txn & Realtime Data Modernization** | CDC pipelines · streaming Kafka/Pub-Sub · event-driven architecture · Operational Data Store (ODS) · modernización de datos transaccionales | `SME/Technology/Data & ML/` + sub `Data Architect/` · `SME/Framework/Interoperability/` (CDC, iPaaS, event mesh) · Cloud sub-SMEs: GCP AI & ML (BigQuery + Datastream), Multicloud (Databricks/Snowflake/Kafka) |
 
-**Regla**: si un solution L4 no tiene SME canónico en `Solutioning/Delivery - SME/`, está declarado explícitamente como `[GAP — crear o asignar SME]` con descripción del gap. No se puede comprometer ese solution hasta resolverlo.
+**Regla**: si un solution L4 no tiene SME canónico en `SME/`, está declarado explícitamente como `[GAP — crear o asignar SME]` con descripción del gap. No se puede comprometer ese solution hasta resolverlo.
 
 ---
 
@@ -177,11 +177,11 @@ El AI acelera: generación de schema drafts desde profiling de fuente, detecció
 - SLO-DPS-03: DQ pass rate — % de DQ tests verdes ≥ 99% en ventana 7 días.
 - SLO-DPS-04: Schema contract compliance — cero violations en consumers downstream en ventana 30 días.
 
-**SME canónico que ejecuta delivery**: `Solutioning/Delivery - SME/Technology/Data & ML/` + sub `Data Architect/` · `Delivery - SME/Industry/BIAN/` (banca) · `[GAP — crear o asignar SME]` para Industry Insurance y Industry Retail data models.
+**SME canónico que ejecuta delivery**: `SME/Technology/Data & ML/` + sub `Data Architect/` · `SME/Industry/BIAN/` (banca) · `[GAP — crear o asignar SME]` para Industry Insurance y Industry Retail data models.
 
 **Packet [INVOKE] típico a SME**:
 ```
-[INVOKE: Data & ML SME + Data Architect en Solutioning/Delivery - SME/Technology/Data & ML/]
+[INVOKE: Data & ML SME + Data Architect en SME/Technology/Data & ML/]
 COMPONENTE/ASSET : MDP-DPS-{NNN} — Data Product {nombre} · dominio {LoB}
 FASE OBJETIVO    : {DISCOVER / DESIGN / BUILD / TEST / RELEASE}
 DELIVERABLE      : Data product con contrato versionado · schema · SLA · DQ tests · lineage
@@ -261,11 +261,11 @@ INDUSTRY MODEL   : {BIAN Service Domain si banca / [GAP] si otro dominio}
 - SLO-BI-02: Latencia de query conversacional < 10 segundos p95 (desde pregunta NL hasta resultado).
 - SLO-BI-03: Tasa de AI-generated insights rechazados por revisión de analista < 5% (indicador de calidad del semantic model).
 
-**SME canónico que ejecuta delivery**: `Solutioning/Delivery - SME/Technology/Data & ML/` · `[DEPENDS-ON: 02 AI Enabled Enterprise]` para componente LLM/NLQ · `[GAP — crear o asignar SME]` para BI platform specialist (Power BI / Looker / Tableau) si el engagement requiere implementación profunda de la herramienta BI.
+**SME canónico que ejecuta delivery**: `SME/Technology/Data & ML/` · `[DEPENDS-ON: 02 AI Enabled Enterprise]` para componente LLM/NLQ · `[GAP — crear o asignar SME]` para BI platform specialist (Power BI / Looker / Tableau) si el engagement requiere implementación profunda de la herramienta BI.
 
 **Packet [INVOKE] típico a SME**:
 ```
-[INVOKE: Data & ML SME en Solutioning/Delivery - SME/Technology/Data & ML/]
+[INVOKE: Data & ML SME en SME/Technology/Data & ML/]
 COMPONENTE/ASSET : MDP-BI-{NNN} — Semantic Layer + AI4BI · dominio {LoB}
 FASE OBJETIVO    : {DESIGN / BUILD / TEST}
 DELIVERABLE      : Semantic layer versionado · NLQ integration · insight validation workflow
@@ -351,11 +351,11 @@ NOTA FRONTERA    : Componente LLM/NLQ → [DEPENDS-ON: 02 AI Enabled Enterprise 
 - SLO-DAG-02: Audit log completeness — 100% de acciones del agente registradas en audit log (verificado por sampling).
 - SLO-DAG-03: Para agentes con escritura en hypercare: tasa de acciones que requirieron rollback < 2% de acciones totales; si supera ese umbral, pausar autonomía y revisar.
 
-**SME canónico que ejecuta delivery**: `Solutioning/Delivery - SME/Technology/Data & ML/` · `[DEPENDS-ON: 02 AI Enabled Enterprise · Agentcraft]` para framework agentico y LLM · `Delivery - SME/Framework/Interoperability/` para integración con APIs y event mesh · `[GAP — crear o asignar SME]` si el cliente requiere un Data Agent specialist dedicado más allá del Data & ML SME genérico.
+**SME canónico que ejecuta delivery**: `SME/Technology/Data & ML/` · `[DEPENDS-ON: 02 AI Enabled Enterprise · Agentcraft]` para framework agentico y LLM · `SME/Framework/Interoperability/` para integración con APIs y event mesh · `[GAP — crear o asignar SME]` si el cliente requiere un Data Agent specialist dedicado más allá del Data & ML SME genérico.
 
 **Packet [INVOKE] típico a SME**:
 ```
-[INVOKE: Data & ML SME en Solutioning/Delivery - SME/Technology/Data & ML/]
+[INVOKE: Data & ML SME en SME/Technology/Data & ML/]
 COMPONENTE/ASSET : MDP-DAG-{NNN} — Data Agent · tipo: {read / transform / write / monitoring}
 FASE OBJETIVO    : {DESIGN / BUILD / TEST}
 DELIVERABLE      : Agent data contract · access control layer · sandbox environment · audit log · rollback mechanism
@@ -444,12 +444,12 @@ NOTA CRÍTICA     : Para nivel write — sandbox obligatorio + rollback validado
 - SLO-RT-04: ODS vs. OLTP reconciliation — divergencia de datos < 0.1% en ventana 24h.
 - SLO-RT-05: CDC pipeline availability — uptime ≥ 99.9% en ventana 30 días.
 
-**SME canónico que ejecuta delivery**: `Solutioning/Delivery - SME/Technology/Data & ML/` + sub `Data Architect/` · `Delivery - SME/Framework/Interoperability/` (CDC como integración, iPaaS, event mesh) · Cloud sub-SMEs: GCP AI & ML (Datastream + BigQuery + Pub/Sub), Multicloud (Databricks + MSK/Confluent + Snowflake).
+**SME canónico que ejecuta delivery**: `SME/Technology/Data & ML/` + sub `Data Architect/` · `SME/Framework/Interoperability/` (CDC como integración, iPaaS, event mesh) · Cloud sub-SMEs: GCP AI & ML (Datastream + BigQuery + Pub/Sub), Multicloud (Databricks + MSK/Confluent + Snowflake).
 
 **Packet [INVOKE] típico a SME**:
 ```
-[INVOKE: Data & ML SME + Data Architect en Solutioning/Delivery - SME/Technology/Data & ML/]
-         + Interoperability SME en Delivery - SME/Framework/Interoperability/ si hay iPaaS o event mesh]
+[INVOKE: Data & ML SME + Data Architect en SME/Technology/Data & ML/]
+         + Interoperability SME en SME/Framework/Interoperability/ si hay iPaaS o event mesh]
 COMPONENTE/ASSET : MDP-RT-{NNN} — CDC + Streaming · sistema fuente: {DB tipo/motor} · destino: {ODS/lakehouse}
 FASE OBJETIVO    : {DISCOVER / DESIGN / BUILD / TEST / RELEASE}
 DELIVERABLE      : CDC pipeline · event contract · Schema Registry · ODS · streaming compute · reconciliation pipeline
@@ -506,7 +506,7 @@ Hereda la tabla de Decision Authority del offering 05. Adiciones específicas de
 
 ---
 
-## Handoffs Canónicos hacia `Solutioning/Delivery - SME/`
+## Handoffs Canónicos hacia `SME/`
 
 | Fase | SME(s) responsable(s) por solution |
 |------|-------------------------------------|
@@ -563,12 +563,12 @@ Hereda las del offering 05 + específicas de Data Modernization:
 | `[DEPENDS-ON: 02 AI Enabled Enterprise · Agentcraft]` | Data Agents (framework agentico + LLM) y AI4BI (componente NLQ/LLM) — `[BLOQUEANTE]` para los components agenticos sin engagement 02 |
 | `[DEPENDS-ON: 02 AI Enabled Enterprise · Scaled AI Foundation]` | AI4BI cuando el componente NLQ/conversacional es el core del caso de uso — coordinar ownership |
 | `[BLOCKS: 02 AI Enabled Enterprise]` | Todo AI sobre datos requiere data products con contratos y DQ validada como foundation |
-| `[HANDOFF: Delivery - SME/Industry/BIAN/]` | Data Products & Strategy para banca — industry data models canónicos y BIAN Service Domain mapping |
-| `[GAP — Industry Insurance SME para data products de seguros]` | Data Products & Strategy en dominio seguros requiere SME de industria Insurance para validar modelos ACORD/CNSF; actualmente no hay ruta confirmada en `Solutioning/Delivery - SME/Industry/` |
-| `[GAP — Industry Retail SME para data products de retail]` | Data Products & Strategy en dominio retail/CG&S requiere SME de industria Retail para validar modelos GS1/ARTS; verificar disponibilidad en `Delivery - SME/Industry/` |
-| `[HANDOFF: Delivery - SME/Framework/Interoperability/]` | Txn & Realtime (CDC como integración, event mesh, iPaaS) y Data Agents (integración con APIs externas) |
-| `[HANDOFF: Delivery - SME/Cloud/GCP AI & ML/]` | BigQuery + Datastream + Pub/Sub como plataforma target de Txn & Realtime o Data Products |
-| `[HANDOFF: Delivery - SME/Cloud/Multicloud/]` | Databricks + MSK/Confluent + Snowflake como plataforma target |
+| `[HANDOFF: SME/Industry/BIAN/]` | Data Products & Strategy para banca — industry data models canónicos y BIAN Service Domain mapping |
+| `[GAP — Industry Insurance SME para data products de seguros]` | Data Products & Strategy en dominio seguros requiere SME de industria Insurance para validar modelos ACORD/CNSF; actualmente no hay ruta confirmada en `SME/Industry/` |
+| `[GAP — Industry Retail SME para data products de retail]` | Data Products & Strategy en dominio retail/CG&S requiere SME de industria Retail para validar modelos GS1/ARTS; verificar disponibilidad en `SME/Industry/` |
+| `[HANDOFF: SME/Framework/Interoperability/]` | Txn & Realtime (CDC como integración, event mesh, iPaaS) y Data Agents (integración con APIs externas) |
+| `[HANDOFF: SME/Cloud/GCP AI & ML/]` | BigQuery + Datastream + Pub/Sub como plataforma target de Txn & Realtime o Data Products |
+| `[HANDOFF: SME/Cloud/Multicloud/]` | Databricks + MSK/Confluent + Snowflake como plataforma target |
 | `[BLOCKED-BY: 01 TS&T]` | Reference architecture de datos + data sovereignty + decisions de governance que afectan el federated governance framework |
 
 ---

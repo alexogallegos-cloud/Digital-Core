@@ -1,7 +1,9 @@
-# cap-hld.md — Holdings
-> BIAN: 4.1.2 · Holdings · Dominio: 4 · Common Customer View
+# BC-03 · Portafolio del Cliente
+> bian_ref: 4.1.2 Holdings
 > Sistema: S151 · Programas: P050 · P052
-> Reglas vinculadas: 40 · Tareas: 22
+> Reglas vinculadas: RN-S151-281..300 · RN-S151-311..330 (40 reglas · trazabilidad automática 2026-07-27)
+> Jerarquía: **N1** Dominio 4 · Common Customer View → **N2** Subdominio Customer View → **N3** Capacidad 4.1.2 Holdings → **N4-5** Procesos/Flujo de tareas (ver Inventario de Tareas) → **N6** Reglas (ver Reglas vinculadas)
+> Indexado: ✅ 2026-07-27 — correlacionado vocab↔reglas↔capacidad (build-traceability.py)
 > Generado: 2026-07-16
 
 ---

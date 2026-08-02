@@ -2,6 +2,7 @@
 > Análisis multi-señal · Etapa 4 HITL · Reverse Engineering Specialist
 > Sistema: SPE-MM-001 (S500 Sistema de Cargos y Abonos — Unisys ClearPath MCP)
 > Fecha: 2026-06-30 · Estado: `[DRAFT — PENDIENTE VALIDACIÓN CON SME BANAMEX]`
+> Indexado: ✅ 2026-07-17 — Capa 5 — grupos funcionales/dominio
 
 ```
 ┌─ ADVERTENCIA HITL ──────────────────────────────────────────────────────────┐

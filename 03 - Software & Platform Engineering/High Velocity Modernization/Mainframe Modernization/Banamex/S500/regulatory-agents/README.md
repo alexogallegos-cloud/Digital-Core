@@ -1,4 +1,5 @@
 # Agentes Expertos Regulatorios — S500 Banamex AIRE 2026
+> Indexado: ✅ 2026-07-17 — README del proyecto/componente (contexto de conocimiento)
 
 > Sistema S500 · Banamex · v1 · 2026-07-03
 

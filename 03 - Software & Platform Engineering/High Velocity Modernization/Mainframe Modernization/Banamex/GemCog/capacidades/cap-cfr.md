@@ -1,12 +1,15 @@
-# cap-cfr.md — CFR Regulatory Reporting Pipeline — T.4.1 CNBV Accounting Series B
+# BC-19 · Pipeline Regulatorio CFR — CNBV Serie B
 
 > Sistema: S151 | Programas: P130 (AGRUPADOR/17MTP001 · ~13,360 LOC), P131 (TRADUCTOR/15MTP007 · ~11,833 LOC) | Fase: DISCOVER Etapa 0
 > Dominio: T.4 — Transversal Regulatory (no hay BIAN exacto para reportería CNBV; T.4.1 CFR Regulatory Reporting Pipeline)
-> Reglas vinculadas: RN-S151-061..080 (P130, 20 reglas) + RN-S151-091..112 (P131, 22 reglas) | GAP RN-S151-081..090 vacío
+> Reglas vinculadas: RN-S500-061..071 · RN-S500-079 · RN-S500-082..090 · RN-S500-092 · RN-S500-094 · RN-S500-096..098 · RN-S500-100..103 · RN-S151-061..080 · RN-S151-091..112 · RN-S151-221..232 · RN-S151-612 (85 reglas · trazabilidad automática 2026-07-20)
+> Jerarquía: **N1** Dominio T · Transversal · Interfaces & Seguridad → **N2** Subdominio Reporting & Regulatorio → **N3** Capacidad T.4.1 CFR Regulatory Reporting Pipeline → **N4-5** Procesos/Flujo de tareas (ver Inventario de Tareas) → **N6** Reglas (ver Reglas vinculadas)
+> Indexado: ✅ 2026-07-20 — correlacionado vocab↔reglas↔capacidad (build-traceability.py)
+> bian_ref: T.4.1 CFR Regulatory Reporting Pipeline
 
 Pipeline regulatorio de dos etapas que transforma los movimientos contables del día (LOG151) en reportes Serie B para la CNBV. P130 agrupa por dimensiones contables (sistema, libro, moneda, CVETRAN); P131 traduce a la nomenclatura CFR via jerarquía de catálogos CNBV (COPC/COPCN → PNPA/PNPB → CXEV/COCO → CCFI/CCFIN → DREG-FOBA). Un error en este pipeline produce reportes CNBV incorrectos con potencial sanción regulatoria y observación de auditoría CNBV.
 
-**Dependencia crítica**: SETID="BNMEX" hardcodeado en P131 (RN-S151-110) — punto de quiebre para la separación Citi/Banamex.
+**Dependencia crítica**: SETID="BNMEX" hardcodeado en P131 (RN-S151-110) — **14 ocurrencias (11 activas + 3 en comentarios)** en todo P131 — punto de quiebre para la separación Citi/Banamex. Ver registro de riesgos: **MR-CFR-01 🟠 CRÍTICO**.
 
 ---
 
@@ -55,7 +58,7 @@ P131 (TRADUCTOR, task TRADUCTOR/15MTP007) recibe el AGRUPADO y ejecuta una caden
 | T-CFR-022 | Post-lookup CCFIN cuenta final sistema 403 (paso adicional sobre resultado de CXEV→COCO, post-proceso independiente de T-CFR-021) | P131 | BATCH | ALTA | ALTA |
 | T-CFR-023 | Doble registro FOBAPROA (DREG-FOBA loop por CTA-ORIG+OCURRENCIA cuando COPC-IND-2FOBA=2): genera asientos adicionales en CUADREESPECIAL | P131 | BATCH | ALTA | CRÍTICA |
 | T-CFR-024 | Traducción INTERCOMPANY numérico → alfa (catálogo ARCH-INTE, solo sistemas 84/87/403/500), complemento de cuenta (3 fuentes: COCO/PNPB/tipo-crédito) y asignación DEPTO (centralizadora → COPC → sucursal) | P131 | BATCH | ALTA | ALTA |
-| T-CFR-025 | Identidad del asiento: IDASIEN=SIST+CSI+1+SPACES, SETID="BNMEX" y TIPTRA=10 hardcodeados en todo P131 | P131 | BATCH | MEDIA | CRÍTICA |
+| T-CFR-025 | Identidad del asiento: IDASIEN=SIST+CSI+1+SPACES, SETID="BNMEX" (**14 ocurrencias en P131**: 11 activas + 3 en comentarios) y TIPTRA=10 hardcodeados | P131 | BATCH | MEDIA | CRÍTICA |
 | T-CFR-026 | Redefinición semántica FIDEICOMISO ← AREA: campo nominado fideicomiso contiene el área del movimiento (original comentado en código) | P131 | BATCH | BAJA | CRÍTICA |
 | T-CFR-027 | Generación del PAQUETECONTABLE (90 bytes, 2 registros cargo/abono por movimiento, CVE-REG "05"→"01") y sort por 8 claves para interfaz S254 | P131 | BATCH | ALTA | CRÍTICA |
 | T-CFR-028 | Ruta paralela FFS en P131: PAQUETECONTABLEFS (126 bytes) con campos SUC-PROM/NUM-CTO/NUM-CTE/NUM-FOL; sort extendido con 4 campos adicionales | P131 | BATCH | ALTA | ALTA |
@@ -248,7 +251,7 @@ flowchart LR
 
 | # | Hallazgo | Tipo | Impacto | Recomendación |
 |---|---------|------|---------|---------------|
-| CFR-H01 | SETID="BNMEX" hardcodeado en P131 (RN-S151-110): todo asiento en S254/PeopleSoft se identifica con la entidad "BNMEX" directamente en código | Configuración crítica — separación Citi/Banamex | CRITICAL | Externalizar SETID como parámetro de entorno desde día 1 de migración; probar contra S254 con ambos valores antes del go-live |
+| CFR-H01 | SETID="BNMEX" hardcodeado en P131 (RN-S151-110): **14 ocurrencias (11 activas + 3 en comentarios)** — todo asiento en S254/PeopleSoft se identifica con la entidad "BNMEX" directamente en código; ver **MR-CFR-01 🟠 CRÍTICO** en migration-risk-register.md | Configuración crítica — separación Citi/Banamex | CRITICAL | Externalizar SETID como parámetro de entorno desde día 1 de migración; auditar las 14 ocurrencias en P131 antes del go-live; probar contra S254 con ambos valores |
 | CFR-H02 | Jerarquía de traducción CFR embebida en 9 catálogos hard-linked al código (COPC, CCFI, PNPA, CXEV, COCO, DREG-FOBA, ARCH-CAT, SIUN, ARCH-INTE) — no hay API de traducción ni tabla administrable externamente | Acoplamiento regulatorio | HIGH | Extraer todos los catálogos a BD relacional versionada; exponer API de traducción CNBV con versionado de reglas; establecer proceso de actualización regulatoria sin recompilación |
 | CFR-H03 | FIDEICOMISO ← AREA: el campo A01-TRAD-FIDEICOMISO del PAQUETECONTABLE contiene el AREA del movimiento — la asignación de fideicomiso original está comentada en código (RN-S151-112) | Semántica de campo no estándar | CRITICAL | Validar con Banamex Finance qué espera S254 en este campo antes de migrar; documentar si el cambio es intencional o deuda técnica; cualquier sistema destino que mapee por nombre de campo producirá error |
 | CFR-H04 | Filtro FUNCION silencioso (RN-S151-061): valores distintos de 1, 2 y 99 no generan error ni desvío — movimientos con FUNCION nuevo (ej. correcciones futuras) se pierden sin traza | Pérdida silenciosa de datos | MEDIUM | Agregar validación explícita + log/alerta para FUNCION no reconocido; revisar si hay valores en producción distintos de 1, 2 y 99 en el histórico de LOG151 |

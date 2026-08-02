@@ -1,9 +1,12 @@
-# Capacidad: Operational Reconciliation — Registro S151 Condicional [S500+S151]
+# BC-12 · Reconciliación Operacional
 > Dominio: 6 · Common Services · Capacidad: **6.7.2 Operational Reconciliation**
 > Cobertura: S500+S151 · Mecanismo: **S151REGISTRA** (flag de compilación condicional)
 > Variantes: REGISTRA1 (CVETRAN 4 dígitos) · REGISTRA2 (CVETRAN 6 dígitos + CVEDESVIO)
-> Reglas vinculadas: RN-S500-153..172 (20 reglas — S151REGISTRA)
-> Programas activadores: 15 unidades de compilación S500 (P102/P105/P107/P110/P120/P127/P130/P131/P142/P144/P168/P178/P180 + 2 includes canónicos)
+> Reglas vinculadas: RN-S500-721..765 · RN-S151-181..185 · RN-S151-617..624 · RN-S151-720..732 · RN-S151-735..749 (86 reglas · trazabilidad automática 2026-07-27)
+> Jerarquía: **N1** Dominio 6 · Common Services → **N2** Subdominio Reconciliations → **N3** Capacidad 6.7.2 Operational Reconciliation → **N4-5** Procesos/Flujo de tareas (ver Inventario de Tareas) → **N6** Reglas (ver Reglas vinculadas)
+> Indexado: ✅ 2026-07-27 — correlacionado vocab↔reglas↔capacidad (build-traceability.py)
+> Programas activadores: 15 unidades de compilación S500 (P102/P105/P107/P110/P120/P127/P130/P131/P142/P144/P168/P178/P180 + 2 includes canónicos) · S500/P186 (Cuenta Global + Tarjetas · RN-S500-725..729 · validado Mario SME S500 · 2026-07-22)
+> bian_ref: 6.7.2 Operational Reconciliation
 
 ---
 
@@ -242,7 +245,19 @@ sequenceDiagram
 
 ---
 
-*cap-orc.md · v1.0 · 2026-07-16*
+---
+
+## Nota: ORC no es job WFL — opera vía COPY books COBOL
+
+[CORRECCIÓN 2026-07-21 · evidencia: auditoría WFL LOTE `S500_WFL_REORG_GARBAGE_S500BD04TARJETAS.txt`]
+
+La capacidad ORC (S500/INC) **no se invoca como `RUN` desde WFL LOTE**. Opera como mecanismo de inclusión COBOL: los archivos `S500/INC/PRO/...` y `S500/INC/WOR/...` son COPY books compilados dentro de P010, P015, P020, P100, P102 y otros programas online. La llamada `CALL CARGAMOV1 IN REGISTRAS500` ocurre en tiempo de ejecución de esos programas, no desde el orquestador WFL.
+
+Lo que WFL LOTE sí hace cuando un paso batch falla es invocar la subrutina `AVISOINC`, que mapea `IDFALLAPASO` a un mensaje de texto para la consola de operaciones. La sentencia `S500INCIDENTEBT` (parámetro de notificación P101) aparece únicamente en líneas comentadas (`%` / `%%`) del WFL LOTE y no se ejecuta activamente.
+
+El campo "fuente" de T-WFL-015 en cap-wfl.md fue corregido de `S500_WFL_LOTE.txt` a `S500_WFL_REORG_GARBAGE_S500BD04TARJETAS.txt`, y su descripción actualizada para reflejar el rol real de `AVISOINC`.
+
+*cap-orc.md · v1.1 · 2026-07-21*
 *Capacidad: 6.7.2 Operational Reconciliation · Sistema: S500+S151 · S151REGISTRA (15 programas)*
 *Cross-referencia: RN-S500-153..172 · rules-s500-s151registra-p103fraude.md · capability-map.md*
 
@@ -399,7 +414,53 @@ sequenceDiagram
 
 ---
 
+## Ampliación — P186 Cuenta Global + Tarjetas (RN-S500-725..729)
+
+> P186: COBOL · 10,800 LOC · Dominio CONTROL · Batch nocturno
+> Mapeo validado: Mario (SME S500) · 2026-07-22
+> Antes mapeado tentativamente a INT (confianza BAJA pre-reglas); confirmado ORC por Mario
+
+### Contexto funcional P186
+
+**P186** (COBOL, 10,800 LOC, dominio CONTROL) es el ejecutor de la etapa de dispersión del journey Art. 61 LIC (F-06). Actúa como puente **bidireccional** entre S500 y el sistema externo S274: recibe el archivo consolidado de traspasos a Cuenta Global (`I01-TRP-CTAGLB`, 140 chars), lo expande a `E02-DISP-S274` (240 chars) con campos de ruteo y control que S274 exige, y sincroniza el retorno de S274 actualizando `BD04TARJETAS` y `BD01CAPTACION`. Adicionalmente calcula tarifas de tarjeta con versionamiento IVA/UDIS cruzando `BD04TARJETAS` × `BD01CAPTACION` bajo catálogos `S100VERSIONES`, `S080TARIFAS`, `S080IVA` y `S080L700UDIS`.
+
+La cifra de control **R01-CIFCTRL** es el gate regulatorio CNBV Art. 61: valida que el número de traspasos recibidos coincide con el número de dispersiones generadas. Una divergencia es un incidente auditable inmediato.
+
+### Inventario de Tareas adicionales
+
+| ID | Tarea | Programa | Tipo | Criticidad BIAN | Criticidad migración |
+|----|-------|----------|------|-----------------|----------------------|
+| T-ORC-029 | Calcular tarifas de tarjeta con versionamiento IVA y UDIS cruzando BD04TARJETAS × BD01CAPTACION (S100VERSIONES · S080TARIFAS · S080IVA · S080L700UDIS) | P186 | BATCH | ALTA | ALTA |
+| T-ORC-030 | Recibir traspasos a Cuenta Global desde otros sistemas (I01-TRP-CTAGLB · 140 caracteres) | P186 | BATCH | ALTA | CRÍTICA |
+| T-ORC-031 | Generar archivo de dispersión E02-DISP-S274 (240 caracteres) hacia sistema S274 para materializar traspasos a Cuenta Global / Cuenta de Beneficencia | P186 | BATCH | ALTA | CRÍTICA |
+| T-ORC-032 | Dispersar reactivaciones a Cuenta Global por vía separada hacia S274 | P186 | BATCH | ALTA | ALTA |
+| T-ORC-033 | Mantener trazabilidad de reconciliación: bitácora I06-ARCH-INCIDENTE · ligas ARCH-HLIG · cifra de control R01-CIFCTRL (recibidos vs dispersados) | P186 | BATCH | ALTA | CRÍTICA |
+| T-ORC-034 | Reprocesar dispersos reactivos vía archivo S274 — actualizar BD04TARJETAS y BD01CAPTACION (puente bidireccional de retorno) | P186 | BATCH | MEDIA | ALTA |
+
+### Reglas de negocio vinculadas
+
+| ID regla | Enunciado breve | Criticidad |
+|----------|----------------|------------|
+| RN-S500-725 | Cálculo de tarifas de tarjeta con IVA y UDIS — catálogos versionados S100/S080 cruzando BD04TARJETAS × BD01CAPTACION | ALTA |
+| RN-S500-726 | Recepción I01-TRP-CTAGLB (140 chars) y generación E02-DISP-S274 (240 chars) — dispersión Cuenta Global / Beneficencia hacia S274 | CRÍTICA |
+| RN-S500-727 | Dispersión separada de reactivaciones a Cuenta Global — flujo paralelo al traspaso inicial | ALTA |
+| RN-S500-728 | Trazabilidad: I06-ARCH-INCIDENTE + ARCH-HLIG (ligas de correspondencia) + R01-CIFCTRL (recibidos vs dispersados) | ALTA |
+| RN-S500-729 | Reproceso bidireccional: recibe retorno de S274 y actualiza BD04TARJETAS + BD01CAPTACION; clave W77-KEY-I01 = último registro leído − 1 | MEDIA |
+
+### Hallazgos de migración P186
+
+| # | Hallazgo | Tipo | Impacto | Recomendación |
+|---|---------|------|---------|---------------|
+| ORC-P186-H01 | `E02-DISP-S274` es contrato de interfaz fijo de 240 chars — layout documentado solo en COBOL de P186; S274 rompe si cambia cualquier campo | Interfaz | CRÍTICO | Documentar layout campo a campo antes del cutover; versionarlo en ADR de integración con S274; contract test automatizado en CI/CD |
+| ORC-P186-H02 | R01-CIFCTRL es gate regulatorio CNBV Art. 61 — si diverge entre recibidos y dispersados es incidente auditable inmediato | Regulatorio | CRÍTICO | Implementar reconciliación automática R01-CIFCTRL en el target con alerta inmediata; incluir como gate bloqueante en runbook nocturno |
+| ORC-P186-H03 | P186 cruza BD04TARJETAS y BD01CAPTACION — en modernización corresponden a dos bounded contexts; si migran en waves distintas P186 queda partido entre ellos | Arquitectura | ALTO | Incluir en Wave Map como programa cross-BC; migrar junto con el wave dominante (Art. 61 → DEP) o implementar ACL transitoria |
+| ORC-P186-H04 | UDIS requiere conversión de valores indexados a inflación vía S080L700UDIS — catálogo puede cambiar diariamente; en modernización no puede ser archivo DMSII estático | Equivalencia | ALTO | Golden-master debe cubrir escenarios con variación de índice UDIS; mock de S080L700UDIS debe simular variaciones de valor |
+| ORC-P186-H05 | Flujo bidireccional S274 → S500 actualiza BD04 + BD01 — en parallel-run puede generar inconsistencias si S274 no distingue origen (legado vs nuevo) | Parallel-run | ALTO | Diseñar routing en S274 para distinguir peticiones legado vs modernizado durante coexistencia; definir en ADR antes de Wave 1 |
+
+---
+
+*cap-orc.md · v1.2 · 2026-07-22 · Ampliación P186 (RN-S500-725..729) — Cuenta Global Art. 61 LIC + tariffing IVA/UDIS · Mapeo INT → ORC · Validado Mario SME S500*
 *cap-orc.md · v1.1 · 2026-07-16*
 *Ampliación: P021 (RN-S151-181..185) + P602+P620+P630 (RN-S151-551..560, 571..590) + P655+P670+P680+P690 (RN-S151-591..632)*
-*Tareas T-ORC-016..028 · 13 tareas adicionales · Hallazgos: 5 (P021) + 8 (P602+P620+P630) + 12 (P655+P670+P680+P690)*
-*Cross-referencia: rules-s151-p021-p120.md · rules-s151-p602-p606-p620-p630.md · rules-s151-p655-p670-p671-p680-p690.md*
+*Tareas T-ORC-016..034 · 19 tareas adicionales · Hallazgos: 5 (P021) + 8 (P602+P620+P630) + 12 (P655+P670+P680+P690) + 5 (P186)*
+*Cross-referencia: rules-s151-p021-p120.md · rules-s151-p602-p606-p620-p630.md · rules-s151-p655-p670-p671-p680-p690.md · rules-s500-reconciliation.md*

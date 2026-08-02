@@ -1,6 +1,7 @@
 # Capa 7 — Equivalencia Funcional · Estrategia Golden-Master
 > Gemelo Cognitivo GemCog v2.2 · SPE-MM-001 (S500) + SPE-MM-002 (S151) · Banamex
 > Estado: DRAFT · Requiere firma: Software Engineering SME + Finance/Risk Officer + Regulatory (CNBV)
+> Indexado: ✅ 2026-07-17 — Capa 7 — estrategia de equivalencia
 
 ---
 

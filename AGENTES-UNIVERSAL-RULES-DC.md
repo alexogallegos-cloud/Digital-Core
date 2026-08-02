@@ -22,36 +22,40 @@ Este documento define **lo común a todas las variantes** — fases, gates, ambi
 
 ---
 
-## 1. HERENCIA DESDE `Solutioning/`
+## 1. HERENCIA DESDE LA CAPA COMÚN
 
-Este ecosistema es independiente del de `Solutioning/`, pero importa por referencia las reglas universales del mismo. Fuente canónica:
+Este ecosistema hereda las reglas comunes desde la **capa COMÚN compartida** — fuente única de verdad, común a Solutioning y Digital Core:
 
-**`c:\Users\alejandro.gallegos\OneDrive - Accenture\Documents\Solutioning\AGENTES-UNIVERSAL-RULES.md`**
+**`../AGENTES-UNIVERSAL-RULES-CORE.md`** (relativa a la raíz `Documents/`)
 
-### 1.1 Reglas heredadas íntegras
+La capa COMÚN conserva la numeración `§N` original, por lo que las referencias de este documento a esas secciones siguen resolviendo.
 
-| Sección base | Tema | Estado en Digital Core |
+### 1.1 Reglas heredadas de la capa COMÚN
+
+| Sección | Tema | Estado en Digital Core |
 |--------------|------|-------------------------|
 | §1 | Identidad y Honestidad Técnica | HEREDADA |
 | §2 | Vocabulario Universal de Señales | HEREDADA + ampliada (ver §3 de este documento) |
 | §6 | Restricciones del Rol | HEREDADA |
 | §7 | Integridad de Datos | HEREDADA |
 | §8 | Formato y Estilo | HEREDADA |
+| §10.1/10.2/10.5 | Coordinación y paquete de handoff `[INVOKE]`/`[RETURN]` | HEREDADA (base); DC añade su variante en §13 |
 | §12 | Tipografía — Señales que delatan al agente | HEREDADA |
 | §14 | Gestión de Contexto Efímero | HEREDADA |
 | §15 | Gestión Documental — `source/`, `knowledge_base/`, espejos MD | HEREDADA |
 | §16 | Principios de entrega (IaC-First) | HEREDADA + ampliada en §10 de este documento |
+| §18 | Gestión del Conocimiento | HEREDADA (antes duplicada en §24 de este documento; ahora vive solo en la capa COMÚN) |
 
-### 1.2 Reglas sustituidas en Digital Core
+### 1.2 Reglas propias de Digital Core (variantes que NO se heredan)
 
-| Sección base | Adaptación |
+| Concepto común | Variante de Digital Core |
 |--------------|-------------|
-| §3 (modos DIRECTO/SUB-AGENTE) | Reemplazado por §4 de este documento (modos alineados a fase SDLC) |
-| §4 (onboarding) | Reemplazado por §5 de este documento |
-| §5 (principio rector) | Cada Component Delivery Agent declara el suyo |
-| §9 (outputs formales DIP/propuesta) | No aplica — outputs DC son §11 de este documento |
-| §10 (deal-state, supuestos, bloqueados) | Reemplazado por §12 (artifact registry, change requests, gate evidence) |
-| §13 (sigil) | Nuevo sigil ★ Digital Core (ver §6) |
+| Modos de operación | §4 (alineados a fase SDLC), en vez de DIRECTO/SUB-AGENTE |
+| Onboarding | §5 de este documento |
+| Principio rector | Cada Component Delivery Agent declara el suyo (§14) |
+| Outputs formales | §11 (outputs DC); no aplica DIP/propuesta |
+| Coordinación operativa | §12 (artifact registry, change requests, gate evidence) + handoff cross-ecosystem §13 |
+| Identidad visual / sigil | Sigil ★ Digital Core (§6) |
 
 ---
 
@@ -469,7 +473,7 @@ FASE              : {DISCOVER | DESIGN | BUILD | TEST | RELEASE | OPERATE | OBSE
 ENV ACTIVOS       : {DEV | QA | UAT | STG | PROD | DR — separados por coma}
 VERSIÓN ACTUAL    : {semver}
 REPO              : {URL Git}
-OWNER (SME)       : {SME en Solutioning/Delivery - SME/ responsable de delivery}
+OWNER (SME)       : {SME en SME/ responsable de delivery}
 DoR / DoD ESTADO  : {DRAFT | COMPLETO | PENDIENTE: X}
 SLOs              : {lista de SLOs activos si fase = OPERATE+}
 DORA (last 30d)   : DF=x · LT=y · CFR=z · MTTR=w
@@ -501,7 +505,7 @@ Cada `[GATE-EXIT]` cumplido produce evidencia archivable: link a CI run verde, l
 
 ## 13. HANDOFF CROSS-ECOSYSTEM HACIA `Solutioning/`
 
-El Component Delivery Agent **gobierna el lifecycle**; el delivery operativo concreto lo ejecutan los SMEs de `Solutioning/Delivery - SME/`. La frontera:
+El Component Delivery Agent **gobierna el lifecycle**; el delivery operativo concreto lo ejecutan los SMEs de `SME/`. La frontera:
 
 | Lo que hace DC Agent | Lo que hace SME Solutioning |
 |----------------------|-------------------------------|
@@ -517,7 +521,7 @@ El Component Delivery Agent **gobierna el lifecycle**; el delivery operativo con
 Cuando un Component Delivery Agent invoca a un SME para una fase específica:
 
 ```
-[INVOKE: SME en Solutioning/Delivery - SME/{ruta}/]
+[INVOKE: SME en SME/{ruta}/]
 COMPONENTE      : {ID + nombre del componente}
 FASE OBJETIVO   : {DISCOVER/DESIGN/BUILD/TEST/RELEASE/OPERATE}
 DELIVERABLE     : {qué debe producir el SME — concreto, no genérico}
@@ -529,7 +533,7 @@ DEADLINE        : {fecha límite / sin deadline}
 
 ### 13.2 SMEs canónicos por offering
 
-Cada `CLAUDE.md` de offering declara explícitamente los SMEs de `Solutioning/Delivery - SME/` que ejecutan delivery. Esa lista es **prescriptiva** — no improvisar.
+Cada `CLAUDE.md` de offering declara explícitamente los SMEs de `SME/` que ejecutan delivery. Esa lista es **prescriptiva** — no improvisar.
 
 > `[PILOTO — 2026-05-30]` **Excepción documentada**: la solution *Mainframe Modernization* (03 S&PE · HVM) estrena el modelo inverso *SME=experto / DC=ejecución* — aloja sus sub-agentes de ejecución en el propio offering y trata al SME GenAI como advisory (método + estimación). Es un piloto acotado; el resto del ecosistema sigue esta §13 (SME ejecuta). Ver `…/Mainframe Modernization/CLAUDE.md`.
 
@@ -591,7 +595,7 @@ Aplica a cualquier output canónico (catalog, playbook, spec, ADR, runbook).
 - [ ] Budget + alerta configurada.
 
 **Handoffs**
-- [ ] SMEs de `Solutioning/Delivery - SME/` declarados como owners reales por fase.
+- [ ] SMEs de `SME/` declarados como owners reales por fase.
 - [ ] Handoff a AMS Reinvention con runbook + on-call rotation antes de cerrar OPERATE.
 - [ ] Postmortem ejecutado dentro de 5 días hábiles si hubo incidente P1/P2 (§21).
 
@@ -618,7 +622,7 @@ Todo componente productivo debe tener su `spec-{component-name}.md` con la estru
 - **State**: [STATE: PROPOSED | APPROVED | ACTIVE | DEPRECATED | SUNSET | ON-HOLD]
 - **Fase activa**: [PHASE: DISCOVER | ... | ITERATE]
 - **Versión actual**: {semver}
-- **Owner técnico**: {persona / equipo en Solutioning/Delivery - SME/}
+- **Owner técnico**: {persona / equipo en SME/}
 - **Sponsor de negocio**: {rol / persona}
 
 ## Propósito
@@ -1109,7 +1113,7 @@ Un componente productivo sin entrada en service catalog **no existe instituciona
 | Name | {component-name canónico} |
 | Type | {service · library · datastore · pipeline · model · IaC module · runbook · dashboard} |
 | Offering | {01-07} |
-| Owner team | {squad / equipo en Solutioning/Delivery - SME/} |
+| Owner team | {squad / equipo en SME/} |
 | Tech contact (on-call) | {persona / rotation alias} |
 | Business contact | {sponsor / PO} |
 | Lifecycle state | {PROPOSED · APPROVED · ACTIVE · DEPRECATED · SUNSET · ON-HOLD} |
@@ -1135,4 +1139,6 @@ Métrica universal: **% de componentes ACTIVE con metadata completa y sincroniza
 
 ---
 
-*Última actualización: 2026-05-27 · v2.1 · Agregadas §16-§23 (Component Spec Standard · Versioning · Repo & Branching · CI/CD Pipeline · Component Lifecycle State · Postmortem · API-First · Service Discoverability). DoD universal extendido a 13 criterios. Security gates con shift-left explícito. Onboarding diferenciado por modo. Outputs separados offering vs componente.*
+## §24 — Reglas de Conocimiento
+
+> Regla común. Vive en la capa COMÚN: `../AGENTES-UNIVERSAL-RULES-CORE.md` (§18 Gestión del Conocimiento). Antes estaba duplicada aquí; ahora es fuente única en CORE.

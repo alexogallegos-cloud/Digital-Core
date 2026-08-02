@@ -2,6 +2,11 @@
 > Gemelo Cognitivo Capa 3 · Mapa de capacidades bancarias con estado de documentación
 > Sistemas: S500 (Captación) + S151 (GL) · Unisys ClearPath MCP
 > Última actualización: 2026-07-16 · v1.0
+> Indexado: ✅ 2026-07-17 — Capa 3 — mapa de capacidades
+> **Tipo-artefacto:** `Mapa`  
+> **Capa-GemCog:** `3`  
+> **Propósito:** Índice navegable de las 23 capacidades BIAN cubiertas con estado de documentación — punto de entrada para orienting queries del retriever y decisiones de wave planning.  
+> **Relacionado-con:** capability-model-taxonomy · task-process-rules-index · traceability-matrix
 
 ---
 
@@ -9,10 +14,10 @@
 
 | Métrica | Valor |
 |---------|-------|
-| Capacidades en el modelo | 104 + 1 extensión CFR |
-| Cubiertas por S500 o S151 | 21 (20.2%) |
-| `cap-{slug}.md` generados | 21 / 21 ✅ |
-| `cap-{slug}.md` pendientes | 0 / 21 |
+| Capacidades en el modelo | 104 + 3 extensiones (CFR + WFL + CPE) |
+| Cubiertas por S500 o S151 | 23 (22.1%) |
+| `cap-{slug}.md` generados | 23 / 23 ✅ |
+| `cap-{slug}.md` pendientes | 0 / 23 |
 | Reglas disponibles para doc. | 826 (644 S151 + 182 S500) |
 | Reglas vinculadas | ~783 / 826 (94.8%) |
 
@@ -124,14 +129,16 @@
 | T.1.4 | Cloud Integration | Transversal | — | — | _(gap)_ |
 | T.2.1 | API (Internal) | Transversal | — | — | _(gap)_ |
 | T.2.2 | ESB | Transversal | — | — | _(gap)_ |
-| **T.2.3** | **MQ / Async (L091-L093)** | **Transversal** | **S500** | [cap-mq.md](capacidades/cap-mq.md) | ✅ |
+| **T.2.3** | **MQ / Async (L091 y L093)** | **Transversal** | **S500** | [cap-mq.md](capacidades/cap-mq.md) | ✅ |
 | T.2.4 | Others | Transversal | — | — | _(gap)_ |
 | T.3.1 | Master Data Mgmt. | Transversal | — | — | _(gap)_ |
 | T.3.2 | Metadata Mgmt. | Transversal | — | — | _(gap)_ |
 | T.3.3 | Content Mgmt. | Transversal | — | — | _(gap)_ |
-| **T.3.4** | **Analytics / Reporting** | **Transversal** | **S151** | [cap-rpt.md](capacidades/cap-rpt.md) | ✅ |
+| **T.3.4** | **Batch Control & Regulatory Extraction** | **Transversal** | **S151** | [cap-rpt.md](capacidades/cap-rpt.md) | ✅ |
 | **T.3.5** | **Security** | **Transversal** | **S500+S151** | [cap-sec.md](capacidades/cap-sec.md) | ✅ |
 | **T.4.1** | **CFR Regulatory Reporting Pipeline** | **Transversal** | **S151** | [cap-cfr.md](capacidades/cap-cfr.md) | ✅ |
+| **T.5.1** | **Batch Orchestration / WFL Orchestrator** | **Transversal** | **S500+S151** | [cap-wfl.md](capacidades/cap-wfl.md) | ✅ |
+| **T.6.1** | **CPE — Captación Productiva Especial (Mensual)** | **Transversal** | **S500** | [cap-cpe.md](capacidades/cap-cpe.md) | ✅ |
 
 ---
 
@@ -151,8 +158,8 @@
 | ✅ DONE | Operational Reconciliation | ORC | S500+S151 | RN-S500-153..182 (S151REGISTRA) | Flag compilación condicional — 2 variantes REGISTRA1/2 |
 | P1 | Access Control | ACC | S500 | RN-S500-027..036 (P655, compartido SEC) | L010_CONTROL + P655 scrambling |
 | ✅ DONE | Deposits | DEP | S500 | RN-S500-134, 138..152 · P142+P144 · 16 reglas | BIT-ACTBANDERA, conciliación B01↔B03, contratos captación |
-| P1 | Payment Schemes (SPEI/CLABE) | SPI | S500 | RN-S500-NNN (L091-L093) | SPEI + CLABE + MQ async |
-| ✅ DONE | Analytics / Reporting | RPT | S151 | RN-S151-421..490 (P199+P610+P612+P677) | Reportes Serie B CNBV · P199 bridge · P610 dispatcher |
+| P1 | Payment Schemes (SPEI/CLABE) | SPI | S500 | RN-S500-NNN (L091 y L093) | SPEI + CLABE + MQ async |
+| ✅ DONE | Batch Control & Regulatory Extraction | RPT | S151 | RN-S151-421..490 (P199+P610+P612+P677) · RN-S151-221..232 (P120) | Control ciclo batch diario · P199 bridge S500→S151 · P610 dispatcher · P120 SAR |
 | ✅ DONE | GL Adjustments & Sync | ADJ | S151 | RN-S151-710..749 (P312+P330+P360) | BC-09 · pipeline extracción/integración saldos GL · no migratable as-is |
 | ✅ DONE | Teller — Gateway Online/Sucursal | TEL | S151+S500 | RN-S151-241..272 + RN-S500-143 · 33 reglas | P010 dispatcher, FACULTAD/Q015, integración MDA |
 | ✅ DONE | Holdings | HLD | S151 | RN-S151-281..300 (P050) + RN-S151-311..330 (P052) · 40 reglas | TC=10 fallback CRÍTICO, LIB-L006, COMS 93 funciones, CONLI CNBV R10 |
@@ -162,6 +169,7 @@
 | ✅ DONE | Access Control | ACC→SEC | S500+S151 | RN-S151-244..262/272 · 8 reglas (merge cap-sec.md) | FACULTAD 1/2/3, Q015 hardcoded por pantalla, toggle HI 41/42 sin auditoría |
 | ✅ DONE | Payment Schemes SPEI/CLABE | SPI→PAY | S500+S151 | RN-S500-110/111/121/163+RN-S151-263 · 5 reglas (merge cap-pay.md) | SPEI HA, topología cross-CSI, NIO SPEI, CVETRAN 4449 |
 | ✅ DONE | CFR Regulatory Reporting Pipeline | CFR (T.4.1) | S151 | RN-S151-061..080 (P130) + 091..112 (P131) · 42 reglas | SETID=BNMEX hardcodeado — punto de quiebre Citi/Banamex; 7 catálogos CFR→Serie B CNBV |
+| ✅ DONE | Batch Orchestration / WFL Orchestrator | WFL (T.5.1) | S500+S151 | WFL LINEA · WFL LOTE · WFL23 | Orquestador batch core — flujos WFL LINEA/LOTE/WFL23 compartidos S500+S151 |
 
 ---
 
@@ -171,7 +179,7 @@
 Finance (GL) [7.1.1]
   ← recibe asientos de → Payments [6.1.3] · ATM [2.2.6] · PoS [2.2.7]
   ← cuadra con → Financial Reconciliation [6.7.1] · Operational Reconciliation [6.7.2]
-  → reporta a → Compliance & Regulation [6.5.2] · Analytics / Reporting [T.3.4]
+  → reporta a → Compliance & Regulation [6.5.2] · Batch Control & Regulatory Extraction [T.3.4]
 
 Scheduling [8.1.1]
   → orquesta → Finance GL · Reconciliation · Interest & Fees · Statements · Compliance
@@ -186,6 +194,6 @@ Operational Data Stores [9.1.1]
 
 ---
 
-*capability-map.md · v1.5 · 2026-07-16*
-*Fuente: capability-model-taxonomy.md + rules-catalog/INDEX.md + kb-capa3-capacidades.md*
-*COBERTURA COMPLETA: 21/21 capacidades S500+S151 documentadas · ~783/826 reglas vinculadas (94.8%) — GemCog Capa 3 cerrada*
+*capability-map.md · v1.6 · 2026-07-20*
+*Fuente: capability-model-taxonomy.md + rules-catalog/rules-index.md + kb-capa3-capacidades.md*
+*COBERTURA COMPLETA: 23/23 capacidades S500+S151 documentadas · ~783/826 reglas vinculadas (94.8%) — GemCog Capa 3 cerrada*

@@ -1,8 +1,11 @@
-# Capacidad: Teller — Gateway Online/Sucursal [S151 + S500]
+# BC-01 · Atención en Ventanilla
 > Dominio: 2 · Channels · Capacidad: 2.1.1 · Teller
 > Cobertura: S151 (GL) + S500 (Captación) · Programa principal: P010 (LINEA) · Contexto: P144 (Reconciliación B01/B03)
-> Reglas vinculadas: 33 · Tareas: 19
+> Reglas vinculadas: RN-S500-203..217 · RN-S500-228..240 · RN-S151-241..272 (60 reglas · trazabilidad automática 2026-07-27)
+> Jerarquía: **N1** Dominio 2 · Channels → **N2** Subdominio Assisted Touchpoints → **N3** Capacidad 2.1.1 Teller → **N4-5** Procesos/Flujo de tareas (ver Inventario de Tareas) → **N6** Reglas (ver Reglas vinculadas)
+> Indexado: ✅ 2026-07-27 — correlacionado vocab↔reglas↔capacidad (build-traceability.py)
 > Generado: 2026-07-16
+> bian_ref: 2.1.1 Teller
 
 ---
 

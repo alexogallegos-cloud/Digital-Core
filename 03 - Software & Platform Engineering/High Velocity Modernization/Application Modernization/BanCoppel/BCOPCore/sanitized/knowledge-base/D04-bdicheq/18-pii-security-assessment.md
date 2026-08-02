@@ -15,10 +15,10 @@
 - Cybersecurity (PII, CNBV, LFPDPPP, PCI-DSS)
 - SRE & AIOps (observabilidad y runbooks)
 - Data & ML — Data Architect (migración de datos, CDC Debezium)
-- **SME Regulatorio — CNBV** (`Solutioning/Delivery - SME/Regulatory/CNBV/`)
-- **SME Regulatorio — TESOFE** (`Solutioning/Delivery - SME/Regulatory/TESOFE/`)
-- **SME Regulatorio — IPAB** (`Solutioning/Delivery - SME/Regulatory/IPAB/`)
-- **SME Regulatorio — CONDUSEF** (`Solutioning/Delivery - SME/Regulatory/CONDUSEF/`)
+- **SME Regulatorio — CNBV** (`SME/Regulatory/CNBV/`)
+- **SME Regulatorio — TESOFE** (`SME/Regulatory/TESOFE/`)
+- **SME Regulatorio — IPAB** (`SME/Regulatory/IPAB/`)
+- **SME Regulatorio — CONDUSEF** (`SME/Regulatory/CONDUSEF/`)
 
 > `[SME-PENDING]` = requiere sesión de validación con el experto indicado.
 ---

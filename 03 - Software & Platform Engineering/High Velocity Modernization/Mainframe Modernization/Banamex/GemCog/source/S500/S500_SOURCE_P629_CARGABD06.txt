@@ -1,0 +1,655 @@
+100100$SET LIST STACK XREF LINEINFO SINGLE LINE                                     
+100300$SET FREE LINEINFO                                                            
+100400$ERRORLIMIT = 250                                                             
+100500 IDENTIFICATION   DIVISION.                                                   
+100600 PROGRAM-ID.      P629.                                                       
+100700 AUTHOR.          JOSE LUIS IBARRA  LARA.                                     
+100800 DATE-WRITTEN.    OCT/2000.                                                   
+100900**                JUN/2016 MIGRADO DEL S501 AL S500                           
+101000 INSTALLATION.    BURROUGHS SERIES-A BANAMEX.                                 
+101100 ENVIRONMENT      DIVISION.                                                   
+101200 CONFIGURATION    SECTION.                                                    
+101300 SOURCE-COMPUTER. B5900.                                                      
+101400 OBJECT-COMPUTER. B5900.                                                      
+101500 INPUT-OUTPUT     SECTION.                                                    
+101600******************************************************************            
+101700 FILE-CONTROL.                                                                
+101800     SELECT I01-LOG                                                           
+101900            ASSIGN                     TO DISK                                
+102000            ORGANIZATION               IS SEQUENTIAL                          
+102100            ACCESS MODE                IS RANDOM                              
+102200            ACTUAL KEY                 IS W77-LLAVE-LOG.                      
+102300******************************************************************            
+102400 DATA DIVISION.                                                               
+102500 FILE SECTION.                                                                
+102600 FD I01-LOG                                                                   
+102700    BLOCK  CONTAINS 100 RECORDS                                               
+102800    RECORD CONTAINS 540 CHARACTERS                                            
+102900    VALUE OF                                                                  
+103000           AREASIZE                    IS 4500                                
+103100           AREAS                       IS 1000                                
+103200           TITLE  WKS-ETIQ-ARCHLOG.                                           
+103300   01 I01-R-00-REGISTRO.                                                      
+103400      02 I01-R-00-NUEVES              PIC 9(10).                              
+103500      02 I01-R-00-ESPACIOS            PIC X(530).                             
+103600******************************************************************            
+103700 DATA-BASE SECTION.                                                           
+103800 DB S500BD06TELETON.                                                          
+103900                                                                              
+104000 DB S500BD01CAPTACION.                                                        
+104100 01 S500B02CONTROL.                                                           
+104200 01 S500B91REINICIO.                                                          
+104300******************************************************************            
+104400 WORKING-STORAGE SECTION.                                                     
+104500******************************************************************            
+104600 77 W77-NUM-COPIA                     PIC 9(02) VALUE 0.                      
+104700                                                                              
+104800 77 WKS-TASK-PARAMETRO                PIC 9(02) VALUE 0.                      
+104900 88 W88-TASK-TRES                     VALUE 3.                                
+105000 88 W88-TASK-DOS                      VALUE 2.                                
+105100 88 W88-TASK-UNO                      VALUE 1.                                
+105200 88 W88-TASK-CERO                     VALUE 0.                                
+105300 88 W88-TASK-OK                       VALUE 0,1,2,3.                          
+105400 77 W77-MY-HOST                       PIC X(09).                              
+105500 77 WS-HOST-PROD                      PIC 9(01) VALUE 0.                      
+105600 77 W77-LLAVE-LOG                     PIC 9(08).                              
+105700 77 W77-NUM-NEGOCIO                   PIC 99.                                 
+105800 77 W77-NUM-BIN                       PIC 9(06).                              
+105900 77 W77-I-BIN                         PIC 9(04).                              
+106000 77 W77-NCOPIA                        PIC 9(01).                              
+106100                                                                              
+106200 77 W77-CATEGORIA                     PIC 9(08).                              
+106300 77 W77-ERRORTYPE                     PIC 9(08).                              
+106400 77 W77-STRUCTURA                     PIC 9(08).                              
+106500                                                                              
+106600                                                                              
+106700********AREA PARA USO EN LA RUTINA DE FECHAS DE 8 DIGITOS (AAAAMMD            
+106800*******-----                                                                  
+106900 77 WS-LIBFEC-FEC-ENTRADA    PICTURE 9(08).                                   
+107000 77 WS-LIBFEC-FEC-SALIDA     PICTURE 9(08).                                   
+107100 77 WS-LIBFEC-CVE-FEST       PICTURE S9(11) BINARY.                           
+107200 77 WS-LIBFEC-FC2K-CRFSFC    PICTURE S9(11) BINARY.                           
+107300 77 WS-LIBFEC-ESTATUS        PICTURE S9(11) BINARY.                           
+107400 77 WS-LIBFEC-CVE-SEMANA     PICTURE S9(11) BINARY.                           
+107500 77 WS-LIBFEC-FC2K-CRINAF    PICTURE S9(11) BINARY.                           
+107600 77 WS-LIBFEC-FC2K-CRCNDI    PICTURE S9(11) BINARY.                           
+107700                                                                              
+107800*************************************************************                 
+107900                                                                              
+108000 01 WS-FECHA-HOY      PIC X(10) TYPE IS NUMERIC-DATE.                         
+108100 01 WS-FECHA-HOY-R    REDEFINES WS-FECHA-HOY.                                 
+108200    03 WS-FH-MM                       PIC 9(02).                              
+108300    03 FILLER                         PIC X.                                  
+108400    03 WS-FH-DD                       PIC 9(02).                              
+108500    03 FILLER                         PIC X.                                  
+108600    03 WS-FH-AAAA                     PIC 9(04).                              
+108700                                                                              
+108800 01 WS-FECHA-PROC                     PIC 9(08).                              
+108900 01 WS-FECHA-PROC-R  REDEFINES WS-FECHA-PROC.                                 
+109000    03 WS-FP-AAAA                     PIC 9(04).                              
+109100    03 WS-FP-MM                       PIC 9(02).                              
+109200    03 WS-FP-DD                       PIC 9(02).                              
+109300                                                                              
+109400 01 WS-HORA                           PIC 9(08).                              
+109500 01 WS-HORA-R                   REDEFINES WS-HORA.                            
+109600    03 WS-HORA-HR                     PIC 9(02).                              
+109700    03 WS-HORA-MN                     PIC 9(02).                              
+109800    03 WS-HORA-SSSS                   PIC 9(04).                              
+109900                                                                              
+110000 01 WKS-ETIQ-ARCHLOG.                                                         
+110100    02 FILLER                    PIC X(19) VALUE                              
+110200                                 "S500/FILE/LOG/P045/".                       
+110300    02 WKS-ETIL-FECHA            PIC 9(08).                                   
+110400    02 FILLER                    PIC X(01) VALUE "/".                         
+110500    02 WKS-ETIL-NCOPIA           PIC 9(02).                                   
+110600    02 FILLER                    PIC X(04) VALUE " ON ".                      
+110700    02 WKS-ETIL-PACK             PIC X(10) VALUE "LOGS      ".                
+110800    02 FILLER                    PIC X(02) VALUE " .".                        
+110900                                                                              
+111000                                                                              
+111100 01 WKS-VARIABLES-BASE.                                                       
+111200    02 WKS-STATUS-BASE                PIC 9(02).                              
+111300       88 W88-DB-NOTERROR                       VALUE 00.                     
+111400       88 W88-DB-ERROR                          VALUE 1 THRU 99.              
+111500       88 W88-DB-NOTFOUND                       VALUE 01.                     
+111600       88 W88-DB-DUPLICATES                     VALUE 02.                     
+111700       88 W88-DB-DEADLOCK                       VALUE 03.                     
+111800       88 W88-DB-DATAERROR                      VALUE 04.                     
+111900       88 W88-DB-NOTLOCKED                      VALUE 05.                     
+112000       88 W88-DB-KEYCHANGED                     VALUE 06.                     
+112100       88 W88-DB-SYSTEMERROR                    VALUE 07.                     
+112200       88 W88-DB-READONLY                       VALUE 08.                     
+112300       88 W88-DB-IOERROR                        VALUE 09.                     
+112400       88 W88-DB-LIMITERROR                     VALUE 10.                     
+112500       88 W88-DB-OPENERROR                      VALUE 11.                     
+112600       88 W88-DB-CLOSEERROR                     VALUE 12.                     
+112700       88 W88-DB-NORECORD                       VALUE 13.                     
+112800       88 W88-DB-INUSE                          VALUE 14.                     
+112900       88 W88-DB-AUDITERROR                     VALUE 15.                     
+113000       88 W88-DB-ABORT                          VALUE 16.                     
+113100       88 W88-DB-SECURITYERROR                  VALUE 17.                     
+113200       88 W88-DB-VERSIONERROR                   VALUE 18.                     
+113300       88 W88-DB-FATALERROR                     VALUE 19.                     
+113400       88 W88-DB-INTEGRITYERROR                 VALUE 20.                     
+113500       88 W88-DB-PARAMETERERROR                 VALUE 21.                     
+113600    02 WKS-STATUS-BASE-ANT            PIC 9(02).                              
+113700                                                                              
+184900                                                                              
+185000*****************************************************************             
+185100*    VARIABLES PARA USO DE DISPLAYS                             *             
+185200*****************************************************************             
+185300                                                                              
+185400  01 WS-VARIALBES-MSG.                                                        
+185500     02 WS-MSG-N-01         PIC 9(01).                                        
+185600     02 WS-MSG-N-02         PIC 9(02).                                        
+185700     02 WS-MSG-N-04         PIC 9(04).                                        
+185800     02 WS-MSG-N-06         PIC 9(06).                                        
+185900     02 WS-MSG-N-08         PIC 9(08).                                        
+186000     02 WS-MSG-N-10         PIC 9(10).                                        
+186100     02 WS-MSG-N-12         PIC 9(12).                                        
+186200     02 WS-MSG-N-14         PIC 9(14).                                        
+186300     02 WS-MSG-N-16         PIC 9(16).                                        
+186400     02 WS-MSG-CTO          PIC 9(12).                                        
+186500     02 WS-MSG-CTA          PIC 9(12).                                        
+186600     02 WS-MSG-IMP          PIC 9(10)V99.                                     
+186700     02 WS-MSG-IMPEDIT      PIC ZZZ,ZZZ,ZZZ,ZZZ.ZZ.                           
+186800     02 WS-MSG-NUMEDIT      PIC ZZZ,ZZZ,ZZZ.                                  
+186900     02 WS-MSG-PRD          PIC 9(04).                                        
+187000     02 WS-MSG-SUC          PIC 9(04).                                        
+187100     02 WS-MSG-INST         PIC 9(04).                                        
+187200     02 WS-MSG-MDA          PIC 9(03).                                        
+187300     02 WS-MSG-PERS         PIC 9(02).                                        
+187400     02 WS-MSG-TARIF        PIC 9(04).                                        
+187500     02 WS-MSG-PASO         PIC 9(03).                                        
+187600     02 WS-MSG-CVE          PIC 9(04).                                        
+187700     02 WS-MSG-RS           PIC 9(04)-.                                       
+187800     02 WS-MSG-X15          PIC X(15).                                        
+187900                                                                              
+188000*****************************************************************             
+188100**   Tipos de displays segun el campo W77-TIPO-DISP             *             
+188200**   "I" = a pantalla y Log  no acumula mensajes                *             
+188300**   "O" = a pantalla y Log  no acumula mensajes  se va a STOP  *             
+188400**   "E" = solo a log        si acumula mensajes                *             
+188500**   "X" = solo a log        si acumula mensajes                *             
+188600**   "X" puede ser cualquier otro valor incluso espacio         *             
+188700**   por default tiene "E" para enviar solo a log               *             
+188800*****************************************************************             
+188900 77 W77-TIPO-DISP     PIC X             VALUE "E".                            
+189000 77 CONTADOR-LJ       PIC 9(11) BINARY  VALUE 0.                              
+189100                                                                              
+189200 01 MENSAJE-LJ.                                                               
+189300    02 SISTEMA-LJ     PIC X(04)         VALUE "S500".                         
+189400    02 FILLER         PIC X             VALUE "/".                            
+189500    02 PASO-LJ        PIC X(04)         VALUE "0629".                         
+189600    02 FILLER         PIC X             VALUE "/".                            
+189700    02 MTP-LJ         PIC 9(03)         VALUE 004.                            
+189800    02 FILLER         PIC X             VALUE ":".                            
+189900    02 TIPO-LJ        PIC X             VALUE "E".                            
+190000    02 FILLER         PIC X             VALUE ">".                            
+190100    02 CODIGO-LJ      PIC 9(06)         VALUE  629500.                        
+190200    02 FILLER         PIC X             VALUE "<".                            
+190300    02 TEXTO-LJ       PIC X(200)        VALUE " ".                            
+190400                                                                              
+190500******************************************************************            
+190600*   PARAMETROS DE LA LIBRERIA DE VERSIONES                       *            
+190700******************************************************************            
+190800 01 WKS-LIBVER-LIBRERIA             PIC  X(17).                               
+190900 01 WKS-LIBVER-TITULO               PIC  X(72).                               
+191000 01 WKS-LIBVER-STATUS               PIC S9(11) BINARY.                        
+191100                                                                              
+191200 77  W77-S000-MY-ID                 PIC X(12).                                
+191300 77  W77-S000-MY-VERSION            PIC X(08).                                
+191400 77  W77-S000-STATUS                PIC S9(11)  BINARY.                       
+191500                                                                              
+191600*-----                                                                        
+191700******************************************************************            
+191800 PROCEDURE DIVISION.                                                          
+191900*====================                                                         
+192000******************************************************************            
+192100 0000-CONTROL-PROGRAM.                                                        
+192200*=====================                                                        
+192300     CHANGE ATTRIBUTE LIBACCESS        OF "CTLVERS" TO BYFUNCTION.            
+192400     CHANGE ATTRIBUTE FUNCTIONNAME     OF "CTLVERS" TO "CTLVERS".             
+192500                                                                              
+192600     PERFORM 70000010-LINK-LIBLJ.                                             
+192700                                                                              
+192800     MOVE ATTRIBUTE HOSTNAME OF MYSELF TO W77-MY-HOST.                        
+192900                                                                              
+193000     IF W77-MY-HOST = "ACYPBETA."                                             
+193010*    OR W77-MY-HOST = "VDMBETA. "                                             
+193100        MOVE 0                         TO WS-HOST-PROD                        
+193200     ELSE                                                                     
+193300        MOVE 1                         TO WS-HOST-PROD.                       
+193400                                                                              
+193500****** LLAMADO A VERSIONES PARA AUTOCHECAR LA VERSION ************            
+193600     MOVE "S500P629"                 TO W77-S000-MY-ID.                       
+193700      MOVE "25MTP004"                 TO W77-S000-MY-VERSION.                 
+193800                                                                              
+193900                                                                              
+194000     IF WS-HOST-PROD = 0                                                      
+194100        MOVE ZERO TO W77-S000-STATUS                                          
+194200     ELSE                                                                     
+194300        CALL "CHECAME IN CTLVERS"                                             
+194400             USING W77-S000-MY-ID                                             
+194500                   W77-S000-MY-VERSION                                        
+194600            GIVING W77-S000-STATUS.                                           
+194700                                                                              
+194800     IF W77-S000-STATUS < 0                                                   
+194900        MOVE "ERROR EN VERSIONES S500P629" TO TEXTO-LJ                        
+195000        PERFORM 70000050-MSG-LJ                                               
+195100        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                              
+195200                                                                              
+195300     MOVE ATTRIBUTE TASKVALUE OF MYSELF TO WKS-TASK-PARAMETRO.                
+195400                                                                              
+195500     IF W88-TASK-OK                                                           
+195600        NEXT SENTENCE                                                         
+195700     ELSE                                                                     
+195800        STRING "ERROR TASKVALUE RECIBIDO =" WKS-TASK-PARAMETRO                
+195900               DELIMITED BY SIZE INTO TEXTO-LJ                                
+196000        PERFORM 70000050-MSG-LJ                                               
+196100        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                              
+196200                                                                              
+196300     IF W88-TASK-TRES                                                         
+196400        PERFORM 99999-ACT-BD01.                                               
+196500                                                                              
+196600     IF W88-TASK-CERO OR W88-TASK-TRES                                        
+196700           NEXT SENTENCE                                                      
+196800        ELSE                                                                  
+196900           PERFORM 0000-CONT-PROCESO.                                         
+197000                                                                              
+197100      STOP RUN.                                                               
+197200                                                                              
+197300***********************************************************                   
+197400 0000-CONT-PROCESO.                                                           
+197500                                                                              
+197600     PERFORM 1000-FECHAS-TIT.                                                 
+197700                                                                              
+197800     OPEN UPDATE S500BD06TELETON.                                             
+197900                                                                              
+198000     PERFORM 999-OL-BEGIN-TRANSACTION.                                        
+198100                                                                              
+198200     PERFORM 10000-ACTUALIZA-FECHAS.                                          
+198300                                                                              
+198400     PERFORM 12000-CREA-B01CONTROL                                            
+198500             VARYING W77-NUM-COPIA FROM 1 BY 1                                
+198600               UNTIL W77-NUM-COPIA > 4.                                       
+198700                                                                              
+199000     PERFORM 999-OL-END-TRANSACTION-SYNC.                                     
+199100                                                                              
+199200     CLOSE S500BD06TELETON.                                                   
+199300                                                                              
+199400     MOVE WS-FECHA-PROC                TO WKS-ETIL-FECHA.                     
+199500                                                                              
+199600     MOVE 0                            TO W77-NCOPIA.                         
+199700                                                                              
+199800     PERFORM 100-PARAM-GENARCH  VARYING W77-NCOPIA FROM 1 BY 1                
+199900                                  UNTIL W77-NCOPIA > 4                        
+200000                                                                              
+200100     STOP RUN.                                                                
+200200                                                                              
+200300******************************************************************            
+200400 10000-ACTUALIZA-FECHAS.                                                      
+200500*=======================                                                      
+200600     PERFORM 9101-S500B00TGLOBALES-CREA.                                      
+200700                                                                              
+200800     PERFORM 1100-OBTIENE-FECHA-PROC.                                         
+200900                                                                              
+201000     MOVE WS-FECHA-PROC        TO B00T-FEC-LINEA.                             
+201100                                                                              
+201200      IF W77-MY-HOST = "ACYPBETA."                                            
+201300         MOVE 04       TO B00T-NUM-CSI                                        
+201400      ELSE                                                                    
+201500         MOVE 10       TO B00T-NUM-CSI.                                       
+201600                                                                              
+201700                                                                              
+201800     MOVE 10000                        TO B00T-IMP-SUPERV.                    
+201900                                                                              
+202000                                                                              
+202100     MOVE ZEROS                        TO B00T-IMP-AUTORI                     
+202200                                          B00T-NUM-AUTORIZ                    
+202300                                          B00T-DIALOGO-B24                    
+202400                                          B00T-PASO-ENTRA                     
+202500                                          B00T-PASO-SALE                      
+202600                                          B00T-NUM-COPIAS(1)                  
+202700                                          B00T-NUM-COPIAS(2)                  
+202800                                          B00T-NUM-COPIAS(3)                  
+202900                                          B00T-NUM-COPIAS(4)                  
+203000                                          B00T-NUM-COPIAS(5).                 
+203100                                                                              
+203200     PERFORM 9300-S500B00TGLOBALES-STORE.                                     
+203300                                                                              
+203400******************************************************************            
+203500 100-PARAM-GENARCH.                                                           
+203600*==================                                                           
+203700     MOVE W77-NCOPIA                   TO WKS-ETIL-NCOPIA.                    
+203800                                                                              
+203900     OPEN OUTPUT I01-LOG.                                                     
+204000                                                                              
+204100     MOVE 9999999999                   TO I01-R-00-NUEVES.                    
+204200                                                                              
+204300     MOVE SPACES                       TO I01-R-00-ESPACIOS.                  
+204400                                                                              
+204500     IF WS-HOST-PROD = 0                                                      
+204600        PERFORM 100-GENERA-ARCHIVO                                            
+204700                VARYING W77-LLAVE-LOG FROM 1 BY 1                             
+204800                  UNTIL W77-LLAVE-LOG > 20000                                 
+204900     ELSE                                                                     
+205000        PERFORM 100-GENERA-ARCHIVO                                            
+205100                VARYING W77-LLAVE-LOG FROM 1 BY 1                             
+205200                  UNTIL W77-LLAVE-LOG > 250000.                               
+205300                                                                              
+205400     CLOSE I01-LOG WITH SAVE.                                                 
+205500                                                                              
+205600******************************************************************            
+205700 100-GENERA-ARCHIVO.                                                          
+205800*===================                                                          
+205900      WRITE I01-R-00-REGISTRO INVALID KEY                                     
+206000          STRING "ERROR WRITE REGISTRO LOG REG=" W77-LLAVE-LOG                
+206100                 DELIMITED BY SIZE INTO TEXTO-LJ                              
+206200          PERFORM 70000050-MSG-LJ                                             
+206300          CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                            
+206400                                                                              
+206500******************************************************************            
+206600 1000-FECHAS-TIT.                                                             
+206700*================                                                             
+206800                                                                              
+206900     MOVE  SPACES             TO  WKS-LIBVER-LIBRERIA.                        
+207000     MOVE  "S000LIBFEC"       TO  WKS-LIBVER-LIBRERIA.                        
+207100                                                                              
+207200     CALL "DAME_TIT IN CTLVERS"                                               
+207300          USING   WKS-LIBVER-LIBRERIA                                         
+207400                  WKS-LIBVER-TITULO                                           
+207500         GIVING   WKS-LIBVER-STATUS.                                          
+207600                                                                              
+207700     IF WKS-LIBVER-STATUS < 0                                                 
+207800        MOVE "ERROR LINK S000LIBFEC " TO TEXTO-LJ                             
+207900        PERFORM 70000050-MSG-LJ                                               
+208000        CHANGE ATTRIBUTE STATUS   OF MYSELF TO -1                             
+208100     ELSE                                                                     
+208200        CHANGE ATTRIBUTE TITLE OF "FECHAS" TO WKS-LIBVER-TITULO.              
+208300                                                                              
+208400******************************************************************            
+208500 1100-OBTIENE-FECHA-PROC.                                                     
+208600*========================                                                     
+208700                                                                              
+208800     ACCEPT WS-FECHA-HOY           FROM DATE.                                 
+208900     ACCEPT WS-HORA                FROM TIME.                                 
+209000     MOVE WS-FH-AAAA                 TO WS-FP-AAAA.                           
+209100     MOVE WS-FH-MM                   TO WS-FP-MM.                             
+209200     MOVE WS-FH-DD                   TO WS-FP-DD.                             
+209300     PERFORM 9999-VERIFICA-HABIL.                                             
+209320                                                                              
+209340     IF WS-HOST-PROD = 0                                                      
+209400        IF WS-LIBFEC-ESTATUS = 0                                              
+209500           PERFORM 9999-SIGUIENTE-HABIL                                       
+209510        ELSE                                                                  
+209520           NEXT SENTENCE                                                      
+209530     ELSE                                                                     
+209540        PERFORM 9999-SIGUIENTE-HABIL.                                         
+209600                                                                              
+209700     MOVE WS-FECHA-PROC TO B00T-FEC-LINEA.                                    
+209800                                                                              
+209900******************************************************************            
+210000 12000-CREA-B01CONTROL.                                                       
+210100*=======================                                                      
+210200                                                                              
+210300**   PERFORM 9410-S500B01TCONTROL-FIND.                                       
+210400**   IF W88-DB-NOTERROR                                                       
+210500**      MOVE "YA FUE CREADO REG-CONTROL " TO TEXTO-LJ                         
+210600**      PERFORM 70000050-MSG-LJ                                               
+210700**      CALL SYSTEM DMTERMINATE.                                              
+210800                                                                              
+210900     PERFORM 9400-S500B01TCONTROL-CREATE.                                     
+211000     MOVE W77-NUM-COPIA       TO B01T-NUM-COPIA.                              
+211100     PERFORM 9400-S500B01TCONTROL-STORE.                                      
+211200                                                                              
+211300******************************************************************            
+211400 9100-S500B00TGLOBALES-LOCK.                                                  
+211500*==========================                                                   
+211600     LOCK FIRST S500B00TGLOBAL                                                
+211700        ON EXCEPTION                                                          
+211800           MOVE ">> ERROR LOCK S500B00TGLOBAL <<" TO TEXTO-LJ                 
+211900           PERFORM 70000050-MSG-LJ                                            
+212000           PERFORM 999-MGS-DMSII                                              
+212100           CALL SYSTEM DMTERMINATE.                                           
+212200                                                                              
+212300***********************************************************                   
+212400 9101-S500B00TGLOBALES-CREA.                                                  
+212500*==========================                                                   
+212600     CREATE S500B00TGLOBAL                                                    
+212700        ON EXCEPTION                                                          
+212800           MOVE ">> ERROR CREATE S500B00TGLOBAL <<" TO TEXTO-LJ               
+212900           PERFORM 70000050-MSG-LJ                                            
+213000           PERFORM 999-MGS-DMSII                                              
+213100           CALL SYSTEM DMTERMINATE.                                           
+213200                                                                              
+213300******************************************************************            
+213400 9300-S500B00TGLOBALES-STORE.                                                 
+213500*==========================                                                   
+213600      STORE S500B00TGLOBAL                                                    
+213700         ON EXCEPTION                                                         
+213800         MOVE "I"  TO W77-TIPO-DISP                                           
+213900         MOVE ">> ERROR STORE S500B00TGLOBALES <<" TO TEXTO-LJ                
+214000         PERFORM 70000050-MSG-LJ                                              
+214100         PERFORM 999-MGS-DMSII                                                
+214200         CALL SYSTEM DMTERMINATE.                                             
+214300                                                                              
+214400******************************************************************            
+214500 9400-S500B01TCONTROL-CREATE.                                                 
+214600*===========================                                                  
+214700      CREATE S500B01TCONTROL                                                  
+214800         ON EXCEPTION                                                         
+214900         MOVE "> ERROR CREATE S500B01TCONTROL <" TO TEXTO-LJ                  
+215000         PERFORM 70000050-MSG-LJ                                              
+215100         PERFORM 999-MGS-DMSII                                                
+215200         CALL SYSTEM DMTERMINATE.                                             
+215300                                                                              
+215400                                                                              
+215500*****************************************************************             
+215600 9400-S500B01TCONTROL-STORE.                                                  
+215700*==========================                                                   
+215800     STORE S500B01TCONTROL                                                    
+215900           ON EXCEPTION                                                       
+216000           MOVE "> ERROR STORE S500B01TCONTROL <" TO TEXTO-LJ                 
+216100           PERFORM 70000050-MSG-LJ                                            
+216200           PERFORM 999-MGS-DMSII                                              
+216300           CALL SYSTEM DMTERMINATE.                                           
+216400                                                                              
+216500                                                                              
+216600******************************************************************            
+216700 9410-S500B01TCONTROL-FIND.                                                   
+216800*==========================                                                   
+216900     MOVE 0                    TO WKS-STATUS-BASE.                            
+217000     FIND FIRST S500B01TCONTROL                                               
+217100        ON EXCEPTION                                                          
+217200           MOVE DMSTATUS(DMCATEGORY) TO WKS-STATUS-BASE.                      
+217300                                                                              
+217400                                                                              
+224600                                                                              
+224700**************************************************************                
+224800 999-OL-BEGIN-TRANSACTION.                                                    
+224900*=========================                                                    
+225000     MOVE 0 TO WKS-STATUS-BASE.                                               
+225100     BEGIN-TRANSACTION NO-AUDIT S500B91TREINICIO                              
+225200       ON EXCEPTION                                                           
+225300           MOVE DMSTATUS(DMCATEGORY) TO WKS-STATUS-BASE.                      
+225400        IF WKS-STATUS-BASE > 0                                                
+225500           IF WKS-STATUS-BASE = 15                                            
+225600              NEXT SENTENCE                                                   
+225700           ELSE                                                               
+225800             MOVE "** ERROR EN BEGIN-TRANSACTION **" TO TEXTO-LJ              
+225900             PERFORM 70000050-MSG-LJ                                          
+226000             PERFORM 999-MGS-DMSII                                            
+226100             CALL SYSTEM DMTERMINATE.                                         
+226200                                                                              
+226300******************************************************************            
+226400 999-OL-END-TRANSACTION-SYNC.                                                 
+226500*===========================                                                  
+226600     MOVE ZERO TO WKS-STATUS-BASE.                                            
+226700     END-TRANSACTION NO-AUDIT S500B91TREINICIO SYNC                           
+226800       ON EXCEPTION                                                           
+226900           MOVE DMSTATUS(DMCATEGORY) TO WKS-STATUS-BASE.                      
+227000        IF WKS-STATUS-BASE > 0                                                
+227100           IF WKS-STATUS-BASE = 15                                            
+227200              NEXT SENTENCE                                                   
+227300           ELSE                                                               
+227400              STRING "* ERROR END-TRANSACTION ", WKS-STATUS-BASE              
+227500                DELIMITED BY SIZE INTO TEXTO-LJ                               
+227600             PERFORM 70000050-MSG-LJ                                          
+227700             PERFORM 999-MGS-DMSII                                            
+227800             CALL SYSTEM DMTERMINATE.                                         
+227900                                                                              
+228000******************************************************************            
+228100 999-MGS-DMSII.                                                               
+228200*==================                                                           
+228300     MOVE DMSTATUS(DMCATEGORY)       TO W77-CATEGORIA.                        
+228400     MOVE DMSTATUS(DMERRORTYPE)      TO W77-ERRORTYPE.                        
+228500     MOVE DMSTATUS(DMSTRUCTURE)      TO W77-STRUCTURA.                        
+228600                                                                              
+228700     STRING "DMSTATUS_CATEGORY  =", W77-CATEGORIA                             
+228800            DELIMITED BY SIZE INTO TEXTO-LJ                                   
+228900            PERFORM 70000050-MSG-LJ.                                          
+229000                                                                              
+229100     STRING "DMSTATUS_ERRORTYPE =", W77-ERRORTYPE                             
+229200            DELIMITED BY SIZE INTO TEXTO-LJ                                   
+229300            PERFORM 70000050-MSG-LJ.                                          
+229400                                                                              
+229500     STRING "DMSTATUS_STRUCTURA =", W77-STRUCTURA                             
+229600            DELIMITED BY SIZE INTO TEXTO-LJ                                   
+229700            PERFORM 70000050-MSG-LJ.                                          
+229800                                                                              
+229900******************************************************************            
+230000* VERIFICA SI LA FECHA ES HABIL O INHABIL.                                    
+230100*========================================                                     
+230200 9999-VERIFICA-HABIL.                                                         
+230300     MOVE 01            TO WS-LIBFEC-CVE-FEST                                 
+230400     MOVE 65            TO WS-LIBFEC-CVE-SEMANA                               
+230500     MOVE WS-FECHA-PROC TO WS-LIBFEC-FEC-ENTRADA                              
+230600     MOVE ZEROS         TO WS-LIBFEC-ESTATUS                                  
+230700     CALL "CHECA_HABIL2K      IN FECHAS"                                      
+230800                        USING   WS-LIBFEC-FEC-ENTRADA,                        
+230900                                WS-LIBFEC-CVE-SEMANA,                         
+231000                                WS-LIBFEC-CVE-FEST,                           
+231100                        GIVING  WS-LIBFEC-ESTATUS .                           
+231200                                                                              
+231300******************************************************************            
+231400 9999-SIGUIENTE-HABIL.                                                        
+231500*=====================                                                        
+231600     MOVE WS-FECHA-PROC TO WS-LIBFEC-FEC-ENTRADA                              
+231700     MOVE 0             TO WS-LIBFEC-FEC-SALIDA                               
+231800     MOVE 01            TO WS-LIBFEC-CVE-FEST                                 
+231900     MOVE 65            TO WS-LIBFEC-CVE-SEMANA                               
+232000     CALL "DAME_SIGHAB2K IN FECHAS"                                           
+232100         USING                                                                
+232200          WS-LIBFEC-FEC-ENTRADA,                                              
+232300          WS-LIBFEC-FEC-SALIDA ,                                              
+232400          WS-LIBFEC-CVE-SEMANA ,                                              
+232500          WS-LIBFEC-CVE-FEST                                                  
+232600     MOVE WS-LIBFEC-FEC-SALIDA  TO WS-FECHA-PROC.                             
+232700                                                                              
+232800******************************************************************            
+232900 70000010-LINK-LIBLJ.                                                         
+233000                                                                              
+233100      CHANGE ATTRIBUTE TITLE OF "LIBLJ" TO                                    
+233200             "(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK.".                 
+233300                                                                              
+233400                                                                              
+233500****************************************************************              
+233600 70000050-MSG-LJ.                                                             
+233700                                                                              
+233800     MOVE W77-TIPO-DISP     TO TIPO-LJ.                                       
+233900                                                                              
+234000     CALL "LJ IN LIBLJ" USING CONTADOR-LJ, MENSAJE-LJ.                        
+234100     MOVE " "               TO TEXTO-LJ.                                      
+234200                                                                              
+234300*************************************************************                 
+234400 70000055-STOP-PGM.                                                           
+234500                                                                              
+234600     MOVE "O"               TO TIPO-LJ.                                       
+234700                                                                              
+234800     CALL "LJ IN LIBLJ" USING CONTADOR-LJ, MENSAJE-LJ.                        
+234900     MOVE " " TO TEXTO-LJ.                                                    
+235000                                                                              
+235100************************************************************                  
+235200 99999-ACT-BD01.                                                              
+235300                                                                              
+235400     PERFORM 999200-ABRE-BD01.                                                
+235500                                                                              
+235600     PERFORM 999201-LOCK-B02CONTROL.                                          
+235700                                                                              
+235800     MOVE 0 TO B02-ACT-TELETON.                                               
+235900                                                                              
+236000     PERFORM 999201-BEGIN-TRANS-NOAUD-BD01.                                   
+236100     PERFORM 999201-STORE-B02CONTROL.                                         
+236200     PERFORM 999201-END-TRANSAC-NOAUD-BD01.                                   
+236300     PERFORM 999201-CLOSE-BD01CAP.                                            
+236400                                                                              
+236500**********************************************************                    
+236600 999200-ABRE-BD01.                                                            
+236700                                                                              
+236800     OPEN UPDATE S500BD01CAPTACION                                            
+236900          ON EXCEPTION                                                        
+237000          MOVE "ERROR AL ABRIR LA BASE DEL S500BD01CAPTACION"                 
+237100            TO TEXTO-LJ                                                       
+237200          PERFORM 70000050-MSG-LJ                                             
+237300          PERFORM 999-MGS-DMSII                                               
+237400          CALL SYSTEM DMTERMINATE.                                            
+237500                                                                              
+237600*************************************************************                 
+237700 999201-LOCK-B02CONTROL.                                                      
+237800     LOCK FIRST S500B02CONTROL                                                
+237900          ON EXCEPTION                                                        
+238000          MOVE "** ERROR LOCK S500B02CTRL **" TO TEXTO-LJ                     
+238100          PERFORM 70000050-MSG-LJ                                             
+238200          PERFORM 999-MGS-DMSII                                               
+238300          CALL SYSTEM DMTERMINATE.                                            
+238400                                                                              
+238500**********************************************************                    
+238600  999201-BEGIN-TRANS-NOAUD-BD01.                                              
+238700     MOVE 0     TO WKS-STATUS-BASE.                                           
+238800     BEGIN-TRANSACTION NO-AUDIT S500B91REINICIO                               
+238900           ON EXCEPTION                                                       
+239000              MOVE DMSTATUS(DMCATEGORY) TO WKS-STATUS-BASE.                   
+239100     IF WKS-STATUS-BASE > 0                                                   
+239200        IF WKS-STATUS-BASE = 15                                               
+239300           NEXT SENTENCE                                                      
+239400        ELSE                                                                  
+239500           MOVE "ERROR BEGIN-TRANSC BD01 " TO TEXTO-LJ                        
+239600           PERFORM 70000050-MSG-LJ                                            
+239700           PERFORM 999-MGS-DMSII                                              
+239800           CALL SYSTEM DMTERMINATE.                                           
+239900                                                                              
+240000**************************************************************+               
+240100 999201-END-TRANSAC-NOAUD-BD01.                                               
+240200     MOVE 0              TO WKS-STATUS-BASE.                                  
+240300     END-TRANSACTION NO-AUDIT S500B91REINICIO                                 
+240400         ON EXCEPTION                                                         
+240500            MOVE DMSTATUS(DMCATEGORY) TO WKS-STATUS-BASE.                     
+240600     IF WKS-STATUS-BASE > 0                                                   
+240700        IF WKS-STATUS-BASE = 15                                               
+240800           NEXT SENTENCE                                                      
+240900        ELSE                                                                  
+241000           MOVE "ERROR END-TRANSC BD01 " TO TEXTO-LJ                          
+241100           PERFORM 70000050-MSG-LJ                                            
+241200           PERFORM 999-MGS-DMSII                                              
+241300           CALL SYSTEM DMTERMINATE.                                           
+241400                                                                              
+241500******************************************************************            
+241600 999201-STORE-B02CONTROL.                                                     
+241700     STORE S500B02CONTROL                                                     
+241800           ON EXCEPTION                                                       
+241900           MOVE "ERROR STORE B02CONTROL  " TO TEXTO-LJ                        
+242000           PERFORM 70000050-MSG-LJ                                            
+242100           PERFORM 999-MGS-DMSII                                              
+242200           CALL SYSTEM DMTERMINATE.                                           
+242300                                                                              
+242400**********************************************************                    
+242500 999201-CLOSE-BD01CAP.                                                        
+242600     CLOSE S500BD01CAPTACION                                                  
+242700           ON EXCEPTION                                                       
+242800              MOVE "* ERROR CLOSE BD01CAPTACION *" TO TEXTO-LJ                
+242900              PERFORM 70000050-MSG-LJ                                         
+243000              PERFORM 999-MGS-DMSII                                           
+243100              CALL SYSTEM DMTERMINATE.                                        
+243200                                                                              
+243300************************************************                              

@@ -1,0 +1,1545 @@
+100000$SET LIST                                                                     
+100100$SET LINEINFO                                                                 
+100150$SET ERRORLIST                                                                
+100200$SET ERRORLIMIT=100                                                           
+100310$SET S000LIBLJ                                                                
+100400$SET S080L700 S080IVA                                                         
+100500$SET S080CATALOGOS S080L100 S080BANCOS S080CATDESC                            
+100600$SET S100VERSIONES S006LOCSUP S080DATOS S016L458 BD4B04R08                    
+100700$SET BDB00R21 BDB06R11 BDB03R08 BDB06R06 BD4B04R07 BD4B04R03                  
+100800$SET BDB02R01 BDB02R02 BDB02R03 BDB03R12 BDB00R01 BDB00R02                    
+100900$SET BD4B00R01 BD4B00R04 BD4B01R01 BD4B01R02 BD4B01R03 BD4B01R04              
+101000$SET BD4B03R03 BD4B03R04 BD4B03R07 BD4B03R08 BD4B03R09 BDB03R09               
+101090$SET FECHA2000                                                                
+101100*$SET TADS(FREQUENCY)                                                         
+101200****************************************************************              
+101300*                                                                             
+101400*   SISTEMA       S500                                                        
+101500*   -------       ----                                                        
+101600*                                                                             
+101700*   PROGRAMA      P176                                                        
+101800*   OBJETIVO      Aplica archivo con solicitud de movimientos de              
+101900*                 Altas, Bloqueos y Desbloqueos del S111.                     
+102000*                                                                             
+102100*   Fecha         MTP     Datos de la ultima modificacion                     
+102200*   -----         ---     ----------------------------------------            
+102300*   ABR/2008      005     AMPLIAR TABLA DE SUCURSALES VALIDAS                 
+102400******************************************************************            
+102500* I D E N T I F I C A T I O N   D I V I S I O N.                              
+102600******************************************************************            
+102700 IDENTIFICATION DIVISION.                                                     
+102800 PROGRAM-ID.              S500P176.                                           
+102900                                                                              
+103000******************************************************************            
+103100* E N V I R O N M E N T   D I V I S I O N.                                    
+103200******************************************************************            
+103300 ENVIRONMENT DIVISION.                                                        
+103400 CONFIGURATION SECTION.                                                       
+103500 INPUT-OUTPUT SECTION.                                                        
+103600                                                                              
+103700******************************************************************            
+103800* F I L E   C O N T R O L.                                                    
+103900******************************************************************            
+104000 FILE-CONTROL.                                                                
+104100                                                                              
+104200     SELECT OPTIONAL E01-S111-PREALTAS                                        
+104300                                  ASSIGN TO DISK                              
+104400                                  ORGANIZATION IS SEQUENTIAL                  
+104500                                  ACCESS MODE  IS RANDOM                      
+104600                                  ACTUAL KEY   IS WKS-KEY-E01                 
+104700                                  FILE STATUS  IS W77-FSTA-E01.               
+104705                                                                              
+104707     SELECT ASIGNACION-TEF      ASSIGN TO DISK.                               
+104709                                                                              
+104710     SELECT R01-RECHAZOS ASSIGN TO PRINTER.                                   
+104800*                                                                             
+104900******************************************************************            
+105000* D A T A   D I V I S I O N.                                                  
+105100******************************************************************            
+105200 DATA DIVISION.                                                               
+105300                                                                              
+105400******************************************************************            
+105500* F I L E   S E C T I O N.                                                    
+105600******************************************************************            
+105700 FILE SECTION.                                                                
+105800                                                                              
+105900******************************************************************            
+106000* DECLARACION DEL ARCHIVOS DE CARGA  DEL S111                                 
+106100******************************************************************            
+106200 FD  E01-S111-PREALTAS                                                        
+106300     BLOCK CONTAINS         360 RECORDS                                       
+106400     RECORD CONTAINS         40 CHARACTERS                                    
+106500     VALUE OF AREAS        1000                                               
+106600     VALUE OF AREASIZE        2                                               
+106700     VALUE OF TITLE IS WKS-ETIQ-S111-PREALTA                                  
+106800     VALUE OF SECURITYTYPE         IS PUBLIC                                  
+106900     VALUE OF PROTECTION IS        PROTECTED.                                 
+107000                                                                              
+107100 01  E01-REG-S111-PREALTA.                                                    
+107200     02 E01-S111-TIP-REG          PIC  9(002).                                
+107300     02 E01-S111-HEADER.                                                      
+107320        04 E01-S111-HEAD-01.                                                  
+107400           06 E01-S111-HDR-FECHA     PIC  9(008).                             
+107500           06 E01-S111-HDR-SIS-ORI   PIC  X(004).                             
+107600           06 E01-S111-HDR-SIS-DES   PIC  X(004).                             
+107700        04 FILLER                 PIC  X(022).                                
+107800     02 E01-S111-DETALLE REDEFINES E01-S111-HEADER.                           
+107900        04 E01-S111-DET-TARJETA   PIC  9(016).                                
+108000        04 E01-S111-DET-CONTRATO  PIC  9(012).                                
+108100        04 E01-S111-DET-SUC-PROM  PIC  9(004).                                
+108200        04 FILLER                 PIC  X(006).                                
+108210     02 E01-S111-DETALLE2 REDEFINES E01-S111-HEADER.                          
+108220        04 E01-S111-DET2-TARJETA   PIC  9(016).                               
+108230        04 E01-S111-DET2-TEF       PIC  9(016).                               
+108240        04 FILLER                  PIC  X(006).                               
+108300     02 E01-S111-TRAILER REDEFINES E01-S111-HEADER.                           
+108400        04 E01-S111-TRL-NUM-REG   PIC  9(008).                                
+108500        04 FILLER                 PIC  X(030).                                
+108600                                                                              
+108605 FD  R01-RECHAZOS                                                             
+108610     VALUE OF TITLE IS WS-ETIQ-RECHA.                                         
+108615 01  REG-RECHAZOS      PIC X(132).                                            
+108618                                                                              
+108619 FD ASIGNACION-TEF                                                            
+108620    BLOCK   CONTAINS    30 RECORDS                                            
+108621    RECORD  CONTAINS    60 CHARACTERS                                         
+108622    VALUE OF                                                                  
+108623            AREAS       IS 1000                                               
+108624            AREASIZE    IS 600                                                
+108625            TITLE       IS WKS-TIT-ASIG-TEF                                   
+108626            PROTECTION  IS PROTECTED                                          
+108627            SAVEFACTOR  IS 99.                                                
+108635*                                                                             
+108636 01 I01-ASIGNACION-TEF.                                                       
+108638    02 I01-TEF-TIP-REG             PIC  9(002).                               
+108640    02 I01-TEF-HEADER.                                                        
+108642       04 I01-TEF-HEAD-01.                                                    
+108644          06 I01-TEF-HDR-FECHA     PIC  9(008).                               
+108646          06 I01-TEF-HDR-NEM       PIC  X(003).                               
+108648       04 FILLER                   PIC  X(047).                               
+108650    02 I01-TEF-DETALLE REDEFINES I01-TEF-HEADER.                              
+108652       04 I01-TEF-DET-TARJETA      PIC  9(016).                               
+108654       04 I01-TEF-DET-NUMTEF       PIC  9(016).                               
+108656       04 I01-TEF-DET-MEDENT       PIC  9(002).                               
+108658       04 I01-TEF-DET-CONTR        PIC  9(012).                               
+108660       04 I01-TEF-DET-CSI          PIC  9(002).                               
+108662       04 I01-TEF-ASIG-PAGO        PIC  9(002).                               
+108664       04 FILLER                   PIC  X(008).                               
+108700                                                                              
+108800****************************************************************              
+108900* D A T A   B A S E   S E C T I O N.                                          
+109000******************************************************************            
+109100 DATA-BASE   SECTION.                                                         
+109200 DB S500BD01CAPTACION.                                                        
+109205 01 S500B00CTRLPASO.                                                          
+109210 01 S500B02CONTROL.                                                           
+109220 01 S500B03CONTRATOS.                                                         
+109230 01 S500B06HISTORICO.                                                         
+109240 01 S500B91REINICIO.                                                          
+109250                                                                              
+109300 DB S500BD04TARJETAS.                                                         
+109320 01 S500B01PCONTROL.                                                          
+109340 01 S500B03PREALTAS.                                                          
+109350 01 S500B04PTEF.                                                              
+109360 01 S500B91PREINICIO.                                                         
+109400                                                                              
+109500******************************************************************            
+109600* W O R K I N G   S T O R A G E   S E C T I O N.                              
+109700******************************************************************            
+109800 WORKING-STORAGE SECTION.                                                     
+109900 COPY "S500/INC/WOR/25MTP004".                                                
+109950 COPY "S500/INC/WOR/DAS/25MTP007".                                            
+110000***************************************************************               
+110100*  AREAS DE AYUDA DE ARCHIVOS.                                                
+110200***************************************************************               
+110300 77  W77-FSTA-E01                 PIC  X(002)     VALUE "00".                 
+110305 77  WS-HOJA                      PIC 9(4).                                   
+110307 77  W77-CSI-S016                 PIC 9(2).                                   
+110309 77  WS-TIPO-RECHA                PIC 9.                                      
+110310 77  WS-LINEA                     PIC 9(3).                                   
+110314 77  WS-CONT-TOTREGS              PIC 9(09).                                  
+110316 77  WS-CONT-TEFCERO              PIC 9(09).                                  
+110318 77  WS-CONT-RECHAZOS             PIC 9(09).                                  
+110320 77  WS-CONT-ACEPTA               PIC 9(09).                                  
+110322 77  WKS-FEC-PROY-TEF             PIC 9(08).                                  
+110324 77  WKS-EXISTE-BIN               PIC 9(01).                                  
+110326 77  WKS-FECHA-PROC               PIC 9(08).                                  
+110400*                                                                             
+110500 01  WKS-KEYS-VIRTUALES.                                                      
+110600     02 WKS-KEY-E01               PIC  9(011) BINARY  VALUE 0.                
+110700****************************************************************              
+110800*   ETIQUETA DEL NOMBRE DEL ARCHIVO DE MOVIMIENTOS                            
+110900*   REGISTROS PROVENIENTES DEL SISTEMA S111                                   
+111000****************************************************************              
+111100 01  WKS-ETIQ-S111-PREALTA.                                                   
+111200     02 FILLER                    PIC  X(030)     VALUE                       
+111300         "(S500)S111/FILE/S500/PREALTAS/".                                    
+111400     02 WKS-ETIQ-S111-FECHA       PIC  9(006).                                
+111500     02 FILLER                    PIC  X(001)     VALUE ".".                  
+111510                                                                              
+111512****************************************************************              
+111514* ETIQUETA DEL NOMBRE DE  ARCHIVO DE ENTRADA  ASIGNACION-TEF                  
+111516* GENERADO EN LINEA POR EL P010 DEL S500.                                     
+111518****************************************************************              
+111520 01 WKS-TIT-ASIG-TEF.                                                         
+111522    02 FILLER                    PIC  X(021)     VALUE                        
+111524        "(S500)S500/FILE/S500/".                                              
+111534    02 WKS-EITQ-TEF-TIT          PIC  X(04)      VALUE "TEF/".                
+111536    02 WKS-TEF-FECHA             PIC  9(006).                                 
+111538    02 FILLER                    PIC  X(001)     VALUE ".".                   
+111540                                                                              
+111600*** VARIABLES PARA EL ARCHIVO DE CARGA DEL S111                               
+111700 01  WKS-E01-VARIABLES.                                                       
+111800     02 WKS-E01-FIN-VA            PIC  9(001).                                
+111900        88 W88-E01-FIN                 VALUE  1.                              
+112000     02 WKS-E01-FILE-ERROR-VA     PIC  9(001).                                
+112100        88 W88-E01-FILE-ERROR          VALUE  1.                              
+112200     02 WKS-E01-SUC-ERROR-VA      PIC  9(001).                                
+112300        88 W88-E01-SUC-ERROR           VALUE  1.                              
+112400     02 WKS-E01-STORE-BASES-VA    PIC  9(001).                                
+112500        88 W88-E01-STORE-BASES         VALUE  1.                              
+112600 01  WKS-E01-CONTADORES.                                                      
+112700     02 WKS-E01-REG-DETALLE       PIC  9(008).                                
+112800 01  WKS-E01-AUXILIARES.                                                      
+112900     02 WKS-E01-NUM-CSI           PIC  9(002).                                
+113000     02 WKS-E01-FECHA-APLICAR     PIC  9(008).                                
+113100     02 WKS-E01-FECH-PROYECTADA   PIC  9(008).                                
+113200     02 WKS-E01-LASTRECORD        PIC  9(008).                                
+113300                                                                              
+113305 01 WS-ETIQ-RECHA.                                                            
+113310    03  FILLER          PIC X(15) VALUE "S500/LIST/P176/".                    
+113315    03  WS-RECH-CI      PIC 99.                                               
+113320    03  WS-RECH-SUBNODO PIC 99 VALUE 0.                                       
+113325    03  FILLER          PIC X     VALUE "/".                                  
+113330    03  WS-RECH-TEF     PIC X     VALUE "R".                                  
+113335    03  FILLER          PIC X(4)  VALUE "000/".                               
+113340    03  WS-RECH-FECHA   PIC 9(6).                                             
+113345    03  FILLER          PIC X     VALUE "/".                                  
+113350    03  WS-RECH-MIX     PIC 9(7).                                             
+113355    03  FILLER          PIC X(4)  VALUE "/001".                               
+113360    03  WS-RECH-NOMBRE  PIC X(08) VALUE "RECHTEF.".                           
+113365                                                                              
+113370 01  WS-ENCABEZADO.                                                           
+113375     05 FILLER                             PIC X(51)                          
+113380        VALUE SPACES.                                                         
+113385     05 FILLER                             PIC X(29)                          
+113390        VALUE "BANCO NACIONAL DE MEXICO S.A.".                                
+113391*                                                                             
+113392 01  WS-ENCABEZADO1.                                                          
+113393     05 FILLER                             PIC X(56)                          
+113394        VALUE SPACES.                                                         
+113395     05 FILLER                             PIC X(20)                          
+113396        VALUE "DEPOSITOS A LA VISTA".                                         
+113400                                                                              
+113402 01  WS-03-RECH.                                                              
+113404     05 FILLER                        PIC X(17)                               
+113406        VALUE "S500-P176-RECHTEF".                                            
+113408     05 FILLER                        PIC X(90) VALUE SPACES.                 
+113410     05 FILLER                        PIC X(6)                                
+113412        VALUE "FECHA ".                                                       
+113414     05 WS-REC-DIA                    PIC Z9.                                 
+113416     05 FILLER                        PIC X VALUE "/".                        
+113418     05 WS-REC-MES                    PIC 9(02).                              
+113420     05 FILLER                        PIC X VALUE "/".                        
+113422     05 WS-REC-ANO                    PIC 9(04).                              
+113424                                                                              
+113426 01  WS-04-RECH.                                                              
+113428     05 FILLER                             PIC X(08)                          
+113430        VALUE "PROCESO ".                                                     
+113432     05 WS-REC-DIA1                        PIC Z9.                            
+113434     05 FILLER                             PIC X VALUE "/".                   
+113436     05 WS-REC-MES1                        PIC 9(02).                         
+113438     05 FILLER                             PIC X VALUE "/".                   
+113440     05 WS-REC-ANO1                        PIC 9(04).                         
+113442     05 FILLER                             PIC X(31)                          
+113444           VALUE SPACES.                                                      
+113446     05 FILLER                             PIC X(32)                          
+113448           VALUE "RECHAZOS ASIGNACION TEF PREALTAS".                          
+113450     05 FILLE                              PIC X(37)                          
+113452           VALUE SPACES.                                                      
+113454     05 FILLER                             PIC X(05)                          
+113456        VALUE "HOJA ".                                                        
+113458     05 WS-REC-HOJA                        PIC ZZ9.                           
+113460                                                                              
+113462 01 WS-IMP-HORA.                                                              
+113464    05 FILLER                          PIC X(06) VALUE                        
+113466       "HORA: ".                                                              
+113468    05 WS-IMP-HH                       PIC Z9.                                
+113470    05 FILLER                          PIC X VALUE ":".                       
+113472    05 WS-IMP-MM                       PIC 9(002).                            
+113474    05 FILLER                          PIC X VALUE ":".                       
+113476    05 WS-IMP-SS                       PIC 9(002).                            
+113478    05 FILLER                          PIC X(06) VALUE SPACES.                
+113480    05 FILLER                          PIC X(05) VALUE                        
+113482      "CSI: ".                                                                
+113484    05 WS-IMP-CSI                      PIC 99.                                
+113485                                                                              
+113486 01  WS-TIT-RECHA.                                                            
+113487     02 FILLER                            PIC X(06)                           
+113488        VALUE SPACES.                                                         
+113489     02 FILLER                            PIC X(10)                           
+113490        VALUE " TARJETA  ".                                                   
+113491     02 FILLER                            PIC X(11)                           
+113492        VALUE   SPACES.                                                       
+113493     02 FILLER                            PIC X(07)                           
+113494        VALUE " TEF   ".                                                      
+113495     02 FILLER                            PIC X(14)                           
+113496        VALUE   SPACES.                                                       
+113497     02 FILLER                            PIC X(13)                           
+113498        VALUE "CAUSA RECHAZO".                                                
+113500                                                                              
+113505 01  WS-DET-RECHA.                                                            
+113510     05 FILLER                         PIC X(02) VALUE SPACES.                
+113515     05 WS-NUM-TAR                     PIC 9(16).                             
+113520     05 FILLER                         PIC X(04) VALUE SPACES.                
+113525     05 WS-TEF-NUM                     PIC 9(16).                             
+113530     05 FILLER                         PIC X(10) VALUE SPACES.                
+113535     05 WS-CAU-RECH                    PIC X(13).                             
+113536                                                                              
+113538 01 WS-DET-REGACEP.                                                           
+113539    02 FILLER         PIC X(03) VALUE SPACES.                                 
+113540    02 FILLER         PIC X(25) VALUE "REGISTROS ACEPTADOS     :".            
+113542    02 FILLER         PIC X(03) VALUE SPACES.                                 
+113544    02 WS-TOT-ACEP    PIC ZZZ,ZZZ,ZZ9.                                        
+113546                                                                              
+113548 01 WS-DET-REGRECH.                                                           
+113549    02 FILLER         PIC X(03) VALUE SPACES.                                 
+113550    02 FILLER         PIC X(25) VALUE "REGISTROS RECHAZADOS    :".            
+113552    02 FILLER         PIC X(03) VALUE SPACES.                                 
+113554    02 WS-TOT-RECHA   PIC ZZZ,ZZZ,ZZ9.                                        
+113556                                                                              
+113558 01 WS-DET-TEFCERO.                                                           
+113559    02 FILLER         PIC X(03) VALUE SPACES.                                 
+113560    02 FILLER         PIC X(25) VALUE "REGISTROS TEF EN CERO   :".            
+113562    02 FILLER         PIC X(03) VALUE SPACES.                                 
+113564    02 WS-TOT-TEFCERO PIC ZZZ,ZZZ,ZZ9.                                        
+113566                                                                              
+113568 01 WS-DET-TOTREGS.                                                           
+113570    02 FILLER      PIC X(28) VALUE "REGISTROS EN EL ARCHIVO    :".            
+113572    02 FILLER      PIC X(03) VALUE SPACES.                                    
+113574    02 WS-TOT-REGS PIC ZZZ,ZZZ,ZZ9.                                           
+113600                                                                              
+113700*** VARIABLES PARA LLAMADO RUTINA COMUN THECALENDAR                           
+113800 01  WKS-AUX-THECALENDAR.                                                     
+113900     02 WKS-INP-FECHA1            PIC  9(008).                                
+114000     02 WKS-INP-FECHA2            PIC  9(008).                                
+114100     02 WKS-INP-FORMATO           PIC  9(002).                                
+114200     02 WKS-INP-FUNCION           PIC  9(002).                                
+114300     02 WKS-OUT-FECHA1            PIC  9(008).                                
+114400     02 WKS-OUT-FECHA2            PIC  9(008).                                
+114450 77 WS-B02-DECOM-S111             PIC  9(02) .                                
+114500 01  WKS-VARIABLES-BASE.                                                      
+114600*** VARIABLES PARA LA ESTRUCTURA B00 DE LA BASE BD01                          
+114700     02 WKS-AREAS-BD00.                                                       
+114800        03 WKS-B00-TIPO-PROCESO   PIC  9(001).                                
+114900           88 W88-B00-TP-LINEA         VALUE 0.                               
+115000           88 W88-B00-TP-BATCH         VALUE 1, 2.                            
+115100*** VARIABLES PARA LA ESTRUCTURA B02 DE LA BASE BD01                          
+115200     02 WKS-AREAS-BD02.                                                       
+115300        03 WKS-B02-NUM-CSI        PIC  9(002).                                
+115400        03 WKS-B02-FECHA-LINEA    PIC  9(008).                                
+115500        03 WKS-B02-FECHA-LOTE     PIC  9(008).                                
+115600*** VARIABLES PARA LA ESTRUCTURA B01P DE LA BASE BD04                         
+115700     02 WKS-AREAS-BD04.                                                       
+115800        03 WKS-B01P-FIN-VA        PIC  9(001).                                
+115900           88 W88-B01P-FIN             VALUE  1.                              
+116000        03 WKS-B01P-NUM-CSI       PIC  9(002).                                
+116100        03 WKS-B01P-ULT-ARCHAPLI  PIC  9(008).                                
+116200*** PARAMETRO DE ENTRADA                                                      
+116300 01  WKS-PARAMETROS.                                                          
+116400     02 WKS-PARAM-ENTRADA         PIC  9(009).                                
+116500     02 WKS-PARAM-ENTRADA-R       REDEFINES                                   
+116600        WKS-PARAM-ENTRADA.                                                    
+116620        03 WKS-PARAM-FECHA-CAMD   PIC  9(008).                                
+116640        03 WKS-PARAM-FECHA-CAMD-R REDEFINES                                   
+116690           WKS-PARAM-FECHA-CAMD.                                              
+116700           05 WKS-PARAM-FECHA-CA  PIC  9(004).                                
+116800           05 WKS-PARAM-FECHA-MM  PIC  9(002).                                
+116900           05 WKS-PARAM-FECHA-DD  PIC  9(002).                                
+117000        03 WKS-PARAM-FECHA-CAMD-RR   REDEFINES                                
+117100           WKS-PARAM-FECHA-CAMD.                                              
+117200           05 WKS-PARAM-FECHA-CC  PIC  9(002).                                
+117300           05 WKS-PARAM-FECHA-AMD PIC  9(006).                                
+117302        03 WKS-PARAM-TIP-PROC     PIC  9(001).                                
+117305                                                                              
+117310 01 WS-HORA-HMSC-01.                                                          
+117315    03 WS-HORA-HMSC-N           PIC 9(8).                                     
+117320    03 WS-HORA-HMSC REDEFINES   WS-HORA-HMSC-N.                               
+117325       05 WS-HORA-HMS-N         PIC 9(6).                                     
+117330       05 WS-HORA-HMS REDEFINES WS-HORA-HMS-N.                                
+117335          07 WS-HORA-HH-N       PIC 9(2).                                     
+117340          07 WS-HORA-MM-N       PIC 9(2).                                     
+117345          07 WS-HORA-SS-N       PIC 9(2).                                     
+117350       05 FILLER                PIC X(2).                                     
+117352                                                                              
+117354 01 WS-FECHA-DIA        PIC 9(08).                                            
+117356 01 WS-FECHA-DIA-AMD REDEFINES WS-FECHA-DIA.                                  
+117358    05 WS-DIA-AA        PIC 9(04).                                            
+117360    05 WS-DIA-MM        PIC 9(02).                                            
+117362    05 WS-DIA-DD        PIC 9(02).                                            
+117364                                                                              
+117366 01 WS-FECHA-PRO        PIC 9(08).                                            
+117368 01 WS-FECHA-PRO-DMA REDEFINES WS-FECHA-PRO.                                  
+117370    02 WS-PRO-AA        PIC 9(04).                                            
+117372    02 WS-PRO-MM        PIC 99.                                               
+117374    02 WS-PRO-DD        PIC 99.                                               
+117376                                                                              
+117378 01 WKS-VARIABLES-CAT.                                                        
+117380    02 WKS-L700-NIVEL-INI                 PIC 9(04) VALUE 0.                  
+117382    02 WKS-L700-CVE-REG                   PIC X(12).                          
+117384    02 WKS-L700-CVE-REG-ASO               PIC X(12).                          
+117386                                                                              
+117388 01 WS-TARJETA-PP-01.                                                         
+117390    02 WS-TARJETA-PP-X.                                                       
+117392       03 WS-TARJETA-PP            PIC 9(16).                                 
+117394    02 WS-TARJ-PP  REDEFINES  WS-TARJETA-PP-X.                                
+117396       03 WS-ACC-BIN               PIC 9(06).                                 
+117398       03 WS-NUM-TARJ              PIC 9(10).                                 
+117400                                                                              
+117402 01 WSS-NUM-TEF          PIC 9(16).                                           
+117404 01 WSS-NUM-TEF-R  REDEFINES WSS-NUM-TEF.                                     
+117406    02 WS-1APARTE       PIC 9(04).                                            
+117408    02 NUM-TEF          PIC 9(12).                                            
+117450*                                                                             
+117452*01 WS-IND              PIC  9(02).                                           
+117454 01 WS-IND-BIN          PIC  9(04).                                           
+117455                                                                              
+117456*01 WKS-BINES-TABLA.                                                          
+117458*    02 WKS-BIN-TBL       OCCURS  1000 TIMES.                                 
+117460*       03 WKS-BIN-NUM            PIC  9(06) COMP.                            
+117462*       03 WKS-BIN-PROD           PIC  9(04) COMP.                            
+117464*       03 WKS-BIN-INST           PIC  9(02) COMP.                            
+117466*       03 WKS-BIN-MONEDA         PIC  9(04) COMP.                            
+117468*       03 WKS-BIN-RASG-DEP-S274  PIC  9(02) COMP.                            
+117470*       03 WKS-BIN-RASG-DEP-INI   PIC  9(02) COMP.                            
+117472*       03 WKS-BIN-ASIG-C111      PIC  9(02) COMP.                            
+117474*       03 WKS-BIN-ASIG-C730      PIC  9(02) COMP.                            
+117476*       03 WKS-BIN-ASIG-C704      PIC  9(02) COMP.                            
+117478*       03 WKS-BIN-RASIG-C704     PIC  9(02) COMP.                            
+117480*       03 WKS-BIN-RASIG-C735     PIC  9(02) COMP.                            
+117482*       03 WKS-BIN-DATO-12        PIC  9(02) COMP.                            
+117484*       03 WKS-BIN-DATO-13        PIC  9(02) COMP.                            
+117486*       03 WKS-BIN-DATO-14        PIC  9(02) COMP.                            
+117488*       03 WKS-BIN-DATO-15        PIC  9(02) COMP.                            
+117490                                                                              
+117500* COPY "(S000)S000/UTILITY/DESPLIEGA/FTE/CCW ON PACK.".                       
+117600*                                                                             
+117700******************************************************************            
+117800* P R O C E D U R E   D I V I S I O N.                                        
+117900******************************************************************            
+118000 PROCEDURE DIVISION.                                                          
+118100*===================                                                          
+118200*                                                                             
+118300 00000000-INICIA SECTION.                                                     
+118400 00000000-PRINCIPAL.                                                          
+118500*-------------------                                                          
+118600     PERFORM                      10000000-INICIO                             
+118650     IF WKS-PARAM-TIP-PROC = 1 AND WS-B02-DECOM-S111 = 0                      
+118700        PERFORM  20000000-PROCESO-PREA                                        
+118720     ELSE                                                                     
+118740     IF WKS-PARAM-TIP-PROC = 2                                                
+118760        PERFORM  20000100-PROCESO-TEF.                                        
+118780                                                                              
+118800     PERFORM                      60000000-FIN                                
+118900     STOP RUN                                                    .            
+119000*                                                                             
+119100 10000000-INICIO.                                                             
+119200*----------------                                                             
+119205     MOVE ATTRIBUTE HOSTNAME OF MYSELF TO WKS-NAME-HOST.                      
+119210     MOVE 2             TO W77-USO-LIBLJ.                                     
+119300     MOVE ATTRIBUTE TASKVALUE OF MYSELF TO WKS-PARAM-ENTRADA.                 
+119400                                                                              
+119600     MOVE "P176"                  TO  WS-0101-PASO-MSG                        
+119800                                      B91-IDPROG                              
+120000     MOVE "S500P176"              TO  W77-S000-MY-ID                          
+120100     MOVE "25MTP008"              TO  W77-S000-MY-VERSION                     
+120200                                      WS-0101-MTP-MSG                         
+120300     MOVE ZEROS                   TO  WKS-VARIABLES-BASE                      
+120400     PERFORM                      10000010-LIBRERIAS                          
+120500     PERFORM                      10010100-CHECO-VER                          
+120520     PERFORM                      10000120-HORA                               
+120540     PERFORM                      10000130-FECHA-DIA                          
+120600**** PERFORM                      10010200-CARGO-SUCS                         
+120650     PERFORM                      10010250-CARGA-BINES                        
+120700     PERFORM                      10010300-ABRO-BASES                         
+120800     PERFORM                      10010400-VALIDA-BASES                       
+120830                                                                              
+120840     IF WKS-PARAM-TIP-PROC = 1 AND WS-B02-DECOM-S111 = 0                      
+120900        IF NOT W88-B01P-FIN                                                   
+121000           PERFORM                   10010500-FECHA-PRO                       
+121050           PERFORM                   10010200-CARGO-SUCS                      
+121100           IF NOT W88-B01P-FIN                                                
+121200              PERFORM                10010600-ABRO-ARCH-S111                  
+121300              PERFORM                10010700-PROYSIGDIA.                     
+121400                                                                              
+121405     IF WKS-PARAM-TIP-PROC = 2                                                
+121407        PERFORM                      10010800-PROYDIAHANT                     
+121410        PERFORM                      10010550-FECHA-PRO-TEF                   
+121415        PERFORM                      10010650-ABRO-ARCH-TEF.                  
+121425                                                                              
+121500******************************************************************            
+121600* CARGA LIBRERIAS PARA EL PROCESO                                             
+121700******************************************************************            
+121800 10000010-LIBRERIAS.                                                          
+121900*-------------------                                                          
+122400     MOVE "INICIO PROCESO DE CARGA" TO WS-0101-TEXT-MSG.                      
+122500                                                                              
+122600     PERFORM 70000050-MENSAJE                                                 
+122700     PERFORM                      10000100-VERSIONES                          
+122800     PERFORM                      10000006-LOCSUP                             
+122900     PERFORM                      10000080-S080L700                           
+123000     PERFORM                      10000080-S080IVA.                           
+123070     PERFORM                      10000016-L458.                              
+123100                                                                              
+123200******************************************************************            
+123300* VERIFICO QUE LA VERSION QUE ESTOY CORRIENDO SEA LA DE VERSIONES.            
+123400******************************************************************            
+123500 10010100-CHECO-VER.                                                          
+123600*-------------------                                                          
+123700     PERFORM                      20000100-CHECAME-VERSION                    
+123800     IF S000-CTR-CVEERROR < 0                                                 
+124100        MOVE "VER. EJECUTADA DIF. A VERSIONES"                                
+124200                                  TO  WS-0101-TEXT-MSG                        
+124300        PERFORM 70000050-MENSAJE                                              
+124400        PERFORM                   99000010-LLAMA-STATUS-MYSELF   .            
+124410                                                                              
+124420 10000120-HORA.                                                               
+124430*===============                                                              
+124440    ACCEPT  WS-HORA-HMSC-N  FROM TIME.                                        
+124445                                                                              
+124450    MOVE WS-HORA-HH-N     TO  WS-IMP-HH                                       
+124455    MOVE WS-HORA-MM-N     TO  WS-IMP-MM                                       
+124460    MOVE WS-HORA-SS-N     TO  WS-IMP-SS.                                      
+124472                                                                              
+124474 10000130-FECHA-DIA.                                                          
+124476*===================                                                          
+124478   PERFORM 90000000-DAME-FEC-MAQUINA.                                         
+124480   MOVE WKS-DD-MAQ        TO    WS-DIA-DD  WS-REC-DIA.                        
+124482   MOVE WKS-MM-MAQ        TO    WS-DIA-MM  WS-REC-MES.                        
+124484   MOVE WKS-AAAA-MAQ      TO    WS-DIA-AA  WS-REC-ANO.                        
+124486                                                                              
+124600******************************************************************            
+124700* CARGO ESTRUCTURA EN UNA TABLA.                                              
+124800******************************************************************            
+124900 10010200-CARGO-SUCS.                                                         
+125000*--------------------                                                         
+125100     PERFORM                      70000100-CARGO-TABLA                        
+125200     CANCEL "CTLVERS"                                                         
+125300     CANCEL "S080TARIFAS"                                                     
+125400     CANCEL "S080BD01CON"                                        .            
+125500                                                                              
+125502 10010250-CARGA-BINES.                                                        
+125504*=====================                                                        
+125506    MOVE LOW-VALUES            TO WKS-L710-PARAM-ENT                          
+125508                                  WKS-L710-PARAM-SAL.                         
+125510    MOVE ALL @00@              TO WKS-BINES-TABLA.                            
+125511                                                                              
+125512    MOVE 1564                  TO WKS-L710-CATALOGO-E.                        
+125516    MOVE 176                   TO W77-L710-PROGRAMA.                          
+125518    MOVE WKS-B02-FECHA-LINEA   TO WKS-L710-FVIG-E.                            
+125520    MOVE 500                   TO W77-L710-SISTEMA.                           
+125522    MOVE 0                     TO W77-L710-RESULT.                            
+125524    MOVE 20                    TO WKS-L710-CLAVE-E.                           
+125526    MOVE 1                     TO WKS-L710-ORDBUSQ-E.                         
+125528    MOVE 0                     TO WKS-L710-FINI-CON-E.                        
+125530    MOVE 10                    TO WKS-L710-REGS-E.                            
+125534    MOVE ZEROS                 TO W77-FIN-L710  WS-IND-BIN.                   
+125535                                                                              
+125536    PERFORM 10010260-L710-BUSCA-BINES   UNTIL W77-FIN-L710 = 1.               
+125538                                                                              
+125540 10010260-L710-BUSCA-BINES.                                                   
+125542*==========================                                                   
+125544   PERFORM     90000100-L710-CONS-DET.                                        
+125545                                                                              
+125546   IF W77-L710-RESULT = 0 OR 1                                                
+125548      PERFORM   10010270-GUARDA-BIN-TBL                                       
+125550                VARYING W77-L710-IND FROM 1 BY 1                              
+125552                UNTIL   W77-L710-IND > WKS-L710-REGS-S                        
+125554      MOVE WKS-L710-FINI-CON-S  TO  WKS-L710-FINI-CON-E                       
+125556      MOVE WKS-L710-NIVEL-S     TO  WKS-L710-NIVEL-E                          
+125558      MOVE WKS-L710-FVIG-S      (WKS-L710-REGS-S)                             
+125560                                TO  WKS-L710-FVIG-E                           
+125562      MOVE WKS-L710-DATOS       (WKS-L710-REGS-S, 1)                          
+125564                                TO  WKS-L710-LLAVE1-E                         
+125566      IF W77-L710-RESULT = 0                                                  
+125568         MOVE 1                 TO  W77-FIN-L710                              
+125570      ELSE                                                                    
+125572         NEXT SENTENCE                                                        
+125574   ELSE                                                                       
+125576      MOVE 1                    TO  W77-FIN-L710.                             
+125578                                                                              
+125580 10010270-GUARDA-BIN-TBL.                                                     
+125582*========================                                                     
+125584   ADD  1      TO  WS-IND-BIN.                                                
+125586   MOVE WKS-L710-DATOS (W77-L710-IND, 01)                                     
+125588         TO WKS-BIN-NUM (WS-IND-BIN)                                          
+125590   MOVE WKS-L710-DATOS (W77-L710-IND, 02)                                     
+125592         TO WKS-BIN-PROD (WS-IND-BIN)                                         
+125594   MOVE WKS-L710-DATOS (W77-L710-IND, 03)                                     
+125596         TO WKS-BIN-INST (WS-IND-BIN)                                         
+125598   MOVE WKS-L710-DATOS (W77-L710-IND, 04)                                     
+125600         TO WKS-BIN-MONEDA (WS-IND-BIN)                                       
+125602   MOVE WKS-L710-DATOS (W77-L710-IND, 05)                                     
+125604         TO WKS-BIN-RASG-DEP-S274 (WS-IND-BIN)                                
+125606   MOVE WKS-L710-DATOS (W77-L710-IND, 06)                                     
+125608         TO WKS-BIN-RASG-DEP-INI(WS-IND-BIN)                                  
+125610   MOVE WKS-L710-DATOS (W77-L710-IND, 07)                                     
+125612         TO WKS-BIN-ASIG-C111 (WS-IND-BIN)                                    
+125614   MOVE WKS-L710-DATOS (W77-L710-IND, 08)                                     
+125616         TO WKS-BIN-ASIG-C730 (WS-IND-BIN)                                    
+125618   MOVE WKS-L710-DATOS (W77-L710-IND, 09)                                     
+125620         TO WKS-BIN-ASIG-C704 (WS-IND-BIN)                                    
+125622   MOVE WKS-L710-DATOS (W77-L710-IND, 10)                                     
+125624         TO WKS-BIN-RASIG-C704 (WS-IND-BIN)                                   
+125626   MOVE WKS-L710-DATOS (W77-L710-IND, 11)                                     
+125628         TO WKS-BIN-RASIG-C735 (WS-IND-BIN)                                   
+125630   MOVE WKS-L710-DATOS (W77-L710-IND, 12)                                     
+125632         TO WKS-BIN-DATO-12 (WS-IND-BIN)                                      
+125634   MOVE WKS-L710-DATOS (W77-L710-IND, 13)                                     
+125636         TO WKS-BIN-DATO-13 (WS-IND-BIN)                                      
+125638   MOVE WKS-L710-DATOS (W77-L710-IND, 14)                                     
+125640         TO WKS-BIN-DATO-14 (WS-IND-BIN)                                      
+125642   MOVE WKS-L710-DATOS (W77-L710-IND, 15)                                     
+125644         TO WKS-BIN-DATO-15 (WS-IND-BIN).                                     
+125646                                                                              
+125650******************************************************************            
+125700* ABRO LAS BASES DE DATOS DE UPDATE                                           
+125800******************************************************************            
+125900 10010300-ABRO-BASES.                                                         
+126000*--------------------                                                         
+126100     OPEN UPDATE S500BD01CAPTACION                                            
+126200     ON EXCEPTION                                                             
+126500        MOVE "ERROR AL ABRIR LA BASE S500BD01CAPTACION"                       
+126600                                  TO  WS-0101-TEXT-MSG                        
+126700        PERFORM 70000050-MENSAJE                                              
+126800        PERFORM                   99000000-LLAMA-DMTERMINATE     .            
+126900                                                                              
+127000     SET S500B02CONTROL           TO  BEGINNING                               
+127100                                                                              
+127200     OPEN UPDATE S500BD04TARJETAS                                             
+127300     ON EXCEPTION                                                             
+127600        MOVE "ERROR AL ABRIR LA BASE S500BD04TARJETAS"                        
+127700                                  TO  WS-0101-TEXT-MSG                        
+127800        PERFORM 70000050-MENSAJE                                              
+127900        PERFORM                   99000000-LLAMA-DMTERMINATE     .            
+128000                                                                              
+128100     SET S500B01PCONTROL          TO  BEGINNING                  .            
+128200                                                                              
+128300******************************************************************            
+128400* VALIDA LOS DATASETS DE CONTROL                                              
+128500******************************************************************            
+128600 10010400-VALIDA-BASES.                                                       
+128700*----------------------                                                       
+128800     PERFORM                      90000000-B00CTRLPASO-FIND                   
+128900     MOVE B00-TIPO-PROCESO        TO  WKS-B00-TIPO-PROCESO                    
+129000     IF W88-B00-TP-BATCH                                                      
+129300        STRING "NO PUEDO PROCESAR PREALTAS... SE ESTA CORRIENDO "             
+129400               "BATCH DEL S500, FAVOR DE REINTENTAR CUANDO "                  
+129500               "TERMINE PROCESO BATCH"                                        
+129600               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+129700        PERFORM 70000050-MENSAJE                                              
+129800        PERFORM                   99000000-LLAMA-DMTERMINATE     .            
+129900                                                                              
+130000     PERFORM                      90000002-B02CONTROL-FIND                    
+130100     IF WS-DB-ERROR                                                           
+130200        IF WS-DB-NOTFOUND                                                     
+130500           MOVE "ERROR B02 CONTROL VACIO S500BD01CAPTACION"                   
+130600                                  TO  WS-0101-TEXT-MSG                        
+130700        ELSE                                                                  
+131000           MOVE "ERROR FIND A B02 DE S500BD01CAPTACION"                       
+131100                                  TO  WS-0101-TEXT-MSG.                       
+131200                                                                              
+131300     IF WS-DB-ERROR                                                           
+131400        PERFORM 70000050-MENSAJE                                              
+131500        PERFORM                   99000000-LLAMA-DMTERMINATE     .            
+131600                                                                              
+131700     MOVE B02-NUM-CSI        TO  WKS-B02-NUM-CSI  WS-RECH-CI                  
+131750                                 WS-IMP-CSI.                                  
+131800     MOVE B02-FECHA-LINEA    TO  WKS-B02-FECHA-LINEA                          
+131900     MOVE B02-FECHA-LOTE     TO  WKS-B02-FECHA-LOTE  WS-RECH-FECHA            
+131902                                 WS-FECHA-PRO.                                
+131904                                                                              
+131906     MOVE WS-PRO-DD          TO WS-REC-DIA1.                                  
+131908     MOVE WS-PRO-MM          TO WS-REC-MES1.                                  
+131910     MOVE WS-PRO-AA          TO WS-REC-ANO1.                                  
+132000     MOVE B02-USO-FUTURO-05  TO WS-B02-DECOM-S111                             
+132050                                                                              
+132100     PERFORM                      90400001-B01PCONTROL-FINDF                  
+132200     IF WS-DB-ERROR                                                           
+132300        IF WS-DB-NOTFOUND                                                     
+132400           IF WKS-PARAM-FECHA-CAMD = 9                                        
+132500              MOVE 1              TO  WKS-B01P-FIN-VA                         
+132600              PERFORM             90400001-B01PCONTROL-CREATE                 
+132700              PERFORM             90400000-BEGIN-TRANSAC-NOAUD                
+132800              MOVE WKS-B02-NUM-CSI                                            
+132900                                  TO  B01P-NUM-CSI                            
+133000              MOVE ZEROS          TO  B01P-ULT-ARCHAPLI                       
+133100***                                   B01P-USO-FUT-02                         
+133200***                                   B01P-USO-FUT-04                         
+133300***                                   B01P-USO-FUT-08                         
+133400              PERFORM             90400001-B01PCONTROL-STORE                  
+133500              PERFORM             90400000-END-TRANSAC-NOAUD                  
+133600           ELSE                                                               
+133900              MOVE "ERROR B01P CONTROL VACIO S500BD04TARJETAS"                
+134000                                  TO  WS-0101-TEXT-MSG                        
+134100        ELSE                                                                  
+134400           MOVE "ERROR FIND A B01P DE S500BD04TARJETAS"                       
+134500                                  TO  WS-0101-TEXT-MSG.                       
+134600                                                                              
+134700     IF WS-DB-ERROR                                                           
+134800        PERFORM 70000050-MENSAJE                                              
+134900        PERFORM                   99000000-LLAMA-DMTERMINATE     .            
+135000                                                                              
+135100******************************************************************            
+135200* ACCESO EL DATASET DE CONTROL PARA OBTENER LA FECHA DE PROCESO.              
+135300******************************************************************            
+135400 10010500-FECHA-PRO.                                                          
+135500*-------------------                                                          
+135600     MOVE B01P-ULT-ARCHAPLI       TO  WKS-B01P-ULT-ARCHAPLI                   
+135700     IF WKS-PARAM-FECHA-CAMD      =   ZEROS                                   
+135800        IF WKS-B01P-ULT-ARCHAPLI  =   ZEROS                                   
+136100           STRING "NO PUEDO PROCESAR PREALTAS... NO EXISTE FECHA "            
+136200                  "PARA SOLICITAR ARCHIVOS S111"                              
+136300           DELIMITED BY SIZE INTO     WS-0101-TEXT-MSG                        
+136400           PERFORM 70000050-MENSAJE                                           
+136500           PERFORM                99000000-LLAMA-DMTERMINATE                  
+136600        ELSE                                                                  
+136700           MOVE WKS-B01P-ULT-ARCHAPLI                                         
+136800                                  TO  WKS-E01-FECHA-APLICAR                   
+136900     ELSE                                                                     
+137000        IF WKS-PARAM-FECHA-CAMD   =   9                                       
+137300           STRING "ERROR NO PUEDO GENERAR REGISTRO B01PCONTROL, "             
+137400                  "EL REGISTRO YA EXISTE"                                     
+137500           DELIMITED BY SIZE INTO     WS-0101-TEXT-MSG                        
+137600           PERFORM 70000050-MENSAJE                                           
+137700           MOVE 1                 TO  WKS-B01P-FIN-VA                         
+137800        ELSE                                                                  
+137900           IF WKS-PARAM-FECHA-CAMD < 20070901                                 
+138200              STRING "ERROR, FECHA PARAMETRO INVALIDA: "                      
+138300                                      WKS-PARAM-FECHA-CAMD                    
+138400              DELIMITED BY SIZE INTO  WS-0101-TEXT-MSG                        
+138500              PERFORM 70000050-MENSAJE                                        
+138600              PERFORM                99000000-LLAMA-DMTERMINATE               
+138700           ELSE                                                               
+138800              MOVE WKS-PARAM-FECHA-CAMD                                       
+138900                                  TO  WKS-E01-FECHA-APLICAR      .            
+139000                                                                              
+139010 10010550-FECHA-PRO-TEF.                                                      
+139015*=======================                                                      
+139020    IF WKS-PARAM-FECHA-CAMD  =   ZEROS                                        
+139022       MOVE WKS-FEC-PROY-TEF        TO  WKS-FECHA-PROC                        
+139025       MOVE WKS-FEC-PROY-TEF        TO  WKS-TEF-FECHA                         
+139030    ELSE                                                                      
+139032       MOVE WKS-PARAM-FECHA-CAMD    TO  WKS-FECHA-PROC                        
+139035       MOVE WKS-PARAM-FECHA-CAMD    TO  WKS-TEF-FECHA.                        
+139040                                                                              
+139100******************************************************************            
+139200* ABRO ARCHIVO DE PREALTAS ENVIADO POR EL S111                                
+139300******************************************************************            
+139400 10010600-ABRO-ARCH-S111.                                                     
+139500*------------------------                                                     
+139600     MOVE WKS-E01-FECHA-APLICAR   TO  WKS-ETIQ-S111-FECHA                     
+139700     OPEN INPUT E01-S111-PREALTAS                                .            
+139710                                                                              
+139720     MOVE ATTRIBUTE MIXNUMBER OF MYSELF     TO WS-RECH-MIX.                   
+139730     SET R01-RECHAZOS(USERBACKUPNAME)       TO VALUE TRUE                     
+139740     CHANGE ATTRIBUTE TITLE OF R01-RECHAZOS TO WS-ETIQ-RECHA.                 
+139750     OPEN OUTPUT R01-RECHAZOS.                                                
+139760                                                                              
+139765     PERFORM 10010650-ENCABEZADOS.                                            
+139767     PERFORM 10010660-ENCABEZADOS-1.                                          
+139770                                                                              
+139775 10010650-ABRO-ARCH-TEF.                                                      
+139780*=======================                                                      
+139785   OPEN INPUT ASIGNACION-TEF.                                                 
+139800                                                                              
+139810 10010650-ENCABEZADOS.                                                        
+139812*=====================                                                        
+139817   MOVE SPACES             TO REG-RECHAZOS.                                   
+139822   WRITE REG-RECHAZOS      AFTER CHANNEL 1.                                   
+139824                                                                              
+139827   WRITE REG-RECHAZOS      FROM WS-ENCABEZADO   BEFORE 1.                     
+139832   WRITE REG-RECHAZOS      FROM WS-ENCABEZADO1  BEFORE 1.                     
+139837   ADD   1                 TO   WS-HOJA                                       
+139842   MOVE  WS-HOJA           TO   WS-REC-HOJA.                                  
+139847   WRITE REG-RECHAZOS      FROM WS-03-RECH      BEFORE 1.                     
+139852   WRITE REG-RECHAZOS      FROM WS-04-RECH      BEFORE 1.                     
+139857   WRITE REG-RECHAZOS      FROM WS-IMP-HORA     BEFORE 2.                     
+139872                                                                              
+139875 10010660-ENCABEZADOS-1.                                                      
+139878*=======================                                                      
+139880   WRITE REG-RECHAZOS      FROM WS-TIT-RECHA    AFTER  2.                     
+139882   MOVE  10                TO   WS-LINEA.                                     
+139884                                                                              
+139900******************************************************************            
+140000* SE PROYECTA LA FECHA DE PROCESO AL SIGUIENTE DIA NATURAL                    
+140100******************************************************************            
+140200 10010700-PROYSIGDIA.                                                         
+140300*--------------------                                                         
+140400     MOVE WKS-E01-FECHA-APLICAR   TO  WKS-INP-FECHA1                          
+140500     MOVE 01                      TO  WKS-INP-FECHA2                          
+140600     MOVE 13                      TO  WKS-INP-FORMATO                         
+140700     MOVE 08                      TO  WKS-INP-FUNCION                         
+140800     PERFORM                      70000200-LLAMA-FECHAS                       
+140900     MOVE WKS-OUT-FECHA1          TO  WKS-E01-FECH-PROYECTADA    .            
+141000                                                                              
+141005******************************************************************            
+141010* SE PROYECTA LA FECHA DE PROCESO AL DIA HABIL ANTERIOR.                      
+141015******************************************************************            
+141020 10010800-PROYDIAHANT.                                                        
+141025*----------------------                                                       
+141030     MOVE WKS-B02-FECHA-LINEA     TO  WKS-INP-FECHA1                          
+141035     MOVE 01                      TO  WKS-INP-FECHA2                          
+141040     MOVE 13                      TO  WKS-INP-FORMATO                         
+141045     MOVE 15                      TO  WKS-INP-FUNCION                         
+141050     PERFORM                      70000200-LLAMA-FECHAS                       
+141055     MOVE WKS-OUT-FECHA1          TO  WKS-FEC-PROY-TEF.                       
+141060                                                                              
+141100*****************************************************************             
+141200*      PROCESO PRINCIPAL                                                      
+141300*****************************************************************             
+141400 20000000-PROCESO-PREA.                                                       
+141500*----------------------                                                       
+141600     IF NOT W88-B01P-FIN                                                      
+141700        PERFORM                   20100000-PROCESO-ARCHIVO                    
+141710        IF WKS-E01-FECH-PROYECTADA > WKS-B01P-ULT-ARCHAPLI                    
+141800           PERFORM                20200000-PROCESO-BASE          .            
+141810                                                                              
+141820     PERFORM 60000200-IMPRIME-TOTALES.                                        
+141900                                                                              
+141902 20000100-PROCESO-TEF.                                                        
+141904*=====================                                                        
+141905  MOVE ZEROS  TO  WKS-E01-FIN-VA.                                             
+141906  PERFORM     20102020-LEO-HEADER-TEF.                                        
+141910  PERFORM     20103030-LEO-DETALLE-TEF  UNTIL W88-E01-FILE-ERROR.             
+141960                                                                              
+142000******************************************************************            
+142100*      PROCESO EL ARCHIVO DE CARGA                                            
+142200******************************************************************            
+142300 20100000-PROCESO-ARCHIVO.                                                    
+142400*-------------------------                                                    
+142500     MOVE ZEROS                   TO  WKS-E01-FIN-VA                          
+142600     PERFORM                      20101000-VALIDA-ARCHIVO                     
+142700     MOVE 1                       TO  WKS-KEY-E01                             
+142800     PERFORM                      20102000-LEO-HEADER                         
+142900     PERFORM                      20103000-LEO-DETALLE                        
+143000                          UNTIL       W88-E01-FIN                .            
+143100                                                                              
+143200******************************************************************            
+143300*    VALIDA ARCHIVO DE CARGA                                                  
+143400******************************************************************            
+143500 20101000-VALIDA-ARCHIVO.                                                     
+143600*------------------------                                                     
+143700     MOVE ATTRIBUTE LASTRECORD OF E01-S111-PREALTAS                           
+143800                                  TO  WKS-E01-LASTRECORD                      
+143900     ADD  2                       TO  WKS-E01-LASTRECORD                      
+144000     COMPUTE WKS-KEY-E01          =   WKS-E01-LASTRECORD - 1                  
+144100     PERFORM                      70000300-LLAMA-ARCHIVO-CARGA                
+144200     IF W88-E01-FILE-ERROR                                                    
+144300        MOVE WKS-KEY-E01          TO  WS-MSG-N-12                             
+144600        STRING "ERROR: TRATO DE LEER TRAILER EN LLAVE "                       
+144700                WS-MSG-N-12                                                   
+144800               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+144900     ELSE                                                                     
+145000        IF (E01-S111-TIP-REG = 99)                                            
+145020***    AND (E01-S111-TRL-NUM-REG = (WKS-E01-LASTRECORD + 1))                  
+145040           NEXT SENTENCE                                                      
+145060        ELSE                                                                  
+145100           MOVE 1                 TO  WKS-E01-FILE-ERROR-VA                   
+145200           MOVE WKS-KEY-E01       TO  WS-MSG-N-12                             
+145500           STRING "ARCHIVO CON TRAILER ERRONEO "                              
+145550                  " LLAVE=" WS-MSG-N-12 " REG="                               
+145600                   E01-S111-TIP-REG, E01-S111-HEAD-01                         
+145700           DELIMITED BY SIZE INTO WS-0101-TEXT-MSG.                           
+145800                                                                              
+145900     IF W88-E01-FILE-ERROR                                                    
+146000        PERFORM 70000050-MENSAJE                                              
+146100        PERFORM  99000000-LLAMA-DMTERMINATE.                                  
+146200                                                                              
+146300******************************************************************            
+146400*    VALIDA HEADER DEL ARCHIVO DE CARGA                                       
+146500******************************************************************            
+146600 20102000-LEO-HEADER.                                                         
+146700*--------------------                                                         
+146800     MOVE 1                       TO  WKS-KEY-E01                             
+146900     PERFORM                      70000300-LLAMA-ARCHIVO-CARGA                
+147000     IF NOT W88-E01-FILE-ERROR                                                
+147100        IF E01-S111-TIP-REG = ZEROS                                           
+147200           IF E01-S111-HDR-FECHA = WKS-E01-FECHA-APLICAR                      
+147300              IF E01-S111-HDR-SIS-ORI = "S111"                                
+147400             AND E01-S111-HDR-SIS-DES = "S500"                                
+147500                 NEXT SENTENCE                                                
+147600              ELSE                                                            
+147700                 MOVE 1           TO  WKS-E01-FILE-ERROR-VA                   
+148000                 STRING "ERROR HEAD ORIGEN/DESTINO "                          
+148050                        E01-S111-TIP-REG, E01-S111-HEAD-01                    
+148100                        DELIMITED BY SIZE INTO WS-0101-TEXT-MSG               
+148200           ELSE                                                               
+148300              MOVE 1              TO  WKS-E01-FILE-ERROR-VA                   
+148600              STRING "ERROR HEADER FECHA "                                    
+148650                     E01-S111-TIP-REG, E01-S111-HEAD-01                       
+148700                     DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                  
+148800        ELSE                                                                  
+148900           MOVE 1                 TO  WKS-E01-FILE-ERROR-VA                   
+149200          STRING "ERROR SIN TIPO HEADER "                                     
+149230                  E01-S111-TIP-REG E01-S111-HEAD-01                           
+149300                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                     
+149400     ELSE                                                                     
+149700        MOVE "ERROR ARCHIVO CARGA: SIN HEADER"                                
+149800                                  TO  WS-0101-TEXT-MSG.                       
+149900                                                                              
+150000     IF W88-E01-FILE-ERROR                                                    
+150100        PERFORM 70000050-MENSAJE                                              
+150200        PERFORM 99000000-LLAMA-DMTERMINATE.                                   
+150300                                                                              
+150302 20102020-LEO-HEADER-TEF.                                                     
+150304*========================                                                     
+150305   PERFORM          70000400-LEO-ARCHIVO-TEF.                                 
+150306   IF NOT W88-E01-FILE-ERROR                                                  
+150307      IF I01-TEF-TIP-REG  = 1                                                 
+150309         IF I01-TEF-HDR-FECHA  = WKS-FECHA-PROC                               
+150311            IF I01-TEF-HDR-NEM = "TEF"                                        
+150313               NEXT SENTENCE                                                  
+150315            ELSE                                                              
+150317              MOVE 1              TO  WKS-E01-FILE-ERROR-VA                   
+150319              STRING "ERROR EN NEMONICO TEF  "                                
+150321                     I01-TEF-TIP-REG, I01-TEF-HEAD-01                         
+150323                     DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                  
+150325         ELSE                                                                 
+150327            MOVE 1              TO  WKS-E01-FILE-ERROR-VA                     
+150329            STRING "ERROR HEADER TEF FECHA "                                  
+150331                   I01-TEF-TIP-REG, I01-TEF-HEAD-01                           
+150333                   DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                    
+150335      ELSE                                                                    
+150337         MOVE 1                 TO  WKS-E01-FILE-ERROR-VA                     
+150339         STRING "ERROR SIN TIPO HEADER "                                      
+150341                I01-TEF-TIP-REG, I01-TEF-HEAD-01                              
+150343                DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                       
+150345   ELSE                                                                       
+150347      MOVE "ERROR ARCHIVO CARGA: SIN HEADER"                                  
+150349                                   TO  WS-0101-TEXT-MSG.                      
+150358                                                                              
+150360   IF W88-E01-FILE-ERROR                                                      
+150362      PERFORM 70000050-MENSAJE                                                
+150364      PERFORM 99000000-LLAMA-DMTERMINATE.                                     
+150366                                                                              
+150400******************************************************************            
+150500*    PROCESA SOLICITUDES DEL ARCHIVO DE CARGA                                 
+150600******************************************************************            
+150700 20103000-LEO-DETALLE.                                                        
+150800*---------------------                                                        
+150900     ADD  1                       TO  WKS-KEY-E01                             
+151000     PERFORM                      70000300-LLAMA-ARCHIVO-CARGA                
+151100     IF E01-S111-TIP-REG = 99                                                 
+151200        MOVE 1                    TO  WKS-E01-FIN-VA                          
+151500        STRING "TERMINO CARGA REGISTROS EN TRAILER: "                         
+151600                                      E01-S111-TRL-NUM-REG                    
+151700        DELIMITED BY SIZE INTO        WS-0101-TEXT-MSG                        
+151800        PERFORM 70000050-MENSAJE                                              
+151900        STRING "TERMINO CARGA REGISTROS LEIDOS: "                             
+152000                                      WKS-E01-REG-DETALLE                     
+152100        DELIMITED BY SIZE INTO        WS-0101-TEXT-MSG                        
+152200        PERFORM 70000050-MENSAJE                                              
+152300     ELSE                                                                     
+152310     IF E01-S111-TIP-REG = 1 OR 2 OR 3 OR 4                                   
+152400        ADD  1                    TO  WKS-E01-REG-DETALLE                     
+152500        PERFORM                   20103010-VALIDA-COBERTURA                   
+152600        IF NOT W88-E01-SUC-ERROR                                              
+152700           IF E01-S111-TIP-REG = 01                                           
+152800              PERFORM          20103020-CGA-PREALTAS                          
+152900           ELSE                                                               
+153000           IF E01-S111-TIP-REG = 02 OR 03                                     
+153100              PERFORM          20103030-CGA-BLOQUEO                           
+153200           ELSE                                                               
+153300           IF E01-S111-TIP-REG = 04                                           
+153400              PERFORM          20103040-ELI-REGISTROS                         
+153410           ELSE                                                               
+153420              NEXT SENTENCE                                                   
+153430        ELSE                                                                  
+153440           NEXT SENTENCE                                                      
+153500     ELSE                                                                     
+153510     IF E01-S111-TIP-REG = 05                                                 
+153511        ADD 1       TO  WS-CONT-TOTREGS                                       
+153512        IF E01-S111-DET2-TEF = 0                                              
+153514           ADD 1    TO  WS-CONT-TEFCERO                                       
+153516        ELSE                                                                  
+153520           PERFORM    20103050-VAL-PREALTAS-TEF                               
+153530     ELSE                                                                     
+153800        STRING "REGISTRO ERRONEO, TIPO: "                                     
+153900                         E01-S111-TIP-REG                                     
+154000               " NUMERO DE TARJETA: "                                         
+154100                         E01-S111-DET-TARJETA                                 
+154200        DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                               
+154300        PERFORM 70000050-MENSAJE.                                             
+154400                                                                              
+154402 20103030-LEO-DETALLE-TEF.                                                    
+154404*=========================                                                    
+154406  PERFORM     70000400-LEO-ARCHIVO-TEF.                                       
+154408                                                                              
+154412  IF NOT W88-E01-FILE-ERROR                                                   
+154414     IF I01-TEF-TIP-REG  = 2                                                  
+154416        IF I01-TEF-DET-CSI > 0                                                
+154418           IF I01-TEF-DET-CSI NOT = WKS-B02-NUM-CSI                           
+154420              NEXT SENTENCE                                                   
+154422           ELSE                                                               
+154424           IF I01-TEF-DET-CSI  = B02-NUM-CSI                                  
+154426              IF I01-TEF-DET-CONTR > 0                                        
+154427                 MOVE I01-TEF-DET-CONTR TO WS-NUM-CONTRATO                    
+154428                 PERFORM 80000000-BUSCA-CONTR-B03                             
+154430              ELSE                                                            
+154431                 PERFORM 80050100-BUSCA-CONTR-S016                            
+154432           ELSE                                                               
+154433              NEXT SENTENCE                                                   
+154434        ELSE                                                                  
+154436        IF I01-TEF-DET-CSI  = 0                                               
+154440           PERFORM 80050100-BUSCA-CONTR-S016.                                 
+154442                                                                              
+154500******************************************************************            
+154600*    SOLICITUD DE PREALTA                                                     
+154700******************************************************************            
+154800 20103010-VALIDA-COBERTURA.                                                   
+154900*--------------------------                                                   
+155000     PERFORM                      70000400-OBTENGO-CSI                        
+155100     IF W88-E01-SUC-ERROR                                                     
+155400        STRING "SUCURSAL ERRONEA: "   E01-S111-DET-SUC-PROM                   
+155500               " NUMERO DE TARJETA: " E01-S111-DET-TARJETA                    
+155600        DELIMITED BY SIZE INTO        WS-0101-TEXT-MSG                        
+155700        PERFORM 70000050-MENSAJE.                                             
+155800                                                                              
+155900******************************************************************            
+156000*    GRABA PREALTA EN B03 DE BD04                                             
+156100******************************************************************            
+156200 20103020-CGA-PREALTAS.                                                       
+156300*----------------------                                                       
+156400     PERFORM                      90400003-B03PREALTAS-CREATE                 
+156500     PERFORM                      90400000-BEGIN-TRANSAC-NOAUD                
+156600     MOVE E01-S111-DET-TARJETA    TO  B03P-TARJETA                            
+156700     MOVE E01-S111-DET-CONTRATO   TO  B03P-CONTRATO                           
+156800     MOVE E01-S111-DET-SUC-PROM   TO  B03P-SUC-PROM                           
+156900     MOVE WKS-E01-NUM-CSI         TO  B03P-NUM-CSI                            
+156950     MOVE WKS-B02-FECHA-LINEA     TO  B03P-FEC-PREALTA                        
+157000     PERFORM                      90400003-B03PREALTAS-STORE                  
+157100     IF WS-DB-ERROR                                                           
+157200        IF NOT WS-DB-DUPLICATES                                               
+157300           MOVE 1                 TO  WKS-E01-FILE-ERROR-VA                   
+157600           MOVE "ERROR AL GRABAR B03P"                                        
+157700                                  TO  WS-0101-TEXT-MSG                        
+157800           PERFORM 70000050-MENSAJE                                           
+157900           PERFORM                99000000-LLAMA-DMTERMINATE                  
+158000        ELSE                                                                  
+158100           FREE S500B03PREALTAS                                               
+158400           STRING "TARJETA YA EXISTE,"                                        
+158500                  " NUMERO DE CONTRATO: " E01-S111-DET-CONTRATO               
+158600                  " NUMERO DE TARJETA: "  E01-S111-DET-TARJETA                
+158700           DELIMITED BY SIZE INTO     WS-0101-TEXT-MSG                        
+158800           PERFORM 70000050-MENSAJE                                           
+158900     ELSE                                                                     
+159000        PERFORM                   90400000-END-TRANSAC-NOAUD     .            
+159100                                                                              
+159200******************************************************************            
+159300*    SOLICITUD DE BLOQUEO                                                     
+159400******************************************************************            
+159500 20103030-CGA-BLOQUEO.                                                        
+159600*---------------------                                                        
+159700     MOVE E01-S111-DET-CONTRATO   TO  WS-NUM-CONTRATO                         
+159800     PERFORM                      90000003-B03SXCTO-LOCK                      
+159900     IF WS-DB-ERROR                                                           
+160000        IF NOT WS-DB-NOTFOUND                                                 
+160100           MOVE 1                 TO  WKS-E01-FILE-ERROR-VA                   
+160400           MOVE "ERROR EN B03 DE BD01"                                        
+160500                                  TO  WS-0101-TEXT-MSG                        
+160600           PERFORM 70000050-MENSAJE                                           
+160700           PERFORM                99000000-LLAMA-DMTERMINATE                  
+160800        ELSE                                                                  
+160900           FREE S500B03CONTRATOS                                              
+161200           STRING "NO EXISTE REG EN B03 DE BD01,"                             
+161300                  " NUMERO DE CONTRATO: "  E01-S111-DET-CONTRATO              
+161400                  " NUMERO DE TARJETA: "   E01-S111-DET-TARJETA               
+161500           DELIMITED BY SIZE INTO     WS-0101-TEXT-MSG                        
+161600           PERFORM 70000050-MENSAJE                                           
+161700     ELSE                                                                     
+161800        IF B03-NUM-PRODUCTO = 66              AND                             
+161900           B03-NUM-INSTRUM = 11                                               
+162000           PERFORM                90000006-B06SXCTO-LOCK                      
+162100           IF WS-DB-ERROR                                                     
+162200              IF NOT WS-DB-NOTFOUND                                           
+162300                 MOVE 1           TO  WKS-E01-FILE-ERROR-VA                   
+162600                 MOVE "ERROR EN B06 DE BD01"                                  
+162700                                  TO  WS-0101-TEXT-MSG                        
+162800                 PERFORM 70000050-MENSAJE                                     
+162900                 PERFORM          99000000-LLAMA-DMTERMINATE                  
+163000              ELSE                                                            
+163100                 FREE S500B03CONTRATOS                                        
+163200                 FREE S500B06HISTORICO                                        
+163500                 STRING "NO EXISTE REG EN B06 DE BD01,"                       
+163600                 " NUMERO DE CONTRATO: "  E01-S111-DET-CONTRATO               
+163700                 " NUMERO DE TARJETA: "   E01-S111-DET-TARJETA                
+163800                 DELIMITED BY SIZE INTO   WS-0101-TEXT-MSG                    
+163900                 PERFORM 70000050-MENSAJE                                     
+164000           ELSE                                                               
+164100              PERFORM             20103021-ACT-BLOQUEO                        
+164200        ELSE                                                                  
+164300           FREE S500B03CONTRATOS                                              
+164400           FREE S500B06HISTORICO                                              
+164700           STRING "CONTRATO NO PERTENECE AL PRODUCTO -A-,"                    
+164800                  " NUMERO DE CONTRATO: " E01-S111-DET-CONTRATO               
+164900                  " NUMERO DE TARJETA: "  E01-S111-DET-TARJETA                
+165000           DELIMITED BY SIZE INTO     WS-0101-TEXT-MSG                        
+165100           PERFORM 70000050-MENSAJE.                                          
+165200                                                                              
+165300******************************************************************            
+165400*    ACTUALIZA SOLICITUD DE BLOQUEO/DESBLOQUEO EN LA BASE                     
+165500******************************************************************            
+165600 20103021-ACT-BLOQUEO.                                                        
+165700*---------------------                                                        
+165800     MOVE ZEROS                   TO  WKS-E01-STORE-BASES-VA                  
+165900     IF E01-S111-TIP-REG = 02                                                 
+166000        IF B03-STATUS = ZEROS                                                 
+166100           MOVE 1                 TO  WKS-E01-STORE-BASES-VA                  
+166200                                      B03-STATUS                              
+166300           MOVE 86                TO  B03-TIPO-BLOQUEO                        
+166400           MOVE ZEROS             TO  B03-FEC-CAMBPROD                        
+166500           MOVE WKS-B02-FECHA-LINEA                                           
+166600                                  TO  B06-FEC-BLOQUEO                         
+166700        ELSE                                                                  
+166800           NEXT SENTENCE                                                      
+166900     ELSE                                                                     
+167000        IF B03-STATUS = 1                     AND                             
+167100           B03-TIPO-BLOQUEO = 86                                              
+167200           MOVE 1                 TO  WKS-E01-STORE-BASES-VA                  
+167300           MOVE ZEROS             TO  B03-STATUS                              
+167400                                      B03-TIPO-BLOQUEO                        
+167500                                      B03-FEC-CAMBPROD                        
+167600                                      B06-FEC-BLOQUEO            .            
+167700                                                                              
+167800     IF W88-E01-STORE-BASES                                                   
+167900        PERFORM                   90000000-BEGIN-TRANSACTION                  
+168000        PERFORM                   90000003-B03CONTRATOS-STORE                 
+168100        PERFORM                   90000006-B06HISTORICO-STORE                 
+168200        PERFORM                   90000000-END-TRANSACTION                    
+168300     ELSE                                                                     
+168400        MOVE B03-STATUS           TO  WS-MSG-N-01                             
+168500        MOVE B03-TIPO-BLOQUEO     TO  WS-MSG-N-02                             
+168800        STRING "CONTRATO YA ESTA BLOQUEADO/DESBLOQUEADO"                      
+168900               " NUMERO DE CONTRATO: " E01-S111-DET-CONTRATO                  
+169000               " NUMERO DE TARJETA: " E01-S111-DET-TARJETA                    
+169100               " ESTATUS: "           WS-MSG-N-01                             
+169200               " TIPO BLOQUEO: "      WS-MSG-N-02                             
+169300        DELIMITED BY SIZE INTO        WS-0101-TEXT-MSG                        
+169400        PERFORM 70000050-MENSAJE.                                             
+169500                                                                              
+169600******************************************************************            
+169700*    SOLICITUD DE ELIMINACION                                                 
+169800******************************************************************            
+169900 20103040-ELI-REGISTROS.                                                      
+170000*-----------------------                                                      
+170100     MOVE ZEROS                   TO  WKS-E01-FILE-ERROR-VA                   
+170200     MOVE E01-S111-DET-CONTRATO   TO  WS-NUM-CONTRATO                         
+170300     PERFORM                      90400003-B03PSXCTO-LOCK                     
+170400     IF WS-DB-ERROR                                                           
+170500        MOVE 1                    TO  WKS-E01-FILE-ERROR-VA                   
+170600        IF NOT WS-DB-NOTFOUND                                                 
+170900           MOVE "ERROR EN LA ESTRUCTURA B03 DE LA BASE BD04"                  
+171000                                  TO  WS-0101-TEXT-MSG                        
+171100           PERFORM 70000050-MENSAJE                                           
+171200           PERFORM                99000000-LLAMA-DMTERMINATE                  
+171300        ELSE                                                                  
+171400           FREE S500B03PREALTAS                                               
+171700           STRING "NO EXISTE CONTRATO PARA ELIMINAR,"                         
+171800                  " NUMERO DE CONTRATO: "  E01-S111-DET-CONTRATO              
+171900                  " NUMERO DE TARJETA: "   E01-S111-DET-TARJETA               
+172000           DELIMITED BY SIZE INTO     WS-0101-TEXT-MSG                        
+172100           PERFORM 70000050-MENSAJE.                                          
+172200                                                                              
+172300     IF NOT W88-E01-FILE-ERROR                                                
+172400        PERFORM                   90400000-BEGIN-TRANSAC-NOAUD                
+172500        PERFORM                   90400003-B03PREALTAS-DELETE                 
+172600        IF WS-DB-ERROR                                                        
+172700           MOVE 1                 TO  WKS-E01-FILE-ERROR-VA                   
+173000           STRING "ERROR EN DELETE ESTRUCTURA B03 DE LA BASE BD04"            
+173100                  " NUMERO DE CONTRATO: "  E01-S111-DET-CONTRATO              
+173200                  " NUMERO DE TARJETA: "   E01-S111-DET-TARJETA               
+173300           DELIMITED BY SIZE INTO     WS-0101-TEXT-MSG                        
+173400           PERFORM 70000050-MENSAJE                                           
+173500           PERFORM                99000000-LLAMA-DMTERMINATE                  
+173600        ELSE                                                                  
+173700           PERFORM                90400000-END-TRANSAC-NOAUD     .            
+173800                                                                              
+173802 20103050-VAL-PREALTAS-TEF.                                                   
+173804*==========================                                                   
+173805  MOVE E01-S111-DET-TARJETA  TO  WS-TARJETA-PP.                               
+173806  PERFORM    20103060-VALIDAR-CATBIN-S080.                                    
+173807  IF WKS-EXISTE-BIN                 = 1  AND                                  
+173808     WKS-BIN-ASIG-C111(WS-IND-BIN)  = 2                                       
+173810     PERFORM 20103070-VALIDAR-CAT-D215                                        
+173812  ELSE                                                                        
+173813     ADD  1   TO  WS-CONT-RECHAZOS                                            
+173814     MOVE 1   TO  WS-TIPO-RECHA                                               
+173815     PERFORM 60000100-IMPRIME-RECHAZO.                                        
+173817                                                                              
+173820 20103060-VALIDAR-CATBIN-S080.                                                
+173821*==============================                                               
+173822   MOVE ZEROS     TO  WKS-EXISTE-BIN.                                         
+173824   MOVE 1         TO  WS-IND-BIN.                                             
+173826                                                                              
+173828   PERFORM  20103065-BUSCA-BIN-EN-TBL                                         
+173830            UNTIL  WS-IND-BIN  = 1001      OR                                 
+173832                   WS-ACC-BIN  = WKS-BIN-NUM (WS-IND-BIN).                    
+173833                                                                              
+173834   IF WS-IND-BIN < 1001                                                       
+173836      MOVE 1                     TO  WKS-EXISTE-BIN.                          
+173840                                                                              
+173842 20103065-BUSCA-BIN-EN-TBL.                                                   
+173844*==========================                                                   
+173846   ADD  1     TO  WS-IND-BIN.                                                 
+173848                                                                              
+173889 20103070-VALIDAR-CAT-D215.                                                   
+173890*===========================                                                  
+173891   PERFORM 80050200-BUSCA-TEF.                                                
+173892                                                                              
+173893   IF WS-S080-L700CD-RESULT = 0 OR 1                                          
+173894      PERFORM 30100000-CGA-PREALTAS-TEF                                       
+173895   ELSE                                                                       
+173896   IF WS-S080-L700CD-RESULT = 20                                              
+173897      ADD  1   TO  WS-CONT-RECHAZOS                                           
+173898      MOVE 2   TO  WS-TIPO-RECHA                                              
+173899      PERFORM 60000100-IMPRIME-RECHAZO.                                       
+173900******************************************************************            
+174000*    ACTUALIZA LA FECHA PARA EL PROXIMO ARCHIVO A APLICAR DEL S111            
+174100******************************************************************            
+174200 20200000-PROCESO-BASE.                                                       
+174300*----------------------                                                       
+174400     PERFORM                      90400001-B01PCONTROL-LOCKF                  
+174500     PERFORM                      90400000-BEGIN-TRANSAC-NOAUD                
+174600     MOVE WKS-E01-FECH-PROYECTADA TO  B01P-ULT-ARCHAPLI                       
+174700     PERFORM                      90400001-B01PCONTROL-STORE                  
+174800     PERFORM                      90400000-END-TRANSAC-NOAUD     .            
+174802                                                                              
+174804 30100000-CGA-PREALTAS-TEF.                                                   
+174806*==========================                                                   
+174807  ADD 1  TO  WS-CONT-ACEPTA.                                                  
+174808  PERFORM                      90400004-B04PTEF-CREATE.                       
+174810  PERFORM                      90400000-BEGIN-TRANSAC-NOAUD                   
+174812  MOVE E01-S111-DET2-TARJETA   TO  B04P-TARJETA                               
+174814  MOVE E01-S111-DET2-TEF       TO  B04P-NUM-TEF                               
+174816  MOVE WKS-B02-FECHA-LINEA     TO  B04P-FEC-ACT                               
+174818  MOVE 80                      TO  B04P-MDE                                   
+174820  MOVE 1                       TO  B04P-ASIGNA-PAGO                           
+174822  PERFORM                      90400004-B04PTEF-STORE.                        
+174824                                                                              
+174826  IF WS-DB-ERROR                                                              
+174828     IF NOT WS-DB-DUPLICATES                                                  
+174830        MOVE 1                 TO  WKS-E01-FILE-ERROR-VA                      
+174832        MOVE "ERROR AL GRABAR B04P"                                           
+174834                               TO  WS-0101-TEXT-MSG                           
+174836        PERFORM 70000050-MENSAJE                                              
+174838        PERFORM                99000000-LLAMA-DMTERMINATE                     
+174840     ELSE                                                                     
+174842        FREE S500B04PTEF                                                      
+174844        STRING "TARJETA YA EXISTEEN B04P,"                                    
+174846               " NUMERO DE TARJETA: "  E01-S111-DET2-TARJETA                  
+174848               " NUMERO DE TEF    : "  E01-S111-DET2-TEF                      
+174850        DELIMITED BY SIZE INTO     WS-0101-TEXT-MSG                           
+174860        PERFORM 70000050-MENSAJE                                              
+174862  ELSE                                                                        
+174864     PERFORM 90400000-END-TRANSAC-NOAUD.                                      
+174900                                                                              
+175050****************************************************************              
+175100* CIERRA BASES Y ARCHIVO DE CARGA                                             
+175200****************************************************************              
+175300 60000000-FIN.                                                                
+175400*-------------                                                                
+175500     CLOSE        S500BD04TARJETAS.                                           
+175600     CLOSE        S500BD01CAPTACION.                                          
+175620                                                                              
+175640  IF WKS-PARAM-TIP-PROC = 1 AND WS-B02-DECOM-S111 = 0                         
+175700     IF NOT W88-B01P-FIN                                                      
+175800        CLOSE     E01-S111-PREALTAS                                           
+175900        CLOSE R01-RECHAZOS  WITH SAVE                                         
+176100        MOVE "TERMINO PROCESO DE CARGA"                                       
+176200                                  TO  WS-0101-TEXT-MSG                        
+176300        PERFORM 70000050-MENSAJE                                              
+176400     ELSE                                                                     
+176700        MOVE "TERMINO PROCESO DE CARGA CON CREACION B01P-CONTROL"             
+176800                                  TO  WS-0101-TEXT-MSG                        
+176900        PERFORM 70000050-MENSAJE.                                             
+176910                                                                              
+176920  IF WKS-PARAM-TIP-PROC = 2                                                   
+176930     CLOSE ASIGNACION-TEF.                                                    
+177000                                                                              
+177100                                                                              
+177102 60000100-IMPRIME-RECHAZO.                                                    
+177104*==========================                                                   
+177106    IF WS-LINEA > 60                                                          
+177108       MOVE 0 TO WS-LINEA                                                     
+177110       PERFORM 10010650-ENCABEZADOS                                           
+177111       PERFORM 10010660-ENCABEZADOS-1.                                        
+177112                                                                              
+177114    IF WS-TIPO-RECHA = 1                                                      
+177116       MOVE "NO EXISTE BIN"  TO WS-CAU-RECH                                   
+177118    ELSE                                                                      
+177120    IF WS-TIPO-RECHA = 2                                                      
+177122       MOVE "NO EXISTE TEF"  TO WS-CAU-RECH.                                  
+177124                                                                              
+177128    MOVE E01-S111-DET2-TARJETA  TO  WS-NUM-TAR.                               
+177130    MOVE E01-S111-DET2-TEF      TO  WS-TEF-NUM.                               
+177135                                                                              
+177136    WRITE REG-RECHAZOS        FROM WS-DET-RECHA   AFTER  1.                   
+177138    ADD   1                   TO   WS-LINEA.                                  
+177140    MOVE  0                   TO   WS-TIPO-RECHA.                             
+177142                                                                              
+177144 60000200-IMPRIME-TOTALES.                                                    
+177146*=========================                                                    
+177158  PERFORM 10010650-ENCABEZADOS.                                               
+177159                                                                              
+177160  MOVE SPACES  TO REG-RECHAZOS.                                               
+177161  WRITE REG-RECHAZOS         AFTER  3.                                        
+177162                                                                              
+177163  MOVE WS-CONT-RECHAZOS  TO  WS-TOT-RECHA.                                    
+177164  MOVE WS-CONT-TEFCERO   TO  WS-TOT-TEFCERO.                                  
+177165  MOVE WS-CONT-ACEPTA    TO  WS-TOT-ACEP.                                     
+177166  MOVE WS-CONT-TOTREGS   TO  WS-TOT-REGS.                                     
+177169                                                                              
+177170  WRITE REG-RECHAZOS        FROM WS-DET-TOTREGS  BEFORE 1.                    
+177171  WRITE REG-RECHAZOS        FROM WS-DET-REGACEP  BEFORE 1.                    
+177173  WRITE REG-RECHAZOS        FROM WS-DET-REGRECH  BEFORE 1.                    
+177178  WRITE REG-RECHAZOS        FROM WS-DET-TEFCERO  BEFORE 1.                    
+177188                                                                              
+177200******************************************************************            
+177300* CARGO EN UNA TABLA TODOS LOS VALORES NECESARIOS DE STRUCTURA.               
+177400******************************************************************            
+177500 70000100-CARGO-TABLA.                                                        
+177600*---------------------                                                        
+177620     MOVE 176 TO WKS-S080-NUMPASO.                                            
+177640     MOVE ZEROS TO WKS-S080-NUMSUC                                            
+177660     MOVE B02-FECHA-LINEA TO WKS-S080-FECHA                                   
+177700     PERFORM 40000080-CARGA-DATOS-S080                                        
+177800     IF WKS-S080-RS-CARGA = 0 OR 1                                            
+177900        NEXT SENTENCE                                                         
+178000     ELSE                                                                     
+178100        MOVE WKS-S080-RS-CARGA    TO  WS-MSG-RS                               
+178400        STRING "ERROR AL EFECTUAR LA CARGA DE CATALOGOS: "                    
+178500                                      WS-MSG-RS                               
+178600        DELIMITED BY SIZE INTO        WS-0101-TEXT-MSG                        
+178700        PERFORM 70000050-MENSAJE                                              
+178800        PERFORM                   99000010-LLAMA-STATUS-MYSELF   .            
+178900                                                                              
+179000******************************************************************            
+179100*    LLAMA A LA LIBRERIA THECALENDAR                                          
+179200******************************************************************            
+179300 70000200-LLAMA-FECHAS.                                                       
+179400*----------------------                                                       
+179500     MOVE WKS-INP-FECHA1          TO  WS-S006-FECHA1                          
+179600     MOVE WKS-INP-FECHA2          TO  WS-S006-FECHA2                          
+179700     MOVE WKS-INP-FORMATO         TO  WS-S006-FORMATO                         
+179800     MOVE WKS-INP-FUNCION         TO  WS-S006-FUNCION                         
+179900     PERFORM                      20000006-LOCSUP                             
+180000     IF WS-S006-FUNCION > 0                                                   
+180100        MOVE WS-S006-FUNCION      TO  WS-MSG-RS                               
+180400        STRING "ERROR AL LLAMAR LA LOCSUP: "                                  
+180500                                      WS-MSG-RS                               
+180600        DELIMITED BY SIZE INTO        WS-0101-TEXT-MSG                        
+180700        PERFORM 70000050-MENSAJE                                              
+180800        PERFORM                   99000010-LLAMA-STATUS-MYSELF                
+180900     ELSE                                                                     
+181000        MOVE WS-S006-FECHA1       TO  WKS-OUT-FECHA1                          
+181100        MOVE WS-S006-FECHA2       TO  WKS-OUT-FECHA2             .            
+181200                                                                              
+181300******************************************************************            
+181400*    LEE EL ARCHIVO DE CARGA                                                  
+181500******************************************************************            
+181600 70000300-LLAMA-ARCHIVO-CARGA.                                                
+181700*-----------------------------                                                
+181800     MOVE ZEROS                   TO  WKS-E01-FILE-ERROR-VA                   
+181900     READ E01-S111-PREALTAS                                                   
+182000          INVALID KEY                                                         
+182100             MOVE 1               TO  WKS-E01-FILE-ERROR-VA      .            
+182200                                                                              
+182210 70000400-LEO-ARCHIVO-TEF.                                                    
+182215*=========================                                                    
+182225     MOVE ZEROS                   TO  WKS-E01-FILE-ERROR-VA                   
+182235     READ ASIGNACION-TEF   AT END                                             
+182255          MOVE 1    TO  WKS-E01-FILE-ERROR-VA.                                
+182265                                                                              
+182300******************************************************************            
+182400*    VALIDA SUCURSAL PROMOTORA Y OBTIENE EL CSI                               
+182500******************************************************************            
+182600 70000400-OBTENGO-CSI.                                                        
+182700*---------------------                                                        
+182800     MOVE ZEROS                   TO  WKS-E01-SUC-ERROR-VA                    
+182900                                      WKS-E01-NUM-CSI                         
+183000                                      WKS-S080-STA-DATO                       
+183100     MOVE E01-S111-DET-SUC-PROM   TO  WKS-S080-NUMSUC                         
+183200     PERFORM                      42000080-DATOS-S080                         
+183300     IF W88-S080-STA-NOOK                                                     
+183400        MOVE 1                    TO  WKS-E01-SUC-ERROR-VA                    
+183500     ELSE                                                                     
+183600        MOVE WKS-S080-NUMCSI      TO  WKS-E01-NUM-CSI            .            
+183602                                                                              
+183604 80000000-VALIDA-TARJETA.                                                     
+183606*=========================                                                    
+183608   MOVE I01-TEF-DET-TARJETA     TO  WS-NUM-TARJETA.                           
+183610   MOVE ZEROS                   TO  WKS-E01-STORE-BASES-VA.                   
+183612   PERFORM                      90400004-B04PSXTARJ-LOCK.                     
+183614                                                                              
+183616   IF WS-DB-ERROR                                                             
+183618      IF NOT WS-DB-NOTFOUND                                                   
+183620         MOVE 1                 TO  WKS-E01-FILE-ERROR-VA                     
+183622         MOVE "ERROR EN B04P DE BD04"                                         
+183624                                TO  WS-0101-TEXT-MSG                          
+183626         PERFORM 70000050-MENSAJE                                             
+183628         PERFORM 99000000-LLAMA-DMTERMINATE                                   
+183630      ELSE                                                                    
+183632         PERFORM 80050000-CREA-REG-BD04                                       
+183633   ELSE                                                                       
+183634       MOVE 1                       TO  WKS-E01-STORE-BASES-VA                
+183635       MOVE I01-TEF-DET-NUMTEF      TO  B04P-NUM-TEF                          
+183636       MOVE I01-TEF-DET-MEDENT      TO  B04P-MDE                              
+183637       MOVE WKS-B02-FECHA-LINEA     TO  B04P-FEC-ACT                          
+183638       MOVE I01-TEF-ASIG-PAGO       TO  B04P-ASIGNA-PAGO.                     
+183639                                                                              
+183640    IF W88-E01-STORE-BASES                                                    
+183641       PERFORM                   90400000-BEGIN-TRANSAC-NOAUD                 
+183642       PERFORM                   90400004-B04PTEF-STORE                       
+183643       PERFORM                   90400000-END-TRANSAC-NOAUD                   
+183644    ELSE                                                                      
+183645       STRING "TARJETA NO ACTUALIZADO "                                       
+183646              " NUMERO DE CONTRATO: " I01-TEF-DET-CONTR                       
+183647              " NUMERO DE TARJETA:  " I01-TEF-DET-TARJETA                     
+183648       DELIMITED BY SIZE INTO         WS-0101-TEXT-MSG                        
+183649       PERFORM 70000050-MENSAJE.                                              
+183650                                                                              
+183652 80000000-BUSCA-CONTR-B03.                                                    
+183654*=========================                                                    
+183658   MOVE ZEROS                   TO  WKS-E01-STORE-BASES-VA.                   
+183660   PERFORM                      90000003-B03SXCTO-LOCK.                       
+183662                                                                              
+183664   IF WS-DB-ERROR                                                             
+183666      IF NOT WS-DB-NOTFOUND                                                   
+183668         MOVE 1                 TO  WKS-E01-FILE-ERROR-VA                     
+183670         MOVE "ERROR EN B03 DE BD01"                                          
+183672                                TO  WS-0101-TEXT-MSG                          
+183674         PERFORM 70000050-MENSAJE                                             
+183676         PERFORM 99000000-LLAMA-DMTERMINATE                                   
+183678      ELSE                                                                    
+183680         PERFORM 80000000-VALIDA-TARJETA                                      
+183682   ELSE                                                                       
+183684   IF I01-TEF-ASIG-PAGO = 1                                                   
+183686      MOVE 1                   TO  WKS-E01-STORE-BASES-VA                     
+183688      MOVE I01-TEF-DET-NUMTEF  TO  B03-NUM-TEF                                
+183690      MOVE I01-TEF-DET-NUMTEF  TO  B03-NUM-TEF-INFO                           
+183692   ELSE                                                                       
+183694   IF I01-TEF-ASIG-PAGO = 2                                                   
+183696      MOVE 1                   TO  WKS-E01-STORE-BASES-VA                     
+183698      MOVE 9999999999999999    TO  B03-NUM-TEF                                
+183700      MOVE I01-TEF-DET-NUMTEF  TO  B03-NUM-TEF-INFO                           
+183702   ELSE                                                                       
+183704   IF I01-TEF-ASIG-PAGO = 3                                                   
+183706      MOVE 1                   TO  WKS-E01-STORE-BASES-VA                     
+183708      MOVE I01-TEF-DET-NUMTEF  TO  B03-NUM-TEF-INFO.                          
+183710                                                                              
+183712   IF W88-E01-STORE-BASES                                                     
+183714      PERFORM                   90000000-BEGIN-TRANSACTION                    
+183716      PERFORM                   90000003-B03CONTRATOS-STORE                   
+183718      PERFORM                   90000000-END-TRANSACTION                      
+183720   ELSE                                                                       
+183722      STRING "CONTRATO NO ACTUALIZADO "                                       
+183724             " NUMERO DE CONTRATO: " I01-TEF-DET-CONTR                        
+183726             " NUMERO DE TARJETA:  " I01-TEF-DET-TARJETA                      
+183728      DELIMITED BY SIZE INTO         WS-0101-TEXT-MSG                         
+183730      PERFORM 70000050-MENSAJE.                                               
+183732                                                                              
+183742 80050000-CREA-REG-BD04.                                                      
+183744*========================                                                     
+183746    PERFORM                      90400004-B04PTEF-CREATE.                     
+183748    PERFORM                      90400000-BEGIN-TRANSAC-NOAUD.                
+183749                                                                              
+183750    MOVE I01-TEF-DET-TARJETA     TO  B04P-TARJETA.                            
+183752    MOVE I01-TEF-DET-NUMTEF      TO  B04P-NUM-TEF.                            
+183754    MOVE WKS-B02-FECHA-LINEA     TO  B04P-FEC-ACT.                            
+183756    MOVE I01-TEF-DET-MEDENT      TO  B04P-MDE.                                
+183758    MOVE I01-TEF-ASIG-PAGO       TO  B04P-ASIGNA-PAGO.                        
+183760    PERFORM                      90400004-B04PTEF-STORE.                      
+183761                                                                              
+183762    IF WS-DB-ERROR                                                            
+183764       IF NOT WS-DB-DUPLICATES                                                
+183766          MOVE 1                 TO  WKS-E01-FILE-ERROR-VA                    
+183768          MOVE "ERROR AL GRABAR B04P"                                         
+183770                                 TO  WS-0101-TEXT-MSG                         
+183772          PERFORM 70000050-MENSAJE                                            
+183774          PERFORM                99000000-LLAMA-DMTERMINATE                   
+183776       ELSE                                                                   
+183778          FREE S500B04PTEF                                                    
+183780          STRING "TARJETA YA EXISTE EN B04P,"                                 
+183782                 " NUMERO DE TEF     : " I01-TEF-DET-NUMTEF                   
+183784                 " NUMERO DE TARJETA: "  I01-TEF-DET-TARJETA                  
+183786          DELIMITED BY SIZE INTO     WS-0101-TEXT-MSG                         
+183788          PERFORM 70000050-MENSAJE                                            
+183790    ELSE                                                                      
+183792       PERFORM 90400000-END-TRANSAC-NOAUD.                                    
+184900                                                                              
+184902 80050100-BUSCA-CONTR-S016.                                                   
+184904*==========================                                                   
+184906   MOVE I01-TEF-DET-TARJETA   TO   WS-S016-0201-CUENTA-E.                     
+184908   PERFORM 20000016-L458-BUSCA-MDA.                                           
+184910                                                                              
+184912   IF WS-S016-0201-RESULT NOT = 0                                             
+184914      PERFORM 80000000-VALIDA-TARJETA                                         
+184916   ELSE                                                                       
+184918      MOVE WS-S016-0201-CUENTA-S  TO  WS-NUM-CONTRATO                         
+184920      MOVE WS-S016-0201-CSI-S     TO  W77-CSI-S016                            
+184922      IF W77-CSI-S016 = WKS-B02-NUM-CSI                                       
+184924         PERFORM 80000000-BUSCA-CONTR-B03.                                    
+184930                                                                              
+184932 80050200-BUSCA-TEF.                                                          
+184934*===================                                                          
+184942    MOVE ZEROS          TO  WKS-CD-REGS-EN-CATALOGO-VA                        
+184944                            WKS-CD-PRIMER-CONSULTA-VA                         
+184946                            WKS-CD-REGS-EN-CAT.                               
+184947                                                                              
+184948    PERFORM  80050300-L700-TEF.                                               
+184974                                                                              
+184976 80050300-L700-TEF.                                                           
+184978*==================                                                           
+184979    MOVE E01-S111-DET2-TEF       TO WSS-NUM-TEF.                              
+184981                                                                              
+184983    MOVE 500                     TO WS-S080-L700CD-SISTEMA-I.                 
+184984    MOVE 176                     TO WS-S080-L700CD-NUMPROG-I.                 
+184985    MOVE 215                     TO WS-S080-L700CD-CATALOGO-I.                
+184986    MOVE 20                      TO WS-S080-L700CD-CLAVE-CONS-I.              
+184987    MOVE 01                      TO WS-S080-L700CD-ORDEN-BUSCA-I.             
+184988    MOVE 01                      TO WS-S080-L700CD-NUM-REGS-I.                
+184989    MOVE NUM-TEF                 TO WS-S080-L700CD-CVE-REG-I.                 
+184990    MOVE ZEROS                   TO WS-S080-L700CD-CVE-REG-ASO-I              
+184991                                    WS-S080-L700CD-NIVEL-INI-I.               
+184992    MOVE WKS-B02-FECHA-LINEA     TO WS-S080-L700CD-FEC-INI-CONS-I.            
+184993    PERFORM                      900000000-L700-CONSUL-DESC.                  
+184994                                                                              
+184996 900000000-L700-CONSUL-DESC.                                                  
+184998*===========================                                                  
+185000    CALL "L700_CONSUL_DESC IN S080BD01CON"                                    
+185002          USING  WS-S080-L700CD-SISTEMA-I,                                    
+185004                 WS-S080-L700CD-NUMPROG-I,                                    
+185006                 WS-S080-L700CD-PARAMETRO-ENT,                                
+185008                 WS-S080-L700CD-PARAMETRO-SAL                                 
+185010          GIVING WS-S080-L700CD-RESULT.                                       
+185012                                                                              
+185014 90000100-L710-CONS-DET.                                                      
+185016*=======================                                                      
+185018    CALL "L710_CONSUL_DETALLE IN S080BD01CON"                                 
+185020         USING           W77-L710-SISTEMA                                     
+185022                         W77-L710-PROGRAMA                                    
+185024                         WKS-L710-PARAM-ENT                                   
+185026                         WKS-L710-PARAM-SAL                                   
+185028         GIVING          W77-L710-RESULT.                                     
+185030                                                                              
+185050 99000000-LLAMA-DMTERMINATE.                                                  
+185100*---------------------------                                                  
+185200     CALL SYSTEM DMTERMINATE.                                                 
+185300                                                                              
+185400 99000010-LLAMA-STATUS-MYSELF.                                                
+185500*-----------------------------                                                
+185600     CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                                 
+185700                                                                              
+185800 COPY "S500/INC/PRO/25MTP005".                                                
+185900***                                                                           

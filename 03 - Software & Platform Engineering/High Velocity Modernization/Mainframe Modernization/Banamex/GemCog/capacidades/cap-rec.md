@@ -1,9 +1,12 @@
-# Capacidad: Financial Reconciliation — Punteo por Claves de Transacción [S151]
+# BC-11 · Reconciliación Financiera
 > Dominio: 6 · Common Services · Subdominio: Reconciliation
 > Capacidad: **6.7.1 Financial Reconciliation**
 > Cobertura: S151 · Programa principal: P112 (PUNTEO POR CLAVES DE TRANSACCION)
-> Reglas vinculadas: RN-S151-001..020 (20 reglas)
+> Reglas vinculadas: RN-S500-653..657 · RN-S151-001..020 · RN-S151-391..400 · RN-S151-421..450 · RN-S151-710..718 (74 reglas · trazabilidad automática 2026-07-27)
+> Jerarquía: **N1** Dominio 6 · Common Services → **N2** Subdominio Reconciliations → **N3** Capacidad 6.7.1 Financial Reconciliation → **N4-5** Procesos/Flujo de tareas (ver Inventario de Tareas) → **N6** Reglas (ver Reglas vinculadas)
+> Indexado: ✅ 2026-07-27 — correlacionado vocab↔reglas↔capacidad (build-traceability.py)
 > Contexto: P112 reconcilia diariamente los movimientos S500 (Captación/Cargos y Abonos) contra S151 (GL — Movimientos Contables). Su salida determina si cada movimiento tiene guía contable equivalente en el otro sistema. Las brechas de reconciliación son reportables al regulador (CNBV B-0111B).
+> bian_ref: 6.7.1 Financial Reconciliation
 
 ---
 
@@ -272,7 +275,66 @@ Regla: RN-S151-008 — Gate equivalencia S500↔S151 via INDS151=2 y guía conta
 
 ---
 
-*cap-rec.md · v1.0 · 2026-07-16 · Capa 4 (Inventario de Tareas) + Capa 5 (Casuísticas + Diagrama Mermaid)*
+---
+
+## Ampliación — P151 Transformador IBM-Citibank ALR/AHR/OCM (RN-S151-331..360)
+
+> P151 (COBOL 17,370 LOC, Ing. Javier Mercado Flores) transforma movimientos S151 del día en tres archivos de interfaz IBM-Citibank: ALR (Account Ledger), AHR (Account History) y OCM (Order Collection Message). Es el gemelo de P150 pero en dirección S151→IBM en lugar de S151→Citi. Riesgo de separación Citi #4 (BRCH-NBR=485 hardcoded en todos los registros ALR/AHR/OCM).
+
+| ID | Tarea | Programa | Tipo | Complejidad | Prioridad |
+|----|-------|----------|------|-------------|-----------|
+| T-REC-P151-001 | Inicializar: resolver W77-SISTEMA-PARAMETRO (500=captación, 701=pagos); sistema ≠ 500/701 termina sin generar archivos | P151 | control | BAJA | ALTA |
+| T-REC-P151-002 | Cargar catálogos S151 dos veces (12000-CARGA-CATALOGOS): sistema 500 y sistema 408 como alias de captación | P151 | control | MEDIA | ALTA |
+| T-REC-P151-003 | Buscar clave SBC: 15000-BUSCA-CVE-SBC — localiza la Sucursal de Bancos Centrales en catálogos cargados | P151 | consulta | BAJA | MEDIA |
+| T-REC-P151-004 | Procesar y sortear movimientos: 20000-PROCESA-MOVIMIENTOS (lee BD10 → sort input MOVIMIENTOSCTD); 35000-SORTEA-MOVTOS-HORA (sort secundario por hora) | P151 | control | ALTA | ALTA |
+| T-REC-P151-005 | Selección de movimientos: 30000-SELECCION-MOVIMIENTOS → llena ARCH-CITICTD (SMOVTOS-CITICTD) con IND-CD e IND-BN (añadidos por ISILOA); LEYENDA truncada a 40 bytes (vs 5×35 del registro principal — movimientos con LEY2..5 las pierden) | P151 | validación | ALTA | ALTA |
+| T-REC-P151-006 | Determinar enrutamiento por RMC-IND-SIS: 1→ALR; 1 o 2→AHR; (1 AND INDCITI=2 AND IND-CD=2/3 OR IND-BN=1 AND CTACON IN 11/61)→OCM; IND-SIS=0 excluye silenciosamente | P151 | control | ALTA | CRÍTICA |
+| T-REC-P151-007 | Distribuir por región (41300-ARCHIVO-ALR/AHR): ARCH-ALR-VDM / ARCH-ALR-MTY / ARCH-ALR-UNI según RMC-SUBNODO o WKS-NODO; subnodo sin mapping → movimiento perdido sin traza | P151 | control | MEDIA | ALTA |
+| T-REC-P151-008 | Activar variantes BNE si W88-HOSTNAME verdadero (mod ISILOA): genera ARCH-ALR-BNE / ARCH-AHR-BNE / ARCH-OCM-BNE paralelos con IND-CD e IND-BN como discriminantes | P151 | control | BAJA | ALTA |
+| T-REC-P151-009 | Generar registro ALR (41000-GRABA-ARCHIVOS-CITI): BRCH-NBR=485 hardcoded; CURRENT-NO=W77-CONTADOR-ALR (NO AUTS151 — línea original comentada); BLOCK CONTAINS 100 RECORDS | P151 | escritura | BAJA | CRÍTICA |
+| T-REC-P151-010 | Determinar naturaleza ALR (41210-VALIDA-NATURALEZA-ALR): ALRINT-DR-CR-IND='D' o 'C'; ALRINT-TXN-AMT=valor absoluto — formato DR/CR distinto al '+'/'-' del OCM y al campo separado del AHR | P151 | contable | MEDIA | ALTA |
+| T-REC-P151-011 | Validar campos SAT Anexo 20 en AHR (100-27937-VALIDA-SAT + 100-27938-VAL-DFTPY): NOM-ORD X(120), RFC-ORD X(20), BCO-ORD X(20), CVE-RASTREO X(30); PRIME-DELIMITER='X' fijo | P151 | validación | ALTA | ALTA |
+| T-REC-P151-012 | Generar AHR con campos SPEI extendidos: AHRST-REVRS-IND (SPACE=normal, ≠SPACE=reversa); FEC-DEV / HORA-DEV / CAUSA-DEV X(120); SELLO-DIGIT X(400); RFC requiere padding X(20) vs fuente X(13)/X(18) | P151 | escritura | ALTA | CRÍTICA |
+| T-REC-P151-013 | Generar OCM (41000-GENERA-OCM): TRANS-ID = "BM" + FECOPER_juliana + W77-CONTADOR-OCM; COUNTRY-CODE=485; MESSAGE-TYPE='B'; TRANS-TYPE='A'; solo cheque #1 poblado (CHEQUES 2..10 en ZEROS) | P151 | escritura | MEDIA | ALTA |
+| T-REC-P151-014 | Imprimir signo OCM: OCMIN-PAY-ORI-SIGN = '+' si IMPORTE ≥ 0, '-' si IMPORTE < 0 — tercer formato de signo incompatible con ALR ('D'/'C') y AHR (campo separado) | P151 | contable | BAJA | MEDIA |
+| T-REC-P151-015 | Transmitir a IBM via FTP: CALL WFL P940 al finalizar generación de archivos del día | P151 | escritura | BAJA | CRÍTICA |
+| T-REC-P151-016 | Cerrar archivos: CLOSE ARCH-ALR-BNE WITH SAVE (solo si W88-HOSTNAME); actualizar MOVSCIG (bitácora Citi) y PUNTEO (ARCH-SAL); cerrar archivos VDM/MTY/UNI de los tres tipos | P151 | control | BAJA | ALTA |
+
+### Reglas vinculadas P151
+
+| Regla | Descripción | Programa | Confianza |
+|-------|-------------|----------|-----------|
+| RN-S151-331 | Flujo P151: 7 fases (W77-SISTEMA-PARAMETRO → catálogos → SBC → PROCESA → SELECCIÓN → SORT → GENERA) | P151 | ALTA |
+| RN-S151-332 | RMC-IND-SIS=1→ALR; 1/2→AHR; triple condición (IND-SIS=1+INDCITI=2+CTACON 11/61)→OCM; 0=excluido | P151 | ALTA |
+| RN-S151-333 | Distribución regional hardcoded: VDM/MTY/UNI por SUBNODO — sin mapping silencioso | P151 | ALTA |
+| RN-S151-334 | Variantes BNE (mod ISILOA): W88-HOSTNAME activa archivos BNE paralelos; CLOSE WITH SAVE | P151 | ALTA |
+| RN-S151-335 | ALRINT-REC: BRCH-NBR=485 hardcoded; KEY-GRP 83 bytes; BLOCK 100 RECORDS | P151 | ALTA |
+| RN-S151-336 | CURRENT-NO = W77-CONTADOR-ALR (NO AUTS151 — comentado); secuencia relativa por ejecución | P151 | ALTA |
+| RN-S151-337 | Tres formatos de signo: ALR='D'/'C'; AHR=campo separado; OCM='+'/'-' — inconsistencia inter-archivo | P151 | ALTA |
+| RN-S151-338 | AHR SAT Anexo 20: RFC X(20), NOM X(120), CVE-RASTREO X(30), SELLO-DIGIT X(400), devoluciones SPEI | P151 | ALTA |
+| RN-S151-339 | Validación SAT antes de WRITE AHR: 100-27937-VALIDA-SAT + 100-27938-VAL-DFTPY; PRIME-DELIMITER='X' | P151 | ALTA |
+| RN-S151-340 | REVRS-IND: SPACE=normal; ≠SPACE→FEC-DEV/HORA-DEV/CAUSA-DEV activos; inicializado a SPACE explícito | P151 | ALTA |
+| RN-S151-341 | OCM TRANS-ID: "BM"+FECOPER_juliana+W77-CONTADOR-OCM; COUNTRY-CODE=485; MESSAGE-TYPE='B'; TRANS-TYPE='A' | P151 | ALTA |
+| RN-S151-342 | OCM: solo cheque #1 poblado; CHEQUES 2..10 en ZEROS; PAY-AGENT-CODE=485; PAY-TITLE-STA=11 | P151 | ALTA |
+| RN-S151-343 | Sort input SMOVTOS-CITICTD: RMC-LEYENDA REDEFINES 35+5; IND-CD e IND-BN (ISILOA); LEYENDA truncada | P151 | ALTA |
+| RN-S151-344 | Flujo sistema 500: doble carga catálogos (500+408); 6 pasos ordenados incluyendo sort por hora | P151 | ALTA |
+
+### Hallazgos de migración P151
+
+| Riesgo | Tarea | Severidad | Acción requerida |
+|--------|-------|-----------|-----------------|
+| BRCH-NBR=485 hardcoded en todos los registros ALR/AHR/OCM — punto de separación Citi #4 | T-REC-P151-009 | 🔴 DEFECTO-PROD | Parametrizar BRCH-NBR desde configuración del target; validar con IBM-Citibank cuál es el BRCH-NBR post-separación |
+| CURRENT-NO = W77-CONTADOR-ALR (no AUTS151) — reconciliación IBM no corresponde al ID bancario real | T-REC-P151-009 | 🟠 CRÍTICO | Reemplazar por AUTS151 como identificador universal; documentar cambio como contrato de interfaz |
+| Tres formatos de signo incompatibles (ALR=D/C, AHR=campo separado, OCM=+/-) — error en reconciliación inter-archivo | T-REC-P151-010/014 | 🟠 CRÍTICO | Estandarizar a un solo formato de signo en la API del target; adapter pattern por receptor |
+| IND-SIS=0 excluye movimientos silenciosamente — pérdida de datos sin traza | T-REC-P151-006 | 🟠 CRÍTICO | Agregar contador de exclusiones y log de causa; nunca silencioso en target |
+| SUBNODO sin mapping a región → movimiento perdido sin error — análogo a brecha P112 | T-REC-P151-007 | 🟠 CRÍTICO | Externalizar tabla de regiones a catálogo configurable; emitir error estructurado para subnodos no mapeados |
+| LEYENDA truncada en sort Citi (40 bytes vs 5×35 del registro principal) — pérdida de metadatos | T-REC-P151-005 | 🟡 ALTO | Ampliar estructura SMOVTOS-CITICTD para preservar las 5 leyendas en target |
+| Doble carga catálogos (500+408) — 408 como alias oculto de captación; sin documentación de por qué | T-REC-P151-002 | 🟡 ALTO | Documentar y parametrizar la relación 500↔408; verificar si el alias persiste en target |
+| FTP a IBM via WFL P940 — acoplamiento de infraestructura hardcoded a protocolo FTP | T-REC-P151-015 | 🟡 ALTO | Reemplazar por API/sftp parametrizado; P940 se retira en target; implementar retry y alerting |
+
+---
+
+*cap-rec.md · v1.1 · 2026-07-20 · Ampliación P151 IBM-Citi ALR/AHR/OCM (QC DOC phase)*
 *Capacidad: 6.7.1 Financial Reconciliation · Sistema: S151 · Programa: P112 (PUNTEO POR CLAVES DE TRANSACCION)*
 *Cross-referencia: RN-S151-001..020 · rules-catalog/rules-s151-p112.md · capability-map.md · kb-capa3-capacidades.md*
 

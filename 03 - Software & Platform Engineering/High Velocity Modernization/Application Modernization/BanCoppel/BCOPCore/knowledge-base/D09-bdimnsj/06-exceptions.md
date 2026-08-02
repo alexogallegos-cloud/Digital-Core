@@ -114,3 +114,16 @@ Por ejemplo:
 
 ---
 *Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdimnsj_*.sql*
+
+<!-- LOG-DATA-BEGIN -->
+## Hallazgos de producción — Logs 2026-04-24
+> Fuente: `source/logs/errores_bus_2026-04-24_*.txt` · Incorporado: 2026-08-01
+
+**Total errores del dominio:** 320 · **Códigos distintos:** 1
+
+| Código | Descripción | Volumen/día | Servicios afectados |
+|--------|-------------|-------------|---------------------|
+| `3165` | SSL socket operation error — fallo en handshake TLS con endp | 320 | SMSCoppel |
+
+*Generado por generate-kb-from-logs.py · 2026-08-01*
+<!-- LOG-DATA-END -->

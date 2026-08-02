@@ -1,4 +1,5 @@
 # Resumen Vocabulario S500 — Campos COBOL
+> Indexado: ✅ 2026-07-17 — Capa 1 — resumen de vocabulario
 
 **Generado:** 2026-07-14  
 **Sistema:** S500 (Banamex / Unisys MCP COBOL)  

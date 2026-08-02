@@ -132,7 +132,7 @@ Specialist táctico que **opera el mainframe legacy día a día durante la venta
 ### Upstream
 - `Digital Core/03 S&PE/HVM/Mainframe Modernization` L4 → operativa coordinación
 - `Digital Core/07 AMS Reinvention` → AMS contract scope incluye mainframe
-- `Delivery - SME/Value Delivery/Value-Led AMS` → modelo operativo
+- `SME/Value Delivery/Value-Led AMS` → modelo operativo
 
 ### Downstream
 - Todos los Specialists peer de Mainframe Migration → coordinación operacional

@@ -1,0 +1,1350 @@
+001000$SET LIST                                                                     
+002000$SET LINEINFO                                                                 
+003000$SET ERRORLIMIT = 3                                                           
+003200$SET S016L428R01 S016L428                                                     
+003400$SET FECHA2000 S100VERSIONES                                                  
+004000*$SET TADS(FREQUENCY)                                                         
+005000****************************************************************              
+006000* SISTEMA: S500 CAPTACION                                      *              
+007000* PROGRAM: S500P106                                            *              
+008000*                                                              *              
+009000* PROCESO PARA LEER Y RECUPERAR TRANSACCIONES DEL ARCHIVO DE   *              
+010000* RECHAZOS, LOG E INCIDENTE BUSCANDO POR TARJETA, SUCURSAL/CTA *              
+011000* AUTORIZACION.                                                *              
+012000*                                                              *              
+012100* SE AGREGA OPCION 5 PARA CANCELACION DE CONTRATO EN EL S016   *              
+012200* TENIENDO COMO RESULTADO LOS STATUS:                          *              
+012300*  STATUS 00 CORRECTO COLOCANDO EN EL STATUS 31 EN EL S016     *              
+012400*  STATUS 10 NO EXISTE EN EL S016                              *              
+012500*  STATUS 16 NO SE PUEDE MODIFICAR EL STATUS EN EL S016        *              
+012600*  STATUS 99 RECHAZADO                                         *              
+012700*                                                              *              
+012800* SE AGREGA LA OPCION 6 EN CASO DE FALLA DEL P106 SE GENERA EL *              
+012850* REPORTE CON STATUS 99 A PARTIR DEL ULTIMO REGISTRO LEIDO DE  *              
+012900* LOS ARCHIVOS DE CANCELADOS                                                  
+013000*                                                              *              
+014000* PARAMETROS DE ENTRADA                                        *              
+015000* WKS-IN-FECH FECHA A 6 DIGITOS DEL ARCHIVO A LEER             *              
+016000* WKS-IN-FILE OPCION PARA EL ARCHIVO A BUSCAR                  *              
+017000*   1 BUSCAR EN ARCHIVO DE RECHAZOS                            *              
+018000*   2 BUSCAR EN ARCHIVO LOG                                    *              
+019000*   3 BUSCAR EN ARCHIVO DE INCIDENTES SECUENCIALES DEL 1 AL 3  *              
+020000*   4 BUSCAR EN ARCHIVO DE INCIDENTES SECUENCIAL 4             *              
+020500*   5 PROCESAR ARCHIVOS CANCELADOS POR P130                                   
+021000* WKS-IN-OPC  OPCION PARA EL TIPO DE BUSQUEDA                  *              
+022000*   1 POR TARJETA O SUCURSAL/CTA   16 POSICIONES               *              
+023000*   3 POR AUTORIZACION 8 POSICIONES   Ó                        *              
+024000*      POR CONTRATO 12 POSICIONES                              *              
+025000* WKS-IN-SEC A 3 DIGITOS                                       *              
+025100*    SECUENCIAL PARA EL LISTADO QUE SE ENVIARA A ONDEMAND      *              
+026000* PARA BUSCAR EN EL ARCHIVO DE INCIDENTES                      *              
+027000* LOS ULTIMOS 16 DIGITOS PUEDEN IR EN CEROS                    *              
+028000*                                                              *              
+029000*                                                              *              
+030000* ULTIMA ACTUALIZACION: ENERI/2025.                            *              
+031000****************************************************************              
+032000*       I D E N T I F I C A T I O N      D I V I S I O N.      *              
+033000****************************************************************              
+034000 IDENTIFICATION DIVISION.                                                     
+035000*************************                                                     
+036000 PROGRAM-ID. MOD-ARCH.                                                        
+037000 AUTHOR.     STEFANINI-E.                                                     
+038000****************************************************************              
+039000*       E N V I R O N M E N T           D I V I S I O N.       *              
+040000****************************************************************              
+041000 ENVIRONMENT DIVISION.                                                        
+042000**********************                                                        
+043000 CONFIGURATION SECTION.                                                       
+044000**********************                                                        
+045000                                                                              
+046000     SOURCE-COMPUTER. UNISYS.                                                 
+047000     OBJECT-COMPUTER. UNISYS.                                                 
+048000                                                                              
+049000 INPUT-OUTPUT SECTION.                                                        
+050000**********************                                                        
+051000***************************************************************               
+052000* PROGRAMA PARA LEER LOS ARCHIVOS DE RECHAZOS Y LOGS                          
+053000* PARA RECUPERAR LA INFORMACION DE UNA TRANSACCION                            
+054000***************************************************************               
+055000 FILE-CONTROL.                                                                
+056000**************                                                                
+057000     SELECT  I01-500-LOG           ASSIGN  TO DISK.                           
+058000     SELECT  I01-500-RECHAZOS      ASSIGN  TO DISK.                           
+059000     SELECT  I01-S500-INCIDENTE    ASSIGN  TO DISK.                           
+059500     SELECT  I02-CANCELADOS        ASSIGN  TO DISK.                           
+059600     SELECT  I02-REINICIO          ASSIGN  TO DISK.                           
+060000     SELECT  R01-EXTRACTOR         ASSIGN  TO PRINTER.                        
+060500     SELECT  R02-CANCELADOS        ASSIGN  TO PRINTER.                        
+061000                                                                              
+062000                                                                              
+063000 DATA DIVISION.                                                               
+064000***************                                                               
+065000****************************************************************              
+066000* F I L E   S E C T I O N.                                                    
+067000****************************************************************              
+068000 FILE SECTION.                                                                
+069000**************                                                                
+070000 FD  I01-500-RECHAZOS                                                         
+071000     BLOCK   CONTAINS   45 RECORDS                                            
+072000     RECORD  CONTAINS   120 CHARACTERS                                        
+073000     VALUE OF                                                                 
+074000             AREAS       IS 1000                                              
+075000             AREASIZE    IS 600.                                              
+076000 01  I01-FD-RECH     PIC X(120).                                              
+077000                                                                              
+078000 FD  I01-500-LOG                                                              
+079000     VALUE OF                                                                 
+080000             DEPENDENTSPECS TRUE.                                             
+081000 01  I01-FD-LOG     PIC X(901).                                               
+082000                                                                              
+083000 FD  I01-S500-INCIDENTE                                                       
+084000     RECORD   CONTAINS 180 CHARACTERS                                         
+085000     BLOCK    CONTAINS 180 RECORDS                                            
+086000     VALUE OF                                                                 
+087000           SECURITYTYPE IS PUBLIC                                             
+088000           TITLE        IS TITULO-INCIDENTE                                   
+089000           AREAS        IS 15000                                              
+090000           AREASIZE     IS 360.                                               
+091000 01 FD-I01-INCIDENTE.                                                         
+091100    02 FD-TIP-REG       PIC  9(02).                                           
+091200    02 FD-REG-INC       PIC  X(178).                                          
+092000                                                                              
+092050 FD  I02-CANCELADOS                                                           
+092100     BLOCK   CONTAINS   180 RECORDS                                           
+092150     RECORD  CONTAINS   140 CHARACTERS                                        
+092200     VALUE OF                                                                 
+092250             AREAS       IS 1000                                              
+092300             AREASIZE    IS 1800                                              
+092350             SECURITYTYPE IS PUBLIC                                           
+092400             TITLE        IS WKS-TIT-CANCEL.                                  
+092450                                                                              
+092500 01  FD-I02-CANCELADOS    PIC X(140).                                         
+093000                                                                              
+093050                                                                              
+093100 FD  I02-REINICIO                                                             
+093200     BLOCK   CONTAINS   1 RECORDS                                             
+093300     RECORD  CONTAINS   104 CHARACTERS                                        
+093360     VALUE OF                                                                 
+093400             AREAS       IS 1                                                 
+093450             AREASIZE    IS 104                                               
+093460             SECURITYTYPE IS PUBLIC                                           
+093470               TITLE       IS WKS-TIT-REINICIO.                               
+093480                                                                              
+093500     01  I02-R00-REINICIO.                                                    
+093550         02 I02-FD-R00-FECHA  PIC 9(06).                                      
+093560         02 I02-FD-R00-CTO    PIC 9(12).                                      
+093580         02 I02-FD-R00-SEC    PIC 9(02).                                      
+093590         02 I02-FD-PRODUC     PIC 9(04).                                      
+093600         02 I02-FD-INSTRU     PIC 9(04).                                      
+093610         02 I02-FD-MONEDA     PIC 9(02).                                      
+093630         02 I02-FD-CLIENT     PIC 9(12).                                      
+093640         02 I02-FD-RESULT     PIC 9(02).                                      
+093645         02 I02-FD-MENSAJE    PIC X(60).                                      
+093650                                                                              
+094000 FD R01-EXTRACTOR.                                                            
+095000 01 R01-RD-REPORT    PIC X(133).                                              
+095200 FD R02-CANCELADOS.                                                           
+095400 01  R02-L00-CANC         PIC X(132).                                         
+096000****************************************************************              
+097000*           D A T A       B A S E      S E C T I O N.          *              
+098000****************************************************************              
+099000 DATA-BASE SECTION.                                                           
+100000*******************                                                           
+101000****************************************************************              
+102000*           W O R K I N G           S T O R A G E.             *              
+103000****************************************************************              
+104000 WORKING-STORAGE SECTION.                                                     
+105000*************************                                                     
+106000 01 WKS-ARCH-RECHAZOS.                                                        
+107000    02 WKS-RECIBE                    PIC X(06).                               
+108000    02 FILLER                        PIC X(114).                              
+109000                                                                              
+110000 01 WKS-RD-FECH-HORA REDEFINES WKS-ARCH-RECHAZOS.                             
+111000    02 WKS-FECHA-HORA                PIC X(37).                               
+112000    02 FILLER                        PIC X(83).                               
+113000                                                                              
+114000 01 WKS-RD-HEADER REDEFINES  WKS-ARCH-RECHAZOS.                               
+115000    02 WKS-HEADER                    PIC X(46).                               
+116000    02 FILLER                        PIC X(74).                               
+117000                                                                              
+118000 01 WKS-RD-HEADERAMP REDEFINES WKS-ARCH-RECHAZOS.                             
+119000    02 WKS-HEADERAMP                 PIC X(22).                               
+120000    02 FILLER                        PIC X(98).                               
+121000                                                                              
+122000 01 WKS-RD-SA0  REDEFINES WKS-ARCH-RECHAZOS.                                  
+123000    02 WKS-SAO                       PIC X(40).                               
+124000    02 FILLER                        PIC X(80).                               
+125000                                                                              
+126000 01 WKS-RD-SA2 REDEFINES WKS-ARCH-RECHAZOS.                                   
+127000    02 WS-SA2                        PIC X(09).                               
+128000    02 WS-SA2-ID                     PIC X(03).                               
+129000    02 WS-SA2-VERSION                PIC X.                                   
+130000    02 WS-SA2-CLASE                  PIC 9(01).                               
+131000    02 WS-SA2-ESTADO                 PIC 9(01).                               
+132000    02 WS-SA2-MODO                   PIC 9(01).                               
+133000    02 WS-SA2-NUM-ORI                PIC 9(04).                               
+134000    02 WS-SA2-TIPO-CAJAORI           PIC X.                                   
+135000    02 WS-SA2-NUMCAJA-ORIG           PIC 9(02).                               
+136000    02 WS-SA2-AUTORIZACION           PIC 9(08).                               
+137000    02 WS-SA2-FECHA-TRANSAC          PIC 9(06).                               
+138000    02 WS-SA2-HORA-TRANSAC           PIC 9(06).                               
+139000    02 WS-SA2-MODALIDAD              PIC 9(02).                               
+140000    02 WS-SA2-OPERADOR               PIC X(10).                               
+141000    02 WS-SA2-VERS-DATOP             PIC 9(01).                               
+142000    02 FILLER                        PIC X(64).                               
+143000                                                                              
+144000 01 WKS-RD-TEXTO REDEFINES WKS-ARCH-RECHAZOS.                                 
+145000    02 WS-TEXT                       PIC X(09).                               
+146000    02 WS-TXT-CVE-TRN                PIC 9(04).                               
+147000    02 WS-TXT-TIPMEDACC              PIC 9(02).                               
+148000    02 WS-TXT-TARJETA.                                                        
+149000       04 WS-TXT-SUCURSAL            PIC 9(04).                               
+150000       04 WS-TXT-CTA-CTO             PIC 9(12).                               
+151000    02 WS-TXT-IMPORTE                PIC 9(12)V99.                            
+152000    02 WS-TXT-MONEDA                 PIC 9(03).                               
+153000    02 WS-TXT-REFERENCIA             PIC 9(12).                               
+154000    02 WS-TXT-MOV-FORZADO            PIC 9(01).                               
+155000    02 FILLER                        PIC X(59).                               
+156000                                                                              
+156100 01 WKS-RD-TXT-FORA REDEFINES WKS-ARCH-RECHAZOS.                              
+156200     02 WS-TEXT-FORA                 PIC X(28).                               
+156300     02 WS-CVE-FORA                  PIC 9(04).                               
+156400     02 WS-TIPMEDACC-FORA            PIC 9(02).                               
+156500     02 WS-TARJETA-FORA              PIC 9(16).                               
+156600     02 FILLER                       PIC X(70).                               
+156900                                                                              
+157000  01 WKS-RD-LINEA REDEFINES WKS-ARCH-RECHAZOS.                                
+158000     02 WS-LINEA.                                                             
+159000        04 WS-LINEA-SPACES           PIC X(06).                               
+160000        04 WS-LINEA-NUM              PIC X(02).                               
+161000        04 WS-LINEA-SIMB             PIC X(01).                               
+162000     02 WS-LINEA-DATOS               PIC X(56).                               
+163000     02 FILLER                       PIC X(55).                               
+164000                                                                              
+165000  01 WKS-OUT-LINEAS.                                                          
+166000     02 WKS-OUT-LINEA  OCCURS 35 TIMES.                                       
+167000        04 WKS-OUT-LINEA-N           PIC X(120).                              
+168000                                                                              
+169000                                                                              
+170000  01 WS-FTO-IN-GRABALOG.                                                      
+171000     02 WS-A-INICIO.                                                          
+172000        04 C-DATO-1                  PIC X(04).                               
+173000        04 C-DATO-2                  PIC 9(06) COMP.                          
+174000        04 C-FECHA                   PIC 9(06) COMP.                          
+175000        04 C-HORA                    PIC 9(06) COMP.                          
+176000        04 C-DATO-3                  PIC 9(10) COMP.                          
+177000        04 C-DATO-4                  PIC 9(16) COMP.                          
+178000        04 C-CONTRATO                PIC 9(12) COMP.                          
+179000        04 FILLER                    PIC X(869).                              
+180000     02 WS-B-INICIO REDEFINES WS-A-INICIO .                                   
+181000        04 FILLER                    PIC X(61).                               
+182000        04 WS-I-HEADER               PIC X(36).                               
+183000        04 WS-HDR-AMPLIADO.                                                   
+184000         06 WS-HDRAMP-TCDESTINO      PIC 9(06) COMP.                          
+185000           06 WS-HDRAMP-TCORIGEN     PIC 9(06) COMP.                          
+186000      04 WS-MSG-SA0.                                                          
+187000         06 WS-SA0-COD-DESTINO            PIC 9(09) COMP.                     
+188000         06 WS-SA0-COD-ORIGEN             PIC 9(09) COMP.                     
+189000         06 WS-SA0-DIRECCION              PIC 9(01) COMP.                     
+190000         06 WS-SA0-LONG                   PIC 9(04) COMP.                     
+191000         06 WS-SA0-TIEMPO-ESPERA          PIC 9(05) COMP.                     
+192000         06 WS-SA0-CODI-RESPUESTA         PIC 9(02) COMP.                     
+193000        04 WS-MSG-SA2.                                                        
+194000           06 WS-SA2-ID                   PIC X(03) .                         
+195000           06 WS-SA2-VERSIONB             PIC X(01) .                         
+196000           06 WS-SA2-CLASE                PIC 9(01) .                         
+197000           06 WS-SA2-ESTADO               PIC 9(01) .                         
+198000           06 WS-SA2-MODO                 PIC 9(01) .                         
+199000           06 WS-SA2-IDENT.                                                   
+200000              08 WS-SA2-ENT-NUM-ORIGEN    PIC 9(04) .                         
+201000              08 WS-SA2-TIPOCAJA-ORIGEN   PIC X(01) .                         
+202000              08 WS-SA2-NUMCAJA-ORIGEN    PIC 9(02) .                         
+203000              08 WS-SA2-AUTOR             PIC 9(08) .                         
+204000              08 WS-SA2-FECHA-TRANSAC     PIC 9(06) .                         
+205000              08 WS-SA2-HORA-TRANSAC      PIC 9(06) .                         
+206000           06 WS-SA2-MODALIDAD            PIC 9(02) .                         
+207000           06 WS-SA2-OPERADOR             PIC X(10) .                         
+208000         06 WS-SA2-VERS-DATOP             PIC X(01) .                         
+209000        04 WS-RD-TXT2.                                                        
+210000           06 WS-I-TXT-1                  PIC X(55).                          
+211000           06 WS-I-TXT-2                  PIC X(55).                          
+212000           06 WS-I-TXT-3                  PIC X(55).                          
+213000           06 WS-I-TXT-4                  PIC X(55).                          
+214000           06 WS-I-TXT-5                  PIC X(55).                          
+215000           06 WS-I-TXT-6                  PIC X(55).                          
+216000           06 WS-I-TXT-7                  PIC X(55).                          
+217000           06 WS-I-TXT-8                  PIC X(55).                          
+218000           06 WS-I-TXT-9                  PIC X(55).                          
+219000           06 WS-I-TXT-10                 PIC X(55).                          
+220000           06 FILLER                      PIC X(186).                         
+221000                                                                              
+222000                                                                              
+223000   01 WE-DATO-1                           PIC X(04).                          
+224000    01 WE-DATO-2                          PIC 9(06).                          
+225000    01 WE-FECHA                           PIC 9(06).                          
+226000    01 WE-HORA                            PIC 9(06).                          
+227000    01 WE-DATO-3                          PIC 9(10).                          
+228000    01 WE-DATO-4                          PIC 9(16).                          
+229000    01 WE-CONTRATO                        PIC 9(12).                          
+230000    01 WE-HDR-AMPLIADO.                                                       
+231000       06 WE-HDRAMP-TCDESTINO             PIC 9(06) .                         
+232000       06 WE-HDRAMP-TCORIGEN              PIC 9(06) .                         
+233000    01 WE-MSG-SA0.                                                            
+234000       06 WE-SA0-COD-DESTINO              PIC 9(09) .                         
+235000       06 WE-SA0-COD-ORIGEN               PIC 9(09) .                         
+236000       06 WE-SA0-DIRECCION                PIC 9(01) .                         
+237000       06 WE-SA0-LONG                     PIC 9(04) .                         
+238000       06 WE-SA0-TIEMPO-ESPERA            PIC 9(05) .                         
+239000       06 WE-SA0-CODI-RESPUESTA           PIC 9(02) .                         
+240000                                                                              
+241000 01 WS-RP-RECIBE.                                                             
+242000    02 FILLER                        PIC X(06)  VA "RECIBE".                  
+243000    02 FILLER                        PIC X(124) VA SPACES.                    
+244000                                                                              
+245000 01 WS-RP-HEADER.                                                             
+246000    02 FILLER                        PIC X(10) VALUE                          
+247000                                                  "HDER:    >".               
+248000    02 WS-HDR                        PIC X(36) DISPLAY.                       
+249000    02 FILLER                        PIC X(01) VALUE "<".                     
+250000                                                                              
+251000 01 WS-RP-HDR-AMP.                                                            
+252000    02 FILLER                        PIC X(09) VALUE                          
+253000                                                  "HDER:AMP>".                
+254000    02 WS-HDR-AMP                    PIC 9(12) .                              
+255000    02 FILLER                        PIC X(01) VALUE "<".                     
+256000                                                                              
+257000 01 WS-RP-SA0.                                                                
+258000    02 FILLER                        PIC X(09) VALUE                          
+259000                                                  "SA0:    >".                
+260000    02 WS-SA0                        PIC X(30) .                              
+261000    02 FILLER                        PIC X(01) VALUE "<".                     
+262000                                                                              
+263000 01 WS-RP-SA2.                                                                
+264000    02 FILLER                        PIC X(09) VALUE                          
+265000                                                  "SA2:    >".                
+266000    02 WS-R-SA2                      PIC X(46) DISPLAY.                       
+267000    02 FILLER                        PIC X(01) VALUE "<".                     
+268000                                                                              
+269000 01 WS-RP-TEXT.                                                               
+270000    02 FILLER                        PIC X(09) VALUE                          
+271000                                                  "TEXTO:01>".                
+272000    02 WS-R-TEXT                     PIC X(55) DISPLAY.                       
+273000    02 FILLER                        PIC X(01) VALUE "<".                     
+274000                                                                              
+275000                                                                              
+276000                                                                              
+277000 01 WS-LN-ENC-1.                                                              
+278000    02 FILLER                        PIC X(49) VA SPACES.                     
+279000    02 FILLER                        PIC X(35) VA                             
+280000                       "REPORTE DE TRANSACCIONES RECHAZADAS".                 
+281000    02 FILLER                        PIC X(49) VA SPACES.                     
+282000                                                                              
+283000 01 WS-LN-ENC-2.                                                              
+284000    02 FILLER                        PIC X(49) VA SPACES.                     
+285000    02 FILLER                        PIC X(36) VA                             
+286000                       "DEL SISTEMA S500  INTEGRAL CAPTACION".                
+287000    02 FILLER                        PIC X(48) VA SPACES.                     
+288000                                                                              
+289000                                                                              
+290000 01 WS-LN-ENC-3.                                                              
+291000    02 FILLER                        PIC X(21) VA                             
+292000                                     "PARAMETROS DE ENTRADA".                 
+293000    02 FILLER                        PIC X(113) VA SPACES.                    
+294000                                                                              
+295000                                                                              
+296000 01 WS-LN-ENC-4.                                                              
+297000    02 FILLER                        PIC X(07) VA "FECHA: ".                  
+298000    02 WS-LN-FECH                    PIC X(06) .                              
+299000    02 FILLER                        PIC X(120) VA SPACES.                    
+300000                                                                              
+301000 01 WS-LN-ENC-5.                                                              
+302000    02 FILLER                        PIC X(09) VA "ARCHIVO: ".                
+303000    02 WS-LN-ARCH                    PIC X(70) .                              
+304000    02 FILLER                        PIC X(79) VA SPACES.                     
+305000                                                                              
+306000                                                                              
+307000  01 WS-LN-ENC-6.                                                             
+308000     02 FILLER                        PIC X(12) VA "BUSCAR POR: ".            
+309000     02 WS-LN-MEDIO                   PIC X(30) .                             
+310000     02 FILLER                        PIC X(91) VA SPACES.                    
+311000                                                                              
+312000  01 WS-LN-ENC-7.                                                             
+313000     02 FILLER                        PIC X(23) VA                            
+314000                                "REGISTROS ENCONTRADOS: ".                    
+315000     02 WS-LN-TOT                     PIC 9(05) VALUE 0.                      
+316000     02 FILLER                        PIC X(105) VA SPACES.                   
+317000                                                                              
+317005  01  WLI-R12-L12-ENCA.                                                       
+317010    02 FILLE  PIC X(31) VALUE SPACES.                                         
+317015    02 FILLER PIC X(13) VALUE                                                 
+317020              "CLIENTE      ".                                                
+317025    02 FILLER PIC X(13) VALUE                                                 
+317030              "PROD-INST    ".                                                
+317035    02 FILLER PIC X(11) VALUE                                                 
+317040              "MONEDA     ".                                                  
+317045    02 FILLER PIC X(13) VALUE                                                 
+317050              "CONTRATO     ".                                                
+317055    02 FILLER PIC X(16) VALUE                                                 
+317060              "RESULT          ".                                             
+317065                                                                              
+317070 01  WLI-R12-L12-DETALLE.                                                     
+317075     02 FILLER              PIC X(28) VA SPACES.                              
+317080     02 WLI-R12-L12-CTE     PIC ZZZZZZZZZZZ9.                                 
+317085     02 FILLER              PIC X(05).                                        
+317090     02 WLI-R12-L12-PROD    PIC Z(04).                                        
+317095     02 FILLER              PIC X(1).                                         
+317100     02 WLI-R12-L12-INST    PIC 9(02).                                        
+317105     02 FILLER              PIC X(07).                                        
+317110     02 WLI-R12-L12-MONEDA  PIC Z(2).                                         
+317115     02 FILLER              PIC X(05).                                        
+317120     02 WLI-R12-L12-CTO     PIC Z(12).                                        
+317125     02 FILLER              PIC X(05).                                        
+317130     02 WLI-R12-L12-RSLT    PIC 9(02).                                        
+317135     02 FILLER              PIC X(06).                                        
+317140                                                                              
+317145 01  WLI-R12-L01-FINAL.                                                       
+317150    02 FILLER              PIC X(43) VALUE SPACES.                            
+317155    02 FILLE               PIC X(23) VALUE                                    
+317160                           "REGISTROS ACEPTADOS :".                           
+317165    02 WLI-R12-L01-ACEPT   PIC 9(07) VALUE 0.                                 
+317170                                                                              
+31717501  WLI-R12-L02-FINAL.                                                        
+317180    02 FILLER              PIC X(43) VALUE SPACES.                            
+317185    02 FILLE               PIC X(23) VALUE                                    
+317190                           "REGISTROS RECHAZADOS :".                          
+317195    02 WLI-R12-L01-RECH    PIC 9(07) VALUE 0.                                 
+317200                                                                              
+31720501  WLI-R12-L03-FINAL.                                                        
+317210    02 FILLER              PIC X(43) VALUE SPACES.                            
+317215    02 FILLER               PIC X(23) VALUE                                   
+317220                           "TOTAL CANCELADOS :".                              
+317225    02 WLI-R12-L01-TOTAL   PIC 9(07) VALUE 0.                                 
+317230                                                                              
+317235                                                                              
+317240                                                                              
+317245**********************************************************                    
+317250 01  WLI-R00-L98-SININF.                                                      
+317255     02 FILLER                   PIC X(30)  VALUE " ".                        
+317260     02 FILLER                   PIC X(25)  VALUE                             
+317265                                 "*** SIN INFORMACION ***".                   
+317270 01  WLI-R00-L99-FINAL.                                                       
+317275     02 FILLER                   PIC X(30)  VALUE " ".                        
+317280     02 FILLER                   PIC X(25)  VALUE                             
+317285                                 "*** FIN DE REPORTE ***".                    
+317287                                                                              
+317289 01  WLI-R00-L99-SINARCH.                                                     
+317290     02 FILLER                   PIC X(30)  VALUE " ".                        
+317292      02 WLI-R00-L99-LEY          PIC X(60).                                  
+317294                                                                              
+317295                                                                              
+317297                                                                              
+317299*******************************************************                       
+317300**** LINEAS DE IMPRESION   ********************                               
+317305 01  WLI-R00-L01-ENCA.                                                        
+317310     02 FILLER              PIC X(09) VALUE                                   
+317315                            "S500/P106".                                      
+317320     02 FILLER              PIC X(10) VALUE                                   
+317325                             "/25MTP007/".                                    
+317330     02 WLI-R00-L01-NAME    PIC X(28) VALUE " ".                              
+317335     02 FILLER              PIC X(58) VALUE                                   
+317340                            "DEPOSITOS A LA VISTA".                           
+317345     02 FILLER              PIC X(14) VALUE                                   
+317350                            "FECHA MOVTOS: ".                                 
+317355     02 WLI-R00-L01-FPROC   PIC X(13).                                        
+317360                                                                              
+317365 01  WLI-R00-L02-ENCA.                                                        
+317370     02 FILLER              PIC X(15) VALUE                                   
+317375                            "FECHA PROCESO: ".                                
+317380     02 WLI-R00-L02-FMAQ    PIC X(11).                                        
+317385     02 FILLER              PIC X(16) VALUE " ".                              
+317390     02 WLI-R00-L02-TITULO  PIC X(63) VALUE " ".                              
+317395     02 FILLER              PIC X(14) VALUE                                   
+317400                            "TIPO PROCESO: ".                                 
+317405     02 WLI-R00-L02-TPROC   PIC X(13) VALUE "DIARIO".                         
+317410                                                                              
+317415 01  WLI-R00-L03-ENCA.                                                        
+317420     02 FILLER              PIC X(15) VALUE                                   
+317425                            "HORA  PROCESO: ".                                
+317430     02 WLI-R00-L03-HH      PIC 99.                                           
+317435     02 FILLER              PIC X(01) VALUE ":".                              
+317440     02 WLI-R00-L03-MM      PIC 99.                                           
+317445     02 FILLER              PIC X(01) VALUE ":".                              
+317450     02 WLI-R00-L03-SS      PIC 99.                                           
+317455     02 FILLER              PIC X(19) VALUE " ".                              
+317460     02 WLI-R00-L03-SBTIT   PIC X(63) VALUE " ".                              
+317465     02 FILLER              PIC X(14) VALUE                                   
+317470                            "HOJA NUM    : ".                                 
+317475     02 WLI-R00-L03-NPAG    PIC ZZZZZ.                                        
+317480     02 FILLER              PIC X(08) VALUE " ".                              
+317485                                                                              
+317490 01  WLI-R00-L04-ENCA.                                                        
+317495     02 WLI-R00-L04-SUC     PIC 9(04)  VALUE 0511.                            
+317500     02 FILLER              PIC X(128) VALUE " ".                             
+317505                                                                              
+317510 01  WLI-R00-L05-ENCA.                                                        
+317515     02 WLI-R00-L05-NBSUC   PIC X(047) VALUE                                  
+317520                            "CTO PROC DE VALORES".                            
+317525     02 WLI-R00-L05-NCSI    PIC X(061) VALUE                                  
+317530                            "S500 CAPTACION".                                 
+317535     02 WLI-R00-L05-BAN     PIC X(011) VALUE                                  
+317540                            "  ".                                             
+317545 02 WKS-TITULO-R12.                                                           
+317550    03 FILLER                PIC X(44) VALUE                                  
+317555       "REPORTE RECHAZOS AVISO CANCELACIONES AL S016".                        
+317560    03 FILLER                PIC X(19) VALUE " ".                             
+317565                                                                              
+318000                                                                              
+319000 01   TITULO-RECH.                                                            
+320000     03 FILLER                        PIC X(30) VA                            
+321000                               "(S500)S500/FILE/INTS/50004S01/".              
+322000     03 TIT-CSI-RECH                  PIC 9(02).                              
+323000     03 FILLER                        PIC X(01) VA "/".                       
+324000     03 TIT-FECH-RECH                 PIC 9(02) VA 20.                        
+325000     03 TIT-FECH-RECH-RS              PIC 9(06).                              
+326000     03 FILLER                        PIC X(06) VA "/RECH_".                  
+327000     03 TIT-SEQ-RECH                  PIC 9(02).                              
+328000     03 FILLER                        PIC X(15) VA                            
+329000                                          " ON CAPTACION.".                   
+330000                                                                              
+331000 01   TITULO-LOG.                                                             
+332000     03 TIT-LOG                     PIC X(20) VA                              
+333000                        "(S500)S500/FILE/LOG/".                               
+334000     03 TIT-FECH-LOG                PIC 9(06).                                
+335000     03 FILLER                      PIC X(15) VA                              
+336000                                          " ON CAPTACION.".                   
+336050 01  WKS-TITULO-R00.                                                          
+336100    04 FILLER                PIC X(15) VALUE "S500/LIST/P106/".               
+336150    04 WKS-TIT-R-NODO        PIC 99.                                          
+336200    04 WKS-TIT-R-SBNODO      PIC 99    VALUE 0.                               
+336250    04 FILLER                PIC X     VALUE "/".                             
+336300    04 WKS-TIT-R-TPO         PIC X     VALUE "R".                             
+336350    04 FILLER                PIC X(04)  VALUE "000/".                         
+336400    04 WKS-TIT-R-FEC         PIC 9(06).                                       
+336450    04 FILLER                PIC X     VALUE "/".                             
+336500    04 WKS-TIT-R-MIX         PIC 9(07).                                       
+336550    04 FILLER                PIC X     VALUE "/".                             
+336560    04 WKS-TIT-R-SEC         PIC 9(03).                                       
+336600    04 WKS-TIT-R-NAME        PIC X(10)                                        
+336650                             VALUE "CANCELADOS".                              
+336700    04 FILLER                PIC X     VALUE ".".                             
+337000                                                                              
+337200 01  WKS-TIT-REINICIO.                                                        
+337400    04 WKS-TIT-REINI         PIC X(23) VALUE                                  
+337600                            "S500/FILE/P106/REINICIO".                        
+337800    04 FILLER                PIC X      VALUE ".".                            
+337850                                                                              
+337900 01  WKS-SI-HAY-REINICIO     PIC 9(02).                                       
+337950 01  WKS-FIN-REINICIO        PIC 9(02).                                       
+337960 01  WKS-CONTADOR-CCP        PIC 9(02).                                       
+338000                                                                              
+339000 01  TITULO-REPORTE.                                                          
+340000    02 FILLER                         PIC X(15) VA                            
+341000                                                "S500/LIST/P106/".            
+342000    02 TIT-CSI-REP                    PIC 9(02).                              
+343000    02 TIT-REP-SBNODO                 PIC 9(02)  VA 0.                        
+344000    02 FILLER                         PIC X(01)  VA "/".                      
+345000    02 TIT-REP-TIPO                   PIC X(04)  VA "R000".                   
+346000    02 FILLER                         PIC X(01)  VA "/".                      
+347000    02 TIT-REP-FECHA                  PIC 9(06).                              
+348000    02 FILLER                         PIC X(01)  VA "/".                      
+349000    02 TIT-REP-MIX                    PIC 9(07).                              
+350000    02 FILLER                         PIC X(01)  VA "/".                      
+351000    02 TIT-REP-NAME.                                                          
+351100       04 TIT-REP-SEQ                 PIC 9(03)  VA 001.                      
+351200       04 TIT-REP-NOM                 PIC X(09)  VA "EXTRACTOR".              
+352000    02 FILLER                         PIC X(01)  VA ".".                      
+353000                                                                              
+354000  01   TITULO-INCIDENTE.                                                      
+355000      02 FILLER                 PIC X(30) VA                                  
+356000                           "(S500)S500/FILE/INTS/50004S01/".                  
+357000      02 TIT-CSI-INC            PIC 9(02).                                    
+358000      02 FILLER                 PIC X(01) VA "/".                             
+359000      02 TIT-FEC-INC            PIC 9(08).                                    
+360000      02 FILLER                 PIC X(11) VA                                  
+361000                                "/INCIDENTE/".                                
+362000      02 TIT-SEQ-INC            PIC 9(02).                                    
+363000      02 FILLER                 PIC X(14) VA                                  
+364000                            " ON CAPTACION.".                                 
+365000                                                                              
+367200 01 WKS-I01-INCIDENTE  .                                                      
+367300    02 WS-REG-PART1     PIC  X(73).                                           
+367400    02 WS-REG-PART2     PIC  X(127).                                          
+367500                                                                              
+367502                                                                              
+367504**************************************************************                
+367506****** CAMPOS ARCHIVOS PARA CONTRATOS CANCELADOS                              
+367508**************************************************************                
+367510 01  WKS-TIT-CANCEL.                                                          
+367512     02 FILLER              PIC X(21)                                         
+367514                            VALUE "S500/FILE/CANCELADOS/".                    
+367516     02 WKS-TIT-CSID-I10    PIC 99.                                           
+367518     02 FILLER              PIC X(01) VALUE "/".                              
+367520     02 WKS-TIT-FEC-I10     PIC 9(06).                                        
+367522     02 FILLER              PIC X     VALUE "/".                              
+367524     02 WKS-TIT-CPY-I10     PIC 9(02).                                        
+367526     02 FILLER              PIC X     VALUE ".".                              
+367528                                                                              
+367530                                                                              
+367532 01 WKS-I10-REG-CANCEL.                                                       
+367534    02 WKS-I10-REG-HEADER.                                                    
+367536       03 WKS-I10-TPOREG-H    PIC 9(01).                                      
+367538       03 WKS-I10-SISORI-H    PIC X(04).                                      
+367540       03 WKS-I10-SISDES-H    PIC X(04).                                      
+367542       03 WKS-I10-FECREA-H    PIC 9(08).                                      
+367544       03 WKS-I10-HOCREA-H    PIC 9(06).                                      
+367546       03 WKS-I10-FECONT-H.                                                   
+367548          04 WKS-I10-SIG      PIC 9(02).                                      
+367550          04 WKS-110-FECH     PIC 9(06).                                      
+367552       03 WKS-I10-CSIORI-H    PIC 9(02).                                      
+367554       03 WKS-I10-CSIDES-H    PIC 9(02).                                      
+367556       03 WKS-I10-FILLER-H    PIC X(105).                                     
+367558    02 WKS-I10-REG-DET REDEFINES WKS-I10-REG-HEADER.                          
+367560       03 WKS-I10-TPOREG-D3   PIC 9(01).                                      
+367562       03 WKS-I10-PRODUC-D3   PIC 9(04).                                      
+367564       03 WKS-I10-INSTRU-D3   PIC 9(04).                                      
+367566       03 WKS-I10-MONEDA-D3   PIC 9(02).                                      
+367568       03 WKS-I10-CONTRA-D3   PIC 9(12).                                      
+367570       03 WKS-I10-CLIENT-D3   PIC 9(12).                                      
+367572       03 WKS-I10-FILLER-D3   PIC X(105).                                     
+367574    02 WKS-I10-REG-TRAIL REDEFINES WKS-I10-REG-HEADER.                        
+367576       03 WKS-I10-TPOREG-T     PIC 9(01).                                     
+367578       03 WKS-I10-NUMGLB-T     PIC 9(08).                                     
+367580       03 WKS-I10-FILLER-T     PIC X(131).                                    
+367582                                                                              
+367600                                                                              
+368000 01 WKS-HOSTNAME                      PIC X(10).                              
+369000 01 WKS-NUM-AUTOR                     PIC 9(08).                              
+370000 01 WKS-MEDIO-ACCESO.                                                         
+371000     04 WS-NUM-SUCURSAL               PIC 9(04).                              
+372000     04 WS-CTA-CTO                    PIC 9(12).                              
+373000                                                                              
+374000 01 WKS-MED-ACC-FORA.                                                         
+375000    04 WS-NUM-SUC-FORA               PIC 9(04).                               
+375100    04 WS-CTA-CTO-FORA               PIC 9(12).                               
+375200                                                                              
+375300 01 WKS-FECMVTOS.                                                             
+375400    02 WKS-AA-FECMVTOS               PIC 9(02).                               
+375500    02 WKS-MM-FECMVTOS               PIC 9(02).                               
+375600    02 WKS-DD-FECMVTOS               PIC 9(02).                               
+375650                                                                              
+375700                                                                              
+375800                                                                              
+376000 01 WKS-IN-PARAM.                                                             
+377000    02 WKS-IN-FECH                    PIC 9(06).                              
+378000    02 WKS-IN-FILE                    PIC 9(01).                              
+379000    02 WKS-IN-OPC                     PIC 9(01).                              
+379100    02 WKS-IN-SEC                     PIC 9(03).                              
+380000    02 WKS-IN-FIND                    PIC 9(16).                              
+381000    02 WKS-RD-AUTORI REDEFINES WKS-IN-FIND.                                   
+382000       06 WKS-IN-FILL                 PIC 9(08).                              
+383000       06 WKS-IN-AUTOR                PIC 9(08).                              
+384000    02 WKS-RD-CTA-CTO REDEFINES WKS-IN-FIND.                                  
+385000       06 WKS-IN-SUC                  PIC 9(04).                              
+386000       06 WKS-IN-CTA                  PIC 9(12).                              
+387000                                                                              
+387020  01 WKS-NAME-LIB-S016L428            PIC X(72).                              
+387040                                                                              
+387060                                                                              
+387080  01  WKS-TABLA-NOM-MES.                                                      
+387100      02 FILLER                   PIC X(10) VALUE "ENERO     ".               
+387120      02 FILLER                   PIC X(10) VALUE "FEBRERO   ".               
+387140      02 FILLER                   PIC X(10) VALUE "MARZO     ".               
+387160      02 FILLER                   PIC X(10) VALUE "ABRIL     ".               
+387180      02 FILLER                   PIC X(10) VALUE "MAYO      ".               
+387200      02 FILLER                   PIC X(10) VALUE "JUNIO     ".               
+387220      02 FILLER                   PIC X(10) VALUE "JULIO     ".               
+387240      02 FILLER                   PIC X(10) VALUE "AGOSTO    ".               
+387260      02 FILLER                   PIC X(10) VALUE "SEPTIEMBRE".               
+387280      02 FILLER                   PIC X(10) VALUE "OCTUBRE   ".               
+387300      02 FILLER                   PIC X(10) VALUE "NOVIEMBRE ".               
+387320      02 FILLER                   PIC X(10) VALUE "DICIEMBRE ".               
+387340  01  WKS-RD-TABLA-NOM-MES        REDEFINES WKS-TABLA-NOM-MES.                
+387360      02 WKS-TAB-NOM-MES          OCCURS 12 TIMES.                            
+387380         04 WKS-TB-MES-03         PIC X(03).                                  
+387400         04 FILLER                PIC X(07).                                  
+387420                                                                              
+387440                                                                              
+387460 01  WKS-FECMAQ-EDIT.                                                         
+387480     02 WKS-DD-FMAQ-EDIT          PIC 99.                                     
+387500     02 FILLER                    PIC X       VALUE "/".                      
+387520     02 WKS-MM-FMAQ-EDIT          PIC X(03).                                  
+387540     02 FILLER                    PIC X       VALUE "/".                      
+387560     02 WKS-AAAA-FMAQ-EDIT        PIC 9(04).                                  
+387580                                                                              
+387582 01  WKS-FECMOVTOS-EDI.                                                       
+387584     02 WKS-DD-FECMVTOS-EDI        PIC 99.                                    
+387586     02 FILLER                     PIC X       VALUE "/".                     
+387588     02 WKS-MM-FECMVTOS-EDI        PIC X(03).                                 
+387590     02 FILLER                     PIC X       VALUE "/".                     
+387591     02 FILLER                     PIC 9(02)   VA 20.                         
+387592     02 WKS-AAAA-FECMVTOS-EDI      PIC 9(02).                                 
+387594                                                                              
+387600                                                                              
+387620 01  WKS-TIME-EDIT.                                                           
+387640     02 WKS-TIME-MAQ-INI         PIC 9(08)      COMP.                         
+387660     02 WKS-RD-TIME-MAQ-INI      REDEFINES WKS-TIME-MAQ-INI.                  
+387680        04 WKS-HORA-MAQ-INI      PIC 9(06)      COMP.                         
+387700        04 WKS-DSSS-MAQ-INI      PIC 9(02)      COMP.                         
+387720     02 WKS-RD1-TIME-MAQ-INI     REDEFINES WKS-TIME-MAQ-INI.                  
+387740        04 WKS-HH-MAQ-INI        PIC 9(02)      COMP.                         
+387760        04 WKS-MM-MAQ-INI        PIC 9(02)      COMP.                         
+387780        04 WKS-SS-MAQ-INI        PIC 9(02)      COMP.                         
+387800        04 WKS-DS-MAQ-INI        PIC 9(02)      COMP.                         
+387820                                                                              
+387840 77 W77-SI-DETALLE                    PIC 9(01).                              
+387860 77 W77-FIN-CANCEL                    PIC 9(01).                              
+389000 77 W77-ERROR                         PIC 9(01).                              
+390000 77 W77-CONTINUA                      PIC 9(01).                              
+391000 77 W77-EOF                           PIC 9(01).                              
+392000 77 W77-REP                           PIC 9(02).                              
+393000 77 W77-FIN                           PIC 9(02).                              
+394000 77 W77-GRABA                         PIC 9(02).                              
+395000 77 W77-NUM-LINE                      PIC 9(06).                              
+395100 77 W77-R12-NPAG                      PIC 9(06) COMP VA 0.                    
+395200 77 W77-R12-NLIN                      PIC 9(02) COMP VA 70.                   
+395300 77 WS-RESULT-S016                    PIC 9(02).                              
+395400 77 W77-REPCAN-RCHZ                   PIC 9(07).                              
+395500 77 W77-REPCAN-ACEPT                  PIC 9(07).                              
+395600 77 W77-REPCAN-TOTAL                  PIC 9(07).                              
+395700 77 W77-1ERA-VEZ                      PIC 9(01).                              
+395800 77 W77-MY-CSI                        PIC 9(01).                              
+395900 77 W77-ENC-INC                       PIC 9(02).                              
+395950 77 WS-FIN-OK                         PIC 9(01).                              
+396000*****************************************************************             
+397000 01 WKS-INI-FEC                       PIC 9(06).                              
+398000 77 CONTADOR-LJ                       PIC 9(11) BINARY VA 0.                  
+399000 01 MENSAJE-LJ.                                                               
+400000    02 SISTEMA-LJ                     PIC X(04).                              
+401000    02 FILLER                         PIC X VA "/".                           
+402000    02 PASO-LJ                        PIC X(04).                              
+403000    02 FILLER                         PIC X VA "/".                           
+404000    02 MTP-LJ                         PIC 9(03).                              
+405000    02 FILLER                         PIC X VA ":".                           
+406000    02 TIPO-LJ                        PIC X.                                  
+407000    02 FILLER                         PIC X VA ">".                           
+408000    02 CODIGO-LJ                      PIC 9(06).                              
+409000    02 FILLER                         PIC X VA "<".                           
+410000    02 TEXTO-LJ                       PIC X(250).                             
+411000*****************************************************************             
+411200**          INCLUDE DE WORKING PARA RUTINAS COMUNES                           
+411400****************************************************************              
+411600 COPY "S500/INC/WOR/25MTP003".                                                
+411800/                                                                             
+413000****************************************************************              
+414000*           P R O C E D U R E          D I V I S I O N.        *              
+415000****************************************************************              
+416000 PROCEDURE DIVISION USING WKS-IN-PARAM.                                       
+417000********************                                                          
+418000*------------                                                                 
+419000 DECLARATIVES.                                                                
+420000*------------                                                                 
+420050                                                                              
+420100  INTERRUPT-SECCION          SECTION .                                        
+420200      USE AS INTERRUPT       PROCEDURE.                                       
+420300 INTERRUPT-BY-PGM.                                                            
+420700                                                                              
+420800                                                                              
+420900                                                                              
+421000 END-INTERRUPT-BY-PGM.                                                        
+445000 END DECLARATIVES.                                                            
+446000********************                                                          
+447000 00000-MAIN SECTION.                                                          
+448000********************                                                          
+449000 000-0000-CONTROLA.                                                           
+450000********************                                                          
+451000                                                                              
+452000  MOVE ATTRIBUTE HOSTNAME  OF MYSELF    TO WKS-HOSTNAME.                      
+453000* MOVE ATTRIBUTE TASKVA OF MYSELF    TO WKS-VA-PASO.                          
+454000                                                                              
+455000 CHANGE ATTRIBUTE LIBACCESS        OF "CTLVERS"                               
+456000                                   TO  BYFUNCTION.                            
+457000 CHANGE ATTRIBUTE FUNCTIONNAME     OF "CTLVERS"                               
+458000                                   TO  "CTLVERS".                             
+459000 CHANGE ATTRIBUTE TITLE OF "LIBLJ" TO                                         
+459100    "(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB  ON  PACK".                         
+459200                                                                              
+459300 PERFORM 10000016-L428                                                        
+459400 MOVE S000-CTR-NOMLIB  TO WKS-NAME-LIB-S016L428                               
+459500 INSPECT WKS-NAME-LIB-S016L428                                                
+459600         REPLACING ALL @00@ BY " ".                                           
+460000                                                                              
+460500                                                                              
+461000     MOVE "//////////////" TO MENSAJE-LJ.                                     
+462000     MOVE  "S500"                         TO  SISTEMA-LJ                      
+463000     MOVE  "P106"                         TO  PASO-LJ                         
+464000     MOVE  007                            TO  MTP-LJ                          
+465000     MOVE  "e"                            TO  TIPO-LJ                         
+466000     MOVE "020101"                        TO  CODIGO-LJ.                      
+466500     MOVE  00                             TO  W77-ENC-INC.                    
+467000                                                                              
+468000   PERFORM  0000000-ARMA-TITULOS                                              
+469000   IF WKS-IN-FILE = 1                                                         
+470000      PERFORM  000-LEE-RECHAZOS UNTIL TIT-SEQ-RECH = 14                       
+471000   ELSE                                                                       
+472000   IF WKS-IN-FILE = 2                                                         
+473000      PERFORM  000-LEE-LOG                                                    
+474000   ELSE                                                                       
+475000   IF WKS-IN-FILE = 3 OR WKS-IN-FILE = 4                                      
+476000      PERFORM 000-LEE-INCIDENTE UNTIL TIT-SEQ-INC = 4                         
+477000   ELSE                                                                       
+477200   IF WKS-IN-FILE = 5 OR WKS-IN-FILE = 6                                      
+477300      PERFORM 001-VALIDA-INICIO                                               
+477400      PERFORM 001-PROCESA-CANCELADOS UNTIL WKS-TIT-CPY-I10 > 3                
+477450      PERFORM 001-GENERA-REPORT                                               
+477500      PERFORM 001-ENCIENDE-INC                                                
+477800   ELSE                                                                       
+478000     STRING  "OPCION " WKS-IN-FILE " INVALIDA, USE 1 A 5  "                   
+479000     DELIMITED BY SIZE INTO TEXTO-LJ                                          
+480000     PERFORM 70000050-CALL-LJ-MSG .                                           
+481000                                                                              
+482000   IF WKS-IN-FILE = 1 OR 2 OR 3 OR 4                                          
+483000      PERFORM  0000100-FIN.                                                   
+483200   IF WKS-IN-FILE = 5 OR 6                                                    
+483500      SET MYSELF (TASKVALUE)     TO   W77-ENC-INC.                            
+484000   STOP RUN.                                                                  
+485000                                                                              
+486000                                                                              
+487000                                                                              
+488000                                                                              
+489000* ATTACH HI-EVEN TO ATTRIBUTE EXCEPTIONEVENT OF MYSELF.                       
+490000                                                                              
+491000 0000000-ARMA-TITULOS.                                                        
+492000*=====================                                                        
+493000                                                                              
+494000 IF WKS-HOSTNAME = "VDMALFA.  " OR                                            
+495000    WKS-HOSTNAME = "ACYPGAMA. " OR                                            
+496000    WKS-HOSTNAME = "ACYPOMEGA." OR                                            
+497000    WKS-HOSTNAME = "VDMBETA.  "                                               
+498000   MOVE 10 TO TIT-CSI-RECH TIT-CSI-REP TIT-CSI-INC                            
+498200              WKS-TIT-CSID-I10 TIT-CSI-REP W77-MY-CSI                         
+498400              WKS-TIT-R-NODO                                                  
+499000 ELSE                                                                         
+499500   MOVE 04 TO TIT-CSI-RECH TIT-CSI-REP TIT-CSI-INC                            
+500000              WKS-TIT-CSID-I10 TIT-CSI-REP W77-MY-CSI                         
+500500              WKS-TIT-R-NODO.                                                 
+501000                                                                              
+502000 IF WKS-IN-OPC = 1                                                            
+503000    MOVE " TARJETA" TO WS-LN-MEDIO                                            
+504000 ELSE                                                                         
+505000 IF WKS-IN-OPC = 2                                                            
+506000    MOVE " SUC/CUENTA" TO WS-LN-MEDIO                                         
+507000 ELSE                                                                         
+508000 IF WKS-IN-OPC = 3                                                            
+509000    MOVE " AUTORIZACION/CONTRATO" TO WS-LN-MEDIO.                             
+510000                                                                              
+511000 IF WKS-IN-FILE = 3                                                           
+512000    MOVE " NO APLICA" TO WS-LN-MEDIO.                                         
+513000                                                                              
+514000 IF WKS-IN-FILE = 4                                                           
+515000    MOVE "002CHQ" TO TIT-REP-NAME                                             
+516000    MOVE " NO APLICA" TO WS-LN-MEDIO.                                         
+516100                                                                              
+516200                                                                              
+516300 ACCEPT  WKS-TIME-MAQ-INI FROM TIME.                                          
+516400 PERFORM 90000000-DAME-FEC-MAQUINA.                                           
+516500 MOVE WKS-AAAA-MAQ               TO WKS-AAAA-FMAQ-EDIT.                       
+516600 MOVE WKS-DD-MAQ                 TO WKS-DD-FMAQ-EDIT.                         
+516700 MOVE WKS-TB-MES-03(WKS-MM-MAQ)  TO WKS-MM-FMAQ-EDIT.                         
+516800 MOVE   WKS-FECMAQ-EDIT          TO WLI-R00-L02-FMAQ.                         
+516900*                                    WLI-R00-L01-FPROC.                       
+516950 MOVE WKS-IN-FECH                TO WKS-FECMVTOS.                             
+516970 MOVE WKS-AA-FECMVTOS            TO WKS-AAAA-FECMVTOS-EDI.                    
+516980 MOVE WKS-TB-MES-03(WKS-MM-FECMVTOS) TO WKS-MM-FECMVTOS-EDI.                  
+516990 MOVE WKS-DD-FECMVTOS            TO WKS-DD-FECMVTOS-EDI.                      
+517000 MOVE WKS-FECMOVTOS-EDI          TO WLI-R00-L01-FPROC.                        
+517100 MOVE WKS-IN-SEC TO TIT-REP-SEQ                                               
+518000 MOVE ATTRIBUTE MIXNUMBER OF MYSELF TO TIT-REP-MIX                            
+518200                                       WKS-TIT-R-MIX.                         
+518400 MOVE   WKS-HH-MAQ-INI           TO WLI-R00-L03-HH.                           
+518600 MOVE   WKS-MM-MAQ-INI           TO WLI-R00-L03-MM.                           
+518800 MOVE   WKS-SS-MAQ-INI           TO WLI-R00-L03-SS.                           
+519000* MOVE WKS-IN-FECH  TO TIT-FECH-RECH-RS TIT-REP-FECHA                         
+519200 MOVE WKS-IN-SEC TO WKS-TIT-R-SEC.                                            
+519500 MOVE WKS-IN-FECH  TO TIT-FECH-RECH-RS                                        
+520000                      TIT-FECH-LOG WS-LN-FECH                                 
+521000                      TIT-FEC-INC      WKS-TIT-FEC-I10                        
+521200                      .                                                       
+521400                                                                              
+521600 ACCEPT   WKS-TIT-R-FEC FROM DATE.                                            
+521800 MOVE     WKS-TIT-R-FEC  TO  TIT-REP-FECHA.                                   
+521900* MOVE     WKS-TIT-R-FEC  TO  TIT-FECH-RECH-RS.                               
+522000                                                                              
+523000 ADD 20000000                          TO TIT-FEC-INC.                        
+523500 IF WKS-IN-FILE = 1 OR 2 OR 3 OR 4                                            
+524000   SET R01-EXTRACTOR      (USERBACKUPNAME) TO VA TRUE                         
+525000   CHANGE ATTRIBUTE TITLE OF R01-EXTRACTOR TO  TITULO-REPORTE                 
+526000   CHANGE ATTRIBUTE TITLE OF I01-500-LOG TO  TITULO-LOG                       
+527000   OPEN OUTPUT R01-EXTRACTOR                                                  
+527200 ELSE                                                                         
+527400 IF WKS-IN-FILE = 5 OR 6                                                      
+527600   SET R02-CANCELADOS    (USERBACKUPNAME)   TO VA TRUE                        
+527800   CHANGE ATTRIBUTE TITLE OF R02-CANCELADOS TO  WKS-TITULO-R00                
+528000   OPEN OUTPUT R02-CANCELADOS.                                                
+529000                                                                              
+530000 000-LEE-RECHAZOS.                                                            
+531000*=================                                                            
+532000    ADD  1           TO TIT-SEQ-RECH                                          
+533000    MOVE 0 TO W77-EOF                                                         
+534000    CHANGE ATTRIBUTE TITLE OF I01-500-RECHAZOS TO  TITULO-RECH                
+535000    IF ATTRIBUTE RESIDENT OF I01-500-RECHAZOS IS = VA TRUE                    
+536000       OPEN INPUT  I01-500-RECHAZOS                                           
+537000       MOVE        TITULO-RECH TO WS-LN-ARCH                                  
+538000       PERFORM     70000050-ESCRIBE-ENCABEZADO                                
+539000       PERFORM     0000100-LEE-RECHAZOS UNTIL W77-EOF = 1                     
+540000       CLOSE I01-500-RECHAZOS WITH SAVE                                       
+541000    ELSE                                                                      
+542000       MOVE 1 TO  W77-ERROR                                                   
+543000       STRING "ARCHIVO NO RESIDENTE: "  TITULO-RECH                           
+544000       DELIMITED BY SIZE INTO TEXTO-LJ                                        
+545000       PERFORM 70000050-CALL-LJ-MSG.                                          
+546000                                                                              
+547000 000-LEE-LOG.                                                                 
+548000*============                                                                 
+549000    IF ATTRIBUTE RESIDENT OF I01-500-LOG IS = VA TRUE                         
+550000       OPEN     INPUT  I01-500-LOG                                            
+551000       MOVE     TITULO-LOG TO WS-LN-ARCH                                      
+552000       PERFORM  70000050-ESCRIBE-ENCABEZADO                                   
+553000       PERFORM  0000100-LEE-LOG UNTIL W77-EOF = 1                             
+554000       CLOSE    I01-500-LOG WITH SAVE                                         
+555000    ELSE                                                                      
+556000       MOVE 1 TO  W77-ERROR                                                   
+557000       STRING "ARCHIVO NO RESIDENTE: "  TITULO-LOG                            
+558000       DELIMITED BY SIZE INTO TEXTO-LJ                                        
+559000       PERFORM 70000050-CALL-LJ-MSG.                                          
+560000                                                                              
+561000 000-LEE-INCIDENTE.                                                           
+562000*==================                                                           
+563000    MOVE 0 TO W77-EOF                                                         
+564000                                                                              
+565000    IF  WKS-IN-FILE = 4                                                       
+566000        MOVE 4 TO TIT-SEQ-INC                                                 
+567000    ELSE                                                                      
+568000       ADD  1 TO TIT-SEQ-INC.                                                 
+569000                                                                              
+570200                                                                              
+571000    CHANGE ATTRIBUTE TITLE OF I01-S500-INCIDENTE                              
+572000                              TO  TITULO-INCIDENTE                            
+573000                                                                              
+574000    IF ATTRIBUTE RESIDENT OF I01-S500-INCIDENTE IS = VA TRUE                  
+575000       OPEN    INPUT I01-S500-INCIDENTE                                       
+576000       MOVE    TITULO-INCIDENTE TO WS-LN-ARCH                                 
+577000       PERFORM 70000050-ESCRIBE-ENCABEZADO                                    
+578000       PERFORM 0000100-LEE-INC UNTIL W77-EOF = 1                              
+579000       CLOSE I01-S500-INCIDENTE WITH SAVE                                     
+580000    ELSE                                                                      
+581000       STRING "NO EXISTE ARCHIVO " TITULO-INCIDENTE                           
+582000       DELIMITED BY SIZE INTO TEXTO-LJ                                        
+583000       PERFORM 70000050-CALL-LJ-MSG.                                          
+584000                                                                              
+585000    IF TIT-SEQ-INC = 3                                                        
+586000       MOVE 4 TO TIT-SEQ-INC.                                                 
+586100                                                                              
+586200                                                                              
+587000 0000100-LEE-RECHAZOS.                                                        
+588000*========================                                                     
+589000    MOVE 0 TO W77-REP W77-FIN W77-GRABA  W77-CONTINUA                         
+590000              WKS-NUM-AUTOR WKS-MEDIO-ACCESO                                  
+591000    PERFORM 0000100-LEE-ARCHIVO UNTIL W77-EOF = 1 OR W77-REP = 7.             
+592000                                                                              
+593000 IF WKS-IN-OPC  NOT = 1 AND  WKS-IN-OPC  NOT = 3                              
+594000    MOVE 1 TO  W77-ERROR W77-EOF                                              
+595000    MOVE 14 TO TIT-SEQ-RECH W77-CONTINUA                                      
+596000    STRING "OPCION " WKS-IN-OPC " DE BUSQUEDA INVALIDA: "                     
+597000    "USE 1 Ó 3 "                                                              
+598000    DELIMITED BY SIZE INTO TEXTO-LJ                                           
+599000    PERFORM 70000050-CALL-LJ-MSG                                              
+600000 ELSE                                                                         
+601000 IF WKS-IN-OPC  =  1 AND                                                      
+602000    (WKS-IN-FIND =  WKS-MEDIO-ACCESO OR                                       
+602100     WKS-IN-FIND =  WKS-MED-ACC-FORA )                                        
+603000        MOVE 1 TO W77-CONTINUA                                                
+604000 ELSE                                                                         
+605000 IF WKS-IN-OPC    = 3 AND                                                     
+606000    (WKS-IN-CTA   = WS-CTA-CTO      OR                                        
+607000     WKS-IN-CTA   = WS-CTA-CTO-FORA OR                                        
+607100     WKS-IN-AUTOR = WKS-NUM-AUTOR )                                           
+608000        MOVE 1 TO W77-CONTINUA.                                               
+609000                                                                              
+610000  IF W77-CONTINUA = 1                                                         
+611000     ADD 1 TO WS-LN-TOT                                                       
+612000     PERFORM 0000100-GRABA-REPORTE UNTIL W77-GRABA = W77-REP                  
+613000     PERFORM 0000100-LEE-ARCHIVO   UNTIL W77-FIN   > 0                        
+614000     PERFORM 0000100-GRABA-REPORTE UNTIL W77-GRABA = W77-REP                  
+615000     MOVE 0 TO W77-REP W77-FIN W77-GRABA                                      
+616000     PERFORM 0000100-LEE-ARCHIVO   UNTIL W77-FIN   > 0                        
+617000     PERFORM 0000100-GRABA-REPORTE UNTIL W77-GRABA = W77-REP                  
+618000  ELSE                                                                        
+619000  IF  W77-CONTINUA = 0                                                        
+620000     PERFORM 0000100-LEE-ARCHIVO   UNTIL  W77-FIN = 2                         
+621000  ELSE                                                                        
+622000  IF  W77-CONTINUA = 14                                                       
+623000      MOVE 1 TO W77-EOF.                                                      
+624000                                                                              
+625000                                                                              
+626000 0000100-LEE-ARCHIVO.                                                         
+627000*=======================                                                      
+628000  READ I01-500-RECHAZOS  INTO  WKS-ARCH-RECHAZOS                              
+629000       AT END MOVE 1 TO W77-EOF.                                              
+630000                                                                              
+631000                                                                              
+632000  ADD 1 TO W77-REP                                                            
+633000  IF  W77-REP = 6                                                             
+634000      MOVE  WS-SA2-AUTORIZACION TO WKS-NUM-AUTOR.                             
+635000  IF  W77-REP = 7                                                             
+636000      MOVE WS-TXT-TARJETA TO WKS-MEDIO-ACCESO                                 
+637000      MOVE WS-TARJETA-FORA TO  WKS-MED-ACC-FORA.                              
+637100                                                                              
+638000  IF WKS-ARCH-RECHAZOS = SPACES                                               
+639000      ADD 1 TO W77-FIN.                                                       
+640000                                                                              
+641000  IF  W77-REP  > 35                                                           
+642000      ADD 1 TO W77-FIN                                                        
+643000  ELSE                                                                        
+644000      MOVE WKS-ARCH-RECHAZOS TO WKS-OUT-LINEA-N(W77-REP).                     
+645000                                                                              
+646000                                                                              
+647000                                                                              
+648000 0000100-LEE-LOG.                                                             
+649000*=========================                                                    
+650000   MOVE 0 TO W77-CONTINUA                                                     
+651000   READ I01-500-LOG  INTO  WS-FTO-IN-GRABALOG                                 
+652000         AT END MOVE 1 TO W77-EOF.                                            
+653000                                                                              
+654000                                                                              
+655000    MOVE C-CONTRATO  TO WE-CONTRATO                                           
+656000                                                                              
+657000    IF WKS-IN-OPC = 3 AND                                                     
+658000       (WKS-IN-CTA = WE-CONTRATO  OR                                          
+659000        WKS-IN-AUTOR = WS-SA2-AUTOR  )                                        
+660000          MOVE 1 TO W77-CONTINUA.                                             
+661000                                                                              
+662000    IF W77-CONTINUA = 1                                                       
+663000        ADD 1 TO WS-LN-TOT                                                    
+664000        PERFORM 0000100-GRABA-REPORTE.                                        
+665000                                                                              
+666000    IF W77-NUM-LINE =150                                                      
+667000      PERFORM 70000050-ESCRIBE-ENCABEZADO.                                    
+668000                                                                              
+669000                                                                              
+670000 0000100-LEE-INC.                                                             
+671000*========================                                                     
+672000 READ I01-S500-INCIDENTE      INTO  FD-I01-INCIDENTE                          
+673000       AT END MOVE 1 TO W77-EOF.                                              
+677000                                                                              
+677100  IF W77-EOF = 0                                                              
+677200     IF FD-TIP-REG = 05                                                       
+677300         MOVE FD-I01-INCIDENTE TO WKS-I01-INCIDENTE                           
+677400         WRITE R01-RD-REPORT FROM WS-REG-PART1                                
+677500         WRITE R01-RD-REPORT FROM WS-REG-PART2                                
+677600     ELSE                                                                     
+678000         WRITE R01-RD-REPORT FROM FD-I01-INCIDENTE                            
+679000                                  AFTER CHANNEL 1                             
+680000  ELSE                                                                        
+681000     NEXT SENTENCE.                                                           
+681100                                                                              
+681200                                                                              
+684000 70000050-ESCRIBE-ENCABEZADO.                                                 
+685000*===========================                                                  
+686000                                                                              
+687000  WRITE R01-RD-REPORT FROM WS-LN-ENC-1 AFTER CHANNEL 1.                       
+688000  WRITE R01-RD-REPORT FROM WS-LN-ENC-2 BEFORE 1.                              
+689000  WRITE R01-RD-REPORT FROM WS-LN-ENC-3 BEFORE 1.                              
+690000  WRITE R01-RD-REPORT FROM WS-LN-ENC-4 BEFORE 1.                              
+691000  WRITE R01-RD-REPORT FROM WS-LN-ENC-5 BEFORE 1.                              
+692000  WRITE R01-RD-REPORT FROM WS-LN-ENC-6 BEFORE 1.                              
+693000                                                                              
+694000                                                                              
+695000 0000100-GRABA-REPORTE.                                                       
+696000*======================                                                       
+697000                                                                              
+698000  IF WKS-IN-FILE =1                                                           
+699000     ADD 1 TO W77-GRABA W77-NUM-LINE                                          
+700000     WRITE  R01-RD-REPORT FROM                                                
+701000            WKS-OUT-LINEA-N(W77-GRABA) AFTER 1                                
+702000     MOVE   SPACES TO  R01-RD-REPORT                                          
+703000                       WKS-OUT-LINEA-N(W77-GRABA)                             
+704000  ELSE                                                                        
+705000  IF WKS-IN-FILE =2                                                           
+706000     ADD 15 TO W77-NUM-LINE                                                   
+707000     MOVE C-CONTRATO             TO WE-CONTRATO                               
+708000     MOVE WS-HDRAMP-TCDESTINO    TO WE-HDRAMP-TCDESTINO                       
+709000     MOVE WS-HDRAMP-TCORIGEN     TO WE-HDRAMP-TCORIGEN                        
+710000     MOVE WS-SA0-COD-DESTINO     TO WE-SA0-COD-DESTINO                        
+711000     MOVE WS-SA0-COD-ORIGEN      TO WE-SA0-COD-ORIGEN                         
+712000     MOVE WS-SA0-DIRECCION       TO WE-SA0-DIRECCION                          
+713000     MOVE WS-SA0-LONG            TO WE-SA0-LONG                               
+714000     MOVE WS-SA0-TIEMPO-ESPERA   TO WE-SA0-TIEMPO-ESPERA                      
+715000     MOVE WS-SA0-CODI-RESPUESTA  TO WE-SA0-CODI-RESPUESTA                     
+716000     MOVE SPACES                 TO R01-RD-REPORT                             
+717000     MOVE WS-I-HEADER            TO WS-HDR                                    
+718000     MOVE WE-HDR-AMPLIADO        TO WS-HDR-AMP                                
+719000     MOVE WE-MSG-SA0             TO WS-SA0                                    
+720000     MOVE WS-MSG-SA2             TO WS-R-SA2                                  
+721000                                                                              
+722000     WRITE R01-RD-REPORT  FROM WS-RP-RECIBE   AFTER 2                         
+723000     WRITE R01-RD-REPORT  FROM WS-RP-HEADER   BEFORE 1                        
+724000     WRITE R01-RD-REPORT  FROM WS-RP-HDR-AMP  BEFORE 1                        
+725000     WRITE R01-RD-REPORT  FROM WS-RP-SA0      BEFORE 1                        
+726000     WRITE R01-RD-REPORT  FROM WS-RP-SA2      BEFORE 1                        
+727000     MOVE  WS-I-TXT-1  TO WS-R-TEXT                                           
+728000     WRITE R01-RD-REPORT  FROM WS-RP-TEXT     BEFORE 1                        
+729000     MOVE  WS-I-TXT-2  TO WS-R-TEXT                                           
+730000     WRITE R01-RD-REPORT  FROM WS-RP-TEXT     BEFORE 1                        
+731000     MOVE  WS-I-TXT-3  TO WS-R-TEXT                                           
+732000     WRITE R01-RD-REPORT  FROM WS-RP-TEXT     BEFORE 1                        
+733000     MOVE  WS-I-TXT-4  TO WS-R-TEXT                                           
+734000     WRITE R01-RD-REPORT  FROM WS-RP-TEXT     BEFORE 1                        
+735000     MOVE  WS-I-TXT-5  TO WS-R-TEXT                                           
+736000     WRITE R01-RD-REPORT  FROM WS-RP-TEXT     BEFORE 1                        
+737000     MOVE  WS-I-TXT-6  TO WS-R-TEXT                                           
+738000     WRITE R01-RD-REPORT  FROM WS-RP-TEXT     BEFORE 1                        
+739000     MOVE  WS-I-TXT-7  TO WS-R-TEXT                                           
+740000     WRITE R01-RD-REPORT  FROM WS-RP-TEXT     BEFORE 1                        
+741000     MOVE  WS-I-TXT-8  TO WS-R-TEXT                                           
+742000     WRITE R01-RD-REPORT  FROM WS-RP-TEXT     BEFORE 1                        
+743000     MOVE  WS-I-TXT-9  TO WS-R-TEXT                                           
+744000     WRITE R01-RD-REPORT  FROM WS-RP-TEXT     BEFORE 1                        
+745000     MOVE  WS-I-TXT-10  TO WS-R-TEXT                                          
+746000     WRITE R01-RD-REPORT  FROM WS-RP-TEXT     BEFORE 1.                       
+746020                                                                              
+746022                                                                              
+746024 001-LEE-ULTIMO-REG.                                                          
+746026*=======================                                                      
+746028   READ  I02-REINICIO     INTO  I02-R00-REINICIO AT END                       
+746030      MOVE 1     TO WKS-FIN-REINICIO.                                         
+746032                                                                              
+746040                                                                              
+746042 001-VALIDA-INICIO.                                                           
+746044*=======================                                                      
+746050    CHANGE ATTRIBUTE TITLE OF I02-REINICIO TO  WKS-TIT-REINICIO               
+746052    MOVE 0 TO WKS-SI-HAY-REINICIO                                             
+746054    IF ATTRIBUTE RESIDENT OF I02-REINICIO IS = VA TRUE                        
+746056       MOVE 0 TO WKS-FIN-REINICIO                                             
+746058       PERFORM 001-LEE-REINICIO                                               
+746060       MOVE 1 TO WKS-SI-HAY-REINICIO                                          
+746062    ELSE                                                                      
+746066       MOVE 1 TO WKS-TIT-CPY-I10.                                             
+746068                                                                              
+746070                                                                              
+746072 001-LEE-REINICIO.                                                            
+746074    OPEN  INPUT I02-REINICIO                                                  
+746076    PERFORM 001-LEE-ULTIMO-REG UNTIL WKS-FIN-REINICIO = 1                     
+746080    MOVE  I02-FD-R00-SEC   TO WKS-TIT-CPY-I10                                 
+746082    MOVE  I02-FD-R00-FECHA TO WKS-TIT-FEC-I10                                 
+746084    MOVE  0 TO WKS-FIN-REINICIO.                                              
+746086    CLOSE I02-REINICIO.                                                       
+746088                                                                              
+746090 001-PROCESA-CANCELADOS.                                                      
+746092*=======================                                                      
+746120 MOVE 0 TO W77-EOF                                                            
+746140 MOVE 70 TO W77-R12-NLIN                                                      
+746150 MOVE SPACE TO I02-FD-MENSAJE                                                 
+746160 SET I02-CANCELADOS (TITLE)   TO WKS-TIT-CANCEL.                              
+746180                                                                              
+746200 IF ATTRIBUTE RESIDENT OF I02-CANCELADOS IS = VALUE TRUE                      
+746220    OPEN INPUT I02-CANCELADOS                                                 
+746240    PERFORM 001-LEE-CANCELADOS UNTIL W77-EOF = 1                              
+746250    ADD  1 TO WKS-TIT-CPY-I10                                                 
+746255    MOVE 0 TO W77-SI-DETALLE                                                  
+746260    CLOSE I02-CANCELADOS WITH SAVE                                            
+746280 ELSE                                                                         
+746282    STRING " ARCHIVO " WKS-TIT-CANCEL " NO RESIDENTE"                         
+746284    DELIMITED BY SIZE INTO I02-FD-MENSAJE                                     
+746290    ADD 1 TO WKS-TIT-CPY-I10                                                  
+746295    PERFORM 002-WRITE-REINICIO.                                               
+746362                                                                              
+746364                                                                              
+746366 001-GENERA-REPORT.                                                           
+746368*===================                                                          
+746370   IF ATTRIBUTE RESIDENT OF I02-REINICIO IS = VA TRUE                         
+746372      OPEN INPUT I02-REINICIO.                                                
+746382   PERFORM 001-LLENA-REPCANCEL UNTIL WKS-FIN-REINICIO = 1                     
+746386   PERFORM 001-FIN-CANCELADOS                                                 
+746390   CLOSE  R02-CANCELADOS WITH SAVE                                            
+746392   CLOSE I02-REINICIO WITH PURGE.                                             
+746398                                                                              
+746400                                                                              
+746402 001-ENCIENDE-INC.                                                            
+746404*===================                                                          
+746408 IF W77-REPCAN-RCHZ > 0                                                       
+746410   MOVE 50 TO W77-ENC-INC.                                                    
+746412                                                                              
+746414                                                                              
+746416 001-LEE-CANCELADOS.                                                          
+746420*===================                                                          
+746440                                                                              
+746480  READ I02-CANCELADOS INTO WKS-I10-REG-CANCEL                                 
+746500                      AT END MOVE 1 TO W77-EOF.                               
+746520  IF WKS-SI-HAY-REINICIO = 1                                                  
+746522     IF I02-FD-R00-CTO = WKS-I10-CONTRA-D3                                    
+746524        MOVE 0 TO WKS-SI-HAY-REINICIO                                         
+746525         EXIT PERFORM                                                         
+746530     ELSE                                                                     
+746535        EXIT PERFORM                                                          
+746540  ELSE                                                                        
+746550      NEXT SENTENCE.                                                          
+746552                                                                              
+746554                                                                              
+746560  IF W77-EOF = 0 AND WKS-I10-TPOREG-H = 1                                     
+746580     IF WKS-110-FECH     = WKS-IN-FECH AND                                    
+746600        WKS-I10-CSIORI-H = WKS-TIT-CSID-I10                                   
+746620          NEXT SENTENCE                                                       
+746640     ELSE                                                                     
+746660        PERFORM 001-ENCA-REP12                                                
+746680        STRING "ERROR EN HEADER: " WKS-TIT-CANCEL                             
+746700        DELIMITED BY SIZE INTO TEXTO-LJ                                       
+746720        WRITE R02-L00-CANC    FROM TEXTO-LJ AFTER 2                           
+746740        MOVE 1 TO  W77-EOF                                                    
+746760  ELSE                                                                        
+746780  IF W77-EOF = 0 AND WKS-I10-TPOREG-D3 = 3                                    
+746785    MOVE 1 TO W77-SI-DETALLE                                                  
+746792    IF WKS-IN-FILE = 5                                                        
+746800     PERFORM 001-AVISA-CANC-S016                                              
+746810     PERFORM 002-WRITE-REINICIO                                               
+746825    ELSE                                                                      
+746830    IF WKS-IN-FILE = 6                                                        
+746832      MOVE 99 TO WS-S016-0701-RESULT                                          
+746834      PERFORM 002-WRITE-REINICIO                                              
+746840    ELSE                                                                      
+746845      NEXT SENTENCE                                                           
+746850  ELSE                                                                        
+746860     PERFORM 001-VALIDA-DET.                                                  
+746880                                                                              
+746900 001-VALIDA-DET.                                                              
+746920*===============                                                              
+746922 IF W77-SI-DETALLE = 0  AND W77-EOF = 0                                       
+746924    STRING " ARCHIVO " WKS-TIT-CANCEL " VACIO "                               
+746926    DELIMITED BY SIZE INTO I02-FD-MENSAJE                                     
+746928    PERFORM 002-WRITE-REINICIO                                                
+746940 ELSE                                                                         
+746945    NEXT SENTENCE.                                                            
+746950                                                                              
+746980 001-AVISA-CANC-S016.                                                         
+747000*====================                                                         
+747020* MOVE ZEROS  TO WS-S016-0701-ENTRADA WS-S016-0701-RESULT.                    
+747040                                                                              
+747060 MOVE WKS-I10-PRODUC-D3  TO WS-S016-0701-CTA-NUMPROD-E.                       
+747080 MOVE WKS-I10-INSTRU-D3  TO WS-S016-0701-CTA-CVEINST-E.                       
+747100 MOVE 0                  TO WS-S016-0701-CTA-NUMPREF-E.                       
+747120 MOVE WKS-I10-CONTRA-D3  TO WS-S016-0701-CTA-NUM-E    .                       
+747140 MOVE 03                 TO WS-S016-0701-CTR-OPCION-E .                       
+747160 MOVE 31                 TO WS-S016-0701-CTA-CVESTATUS-E.                     
+747180 MOVE 0                  TO WS-S016-0701-MDA-CVESTATUS-E.                     
+747200                                                                              
+747220 PERFORM 20000016-L428-B04CTAB08MDA.                                          
+747240                                                                              
+747260                                                                              
+747280  001-LLENA-REPCANCEL.                                                        
+747300*==========================                                                   
+747310 PERFORM 001-LEE-ULTIMO-REG                                                   
+747315 IF WKS-FIN-REINICIO = 0                                                      
+747316    PERFORM 001-LLENA-VARIABLES.                                              
+747318                                                                              
+747320 001-LLENA-VARIABLES.                                                         
+747322*==========================                                                   
+747324 MOVE SPACES TO WLI-R12-L12-DETALLE                                           
+747340 MOVE 0      TO WLI-R12-L12-CTE                                               
+747342                                                                              
+747360 IF I02-FD-RESULT > 0  AND I02-FD-MENSAJE = SPACES                            
+747380    ADD 1                 TO  W77-REPCAN-RCHZ.                                
+747400 IF I02-FD-RESULT = 0  AND I02-FD-MENSAJE = SPACES                            
+747420    ADD 1                 TO  W77-REPCAN-ACEPT.                               
+747440                                                                              
+747460 MOVE I02-FD-CLIENT   TO WLI-R12-L12-CTE                                      
+747480 MOVE I02-FD-PRODUC   TO WLI-R12-L12-PROD                                     
+747500 MOVE I02-FD-INSTRU   TO WLI-R12-L12-INST                                     
+747520 MOVE I02-FD-MONEDA   TO WLI-R12-L12-MONEDA                                   
+747540 MOVE I02-FD-R00-CTO  TO WLI-R12-L12-CTO                                      
+747560 MOVE I02-FD-RESULT   TO WLI-R12-L12-RSLT.                                    
+747570                                                                              
+747580 COMPUTE W77-REPCAN-TOTAL=W77-REPCAN-RCHZ + W77-REPCAN-ACEPT                  
+747600 MOVE    W77-REPCAN-TOTAL TO WLI-R12-L01-TOTAL.                               
+747620 PERFORM 001-ESC-REPCANCEL.                                                   
+747640                                                                              
+747660                                                                              
+747680  001-ESC-REPCANCEL.                                                          
+747700*======================                                                       
+747720 IF W77-R12-NLIN > 50                                                         
+747740     PERFORM 001-ENCA-REP12.                                                  
+747760                                                                              
+747770 IF I02-FD-MENSAJE NOT=SPACE                                                  
+747772    MOVE I02-FD-MENSAJE TO WLI-R00-L99-LEY                                    
+747774    WRITE R02-L00-CANC FROM WLI-R00-L99-SINARCH AFTER 1                       
+747776  ELSE                                                                        
+747780    WRITE R02-L00-CANC FROM WLI-R12-L12-DETALLE AFTER 1                       
+747800    MOVE " "              TO R02-L00-CANC                                     
+747820    WRITE R02-L00-CANC                          AFTER 1.                      
+747840    ADD 1 TO  W77-R12-NLIN.                                                   
+747860                                                                              
+747880 001-ENCA-REP12.                                                              
+747900*========================                                                     
+747920  ADD 1                        TO W77-R12-NPAG.                               
+747940  MOVE W77-R12-NPAG            TO WLI-R00-L03-NPAG.                           
+747960  MOVE WKS-TITULO-R12          TO WLI-R00-L02-TITULO.                         
+747980  MOVE SPACES                  TO WLI-R00-L03-SBTIT.                          
+748000                                                                              
+748020     MOVE "001CANCELADOS"        TO WLI-R00-L01-NAME                          
+748040                                                                              
+748060  IF W77-MY-CSI = 4                                                           
+748080     MOVE 3667                     TO WLI-R00-L04-SUC                         
+748100     MOVE "CYSAU MTY CTROL PROD"   TO WLI-R00-L05-NBSUC                       
+748120  ELSE                                                                        
+748140     MOVE 3084                     TO WLI-R00-L04-SUC                         
+748160     MOVE "PYCP JARDINES"          TO WLI-R00-L05-NBSUC.                      
+748180                                                                              
+748200   WRITE R02-L00-CANC    FROM WLI-R00-L01-ENCA AFTER PAGE.                    
+748220   WRITE R02-L00-CANC    FROM WLI-R00-L02-ENCA AFTER 1.                       
+748240   WRITE R02-L00-CANC    FROM WLI-R00-L03-ENCA AFTER 1.                       
+748260   WRITE R02-L00-CANC    FROM WLI-R00-L04-ENCA AFTER 1.                       
+748280   WRITE R02-L00-CANC    FROM WLI-R00-L05-ENCA AFTER 1.                       
+748300   MOVE " "              TO R02-L00-CANC.                                     
+748320   WRITE R02-L00-CANC                          AFTER 1.                       
+748340   MOVE 8 TO W77-R12-NLIN.                                                    
+748360   WRITE R02-L00-CANC FROM WLI-R12-L12-ENCA AFTER 2.                          
+748380 001-FIN-CANCELADOS.                                                          
+748400*==================                                                           
+748420 MOVE W77-REPCAN-RCHZ  TO WLI-R12-L01-RECH                                    
+748440 MOVE W77-REPCAN-ACEPT TO WLI-R12-L01-ACEPT                                   
+748460 COMPUTE W77-REPCAN-TOTAL=W77-REPCAN-RCHZ + W77-REPCAN-ACEPT.                 
+748480 MOVE    W77-REPCAN-TOTAL TO WLI-R12-L01-TOTAL.                               
+748500 WRITE R02-L00-CANC  FROM WLI-R12-L01-FINAL AFTER 2                           
+748520 WRITE R02-L00-CANC  FROM WLI-R12-L02-FINAL AFTER 1                           
+748540 WRITE R02-L00-CANC  FROM WLI-R12-L03-FINAL AFTER 1.                          
+748560****************************************************************              
+748580* COPY QUE CONTIENE LAS RUTINAS DE ACCESO A LA BASE DE DATOS.                 
+748600****************************************************************              
+748620 COPY "S500/INC/PRO/25MTP004".                                                
+748640****************************************************************              
+748660 002-WRITE-REINICIO.                                                          
+748670*=======================                                                      
+748680 IF ATTRIBUTE RESIDENT OF I02-REINICIO IS = VA TRUE                           
+748690  OPEN EXTEND I02-REINICIO                                                    
+748692 ELSE                                                                         
+748694  OPEN OUTPUT I02-REINICIO.                                                   
+748700  MOVE WKS-IN-FECH         TO I02-FD-R00-FECHA.                               
+748720  MOVE WKS-I10-CONTRA-D3   TO I02-FD-R00-CTO.                                 
+748740  MOVE WKS-TIT-CPY-I10     TO I02-FD-R00-SEC.                                 
+748742  MOVE WKS-I10-PRODUC-D3   TO I02-FD-PRODUC.                                  
+748744  MOVE WKS-I10-INSTRU-D3   TO I02-FD-INSTRU.                                  
+748746  MOVE WKS-I10-MONEDA-D3   TO I02-FD-MONEDA.                                  
+748748  MOVE WKS-I10-CLIENT-D3   TO I02-FD-CLIENT.                                  
+748750  MOVE WS-S016-0701-RESULT TO I02-FD-RESULT.                                  
+748760  WRITE I02-R00-REINICIO.                                                     
+748780*  PERFORM 004-CIERRA-REINICIO.                                               
+748800  CLOSE I02-REINICIO WITH SAVE.                                               
+748880                                                                              
+750000 70000050-CALL-LJ-MSG.                                                        
+751000*=========================                                                    
+752000 CALL "LJ IN LIBLJ" USING CONTADOR-LJ, MENSAJE-LJ.                            
+753000                                                                              
+753700                                                                              
+753800                                                                              
+754000 0000100-FIN.                                                                 
+755000*============                                                                 
+756000 IF  W77-ERROR = 1                                                            
+757000    CLOSE  R01-EXTRACTOR WITH PURGE                                           
+758000 ELSE                                                                         
+759000    CLOSE  R01-EXTRACTOR WITH SAVE.                                           
+759200                                                                              
+759400                                                                              
+760000                                                                              

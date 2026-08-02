@@ -117,3 +117,30 @@ Por ejemplo:
 
 ---
 *Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdisuc_*.sql*
+
+<!-- LOG-DATA-BEGIN -->
+## Hallazgos de producción — Logs 2026-04-24
+> Fuente: `source/logs/errores_bus_2026-04-24_*.txt` · Incorporado: 2026-08-01
+
+**Total errores del dominio:** 37 · **Códigos distintos:** 2
+
+| Código | Descripción | Volumen/día | Servicios afectados |
+|--------|-------------|-------------|---------------------|
+| `4394` | Unhandled exception en plugin IIB — MbUserException genérica | 19 | AdmonSuC |
+| `3743` | Handle Timed-out — timeout en conexión SOAP/JNI con sistema  | 18 | AdmonSuC |
+
+### SPs con mayor tasa de error
+
+| SP | Llamadas/día | Errores/día | Error% |
+|----|-------------|-------------|--------|
+| `Sp_validadotaatm_web` | 112 | 95 | 84.82% |
+| `sp_cancelar_solicitud_dota` | 4 | 1 | 25.0% |
+| `sp_traefolios` | 21 | 5 | 23.81% |
+| `sp_faltsob_atm_ofi_web` | 706 | 78 | 11.05% |
+| `sp_validahora` | 111 | 3 | 2.7% |
+| `sp_soldocta_atm_ofi_web` | 68 | 1 | 1.47% |
+| `sp_valida_oper_atm` | 323 | 4 | 1.24% |
+| `sp_reversafaltsob_web` | 639 | 1 | 0.16% |
+
+*Generado por generate-kb-from-logs.py · 2026-08-01*
+<!-- LOG-DATA-END -->

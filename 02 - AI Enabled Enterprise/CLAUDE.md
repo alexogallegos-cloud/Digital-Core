@@ -290,7 +290,7 @@ Cuando el cliente o el SA empujan a "lanzar el modelo a producción ya" sin obse
 
 ---
 
-## Handoffs Canónicos hacia `Solutioning/Delivery - SME/`
+## Handoffs Canónicos hacia `SME/`
 
 | Fase | SME(s) responsable(s) |
 |------|------------------------|

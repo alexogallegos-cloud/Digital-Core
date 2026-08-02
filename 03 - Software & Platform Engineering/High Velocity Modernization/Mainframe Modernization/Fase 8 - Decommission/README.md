@@ -12,8 +12,8 @@
 
 | SME | Rol en la fase |
 |---|---|
-| `Solutioning/Delivery - SME/Framework/ITSM/GRC/Specialist - Mainframe Modernization Regulatory/` | Sign-off regulatorio para decommission · obligaciones de retención CNBV · plan de notificación a regulador |
-| `Solutioning/Delivery - SME/Technology/Cybersecurity/Data Security & Privacy/` | Disposición segura de datos legacy · retención de datos regulatorios · destrucción certificada |
+| `SME/Framework/ITSM/GRC/Specialist - Mainframe Modernization Regulatory/` | Sign-off regulatorio para decommission · obligaciones de retención CNBV · plan de notificación a regulador |
+| `SME/Technology/Cybersecurity/Data Security & Privacy/` | Disposición segura de datos legacy · retención de datos regulatorios · destrucción certificada |
 
 El Regulatory SME determina **cuándo se puede** hacer el decommission; el Cybersecurity SME determina **cómo se hace** la disposición de los datos.
 
@@ -56,7 +56,7 @@ Todos los siguientes deben estar en `✅ COMPLETADO` antes de iniciar esta fase:
 ## Packet `[INVOKE]` — Regulatory
 
 ```
-[INVOKE: Solutioning/Delivery - SME/Framework/ITSM/GRC/Specialist - Mainframe Modernization Regulatory/]
+[INVOKE: SME/Framework/ITSM/GRC/Specialist - Mainframe Modernization Regulatory/]
 COMPONENTE      : SPE-MM-{NNN} — {nombre del sistema}
 FASE            : 8 — Decommission
 JURISDICCION    : CNBV Circular Única de Bancos · Banxico · Ley de Instituciones de Crédito
@@ -68,7 +68,7 @@ PREREQUISITO    : DoD-SPE-MM-01..06 todos en ✅
 ## Packet `[INVOKE]` — Data Security & Privacy
 
 ```
-[INVOKE: Solutioning/Delivery - SME/Technology/Cybersecurity/Data Security & Privacy/]
+[INVOKE: SME/Technology/Cybersecurity/Data Security & Privacy/]
 COMPONENTE      : SPE-MM-{NNN} — {nombre del sistema}
 FASE            : 8 — Decommission
 DATOS-SENSIBLES : PII de clientes bancarios · datos financieros · secreto bancario

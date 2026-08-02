@@ -2,6 +2,7 @@
 > Modernización Mainframe · Banamex · Unisys ClearPath MCP · Digital Core
 > Offering: 03 — Software & Platform Engineering · Sub-Offering: High Velocity Modernization · Solution: Mainframe Modernization
 > Versión: 0.1.0 · Estado: DRAFT · Fase SDLC: DISCOVER · Fecha: 2026-06-30
+> Indexado: ✅ 2026-07-17 — Especificación de modernización (spec S&PE MM)
 
 ---
 
@@ -326,11 +327,11 @@ El sistema recibe los movimientos de cargo y abono generados por S500 (y potenci
 |---|---|---|---|
 | DISCOVER — ETAPA 0-4 | **Specialist - Reverse Engineering** (este offering) | Código fuente S151 | Assessment completo: inventario, call graph, data dict, reglas contables, bounded contexts |
 | DISCOVER — Static Analysis | **Specialist - Static Analysis Tooling** (este offering) | Código fuente S151 | Métricas de complejidad, dead code, hotspots |
-| DISCOVER — Semántica Unisys | **SME Unisys Banking** (`Solutioning/Delivery - SME/Platform/Unisys/`) | Artefactos con `[CONSULTAR→UNISYS]` | Validación de semántica DMSII; estructura del ledger MCP |
+| DISCOVER — Semántica Unisys | **SME Unisys Banking** (`SME/Platform/Unisys/`) | Artefactos con `[CONSULTAR→UNISYS]` | Validación de semántica DMSII; estructura del ledger MCP |
 | DISCOVER — Semántica contable | **SME de Contabilidad Banamex** (cliente) | Reglas de negocio identificadas en ETAPA 3 | Validación del plan de cuentas; mapeo asiento→reporte CNBV |
-| DISCOVER — Metodología | **SME Mainframe Migration** (`Solutioning/Delivery - SME/Infrastructure/Mainframe Migration/`) | DISCOVER assessment draft | Business case, estimación de esfuerzo, validación 7R |
+| DISCOVER — Metodología | **SME Mainframe Migration** (`SME/Infrastructure/Mainframe Migration/`) | DISCOVER assessment draft | Business case, estimación de esfuerzo, validación 7R |
 | DESIGN | **Software Engineering SME** + **Data Architect SME** | DISCOVER assessment + 7R decision de S500 y S151 | Target architecture del ledger digital; ADRs; estrategia de migración de datos |
-| ALL | **Program Management** (`Solutioning/Delivery - SME/Management/Program Management/`) | §09 Phase Plan de S500 + S151 | Cronograma integrado; RAID con dependencia cross-componente |
+| ALL | **Program Management** (`SME/Management/Program Management/`) | §09 Phase Plan de S500 + S151 | Cronograma integrado; RAID con dependencia cross-componente |
 
 ---
 

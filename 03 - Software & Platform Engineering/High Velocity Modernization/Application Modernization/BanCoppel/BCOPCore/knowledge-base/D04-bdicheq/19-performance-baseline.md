@@ -104,3 +104,42 @@ export default function() {
 
 ---
 *Generado por: QA Lead — Equivalencia Funcional · 2026-07-03 · [SME-PENDING] baseline real requerido de DBA Informix*
+
+<!-- LOG-DATA-BEGIN -->
+## Volúmenes de producción confirmados — Logs 2026-04-24
+> Fuente: `source/logs/transacciones_bus_2026-04-24_*.txt` · Incorporado: 2026-08-01
+
+**Total llamadas dominio:** 409,248 · **Total errores:** 19,345 · **Error rate global:** 4.73%
+
+### Top SPs por volumen
+
+| SP | Llamadas/día | Errores/día | Error% | Códigos respuesta frecuentes |
+|----|-------------|-------------|--------|------------------------------|
+| `cons_sdos2_web` | 85,881 | 1,104 | 1.29% | `0000`=1 |
+| `sp_notif_cub_vent_upd` | 69,971 | 4 | 0.01% | `00000`=69544, `0000`=1, `00008`=1 |
+| `sp_retiro_sd` | 41,546 | 703 | 1.69% | `00000`=40663, `00009`=124, `00010`=60 |
+| `sp_consultavalorparametro` | 40,501 | 0 | 0.0% | — |
+| `sp_whatscoppel_consdos` | 32,975 | 16,048 | 48.67% | `00000`=16745, `00115`=14270, `00111`=1851 |
+| `abono_ref_web` | 27,669 | 121 | 0.44% | `00000`=1 |
+| `sp_abono_sd` | 25,414 | 220 | 0.87% | `00000`=25113, `00009`=214, `00027`=4 |
+| `cargo_ref` | 23,053 | 239 | 1.04% | `000`=1 |
+| `sp_notif_cub_vent_cons` | 8,661 | 1 | 0.01% | `00000`=5910, `11111`=2723 |
+| `sp_crea_sd` | 6,394 | 51 | 0.8% | `00000`=6305, `00020`=8, `00017`=1 |
+| `consctesfirxnumctaper2` | 6,006 | 0 | 0.0% | — |
+| `consnomtit` | 4,001 | 375 | 9.37% | — |
+| `sp_confirmapinoffline` | 3,489 | 19 | 0.54% | — |
+| `consfirmantes_web` | 3,079 | 0 | 0.0% | — |
+| `sp_insertarespuestacuestionario` | 2,831 | 110 | 3.89% | `00000`=1 |
+| `sp_consultapreguntas` | 2,774 | 0 | 0.0% | — |
+| `sp_consmov_sd` | 2,260 | 127 | 5.62% | `00000`=2127, `00019`=126 |
+| `sp_validatarrepos_web` | 2,106 | 0 | 0.0% | `00000`=1 |
+| `sp_mini21` | 1,985 | 0 | 0.0% | — |
+| `sp_confirma_prestamo_cpl` | 1,858 | 0 | 0.0% | — |
+
+### Distribución horaria (llamadas con dominio mapeado)
+
+| Hora CDMX | Llamadas |
+|-----------|----------|
+
+*Generado por generate-kb-from-logs.py · 2026-08-01*
+<!-- LOG-DATA-END -->

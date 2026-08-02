@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Banamex Gemelo Cognitivo — Portal HTML (Capas 1-4)
-Lee todos los JSONs de data/ → genera portal/index.html
+Lee todos los JSONs de data/ → genera portal/sistemas.html
+index.html = landing page (no tocar con este script)
 
 Portal de navegación de los dos gemelos (S500 y S151) con:
   - Ficha del sistema (meta, LOC, objetos, dominios)
@@ -331,12 +332,12 @@ def render_portal() -> None:
 </body>
 </html>"""
 
-    out = PORTAL_DIR / "index.html"
+    out = PORTAL_DIR / "sistemas.html"
     out.write_text(html, encoding="utf-8")
     print(f"\n  [OUTPUT] {out}")
     print(f"\n  Para abrir:")
     print(f"  python -m http.server --directory \"{PORTAL_DIR.parent}\" 8080")
-    print(f"  → http://localhost:8080/portal/index.html")
+    print(f"  → http://localhost:8080/portal/sistemas.html")
 
 
 def main():

@@ -11,12 +11,12 @@ Cada regla regulatoria tiene un **SME dueño** que valida el cumplimiento contra
 
 | Regulador | SME (agente) | Reglas |
 |-----------|--------------|-------:|
-| **CNBV** | `Solutioning/Delivery - SME/Regulatory/CNBV/` | 454 |
-| **Banxico** | `Solutioning/Delivery - SME/Regulatory/Banxico/` | 30 |
-| **CONDUSEF** | `Solutioning/Delivery - SME/Regulatory/CONDUSEF/` | 202 |
-| **SAT** | `Solutioning/Delivery - SME/Regulatory/SAT/` | 87 |
-| **TESOFE** | `Solutioning/Delivery - SME/Regulatory/TESOFE/` | 38 |
-| **IPAB** | `Solutioning/Delivery - SME/Regulatory/IPAB/` | 9 |
+| **CNBV** | `SME/Regulatory/CNBV/` | 454 |
+| **Banxico** | `SME/Regulatory/Banxico/` | 30 |
+| **CONDUSEF** | `SME/Regulatory/CONDUSEF/` | 202 |
+| **SAT** | `SME/Regulatory/SAT/` | 87 |
+| **TESOFE** | `SME/Regulatory/TESOFE/` | 38 |
+| **IPAB** | `SME/Regulatory/IPAB/` | 9 |
 
 ---
 
@@ -148,7 +148,7 @@ Cada regla regulatoria tiene un **SME dueño** que valida el cumplimiento contra
 ## Reglas por regulador
 
 ### CNBV — SME Regulatorio — CNBV
-> Corpus: `Solutioning/Delivery - SME/Regulatory/CNBV/` · 454 reglas
+> Corpus: `SME/Regulatory/CNBV/` · 454 reglas
 
 | ID | Tipo | SP · línea | Norma | Evidencia (código) |
 |----|------|-----------|-------|--------------------|
@@ -179,7 +179,7 @@ Cada regla regulatoria tiene un **SME dueño** que valida el cumplimiento contra
 | BR-IFX-047 | FÓRMULA | `calcula_int_pba` L222 | Criterios contables CNBV + GAT — cálculo de inte | `vvalor_tasa = vvaltasa / 100` |
 
 ### Banxico — SME Regulatorio — Banxico
-> Corpus: `Solutioning/Delivery - SME/Regulatory/Banxico/` · 30 reglas
+> Corpus: `SME/Regulatory/Banxico/` · 30 reglas
 
 | ID | Tipo | SP · línea | Norma | Evidencia (código) |
 |----|------|-----------|-------|--------------------|
@@ -207,7 +207,7 @@ Cada regla regulatoria tiene un **SME dueño** que valida el cumplimiento contra
 | BR-IFX-1294 | VALIDACIÓN | `spei_devcodi` L331 | Circular 3/2012 SPEI — irrevocabilidad, clave de | `LET vchrcodret = '012'` |
 
 ### CONDUSEF — SME Regulatorio — CONDUSEF
-> Corpus: `Solutioning/Delivery - SME/Regulatory/CONDUSEF/` · 202 reglas
+> Corpus: `SME/Regulatory/CONDUSEF/` · 202 reglas
 
 | ID | Tipo | SP · línea | Norma | Evidencia (código) |
 |----|------|-----------|-------|--------------------|
@@ -238,7 +238,7 @@ Cada regla regulatoria tiene un **SME dueño** que valida el cumplimiento contra
 | BR-IFX-081 | VALIDACIÓN | `cargo_comisiones_per_web` L121 | LTOSF Art.17 (CAT) + RECO — comisión debe estar  | `LET eCodRet = '420'` |
 
 ### SAT — SME Regulatorio — SAT
-> Corpus: `Solutioning/Delivery - SME/Regulatory/SAT/` · 87 reglas
+> Corpus: `SME/Regulatory/SAT/` · 87 reglas
 
 | ID | Tipo | SP · línea | Norma | Evidencia (código) |
 |----|------|-----------|-------|--------------------|
@@ -266,7 +266,7 @@ Cada regla regulatoria tiene un **SME dueño** que valida el cumplimiento contra
 | BR-IFX-165 | VALIDACIÓN | `sp_cargadesconcentracionctasmasivas` L156 | LIVA — IVA sobre comisiones (16% / 8% frontera) | `LET cCodRet = '00282'; --ERROR AL GUARDAR EL REGISTRO` |
 
 ### TESOFE — SME Regulatorio — TESOFE
-> Corpus: `Solutioning/Delivery - SME/Regulatory/TESOFE/` · 38 reglas
+> Corpus: `SME/Regulatory/TESOFE/` · 38 reglas
 
 | ID | Tipo | SP · línea | Norma | Evidencia (código) |
 |----|------|-----------|-------|--------------------|
@@ -297,7 +297,7 @@ Cada regla regulatoria tiene un **SME dueño** que valida el cumplimiento contra
 | BR-IFX-274 | VALIDACIÓN | `sp_nominadispersiondetalle_bei` L97 | LTF — dispersión de recursos federales | `LET v_cCodRet = "00001"` |
 
 ### IPAB — SME Regulatorio — IPAB
-> Corpus: `Solutioning/Delivery - SME/Regulatory/IPAB/` · 9 reglas
+> Corpus: `SME/Regulatory/IPAB/` · 9 reglas
 
 | ID | Tipo | SP · línea | Norma | Evidencia (código) |
 |----|------|-----------|-------|--------------------|
@@ -331,4 +331,4 @@ Semántica Informix en fórmulas financieras que **debe validarse con golden mas
 4. Equivalencia ≥ 99.95% obligatoria en cálculos financieros (auditable)
 ```
 
-*Generado por Specialist — Informix SPL Analysis · Etapa 3 · fuente: source/ + extract-rules.py · coordina con SMEs en Solutioning/Delivery - SME/Regulatory/*
+*Generado por Specialist — Informix SPL Analysis · Etapa 3 · fuente: source/ + extract-rules.py · coordina con SMEs en SME/Regulatory/*

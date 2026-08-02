@@ -260,7 +260,7 @@ TS&T no opera ambientes técnicos en el sentido clásico, pero sí estados de ma
 
 ---
 
-## Handoffs Canónicos hacia `Solutioning/Delivery - SME/`
+## Handoffs Canónicos hacia `SME/`
 
 | Fase | SME(s) responsable(s) |
 |------|------------------------|

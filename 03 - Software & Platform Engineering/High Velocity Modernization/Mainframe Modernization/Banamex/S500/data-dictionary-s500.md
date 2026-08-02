@@ -1,4 +1,5 @@
 # Diccionario de Datos — S500 Sistema Integral de Captación (Banamex Unisys ClearPath MCP)
+> Indexado: ✅ 2026-07-17 — Diccionario de datos (Capa 2)
 
 > **Fuente**: 7 archivos DASDL extraídos del inventario S500 · Release 2025.07_M_MEX_XPR_ALL · SSR 62.0  
 > **Propietario**: BANAMEX · **Pack DMSII**: CAPTACION  

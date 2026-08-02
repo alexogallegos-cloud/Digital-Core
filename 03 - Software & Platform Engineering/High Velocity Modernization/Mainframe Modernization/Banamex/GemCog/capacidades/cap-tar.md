@@ -1,9 +1,12 @@
-# Capacidad: ATM · PoS — Liquidación de Tarjetas de Intercambio [S500]
+# BC-02 · Cajeros y PoS
 > Dominio: 2 · Channels · Subdominio: Un-Assisted Touchpoints
 > Capacidades: **2.2.6 ATM** · **2.2.7 PoS** — comparten el mismo flujo batch en P630
 > Cobertura: S500 · Programa principal: S500P630 (TARINTERCAM)
-> Reglas vinculadas: RN-S500-037..055 (19 reglas)
+> Reglas vinculadas: RN-S500-037..055 · RN-S500-218..227 · RN-S151-581..590 (39 reglas · trazabilidad automática 2026-07-27)
+> Jerarquía: **N1** Dominio 2 · Channels → **N2** Subdominio Un-Assisted Touchpoints → **N3** Capacidad 2.2.6 ATM → **N4-5** Procesos/Flujo de tareas (ver Inventario de Tareas) → **N6** Reglas (ver Reglas vinculadas)
+> Indexado: ✅ 2026-07-27 — correlacionado vocab↔reglas↔capacidad (build-traceability.py)
 > Nota: ATM y PoS se documentan en un solo archivo porque P630 procesa tarjetas de intercambio para ambos canales con la misma lógica. La diferenciación ATM vs. PoS reside en el origen del movimiento (campo B02T-TIPO-CANAL en S500B02TMOVTOS), no en la lógica de liquidación.
+> bian_ref: 2.2.6 ATM + 2.2.7 PoS
 
 ---
 

@@ -21,7 +21,7 @@
 2. El catálogo de sus **4 sub-offerings L3** y a qué `CLAUDE.md` dirigirse.
 3. El protocolo de despacho (qué sub-offering activar según el trigger del usuario).
 
-Toda ejecución de delivery se delega al SME canónico de `Solutioning/Delivery - SME/` vía `[INVOKE]` (§13 DC Universal Rules), gobernada por el L3 correspondiente.
+Toda ejecución de delivery se delega al SME canónico de `SME/` vía `[INVOKE]` (§13 DC Universal Rules), gobernada por el L3 correspondiente.
 
 ---
 

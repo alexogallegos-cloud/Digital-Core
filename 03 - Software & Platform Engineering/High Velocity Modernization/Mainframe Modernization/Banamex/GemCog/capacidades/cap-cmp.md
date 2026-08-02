@@ -1,9 +1,12 @@
-# Capacidad: Compliance & Regulation — Reporte Diario FraudLink CNBV [S500]
+# BC-10 · Cumplimiento Regulatorio
 > Dominio: 6 · Common Services · Subdominio: Compliance & Regulation
 > Capacidad: **6.5.2 Compliance & Regulation**
 > Cobertura: S500 · Programa principal: P103 (FraudLink)
-> Reglas vinculadas: RN-S500-001..008 (8 reglas)
+> Reglas vinculadas: RN-S500-001..008 · RN-S500-173..182 · RN-S500-643..652 · RN-S151-1100..1107 · RN-S151-1116..1131 (52 reglas · trazabilidad automática 2026-07-27)
+> Jerarquía: **N1** Dominio 6 · Common Services → **N2** Subdominio (General) → **N3** Capacidad 6.5.2 Compliance & Regulation → **N4-5** Procesos/Flujo de tareas (ver Inventario de Tareas) → **N6** Reglas (ver Reglas vinculadas)
+> Indexado: ✅ 2026-07-27 — correlacionado vocab↔reglas↔capacidad (build-traceability.py)
 > Contexto: P103 genera diariamente el reporte de movimientos sospechosos de fraude hacia FraudLink/CNBV (Sistema S711). Monitorea tres códigos de transacción (2001, 2444 y 2496) en tres niveles jerárquicos de cada movimiento: movimiento principal, hasta 5 sub-movimientos SAD, y hasta 10 claves adicionales B13. El trailer de cierre tipo "9" permite a CNBV validar la integridad del archivo recibido. La ausencia de este reporte en cualquier día hábil es un incumplimiento regulatorio (Circular Única de Bancos — prevención de fraude).
+> bian_ref: 6.5.2 Compliance & Regulation
 
 ---
 
@@ -224,6 +227,7 @@ sequenceDiagram
 
 | Riesgo | Tarea | Severidad | Acción requerida |
 |--------|-------|-----------|-----------------|
+| **[MR-CFR-01] P131 SETID="BNMEX" hardcoded — 14 ocurrencias confirmadas en el Traductor Contable CFR** | Cross-ref: P131 (S151) | 🔴 CRÍTICO (Compliance) | En P131 (TRADUCTOR CONTABLE), la función 20430-UNI-NEG contiene la rama de fallback `MOVE "BNMEX" TO A01-TRAD-UNINEG` cuando el catálogo COPC no encuentra el par LIBRO+MONEDA. "BNMEX" es el SETID de Banamex post-separación Citi — si el split corporativo cambia este identificador, los 14 puntos hardcodeados producirán UNINEG incorrecto en todos los reportes CNBV Serie B (B-0111A balances, B-0111B movimientos). Acción: externalizar SETID como parámetro de configuración; validar con SME de Contabilidad y CNBV la semántica exacta de "BNMEX" como unidad de negocio por defecto. _(Cross-ref: cap-cfr.md · RN-S151-093)_ |
 | Códigos 2001/2444/2496 hardcoded — extensión del catálogo de fraude requiere recompilación | T-CMP-005..007 | 🟠 CRÍTICO | Externalizar a tabla de configuración parametrizable; agregar un código nuevo no debe requerir cambio de código fuente |
 | Límite 5 SAD hardcoded (PERFORM 5 TIMES) — si hay más de 5 sub-movimientos se trunca el reporte CNBV | T-CMP-006 | 🟠 CRÍTICO | Verificar con SME si el límite es estructural del DASDL (B07-OTROS-MOVSAD×5) o solo del programa; en target usar lista dinámica |
 | Límite 10 B13 hardcoded (B13-CLAVES-TRANS×10) — puede truncar claves adicionales y subdeclarar ante CNBV | T-CMP-007 | 🟠 CRÍTICO | Verificar en DASDL si el tipo B13 permite más de 10 entradas; si sí, migrar a colección dinámica |

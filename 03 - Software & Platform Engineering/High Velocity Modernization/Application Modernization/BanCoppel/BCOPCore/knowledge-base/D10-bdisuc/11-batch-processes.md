@@ -208,3 +208,11 @@ Los procesos de purga y archivado asumen disponibilidad nocturna exclusiva. En A
 
 ---
 *Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdisuc_*.sql (análisis estático de 70 archivos SQL) · análisis de patrones de nombres + código*
+
+<!-- LOG-DATA-BEGIN -->
+## Procesos batch detectados en logs — 2026-04-24
+> Fuente: `source/logs/transacciones_bus_2026-04-24_*.txt` · Incorporado: 2026-08-01
+
+> Sin patrones batch identificados en los logs para este dominio.
+> Indicador: servicios con referencia de timestamp fijo (p. ej. `_20260424_000000`).
+<!-- LOG-DATA-END -->

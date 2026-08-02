@@ -12,9 +12,9 @@
 - **SME — Modelo Operativo Bancario** (BIAN Service Domains · capacidades retail banking · cadena de valor · mapeo dominio técnico ↔ capacidad de negocio)
 - Data Architect (modelado target PostgreSQL / Aurora)
 - QA Lead — Equivalencia Funcional (golden master y criterios go/no-go)
-- **SME Regulatorio — CNBV** (`Solutioning/Delivery - SME/Regulatory/CNBV/`)
-- **SME Regulatorio — SAT** (`Solutioning/Delivery - SME/Regulatory/SAT/`)
-- **SME Regulatorio — CONDUSEF** (`Solutioning/Delivery - SME/Regulatory/CONDUSEF/`)
+- **SME Regulatorio — CNBV** (`SME/Regulatory/CNBV/`)
+- **SME Regulatorio — SAT** (`SME/Regulatory/SAT/`)
+- **SME Regulatorio — CONDUSEF** (`SME/Regulatory/CONDUSEF/`)
 
 > Secciones marcadas `[SME-PENDING]` requieren validación del Domain Expert o SME regulador antes de BUILD.
 ---
@@ -185,9 +185,9 @@
 
 ## Reglas por regulador (SME dueño)
 
-- **CNBV** (`Solutioning/Delivery - SME/Regulatory/CNBV/`) — 128 reglas · Criterios contables CNBV + GAT — cálculo de intereses/rendimientos
-- **CONDUSEF** (`Solutioning/Delivery - SME/Regulatory/CONDUSEF/`) — 36 reglas · LTOSF Art.17 (CAT) + RECO — comisión debe estar registrada
-- **SAT** (`Solutioning/Delivery - SME/Regulatory/SAT/`) — 21 reglas · LIVA — IVA sobre comisiones (16% / 8% frontera)
+- **CNBV** (`SME/Regulatory/CNBV/`) — 128 reglas · Criterios contables CNBV + GAT — cálculo de intereses/rendimientos
+- **CONDUSEF** (`SME/Regulatory/CONDUSEF/`) — 36 reglas · LTOSF Art.17 (CAT) + RECO — comisión debe estar registrada
+- **SAT** (`SME/Regulatory/SAT/`) — 21 reglas · LIVA — IVA sobre comisiones (16% / 8% frontera)
 
 ## `[RIESGO-EQUIVALENCIA]` en este dominio
 

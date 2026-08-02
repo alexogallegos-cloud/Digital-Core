@@ -1,10 +1,15 @@
 # KB — Capa 5: Fronteras · Bounded Contexts + 7R + Wave Map
+> Indexado: ✅ 2026-07-17 — KB Capa 5 — fronteras/bounded contexts
 ## Banamex · GemCog · S500 Cargos y Abonos + S151 Movimientos Contables GL
 
 > **Capa 5 en la metodología GemCog:** pivote AS-IS → TO-BE. Toma el conocimiento acumulado en Capas 1-4 (lenguaje, almas, biografía, intención) y lo convierte en decisiones de arquitectura target: cuáles son los Bounded Contexts del sistema modernizado, qué ruta 7R toma cada programa, y en qué Wave se ejecuta cada transformación.
 >
 > **Executor:** `Specialist - 7R Assessment` (Fase 1 - Discover · gate de salida)
 > **Fecha de análisis:** 2026-07-14 · Basada en Etapas 1-3 completadas (S500 + S151)
+> **Tipo-artefacto:** `Frontera`  
+> **Capa-GemCog:** `5`  
+> **Propósito:** Mapa de fronteras entre bounded contexts derivado de dependencias inter-capacidad — guía la partición en microservicios del target.  
+> **Relacionado-con:** kb-capa3-capacidades · integration-map · kb-capa4-flujos
 
 ---
 
@@ -56,6 +61,19 @@ Derivados de los 8 dominios canónicos (Capas 1-4) + 1 contexto de interfaz cros
 - `P130` existe en BC-03 (S500 · sucursales) Y BC-06 (S151 · agrupador). Son programas completamente distintos con funciones distintas — requieren IDs de componente target diferenciados desde el primer ADR.
 - `P015` existe en BC-02 (S500 · control de fecha) Y BC-07 (S151 · ActMov semanal). Misma situación.
 - En el wave plan y SME roster, siempre usar prefijo: `S500/P130` vs `S151/P130`.
+
+### Sistemas Externos — Bounded Contexts no migrados (QC 2026-07-21)
+
+| ID | Sistema Externo | Mecanismo de interfaz | Programas dependientes | Prerequisito de Wave |
+|----|----------------|----------------------|----------------------|---------------------|
+| EXT-01 | **S016 Sistema de Clientes** | L422 — datos de cliente (nombre, CURP, RFC, domicilio) | P050 Holdings (T-HLD-006/007) | BC-05 y BC-06 bloqueados sin Customer Profile Service API |
+| EXT-02 | **S254 PeopleSoft GL** | SETID=BNMEX · P131 TRADUCTOR | P131 CFR Pipeline | Cambio de SETID requerido para separación Citi — coordinación Wave 0 |
+| EXT-03 | **S084 Cobertura Monterrey** | SALDOS084 · P312 | P312 BC-09 | Wave 1 BC-09 requiere stub de S084 o acuerdo con equipo S084 |
+| EXT-04 | **Citi ALR/AHR/OCM** | BRANCH=484 · P150/P151 | P150 · P151 · P108 | Desconexión formal como gate obligatorio de Wave 3 (GL cutover) |
+| EXT-05 | **Banxico SPEI** | L040_LIGAS · P629 · P629_CARGABD06 | T.1.3 Payment Schemes | Sin impacto wave directo pero requiere certificación SPEI en target |
+| EXT-06 | **CECOBAN/ICA** | P610 F09 · APL-ORI=0236 | T.4.1 CFR Pipeline | BC-08 Reportería GL — certificar formato antes de Wave 2 cutover |
+
+> **Prerequisito crítico EXT-01 (QC 2026-07-21):** S016 debe exponer un **Customer Profile Service API** antes de que BC-05 (GL) y BC-06 (Movimientos) entren a producción en el target. P050 depende de L422(S016) para todos los datos de cliente — un fallo de S016 produce falla fatal en consulta de saldo (T-HLD-006) o retorna SPACES silencioso en nombre de cliente (T-HLD-007, falla silenciosa que viola CONDUSEF). Definir el contrato API de Customer Profile Service en Wave 0 como parte del design de BC-04.
 
 ---
 
@@ -149,6 +167,20 @@ Aplicación del framework del `Specialist - 7R Assessment` al stack Unisys Clear
 
 ---
 
+### Wave 0-B — Librería Maestra S151LIB030 (paralela a Wave 0-A)
+
+**L030 (S151LIB030, 19,253 LOC) es cargada vía `CANCEL` por TODOS los programas S151.** Es un punto de fallo único: sin L030 disponible en el target, ningún programa S151 puede ejecutarse — no existe un "partial migration" posible. Debe encapsularse en paralelo con Wave 0-A y estar disponible antes de iniciar cualquier transpilación.
+
+| Programa | BC | Decisión | Acción | SME |
+|----------|----|----------|--------|-----|
+| S151/L030 S151LIB030 | BC-05/BC-06 | ENCAPSULATE | Descomponer en 6 microservicios de plataforma: (1) CONSISDIA date control, (2) CONSISMEN system params, (3) LIBCONTROL batch gate, (4) CALLLIBCTL cycle control, (5) CRONOS2K date conversion, (6) DMACCESS DMSII wrapper | Specialist - Encapsulation · Specialist - Batch Architecture |
+
+**Output de Wave 0-B:** Librería `S151-Platform-Services` con 6 servicios de plataforma. Todos los programas S151 transpilados referencian estos servicios en lugar de `CANCEL L030`.
+
+**Bloqueo crítico:** Wave 1, 2 y 3 (todos los programas S151) dependen de Wave 0-B. Sin `S151-Platform-Services` disponible y validado, cualquier programa S151 transpilado fallará en runtime.
+
+---
+
 ### Wave 1 — COBOL de bajo riesgo (sin flags regulatorios, LOC < 3K)
 
 Candidatos: programas COBOL de CONTROL y TARJETAS sin flags CNBV/Banxico confirmados.
@@ -170,29 +202,47 @@ Candidatos: programas COBOL de CONTROL y TARJETAS sin flags CNBV/Banxico confirm
 
 Candidatos: P142, P144 (CAPTACION · S500 · CNBV + Banxico), P100-P199 seleccionados (CONTABILIDAD S151).
 
+> ⚠️ **Corrección QC 2026-07-21**: BC-05 General Ledger removido de Wave 2. GL tiene 6 dependencias de entrada y debe migrar ÚLTIMO. Ver Wave 3.
+
 | BC candidato | Criterio de entrada | Gate adicional |
 |-------------|--------------------|--------------  |
 | BC-01 Cuentas de Captación | Wave 1 verde · BC-04 estable | Equivalence ≥ 99.99% · CNBV |
-| BC-05 General Ledger (parcial) | Wave 0 verde · BC-04 estable | Equivalence ≥ 99.99% · reconciliación diaria |
-| BC-06 Movimientos (parcial) | Depende de BC-05 parcial | Equivalence ≥ 99.99% |
+| BC-06 Movimientos (parcial) | Wave 1 verde · BC-04 estable | Equivalence ≥ 99.99% |
+| BC-08 Reportería GL | Wave 1 verde | Equivalence ≥ 99.99% · outputs regulatorios validados |
 
 **Gate de salida Wave 2:**
 - Equivalence-check ≥ **99.99%** (banca CNBV · reconciliación contable diaria)
 - Parallel-run ≥ 3 meses
 - Auditoría interna sign-off mensual
+- BC-06 Movimientos en parallel-run estable (prerequisito para Wave 3 — GL)
 
 ---
 
-### Wave 3 — Batch pesado (Batch Architecture sign-off obligatorio)
+### Wave 3 — BC-05 General Ledger + Batch pesado
 
-Candidatos: programas batch WFL LOTE con DMSII BLOCK CONTAINS complejos.
+**BC-05 General Ledger es el último bounded context en migrar** (nodo con mayor grado de entrada: 6 dependencias). Su cutover requiere que TODOS sus alimentadores estén validados.
 
-**Prerequisito:** Specialist - Batch Architecture completa el análisis de throughput de ventana batch ANTES de iniciar transpilación. Sin ese sign-off, prohibido.
+**Gates obligatorios para BC-05:**
+1. BC-01 (Captación), BC-06 (Movimientos) y BC-07 (Control GL) con ≥3 meses de parallel-run exitoso
+2. Mínimo 3 cierres contables mensuales validados en arquitectura target con equivalencia ≥ 99.99%
+3. Auditoría interna sign-off de cuadratura GL vs sistema legacy
+4. CNBV notificada (Circular 29/2010) con ≥30 días de anticipación al cutover
+5. Coexistence model y rollback plan aprobados por Risk & Compliance
+6. Interfaces Citi (P150+P151, BRCH-NBR=485) formalmente desconectadas o transferidas
+
+**Prerequisito batch:** Specialist - Batch Architecture completa el análisis de throughput de ventana batch ANTES de iniciar transpilación. Sin ese sign-off, prohibido.
 
 | BC candidato | Acción | SME principal |
 |-------------|--------|--------------|
+| **BC-05 General Ledger** | Transpilación P100-P199 · parallel-run con cierre contable diario | Specialist - Transpilation · Specialist - Batch Architecture · Regulatory SME |
 | BC-01 batch jobs CAPCARGOP | Rewrite batch en Argo Workflows + Java | Specialist - Batch Architecture → Transpilation |
 | BC-06 jobs de cierre GL | Rewrite batch scheduler | Specialist - Batch Architecture → Transpilation |
+
+**Gate de salida Wave 3:**
+- Equivalence-check ≥ **99.99%** GL (asientos contables — nivel más estricto)
+- Parallel-run GL ≥ 6 meses con auditoría mensual
+- Cierres de mes y año fiscal completados exitosamente en target
+- Reportes CNBV Serie B comparados contra legacy durante todo el parallel-run
 
 ---
 
@@ -232,9 +282,9 @@ Los 7 WFL jobs (4 S500 + 3 S151) se reescriben como DAGs en Argo Workflows o AWS
 
 | Agent | Solutioning path | Rol en Capa 5 |
 |-------|-----------------|--------------|
-| **Mainframe Migration SME** | `Solutioning/Delivery - SME/Infrastructure/Mainframe Migration/` | Validación metodológica de decisiones 7R · business case · sign-off de wave plan |
-| **Unisys Banking SME** | `Solutioning/Delivery - SME/Platform/Unisys Banking/` | Advisory obligatorio para cualquier decisión sobre ALGOL S151 (TellerVision, Forward!, Elevate) |
-| **Code Quality Specialist** | `Solutioning/Delivery - SME/Technology/Software Engineering/Specialist - Code Quality Assessment/` | Validación formal de scores ISO 5055 si se requiere ADR firmable |
+| **Mainframe Migration SME** | `SME/Infrastructure/Mainframe Migration/` | Validación metodológica de decisiones 7R · business case · sign-off de wave plan |
+| **Unisys Banking SME** | `SME/Platform/Unisys Banking/` | Advisory obligatorio para cualquier decisión sobre ALGOL S151 (TellerVision, Forward!, Elevate) |
+| **Code Quality Specialist** | `SME/Technology/Software Engineering/Specialist - Code Quality Assessment/` | Validación formal de scores ISO 5055 si se requiere ADR firmable |
 | **Regulatory SME** | `Fase 2 - Regulatory/` (carpeta-puntero) | Confirmación de flags CNBV/Banxico por programa antes de ADR Wave 2+ |
 
 ### ¿Se necesita un nuevo agent?
@@ -298,10 +348,16 @@ Wave 0 → Wave 1 (BC-02, BC-03, BC-09)
   └── Dependencia: BC-04 estable
   └── NO dependen entre sí — pueden correr en paralelo
 
-Wave 1 → Wave 2 (BC-01, BC-05 parcial, BC-06 parcial)
+Wave 1 → Wave 2 (BC-01, BC-06 parcial, BC-08)
   └── Dependencia: Wave 1 verde + BC-04 stable
-  └── BC-01 y BC-05 tienen acoplamiento (S500 CAPTACION escribe GL):
-      BC-01 no puede hacer cutover hasta que BC-05 partial esté en parallel-run
+  └── BC-01 y BC-06 tienen acoplamiento (S500 CAPTACION escribe GL via BC-04)
+  └── BC-05 General Ledger NO está en Wave 2 (ver Wave 3)
+
+Wave 2 → Wave 3 (BC-05 General Ledger, batch pesado)
+  └── 🔴 BC-05 GL requiere: BC-01 + BC-06 + BC-07 en parallel-run ≥3 meses
+  └── 🔴 BC-05 GL requiere: ≥3 cierres contables validados en target
+  └── 🔴 Centralidad alta (6 entradas) = migrar ÚLTIMO, no primero
+  └── Interfaces Citi (P150+P151) deben estar desconectadas antes del cutover GL
 
 Wave 1 || Wave 3 (BC-01 batch, BC-06 batch)
   └── Pueden correr en paralelo SI Batch Architecture sign-off está listo
@@ -369,4 +425,5 @@ Capa 8 (Continuidad) → el Retain pool de Capa 5 define qué sigue en MCP duran
 ---
 
 *Generado: 2026-07-14 · GemCog v2.2 · S500 (114 obj · 296,677 LOC) + S151 (104 obj · 444,992 LOC) · 218 programas · 9 Bounded Contexts*
+*QC 2026-07-21 · swarm auditoría semántica bancaria: BC-05 GL movido de Wave 2 → Wave 3 · dependency constraints actualizados · gates GL añadidos*
 *Owner: Specialist - 7R Assessment · Advisory: Mainframe Migration SME + Unisys Banking SME*

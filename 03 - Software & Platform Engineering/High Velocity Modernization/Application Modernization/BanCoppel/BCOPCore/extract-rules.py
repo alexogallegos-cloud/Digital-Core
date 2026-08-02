@@ -19,14 +19,14 @@ BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core
 SRC = BASE + "source/BCOPCore/informix/"
 CG = json.load(open(BASE + "callgraph-data.json", encoding="utf-8"))
 
-# ── SMEs reguladores (agentes en Solutioning/Delivery - SME/Regulatory/) ──
+# ── SMEs reguladores (agentes en SME/Regulatory/) ──
 SME = {
- "SAT":      ("SME Regulatorio — SAT",      "Solutioning/Delivery - SME/Regulatory/SAT/"),
- "CNBV":     ("SME Regulatorio — CNBV",     "Solutioning/Delivery - SME/Regulatory/CNBV/"),
- "CONDUSEF": ("SME Regulatorio — CONDUSEF", "Solutioning/Delivery - SME/Regulatory/CONDUSEF/"),
- "Banxico":  ("SME Regulatorio — Banxico",  "Solutioning/Delivery - SME/Regulatory/Banxico/"),
- "IPAB":     ("SME Regulatorio — IPAB",     "Solutioning/Delivery - SME/Regulatory/IPAB/"),
- "TESOFE":   ("SME Regulatorio — TESOFE",   "Solutioning/Delivery - SME/Regulatory/TESOFE/"),
+ "SAT":      ("SME Regulatorio — SAT",      "SME/Regulatory/SAT/"),
+ "CNBV":     ("SME Regulatorio — CNBV",     "SME/Regulatory/CNBV/"),
+ "CONDUSEF": ("SME Regulatorio — CONDUSEF", "SME/Regulatory/CONDUSEF/"),
+ "Banxico":  ("SME Regulatorio — Banxico",  "SME/Regulatory/Banxico/"),
+ "IPAB":     ("SME Regulatorio — IPAB",     "SME/Regulatory/IPAB/"),
+ "TESOFE":   ("SME Regulatorio — TESOFE",   "SME/Regulatory/TESOFE/"),
 }
 # keyword en el código → (regulador, norma aplicable)
 REG_RULES = [
@@ -227,7 +227,7 @@ L += ["---", "",
  "```",
  "",
  "*Generado por Specialist — Informix SPL Analysis · Etapa 3 · fuente: source/ + extract-rules.py · "
- "coordina con SMEs en Solutioning/Delivery - SME/Regulatory/*"]
+ "coordina con SMEs en SME/Regulatory/*"]
 
 open(BASE + "business-rules-bcop.md", "w", encoding="utf-8").write("\n".join(L))
 print(f"business-rules-bcop.md + .json escritos.")

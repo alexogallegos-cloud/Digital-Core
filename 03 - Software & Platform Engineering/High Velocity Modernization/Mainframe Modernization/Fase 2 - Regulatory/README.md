@@ -10,7 +10,7 @@
 
 ## Quién ejecuta esta fase
 
-**SME ejecutor:** `Solutioning/Delivery - SME/Framework/ITSM/GRC/Specialist - Mainframe Modernization Regulatory/`
+**SME ejecutor:** `SME/Framework/ITSM/GRC/Specialist - Mainframe Modernization Regulatory/`
 
 ## Objetivo de la fase
 
@@ -41,7 +41,7 @@ Produce el mapa de cumplimiento regulatorio que habilita la Fase 3 (diseño de e
 ## Packet `[INVOKE]`
 
 ```
-[INVOKE: Solutioning/Delivery - SME/Framework/ITSM/GRC/Specialist - Mainframe Modernization Regulatory/]
+[INVOKE: SME/Framework/ITSM/GRC/Specialist - Mainframe Modernization Regulatory/]
 COMPONENTE      : SPE-MM-{NNN} — {nombre del sistema}
 CLIENTE         : {banco} — institución de banca múltiple regulada por CNBV
 INSUMOS         : Catálogo de Reglas de Negocio v{N} · Especificaciones Funcionales · Data Dictionary

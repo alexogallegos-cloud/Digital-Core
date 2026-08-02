@@ -27,6 +27,85 @@ Soy un **Solution Architect con 20+ años entregando custom platforms** en banca
 
 ---
 
+## Metodología — Digital Twin Swarm Development
+
+Una de las capacidades diferenciadas de este sub-offering es la construcción de software usando **swarms de Digital Twins** — agentes que representan roles reales del SDLC y ejecutan el delivery de forma autónoma y coordinada, sin equipo humano paralelo como ejecutor principal.
+
+### Qué es un Digital Twin de Desarrollo
+
+Un **Digital Twin (DT)** en este contexto es un agente Claude que encarna completamente un rol del equipo de desarrollo. No es un asistente — **es el rol**. Toma decisiones, produce artefactos, invoca SMEs, hace code review, y es responsable del entregable de su dominio.
+
+### Composición Canónica del Swarm
+
+| Rol | DT | Responsabilidad core |
+|-----|----|---------------------|
+| Orquestador / Tech Lead | `swarm/CLAUDE.md` | Coordinación · DoR · asignación · coherencia técnica |
+| Product Owner | `dt-product-owner` | Backlog · stories · criterios de aceptación · dominio de producto |
+| Domain Expert (industria) | `dt-{industry}-domain` | Dominio de negocio profundo · modelo de entidades · regulatorio sectorial |
+| Solution Architect | `dt-solution-architect` | System design · ADRs · API contracts · integración |
+| Backend Engineer | `dt-backend-engineer` | Implementación servicios · tests unit · CI |
+| Frontend Engineer | `dt-frontend-engineer` | Implementación UI · componentes · contrato con API |
+| Database Engineer | `dt-dba` | Modelo de datos · T-SQL/SQL · performance · migraciones |
+| Security Engineer | `dt-security-engineer` | Auth · DevSecOps · threat model · compliance |
+| QA Engineer | `dt-qa-engineer` | Test strategy · integration · E2E · contract testing |
+| DevOps Engineer | `dt-devops-engineer` | CI/CD · ambientes · observabilidad · SRE |
+
+> El Domain Expert es un DT **opcional pero recomendado** en proyectos con dominio regulado complejo (banca, seguros, salud). Se instancia con el nombre del dominio del proyecto (ej. `dt-banking-domain`, `dt-insurance-domain`). Su rol es el puente entre la lógica de negocio sectorial y el equipo técnico; no implementa código.
+
+### Amplificación con SMEs
+
+Cada DT declara los **SMEs de `SME/`** que complementan su expertise. Los SMEs no reemplazan al DT — lo amplifican en dominios especializados (regulatorio, plataforma, integración legacy).
+
+```
+[DT ejecuta el rol]
+  ├─→ [SME crítico]    ← amplifica expertise frecuente
+  └─→ [SME on-demand]  ← consulta en escenarios específicos
+```
+
+### Principio permanente — Quality Engineering shift-left
+
+En todo swarm, la **identificación de casos de prueba es temprana**: ocurre en DISCOVER/DESIGN, derivada de los criterios de aceptación, el spec y el contrato OpenAPI, **antes de BUILD**. El DT de QA no aparece solo en la fase de TEST — participa desde el refinamiento de la story.
+
+- Un criterio de aceptación del que no se puede derivar un caso de prueba concreto está mal escrito; el DT de QA lo regresa al Product Owner antes de que la story entre a BUILD.
+- La **DoR de toda story incluye "casos de prueba identificados"** como checkbox obligatorio.
+- Los casos identificados temprano guían la implementación de los DTs de build (test-informed development) y son la base de la ejecución posterior.
+- Amplificado por el SME **Quality Engineering Lead** (`Technology/Quality Engineering/`).
+
+### Prerrequisito de Activación del Swarm
+
+Un swarm funciona donde el dominio está documentado. Antes de instanciar los DTs se requiere:
+1. **Spec del componente** con restricciones de stack confirmadas
+2. **Dominio documentado** (reglas de negocio, capacidades BIAN, vocabulario) accesible para los DTs
+3. **ADRs bloqueantes** resueltos (estrategia de integración con legacy, IdP, plataforma target)
+
+Sin esos tres, los DTs toman decisiones arbitrarias — el costo de corregirlas en BUILD es 10x el costo de definirlas en DISCOVER.
+
+### Estructura Canónica de un Proyecto Swarm
+
+```
+{Cliente}/{Nombre Producto}/
+├── CLAUDE.md                          ← Agent del proyecto
+├── spec-{nombre}.md
+├── component-catalog-{nombre}.md
+├── reference-architecture-{nombre}.md
+├── delivery-playbook-{nombre}.md
+├── quality-gates-{nombre}.md
+├── swarm/
+│   ├── CLAUDE.md                      ← Orquestador Tech Lead
+│   ├── dt-product-owner.md
+│   ├── dt-solution-architect.md
+│   ├── dt-backend-engineer.md
+│   ├── dt-frontend-engineer.md
+│   ├── dt-dba.md
+│   ├── dt-security-engineer.md
+│   ├── dt-qa-engineer.md
+│   └── dt-devops-engineer.md
+├── source/                            ← Código fuente por componente
+└── adr/                               ← Architectural Decision Records
+```
+
+---
+
 ## Principio Rector
 
 > **"Custom" no es default — es decisión con TCO. Cada deal de Custom Application / SaaS Replacement debe pasar por business case 3-5 años comparado contra mantener el paquete. Si el TCO custom > TCO paquete + 20% (margen de error), el deal NO debería venderse como replacement — debería venderse como extension del paquete.**
@@ -98,6 +177,13 @@ Hereda 8 fases del offering 03 con énfasis en **business case + greenfield deli
 | Silicon Engineering | `SPE-SIL-{NNN}` |
 | SaaS & Package Replacement | `SPE-SPR-{NNN}` |
 | Enterprise & Application Integration | `SPE-EAI-{NNN}` |
+| **Digital Twin Swarm Development** | `SPE-ANCE-{NNN}` |
+
+## Proyectos Activos — Digital Twin Swarm
+
+| Proyecto | Cliente | Stack | Estado | Carpeta |
+|---------|---------|-------|--------|---------|
+| Portal Empresas Nómina | Scotiabank México | Angular 20 · Java 21 · SQL Server 2022 | `[DISCOVER]` | `Scotiabank/Nomina Portal/` |
 
 ---
 
@@ -130,7 +216,7 @@ Hereda 8 fases del offering 03 con énfasis en **business case + greenfield deli
 | Decisión | Autoridad |
 |----------|-----------|
 | Vender SaaS Replacement sin TCO comparison 3-5 años | **Prohibido** — clawback comercial inevitable cuando TCO real supera baseline |
-| Comprometer deal de Silicon Engineering | **Bloqueado** hasta que exista SME canónico en `Solutioning/Delivery - SME/` |
+| Comprometer deal de Silicon Engineering | **Bloqueado** hasta que exista SME canónico en `SME/` |
 | Construir custom platform sin product owner asignado por el cliente | **Prohibido** — plataforma sin PO muere por falta de adopción |
 | Cancelar paquete legacy antes de cutover por capability completo | **Prohibido sin `[BREAK-GLASS]`** + ventana 6 meses cumplida |
 | Selección de stack para custom (Java vs Node vs .NET) | **Requiere `[ADR]`** alineado con stack cliente o `[ADR-SPE-001]` del offering |

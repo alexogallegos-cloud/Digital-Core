@@ -1,4 +1,5 @@
 # Knowledge Base — S500 Cargos & Abonos + S151 Movimientos Contables GL
+> Indexado: ✅ 2026-07-17 — Knowledge Base consolidada S500+S151
 ## Banamex · Unisys ClearPath MCP · Fase DISCOVER
 
 **Generado:** 2026-07-11  

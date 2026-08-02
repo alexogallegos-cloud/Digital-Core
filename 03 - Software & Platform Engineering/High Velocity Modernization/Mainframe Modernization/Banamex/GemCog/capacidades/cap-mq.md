@@ -1,7 +1,9 @@
-# cap-mq.md — MQ / Async Gateway
-> BIAN: T.2.3 · MQ / Async (L091-L093) · Dominio: T · Transversal
+# BC-17 · Mensajería Asíncrona MCP
+> bian_ref: T.2.3 MQ / Async
 > Sistema: S500 · Programa: P020 (LINCOMS — 5 copias COMS)
-> Reglas vinculadas: 7 · Tareas: 7
+> Reglas vinculadas: RN-S500-766 · RN-S500-776 (2 reglas · trazabilidad automática 2026-07-27)
+> Jerarquía: **N1** Dominio T · Transversal · Interfaces & Seguridad → **N2** Subdominio Internal Interfaces → **N3** Capacidad T.2.3 MQ / Async (L091 y L093) → **N4-5** Procesos/Flujo de tareas (ver Inventario de Tareas) → **N6** Reglas (ver Reglas vinculadas)
+> Indexado: ✅ 2026-07-27 — correlacionado vocab↔reglas↔capacidad (build-traceability.py)
 > Generado: 2026-07-16
 
 ---
@@ -18,9 +20,9 @@ Las 5 copias no son instancias simétricas. Cada copia recibe un identificador `
 - **Enrutamiento de failover (WKS-SIGUIENTE)**: Tabla fija hardcodeada que define qué copia atiende si la actual no está disponible: 1→03, 2→01, 3→04, 4→02, 5→02. Las copias 4 y 5 convergen al mismo punto de failover (copia 02), concentrando el riesgo.
 - **Rol de réplica (COPIA-5)**: Única copia que genera el archivo `I11-REPLICA` para sincronización cross-CSI. En producción ejecuta un `WAIT 1200` (20 minutos) para garantizar que P010 haya completado su ciclo antes de replicar.
 
-### Librerías de enrutamiento asíncrono L091-L093
+### Librerías de enrutamiento asíncrono L091 y L093
 
-Las librerías **L091**, **L092** y **L093** participan en el enrutamiento asíncrono MQ del sistema S500, según el mapa de conocimiento del Gemelo Cognitivo. Estas librerías no están aún catalogadas individualmente en reglas RN-S500 pero son parte integral del comportamiento de arranque y transición de estado de P020. Su gestión sigue el mismo patrón de ciclo de vida que el resto de las librerías dinámicas: `CANCEL` + `WAIT` + recarga vía `70000000-CHANGE-LIBS`.
+Las librerías **L091** y **L093** (ambas con sufijo `_ASINCRONA` en el inventario S500 — `S500_SOURCE_L091_ASINCRONA.txt`, `S500_SOURCE_L093_ASINCRONA.txt`) participan en el enrutamiento asíncrono MQ del sistema S500. **No existe L092 en el inventario ni en los fuentes extraídos** — cualquier referencia previa a "L091-L092-L093" era incorrecta. Estas librerías no están aún catalogadas individualmente en reglas RN-S500 pero son parte integral del comportamiento de arranque y transición de estado de P020. Su gestión sigue el mismo patrón de ciclo de vida que el resto de las librerías dinámicas: `CANCEL` + `WAIT` + recarga vía `70000000-CHANGE-LIBS`.
 
 ### Topología geográfica cross-CSI
 
@@ -134,9 +136,8 @@ flowchart TD
 
     C1 & C2 & C3 & C4 & C5 --> FAILOVER
 
-    subgraph ROUTING["Enrutamiento asíncrono L091-L092-L093"]
+    subgraph ROUTING["Enrutamiento asíncrono L091 y L093"]
         L091["L091\nRouting Async"]
-        L092["L092\nRouting Async"]
         L093["L093\nRouting Async"]
     end
 
@@ -195,16 +196,16 @@ flowchart TD
 
 | # | Riesgo | Tarea(s) | Severidad | Acción recomendada |
 |---|--------|----------|-----------|-------------------|
-| H-MQ-01 | **COMS no tiene equivalente directo en cloud**. El servidor COMS multi-copia de Unisys es propietario: gestión de sesiones, identidad por copia, interrupt handlers (TASKVALUE) y failover interno no existen en plataformas cloud nativas. | T-MQ-001, T-MQ-002, T-MQ-009 | Alta | Reemplazar por **Kafka** (streaming), **SQS/SNS** (AWS) o **Azure Service Bus** según patrón de mensajería. Las 5 copias se modelan como particiones/consumidores. El TIPO-PROC 33-37 se convierte en metadato de mensaje (`source-instance-id`). |
+| H-MQ-01 | **COMS no tiene equivalente directo en cloud**. El servidor COMS multi-copia de Unisys es propietario: gestión de sesiones, identidad por copia, interrupt handlers (TASKVALUE) y failover interno no existen en plataformas cloud nativas. | T-MQ-001, T-MQ-002 | Alta | Reemplazar por **Kafka** (streaming), **SQS/SNS** (AWS) o **Azure Service Bus** según patrón de mensajería. Las 5 copias se modelan como particiones/consumidores. El TIPO-PROC 33-37 se convierte en metadato de mensaje (`source-instance-id`). |
 | H-MQ-02 | **WAIT 1200 (20 min) hardcodeado** en COPIA-5 sin parámetro configurable. El valor asume un tiempo de ciclo fijo de P010. Un cambio en el throughput de P010 invalida este umbral sin mecanismo de ajuste. Además, PBA y producción tienen comportamiento radicalmente distinto (0s vs 1200s). | T-MQ-003 | Alta | Parametrizar el delay de replicación como variable de entorno o registro en tabla de control B02. En arquitectura cloud, usar **event-driven sync** (P010 publica evento de fin de ciclo → P020 COPIA-5 consume) en lugar de espera ciega. |
 | H-MQ-03 | **Tabla de failover WKS-SIGUIENTE hardcodeada**. La topología 1→03, 2→01, 3→04, 4/5→02 no es configurable en runtime. Copias 4 y 5 convergen al mismo punto (02), creando un cuello de botella en caso de fallo simultáneo de ambas. | T-MQ-002 | Alta | Externalizar la tabla de routing a configuración. En cloud, reemplazar por **load balancer** con health checks y distribución automática. Eliminar la asimetría 4/5→02. |
 | H-MQ-04 | **Topología cross-CSI duplicada en tres programas** (P020, P142, P144) sin COPY book compartido. Los 8 pares host + 6 pares clonados deben mantenerse sincronizados manualmente en cada cambio de infraestructura de red. | T-MQ-006, T-MQ-007 | Alta | Centralizar en un único COPY book o, en arquitectura cloud, reemplazar por **service discovery** (DNS, Consul, AWS Service Connect). Cada servicio resuelve su endpoint en runtime sin tabla hardcodeada. |
 | H-MQ-05 | **Toggle S151 (TASKVALUE=3027) solo disponible en PBA**. En producción, el único mecanismo para suspender el GL posting es reiniciar el servidor COMS o la librería REGISTRAS500. Esto aumenta el riesgo operativo en incidentes de S151. | T-MQ-004 | Media | Implementar **feature flag** administrado (LaunchDarkly, AWS AppConfig) para el toggle de integración GL. Disponible en todos los entornos con control de acceso por rol. |
-| H-MQ-06 | **Librerías L091-L092-L093 no catalogadas individualmente**. Su rol en el enrutamiento asíncrono está documentado en el mapa de conocimiento del Gemelo Cognitivo pero no ha sido reverse-engineered a nivel de reglas. Riesgo de pérdida de comportamiento en transpilación. | T-MQ-001..T-MQ-007 | Media | Ejecutar **Fase 2 de extracción de reglas** sobre L091, L092 y L093 para catalogar su lógica interna antes de la transpilación. Prioridad: identificar qué parámetros de routing encapsulan y si reemplazan o complementan la tabla WKS-SIGUIENTE. |
+| H-MQ-06 | **Librerías L091 y L093 (ASINCRONA) no catalogadas individualmente**. Su rol en el enrutamiento asíncrono está documentado en el mapa de conocimiento del Gemelo Cognitivo pero no ha sido reverse-engineered a nivel de reglas. **Nota QC**: No existe L092 en el inventario S500 ni en los fuentes extraídos — solo L091_ASINCRONA y L093_ASINCRONA. Riesgo de pérdida de comportamiento en transpilación. | T-MQ-001..T-MQ-007 | Media | Ejecutar **Fase 2 de extracción de reglas** sobre L091 y L093 para catalogar su lógica interna antes de la transpilación. Prioridad: identificar qué parámetros de routing encapsulan y si reemplazan o complementan la tabla WKS-SIGUIENTE. |
 | H-MQ-07 | **Ciclo de cancelación de librerías al cierre de día** (WAIT 5 + recarga). Este patrón no tiene equivalente en microservicios cloud — las configuraciones se recargan sin cancelación de proceso. El WAIT 5 es una espera ciega sin confirmación de que las librerías se descargaron correctamente. | T-MQ-005 | Media | Rediseñar como **config reload event** (ConfigMap reload en k8s, hot config en Spring Cloud Config). Eliminar el WAIT 5 en favor de health checks post-recarga. Asegurar que las tablas de tarifas, calendario y seguridad sean accesibles via API parametrizable. |
 | H-MQ-08 | **Sin at-least-once delivery en COMS**. Si una copia falla mid-processing, la transacción en vuelo puede perderse. La tabla WKS-SIGUIENTE redirige nuevas conexiones pero no recupera la transacción en tránsito. | T-MQ-002 | Alta | Implementar **idempotency + retry** en la capa de mensajería cloud. Kafka con offsets confirmados o SQS con visibility timeout garantizan at-least-once. Definir semántica de duplicados con S151 (TIPO-PROC como deduplication key). |
 
 ---
 
-*cap-mq.md · v1.0 · 2026-07-16*
-*BIAN T.2.3 · MQ / Async · Transversal*
+*cap-mq.md · v1.1 · 2026-07-17 · QC: corregido T-MQ-009 (inexistente) + L092 (inexistente en inventario/source; solo L091+L093 son ASINCRONA)*
+*BIAN T.2.3 · MQ / Async · Transversal · Librerías async confirmadas: L091_ASINCRONA · L093_ASINCRONA*

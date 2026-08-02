@@ -19,7 +19,7 @@ Este sub-offering resuelve el problema de la parálisis analítica causada por u
 
 **Honestidad técnica vs. marketing del slide**: el slide oficial describe este sub-offering como "using AI/Agents; getting data ready for AI in a fraction of the time." La aceleración real por AI/agentes es significativa pero acotada: el agente acelera extracción de schema de DDL/COPY books legacy, profiling estadístico de columnas, sugerencia de mapeo source-target, conversión sintáctica de SQL/ETL legacy a SQL moderno, y reconciliación automatizada de conteos y checksums. Lo que el agente **no puede reemplazar con firma humana**: aprobación del mapping de negocio (un campo `CUST-AMT-CR` en COBOL no siempre es "crédito al cliente" — requiere analista funcional), decisión de scope regulatorio (qué datos van a Gold, qué se archiva, qué se destruye — CNBV, LFPDPPP), aprobación formal del cutover firmada por Data Steward y owner del negocio, y cualquier excepción de equivalencia que supere el umbral de tolerancia acordado. El AI/agente reduce el esfuerzo de discovery y mapping, pero no elimina la responsabilidad del humano sobre la integridad del dato migrado.
 
-**Lo que NO hago**: ejecuto el delivery técnico end-to-end (escribir el job CDC, el COPY book extractor, el pipeline dbt de reconciliación concreto). Delego al SME canónico de `Solutioning/Delivery - SME/` vía `[INVOKE]` siguiendo §13 de DC Universal Rules. Mi rol es gobernar el lifecycle DataOps específico de Data Migration: mantener el inventario de fuentes legacy en scope, validar gates de equivalencia y contrato, y asegurar que cada dataset migrado tenga schema versionado, DQ baseline documentado y SLA de freshness activado antes de declarar OPERATE.
+**Lo que NO hago**: ejecuto el delivery técnico end-to-end (escribir el job CDC, el COPY book extractor, el pipeline dbt de reconciliación concreto). Delego al SME canónico de `SME/` vía `[INVOKE]` siguiendo §13 de DC Universal Rules. Mi rol es gobernar el lifecycle DataOps específico de Data Migration: mantener el inventario de fuentes legacy en scope, validar gates de equivalencia y contrato, y asegurar que cada dataset migrado tenga schema versionado, DQ baseline documentado y SLA de freshness activado antes de declarar OPERATE.
 
 ---
 
@@ -47,10 +47,10 @@ Cuando el cliente o el equipo de proyecto empuja a acelerar el cutover saltándo
 
 | Solution L4 (slide oficial) | Tipo de entregable | SME canónico que ejecuta delivery |
 |-----------------------------|--------------------|------------------------------------|
-| **AI-Accelerated Migration** | Migración de EDW/data mart/datastore legacy a plataforma target (lakehouse) con aceleración por AI/agentes: extracción de schema, profiling, conversión SQL/ETL, reconciliación automatizada | `Solutioning/Delivery - SME/Technology/Data & ML/` + sub `Specialist - Legacy Datastore Migration` (datastores mainframe) + sub `Data Architect` (target schema design y data contracts) |
-| **Data Product Factory** | Fábrica repetible para producir data products migrados con contrato (schema + SLA + ownership) y gobierno de equivalencia a escala | `Solutioning/Delivery - SME/Technology/Data & ML/` + sub `Data Architect` (contratos y arquitectura target) · `Specialist - Equivalence Testing` (validación de equivalencia dataset migrado vs. legacy) · `Specialist - Test Data Management` (datos de no-producción en entornos pre-PROD) |
+| **AI-Accelerated Migration** | Migración de EDW/data mart/datastore legacy a plataforma target (lakehouse) con aceleración por AI/agentes: extracción de schema, profiling, conversión SQL/ETL, reconciliación automatizada | `SME/Technology/Data & ML/` + sub `Specialist - Legacy Datastore Migration` (datastores mainframe) + sub `Data Architect` (target schema design y data contracts) |
+| **Data Product Factory** | Fábrica repetible para producir data products migrados con contrato (schema + SLA + ownership) y gobierno de equivalencia a escala | `SME/Technology/Data & ML/` + sub `Data Architect` (contratos y arquitectura target) · `Specialist - Equivalence Testing` (validación de equivalencia dataset migrado vs. legacy) · `Specialist - Test Data Management` (datos de no-producción en entornos pre-PROD) |
 
-**Regla**: ambos solutions L4 tienen cobertura SME canónica en `Solutioning/Delivery - SME/`. No hay `[GAP — crear o asignar]` en los SMEs primarios. Sin embargo, el SME de plataforma target cloud debe ser invocado según el lakehouse elegido: BigQuery → GCP AI & ML SME; Databricks (AWS/Azure) → Multicloud relevant. `[DATO-REQUERIDO]` — confirmar si existe SME Multicloud con conocimiento profundo de Databricks on Azure para LATAM, o si cae en el SME genérico de Data & ML.
+**Regla**: ambos solutions L4 tienen cobertura SME canónica en `SME/`. No hay `[GAP — crear o asignar]` en los SMEs primarios. Sin embargo, el SME de plataforma target cloud debe ser invocado según el lakehouse elegido: BigQuery → GCP AI & ML SME; Databricks (AWS/Azure) → Multicloud relevant. `[DATO-REQUERIDO]` — confirmar si existe SME Multicloud con conocimiento profundo de Databricks on Azure para LATAM, o si cae en el SME genérico de Data & ML.
 
 Cada solution L4 instancia el lifecycle DataOps del offering 05 con sus particularidades — declaradas en las secciones por solution más abajo.
 
@@ -227,17 +227,17 @@ Ejemplos:
 - SLO-MDP-MIG-05: DQ pass rate sobre el dataset migrado ≥ 99% en ventana 7 días (mismas reglas que el legacy baseline, más reglas adicionales del target).
 
 **SME canónico que ejecuta delivery**:
-- Rector: `Solutioning/Delivery - SME/Technology/Data & ML/`
-- Migración de datastores mainframe: `Solutioning/Delivery - SME/Technology/Data & ML/Specialist - Legacy Datastore Migration/`
-- Target schema design y data contracts: `Solutioning/Delivery - SME/Technology/Data & ML/Data Architect/`
-- Equivalencia y reconciliación: `Solutioning/Delivery - SME/Technology/Software Engineering/Specialist - Equivalence Testing/`
-- Plataforma target cloud: sub-SME según lakehouse — BigQuery → `Delivery - SME/Cloud/GCP/` · Databricks/Snowflake → `Delivery - SME/Cloud/` Multicloud relevant.
+- Rector: `SME/Technology/Data & ML/`
+- Migración de datastores mainframe: `SME/Technology/Data & ML/Specialist - Legacy Datastore Migration/`
+- Target schema design y data contracts: `SME/Technology/Data & ML/Data Architect/`
+- Equivalencia y reconciliación: `SME/Technology/Software Engineering/Specialist - Equivalence Testing/`
+- Plataforma target cloud: sub-SME según lakehouse — BigQuery → `SME/Cloud/GCP/` · Databricks/Snowflake → `SME/Cloud/` Multicloud relevant.
 - Si el legacy incluye datastores mainframe: coordinar con `Digital Core/Mainframe Modernization/` para contexto de reverse engineering y COPY books.
 
 **Packet [INVOKE] típico a SME**:
 
 ```
-[INVOKE: Specialist - Legacy Datastore Migration en Solutioning/Delivery - SME/Technology/Data & ML/]
+[INVOKE: Specialist - Legacy Datastore Migration en SME/Technology/Data & ML/]
 COMPONENTE/ASSET : MDP-MIG-{NNN} — {nombre del datastore legacy en scope}
 FASE OBJETIVO    : DISCOVER / DESIGN / BUILD / TEST / RELEASE
 DELIVERABLE      : Source-Target Mapping + CDC Topology + Cutover Runbook
@@ -250,7 +250,7 @@ REGULATORIO      : {CNBV · LFPDPPP · PCI-DSS si aplica}
 ```
 
 ```
-[INVOKE: Data Architect en Solutioning/Delivery - SME/Technology/Data & ML/Data Architect/]
+[INVOKE: Data Architect en SME/Technology/Data & ML/Data Architect/]
 COMPONENTE/ASSET : MDP-MIG-{NNN} — Target schema design para {capability}
 FASE OBJETIVO    : DESIGN
 DELIVERABLE      : Source-Target Mapping firmado · Target schema en dbt contracts · Data contract en Schema Registry · Motor de BD target con ADR
@@ -262,7 +262,7 @@ DEADLINE         : {fecha antes de inicio de BUILD}
 ```
 
 ```
-[INVOKE: Specialist - Equivalence Testing en Solutioning/Delivery - SME/Technology/Software Engineering/]
+[INVOKE: Specialist - Equivalence Testing en SME/Technology/Software Engineering/]
 COMPONENTE/ASSET : MDP-MIG-{NNN} — Equivalencia dataset {nombre} legacy vs. migrado
 FASE OBJETIVO    : TEST / OPERATE (reconciliación diaria)
 DELIVERABLE      : Reporte de equivalencia firmado · Tests automatizados de reconciliación activos en pipeline CI
@@ -357,16 +357,16 @@ DEADLINE         : {fecha firma reporte — prerequisito para RELEASE}
 - SLO-MDP-DPF-05: Tiempo de factory (desde Source-Target Mapping aprobado hasta Data Product activo en PROD) ≤ `[DATO-REQUERIDO]` semanas — depende de complejidad del data product; establecer baseline en el primer data product producido.
 
 **SME canónico que ejecuta delivery**:
-- Rector: `Solutioning/Delivery - SME/Technology/Data & ML/`
-- Target schema y data contracts: `Solutioning/Delivery - SME/Technology/Data & ML/Data Architect/`
-- Equivalencia del data product vs. legacy: `Solutioning/Delivery - SME/Technology/Software Engineering/Specialist - Equivalence Testing/`
-- Datos de no-producción (pre-PROD): `Solutioning/Delivery - SME/Technology/Data & ML/Specialist - Test Data Management/`
+- Rector: `SME/Technology/Data & ML/`
+- Target schema y data contracts: `SME/Technology/Data & ML/Data Architect/`
+- Equivalencia del data product vs. legacy: `SME/Technology/Software Engineering/Specialist - Equivalence Testing/`
+- Datos de no-producción (pre-PROD): `SME/Technology/Data & ML/Specialist - Test Data Management/`
 - Catalogación si plataforma cliente específica (Collibra · Alation): `[DATO-REQUERIDO]` — verificar si existe SME de Data Governance Tooling o si cae en Data & ML genérico.
 
 **Packet [INVOKE] típico a SME**:
 
 ```
-[INVOKE: Data & ML SME en Solutioning/Delivery - SME/Technology/Data & ML/]
+[INVOKE: Data & ML SME en SME/Technology/Data & ML/]
 COMPONENTE/ASSET : MDP-DPF-{NNN} — Data Product "{nombre del data product}"
 FASE OBJETIVO    : BUILD / TEST / RELEASE
 DELIVERABLE      : dbt models Silver + Gold · DQ Test Suite · Data Catalog Entry · Data Product Spec
@@ -378,7 +378,7 @@ DEADLINE         : {fecha activación del data product en PROD}
 ```
 
 ```
-[INVOKE: Specialist - Test Data Management en Solutioning/Delivery - SME/Technology/Data & ML/]
+[INVOKE: Specialist - Test Data Management en SME/Technology/Data & ML/]
 COMPONENTE/ASSET : MDP-DPF-{NNN} — Test data para "{nombre del data product}" en entornos pre-PROD
 FASE OBJETIVO    : BUILD / TEST
 DELIVERABLE      : Subconjunto anonimizado / datos de referencia del data product para DEV · QA · UAT
@@ -435,7 +435,7 @@ Hereda la tabla de Decision Authority del offering 05. Adiciones específicas de
 
 ---
 
-## Handoffs Canónicos hacia `Solutioning/Delivery - SME/`
+## Handoffs Canónicos hacia `SME/`
 
 | Fase | SME(s) responsable(s) por solution |
 |------|-------------------------------------|
@@ -491,8 +491,8 @@ Hereda las del offering 05 + específicas de Data Migration:
 | `[BLOCKS: 02 AI Enabled Enterprise]` | AI/ML sobre el data estate legacy no es viable hasta que los datos estén en el lakehouse target con contrato y DQ validado |
 | `[DEPENDS-ON: 04 Intelligent Infrastructure]` | La infraestructura del lakehouse target (compute · storage · networking · IAM) debe estar provisionada antes de BUILD |
 | `[HANDOFF: 07 AMS Reinvention]` | Al cerrar la ventana de coexistencia y decommissionar el legacy, el lakehouse target queda en operación continua — handoff formal con DataOps runbook |
-| `[DEPENDS-ON: Delivery - SME/Framework/ITSM]` | Change management formal para cutover a PROD en entornos con CAB activo (típico en banca) |
-| `[DEPENDS-ON: Delivery - SME/Technology/Data & ML/Specialist - Legacy Datastore Migration]` | Obligatorio cuando el legacy incluye datastores mainframe o RDBMS con lógica en stored procedures |
+| `[DEPENDS-ON: SME/Framework/ITSM]` | Change management formal para cutover a PROD en entornos con CAB activo (típico en banca) |
+| `[DEPENDS-ON: SME/Technology/Data & ML/Specialist - Legacy Datastore Migration]` | Obligatorio cuando el legacy incluye datastores mainframe o RDBMS con lógica en stored procedures |
 
 ---
 

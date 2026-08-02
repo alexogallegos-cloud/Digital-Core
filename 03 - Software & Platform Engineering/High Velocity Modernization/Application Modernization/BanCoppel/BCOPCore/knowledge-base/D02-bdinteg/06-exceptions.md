@@ -122,3 +122,36 @@ Por ejemplo:
 
 ---
 *Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdinteg_*.sql*
+
+<!-- LOG-DATA-BEGIN -->
+## Hallazgos de producción — Logs 2026-04-24
+> Fuente: `source/logs/errores_bus_2026-04-24_*.txt` · Incorporado: 2026-08-01
+
+**Total errores del dominio:** 4,307 · **Códigos distintos:** 6
+
+| Código | Descripción | Volumen/día | Servicios afectados |
+|--------|-------------|-------------|---------------------|
+| `3381` | Fallo en lectura de imagen por SFTP — postActualizaImagen Po | 3,244 | PrestamoNominaExpedienteDigital |
+| `4395` | Unhandled exception en plugin IIB — NullPointerException en  | 524 | CoppelBot, CoppelCom, CuentaN2 |
+| `4394` | Unhandled exception en plugin IIB — MbUserException genérica | 314 | Cliente, Cliente2, CoppelCom |
+| `3743` | Handle Timed-out — timeout en conexión SOAP/JNI con sistema  | 154 | Cliente, Cliente2 |
+| `5004` | XML parsing error — trama de respuesta malformada | 65 | Nip |
+| `3701` | Error en JNI Call — Axis2Invoker fallo de comunicación SOAP  | 6 | Cliente, Cliente2 |
+
+### SPs con mayor tasa de error
+
+| SP | Llamadas/día | Errores/día | Error% |
+|----|-------------|-------------|--------|
+| `sp_consultacten2` | 29,221 | 29,166 | 99.81% |
+| `sp_consulta_datos_cte_coppel` | 39,497 | 1,580 | 4.0% |
+| `sp_valida_huellacte_dec` | 9,379 | 290 | 3.09% |
+| `sp_guardar_bitacora_rostro` | 2,596 | 80 | 3.08% |
+| `sp_ws_valida_cotel` | 20,974 | 377 | 1.8% |
+| `sp_obtenerctas_cte2_web` | 6,710 | 112 | 1.67% |
+| `sp_grabacomparacionhuelladec` | 4,008 | 64 | 1.6% |
+| `val_fechas_web` | 33,364 | 355 | 1.06% |
+| `sp_obtclavetarjeta` | 8,332 | 88 | 1.06% |
+| `sp_obtieneinfprod2` | 5,952 | 41 | 0.69% |
+
+*Generado por generate-kb-from-logs.py · 2026-08-01*
+<!-- LOG-DATA-END -->

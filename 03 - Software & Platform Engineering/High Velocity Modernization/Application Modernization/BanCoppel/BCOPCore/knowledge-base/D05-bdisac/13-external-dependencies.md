@@ -41,9 +41,40 @@ Las dependencias externas en SPL se manifiestan como: (1) nombres de proveedores
 | DEP-13 | `bdisitesp` (BDISITESP) | Cross-DB call (dominio interno) | 🟡 MEDIA | 3 SPs hacen cross-DB |
 | DEP-14 | `bdisolic` (Solicitudes) | Cross-DB call (dominio interno) | 🟡 MEDIA | 1 SPs hacen cross-DB |
 | DEP-15 | `sysmaster` (Sysmaster (Informix interno)) | Cross-DB call (dominio interno) | 🟡 MEDIA | 1 SPs hacen cross-DB |
-| DEP-16 | SmartVista (inversiones) | Sistema externo | 🟠 ALTA | Detectado en comentarios / nombres de SP |
-| DEP-17 | Western Union (remesas) | Sistema externo | 🟠 ALTA | Detectado en comentarios / nombres de SP |
-| DEP-18 | SOFOM (productos SAC) | Sistema externo | 🟠 ALTA | Detectado en comentarios / nombres de SP |
+| DEP-16 | SmartVista (inversiones) | Sistema externo | ALTA | Detectado en comentarios / nombres de SP |
+| DEP-17 | Western Union (remesas) | Sistema externo | ALTA | Detectado en comentarios / nombres de SP |
+| DEP-18 | SOFOM (productos SAC) | Sistema externo | ALTA | Detectado en comentarios / nombres de SP |
+| DEP-19 | APPRIZA — CFPA (Confirmación Fondos Para Acreditación) | Sistema externo — remesas internacionales | CRITICA | Logs producción 2026-04-24 · P655-R003 |
+
+---
+
+## DEP-19 · APPRIZA — Confirmación de Fondos Para Acreditación (CFPA)
+
+> **Fuente:** `source/logs/transacciones_bus_20260424_*.log` · Incorporado: 2026-08-01
+
+**Criticidad:** CRITICA — integración obligatoria para toda remesa internacional. Sin confirmación APPRIZA la remesa queda en estado PENDIENTE indefinido.
+
+| Atributo | Valor |
+|----------|-------|
+| Tipo | Sistema externo de confirmación de remesas internacionales (CFPA) |
+| Protocolo | HTTP/SOAP vía ESB BanCoppel |
+| SP que lo invoca | `sp_app_confirmpayment` (DSN: `ifx_bdisac_remesas`) |
+| Job batch que lo usa | `RemesasAPPRIZAAutomaticas` (ver BATCH-D05-01 en 11-batch-processes.md) |
+| Volumen producción | 61,280 llamadas/día · 8.7% tasa de error |
+| Códigos de respuesta | `0000` = éxito CFPA confirmada · `9999` = error inesperado |
+| UUID de sesión | `22e4e9ee-32ea-484e-b89f-2573549bc625` fijo en todas las llamadas batch |
+| Problema SSL conocido | `RemesasAPPRIZACanalesExternos` sufre timeouts ~30s (código ESB 3165, 7 instancias/hora) |
+| Riesgo regulatorio | Banxico Circular 14/2017 — notificar fallo en transferencias al exterior en máx. 2 días hábiles |
+
+**Impacto de fallo:**
+El cliente ya fue debitado. El destinatario no recibe fondos. La remesa queda `PENDIENTE` en `sp_app_recordorder` sin notificación automática ni devolución. Aprox. 400 clientes afectados por día.
+
+**Plan de mitigación para target:**
+1. Circuit breaker (Resilience4j) para llamadas a APPRIZA
+2. `max_retries=3` con backoff exponencial en el batch
+3. Tabla `reconciliacion_remesas` para pendientes que superen max_retries
+4. Notificación automática al cliente y flag regulatorio CNBV al exceder plazo
+5. Validar con APPRIZA si el UUID compartido es el diseño correcto de autenticación batch
 
 ---
 ## DEP-01 · IBM Informix IDS 14.10 — Motor de BD (a reemplazar)
@@ -272,3 +303,26 @@ find /opt /home -name "*.cron" 2>/dev/null | head -20
 
 ---
 *Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdisac_*.sql (análisis estático de 58 archivos SQL) · análisis estático de archivos SQL*
+
+<!-- LOG-DATA-BEGIN -->
+## Sistemas externos observados en logs — 2026-04-24
+> Fuente: `source/logs/errores_bus_2026-04-24_*.txt` · Incorporado: 2026-08-01
+
+| Sistema externo | Protocolo | Llamadas observadas | Notas |
+|-----------------|-----------|---------------------|-------|
+| APPRIZA — Canales Externos | SOAP/HTTPS | 2,525 | Servicio ESB: `RemesasAPPRIZACanalesExternos` |
+| APPRIZA — CFPA | SOAP/HTTPS | 17,967 | Servicio ESB: `RemesasAPPRIZA` |
+| Fábrica de Pagos ESB | SOAP/JNI | 256,336 | Servicio ESB: `FabricaPagoServicios` |
+| APPRIZA — CFPA (batch) | SOAP/HTTPS | 182,786 | Servicio ESB: `RemesasAPPRIZAAutomaticas` |
+| PostgreSQL Huellas (target migrado) | JDBC | 1 | Servicio ESB: `Huellas442` |
+
+### Errores de comunicación con externos (SSL / timeout / JNI)
+
+| Código | Descripción | Volumen/día | Servicios |
+|--------|-------------|-------------|-----------|
+| `3743` | Handle Timed-out — timeout en conexión SOAP/JNI con sis | 340 | Caja, Caja2, Caja3 |
+| `3701` | Error en JNI Call — Axis2Invoker fallo de comunicación  | 331 | Caja, Caja2, CajaCliente |
+| `3166` | SSL timeout — timeout durante operación TLS con endpoin | 7 | RemesasAPPRIZA, RemesasAPPRIZACanalesExternos |
+
+*Generado por generate-kb-from-logs.py · 2026-08-01*
+<!-- LOG-DATA-END -->

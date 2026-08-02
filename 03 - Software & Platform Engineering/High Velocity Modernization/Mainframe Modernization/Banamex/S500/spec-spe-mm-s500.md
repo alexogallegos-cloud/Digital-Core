@@ -2,6 +2,7 @@
 > Modernización Mainframe · Banamex · Unisys ClearPath MCP · Digital Core
 > Offering: 03 — Software & Platform Engineering · Sub-Offering: High Velocity Modernization · Solution: Mainframe Modernization
 > Versión: 0.1.0 · Estado: DRAFT · Fase SDLC: DISCOVER · Fecha: 2026-06-30
+> Indexado: ✅ 2026-07-17 — Especificación de modernización (spec S&PE MM)
 
 ---
 
@@ -323,10 +324,10 @@ El sistema produce los **asientos de cargo/abono** que alimentan al sistema cont
 |---|---|---|---|
 | DISCOVER — ETAPA 0-4 | **Specialist - Reverse Engineering** (este offering) | Código fuente S500 | Assessment completo: inventario, call graph, data dict, reglas, bounded contexts |
 | DISCOVER — Static Analysis | **Specialist - Static Analysis Tooling** (este offering) | Código fuente S500 | Métricas de complejidad, dead code, hotspots |
-| DISCOVER — Unisys semántica | **SME Unisys Banking** (`Solutioning/Delivery - SME/Platform/Unisys/`) | Artefactos con `[CONSULTAR→UNISYS]` | Validación de semántica MCP/DMSII; confirmación de transacciones COMS |
-| DISCOVER — Metodología / estimación | **SME Mainframe Migration** (`Solutioning/Delivery - SME/Infrastructure/Mainframe Migration/`) | DISCOVER assessment draft | Business case, estimación de esfuerzo, validación de decisión 7R |
-| DESIGN | **Software Engineering SME** (`Solutioning/Delivery - SME/Technology/Software Engineering/`) | DISCOVER assessment + 7R decision | Target architecture; ADRs de transpilación; stack tecnológico |
-| ALL | **Program Management** (`Solutioning/Delivery - SME/Management/Program Management/`) | §09 Phase Plan | Cronograma, RAID log, dependencias cross-componente con S151 |
+| DISCOVER — Unisys semántica | **SME Unisys Banking** (`SME/Platform/Unisys/`) | Artefactos con `[CONSULTAR→UNISYS]` | Validación de semántica MCP/DMSII; confirmación de transacciones COMS |
+| DISCOVER — Metodología / estimación | **SME Mainframe Migration** (`SME/Infrastructure/Mainframe Migration/`) | DISCOVER assessment draft | Business case, estimación de esfuerzo, validación de decisión 7R |
+| DESIGN | **Software Engineering SME** (`SME/Technology/Software Engineering/`) | DISCOVER assessment + 7R decision | Target architecture; ADRs de transpilación; stack tecnológico |
+| ALL | **Program Management** (`SME/Management/Program Management/`) | §09 Phase Plan | Cronograma, RAID log, dependencias cross-componente con S151 |
 
 ---
 

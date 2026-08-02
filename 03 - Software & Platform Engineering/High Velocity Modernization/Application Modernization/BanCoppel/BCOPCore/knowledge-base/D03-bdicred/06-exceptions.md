@@ -124,3 +124,35 @@ Por ejemplo:
 
 ---
 *Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdicred_*.sql*
+
+<!-- LOG-DATA-BEGIN -->
+## Hallazgos de producción — Logs 2026-04-24
+> Fuente: `source/logs/errores_bus_2026-04-24_*.txt` · Incorporado: 2026-08-01
+
+**Total errores del dominio:** 58 · **Códigos distintos:** 5
+
+| Código | Descripción | Volumen/día | Servicios afectados |
+|--------|-------------|-------------|---------------------|
+| `4394` | Unhandled exception en plugin IIB — MbUserException genérica | 38 | SistemaCredito |
+| `3743` | Handle Timed-out — timeout en conexión SOAP/JNI con sistema  | 10 | SistemaCredito |
+| `3170` | Can't find SOAP body — mensaje de entrada sin estructura SOA | 7 | SistemaCredito |
+| `5714` | No 'Data' element — respuesta sin elemento raíz esperado | 2 | PrestamoPersonal |
+| `3701` | Error en JNI Call — Axis2Invoker fallo de comunicación SOAP  | 1 | SistemaCredito |
+
+### SPs con mayor tasa de error
+
+| SP | Llamadas/día | Errores/día | Error% |
+|----|-------------|-------------|--------|
+| `sp_borrardigi` | 1,319 | 1,308 | 99.17% |
+| `sp_val_datos_promo` | 516 | 435 | 84.3% |
+| `sp_consulta_pre_aprobado` | 38,210 | 29,946 | 78.37% |
+| `obt_datos_caratula` | 10,621 | 8,235 | 77.54% |
+| `sp_tdcoro_web` | 2,273 | 1,719 | 75.63% |
+| `sp_consulta_incremento_linea_tc` | 486 | 303 | 62.35% |
+| `sp_buscarctesamigrar_web` | 6,631 | 839 | 12.65% |
+| `sp_evaldispefec_cred` | 650 | 51 | 7.85% |
+| `sp_constiporepostar` | 2,087 | 163 | 7.81% |
+| `sp_obtiene_tabla_amortizacion_web` | 456 | 21 | 4.61% |
+
+*Generado por generate-kb-from-logs.py · 2026-08-01*
+<!-- LOG-DATA-END -->

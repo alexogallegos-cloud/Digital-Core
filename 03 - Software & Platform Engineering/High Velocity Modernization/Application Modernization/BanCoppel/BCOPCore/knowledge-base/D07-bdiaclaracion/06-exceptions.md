@@ -121,3 +121,24 @@ Por ejemplo:
 
 ---
 *Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdiaclaracion_*.sql*
+
+<!-- LOG-DATA-BEGIN -->
+## Hallazgos de producción — Logs 2026-04-24
+> Fuente: `source/logs/errores_bus_2026-04-24_*.txt` · Incorporado: 2026-08-01
+
+**Total errores del dominio:** 2 · **Códigos distintos:** 1
+
+| Código | Descripción | Volumen/día | Servicios afectados |
+|--------|-------------|-------------|---------------------|
+| `3170` | Can't find SOAP body — mensaje de entrada sin estructura SOA | 2 | CambioDeInstruccion |
+
+### SPs con mayor tasa de error
+
+| SP | Llamadas/día | Errores/día | Error% |
+|----|-------------|-------------|--------|
+| `consctesfirminv` | 1 | 1 | 100.0% |
+| `sp_registra_cte_domiciliacion` | 54 | 38 | 70.37% |
+| `sp_verifica_aclaracion` | 82 | 1 | 1.22% |
+
+*Generado por generate-kb-from-logs.py · 2026-08-01*
+<!-- LOG-DATA-END -->

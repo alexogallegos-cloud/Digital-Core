@@ -1,9 +1,14 @@
 # KB: Capa 3-5 — Capacidades, Tareas y Flujos · Banamex GemCog
+> Indexado: ✅ 2026-07-17 — KB Capa 3 — capacidades
 
 > Base de conocimiento para la construcción de archivos `cap-{slug}.md`
 > Metodología: Gemelo Cognitivo del Sistema · Capas 3, 4 y 5
 > Sistemas: S500 (Cargos/Abonos — Captación) + S151 (Movimientos Contables — GL)
 > Catálogo de reglas: `rules-catalog/` · Vocabulario: `vocab-s151.md` + `vocab-s500.md`
+> **Tipo-artefacto:** `Transversal`  
+> **Capa-GemCog:** `3`  
+> **Propósito:** Síntesis ejecutiva de Capa 3 para consultas de alto nivel sobre el modelo de capacidades sin necesidad de leer los 23 cap-*.md individuales.  
+> **Relacionado-con:** capability-map · traceability-matrix · kb-capa5-fronteras
 
 ---
 
@@ -133,7 +138,7 @@ No construir el diagrama antes de tener las casuísticas. No vincular reglas ant
 
 ## Catálogo de Capacidades — Estado de Cobertura (20/104)
 
-Ver `rules-catalog/INDEX.md` para la lista completa con reglas vinculadas por capacidad.
+Ver `rules-catalog/rules-index.md` para la lista completa con reglas vinculadas por capacidad.
 
 El número total de capacidades (104) corresponde al modelo de capacidades bancarias del portal GemCog (`rules-report-gemcog.html`).
 
@@ -164,7 +169,7 @@ Los archivos `cap-{slug}.md` ya existentes viven en `rules-catalog/` o en una su
 | `vocab-s151.md` + `vocab-s500.md` | Los nombres de Tareas usan el término canónico del vocabulario |
 | `rules-catalog/rules-s151.md` | Fuente de `RN-S151-NNN` para la columna "Reglas vinculadas" |
 | `rules-catalog/rules-s500.md` | Fuente de `RN-S500-NNN` para la columna "Reglas vinculadas" |
-| `rules-catalog/INDEX.md` | Estado de cobertura por capacidad (% de reglas cubiertas por `cap-{slug}.md`) |
+| `rules-catalog/rules-index.md` | Estado de cobertura por capacidad (% de reglas cubiertas por `cap-{slug}.md`) |
 | `rules-report-gemcog.html` | Portal navegable — visualización de capacidades y reglas |
 | `kb-capa5-fronteras.md` | Bounded contexts derivados de las Capacidades de este KB |
 

@@ -1,7 +1,9 @@
-# cap-dep.md — Deposits
-> BIAN: 5.1.1 · Deposit Account · Dominio: 5 · Product Processing
-> Sistema: S500 · Programas: P142 · P144
-> Reglas vinculadas: 16 · Tareas: 15
+# BC-05 · Cuentas de Depósito
+> bian_ref: 5.1.1 Deposits
+> Sistema: S500 · Programas: P142 · P144 · P189 (Art. 61 LIC + sync inter-plaza)
+> Reglas vinculadas: RN-S500-261..302 · RN-S500-361..420 · RN-S151-750..822 · RN-S151-850..915 (241 reglas · trazabilidad automática 2026-07-27)
+> Jerarquía: **N1** Dominio 5 · Product Processing → **N2** Subdominio Product Catalogue → **N3** Capacidad 5.1.1 Deposits → **N4-5** Procesos/Flujo de tareas (ver Inventario de Tareas) → **N6** Reglas (ver Reglas vinculadas)
+> Indexado: ✅ 2026-07-27 — correlacionado vocab↔reglas↔capacidad (build-traceability.py)
 > Generado: 2026-07-16
 
 ---
@@ -35,6 +37,13 @@ El flag **BIT-ACTBANDERA** es el mecanismo central de sincronización de estado 
 | T-DEP-013 | Escritura de trailer BIT-ACTBANDERA y cierre WITH SAVE (NUMNCO=contador, importes en cero) | P144 / WKS-CONTADOR · CLOSE-WITH-SAVE | contable |
 | T-DEP-014 | Cierre de bases de datos y liberación de recursos (BD07ATRIBUCTA, BD01CAPTACION) | P144 / 70001000-CLOSE-BD07ATRIBUCTA | control |
 | T-DEP-015 | Instrumentación MAPLI para audit tracking de llamadas a librería (S038L035, TIPO-ACTI=2) | P144 / S038L035 · W77-ID-ACTXX-MAPLI | control |
+| T-DEP-016 | Determinación de nodo/plaza local y configuración del archivo de intercambio por HOSTNAME (VDM=nodo 10, recibe S084 desde MTY; MTY=nodo 04, recibe S087 desde VDM) | P189 / WKS-CSIL · S084 · S087 | control |
+| T-DEP-017 | Reinicialización masiva de estatus cliente en B09PMOTOR a cero antes de reaplicar movimientos del día (archivos S084/S087 solo transportan bloqueos nuevos, nunca desbloqueos; reinicializar habilita el desbloqueo implícito) | P189 / B09PMOTOR · STA-CTE | control |
+| T-DEP-018 | Marcado de beneficencia STA-BENF (Artículo 61 LIC) para cuentas inactivas con fecha de último movimiento anterior a la fecha de corte Art. 61 y STA-CTE=0; apagado si cliente vuelve a tener movimiento o queda bloqueado | P189 / STA-BENF · FECHA-ULT-MOV · FECHA-CORTE-ART61 | cumplimiento |
+| T-DEP-019 | Propagación condicional de fecha de último movimiento y estatus cliente a estructura histórica B06 (fecha solo sobrescribe si B09PMOTOR más reciente que B06; estatus solo copia cuando difiere del histórico) | P189 / B06 · B09PMOTOR · WKS-FEC-ULT-MOV | sincronización |
+| T-DEP-020 | Rechazo early de registros con número de cliente inválido (cero o 999999999999) sin escritura ni log; previene procesamiento de registros relleno o nulos del archivo de intercambio | P189 / WKS-NUM-CLIENTE | validación |
+
+> **Nota de cobertura P142:** El inventario de tareas de esta capacidad cubre únicamente el rol S408LINCRED de P142 (T-DEP-001 / RN-S500-134). La función primaria de P142 — extracción del universo de contratos B01CONTRATOS hacia el archivo CTOREP para Teradata (RN-S500-123..133, 135..137, 14 reglas) — no tiene tareas asignadas en esta capacidad. Esas reglas corresponden a funcionalidad de extracción analítica (candidata a un cap de tipo Reporting/Data Export) y están documentadas en `rules-catalog/rules-s500-p020-p142-p144.md`. Un ingeniero de transpilación debe leer ese archivo directamente para cubrir la lógica CTOREP de P142.
 
 ---
 
@@ -122,6 +131,11 @@ flowchart TD
 | T-DEP-013 | RN-S500-145 | P144 — WKS-CONTADOR / NUMNCO / CLOSE-WITH-SAVE | Trailer: TIPREG=09, NUMNCO=WKS-CONTADOR; NUMABO/IMPABO/NUMCAR/IMPCAR=0 (sin valor monetario); CLOSE BIT-ACTBANDERA WITH SAVE; si WKS-CONTADOR=0 el receptor debe aceptar header+trailer como ejecución válida |
 | T-DEP-014 | RN-S500-149 | P144 — 70001000-CLOSE-BD07ATRIBUCTA / WS-0101-TEXT-MSG | BUG copy-paste: mensaje en CLOSE-BD07ATRIBUCTA dice "ERROR AL ABRIR LA BD CAPTACION" en lugar de "ERROR AL ABRIR LA BD ATRIBUCTA"; operadores pueden investigar BD equivocada durante incidentes; impacto operativo, no funcional |
 | T-DEP-015 | RN-S500-152 | P144 — S038L035 / W77-ID-ACTXX-MAPLI / W77-ID-ERR-LIB-MAPLI | MAPLI audit tracking: 70000900-INICALL/FINCALL-LIB instrumenta llamadas a librería (TIPO-ACTI=2); W77-ID-ERR-LIB-MAPLI=1 suprime errores subsecuentes de S038L035 para evitar tormenta de errores de auditoría |
+| T-DEP-016 | RN-S500-367 | P189 — WKS-CSIL / S084 / S087 | Modelo activo-activo inter-plaza: VDM (HOSTNAME=nodo 10) recibe S084 (movimientos desde MTY); MTY (nodo 04) recibe S087 (movimientos desde VDM); objetivo: empatar BD01CAPTACION en ambas plazas; HOSTNAME hardcodeado como criterio de routing |
+| T-DEP-017 | RN-S500-368 | P189 — B09PMOTOR / STA-CTE | Reinicialización a cero de estatus cliente en B09PMOTOR antes de aplicar movimientos del día; archivos S084/S087 solo transportan bloqueos (nuevas marcas), nunca desbloqueos; el desbloqueo es efecto secundario de la reinicialización + reaplicación solo de bloqueos vigentes del día |
+| T-DEP-018 | RN-S500-369 | P189 — STA-BENF / FECHA-ULT-MOV / STA-CTE / FECHA-CORTE-ART61 | Marca STA-BENF (Art. 61 LIC — CNBV): activa si FECHA-ULT-MOV < FECHA-CORTE-ART61 y STA-CTE=0 (desbloqueado); desactiva si cliente registra movimiento posterior o queda bloqueado; error en migración → traspaso indebido a Beneficencia Pública (impacto regulatorio CNBV) |
+| T-DEP-019 | RN-S500-370 | P189 — B06 / B09PMOTOR / WKS-FEC-ULT-MOV / STA-CLIENTE | Sync B06 histórico: fecha último movimiento actualiza solo si B09PMOTOR más reciente que B06 (invariante: nunca retrocede); estatus cliente se copia solo cuando difiere; evita sobrescritura de historial consolidado con datos más antiguos de plaza secundaria |
+| T-DEP-020 | RN-S500-371 | P189 — WKS-NUM-CLIENTE | Rechazo early: cliente = 0 o = 999999999999 (valor relleno DMSII) → skip sin escritura ni log; registros rechazados no incrementan contadores; volumen alto de inválidos puede enmascarar problema upstream sin alerta |
 
 ---
 
@@ -138,6 +152,35 @@ flowchart TD
 
 ---
 
-*cap-dep.md · v1.0 · 2026-07-16*
+## Ampliación — P189
+
+### Contexto funcional
+
+**P189** (COBOL, 4,436 LOC, dominio CAPTACION) es el componente de sincronización inter-plaza del sistema S500. Opera bajo el modelo activo-activo de las dos instancias regionales de Banamex (Valle de México y Monterrey): recibe los movimientos de la plaza contraria a través de los archivos S084 (desde MTY hacia VDM) o S087 (desde VDM hacia MTY), los aplica sobre la base local B09PMOTOR y propaga el estado consolidado a la estructura histórica B06. Además implementa el cumplimiento del Artículo 61 de la Ley de Instituciones de Crédito, marcando las cuentas inactivas elegibles para traspaso a la Cuenta Global de Beneficencia Pública (journey F-06, vinculado con P130 y P186 en el lado del dispatcher).
+
+La lógica de desbloqueo de P189 es implícita: no existe instrucción explícita de desbloqueo en el código. El desbloqueo es el efecto secundario de reinicializar B09PMOTOR a cero antes de reaplicar solo los bloqueos vigentes del día. Esta es la invariante de diseño más crítica para la transpilación: cualquier arquitectura target que use eventos explícitos de bloqueo/desbloqueo debe generar desbloqueos activamente para replicar este comportamiento.
+
+### Reglas vinculadas
+
+| ID | Descripción | Componente | Criticidad migración |
+|----|-------------|------------|----------------------|
+| RN-S500-367 | Sincronización activo-activo VDM↔MTY vía S084/S087 por HOSTNAME | P189 · S084 · S087 · WKS-CSIL | Alta |
+| RN-S500-368 | Reinicialización B09PMOTOR a cero (desbloqueo implícito, no explícito) | P189 · B09PMOTOR · STA-CTE | Alta |
+| RN-S500-369 | Marca STA-BENF Art. 61 LIC por inactividad — CNBV | P189 · STA-BENF · FECHA-CORTE-ART61 | CRÍTICA |
+| RN-S500-370 | Propagación condicional B06 histórico (fecha nunca retrocede) | P189 · B06 · B09PMOTOR | Media |
+| RN-S500-371 | Rechazo early de clientes inválidos (0 o 999999999999) | P189 · WKS-NUM-CLIENTE | Baja |
+
+### Hallazgos de migración P189
+
+| # | Hallazgo | Impacto | Recomendación |
+|---|---------|---------|---------------|
+| DEP-P189-H01 | **CRÍTICO — STA-BENF Art. 61 LIC sin fecha de corte parametrizada** (RN-S500-369): la fecha de corte que activa la marca de beneficencia es un parámetro operacional embebido en la lógica COBOL. Si el servicio target no replica exactamente el mismo criterio de comparación (FECHA-ULT-MOV vs FECHA-CORTE-ART61), puede generar traspasos indebidos a Beneficencia Pública o dejar cuentas elegibles sin marcar. Ambos escenarios tienen impacto regulatorio ante CNBV. | Regulatorio — CNBV Art. 61 LIC · impacto financiero directo sobre saldos de clientes | Documentar FECHA-CORTE-ART61 como parámetro de configuración explícito en el servicio target con validación de fuente autoritativa (no hardcodeado). Incluir en test de equivalencia funcional obligatorio con cobertura de casos límite (día exacto del corte, día anterior, día posterior). |
+| DEP-P189-H02 | **ALTO — Desbloqueo implícito vía reinicialización B09PMOTOR** (RN-S500-368): no existe instrucción explícita de desbloqueo en P189. El desbloqueo es consecuencia de reinicializar a cero y reaplicar solo bloqueos del día. En una arquitectura target con eventos explícitos de bloqueo/desbloqueo, si los desbloqueos no se generan activamente, los clientes que dejaron de tener bloqueos quedarán bloqueados indefinidamente. | Integridad de datos — bloqueos que deberían liberarse permanecen activos | En el target, diseñar la transición como: (1) desbloquear todo al inicio del batch o (2) comparar estado anterior vs nuevo y emitir desbloqueo explícito cuando un bloqueo desaparece. Documentar como invariante de negocio en el ADR de diseño del servicio target. |
+| DEP-P189-H03 | **ALTO — HOSTNAME hardcodeado como criterio de routing inter-plaza** (RN-S500-367): el nodo VDM (10) o MTY (04) se determina por el HOSTNAME del servidor batch Unisys. En cloud-native, el concepto de HOSTNAME de servidor físico desaparece. Sin reemplazo explícito, el routing entre regiones queda sin mecanismo. | Disponibilidad — routing inter-plaza cae si no se migra el mecanismo | Migrar el criterio de routing a variable de entorno de región/zona (p. ej., `REGION=VDM\|MTY`) o a parámetro de configuración del pipeline. Documentar en ADR de arquitectura target el reemplazo de HOSTNAME por abstracción de región. |
+| DEP-P189-H04 | **MEDIO — Invariante temporal B06 "fecha nunca retrocede" solo en código** (RN-S500-370): la regla de que la fecha de último movimiento nunca retrocede está implementada como una comparación en COBOL sin restricción en la capa de persistencia. En el target, si la capa de datos no impone esta restricción, una actualización concurrente o una reentrega de evento puede sobrescribir la fecha con un valor más antiguo. | Integridad de datos — historial corrupto produce reportes incorrectos de inactividad (afecta Art. 61) | Implementar la restricción de "fecha nunca retrocede" en la capa de persistencia (check constraint, o lógica de merge idempotente en el repositorio). Incluir caso de prueba explícito: intentar actualizar con fecha anterior a la existente y verificar rechazo. |
+
+---
+
+*cap-dep.md · v1.1 · 2026-07-22*
 *BIAN 5.1.1 · Deposit Account · Product Processing*
-*Reglas: 16 · Tareas: 15*
+*Reglas: 21 · Tareas: 20 · [Ampliación P189 — 2026-07-22 · Validado Mario SME S500]*

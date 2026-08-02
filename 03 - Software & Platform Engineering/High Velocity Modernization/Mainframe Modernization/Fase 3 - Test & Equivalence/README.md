@@ -12,8 +12,8 @@
 
 | SME | Rol en la fase |
 |---|---|
-| `Solutioning/Delivery - SME/Technology/Software Engineering/Specialist - Equivalence Testing/` | Golden master framework · comparator · métricas de drift · DoD-SPE-MM-01 ≥ 99.99% |
-| `Solutioning/Delivery - SME/Technology/Data & ML/Specialist - Test Data Management/` | Dataset de regresión (6 meses producción) · anonimización · versionado de datos de prueba |
+| `SME/Technology/Software Engineering/Specialist - Equivalence Testing/` | Golden master framework · comparator · métricas de drift · DoD-SPE-MM-01 ≥ 99.99% |
+| `SME/Technology/Data & ML/Specialist - Test Data Management/` | Dataset de regresión (6 meses producción) · anonimización · versionado de datos de prueba |
 
 Ambos SMEs deben trabajar en coordinación: Test Data Management provee el dataset; Equivalence Testing lo consume para construir el comparator.
 
@@ -43,7 +43,7 @@ Construir el framework de equivalencia funcional que permite demostrar, de forma
 ## Packet `[INVOKE]` — Equivalence Testing
 
 ```
-[INVOKE: Solutioning/Delivery - SME/Technology/Software Engineering/Specialist - Equivalence Testing/]
+[INVOKE: SME/Technology/Software Engineering/Specialist - Equivalence Testing/]
 COMPONENTE      : SPE-MM-{NNN} — {nombre del sistema}
 EQUIVALENCIA    : DoD-SPE-MM-01 ≥ 99.99% — banca CNBV reconciliación contable
 STACK-LEGACY    : Unisys ClearPath MCP · COBOL · DMSII · aritmética COMP-3
@@ -56,7 +56,7 @@ DELIVERABLE     : equivalence-framework + golden-master-spec + packed-decimal-te
 ## Packet `[INVOKE]` — Test Data Management
 
 ```
-[INVOKE: Solutioning/Delivery - SME/Technology/Data & ML/Specialist - Test Data Management/]
+[INVOKE: SME/Technology/Data & ML/Specialist - Test Data Management/]
 COMPONENTE      : SPE-MM-{NNN} — {nombre del sistema}
 DATOS-FUENTE    : DMSII {schemas: CAPTACION · BD04TARJETAS · ...} + logs SUMLOG 6 meses
 RESTRICCIONES   : PII bancario · datos de producción · CNBV retención 10 años

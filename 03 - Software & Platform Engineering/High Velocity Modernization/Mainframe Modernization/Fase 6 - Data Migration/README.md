@@ -10,7 +10,7 @@
 
 ## Quién ejecuta esta fase
 
-**SME ejecutor:** `Solutioning/Delivery - SME/Technology/Data & ML/Specialist - Legacy Datastore Migration/`
+**SME ejecutor:** `SME/Technology/Data & ML/Specialist - Legacy Datastore Migration/`
 
 ## Objetivo de la fase
 
@@ -57,7 +57,7 @@ Diseñar y ejecutar la migración del datastore legacy (DMSII para Unisys · DB2
 ## Packet `[INVOKE]`
 
 ```
-[INVOKE: Solutioning/Delivery - SME/Technology/Data & ML/Specialist - Legacy Datastore Migration/]
+[INVOKE: SME/Technology/Data & ML/Specialist - Legacy Datastore Migration/]
 COMPONENTE      : SPE-MM-{NNN} — {nombre del sistema}
 DATASTORE-ORIGEN: Unisys DMSII · {N} schemas · {N} record types · {LOC total DASDL}
 DATASTORE-TARGET: {PostgreSQL / Aurora / Oracle} en {cloud target}

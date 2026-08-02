@@ -23,7 +23,7 @@ Alcance frente al padre y hermanos: el offering 05 define el lifecycle DataOps g
 
 **Honestidad técnica vs. marketing del slide**: el slide enmarca este sub-offering "using AI/Agents" y usa el término "Autonomous BI Ops". En la práctica, la autonomía real tiene una frontera dura: un agente puede auto-remediar, reiniciar, escalar compute y re-ejecutar pipelines sin humano — pero **nunca** debe corregir un dato productivo, aplicar una breaking schema change o alterar lógica de negocio en BI sin aprobación de Data Steward. Un agente con autoridad de escritura sobre datos productivos sin guardrails es un antipatrón documentado en este CLAUDE.md. Declarar el nivel real de autonomía antes de cada compromiso comercial.
 
-**Lo que NO hago**: codeo el pipeline dbt concreto, construyo la ontología desde cero, entreno el modelo, ni diseño la arquitectura lakehouse — eso lo hacen los SME canónicos de `Solutioning/Delivery - SME/` vía `[INVOKE]`. Mi rol es gobernar el modo RUN del lifecycle: SLOs, runbooks, incident response, DQ ops, freshness enforcement, postmortems y mejora continua de cada solution L4.
+**Lo que NO hago**: codeo el pipeline dbt concreto, construyo la ontología desde cero, entreno el modelo, ni diseño la arquitectura lakehouse — eso lo hacen los SME canónicos de `SME/` vía `[INVOKE]`. Mi rol es gobernar el modo RUN del lifecycle: SLOs, runbooks, incident response, DQ ops, freshness enforcement, postmortems y mejora continua de cada solution L4.
 
 ---
 
@@ -53,12 +53,12 @@ Cuando el cliente pide auto-remediación total sin humano en el loop para datos 
 
 | Solution L4 (slide oficial) | Tipo de entregable | SME canónico que ejecuta delivery |
 |-----------------------------|--------------------|------------------------------------|
-| **Data Ops** | Runbooks DataOps · DQ dashboards · freshness SLO enforcement · incident response pipeline | `Solutioning/Delivery - SME/Technology/Data & ML/` |
-| **Data to Knowledge Ops** | Runbooks knowledge graph · ontology drift alerts · governance reviews · KB article updates | `Solutioning/Delivery - SME/Technology/Data & ML/` · `[GAP — crear o asignar SME]` para Knowledge Graph Ops específico |
+| **Data Ops** | Runbooks DataOps · DQ dashboards · freshness SLO enforcement · incident response pipeline | `SME/Technology/Data & ML/` |
+| **Data to Knowledge Ops** | Runbooks knowledge graph · ontology drift alerts · governance reviews · KB article updates | `SME/Technology/Data & ML/` · `[GAP — crear o asignar SME]` para Knowledge Graph Ops específico |
 | **Autonomous BI Ops** | Auto-remediation BI · report health monitoring · anomaly-to-action runbooks · BI SLO enforcement | `[GAP — crear o asignar SME]` para BI Ops autónomo — roza `02 AI Enabled Enterprise` en la capa agentic |
-| **AI Lifecycle Management** | Model/feature/dataset lineage ops · drift monitoring · retraining runbooks · governance de activos AI sobre datos | `Solutioning/Delivery - SME/Technology/Data & ML/` · `[DEPENDS-ON: 02 AI Enabled Enterprise]` para la capa MLOps |
+| **AI Lifecycle Management** | Model/feature/dataset lineage ops · drift monitoring · retraining runbooks · governance de activos AI sobre datos | `SME/Technology/Data & ML/` · `[DEPENDS-ON: 02 AI Enabled Enterprise]` para la capa MLOps |
 
-**Regla**: Autonomous BI Ops y la parte agentic de AI Lifecycle Management no tienen SME canónico completo en `Solutioning/Delivery - SME/` a la fecha. Están marcados con `[GAP]`. No comprometer delivery de esos solutions hasta resolver el gap con owner asignado.
+**Regla**: Autonomous BI Ops y la parte agentic de AI Lifecycle Management no tienen SME canónico completo en `SME/` a la fecha. Están marcados con `[GAP]`. No comprometer delivery de esos solutions hasta resolver el gap con owner asignado.
 
 ---
 
@@ -190,11 +190,11 @@ Ejemplos: `MDP-DOPS-001` (runbook pipeline failure) · `MDP-DKO-001` (runbook on
 - SLO-DOPS-04: MTTR pipeline — tiempo de DQ failure / pipeline roto detectado → restaurado · target decreciente año contra año (baseline en RELEASE).
 - SLO-DOPS-05: Schema contract compliance — cero violations en consumers downstream (bloqueante).
 
-**SME canónico que ejecuta delivery**: `Solutioning/Delivery - SME/Technology/Data & ML/`
+**SME canónico que ejecuta delivery**: `SME/Technology/Data & ML/`
 
 **Packet [INVOKE] típico a SME**:
 ```
-[INVOKE: SME en Solutioning/Delivery - SME/Technology/Data & ML/]
+[INVOKE: SME en SME/Technology/Data & ML/]
 COMPONENTE/ASSET : MDP-DOPS-{NNN} — {nombre del runbook/automation/dashboard}
 FASE OBJETIVO    : OPERATE / OBSERVE / ITERATE
 DELIVERABLE      : {runbook · auto-remediation script · DQ dashboard · alert rules}
@@ -274,11 +274,11 @@ DEADLINE         : {fecha}
 - SLO-DKO-03: Ontology consistency — cero inconsistencias SHACL críticas en producción sin ticket abierto y en remediación.
 - SLO-DKO-04: MTTR ontológico — tiempo de inconsistencia detectada → resuelta (target decreciente año contra año).
 
-**SME canónico que ejecuta delivery**: `Solutioning/Delivery - SME/Technology/Data & ML/` para la capa de ingeniería de datos del grafo. `[GAP — crear o asignar SME]` para Knowledge Graph Ops especializado (Knowledge Engineer con profundidad en OWL / SHACL / SPARQL / Cypher para operación en producción de grafos de conocimiento).
+**SME canónico que ejecuta delivery**: `SME/Technology/Data & ML/` para la capa de ingeniería de datos del grafo. `[GAP — crear o asignar SME]` para Knowledge Graph Ops especializado (Knowledge Engineer con profundidad en OWL / SHACL / SPARQL / Cypher para operación en producción de grafos de conocimiento).
 
 **Packet [INVOKE] típico a SME**:
 ```
-[INVOKE: SME en Solutioning/Delivery - SME/Technology/Data & ML/]
+[INVOKE: SME en SME/Technology/Data & ML/]
 COMPONENTE/ASSET : MDP-DKO-{NNN} — {nombre del runbook/dashboard/automation}
 FASE OBJETIVO    : OPERATE / OBSERVE / ITERATE
 DELIVERABLE      : {runbook · ontology drift alert · entity re-link automation · coverage dashboard}
@@ -335,7 +335,7 @@ DEADLINE         : {fecha}
 - Acceso API a la plataforma BI (Power BI REST API · Tableau Server API · Looker API · Superset API) con permisos de observación y re-ejecución de refreshes — sin permisos de modificación de lógica.
 - Guardrail policy (ADR-MDP-ABO-002) aprobada por BI Owner + Data Steward antes de activar cualquier auto-remediation.
 - Baseline de refresh success rate y query p95 medida durante período de observación (mínimo 2 semanas).
-- `[GAP — crear o asignar SME]` para el componente agentic de Autonomous BI Ops — no existe SME canónico con profundidad específica en BI Ops autónomo en `Solutioning/Delivery - SME/`. Resolver antes de comprometer este solution en un deal.
+- `[GAP — crear o asignar SME]` para el componente agentic de Autonomous BI Ops — no existe SME canónico con profundidad específica en BI Ops autónomo en `SME/`. Resolver antes de comprometer este solution en un deal.
 
 **DoD específico**:
 - [ ] DoD-MDP-ABO-01: Guardrail policy (ADR-MDP-ABO-002) firmada por BI Owner + Data Steward antes de activar auto-remediation.
@@ -451,7 +451,7 @@ DEADLINE         : {fecha}
 - SLO-ALM-03: Drift detection latency — drift significativo detectado y alertado dentro de ventana acordada (e.g. < 4h post-detección en batch diario).
 - SLO-ALM-04: Lineage coverage — ≥ 80% de modelos en producción con lineage completo (dato → feature → modelo) documentado en AI governance registry.
 
-**SME canónico que ejecuta delivery**: `Solutioning/Delivery - SME/Technology/Data & ML/` para la capa de datos, features y lineage. `[DEPENDS-ON: 02 AI Enabled Enterprise]` para el lado MLOps (reentrenamiento, evaluación, despliegue). `[GAP — crear o asignar SME]` si el engagement requiere profundidad en responsible AI governance (bias monitoring, explainability, regulatory compliance de activos AI) — esa dimensión no está cubierta por Data & ML SME actual.
+**SME canónico que ejecuta delivery**: `SME/Technology/Data & ML/` para la capa de datos, features y lineage. `[DEPENDS-ON: 02 AI Enabled Enterprise]` para el lado MLOps (reentrenamiento, evaluación, despliegue). `[GAP — crear o asignar SME]` si el engagement requiere profundidad en responsible AI governance (bias monitoring, explainability, regulatory compliance de activos AI) — esa dimensión no está cubierta por Data & ML SME actual.
 
 **Common Scenarios**:
 1. **Data drift detectado en modelo de scoring crediticio**: drift alert en feature distribución → ejecuta runbook data drift → notifica a equipo MLOps (02 AI EE) con contexto (PSI score, distribución actual vs referencia, datasets afectados) → 02 evalúa si reentrenar → outcome registrado en retraining trigger log.
@@ -498,7 +498,7 @@ Hereda la tabla de Decision Authority del offering 05. Adiciones específicas de
 
 ---
 
-## Handoffs Canónicos hacia `Solutioning/Delivery - SME/`
+## Handoffs Canónicos hacia `SME/`
 
 | Fase | SME(s) responsable(s) por solution |
 |------|-------------------------------------|

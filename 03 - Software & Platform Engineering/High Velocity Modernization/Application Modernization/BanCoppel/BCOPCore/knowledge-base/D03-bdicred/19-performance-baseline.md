@@ -104,3 +104,42 @@ export default function() {
 
 ---
 *Generado por: QA Lead — Equivalencia Funcional · 2026-07-03 · [SME-PENDING] baseline real requerido de DBA Informix*
+
+<!-- LOG-DATA-BEGIN -->
+## Volúmenes de producción confirmados — Logs 2026-04-24
+> Fuente: `source/logs/transacciones_bus_2026-04-24_*.txt` · Incorporado: 2026-08-01
+
+**Total llamadas dominio:** 128,566 · **Total errores:** 43,706 · **Error rate global:** 33.99%
+
+### Top SPs por volumen
+
+| SP | Llamadas/día | Errores/día | Error% | Códigos respuesta frecuentes |
+|----|-------------|-------------|--------|------------------------------|
+| `sp_cons_param_banderaprod_web` | 42,060 | 0 | 0.0% | `00000`=3, `0000`=1 |
+| `sp_consulta_pre_aprobado` | 38,210 | 29,946 | 78.37% | `00008`=6094, `00000`=1413, `00005`=415 |
+| `obt_datos_caratula` | 10,621 | 8,235 | 77.54% | — |
+| `sp_buscarctesamigrar_web` | 6,631 | 839 | 12.65% | — |
+| `sp_consulta_saldos_cobranza_sucs_web` | 6,047 | 0 | 0.0% | — |
+| `sp_tdcoro_web` | 2,273 | 1,719 | 75.63% | — |
+| `sp_guarda_resp_pre_aprobado` | 2,225 | 46 | 2.07% | `00000`=1536, `00002`=22 |
+| `cons_cta_o_tar_per_web` | 2,112 | 11 | 0.52% | `00000`=1 |
+| `sp_constiporepostar` | 2,087 | 163 | 7.81% | — |
+| `sp_consultafechavenc` | 1,883 | 3 | 0.16% | `00000`=1 |
+| `altatarrepos_n_web` | 1,536 | 0 | 0.0% | — |
+| `sp_actestatustarjeta` | 1,441 | 11 | 0.76% | — |
+| `sp_principal_suc_rr` | 1,390 | 32 | 2.3% | — |
+| `sp_borrardigi` | 1,319 | 1,308 | 99.17% | — |
+| `sp_registradatos_motor_pp` | 655 | 1 | 0.15% | — |
+| `sp_evaldispefec_cred` | 650 | 51 | 7.85% | — |
+| `sp_grababitacoraact` | 650 | 0 | 0.0% | — |
+| `consfircredper2` | 631 | 0 | 0.0% | — |
+| `sp_val_datos_promo` | 516 | 435 | 84.3% | — |
+| `sp_consulta_incremento_linea_tc` | 486 | 303 | 62.35% | — |
+
+### Distribución horaria (llamadas con dominio mapeado)
+
+| Hora CDMX | Llamadas |
+|-----------|----------|
+
+*Generado por generate-kb-from-logs.py · 2026-08-01*
+<!-- LOG-DATA-END -->

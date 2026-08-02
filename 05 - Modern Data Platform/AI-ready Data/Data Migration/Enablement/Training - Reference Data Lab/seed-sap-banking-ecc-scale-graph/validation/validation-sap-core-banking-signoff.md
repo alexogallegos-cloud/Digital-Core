@@ -1,6 +1,6 @@
 # Validación de Fidelidad — Modelo de Datos SAP Core Banking
 
-> **Emisor:** SME SAP Banking Services (`Solutioning/Delivery - SME/Platform/SAP/SAP Banking Services/`)
+> **Emisor:** SME SAP Banking Services (`SME/Platform/SAP/SAP Banking Services/`)
 > **Objeto:** `seed-sap-banking-ecc-scale-graph` (~1,500 tablas) del Reference Data Lab
 > **Propósito:** gate de credibilidad antes de que `Data Migration · Fase 1` consuma el modelo
 > **Fecha:** 2026-05-31

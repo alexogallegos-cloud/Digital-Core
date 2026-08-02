@@ -1,9 +1,10 @@
-# cap-sta.md — Statements
-> **BIAN:** 6.1.4 · Statements · Dominio: 6 · Common Services
+# BC-07 · Estados de Cuenta
+> bian_ref: 6.1.4 Statements
 > **Sistema:** S500+S151 · **Programa:** P158 (Generador MOVSXCONT)
 > **Reglas vinculadas:** 30 · **Tareas:** 17
 > **Generado:** 2026-07-16 · Swarm GemCog Capa 3
 > **Nota:** reglas originalmente etiquetadas T.3.4 por el extractor; re-mapeadas a BIAN 6.1.4 Statements — el contenido real de P158 es generación del archivo de movimientos por contrato (MOVSXCONT) para el estado de cuenta que S050 entrega al cliente, no un reporte regulatorio interno. El cap-rpt.md ya cubre T.3.4 con P199/P610/P612/P677.
+> Indexado: ✅ 2026-07-27 — correlacionado vocab↔reglas↔capacidad (build-traceability.py)
 
 ---
 

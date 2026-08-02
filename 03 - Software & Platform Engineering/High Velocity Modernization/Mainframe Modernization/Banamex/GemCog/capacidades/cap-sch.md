@@ -1,6 +1,8 @@
-# Capacidad: Business Scheduling — Cierre de Día y Oracle de Fechas [compartida]
+# BC-14 · Programación Batch
 > Dominio: 8 · Technology Tools · Subdominio: Business Scheduling · Cobertura: S500+S151
-> Programas principales: P075 · P100 · Reglas vinculadas: RN-S500-009..026
+> Programas principales: P075 · P100 · P103 · Reglas vinculadas: RN-S500-009..026 · RN-S151-201..207
+> Indexado: ✅ 2026-07-27 — correlacionado vocab↔reglas↔capacidad (build-traceability.py)
+> bian_ref: 8.1.1 Scheduling
 
 ---
 
@@ -250,8 +252,8 @@ sequenceDiagram
 ---
 
 *cap-sch.md · v1.0 · 2026-07-16 · Capa 4 (Inventario de Tareas) + Capa 5 (Casuísticas + Diagrama Mermaid)*
-*Capacidad: 8.1.1 Scheduling · Sistema: S500+S151 · Programas: P075 · P100*
-*Cross-referencia: RN-S500-022..026 · RN-S500-009..021 · rules-catalog/rules-s500.md · capability-map.md*
+*Capacidad: 8.1.1 Scheduling · Sistema: S500+S151 · Programas: P075 · P100 · P103 (ver Ampliación v1.1)*
+*Cross-referencia: RN-S500-022..026 · RN-S500-009..021 · RN-S151-201..207 · rules-catalog/rules-s500.md · rules-catalog/rules-s151-p021-p120.md · capability-map.md*
 
 ---
 

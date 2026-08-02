@@ -12,7 +12,7 @@
 - **SME — Modelo Operativo Bancario** (BIAN Service Domains · capacidades retail banking · cadena de valor · mapeo dominio técnico ↔ capacidad de negocio)
 - Data Architect (modelado target PostgreSQL / Aurora)
 - QA Lead — Equivalencia Funcional (golden master y criterios go/no-go)
-- **SME Regulatorio — Banxico** (`Solutioning/Delivery - SME/Regulatory/Banxico/`)
+- **SME Regulatorio — Banxico** (`SME/Regulatory/Banxico/`)
 
 > Secciones marcadas `[SME-PENDING]` requieren validación del Domain Expert o SME regulador antes de BUILD.
 ---
@@ -49,9 +49,9 @@
 
 ## Reglas por regulador (SME dueño)
 
-- **CNBV** (`Solutioning/Delivery - SME/Regulatory/CNBV/`) — 10 reglas · Criterios contables CNBV + GAT — cálculo de intereses/rendimientos
-- **Banxico** (`Solutioning/Delivery - SME/Regulatory/Banxico/`) — 30 reglas · Circular 3/2012 SPEI — irrevocabilidad, clave de rastreo
-- **CONDUSEF** (`Solutioning/Delivery - SME/Regulatory/CONDUSEF/`) — 10 reglas · LTOSF Art.17 (CAT) + RECO — comisión debe estar registrada
+- **CNBV** (`SME/Regulatory/CNBV/`) — 10 reglas · Criterios contables CNBV + GAT — cálculo de intereses/rendimientos
+- **Banxico** (`SME/Regulatory/Banxico/`) — 30 reglas · Circular 3/2012 SPEI — irrevocabilidad, clave de rastreo
+- **CONDUSEF** (`SME/Regulatory/CONDUSEF/`) — 10 reglas · LTOSF Art.17 (CAT) + RECO — comisión debe estar registrada
 
 ## `[RIESGO-EQUIVALENCIA]` en este dominio
 

@@ -302,7 +302,7 @@ DEV (sandbox) → QA → UAT → STG → PROD → DR
 
 ---
 
-## Handoffs Canónicos hacia `Solutioning/Delivery - SME/`
+## Handoffs Canónicos hacia `SME/`
 
 | Fase | SME(s) responsable(s) |
 |------|------------------------|

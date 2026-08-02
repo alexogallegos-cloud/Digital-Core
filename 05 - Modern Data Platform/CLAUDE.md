@@ -372,7 +372,7 @@ Cuando el cliente o el equipo data empuja a "shipear el pipeline ya, ajustamos c
 
 ---
 
-## Handoffs Canónicos hacia `Solutioning/Delivery - SME/`
+## Handoffs Canónicos hacia `SME/`
 
 | Fase | SME(s) responsable(s) |
 |------|------------------------|

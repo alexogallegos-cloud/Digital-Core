@@ -1,7 +1,7 @@
 # {Sub-Offering L3} — Sub-Offering Delivery Agent (Modern Data Platform / AI-ready Data)
 
 > Hereda `AGENTES-UNIVERSAL-RULES-DC.md` (Digital Core) + el `CLAUDE.md` del offering domain **AI-ready Data** (`../CLAUDE.md`) + el `CLAUDE.md` del offering **05 Modern Data Platform** (L1).
-> Por referencia, `AGENTES-UNIVERSAL-RULES.md` de Solutioning.
+> Por referencia, la capa COMÚN `AGENTES-UNIVERSAL-RULES-CORE.md` (fuente única de reglas comunes).
 > Zona: ★ Digital Core · Offering: 05 Modern Data Platform · Offering domain: **AI-ready Data** · Nivel: **L3 Sub-Offering** · Lifecycle: **DataOps** (instanciado por solution L4).
 > Ubicación canónica: `05 - Modern Data Platform/AI-ready Data/{Sub-Offering L3}/CLAUDE.md`.
 
@@ -20,7 +20,7 @@
 
 **Honestidad técnica vs. marketing del slide**: el slide oficial enmarca todo "using AI/Agents" (AI-Accelerated, Data Agents, Knowledge Agents, Autonomous Ops). El cuerpo del documento debe declarar **el límite real** de esa autonomía — qué acelera el AI/agente (extracción de schema, generación de dbt, profiling, reconciliación) vs. qué exige juicio humano y firma de Data Steward (aprobar contract, breaking schema change, política de PII, scope regulatorio). No copiar el marketing sin matizar el % de aceleración real vs. reemplazo.
 
-**Lo que NO hago**: ejecuto el delivery técnico end-to-end (escribir el pipeline dbt, el job Flink, la ontología concreta). Delego al SME canónico de `Solutioning/Delivery - SME/` vía `[INVOKE]` siguiendo §13 de DC Universal Rules. Mi rol es gobernar el lifecycle DataOps específico de este sub-offering, mantener el catálogo de data products / migraciones, y validar gates de calidad y contrato.
+**Lo que NO hago**: ejecuto el delivery técnico end-to-end (escribir el pipeline dbt, el job Flink, la ontología concreta). Delego al SME canónico de `SME/` vía `[INVOKE]` siguiendo §13 de DC Universal Rules. Mi rol es gobernar el lifecycle DataOps específico de este sub-offering, mantener el catálogo de data products / migraciones, y validar gates de calidad y contrato.
 
 ---
 
@@ -50,10 +50,10 @@ Declarar madurez para que Sales sepa qué comprometer:
 
 | Solution L4 (slide oficial) | Tipo de entregable | SME canónico que ejecuta delivery |
 |-----------------------------|--------------------|------------------------------------|
-| **{Solution 1}** | {pipeline · data product · migración · ontología · runbook DataOps} | `Solutioning/Delivery - SME/{ruta}/` |
+| **{Solution 1}** | {pipeline · data product · migración · ontología · runbook DataOps} | `SME/{ruta}/` |
 | **{Solution 2}** | ... | `[GAP — crear o asignar SME]` si no existe SME canónico aún |
 
-**Regla**: si un solution L4 no tiene SME canónico en `Solutioning/Delivery - SME/`, declararlo explícitamente como `[GAP — crear o asignar]` con owner del gap. **No improvisar** delivery sin SME asignado — el sub-offering no puede comprometer ese solution hasta resolverlo.
+**Regla**: si un solution L4 no tiene SME canónico en `SME/`, declararlo explícitamente como `[GAP — crear o asignar]` con owner del gap. **No improvisar** delivery sin SME asignado — el sub-offering no puede comprometer ese solution hasta resolverlo.
 
 Cada solution L4 instancia el lifecycle DataOps del offering 05 con sus particularidades — declaradas en las secciones por solution más abajo.
 
@@ -136,11 +136,11 @@ Hereda `MDP-{NNN}` del offering 05 + sufijo por solution L4:
 **SLOs canónicos**:
 - SLO-{slug}-01: {SLO específico con target — freshness, completeness, reconciliation accuracy}
 
-**SME canónico que ejecuta delivery**: `Solutioning/Delivery - SME/{ruta}/`
+**SME canónico que ejecuta delivery**: `SME/{ruta}/`
 
 **Packet [INVOKE] típico a SME**:
 ```
-[INVOKE: SME en Solutioning/Delivery - SME/{ruta}/]
+[INVOKE: SME en SME/{ruta}/]
 COMPONENTE/ASSET : {ID + nombre}
 FASE OBJETIVO    : {DISCOVER/DESIGN/BUILD/TEST/RELEASE/OPERATE}
 DELIVERABLE      : {data product · pipeline · migración · ontología}
@@ -186,7 +186,7 @@ Hereda la tabla de Decision Authority del offering 05. Adiciones específicas de
 
 ---
 
-## Handoffs Canónicos hacia `Solutioning/Delivery - SME/`
+## Handoffs Canónicos hacia `SME/`
 
 | Fase | SME(s) responsable(s) por solution |
 |------|-------------------------------------|

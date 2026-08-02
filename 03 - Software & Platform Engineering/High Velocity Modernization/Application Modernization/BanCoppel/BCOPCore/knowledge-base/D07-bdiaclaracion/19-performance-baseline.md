@@ -104,3 +104,29 @@ export default function() {
 
 ---
 *Generado por: QA Lead — Equivalencia Funcional · 2026-07-03 · [SME-PENDING] baseline real requerido de DBA Informix*
+
+<!-- LOG-DATA-BEGIN -->
+## Volúmenes de producción confirmados — Logs 2026-04-24
+> Fuente: `source/logs/transacciones_bus_2026-04-24_*.txt` · Incorporado: 2026-08-01
+
+**Total llamadas dominio:** 716 · **Total errores:** 40 · **Error rate global:** 5.59%
+
+### Top SPs por volumen
+
+| SP | Llamadas/día | Errores/día | Error% | Códigos respuesta frecuentes |
+|----|-------------|-------------|--------|------------------------------|
+| `reversion_web` | 575 | 0 | 0.0% | — |
+| `sp_verifica_aclaracion` | 82 | 1 | 1.22% | — |
+| `sp_registra_cte_domiciliacion` | 54 | 38 | 70.37% | — |
+| `cons_sdo` | 2 | 0 | 0.0% | — |
+| `cons_instvento` | 1 | 0 | 0.0% | — |
+| `consctesfirminv` | 1 | 1 | 100.0% | — |
+| `sp_consultapagares` | 1 | 0 | 0.0% | — |
+
+### Distribución horaria (llamadas con dominio mapeado)
+
+| Hora CDMX | Llamadas |
+|-----------|----------|
+
+*Generado por generate-kb-from-logs.py · 2026-08-01*
+<!-- LOG-DATA-END -->

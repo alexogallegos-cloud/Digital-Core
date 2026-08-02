@@ -323,11 +323,11 @@ Calibración por tipo de código transpilado:
 
 | Destino | Output |
 |---------|--------|
-| `Delivery - SME/Technology/Software Engineering` | Código Java/.NET transpilado · review annotations · listo para tests + integración pipeline |
+| `SME/Technology/Software Engineering` | Código Java/.NET transpilado · review annotations · listo para tests + integración pipeline |
 | `Specialist - Equivalence Testing` | Programa transpilado listo para golden master + parallel-run |
 | `Specialist - Legacy Datastore Migration` | Coordinación cuando transpilation incluye cambio de data access pattern |
 | `Specialist - Mainframe Encapsulation` (Fase 4) | Coordinación cuando programa transpilado consume CICS encapsulado |
-| `Delivery - SME/Management/Change Enablement` | Documentación para training del team COBOL→Java cliente |
+| `SME/Management/Change Enablement` | Documentación para training del team COBOL→Java cliente |
 
 ---
 

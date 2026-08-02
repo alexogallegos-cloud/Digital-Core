@@ -166,7 +166,7 @@ El CFO del cliente esperará **demostrar reducción de costo IBM** mes a mes —
 | Cliente Procurement | Contract renegotiation briefs + decommission settlement pack |
 | Cliente CFO | MIPS Reduction Dashboard + monthly review |
 | `Solutioning - Sales Process/Pricing & Commercial Modeler` | Business case actualizado para refresh de pricing |
-| `Delivery - SME/Value Delivery/Value-Led AMS` | Input para outcome-based pricing si AMS contract incluye savings sharing |
+| `SME/Value Delivery/Value-Led AMS` | Input para outcome-based pricing si AMS contract incluye savings sharing |
 | `Specialist - Mainframe Modernization Regulatory` | Coordinación notificación IBM contract changes si afectan plan continuidad CNBV |
 | `Digital Core/07 AMS Reinvention` | Handoff steady-state tracking post-decommission |
 

@@ -41,15 +41,35 @@ Sin un baseline de performance del sistema Informix, no hay criterio objetivo pa
 -- onstat -g sql    -- queries SQL activos
 ```
 
-## Baseline por SP (a capturar — todos [SME-PENDING])
+## Volúmenes de producción confirmados desde logs (2026-04-24)
+
+> **Fuente:** `source/logs/transacciones_bus_20260424_*.log` · Incorporado: 2026-08-01
+> Estos son volúmenes reales de un día de producción — usar como baseline de throughput para pruebas de carga.
+
+| SP | Llamadas confirmadas/día | Tasa de error | Fuente | Notas |
+|----|--------------------------|---------------|--------|-------|
+| `sp_app_confirmpayment` | 61,280 | 8.7% (5,163 fallidas) | Logs bus 2026-04-24 | Integración APPRIZA; errores = codRetorno 9999 |
+| `sp_app_recordorder` | 56,626 | — | Logs bus 2026-04-24 | Registra PENDIENTE en fallos; dominio `???` sin DSN |
+| `sp_app_getorder` | 55,126 | — | Logs bus 2026-04-24 | Consulta estado de orden; dominio `???` sin DSN |
+
+**Nota sobre SPs con dominio `???`:** `sp_app_recordorder` y `sp_app_getorder` no tienen prefijo DSN en los logs — no están mapeados al esquema de 12 dominios actuales. Ver P655-R008 en migration-risk-register.md.
+
+**Tiempo de transacción observado (APPRIZA):**
+- Flujo exitoso: inicio → confirmación APPRIZA → ~1 minuto total
+- Flujo fallido: primera excepción → estado PENDIENTE → 5+ horas de reintentos sin resolución
+
+## Baseline por SP (latencias — [SME-PENDING] requeiren instrumentación en producción)
 
 | SP | Fan-in (callers) | p50 (ms) | p95 (ms) | p99 (ms) | TPS pico |
 |----|-----------------|---------|---------|---------|---------|
-| `sp_sac_guardamensajeerror` | 321 | [SME-PENDING] ms | [SME-PENDING] ms | [SME-PENDING] ms | [SME-PENDING] TPS |
-| `sp_validanombenefbts` | 243 | [SME-PENDING] ms | [SME-PENDING] ms | [SME-PENDING] ms | [SME-PENDING] TPS |
-| `sp_sac_consucursales` | 195 | [SME-PENDING] ms | [SME-PENDING] ms | [SME-PENDING] ms | [SME-PENDING] TPS |
-| `sp_validabts` | 182 | [SME-PENDING] ms | [SME-PENDING] ms | [SME-PENDING] ms | [SME-PENDING] TPS |
-| `sp_obtieneparametro` | 176 | [SME-PENDING] ms | [SME-PENDING] ms | [SME-PENDING] ms | [SME-PENDING] TPS |
+| `sp_app_confirmpayment` | — | [SME-PENDING] | [SME-PENDING] | [SME-PENDING] | ~71 TPS (61,280/día) |
+| `sp_app_recordorder` | — | [SME-PENDING] | [SME-PENDING] | [SME-PENDING] | ~66 TPS |
+| `sp_app_getorder` | — | [SME-PENDING] | [SME-PENDING] | [SME-PENDING] | ~64 TPS |
+| `sp_sac_guardamensajeerror` | 321 | [SME-PENDING] | [SME-PENDING] | [SME-PENDING] | [SME-PENDING] |
+| `sp_validanombenefbts` | 243 | [SME-PENDING] | [SME-PENDING] | [SME-PENDING] | [SME-PENDING] |
+| `sp_sac_consucursales` | 195 | [SME-PENDING] | [SME-PENDING] | [SME-PENDING] | [SME-PENDING] |
+| `sp_validabts` | 182 | [SME-PENDING] | [SME-PENDING] | [SME-PENDING] | [SME-PENDING] |
+| `sp_obtieneparametro` | 176 | [SME-PENDING] | [SME-PENDING] | [SME-PENDING] | [SME-PENDING] |
 
 ## SLOs del sistema target
 
@@ -104,3 +124,42 @@ export default function() {
 
 ---
 *Generado por: QA Lead — Equivalencia Funcional · 2026-07-03 · [SME-PENDING] baseline real requerido de DBA Informix*
+
+<!-- LOG-DATA-BEGIN -->
+## Volúmenes de producción confirmados — Logs 2026-04-24
+> Fuente: `source/logs/transacciones_bus_2026-04-24_*.txt` · Incorporado: 2026-08-01
+
+**Total llamadas dominio:** 945,217 · **Total errores:** 38,490 · **Error rate global:** 4.07%
+
+### Top SPs por volumen
+
+| SP | Llamadas/día | Errores/día | Error% | Códigos respuesta frecuentes |
+|----|-------------|-------------|--------|------------------------------|
+| `sp_consflagretarj` | 93,228 | 0 | 0.0% | — |
+| `sp_bitacorawstae` | 81,189 | 571 | 0.7% | `00000`=80368, `00001`=414, `00002`=97 |
+| `sp_aplica_pago_con_cargo_msw` | 80,959 | 297 | 0.37% | `00000`=80401, `00320`=189, `00305`=61 |
+| `sp_confpagoservicio_hs` | 77,786 | 0 | 0.0% | `00000`=77410 |
+| `sp_app_confirmpayment` | 61,686 | 5,331 | 8.64% | `00000`=55932, `1100`=5166 |
+| `sp_app_recordorder` | 56,951 | 11 | 0.02% | `00000`=2 |
+| `sp_val_clubproteccion_web` | 56,818 | 1 | 0.0% | — |
+| `sp_app_getorder` | 55,492 | 0 | 0.0% | `00000`=1 |
+| `sp_obtengrupocliente` | 51,599 | 0 | 0.0% | — |
+| `sp_obtenerparametro` | 42,980 | 0 | 0.0% | — |
+| `valida_abono_ref_web` | 23,295 | 0 | 0.0% | — |
+| `sp_sorteobancoppel_web` | 18,118 | 0 | 0.0% | — |
+| `sp_inser_alerta_exlimblo` | 14,820 | 0 | 0.0% | — |
+| `sp_conssdogen` | 14,670 | 0 | 0.0% | — |
+| `sp_consulta_producto` | 11,843 | 0 | 0.0% | — |
+| `sp_consulta_cardif` | 11,736 | 1,031 | 8.78% | `00003`=749, `00002`=286, `00005`=6 |
+| `sp_consulta_appriza_web` | 11,697 | 2 | 0.02% | `0000`=1, `00000`=1 |
+| `cons_sdos2_web` | 11,383 | 0 | 0.0% | — |
+| `sp_conssdoticket_web` | 9,294 | 0 | 0.0% | — |
+| `totcomp2_web` | 8,569 | 0 | 0.0% | — |
+
+### Distribución horaria (llamadas con dominio mapeado)
+
+| Hora CDMX | Llamadas |
+|-----------|----------|
+
+*Generado por generate-kb-from-logs.py · 2026-08-01*
+<!-- LOG-DATA-END -->

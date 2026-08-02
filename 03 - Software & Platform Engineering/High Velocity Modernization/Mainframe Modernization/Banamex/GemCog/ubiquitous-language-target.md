@@ -1,4 +1,5 @@
 # Ubiquitous Language del Target — Banamex S500 + S151
+> Indexado: ✅ 2026-07-17 — Lenguaje ubicuo del sistema target
 
 > **Gemelo Cognitivo GemCog v2.2 · Capa 6 (Siembra) — Paso 1**
 > Deriva de 143 términos canónicos (63 S500 + 80 S151) → naming del target Java/REST/AsyncAPI.

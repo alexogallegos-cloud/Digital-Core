@@ -1,6 +1,7 @@
-# Capacidad: Interest & Fees (6.1.5) [S500]
+# BC-08 · Intereses y Comisiones
 > Dominio: 6 · Common Services · Subdominio: Financial Services · Cobertura: S500
 > Programas principales: S500/P130 · WFL LINEA · Reglas vinculadas: RN-S500-079..107
+> bian_ref: 6.1.5 Interest & Fees
 
 ---
 
@@ -569,6 +570,7 @@ La capacidad **Financial Servicing (6.6.1)** cubre los servicios financieros dir
 
 ---
 
+*cap-int.md · v1.3 · 2026-07-22 · P186 movido a ORC (validado Mario SME S500)*
 *cap-int.md · v1.1 · 2026-07-16 · Ampliación: P150 (RN-S151-151..180) + P151 (RN-S151-331..360) + L002R3/R4/R5 (RN-S151-633..689) + P671 INTELAR + P142 S500 (RN-S500-133..137)*
 *Capacidades vinculadas: T.3.4 Analytics/Reporting (Intercompany CITI) · BC-04 ACL GL Interface (ALGOL) · 6.5.2 Compliance INTELAR · 6.6.1 Financial Servicing (LIBOR/Teradata)*
-*Cross-referencia: rules-catalog/rules-s151-p108-p150.md · rules-s151-p151.md · rules-s151-l002r3-r4-r5.md · rules-s151-p655-p670-p671-p680-p690.md · rules-s500-p020-p142-p144.md*
+*Cross-referencia: rules-catalog/rules-s151-p108-p150.md · rules-s151-p151.md · rules-s151-l002r3-r4-r5.md · rules-s151-p655-p670-p671-p680-p690.md · rules-s500-p020-p142-p144.md · rules-s500-reconciliation.md*

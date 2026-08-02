@@ -1,9 +1,12 @@
-# Capacidad: Security — Enmascaramiento de Datos PII [S500]
+# BC-16 · Seguridad y Control de Acceso
 > Dominio: T · Transversal · Subdominio: Security
 > Capacidad: **T.3.5 Security** (también cubre parcialmente: **10.1.1 Access Control**)
 > Cobertura: S500 · Programa principal: P655 (SCRAMBLING)
-> Reglas vinculadas: RN-S500-027..036 (10 reglas)
+> Reglas vinculadas: RN-S500-027..036 · RN-S151-591..597 · RN-S151-599..600 (19 reglas · trazabilidad automática 2026-07-27)
+> Jerarquía: **N1** Dominio T · Transversal · Interfaces & Seguridad → **N2** Subdominio Datos & Seguridad → **N3** Capacidad T.3.5 Security → **N4-5** Procesos/Flujo de tareas (ver Inventario de Tareas) → **N6** Reglas (ver Reglas vinculadas)
+> Indexado: ✅ 2026-07-27 — correlacionado vocab↔reglas↔capacidad (build-traceability.py)
 > Contexto: P655 enmascara datos personales (nombres de titulares, representantes legales y domicilios de cuentas de captación) en las bases DMSII de S500 para su uso en ambientes de prueba. Protege PII de acuerdo con PCI-DSS y obligaciones de privacidad de datos bancarios (Banco de México, CNBV). Opera exclusivamente en ambientes no-productivos — pero contiene un defecto de seguridad documentado (fail-open) que permite ejecución en producción si el hostname no está en la lista reconocida.
+> bian_ref: 10.1.1 Access Control + T.3.5 Security
 
 ---
 
@@ -239,7 +242,7 @@ P655 enmascara los siguientes campos clasificados como PII bancaria:
 
 ## Dependencia con capacidad 10.1.1 Access Control
 
-P655 comparte su lógica de clasificación de ambiente (hostname → producción/prueba) con el control de acceso a bases DMSII de S500. Las reglas RN-S500-027 y RN-S500-036 aplican también a `cap-acc.md` (10.1.1 Access Control) — mismo defecto de fail-open ante host no reconocido que debe resolverse de forma unificada en la migración.
+P655 comparte su lógica de clasificación de ambiente (hostname → producción/prueba) con el control de acceso a bases DMSII de S500. Las reglas RN-S500-027 y RN-S500-036 (10.1.1 Access Control — merged en este cap) comparten el mismo defecto de fail-open ante host no reconocido que debe resolverse de forma unificada en la migración.
 
 ---
 

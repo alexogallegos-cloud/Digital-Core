@@ -1,0 +1,1346 @@
+$SET LIST SINGLE ERROR LIMIT 1000 ALLINFO                               10001000          
+$SET ZIP                                                                10002000          
+$RESET DMCONTROL                                                        10003000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10004000          
+% NOTA:                                                                 10004010          
+%    CADA QUE SE MODIFIQUE POPULATION DE UN DATA SET                    10004020          
+%    SE DEBE LIBERAR EL P104 (LOS TIENE EN HARD-CODE)                   10004030          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%       10004040          
+%    RELEASE                    2025.07_M_MEX_XPR_ALL                   10004140          
+%    CF SOFTWARE LEVEL          SSR 62.0 (62.087.8009)                  10005000          
+%    PHYSICAL DATABASE          S500BD04TARJETAS  %  STRUCTURE 01       10006000          
+%    PACK-DMSII-ACCESSROUTINES  PACK                                    10007000          
+%    OWNER                      BANAMEX                                 10008000          
+%    DESCRIPTION               DESCRIPTION/S500BD04TARJETAS/25MTP001    10009000          
+%    CAMBIO                    MODIFICAR LA ESTRUCTURA                  10010000          
+%                              S500B01PCONTROL                          10011000          
+%                              GENERAR NUEVA ESTRUCTURA PARA DRIVER FILE10011020          
+%                              S500B12PCLONNING                         10011025          
+%    LA REORGANIZACION SE HACE ON-LINE                                  10011030          
+%                                                                       10011035          
+%                                                                       10012000          
+%    EN NUEVAS ESTRUCTURAS CONSIDERAR                                   10013000          
+%    DUMPSTAMP = FALSE, (PARA RESPALDOS POR MODIFICACIONES )            10014000          
+%                       (1 PALABRA MENOS POR BLOCK)                     10015000          
+%                                                                       10015005          
+%   SE GENERAN NUEVAS ESTRUCTURAS:                                      10015010          
+%    S500B13PREGCOMEPP,S500B14PREGREWEPP,S500B15PCTLBUCKET,             10015015          
+%    S500B16PLIGCTOTAJ,S500B17PCTLALERTA,S500B18PENVIOSDOS Y            10015020          
+%    S500B19PSDOTAR111                                                  10015025          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 10016000          
+%     BASE DE DATOS PARA ALMACENAR PREALTAS DE TARJETAS PARA          % 10017000          
+%     EL PRODUCTO 66-11-01 PARA DETERMINAR COBERTURA (CSI)            % 10018000          
+%     PARA CONSULTAS DE LIGA TARJETA-CONTRATO-TARJETA                 % 10019000          
+%     PARA ALMACENAR TEF POR BIN                                      % 10019100          
+%     PARA ALMACENAR HISTORICOS DE TRASPASOS A BENEFICENCIA           % 10019200          
+%     PARA CONSULTAR LIGAS BENEFICENCIA CTO ORIGINAL-CTO CTA GLOBAL   % 10019300          
+%     PARA ALMACENAR MAXIMOS DE ARCIVOS Y DATA SET,S                  % 10019400          
+%     PARA CONTROL DE ARCHIVOS A APLICAR EN S500                      % 10019410          
+%     PARA CONTROL DE ARRIBOS DE ARCHIVOS A APLICAR S500              % 10019415          
+%     PARA ALMACENAR FECHA ULTIMO MOVIMIENTO POR CLIENTE              % 10019420          
+%          DE LOS SISTEMAS S084, S087 Y S500                          % 10019421          
+%                                                                     % 10019500          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 10020000          
+ UPDATE;                                                                10021000          
+%INITIALIZE;                                                            10022000          
+ DEFAULTS                                                               10023000          
+ (                                                                      10024000          
+   DATA SET                                                             10025000          
+   (                                                                    10026000          
+      BUFFERS  = 001 + 001 PER RANDOM USER OR 003 PER SERIAL USER,      10027000          
+      PACK     = CAPTACION,                                             10028000          
+      CHECKSUM = TRUE,                                                  10029000          
+      REBLOCK  = FALSE,                                                 10030000          
+      LOCK TO MODIFY DETAILS = FALSE                                    10031000          
+   ),                                                                   10032000          
+   SET                                                                  10033000          
+   (                                                                    10034000          
+      BUFFERS  = 001 + 001 PER RANDOM USER OR 003 PER SERIAL USER,      10035000          
+      PACK     = CAPTACION,                                             10036000          
+      CHECKSUM = TRUE                                                   10037000          
+   ),                                                                   10038000          
+      ALPHA      (INITIALVALUE = BLANKS),                               10039000          
+      BOOLEAN    (INITIALVALUE = FALSE ),                               10040000          
+      NUMBER     (INITIALVALUE = 0 ),                                   10041000          
+      REAL       (INITIALVALUE = 0)                                     10042000          
+ );                                                                     10043000          
+ OPTIONS                                                                10044000          
+ (                                                                      10045000          
+      ADDRESSCHECK,                                                     10046000          
+      AUDIT,                                                            10047000          
+      STATISTICS,                                                       10048000          
+      INDEPENDENTTRANS                                                  10049000          
+%     REAPPLYCOMPLETED                                                  10050000          
+ );                                                                     10051000          
+ PARAMETERS                                                             10052000          
+ (                                                                      10053000          
+      ALLOWEDCORE    = 700000,                                          10054000          
+      RESIDENT LIMIT = 400000,                                          10055000          
+      OVERLAYGOAL    = 0005,                                            10056000          
+      CONTROLPOINT   = 0002,                                            10057000          
+      SYNCPOINT      = 0020                                             10058000          
+ );                                                                     10059000          
+      ACCESSROUTINES = *SYSTEM/ACCESSROUTINES  ON PACK;                 10060000          
+     DMSUPPORT      = (S500)DMSUPPORT/S500BD04TARJETAS/25MTP001         10061000          
+                             ON CAPTACION;                              10062000          
+      RECOVERY       = *SYSTEM/DMRECOVERY ON PACK;                      10063000          
+      DATARECOVERY   = *SYSTEM/DMDATARECOVERY ON PACK;                  10064000          
+     RECONSTRUCT    = (S500)RECONSTRUCT/S500BD04TARJETAS/25MTP001       10065000          
+                             ON CAPTACION;                              10066000          
+ AUDIT TRAIL                                                            10067000          
+ (                                                                      10068000          
+      AREAS         = 0100,                                             10069000          
+      AREASIZE      = 150,                                              10070000          
+      BLOCKSIZE     = 900 WORDS,                                        10071000          
+      UPDATE-EOF    = 150,                                              10072000          
+      CHECKSUM      = TRUE,                                             10073000          
+      PACK          = AUDIT,                                            10074000          
+      QUICKCOPY APPEND MAXFILESPERTAPE=1 TO TAPESET                     10075000          
+      AND REMOVE JOB *DATABASE/WFL/COPYAUDIT ON PACK                    10076000          
+ );                                                                     10077000          
+ CONTROL FILE                                                           10078000          
+ (                                                                      10079000          
+       PACK = CAPTACION,                                                10080000          
+       USERCODE = S500                                                  10081000          
+ );                                                                     10082000          
+                                                                        10083000          
+ S500BD04TARJETAS                                                       10084000          
+ (                                                                      10085000          
+       GUARDFILE = (S500)S500/FILE/GUARDFILE/S500BD04TARJETAS           10086000          
+                         ON CAPTACION                                   10087000          
+ );                                                                     10088000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%        10088900          
+$SET PAGE                                                               10088990          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 10089000          
+%   DATA SET DE CONTROL                                                 10090000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 10091000          
+ S500B01PCONTROL         DATA SET    %PREFIX = B01M   %  STRUCTURE 02   10092000          
+ (                                   % INICIO DATA SET                  10093000          
+    B01P-NUM-CSI                NUMBER (02);                            10093300          
+    B01P-ULT-ARCHAPLI           NUMBER (08);                            10094000          
+%    FECHA DEL ARCHIVO DE PREALTAS A APLICAR                            10095000          
+%    EL ARCHIVO VIENE DE TARJETAS Y SE DEBE                             10096000          
+%    APLICAR DIARIO AUN DIAS FESTIVOS                                   10097000          
+    B01P-CTO-SI-S016            NUMBER (08);                            10097200          
+    B01P-CTO-NO-S016            NUMBER (08);                            10097300          
+    B01P-TRPB-S500C01           NUMBER (08);                            10097400          
+    B01P-TRPB-S500C02           NUMBER (08);                            10097410          
+    B01P-TRPB-S500C03           NUMBER (08);                            10097420          
+    B01P-TRPB-S084              NUMBER (08);                            10097430          
+    B01P-TRPB-S087              NUMBER (08);                            10097440          
+    B01P-TRPB-S264              NUMBER (08);                            10097450          
+    B01P-TRPB-S111L01           NUMBER (08);                            10097460          
+    B01P-TRPB-S111L11           NUMBER (08);                            10097470          
+    B01P-TRPB-S999              NUMBER (08);                            10097472          
+%%     Para Uso de Fecha de Archivo del S999                            10097473          
+    B01P-TRPB-RCTAGLB           NUMBER (08);                            10097475          
+%%     Para uso de Fecha de Archivo de Reactivaciones a Cuenta Global   10097575          
+%%  Para almacenar la ultima fecha de carga del Driver file clonacion   10097580          
+    B01P-TRPB-FEC-DF            NUMBER (08);                            10097590          
+    B01P-USO-FUT-01             NUMBER (08);                            10097600          
+    B01P-USO-FUT-02             NUMBER (02);                            10097605          
+    B01P-USO-FUT-03             NUMBER (04);                            10097610          
+    B01P-USO-FUT-04             NUMBER (02);                            10097615          
+    B01P-USO-FUT-06             NUMBER (06);                            10097620          
+    B01P-USO-FUT-12             NUMBER (04);                            10097625          
+ ),                                                                     10097800          
+% RECORDSIZE  = 11+2 WORDS,  % 132+24 DIGITOS COMP                      10098000          
+  AREASIZE    =  2 BLOCKS,                                              10099000          
+  BLOCKSIZE   = 17 RECORDS,                                             10100000          
+  CHECKSUM    = TRUE,                                                   10101000          
+  EXTENDED    = TRUE,                                                   10101010          
+  DUMPSTAMP   = FALSE,                                                  10102000          
+  POPULATION  = 20,                                                     10103000          
+  MEMORY RESIDENT = ALL;                                                10104000          
+                                                                        10105000          
+                                                                        10106000          
+                                                                        10107000          
+                                                                        10108000          
+                                                                        10109000          
+                                                                        10110000          
+                                                                        10111000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    10112000          
+$SET PAGE                                                               10113000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10114000          
+%     PRALATAS DE TARJETAS PRODUCTO 66-11                              %10115000          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10116000          
+ S500B03PREALTAS DATA SET  % PREFIX = B03P         STRUCTURE 03         10117000          
+ (                              %% INICIO DATA SET                      10118000          
+    B03P-TARJETA                 NUMBER (16) REQUIRED;                  10119000          
+    B03P-CONTRATO                NUMBER (12) REQUIRED;                  10120000          
+      %  SE FORMA CON LOS ULTIMOS 12 DIGITOS DE LA TARJETA              10121000          
+    B03P-SUC-PROM                NUMBER (04);                           10122000          
+    B03P-NUM-CSI                 NUMBER (02);                           10123000          
+    B03P-FEC-PREALTA             NUMBER (08);                           10123010          
+    B03P-USO-FUT-01              NUMBER (02);                           10124000          
+    B03P-USO-FUT-02              NUMBER (04);                           10124010          
+    B03P-USO-FUT-03              NUMBER (08);                           10124012          
+    B03P-USO-FUT-04              NUMBER (04);                           10124014          
+                                                                        10125000          
+                                                                        10126000          
+ ),                             %% FIN DATA SET                         10145000          
+% PARA EL RECORDSIZE SE INCLUYE 2 WORDS MAS X EL EXTENDED.              10145900          
+% RECORDSIZE      =     5 WORDS,  % 5+2= 60+24=84 DIGITOS COMP.         10146000          
+  BLOCKSIZE       =     4 RECORDS,                                      10147000          
+  AREASIZE        =  5000 BLOCKS,                                       10148000          
+  CHECKSUM        = TRUE,                                               10149000          
+  DUMPSTAMP       = FALSE,                                              10150000          
+  EXTENDED        = TRUE,                                               10150100          
+  POPULATION      = 15000000,                                           10151000          
+  REBLOCK         = TRUE,                                               10152000          
+  REBLOCKFACTOR   = 50;                                                 10153000          
+%                                                                       10154000          
+% KEYENTRYSIZE   3 WORDS                                                10155000          
+  B03PSXTARJ   SET OF S500B03PREALTAS        %  STRUCTURE 04            10156000          
+              KEY (B03P-TARJETA                                         10157000          
+                  ),                                                    10158000          
+              INDEX SEQUENTIAL,                                         10159000          
+              NO DUPLICATES,                                            10160000          
+% AREASIZE        = 092 TABLES,                                         10161000          
+  BUFFERS         = 0001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10162000          
+  CHECKSUM        = TRUE,                                               10163000          
+  DUMPSTAMP       = FALSE,                                              10164000          
+  LOADFACTOR      = 66,                                                 10165000          
+  POPULATION      = 15000000,                                           10166000          
+  TABLESIZE       = 378  ENTRIES,                                       10167000          
+  MEMORY RESIDENT = ALL;                                                10167500          
+%                                                                       10168000          
+% KEYENTRYSIZE   3 WORDS                                                10169000          
+  B03PSXCTO    SET OF S500B03PREALTAS       % STRUCTURE 05              10170000          
+               KEY (B03P-CONTRATO                                       10171000          
+                   ),                                                   10172000          
+              INDEX SEQUENTIAL,                                         10173000          
+              DUPLICATES,                                               10174000          
+% AREASIZE        = 092 TABLES,                                         10175000          
+  BUFFERS         = 0001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10176000          
+  CHECKSUM        = TRUE,                                               10177000          
+  DUMPSTAMP       = FALSE,                                              10178000          
+  LOADFACTOR      = 66,                                                 10179000          
+  POPULATION      = 15000000,                                           10180000          
+  TABLESIZE       = 378  ENTRIES,                                       10181000          
+  MEMORY RESIDENT = ALL;                                                10181500          
+%                                                                       10182000          
+$SET PAGE                                                               10182010          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10182020          
+%     PREALTAS DE TARJETAS PRODUCTOS DE NOMINA                         %10182030          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10182040          
+ S500B04PTEF     DATA SET  % PREFIX = B04P         STRUCTURE 08         10182050          
+ (                              %% INICIO DATA SET                      10182060          
+    B04P-TARJETA                 NUMBER (16) REQUIRED;                  10182070          
+    B04P-NUM-TEF                 NUMBER (16);                           10182080          
+    B04P-FEC-ACT                 NUMBER (08);                           10182090          
+    B04P-MDE                     NUMBER (02);                           10182100          
+%        LISTA DE MDE QUE ACTUALIZAN TEF                                10182110          
+%           80  ARCHIVO PREALTAS (P176), ASIG PAGO = 1                  10182120          
+%           81  ASIGNACION SUCURSAL (P176, OPC = 2), ASIG PAGO = 1      10182130          
+%           82  ASIGNACION RDA (APERTURAS), ASIG PAGO = 1,2             10182140          
+%           83  REASIGNACION RDA (CAMBIOS DE TEF), ASIG PAGO = 1,2,3    10182150          
+%           84  REASIGNACION BNET EMP, ASIG PAGO = 1                    10182160          
+    B04P-ASIGNA-PAGO             NUMBER (02);                           10182170          
+    B04P-USO-FUT-01              NUMBER (04);                           10182180          
+                                                                        10182190          
+ ),                             %% FIN DATA SET                         10182200          
+% RECORDSIZE      =     4 WORDS,  %   48 DIGITOS COMP.                  10182210          
+  BLOCKSIZE       =     7 RECORDS,                                      10182220          
+  AREASIZE        =  1008 BLOCKS,                                       10182230          
+  CHECKSUM        = TRUE,                                               10182240          
+  DUMPSTAMP       = FALSE,                                              10182250          
+  POPULATION      = 5000000,                                            10182260          
+  REBLOCK         = TRUE,                                               10182270          
+  REBLOCKFACTOR   = 50;                                                 10182280          
+%                                                                       10182290          
+% KEYENTRYSIZE   3 WORDS                                                10182300          
+  B04PSXTARJ   SET OF S500B04PTEF            %  STRUCTURE 09            10182310          
+              KEY (B04P-TARJETA                                         10182320          
+                  ),                                                    10182330          
+              INDEX SEQUENTIAL,                                         10182340          
+              NO DUPLICATES,                                            10182350          
+% AREASIZE        = 84 TABLES,                                          10182360          
+  BUFFERS         = 0001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10182370          
+  CHECKSUM        = TRUE,                                               10182380          
+  DUMPSTAMP       = FALSE,                                              10182390          
+  LOADFACTOR      = 66,                                                 10182400          
+  POPULATION      = 5000000,                                            10182410          
+  TABLESIZE       = 238  ENTRIES,                                       10182420          
+  MEMORY RESIDENT = ALL;                                                10182430          
+%                                                                       10182440          
+$SET PAGE                                                               10182460          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10182470          
+%     HISTORICO CUENTAS GLOBALES BENEFICIENCIA                         %10182480          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10182490          
+ S500B05PHISCTAGLB   DATA SET  % PREFIX = B05P         STRUCTURE 10     10182500          
+ (                              %% INICIO DATA SET                      10182510          
+    B05P-ORI-PROD                NUMBER (04);                           10182520          
+    B05P-ORI-INSTR               NUMBER (04);                           10182530          
+    B05P-ORI-MONE                NUMBER (02);                           10182540          
+    B05P-ORI-INSTOPE             NUMBER (02);                           10182550          
+    B05P-ORI-NUMINV              NUMBER (06);                           10182560          
+    B05P-ORI-CONTRATO            NUMBER (18);                           10182570          
+    B05P-NVO-PROD                NUMBER (04);                           10182580          
+    B05P-NVO-INSTR               NUMBER (04);                           10182590          
+    B05P-NVO-MONE                NUMBER (02);                           10182600          
+    B05P-NVO-CONTRATO            NUMBER (12);                           10182610          
+    B05P-ORI-CTO-S016            NUMBER (14);                           10182620          
+    B05P-ORI-SUCPRO              NUMBER (04);                           10182630          
+    B05P-ORI-NOMBRE              ALPHA  (36);                           10182640          
+    B05P-FECHTR-GLOB             NUMBER (08);                           10182650          
+    B05P-FECHTR-BENE             NUMBER (08);                           10182660          
+    B05P-STA-BENEF               NUMBER (02);                           10182670          
+% 2 = TRASPASO A CTA GLOBAL                                             10182671          
+% 3 = TRASPASO A BENEFICENCIA                                           10182672          
+% 4 = FUERA ART 61 POR BLOQUEO O REACTIVACION                           10182673          
+% 5 = CANCELACION POR SOLICITUD DEL CLIENTE                             10182674          
+% 6 = FUERA ART 61 POR REACTIVACION DE NEGOCIO                          10182675          
+    B05P-IMP-TR-GLOB             NUMBER (16,2);                         10182680          
+    B05P-IMP-TR-BENE             NUMBER (16,2);                         10182690          
+    B05P-NUM-REINCID             NUMBER (02);                           10182692          
+% NUMERO DE REINCIDENCIAS EN CUENTA GLOBAL                              10182694          
+    B05P-USO-FUT-06              NUMBER (04);                           10182700          
+ ),                             %% FIN DATA SET                         10182710          
+% RECORDSIZE      =    17 WORDS,   %  204 DIGITOS COMP.                 10182720          
+  BLOCKSIZE       =    22 RECORDS,                                      10182730          
+  AREASIZE        =   250 BLOCKS,                                       10182740          
+  CHECKSUM        = TRUE,                                               10182750          
+  POPULATION      = 3000000,                                            10182760          
+  REBLOCK         = TRUE,                                               10182770          
+  EXTENDED        = TRUE,                                               10182780          
+  DUMPSTAMP       = FALSE,                                              10182785          
+  REBLOCKFACTOR   = 50;                                                 10182790          
+%                                                                       10182800          
+% KEYENTRYSIZE   4 WORDS                                                10182810          
+  B05PXORIG   SET OF S500B05PHISCTAGLB      %  STRUCTURE 09             10182820          
+              KEY (B05P-ORI-PROD                                        10182830          
+                  ,B05P-ORI-INSTR                                       10182840          
+                  ,B05P-ORI-MONE                                        10182850          
+                  ,B05P-ORI-INSTOPE                                     10182860          
+                  ,B05P-ORI-NUMINV                                      10182870          
+                  ,B05P-ORI-CONTRATO                                    10182880          
+                  ),                                                    10182890          
+              INDEX SEQUENTIAL,                                         10183000          
+              NO DUPLICATES,                                            10183010          
+% AREASIZE        = 58 TABLES,                                          10183020          
+  BUFFERS         = 0001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10183030          
+  CHECKSUM        = TRUE,                                               10183040          
+  DUMPSTAMP       = FALSE,                                              10183050          
+  LOADFACTOR      = 66,                                                 10183060          
+  POPULATION      = 3000000,                                            10183070          
+  TABLESIZE       = 194  ENTRIES,                                       10183080          
+  MEMORY RESIDENT = ALL;                                                10183090          
+%                                                                       10183100          
+% KEYENTRYSIZE   3 WORDS                                                10183110          
+  B05PXCTGLOB SET OF S500B05PHISCTAGLB      %  STRUCTURE 09             10183120          
+              KEY (B05P-NVO-PROD                                        10183130          
+                  ,B05P-NVO-INSTR                                       10183140          
+                  ,B05P-NVO-MONE                                        10183150          
+                  ,B05P-NVO-CONTRATO                                    10183160          
+                  ),                                                    10183170          
+              INDEX SEQUENTIAL,                                         10183180          
+              NO DUPLICATES,                                            10183190          
+% AREASIZE        = 75 TABLES,                                          10183200          
+  BUFFERS         = 0001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10183210          
+  CHECKSUM        = TRUE,                                               10183220          
+  DUMPSTAMP       = FALSE,                                              10183230          
+  LOADFACTOR      = 66,                                                 10183240          
+  POPULATION      = 3000000,                                            10183250          
+  TABLESIZE       = 198  ENTRIES,                                       10183260          
+  MEMORY RESIDENT = ALL;                                                10183270          
+%                                                                       10183280          
+%%%%%%%%                                                                10183900          
+$SET PAGE                                                               10183990          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           10184000          
+%     CONTROL MAXIMO SIZE DE ARCHIVOS Y DATA SETS                       10184010          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           10184020          
+ S500B06PCTRLARCH        DATA SET %% Prefijo = B06P                     10184030          
+ (                                %% Inicio Data Set                    10184040          
+   B06P-CTRLARCH         GROUP                                          10184050          
+   (                              %% Inicio Grupo Data Set completo     10184060          
+    B06P-LLAVE-ARCH      NUMBER (08) REQUIRED;                          10184070          
+    B06P-FEC-ACTUALIZA   GROUP                                          10184080          
+    (                             %% Inicio grupo Fechas                10184090          
+     B06P-FECH-ANT       NUMBER (08);                                   10184100          
+     B06P-FECH-ACT       NUMBER (08);                                   10184110          
+     B06P-NO-ACT         NUMBER (02)                                    10184112          
+    );                            %% Fin Grupo Fechas                   10184120          
+    B06P-REGXDIA-MES     GROUP    %% Inicio Grupo Registros por         10184130          
+    (                             %% dõa del mes (mes actual)           10184140          
+     B06P-REGXDIA        NUMBER (10) OCCURS 31 TIMES                    10184150          
+    );                            %% Fin Grupo registros x dõa          10184160          
+    B06P-XMES-ANHACT     GROUP    %% Inicio Grupo M¾ximos               10184170          
+    (                             %% por mes aùo actual                 10184180          
+     B06P-MAXMES-AACT    NUMBER (10) OCCURS 12 TIMES;                   10184190          
+     B06P-FECMXM-AACT    NUMBER (08) OCCURS 12 TIMES                    10184200          
+    );                            %% Fin Grupo M¾ximos x mes act        10184210          
+    B06P-XMES-ANHANT     GROUP    %% Inicio Grupo M¾ximos               10184220          
+    (                             %% por mes aùo anterior               10184230          
+     B06P-MAXMES-AANT    NUMBER (10) OCCURS 12 TIMES;                   10184240          
+     B06P-FECMXM-AANT    NUMBER (08) OCCURS 12 TIMES                    10184250          
+    );                            %% Fin Grupo M¾ximos x mes act        10184260          
+   B06P-MAX-XANH      GROUP   %% Inicio Grupo M¾ximos por Aùo           10184270          
+   (                          %% De los ³ltimos 5 aùos.                 10184280          
+    B06P-MAX-ANUAL    NUMBER (10) OCCURS 05 TIMES;                      10184290          
+    B06P-FEC-MAXANH   NUMBER (08) OCCURS 05 TIMES                       10184300          
+   );                         %% Fin Grupo m¾ximos por aùo              10184310          
+                                                                        10184320          
+   B06P-MAXIMO-HIST  GROUP   %% Inicio Grupo m¾ximo Histÿrico           10184330          
+                                                                        10184340          
+   (                         %% N³mero , Fecha Y Capacidad max.         10184350          
+    B06P-REGMAXHIST  NUMBER (10);                                       10184360          
+                                                                        10184370          
+    B06P-FECHMAXHIST NUMBER (08);                                       10184380          
+    B06P-MAXIMA-CAP  NUMBER (10);                                       10184385          
+    B06P-PORC-USO    NUMBER (04,1)                                      10184386          
+                                                                        10184390          
+   );                        %% Fin Grupo m¾ximo histÿrico              10184400          
+                                                                        10184410          
+                                                                        10184420          
+    B06P-NOMBRE       ALPHA  (30);                                      10184430          
+    B06P-USO-FUT-2    NUMBER (02);                                      10184450          
+    B06P-USO-FUT-3    NUMBER (06);                                      10184452          
+    B06P-USO-FUT-4    NUMBER (02);                                      10184454          
+  );                         %% Fin Grupo Data Set Completo             10184470          
+ ),                          %% Fin Data Set.                           10184480          
+% PARA EL RECORDSIZE SE INCLUYE 2 WORDS MAS X EL EXTENDED.              10184490          
+% RECORDSIZE     = 080 WORDS + 2 = 82 (480 + 12 caracteres display,s)   10184500          
+  BLOCKSIZE      = 004 RECORDS,                                         10184510          
+  AREASIZE       = 100 BLOCKS,                                          10184520          
+  CHECKSUM       = TRUE,                                                10184530          
+  POPULATION     = 2100,                                                10184540          
+  REBLOCK        = TRUE,                                                10184550          
+  EXTENDED       = TRUE,                                                10184560          
+  DUMPSTAMP      = FALSE,                                               10184570          
+  REBLOCKFACTOR  = 50;                                                  10184580          
+                                                                        10184590          
+                                                                        10184600          
+%%% SET POR LLAVE DE S500B06PCTRLARCH %%%%                              10184610          
+% KEYENTRYSIZE  2 WORDS                                                 10184620          
+  B06PSXLLAVE SET OF S500B06PCTRLARCH                                   10184630          
+           KEY (B06P-LLAVE-ARCH),                                       10184640          
+           INDEX SEQUENTIAL,                                            10184650          
+           NO DUPLICATES,                                               10184660          
+% AREASIZE        =  106 TABLES,                                        10184670          
+  BUFFERS         =  001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10184680          
+  CHECKSUM        =  TRUE,                                              10184690          
+  DUMPSTAMP       =  FALSE,                                             10184700          
+  LOADFACTOR      =  66,                                                10184710          
+  POPULATION      =  2100,                                              10184720          
+  TABLESIZE       =  28 ENTRIES,                                        10184730          
+  MEMORY RESIDENT =  ALL;                                               10184740          
+                                                                        10184750          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                 10184760          
+%SET PAGE                                                               10184770          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           10184800          
+%     CONTROL DE ARCHIVOS A APLICAR S500                                10184805          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           10184810          
+ S500B07PARCHIVOS        DATA SET %% Prefijo = B07P                     10184815          
+ (                                %% Inicio Data Set                    10184820          
+   B07P-SIST-CTE         NUMBER (12);                                   10184825          
+   B07P-TIPO             NUMBER (02);                                   10184830          
+   B07P-SECUENCIAL       NUMBER (04);                                   10184835          
+   B07P-NODO             NUMBER (02);                                   10184840          
+   B07P-PRIORIDAD        NUMBER (02);                                   10184845          
+   B07P-OBLIGATORIO      NUMBER (01);                                   10184850          
+   B07P-PERIODICIDAD     NUMBER (01);                                   10184855          
+   B07P-LISTADOS         NUMBER (01);                                   10184860          
+   B07P-BLOQUEADO        NUMBER (01);                                   10184865          
+   B07P-USER             NUMBER (03);                                   10184870          
+   B07P-SISTEMA          NUMBER (03);                                   10184875          
+   B07P-RECEPCION        NUMBER (02);                                   10184880          
+   B07P-HORA-INI         NUMBER (06);                                   10184885          
+   B07P-HORA-FIN         NUMBER (06);                                   10184890          
+   B07P-TRNXSEG          NUMBER (06);                                   10184895          
+   B07P-FEC-ALTA         NUMBER (08);                                   10184900          
+   B07P-FEC-MODI         NUMBER (08);                                   10184905          
+   B07P-HORA-ALTA        NUMBER (06);                                   10184910          
+   B07P-NUM-NOM          NUMBER (08);                                   10184915          
+   B07P-XFERARCH         NUMBER (01);                                   10184920          
+   B07P-ESTATUS          NUMBER (01);                                   10184925          
+   B07P-ESTATIONAME      ALPHA  (08);                                   10184950          
+   B07P-PACK             ALPHA  (12);                                   10184955          
+   B07P-BUZON            ALPHA  (08);                                   10184960          
+   B07P-NUM-MAX-REG      NUMBER (08);                                   10184962          
+   B07P-IND-CONT-PROC    ALPHA  (02);                                   10184964          
+   B07P-DIA-PROCESO      ALPHA  (01) OCCURS 7 TIMES;                    10184966          
+   B07P-BUZON-SAL        ALPHA  (08);                                   10184968          
+   B07P-NUM-DIA-RESP     NUMBER (02);                                   10184970          
+   B07P-IND-UNICO        ALPHA  (02);                                   10184972          
+   B07P-USO-FUT-01       NUMBER (04);                                   10184974          
+   B07P-USO-FUT-02       ALPHA  (04);                                   10184976          
+   B07P-USO-FUT-03       ALPHA  (05);                                   10184978          
+   B07P-USO-FUT-04       NUMBER (02);                                   10184980          
+   B07P-USO-FUT-05       NUMBER (02);                                   10184982          
+   B07P-USO-FUT-06       NUMBER (02);                                   10184984          
+   B07P-USO-FUT-07       ALPHA  (08);                                   10184986          
+   B07P-USO-FUT-08       NUMBER (08);                                   10184988          
+ ),                          %% Fin Data Set.                           10185000          
+% PARA EL RECORDSIZE SE INCLUYE 2 WORDS MAS X EL EXTENDED.              10185005          
+% RECORDSIZE     = 020 WORDS + 2 = 22 = (240 + 24) = 264 COMP           10185010          
+  BLOCKSIZE      = 004 RECORDS,                                         10185015          
+  AREASIZE       = 50 BLOCKS,                                           10185020          
+  CHECKSUM       = TRUE,                                                10185025          
+  POPULATION     = 10000,                                               10185030          
+  REBLOCK        = TRUE,                                                10185035          
+  EXTENDED       = TRUE,                                                10185040          
+  DUMPSTAMP      = FALSE,                                               10185045          
+  REBLOCKFACTOR  = 50;                                                  10185050          
+                                                                        10185055          
+%                                                                       10185100          
+%%% SET POR LLAVE DE         S500B07PARCHIVOS                           10185105          
+% KEYENTRYSIZE  3 WORDS                                                 10185110          
+  B07PSXSISCTESEC SET OF S500B07PARCHIVOS                               10185115          
+           KEY (B07P-SIST-CTE                                           10185120          
+               ,B07P-TIPO                                               10185125          
+               ,B07P-SECUENCIAL                                         10185130          
+               ,B07P-NODO                                               10185135          
+               ),                                                       10185140          
+           INDEX SEQUENTIAL,                                            10185145          
+           NO DUPLICATES,                                               10185150          
+% AREASIZE        =  336 TABLES,                                        10185155          
+  BUFFERS         =  001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10185160          
+  CHECKSUM        =  TRUE,                                              10185165          
+  DUMPSTAMP       =  FALSE,                                             10185170          
+  LOADFACTOR      =  66,                                                10185175          
+  POPULATION      =  10000,                                             10185180          
+  TABLESIZE       =  28 ENTRIES,                                        10185185          
+  MEMORY RESIDENT =  ALL;                                               10185190          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                 10185300          
+%SET PAGE                                                               10185305          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           10185310          
+%     CONTROL ARRIBO DE ARCHIVOS A APLICAR S500                         10185315          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           10185320          
+ S500B08PCTRARRIBO       DATA SET %% Prefijo = B08P                     10185325          
+ (                                %% Inicio Data Set                    10185330          
+   B08P-SIST-CTE         NUMBER (12);                                   10185335          
+   B08P-TIPO             NUMBER (02);                                   10185340          
+   B08P-SECUENCIAL       NUMBER (04);                                   10185345          
+   B08P-NODO             NUMBER (02);                                   10185350          
+   B08P-PRIORIDAD        NUMBER (02);                                   10185355          
+   B08P-ESTATUS          ALPHA  (01);                                   10185360          
+   B08P-FEC-PROC         NUMBER (08);                                   10185365          
+   B08P-FEC-ARRIBO       NUMBER (08);                                   10185370          
+   B08P-HORA-ARRIBO      NUMBER (06);                                   10185375          
+   B08P-FEC-APL          NUMBER (08);                                   10185380          
+   B08P-HORA-INI         NUMBER (06);                                   10185385          
+   B08P-HORA-FIN         NUMBER (06);                                   10185390          
+   B08P-HORA-INI-APL     NUMBER (06);                                   10185395          
+   B08P-HORA-FIN-APL     NUMBER (06);                                   10185400          
+   B08P-NUM-COPIA        NUMBER (02);                                   10185405          
+   B08P-TOT-REG          NUMBER (08);                                   10185410          
+   B08P-REG-PROC         NUMBER (08);                                   10185415          
+   B08P-REG-OK           NUMBER (08);                                   10185420          
+   B08P-REG-RECH         NUMBER (08);                                   10185425          
+   B08P-REG-FOR          NUMBER (08);                                   10185430          
+   B08P-USER             NUMBER (03);                                   10185435          
+   B08P-SISTEMA          NUMBER (03);                                   10185440          
+   B08P-PACK             ALPHA  (12);                                   10185460          
+   B08P-BUZON            ALPHA  (08);                                   10185465          
+   B08P-NUM-MAX-REG      NUMBER (08);                                   10185470          
+   B08P-IND-CONT-PROC    ALPHA  (02);                                   10185472          
+   B08P-DIA-PROCESO      ALPHA  (01) OCCURS 7 TIMES;                    10185474          
+   B08P-BUZON-SAL        ALPHA  (08);                                   10185476          
+   B08P-NUM-DIA-RESP     NUMBER (02);                                   10185478          
+   B08P-IND-UNICO        ALPHA  (02);                                   10185480          
+   B08P-LISTADOS         NUMBER (01);                                   10185482          
+   B08P-PUNTERO          NUMBER (07);                                   10185484          
+   B08P-REPORTADO        NUMBER (02);                                   10185486          
+   B08P-CONT-REINTENTOS  NUMBER (02);                                   10185488          
+   B08P-SUB-ESTATUS      ALPHA  (01);                                   10185490          
+   B08P-NUM-COPIA20      NUMBER (02);                                   10185491          
+   B08P-XFER-ARCH        NUMBER (02); %Indica si se envía archivo       10185492          
+   B08P-TIPO-ERROR1      ALPHA  (04); %Primer parte del MSG de error    10185493          
+   B08P-TIPO-ERROR2      ALPHA  (05); %Segunda parte del MSG de error   10185494          
+   B08P-ENVIO-INTE       NUMBER (02); %Ind envio a intelar              10185495          
+   B08P-IND-RECH         NUMBER (02); %Indica el tipo de rechazo        10185496          
+   B08P-PIEZA-ACT        NUMBER (02); %Indica última pieza que actualizo10185497          
+   B08P-TRN-SEG          NUMBER (08); %Transacciones por segundo        10185498          
+   B08P-USO-FUT-01       NUMBER (02);                                   10185499          
+   B08P-USO-FUT-02       ALPHA  (04);                                   10185500          
+   B08P-USO-FUT-03       ALPHA  (05);                                   10185501          
+   B08P-USO-FUT-04       NUMBER (02);                                   10185502          
+   B08P-USO-FUT-05       NUMBER (02);                                   10185503          
+   B08P-USO-FUT-06       NUMBER (02);                                   10185504          
+   B08P-USO-FUT-07       NUMBER (08);                                   10185505          
+   B08P-USO-FUT-08       NUMBER (02);                                   10185506          
+ ),                          %% Fin Data Set.                           10185511          
+% PARA EL RECORDSIZE SE INCLUYE 2 WORDS MAS X EL EXTENDED.              10185512          
+% RECORDSIZE     = 025 WORDS + 2 = 27 = (300 + 24) = 324 COMP           10185513          
+  BLOCKSIZE      = 021 RECORDS,                                         10185514          
+  AREASIZE       = 60 BLOCKS,                                           10185515          
+  CHECKSUM       = TRUE,                                                10185520          
+  POPULATION     = 300000,                                              10185525          
+  REBLOCK        = TRUE,                                                10185530          
+  EXTENDED       = TRUE,                                                10185535          
+  DUMPSTAMP      = FALSE,                                               10185540          
+  REBLOCKFACTOR  = 50;                                                  10185545          
+%                                                                       10185550          
+%             1    2    3   4   5   6   7   LLAVES                      10185554          
+%%% SET POR FECHA-SIS-TPO-SEQ-NODO-PRIO-STA                             10185555          
+% KEYENTRYSIZE  5 WORDS                                                 10185560          
+  B08PSXFECSISCTESQ SET OF S500B08PCTRARRIBO                            10185565          
+           KEY (B08P-FEC-PROC,   B08P-SIST-CTE                          10185570          
+               ,B08P-TIPO,       B08P-SECUENCIAL                        10185575          
+               ,B08P-NODO,       B08P-PRIORIDAD                         10185580          
+               ,B08P-ESTATUS                                            10185585          
+               ),                                                       10185590          
+           INDEX SEQUENTIAL,                                            10185600          
+           DUPLICATES,                                                  10185605          
+% AREASIZE        =   63 TABLES,                                        10185610          
+  BUFFERS         =  001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10185615          
+  CHECKSUM        =  TRUE,                                              10185620          
+  DUMPSTAMP       =  FALSE,                                             10185625          
+  LOADFACTOR      =  66,                                                10185630          
+  POPULATION      =  300000,                                            10185635          
+  TABLESIZE       =  95 ENTRIES,                                        10185640          
+  MEMORY RESIDENT =  ALL;                                               10185645          
+%                                                                       10185650          
+%             1   2   3    4    5   6   7   8   9   LLAVES              10185654          
+%%% SET POR PRIO-STA-FECP-FECA-HRA-SIS-TPO-SEQ-NODO                     10185655          
+% KEYENTRYSIZE  6 WORDS                                                 10185660          
+  B08PSXPRIOESTFEC  SET OF S500B08PCTRARRIBO                            10185665          
+           KEY (B08P-PRIORIDAD,  B08P-ESTATUS,     B08P-FEC-PROC        10185670          
+               ,B08P-FEC-ARRIBO, B08P-HORA-ARRIBO, B08P-SIST-CTE        10185675          
+               ,B08P-TIPO,       B08P-SECUENCIAL,  B08P-NODO            10185680          
+               ),                                                       10185690          
+           INDEX SEQUENTIAL,                                            10185695          
+           DUPLICATES,                                                  10185700          
+% AREASIZE        =  056 TABLES,                                        10185705          
+  BUFFERS         =  001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10185710          
+  CHECKSUM        =  TRUE,                                              10185715          
+  DUMPSTAMP       =  FALSE,                                             10185720          
+  LOADFACTOR      =  66,                                                10185725          
+  POPULATION      =  300000,                                            10185730          
+  TABLESIZE       =  89 ENTRIES,                                        10185735          
+  MEMORY RESIDENT =  ALL;                                               10185740          
+                                                                        10185745          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%             10185790          
+$SET PAGE                                                               10185795          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                 10186000          
+%     DATA SET MOTOR PARA TENER LA FECHA ULTMOVTO POR CLIENTE           10186020          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%           10186040          
+ S500B09PMOTOR           DATA SET %% Prefijo = B09P                     10186060          
+ (                                %% Inicio Data Set                    10186080          
+   B09P-NUM-CLIENTE      NUMBER  (12) REQUIRED;                         10186100          
+%% datos del contrato con la fecha del ³ltimo movimiento                10186118          
+   B09P-SIST-ULTM        NUMBER  (04);                                  10186120          
+   B09P-PRD-ULTM         NUMBER  (04);                                  10186140          
+   B09P-INS-ULTM         NUMBER  (04);                                  10186160          
+   B09P-MON-ULTM         NUMBER  (02);                                  10186180          
+   B09P-INSOP-ULTM       NUMBER  (02);                                  10186200          
+   B09P-NINV-ULTM        NUMBER  (06);                                  10186220          
+   B09P-CTO-ULTM         NUMBER  (12);                                  10186240          
+%                                                                       10186242          
+%%% Fecha de creaciÿn del registro en la base                           10186258          
+   B09P-FECH-CREA        NUMBER  (08);                                  10186260          
+%                                                                       10186261          
+%%% Fecha de la ultima actualizacion archivo local                      10186278          
+   B09P-ULTACT-LOC       NUMBER  (08);                                  10186280          
+%                                                                       10186281          
+%%% Fecha de la ultima actualizacion archivo foraneo                    10186298          
+   B09P-ULTACT-FOR       NUMBER  (08);                                  10186300          
+%                                                                       10186301          
+%%% Fecha del ultimo movimiento por el cliente                          10186318          
+   B09P-FECH-ULTMOV      NUMBER  (08);                                  10186320          
+%                                                                       10186321          
+%% Estatus del Cliente 00=vigente, 01=bloqueado                         10186338          
+   B09P-STA-CTE          NUMBER  (02);                                  10186340          
+%                                                                       10186341          
+%% Estatus de Beneficencia 00=normal,                                   10186346          
+%% 01=En Art. 61  "B09P-STA-CTE" = 00 y                                 10186347          
+%%                La fecha B09P-FECH-ULTMOV es menor a:                 10186348          
+%% los meses(36)para generar aviso m¾s los dõas(90)desp³es del Aviso    10186349          
+   B09P-STA-BENF         NUMBER  (02);                                  10186350          
+%                                                                       10186351          
+%%                                                                      10186498          
+   B09P-USO-FUT-01       NUMBER  (02);                                  10186500          
+ ),                          %% Fin Data Set.                           10186680          
+% Para el RECORDSIZE se incluyen 2 WORDS m¾s x EXTENDED.                10186700          
+% RECORDSIZE     = 007 WORDS + 2 = 09 = (084 + 24) = 108 COMP.          10186720          
+  BLOCKSIZE      = 013 RECORDS,                                         10186740          
+  AREASIZE       = 5100 BLOCKS,                                         10186760          
+%% Las areas son calculadas en automatico en base al POPULATION         10186768          
+%% Y pueden crecer hasta 1000 sin modificarlo                           10186769          
+%% AREAS =  750,                                                        10186770          
+  CHECKSUM       = TRUE,                                                10186780          
+  POPULATION     = 50000000,                                            10186800          
+  REBLOCK        = TRUE,                                                10186820          
+  EXTENDED       = TRUE,                                                10186840          
+  DUMPSTAMP      = FALSE,                                               10186860          
+  REBLOCKFACTOR  = 50;                                                  10186880          
+                                                                        10186900          
+%%% SET POR NUMERO DE CLIENTE                                           10186920          
+% KEYENTRYSIZE  2 WORDS                                                 10186940          
+  B09PSXCLIENTE     SET OF S500B09PMOTOR                                10186960          
+           KEY (B09P-NUM-CLIENTE                                        10186980          
+               ),                                                       10187000          
+           INDEX SEQUENTIAL,                                            10187020          
+           NO DUPLICATES,                                               10187040          
+% AREASIZE        =  141 TABLES,                                        10187060          
+  BUFFERS         =  001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10187080          
+  CHECKSUM        =  TRUE,                                              10187100          
+  DUMPSTAMP       =  FALSE,                                             10187120          
+  LOADFACTOR      =  66,                                                10187140          
+  POPULATION      =  50000000,                                          10187160          
+  TABLESIZE       =  478 ENTRIES,                                       10187180          
+  MEMORY RESIDENT =  ALL;                                               10187200          
+                                                                        10187220          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10187221          
+%     CONTROL DEPURACION DE ARCHIVOS S500                              %10187222          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10187223          
+ S500B10PDEPURA           DATA SET %% Prefijo = B10P                    10187224          
+ (                                %% Inicio Data Set                    10187225          
+   B10P-NOMBRE-ARC        ALPHA   (75);                                 10187226          
+   B10P-SECUENCIAL        NUMBER  (04);                                 10187227          
+   B10P-VALIDAB08         NUMBER  (02);                                 10187228          
+   B10P-DEPUR-ACT         NUMBER  (02);                                 10187229          
+   B10P-IDE-DEPURACION    NUMBER  (02);                                 10187230          
+   B10P-SISTEMA-CTE       NUMBER  (12);                                 10187231          
+   B10P-NODO              NUMBER  (02);                                 10187232          
+   B10P-TIPO              NUMBER  (02);                                 10187233          
+   B10P-DIAS-RESPALDO     NUMBER  (03);                                 10187234          
+   B10P-FEC-MODIF         NUMBER  (08);                                 10187235          
+   B10P-FEC-ULTDEP        NUMBER  (08);                                 10187236          
+   B10P-SEC-DIR           NUMBER  (06); %Ind secuencial del archivo PDIR10187237          
+   B10P-USO-FUTURON-01    NUMBER  (08);                                 10187238          
+   B10P-USO-FUTURON-02    NUMBER  (08);                                 10187239          
+   B10P-USO-FUTURON-03    NUMBER  (08);                                 10187240          
+   B10P-USO-FUTURON-04    NUMBER  (02);                                 10187241          
+   B10P-USO-FUTURON-05    NUMBER  (06);                                 10187242          
+   B10P-USO-FUTURON-06    NUMBER  (06);                                 10187243          
+   B10P-USO-FUTURON-07    NUMBER  (10);                                 10187244          
+   B10P-USO-FUTURON-08    NUMBER  (02);                                 10187245          
+   B10P-USO-FUTUROX-01    ALPHA   (40);                                 10187246          
+   B10P-USO-FUTUROX-02    ALPHA   (40);                                 10187247          
+   B10P-USO-FUTUROX-03    ALPHA   (40);                                 10187248          
+ ),                          %% Fin Data Set.                           10187249          
+% PARA EL RECORDSIZE SE INCLUYE 2 WORDS MAS X EL EXTENDED.              10187253          
+% RECORDSIZE     = 041 WORDS + 2 = 43 = (246 + 12) = 258 DISPLAY        10187254          
+  BLOCKSIZE      = 016 RECORDS,                                         10187255          
+  AREASIZE       = 200 BLOCKS,                                          10187256          
+  CHECKSUM       = TRUE,                                                10187257          
+  POPULATION     = 10000,                                               10187258          
+  REBLOCK        = TRUE,                                                10187259          
+  EXTENDED       = TRUE,                                                10187260          
+  DUMPSTAMP      = FALSE,                                               10187261          
+  REBLOCKFACTOR  = 30;                                                  10187262          
+%                                                                       10187263          
+% KEYENTRYSIZE  14 WORDS                                                10187264          
+  B10PSXNOMARCH     SET OF S500B10PDEPURA                               10187265          
+           KEY (B10P-NOMBRE-ARC)                                        10187266          
+           INDEX SEQUENTIAL,                                            10187267          
+           NO DUPLICATES,                                               10187268          
+% AREASIZE        =  02 TABLES,                                         10187269          
+  BUFFERS         =  001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10187270          
+  CHECKSUM        =  TRUE,                                              10187271          
+  DUMPSTAMP       =  FALSE,                                             10187272          
+  LOADFACTOR      =  66,                                                10187273          
+  POPULATION      =  10000,                                             10187274          
+  TABLESIZE       =  064 ENTRIES,                                       10187275          
+  MEMORY RESIDENT =  ALL;                                               10187276          
+%KEYENTRYSIZE  3 WORDS                                                  10187277          
+  B10PSXIDEDEP       SET OF S500B10PDEPURA                              10187278          
+                     KEY (B10P-IDE-DEPURACION)                          10187279          
+                     INDEX SEQUENTIAL,                                  10187280          
+                     DUPLICATES,                                        10187281          
+% AREASIZE        =  056 TABLES,                                        10187282          
+  BUFFERS         =  001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10187283          
+  CHECKSUM        =  TRUE,                                              10187284          
+  DUMPSTAMP       =  FALSE,                                             10187285          
+  LOADFACTOR      =  66,                                                10187286          
+  POPULATION      =  10000,                                             10187287          
+  TABLESIZE       =  78 ENTRIES,                                        10187288          
+  MEMORY RESIDENT =  ALL;                                               10187289          
+%                                                                       10187290          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10187300          
+%     CONTROL CLAVES DE TRANSACCION  POR ARCHIVO S500                  %10187400          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10187500          
+ S500B11PCVETRAARC       DATA SET %% Prefijo = B11P                     10187600          
+ (                                %% Inicio Data Set                    10187700          
+   B11P-SIST-CTE          NUMBER  (12);                                 10187800          
+   B11P-TIPO              NUMBER  (02);                                 10187900          
+   B11P-SECUENCIAL        NUMBER  (04);                                 10188000          
+   B11P-NODO              NUMBER  (02);                                 10188100          
+   B11P-CLAVE             NUMBER  (04) OCCURS 156 TIMES;                10188200          
+   B11P-USO-FUTURON-01    NUMBER  (04);                                 10188300          
+   B11P-USO-FUTURON-02    NUMBER  (04);                                 10188400          
+   B11P-USO-FUTUROX-01    ALPHA   (08);                                 10188500          
+   B11P-USO-FUTUROX-02    ALPHA   (08);                                 10188600          
+ ),                          %% Fin Data Set.                           10188700          
+% PARA EL RECORDSIZE SE INCLUYE 2 WORDS MAS X EL EXTENDED.              10188800          
+% RECORDSIZE     = 057 WORDS + 2 = 59 = (684 + 24) = 708 COMP           10188900          
+  BLOCKSIZE      = 032 RECORDS,                                         10189000          
+  AREASIZE       = 60 BLOCKS,                                           10189100          
+  CHECKSUM       = TRUE,                                                10189200          
+  POPULATION     = 10000,                                               10189300          
+  REBLOCK        = TRUE,                                                10189400          
+  EXTENDED       = TRUE,                                                10189500          
+  DUMPSTAMP      = FALSE,                                               10189600          
+  REBLOCKFACTOR  = 30;                                                  10189700          
+%                                                                       10189800          
+% KEYENTRYSIZE  3 WORDS                                                 10189900          
+  B11PSXSISCTESEC     SET OF S500B11PCVETRAARC                          10190000          
+                      KEY (B11P-SIST-CTE,                               10190100          
+                           B11P-TIPO,                                   10190120          
+                           B11P-SECUENCIAL,                             10190140          
+                           B11P-NODO                                    10190160          
+                          )                                             10190200          
+                      INDEX SEQUENTIAL,                                 10190300          
+                      NO DUPLICATES,                                    10190400          
+% AREASIZE        =  056 TABLES,                                        10190500          
+  BUFFERS         =  001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10190600          
+  CHECKSUM        =  TRUE,                                              10190700          
+  DUMPSTAMP       =  FALSE,                                             10190800          
+  LOADFACTOR      =  66,                                                10190900          
+  POPULATION      =  10000,                                             10191000          
+  TABLESIZE       =  78 ENTRIES,                                        10191100          
+  MEMORY RESIDENT =  ALL;                                               10191200          
+                                                                        10191202          
+%                                                                       10191204          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10191206          
+%     CARGA DRIVER FILE PARA CLONACION S500                            %10191208          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10191210          
+ S500B12PCLONNING       DATA SET                                        10191212          
+ (                                %% Inicio Data Set                    10191213          
+   B12P-MED-ACCESO                   NUMBER  (01); %Medio de Acceso     10191214          
+   B12P-CONT-CUENT                   NUMBER  (12); %Contrato-Cuenta     10191215          
+   B12P-SISTEMA                      NUMBER  (04); %Sistema             10191216          
+   B12P-CSI                          NUMBER  (02); %CSI                 10191217          
+                                                   % 10 VDM   04 QRO    10191218          
+   B12P-PRODUCTO                     NUMBER  (04); % Producto           10191219          
+   B12P-INSTRUMENTO                  NUMBER  (04); % Instrumento        10191220          
+   B12P-MONEDA                       NUMBER  (03); % Moneda             10191221          
+   B12P-SUC-PROM                     NUMBER  (04); % Sucursal Promotora 10191222          
+   B12P-FEC-ALTA                     NUMBER  (08); % Fecha de Alta      10191223          
+   B12P-STATUS                       NUMBER  (01); % Estatus            10191224          
+                                                   % 0 Activo           10191225          
+                                                   % 1 Inactivo         10191226          
+   B12P-SUC-P-REF                    NUMBER  (04); %SUCURSAL P REFEREN  10191230          
+   B12P-NUM-CLIENTE                  NUMBER  (12); %NUMERO DE CLIENTE   10191234          
+   B12P-USON-FUT-01                  NUMBER  (08);                      10191236          
+   B12P-USOA-FUT-01                  ALPHA   (08);                      10191238          
+   B12P-USOA-FUT-02                  ALPHA   (12);                      10191240          
+ ),                          %% Fin Data Set.                           10191242          
+% PARA EL RECORDSIZE SE INCLUYE 2 WORDS MAS X EL EXTENDED.              10191244          
+                                                                        10191246          
+  BLOCKSIZE      = 016 RECORDS,                                         10191248          
+  AREASIZE       = 100 BLOCKS,                                          10191250          
+  CHECKSUM       = TRUE,                                                10191252          
+  POPULATION     = 1000000,                                             10191254          
+  REBLOCK        = TRUE,                                                10191256          
+  EXTENDED       = TRUE,                                                10191258          
+  DUMPSTAMP      = FALSE,                                               10191260          
+  REBLOCKFACTOR  = 30;                                                  10191262          
+%                                                                       10191264          
+                                                                        10191266          
+  B12PCSXMDACTO     SET OF S500B12PCLONNING                             10191268          
+                      KEY (B12P-MED-ACCESO,                             10191269          
+                           B12P-CONT-CUENT,                             10191270          
+                           B12P-PRODUCTO,                               10191271          
+                           B12P-INSTRUMENTO                             10191272          
+                          )                                             10191274          
+                      INDEX SEQUENTIAL,                                 10191276          
+                      NO DUPLICATES,                                    10191278          
+                                                                        10191280          
+  BUFFERS         =  001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10191282          
+  CHECKSUM        =  TRUE,                                              10191284          
+  DUMPSTAMP       =  FALSE,                                             10191286          
+  LOADFACTOR      =  66,                                                10191288          
+  POPULATION      =  1000000,                                           10191290          
+  TABLESIZE       =  78 ENTRIES,                                        10191292          
+  MEMORY RESIDENT =  ALL;                                               10191294          
+                                                                        10191296          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10191298          
+%     CALCULAR COMISIONES DE EPP                                       %10191300          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10191302          
+ S500B13PREGCOMEPP    DATA SET                                          10191304          
+ (                                                                      10191306          
+  B13P-PRODUCTO              NUMBER(04) REQUIRED;    %PRODUCTO          10191308          
+  B13P-INTRUMENTO            NUMBER(04) REQUIRED;    %INTRUMENTO        10191310          
+  B13P-MONEDA                NUMBER(03) REQUIRED;    %MONEDA            10191312          
+  B13P-TIPO-COMI             NUMBER(01) REQUIRED;    %TIPO DE COMISION  10191314          
+  B13P-DIAS-PERIO-GRACIA     NUMBER(03);    %PERIODO DE GRACIA EN DIAS  10191316          
+  B13P-IMP-COMISION          NUMBER(10,02); %IMPORTE DE COMISION        10191318          
+  B13P-STATUS                NUMBER(01);    %ESTATUS REGLAS AL PIM      10191320          
+  B13P-REGLASXPIMYTC  GROUP OCCURS 30 TIMES                             10191322          
+  (                                  %INICIO GROUP B13P-REGLASXPIMYTC   10191324          
+                                     %REGLAS POR PROD-INTR-MON-TIPOCOMI 10191326          
+    B13P-NUM-REGLA             NUMBER(02);    %NUMERO DE REGLA          10191328          
+    B13P-DESCRIPCION            ALPHA(20);    %DESCRIPCION              10191330          
+    B13P-TIPO-EXCEP            NUMBER(02);    %TIPO EXCEPCION           10191332          
+    B13P-FECHA-INI             NUMBER(08);    %FECHA INICIO             10191334          
+    B13P-FECHA-FIN             NUMBER(08);    %FECHA FIN                10191336          
+    B13P-CASQ-BALANCE          NUMBER(10,02); %CASQUILLO BALANCE        10191338          
+    B13P-IND-IMP-PORC          NUMBER(01);    %INDICE DE IMP O PORCENT  10191340          
+    B13P-IMP-PORCNTJE-WAIVER   NUMBER(10,02); %IMP O PORCENTAJE WAIVER  10191342          
+    B13P-NUM-RETIRO-ATM-MIN    NUMBER(04);    %NUM MIN RET ATM BNMX     10191344          
+    B13P-NUM-RETIRO-ATM-MAX    NUMBER(04);    %NUM MAX RET ATM BNMX     10191346          
+    B13P-NUM-MOVS-CANAL-DIG    NUMBER(04);    %NUM MOVS POR CANAL DIG   10191348          
+    B13P-STATUS-REGLA          NUMBER(01);    %ESTATUS DE LA REGLA      10191350          
+    B13P-PRELACION-REGLA       NUMBER(02);    %ORDEN PRELACION DE REGLA 10191352          
+    B13P-USO-FUTURO-01R        NUMBER(02);                              10191354          
+    B13P-USO-FUTURO-02R        NUMBER(08);                              10191356          
+    B13P-USO-FUTURO-03R         ALPHA(10);                              10191358          
+  );  %FIN GROUP B13P-REGLASXPIMYTC                                     10191360          
+  B13P-USO-FUTURO-04        NUMBER(02);                                 10191362          
+  B13P-USO-FUTURO-05        NUMBER(02);                                 10191364          
+  B13P-USO-FUTURO-06        NUMBER(04);                                 10191366          
+  B13P-USO-FUTURO-07        NUMBER(08);                                 10191368          
+  B13P-USO-FUTURO-08        NUMBER(10);                                 10191370          
+  B13P-USO-FUTURO-09         ALPHA(10);                                 10191372          
+ ),                                                                     10191374          
+% PARA EL RECORDSIZE SE INCLUYE 2 WORDS MAS X EL EXTENDED.              10191376          
+%  RECORDSIZE    = 321 WORDS + 2 WORDS,                                 10191378          
+  BLOCKSIZE      = 26  RECORDS,                                         10191380          
+  AREASIZE       = 1  BLOCKS,                                           10191382          
+  CHECKSUM       = TRUE,                                                10191384          
+  POPULATION     = 100,                                                 10191386          
+  EXTENDED       = TRUE,                                                10191390          
+  DUMPSTAMP      = FALSE;                                               10191392          
+                                                                        10191394          
+                                                                        10191396          
+ B13PREGLAEPPXPIM SET OF S500B13PREGCOMEPP                              10191398          
+             KEY IS (B13P-PRODUCTO,                                     10191400          
+                     B13P-INTRUMENTO,                                   10191402          
+                     B13P-MONEDA,                                       10191404          
+                     B13P-TIPO-COMI)                                    10191406          
+                     INDEX SEQUENTIAL,                                  10191408          
+                     NO DUPLICATES,                                     10191410          
+                                                                        10191412          
+  BUFFERS         = 0001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10191414          
+  CHECKSUM        = TRUE,                                               10191416          
+  DUMPSTAMP       = FALSE,                                              10191418          
+  LOADFACTOR      = 66,                                                 10191420          
+  POPULATION      = 100,                                                10191422          
+  TABLESIZE       = 117 ENTRIES,                                        10191424          
+  MEMORY RESIDENT = ALL;                                                10191426          
+                                                                        10191428          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10191430          
+%     CALCULAR REWARDS DE EPP                                          %10191432          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10191434          
+ S500B14PREGREWEPP           DATA SET                                   10191436          
+ (                                                                      10191438          
+  B14P-PRODUCTO              NUMBER(04) REQUIRED;    %PRODUCTO          10191440          
+  B14P-INSTRUMENTO           NUMBER(04) REQUIRED;    %INTRUMENTO        10191442          
+  B14P-MONEDA                NUMBER(03) REQUIRED;    %MONEDA            10191444          
+  B14P-STATUS                NUMBER(01);    %ESTATUS REWAR AL PIM       10191446          
+  B14P-REGLASXPIM  GROUP OCCURS 30 TIMES                                10191448          
+  (                                %INICIO GROUP S500B14PREGREWEPP      10191450          
+                                   %REGLAS REWARDS POR PROD-INTR-MON    10191452          
+    B14P-NUM-REWARD         NUMBER(02);     %NUMERO DE REWARD           10191454          
+    B14P-TIPO-REWARD        NUMBER(02);     %TIPO DE REWARD             10191456          
+    B14P-IND-IMP-PORC       NUMBER(01);     %INDICE DE IMP O PORCENT    10191458          
+    B14P-IMP-WAIVER         NUMBER(10,02);  %IMPORTE DEL REWARD         10191460          
+    B14P-TIPO-CANAL         NUMBER(02);                                 10191462          
+    B14P-MOVS-CANAL-DIG     NUMBER(04);                                 10191464          
+    B14P-STATUS-REWARD      NUMBER(01);     %ESTATUS                    10191466          
+    B14P-USO-FUTURO-01R     NUMBER(02);                                 10191468          
+    B14P-USO-FUTURO-02R     NUMBER(08);                                 10191470          
+    B14P-USO-FUTURO-03R      ALPHA(10);                                 10191472          
+                                                                        10191474          
+   );  %FIN GROUP B14P-REGLASXPIM                                       10191476          
+                                                                        10191478          
+    B14P-USO-FUTURO-04      NUMBER(02);                                 10191480          
+    B14P-USO-FUTURO-05      NUMBER(04);                                 10191482          
+    B14P-USO-FUTURO-06      NUMBER(08);                                 10191484          
+    B14P-USO-FUTURO-07      NUMBER(08);                                 10191486          
+    B14P-USO-FUTURO-08      NUMBER(10);                                 10191488          
+    B14P-USO-FUTURO-09       ALPHA(20);                                 10191490          
+                                                                        10191492          
+ ),                                                                     10191494          
+% PARA EL RECORDSIZE SE INCLUYE 2 WORDS MAS X EL EXTENDED.              10191496          
+% RECORDSIZE     = 137 WORDS + 2 WORDS,                                 10191498          
+  BLOCKSIZE      = 22 RECORDS,                                          10191500          
+  AREASIZE       = 1 BLOCKS,                                            10191502          
+  CHECKSUM       = TRUE,                                                10191504          
+  POPULATION     = 050,                                                 10191506          
+  EXTENDED       = TRUE,                                                10191510          
+  DUMPSTAMP      = FALSE;                                               10191512          
+                                                                        10191514          
+                                                                        10191516          
+                                                                        10191518          
+ B14PREWARDEPPXPIM SET OF S500B14PREGREWEPP                             10191520          
+             KEY IS (B14P-PRODUCTO,                                     10191522          
+                     B14P-INSTRUMENTO,                                  10191524          
+                     B14P-MONEDA)                                       10191526          
+               INDEX SEQUENTIAL,                                        10191528          
+                  NO DUPLICATES,                                        10191530          
+                                                                        10191532          
+  BUFFERS         = 0001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10191534          
+  CHECKSUM        = TRUE,                                               10191536          
+  DUMPSTAMP       = FALSE,                                              10191538          
+  LOADFACTOR      = 66,                                                 10191540          
+  POPULATION      = 050,                                                10191542          
+  TABLESIZE       = 57 ENTRIES,                                         10191544          
+  MEMORY RESIDENT = ALL;                                                10191546          
+                                                                        10191548          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10191550          
+%    CONTROL DE BUCKETS                                                %10191552          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10191554          
+ S500B15PCTLBUCKET    DATA SET                                          10191556          
+ (                                                                      10191558          
+   B15P-ID-BUCKET          NUMBER(8);  %Consecutivo de la liga.         10191560          
+   B15P-ID-FUNCI           NUMBER(3);  %Num bucket por funcionalidad.   10191562          
+   B15P-SUC-PROMOTORA      NUMBER(4);  %Suc promotora del contrato      10191564          
+   B15P-NUM-CONTRATO       NUMBER(12); %Numero de contrato              10191566          
+   B15P-IMPORTE-DISPONIBLE NUMBER(18,2);  %Imp bloq del cto y esta disp 10191568          
+   B15P-IMPORTE-AHORRO     NUMBER(18,2);  %Imp que se destina al ahorro 10191570          
+   B15P-LIMITE-ALERTAS     NUMBER(18,2);  %Lim del sdo de la tarj adici 10191572          
+   B15P-LIMITE-DISPONIBLE  NUMBER(18,2);  %Lim de saldo para transacc   10191574          
+   B15P-FEC-DESBLO         NUMBER(8); %Orig debe indicar días habiles   10191576          
+   B15P-FEC-CREA-BUCK      NUMBER(8); %Fech solicito la creación        10191578          
+   B15P-FEC-ULT-MOV        NUMBER(8); %Fech ultimo movimiento           10191580          
+   B15P-FEC-ULT-DESBLO     NUMBER(8); %Ulti fech que aplico el desbloq  10191582          
+   B15P-STATUS-BUCKET      NUMBER(1); %Indica si esta activo,cancelado. 10191584          
+   B15P-USO-FUT-01         NUMBER(2);                                   10191586          
+   B15P-USO-FUT-02         ALPHA(10);                                   10191588          
+   B15P-USO-FUT-03         ALPHA(10);                                   10191590          
+   B15P-USO-FUT-04         NUMBER(2);                                   10191592          
+   B15P-USO-FUT-05         NUMBER(18,2);                                10191594          
+   B15P-USO-FUT-06         NUMBER(18,2);                                10191596          
+   B15P-USO-FUT-07         NUMBER(8);                                   10191598          
+   B15P-USO-FUT-08         NUMBER(8);                                   10191600          
+   B15P-USO-FUT-09         NUMBER(18,2);                                10191602          
+   B15P-USO-FUT-10         NUMBER(1);                                   10191604          
+   B15P-USO-FUT-11         NUMBER(5);                                   10191606          
+ ),                                                                     10191608          
+% PARA EL RECORDSIZE SE INCLUYE 2 WORDS MAS X EL EXTENDED.              10191610          
+% RECORDSIZE     = 21 WORDS + 2 WORDS,                                  10191612          
+  BLOCKSIZE      = 26   RECORDS,                                        10191614          
+  AREASIZE       = 147929 BLOCKS,                                       10191616          
+  POPULATION     = 100000000,                                           10191618          
+  REBLOCK        = TRUE,                                                10191619          
+  EXTENDED       = TRUE,                                                10191620          
+  DUMPSTAMP      = FALSE,                                               10191622          
+  CHECKSUM       = TRUE,                                                10191624          
+  REBLOCKFACTOR  = 30;                                                  10191626          
+                                                                        10191628          
+ B15PIDBUCKET SET OF S500B15PCTLBUCKET                                  10191630          
+         KEY (B15P-ID-BUCKET,                                           10191632          
+              B15P-SUC-PROMOTORA,                                       10191634          
+              B15P-NUM-CONTRATO)                                        10191636          
+              INDEX SEQUENTIAL,                                         10191638          
+              NO DUPLICATES,                                            10191640          
+                                                                        10191642          
+  BUFFERS         = 0001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10191644          
+  CHECKSUM        = TRUE,                                               10191646          
+  DUMPSTAMP       = FALSE,                                              10191648          
+  LOADFACTOR      = 66,                                                 10191650          
+  POPULATION      = 100000000,                                          10191652          
+  TABLESIZE       = 158 ENTRIES,                                        10191654          
+  MEMORY RESIDENT = ALL;                                                10191656          
+                                                                        10191658          
+                                                                        10191660          
+ B15PRELBUCKTARJ SET OF S500B15PCTLBUCKET                               10191662          
+          KEY(B15P-ID-BUCKET)                                           10191664          
+              INDEX SEQUENTIAL,                                         10191666          
+              NO DUPLICATES,                                            10191668          
+                                                                        10191670          
+  BUFFERS         = 0001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10191672          
+  CHECKSUM        = TRUE,                                               10191674          
+  DUMPSTAMP       = FALSE,                                              10191676          
+  LOADFACTOR      = 66,                                                 10191678          
+  POPULATION      = 100000000,                                          10191680          
+  TABLESIZE       = 177 ENTRIES,                                        10191682          
+  MEMORY RESIDENT = ALL;                                                10191684          
+                                                                        10191686          
+                                                                        10191688          
+ B15PCONSULTA SET OF S500B15PCTLBUCKET                                  10191690          
+         KEY(B15P-SUC-PROMOTORA,                                        10191692          
+             B15P-NUM-CONTRATO,                                         10191694          
+             B15P-ID-FUNCI)                                             10191696          
+             INDEX SEQUENTIAL,                                          10191698          
+             NO DUPLICATES,                                             10191700          
+                                                                        10191702          
+  BUFFERS         = 0001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10191704          
+  CHECKSUM        = TRUE,                                               10191706          
+  DUMPSTAMP       = FALSE,                                              10191708          
+  LOADFACTOR      = 66,                                                 10191710          
+  POPULATION      = 100000000,                                          10191712          
+  TABLESIZE       = 158 ENTRIES,                                        10191714          
+  MEMORY RESIDENT = ALL;                                                10191716          
+                                                                        10191718          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10191720          
+%   RELACIÓN DE TARJETA ADICIONAL Y CONTRATO                           %10191722          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10191724          
+ S500B16PLIGCTOTAJ     DATA SET                                         10191726          
+ (                                                                      10191728          
+   B16P-SUC-PROMOTORA NUMBER(4);  %Sucursal promotora del contrato      10191730          
+   B16P-NUM-CONTRATO  NUMBER(12); %Numero de contrato                   10191732          
+   B16P-TAR-ADICIONAL NUMBER(16); %Num tarj adicional lig al cto        10191734          
+   B16P-STATUS        NUMBER(2);  %Estatus de la liga:                  10191736          
+   %1-Solicitud, 2-Activa con bucket ,3-Cancelada sin bucket            10191738          
+   B16P-FEC-LIGA      NUMBER(8);  %Fech liga cto vs la tarjeta          10191740          
+   B16P-FEC-CANCEL    NUMBER(8);  %Fech cancelacion de la liga.         10191742          
+   B16P-ID-BUCKET     NUMBER(8);  %Relación con los buckets,consecutivo 10191744          
+   B16P-USO-FUT-01     ALPHA(5);                                        10191746          
+   B16P-USO-FUT-02    NUMBER(8);                                        10191748          
+   B16P-USO-FUT-03    NUMBER(2);                                        10191750          
+   B16P-USO-FUT-04    NUMBER(1);                                        10191752          
+   B16P-USO-FUT-05    NUMBER(8);                                        10191754          
+   B16P-USO-FUT-06    NUMBER(8);                                        10191756          
+   B16P-USO-FUT-07    NUMBER(12);                                       10191758          
+),                                                                      10191760          
+                                                                        10191762          
+% PARA EL RECORDSIZE SE INCLUYE 2 WORDS MAS X EL EXTENDED.              10191764          
+% RECORDSIZE     = 9 WORDS + 2 WORDS,                                   10191766          
+  BLOCKSIZE      = 8 RECORDS,                                           10191768          
+  AREASIZE       = 156251 BLOCKS,                                       10191770          
+  POPULATION     = 10000000,                                            10191772          
+  REBLOCK        = TRUE,                                                10191773          
+  EXTENDED       = TRUE,                                                10191774          
+  DUMPSTAMP      = FALSE,                                               10191776          
+  CHECKSUM       = TRUE,                                                10191778          
+  REBLOCKFACTOR  = 30;                                                  10191780          
+                                                                        10191782          
+  B16PLIGASCTTJ SET OF S500B16PLIGCTOTAJ                                10191784          
+               KEY(B16P-SUC-PROMOTORA,                                  10191786          
+                   B16P-NUM-CONTRATO,                                   10191788          
+                   B16P-TAR-ADICIONAL),                                 10191790          
+                   INDEX SEQUENTIAL,                                    10191792          
+                   NO  DUPLICATES,                                      10191794          
+                                                                        10191796          
+  BUFFERS         = 0001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10191798          
+  CHECKSUM        = TRUE,                                               10191800          
+  DUMPSTAMP       = FALSE,                                              10191802          
+  LOADFACTOR      = 66,                                                 10191804          
+  POPULATION      = 10000000,                                           10191806          
+  TABLESIZE       = 328  ENTRIES,                                       10191810          
+  MEMORY RESIDENT = ALL;                                                10191812          
+                                                                        10191814          
+                                                                        10191816          
+ B16PLIGASCTO SET OF S500B16PLIGCTOTAJ                                  10191818          
+                KEY(B16P-SUC-PROMOTORA,                                 10191820          
+                    B16P-NUM-CONTRATO),                                 10191822          
+                    INDEX SEQUENTIAL,                                   10191824          
+                    DUPLICATES,                                         10191826          
+                                                                        10191828          
+  BUFFERS         = 0001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10191830          
+  CHECKSUM        = TRUE,                                               10191832          
+  DUMPSTAMP       = FALSE,                                              10191834          
+  LOADFACTOR      = 66,                                                 10191836          
+  POPULATION      = 10000000,                                           10191838          
+  TABLESIZE       = 328  ENTRIES,                                       10191840          
+  MEMORY RESIDENT = ALL;                                                10191842          
+                                                                        10191844          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10191846          
+%   ALERTAMIENTAS SPLUNK                                               %10191848          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10191850          
+ S500B17PCTLALERTA       DATA SET                                       10191852          
+ (                                                                      10191854          
+   B17P-ESTATUS-ALERTA NUMBER(2);  % 1-Pte enviar, 2-Enviada            10191856          
+   B17P-ID-SISTEMAOR   NUMBER(5);  %sist ori, pant o proce de arch      10191858          
+   B17P-TIPO-ALERTA    NUMBER(2);  % 1-Archivos  2-Cargos en Linea      10191860          
+% 3-Cargos en Batch 4-Abonos en Linea 5-Abonos en Bacth 6-Pantallas     10191862          
+   B17P-CLAVE-RECHAZO  NUMBER(4);  %Numero de error                     10191864          
+   B17P-MSJ-ERROR       ALPHA(55); %Cadena de error                     10191866          
+   B17P-HRA-TRANS      NUMBER(8);  %Hora de la transacción              10191868          
+   B17P-CTE-SEC         ALPHA(30); %Ruta arch: nodo+cliente+secuencial  10191870          
+   B17P-FEC-MAQ        NUMBER(8);  %Fecha maquina de la transacción     10191872          
+   B17P-USO-FUT-01      ALPHA(15);                                      10191874          
+   B17P-USO-FUT-02      ALPHA(15);                                      10191876          
+   B17P-USO-FUT-03     NUMBER(2);                                       10191878          
+   B17P-USO-FUT-04     NUMBER(18,2);                                    10191880          
+   B17P-USO-FUT-05     NUMBER(8);                                       10191882          
+   B17P-USO-FUT-06     NUMBER(8);                                       10191884          
+   B17P-USO-FUT-07     NUMBER(1);                                       10191886          
+   B17P-USO-FUT-08     NUMBER(4);                                       10191888          
+   ),                                                                   10191890          
+% PARA EL RECORDSIZE SE INCLUYE 2 WORDS MAS X EL EXTENDED.              10191892          
+% RECORDSIZE     = 26 WORDS + 2 WORDS,                                  10191894          
+  BLOCKSIZE      = 16      RECORDS,                                     10191896          
+  AREASIZE       = 1954    BLOCKS,                                      10191898          
+  POPULATION     = 500000,                                              10191900          
+  REBLOCK        = TRUE,                                                10191901          
+  EXTENDED       = TRUE,                                                10191902          
+  DUMPSTAMP      = FALSE,                                               10191904          
+  CHECKSUM       = TRUE,                                                10191906          
+  REBLOCKFACTOR  = 30;                                                  10191907          
+                                                                        10191908          
+  B17ALERTAS SET OF S500B17PCTLALERTA                                   10191910          
+               KEY (B17P-ESTATUS-ALERTA,                                10191912          
+                    B17P-ID-SISTEMAOR ),                                10191914          
+                    INDEX SEQUENTIAL,                                   10191916          
+                    DUPLICATES,                                         10191918          
+                                                                        10191920          
+  BUFFERS         = 0001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10191922          
+  CHECKSUM        = TRUE,                                               10191924          
+  DUMPSTAMP       = FALSE,                                              10191926          
+  LOADFACTOR      = 66,                                                 10191928          
+  POPULATION      = 500000,                                             10191930          
+  TABLESIZE       = 138 ENTRIES,                                        10191932          
+  MEMORY RESIDENT = ALL;                                                10191934          
+                                                                        10191936          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10191938          
+%  ENVIO DE SALDOS A E-PORTAL                                          %10191940          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10191942          
+ S500B18PENVIOSDOS      DATA SET                                        10191944          
+ (                                                                      10191946          
+   B18P-EST-ENVIO              NUMBER(2); % 1-Pte enviar  2-Enviada     10191948          
+   B18P-TIPO-ENVIO             NUMBER(2); % 1-BNE  2-B24                10191950          
+   B18P-FECHA-TRANS            NUMBER(8); %Fecha de la transacción      10191952          
+   B18P-SUC-PROMOTORA          NUMBER(4); %Sucursal promotora del cto   10191954          
+   B18P-NUM-CONTRATO           NUMBER(12); %Numero de contrato          10191956          
+   B18P-HORA-TRANS             NUMBER(8);                               10191958          
+   B18P-IMPORTE-DISPONIBLE     NUMBER(18,2); %Saldo disponible          10191960          
+   B18P-IMPORTE-ACTUAL         NUMBER(18,2); %Saldo Actual              10191962          
+   B18P-SDO-PROTEGIDO          NUMBER(18,2); %Saldo protegido           10191964          
+   B18P-SALDO-PENDIENTE        NUMBER(18,2); %Saldo pendiente           10191966          
+   B18P-AUT-PENDIENTE          NUMBER(18,2); %Autorizaciones pendientes 10191968          
+   B18P-ASIGNACIONES-OTORGADAS NUMBER(18,2); %Asignaciones a subcuentas 10191970          
+   B18P-ASIGNACIONES-RECIBIDAS NUMBER(18,2); %Asignaciones reci subctas 10191972          
+   B18P-DISPONIBLE-ASIGNADO    NUMBER(18,2); %Disponible de subcuenta   10191974          
+   B18P-TECHO-RECIBIDO         NUMBER(18,2); %Recibido de subcuenta     10191976          
+   B18P-TECHO-ASIGNADO         NUMBER(18,2); %Presup otorgado por CC    10191978          
+   B18P-TECHO-DISPONIBLE       NUMBER(18,2); %Presup de la subcuenta    10191980          
+   B18P-DISPONIBLE-ACTUAL      NUMBER(18,2); %Disponible de cc          10191982          
+   B18P-NUM-PRODUCTO           NUMBER(4); %Numero de producto           10191984          
+   B18P-NUM-INSTRUMENTO        NUMBER(4); %Numero de instrumento        10191986          
+   B18P-NUM-MONEDA             NUMBER(4); %Numero de moneda             10191988          
+   B18P-NUM-CLIENTE            NUMBER(12); %Numero de cliente           10191990          
+   B18P-IND-LINCREDIT          NUMBER(1); %Indi de linea de credito     10191992          
+   B18P-STATUS                 NUMBER(1); %Estatus del contrato         10191994          
+   B18P-CTA-CONCENT            NUMBER(2); %Uso de cuenta                10191996          
+   B18P-NUM-MOVSNC             NUMBER(6); %Num movs no contables        10191998          
+   B18P-NUM-MOVSCGO            NUMBER(6); %Num movs cargo               10192000          
+   B18P-NUM-MOVSABO            NUMBER(6); %Num movs abono               10192002          
+   B18P-NUM-PASO                ALPHA(4);                               10192004          
+   B18P-FECH-ENVIO             NUMBER(8);                               10192006          
+   B18P-HORA-ENVIO             NUMBER(8);                               10192008          
+   B18P-USO-FUT-01             NUMBER(2);                               10192010          
+   B18P-USO-FUT-02              ALPHA(10);                              10192012          
+   B18P-USO-FUT-03              ALPHA(10);                              10192014          
+   B18P-USO-FUT-04             NUMBER(2);                               10192016          
+   B18P-USO-FUT-05             NUMBER(18,2);                            10192018          
+   B18P-USO-FUT-06             NUMBER(18,2);                            10192020          
+   B18P-USO-FUT-07             NUMBER(8);                               10192022          
+   B18P-USO-FUT-08             NUMBER(8);                               10192024          
+   B18P-USO-FUT-09             NUMBER(18,2);                            10192026          
+   B18P-USO-FUT-10             NUMBER(1);                               10192028          
+   B18P-USO-FUT-11             NUMBER(6);                               10192030          
+   B18P-USO-FUT-12             NUMBER(12);                              10192032          
+   B18P-USO-FUT-13             NUMBER(12);                              10192034          
+),                                                                      10192036          
+% PARA EL RECORDSIZE SE INCLUYE 2 WORDS MAS X EL EXTENDED.              10192038          
+% RECORDSIZE     = 39 WORDS + 2 WORDS,                                  10192040          
+  BLOCKSIZE      = 38      RECORDS,                                     10192042          
+  AREASIZE       = 69253   BLOCKS,                                      10192044          
+  POPULATION     = 100000000,                                           10192046          
+  REBLOCK        = TRUE,                                                10192047          
+  EXTENDED       = TRUE,                                                10192048          
+  DUMPSTAMP      = FALSE,                                               10192050          
+  CHECKSUM       = TRUE,                                                10192052          
+  REBLOCKFACTOR  = 30;                                                  10192054          
+                                                                        10192055          
+ B18PIDENVIO SET OF S500B18PENVIOSDOS                                   10192056          
+             KEY (B18P-EST-ENVIO,                                       10192058          
+                  B18P-TIPO-ENVIO,                                      10192060          
+                  B18P-SUC-PROMOTORA,                                   10192062          
+                  B18P-NUM-CONTRATO ),                                  10192064          
+                  INDEX SEQUENTIAL,                                     10192066          
+                  DUPLICATES,                                           10192068          
+                                                                        10192070          
+  BUFFERS         = 0001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10192072          
+  CHECKSUM        = TRUE,                                               10192074          
+  DUMPSTAMP       = FALSE,                                              10192076          
+  LOADFACTOR      = 66,                                                 10192078          
+  POPULATION      = 100000000,                                          10192080          
+  TABLESIZE       = 163 ENTRIES,                                        10192082          
+  MEMORY RESIDENT = ALL;                                                10192084          
+                                                                        10192086          
+                                                                        10192088          
+ B18PFECHA SET OF S500B18PENVIOSDOS                                     10192090          
+           KEY (B18P-FECHA-TRANS),                                      10192092          
+           INDEX SEQUENTIAL,                                            10192094          
+           DUPLICATES,                                                  10192096          
+                                                                        10192098          
+  BUFFERS         = 0001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10192100          
+  CHECKSUM        = TRUE,                                               10192102          
+  DUMPSTAMP       = FALSE,                                              10192104          
+  LOADFACTOR      = 66,                                                 10192106          
+  POPULATION      = 100000000,                                          10192108          
+  TABLESIZE       = 158 ENTRIES,                                        10192110          
+  MEMORY RESIDENT = ALL;                                                10192112          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10192114          
+%  SALDOS DE TARJETAS DEL S111                                         %10192116          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10192118          
+ S500B19PSDOTAR111     DATA SET                                         10192120          
+ (                                                                      10192122          
+   B19P-NUM-TARJETA   NUMBER(18); %Numero de tarjeta migrada del S111   10192124          
+   B19P-NUM-CONTRATO  NUMBER(12); %Numero de cto generado en el S500    10192126          
+   B19P-NUM-SUC       NUMBER(4);  %Numero de sucursal del nuevo cto.    10192128          
+   B19P-NUM-PROD      NUMBER(4);  %Numero del producto                  10192130          
+   B19P-NUM-INSTRU    NUMBER(4);  %Numero del instrumento               10192132          
+   B19P-NUM-MONEDA    NUMBER(4);  %Numero de la moneda                  10192134          
+   B19P-NUM-CLIENTE   NUMBER(12); %Numero de cliente                    10192136          
+   B19P-IMPORTE-S111  NUMBER(18,2); %Importe del traspaso               10192138          
+   B19P-FECHA-TRAS    NUMBER(8);  %Fecha de traspaso del S111 al S500   10192140          
+   B19P-FECHA-CANC    NUMBER(8);  %Fecha de cancelacion en el S111      10192142          
+   B19P-IMPORTE-MN    NUMBER(18,2); %Importe en moneda nacional         10192144          
+   B19P-TIP-CAMBIO    NUMBER(4,4); %Tip de cambio para convernsion a MN 10192146          
+   B19P-NOM-CLIENTE    ALPHA(36);  %Nomb client S111 traspasado al S500 10192148          
+   B19P-NUM-INSOPE    NUMBER(2); %Numero de instrumento operativo       10192150          
+   B19P-NUM-INVE      NUMBER(6); %Numero  de inversion                  10192152          
+   B19P-STATUS-S500   NUMBER(2); % 01-Traspaso Activo en S500           10192154          
+                                 % 02-Cancelado por solic del cliente   10192156          
+   B19P-FECHA-S500    NUMBER(8); %Fecha de cancelacion en el S500       10192158          
+   B19P-NOMINA-OPE    NUMBER(8); %Nomina operador cancela cto-tarjeta   10192160          
+   B19P-USO-FUT-01    NUMBER(2);                                        10192162          
+   B19P-USO-FUT-02     ALPHA(10);                                       10192164          
+   B19P-USO-FUT-03    NUMBER(18,2);                                     10192166          
+   B19P-USO-FUT-04    NUMBER(8);                                        10192168          
+   B19P-USO-FUT-05    NUMBER(1);                                        10192170          
+   B19P-USO-FUT-06    NUMBER(6);                                        10192172          
+   B19P-USO-FUT-07    NUMBER(12);                                       10192174          
+),                                                                      10192176          
+% PARA EL RECORDSIZE SE INCLUYE 2 WORDS MAS X EL EXTENDED.              10192178          
+% RECORDSIZE     = 24 WORDS + 2 WORDS,                                  10192180          
+  BLOCKSIZE      = 23      RECORDS,                                     10192182          
+  AREASIZE       = 190     BLOCKS,                                      10192184          
+  POPULATION     = 100000,                                              10192186          
+  REBLOCK        = TRUE,                                                10192187          
+  EXTENDED       = TRUE,                                                10192188          
+  DUMPSTAMP      = FALSE,                                               10192190          
+  CHECKSUM       = TRUE,                                                10192192          
+  REBLOCKFACTOR  = 30;                                                  10192193          
+                                                                        10192194          
+ B19PTARJETA SET OF S500B19PSDOTAR111                                   10192196          
+              KEY (B19P-NUM-TARJETA,                                    10192198          
+                   B19P-NUM-CONTRATO,                                   10192200          
+                   B19P-NUM-SUC),                                       10192202          
+              INDEX SEQUENTIAL,                                         10192204          
+              NO DUPLICATES,                                            10192206          
+                                                                        10192208          
+  BUFFERS         = 0001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10192210          
+  CHECKSUM        = TRUE,                                               10192212          
+  DUMPSTAMP       = FALSE,                                              10192214          
+  LOADFACTOR      = 66,                                                 10192216          
+  POPULATION      = 100000000,                                          10192218          
+  TABLESIZE       = 163 ENTRIES ,                                       10192220          
+  MEMORY RESIDENT = ALL;                                                10192222          
+                                                                        10192224          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10192226          
+%     RESTART DATASET                                                   10192228          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%10192230          
+ S500B91PREINICIO RESTART DATA SET  %PREFIX = B91P    STRUCTURE 06      10192232          
+ (                          %% INICIO DATA SET                          10192234          
+    B91P-IDPROG              ALPHA  (04);                               10192236          
+    B91P-USERINFO            ALPHA  (26);                               10192238          
+ ),                         %% FIN DATA SET                             10192240          
+% RECORDSIZE      =    7 WORDS, UNA PALABRA MAS POR CONTROL             10192242          
+  AREASIZE        =   10 RECORDS,                                       10192300          
+  BLOCKSIZE       =  004 RECORDS,                                       10192400          
+  BUFFERS         = 0001 + 002 PER RANDOM USER OR 002 PER SERIAL USER,  10192500          
+  CHECKSUM        =      TRUE,                                          10192600          
+  DUMPSTAMP       = FALSE,                                              10192700          
+  POPULATION      = 3000;                                               10192800          
+%                                                                       10192900          
+% KEYENTRYSIZE   3 WORDS                                                10193000          
+  B91PSXIDPROG SET OF S500B91PREINICIO              % STRUCTURE 07      10193100          
+              KEY (B91P-IDPROG)                                         10193200          
+              INDEX SEQUENTIAL,                                         10193300          
+              DUPLICATES,                                               10193400          
+% AREASIZE        = 3120 ENTRIES,                                       10193500          
+  BUFFERS         = 0001 + 001 PER RANDOM USER OR 002 PER SERIAL USER,  10193600          
+  LOADFACTOR      = 66,                                                 10193700          
+  POPULATION      = 3000,                                               10193800          
+  DUMPSTAMP       = FALSE,                                              10193900          
+  TABLESIZE       = 18  ENTRIES;                                        10194000          
+%                                                                       10194100          

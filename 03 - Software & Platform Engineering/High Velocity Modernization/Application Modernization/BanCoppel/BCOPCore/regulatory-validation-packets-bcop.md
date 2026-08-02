@@ -8,11 +8,11 @@ Para cada regulador: el **packet `[INVOKE]`** hacia su agente SME, las **pregunt
 ---
 
 ## CNBV — SME Regulatorio
-> Agente: `Solutioning/Delivery - SME/Regulatory/CNBV/` · **360 reglas relevantes** (178 fórmulas) · dominios: D01, D02, D03, D04, D06, D08, D11, bdiburo, bdicorresp, bdinvers
+> Agente: `SME/Regulatory/CNBV/` · **360 reglas relevantes** (178 fórmulas) · dominios: D01, D02, D03, D04, D06, D08, D11, bdiburo, bdicorresp, bdinvers
 
 ### Packet `[INVOKE]`
 ```
-[INVOKE: SME Regulatorio — CNBV en Solutioning/Delivery - SME/Regulatory/CNBV/]
+[INVOKE: SME Regulatorio — CNBV en SME/Regulatory/CNBV/]
 COMPONENTE   : BCOPCore · SPE-AM-001 · Etapa 3 Business Logic Extraction
 SOLICITUD    : Validar 360 reglas/fórmulas de negocio extraídas del código SPL
 ALCANCE      : Fórmulas financieras y validaciones con impacto CNBV
@@ -67,11 +67,11 @@ CRITICIDAD   : Equivalencia ≥ 99.95% (auditable ante CNBV)
 ---
 
 ## Banxico — SME Regulatorio
-> Agente: `Solutioning/Delivery - SME/Regulatory/Banxico/` · **24 reglas relevantes** (11 fórmulas) · dominios: D08
+> Agente: `SME/Regulatory/Banxico/` · **24 reglas relevantes** (11 fórmulas) · dominios: D08
 
 ### Packet `[INVOKE]`
 ```
-[INVOKE: SME Regulatorio — Banxico en Solutioning/Delivery - SME/Regulatory/Banxico/]
+[INVOKE: SME Regulatorio — Banxico en SME/Regulatory/Banxico/]
 COMPONENTE   : BCOPCore · SPE-AM-001 · Etapa 3 Business Logic Extraction
 SOLICITUD    : Validar 24 reglas/fórmulas de negocio extraídas del código SPL
 ALCANCE      : Fórmulas financieras y validaciones con impacto Banxico
@@ -119,11 +119,11 @@ CRITICIDAD   : Equivalencia ≥ 99.95% (auditable ante Banxico)
 ---
 
 ## CONDUSEF — SME Regulatorio
-> Agente: `Solutioning/Delivery - SME/Regulatory/CONDUSEF/` · **156 reglas relevantes** (79 fórmulas) · dominios: D01, D02, D03, D04, D05, D08, bdicorresp, bdidomi, bdiprog, intercard
+> Agente: `SME/Regulatory/CONDUSEF/` · **156 reglas relevantes** (79 fórmulas) · dominios: D01, D02, D03, D04, D05, D08, bdicorresp, bdidomi, bdiprog, intercard
 
 ### Packet `[INVOKE]`
 ```
-[INVOKE: SME Regulatorio — CONDUSEF en Solutioning/Delivery - SME/Regulatory/CONDUSEF/]
+[INVOKE: SME Regulatorio — CONDUSEF en SME/Regulatory/CONDUSEF/]
 COMPONENTE   : BCOPCore · SPE-AM-001 · Etapa 3 Business Logic Extraction
 SOLICITUD    : Validar 156 reglas/fórmulas de negocio extraídas del código SPL
 ALCANCE      : Fórmulas financieras y validaciones con impacto CONDUSEF
@@ -179,11 +179,11 @@ CRITICIDAD   : Equivalencia ≥ 99.95% (auditable ante CONDUSEF)
 ---
 
 ## SAT — SME Regulatorio
-> Agente: `Solutioning/Delivery - SME/Regulatory/SAT/` · **62 reglas relevantes** (41 fórmulas) · dominios: D01, D03, D04, D05, bdidomi, bdinvers
+> Agente: `SME/Regulatory/SAT/` · **62 reglas relevantes** (41 fórmulas) · dominios: D01, D03, D04, D05, bdidomi, bdinvers
 
 ### Packet `[INVOKE]`
 ```
-[INVOKE: SME Regulatorio — SAT en Solutioning/Delivery - SME/Regulatory/SAT/]
+[INVOKE: SME Regulatorio — SAT en SME/Regulatory/SAT/]
 COMPONENTE   : BCOPCore · SPE-AM-001 · Etapa 3 Business Logic Extraction
 SOLICITUD    : Validar 62 reglas/fórmulas de negocio extraídas del código SPL
 ALCANCE      : Fórmulas financieras y validaciones con impacto SAT
@@ -239,11 +239,11 @@ CRITICIDAD   : Equivalencia ≥ 99.95% (auditable ante SAT)
 ---
 
 ## TESOFE — SME Regulatorio
-> Agente: `Solutioning/Delivery - SME/Regulatory/TESOFE/` · **28 reglas relevantes** (5 fórmulas) · dominios: D01, D04, bdiprog
+> Agente: `SME/Regulatory/TESOFE/` · **28 reglas relevantes** (5 fórmulas) · dominios: D01, D04, bdiprog
 
 ### Packet `[INVOKE]`
 ```
-[INVOKE: SME Regulatorio — TESOFE en Solutioning/Delivery - SME/Regulatory/TESOFE/]
+[INVOKE: SME Regulatorio — TESOFE en SME/Regulatory/TESOFE/]
 COMPONENTE   : BCOPCore · SPE-AM-001 · Etapa 3 Business Logic Extraction
 SOLICITUD    : Validar 28 reglas/fórmulas de negocio extraídas del código SPL
 ALCANCE      : Fórmulas financieras y validaciones con impacto TESOFE
@@ -293,11 +293,11 @@ CRITICIDAD   : Equivalencia ≥ 99.95% (auditable ante TESOFE)
 ---
 
 ## IPAB — SME Regulatorio
-> Agente: `Solutioning/Delivery - SME/Regulatory/IPAB/` · **6 reglas relevantes** (1 fórmulas) · dominios: D01
+> Agente: `SME/Regulatory/IPAB/` · **6 reglas relevantes** (1 fórmulas) · dominios: D01
 
 ### Packet `[INVOKE]`
 ```
-[INVOKE: SME Regulatorio — IPAB en Solutioning/Delivery - SME/Regulatory/IPAB/]
+[INVOKE: SME Regulatorio — IPAB en SME/Regulatory/IPAB/]
 COMPONENTE   : BCOPCore · SPE-AM-001 · Etapa 3 Business Logic Extraction
 SOLICITUD    : Validar 6 reglas/fórmulas de negocio extraídas del código SPL
 ALCANCE      : Fórmulas financieras y validaciones con impacto IPAB
@@ -325,4 +325,4 @@ CRITICIDAD   : Equivalencia ≥ 99.95% (auditable ante IPAB)
 
 ---
 
-*Generado por Specialist — Informix SPL Analysis · Etapa 3 · fuente: business-rules.json · coordina con SMEs en Solutioning/Delivery - SME/Regulatory/*
+*Generado por Specialist — Informix SPL Analysis · Etapa 3 · fuente: business-rules.json · coordina con SMEs en SME/Regulatory/*

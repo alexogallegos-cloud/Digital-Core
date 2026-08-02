@@ -20,7 +20,8 @@ La confusión más costosa es tratar cada engagement de legacy como si fuera nue
  │ COBOL / z-OS      │  ──────▶ │ y emite el                │ ────▶ │ Mapa de las Almas              │
  │ Oracle Forms/PLSQL│          │ JSON NORMALIZADO           │       │ Biografía / evolución          │
  │ SQL Server T-SQL  │          │ (contrato §7)              │       │ Intención (journeys/reglas)    │
- └──────────────────┘          └───────────────────────────┘       │ portal + marca del cliente     │
+ │ SAP ABAP (/CBB/)  │          └───────────────────────────┘       │ portal + marca del cliente     │
+ └──────────────────┘                                               └──────────────────────────────┘
                                                                      └──────────────────────────────┘
 ```
 
@@ -126,7 +127,7 @@ La calidad y la seguridad **no son una capa**: recorren las ocho. Cada una tiene
 
 **Seguridad** — *DevSecOps (shift-left) + security archaeology en el AS-IS.* Arqueología de postura en 1–4 (autenticación, PLD/antilavado, PII, secretos hardcodeados, SQL/código dinámico) → threat modeling de bounded contexts en 5 → secure-by-design (SAST/SCA/secrets/container) en 6 → datos enmascarados en parallel-run en 7 → runtime + AIOps en 8.
 
-> **Cumplimiento regulatorio** (CNBV · Banxico · CONDUSEF · PLD · PCI-DSS · ISO 27001) atraviesa ambos hilos. **Handoff de ejecución de seguridad:** SME de **Cybersecurity / Cloud Security** de `Solutioning/Delivery - SME/`. El gemelo le entrega el *mapa* (dónde viven secretos, auth y datos sensibles), no reemplaza su juicio.
+> **Cumplimiento regulatorio** (CNBV · Banxico · CONDUSEF · PLD · PCI-DSS · ISO 27001) atraviesa ambos hilos. **Handoff de ejecución de seguridad:** SME de **Cybersecurity / Cloud Security** de `SME/`. El gemelo le entrega el *mapa* (dónde viven secretos, auth y datos sensibles), no reemplaza su juicio.
 
 ---
 
@@ -134,17 +135,17 @@ La calidad y la seguridad **no son una capa**: recorren las ocho. Cada una tiene
 
 El método es el mismo; **de dónde sale la evidencia cambia**. Esta tabla es el corazón de la reutilización cross-tecnología: define, capa por capa, la fuente de extracción de cada tecnología. Cada *Specialist* de RE implementa su columna.
 
-| Capa (qué destila — constante) | **Informix SPL** (AM) | **COBOL / z-OS** (MM) | **Oracle Forms + PL/SQL** (AM) | **SQL Server T-SQL** (AM) |
-|---|---|---|---|---|
-| **1 · Lenguaje** (identificadores → vocabulario) | nombres de SP/tabla/columna en `sysprocedures`/`syscolumns` | nombres de párrafos, *data items*, copybooks | items de bloque `.fmb`, paquetes/procedimientos PL/SQL | `sys.procedures`, `sys.columns`, nombres de objetos |
-| **2 · Almas** (autoría + estilometría) | headers de comentario en `sysprocbody` | cabecera de programa + `CHANGE-LOG` en comentarios | headers en `.fmb`/`.pll`/*package spec* | headers de comentario + *extended properties* |
-| **3 · Biografía** (fechas + productos + hitos) | fechas en comentarios | fechas + niveles de versión + calendario JCL | fechas en fuentes/versión de módulo | fechas en comentarios + git si existe |
-| **4 · Intención** (journeys + reglas + capacidades) | call graph SP→SP + DML + triggers | grafo `PERFORM`/`CALL` + `COPY` + jobs JCL | triggers de Forms + llamadas PL/SQL | grafo de `EXEC`/call + DML + triggers |
-| **5 · Fronteras** (bounded contexts / costuras) | dependencias cruzando frontera de BD | dependencias cross-program + copybooks compartidos | módulos Forms + esquemas PL/SQL | esquemas / bases / *linked servers* |
-| **6 · Siembra** (spec del target) | tipos Informix → PostgreSQL/Java | COBOL → Java/microservicios | Forms/PLSQL → SPA + servicios | T-SQL → target |
-| **7 · Equivalencia** (riesgos de tipo/rounding) | `MONEY`/`DECIMAL`, TRUNC vs ROUND, 360/365 | `COMP-3`/packed decimal, `PIC` edición | `NUMBER` rounding, `DATE` semántica | `MONEY`/`DECIMAL`, `DATETIME` precision |
-| **8 · Continuidad** (decommission) | apagado de instancia IDS | apagado de LPAR/región | retiro de Forms runtime | retiro de instancia |
-| **✕ Calidad AS-IS** (weaknesses ISO 5055 — *transversal*) | nodos de decisión SPL (`IF`/`FOREACH`/`ON EXCEPTION`), `OPEN` sin `CLOSE`, `COMMIT` en `FOREACH`, SQL dinámico | complejidad de párrafos, `GO TO` salvaje, `PERFORM THRU`, tablas sin `INITIALIZE` | triggers Forms complejos, PL/SQL sin `EXCEPTION`, cursores no cerrados | `TRY/CATCH` ausente, cursores, `sp_executesql` dinámico |
+| Capa (qué destila — constante) | **Informix SPL** (AM) | **COBOL / z-OS** (MM) | **Oracle Forms + PL/SQL** (AM) | **SQL Server T-SQL** (AM) | **SAP ABAP** (AM) |
+|---|---|---|---|---|---|
+| **1 · Lenguaje** (identificadores → vocabulario) | nombres de SP/tabla/columna en `sysprocedures`/`syscolumns` | nombres de párrafos, *data items*, copybooks | items de bloque `.fmb`, paquetes/procedimientos PL/SQL | `sys.procedures`, `sys.columns`, nombres de objetos | nombres de clase/método/atributo/tipo — namespace stripped (`/CBB/`) — fuente: TADIR + source parse |
+| **2 · Almas** (autoría + estilometría) | headers de comentario en `sysprocbody` | cabecera de programa + `CHANGE-LOG` en comentarios | headers en `.fmb`/`.pll`/*package spec* | headers de comentario + *extended properties* | headers de comentario ABAP (`Autor/Usuario SAP/Fecha/Ticket`) — TRDIR `changed_by`/`created_by` |
+| **3 · Biografía** (fechas + productos + hitos) | fechas en comentarios | fechas + niveles de versión + calendario JCL | fechas en fuentes/versión de módulo | fechas en comentarios + git si existe | fechas en headers + TRDIR `created_on`/`changed_on` + E070/E071 transport history |
+| **4 · Intención** (journeys + reglas + capacidades) | call graph SP→SP + DML + triggers | grafo `PERFORM`/`CALL` + `COPY` + jobs JCL | triggers de Forms + llamadas PL/SQL | grafo de `EXEC`/call + DML + triggers | `CALL METHOD`/`CREATE OBJECT` + BADIs + RFC + DML (`SELECT`/`UPDATE`/`INSERT`/`DELETE`) |
+| **5 · Fronteras** (bounded contexts / costuras) | dependencias cruzando frontera de BD | dependencias cross-program + copybooks compartidos | módulos Forms + esquemas PL/SQL | esquemas / bases / *linked servers* | namespaces (`/CBB/`, `/CBCR/`), módulo SAP (FI/CO/SD/HR), dependencias cross-namespace |
+| **6 · Siembra** (spec del target) | tipos Informix → PostgreSQL/Java | COBOL → Java/microservicios | Forms/PLSQL → SPA + servicios | T-SQL → target | ABAP → Java/microservicios; RFC → API REST; tipos SAP → target; BADIs → extension points |
+| **7 · Equivalencia** (riesgos de tipo/rounding) | `MONEY`/`DECIMAL`, TRUNC vs ROUND, 360/365 | `COMP-3`/packed decimal, `PIC` edición | `NUMBER` rounding, `DATE` semántica | `MONEY`/`DECIMAL`, `DATETIME` precision | tipo `P(decimals)` (packed/BCD), `CURR` con `TCURR`, `DATS`/`TIMS`, ABAP DECIMAL PLACES |
+| **8 · Continuidad** (decommission) | apagado de instancia IDS | apagado de LPAR/región | retiro de Forms runtime | retiro de instancia | retiro de cliente SAP + shutdown del landscape ECC/S4 |
+| **✕ Calidad AS-IS** (weaknesses ISO 5055 — *transversal*) | nodos de decisión SPL (`IF`/`FOREACH`/`ON EXCEPTION`), `OPEN` sin `CLOSE`, `COMMIT` en `FOREACH`, SQL dinámico | complejidad de párrafos, `GO TO` salvaje, `PERFORM THRU`, tablas sin `INITIALIZE` | triggers Forms complejos, PL/SQL sin `EXCEPTION`, cursores no cerrados | `TRY/CATCH` ausente, cursores, `sp_executesql` dinámico | `IF`/`CASE`/`WHEN`/`ON EXCEPTION` sin `CATCH`, `CALL FUNCTION ... EXCEPTIONS OTHERS = 1` sin manejo, SQL dinámico ABAP (`SELECT (lv_fields)`) |
 
 **Confiabilidad de vestigios por tecnología (Capa 2–3):** COBOL/mainframe suele tener headers y `CHANGE-LOG` más estructurados + scheduling JCL explícito (mayor cobertura de autoría/fechas); Informix y stored-proc-heavy suelen tener menos (cobertura declarada más baja → más peso en estilometría). **Se declara la cobertura real por engagement, no se asume.**
 
@@ -162,7 +163,7 @@ El activo de software que acelera cada engagement, en dos partes:
 
 **B) Extractores (uno por tecnología — se construye por familia):**
 - Ingiere el legacy (catálogo, fuentes, copybooks…) y emite el **JSON normalizado** (§7).
-- Informix SPL: ✅ existe (probado en BanCoppel). COBOL/z-OS, Oracle Forms/PL-SQL, T-SQL: por construir cuando un deal lo demande.
+- Informix SPL: ✅ existe (probado en BanCoppel). SAP ABAP: ✅ existe (probado en Gentera — GENCore, `parse-abap.py` + `extract-vocabulary.py` + `build-vocab-report.py` + `build-souls-report.py`). COBOL/z-OS, Oracle Forms/PL-SQL, T-SQL: por construir cuando un deal lo demande.
 
 > Estado actual: el renderer está construido pero **acoplado a la instancia BanCoppel** (`.../Application Modernization/BanCoppel/BCOPCore/`). El plan de extracción a starter-kit reutilizable lo definirá el `delivery-playbook` de HVM. Hasta entonces, BCOPCore es la **implementación de referencia**.
 
@@ -174,7 +175,7 @@ Lo que todo extractor debe emitir para que el renderer tech-agnóstico funcione 
 
 ```jsonc
 {
-  "meta":    { "sistema": "…", "tecnologia": "informix-spl|cobol|oracle-forms|tsql",
+  "meta":    { "sistema": "…", "tecnologia": "informix-spl|cobol|oracle-forms|tsql|sap-abap",
                "objetos": 0, "conectados": 0, "fuente_evidencia": "catalogo|fuentes" },
   "objetos": [ { "id": "", "nombre": "", "tipo": "sp|programa|trigger|form|funcion",
                  "loc": 0, "dominio": "", "params": 0 } ],
@@ -208,6 +209,7 @@ Lo que todo extractor debe emitir para que el renderer tech-agnóstico funcione 
 | Specialist | Solution L4 | Tecnología | Estado |
 |---|---|---|---|
 | Specialist - Informix SPL | Application Modernization | Informix IDS / SPL | ✅ activo (BanCoppel) |
+| Specialist - SAP ABAP | Application Modernization | SAP ABAP — namespace `/CBB/` + Z/Y | ✅ activo (Gentera) |
 | Specialist - Reverse Engineering | Mainframe Modernization | COBOL / ALGOL / WFL | ✅ activo (Banamex) — alinear al método |
 | Specialist - Oracle Forms / PL-SQL | Application Modernization | Oracle Forms + PL/SQL | ⏳ stub por crear |
 | Specialist - SQL Server T-SQL | Application Modernization | SQL Server T-SQL | ⏳ stub por crear |
@@ -308,10 +310,14 @@ No construir el diagrama antes de tener las casuísticas. No vincular reglas ant
 
 ---
 
-## 9 · Instancia de referencia — BanCoppel (`SPE-AM-001`)
+## 9 · Instancias de referencia
 
+**BanCoppel (`SPE-AM-001`) — Informix SPL — referencia canónica del renderer:**
 Primera implementación completa del método, sobre **IBM Informix IDS 14.10** (patrón "base de datos como aplicación", ~13,223 SPs / 3,761 conectados). Artefactos vivos en `.../Application Modernization/BanCoppel/BCOPCore/`: `sp_vocab.py` (fuente única del vocabulario), pipeline de ~15 generadores, portal `index-bcop.html` con las 4 capas, y `metodologia-gemelo-cognitivo.md` (instancia local de este método). Sirve como **plantilla de referencia** para el renderer y el primer extractor (Informix). Contexto de cliente: `.../BanCoppel/knowledge-base-coppel-bancoppel.md`.
+
+**Gentera (`SPE-AM-002`) — SAP ABAP — segunda instancia (Capa 1 + 2 operativas):**
+Segunda implementación del método, sobre **SAP ABAP** con namespace `/CBB/` (Compartamos Banco). Artefactos vivos en `.../Application Modernization/Gentera/GENCore/`: `parse-abap.py` (inventario de objetos), `extract-vocabulary.py` (vocabulario tokenizado), `build-vocab-report.py` (portal Capa 1), `build-souls-report.py` (portal Capa 2 — Mapa de las Almas). Hallazgos iniciales: patrón feature flag IFRS sobre TVARVC, segundo namespace `/CBCR/`, developer GBELTRAN (2022). Corpus en crecimiento — pipeline re-ejecutable con `python3 parse-abap.py && python3 extract-vocabulary.py && python3 build-vocab-report.py && python3 build-souls-report.py`. Contexto de cliente: `.../Gentera/knowledge-base-gentera.md`.
 
 ---
 
-*Gemelo Cognitivo del Sistema · método HVM-wide · v2.2 · Añadido artefacto canónico Capa 1: esquema 8 columnas con columna **Alcance** (6 valores: Persistente-BD · Interfaz-Externo · Efêmero · Parametrico-Catalogo · Control-proceso · N/A-componente), pipeline swarm de agentes CAP y distribución de referencia Banamex S151 (20,114 campos). v2.1: Añadido el hilo transversal **Calidad AS-IS** anclado a ISO/IEC 5055:2021 (§3) con mecánica de detección por tecnología (§4) y ejecutor **Code Quality Assessment** HVM-wide (§7) — resuelve la salud estructural del código legacy como input de la decisión 7R/pricing/equivalencia, complementaria a la equivalencia funcional del target. v2.0: generalizado a cross-tecnología (Informix · COBOL · Oracle Forms · T-SQL) con adaptadores (§4), toolkit renderer+extractores (§5) y contrato JSON normalizado (§6). Instancia de referencia: BanCoppel BCOPCore.*
+*Gemelo Cognitivo del Sistema · método HVM-wide · v2.3 · Añadido adaptador **SAP ABAP** (§4 sexta columna, §5 extractor activo, §7 specialist activo) con instancia de referencia Gentera GENCore (`SPE-AM-002`) — Capa 1 (Lenguaje) y Capa 2 (Mapa de las Almas) operativas. Pipeline: `parse-abap.py` + `extract-vocabulary.py` + `build-vocab-report.py` + `build-souls-report.py`. §9 extendido con segunda instancia de referencia. v2.2: Añadido artefacto canónico Capa 1: esquema 8 columnas con columna **Alcance** (6 valores: Persistente-BD · Interfaz-Externo · Efímero · Parametrico-Catalogo · Control-proceso · N/A-componente), pipeline swarm de agentes CAP y distribución de referencia Banamex S151 (20,114 campos). v2.1: Añadido el hilo transversal **Calidad AS-IS** anclado a ISO/IEC 5055:2021 (§3) con mecánica de detección por tecnología (§4) y ejecutor **Code Quality Assessment** HVM-wide (§7). v2.0: generalizado a cross-tecnología (Informix · COBOL · Oracle Forms · T-SQL) con adaptadores (§4), toolkit renderer+extractores (§5) y contrato JSON normalizado (§6). Instancia de referencia original: BanCoppel BCOPCore.*

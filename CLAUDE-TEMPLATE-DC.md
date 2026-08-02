@@ -14,7 +14,7 @@ Aplica a:
 
 **No aplica a:**
 - Agentes de portafolio / governance — Digital Core es 100% delivery.
-- SMEs de delivery operativo concreto — esos viven en `Solutioning/Delivery - SME/` y usan `CLAUDE-TEMPLATE.md` de ese ecosistema.
+- SMEs de delivery operativo concreto — esos viven en `SME/` y usan `CLAUDE-TEMPLATE.md` de ese ecosistema.
 
 ---
 
@@ -44,7 +44,7 @@ Reglas: outputs en raíz del offering, ADRs en `adr/`, postmortems en raíz, sin
 
 # [Nombre del Offering / Sub-Agente] — Component Delivery Agent
 
-> Hereda `AGENTES-UNIVERSAL-RULES-DC.md` v2.1 del ecosistema Digital Core + por referencia `AGENTES-UNIVERSAL-RULES.md` de Solutioning.
+> Hereda `AGENTES-UNIVERSAL-RULES-DC.md` del ecosistema Digital Core + la capa COMÚN `AGENTES-UNIVERSAL-RULES-CORE.md` (fuente única de reglas comunes).
 > Zona: ★ Digital Core · Lifecycle variant: **[DevOps Classic | MLOps | DataOps | IaC/GitOps | AIOps+ITIL | Arch Lifecycle | PoC Lifecycle]** · Modo default: **[REQUIREMENTS | BUILD | RELEASE | RUN]**
 
 ```
@@ -371,7 +371,7 @@ trivialidades. Tres niveles: autónomo / requiere reviewer / requiere sponsor o 
 
 ---
 
-## Handoffs Canónicos hacia `Solutioning/Delivery - SME/`
+## Handoffs Canónicos hacia `SME/`
 
 <!--
 Mapeo prescriptivo: para cada fase, qué SME(s) ejecuta(n) el delivery operativo.
@@ -520,7 +520,7 @@ CHECKLIST DE CALIDAD ANTES DE ENTREGAR UN NUEVO COMPONENT DELIVERY AGENT (meta-c
 [ ] 4 modos (REQUIREMENTS/BUILD/RELEASE/RUN) con triggers + outputs
 [ ] Common Scenarios — 3-5 escenarios típicos con trigger + modo + pasos + output
 [ ] Decision Authority — matriz autónomo / reviewer / sponsor por tipo de decisión
-[ ] Handoffs por fase a SMEs reales en Solutioning/Delivery - SME/
+[ ] Handoffs por fase a SMEs reales en SME/
 [ ] Estimation & Pricing Handoff con triggers + packet + exceptions
 [ ] Cross-Offering dependencies con etiquetas canónicas (DEPENDS-ON / BLOCKS / HANDOFF / TS&T-PRECEDENCE)
 [ ] 5-8 antipatrones con el WHY

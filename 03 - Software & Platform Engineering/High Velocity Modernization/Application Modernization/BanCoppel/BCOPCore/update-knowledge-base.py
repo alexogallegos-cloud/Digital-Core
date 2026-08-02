@@ -36,9 +36,9 @@ DOM = {
  "d11":("bdicobranza","Cobranza","D11-bdicobranza",2,"MEDIO",["CNBV","CONDUSEF"]),
  "d12":("bdicont","Contabilidad","D12-bdicont",4,"ALTO",["SAT","IPAB","CNBV"]),
 }
-SME_REG = {"CNBV":"Solutioning/Delivery - SME/Regulatory/CNBV/","Banxico":"Solutioning/Delivery - SME/Regulatory/Banxico/",
- "CONDUSEF":"Solutioning/Delivery - SME/Regulatory/CONDUSEF/","SAT":"Solutioning/Delivery - SME/Regulatory/SAT/",
- "TESOFE":"Solutioning/Delivery - SME/Regulatory/TESOFE/","IPAB":"Solutioning/Delivery - SME/Regulatory/IPAB/"}
+SME_REG = {"CNBV":"SME/Regulatory/CNBV/","Banxico":"SME/Regulatory/Banxico/",
+ "CONDUSEF":"SME/Regulatory/CONDUSEF/","SAT":"SME/Regulatory/SAT/",
+ "TESOFE":"SME/Regulatory/TESOFE/","IPAB":"SME/Regulatory/IPAB/"}
 
 # reglas por db
 rules_by_db = defaultdict(list)

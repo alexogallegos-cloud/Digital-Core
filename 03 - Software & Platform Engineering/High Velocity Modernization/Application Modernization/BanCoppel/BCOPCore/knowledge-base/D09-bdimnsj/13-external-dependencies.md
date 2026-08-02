@@ -181,3 +181,20 @@ Aunque `bdinteg` es un dominio interno (D02), su acceso cross-DB desde `bdimnsj`
 
 ---
 *Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: análisis estático de 47 archivos SQL*
+
+<!-- LOG-DATA-BEGIN -->
+## Sistemas externos observados en logs — 2026-04-24
+> Fuente: `source/logs/errores_bus_2026-04-24_*.txt` · Incorporado: 2026-08-01
+
+| Sistema externo | Protocolo | Llamadas observadas | Notas |
+|-----------------|-----------|---------------------|-------|
+| Gateway SMS | HTTPS/SSL | 320 | Servicio ESB: `SMSCoppel` |
+
+### Errores de comunicación con externos (SSL / timeout / JNI)
+
+| Código | Descripción | Volumen/día | Servicios |
+|--------|-------------|-------------|-----------|
+| `3165` | SSL socket operation error — fallo en handshake TLS con | 320 | SMSCoppel |
+
+*Generado por generate-kb-from-logs.py · 2026-08-01*
+<!-- LOG-DATA-END -->

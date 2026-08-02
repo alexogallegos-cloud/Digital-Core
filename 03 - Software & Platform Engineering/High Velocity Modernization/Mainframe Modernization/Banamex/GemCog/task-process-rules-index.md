@@ -2,6 +2,11 @@
 > Gemelo Cognitivo · Capa 4 (Tareas) + Capa 5 (Casuísticas/Procesos) + referencia a Capa 2 (Reglas)
 > Sistemas: S500 (Captación) + S151 (Movimientos Contables GL) · Unisys ClearPath MCP
 > Última actualización: 2026-07-16 · v2.0 · +mapeo 376 reglas → 10 caps ampliadas + cap-cfr.md nuevo · **21/21 · 527T · 783R**
+> Indexado: ✅ 2026-07-17 — Índice transversal Tarea→Proceso→Regla (niveles N4→N6)
+> **Tipo-artefacto:** `Índice`  
+> **Capa-GemCog:** `4`  
+> **Propósito:** Índice bidireccional Tarea↔Regla que materializa la Capa 4 — vincula cada proceso funcional con las reglas de negocio que lo gobiernan.  
+> **Relacionado-con:** traceability-matrix · kb-capa4-flujos · rules-catalog/rules-index.md
 
 ---
 
@@ -21,11 +26,11 @@
 | SCH | Scheduling — Cierre Día + P103 Períodos | 8.1.1 | Technology Tools | S500+S151 | 22 | 25 | [cap-sch.md](capacidades/cap-sch.md) |
 | ODS | Operational Data Stores — DMSII + L030 + P606 | 9.1.1 | Insights & Information | S500+S151 | 62 | 70 | [cap-ods.md](capacidades/cap-ods.md) |
 | SEC | Security — Enmascaramiento PII | T.3.5 | Transversal | S500 | 10 | 11 (+1 pend.) | [cap-sec.md](capacidades/cap-sec.md) |
-| RPT | Analytics/Reporting — Ciclo Control + P120 SAR | T.3.4 | Transversal | S151 | 40 | 82 | [cap-rpt.md](capacidades/cap-rpt.md) |
+| RPT | Batch Control & Regulatory Extraction — Control Ciclo Batch + P120 SAR | T.3.4 | Transversal | S151 | 40 | 82 | [cap-rpt.md](capacidades/cap-rpt.md) |
 | ADJ | GL Adjustments & Sync — BC-09 | 7.1.1-bc09 | Enterprise Support | S151 | 38 | 37 | [cap-adj.md](capacidades/cap-adj.md) |
 | HLD | Holdings — Saldos P050+P052+P138 | 4.1.2 | Common Customer View | S151 | 32 | 50 | [cap-hld.md](capacidades/cap-hld.md) |
 | STA | Statements — Generador MOVSXCONT P158 | 6.1.4 | Common Services | S500+S151 | 17 | 30 | [cap-sta.md](capacidades/cap-sta.md) |
-| MQ | MQ/Async — TIPO-PROC 33-37 · L091-L093 | T.2.3 | Transversal | S500 | 7 | 7 | [cap-mq.md](capacidades/cap-mq.md) |
+| MQ | MQ/Async — TIPO-PROC 33-37 · L091 y L093 | T.2.3 | Transversal | S500 | 7 | 7 | [cap-mq.md](capacidades/cap-mq.md) |
 | CFR | CFR Regulatory Reporting — P130+P131 Serie B CNBV | T.4.1 | Transversal | S151 | 30 | 42 | [cap-cfr.md](capacidades/cap-cfr.md) |
 | FSV | Financial Servicing — LIBOR + FECVENCIMIENTO | 6.6.1 | Common Services | S500 | — | 2 | merge → [cap-int.md](capacidades/cap-int.md) |
 | ACC | Access Control — FACULTAD · Q015 · HI 41/42 | 10.1.1 | Integration & Interfaces | S500+S151 | — | 8 | merge → [cap-sec.md](capacidades/cap-sec.md) |
@@ -493,6 +498,8 @@
 | T-INT-027 | RN-S500-102 | S500_SOURCE_P130.txt | Comisión aniversario (tariff #017, slot 4 BD05); notificación CONDUSEF 30 días antes |
 | T-INT-028 | RN-S500-106 | S500_WFL_LOTE.txt | Activación P045/P046 Telethon por archivo S500BD06TELETON/CONTROL en DMSII |
 
+> ⚠ **Desambiguación Art. 61 LIC — Hallazgo SME 2026-07-21 (Mario):** T-INT-022 / RN-S500-098 documentan la ejecución del traspaso en **P130** (ejecutor real). Los programas **P155** y **P160** referencian Art. 61 en código fuente pero son `[FILTRO-CONTEXTO]`: P155 excluye contratos Art. 61 del borrado físico BD01/B25 · P160 propaga la fecha Art. 61 como dato a P189. El segundo ejecutor del journey completo es **P186** `[DATO-REQUERIDO: documentar en GemCog]`. Validación: BR-051 — "P155/P160 nada que ver con Art. 61 [como ejecutores]". Ver F-06 en kb-capa4-flujos.md y MR-DEP-07 en migration-risk-register.md.
+
 ---
 
 ### ORC — Operational Reconciliation — Registro S151 Condicional [S500+S151]
@@ -871,7 +878,7 @@
 
 ---
 
-### RPT — Analytics/Reporting — Ciclo de Control + Migración Regulatoria [S151]
+### RPT — Batch Control & Regulatory Extraction — Ciclo de Control Batch + Extracción SAR [S151]
 > Dominio: T · Transversal · Capacidad: T.3.4
 > Programas: P199 (CTASMIGCAP) · P610 (CALLLIBCTL) · P612 (WFL Dispatcher) · P677 (Control Generator)
 > Reglas: RN-S151-421..490 (70 reglas)
@@ -1008,7 +1015,7 @@
 
 ---
 
-### MQ — MQ / Async Gateway — TIPO-PROC 33-37 · L091-L093 [S500]
+### MQ — MQ / Async Gateway — TIPO-PROC 33-37 · L091 y L093 [S500]
 > Dominio: T · Transversal · Capacidad: T.2.3
 > Programa: P020 (LINCOMS — 5 copias COMS) · Reglas: RN-S500-108/109/112/114/119/136/151
 
@@ -1036,7 +1043,7 @@
 | T-MQ-006 | RN-S500-136 | P142 | Topología cross-CSI P142: 8+6 pares host hardcodeados sin COPY book |
 | T-MQ-007 | RN-S500-151 | P144 | Topología cross-CSI P144 duplicada sin COPY book; 3 programas independientes |
 
-> **Hallazgo crítico T.2.3**: COMS no tiene equivalente directo en cloud. Arquitectura de 5 copias → reemplazar con Kafka/SQS + load balancer. WAIT 1200s → parametrizar. Topología cross-CSI triplicada → service discovery. L091-L092-L093 pendientes de análisis de código fuente en Fase 2.
+> **Hallazgo crítico T.2.3**: COMS no tiene equivalente directo en cloud. Arquitectura de 5 copias → reemplazar con Kafka/SQS + load balancer. WAIT 1200s → parametrizar. Topología cross-CSI triplicada → service discovery. L091 y L093 pendientes de análisis de código fuente en Fase 2 (L092 no existe en el inventario).
 
 ---
 

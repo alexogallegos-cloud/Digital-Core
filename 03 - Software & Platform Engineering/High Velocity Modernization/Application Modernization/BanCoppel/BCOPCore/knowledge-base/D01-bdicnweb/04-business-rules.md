@@ -40,11 +40,11 @@
 
 ## Reglas por regulador (SME dueño)
 
-- **CNBV** (`Solutioning/Delivery - SME/Regulatory/CNBV/`) — 138 reglas · Criterios contables CNBV + GAT — cálculo de intereses/rendimientos
-- **CONDUSEF** (`Solutioning/Delivery - SME/Regulatory/CONDUSEF/`) — 27 reglas · LTOSF Art.17 (CAT) + RECO — comisión debe estar registrada
-- **SAT** (`Solutioning/Delivery - SME/Regulatory/SAT/`) — 18 reglas · LIVA — IVA sobre comisiones (16% / 8% frontera)
-- **TESOFE** (`Solutioning/Delivery - SME/Regulatory/TESOFE/`) — 3 reglas · LTF — dispersión de recursos federales
-- **IPAB** (`Solutioning/Delivery - SME/Regulatory/IPAB/`) — 9 reglas · LPAB Art.22 — cuota ordinaria 4 al millar sobre pasivos asegurados
+- **CNBV** (`SME/Regulatory/CNBV/`) — 138 reglas · Criterios contables CNBV + GAT — cálculo de intereses/rendimientos
+- **CONDUSEF** (`SME/Regulatory/CONDUSEF/`) — 27 reglas · LTOSF Art.17 (CAT) + RECO — comisión debe estar registrada
+- **SAT** (`SME/Regulatory/SAT/`) — 18 reglas · LIVA — IVA sobre comisiones (16% / 8% frontera)
+- **TESOFE** (`SME/Regulatory/TESOFE/`) — 3 reglas · LTF — dispersión de recursos federales
+- **IPAB** (`SME/Regulatory/IPAB/`) — 9 reglas · LPAB Art.22 — cuota ordinaria 4 al millar sobre pasivos asegurados
 
 ## `[SME-PENDING]` Validación regulatoria
 

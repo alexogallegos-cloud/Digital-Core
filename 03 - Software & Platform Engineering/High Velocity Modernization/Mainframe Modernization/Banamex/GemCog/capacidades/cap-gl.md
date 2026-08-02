@@ -1,9 +1,12 @@
-# Capacidad: Finance (GL) — Motor de Asientos Contables [S151]
+# BC-13 · Contabilidad GL
 > Dominio: 7 · Enterprise Support Functions
 > Capacidad: **7.1.1 Finance (GL)** · Libro Mayor General
 > Cobertura: S151 · Programa principal: P109 (GL POSTING ENGINE)
-> Reglas vinculadas: RN-S151-021..060 (40 reglas)
+> Reglas vinculadas: RN-S500-056..060 · RN-S500-153..172 · RN-S500-884 · RN-S500-890 · RN-S151-021..060 · RN-S151-121..180 · RN-S151-331..360 · RN-S151-526..533 · RN-S151-535..548 · RN-S151-550 · RN-S151-990..999 · RN-S151-1060..1079 (210 reglas · trazabilidad automática 2026-07-27)
+> Jerarquía: **N1** Dominio 7 · Enterprise Support Functions → **N2** Subdominio (General) → **N3** Capacidad 7.1.1 Finance (GL) → **N4-5** Procesos/Flujo de tareas (ver Inventario de Tareas) → **N6** Reglas (ver Reglas vinculadas)
+> Indexado: ✅ 2026-07-27 — correlacionado vocab↔reglas↔capacidad (build-traceability.py)
 > LOC analizadas: ~19,381 · Fan-out S151: 52 llamadores
+> bian_ref: 7.1.1 Finance (GL)
 
 ---
 
@@ -28,7 +31,7 @@ P109 es el **motor de contabilización de Banamex en Unisys MCP**. Recibe movimi
 | T-GL-009 | Aplicar enrutamiento por sistema origen (banco, sector, datos SPEI, tabla cheques S087, etc.) | P109 | COBOL_P109.txt | control |
 | T-GL-010 | Generar asiento partida doble: NAT-MOV=1 (débito) o NAT-MOV=2 (crédito) en MOVCONTABLES | P109 | COBOL_P109.txt | contable |
 | T-GL-011 | Grabar retroalimentación PUNTEO al sistema origen (solo STATUS=1) | P109 | COBOL_P109.txt | escritura |
-| T-GL-012 | Acumular importes por clave compuesta 11-dimensional en SMOVCONTASORT (ADD RMS-IMPORTE) | P109 | COBOL_P109.txt | contable |
+| T-GL-012 | Acumular importes por clave compuesta 11-dimensional en SMOVCONTASORT (ADD RMS-IMPORTE) — solo para `A00-R01-STATUS = 1 AND (A00-R01-ORIGEN = 1 OR 3)`; movimientos STATUS=2 excluidos | P109 | COBOL_P109.txt | contable |
 | T-GL-013 | Escribir registro acumulado MOVCONTABLES al detectar cambio de clave 11-dimensional | P109 | COBOL_P109.txt | escritura |
 | T-GL-014 | Generar cuadre contable (sección 40000): negación de cargos (×−1), exclusión cuenta 1503 | P109 | COBOL_P109.txt | contable |
 | T-GL-015 | Actualizar base de datos POSICION si WKS-B03-TIPBD = 1/2/5/6 (sección 50000) | P109 | COBOL_P109.txt | escritura |
@@ -65,14 +68,15 @@ T-GL-006 (STATUS=1) → T-GL-007 (detecta 5 CVETRANs)
   → T-GL-011 (PUNTEO, 1 sola vez)
 ```
 
-### CS-GL-03: Movimiento STATUS=2 (en proceso — sin punteo)
+### CS-GL-03: Movimiento STATUS=2 (en proceso — sin punteo, excluido de MOVCONTASORT)
 **Tipo:** happy-path (variante regulatoria)
 **Condición de entrada:** Registro LOG151 con FUNCION=1, STATUS=2 (en proceso)
-**Resultado:** Asiento GL generado idéntico a STATUS=1; PUNTEO al sistema origen NO se genera (el movimiento aún está en tránsito)
+**Resultado:** Asiento GL generado en MOVCONTABLES; PUNTEO al sistema origen NO se genera (el movimiento aún está en tránsito). Solo movimientos con `A00-R01-STATUS = 1 AND (A00-R01-ORIGEN = 1 OR 3)` producen registros en MOVCONTASORT/MOVCONTASORTFS. Movimientos STATUS=2 son EXCLUIDOS de MOVCONTASORT. Impacto en reconciliación GL: el sistema target debe replicar esta exclusión.
 **Secuencia:**
 ```
-T-GL-006 (FUNCION=1, STATUS=2) → T-GL-007 → T-GL-008 → T-GL-009 → T-GL-010 → T-GL-012
+T-GL-006 (FUNCION=1, STATUS=2) → T-GL-007 → T-GL-008 → T-GL-009 → T-GL-010
 (T-GL-011 omitido — sin PUNTEO para STATUS=2)
+(T-GL-012 omitido — STATUS=2 excluido de MOVCONTASORT; requiere STATUS=1 AND ORIGEN=1 o 3)
 ```
 
 ### CS-GL-04: Movimiento sin esquema contable (ESQUEMA NO EXISTE)
@@ -96,13 +100,14 @@ T-GL-001 (sistema=264) → ... → T-GL-009 (SPEI + MONEDA=1 → BANCO=0)
   → T-GL-016 (escribe DATALAKE — exclusivo S264)
 ```
 
-### CS-GL-06: Error en cabecera LOG151 (abort batch)
+### CS-GL-06: Error en cabecera LOG151 (aviso sin abort) `[DEFECTO-PRODUCCIÓN]`
 **Tipo:** error
 **Condición de entrada:** HDR-HD ≠ "HD" o WKS-FECHA-PROCESO ≠ HDR-FCH al abrir LOG151
-**Resultado:** Abort inmediato del proceso — ningún movimiento se contabiliza ese día; P109 no genera cuadre ni actualiza POSICION
+**Resultado:** P109 imprime un mensaje de aviso ante la discrepancia de fecha en el header LOG151, pero **NO aborta** — la instrucción `SET MYSELF(STATUS) TO -1` está COMENTADA en el código (ln 10009). El proceso continúa con la fecha posiblemente incorrecta. `[DEFECTO-PRODUCCIÓN]` — riesgo de asientos GL con fecha errónea.
 **Secuencia:**
 ```
-T-GL-004 (validación falla) → ABORT (sin ningún T-GL-005..016)
+T-GL-004 (validación falla) → PERFORM 000-030-IMPRIME-MENSAJE (aviso, sin abort)
+  → proceso continúa → T-GL-005..016 ejecutan con fecha potencialmente incorrecta
 ```
 
 ---
@@ -131,9 +136,10 @@ sequenceDiagram
   P109->>P109: T-GL-003 Decidir estrategia acceso S016
 
   P109->>LOG151: T-GL-004 Leer cabecera (validar HDR-HD="HD" y fecha)
-  alt Cabecera inválida
-    LOG151-->>P109: Error
-    P109-->>WFL: ABORT (sin asientos generados)
+  alt Cabecera inválida [DEFECTO-PRODUCCIÓN]
+    LOG151-->>P109: Discrepancia de fecha en header
+    P109->>P109: PERFORM 000-030-IMPRIME-MENSAJE (aviso — SET MYSELF STATUS TO -1 COMENTADO)
+    Note over P109: NO aborta — continúa con fecha potencialmente incorrecta
   else Cabecera OK
     LOG151-->>P109: Cabecera válida
   end
@@ -162,7 +168,8 @@ sequenceDiagram
 
           P109->>P109: T-GL-009 Enrutar por sistema (SPEI→BANCO=0, S087→tabla, etc.)
           P109->>P109: T-GL-010 Generar asiento (NAT-MOV=1 débito / NAT-MOV=2 crédito)
-          P109->>P109: T-GL-012 Acumular en clave 11-dimensional
+          Note over P109: T-GL-012 solo si STATUS=1 AND ORIGEN=1 o 3 — STATUS=2 excluido de MOVCONTASORT
+          P109->>P109: T-GL-012 Acumular en SMOVCONTASORT (clave 11-dimensional)
         end
       end
 
@@ -335,7 +342,7 @@ Regla: RN-S151-025 — Cadena de resolución ESQCON (CVETRAN → cuenta GL)
 | T-GL-P108-004 | Normalizar código SECTOR CNBV via tabla hardcoded (Anexo 33 CUB); registrar bug sector-15→11 para validación con negocio antes de migrar | P108 | BATCH | ALTA | CRÍTICO |
 | T-GL-P108-005 | Iterar loop de hasta 5 CVETRANs por movimiento (PERFORM VARYING W77-INDCVE FROM 1 BY 1 UNTIL >5 OR CVETRAN=0) | P108 | BATCH | MEDIA | ALTO |
 | T-GL-P108-006 | Filtrar inclusión en MOVCONTASORT/FS via WKS-PT-INDS250(CVETRAN)=2; valor incorrecto excluye silenciosamente sin error | P108 | BATCH | MEDIA | ALTO |
-| T-GL-P108-007 | Escribir 5 registros individuales de bitácora de auditoría en MOVIMIENTOS cuando INDBITA=1 o 2 (requerimiento regulatorio CNBV/Banxico) | P108 | BATCH | MEDIA | CRÍTICO |
+| T-GL-P108-007 | Incluir movimiento en reportes de auditoría S028/BITACORA cuando `WKS-PT-INDBITA(RM-CVE-TRANS) = 1 OR 2` (párrafo `31000-GENERA-S028`); INDBITA es indicador de inclusión en reportes, no trigger de WRITEs a MOVIMIENTOS; las escrituras a MOVIMIENTOS en `21101-GRABA-ARCHCON` están gateadas por `CVETRAN(n) > 0` (requerimiento regulatorio CNBV/Banxico) | P108 | BATCH | MEDIA | CRÍTICO |
 | T-GL-P108-008 | Lookup cuenta contable via READ secuencial sobre ARCH-ESQCON indexado; aplicar lógica especial CTA-DVR=5 | P108 | BATCH | ALTA | ALTO |
 | T-GL-P108-009 | Aplicar override geográfico para CVETRAN=1009: CSI=04 o 35 → CTA=150301100400; resto → CTA=150301041000 (ignora ARCH-ESQCON) | P108 | BATCH | ALTA | ALTO |
 | T-GL-P108-010 | Aplicar override de correlativo regional para CVETRAN=3011 basado en PRD/INS/MON (confianza MEDIA — requiere análisis adicional de 21102) | P108 | BATCH | MEDIA | MEDIO |
@@ -370,7 +377,7 @@ Regla: RN-S151-025 — Cadena de resolución ESQCON (CVETRAN → cuenta GL)
 | RN-S151-124 | Normalización SECTOR CNBV hardcoded: (10/15/16)→11; (20/15/24)→23-BUG; (30/33/34)→31; (35)→32; (51/53/54)→41; sector 15 siempre llega a 11 | P108 | CRITICAL |
 | RN-S151-125 | Loop PERFORM VARYING W77-INDCVE FROM 1 BY 1 procesa hasta 5 CVETRANs por movimiento (cardinalidad 1:N obligatoria en sistema destino) | P108 | HIGH |
 | RN-S151-126 | WKS-PT-INDS250(CVETRAN)=2 activa WRITE REG-MOVCONTASORT/FS; cualquier otro valor excluye silenciosamente sin error ni aviso al log | P108 | HIGH |
-| RN-S151-127 | WKS-PT-INDBITA(CVETRAN)=1 o 2 dispara PERFORM 5 veces → WRITE 5 registros individuales a MOVIMIENTOS (bitácora regulatoria CNBV/Banxico) | P108 | CRITICAL |
+| RN-S151-127 | `WKS-PT-INDBITA(RM-CVE-TRANS) = 1 OR 2` incluye el movimiento en `31000-GENERA-S028` y `31000-GENERA-BITACORA`. INDBITA es indicador de inclusión en reportes de auditoría S028/BITACORA, no trigger de WRITEs a MOVIMIENTOS. Las escrituras a MOVIMIENTOS en `21101-GRABA-ARCHCON` están gateadas por `CVETRAN(n) > 0`, no por INDBITA | P108 | CRITICAL |
 | RN-S151-128 | READ secuencial ARCH-ESQCON indexado para obtener RMC-CTA-CONT; NAT-MOV=1/2 asigna cargo/abono; CTA-DVR=5 tiene lógica especial no documentada externamente | P108 | HIGH |
 | RN-S151-129 | CVETRAN=1009 ignora ARCH-ESQCON y asigna CTA hardcoded: W77-CSI-PROCESO=04 o 35 → 150301100400; resto → 150301041000 (párrafo 21123) | P108 | HIGH |
 | RN-S151-130 | CVETRAN=3011 aplica override de cuenta de correlativo regional basado en W77-PRD-SORT/INS-SORT/MON-SORT (confianza MEDIA — requiere lectura adicional 21102) | P108 | MEDIUM |

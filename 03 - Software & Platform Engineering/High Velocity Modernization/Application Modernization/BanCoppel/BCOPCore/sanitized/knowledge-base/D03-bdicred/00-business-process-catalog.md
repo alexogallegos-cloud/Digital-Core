@@ -12,9 +12,9 @@
 - **SME — Modelo Operativo Bancario** (BIAN Service Domains · capacidades retail banking · cadena de valor · mapeo dominio técnico ↔ capacidad de negocio)
 - Data Architect (modelado target PostgreSQL / Aurora)
 - QA Lead — Equivalencia Funcional (golden master y criterios go/no-go)
-- **SME Regulatorio — CNBV** (`Solutioning/Delivery - SME/Regulatory/CNBV/`)
-- **SME Regulatorio — SAT** (`Solutioning/Delivery - SME/Regulatory/SAT/`)
-- **SME Regulatorio — CONDUSEF** (`Solutioning/Delivery - SME/Regulatory/CONDUSEF/`)
+- **SME Regulatorio — CNBV** (`SME/Regulatory/CNBV/`)
+- **SME Regulatorio — SAT** (`SME/Regulatory/SAT/`)
+- **SME Regulatorio — CONDUSEF** (`SME/Regulatory/CONDUSEF/`)
 
 > Secciones marcadas `[SME-PENDING]` requieren validación del Domain Expert o SME regulador antes de BUILD.
 ---

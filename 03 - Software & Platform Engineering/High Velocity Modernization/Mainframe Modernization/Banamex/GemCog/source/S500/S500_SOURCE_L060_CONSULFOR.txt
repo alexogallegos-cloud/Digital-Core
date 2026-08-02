@@ -1,0 +1,252 @@
+$$ SET LINEINFO                                                         00000100          
+$$ SHARING = PRIVATE                                                    00000200          
+$$ ERRORLIMIT = 5                                                       00000250          
+$$ VERSION 09.002.0001 % 21/Ago/2001 Enrique Caballero                  00000300          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 00000400          
+%                       S500/SOURCE/L060/CONSULFOR/XXMTPZZZ           % 00000500          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 00000600          
+BEGIN                                                                   00000700          
+$$ INCLUDE "*DTP/ALG/XATMI/OMNITRU ON DISK."                            00000800          
+                                                                        00000805          
+%********************************************************************** 00000810          
+% LIBRERIAS                                                             00000815          
+%********************************************************************** 00000820          
+                                                                        00000825          
+ LIBRARY LIBLJ(TITLE="(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK.");  00000830          
+         PROCEDURE LJ(CONTADOR,MENSAJE);                                00000835          
+         INTEGER   CONTADOR;                                            00000840          
+         EBCDIC    ARRAY MENSAJE[0];                                    00000845          
+         LIBRARY   LIBLJ;                                               00000850          
+                                                                        00000855          
+%********************************************************************** 00000860          
+% VARIABLES GLOBALES                                                    00000865          
+%********************************************************************** 00000870          
+ EBCDIC ARRAY                                                           00000900          
+   SCRATCH [0:515],                                                     00001000          
+   AREA_TEM[0:999],                                                     00001050          
+   EA_O_CTO_TEM[0:1999],                                                00001060          
+   EA_MSGLJ[0:499],                                                     00001070          
+   EA_SCR  [0:499];                                                     00001080          
+                                                                        00001090          
+ POINTER                                                                00001100          
+   P_SCRATCH;                                                           00001200          
+                                                                        00001250          
+ REAL                                                                   00001300          
+   BD,                                                                  00001400          
+   SD;                                                                  00001500          
+                                                                        00001600          
+ INTEGER                                                                00001620          
+   I_CONLJ;                                                             00001640          
+                                                                        00001660          
+ DEFINE                                                                 00001700          
+   CAND (A, B) = (IF (A) THEN (B) ELSE FALSE) #,                        00001800          
+   COR (A, B) = (IF (A) THEN TRUE ELSE (B)) #,                          00001900          
+   NULL = 48"00" #,                                                     00002000          
+   SERVICEV = 22 #,                                                     00002100          
+   HOST_MTY = 1  #,                                                     00002120          
+   HOST_VDM = 2  #,                                                     00002140          
+                                                                        00002142          
+%** Variables para manejo de la libreria LJ                             00002144          
+                                                                        00002146          
+  DF_TIPOMSG = EA_MSGLJ[14]#                                            00002148          
+ ,DF_CODMSG  = EA_MSGLJ[16]#                                            00002150          
+ ,DF_TXTMSG  = EA_MSGLJ[23]#                                            00002152          
+ ,DF_MTP     = "002" #                                                  00002154          
+ ,DF_HDRMSG (X)   = "S500/L060/",DF_MTP,":",X #                         00002156          
+ ,DF_DISPLAY(X,Y) = BEGIN                                               00002158          
+                      DEFINE DUMMY = #;                                 00002160          
+                      REPLACE EA_MSGLJ BY " " FOR SIZE(EA_MSGLJ);       00002162          
+                      REPLACE EA_MSGLJ BY DF_HDRMSG(X)                  00002164          
+                                         ,Y                             00002166          
+                                         ;                              00002168          
+                      LJ(I_CONLJ,EA_MSGLJ);                             00002170          
+                    END#                                                00002172          
+ ;                                                                      00002174          
+                                                                        00002176          
+                                                                        00002200          
+INTEGER PROCEDURE GET_ERRORTEXT_USING_NUMBER (ENTY_NUMBER,              00002300          
+                                              ENTY_STRINGTOTAL,         00002400          
+                                              ENTY_STRING);             00002500          
+INTEGER                                                                 00002600          
+   ENTY_NUMBER,                                                         00002700          
+   ENTY_STRINGTOTAL;                                                    00002800          
+EBCDIC ARRAY                                                            00002900          
+   ENTY_STRING [0];                                                     00003000          
+LIBRARY XATMI;                                                          00003100          
+                                                                        00003200          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00003300          
+%                       INICIALIZA                                     %00003400          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00003500          
+PROCEDURE INICIALIZA;                                                   00003600          
+   BEGIN                                                                00003700          
+   EBCDIC ARRAY                                                         00003800          
+      EA [0:71],                                                        00003900          
+      EB [0:71],                                                        00004000          
+      EA_MY_HOST[0:99];                                                 00004020          
+                                                                        00004040          
+   INTEGER                                                              00004100          
+      I,                                                                00004200          
+      LEN,                                                              00004300          
+      I_HOST;                                                           00004350          
+                                                                        00004400          
+   XATMI.LIBACCESS:= VALUE(BYFUNCTION);                                 00004500          
+   REPLACE XATMI.FUNCTIONNAME BY "OMNITRU.";                            00004600          
+                                                                        00004700          
+   % ---- Obtenemos designator de servicio S500_Con_Cto                 00004800          
+   REPLACE EA_MY_HOST BY MYSELF.HOSTNAME;                               00004805          
+   IF EA_MY_HOST = "ACYPBETA" OR                                        00004810          
+      EA_MY_HOST = "SITBETA" OR                                         00004812          
+      EA_MY_HOST = "MONALFA" OR                                         00004815          
+      EA_MY_HOST = "VDMKAPPA" OR                                        00004817          
+      EA_MY_HOST = "MONBETA" THEN                                       00004820          
+      I_HOST:= 1                                                        00004825          
+   ELSE                                                                 00004830          
+   IF EA_MY_HOST = "VDMBETA" OR                                         00004835          
+      EA_MY_HOST = "ACYPGAMA" OR                                        00004840          
+      EA_MY_HOST = "ACYPOMEGA" OR                                       00004842          
+      EA_MY_HOST = "VDMALFA" THEN                                       00004845          
+      I_HOST:= 2                                                        00004850          
+   ELSE                                                                 00004855          
+   BEGIN                                                                00004860          
+     REPLACE EA_SCR BY 4"00" FOR SIZE(EA_SCR);                          00004865          
+     REPLACE EA_SCR BY "HOST DESCONOCIDO";                              00004867          
+     DF_DISPLAY("E>050110<",EA_SCR FOR 100);                            00004869          
+     MYSELF.STATUS:= VALUE(TERMINATED);                                 00004875          
+   END;                                                                 00004876          
+                                                                        00004880          
+% Si estoy en MTY consulto el servidor de VDM y viceversa               00004882          
+   IF I_HOST = HOST_MTY THEN                                            00004884          
+   BEGIN                                                                00004894          
+      REPLACE EA BY "S500_Con_Cto_V", NULL;                             00004914          
+   END                                                                  00004924          
+   ELSE                                                                 00004934          
+   BEGIN                                                                00004944          
+      REPLACE EA BY "S500_Con_Cto_M", NULL;                             00004964          
+   END;                                                                 00004974          
+                                                                        00004984          
+   IF I:= GET_DESIGNATOR_USING_NAME(EA, SERVICEV, SD) NEQ 0 THEN        00004994          
+      BEGIN                                                             00005100          
+      REPLACE EA_SCR BY 4"00" FOR SIZE(EA_SCR);                         00005200          
+      REPLACE EA_SCR BY "Get_Designator_Using_Name(S500_Consul_Cto)= "  00005300          
+                       ,I FOR * DIGITS;                                 00005320          
+      DF_DISPLAY("E>050110<",EA_SCR FOR 100);                           00005340          
+      MYSELF.STATUS:= VALUE(TERMINATED);                                00005400          
+      END;                                                              00005500          
+                                                                        00005600          
+   % ---- Obtenemos designador de buffer X_OCTET                        00005700          
+   REPLACE EA BY "X_OCTET", NULL;                                       00005800          
+   REPLACE EB BY NULL;                                                  00005900          
+   IF I:= GET_BUFFER_DESIGNATOR(EA, EB, BD, LEN) < 0 THEN               00006000          
+      BEGIN                                                             00006100          
+      REPLACE EA_SCR BY 4"00" FOR SIZE(EA_SCR);                         00006200          
+      REPLACE EA_SCR BY "Get_Buffer_Designator(X_OCTET) = "             00006300          
+                       ,I FOR * DIGITS;                                 00006320          
+      DF_DISPLAY("E>050110<",EA_SCR FOR 100);                           00006340          
+      MYSELF.STATUS:= VALUE(TERMINATED);                                00006400          
+      END;                                                              00006500          
+                                                                        00006600          
+   END OF INICIALIZA;                                                   00006700          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00006800          
+ INTEGER PROCEDURE S500L060CONTRATO (AREA_COMUN, EA_O_CTO);             00007100          
+ EBCDIC ARRAY AREA_COMUN,EA_O_CTO[*];                                   00007200          
+%***********************************************************************00007250          
+   BEGIN                                                                00007300          
+   INTEGER                                                              00007400          
+      I,                                                                00007500          
+      J,                                                                00007600          
+      K,                                                                00007700          
+      LEN,                                                              00007800          
+      I_RESULT,                                                         00007850          
+      RCODE;                                                            00007900          
+   REAL                                                                 00008000          
+      CD,                                                               00008100          
+      FLAGS;                                                            00008200          
+                                                                        00008300          
+   DEFINE                                                               00008400          
+      ERROR_NO_REINTENTEV  =  99  #,                                    00008500          
+      ERROR_REINTENTEV     =  98  #,                                    00008600          
+      LONGITUD_AREA_COMUNV = 180  #;                                    00008700          
+                                                                        00008900          
+   DEFINE                                                               00009000          
+      % ---- Parametro RCODE de TP_GetRply, llamado erroneo             00009100          
+      SERVICIO_DESCONOCIDOV = -1 #,                                     00009200          
+      BUFFER_INVALIDOV      = -2 #;                                     00009300          
+                                                                        00009400          
+   DEFINE                                                               00009500          
+      DESPLIEGA_ERROR_TRANSIT (S) =                                     00009600          
+         BEGIN                                                          00009700          
+         IF J:= GET_ERRORTEXT_USING_NUMBER(I, K, SCRATCH) NEQ 0 THEN    00009800          
+            BEGIN                                                       00009900          
+            REPLACE P_SCRATCH:SCRATCH BY                                00010000          
+               "Ger_ErrorText_Using_Number error ", J FOR * DIGITS;     00010100          
+            K:= OFFSET(P_SCRATCH);                                      00010200          
+            END;                                                        00010300          
+         REPLACE EA_SCR BY 4"00" FOR SIZE(EA_SCR);                      00010320          
+         REPLACE EA_SCR BY                                              00010340          
+                 S, " error [UCode="                                    00010400          
+                 ,STRING(ASERIES_QUAL_RSLT(I), *)                       00010500          
+                 ,", XATMICode="                                        00010600          
+                 ,STRING(XOPEN_RSLT(I), *)                              00010700          
+                 ,", Len=", STRING(LEN, *), "]: "                       00010800          
+                 ,STRING(SCRATCH, K);                                   00010900          
+         DF_DISPLAY("E>050110<",EA_SCR FOR 200);                        00010950          
+         END #;                                                         00011000          
+                                                                        00011100          
+%  LEN:= LONGITUD_AREA_COMUNV;                                          00011200          
+   LEN:= SIZE(AREA_COMUN);                                              00011250          
+   FLAGS:= 0 & 1 TPNOTRAN;                                              00011300          
+   IF I:= TP_ACALL(CD, SD, BD, AREA_COMUN, LEN, FLAGS) < 0 THEN         00011400          
+      BEGIN                                                             00011500          
+      DESPLIEGA_ERROR_TRANSIT("TP_ACall");                              00011600          
+      IF XOPEN_RSLT(I) = TPETIME THEN                                   00011700          
+         I_RESULT:= ERROR_REINTENTEV                                    00011800          
+      ELSE                                                              00011900          
+         I_RESULT:= ERROR_NO_REINTENTEV;                                00012000          
+      END                                                               00012100          
+   ELSE                                                                 00012200          
+      BEGIN                                                             00012300          
+%     LEN:= LONGITUD_AREA_COMUNV;                                       00012400          
+      LEN:= SIZE(EA_O_CTO_TEM);                                         00012450          
+      FLAGS:= 0 & 1 TPTRUNC;                                            00012500          
+      IF CAND(I:= TP_GETRPLY(CD,BD,EA_O_CTO_TEM,LEN,FLAGS,RCODE) < 0,   00012600          
+              XOPEN_RSLT(I) NEQ TPETOOSMALL) THEN                       00012700          
+         BEGIN                                                          00012800          
+         DESPLIEGA_ERROR_TRANSIT("TP_GetRply");                         00012900          
+         IF XOPEN_RSLT(I) = TPETIME THEN                                00013000          
+            I_RESULT:= ERROR_REINTENTEV                                 00013100          
+         ELSE                                                           00013200          
+            I_RESULT:= ERROR_NO_REINTENTEV;                             00013300          
+         END                                                            00013400          
+      ELSE                                                              00013500          
+         % ---- Errores de servicio y/o buffer                          00013600          
+         IF RCODE < 0 THEN                                              00013700          
+            BEGIN                                                       00013800          
+            I_RESULT:= ERROR_NO_REINTENTEV;                             00013900          
+            REPLACE EA_SCR BY 4"00" FOR SIZE(EA_SCR);                   00013920          
+            REPLACE EA_SCR BY                                           00013940          
+            "Error [RCode = ", STRING(RCODE, *)                         00014000          
+            ,"]: Servicio desconocido o buffer invalido";               00014100          
+            DF_DISPLAY("E>050110<",EA_SCR FOR 200);                     00014150          
+            END;                                                        00014200          
+      END;                                                              00014300          
+   IF I_RESULT > 0 THEN                                                 00014305          
+      S500L060CONTRATO:= I_RESULT                                       00014310          
+   ELSE                                                                 00014315          
+   BEGIN                                                                00014320          
+     S500L060CONTRATO:= INTEGER(EA_O_CTO_TEM,6);                        00014325          
+     IF SIZE(EA_O_CTO) > (SIZE(EA_O_CTO_TEM) - 6) THEN                  00014330          
+        REPLACE EA_O_CTO BY EA_O_CTO_TEM[6] FOR (SIZE(EA_O_CTO_TEM) - 6)00014335          
+     ELSE                                                               00014340          
+        REPLACE EA_O_CTO BY EA_O_CTO_TEM[6] FOR SIZE(EA_O_CTO);         00014345          
+   END;                                                                 00014370          
+   END OF S500L060CONTRATO;                                             00014400          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00014500          
+%                       OUTER BLOCK                                    %00014600          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00014700          
+                                                                        00014800          
+EXPORT                                                                  00014900          
+   S500L060CONTRATO;                                                    00015000          
+INICIALIZA;                                                             00015100          
+FREEZE(TEMPORARY);                                                      00015200          
+                                                                        00015300          
+END.                                                                    00015400          

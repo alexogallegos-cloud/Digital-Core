@@ -1,0 +1,2102 @@
+000010$SET LIST                                                                     
+000015$SET LINEINFO                                                                 
+000020$SET ERRORLIST                                                                
+000030$SET BDB00R01                                                                 
+000032$SET BDB00R02                                                                 
+000033$SET BDB00R03                                                                 
+000034$SET BDB00R04                                                                 
+000035                                                                              
+000037$SET BDB00R22                                                                 
+000038$SET BDB00R23                                                                 
+000039                                                                              
+000040$SET BDB02R01                                                                 
+000046                                                                              
+000050$SET BDB03R02                                                                 
+000052$SET BDB03R08                                                                 
+000054$SET BDB03R12                                                                 
+000055$SET BDB03R15                                                                 
+000056                                                                              
+000060$SET BDB05R02                                                                 
+000062$SET BDB05R07                                                                 
+000064                                                                              
+000068$SET BDB06R06                                                                 
+000070$SET BDB06R08                                                                 
+000072$SET BDB06R11                                                                 
+000074                                                                              
+000080$SET BDB09R02                                                                 
+000086                                                                              
+000090$SET BDB91                                                                    
+000092                                                                              
+000094$SET LIBMAPLI                                                                 
+000110$SET S100VERSIONES                                                            
+000120$SET FECHA2000                                                                
+000130$SET S000LIBLJ                                                                
+001000****************************************************************              
+002000*                                                                             
+003000* SISTEMA: S500 CAPTACION                                                     
+004000* CODIGO DE BATCH P160.                                                       
+005000* VERSION JUN/2006 CUENTA UNO.                                                
+006000*                                                                             
+007000****************************************************************              
+008000*       I D E N T I F I C A T I O N      D I V I S I O N.                     
+009000****************************************************************              
+010000 IDENTIFICATION DIVISION.                                                     
+011000 PROGRAM-ID. COMPARATIVO.                                                     
+012000                                                                              
+013000****************************************************************              
+014000*       E N V I R O N M E N T           D I V I S I O N.                      
+015000****************************************************************              
+016000 ENVIRONMENT DIVISION.                                                        
+017000 CONFIGURATION SECTION.                                                       
+018000 INPUT-OUTPUT SECTION.                                                        
+019000                                                                              
+020000****************************************************************              
+021000* F I L E    C O N T R O L.                                                   
+022000****************************************************************              
+023000 FILE-CONTROL.                                                                
+023010                                                                              
+023210****************************************************************              
+023220* ARCHIVO PARA MOTOR (FECHA ULTIMO MOVTO POR CLIENTE)          *              
+023230* SE UTILIZA EN EL PASO P189                                   *              
+023240****************************************************************              
+023250      SELECT E01-MOTOR                                                        
+023260            ASSIGN TO DISK.                                                   
+023290                                                                              
+025000****************************************************************              
+026000* ARCHIVO DE IMPRESION PARA AQUELLOS CONTRATOS CUYO SALDO DEL                 
+027000* HISTORICO NO ES IGUAL AL SALDO DE INVERSIONES.                              
+028000****************************************************************              
+029000     SELECT FILE-COMPARA                                                      
+030000            ASSIGN TO PRINTER.                                                
+031000                                                                              
+031010****************************************************************              
+031020* ARCHIVO DE IMPRESION PARA LA POSICION DE CTOS CUYO SALDO DEL                
+031030* HISTORICO NO ES IGUAL AL SALDO DE INVERSIONES.                              
+031040****************************************************************              
+031050     SELECT FILE-POSICION                                                     
+031060            ASSIGN TO PRINTER.                                                
+031070                                                                              
+032000****************************************************************              
+033000* ARCHIVO UTILIZADO PARA GRABAR LOS CONTRATOS CON DIFERENCIA.                 
+034000****************************************************************              
+035000     SELECT FILE-SALDOS                                                       
+036000            ASSIGN TO DISK.                                                   
+037000                                                                              
+038000****************************************************************              
+039000* ARCHIVO UTILIZADO PARA SORTEAR LOS TOTALES DE SDOS Y LOS                    
+040000* CONTRATOS QUE TUVIERON DIFERENCIA.                                          
+041000****************************************************************              
+042000     SELECT SALDOS-SORT                                                       
+043000            ASSIGN TO SORT DISK.                                              
+044000                                                                              
+044002* ESS/STEF INI AJUSTE DEF DE SALDOS 20200527                                  
+044004****************************************************************              
+044006* ARCHIVO PARA ALMACENAR FALLAS DEL PASO                      **              
+044008****************************************************************              
+044010     SELECT I03-ARCH-INCIDENTE    ASSIGN TO DISK.                             
+044012* ESS/STEF FIN AJUSTE DEF DE SALDOS 20200527                                  
+044014                                                                              
+045000****************************************************************              
+046000* D A T A    D I V I S I O N.                                                 
+047000****************************************************************              
+048000 DATA DIVISION.                                                               
+049000                                                                              
+050000****************************************************************              
+051000* F I L E    S E C T I O N.                                                   
+052000****************************************************************              
+053000 FILE SECTION.                                                                
+054000                                                                              
+054110****************************************************************              
+054120*  FD DEL ARCHIVO PARA MOTOR FECHA ULTMOV POR CLIENTE          *              
+054130****************************************************************              
+054140 FD E01-MOTOR                                                                 
+054150    RECORD CONTAINS   96 CHARACTERS                                           
+054160    BLOCK  CONTAINS  675 RECORDS                                              
+054170    VALUE OF                                                                  
+054180             AREAS    IS 15000                                                
+054190             AREASIZE IS 2700                                                 
+054210             TITLE IS WS-ETIQ-MOTOR                                           
+054220             SECURITYTYPE IS PUBLIC.                                          
+054230                                                                              
+054240                                                                              
+054250 01 FD-REG-MOTOR      PIC X(96).                                              
+054260                                                                              
+055000****************************************************************              
+056000* FD DEL ARCHIVO QUE SORTEARA LOS TOTALES Y LOS CONTRATOS CON                 
+057000* DIFERENCIA.                                                                 
+058000****************************************************************              
+059000 SD SALDOS-SORT                                                               
+059020    BLOCK CONTAINS 180 RECORDS.                                               
+060000                                                                              
+061000  01 REG-SORT.                                                                
+062000    02 PRD-SORT     PIC 9(04).                                                
+063000    02 INS-SORT     PIC 9(04).                                                
+064000    02 MON-SORT     PIC 9(03).                                                
+065000    02 CTO-SORT     PIC 9(12).                                                
+066000    02 INV-SORT     PIC S9(14)V99.                                            
+066010    02 HIS-SORT     PIC S9(14)V99.                                            
+066020    02 CIF-SORT     PIC S9(14)V99.                                            
+067000                                                                              
+068180****************************************************************              
+069000* FD DEL ARCHIVO DE IMPRESION DE CTOS. CON DIFERENCIA.                        
+070000****************************************************************              
+071000 FD FILE-COMPARA.                                                             
+072000 01 REG-COMPARA    PIC X(132).                                                
+073000                                                                              
+073010****************************************************************              
+073020* FD DEL ARCHIVO DE IMPRESION DE LA POSICION DE CTOS.CON DIF.                 
+073030****************************************************************              
+073040 FD FILE-POSICION.                                                            
+073050 01 REG-POSICION   PIC X(132).                                                
+073060                                                                              
+074000****************************************************************              
+075000* FD DEL ARCHIVO DE SALDOS DE LOS CONTRATOS CON DIFERENCIA.                   
+076000******************************************************************            
+077000 FD FILE-SALDOS                                                               
+078000    BLOCK CONTAINS 180 RECORDS                                                
+079000    VALUE OF TITLE IS WS-ETIQ-SALDOS                                          
+080000    VALUE OF SECURITYTYPE IS PUBLIC.                                          
+081000                                                                              
+082000  01 REG-SALDOS.                                                              
+083000    02 SDO-PRD     PIC 9(04).                                                 
+084000    02 SDO-INS     PIC 9(04).                                                 
+085000    02 SDO-MON     PIC 9(03).                                                 
+086000    02 SDO-CTO     PIC 9(12).                                                 
+087000    02 SDO-INV     PIC S9(14)V99.                                             
+088000    02 SDO-HIS     PIC S9(14)V99.                                             
+089000    02 SDO-CIF     PIC S9(14)V99.                                             
+089002                                                                              
+089003* ESS/STEF INI AJUSTE DEF DE SALDOS 20200527                                  
+089004 FD  I03-ARCH-INCIDENTE                                                       
+089006     RECORD   CONTAINS 180 CHARACTERS                                         
+089008     BLOCK    CONTAINS 180 RECORDS                                            
+089010     VALUE OF                                                                 
+089012           SECURITYTYPE IS PUBLIC                                             
+089014           TITLE        IS WS-ETIQ-INCIDENTE                                  
+089016           AREAS        IS 15000                                              
+089018           AREASIZE     IS 360.                                               
+089020                                                                              
+089022 01 FD-I03-INCIDENTE        PIC X(180).                                       
+089024* ESS/STEF FIN AJUSTE DEF DE SALDOS 20200527                                  
+090000                                                                              
+091000****************************************************************              
+092000*           D A T A       B A S E      S E C T I O N.                         
+093000****************************************************************              
+094000 DATA-BASE SECTION.                                                           
+095000 DB S500BD01CAPTACION.                                                        
+095010 01 S500B00CTRLPASO.                                                          
+097000 01 S500B02CONTROL.                                                           
+098000 01 S500B03CONTRATOS.                                                         
+100000 01 S500B05INSTRUMEN.                                                         
+101000 01 S500B06HISTORICO.                                                         
+104000 01 S500B09CIFRAS.                                                            
+114000 01 S500B91REINICIO.                                                          
+115000                                                                              
+116000******************************************************************            
+117000*           W O R K I N G           S T O R A G E.                            
+118000******************************************************************            
+119000 WORKING-STORAGE SECTION.                                                     
+120000                                                                              
+121000******************************************************************            
+122000* VARIABLES UTILIZADAS PARA EL MANEJO DE ERRORES Y CLAVES DE                  
+123000* ACCESO A LA BASE DE DATOS.                                                  
+124000******************************************************************            
+125000 COPY "S500/INC/WOR/25MTP002".                                                
+125002                                                                              
+125005                                                                              
+125010 COPY "S500/INC/MAPLI/WOR/15MTP001".                                          
+126000                                                                              
+127000****************************************************************              
+128000* ARREGLO PARA ALMACENAR LOS SALDOS DE INV. E HIST POR PRODUCTO.              
+129000****************************************************************              
+130000 01 WS-GUARDASDOS WITH LOWER-BOUNDS.                                          
+131000    02 WS-PROD    OCCURS 31   TIMES.                                          
+132000       04 WS-PRD                PIC 9(4).                                     
+133000       04 WS-INS                PIC 9(4).                                     
+134000       04 WS-MON                PIC 9(3).                                     
+135000       04 WS-INV                PIC S9(14)V99.                                
+136000       04 WS-HIS                PIC S9(14)V99.                                
+136010       04 WS-CIF                PIC S9(14)V99.                                
+137000                                                                              
+137010****************************************************************              
+137020* ARREGLO PARA ALMACENAR LAS COPIAS POR PRODUCTO.                             
+137030****************************************************************              
+137040 01 WS-GUARDACOPIA WITH LOWER-BOUNDS.                                         
+137050    02 WS-PRODCOPIA OCCURS 31 TIMES.                                          
+137060       04 WS-COPIA-PRD          PIC 9(4).                                     
+137070       04 WS-COPIA-INS          PIC 9(4).                                     
+137080       04 WS-COPIA-MON          PIC 9(2).                                     
+137090       04 WS-COPIA-COPIA        PIC 9(2).                                     
+137092* ESS/STEF INI AJUSTE DEF DE SALDOS 20200527                                  
+137093       04 WS-COPIA-SDO          PIC S9(15)V9(02).                             
+137094* ESS/STEF FIN AJUSTE DEF DE SALDOS 20200527                                  
+137100******************************************************************            
+137110* ETIQUETA DEL ARCHIVO PARA MOTOR                                             
+137120******************************************************************            
+137130 01 WS-ETIQ-MOTOR.                                                            
+137140    02 FILLER          PIC X(24) VALUE                                        
+137142                       "S500/FILE/S500/ULTFECHA/".                            
+137150    02 WS-E01-TIT-NODO PIC 99.                                                
+137160    02 FILLER          PIC X(01)  VALUE "/".                                  
+137170    02 WS-E01-TIT-FECH PIC 9(08)  VALUE 99999999.                             
+137180    02 FILLER          PIC X(01)  VALUE ".".                                  
+137190                                                                              
+137200******************************************************************            
+137210 01  WKS-E01-HEADER.                                                          
+137220     02 WKS-E01-R1-TPOREG        PIC 9(02)      VALUE 01.                     
+137230     02 WKS-E01-R1-FECHA         PIC 9(08).                                   
+137240     02 WKS-E01-R1-SISORI        PIC X(04)      VALUE "S500".                 
+137250     02 WKS-E01-R1-SISDES        PIC X(04)      VALUE "S500".                 
+137260     02 WKS-E01-R1-TPOARCH       PIC 9(02).                                   
+137270     02 WKS-E01-R1-TASAFIX       PIC 9(04)V9(04).                             
+137272     02 WKS-E01-R1-TASAUDIS      PIC 9(04)V9(04).                             
+137274     02 WKS-E01-R1-FECHART61     PIC 9(08).                                   
+137276     02 FILLER                   PIC X(52)      VALUE " ".                    
+137280                                                                              
+137290                                                                              
+137300 01  WKS-E01-DATOS.                                                           
+137310     02 WKS-E01-R3-TPOREG        PIC 9(02)      VALUE 03.                     
+137320     02 WKS-E01-R3-NSIST         PIC 9(04)      VALUE 0500.                   
+137330     02 WKS-E01-R3-NUMCTE        PIC 9(12).                                   
+137340     02 WKS-E01-R3-NUMCTO        PIC 9(12).                                   
+137350     02 WKS-E01-R3-NPROD         PIC 9(04).                                   
+137360     02 WKS-E01-R3-NINST         PIC 9(04).                                   
+137370     02 WKS-E01-R3-MONEDA        PIC 9(02).                                   
+137380     02 WKS-E01-R3-INSTOPE       PIC 9(02)      VALUE 0.                      
+137390     02 WKS-E01-R3-NUMINV        PIC 9(06)      VALUE 0.                      
+137400     02 WKS-E01-R3-FECHULTM      PIC 9(08).                                   
+137410     02 WKS-E01-R3-TPOMOVTO      PIC 9(02).                                   
+137420     02 WKS-E01-R3-SDOANT        PIC S9(14)V99.                               
+137430     02 WKS-E01-R3-SDOACT        PIC S9(14)V99.                               
+137440     02 WKS-E01-R3-STACTO        PIC 9(02).                                   
+137450     02 WKS-E01-R3-STALOC        PIC 9(01)      VALUE 0.                      
+137460     02 WKS-E01-R3-STAFRO        PIC 9(01)      VALUE 0.                      
+137470     02 FILLER                   PIC X(02)      VALUE " ".                    
+137480                                                                              
+137490                                                                              
+137500 01  WKS-E01-TRAILER.                                                         
+137510     02 WKS-E01-R9-TPOREG        PIC 9(02)      VALUE 09.                     
+137520     02 WKS-E01-R9-TOTREGS       PIC 9(08)      VALUE 0.                      
+137530     02 FILLER                   PIC X(86)      VALUE " ".                    
+137540                                                                              
+137550****************************************************************              
+137700 01  WKS-VAR-MOTOR.                                                           
+137710     02 WKS-MOT-SDOACT           PIC S9(15)V99     VALUE 0.                   
+137712     02 WKS-MOT-SDOANT           PIC S9(15)V99     VALUE 0.                   
+137720     02 WKS-MOT-OPEN-E01         PIC  9(01)        VALUE 0.                   
+137730     02 WKS-FECH-INI-MOTOR       PIC  9(08)        VALUE 0.                   
+137740     02 WKS-IND-GEN-MOTOR        PIC  9(01)        VALUE 0.                   
+137745     02 WKS-FEC-ART61            PIC  9(08)        VALUE 0.                   
+137750     02 WKS-TASA-FIXDEC          PIC  9(04)V9(04)  VALUE 0.                   
+137760                                                                              
+138000******************************************************************            
+139000* ETIQUETA DEL ARCHIVO DE IMPRESION DE CONTRATOS C/DIFERENCIA.                
+140000******************************************************************            
+141000 01 WS-ETIQ-COMPARA.                                                          
+142000    02 FILLER          PIC X(15) VALUE "S500/LIST/P160/".                     
+143000    02 WS-COM-NODO     PIC 99.                                                
+144000    02 WS-COM-SUBNODO  PIC 99 VALUE 0.                                        
+145000    02 FILLER          PIC X VALUE "/".                                       
+146000    02 WS-COM-TR       PIC X VALUE "R".                                       
+147000    02 FILLER          PIC XXXX VALUE "000/".                                 
+148000    02 WS-COM-FECHA    PIC 9(6).                                              
+149000    02 FILLER          PIC X  VALUE "/".                                      
+150000    02 WS-COM-MIX      PIC 9(7).                                              
+150010    02 FILLER          PIC X  VALUE "/".                                      
+150020    02 WS-COM-NAME     PIC X(17).                                             
+151000    02 FILLER          PIC X VALUE ".".                                       
+152000                                                                              
+152010******************************************************************            
+152020* ETIQUETA DEL ARCHIVO DE IMPRESION DE DE POS DE CTOS C/DIFERENCIA            
+152030******************************************************************            
+152040 01 WS-ETIQ-POSICION.                                                         
+152050    02 FILLER          PIC X(15) VALUE "S500/LIST/P160/".                     
+152060    02 WS-POS-NODO     PIC 99.                                                
+152070    02 WS-POS-SUBNODO  PIC 99 VALUE 0.                                        
+152080    02 FILLER          PIC X VALUE "/".                                       
+152090    02 WS-POS-TR       PIC X VALUE "R".                                       
+152100    02 FILLER          PIC XXXX VALUE "000/".                                 
+152110    02 WS-POS-FECHA    PIC 9(6).                                              
+152120    02 FILLER          PIC X  VALUE "/".                                      
+152130    02 WS-POS-MIX      PIC 9(7).                                              
+152132    02 FILLER          PIC X  VALUE "/".                                      
+152134    02 WS-POS-NAME     PIC X(17).                                             
+152140    02 FILLER          PIC X  VALUE ".".                                      
+152150                                                                              
+152152* ESS/STEF INI AJUSTE DEF DE SALDOS 20200527                                  
+152153****************************************************************              
+152154* NOMBRE Y DESCRIPCION DEL ARCHIVO NO INCIDENTES                              
+152155****************************************************************              
+152156 01  WS-ETIQ-INCIDENTE.                                                       
+152158     02 FILLER                 PIC X(24) VALUE                                
+152160                               "S500/FILE/INTS/50004S01/".                    
+152162     02 W-ETIQ-INCIDEN-CSI     PIC 9(02).                                     
+152164     02 FILLER                 PIC X(01) VALUE "/".                           
+152166     02 W-ETIQ-INCIDEN-FEC     PIC 9(08).                                     
+152168     02 FILLER                 PIC X(11) VALUE                                
+152170                               "/INCIDENTE/".                                 
+152172     02 W-ETIQ-INCIDEN-CPY     PIC 9(02).                                     
+152174     02 FILLER                 PIC X(02) VALUE " .".                          
+152175* ESS/STEF FIN AJUSTE DEF DE SALDOS 20200527                                  
+152176                                                                              
+153000******************************************************************            
+154000* VARIABLE UTILIZADAS EN EL PROCESO.                                          
+155000******************************************************************            
+155010 77 WS-IND                 PIC 9(02).                                         
+155020 77 WS-CSI                 PIC 9(02).                                         
+155030 77 WS-BAN-B00             PIC 9     VALUE 0.                                 
+155040 77 WS-BAN-B02             PIC 9     VALUE 0.                                 
+155043 77 WS-BAN-B03             PIC 9     VALUE 0.                                 
+155044 77 WS-BAN-B06             PIC 9     VALUE 0.                                 
+156000 77 WS-SALDO-TOTAL         PIC 9(10)V99 COMP.                                 
+157000 77 WS-ERROR               PIC 9(08).                                         
+158000 77 WS-TOTALDEP            PIC 9(20)V99.                                      
+159000 77 WS-TOTALRET            PIC 9(20)V99.                                      
+159010 77 WS-LASTRECORD          PIC 9(10).                                         
+159020 77 WS-SORT-ESPACIO        PIC 9(12)       COMP.                              
+159030 77 WS-MEMSIZE             PIC 9(12)       COMP.                              
+160000 77 WS-1VEZ                PIC 9.                                             
+161000 77 WS-2VEZ                PIC 9.                                             
+162000 77 WS-3VEZ                PIC 9.                                             
+163000 77 WS-4VEZ                PIC 9.                                             
+164000 77 WS-5VEZ                PIC 9.                                             
+164010 77 WS-6VEZ                PIC 9.                                             
+164020 77 WS-7VEZ                PIC 9.                                             
+164030 77 WS-8VEZ                PIC 9.                                             
+164040 77 WS-9VEZ                PIC 9.                                             
+164050 77 WS-10VEZ               PIC 9.                                             
+164060 77 WS-11VEZ               PIC 9.                                             
+164070 77 WS-12VEZ               PIC 9.                                             
+164080 77 WS-13VEZ               PIC 9.                                             
+164090 77 WS-14VEZ               PIC 9.                                             
+164100 77 WS-15VEZ               PIC 9.                                             
+165000 77 WS-HOJA                PIC 9(03).                                         
+166000 77 WS-HOJA1               PIC 9(03).                                         
+167000 77 WS-LINEA               PIC 9(02).                                         
+168000 77 WS-LINEA1              PIC 9(02).                                         
+169000 77 WS-LINEA2              PIC 9(02).                                         
+169010 77 WS-COPIAP160           PIC 9(02).                                         
+170000 77 WS-TIPOPER             PIC 9(02).                                         
+171000 77 WS-NOM-CTE             PIC X(30).                                         
+172000 77 WS-CONTADOR            PIC 9 VALUE 0.                                     
+173000 77 WS-CONTADOR1           PIC 9 VALUE 0.                                     
+174000 77 WS-FIN                 PIC 9 VALUE 0.                                     
+175000 77 WS-FIN1                PIC 9 VALUE 0.                                     
+176000 77 WS-FIN2                PIC 9 VALUE 0.                                     
+177000 77 WS-FIN3                PIC 9 VALUE 0.                                     
+177010 77 WS-PRD1                PIC 9(02) VALUE 0.                                 
+177020 77 WS-PRD2                PIC 9(02) VALUE 0.                                 
+177030 77 WS-PRD3                PIC 9(02) VALUE 0.                                 
+177040 77 WS-INDCIF              PIC 9(02) VALUE 0.                                 
+177042 77 WS-INDCIF1             PIC 9(02) VALUE 0.                                 
+177044 77 WS-INDCIF2             PIC 9(02) VALUE 0.                                 
+177046 77 WS-INDCIF3             PIC 9(02) VALUE 0.                                 
+177050 77 WS-DIAC1               PIC 9(02) VALUE 0.                                 
+177060 77 WS-DIAC2               PIC 9(02) VALUE 0.                                 
+177070 77 WS-NUM-COPIAC           PIC 9(02) VALUE 0.                                
+177080 77 WS-NUM-COPIA1          PIC 9(02) VALUE 0.                                 
+177090 77 WS-NUM-COPIAA          PIC 9(02) VALUE 0.                                 
+178000 77 WS-LEO-DEP             PIC 9(02) VALUE 0.                                 
+179000 77 WS-LEO-RET             PIC 9(02) VALUE 0.                                 
+180000 77 WS-SUM-SDOCAL          PIC S9(14)V99 COMP VALUE 0.                        
+181000 77 WS-SUM-SDODEP          PIC S9(14)V99 COMP VALUE 0.                        
+182000 77 WS-SUM-SDORET          PIC S9(14)V99 COMP VALUE 0.                        
+183000 77 WS-SUM-SDODIS          PIC S9(14)V99 COMP VALUE 0.                        
+184000 77 WS-CIF-SDOACTAH        PIC S9(14)V99 COMP VALUE 0.                        
+185000 77 WS-CIF-SDOACTMA        PIC S9(14)V99 COMP VALUE 0.                        
+186000 77 WS-INV-SDOACTAH        PIC S9(14)V99 COMP VALUE 0.                        
+187000 77 WS-INV-SDOACTMA        PIC S9(14)V99 COMP VALUE 0.                        
+188000 77 WS-POS-DIF1            PIC S9(14)V99 COMP VALUE 0.                        
+189000 77 WS-POS-DIFMA           PIC S9(14)V99 COMP VALUE 0.                        
+190000 77 WS-SUM-DIF             PIC S9(14)V99 COMP VALUE 0.                        
+191000 77 WS-SALDO-S151          PIC S9(14)V99 COMP VALUE 0.                        
+192000 77 WS-TOT-AHO             PIC S9(14)V99 COMP.                                
+193000 77 WS-TOT-DIF             PIC S9(14)V99 COMP.                                
+193001* ESS/STEF INI AJUSTE DEF DE SALDOS 20200527                                  
+193002 77 WS-POS-DIF0            PIC S9(15)V99 COMP VALUE 0.                        
+193004 77 WS-DIF-SDO             PIC S9(15)V99 COMP VALUE 0.                        
+193006 77 WKS-I03-05-TOTDIF      PIC  9(06).                                        
+193008 77 W77-PAR-RESULT         PIC  9(02)    VALUE 0.                             
+193009* ESS/STEF FIN AJUSTE DEF DE SALDOS 20200527                                  
+193010                                                                              
+193020*****************************************************************             
+193025* CAMPOS UTILIZADOS PARA LA MAPLI.                                            
+193030*****************************************************************             
+193035 77 WS-NUM-DSET              PIC 9(04)    COMP.                               
+193040 77 WS-NUM-ACT01             PIC 9(04)    COMP.                               
+193045 77 WS-NUM-ACT02             PIC 9(04)    COMP.                               
+193050 77 WS-NUM-ACT03             PIC 9(04)    COMP.                               
+193055 77 WS-NUM-ACT04             PIC 9(04)    COMP.                               
+193060 77 WS-NUM-ACT05             PIC 9(04)    COMP.                               
+193065 77 WS-NUM-ACT06             PIC 9(04)    COMP.                               
+193070 77 WS-NUM-ACT07             PIC 9(04)    COMP.                               
+193075 77 WS-NUM-ACT08             PIC 9(04)    COMP.                               
+193080 77 WS-NUM-ACT09             PIC 9(04)    COMP.                               
+193085 77 WS-NUM-ACT10             PIC 9(04)    COMP.                               
+193090                                                                              
+193095 77 WS-LASTRECORDM              PIC 9(10).                                    
+193100 77 WS-LASTRECORDM1             PIC 9(10).                                    
+193105 77 WS-LASTRECORDM2             PIC 9(10).                                    
+193110 77 WS-LASTRECORDM3             PIC 9(10).                                    
+193115 77 WS-LASTRECORDM4             PIC 9(10).                                    
+193120 77 WS-LASTRECORDM5             PIC 9(10).                                    
+193125 77 WS-LASTRECORDM6             PIC 9(10).                                    
+193130 77 WS-LASTRECORDM8             PIC 9(10).                                    
+193132                                                                              
+193134 01 WS-PIM-PROD.                                                              
+193140    02 WS-COPY-PRD              PIC 9(04).                                    
+193150    02 WS-COPY-INS              PIC 9(04).                                    
+193160    02 WS-COPY-MON              PIC 9(02).                                    
+193165 01 WS-X-PIM-PROD               REDEFINES WS-PIM-PROD.                        
+193170    02 WS-QPIM-PROD             PIC 9(10).                                    
+193172    88 W88-QPIM-0066-0090-01    VALUE 0066009001.                             
+193174    88 W88-QPIM-0066-0011-01    VALUE 0066001101.                             
+193176    88 W88-QPIM-0066-0017-01    VALUE 0066001701.                             
+193178    88 W88-QPIM-0500-0006-01    VALUE 0500000601.                             
+194000                                                                              
+195000***************************************************************               
+196000* ETIQUETA DEL NOMBRE DEL ARCHIVO DE SALDOS QUE SERA SORTEADO                 
+197000* PARA IMPRIMIR LOS CTOS. CON DIFERENCIA.                                     
+198000***************************************************************               
+199000 01 WS-ETIQ-SALDOS.                                                           
+200000   02 WS-SDOS-SIS           PIC X(15) VALUE "S500/FILE/S500/".                
+201000   02 WS-SDOS-CSIO          PIC 99.                                           
+202000   02 FILLER                PIC X     VALUE "/".                              
+203000   02 WS-SDOS-CSID          PIC 99.                                           
+204000   02 FILLER                PIC X     VALUE "/".                              
+205000   02 WS-SDOS-TIT           PIC X(07) VALUE "SALDOS/".                        
+205100   02 WS-SDOS-FEC           PIC 9(06).                                        
+205110   02 FILLER                PIC X     VALUE "/".                              
+205120   02 WS-SDOS-COPIA         PIC 99.                                           
+205200   02 FILLER                PIC X     VALUE ".".                              
+205300                                                                              
+209000****************************************************************              
+210000* PRIMER ENCABEZADO PARA EL REPORTE DE CTOS. CON DIFERENCIA.                  
+211000****************************************************************              
+212000 01  WS-ENCABEZADO.                                                           
+213000   02 FILLER       PIC X(51)  VALUE SPACES.                                   
+214000   02 FILLER       PIC X(29)  VALUE                                           
+215000        "BANCO NACIONAL DE MEXICO S.A.".                                      
+216000                                                                              
+217000****************************************************************              
+218000* SEGUNDO ENCABEZADO PARA EL REPORTE DE CTOS. CON DIFERENCIA.                 
+219000****************************************************************              
+220000 01  WS-ENCABEZADO1.                                                          
+221000   02 FILLER       PIC X(56)  VALUE SPACES.                                   
+222000   02 FILLER       PIC X(20)  VALUE                                           
+223000        "DEPOSITOS A LA VISTA".                                               
+224000                                                                              
+225000****************************************************************              
+226000* TERCER ENCABEZADO PARA EL REPORTE DE CTOS. CON DIFERENCIA.                  
+227000****************************************************************              
+228000 01  WS-03-COM.                                                               
+229000     05 FILLER                        PIC X(18)                               
+230000        VALUE "S500-P160-CHECASAL".                                           
+231000     05 FILLER                        PIC X(36) VALUE SPACES.                 
+232000     05 WS-COM-NOMBRE                 PIC X(40).                              
+233000     05 WS-COM-PRD                    PIC ZZZ9.                               
+234000     05 FILLER                        PIC X     VALUE SPACES.                 
+235000     05 WS-COM-INS                    PIC ZZZ9.                               
+236000     05 FILLER                        PIC X     VALUE SPACES.                 
+237000     05 WS-COM-MON                    PIC ZZ9.                                
+238000     05 FILLER                        PIC X     VALUE SPACES.                 
+239000     05 FILLER                        PIC X(06)                               
+240000        VALUE "FECHA ".                                                       
+241000     05 WS-COM-DIA                    PIC 99.                                 
+242000     05 FILLER                        PIC X VALUE "/".                        
+243000     05 WS-COM-MES                    PIC 9(02).                              
+244000     05 FILLER                        PIC X VALUE "/".                        
+245000     05 WS-COM-ANO                    PIC 9(04).                              
+246000                                                                              
+246010****************************************************************              
+246020* TERCER ENCABEZADO PARA EL REPORTE DE POS. DE CTOS. CON DIF.                 
+246030****************************************************************              
+246040 01  WS-03-POS.                                                               
+246050     05 FILLER                        PIC X(18)                               
+246060        VALUE "S500-P160-CHECAPOS".                                           
+246070     05 FILLER                        PIC X(36) VALUE SPACES.                 
+246080     05 WS-POS-NOMBRE                 PIC X(40).                              
+246090     05 WS-POS-PRD                    PIC ZZZ9.                               
+246100     05 FILLER                        PIC X     VALUE SPACES.                 
+246110     05 WS-POS-INS                    PIC ZZZ9.                               
+246120     05 FILLER                        PIC X     VALUE SPACES.                 
+246130     05 WS-POS-MON                    PIC ZZ9.                                
+246140     05 FILLER                        PIC X     VALUE SPACES.                 
+246150     05 FILLER                        PIC X(06)                               
+246160        VALUE "FECHA ".                                                       
+246170     05 WS-POS-DIA                    PIC 99.                                 
+246180     05 FILLER                        PIC X VALUE "/".                        
+246190     05 WS-POS-MES                    PIC 9(02).                              
+246200     05 FILLER                        PIC X VALUE "/".                        
+246210     05 WS-POS-ANO                    PIC 9(04).                              
+246220                                                                              
+247000****************************************************************              
+248000* CUARTO ENCABEZADO PARA EL REPORTE DE CTOS. CON DIFERENCIA.                  
+249000****************************************************************              
+250000 01  WS-04-COM.                                                               
+251000     05 FILLER                        PIC X(10)                               
+252000        VALUE "PROCESO   ".                                                   
+253000     05 WS-COM-DIA1                   PIC 99.                                 
+254000     05 FILLER                        PIC X VALUE "/".                        
+255000     05 WS-COM-MES1                   PIC 9(02).                              
+256000     05 FILLER                        PIC X VALUE "/".                        
+257000     05 WS-COM-ANO1                   PIC 9(04).                              
+258000     05 FILLER                        PIC X(30)                               
+259000           VALUE SPACES.                                                      
+260000    05 FILLER                         PIC X(31) VALUE                         
+261000           "   DIFERENCIAS EN LOS SALDOS   ".                                 
+262000    05 FILLER                         PIC X(37) VALUE SPACES.                 
+263000    05 FILLER                         PIC X(05) VALUE "HOJA ".                
+264000    05 WS-COM-HOJA1                   PIC ZZ9.                                
+265000                                                                              
+266000****************************************************************              
+267000* CUARTO ENCABEZADO PARA EL REPORTE DE LA POS. DE  CTOS. CON DIF.             
+268000****************************************************************              
+269000 01  WS-04-POS.                                                               
+270000     05 FILLER                        PIC X(10)                               
+271000        VALUE "PROCESO   ".                                                   
+272000     05 WS-POS-DIA1                   PIC 99.                                 
+273000     05 FILLER                        PIC X VALUE "/".                        
+274000     05 WS-POS-MES1                   PIC 9(02).                              
+275000     05 FILLER                        PIC X VALUE "/".                        
+276000     05 WS-POS-ANO1                   PIC 9(04).                              
+277000     05 FILLER                        PIC X(30)                               
+278000           VALUE SPACES.                                                      
+279000    05 FILLER                         PIC X(31) VALUE                         
+280000           "   DIFERENCIAS EN LA POSICION  ".                                 
+281000    05 FILLER                         PIC X(37) VALUE SPACES.                 
+282000    05 FILLER                         PIC X(05) VALUE "HOJA ".                
+283000    05 WS-POS-HOJA1                   PIC ZZ9.                                
+284000                                                                              
+285000******************************************************************            
+286000* ENCABEZADO PARA LA HORA.                                                    
+287000******************************************************************            
+288000 01 WS-IMP-HORA.                                                              
+289000    02 FILLER                         PIC X(08) VALUE "HORA :  ".             
+290000    02 WS-HORA                        PIC Z9.                                 
+291000    02 FILLER                         PIC X VALUE ":".                        
+292000    02 WS-MIN                         PIC 99.                                 
+293000    02 FILLER                         PIC X VALUE ":".                        
+294000    02 WS-SEG                         PIC 99.                                 
+294010    02 FILLER                         PIC X(06) VALUE SPACES.                 
+294020    02 FILLER                         PIC X(05) VALUE                         
+294030      "CSI: ".                                                                
+294040    02 WS-IMP-CSI                     PIC 99.                                 
+294050                                                                              
+295000                                                                              
+296000****************************************************************              
+297000* ENCABEZADO PARA EL DETALLE DE LOS CTOS. CON DIFERENCIAS.                    
+298000****************************************************************              
+299000 01  WS-ENC-COM.                                                              
+300000     02 FILLER                            PIC X(24) VALUE                     
+301000        "  CONTRATO DEL CLIENTE  ".                                           
+304000     02 FILLER                            PIC X(19) VALUE                     
+305000        "   SDO. DEL CLIENTE".                                                
+306000     02 FILLER                            PIC X(20) VALUE                     
+307000        "   SDO. CALCULADO   ".                                               
+308000     02 FILLER                            PIC X(23) VALUE                     
+309000        "   D I F E R E N C I A.".                                            
+310000                                                                              
+310010****************************************************************              
+310020* ENCABEZADO UTILIZADO CUANDO NO HUBO DIFERENCIAS. EN SDOS.                   
+310030****************************************************************              
+310040 01  WS-VACIO.                                                                
+310050   02 FILLER       PIC X(46)  VALUE SPACES.                                   
+310060   02 FILLER       PIC X(38)  VALUE                                           
+310070        "N O   H U B O   D I F E R E N C I A S.".                             
+310080                                                                              
+310082* INI DDG R4-2011 COPIAS BATCH                                                
+310084****************************************************************              
+310086* ENCABEZADO UTILIZADO CUANDO NO HAY INFORMACION EN EL ARCHIVO                
+310088****************************************************************              
+310090 01  WS-SININFO.                                                              
+310092   02 FILLER       PIC X(46)  VALUE SPACES.                                   
+310094   02 FILLER       PIC X(38)  VALUE                                           
+310096        "*** S I N    I N F O R M A C I O N ***".                             
+310097 01  WS-NUMREG                       PIC S9(10).                              
+310098* FIN DDG R4-2011 COPIAS BATCH                                                
+311000****************************************************************              
+312000* ENCABEZADO DEL TOTAL DE DIFERENCIAS EN EL HIS E INVERSIONES.                
+313000****************************************************************              
+314000 01 WS-ENC-DIFHIS.                                                            
+315000    02 FILLER                        PIC X(51) VALUE                          
+316000       "TOTAL DE DIFERENCIAS INVERSIONES VS. HISTORICO     ".                 
+317000    02 FILLER                        PIC X(02) VALUE SPACES.                  
+318000    02 WS-TOT                        PIC ZZ,ZZZ,ZZZ,ZZZ,ZZ9.99-.              
+319000                                                                              
+320000****************************************************************              
+321000* ENCABEZADOS DE LA POSICION DE INVERSIONES Y CIFRAS.                         
+322000****************************************************************              
+323000 01  WS-ENC-POS.                                                              
+323002* ESS/STEF INI AJUSTE DEF DE SALDOS 20200527                                  
+324000*    02 FILLER                            PIC X(23) VALUE                     
+325000*       "I N V E R S I O N E S  ".                                            
+326000*    02 FILLER                            PIC X(23) VALUE                     
+327000*       "      C I F R A S      ".                                            
+328000*    02 FILLER                            PIC X(23) VALUE                     
+329000*       "    D I F E R E N C I A".                                            
+329002     02 FILLER                            PIC X(01) VALUE " ".                
+329004     02 FILLER                            PIC X(26) VALUE                     
+329006        "   I N V E R S I O N E S  ".                                         
+329008     02 FILLER                            PIC X(26) VALUE                     
+329010        "        C I F R A S       ".                                         
+329012     02 FILLER                            PIC X(26) VALUE                     
+329014        "    D I F E R E N C I A   ".                                         
+329016     02 FILLER                            PIC X(26) VALUE                     
+329018        "    A J U S T E  D I F    ".                                         
+329020     02 FILLER                            PIC X(26) VALUE                     
+329022        "  D I F E .   F I N A L   ".                                         
+329024* ESS/STEF FIN AJUSTE DEF DE SALDOS 20200527                                  
+329026                                                                              
+330000****************************************************************              
+331000* DETALLE DE EL REPORTE DE DIFERENCIAS EN SALDOS.                             
+332000****************************************************************              
+333000 01  WS-DET-SDOS.                                                             
+334000     05 FILLER                         PIC X(10) VALUE SPACES.                
+337000     05 WS-COM-CTO                     PIC 9(12).                             
+338000     05 FILLER                         PIC X(1) VALUE SPACES.                 
+339000     05 WS-COM-SDOCTE                  PIC ZZZ,ZZZ,ZZZ,ZZ9.99-.               
+340000     05 FILLER                         PIC X(1) VALUE SPACES.                 
+341000     05 WS-COM-SDOCAL                  PIC ZZZ,ZZZ,ZZZ,ZZ9.99-.               
+342000     05 FILLER                         PIC X(01) VALUE SPACES.                
+343000     05 WS-COM-DIFE                    PIC ZZZ,ZZZ,ZZZ,ZZ9.99-.               
+344000                                                                              
+345000****************************************************************              
+346000* DETALLE DE EL REPORTE DE DIFERENCIAS EN LA POSICION.                        
+347000****************************************************************              
+347002* ESS/STEF INI AJUSTE DEF DE SALDOS 20200527                                  
+348000 01  WS-DET-POS.                                                              
+349000     05 FILLER               PIC X(03) VALUE SPACES.                          
+350000     05 WS-POS-SDOINV        PIC ZZZ,ZZZ,ZZZ,ZZZ,ZZ9.99-.                     
+351000     05 FILLER               PIC X(03) VALUE SPACES.                          
+352000     05 WS-POS-SDOCIF        PIC ZZZ,ZZZ,ZZZ,ZZZ,ZZ9.99-.                     
+353000     05 FILLER               PIC X(03) VALUE SPACES.                          
+354000     05 WS-POS-DIFE1         PIC ZZZ,ZZZ,ZZZ,ZZZ,ZZ9.99-.                     
+354002     05 FILLER               PIC X(03) VALUE SPACES.                          
+354004     05 WS-POS-AJUDIFB05     PIC ZZZ,ZZZ,ZZZ,ZZZ,ZZ9.99-.                     
+354006     05 FILLER               PIC X(03) VALUE SPACES.                          
+354008     05 WS-POS-DIFB05        PIC ZZZ,ZZZ,ZZZ,ZZZ,ZZ9.99-.                     
+354010                                                                              
+354012***************************************************************               
+354014 01  WKS-I03-INCID-HEADER.                                                    
+354016     02 WKS-I03-01-TPOREG    PIC 9(02)      VALUE 01.                         
+354018     02 WKS-I03-01-CSI       PIC 9(02).                                       
+354020     02 WKS-I03-01-FECHA     PIC 9(08).                                       
+354022     02 WKS-I03-01-COPIA     PIC 9(02).                                       
+354024     02 WKS-I03-01-ULTPASO   PIC 9(04)      VALUE 0160.                       
+354026     02 FILLER               PIC X(162)     VALUE " ".                        
+354028                                                                              
+354030 01  WKS-I03-INCID-DATOS.                                                     
+354032     02 WKS-I03-05-TPOREG    PIC 9(02)      VALUE 05.                         
+354034     02 WKS-I03-05-QUEPASO   PIC X(05)      VALUE " P160".                    
+354036     02 WKS-I03-05-DATINCID  PIC X(173).                                      
+354038                                                                              
+354040 01  WKS-ID-INCID-XX.                                                         
+354042     02 WKS-I03-IDPROD-XX  PIC X(019) VALUE "  <DIF B09 VS B03  ".            
+354044     02 WKS-I03-PROD-XX    PIC 9(004).                                        
+354046     02 FILLER             PIC X(001) VALUE "-".                              
+354048     02 WKS-I03-INST-XX    PIC 9(004).                                        
+354050     02 FILLER             PIC X(001) VALUE "-".                              
+354052     02 WKS-I03-MONE-XX    PIC 9(003).                                        
+354054     02 FILLER             PIC X(010) VALUE " SDO-B09= ".                     
+354056     02 WKS-I03-IMP-B09-XX PIC ZZZ,ZZZ,ZZZ,ZZZ,ZZ9.99-.                       
+354058     02 FILLER             PIC X(010) VALUE " SDO-B03= ".                     
+354060     02 WKS-I03-IMP-B03-XX PIC ZZZ,ZZZ,ZZZ,ZZZ,ZZ9.99-.                       
+354062     02 FILLER             PIC X(010) VALUE " SDO-B05= ".                     
+354064     02 WKS-I03-IMP-B05-XX PIC ZZZ,ZZZ,ZZZ,ZZZ,ZZ9.99-.                       
+354066     02 FILLER             PIC X(006) VALUE " DIF= ".                         
+354068     02 WKS-I03-DIF-XX     PIC ZZZ,ZZZ,ZZZ,ZZZ,ZZ9.99-.                       
+354070     02 FILLER             PIC X(007) VALUE " COPIA=".                        
+354072     02 WKS-I03-CPY-XX     PIC 9(002).                                        
+354074     02 FILLER             PIC X(002) VALUE ">.".                             
+354076                                                                              
+354078 01  WKS-I03-INCID-TRAILER.                                                   
+354080     02 WKS-I03-05-TPOREG    PIC 9(02)      VALUE 99.                         
+354082     02 WKS-I03-05-TOTREG    PIC 9(06)      VALUE 0.                          
+354084     02 WKS-I03-05-FILLER    PIC X(172)     VALUE " ".                        
+354086***********************************************************                   
+354088* ESS/STEF FIN AJUSTE DEF DE SALDOS 20200527                                  
+355000                                                                              
+356000****************************************************************              
+357000*          REGISTROS PARA MANEJO DE FECHA Y HORA.                             
+358000****************************************************************              
+359000 01 WS-FEC-CAL-AMD                    PIC 9(08).                              
+360000 01 WS-FECCAL-AMD REDEFINES WS-FEC-CAL-AMD.                                   
+361000    02 WS-CAL-AA                      PIC 9(04).                              
+362000    02 WS-CAL-MM                      PIC 99.                                 
+363000    02 WS-CAL-DD                      PIC 99.                                 
+364000                                                                              
+364010 01 WS-FEC-BLQ-AMD                    PIC 9(08).                              
+364012 01 RD-WS-FEC-BLQ-AMD REDEFINES WS-FEC-BLQ-AMD.                               
+364014    02 WS-BLQ-AA                      PIC 9(04).                              
+364016    02 WS-BLQ-MM                      PIC 99.                                 
+364018    02 WS-BLQ-DD                      PIC 99.                                 
+364020                                                                              
+365000 01 WS-FECHA-DIA-DMA                    PIC 9(08).                            
+366000 01 WS-FECHA-DIA-DMA-R REDEFINES WS-FECHA-DIA-DMA.                            
+367000    02 WS-DIA-DD                        PIC 99.                               
+368000    02 WS-DIA-MM                        PIC 99.                               
+369000    02 WS-DIA-AA                        PIC 9(04).                            
+370000                                                                              
+371000 01 WS-FECHA-DIA-MDA                    PIC 9(08).                            
+372000 01 WS-FECHA-DIA-MDA-R REDEFINES WS-FECHA-DIA-MDA.                            
+373000    02 WS-DIA-MM1                       PIC 99.                               
+374000    02 WS-DIA-DD1                       PIC 99.                               
+375000    02 WS-DIA-AA1                       PIC 9(04).                            
+376000                                                                              
+377000 01 WS-FECHA-DIA-AMD                    PIC 9(08).                            
+378000 01 WS-FECHA-DIA-AMD-R REDEFINES WS-FECHA-DIA-AMD.                            
+379000    02 WS-DIA-AA2                       PIC 9(04).                            
+380000    02 WS-DIA-MM2                       PIC 99.                               
+381000    02 WS-DIA-DD2                       PIC 99.                               
+382000                                                                              
+383000 01 WS-FECHA-PRO-AMD                    PIC 9(08).                            
+384000 01 WS-FECHA-PRO-AMD-R REDEFINES WS-FECHA-PRO-AMD.                            
+385000    02 WS-PRO-AA                        PIC 9(04).                            
+386000    02 WS-PRO-MM                        PIC 99.                               
+387000    02 WS-PRO-DD                        PIC 99.                               
+387100                                                                              
+387200 01 WS-FECHA-LIN-AMD                    PIC 9(08).                            
+387210 01 WS-FECHA-LIN-AMD-R REDEFINES WS-FECHA-LIN-AMD.                            
+387220    02 WS-LIN-AA                        PIC 99.                               
+387230    02 WS-LIN-MM                        PIC 99.                               
+387240    02 WS-LIN-DD                        PIC 9(04).                            
+388000                                                                              
+389000 01 WS-FECHA-PRO-DMA                    PIC 9(08).                            
+390000 01 WS-FECHA-PRO-DMA-R REDEFINES WS-FECHA-PRO-DMA.                            
+391000    02 WS-PRO-DD1                       PIC 99.                               
+392000    02 WS-PRO-MM1                       PIC 99.                               
+393000    02 WS-PRO-AA1                       PIC 9(04).                            
+394000                                                                              
+394010 01 WS-FECHA-PASO                       PIC 9(08).                            
+394020 01 WS-PASO-AMD REDEFINES WS-FECHA-PASO.                                      
+394030    02 WS-PASO-AA                       PIC 9(04).                            
+394040    02 WS-PASO-MM                       PIC 99.                               
+394050    02 WS-PASO-DD                       PIC 99.                               
+394060                                                                              
+395000 01 WS-HORA-01.                                                               
+396000    03 WS-HORA-HMSC              PIC 9(08).                                   
+397000    03 WS-HORA-HMSC-R REDEFINES  WS-HORA-HMSC.                                
+398000       05 WS-HMS                 PIC 9(06).                                   
+399000       05 WS-HMS-R REDEFINES WS-HMS.                                          
+400000         07 WS-HH                PIC 9(02).                                   
+401000         07 WS-MM                PIC 9(02).                                   
+402000         07 WS-SS                PIC 9(02).                                   
+403000       05 FILLER                 PIC X(02).                                   
+404000                                                                              
+461000                                                                              
+462000******************************************************************            
+463000*           P R O C E D U R E          D I V I S I O N.                       
+464000******************************************************************            
+465000 PROCEDURE DIVISION.                                                          
+466000********************                                                          
+467000                                                                              
+468000******************************************************************            
+469000****************************************************************              
+470000*             R U T I N A          P R I N C I P A L.                         
+471000****************************************************************              
+472000****************************************************************              
+473000                                                                              
+474000 00000000-INICIO SECTION.                                                     
+475000 00000000-PRINCIPAL.                                                          
+475010     MOVE 2             TO W77-USO-LIBLJ.                                     
+475015     MOVE "S500P160"    TO W77-S000-MY-ID.                                    
+475020     MOVE "25MTP004"    TO WS-0101-MTP-MSG W77-S000-MY-VERSION.               
+475025     MOVE "P160"        TO WS-0101-PASO-MSG B91-IDPROG.                       
+475050                                                                              
+475510     PERFORM 10000000-LIBRERIAS  THRU 10000000-EXIT.                          
+476000     PERFORM 20000000-OPEN       THRU 20000000-EXIT.                          
+477000     PERFORM 50000000-PROCESOS   THRU 50000000-EXIT.                          
+478000     PERFORM 70000000-CIERRO     THRU 70000000-EXIT.                          
+479000     STOP RUN.                                                                
+480000                                                                              
+480010                                                                              
+480020                                                                              
+480030                                                                              
+480040                                                                              
+480050                                                                              
+480060****************************************************************              
+480070****************************************************************              
+480080*                                                                             
+480090*     R U T I N A   D E    L L A M A D O   A   L A S                          
+480100*  L I B R E R I A S   Q U E   S E R A N   U T I L I Z A D A S                
+480110*               P O R   E L   P R O G R A M A.                                
+480120*                                                                             
+480130****************************************************************              
+480140****************************************************************              
+480150                                                                              
+480160 10000000-LIBRERIAS.                                                          
+480170                                                                              
+480172******************************************************************            
+480173* CHANGE A LA LIBRERIA DE VERSIONES.                                          
+480174******************************************************************            
+480176   PERFORM 10000100-VERSIONES.                                                
+480178                                                                              
+480200                                                                              
+480202******************************************************************            
+480204* CHANGE A LA LIBRARIA MAPLI PARA MONITOREO DE APLICACIONES.                  
+480206******************************************************************            
+480208   PERFORM 1000038-S038L035.                                                  
+480210                                                                              
+480240 10000000-EXIT.                                                               
+480250    EXIT.                                                                     
+480260                                                                              
+480270                                                                              
+480280                                                                              
+480290                                                                              
+480300                                                                              
+480310                                                                              
+481000******************************************************************            
+482000******************************************************************            
+483000*                                                                             
+484000*                            O P E N.                                         
+485000*         R U T I N A S   P A R A   A P E R T U R A S   D E                   
+486000*               B A S E   Y   A R C H I V O S.                                
+487000*                                                                             
+488000******************************************************************            
+489000******************************************************************            
+490000                                                                              
+491000 20000000-OPEN.                                                               
+491010                                                                              
+491042      MOVE ZEROS                  TO WKS-TB-NUMACT-LIBS.                      
+491044      PERFORM 20000010-OBT-COPIA  THRU 20000010-EXIT.                         
+491050      PERFORM 20000050-CHECO-VER  THRU 20000050-EXIT.                         
+491060      PERFORM 20000060-INI-MAPLI  THRU 20000060-EXIT.                         
+491070      PERFORM 20000070-ACT01-BD   THRU 20000070-EXIT.                         
+493000      PERFORM 20000200-FECHA-PRO  THRU 20000200-EXIT.                         
+494000      PERFORM 20000300-HORA       THRU 20000300-EXIT.                         
+495000      PERFORM 20000400-FECHA-DIA  THRU 20000400-EXIT.                         
+496000      PERFORM 20000500-OPEN-ARC   THRU 20000500-EXIT.                         
+496010      PERFORM 20000550-FIN-ACT01  THRU 20000550-EXIT.                         
+497000 20000000-EXIT.                                                               
+498000     EXIT.                                                                    
+498010                                                                              
+498020******************************************************************            
+498030* ABRO BASE Y OBTENGO EL NUMERO DE COPIA QUE ME CORRESPONDE                   
+498032* EJECUTAR, LO HAGO ANTES DE VERIFICAR VERSIONES Y LLAMAR A LA                
+498034* LIBRERIA DE MONITOREO, PORQUE REQUIERO YA SABER QUE COPIA ESTA              
+498036* CORRIENDO, CUANDO LLEGO AL PRIMER LLAMADO DEL MONITOREO.                    
+498038* EN ESTA RUTINA TAMBIEN SE VALIDA CON EL PASO,EL FLUJO CORRECTO              
+498040* DEL BATCH, Y SE GRABA 0 EN NUMERO DE PASO PARA EVITAR REPROCESOS            
+498042* INCORRECTOS.                                                                
+498044******************************************************************            
+498050 20000010-OBT-COPIA.                                                          
+498060     OPEN UPDATE  S500BD01CAPTACION                                           
+498070     ON EXCEPTION                                                             
+498100        MOVE "ERROR AL ABRIR LA BASE         " TO WS-0101-TEXT-MSG            
+498110        PERFORM 70000050-MENSAJE                                              
+498120        CALL SYSTEM DMTERMINATE.                                              
+498122                                                                              
+498124   SET S500B00CTRLPASO       TO BEGINNING.                                    
+498240   PERFORM 90000000-B00CTRLPASO-LOCK.                                         
+498250   IF WS-STATUS-BASE > 0                                                      
+498260     IF WS-STATUS-BASE = 1                                                    
+498290       MOVE "ERROR B00CTRLPASO     VACIO    " TO WS-0101-TEXT-MSG             
+498300       PERFORM 70000050-MENSAJE                                               
+498310       CALL SYSTEM DMTERMINATE                                                
+498320     ELSE                                                                     
+498350       STRING "ERROR AL HACER LOCK A B00CTRLPASO " ,WS-STATUS-BASE            
+498360       DELIMITED BY SIZE INTO                 WS-0101-TEXT-MSG                
+498370       PERFORM 70000050-MENSAJE                                               
+498380       CALL SYSTEM DMTERMINATE.                                               
+498382                                                                              
+498384     MOVE B00-CARGA-MOTOR      TO WKS-IND-GEN-MOTOR.                          
+498386     MOVE B00-FECH-ART61       TO WKS-FEC-ART61.                              
+498388     MOVE B00-TASA-FIX         TO WKS-TASA-FIXDEC.                            
+498390                                                                              
+498395* INI DDG R4-2011 COPIAS BATCH                                                
+498410   IF B00-NUM-PASO-01 = 155                                                   
+498413  AND B00-NUM-PASO-02 = 155                                                   
+498416  AND B00-NUM-PASO-03 = 155                                                   
+498420      MOVE 1                                 TO WS-COPIAP160                  
+498430      MOVE 0                                 TO B00-NUM-PASO-01               
+498440   ELSE                                                                       
+498450   IF (B00-NUM-PASO-01 = 0 OR 160)                                            
+498453  AND B00-NUM-PASO-02  = 155                                                  
+498456  AND B00-NUM-PASO-03  = 155                                                  
+498460      MOVE 2                                 TO WS-COPIAP160                  
+498470      MOVE 0                                 TO B00-NUM-PASO-02               
+498471   ELSE                                                                       
+498472   IF (B00-NUM-PASO-01 = 0 OR 160)                                            
+498473  AND (B00-NUM-PASO-02 = 0 OR 160)                                            
+498474  AND  B00-NUM-PASO-03 = 155                                                  
+498475      MOVE 3                                 TO WS-COPIAP160                  
+498476      MOVE 0                                 TO B00-NUM-PASO-03               
+498480   ELSE                                                                       
+498484      MOVE B00-NUM-PASO-01    TO WS-MSG-N-04                                  
+498490      MOVE B00-NUM-PASO-02    TO WS-MSG-PRD                                   
+498495      MOVE B00-NUM-PASO-03    TO WS-MSG-CVE                                   
+498510      STRING "ERROR SECUENCIA DE PROCESOS"                                    
+498512             ", PASO-01=", WS-MSG-N-04                                        
+498514             ", PASO-02=", WS-MSG-PRD                                         
+498516             ", PASO-03=", WS-MSG-CVE                                         
+498520             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                          
+498530      PERFORM 70000050-MENSAJE                                                
+498540      CALL SYSTEM DMTERMINATE.                                                
+498610                                                                              
+498620   PERFORM 90000000-BEGIN-TRANSACTION.                                        
+498630   PERFORM 90000000-B00CTRLPASO-STORE.                                        
+498640   PERFORM 90000000-END-TRANSACTIONSYNC.                                      
+498650                                                                              
+498660   SET S500B00CTRLPASO       TO BEGINNING.                                    
+498670   SET S500B02CONTROL        TO BEGINNING.                                    
+498680   SET S500B05INSTRUMEN      TO BEGINNING.                                    
+498690   SET S500B06HISTORICO      TO BEGINNING.                                    
+498700   SET S500B09CIFRAS         TO BEGINNING.                                    
+498710                                                                              
+498720*  IF  WS-COPIAP160 = 1                                                       
+498730*      SET S500B03CONTRATOS  TO BEGINNING                                     
+498740*  ELSE                                                                       
+498745* FIN DDG R4-2011 COPIAS BATCH                                                
+498750       SET S500B03CONTRATOS  TO BEGINNING.                                    
+498770 20000010-EXIT.                                                               
+498780   EXIT.                                                                      
+499000                                                                              
+499010******************************************************************            
+499020* VERIFICO QUE LA VERSION QUE ESTOY CORRIENDO SEA LA DE VERSIONES.            
+499030******************************************************************            
+499040 20000050-CHECO-VER.                                                          
+499050     PERFORM 20000100-CHECAME-VERSION.                                        
+499060     IF S000-CTR-CVEERROR < 0                                                 
+499075        STRING "ERROR DE VERSION EJECUTADA "                                  
+499077               " COPIA=", WS-COPIAP160                                        
+499079             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                          
+499080        PERFORM 70000050-MENSAJE                                              
+499085        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                              
+499090 20000050-EXIT.                                                               
+499100    EXIT.                                                                     
+499110                                                                              
+499115******************************************************************            
+499120* LIBRERIA MAPLI ENTRY POINT S038L035_01_PROG_INI .                           
+499125* FUNCION : PARA INDICAR EL INICIO DE CORRIDA DE UN PROGRAMA                  
+499130* Y DARSE DE ALTA EN LA LIBRERIA MAPLI.                                       
+499135******************************************************************            
+499140 20000060-INI-MAPLI.                                                          
+499145     MOVE WS-COPIAP160           TO W77-ID-NUM-COPIA-MAPLI                    
+499150     MOVE 1                      TO W77-ID-TPODSP-INFO-MAPLI                  
+499155     MOVE 0                      TO W77-ID-ESINI-GRUPO-MAPLI                  
+499160     MOVE 06                     TO W77-ID-NUM-GRUPO-MAPLI                    
+499165     MOVE "BATCH DIARIO"         TO W77-ID-NOMB-LIB                           
+499170     PERFORM 70000950-INI-PGM-MAPLI.                                          
+499175 20000060-EXIT.                                                               
+499180    EXIT.                                                                     
+499185                                                                              
+499190******************************************************************            
+499195* PRIMERA ACT. TIPO PROC. PARA INDICAR CONSULTA DE BASE.                      
+499200******************************************************************            
+499210 20000070-ACT01-BD.                                                           
+499215   MOVE 1                                   TO W77-ID-NUMREG-PROC.            
+499220   MOVE 01                                  TO W77-ID-ACTXX-MAPLI             
+499225                                                  WS-NUM-ACT01.               
+499230   MOVE "CONSULTO BASE,ARC. Y OBTENGO DAT.INI" TO W77-ID-NOMB-LIB.            
+499235   MOVE "PROC. EJECUTADO DE UNICA VEZ "        TO W77-ID-TXTA-LIB.            
+499240   PERFORM 70000910-INIACT-MAPLI.                                             
+499245 20000070-EXIT.                                                               
+499250   EXIT.                                                                      
+499255                                                                              
+520000******************************************************************            
+521000* ACCESO EL DATASET DE CONTROL PARA OBTENER LA FECHA DE PROCESO.              
+522000******************************************************************            
+523000 20000200-FECHA-PRO.                                                          
+524000   PERFORM 90000002-B02CONTROL-FIND                                           
+525000   IF WS-STATUS-BASE > 0                                                      
+526000     IF WS-STATUS-BASE = 1                                                    
+527000       STRING "NO EXISTE B02CONTROL LA BASE ",                                
+528000              ", COPIA=", WS-COPIAP160                                        
+529000              DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                         
+530000       PERFORM 70000050-MENSAJE                                               
+531000       CALL SYSTEM DMTERMINATE                                                
+532000     ELSE                                                                     
+535000       STRING "ERROR AL HACER FIND A B02 "                                    
+535010          " STATUS DB=", WS-STATUS-BASE ", COPIA=", WS-COPIAP160              
+536000          DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                             
+537000       PERFORM 70000050-MENSAJE                                               
+538000       CALL SYSTEM DMTERMINATE.                                               
+538100                                                                              
+538110     MOVE B02-ULT-ARCH-APLI(17) TO WKS-FECH-INI-MOTOR.                        
+538200     MOVE B02-FECHA-LINEA   TO WS-FECHA-LIN-AMD.                              
+539000                                                                              
+540000     MOVE 0              TO WS-COM-SUBNODO   WS-POS-SUBNODO.                  
+541000     MOVE B02-FECHA-LOTE TO WS-FECHA-PRO-AMD WS-COM-FECHA                     
+542000                            WS-POS-FECHA     WS-SDOS-FEC                      
+542009* ESS/STEF INI AJUSTE DEF DE SALDOS 20200527                                  
+542010*                           WS-E01-TIT-FECH  WKS-E01-R1-FECHA.                
+542012                            WS-E01-TIT-FECH  WKS-E01-R1-FECHA                 
+542013                            W-ETIQ-INCIDEN-FEC WKS-I03-01-FECHA.              
+542014* ESS/STEF FIN AJUSTE DEF DE SALDOS 20200527                                  
+542020                                                                              
+543000     MOVE B02-NUM-CSI    TO WS-COM-NODO      WS-SDOS-CSIO WS-CSI              
+543100                            WS-SDOS-CSID     WS-POS-NODO                      
+543109* ESS/STEF INI AJUSTE DEF DE SALDOS 20200527                                  
+543110*                           WS-E01-TIT-NODO.                                  
+543112                            WS-E01-TIT-NODO  W-ETIQ-INCIDEN-CSI               
+543113                            WKS-I03-01-CSI.                                   
+543114* ESS/STEF FIN AJUSTE DEF DE SALDOS 20200527                                  
+544050                                                                              
+545000     MOVE WS-PRO-DD      TO WS-COM-DIA1      WS-POS-DIA1.                     
+546000     MOVE WS-PRO-MM      TO WS-COM-MES1      WS-POS-MES1.                     
+547000     MOVE WS-PRO-AA      TO WS-COM-ANO1      WS-POS-ANO1.                     
+548000 20000200-EXIT.                                                               
+549000    EXIT.                                                                     
+550000                                                                              
+551000******************************************************************            
+552000* OBTENGO LA HORA DE LA MAQUINA PARA LA GENERACION DE REPORTES.               
+553000******************************************************************            
+554000 20000300-HORA.                                                               
+555000        ACCEPT  WS-HORA-HMSC  FROM TIME.                                      
+556000        MOVE WS-HH            TO  WS-HORA.                                    
+557000        MOVE WS-MM            TO  WS-MIN.                                     
+558000        MOVE WS-SS            TO  WS-SEG.                                     
+558010        MOVE WS-CSI           TO  WS-IMP-CSI.                                 
+559000 20000300-EXIT.                                                               
+560000    EXIT.                                                                     
+561000                                                                              
+562000******************************************************************            
+563000* OBTENGO LA FECHA DEL LA MAQUINA PARA LA GENERACION DE REPORTES.             
+564000******************************************************************            
+565000 20000400-FECHA-DIA.                                                          
+566000        PERFORM 90000000-DAME-FEC-MAQUINA.                                    
+566010        MOVE WKS-DD-MAQ            TO   WS-DIA-DD2                            
+566020        MOVE WKS-MM-MAQ            TO   WS-DIA-MM2                            
+566030        MOVE WKS-AAAA-MAQ          TO   WS-DIA-AA2.                           
+567000        MOVE WS-DIA-DD2            TO   WS-COM-DIA WS-POS-DIA.                
+568000        MOVE WS-DIA-MM2            TO   WS-COM-MES WS-POS-MES.                
+569000        MOVE WS-DIA-AA2            TO   WS-COM-ANO WS-POS-ANO.                
+570000 20000400-EXIT.                                                               
+571000    EXIT.                                                                     
+572000                                                                              
+573000******************************************************************            
+574000* ABRO LOS ARCHIVOS DE IMPRESION Y EL ARCHIVO DE DIFERENCIAS                  
+575000* QUE VA A SER SORTEADO.                                                      
+576000******************************************************************            
+577000 20000500-OPEN-ARC.                                                           
+577010    IF WS-COPIAP160= 1                                                        
+577020       MOVE "001CHECASALDOS   "            TO WS-COM-NAME                     
+577030    ELSE                                                                      
+577033* INI DDG R4-2011 COPIAS BATCH                                                
+577036    IF WS-COPIAP160= 2                                                        
+577040       MOVE "021CHECASALDOS2  "            TO WS-COM-NAME                     
+577050    ELSE                                                                      
+577060       MOVE "031CHECASALDOS3  "            TO WS-COM-NAME.                    
+578000    MOVE ATTRIBUTE MIXNUMBER OF MYSELF     TO WS-COM-MIX.                     
+579000    SET FILE-COMPARA(USERBACKUPNAME)       TO VALUE TRUE                      
+580000    CHANGE ATTRIBUTE TITLE OF FILE-COMPARA TO WS-ETIQ-COMPARA.                
+581000    OPEN OUTPUT FILE-COMPARA.                                                 
+581002                                                                              
+581004    IF WS-COPIAP160= 1                                                        
+581006       MOVE "002CHECAPOSICION "             TO WS-POS-NAME                    
+581008    ELSE                                                                      
+581009    IF WS-COPIAP160= 2                                                        
+581010       MOVE "022CHECAPOSICION2"             TO WS-POS-NAME                    
+581011    ELSE                                                                      
+581012       MOVE "032CHECAPOSICION3"             TO WS-POS-NAME.                   
+581013* FIN DDG R4-2011 COPIAS BATCH                                                
+581015    MOVE ATTRIBUTE MIXNUMBER OF MYSELF      TO WS-POS-MIX.                    
+581020    SET FILE-POSICION(USERBACKUPNAME)       TO VALUE TRUE                     
+581030    CHANGE ATTRIBUTE TITLE OF FILE-POSICION TO WS-ETIQ-POSICION               
+581040    OPEN OUTPUT FILE-POSICION.                                                
+581050                                                                              
+581060    MOVE WS-COPIAP160 TO WS-SDOS-COPIA.                                       
+582000    OPEN OUTPUT FILE-SALDOS.                                                  
+582002                                                                              
+582004* ESS/STEF INI AJUSTE DEF DE SALDOS 20200527                                  
+582006     MOVE WS-COPIAP160                     TO W-ETIQ-INCIDEN-CPY              
+582008                                              WKS-I03-01-COPIA.               
+582009     SET I03-ARCH-INCIDENTE (TITLE)        TO WS-ETIQ-INCIDENTE.              
+582010     IF ATTRIBUTE RESIDENT OF I03-ARCH-INCIDENTE IS = VALUE TRUE              
+582011        OPEN EXTEND I03-ARCH-INCIDENTE                                        
+582012     ELSE                                                                     
+582013        OPEN OUTPUT I03-ARCH-INCIDENTE.                                       
+582014                                                                              
+582015     WRITE FD-I03-INCIDENTE FROM WKS-I03-INCID-HEADER                         
+582016* ESS/STEF FIN AJUSTE DEF DE SALDOS 20200527                                  
+582017                                                                              
+582020    IF WS-COPIAP160= 1                                                        
+582030       OPEN OUTPUT E01-MOTOR                                                  
+582040       MOVE 1  TO WKS-MOT-OPEN-E01                                            
+582050       PERFORM 20000510-HEADER-E01 THRU 20000510-EXIT.                        
+582060                                                                              
+583000 20000500-EXIT.                                                               
+583100    EXIT.                                                                     
+583200                                                                              
+583300******************************************************************            
+583310 20000510-HEADER-E01.                                                         
+583320     IF WKS-FECH-INI-MOTOR = WS-FECHA-PRO-AMD                                 
+583330        MOVE 01 TO WKS-E01-R1-TPOARCH                                         
+583340     ELSE                                                                     
+583350     IF WKS-IND-GEN-MOTOR = 1                                                 
+583360        MOVE 01 TO WKS-E01-R1-TPOARCH                                         
+583400     ELSE                                                                     
+583410        MOVE 02 TO WKS-E01-R1-TPOARCH.                                        
+583420                                                                              
+583425     MOVE WKS-TASA-FIXDEC  TO WKS-E01-R1-TASAFIX.                             
+583430     MOVE ZERO             TO WKS-E01-R1-TASAUDIS.                            
+583435     MOVE WKS-FEC-ART61    TO WKS-E01-R1-FECHART61.                           
+583440                                                                              
+583450     WRITE FD-REG-MOTOR FROM WKS-E01-HEADER.                                  
+583460                                                                              
+583470 20000510-EXIT.                                                               
+583480     EXIT.                                                                    
+583490                                                                              
+584000                                                                              
+584020******************************************************************            
+584025* MANDO LLAMAR A LA RUTINA DE SUMA Y FIN DE LA MAPLI EN LA ACT.01.            
+584030******************************************************************            
+584035 20000550-FIN-ACT01.                                                          
+584040   MOVE WS-NUM-ACT01       TO W77-ID-ACTXX-MAPLI.                             
+584045   MOVE " "                TO W77-ID-TXTA-LIB.                                
+584050   PERFORM 70000950-ACT-REGPROC.                                              
+584055                                                                              
+584060   MOVE WS-NUM-ACT01       TO W77-ID-ACTXX-MAPLI.                             
+584065   PERFORM 70000910-FIN-ACTI-MAPLI.                                           
+584070 20000550-EXIT.                                                               
+584075   EXIT.                                                                      
+584080                                                                              
+585000                                                                              
+585010                                                                              
+585020                                                                              
+585030                                                                              
+585040                                                                              
+585260                                                                              
+585710                                                                              
+585715                                                                              
+585720                                                                              
+585725                                                                              
+585730                                                                              
+586000                                                                              
+589000****************************************************************              
+590000****************************************************************              
+591000*                                                                             
+592000*                        P R O C E S O S.                                     
+593000*  E J E C U C I O N   D E   T O D O S   L O S   P R O C E S O S              
+594000*                    D E L   P R O G R A M A.                                 
+595000*                                                                             
+596000****************************************************************              
+597000****************************************************************              
+598000                                                                              
+598010 50000000-PROCESOS.                                                           
+598020     MOVE 05                            TO W77-ID-NUMDSET-MAPLI               
+598030     MOVE 01                            TO W77-ID-NUMBASE-MAPLI               
+598040     PERFORM 70000600-REGS-EN-BASE.                                           
+598050     MOVE 02                            TO W77-ID-ACTXX-MAPLI                 
+598060                                           WS-NUM-ACT02.                      
+598070     MOVE "LEO B05 Y CARGO TABLA INICIAL. "   TO W77-ID-NOMB-LIB              
+598080     MOVE "SE CARGA NUM.COPIA P/PRD EN MEM "  TO W77-ID-TXTA-LIB              
+598090     PERFORM 70000910-INIACT-MAPLI.                                           
+598100     PERFORM 50050000-CARGO-COPIA THRU 50050000-EXIT UNTIL                    
+598110             WS-1VEZ = 1.                                                     
+598120     MOVE WS-NUM-ACT02       TO W77-ID-ACTXX-MAPLI.                           
+598130     PERFORM 70000910-FIN-ACTI-MAPLI.                                         
+598140                                                                              
+599010     MOVE 09                            TO W77-ID-NUMDSET-MAPLI               
+599020     MOVE 01                            TO W77-ID-NUMBASE-MAPLI               
+599030     PERFORM 70000600-REGS-EN-BASE.                                           
+599040     MOVE 03                            TO W77-ID-ACTXX-MAPLI                 
+599050                                           WS-NUM-ACT03.                      
+599060     MOVE "LEO B09 Y CARGO TABLA INICIAL. "   TO W77-ID-NOMB-LIB              
+599070     MOVE "SE CARGA CIFRAS EN MEMORIA.    "   TO W77-ID-TXTA-LIB              
+599080     PERFORM 70000910-INIACT-MAPLI.                                           
+600000     PERFORM 50100000-CARGO-CIF   THRU 50100000-EXIT UNTIL                    
+601000             WS-2VEZ = 1.                                                     
+601010     MOVE WS-NUM-ACT03       TO W77-ID-ACTXX-MAPLI.                           
+601020     PERFORM 70000910-FIN-ACTI-MAPLI.                                         
+601025                                                                              
+601030     MOVE 03                            TO W77-ID-NUMDSET-MAPLI               
+601040     MOVE 01                            TO W77-ID-NUMBASE-MAPLI               
+601050     PERFORM 70000600-REGS-EN-BASE.                                           
+601060     MOVE 04                            TO W77-ID-ACTXX-MAPLI                 
+601070                                           WS-NUM-ACT04.                      
+601080     MOVE "LEO B03, ACUM TABLA Y COMP.VS B06" TO W77-ID-NOMB-LIB              
+601090     MOVE "SI HAY DIF. SE GRABA EN ARCHIVO. " TO W77-ID-TXTA-LIB              
+601100     PERFORM 70000910-INIACT-MAPLI.                                           
+602000     PERFORM 50200000-LEO-INV     THRU 50200000-EXIT UNTIL                    
+603000             WS-3VEZ = 1.                                                     
+603010     MOVE WS-NUM-ACT04       TO W77-ID-ACTXX-MAPLI.                           
+603020     PERFORM 70000910-FIN-ACTI-MAPLI.                                         
+603030                                                                              
+603040     MOVE 30                              TO W77-ID-NUMREG-PROC.              
+603050     MOVE 05                              TO W77-ID-ACTXX-MAPLI               
+603060                                             WS-NUM-ACT05.                    
+603070     MOVE "PROC. TABLA Y SORTEO ARCHIVO     "  TO W77-ID-NOMB-LIB.            
+603080     MOVE "SOLO SE PROCESAN 30 POSIBLES PRODS" TO W77-ID-TXTA-LIB.            
+603090     PERFORM 70000910-INIACT-MAPLI.                                           
+604000     PERFORM 50300000-LEO-TABLA   THRU 50300000-EXIT.                         
+604005     MOVE ATTRIBUTE LASTRECORD OF FILE-SALDOS  TO WS-LASTRECORD               
+604007                                                  WS-LASTRECORDM.             
+604010     CLOSE FILE-SALDOS.                                                       
+605000     PERFORM 50400000-SORT-SDOS   THRU 50400000-EXIT.                         
+605010     MOVE WS-NUM-ACT05       TO W77-ID-ACTXX-MAPLI.                           
+605020     PERFORM 70000910-FIN-ACTI-MAPLI.                                         
+605030                                                                              
+605040     MOVE WS-LASTRECORDM                  TO W77-ID-NUMREG-PROC.              
+605050     MOVE 06                              TO W77-ID-ACTXX-MAPLI               
+605060                                             WS-NUM-ACT06.                    
+605070     MOVE "PROC. EL ARC. DE LOS CTOS. C/DIF."  TO W77-ID-NOMB-LIB.            
+605080     MOVE "LOS CTOS. ENCONTRADOS SON IMPRESOS" TO W77-ID-TXTA-LIB.            
+605090     PERFORM 70000910-INIACT-MAPLI.                                           
+605100     PERFORM 50500000-LEO-SORT    THRU 50500000-EXIT UNTIL                    
+605110             WS-8VEZ = 1.                                                     
+605111* INI DDG R4-2011 COPIAS BATCH                                                
+605112     MOVE ATTRIBUTE LASTRECORD OF FILE-SALDOS  TO WS-NUMREG.                  
+605113     IF WS-NUMREG < ZEROS                                                     
+605114        PERFORM 50512000-ENCCOM    THRU 50512000-EXIT                         
+605115        WRITE REG-COMPARA          FROM WS-SININFO   AFTER  10                
+605116        PERFORM 50513000-ENCPOS    THRU 50513000-EXIT                         
+605117        WRITE REG-POSICION         FROM WS-SININFO   AFTER  10.               
+605118* FIN DDG R4-2011 COPIAS BATCH                                                
+605120     MOVE WS-NUM-ACT06       TO W77-ID-ACTXX-MAPLI.                           
+605130     PERFORM 70000910-FIN-ACTI-MAPLI.                                         
+607000 50000000-EXIT.                                                               
+608000     EXIT.                                                                    
+608010                                                                              
+608020***************************************************************               
+608030* LEO B05 PARA CARGAR EN UNA TABLA EL NUMERO DE COPIA EN LA QUE               
+608040* LE CORRESPONDE CORRER A CADA PRODUCTO.                                      
+608050***************************************************************               
+608060 50050000-CARGO-COPIA.                                                        
+608070   PERFORM 90000005-B05INSTRUMEN-FINDN                                        
+608080   IF WS-STATUS-BASE > 0                                                      
+608090     IF WS-STATUS-BASE = 1                                                    
+608100        MOVE 1 TO WS-1VEZ                                                     
+608110     ELSE                                                                     
+608140        STRING "ERROR AL HACER FIND A B05 ",                                  
+608142          " STATUS DB=",WS-STATUS-BASE ", COPIA=", WS-COPIAP160               
+608150               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+608160        PERFORM 70000050-MENSAJE                                              
+608170        CALL SYSTEM DMTERMINATE.                                              
+608180                                                                              
+608190    IF WS-1VEZ = 0                                                            
+608200         MOVE WS-NUM-ACT02     TO W77-ID-ACTXX-MAPLI                          
+608210         MOVE " "              TO W77-ID-TXTA-LIB                             
+608220         PERFORM 70000950-ACT-REGPROC                                         
+608230         PERFORM 50051000-LLENO-TABPRD THRU 50051000-EXIT.                    
+608240 50050000-EXIT.                                                               
+608250    EXIT.                                                                     
+608260                                                                              
+608270****************************************************************              
+608280* LLENO LA TABLA CON LOS VALORES DE B05.                                      
+608290****************************************************************              
+608300 50051000-LLENO-TABPRD.                                                       
+608310  ADD  1 TO  WS-PRD2.                                                         
+608320  IF WS-PRD2 > 30                                                             
+608360     STRING "B05 CON MAS DE 30 PRODUCTOS ",                                   
+608362            ", COPIA=", WS-COPIAP160                                          
+608364            DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                           
+608370     PERFORM 70000050-MENSAJE                                                 
+608380     CALL SYSTEM DMTERMINATE.                                                 
+608390                                                                              
+608400     MOVE B05-NUM-PRODUCTO      TO  WS-COPIA-PRD(WS-PRD2)                     
+608410     MOVE B05-NUM-INSTRUM       TO  WS-COPIA-INS(WS-PRD2)                     
+608420     MOVE B05-MONEDA            TO  WS-COPIA-MON(WS-PRD2)                     
+608422* ESS/STEF INI AJUSTE DEF DE SALDOS 20200527                                  
+608423     MOVE B05-IMP-AJUSTE-P160   TO  WS-COPIA-SDO(WS-PRD2)                     
+608424* ESS/STEF FIN AJUSTE DEF DE SALDOS 20200527                                  
+608425* INI DDG R4-2011 COPIAS BATCH                                                
+608432     IF B05-PROCESA-COPIA = 1 OR 2 OR 3                                       
+608433* FIN DDG R4-2011 COPIAS BATCH                                                
+608434        MOVE B05-PROCESA-COPIA  TO  WS-COPIA-COPIA(WS-PRD2)                   
+608436     ELSE                                                                     
+608438        MOVE 1                  TO  WS-COPIA-COPIA(WS-PRD2).                  
+608440 50051000-EXIT.                                                               
+608450    EXIT.                                                                     
+608460                                                                              
+609010***************************************************************               
+609020* LEO CIFRAS PARA ACUMULAR EL SDOACT. EN LA TABLA EN FORMA GLOBAL             
+609030* POR PRD.                                                                    
+609040***************************************************************               
+609050 50100000-CARGO-CIF.                                                          
+609060   PERFORM 90000009-B09CIFRAS-FINDN                                           
+609070   IF WS-STATUS-BASE > 0                                                      
+609080     IF WS-STATUS-BASE = 1                                                    
+609090        MOVE 1 TO WS-2VEZ                                                     
+609100     ELSE                                                                     
+609130        STRING "ERROR AL HACER FIND A B09 ",                                  
+609132          " STATUS DB=",WS-STATUS-BASE ", COPIA=", WS-COPIAP160               
+609140          DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                             
+609150        PERFORM 70000050-MENSAJE                                              
+609160        CALL SYSTEM DMTERMINATE.                                              
+609170                                                                              
+609180    IF WS-2VEZ = 0                                                            
+609185         MOVE WS-NUM-ACT03     TO W77-ID-ACTXX-MAPLI                          
+609190         MOVE " "              TO W77-ID-TXTA-LIB                             
+609195         PERFORM 70000950-ACT-REGPROC                                         
+609196         MOVE B09-NUM-PRODUCTO   TO WS-COPY-PRD                               
+609197         MOVE B09-NUM-INSTRUM    TO WS-COPY-INS                               
+609198         MOVE B09-MONEDA         TO WS-COPY-MON                               
+609199         PERFORM 50201000-CHECO-COPIA  THRU 50201000-EXIT                     
+609200         IF WS-COPIAP160 = WS-NUM-COPIAC                                      
+609210            PERFORM 50110000-LLENO-TABLA THRU 50110000-EXIT.                  
+609220 50100000-EXIT.                                                               
+609230    EXIT.                                                                     
+609240                                                                              
+609250****************************************************************              
+609260* LLENO LA TABLA CON LOS VALORES DE CIFRAS.                                   
+609270****************************************************************              
+609280 50110000-LLENO-TABLA.                                                        
+609290  ADD  1 TO  WS-PRD1.                                                         
+609292  IF WS-PRD1 > 30                                                             
+609294     STRING "B09 CON MAS DE 30 PRODUCTOS ",                                   
+609296            ", COPIA=", WS-COPIAP160                                          
+609298            DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                           
+609300     PERFORM 70000050-MENSAJE                                                 
+609302     CALL SYSTEM DMTERMINATE.                                                 
+609304                                                                              
+609370     MOVE B09-NUM-PRODUCTO      TO  WS-PRD(WS-PRD1)                           
+609380     MOVE B09-NUM-INSTRUM       TO  WS-INS(WS-PRD1)                           
+609390     MOVE B09-MONEDA            TO  WS-MON(WS-PRD1)                           
+609400     MOVE B09-SDO-ACTUAL        TO  WS-CIF(WS-PRD1).                          
+609500 50110000-EXIT.                                                               
+609510    EXIT.                                                                     
+609520                                                                              
+609530****************************************************************              
+611000* LEO EL DATASET DE INVERSIONES PARA VERIFICAR QUE CONTRATOS                  
+612000* TIENEN DIFERENCIA.                                                          
+613000****************************************************************              
+614000 50200000-LEO-INV.                                                            
+615020     PERFORM 90000003-B03CONTRATOS-FINDN.                                     
+616000     IF WS-STATUS-BASE > 0                                                    
+617000        IF WS-STATUS-BASE = 1                                                 
+618000           MOVE 1  TO WS-3VEZ                                                 
+619000        ELSE                                                                  
+622000           STRING "ERROR FINDNEXT A B03 ",                                    
+622010           " STATUS DB=",WS-STATUS-BASE ", COPIA=", WS-COPIAP160              
+623000           DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                            
+624000           PERFORM 70000050-MENSAJE                                           
+625000           CALL SYSTEM DMTERMINATE                                            
+625100     ELSE                                                                     
+625110        MOVE B03-NUM-PRODUCTO   TO WS-COPY-PRD                                
+625120        MOVE B03-NUM-INSTRUM    TO WS-COPY-INS                                
+625130        MOVE B03-MONEDA         TO WS-COPY-MON.                               
+626000                                                                              
+626100     IF WS-3VEZ = 0                                                           
+626102        IF B03-MIGR-S111 = 1                                                  
+626104           NEXT SENTENCE                                                      
+626106        ELSE                                                                  
+626110           PERFORM 50213090-LEE-HIS THRU 50213090-EXIT                        
+626115           IF WS-COPIAP160= 1                                                 
+626120              IF B03-STATUS = 4                                               
+626122              OR B03-NUM-CLIENTE = 0                                          
+626124              OR W88-QPIM-0066-0090-01                                        
+626126              OR W88-QPIM-0066-0011-01                                        
+626128              OR W88-QPIM-0066-0017-01                                        
+626130              OR W88-QPIM-0500-0006-01                                        
+626132                 NEXT SENTENCE                                                
+626134              ELSE                                                            
+626136                 COMPUTE WKS-MOT-SDOACT = B03-SDO-ACTUAL                      
+626138                                        + B03-SDOPROT-BLOQ                    
+626142                 COMPUTE WKS-MOT-SDOANT = B06-SDO-ANT-ANT                     
+626144                                        + B06-SDOBLO-ANTANT                   
+626148                 PERFORM 50200500-ARMA-MOTOR  THRU 50200500-EXIT.             
+626200                                                                              
+627000  IF WS-3VEZ = 0                                                              
+627002      MOVE WS-NUM-ACT04       TO W77-ID-ACTXX-MAPLI                           
+627004      MOVE " "                TO W77-ID-TXTA-LIB                              
+627005      PERFORM 70000950-ACT-REGPROC                                            
+627006      IF B03-MIGR-S111 = 1                                                    
+627007         NEXT SENTENCE                                                        
+627008      ELSE                                                                    
+627014         PERFORM 50201000-CHECO-COPIA  THRU 50201000-EXIT                     
+627016         IF WS-COPIAP160 = WS-NUM-COPIAC                                      
+627018            IF W88-QPIM-0500-0006-01                                          
+627020               IF B03-STATUS = 2 OR 3 OR 4                                    
+627030                  NEXT SENTENCE                                               
+627040               ELSE                                                           
+627050                  PERFORM 50210000-OPERO-INV THRU 50210000-EXIT               
+627060            ELSE                                                              
+630000               PERFORM 50210000-OPERO-INV THRU 50210000-EXIT                  
+630010         ELSE                                                                 
+630020            NEXT SENTENCE.                                                    
+631000 50200000-EXIT.                                                               
+632000     EXIT.                                                                    
+632190***********************************************************                   
+632200 50200500-ARMA-MOTOR.                                                         
+632242     IF WKS-E01-R1-TPOARCH = 1 AND                                            
+632247        (B03-FEC-RCTAORI IS NOT EQUAL TO B03-FEC-ULTMOV)                      
+632250        PERFORM 50200520-ESC-MOTOR  THRU 50200520-EXIT                        
+632260     ELSE                                                                     
+632270     IF B03-FEC-ULTMOV = WS-FECHA-PRO-AMD AND                                 
+632275        (B03-FEC-RCTAORI IS NOT EQUAL TO B03-FEC-ULTMOV)                      
+632280        PERFORM 50200520-ESC-MOTOR  THRU 50200520-EXIT                        
+632290     ELSE                                                                     
+632300     IF B03-STATUS = 1                                                        
+632310        PERFORM 50200520-ESC-MOTOR  THRU 50200520-EXIT                        
+632320     ELSE                                                                     
+632330     IF WKS-MOT-SDOACT NOT = WKS-MOT-SDOANT                                   
+632340        PERFORM 50200520-ESC-MOTOR  THRU 50200520-EXIT.                       
+632350                                                                              
+632360 50200500-EXIT.                                                               
+632370     EXIT.                                                                    
+632380                                                                              
+632390********************************************************                      
+632400 50200520-ESC-MOTOR.                                                          
+632410     MOVE B03-NUM-CLIENTE     TO WKS-E01-R3-NUMCTE.                           
+632420     MOVE B03-NUM-CONTRATO    TO WKS-E01-R3-NUMCTO.                           
+632430     MOVE B03-NUM-PRODUCTO    TO WKS-E01-R3-NPROD.                            
+632440     MOVE B03-NUM-INSTRUM     TO WKS-E01-R3-NINST.                            
+632450     MOVE B03-MONEDA          TO WKS-E01-R3-MONEDA.                           
+632460     MOVE B03-FEC-ULTMOV      TO WKS-E01-R3-FECHULTM.                         
+632465                                                                              
+632470     MOVE WKS-E01-R1-TPOARCH  TO WKS-E01-R3-TPOMOVTO.                         
+632472                                                                              
+632480     MOVE WKS-MOT-SDOACT   TO WKS-E01-R3-SDOACT.                              
+632482                                                                              
+632490     MOVE WKS-MOT-SDOANT   TO WKS-E01-R3-SDOANT.                              
+632515                                                                              
+632530     IF B03-STATUS = 1                                                        
+632540        MOVE 1                TO WKS-E01-R3-STACTO                            
+632550     ELSE                                                                     
+632560        MOVE 0                TO WKS-E01-R3-STACTO.                           
+632570                                                                              
+632580     WRITE FD-REG-MOTOR FROM WKS-E01-DATOS.                                   
+632582                                                                              
+632584     ADD 1 TO WKS-E01-R9-TOTREGS.                                             
+632600                                                                              
+632620 50200520-EXIT.                                                               
+632630     EXIT.                                                                    
+632650                                                                              
+633000                                                                              
+633005******************************************************************            
+633010* BUSCO EL PRD, INST Y MON. DE LA INV. EN LA TABLA DE COPIAS PARA             
+633015* SABER QUE PRODUCTOS VOY A PROCESAR.                                         
+633020******************************************************************            
+633025 50201000-CHECO-COPIA.                                                        
+633030    MOVE 0 TO WS-PRD2.                                                        
+633035    MOVE 0 TO WS-NUM-COPIAC.                                                  
+633040    PERFORM 50211100-PASO  VARYING                                            
+633045                           WS-PRD2 FROM 1 BY 1                                
+633050            UNTIL (WS-COPIA-PRD(WS-PRD2) = WS-COPY-PRD ) AND                  
+633055                  (WS-COPIA-INS(WS-PRD2) = WS-COPY-INS ) AND                  
+633060                  (WS-COPIA-MON(WS-PRD2) = WS-COPY-MON ) OR                   
+633065                  (WS-PRD2 > 30).                                             
+633070    IF (WS-PRD2 < 31) AND (WS-PRD2 > 0)                                       
+633080       MOVE WS-COPIA-COPIA(WS-PRD2)           TO WS-NUM-COPIAC                
+633081* ESS/STEF INI AJUSTE DEF DE SALDOS 20200527                                  
+633082       MOVE WS-COPIA-SDO(WS-PRD2)             TO WS-DIF-SDO                   
+633084* ESS/STEF FIN AJUSTE DEF DE SALDOS 20200527                                  
+633085    ELSE                                                                      
+633090       MOVE WS-COPY-PRD                       TO WS-MSG-PRD                   
+633095       MOVE WS-COPY-INS                       TO WS-MSG-INST                  
+633100       MOVE WS-COPY-MON                       TO WS-MSG-MDA                   
+633130       MOVE "NO EXISTE EN TABLA DE COPIAS "   TO WS-0101-TEXT-MSG             
+633140       PERFORM 70000050-MENSAJE                                               
+633150       PERFORM 50211200-DIS-PIM               THRU 50211200-EXIT              
+633160       CALL SYSTEM DMTERMINATE.                                               
+633170 50201000-EXIT.                                                               
+633180    EXIT.                                                                     
+633190                                                                              
+634000*****************************************************************             
+635000* OPERO LA INVERSION QUE ACABO DE LEER.                                       
+636000*****************************************************************             
+637000 50210000-OPERO-INV.                                                          
+638000    PERFORM 50211000-BUSCO-IND     THRU 50211000-EXIT.                        
+639000    PERFORM 50212000-ACUMULO       THRU 50212000-EXIT.                        
+639010    PERFORM 50213000-VEOHIS        THRU 50213000-EXIT.                        
+640000 50210000-EXIT.                                                               
+641000    EXIT.                                                                     
+642000                                                                              
+643000******************************************************************            
+643010* BUSCO EL PRD, INST Y MON. DE LA INV. EN LA TABLA PARA SABER EN              
+643020* QUE POSICION LA VOY A ACUMULAR.                                             
+643030******************************************************************            
+643040 50211000-BUSCO-IND.                                                          
+643050    MOVE 0 TO WS-PRD1.                                                        
+643060    MOVE 0 TO WS-INDCIF.                                                      
+643070    PERFORM 50211100-PASO  VARYING                                            
+643080                           WS-PRD1 FROM 1 BY 1                                
+643090            UNTIL (WS-PRD(WS-PRD1)  = B03-NUM-PRODUCTO)  AND                  
+643100                  (WS-INS(WS-PRD1)  = B03-NUM-INSTRUM )  AND                  
+643110                  (WS-MON(WS-PRD1)  = B03-MONEDA)        OR                   
+643120                  (WS-PRD1 > 30).                                             
+643130    IF (WS-PRD1 < 31) AND (WS-PRD1 > 0)                                       
+643140       MOVE WS-PRD1 TO WS-INDCIF                                              
+643150    ELSE                                                                      
+643160       MOVE B03-NUM-PRODUCTO                  TO WS-MSG-PRD                   
+643170       MOVE B03-NUM-INSTRUM                   TO WS-MSG-INST                  
+643180       MOVE B03-MONEDA                        TO WS-MSG-MDA                   
+643210       MOVE "LA INV. NO EXISTE EN LA TABLA  " TO WS-0101-TEXT-MSG             
+643220       PERFORM 70000050-MENSAJE                                               
+643230       PERFORM 50211200-DIS-PIM               THRU 50211200-EXIT              
+643240       CALL SYSTEM DMTERMINATE.                                               
+643250 50211000-EXIT.                                                               
+643260    EXIT.                                                                     
+643270                                                                              
+643280******************************************************************            
+643290* ESTA RUTINA NO EJECUTA NUNGUN PROCESO DENTRO DEL PROGRAMA.                  
+643300* SOLO ES UTILIZADA COMO SALIDA PARA EL MOMENTO EN QUE HA SIDO                
+643310* TERMINADA LA LECTURA DE LA TABLA, E IDENTIFICAR SI HUBO O NO UN             
+643320* ERROR EN LA BUSQUEDA DE UN ELEMENTO DE DICHA TABLA.                         
+643330******************************************************************            
+643340 50211100-PASO.                                                               
+643350                                                                              
+643360******************************************************************            
+643370* DESPLIEGA EL PRODUCTO, INSTRUMENTO Y MONEDA DESEADO, YA SEA COMO            
+643380* UN MSG. INFORMATIVO O COMO UN MSG. DE ERROR.                                
+643390******************************************************************            
+643400 50211200-DIS-PIM.                                                            
+643430       STRING "PROD-INST-MONEDA ", WS-MSG-PRD                                 
+643440                              "-", WS-MSG-INST                                
+643450                              "-", WS-MSG-MDA                                 
+643452                       ", COPIA=", WS-COPIAP160                               
+643460              DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                         
+643470       PERFORM 70000050-MENSAJE.                                              
+643480                                                                              
+643490                                                                              
+643500                                                                              
+643510                                                                              
+643520                                                                              
+643530                                                                              
+643540                                                                              
+643550                                                                              
+643560 50211200-EXIT.                                                               
+643570     EXIT.                                                                    
+643580                                                                              
+643590******************************************************************            
+643600* ACUMULO LOS SALDOS DE LA INVERSION EN LA TABLA EN LA POSICION               
+643610* QUE LE CORRESPONDE.                                                         
+643620******************************************************************            
+643630 50212000-ACUMULO.                                                            
+643640       ADD B03-SDO-ACTUAL      TO WS-INV(WS-INDCIF).                          
+643642* Se incluye saldo protegido por Orden Judicial al Saldo Actual               
+643650       ADD B03-SDOPROT-BLOQ    TO WS-INV(WS-INDCIF).                          
+643660 50212000-EXIT.                                                               
+643670    EXIT.                                                                     
+643680                                                                              
+643690******************************************************************            
+643700* ACCESO EL DATASET HISTORICO PARA OBTENER EL NUMERO DE                       
+643710* DEPOSITOS Y RETIROS DEL DIA.                                                
+643720******************************************************************            
+643730 50213000-VEOHIS.                                                             
+643740     PERFORM 50213100-SDO-HIS.                                                
+643750     MOVE 0       TO WS-4VEZ.                                                 
+643760     COMPUTE WS-SUM-SDOCAL = B03-SDO-FINCORTE + WS-SUM-SDODEP                 
+643770                                              - WS-SUM-SDORET.                
+643780     PERFORM 50213200-COMPARO THRU 50213200-EXIT.                             
+643790 50213000-EXIT.                                                               
+643800    EXIT.                                                                     
+643810                                                                              
+673000****************************************************************              
+673010* BUSCO EN EL HISTORICO EL CTO. DE LA INVERSION PARA VERIFICAR                
+673020* CUAL FUE SU SALDO.                                                          
+673030****************************************************************              
+673040 50213090-LEE-HIS.                                                            
+673050    MOVE B03-NUM-CONTRATO      TO WS-NUM-CONTRATO WS-MSG-CTO                  
+673060    PERFORM 90000006-B06SXCTO-FIND                                            
+673070    IF WS-STATUS-BASE > 0                                                     
+673080     IF WS-STATUS-BASE = 1                                                    
+673110        STRING  "CTO INEXISTENTE EN B06 ",                                    
+673112                ", PIM=", WS-PIM-PROD                                         
+673113                ", CTO=", WS-MSG-CTO                                          
+673114                ", COPIA=", WS-COPIAP160                                      
+673120                DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                       
+673130        PERFORM 70000050-MENSAJE                                              
+673140        MOVE 1   TO WS-4VEZ                                                   
+673142        MOVE 0   TO B06-SDO-ANT-ANT B06-SDOBLO-ANTANT                         
+673150     ELSE                                                                     
+673180        STRING "ERROR AL HACER FIND  A B06 ",                                 
+673182          " STATUS DB=",WS-STATUS-BASE, ", PIM=", WS-PIM-PROD                 
+673184          ", CTO=", WS-MSG-CTO, ", COPIA=", WS-COPIAP160                      
+673190               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+673200        PERFORM 70000050-MENSAJE                                              
+673210        CALL SYSTEM DMTERMINATE.                                              
+673212                                                                              
+673214 50213090-EXIT.                                                               
+673216    EXIT.                                                                     
+673220                                                                              
+673225 50213100-SDO-HIS.                                                            
+673240      MOVE 0 TO WS-6VEZ WS-DIAC2.                                             
+673260      MOVE 0 TO WS-SUM-SDODEP.                                                
+673270      MOVE 0 TO WS-SUM-SDORET.                                                
+673275      IF WS-4VEZ = 0                                                          
+673280         PERFORM 50213110-ACUM-MOV THRU 50213110-EXIT                         
+673288                 UNTIL WS-6VEZ = 1.                                           
+673300 50213100-EXIT.                                                               
+673310    EXIT.                                                                     
+673320                                                                              
+673330******************************************************************            
+673340* ACUMULO LOS DEP Y RET DEL CTE. DEPENDIENDO DE SU FECHA DE CORTE.            
+673350******************************************************************            
+673360 50213110-ACUM-MOV.                                                           
+673415      ADD  1                 TO WS-DIAC2.                                     
+673420      IF WS-DIAC2 > 31                                                        
+673430         MOVE 1   TO WS-6VEZ                                                  
+673440      ELSE                                                                    
+733190         ADD B06-DEPS-DIA(WS-DIAC2) TO WS-SUM-SDODEP WS-TOTALDEP              
+733200         ADD B06-RETS-DIA(WS-DIAC2) TO WS-SUM-SDORET WS-TOTALRET.             
+733250 50213110-EXIT.                                                               
+733260    EXIT.                                                                     
+733270                                                                              
+749000****************************************************************              
+749010* COMPARO LOS SALDOS DE INVERSIONES CONTRA HISTORICO.                         
+751000****************************************************************              
+752000 50213200-COMPARO.                                                            
+752010* Se incluye saldo protegido por Orden Judicial al Saldo Actual               
+753000      COMPUTE B03-SDO-ACTUAL = B03-SDO-ACTUAL + B03-SDO-PENDIENTE             
+753100                             + B03-SDOPROT-BLOQ                               
+754000      IF B03-SDO-ACTUAL = WS-SUM-SDOCAL                                       
+755000         NEXT SENTENCE                                                        
+756000      ELSE                                                                    
+757000         PERFORM 50213210-GRABO.                                              
+764000 50213200-EXIT.                                                               
+765000     EXIT.                                                                    
+766000                                                                              
+766010****************************************************************              
+766020* SI EL CONTRATO TUVO DIFERENCIA LO GRABO EN EL ARCHIVO QUE SERA              
+766025* SORTEADO.                                                                   
+766030****************************************************************              
+766040 50213210-GRABO.                                                              
+766050     MOVE B03-NUM-CONTRATO      TO SDO-CTO.                                   
+766060     MOVE B03-NUM-PRODUCTO      TO SDO-PRD.                                   
+766070     MOVE B03-NUM-INSTRUM       TO SDO-INS.                                   
+766080     MOVE B03-MONEDA            TO SDO-MON.                                   
+766090     MOVE B03-SDO-ACTUAL        TO SDO-INV.                                   
+766100     MOVE WS-SUM-SDOCAL         TO SDO-HIS.                                   
+766110     MOVE 0                     TO SDO-CIF.                                   
+766120     WRITE REG-SALDOS.                                                        
+766180 50213210-EXIT.                                                               
+766190    EXIT.                                                                     
+766200                                                                              
+766210****************************************************************              
+766220* LEO DE LA TABLA LOS TOTALES DE CIFRAS PARA GRABARLO EN EL                   
+766225* ARCHIVO.                                                                    
+766230****************************************************************              
+766240 50300000-LEO-TABLA.                                                          
+766250     MOVE 0 TO WS-PRD1.                                                       
+766260     PERFORM 50310000-LEO THRU 50310000-EXIT VARYING                          
+766270     WS-PRD1 FROM 1 BY 1 UNTIL WS-PRD1 > 30.                                  
+766280 50300000-EXIT.                                                               
+766290     EXIT.                                                                    
+766300                                                                              
+766310****************************************************************              
+766320* LEO LA TABLA EN SUS 30 OCURRENCIAS.                                         
+766330****************************************************************              
+766340 50310000-LEO.                                                                
+766342    MOVE WS-NUM-ACT05     TO W77-ID-ACTXX-MAPLI                               
+766344    MOVE " "              TO W77-ID-TXTA-LIB                                  
+766346    PERFORM 70000950-ACT-REGPROC                                              
+766350    IF WS-PRD(WS-PRD1) > 0 AND WS-INS(WS-PRD1) > 0                            
+766360       MOVE WS-PRD(WS-PRD1)       TO SDO-PRD                                  
+766370       MOVE WS-INS(WS-PRD1)       TO SDO-INS                                  
+766380       MOVE WS-MON(WS-PRD1)       TO SDO-MON                                  
+766385       MOVE WS-CIF(WS-PRD1)       TO SDO-CIF                                  
+766390       MOVE 999999999999          TO SDO-CTO                                  
+766400       MOVE WS-INV(WS-PRD1)       TO SDO-INV                                  
+766410       MOVE 0                     TO SDO-HIS                                  
+766420       WRITE REG-SALDOS.                                                      
+766480 50310000-EXIT.                                                               
+766490    EXIT.                                                                     
+766500                                                                              
+767000****************************************************************              
+767010* SORTEO EL ARCHIVO PARA PODER IMPRIMIR EL LISTADO POR PRODUCTO               
+767020****************************************************************              
+767030 50400000-SORT-SDOS.                                                          
+767032    COMPUTE WS-SORT-ESPACIO = (WS-LASTRECORD + 3) * 13 * 3.5                  
+767034                                                                              
+767036    COMPUTE WS-MEMSIZE = ((WS-LASTRECORD / 16) * 16) + 1500.                  
+767038    IF WS-MEMSIZE < 400000                                                    
+767040       MOVE 400000 TO WS-MEMSIZE                                              
+767042    ELSE                                                                      
+767044    IF WS-MEMSIZE > 258435000                                                 
+767046       MOVE 258435000 TO WS-MEMSIZE.                                          
+767048                                                                              
+767050    MOVE  WS-SORT-ESPACIO  TO WS-MSG-N-14.                                    
+767052    MOVE  WS-MEMSIZE       TO WS-MSG-N-12.                                    
+767054    STRING "DISK-SIZE =" WS-MSG-N-14                                          
+767056           ", MEMORY-SIZE =" WS-MSG-N-12                                      
+767058           ", PARA SORT SALDOS-SORT "                                         
+767060                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                     
+767062    PERFORM 70000050-MENSAJE.                                                 
+767064                                                                              
+767070    SORT SALDOS-SORT ON ASCENDING KEY PRD-SORT INS-SORT                       
+767072    MON-SORT CTO-SORT USING FILE-SALDOS GIVING FILE-SALDOS                    
+767074    MEMORY SIZE WS-MEMSIZE      WORDS                                         
+767076    DISK   SIZE WS-SORT-ESPACIO WORDS.                                        
+767078    OPEN INPUT FILE-SALDOS.                                                   
+767080 50400000-EXIT.                                                               
+767082     EXIT.                                                                    
+767084                                                                              
+767100                                                                              
+767110****************************************************************              
+767120* LEO EL ARCHIVO DE SALDOS QUE FUE SORTEADO.                                  
+767125* PARA PODER GENERAR EL LISTADO DE DIFERENCIAS.                               
+767130****************************************************************              
+767150 50500000-LEO-SORT.                                                           
+767160     READ FILE-SALDOS AT END                                                  
+767170           MOVE 1 TO WS-8VEZ.                                                 
+767180                                                                              
+767190     IF WS-8VEZ = 0                                                           
+767192        MOVE WS-NUM-ACT06       TO W77-ID-ACTXX-MAPLI                         
+767194        MOVE " "                TO W77-ID-TXTA-LIB                            
+767196        PERFORM 70000950-ACT-REGPROC                                          
+767200        PERFORM 50510000-INICIO  THRU 50510000-EXIT                           
+767210        PERFORM 50520000-DET-SDO THRU 50520000-EXIT.                          
+767220 50500000-EXIT.                                                               
+767230     EXIT.                                                                    
+767240                                                                              
+767250****************************************************************              
+767260* MUEVO LOS VALORES INICIALES LA PRIMERA VEZ.                                 
+767270****************************************************************              
+767280 50510000-INICIO.                                                             
+767290    IF WS-9VEZ = 0                                                            
+767295       MOVE 1                     TO WS-9VEZ                                  
+767298       MOVE 1                     TO WS-11VEZ                                 
+767300       MOVE SDO-PRD               TO WS-NUM-PRODUCTO                          
+767310       MOVE SDO-INS               TO WS-NUM-INSTRUM                           
+767320       MOVE SDO-MON               TO WS-MONEDA                                
+767330       PERFORM 50511000-BUSCO-PRD THRU 50511000-EXIT                          
+767335* ESS/STEF INI AJUSTE DEF DE SALDOS 20200527                                  
+767340       MOVE B05-NOMBRE-PROD       TO WS-COM-NOMBRE WS-POS-NOMBRE              
+767350       MOVE B05-NUM-PRODUCTO      TO WS-COM-PRD    WS-POS-PRD                 
+767355                                     WKS-I03-PROD-XX                          
+767360       MOVE B05-NUM-INSTRUM       TO WS-COM-INS    WS-POS-INS                 
+767365                                     WKS-I03-INST-XX                          
+767370       MOVE B05-MONEDA            TO WS-COM-MON    WS-POS-MON                 
+767372                                     WKS-I03-MONE-XX                          
+767373       MOVE B05-IMP-AJUSTE-P160   TO WS-DIF-SDO                               
+767374* ESS/STEF FIN AJUSTE DEF DE SALDOS 20200527                                  
+767375       PERFORM 50512000-ENCCOM    THRU 50512000-EXIT                          
+767377       PERFORM 50513000-ENCPOS    THRU 50513000-EXIT.                         
+767380 50510000-EXIT.                                                               
+767390    EXIT.                                                                     
+767400                                                                              
+768000*****************************************************************             
+768010* ACCESO PRODUCTOS PARA OBTENER EL NOMBRE DEL PRODUCTO.                       
+768030*****************************************************************             
+768040 50511000-BUSCO-PRD.                                                          
+768060   PERFORM 90000005-B05SXPRDINSTMON-FIND                                      
+768070   IF WS-STATUS-BASE > 0                                                      
+768080     IF WS-STATUS-BASE = 1                                                    
+768110       MOVE "ERR REG. DE SDOC NO EXISTE B05 " TO WS-0101-TEXT-MSG             
+768120       PERFORM 70000050-MENSAJE                                               
+768130       MOVE WS-NUM-PRODUCTO                   TO WS-MSG-PRD                   
+768140       MOVE WS-NUM-INSTRUM                    TO WS-MSG-INST                  
+768150       MOVE WS-MONEDA                         TO WS-MSG-MDA                   
+768160       PERFORM 50211200-DIS-PIM THRU 50211200-EXIT                            
+768170       CALL SYSTEM DMTERMINATE                                                
+768180      ELSE                                                                    
+768210       STRING "ERROR AL HACER FIND A B05 ",                                   
+768212         " STATUS DB=",WS-STATUS-BASE ", COPIA=", WS-COPIAP160                
+768220          DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                             
+768230       PERFORM 70000050-MENSAJE                                               
+768240       CALL SYSTEM DMTERMINATE.                                               
+768250 50511000-EXIT.                                                               
+768260    EXIT.                                                                     
+768270                                                                              
+768280******************************************************************            
+768290* IMPRIME LOS ENCABEZADOS DE LOS LISTADO DE DIFERENCIAS A DETALLE             
+768300******************************************************************            
+768310 50512000-ENCCOM.                                                             
+768330      MOVE  SPACES         TO    REG-COMPARA.                                 
+768340      WRITE REG-COMPARA    AFTER CHANNEL 1.                                   
+768350      WRITE REG-COMPARA    FROM  WS-ENCABEZADO      BEFORE 1.                 
+768360      WRITE REG-COMPARA    FROM  WS-ENCABEZADO1     BEFORE 1.                 
+768370      WRITE REG-COMPARA    FROM  WS-03-COM          BEFORE 1.                 
+768376      ADD   1              TO    WS-HOJA                                      
+768378      MOVE  WS-HOJA        TO    WS-COM-HOJA1                                 
+768380      WRITE REG-COMPARA    FROM  WS-04-COM          BEFORE 1.                 
+768390      WRITE REG-COMPARA    FROM  WS-IMP-HORA        BEFORE 2.                 
+768400      WRITE REG-COMPARA    FROM  WS-ENC-COM         BEFORE 2.                 
+768420      MOVE 20              TO    WS-LINEA.                                    
+768430 50512000-EXIT.                                                               
+768440     EXIT.                                                                    
+768450                                                                              
+768490******************************************************************            
+768500* IMPRIME LOS ENCABEZADOS DE LOS LISTADO DE DIFERENCIAS DE LA                 
+768510* POSICION.                                                                   
+768520******************************************************************            
+768530 50513000-ENCPOS.                                                             
+768550      MOVE  SPACES         TO    REG-POSICION.                                
+768570      WRITE REG-POSICION   AFTER CHANNEL 1.                                   
+768590      WRITE REG-POSICION   FROM  WS-ENCABEZADO      BEFORE 1.                 
+768610      WRITE REG-POSICION   FROM  WS-ENCABEZADO1     BEFORE 1.                 
+768630      WRITE REG-POSICION   FROM  WS-03-POS          BEFORE 1.                 
+768640      ADD   1              TO    WS-HOJA1                                     
+768650      MOVE  WS-HOJA1       TO    WS-POS-HOJA1                                 
+768670      WRITE REG-POSICION   FROM  WS-04-POS          BEFORE 1.                 
+768690      WRITE REG-POSICION   FROM  WS-IMP-HORA        BEFORE 2.                 
+768710      WRITE REG-POSICION   FROM  WS-ENC-POS         BEFORE 2.                 
+768730 50513000-EXIT.                                                               
+768740     EXIT.                                                                    
+768750                                                                              
+768760******************************************************************            
+768770* IMPRIMO EL DETALLE DE LOS CTOS. CON DIFERENCIA Y DE LA POSICION.            
+768775* SI NO HUBO IMPRIMO LA POSICION Y EL LETRERO DE VACIO.                       
+768790******************************************************************            
+768800 50520000-DET-SDO.                                                            
+768810     IF SDO-CTO = 999999999999                                                
+768820        IF WS-10VEZ = 0                                                       
+768830           PERFORM 50521000-VACIO  THRU 50521000-EXIT                         
+768835           PERFORM 50522000-IMPPOS THRU 50522000-EXIT                         
+768840        ELSE                                                                  
+768845           PERFORM 50521500-IMPTOT THRU 50521500-EXIT                         
+768850           PERFORM 50522000-IMPPOS THRU 50522000-EXIT                         
+768851     ELSE                                                                     
+768852        IF WS-11VEZ = 0                                                       
+768853           MOVE SDO-PRD               TO WS-NUM-PRODUCTO                      
+768854           MOVE SDO-INS               TO WS-NUM-INSTRUM                       
+768855           MOVE SDO-MON               TO WS-MONEDA                            
+768856           PERFORM 50511000-BUSCO-PRD THRU 50511000-EXIT                      
+768857* ESS/STEF INI AJUSTE DEF DE SALDOS 20200527                                  
+768858           MOVE B05-NOMBRE-PROD TO WS-COM-NOMBRE WS-POS-NOMBRE                
+768859           MOVE B05-NUM-PRODUCTO      TO WS-COM-PRD    WS-POS-PRD             
+768860                                         WKS-I03-PROD-XX                      
+768861           MOVE B05-NUM-INSTRUM       TO WS-COM-INS    WS-POS-INS             
+768862                                         WKS-I03-INST-XX                      
+768863          MOVE B05-MONEDA TO WS-COM-MON WS-POS-MON WKS-I03-MONE-XX            
+768864           MOVE B05-IMP-AJUSTE-P160   TO WS-DIF-SDO                           
+768865           PERFORM 50512000-ENCCOM    THRU 50512000-EXIT                      
+768866           PERFORM 50513000-ENCPOS    THRU 50513000-EXIT                      
+768867           PERFORM 50523000-IMPCOM    THRU 50523000-EXIT                      
+768868           MOVE 1                     TO WS-11VEZ                             
+768869         ELSE                                                                 
+768870           PERFORM 50523000-IMPCOM    THRU 50523000-EXIT.                     
+768871* ESS/STEF FIN AJUSTE DEF DE SALDOS 20200527                                  
+768872 50520000-EXIT.                                                               
+768874    EXIT.                                                                     
+768876                                                                              
+768880******************************************************************            
+768890* IMPRIMO EL LETRERO DE "QUE NO HUBO DIFERENCIAS " CUANDO NO                  
+768895* EXISTEN CONTRATOS CON DIFERENCIA.                                           
+768900******************************************************************            
+768910 50521000-VACIO.                                                              
+768911     IF WS-11VEZ = 0                                                          
+768912        MOVE SDO-PRD               TO WS-NUM-PRODUCTO                         
+768914        MOVE SDO-INS               TO WS-NUM-INSTRUM                          
+768916        MOVE SDO-MON               TO WS-MONEDA                               
+768918        PERFORM 50511000-BUSCO-PRD THRU 50511000-EXIT                         
+768919* ESS/STEF INI AJUSTE DEF DE SALDOS 20200527                                  
+768920        MOVE B05-NOMBRE-PROD TO WS-COM-NOMBRE WS-POS-NOMBRE                   
+768922        MOVE B05-NUM-PRODUCTO      TO WS-COM-PRD    WS-POS-PRD                
+768923                                      WKS-I03-PROD-XX                         
+768924        MOVE B05-NUM-INSTRUM       TO WS-COM-INS    WS-POS-INS                
+768925                                      WKS-I03-INST-XX                         
+768926        MOVE B05-MONEDA            TO WS-COM-MON    WS-POS-MON                
+768927                                      WKS-I03-MONE-XX                         
+768928        MOVE B05-IMP-AJUSTE-P160   TO WS-DIF-SDO                              
+768930        PERFORM 50512000-ENCCOM    THRU 50512000-EXIT                         
+768931* ESS/STEF FIN AJUSTE DEF DE SALDOS 20200527                                  
+768932        PERFORM 50513000-ENCPOS    THRU 50513000-EXIT.                        
+768938     WRITE REG-COMPARA    FROM  WS-VACIO       AFTER  10.                     
+768940 50521000-EXIT.                                                               
+768950    EXIT.                                                                     
+768960                                                                              
+768965******************************************************************            
+768970* IMPRIME EL IMPORTE TOTAL DE LA DIFERENCIA POR PRODUCTO.                     
+768975******************************************************************            
+768980 50521500-IMPTOT.                                                             
+768982      MOVE WS-TOT-DIF      TO WS-TOT                                          
+768984      WRITE REG-COMPARA    FROM  WS-ENC-DIFHIS      AFTER  4.                 
+768986      MOVE 0               TO WS-TOT-DIF.                                     
+768987 50521500-EXIT.                                                               
+768988    EXIT.                                                                     
+768989                                                                              
+769000****************************************************************              
+769010* IMPRIME LA POSICION POR PRODUCTO.                                           
+769020****************************************************************              
+769030 50522000-IMPPOS.                                                             
+769070      MOVE  SDO-INV            TO WS-POS-SDOINV.                              
+769080      MOVE  SDO-CIF            TO WS-POS-SDOCIF.                              
+769200      MOVE  0                  TO WS-10VEZ.                                   
+769205      MOVE  0                  TO WS-11VEZ.                                   
+769206* ESS/STEF INI AJUSTE DEF DE SALDOS 20200527                                  
+769207     COMPUTE WS-POS-DIF0 = SDO-INV - SDO-CIF                                  
+769208     MOVE  WS-POS-DIF0         TO WS-POS-DIFE1                                
+769210     IF WS-POS-DIF0 < 0                                                       
+769212        COMPUTE WS-POS-DIF1 = (SDO-INV - SDO-CIF ) + WS-DIF-SDO               
+769214     ELSE                                                                     
+769216        COMPUTE WS-POS-DIF1 = (SDO-INV - SDO-CIF ) - WS-DIF-SDO.              
+769218     MOVE  WS-DIF-SDO          TO WS-POS-AJUDIFB05                            
+769220     MOVE  WS-POS-DIF1         TO WS-POS-DIFB05                               
+769222     WRITE REG-POSICION FROM   WS-DET-POS  BEFORE 1                           
+769224     PERFORM 50522100-GRABA-DIFERENCIAS.                                      
+769350 50522000-EXIT.                                                               
+769360    EXIT.                                                                     
+769361                                                                              
+769362 50522100-GRABA-DIFERENCIAS.                                                  
+769363     IF WS-POS-DIF1 NOT= 0                                                    
+769364        MOVE SDO-INV             TO WKS-I03-IMP-B03-XX                        
+769365        MOVE SDO-CIF             TO WKS-I03-IMP-B09-XX                        
+769366        MOVE WS-DIF-SDO          TO WKS-I03-IMP-B05-XX                        
+769367        MOVE WS-POS-DIF1         TO WKS-I03-DIF-XX                            
+769368        MOVE WS-COPIAP160        TO WKS-I03-CPY-XX                            
+769369        MOVE WKS-ID-INCID-XX     TO WKS-I03-05-DATINCID                       
+769370        WRITE FD-I03-INCIDENTE FROM WKS-I03-INCID-DATOS                       
+769371        MOVE " "                 TO WKS-I03-05-DATINCID                       
+769372        ADD  1                   TO WKS-I03-05-TOTDIF.                        
+769373* ESS/STEF FIN AJUSTE DEF DE SALDOS 20200527                                  
+769374                                                                              
+769380******************************************************************            
+769390* SI HUBO CTOS. CON DIFERENCIA SON IMPRESOS.                                  
+769400******************************************************************            
+769420 50523000-IMPCOM.                                                             
+769430     MOVE 1 TO             WS-10VEZ                                           
+771000     MOVE SDO-CTO          TO WS-COM-CTO                                      
+773000     MOVE SDO-INV          TO WS-COM-SDOCTE                                   
+774000     MOVE SDO-HIS          TO WS-COM-SDOCAL                                   
+775000     COMPUTE WS-SUM-DIF =  SDO-INV  - SDO-HIS                                 
+776000     MOVE WS-SUM-DIF       TO WS-COM-DIFE                                     
+776010     ADD  WS-SUM-DIF       TO WS-TOT-DIF                                      
+819000     IF WS-LINEA  > 50                                                        
+820000        MOVE 0  TO WS-LINEA                                                   
+821000        PERFORM 50512000-ENCCOM  THRU 50512000-EXIT                           
+822000        PERFORM 50523100-IMPDET  THRU 50523100-EXIT                           
+823000     ELSE                                                                     
+824000        PERFORM 50523100-IMPDET  THRU 50523100-EXIT.                          
+824010 50523000-EXIT.                                                               
+824020    EXIT.                                                                     
+824030                                                                              
+824040****************************************************************              
+824050* IMPRIMO EL DETALLE DE CUENTAS CUYO SALDO TUVO VARIACION.                    
+824060****************************************************************              
+824070 50523100-IMPDET.                                                             
+824080       ADD 1                   TO   WS-LINEA.                                 
+824090       WRITE REG-COMPARA       FROM WS-DET-SDOS BEFORE 1.                     
+824100 50523100-EXIT.                                                               
+824105     EXIT.                                                                    
+824110                                                                              
+873010                                                                              
+873020*****************************************************************             
+873030* GRABO EL DATASET DEPENDIENDO DE SU BANDERA.                                 
+873040*****************************************************************             
+873050 51001100-ACTUALIZO.                                                          
+873060    PERFORM 90000000-BEGIN-TRANSACTION.                                       
+873070    IF WS-BAN-B00 = 1                                                         
+873080      PERFORM 90000000-B00CTRLPASO-STORE                                      
+873090      IF WS-STATUS-BASE > 0                                                   
+873120         STRING "ERROR AL GRABAR B00CTRLPASO ",                               
+873122           " STATUS DB=",WS-STATUS-BASE ", COPIA=", WS-COPIAP160              
+873130           DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                            
+873140         PERFORM 70000050-MENSAJE                                             
+873150         CALL SYSTEM DMTERMINATE                                              
+873160      ELSE                                                                    
+873170         MOVE 0                                TO WS-BAN-B00.                 
+874240                                                                              
+874242    PERFORM 90000000-END-TRANSACTIONNOAU.                                     
+874246 51001100-EXIT.                                                               
+874247    EXIT.                                                                     
+874250****************************************************************              
+874255****************************************************************              
+874260*                                                                             
+874265*      R U T I N A S    F I N A L E S    D E L    P R O C E S O.              
+874270*                                                                             
+874275****************************************************************              
+874280****************************************************************              
+874285                                                                              
+874290                                                                              
+874295                                                                              
+874300                                                                              
+874305****************************************************************              
+874310* EJECUTA LAS RUTINAS NECESARIAS ANTES DE FINALIZAR EL PROCESO.*              
+874315****************************************************************              
+874320 70000000-CIERRO.                                                             
+874321    MOVE 1                                TO W77-ID-NUMREG-PROC.              
+874322    MOVE 07                               TO W77-ID-ACTXX-MAPLI               
+874323                                             WS-NUM-ACT07.                    
+874324    MOVE "CIERRO BASE, ARCH.Y ACT.CONTROL(B02)" TO W77-ID-NOMB-LIB            
+874325    MOVE "RUTINA DE CIERRE FINAL.             " TO W77-ID-TXTA-LIB            
+874326    PERFORM 70000910-INIACT-MAPLI.                                            
+874327                                                                              
+874328      PERFORM 70000050-ACT-PASO       THRU   70000050-EXIT.                   
+874330      PERFORM 70000100-CLOSE          THRU   70000100-EXIT.                   
+874331      MOVE WS-NUM-ACT07     TO W77-ID-ACTXX-MAPLI                             
+874332      MOVE " "              TO W77-ID-TXTA-LIB                                
+874333      PERFORM 70000950-ACT-REGPROC.                                           
+874334                                                                              
+874335    MOVE WS-NUM-ACT07        TO W77-ID-ACTXX-MAPLI.                           
+874336    PERFORM 70000910-FIN-ACTI-MAPLI.                                          
+874337    PERFORM 70000950-FIN-PGM-MAPLI.                                           
+874343 70000000-EXIT.                                                               
+874344      EXIT.                                                                   
+874345                                                                              
+874350*****************************************************************             
+874355* GRABO EL PASO QUE FINALIZO EN EL REG. DE B00CONTROL SI TODO FUE             
+874360* CORRECTO.                                                                   
+874365*****************************************************************             
+874370 70000050-ACT-PASO.                                                           
+874375   SET S500B00CTRLPASO TO BEGINNING.                                          
+874380   PERFORM 90000000-B00CTRLPASO-LOCK.                                         
+874385   IF WS-STATUS-BASE > 0                                                      
+874390     IF WS-STATUS-BASE = 1                                                    
+874405        STRING "NO EXISTE B00CONTROL EN BASE ",                               
+874406            " STATUS DB=",WS-STATUS-BASE ", COPIA=", WS-COPIAP160             
+874408            DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                           
+874410       PERFORM 70000050-MENSAJE                                               
+874415       CALL SYSTEM DMTERMINATE                                                
+874420     ELSE                                                                     
+874435       STRING "ERROR AL HACER LOCK A B00CTRL ",                               
+874437         " STATUS DB=",WS-STATUS-BASE ", COPIA=", WS-COPIAP160                
+874440         DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                              
+874445       PERFORM 70000050-MENSAJE                                               
+874450       CALL SYSTEM DMTERMINATE.                                               
+874451                                                                              
+874454      IF WS-COPIAP160= 1                                                      
+874456         MOVE 0               TO B00-CARGA-MOTOR                              
+874460         MOVE 160             TO B00-NUM-PASO-01                              
+874462      ELSE                                                                    
+874463      IF WS-COPIAP160= 2                                                      
+874464         MOVE 160             TO B00-NUM-PASO-02                              
+874465      ELSE                                                                    
+874466         MOVE 160             TO B00-NUM-PASO-03.                             
+874467      MOVE 1                  TO WS-BAN-B00.                                  
+874470      PERFORM 51001100-ACTUALIZO THRU  51001100-EXIT.                         
+874475 70000050-EXIT.                                                               
+874480    EXIT.                                                                     
+874485                                                                              
+874490****************************************************************              
+874495* CIERRO ARCHIVO Y BASE.                                                      
+874500****************************************************************              
+874505 70000100-CLOSE.                                                              
+874510**   CLOSE FILE-SALDOS   WITH PURGE.                                          
+874512     CLOSE FILE-SALDOS   WITH SAVE.                                           
+874515     CLOSE FILE-POSICION.                                                     
+874520     CLOSE FILE-COMPARA.                                                      
+874521                                                                              
+874522     IF WS-COPIAP160= 1                                                       
+874523        WRITE FD-REG-MOTOR FROM WKS-E01-TRAILER                               
+874524        MOVE 0  TO WKS-MOT-OPEN-E01                                           
+874525        CLOSE E01-MOTOR WITH CRUNCH.                                          
+874529                                                                              
+874530     CLOSE S500BD01CAPTACION                                                  
+874535           ON EXCEPTION                                                       
+874550     STRING "ERROR AL CERRAR LA BASE ",                                       
+874552            ", COPIA=", WS-COPIAP160                                          
+874554            DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                           
+874555     PERFORM 70000050-MENSAJE                                                 
+874560     CALL SYSTEM DMTERMINATE.                                                 
+874562                                                                              
+874564* ESS/STEF INI AJUSTE DEF DE SALDOS 20200527                                  
+874565*70000100-EXIT.                                                               
+874570*   EXIT.                                                                     
+874572                                                                              
+874574     MOVE WKS-I03-05-TOTDIF       TO WKS-I03-05-TOTREG.                       
+874576     WRITE FD-I03-INCIDENTE  FROM WKS-I03-INCID-TRAILER.                      
+874578                                                                              
+874580     IF WKS-I03-05-TOTREG > 0                                                 
+874582        MOVE 99                   TO W77-PAR-RESULT.                          
+874584                                                                              
+874586     SET MYSELF (TASKVALUE)       TO W77-PAR-RESULT.                          
+874588     WAIT (02).                                                               
+874590     CLOSE I03-ARCH-INCIDENTE WITH SAVE.                                      
+874592                                                                              
+874594 70000100-EXIT.                                                               
+874596     EXIT.                                                                    
+874598* ESS/STEF FIN AJUSTE DEF DE SALDOS 20200527                                  
+875400                                                                              
+876000****************************************************************              
+877000****************************************************************              
+878000* R U T I N A S    P A R A    E L   D E S P L I E G U E   D E                 
+879000*                        M S G.                                               
+880000****************************************************************              
+881000****************************************************************              
+882000                                                                              
+883000                                                                              
+884000                                                                              
+885000                                                                              
+901000****************************************************************              
+902000* COPY QUE CONTIENE LAS RUTINAS DE ACCESO A LA BASE DE DATOS.                 
+903000****************************************************************              
+904000 COPY "S500/INC/PRO/25MTP002".                                                
+904002                                                                              
+904005                                                                              
+904010 COPY "S500/INC/MAPLI/PRO/15MTP001".                                          
+905000                                                                              
+906000****************************************************************              

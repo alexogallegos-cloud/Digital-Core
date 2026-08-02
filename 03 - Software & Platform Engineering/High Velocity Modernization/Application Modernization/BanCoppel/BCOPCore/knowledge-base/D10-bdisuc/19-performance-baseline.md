@@ -104,3 +104,42 @@ export default function() {
 
 ---
 *Generado por: QA Lead — Equivalencia Funcional · 2026-07-03 · [SME-PENDING] baseline real requerido de DBA Informix*
+
+<!-- LOG-DATA-BEGIN -->
+## Volúmenes de producción confirmados — Logs 2026-04-24
+> Fuente: `source/logs/transacciones_bus_2026-04-24_*.txt` · Incorporado: 2026-08-01
+
+**Total llamadas dominio:** 11,184 · **Total errores:** 188 · **Error rate global:** 1.68%
+
+### Top SPs por volumen
+
+| SP | Llamadas/día | Errores/día | Error% | Códigos respuesta frecuentes |
+|----|-------------|-------------|--------|------------------------------|
+| `pasecont_web` | 4,173 | 0 | 0.0% | — |
+| `sp_atms_web` | 1,491 | 0 | 0.0% | — |
+| `sp_valfcfs_web` | 964 | 0 | 0.0% | — |
+| `cambio_perfil_web` | 728 | 0 | 0.0% | — |
+| `sp_faltsob_atm_ofi_web` | 706 | 78 | 11.05% | — |
+| `sp_guardabitacora_atm` | 648 | 0 | 0.0% | — |
+| `sp_reversafaltsob_web` | 639 | 1 | 0.16% | — |
+| `sp_limiteperfil_web` | 369 | 0 | 0.0% | — |
+| `sp_valida_oper_atm` | 323 | 4 | 1.24% | — |
+| `sp_arqueossuc_atm_web` | 286 | 0 | 0.0% | — |
+| `sp_obtieneultimadotacion_atm` | 274 | 0 | 0.0% | — |
+| `Sp_validadotaatm_web` | 112 | 95 | 84.82% | — |
+| `sp_validahora` | 111 | 3 | 2.7% | — |
+| `sp_monitor_atm_admin_ofi_web` | 89 | 0 | 0.0% | — |
+| `sp_guardar_bitacora_cajeros` | 69 | 0 | 0.0% | — |
+| `sp_soldocta_atm_ofi_web` | 68 | 1 | 1.47% | — |
+| `sp_dotatm_web` | 22 | 0 | 0.0% | — |
+| `sp_traefolios` | 21 | 5 | 23.81% | — |
+| `sp_sesioncaja_web` | 21 | 0 | 0.0% | — |
+| `sp_traemontosdota_web` | 20 | 0 | 0.0% | — |
+
+### Distribución horaria (llamadas con dominio mapeado)
+
+| Hora CDMX | Llamadas |
+|-----------|----------|
+
+*Generado por generate-kb-from-logs.py · 2026-08-01*
+<!-- LOG-DATA-END -->

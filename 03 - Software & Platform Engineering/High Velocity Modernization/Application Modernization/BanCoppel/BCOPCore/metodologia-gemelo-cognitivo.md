@@ -114,7 +114,7 @@ La calidad y la seguridad **no son una capa**: recorren las ocho. Forzarlas a un
 
 **Cumplimiento regulatorio** (CNBV · Banxico · CONDUSEF · PLD · PCI-DSS · ISO 27001) atraviesa ambos hilos y ya tiene a los 6 SME reguladores presentes desde la capa 4.
 
-> **Handoff:** la ejecución de seguridad la lleva el SME de **Cybersecurity / Cloud Security** de `Solutioning/Delivery - SME/` (gates SAST/SCA/DAST). El gemelo le entrega el **mapa** — dónde viven los secretos, la autenticación y los datos sensibles — no reemplaza su juicio.
+> **Handoff:** la ejecución de seguridad la lleva el SME de **Cybersecurity / Cloud Security** de `SME/` (gates SAST/SCA/DAST). El gemelo le entrega el **mapa** — dónde viven los secretos, la autenticación y los datos sensibles — no reemplaza su juicio.
 
 ---
 
