@@ -1,4 +1,4 @@
-"""
+﻿"""
 build-brain.py — BCOPCore Digital Brain · Pipeline de construcción
 Lee todos los artefactos existentes (JSON, py) y construye brain.db (SQLite).
 No modifica ningún archivo fuente.
@@ -153,7 +153,21 @@ CREATE TABLE sps (
     soul_rank   INTEGER,
     soul_pattern TEXT,
     weaknesses  INTEGER DEFAULT 0,
-    complexity  INTEGER DEFAULT 0
+    complexity  INTEGER DEFAULT 0,
+    -- Clasificación de rol (derivada del call graph + ESB logs)
+    sp_role          TEXT,
+    -- Métricas de producción (fuente: ESB logs 2026-04-24)
+    prod_calls_day   INTEGER,
+    prod_calls_hour  REAL,
+    prod_calls_sec   REAL,
+    prod_errors_day  INTEGER,
+    prod_error_rate  REAL,
+    prod_channels_n  INTEGER,
+    prod_p50_s       REAL,
+    prod_p95_s       REAL,
+    prod_p99_s       REAL,
+    prod_evidence_date TEXT,
+    prod_calling_systems TEXT
 );
 
 CREATE TABLE domains (
@@ -262,6 +276,7 @@ CREATE INDEX idx_sps_domain   ON sps(domain);
 CREATE INDEX idx_sps_name     ON sps(name);
 CREATE INDEX idx_sps_fanin    ON sps(fan_in DESC);
 CREATE INDEX idx_sps_soul     ON sps(is_soul);
+CREATE INDEX idx_sps_role     ON sps(sp_role);
 CREATE INDEX idx_calls_from   ON sp_calls(from_sp);
 CREATE INDEX idx_calls_to     ON sp_calls(to_sp);
 CREATE INDEX idx_rules_sp     ON rules(sp);
@@ -308,7 +323,7 @@ CREATE VIRTUAL TABLE etb_l3_fts USING fts5(
 # ── Loaders ───────────────────────────────────────────────────────────────────
 
 def load_callgraph(conn):
-    p = BASE / 'callgraph-data.json'
+    p = BASE / 'portal' / 'data' / 'callgraph-data.json'
     with open(p) as f:
         cg = json.load(f)
 
@@ -352,7 +367,7 @@ def load_callgraph(conn):
 
 
 def load_sp_validations(conn):
-    val_files = sorted(BASE.glob('sp-validation-*.json'))
+    val_files = sorted((BASE / 'knowledge-base').glob('sp-validation-*.json'))
     total, term_rows, new_sps = 0, [], []
 
     for vf in val_files:
@@ -405,7 +420,7 @@ def load_sp_validations(conn):
 
 
 def load_journeys(conn):
-    with open(BASE / 'journeys-data.json') as f:
+    with open(BASE / 'portal' / 'data' / 'journeys-data.json') as f:
         jd = json.load(f)
 
     dom_rows, j_rows = [], []
@@ -458,7 +473,7 @@ def load_journeys(conn):
 
 
 def load_souls(conn):
-    with open(BASE / 'souls-data.json') as f:
+    with open(BASE / 'portal' / 'data' / 'souls-data.json') as f:
         sd = json.load(f)
 
     rows = []
@@ -484,7 +499,7 @@ def load_souls(conn):
 
 
 def load_integrations(conn):
-    with open(BASE / 'integrations-data.json') as f:
+    with open(BASE / 'portal' / 'data' / 'integrations-data.json') as f:
         ig = json.load(f)
 
     rows = [(s['key'], s.get('cat', ''), s.get('total', 0)) for s in ig.get('systems', [])]
@@ -497,7 +512,7 @@ def load_integrations(conn):
 
 
 def load_quality(conn):
-    with open(BASE / 'quality-data.json') as f:
+    with open(BASE / 'portal' / 'data' / 'quality-data.json') as f:
         qd = json.load(f)
 
     # Enrich domains
@@ -525,7 +540,7 @@ def load_quality(conn):
 
 
 def load_rules(conn):
-    with open(BASE / 'business-rules.json', encoding='utf-8') as f:
+    with open(BASE / 'portal' / 'data' / 'business-rules.json', encoding='utf-8') as f:
         br = json.load(f)
 
     rows = []
@@ -562,7 +577,7 @@ def load_rules(conn):
 
 
 def load_vocabulary(conn):
-    with open(BASE / 'vocabulary-inventory.json', encoding='utf-8') as f:
+    with open(BASE / 'knowledge-base' / 'vocabulary-inventory.json', encoding='utf-8') as f:
         vi = json.load(f)
 
     rows = []
@@ -632,6 +647,144 @@ def load_etb_capabilities(conn):
           f'   covered {covered}+{cross}cc/{len(l3_rows)} ({pct}%)')
 
 
+def classify_sps(conn):
+    """
+    Asigna sp_role a cada SP derivado del call graph + journeys-data.json + ESB logs.
+
+    Roles:
+      entry_point          — llamado sólo desde canales externos (app/ESB), sin callers SPL.
+                             Evidencia: triggered_by=[{dom:'app',n:0}] o ausencia en sp_calls como callee.
+      cross_domain_primitive — primitiva de negocio llamada desde múltiples dominios internos.
+                             Evidencia: triggered_by con dominios internos con n>0.
+      shared_service       — utility cross-domain (event bus, validators, audit logs).
+                             Evidencia: journey_type='exposed' en journeys-data.json.
+      esb_exposed          — SP medido en logs ESB de producción pero no catalogado en journeys.
+                             Evidencia: aparece en sp-frequency.json, 0 filas como callee en sp_calls.
+      internal             — lógica SPL interna; nunca llamado desde canales externos.
+
+    is_soul (flag existente) es ortogonal al rol — un soul puede ser entry_point, cross_domain_primitive
+    o shared_service simultáneamente.
+    """
+    with open(BASE / 'portal' / 'data' / 'journeys-data.json', encoding='utf-8') as f:
+        jd = json.load(f)
+
+    freq_path = BASE / 'output' / 'log-analysis' / 'sp-frequency.json'
+    with open(freq_path, encoding='utf-8') as f:
+        freq_data = json.load(f)
+    esb_sps = {row['sp'] for row in freq_data}
+
+    role_map = {}
+
+    for dv in jd.values():
+        for j in dv.get('journeys', []):
+            sp = j.get('sp', '')
+            if not sp:
+                continue
+            tb = j.get('triggered_by', [])
+            has_internal = any(
+                t.get('dom', 'app') not in ('app', '') and t.get('n', 0) > 0
+                for t in tb
+            )
+            role_map[sp] = 'cross_domain_primitive' if has_internal else 'entry_point'
+
+        for j in dv.get('exposed', []):
+            sp = j.get('sp', '')
+            if sp:
+                role_map[sp] = 'shared_service'
+
+    # SPs en ESB que no están en journeys → esb_exposed
+    for sp in esb_sps:
+        if sp not in role_map:
+            role_map[sp] = 'esb_exposed'
+
+    updates = [(role_map.get(name, 'internal'), sp_id)
+               for sp_id, name in conn.execute('SELECT id, name FROM sps')]
+    conn.executemany('UPDATE sps SET sp_role=? WHERE id=?', updates)
+    conn.commit()
+
+    counts = {}
+    for role, n in conn.execute('SELECT sp_role, COUNT(*) FROM sps GROUP BY sp_role ORDER BY 2 DESC'):
+        counts[role] = n
+    total = sum(counts.values())
+    print(f'  classify     {total:>6,} SPs clasificados:')
+    for role, n in sorted(counts.items(), key=lambda x: -x[1]):
+        print(f'               {role:<25} {n:>6,}')
+
+
+def load_prod_metrics(conn):
+    """
+    Enriquece sps con métricas de producción extraídas de los logs ESB (2026-04-24):
+    - prod_calls_day / hour / sec — volumen transaccional
+    - prod_errors_day, prod_error_rate — calidad de servicio
+    - prod_channels_n — diversidad de canales ESB
+    - prod_p50_s, prod_p95_s, prod_p99_s — latencia individual (v2) o flujo (v1)
+    - prod_calling_systems — sistemas ESB que invocan el SP (JSON array)
+    Fuentes: sp-frequency.json + latency-individual-by-sp.json (v2) + latency-by-sp.json (v1)
+    """
+    freq_path  = BASE / 'output' / 'log-analysis' / 'sp-frequency.json'
+    lat_v2_path = BASE / 'output' / 'log-analysis' / 'latency-individual-by-sp.json'
+    lat_v1_path = BASE / 'output' / 'log-analysis' / 'latency-by-sp.json'
+
+    with open(freq_path, encoding='utf-8') as f:
+        freq_data = json.load(f)
+    with open(lat_v2_path, encoding='utf-8') as f:
+        lat_v2 = json.load(f)
+    lat_v1 = {}
+    if lat_v1_path.exists():
+        with open(lat_v1_path, encoding='utf-8') as f:
+            lat_v1 = json.load(f)
+
+    evidence_date = '2026-04-24'
+    SECS_DAY = 86400.0
+
+    updates = 0
+    for row in freq_data:
+        sp = row['sp']
+        calls = row.get('calls', 0) or 0
+        errors = row.get('errors', 0) or 0
+        err_rate = row.get('error_rate', 0.0) or 0.0
+        sistemas = [s for s in row.get('sistemas', []) if s and s != '-']
+        channels_n = len(sistemas)
+
+        lat = lat_v2.get(sp) or lat_v1.get(sp)
+        p50 = lat.get('p50') if lat else None
+        p95 = lat.get('p95') if lat else None
+        p99 = lat.get('p99') if lat else None
+
+        conn.execute('''
+            UPDATE sps SET
+                prod_calls_day        = ?,
+                prod_calls_hour       = ?,
+                prod_calls_sec        = ?,
+                prod_errors_day       = ?,
+                prod_error_rate       = ?,
+                prod_channels_n       = ?,
+                prod_p50_s            = ?,
+                prod_p95_s            = ?,
+                prod_p99_s            = ?,
+                prod_evidence_date    = ?,
+                prod_calling_systems  = ?
+            WHERE name = ?
+        ''', (
+            calls,
+            round(calls / 24.0, 2) if calls else None,
+            round(calls / SECS_DAY, 4) if calls else None,
+            errors,
+            err_rate,
+            channels_n if channels_n else None,
+            p50, p95, p99,
+            evidence_date,
+            json.dumps(sistemas, ensure_ascii=False) if sistemas else None,
+            sp
+        ))
+        updates += 1
+
+    conn.commit()
+    measured_lat = conn.execute('SELECT COUNT(*) FROM sps WHERE prod_p95_s IS NOT NULL').fetchone()[0]
+    measured_vol = conn.execute('SELECT COUNT(*) FROM sps WHERE prod_calls_day > 0').fetchone()[0]
+    print(f'  prod_metrics {updates:>6,} SPs con volumen  |  {measured_lat:>4} con latencia  [{evidence_date}]')
+
+
 def build_sp_terms(conn):
     """
     Construye sp_terms enlazando SPs con el vocabulario controlado.
@@ -686,6 +839,22 @@ def print_summary(conn):
     print(f'\n  {"almas (souls)":<20} {souls:>8,}')
     print(f'  {"SPs con vocab":<20} {linked:>8,}')
 
+    print(f'\n── SP Roles ────────────────────────────────────────')
+    for role, n in conn.execute(
+        'SELECT sp_role, COUNT(*) FROM sps GROUP BY sp_role ORDER BY 2 DESC'
+    ):
+        print(f'  {str(role):<25} {n:>8,}')
+
+    print(f'\n── Producción (ESB 2026-04-24) ────────────────────')
+    vol  = conn.execute('SELECT COUNT(*) FROM sps WHERE prod_calls_day > 0').fetchone()[0]
+    lat  = conn.execute('SELECT COUNT(*) FROM sps WHERE prod_p95_s IS NOT NULL').fetchone()[0]
+    top  = conn.execute('SELECT name, prod_calls_day FROM sps WHERE prod_calls_day > 0 ORDER BY prod_calls_day DESC LIMIT 3').fetchall()
+    p95h = conn.execute('SELECT name, prod_p95_s FROM sps WHERE prod_p95_s > 0 ORDER BY prod_p95_s DESC LIMIT 3').fetchall()
+    print(f'  {"SPs con volumen":<25} {vol:>8,}')
+    print(f'  {"SPs con latencia":<25} {lat:>8,}')
+    print(f'  Top 3 por volumen: {[f"{r[0]}({r[1]:,})" for r in top]}')
+    print(f'  Top 3 por P95:     {[f"{r[0]}({r[1]}s)" for r in p95h]}')
+
     l3_n  = conn.execute('SELECT COUNT(*) FROM etb_l3').fetchone()[0]
     if l3_n:
         cov = conn.execute("SELECT COUNT(*) FROM etb_l3 WHERE bcop_status='COVERED'").fetchone()[0]
@@ -723,6 +892,8 @@ def main():
     load_rules(conn)
     load_vocabulary(conn)
     load_etb_capabilities(conn)
+    classify_sps(conn)
+    load_prod_metrics(conn)
     build_sp_terms(conn)
 
     print('\nConstruyendo índices FTS5:')

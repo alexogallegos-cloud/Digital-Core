@@ -35,9 +35,9 @@
 
 | ID | Base de datos | Dominio | Llamadas | Criticidad | SPs callee principales |
 |----|--------------|---------|---------|-----------|----------------------|
-| [D04](D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 125 | 🟡 MEDIO | `bdicheq:cargo_ref`, `bdicheq:abono_ref`, `bdicheq:bloqueo_cta` |
-| [D09](D09-bdimnsj/) | `bdimnsj` | Mensajería | 34 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
-| [D03](D03-bdicred/) | `bdicred` | Créditos | 21 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general` |
+| [D04](../D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 125 | 🟡 MEDIO | `bdicheq:cargo_ref`, `bdicheq:abono_ref`, `bdicheq:bloqueo_cta` |
+| [D09](../D09-bdimnsj/) | `bdimnsj` | Mensajería | 34 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
+| [D03](../D03-bdicred/) | `bdicred` | Créditos | 21 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general` |
 
 ## Dependencias downstream — estos dominios llaman a `bdiaclaracion`
 

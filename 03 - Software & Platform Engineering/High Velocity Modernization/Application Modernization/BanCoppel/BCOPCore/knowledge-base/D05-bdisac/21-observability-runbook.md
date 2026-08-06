@@ -1,4 +1,4 @@
-# D05 · bdisac (Saldos y Cuentas) — Observabilidad y Runbook
+﻿# D05 · bdisac (Saldos y Cuentas) — Observabilidad y Runbook
 
 > **Componente:** BCOPCore · SPE-AM-001 · OPERATE Phase
 > **Microservicio target:** SaldosYCuentasService
@@ -280,6 +280,9 @@ NOTA REGULATORIA: MONEY=22,232 requiere trazabilidad completa de cada discrepanc
 ```
 
 ### INC-D05-04: Remesa internacional atascada — loop APPRIZA sin resolución
+
+> **Diagnóstico completo con evidencia de logs**: [inc-001-d05-appriza.html](../../portal/incidents/inc-001-d05-appriza.html)  
+> Incluye: call stack, patrones de retry, risk register INC-001, cadena de causalidad y plan de remediación detallado.
 
 ```
 CONTEXTO:

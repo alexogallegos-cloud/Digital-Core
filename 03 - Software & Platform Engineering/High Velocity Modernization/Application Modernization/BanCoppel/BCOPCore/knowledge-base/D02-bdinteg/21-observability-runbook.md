@@ -1,4 +1,4 @@
-# D02 · bdinteg — Integración y Autenticación — Observabilidad y Runbook
+﻿# D02 · bdinteg — Integración y Autenticación — Observabilidad y Runbook
 
 > **Componente:** BCOPCore · SPE-AM-001 · OPERATE Phase
 > **Base de datos:** bdinteg (Integración y Autenticación)
@@ -393,6 +393,48 @@ RTO target: < 20 min (18,511 campos MONEY en riesgo de inconsistencia de datos)
 > y tokens de sesión de cajero. Nunca loguear: num_cte, num_tarjeta, datos biométricos,
 > tokens de sesión. Solo loguear identificadores anonimizados.
 > Marco regulatorio aplicable: LFPDPPP, CNBV Circular 3/2012, PCI-DSS 3.4.
+
+---
+
+### INC-D02-04 — Tabla de huellas biométricas stale (N2)
+
+> **Diagnóstico completo**: [inc-007-d02-huellas-stale.html](../../portal/incidents/inc-007-d02-huellas-stale.html)
+
+> **Ver risk register:** `migration-risk-register.md` · P655-R006
+
+**Impacto funcional:** Riesgo de divergencia entre el inventario de huellas biométricas en Informix (`si_cte_huella` en bdinteg) y el stock real en PostgreSQL (`postg_huellasemps`), dado que el sistema Huellas ya migró a PostgreSQL. Con 205,079 llamadas/día a `sp_consulta_huella_actual` (punto de entrada de autenticación de TODOS los servicios), cualquier divergencia en los datos de huella afecta la autenticación biométrica transversal.
+
+**Causa raíz (desde risk register P655-R006):** El sistema Huellas migró a PostgreSQL (`postg_huellasemps`) pero `sp_consulta_huella_actual` sigue consultando la tabla `si_cte_huella` en bdinteg (Informix). Riesgo de que el inventario de huellas en Informix no esté sincronizado con el de PostgreSQL.
+
+**SPs afectados:** `sp_consulta_huella_actual` (205,079 llamadas/día — el SP más llamado del sistema).
+
+**Acción requerida antes de cutover:**
+1. Coordinar con el equipo de Huellas (PostgreSQL `postg_huellasemps`) para verificar si existe mecanismo de sincronización hacia `si_cte_huella` en bdinteg.
+2. Si no hay sincronización: evaluar si el target de bdinteg debe apuntar directamente a `postg_huellasemps` en vez de la tabla Informix.
+3. Documentar en `ADR-SPE-AM-XXX` la estrategia de acceso a huellas en el target (Informix local vs. PostgreSQL externo).
+4. Registrar como prerequisito del parallel-run: la tasa de autenticación exitosa no debe divergir entre legacy y target.
+
+---
+
+### INC-D02-05 — ACEPTPORTA SFTP Auth Failure · Portabilidad Nómina (N2)
+
+> **Diagnóstico completo**: [inc-008-d02-aceptporta.html](../../portal/incidents/inc-008-d02-aceptporta.html)
+
+> **Ver risk register:** `migration-risk-register.md` · P655-R007
+
+**Impacto funcional:** El servicio `ACEPTPORTA` (ESB → `PrestamoNominaExpedienteDigital`) falla 3,244 veces/día con error 3381 al intentar autenticarse contra el servidor SFTP `sysportabnominaapp`. El resultado es que `sp_inserta_reg_expediente_dig_img` nunca se invoca — 3,073 expedientes digitales de portabilidad de nómina quedan sin imagen por día. El flujo CNBV de portabilidad no puede completarse: `sp_consulta_reg_contr_evid_notif_porta_x_estatus` recibe solo 1 llamada/día (flujo prácticamente muerto).
+
+**Causa raíz (desde log analysis 2026-04-24):** Las credenciales `sysportabnominaapp` en el keystore del ESB están inválidas o expiradas. Error 3381 = falla de autenticación SFTP. No hay mecanismo de reintento ni alerta configurada.
+
+**SPs afectados:**
+- `sp_inserta_reg_expediente_dig_img`: 3,073 llamadas/día, 100% fallo (SP nunca se invoca porque el SFTP falla antes)
+- `sp_consulta_reg_contr_evid_notif_porta_x_estatus`: 1 llamada/día (flujo de notificación prácticamente muerto)
+
+**Acciones requeridas:**
+1. Rotar credenciales de `sysportabnominaapp` y actualizar el keystore del ESB.
+2. Agregar alerta sobre error 3381 en `errores_bus_*.txt` — threshold: > 10 eventos en 5 min.
+3. Migrar gestión de credenciales SFTP a Vault o AWS Secrets Manager (eliminar keystore estático).
+4. Documentar escenario en `knowledge-base/D02-bdinteg/06-exceptions.md` con código 3381.
 
 ---
 

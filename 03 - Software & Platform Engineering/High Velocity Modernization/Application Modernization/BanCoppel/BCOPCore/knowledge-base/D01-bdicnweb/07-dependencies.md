@@ -35,20 +35,20 @@
 
 | ID | Base de datos | Dominio | Llamadas | Criticidad | SPs callee principales |
 |----|--------------|---------|---------|-----------|----------------------|
-| [D02](D02-bdinteg/) | `bdinteg` | Integración y Auth | 11,391 | 🔴 CRÍTICO | `bdinteg:sp_cnsif_confirmaejecutivo`, `bdinteg:sp_cnsif_permisosejecutivo`, `bdinteg:sp_valida_perfil_usuario` |
-| [D03](D03-bdicred/) | `bdicred` | Créditos | 9,027 | 🔴 CRÍTICO | `bdicred:sp_consulta_saldos_general`, `bdicred:sp_mon_buro_conssolcredlincred2`, `bdicred:sp_inserta_productos` |
-| [D10](D10-bdisuc/) | `bdisuc` | Sucursales | 3,255 | 🟠 ALTO | `bdisuc:sp_consultadatospiezas_bym3`, `bdisuc:sp_consutacat_dictamen_bym`, `bdisuc:sp_consultadatospiezas_bym2` |
-| [D05](D05-bdisac/) | `bdisac` | Saldos y Cuentas | 2,601 | 🟠 ALTO | `bdisac:sp_validanombenefbts`, `bdisac:sp_sac_consucursales`, `bdisac:sp_validabts` |
-| [D06](D06-bdisolic/) | `bdisolic` | Solicitudes | 1,316 | 🟠 ALTO | `bdisolic:sp_asigna_solicitud_soc`, `bdisolic:determina_lincred_tc_cjunk`, `bdisolic:sp_obtienegrupo` |
-| [D09](D09-bdimnsj/) | `bdimnsj` | Mensajería | 949 | 🟡 MEDIO | `bdimnsj:sp_registra_evento` |
-| [D04](D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 494 | 🟡 MEDIO | `bdicheq:cargo_ref`, `bdicheq:abono_ref`, `bdicheq:reversion` |
+| [D02](../D02-bdinteg/) | `bdinteg` | Integración y Auth | 11,391 | 🔴 CRÍTICO | `bdinteg:sp_cnsif_confirmaejecutivo`, `bdinteg:sp_cnsif_permisosejecutivo`, `bdinteg:sp_valida_perfil_usuario` |
+| [D03](../D03-bdicred/) | `bdicred` | Créditos | 9,027 | 🔴 CRÍTICO | `bdicred:sp_consulta_saldos_general`, `bdicred:sp_mon_buro_conssolcredlincred2`, `bdicred:sp_inserta_productos` |
+| [D10](../D10-bdisuc/) | `bdisuc` | Sucursales | 3,255 | 🟠 ALTO | `bdisuc:sp_consultadatospiezas_bym3`, `bdisuc:sp_consutacat_dictamen_bym`, `bdisuc:sp_consultadatospiezas_bym2` |
+| [D05](../D05-bdisac/) | `bdisac` | Saldos y Cuentas | 2,601 | 🟠 ALTO | `bdisac:sp_validanombenefbts`, `bdisac:sp_sac_consucursales`, `bdisac:sp_validabts` |
+| [D06](../D06-bdisolic/) | `bdisolic` | Solicitudes | 1,316 | 🟠 ALTO | `bdisolic:sp_asigna_solicitud_soc`, `bdisolic:determina_lincred_tc_cjunk`, `bdisolic:sp_obtienegrupo` |
+| [D09](../D09-bdimnsj/) | `bdimnsj` | Mensajería | 949 | 🟡 MEDIO | `bdimnsj:sp_registra_evento` |
+| [D04](../D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 494 | 🟡 MEDIO | `bdicheq:cargo_ref`, `bdicheq:abono_ref`, `bdicheq:reversion` |
 
 ## Dependencias downstream — estos dominios llaman a `bdicnweb`
 
 | ID | Base de datos | Dominio | Llamadas | Criticidad | SPs que expone `bdicnweb` |
 |----|--------------|---------|---------|-----------|----------------------|
-| [D04](D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 13 | 🟢 BAJO | `bdicnweb:sp_split_cadena` |
-| [D02](D02-bdinteg/) | `bdinteg` | Integración y Auth | 4 | 🟢 BAJO | `bdicnweb:sp_calificacion_scoring`, `bdicnweb:sp_validacte_transfer` |
+| [D04](../D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 13 | 🟢 BAJO | `bdicnweb:sp_split_cadena` |
+| [D02](../D02-bdinteg/) | `bdinteg` | Integración y Auth | 4 | 🟢 BAJO | `bdicnweb:sp_calificacion_scoring`, `bdicnweb:sp_validacte_transfer` |
 
 ## Detalle de puentes SP-a-SP (bridges)
 

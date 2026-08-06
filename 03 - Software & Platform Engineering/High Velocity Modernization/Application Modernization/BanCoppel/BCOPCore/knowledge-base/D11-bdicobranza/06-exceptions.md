@@ -2,7 +2,7 @@
 
 > **Componente:** BCOPCore · SPE-AM-001 · Etapa 1 — Static Analysis
 > **Base de datos:** `bdicobranza` · IBM Informix IDS 14.10 FC10W2 / POWER-AIX
-> **Última actualización:** 2026-07-03
+> **Última actualización:** 2026-08-03 *(CWE-390 + CHAR(5) confirmados en código — P655-R009/R010)*
 
 ---
 **SME responsable:**

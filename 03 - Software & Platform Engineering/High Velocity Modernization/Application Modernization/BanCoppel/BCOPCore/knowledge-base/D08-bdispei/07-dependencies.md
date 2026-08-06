@@ -35,15 +35,15 @@
 
 | ID | Base de datos | Dominio | Llamadas | Criticidad | SPs callee principales |
 |----|--------------|---------|---------|-----------|----------------------|
-| [D04](D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 48 | 🟢 BAJO | `bdicheq:cargo_ref`, `bdicheq:abono_ref`, `bdicheq:sp_cons_sdodisp_x_tpcalculo` |
-| [D09](D09-bdimnsj/) | `bdimnsj` | Mensajería | 19 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
-| [D02](D02-bdinteg/) | `bdinteg` | Integración y Auth | 2 | 🟢 BAJO | `bdinteg:sp_desc_ret` |
+| [D04](../D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 48 | 🟢 BAJO | `bdicheq:cargo_ref`, `bdicheq:abono_ref`, `bdicheq:sp_cons_sdodisp_x_tpcalculo` |
+| [D09](../D09-bdimnsj/) | `bdimnsj` | Mensajería | 19 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
+| [D02](../D02-bdinteg/) | `bdinteg` | Integración y Auth | 2 | 🟢 BAJO | `bdinteg:sp_desc_ret` |
 
 ## Dependencias downstream — estos dominios llaman a `bdispei`
 
 | ID | Base de datos | Dominio | Llamadas | Criticidad | SPs que expone `bdispei` |
 |----|--------------|---------|---------|-----------|----------------------|
-| [D04](D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 3 | 🟢 BAJO | `bdispei:sp_validafecha` |
+| [D04](../D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 3 | 🟢 BAJO | `bdispei:sp_validafecha` |
 
 ## Detalle de puentes SP-a-SP (bridges)
 

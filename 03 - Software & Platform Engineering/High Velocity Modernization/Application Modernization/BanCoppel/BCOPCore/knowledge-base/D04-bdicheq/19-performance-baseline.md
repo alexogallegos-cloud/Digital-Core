@@ -105,6 +105,31 @@ export default function() {
 ---
 *Generado por: QA Lead — Equivalencia Funcional · 2026-07-03 · [SME-PENDING] baseline real requerido de DBA Informix*
 
+<!-- LATENCY-ANALYSIS-BEGIN -->
+## Latencias de flujo ESB confirmadas — Sobres Digitales (logs 2026-04-24)
+> Fuente: `knowledge-base/latency-baseline-bcop.md` + análisis código SPL · Incorporado: 2026-08-03
+> **Nota metodológica**: estas latencias miden el flujo ESB completo por `idTrxGlobal` — incluyendo
+> notificaciones síncronas post-COMMIT. La latencia de Informix pura es sub-segundo. Ver causa raíz
+> en `21-observability-runbook.md §Análisis de causa raíz — Sobres Digitales`.
+
+| SP | Llamadas/día | N flujos latencia | P50 | P95 | P99 | Causa raíz dominante |
+|----|-------------|-------------------|-----|-----|-----|----------------------|
+| `sp_consmov_sd` | 2,260 | 458 | 44.0s | 220.3s | 282.6s | Lock contention sc_mov_sd + posible full scan (sin cross-domain) |
+| `sp_retiro_sd` | 41,546 | 2,671 | 35.0s | 208.5s | 270.3s | bdimnsj sincrónico post-COMMIT + sp_retencion_cobranza_automatica |
+| `sp_perso_sd` | — | 77 | 23.0s | 201.6s | 236.6s | Lock contention sc_mae_sd (sin cross-domain calls) |
+| `sp_abono_sd` | 25,414 | 2,012 | 37.0s | 188.5s | 262.0s | 1–2 llamadas bdimnsj síncronas post-COMMIT |
+| `sp_edic_sd` | — | 205 | 35.0s | 187.2s | 273.8s | 2 llamadas bdimnsj síncronas (mail + push) post-COMMIT |
+| `sp_crea_sd` | 6,394 | 2,612 | 10.0s | 144.0s | 251.0s | Contador global sc_param + 2 llamadas bdimnsj post-COMMIT |
+
+> **SLO-AM-02 para SD — requiere redefinición**: el P95 legacy incluye tiempo de notificaciones
+> síncronas que el target eliminará. Se propone dividir en SLO-AM-02a (confirmación bancaria ≤ 2s P95)
+> y SLO-AM-02b (entrega de notificación ≤ 30s P95 en servicio de mensajería). Ver 21-runbook §SLO.
+
+> **Acción para parallel-run**: instrumentar los SPs SD con un span separado para la operación DB
+> y un span separado para la notificación. El criterio de equivalencia funcional debe comparar
+> el span DB del target (target Aurora) contra el tiempo de Informix puro — no contra el P95 ESB.
+<!-- LATENCY-ANALYSIS-END -->
+
 <!-- LOG-DATA-BEGIN -->
 ## Volúmenes de producción confirmados — Logs 2026-04-24
 > Fuente: `source/logs/transacciones_bus_2026-04-24_*.txt` · Incorporado: 2026-08-01

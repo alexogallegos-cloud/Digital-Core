@@ -35,18 +35,18 @@
 
 | ID | Base de datos | Dominio | Llamadas | Criticidad | SPs callee principales |
 |----|--------------|---------|---------|-----------|----------------------|
-| [D04](D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 312 | 🟡 MEDIO | `bdicheq:cargo_ref`, `bdicheq:abono_ref`, `bdicheq:reversion` |
-| [D03](D03-bdicred/) | `bdicred` | Créditos | 21 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general`, `bdicred:reversion` |
-| [D02](D02-bdinteg/) | `bdinteg` | Integración y Auth | 12 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo`, `bdinteg:sp_registra_telefonos`, `bdinteg:sp_actvalidacioncofetel` |
-| [D09](D09-bdimnsj/) | `bdimnsj` | Mensajería | 10 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
+| [D04](../D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 312 | 🟡 MEDIO | `bdicheq:cargo_ref`, `bdicheq:abono_ref`, `bdicheq:reversion` |
+| [D03](../D03-bdicred/) | `bdicred` | Créditos | 21 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general`, `bdicred:reversion` |
+| [D02](../D02-bdinteg/) | `bdinteg` | Integración y Auth | 12 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo`, `bdinteg:sp_registra_telefonos`, `bdinteg:sp_actvalidacioncofetel` |
+| [D09](../D09-bdimnsj/) | `bdimnsj` | Mensajería | 10 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
 
 ## Dependencias downstream — estos dominios llaman a `bdisac`
 
 | ID | Base de datos | Dominio | Llamadas | Criticidad | SPs que expone `bdisac` |
 |----|--------------|---------|---------|-----------|----------------------|
-| [D01](D01-bdicnweb/) | `bdicnweb` | Canal Digital Web | 2,601 | 🟠 ALTO | `bdisac:sp_validanombenefbts`, `bdisac:sp_sac_consucursales`, `bdisac:sp_validabts` |
-| [D02](D02-bdinteg/) | `bdinteg` | Integración y Auth | 9 | 🟢 BAJO | `bdisac:sp_sac_guardamensajeerror`, `bdisac:sp_validanombenefbts` |
-| [D04](D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 1 | 🟢 BAJO | `bdisac:sp_reversionsac` |
+| [D01](../D01-bdicnweb/) | `bdicnweb` | Canal Digital Web | 2,601 | 🟠 ALTO | `bdisac:sp_validanombenefbts`, `bdisac:sp_sac_consucursales`, `bdisac:sp_validabts` |
+| [D02](../D02-bdinteg/) | `bdinteg` | Integración y Auth | 9 | 🟢 BAJO | `bdisac:sp_sac_guardamensajeerror`, `bdisac:sp_validanombenefbts` |
+| [D04](../D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 1 | 🟢 BAJO | `bdisac:sp_reversionsac` |
 
 ## Detalle de puentes SP-a-SP (bridges)
 

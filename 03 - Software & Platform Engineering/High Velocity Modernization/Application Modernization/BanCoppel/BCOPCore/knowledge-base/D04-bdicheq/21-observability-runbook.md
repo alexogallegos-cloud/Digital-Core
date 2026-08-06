@@ -408,6 +408,112 @@ RTO target: < 10 min (pagos SPEI tienen SLA regulatorio de Banxico — máxima u
 
 ---
 
+### INC-D04-04: Sobres Digitales — latencia P95 extrema (35–220s en operaciones SD)
+
+```
+TRIGGER:
+  - P95 de bancoppel.bdicheq.{retiro,abono,crea,edic,perso,consmov}_sd.latency supera 10s
+  - O: usuarios reportan lentitud o timeout en operaciones de Sobres Digitales
+  - O: errores 00009/00010 con volumen inusual sin correlación con cambio de tráfico —
+    puede indicar abortos por timeout dentro de sp_retiro_sd o sp_abono_sd
+
+CONTEXTO:
+  En producción (logs 2026-04-24), los SPs de Sobres Digitales muestran P95 de 35–220s.
+  Esta latencia NO la genera Informix — las transacciones bancarias (UPDATE/INSERT en
+  sc_mae_sd + sc_mov_sd) se completan en milisegundos. Las causas son estructurales:
+
+  (1) NOTIFICACIONES SÍNCRONAS POST-COMMIT — sp_retiro_sd, sp_crea_sd, sp_abono_sd,
+      sp_edic_sd: todos ejecutan bdimnsj:sp_registra_evento (push y/o mail) DESPUÉS del
+      COMMIT, dentro del mismo flujo ESB. Si D09-bdimnsj tiene carga, el cliente espera
+      la confirmación de encolado antes de recibir la respuesta bancaria.
+
+  (2) CONTADOR GLOBAL sc_param (concsd) — sp_crea_sd: UPDATE en fila única de sc_param
+      serializa todas las creaciones concurrentes. Con 6,394 creaciones/día en pico, cada
+      operación bloqueada espera hasta 3s (SET LOCK MODE TO WAIT 3).
+
+  (3) sp_retencion_cobranza_automatica — sp_retiro_sd: SP añadido en RQM 09 704 (oct-2025),
+      ejecutado post-COMMIT. Puede ser lento si la cuenta tiene posiciones de crédito activas.
+
+  (4) LOCK CONTENTION + POSIBLE FULL SCAN — sp_perso_sd (P95=202s) y sp_consmov_sd
+      (P95=220s, P50=44s): ambos SPs son simples (1 UPDATE / 1 FOREACH) sin llamadas
+      cross-domain. El P50=44s de sp_consmov_sd evidencia una consulta lenta en condiciones
+      no congestionadas — indicador de índice insuficiente en sc_mov_sd para el patrón
+      WHERE cuenta_sobre=? AND cuenta_eje=? ORDER BY fecha_operacion DESC.
+
+  En el target Aurora los patrones 1 y 2 desaparecen por diseño. El target debe medir:
+  - SLO-AM-02a: P95 confirmación bancaria (operación DB pura) ≤ 2s
+  - SLO-AM-02b: P95 entrega de notificación ≤ 30s (medido en el servicio de mensajería)
+
+DIAGNOSTICAR:
+  1. Localizar si el span lento es DB o notificación:
+       X-Ray → expandir span del SP y ver sub-span más largo
+       Si el sub-span lento es una llamada saliente a D09-bdimnsj → causa 1
+       Si el sub-span lento está dentro de la transacción Aurora → causa 3 o 4
+
+  2. Si D09-bdimnsj está degradado (causa 1):
+       MSK topic bd09.mensajeria.outbound → SumOffsetLag
+       Si lag > 10,000: D09 bajo presión — notificaciones en cola
+
+  3. Si hay lock contention en Aurora (causa 4):
+       Performance Insights → top wait events en sc_mae_sd / sc_mov_sd
+       Verificar si sp_cobroauto_sd (batch de cobranza automática, FOREACH de 1,000 en 1,000)
+       está corriendo concurrentemente — genera locks en sc_mov_sd
+       Para sp_consmov_sd: ejecutar EXPLAIN y confirmar si hay índice en
+         (cuenta_sobre, cuenta_eje, fecha_operacion DESC) — si no existe, es full/partial scan
+
+RESOLVER:
+  A. D09 degradado — notificaciones síncronas atascadas:
+       Activar circuit-breaker: notificaciones al DLQ del MSK topic correspondiente;
+       el cliente recibe la confirmación bancaria inmediata
+       Notificar a SRE de D09-bdimnsj
+       Procesar DLQ en orden de llegada una vez que D09 se recupere
+
+  B. Batch sp_cobroauto_sd en horario de pico (lock contention):
+       Throttle del batch para liberar sc_mov_sd durante pico diurno (10:00–14:00 CDMX)
+       Rate limiting en endpoints SD durante el período de contención
+
+  C. sp_consmov_sd con full scan en sc_mov_sd:
+       Crear índice en sc_mov_sd (cuenta_sobre, cuenta_eje, fecha_operacion DESC)
+       con el DBA IBM Informix IDS en ventana de mantenimiento nocturna
+       En el target Aurora: CREATE INDEX CONCURRENTLY antes del parallel-run
+
+ESCALAR si no resuelve en 15 min: SRE Lead + Domain Expert BanCoppel
+(Sobres Digitales es producto de captación activa — impacto directo en clientes)
+RTO target: < 15 min
+```
+
+---
+
+## Análisis de causa raíz — Sobres Digitales
+
+> **Fuente**: análisis de código SPL · `source/BCOPCore/informix/bdicheq_sp_*.sql` · 2026-08-03
+> **SPs analizados**: sp_retiro_sd (P95=208s) · sp_crea_sd (P95=144s) · sp_abono_sd (P95=188s) · sp_edic_sd (P95=187s) · sp_perso_sd (P95=202s) · sp_consmov_sd (P95=220s)
+
+La latencia observable de 35–220s en los SPs de Sobres Digitales no es generada por Informix. El motor de base de datos completa las transacciones de negocio (UPDATE sc_mae_sd + INSERT sc_mov_sd + UPDATE sc_maechq) en milisegundos. Las cuatro causas raíz identificadas por lectura directa del código fuente SPL:
+
+| Causa | SPs afectados | Mecanismo | Implicación en target |
+|-------|---------------|-----------|----------------------|
+| Notificaciones síncronas post-COMMIT a bdimnsj | retiro · crea · abono · edic | `EXECUTE PROCEDURE bdimnsj:sp_registra_evento` después del COMMIT — espera confirmación de D09 | Publicar evento asíncrono (Kafka/SNS); retornar confirmación bancaria inmediata |
+| Contador global sc_param (campo `concsd`) | crea | UPDATE en fila única serializa todas las creaciones concurrentes bajo WAIT 3 | ID via secuencia DB, UUID o Snowflake ID |
+| sp_retencion_cobranza_automatica en ruta crítica | retiro | SP añadido RQM 09 704 oct-2025; ejecutado post-COMMIT sobre tablas de crédito | Evaluar si puede moverse a proceso asíncrono o ejecutarse en paralelo |
+| Lock contention + ausencia de índice eficiente | perso · consmov | 70K ops/día en sc_mae_sd/sc_mov_sd · WAIT 3 · P50 de sp_consmov_sd = 44s sin bloqueo | Índice compuesto en sc_mov_sd (cuenta_sobre, cuenta_eje, fecha_operacion DESC) antes del parallel-run |
+
+**sp_consmov_sd** es el caso más revelador: FOREACH simple sobre sc_mov_sd sin ninguna llamada cross-domain, pero P50=44s. El P50 alto en condiciones no congestionadas es la firma de una consulta sin índice eficiente: cada llamada hace un partial o full scan sobre sc_mov_sd para encontrar los movimientos de una cuenta_sobre específica ordenados por fecha.
+
+**sp_perso_sd** confirma el patrón de lock contention: solo 1 UPDATE en sc_mae_sd, sin llamadas externas, P95=202s. Con 41,546 retiros + 25,414 abonos + 6,394 creaciones/día que actualizan sc_mae_sd concurrentemente, las operaciones simples quedan atrapadas en cola de locks bajo WAIT 3.
+
+### SLO-AM-02 — Redefinición requerida para Sobres Digitales
+
+Comparar directamente P95 del target con P95 del legacy en SPs de SD es incorrecto. El P95 legacy incluye el tiempo de notificaciones síncronas a D09; el target tendrá notificaciones asíncronas por diseño — ese tiempo desaparece de la operación bancaria.
+
+| SLO | Alcance | Umbral objetivo target |
+|-----|---------|------------------------|
+| SLO-AM-02a | Confirmación de la transacción bancaria (DB + validaciones, excluyendo notificación) | P95 ≤ 2s |
+| SLO-AM-02b | Entrega de notificación push / email | P95 ≤ 30s · medido en el servicio de mensajería independientemente |
+| ~~SLO-AM-02 original~~ | ~~P95 target ≤ P95 legacy~~ | No aplicable directamente para SPs de SD — comparación con el legacy incluiría latencia de notificación que el target no tendrá |
+
+---
+
 ## Logs estructurados — formato obligatorio
 
 ```json

@@ -56,6 +56,7 @@ Cada dominio contiene los siguientes documentos:
 
 ## Dependencias entre dominios
 
-- [domain-dependency-matrix.md](domain-dependency-matrix.md) — Matriz completa N×N de llamadas cross-DB entre los 12 dominios
+- [cross-reference/index.md](cross-reference/index.md) — Índice de la Cross-Reference KB: resumen numérico, distribución por regulador/dominio, tabla de contenidos
+- [domain-dependency-matrix.md](cross-reference/domain-dependency-matrix.md) — Matriz completa N×N de llamadas cross-DB entre los 16 dominios
 - [domain-dependency-graph.json](domain-dependency-graph.json) — Datos para grafo vis-network (nodos + aristas ponderadas)
 - Cada dominio incluye `07-dependencies.md` con detalle de puentes SP-a-SP y contratos ACL requeridos

@@ -35,25 +35,25 @@
 
 | ID | Base de datos | Dominio | Llamadas | Criticidad | SPs callee principales |
 |----|--------------|---------|---------|-----------|----------------------|
-| [D09](D09-bdimnsj/) | `bdimnsj` | Mensajería | 72 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
-| [D02](D02-bdinteg/) | `bdinteg` | Integración y Auth | 43 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo`, `bdinteg:sp_inserta_msjafore`, `bdinteg:sp_limite_max` |
-| [D01](D01-bdicnweb/) | `bdicnweb` | Canal Digital Web | 13 | 🟢 BAJO | `bdicnweb:sp_split_cadena` |
-| [D03](D03-bdicred/) | `bdicred` | Créditos | 5 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general`, `bdicred:monthadd`, `bdicred:principalrefer` |
-| [D08](D08-bdispei/) | `bdispei` | SPEI | 3 | 🟢 BAJO | `bdispei:sp_validafecha` |
-| [D05](D05-bdisac/) | `bdisac` | Saldos y Cuentas | 1 | 🟢 BAJO | `bdisac:sp_reversionsac` |
-| [D10](D10-bdisuc/) | `bdisuc` | Sucursales | 1 | 🟢 BAJO | `bdisuc:reversion` |
+| [D09](../D09-bdimnsj/) | `bdimnsj` | Mensajería | 72 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
+| [D02](../D02-bdinteg/) | `bdinteg` | Integración y Auth | 43 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo`, `bdinteg:sp_inserta_msjafore`, `bdinteg:sp_limite_max` |
+| [D01](../D01-bdicnweb/) | `bdicnweb` | Canal Digital Web | 13 | 🟢 BAJO | `bdicnweb:sp_split_cadena` |
+| [D03](../D03-bdicred/) | `bdicred` | Créditos | 5 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general`, `bdicred:monthadd`, `bdicred:principalrefer` |
+| [D08](../D08-bdispei/) | `bdispei` | SPEI | 3 | 🟢 BAJO | `bdispei:sp_validafecha` |
+| [D05](../D05-bdisac/) | `bdisac` | Saldos y Cuentas | 1 | 🟢 BAJO | `bdisac:sp_reversionsac` |
+| [D10](../D10-bdisuc/) | `bdisuc` | Sucursales | 1 | 🟢 BAJO | `bdisuc:reversion` |
 
 ## Dependencias downstream — estos dominios llaman a `bdicheq`
 
 | ID | Base de datos | Dominio | Llamadas | Criticidad | SPs que expone `bdicheq` |
 |----|--------------|---------|---------|-----------|----------------------|
-| [D01](D01-bdicnweb/) | `bdicnweb` | Canal Digital Web | 494 | 🟡 MEDIO | `bdicheq:cargo_ref`, `bdicheq:abono_ref`, `bdicheq:reversion` |
-| [D05](D05-bdisac/) | `bdisac` | Saldos y Cuentas | 312 | 🟡 MEDIO | `bdicheq:cargo_ref`, `bdicheq:abono_ref`, `bdicheq:reversion` |
-| [D03](D03-bdicred/) | `bdicred` | Créditos | 242 | 🟡 MEDIO | `bdicheq:cargo_ref`, `bdicheq:abono_ref`, `bdicheq:reversion` |
-| [D07](D07-bdiaclaracion/) | `bdiaclaracion` | Aclaraciones | 125 | 🟡 MEDIO | `bdicheq:cargo_ref`, `bdicheq:abono_ref`, `bdicheq:bloqueo_cta` |
-| [D08](D08-bdispei/) | `bdispei` | SPEI | 48 | 🟢 BAJO | `bdicheq:cargo_ref`, `bdicheq:abono_ref`, `bdicheq:sp_cons_sdodisp_x_tpcalculo` |
-| [D02](D02-bdinteg/) | `bdinteg` | Integración y Auth | 46 | 🟢 BAJO | `bdicheq:cargo_ref`, `bdicheq:reversion`, `bdicheq:sp_generafolionomina` |
-| [D06](D06-bdisolic/) | `bdisolic` | Solicitudes | 6 | 🟢 BAJO | `bdicheq:abono_ref`, `bdicheq:sp_generafolionomina`, `bdicheq:sp_cons_sdodisp_x_tpcalculo` |
+| [D01](../D01-bdicnweb/) | `bdicnweb` | Canal Digital Web | 494 | 🟡 MEDIO | `bdicheq:cargo_ref`, `bdicheq:abono_ref`, `bdicheq:reversion` |
+| [D05](../D05-bdisac/) | `bdisac` | Saldos y Cuentas | 312 | 🟡 MEDIO | `bdicheq:cargo_ref`, `bdicheq:abono_ref`, `bdicheq:reversion` |
+| [D03](../D03-bdicred/) | `bdicred` | Créditos | 242 | 🟡 MEDIO | `bdicheq:cargo_ref`, `bdicheq:abono_ref`, `bdicheq:reversion` |
+| [D07](../D07-bdiaclaracion/) | `bdiaclaracion` | Aclaraciones | 125 | 🟡 MEDIO | `bdicheq:cargo_ref`, `bdicheq:abono_ref`, `bdicheq:bloqueo_cta` |
+| [D08](../D08-bdispei/) | `bdispei` | SPEI | 48 | 🟢 BAJO | `bdicheq:cargo_ref`, `bdicheq:abono_ref`, `bdicheq:sp_cons_sdodisp_x_tpcalculo` |
+| [D02](../D02-bdinteg/) | `bdinteg` | Integración y Auth | 46 | 🟢 BAJO | `bdicheq:cargo_ref`, `bdicheq:reversion`, `bdicheq:sp_generafolionomina` |
+| [D06](../D06-bdisolic/) | `bdisolic` | Solicitudes | 6 | 🟢 BAJO | `bdicheq:abono_ref`, `bdicheq:sp_generafolionomina`, `bdicheq:sp_cons_sdodisp_x_tpcalculo` |
 
 ## Detalle de puentes SP-a-SP (bridges)
 

@@ -35,26 +35,26 @@
 
 | ID | Base de datos | Dominio | Llamadas | Criticidad | SPs callee principales |
 |----|--------------|---------|---------|-----------|----------------------|
-| [D09](D09-bdimnsj/) | `bdimnsj` | Mensajería | 73 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
-| [D03](D03-bdicred/) | `bdicred` | Créditos | 53 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general`, `bdicred:monthadd`, `bdicred:genmov` |
-| [D04](D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 46 | 🟢 BAJO | `bdicheq:cargo_ref`, `bdicheq:reversion`, `bdicheq:sp_generafolionomina` |
-| [D11](D11-bdicobranza/) | `bdicobranza` | Cobranza | 13 | 🟢 BAJO | `bdicobranza:sp_inserta_bitacora_cob` |
-| [D05](D05-bdisac/) | `bdisac` | Saldos y Cuentas | 9 | 🟢 BAJO | `bdisac:sp_sac_guardamensajeerror`, `bdisac:sp_validanombenefbts` |
-| [D01](D01-bdicnweb/) | `bdicnweb` | Canal Digital Web | 4 | 🟢 BAJO | `bdicnweb:sp_calificacion_scoring`, `bdicnweb:sp_validacte_transfer` |
-| [D06](D06-bdisolic/) | `bdisolic` | Solicitudes | 3 | 🟢 BAJO | `bdisolic:sp_obtienegrupo`, `bdisolic:sp_actualiza_status_sol`, `bdisolic:sp_valida_cliente_coppel` |
+| [D09](../D09-bdimnsj/) | `bdimnsj` | Mensajería | 73 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
+| [D03](../D03-bdicred/) | `bdicred` | Créditos | 53 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general`, `bdicred:monthadd`, `bdicred:genmov` |
+| [D04](../D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 46 | 🟢 BAJO | `bdicheq:cargo_ref`, `bdicheq:reversion`, `bdicheq:sp_generafolionomina` |
+| [D11](../D11-bdicobranza/) | `bdicobranza` | Cobranza | 13 | 🟢 BAJO | `bdicobranza:sp_inserta_bitacora_cob` |
+| [D05](../D05-bdisac/) | `bdisac` | Saldos y Cuentas | 9 | 🟢 BAJO | `bdisac:sp_sac_guardamensajeerror`, `bdisac:sp_validanombenefbts` |
+| [D01](../D01-bdicnweb/) | `bdicnweb` | Canal Digital Web | 4 | 🟢 BAJO | `bdicnweb:sp_calificacion_scoring`, `bdicnweb:sp_validacte_transfer` |
+| [D06](../D06-bdisolic/) | `bdisolic` | Solicitudes | 3 | 🟢 BAJO | `bdisolic:sp_obtienegrupo`, `bdisolic:sp_actualiza_status_sol`, `bdisolic:sp_valida_cliente_coppel` |
 
 ## Dependencias downstream — estos dominios llaman a `bdinteg`
 
 | ID | Base de datos | Dominio | Llamadas | Criticidad | SPs que expone `bdinteg` |
 |----|--------------|---------|---------|-----------|----------------------|
-| [D01](D01-bdicnweb/) | `bdicnweb` | Canal Digital Web | 11,391 | 🔴 CRÍTICO | `bdinteg:sp_cnsif_confirmaejecutivo`, `bdinteg:sp_cnsif_permisosejecutivo`, `bdinteg:sp_valida_perfil_usuario` |
-| [D04](D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 43 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo`, `bdinteg:sp_inserta_msjafore`, `bdinteg:sp_limite_max` |
-| [D03](D03-bdicred/) | `bdicred` | Créditos | 39 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo`, `bdinteg:sp_desc_ret`, `bdinteg:valor_divisa_pesos` |
-| [D10](D10-bdisuc/) | `bdisuc` | Sucursales | 27 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo` |
-| [D12](D12-bdicont/) | `bdicont` | Contabilidad | 19 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo` |
-| [D05](D05-bdisac/) | `bdisac` | Saldos y Cuentas | 12 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo`, `bdinteg:sp_registra_telefonos`, `bdinteg:sp_actvalidacioncofetel` |
-| [D06](D06-bdisolic/) | `bdisolic` | Solicitudes | 7 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo`, `bdinteg:valor_divisa_pesos`, `bdinteg:mesesvalidoscte` |
-| [D08](D08-bdispei/) | `bdispei` | SPEI | 2 | 🟢 BAJO | `bdinteg:sp_desc_ret` |
+| [D01](../D01-bdicnweb/) | `bdicnweb` | Canal Digital Web | 11,391 | 🔴 CRÍTICO | `bdinteg:sp_cnsif_confirmaejecutivo`, `bdinteg:sp_cnsif_permisosejecutivo`, `bdinteg:sp_valida_perfil_usuario` |
+| [D04](../D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 43 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo`, `bdinteg:sp_inserta_msjafore`, `bdinteg:sp_limite_max` |
+| [D03](../D03-bdicred/) | `bdicred` | Créditos | 39 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo`, `bdinteg:sp_desc_ret`, `bdinteg:valor_divisa_pesos` |
+| [D10](../D10-bdisuc/) | `bdisuc` | Sucursales | 27 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo` |
+| [D12](../D12-bdicont/) | `bdicont` | Contabilidad | 19 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo` |
+| [D05](../D05-bdisac/) | `bdisac` | Saldos y Cuentas | 12 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo`, `bdinteg:sp_registra_telefonos`, `bdinteg:sp_actvalidacioncofetel` |
+| [D06](../D06-bdisolic/) | `bdisolic` | Solicitudes | 7 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo`, `bdinteg:valor_divisa_pesos`, `bdinteg:mesesvalidoscte` |
+| [D08](../D08-bdispei/) | `bdispei` | SPEI | 2 | 🟢 BAJO | `bdinteg:sp_desc_ret` |
 
 ## Detalle de puentes SP-a-SP (bridges)
 

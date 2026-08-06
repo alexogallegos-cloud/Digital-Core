@@ -41,15 +41,15 @@
 
 | ID | Base de datos | Dominio | Llamadas | Criticidad | SPs que expone `bdimnsj` |
 |----|--------------|---------|---------|-----------|----------------------|
-| [D01](D01-bdicnweb/) | `bdicnweb` | Canal Digital Web | 949 | 🟡 MEDIO | `bdimnsj:sp_registra_evento` |
-| [D03](D03-bdicred/) | `bdicred` | Créditos | 77 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
-| [D02](D02-bdinteg/) | `bdinteg` | Integración y Auth | 73 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
-| [D04](D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 72 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
-| [D11](D11-bdicobranza/) | `bdicobranza` | Cobranza | 53 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
-| [D07](D07-bdiaclaracion/) | `bdiaclaracion` | Aclaraciones | 34 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
-| [D06](D06-bdisolic/) | `bdisolic` | Solicitudes | 23 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
-| [D08](D08-bdispei/) | `bdispei` | SPEI | 19 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
-| [D05](D05-bdisac/) | `bdisac` | Saldos y Cuentas | 10 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
+| [D01](../D01-bdicnweb/) | `bdicnweb` | Canal Digital Web | 949 | 🟡 MEDIO | `bdimnsj:sp_registra_evento` |
+| [D03](../D03-bdicred/) | `bdicred` | Créditos | 77 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
+| [D02](../D02-bdinteg/) | `bdinteg` | Integración y Auth | 73 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
+| [D04](../D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 72 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
+| [D11](../D11-bdicobranza/) | `bdicobranza` | Cobranza | 53 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
+| [D07](../D07-bdiaclaracion/) | `bdiaclaracion` | Aclaraciones | 34 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
+| [D06](../D06-bdisolic/) | `bdisolic` | Solicitudes | 23 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
+| [D08](../D08-bdispei/) | `bdispei` | SPEI | 19 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
+| [D05](../D05-bdisac/) | `bdisac` | Saldos y Cuentas | 10 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
 
 ## Detalle de puentes SP-a-SP (bridges)
 

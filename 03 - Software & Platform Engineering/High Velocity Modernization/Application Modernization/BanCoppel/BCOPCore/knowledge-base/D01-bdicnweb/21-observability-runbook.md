@@ -1,4 +1,4 @@
-# D01 · Canal Digital Web — Observabilidad y Runbook
+﻿# D01 · Canal Digital Web — Observabilidad y Runbook
 
 > **Componente:** BCOPCore · SPE-AM-001 · OPERATE Phase
 > **Microservicio target:** Canal Digital WebService
@@ -134,6 +134,31 @@ RESOLVER:
   C. Si es incidente crítico: ejecutar DR plan
 RTO target: < 30 min (CNBV requirement para sistemas críticos)
 ```
+
+### INC-D01-04 — 2 defectos activos DEFECTO-PROD en componente P655 (N5)
+
+> **Diagnóstico completo**: [inc-003-d01-defecto-prod.html](../../portal/incidents/inc-003-d01-defecto-prod.html)
+
+> **Ver risk register:** `migration-risk-register.md` · P655-R001 · P655-R002
+
+**Impacto funcional:** Dos defectos activos en producción en el dominio Canal Digital Web. Bloquean el avance a DESIGN — ninguna wave del dominio puede progresar hasta que los defectos sean validados y mitigados.
+
+**Causa raíz (desde risk register):**
+- P655-R001: primer DEFECTO-PROD activo en el componente P655. Detalles pendientes de sesión de validación con DBA IBM Informix y Core Banking Transformation.
+- P655-R002: segundo DEFECTO-PROD activo en el componente P655. Detalles pendientes de sesión de validación con los mismos SMEs.
+- Categoría: TAR (Target Architecture Risk). Ambos defectos están en D01-bdicnweb y son clasificados como N5 — nivel máximo del registro.
+
+**SPs afectados:** pendientes de identificar en sesión de validación con DBA IBM Informix.
+
+**Estado:** BLOQUEANTE — bloquea avance a DESIGN. No iniciar ninguna wave de D01 hasta que ambos defectos tengan plan de mitigación aprobado (regla de bloqueo del risk register).
+
+**Acción inmediata:**
+1. Convocar sesión de validación con DBA IBM Informix IDS y Core Banking Transformation.
+2. Clasificar el alcance de cada defecto: ¿cuáles SPs están afectados? ¿cuál es el impacto en producción actual?
+3. Documentar en este runbook los SPs afectados y el plan de mitigación una vez identificados.
+4. Actualizar el risk register (`migration-risk-register.md`) con el resultado de la sesión.
+
+---
 
 ## Logs estructurados — formato obligatorio
 

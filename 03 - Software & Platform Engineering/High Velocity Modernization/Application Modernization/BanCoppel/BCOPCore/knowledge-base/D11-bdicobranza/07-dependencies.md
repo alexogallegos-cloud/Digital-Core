@@ -35,16 +35,16 @@
 
 | ID | Base de datos | Dominio | Llamadas | Criticidad | SPs callee principales |
 |----|--------------|---------|---------|-----------|----------------------|
-| [D09](D09-bdimnsj/) | `bdimnsj` | Mensajería | 53 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
-| [D03](D03-bdicred/) | `bdicred` | Créditos | 21 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general`, `bdicred:monthadd` |
+| [D09](../D09-bdimnsj/) | `bdimnsj` | Mensajería | 53 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
+| [D03](../D03-bdicred/) | `bdicred` | Créditos | 21 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general`, `bdicred:monthadd` |
 
 ## Dependencias downstream — estos dominios llaman a `bdicobranza`
 
 | ID | Base de datos | Dominio | Llamadas | Criticidad | SPs que expone `bdicobranza` |
 |----|--------------|---------|---------|-----------|----------------------|
-| [D03](D03-bdicred/) | `bdicred` | Créditos | 138 | 🟡 MEDIO | `bdicobranza:sp_inserta_bitacora_cob` |
-| [D02](D02-bdinteg/) | `bdinteg` | Integración y Auth | 13 | 🟢 BAJO | `bdicobranza:sp_inserta_bitacora_cob` |
-| [D06](D06-bdisolic/) | `bdisolic` | Solicitudes | 4 | 🟢 BAJO | `bdicobranza:sp_inserta_bitacora_cob` |
+| [D03](../D03-bdicred/) | `bdicred` | Créditos | 138 | 🟡 MEDIO | `bdicobranza:sp_inserta_bitacora_cob` |
+| [D02](../D02-bdinteg/) | `bdinteg` | Integración y Auth | 13 | 🟢 BAJO | `bdicobranza:sp_inserta_bitacora_cob` |
+| [D06](../D06-bdisolic/) | `bdisolic` | Solicitudes | 4 | 🟢 BAJO | `bdicobranza:sp_inserta_bitacora_cob` |
 
 ## Detalle de puentes SP-a-SP (bridges)
 

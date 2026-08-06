@@ -35,14 +35,14 @@
 
 | ID | Base de datos | Dominio | Llamadas | Criticidad | SPs callee principales |
 |----|--------------|---------|---------|-----------|----------------------|
-| [D02](D02-bdinteg/) | `bdinteg` | Integración y Auth | 27 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo` |
+| [D02](../D02-bdinteg/) | `bdinteg` | Integración y Auth | 27 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo` |
 
 ## Dependencias downstream — estos dominios llaman a `bdisuc`
 
 | ID | Base de datos | Dominio | Llamadas | Criticidad | SPs que expone `bdisuc` |
 |----|--------------|---------|---------|-----------|----------------------|
-| [D01](D01-bdicnweb/) | `bdicnweb` | Canal Digital Web | 3,255 | 🟠 ALTO | `bdisuc:sp_consultadatospiezas_bym3`, `bdisuc:sp_consutacat_dictamen_bym`, `bdisuc:sp_consultadatospiezas_bym2` |
-| [D04](D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 1 | 🟢 BAJO | `bdisuc:reversion` |
+| [D01](../D01-bdicnweb/) | `bdicnweb` | Canal Digital Web | 3,255 | 🟠 ALTO | `bdisuc:sp_consultadatospiezas_bym3`, `bdisuc:sp_consutacat_dictamen_bym`, `bdisuc:sp_consultadatospiezas_bym2` |
+| [D04](../D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 1 | 🟢 BAJO | `bdisuc:reversion` |
 
 ## Detalle de puentes SP-a-SP (bridges)
 

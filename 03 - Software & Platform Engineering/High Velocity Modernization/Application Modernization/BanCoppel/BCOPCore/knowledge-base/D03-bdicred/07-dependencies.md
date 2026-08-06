@@ -35,23 +35,23 @@
 
 | ID | Base de datos | Dominio | Llamadas | Criticidad | SPs callee principales |
 |----|--------------|---------|---------|-----------|----------------------|
-| [D04](D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 242 | 🟡 MEDIO | `bdicheq:cargo_ref`, `bdicheq:abono_ref`, `bdicheq:reversion` |
-| [D11](D11-bdicobranza/) | `bdicobranza` | Cobranza | 138 | 🟡 MEDIO | `bdicobranza:sp_inserta_bitacora_cob` |
-| [D09](D09-bdimnsj/) | `bdimnsj` | Mensajería | 77 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
-| [D02](D02-bdinteg/) | `bdinteg` | Integración y Auth | 39 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo`, `bdinteg:sp_desc_ret`, `bdinteg:valor_divisa_pesos` |
-| [D06](D06-bdisolic/) | `bdisolic` | Solicitudes | 15 | 🟢 BAJO | `bdisolic:determina_lincred_tc_cjunk`, `bdisolic:sp_obtienegrupo`, `bdisolic:sp_actualiza_statusmttobcycc` |
+| [D04](../D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 242 | 🟡 MEDIO | `bdicheq:cargo_ref`, `bdicheq:abono_ref`, `bdicheq:reversion` |
+| [D11](../D11-bdicobranza/) | `bdicobranza` | Cobranza | 138 | 🟡 MEDIO | `bdicobranza:sp_inserta_bitacora_cob` |
+| [D09](../D09-bdimnsj/) | `bdimnsj` | Mensajería | 77 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
+| [D02](../D02-bdinteg/) | `bdinteg` | Integración y Auth | 39 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo`, `bdinteg:sp_desc_ret`, `bdinteg:valor_divisa_pesos` |
+| [D06](../D06-bdisolic/) | `bdisolic` | Solicitudes | 15 | 🟢 BAJO | `bdisolic:determina_lincred_tc_cjunk`, `bdisolic:sp_obtienegrupo`, `bdisolic:sp_actualiza_statusmttobcycc` |
 
 ## Dependencias downstream — estos dominios llaman a `bdicred`
 
 | ID | Base de datos | Dominio | Llamadas | Criticidad | SPs que expone `bdicred` |
 |----|--------------|---------|---------|-----------|----------------------|
-| [D01](D01-bdicnweb/) | `bdicnweb` | Canal Digital Web | 9,027 | 🔴 CRÍTICO | `bdicred:sp_consulta_saldos_general`, `bdicred:sp_mon_buro_conssolcredlincred2`, `bdicred:sp_inserta_productos` |
-| [D06](D06-bdisolic/) | `bdisolic` | Solicitudes | 54 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general`, `bdicred:monthadd`, `bdicred:genmov` |
-| [D02](D02-bdinteg/) | `bdinteg` | Integración y Auth | 53 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general`, `bdicred:monthadd`, `bdicred:genmov` |
-| [D07](D07-bdiaclaracion/) | `bdiaclaracion` | Aclaraciones | 21 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general` |
-| [D11](D11-bdicobranza/) | `bdicobranza` | Cobranza | 21 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general`, `bdicred:monthadd` |
-| [D05](D05-bdisac/) | `bdisac` | Saldos y Cuentas | 21 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general`, `bdicred:reversion` |
-| [D04](D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 5 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general`, `bdicred:monthadd`, `bdicred:principalrefer` |
+| [D01](../D01-bdicnweb/) | `bdicnweb` | Canal Digital Web | 9,027 | 🔴 CRÍTICO | `bdicred:sp_consulta_saldos_general`, `bdicred:sp_mon_buro_conssolcredlincred2`, `bdicred:sp_inserta_productos` |
+| [D06](../D06-bdisolic/) | `bdisolic` | Solicitudes | 54 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general`, `bdicred:monthadd`, `bdicred:genmov` |
+| [D02](../D02-bdinteg/) | `bdinteg` | Integración y Auth | 53 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general`, `bdicred:monthadd`, `bdicred:genmov` |
+| [D07](../D07-bdiaclaracion/) | `bdiaclaracion` | Aclaraciones | 21 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general` |
+| [D11](../D11-bdicobranza/) | `bdicobranza` | Cobranza | 21 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general`, `bdicred:monthadd` |
+| [D05](../D05-bdisac/) | `bdisac` | Saldos y Cuentas | 21 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general`, `bdicred:reversion` |
+| [D04](../D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 5 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general`, `bdicred:monthadd`, `bdicred:principalrefer` |
 
 ## Detalle de puentes SP-a-SP (bridges)
 

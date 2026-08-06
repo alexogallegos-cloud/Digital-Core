@@ -1,8 +1,8 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 build-incidents.py — BCOPCore · Generador de páginas de incidentes
 Lee secciones INC-D{NN}-{NN} de los runbooks (21-observability-runbook.md)
-y genera páginas HTML standalone en portal-v2/incidents/.
+y genera páginas HTML standalone en portal/incidents/.
 
 Uso: python generators/build-incidents.py
      (ejecutar desde BCOPCore/)
@@ -17,7 +17,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 
 ROOT    = Path(__file__).resolve().parent.parent   # BCOPCore/
 KB      = ROOT / 'knowledge-base'
-OUT_DIR = ROOT / 'portal-v2' / 'incidents'
+OUT_DIR = ROOT / 'portal' / 'incidents'
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Mapa canónico: html_slug → (runbook_path, inc_html_slug) ─────────────────

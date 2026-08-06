@@ -1,4 +1,4 @@
-# D08 · bdispei (SPEI / Pagos Interbancarios) — Observabilidad y Runbook
+﻿# D08 · bdispei (SPEI / Pagos Interbancarios) — Observabilidad y Runbook
 
 > **Componente:** BCOPCore · SPE-AM-001 · OPERATE Phase
 > **Microservicio target:** SPEIService
@@ -327,6 +327,35 @@ ESCALAR EN T+0: SRE Lead + equipo D04-bdicheq
 ESCALAR EN T+10 min: Program Manager + Regulatory Banxico (si no está resuelto)
 RTO: < 15 min (Banxico — sistema de pagos de alto valor)
 ```
+
+### INC-D08-04 — Códigos de error ESB no documentados (N3)
+
+> **Diagnóstico completo**: [inc-004-d08-esb-spei.html](../../portal/incidents/inc-004-d08-esb-spei.html)
+
+> **Ver risk register:** `migration-risk-register.md` · P655-R005
+
+**Impacto funcional:** 5 códigos de error ESB activos en producción no están documentados en los runbooks actuales. Bloquean avance a RELEASE. En el target, estos errores del middleware pueden manifestarse diferente y requerir mapeo explícito en MSK/Lambda.
+
+**Causa raíz (desde risk register):**
+Los logs del ESB del 2026-04-24 revelan errores no documentados en las integraciones externas vía ESB — incluyendo las integraciones del dominio SPEI (bdispei):
+
+| Código | Frecuencia/día | Descripción |
+|--------|---------------|-------------|
+| 4394 | 2,452 | IBM MQ MbUserException — fallo de mensajería interna |
+| 3743 | 761 | SOAP Handle Timed-out (~30s) |
+| 3701 | 356 | JNI/Axis2 non-SOAP call error |
+| 3165 | 320 | SSL socket error on connect |
+| 6233 | 264 | Sin descripción disponible |
+
+Ninguno de estos códigos está documentado en `06-exceptions.md` del dominio.
+
+**SPs afectados:** los SPs de integración ESB de bdispei activos en producción (especialmente los que interactúan con Banxico vía SPEI).
+
+**Acción requerida antes de cutover:**
+1. Documentar los 5 códigos en `knowledge-base/D08-bdispei/06-exceptions.md`.
+2. Mapear cada código ESB a su excepción equivalente en el target middleware (MSK/Lambda).
+3. Verificar si el código 3165 (SSL socket error) corresponde a un certificado expirado — posible relación con los timeouts de APPRIZA (ver INC-D05-04).
+4. Agregar los 5 códigos al CloudWatch filter de ruido de fondo si son errores esperados, o crear alarmas si son anomalías.
 
 ---
 

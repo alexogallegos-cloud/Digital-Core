@@ -35,7 +35,7 @@
 
 | ID | Base de datos | Dominio | Llamadas | Criticidad | SPs callee principales |
 |----|--------------|---------|---------|-----------|----------------------|
-| [D02](D02-bdinteg/) | `bdinteg` | Integración y Auth | 19 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo` |
+| [D02](../D02-bdinteg/) | `bdinteg` | Integración y Auth | 19 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo` |
 
 ## Dependencias downstream — estos dominios llaman a `bdicont`
 

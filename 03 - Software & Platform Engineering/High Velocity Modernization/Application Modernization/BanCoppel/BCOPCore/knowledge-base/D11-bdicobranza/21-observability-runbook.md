@@ -1,4 +1,4 @@
-# Runbook de Observabilidad — D11 bdicobranza (Cobranza)
+﻿# Runbook de Observabilidad — D11 bdicobranza (Cobranza)
 
 | Campo | Valor |
 |---|---|
@@ -188,6 +188,9 @@ python BCOPCore/digital-brain/brain.py query "bdicobranza reestructura fecha inc
 ---
 
 ### INC-D11-04 — Perfil de cliente inaccesible: `sp_obtener_datos_cv_web` falla silenciosamente
+
+> **Diagnóstico completo con evidencia de logs**: [inc-002-d11-cobranza-cv.html](../../portal/incidents/inc-002-d11-cobranza-cv.html)  
+> Incluye: causa raíz CHAR(5)/CWE-390, risk IDs P655-R009/R010/R011, impacto regulatorio CNBV CUB Art. 75 y plan de corrección.
 
 **Impacto:** Caja2 no puede acceder al perfil del cliente deudor. Con 49,701 fallas/día (97.37%), el proceso de cobranza opera virtualmente a ciegas. Los clientes son omitidos del ciclo de gestión sin ninguna alerta. Riesgo regulatorio CNBV CUB Art. 75.
 

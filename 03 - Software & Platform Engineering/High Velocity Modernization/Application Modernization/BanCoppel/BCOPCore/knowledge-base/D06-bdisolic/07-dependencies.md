@@ -35,19 +35,19 @@
 
 | ID | Base de datos | Dominio | Llamadas | Criticidad | SPs callee principales |
 |----|--------------|---------|---------|-----------|----------------------|
-| [D03](D03-bdicred/) | `bdicred` | Créditos | 54 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general`, `bdicred:monthadd`, `bdicred:genmov` |
-| [D09](D09-bdimnsj/) | `bdimnsj` | Mensajería | 23 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
-| [D02](D02-bdinteg/) | `bdinteg` | Integración y Auth | 7 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo`, `bdinteg:valor_divisa_pesos`, `bdinteg:mesesvalidoscte` |
-| [D04](D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 6 | 🟢 BAJO | `bdicheq:abono_ref`, `bdicheq:sp_generafolionomina`, `bdicheq:sp_cons_sdodisp_x_tpcalculo` |
-| [D11](D11-bdicobranza/) | `bdicobranza` | Cobranza | 4 | 🟢 BAJO | `bdicobranza:sp_inserta_bitacora_cob` |
+| [D03](../D03-bdicred/) | `bdicred` | Créditos | 54 | 🟢 BAJO | `bdicred:sp_consulta_saldos_general`, `bdicred:monthadd`, `bdicred:genmov` |
+| [D09](../D09-bdimnsj/) | `bdimnsj` | Mensajería | 23 | 🟢 BAJO | `bdimnsj:sp_registra_evento` |
+| [D02](../D02-bdinteg/) | `bdinteg` | Integración y Auth | 7 | 🟢 BAJO | `bdinteg:sp_cnsif_confirmaejecutivo`, `bdinteg:valor_divisa_pesos`, `bdinteg:mesesvalidoscte` |
+| [D04](../D04-bdicheq/) | `bdicheq` | Cheques / Cuentas | 6 | 🟢 BAJO | `bdicheq:abono_ref`, `bdicheq:sp_generafolionomina`, `bdicheq:sp_cons_sdodisp_x_tpcalculo` |
+| [D11](../D11-bdicobranza/) | `bdicobranza` | Cobranza | 4 | 🟢 BAJO | `bdicobranza:sp_inserta_bitacora_cob` |
 
 ## Dependencias downstream — estos dominios llaman a `bdisolic`
 
 | ID | Base de datos | Dominio | Llamadas | Criticidad | SPs que expone `bdisolic` |
 |----|--------------|---------|---------|-----------|----------------------|
-| [D01](D01-bdicnweb/) | `bdicnweb` | Canal Digital Web | 1,316 | 🟠 ALTO | `bdisolic:sp_asigna_solicitud_soc`, `bdisolic:determina_lincred_tc_cjunk`, `bdisolic:sp_obtienegrupo` |
-| [D03](D03-bdicred/) | `bdicred` | Créditos | 15 | 🟢 BAJO | `bdisolic:determina_lincred_tc_cjunk`, `bdisolic:sp_obtienegrupo`, `bdisolic:sp_actualiza_statusmttobcycc` |
-| [D02](D02-bdinteg/) | `bdinteg` | Integración y Auth | 3 | 🟢 BAJO | `bdisolic:sp_obtienegrupo`, `bdisolic:sp_actualiza_status_sol`, `bdisolic:sp_valida_cliente_coppel` |
+| [D01](../D01-bdicnweb/) | `bdicnweb` | Canal Digital Web | 1,316 | 🟠 ALTO | `bdisolic:sp_asigna_solicitud_soc`, `bdisolic:determina_lincred_tc_cjunk`, `bdisolic:sp_obtienegrupo` |
+| [D03](../D03-bdicred/) | `bdicred` | Créditos | 15 | 🟢 BAJO | `bdisolic:determina_lincred_tc_cjunk`, `bdisolic:sp_obtienegrupo`, `bdisolic:sp_actualiza_statusmttobcycc` |
+| [D02](../D02-bdinteg/) | `bdinteg` | Integración y Auth | 3 | 🟢 BAJO | `bdisolic:sp_obtienegrupo`, `bdisolic:sp_actualiza_status_sol`, `bdisolic:sp_valida_cliente_coppel` |
 
 ## Detalle de puentes SP-a-SP (bridges)
 
