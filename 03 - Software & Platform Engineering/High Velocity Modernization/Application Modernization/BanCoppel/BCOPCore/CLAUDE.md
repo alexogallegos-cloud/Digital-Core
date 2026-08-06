@@ -10,21 +10,32 @@
 
 ## GEMELO COGNITIVO DEL SISTEMA
 
-El marco de análisis central de este proyecto es el **Gemelo Cognitivo del Sistema** — cuatro capas de comprensión (Lenguaje → Almas → Biografía → Intención) materializadas en seis artefactos de conocimiento que viven en `digital-brain/`.
+El marco de análisis central de este proyecto es el **Gemelo Cognitivo del Sistema** — cuatro capas de comprensión (Lenguaje → Almas → Biografía → Intención) materializadas en artefactos de conocimiento interconectados.
 
-| Artefacto | Descripción | Estado |
-|-----------|-------------|--------|
-| **Vocabulario** | 438 términos del dominio; la lengua del sistema | Activo |
-| **Almas** | 15 módulos funcionales con identidad propia | Activo |
-| **Journeys** | 131 customer journeys extraídos del call graph | Activo |
-| **Reglas** | 1,308 reglas de negocio (SBVR) distribuidas en 33 archivos | Activo |
-| **Capacidades** | Mapa ETB v5.0 — L1×7, L2×57, L3×261; cobertura BCOPCore | Activo |
-| **Riesgos** | 44 riesgos de migración N1→N5; 5 categorías; 2 DEFECTO-PROD | Activo |
+### Hilo Conductor — Taxonomía de Negocio BanCoppel
+
+**Todos los artefactos se mapean a nodos de la taxonomía:** `dt/dt-modelo-dominio/taxonomia-negocio-bancoppel.md`
+
+```
+1 Dominio  →  1.1 Subdominio  →  1.1.1 Capacidad  →  1.1.1.1 Proceso  →  1.1.1.1.1 Tarea
+                                                            ↑                    ↑
+                                               Reglas · Vocab · Journeys · SPs
+```
+
+| Artefacto | Descripción | Nodo taxonomía |
+|-----------|-------------|----------------|
+| **Taxonomía** | 7 dominios · 24 subdominios · 67 capacidades · L4-L5 TBD | **raíz — hilo conductor** |
+| **Vocabulario** | 634 términos en brain.db (Ola A + 3 nuevos: lincred/aumlincred/consutacat); la lengua del sistema | 1.1 Subdominio |
+| **Almas** | 11 módulos funcionales con identidad propia (16 instancias, 5 réplicas muertas) | 1 Dominio |
+| **Journeys** | 166 customer journeys extraídos del call graph (16 dominios, corregido 2026-08-03) | 1.1.1.1 Proceso |
+| **Reglas** | 7,784 reglas extraídas (extracción amplia v2.2) · 1,308 en SBVR formal (vigente en brain.db `rules`) — ver DT-Reglas | 1.1.1.1 Proceso / 1.1.1.1.1 Tarea |
+| **Capacidades** | Mapa ETB v5.0 — L1×7, L2×57, L3×261; cobertura BCOPCore | 1.1.1 Capacidad |
+| **Riesgos** | 11 riesgos de producción/integración en migration-risk-register.md + 44 riesgos de equivalencia en 05-risks.md por dominio; 2 DEFECTO-PROD N5 | 1.1.1 Capacidad |
 
 ### BCOPBrain
 
 Base de conocimiento semántica SQLite (`digital-brain/brain.db`):
-- 10,144 SPs · 34,279 edges · 1,308 reglas
+- 10,967 SPs · 34,279 edges · 1,308 reglas SBVR · 626 términos (Ola A aplicada 2026-08-04) · 166 journeys · 11 almas · 552 SPs con métricas de producción (evidencia ESB 2026-04-24)
 - ID canónico: `db:sp_name`
 - Patrón de construcción: scatter-gather — orquestador descompone en ≤10 SPs por agente, 12 DTs paralelos extraen, orquestador integra
 - Patrón validado en el Orquestador de SMEs v3.8 como caso de referencia Brain-First
@@ -87,17 +98,18 @@ Estas dos lentes alimentan flujos de valor distintos y no deben mezclarse en el 
 
 ## DIGITAL TWINS · `dt/`
 
-Seis Digital Twins de proyecto — uno por artefacto del Gemelo Cognitivo. Cada DT hereda talento de los SMEs declarados y opera exclusivamente en el contexto de BCOPCore.
+Ocho Digital Twins de proyecto — siete por artefacto del Gemelo Cognitivo más el DT-Validador (integridad de la KB). Cada DT hereda talento de los SMEs declarados y opera exclusivamente en el contexto de BCOPCore.
 
 | DT | Artefacto propietario | SMEs heredados | Versión |
 |----|----------------------|----------------|---------|
-| `dt-vocabulario/` | Vocabulario (438 términos) | SPL Analysis · Industry Banking | 1.0.0 |
-| `dt-almas/` | Almas del sistema (15) | SPL Analysis · Core Banking Transformation | 1.0.0 |
-| `dt-journeys/` | Journey map (131) | SPL Analysis · Industry Banking | 1.0.0 |
-| `dt-reglas/` | Reglas de negocio (1,308) | SPL Analysis · Industry Banking · Industry Banking Accounting | 1.0.0 |
-| `dt-capacidades/` | Mapa ETB L3 (261 caps) | Core Banking Transformation · Industry Banking | 1.0.0 |
-| `dt-riesgos/` | Risk register (44) | SPL Analysis · Cybersecurity · SRE & AIOps | 1.0.0 |
-| `dt-modelo-dominio/` | Modelo lógico negocio — 23 BCs ETB L2 | Core Banking Transformation · Industry Banking · DBA IBM Informix | 0.1.0 |
+| `dt-vocabulario/` | Vocabulario (634 términos en brain.db sobre D01-D16; sincronizado 2026-08-06) | SPL Analysis · Industry Banking | 1.1.0 |
+| `dt-almas/` | Almas del sistema (11 sobre D01-D16) | SPL Analysis · Core Banking Transformation | 1.1.0 |
+| `dt-journeys/` | Journey map (166 sobre D01-D16) | SPL Analysis · Industry Banking | 1.1.0 |
+| `dt-reglas/` | Reglas — 7,784 extraídas (amplia v2.2) · 1,308 SBVR en brain.db · plan enriquecimiento Layer A+ | SPL Analysis · Industry Banking · Industry Banking Accounting | 1.2.0 |
+| `dt-capacidades/` | Mapa ETB L3 (261 caps sobre D01-D16) | Core Banking Transformation · Industry Banking | 1.1.0 |
+| `dt-riesgos/` | Risk register — 11 producción/integración · 44 equivalencia en 05-risks.md | SPL Analysis · Cybersecurity · SRE & AIOps | 1.1.0 |
+| `dt-modelo-dominio/` | **Taxonomía negocio AS-IS** — 7 dominios · 24 subdominios · 67 capacidades (hilo conductor) | Core Banking Transformation · Industry Banking · DBA IBM Informix | 0.2.0 |
+| `dt-validador/` | Integridad del Knowledge Base — Capa 1 automática (`build-validation-report.py`) + Capa 2 smoke tests multi-DT | — (opera sobre estructura, no dominio) | 1.0.0 |
 
 Cada `dt/` contiene su propio `CLAUDE.md` con: declaración de SMEs heredados, versión (regla 12), gestión de conocimiento (regla 14), y capacidades por herencia (regla 15).
 
@@ -120,18 +132,39 @@ Confianza en cadena (regla ontológica v3.8): la confianza del equipo es la del 
 
 ## ESTADO ACTUAL · DISCOVER Etapa 1
 
-- BCOPBrain construido (build-brain.py + brain.py) — scatter-gather completado
-- 22 archivos de knowledge-base generados en `knowledge-base/D01/` → `knowledge-base/D12/`
-- Vocabulario Capa 1 expandido — S151/S500 cross-referenced
-- Reglas: Ola 4 completa (1,550 → 1,308 vigentes tras triaje SME regulatorio)
-- Risk register v3.8 — 44 riesgos; 2 DEFECTO-PROD activos en P655
+- BCOPBrain construido (build-brain.py + brain.py) — 10,968 SPs · 34,279 edges · 634 términos · 166 journeys · 1,308 reglas (re-sincronizado 2026-08-06)
+- Knowledge base activa: `knowledge-base/D01/` → `knowledge-base/D16/` (16 dominios analizados) + `knowledge-base/D17/` → `knowledge-base/D49/` (33 dominios nuevos en scope — placeholders creados 2026-08-03)
+- Alcance de código fuente: **TODO** `source/BCOPCore/informix/` — 49 bases de datos descubiertas (D01-D49); excludes: `borra_dba_espera` (script DBA), `sentinel` (herramienta de monitoreo)
+- Vocabulario sincronizado — 634 términos en brain.db (Ola A + lincred/aumlincred/consutacat); 0 términos fantasma
+- SP nuevo incorporado: `bdisac:sp_obtiene_clientes_pre_aprobado_notificar` (D05 · loc=109 · FOREACH streaming · cross-DB bdicred+bdinteg); fuente renombrada a `bdisac_sp_obtiene_clientes_pre_aprobado_notificar.sql`
+- Reglas: extracción amplia v2.2 completada — 7,784 reglas en `knowledge-base/rules/business-rules-bcop.md`; SBVR formal (1,308 reglas) cubre D01-D12; triaje D13-D16 deuda en DT-Reglas
+- Risk register v1.2.0 — 11 riesgos producción/integración (2 DEFECTO-PROD N5 activos en P655) + 44 riesgos equivalencia
+- **DT-Validador Capa 1: PASS — 0 errores · 0 advertencias · 70 OK** (2026-08-06; cerradas 8 WARNs de links rotos con `generators/build-incidents.py`)
+
+### Phase B implementada — CALLEE_INFO lookup en diagramas (2026-08-03)
+
+`build-sp-detail-pages.py` enriquece los nodos CALL del flowchart con la descripción de negocio y conteo de reglas del SP llamado, y añade links clickeables a las páginas de detalle de los callees.
+
+**Cobertura del CALLEE_INFO lookup:**
+- 166 SPs cubiertos (todos los entries de `journeys` + `exposed` en `journeys-data.json`, post corrección D13-D16 del 2026-08-03)
+- Build Phase B con 131 journeys: 131/131 biz 100%, 59/131 con link clickeable a callee, 14/131 con descripción callee — números pre-D13-D16 fix; re-ejecutar `build-sp-detail-pages.py` para actualizar estadísticas a los 166 journeys actuales
+- Anotación en Historia Funcional (P3 "delega a"): muestra `sp_name (biz)` cuando el callee está en CALLEE_INFO
+
+**Limitación conocida (Phase C pendiente):** el sistema completo tiene ~10,967 SPs (BCOPBrain). Los callees fuera del conjunto de 166 journeys no reciben anotación — el nodo CALL muestra solo el nombre. Phase C requeriría extender CALLEE_INFO a los 10,967 SPs usando BCOPBrain como fuente de `biz`.
 
 ### Bloqueantes activos
 
-| ID | Descripción | SME bloqueante |
-|----|-------------|----------------|
-| D12-GAP | Mapa contabilidad D12 sin SME bancario dedicado | Industry Banking Accounting (ahora en roster) |
-| D08-PATH | Ruta Industry SPEI inexistente — sub-agente correcto: `Industry Payments/SPEI/` | Corregido en este roster |
+| ID | Descripción | SME bloqueante | Cuándo bloquea |
+|----|-------------|----------------|----------------|
+| D12-GAP | Mapa contabilidad D12 sin SME bancario dedicado | Industry Banking Accounting (ahora en roster) | DISCOVER |
+| D08-PATH | Ruta Industry SPEI inexistente — sub-agente correcto: `Industry Payments/SPEI/` | Corregido en este roster | — |
+
+### Dependencias de entrada a DESIGN (no bloquean AS-IS actual)
+
+| ID | Descripción | Acción requerida |
+|----|-------------|-----------------|
+| P655-R001 | Defecto activo en D01-bdicnweb — causa raíz sin diagnosticar | Sesión DBA IBM Informix + Core Banking al cierre de DISCOVER |
+| P655-R002 | Segundo defecto activo en D01-bdicnweb | Misma sesión que R001 |
 
 ---
 
@@ -146,9 +179,9 @@ Todo hallazgo extraído de `source/logs/` tiene dos destinos en paralelo:
 | Sistema externo y su comportamiento | `knowledge-base/D{NN}/13-external-dependencies.md` | `external_systems` |
 | Volumen de llamadas / tasa de error | `knowledge-base/D{NN}/19-performance-baseline.md` | `sps.prod_calls_day`, `sps.prod_error_rate` (pendiente) |
 | Patrón de incidente / stuck state | `knowledge-base/D{NN}/21-observability-runbook.md` | — |
-| Riesgo de migración | `GemCog/migration-risk-register.md` | — |
+| Riesgo de migración | `knowledge-base/migration-risk-register.md` | — |
 
-**Gap conocido en brain.db (2026-08-01):** los schemas actuales (`sps`, `external_systems`) no tienen columnas de métricas de producción. Pendiente agregar: `sps.prod_calls_day`, `sps.prod_error_rate`, `sps.prod_evidence_date`; `external_systems.error_codes`, `external_systems.failure_rate`, `external_systems.timeout_ms`.
+**Estado métricas de producción en brain.db (verificado 2026-08-03):** las columnas `sps.prod_calls_day` y `sps.prod_evidence_date` están presentes — 552 SPs tienen métricas de producción con evidencia ESB 2026-04-24. Gap pendiente: columnas en tabla `external_systems` (`error_codes`, `failure_rate`, `timeout_ms`) aún no existen.
 
 **Regla de trazabilidad:** todo dato incorporado desde logs debe indicar fuente y fecha de evidencia — nunca mezclar datos de análisis estático con observaciones de producción en la misma celda de una tabla.
 
@@ -167,4 +200,6 @@ Todo hallazgo extraído de `source/logs/` tiene dos destinos en paralelo:
 
 ---
 
-*Última actualización: 2026-07-31 · Ontología v3.8 · Creación inicial del project agent*
+**Component Spec:** [spec-spe-am-bcop-core.md](spec-spe-am-bcop-core.md) — especificación del componente BCOPCore siguiendo §16 DC Universal Rules.
+
+*Última actualización: 2026-08-04 · Ontología v3.8 · Correcciones validación: conteos reales de reglas (7,795) y taxonomía (24 subdominios · 67 caps); aclaración dos capas de riesgos; scope expandido D01-D49 (49 BDs — todo el código fuente en scope); DT-Reglas v1.1.0*
