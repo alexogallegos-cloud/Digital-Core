@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>APPRIZA — Diagnóstico de Fallo en Producción · BanCoppel BCOPCore — Diagnóstico de Fallo en Producción · BanCoppel BCOPCore</title>
+<style>
+:root {
+  /* BanCoppel Design Studio — paleta_clientes.md */
+  --ancla: #122FB1;
+  --senal: #F0D224;
+  --plano: #EEF0FA;
+  --trazo: #C5CCE8;
+  /* aliases internos */
+  --blue: #122FB1;
+  --yellow: #F0D224;
+  /* dark theme base */
+  --bg: #EEF0FA;
+  --card: #ffffff;
+  --node: #f5f6fe;
+  --ok: #22c55e;
+  --err: #ef4444;
+  --warn: #f97316;
+  --amber: #f59e0b;
+  --info: #60a5fa;
+  --txt: #0d1a3a;
+  --dim: #4a5a8a;
+  --border: #C5CCE8;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--txt);
+  font-family: Calibri, 'Segoe UI', Arial, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── HUD helpers ── */
+.hud-sep   { color: #C5CCE8; font-size: 20px; }
+.hud-right { margin-left: auto; }
+.hud-status-pill {
+  font-size: 11px;
+  color: var(--dim);
+  background: rgba(255,255,255,.04);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+/* ── SIGNAL BAR (Design Studio — 3px señal al tope) ── */
+.signal-top {
+  height: 3px;
+  background: var(--senal);
+  width: 100%;
+  flex-shrink: 0;
+}
+
+/* ── HEADER ── */
+header {
+  background: var(--ancla);
+  border-bottom: 1px solid rgba(240,210,36,.35);
+  padding: 14px 28px 13px;
+  flex-shrink: 0;
+}
+.hdr-row1 {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.bc-logo-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.bc-logo {
+  height: 30px;
+  width: auto;
+  display: block;
+}
+.bc-wordmark-sub {
+  font-size: 9px;
+  color: rgba(255,255,255,.50);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  margin-top: 3px;
+  padding-left: 2px;
+}
+.hdr-title { font-size: 17px; font-weight: 700; color: #fff; }
+.hdr-sub   { font-size: 11px; color: rgba(255,255,255,.65); margin-top: 1px; }
+.metrics {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+.met {
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.12);
+  border-bottom: 2px solid var(--senal);
+  border-radius: 6px 6px 0 0;
+  padding: 6px 12px;
+  text-align: center;
+  flex: 1;
+  min-width: 0;
+}
+.met-v {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--err);
+  white-space: nowrap;
+}
+.met-v.w { color: var(--warn); }
+.met-v.i { color: var(--senal); }
+.met-v.g { color: var(--ok); }
+.met-l {
+  font-size: 9px;
+  color: rgba(255,255,255,.70);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+/* ── PANELS ── */
+.panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: #EEF0FA;
+}
+.panel {
+  padding: 16px 20px;
+  border-right: 1px solid #C5CCE8;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #EEF0FA;
+}
+.panel:last-child { border-right: none; }
+
+.panel-hdr {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+.ph-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: .5px;
+}
+.pb-ok  { background: rgba(34,197,94,.15); color: var(--ok); border:1px solid var(--ok); }
+.pb-err { background: rgba(239,68,68,.15); color: var(--err); border:1px solid var(--err); }
+.ph-title { font-size: 14px; font-weight: 700; }
+.ph-sub   { font-size: 11px; color: var(--dim); }
+
+/* ── SVG FLOW ── */
+.flow-wrap { width: 100%; display: flex; justify-content: center; }
+.flow-wrap svg { display: block; width: 100%; max-width: 340px; height: auto; }
+svg text { font-family: 'Segoe UI', system-ui, sans-serif; }
+
+/* ── HUD (failure panel) ── */
+.hud {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: rgba(239,68,68,.06);
+  border: 1px solid rgba(239,68,68,.2);
+  border-radius: 8px;
+  padding: 8px 16px;
+}
+.hud-item { text-align: center; }
+.hud-v {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--err);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.hud-v.t { color: var(--warn); }
+.hud-l { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: .4px; }
+
+/* ── LOG STREAM ── */
+.log-stream {
+  background: #e8ebf8;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
+  min-height: 100px;
+  max-height: 150px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.le {
+  display: flex;
+  gap: 6px;
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(255,255,255,.025);
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: opacity .25s ease, transform .25s ease;
+}
+.le.show { opacity: 1; transform: none; }
+.le-t  { color: var(--dim); min-width: 46px; flex-shrink: 0; }
+.le-ok  { color: var(--ok); min-width: 38px; flex-shrink: 0; }
+.le-err { color: var(--err); min-width: 38px; flex-shrink: 0; }
+.le-m  { flex: 1; color: var(--txt); word-break: break-all; }
+
+/* ── ROOT CAUSE ── */
+.root-cause {
+  background: rgba(239,68,68,.04);
+  border: 1px solid rgba(239,68,68,.25);
+  border-left: 3px solid var(--err);
+  border-radius: 8px;
+  padding: 12px 14px;
+  flex-shrink: 0;
+}
+.rc-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--err);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  margin-bottom: 6px;
+}
+.rc-body {
+  font-size: 12px;
+  color: #334155;
+  line-height: 1.6;
+}
+code {
+  background: rgba(18,47,177,.08);
+  color: #122FB1;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10.5px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+}
+.fix-list {
+  margin-top: 8px;
+  padding-left: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.fix-list li {
+  font-size: 11px;
+  color: #64748b;
+  display: flex;
+  gap: 6px;
+}
+.fix-list li::before {
+  content: attr(data-n);
+  background: rgba(239,68,68,.15);
+  color: var(--err);
+  font-weight: 700;
+  font-size: 10px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ── TIMELINE ── */
+.tl-section {
+  padding: 14px 28px 16px;
+  background: #EEF0FA;
+  border-top: 1px solid #C5CCE8;
+  flex-shrink: 0;
+}
+.tl-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  margin-bottom: 10px;
+}
+.tl-rows { display: flex; flex-direction: column; gap: 8px; }
+.tl-row { display: flex; align-items: center; gap: 12px; }
+.tl-lbl { font-size: 11px; color: var(--dim); min-width: 200px; }
+.tl-bg {
+  flex: 1;
+  height: 14px;
+  background: #dde0f0;
+  border-radius: 7px;
+  position: relative;
+  overflow: visible;
+}
+.tl-fill {
+  height: 100%;
+  border-radius: 7px;
+  position: absolute;
+  left: 0;
+  transition: width .5s ease;
+}
+.tl-ok  { background: linear-gradient(90deg, #16a34a, #22c55e); }
+.tl-err { background: linear-gradient(90deg, #991b1b, #ef4444); }
+.tl-dur { font-size: 11px; min-width: 50px; text-align: right; }
+.tl-markers {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--dim);
+  margin-top: 5px;
+  padding: 0 0;
+}
+.retry-dot {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 20px;
+  background: rgba(239,68,68,.6);
+  border-radius: 1px;
+}
+
+/* ── CONTROLS ── */
+.controls {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  gap: 8px;
+  z-index: 99;
+}
+.btn {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .2s;
+}
+.btn-primary {
+  background: var(--blue);
+  color: #fff;
+}
+.btn-primary:hover { background: #1a3ed4; transform: translateY(-1px); }
+.btn-reset {
+  background: var(--card);
+  color: var(--dim);
+  border: 1px solid var(--border);
+}
+.btn-reset:hover { background: var(--node); color: var(--txt); }
+
+/* ── CONTEXTO FUNCIONAL ── */
+.ctx-section {
+  padding: 14px 28px 16px;
+  background: #e8ebf8;
+  border-top: 1px solid #C5CCE8;
+  border-bottom: 1px solid #C5CCE8;
+  flex-shrink: 0;
+}
+.ctx-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ancla);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+.ctx-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.ctx-card {
+  background: #ffffff;
+  border: 1px solid #C5CCE8;
+  border-top: 2px solid var(--ancla);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+.ctx-card-reg {
+  border-top-color: var(--err);
+}
+.ctx-card-num {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ancla);
+  margin-bottom: 4px;
+  line-height: 1;
+}
+.ctx-card-num.ctx-reg { color: var(--err); }
+.ctx-card-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 5px;
+  line-height: 1.3;
+}
+.ctx-card-body {
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.55;
+}
+.ctx-card-body strong { color: var(--ancla); font-weight: 700; }
+.ctx-card-body code {
+  background: rgba(18,47,177,.08);
+  color: #122FB1;
+  border: none;
+  font-size: 10px;
+}
+
+
+/* ── IMPACTO DE NEGOCIO ── */
+.impact-section {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 10px 28px;
+  background: #ffffff;
+  border-bottom: 2px solid #C5CCE8;
+  flex-shrink: 0;
+}
+.impact-severity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 20px;
+  border-right: 1px solid #C5CCE8;
+  margin-right: 20px;
+  flex-shrink: 0;
+}
+.impact-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 5px 10px;
+  border-radius: 4px;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.impact-critical {
+  background: rgba(220,38,38,.08);
+  color: #dc2626;
+  border: 1px solid rgba(220,38,38,.25);
+}
+.impact-sev-lbl {
+  font-size: 10px;
+  color: #4a5a8a;
+  line-height: 1.3;
+  text-align: center;
+}
+.impact-items {
+  display: flex;
+  flex: 1;
+  gap: 0;
+}
+.impact-item {
+  flex: 1;
+  padding: 0 16px;
+  border-right: 1px solid #C5CCE8;
+}
+.impact-lbl {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: #4a5a8a;
+  margin-bottom: 2px;
+}
+.impact-val {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0d1a3a;
+  line-height: 1.2;
+}
+.impact-val.impact-crit { color: #dc2626; }
+.impact-val.impact-reg  { color: #122FB1; }
+.impact-sub {
+  font-size: 10px;
+  color: #4a5a8a;
+  margin-top: 1px;
+  line-height: 1.3;
+}
+
+/* ── D05 DOMAIN HEALTH ── */
+.d05-section {
+  margin: 0 28px 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.d05-hdr {
+  background: #f0f2fb;
+  padding: 10px 16px 9px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.d05-hdr-title { font-size: 12px; font-weight: 700; color: var(--txt); }
+.d05-hdr-sub   { font-size: 10px; color: var(--dim); }
+.d05-table { width: 100%; border-collapse: collapse; }
+.d05-table th {
+  padding: 6px 14px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--dim);
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  background: #f8f9fd;
+}
+.d05-table td {
+  padding: 7px 14px;
+  font-size: 11px;
+  color: var(--txt);
+  border-bottom: 1px solid #eef0fa;
+  vertical-align: top;
+}
+.d05-table tr:last-child td { border-bottom: none; }
+.d05-sp  { font-family: monospace; font-size: 11px; color: var(--ancla); font-weight: 600; }
+.d05-src { font-size: 9px; color: #94a3b8; margin-top: 1px; }
+.d05-rate      { font-weight: 700; font-size: 12px; }
+.d05-rate-high { color: #ef4444; }
+.d05-rate-mid  { color: #f97316; }
+.d05-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.d05-badge-defecto  { background: #fee2e2; color: #dc2626; }
+.d05-badge-gating   { background: #fef3c7; color: #92400e; }
+.d05-badge-restrict { background: #dbeafe; color: #1e40af; }
+.d05-type { font-size: 10px; color: var(--dim); line-height: 1.4; }
+.d05-note {
+  padding: 7px 14px 8px;
+  font-size: 10px;
+  color: var(--dim);
+  border-top: 1px solid var(--border);
+  background: #f8f9fd;
+}
+.d05-table th:nth-child(1) { width: 26%; }
+.d05-table th:nth-child(2) { width:  9%; }
+.d05-table th:nth-child(3) { width: 16%; }
+
+/* Animations */
+@keyframes blink-err {
+  0%,100% { opacity: 1; }
+  50% { opacity: .3; }
+}
+.blink { animation: blink-err 1s infinite; }
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════ SIGNAL BAR ══════════ -->
+<div class="signal-top"></div>
+
+<!-- ══════════ HEADER ══════════ -->
+<header>
+  <div class="hdr-row1">
+    <div class="bc-logo-wrap">
+    <img class="bc-logo" src="data:image/png;base64,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" alt="BanCoppel">
+      <div class="bc-wordmark-sub">Modernización Core Bancario</div>
+    </div>
+    <div>
+      <div class="hdr-title">APPRIZA — Diagnóstico de Fallo en Producción</div>
+      <div class="hdr-sub">Análisis de producción · Remesas internacionales · BanCoppel · 24 abril 2026</div>
+    </div>
+  </div>
+  <div class="metrics">
+    <div class="met"><div class="met-v">5,163</div><div class="met-l">Remesas fallidas/día</div></div>
+    <div class="met"><div class="met-v w">8.7%</div><div class="met-l">Tasa de error</div></div>
+    <div class="met"><div class="met-v">13</div><div class="met-l">Reintentos/fallo</div></div>
+    <div class="met"><div class="met-v w">5+ hrs</div><div class="met-l">Duración del bloqueo</div></div>
+    <div class="met"><div class="met-v i">~400</div><div class="met-l">Remesas únicas</div></div>
+    <div class="met"><div class="met-v g">61,280</div><div class="met-l">Llamadas totales/día</div></div>
+  </div>
+</header>
+
+<!-- ══════════ IMPACTO AL NEGOCIO ══════════ -->
+<div class="impact-section">
+
+  <!-- Criticality badge -->
+  <div class="impact-severity">
+    <div>
+      <div class="impact-badge impact-critical">N3 CRÍTICO</div>
+      <div class="impact-sev-lbl">Severidad<br>de impacto</div>
+    </div>
+  </div>
+
+  <!-- Impact items -->
+  <div class="impact-items">
+
+    <div class="impact-item">
+      <div class="impact-lbl">Dominio afectado</div>
+      <div class="impact-val">D05 · bdisac</div>
+      <div class="impact-sub">SAC &amp; Remesas Internacionales</div>
+    </div>
+
+    <div class="impact-item">
+      <div class="impact-lbl">Capacidad ETB afectada</div>
+      <div class="impact-val">Payments &amp; Transfers L2</div>
+      <div class="impact-sub">International Remittances · Transaction Reconciliation</div>
+    </div>
+
+    <div class="impact-item">
+      <div class="impact-lbl">Qué deja de recibir el cliente</div>
+      <div class="impact-val impact-crit">Acreditación de fondos bloqueada</div>
+      <div class="impact-sub">∼400 remesas/día · cargo aplicado sin confirmación · sin notificación · sin devolución</div>
+    </div>
+
+    <div class="impact-item">
+      <div class="impact-lbl">Riesgo regulatorio</div>
+      <div class="impact-val impact-reg">Banxico Circ. 14/2017</div>
+      <div class="impact-sub">Notificación &lt;2 días hábiles · exposición a sanción CONDUSEF</div>
+    </div>
+
+    <div class="impact-item" style="border-right:none">
+      <div class="impact-lbl">SPs críticos involucrados</div>
+      <div class="impact-val">sp_app_confirmpayment</div>
+      <div class="impact-sub">sp_app_getorder · sp_app_recordorder · 61,280 llamadas/día</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════ CONTEXTO FUNCIONAL ══════════ -->
+<div class="ctx-section">
+  <div class="ctx-title">Contexto funcional — ¿por qué sucede esto?</div>
+  <div class="ctx-grid">
+
+    <div class="ctx-card">
+      <div class="ctx-card-num">01</div>
+      <div class="ctx-card-title">¿Qué es APPRIZA?</div>
+      <div class="ctx-card-body">
+        Proveedor externo que <strong>confirma la acreditación de remesas internacionales</strong> (CFPA). BanCoppel debita al cliente y llama a APPRIZA para validar que el destinatario recibió los fondos antes de cerrar la operación.
+      </div>
+    </div>
+
+    <div class="ctx-card">
+      <div class="ctx-card-num">02</div>
+      <div class="ctx-card-title">¿Por qué reintentos tan espaciados?</div>
+      <div class="ctx-card-body">
+        No es un loop inmediato. Un <strong>proceso batch de reconciliación</strong> escanea periódicamente las remesas en estado <code>PENDIENTE</code> y reintenta la confirmación. Los intervalos irregulares (19:15, 19:45, 20:03...) son las corridas del job esa tarde.
+      </div>
+    </div>
+
+    <div class="ctx-card">
+      <div class="ctx-card-num">03</div>
+      <div class="ctx-card-title">Impacto al cliente</div>
+      <div class="ctx-card-body">
+        El cargo ya fue aplicado. El destinatario no recibe fondos. La remesa queda en <code>sp_app_recordorder</code> como <strong>PENDIENTE indefinidamente</strong> sin notificación automática al cliente ni devolución del monto. ~400 clientes afectados cada día.
+      </div>
+    </div>
+
+    <div class="ctx-card ctx-card-reg">
+      <div class="ctx-card-num ctx-reg">!</div>
+      <div class="ctx-card-title">Riesgo regulatorio · Banxico</div>
+      <div class="ctx-card-body">
+        Circular 14/2017 exige notificar errores en transferencias al exterior en <strong>máximo 2 días hábiles</strong>. Un batch sin límite de reintentos puede exceder ese plazo sin que el banco registre formalmente el fallo — exponiendo a BanCoppel a sanción CONDUSEF.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════ ESTADO DOMINIO D05 ══════════ -->
+<div class="d05-section">
+  <div class="d05-hdr">
+    <div class="d05-hdr-title">Salud del dominio D05 — bdisac</div>
+    <div class="d05-hdr-sub">SPs con tasa de error significativa · evidencia 2026-04-24 · mecanismo verificado desde código fuente</div>
+  </div>
+  <table class="d05-table">
+    <thead>
+      <tr>
+        <th>Stored Procedure</th>
+        <th>Tasa error</th>
+        <th>Tipo</th>
+        <th>Mecanismo confirmado en código</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <div class="d05-sp">sp_app_confirmpayment</div>
+          <div class="d05-src">bdisac · flujo principal APPRIZA</div>
+        </td>
+        <td><span class="d05-rate d05-rate-mid">8.64%</span></td>
+        <td><span class="d05-badge d05-badge-defecto">Defecto externo</span></td>
+        <td class="d05-type">APPRIZA retorna <code>codRetorno=9999</code> "operación terminó con error inesperado". Batch de reconciliación sin circuit breaker ni límite de intentos — 13 reintentos promedio antes de atascarse.</td>
+      </tr>
+      <tr>
+        <td>
+          <div class="d05-sp">sp_consultasaldocortemin</div>
+          <div class="d05-src">bdicred · llamada cross-DB desde D05</div>
+        </td>
+        <td><span class="d05-rate d05-rate-high">99.85%</span></td>
+        <td><span class="d05-badge d05-badge-defecto">Defecto código</span></td>
+        <td class="d05-type">Variante <code>_mx2</code>: <code>ON EXCEPTION SET sSqlErr → RETURN sSqlErr, 0</code> — errores SQL retornados como código numérico sin catalogar en <code>errores_bus</code>. Patrón CWE-390. Sin códigos de negocio en logs de producción.</td>
+      </tr>
+      <tr>
+        <td>
+          <div class="d05-sp">sp_consultaregtarjeta</div>
+          <div class="d05-src">intercard · llamada cross-DB desde D05</div>
+        </td>
+        <td><span class="d05-rate d05-rate-high">97.29%</span></td>
+        <td><span class="d05-badge d05-badge-gating">Gating query</span></td>
+        <td class="d05-type">Búsqueda de registro de tarjeta en <code>intercard</code>. Retorna <code>00002</code> (no encontrada) como respuesta de negocio normal. Tasa alta esperada por diseño: la mayoría de consultas no encuentran la tarjeta en el lote dado.</td>
+      </tr>
+      <tr>
+        <td>
+          <div class="d05-sp">sp_reverso_msw</div>
+          <div class="d05-src">bdisac · reversión manual MSW · NO en flujo APPRIZA</div>
+        </td>
+        <td><span class="d05-rate d05-rate-mid">69.22%</span></td>
+        <td><span class="d05-badge d05-badge-restrict">Restricción fecha</span></td>
+        <td class="d05-type">Línea 60: <code>IF cFechaFormat &lt;&gt; pFecha THEN RETURN '00400'</code> — solo permite reversiones del mismo día. Intentos en D+1 fallan inmediatamente. <code>00401</code> = folio no encontrado en <code>sac_movimientos</code>. SP independiente del flujo APPRIZA.</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="d05-note">Línea base del dominio D05-bdisac: 4.07% de error promedio (945,217 llamadas/día). <code>sp_app_confirmpayment</code> duplica esa línea base, confirmando anomalía real. <code>sp_consultasaldocortemin</code> y <code>sp_consultaregtarjeta</code> operan en bases independientes (bdicred, intercard) — sus tasas son propias de cada base, no de bdisac.</div>
+</div>
+
+<!-- ══════════ TIMELINE ══════════ -->
+<div class="tl-section">
+  <div class="tl-title">Timeline de transacción — escala 18:00–23:59</div>
+  <div class="tl-rows">
+    <div class="tl-row">
+      <div class="tl-lbl">Exitosa · id=911434372858</div>
+      <div class="tl-bg">
+        <div class="tl-fill tl-ok" id="tlOk" style="width:0%"></div>
+      </div>
+      <div class="tl-dur" style="color:var(--ok)" id="tlOkDur">—</div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-lbl">Fallida · id=714261829804</div>
+      <div class="tl-bg" id="tlErrBg">
+        <div class="tl-fill tl-err" id="tlErr" style="width:0%"></div>
+      </div>
+      <div class="tl-dur" style="color:var(--err)" id="tlErrDur">—</div>
+    </div>
+  </div>
+  <div class="tl-markers">
+    <span>18:00</span><span>19:00</span><span>20:00</span><span>21:00</span><span>22:00</span><span>23:59</span>
+  </div>
+</div>
+
+<!-- ══════════ CONTROLS ══════════ -->
+<div class="controls">
+  <button class="btn btn-reset" onclick="resetAnim()">↺ Reiniciar</button>
+  <button class="btn btn-primary" id="btnPlay" onclick="onPlay()">▶ Reproducir</button>
+</div>
+
+<!-- ══════════ PANELS ══════════ -->
+<div class="panels">
+
+  <!-- ── SUCCESS PANEL ── -->
+  <div class="panel">
+    <div class="panel-hdr">
+      <span class="ph-badge pb-ok">EXITO</span>
+      <div>
+        <div class="ph-title">Flujo exitoso</div>
+        <div class="ph-sub">idTrxGlobal=911434372858 · 08:xx · 2 pasos · ~1 minuto</div>
+      </div>
+    </div>
+
+    <div class="flow-wrap">
+      <svg id="svgS" viewBox="0 0 380 360" width="100%">
+        <!-- ESB -->
+        <rect x="90" y="18" width="200" height="42" rx="8" fill="#ffffff" stroke="#122FB1" stroke-width="1.5"/>
+        <text x="190" y="32" text-anchor="middle" fill="#4a5a8a" font-size="10">ESB · IBM WebSphere</text>
+        <text x="190" y="49" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="600">RemesasAPPRIZAAutomaticas</text>
+
+        <!-- sp_app_getorder -->
+        <rect id="sN1" x="90" y="108" width="200" height="42" rx="8" fill="#ffffff" stroke="#C5CCE8" stroke-width="1.5"/>
+        <text x="190" y="124" text-anchor="middle" fill="#4a5a8a" font-size="10">Informix · bdisac</text>
+        <text x="190" y="140" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="600">sp_app_getorder</text>
+
+        <!-- sp_app_confirmpayment -->
+        <rect id="sN2" x="90" y="208" width="200" height="42" rx="8" fill="#ffffff" stroke="#C5CCE8" stroke-width="1.5"/>
+        <text x="190" y="224" text-anchor="middle" fill="#4a5a8a" font-size="10">Informix · bdisac</text>
+        <text x="190" y="240" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="600">sp_app_confirmpayment</text>
+
+        <!-- APPRIZA -->
+        <rect id="sN3" x="90" y="308" width="200" height="42" rx="8" fill="#f0f2fe" stroke="#122FB1" stroke-width="1.5"/>
+        <text x="190" y="324" text-anchor="middle" fill="#122FB1" font-size="10">Sistema externo · APPRIZA</text>
+        <text x="190" y="340" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="600">Confirmacion CFPA</text>
+
+        <!-- Lines -->
+        <line x1="190" y1="64" x2="190" y2="108" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <polygon points="190,108 184,96 196,96" fill="#A0AEDC"/>
+        <line x1="190" y1="154" x2="190" y2="208" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <polygon points="190,208 184,196 196,196" fill="#A0AEDC" id="sA2"/>
+        <line x1="190" y1="254" x2="190" y2="308" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <polygon points="190,308 184,296 196,296" fill="#A0AEDC" id="sA3"/>
+
+        <!-- Status checks (hidden initially) -->
+        <g id="sCk1" opacity="0">
+          <circle cx="316" cy="131" r="10" fill="#16a34a"/>
+          <text x="316" y="135" text-anchor="middle" fill="#fff" font-size="12">✓</text>
+        </g>
+        <g id="sCk2" opacity="0">
+          <circle cx="316" cy="231" r="10" fill="#16a34a"/>
+          <text x="316" y="235" text-anchor="middle" fill="#fff" font-size="12">✓</text>
+        </g>
+        <g id="sCk3" opacity="0">
+          <circle cx="316" cy="331" r="10" fill="#16a34a"/>
+          <text x="316" y="335" text-anchor="middle" fill="#fff" font-size="12">✓</text>
+        </g>
+        <g id="sResp" opacity="0">
+          <rect x="56" y="323" width="26" height="18" rx="3" fill="rgba(34,197,94,.15)" stroke="#22c55e"/>
+          <text x="69" y="335" text-anchor="middle" fill="#22c55e" font-size="9" font-weight="700">0000</text>
+        </g>
+        <text id="sDone" x="190" y="370" text-anchor="middle" fill="#22c55e" font-size="12" font-weight="700" opacity="0">Completado en ~1 minuto</text>
+
+        <!-- Animated packet -->
+        <circle id="sPkt" cx="190" cy="41" r="8" fill="#122FB1" stroke="#ffffff" stroke-width="2.5" opacity="0"/>
+
+        <!-- Glow filters -->
+        <defs>
+          <filter id="glow-ok" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <filter id="glow-err" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="4" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+      </svg>
+    </div>
+
+    <div class="log-stream" id="logS">
+      <div style="color:#8896cc;font-size:10px;margin-bottom:4px;"># Producción 2026-04-24 08:xx · CDMX</div>
+    </div>
+  </div>
+
+  <!-- ── FAILURE PANEL ── -->
+  <div class="panel">
+    <div class="panel-hdr">
+      <span class="ph-badge pb-err">FALLO</span>
+      <div>
+        <div class="ph-title">Loop de reintentos sin circuit breaker</div>
+        <div class="ph-sub">idTrxGlobal=714261829804 · 18:xx–23:xx · 13 reintentos · sin resolución</div>
+      </div>
+    </div>
+
+    <!-- HUD -->
+    <div class="hud">
+      <div class="hud-item">
+        <div class="hud-v" id="hudRetry">0</div>
+        <div class="hud-l">Reintentos</div>
+      </div>
+      <div class="hud-sep">/13</div>
+      <div class="hud-item">
+        <div class="hud-v t" id="hudTime">18:00</div>
+        <div class="hud-l">Hora (CDMX)</div>
+      </div>
+      <div class="hud-item hud-right">
+        <div id="hudStatus" class="hud-status-pill">EN ESPERA</div>
+      </div>
+    </div>
+
+    <div class="flow-wrap">
+      <svg id="svgF" viewBox="0 0 380 440" width="100%">
+        <defs>
+          <filter id="glow-err2" x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="5" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <marker id="arr-err" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="rgba(239,68,68,.5)"/>
+          </marker>
+        </defs>
+
+        <!-- ESB -->
+        <rect x="90" y="10" width="200" height="42" rx="8" fill="#ffffff" stroke="#122FB1" stroke-width="1.5"/>
+        <text x="190" y="26" text-anchor="middle" fill="#4a5a8a" font-size="10">ESB · IBM WebSphere</text>
+        <text x="190" y="41" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="600">RemesasAPPRIZAAutomaticas</text>
+
+        <!-- ConfirmPayment.java:179 -->
+        <rect id="fN1" x="90" y="100" width="200" height="48" rx="8" fill="#ffffff" stroke="#C5CCE8" stroke-width="1.5"/>
+        <text x="190" y="116" text-anchor="middle" fill="#4a5a8a" font-size="10">ESB Plugin · Java</text>
+        <text x="190" y="129" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="600">ConfirmPayment.java</text>
+        <text x="190" y="142" text-anchor="middle" fill="#4a5a8a" font-size="10">evaluate() · línea 179</text>
+
+        <!-- Exception label -->
+        <text id="fExc" x="190" y="170" text-anchor="middle" fill="#ef4444" font-size="10" font-weight="700" opacity="0">UndeclaredThrowableException</text>
+
+        <!-- sp_app_recordorder -->
+        <rect id="fN2" x="90" y="188" width="200" height="42" rx="8" fill="#ffffff" stroke="#C5CCE8" stroke-width="1.5"/>
+        <text x="190" y="204" text-anchor="middle" fill="#4a5a8a" font-size="10">Informix · bdisac</text>
+        <text x="190" y="220" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="600">sp_app_recordorder</text>
+
+        <!-- RETRY BOX -->
+        <rect x="60" y="270" width="260" height="96" rx="8" fill="rgba(239,68,68,.04)" stroke="rgba(239,68,68,.3)" stroke-width="1" stroke-dasharray="5,3"/>
+        <text x="190" y="285" text-anchor="middle" fill="#f87171" font-size="10" font-weight="700" letter-spacing="1">RETRY LOOP</text>
+
+        <!-- sp_app_confirmpayment (inside retry box) -->
+        <rect id="fN3" x="80" y="288" width="220" height="42" rx="8" fill="#fff5f5" stroke="#f97316" stroke-width="1.5"/>
+        <text x="190" y="304" text-anchor="middle" fill="#4a5a8a" font-size="10">Informix · bdisac</text>
+        <text x="190" y="320" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="600">sp_app_confirmpayment</text>
+
+        <!-- APPRIZA -->
+        <rect id="fN4" x="90" y="390" width="200" height="42" rx="8" fill="#fff0f0" stroke="#7f1d1d" stroke-width="1.5"/>
+        <text x="190" y="406" text-anchor="middle" fill="#fca5a5" font-size="10">Sistema externo · APPRIZA</text>
+        <text x="190" y="422" text-anchor="middle" fill="#fca5a5" font-size="11" font-weight="700">9999 — Error inesperado</text>
+
+        <!-- Lines -->
+        <line x1="190" y1="56" x2="190" y2="100" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <polygon points="190,100 184,88 196,88" fill="#A0AEDC"/>
+        <line x1="190" y1="154" x2="190" y2="188" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3" id="fL2"/>
+        <polygon points="190,188 184,176 196,176" fill="#A0AEDC"/>
+        <line x1="190" y1="234" x2="190" y2="288" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <polygon points="190,288 184,276 196,276" fill="#A0AEDC"/>
+        <line x1="190" y1="334" x2="190" y2="390" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <polygon points="190,390 184,378 196,378" fill="#A0AEDC"/>
+
+        <!-- Loop arrow: APPRIZA → retry entry (right side curve) -->
+        <path id="fLoop" d="M 310,413 C 360,413 360,311 310,311"
+              fill="none" stroke="rgba(239,68,68,.4)" stroke-width="1.5"
+              stroke-dasharray="5,3" marker-end="url(#arr-err)" opacity="0"/>
+
+        <!-- Status indicators -->
+        <g id="fX1" opacity="0">
+          <circle cx="64" cy="127" r="11" fill="#ef4444" filter="url(#glow-err2)"/>
+          <text x="64" y="132" text-anchor="middle" fill="#fff" font-size="13" font-weight="900">!</text>
+        </g>
+        <g id="fCk2" opacity="0">
+          <circle cx="316" cy="211" r="10" fill="#16a34a"/>
+          <text x="316" y="215" text-anchor="middle" fill="#fff" font-size="12">✓</text>
+        </g>
+        <g id="fX4" opacity="0">
+          <circle cx="316" cy="413" r="10" fill="#ef4444"/>
+          <text x="316" y="417" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">✗</text>
+        </g>
+
+        <!-- Retry counter badge -->
+        <g id="fRetBadge" opacity="0">
+          <rect x="248" y="271" width="68" height="20" rx="4" fill="rgba(239,68,68,.15)" stroke="rgba(239,68,68,.4)"/>
+          <text id="fRetText" x="282" y="284" text-anchor="middle" fill="#f87171" font-size="11" font-weight="700">0/13</text>
+        </g>
+
+        <!-- Animated packet -->
+        <circle id="fPkt" cx="190" cy="33" r="8" fill="#ef4444" stroke="#ffffff" stroke-width="2.5" opacity="0"/>
+      </svg>
+    </div>
+
+    <div class="log-stream" id="logF">
+      <div style="color:#8896cc;font-size:10px;margin-bottom:4px;"># Producción 2026-04-24 18:xx–23:xx · CDMX</div>
+    </div>
+
+    <div class="root-cause">
+      <div class="rc-title">Causa Raíz &amp; Plan de Acción</div>
+      <div class="rc-body">
+        <code>ConfirmPayment.java:179</code> lanza <code>UndeclaredThrowableException</code> (NPE o fallo de conectividad envuelto).
+        El ESB no tiene circuit breaker: reintenta indefinidamente, bloqueando la transacción 5 horas con 13 intentos fallidos.
+      </div>
+      <ul class="fix-list">
+        <li data-n="1">Identificar NPE en <code>ConfirmPayment.java:179</code> — probable null no manejado en respuesta APPRIZA</li>
+        <li data-n="2">Agregar <code>max_retries=3</code> + backoff exponencial al loop del ESB</li>
+        <li data-n="3">Implementar circuit breaker (Spring Resilience4j) hacia el endpoint APPRIZA</li>
+        <li data-n="4">Crear tabla de reconciliación para remesas que superen max_retries</li>
+        <li data-n="5">Verificar vigencia del certificado SSL — timeouts ~30s en <code>RemesasAPPRIZACanalesExternos</code></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let timers = [];
+let phase  = 'idle'; // idle | running | done
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function wait(ms) {
+  return new Promise(r => { const t = setTimeout(r, ms); timers.push(t); });
+}
+
+function attr(id, a, v) {
+  const el = document.getElementById(id);
+  if (el) el.setAttribute(a, v);
+}
+
+function setStroke(id, color, w = 2) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.setAttribute('stroke', color);
+  el.setAttribute('stroke-width', w);
+}
+
+function movePkt(id, x, y) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.setAttribute('cx', x);
+  el.setAttribute('cy', y);
+}
+
+function show(id) { attr(id, 'opacity', 1); }
+function hide(id) { attr(id, 'opacity', 0); }
+
+function addLog(containerId, time, type, msg) {
+  const c = document.getElementById(containerId);
+  if (!c) return;
+  const d = document.createElement('div');
+  d.className = 'le';
+  d.innerHTML = `
+    <span class="le-t">${time}</span>
+    <span class="${type === 'ok' ? 'le-ok' : 'le-err'}">${type === 'ok' ? '[OK] ' : '[ERR]'}</span>
+    <span class="le-m">${msg}</span>`;
+  c.appendChild(d);
+  requestAnimationFrame(() => {
+    d.classList.add('show');
+    c.scrollTop = c.scrollHeight;
+  });
+}
+
+function setHudStatus(text, color) {
+  const el = document.getElementById('hudStatus');
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = color;
+  el.style.borderColor = color + '44';
+  el.style.background = color + '11';
+}
+
+// Timeline retry positions (0–100 scale for hours 18–23:59)
+const retryPcts = [0, 0, 17, 24, 27, 34, 41, 47, 55, 62, 70, 76, 81, 99];
+const retryTimes = [
+  '18:03','18:03','19:15','19:45','20:03','20:31',
+  '21:00','21:28','22:05','22:44','23:11','23:31','23:48','23:59'
+];
+const retryLogs = [
+  '[retry  1/13] sp_app_confirmpayment → resp_code=1100',
+  '[retry  2/13] sp_app_confirmpayment → resp_code=1100',
+  '[retry  3/13] sp_app_confirmpayment → resp_code=1100',
+  '[retry  4/13] sp_app_confirmpayment → resp_code=1100',
+  '[retry  5/13] sp_app_confirmpayment → resp_code=1100',
+  '[retry  6/13] sp_app_confirmpayment → resp_code=1100',
+  '[retry  7/13] sp_app_confirmpayment → resp_code=1100',
+  '[retry  8/13] sp_app_confirmpayment → resp_code=1100',
+  '[retry  9/13] sp_app_confirmpayment → resp_code=1100',
+  '[retry 10/13] sp_app_confirmpayment → resp_code=1100',
+  '[retry 11/13] sp_app_confirmpayment → resp_code=1100',
+  '[retry 12/13] sp_app_confirmpayment → resp_code=1100',
+  '[retry 13/13] sp_app_confirmpayment → resp_code=1100 — SIN RESOLUCION'
+];
+
+function addRetryDot(pct) {
+  const bg = document.getElementById('tlErrBg');
+  if (!bg) return;
+  const dot = document.createElement('div');
+  dot.className = 'retry-dot';
+  dot.style.left = pct + '%';
+  bg.appendChild(dot);
+}
+
+// ─── SUCCESS ANIMATION ───────────────────────────────────────────────────────
+async function animSuccess() {
+  show('sPkt');
+  movePkt('sPkt', 190, 41);
+
+  await wait(1600);
+  setStroke('sN1', '#F0D224');
+  movePkt('sPkt', 190, 131);
+  addLog('logS', '08:12:34', 'ok', 'getOrder → {"Cod_err":"00000","EstadoOrden":"LISTA"}');
+
+  await wait(2800);
+  setStroke('sN1', '#22c55e');
+  show('sCk1');
+  setStroke('sN2', '#F0D224');
+  movePkt('sPkt', 190, 231);
+  addLog('logS', '08:12:34', 'ok', 'sp_app_confirmpayment invocado con UUID=22e4e9ee-...');
+
+  await wait(2800);
+  setStroke('sN3', '#F0D224');
+  movePkt('sPkt', 190, 331);
+  addLog('logS', '08:12:35', 'ok', 'APPRIZA → codRetorno=0000 "La Operación ha sido realizada"');
+
+  await wait(2800);
+  setStroke('sN2', '#22c55e');
+  setStroke('sN3', '#22c55e');
+  show('sCk2');
+  show('sCk3');
+  show('sResp');
+  addLog('logS', '08:12:35', 'ok', 'CodRetorno:00000 CONFIRMACION CFPA EXITOSA');
+
+  await wait(2000);
+  hide('sPkt');
+  show('sDone');
+
+  // Timeline success bar
+  document.getElementById('tlOk').style.width = '2%';
+  document.getElementById('tlOkDur').textContent = '~1 min';
+}
+
+// ─── FAILURE ANIMATION ───────────────────────────────────────────────────────
+async function animFailure() {
+  show('fPkt');
+  movePkt('fPkt', 190, 33);
+  setHudStatus('EN PROGRESO', '#f97316');
+
+  await wait(2400);
+
+  // Hit ConfirmPayment.java:179
+  setStroke('fN1', '#F0D224');
+  movePkt('fPkt', 190, 127);
+
+  await wait(2000);
+
+  // EXPLODE
+  setStroke('fN1', '#ef4444');
+  show('fX1');
+  show('fExc');
+  addLog('logF', '18:03:22', 'err', 'ConfirmPayment.evaluate():179 → UndeclaredThrowableException');
+  addLog('logF', '18:03:22', 'err', 'java.lang.NullPointerException [wrapped in InvocationTargetException]');
+  setHudStatus('EXCEPCION JAVA', '#ef4444');
+
+  await wait(2800);
+
+  // recordorder
+  setStroke('fN2', '#F0D224');
+  movePkt('fPkt', 190, 211);
+  addLog('logF', '18:03:23', 'ok', 'sp_app_recordorder → orden registrada (estado: PENDIENTE)');
+
+  await wait(2400);
+
+  setStroke('fN2', '#22c55e');
+  show('fCk2');
+  show('fLoop');
+  show('fX4');
+  show('fRetBadge');
+
+  // Timeline starts filling
+  document.getElementById('tlErr').style.width = '1%';
+  document.getElementById('tlErrDur').textContent = '0 hrs';
+  setHudStatus('RETRY LOOP', '#ef4444');
+
+  // 13 retries
+  const speedMs = [2000, 1600, 1520, 1440, 1360, 1280, 1200, 1120, 1040, 960, 880, 800, 800];
+
+  for (let i = 1; i <= 13; i++) {
+    // confirmpayment active
+    setStroke('fN3', '#F0D224');
+    movePkt('fPkt', 190, 311);
+    await wait(800);
+
+    // APPRIZA
+    setStroke('fN4', '#ef4444');
+    movePkt('fPkt', 190, 413);
+    await wait(800);
+
+    // Bounce back
+    movePkt('fPkt', 320, 365);
+    setStroke('fN3', '#ef4444');
+    await wait(600);
+
+    // Update counters
+    document.getElementById('hudRetry').textContent = i;
+    document.getElementById('hudTime').textContent  = retryTimes[i];
+    attr('fRetText', 'textContent', i + '/13');
+
+    // Log
+    addLog('logF', retryTimes[i] + ':' + (10 + i * 3) % 60 + ':' + (20 + i * 7) % 60,
+           'err', retryLogs[i - 1]);
+    addLog('logF', retryTimes[i] + ':' + (10 + i * 3) % 60 + ':' + (22 + i * 7) % 60,
+           'err', 'APPRIZA → codRetorno=9999 "La operación terminó con error inesperado"');
+
+    // Timeline
+    const pct = retryPcts[i];
+    document.getElementById('tlErr').style.width = pct + '%';
+    document.getElementById('tlErrDur').textContent = (pct / 100 * 6).toFixed(1) + ' hrs';
+    addRetryDot(pct);
+
+    movePkt('fPkt', 190, 311);
+    await wait(speedMs[i - 1] || 180);
+  }
+
+  // Final stuck state
+  setStroke('fN3', '#ef4444');
+  setStroke('fN4', '#7f1d1d');
+  hide('fPkt');
+  document.getElementById('tlErr').style.width = '100%';
+  document.getElementById('tlErrDur').textContent = '5+ hrs';
+  document.getElementById('hudTime').textContent  = '23:59';
+  setHudStatus('SIN RESOLUCION', '#ef4444');
+
+  // Add stuck label to SVG
+  const svg = document.getElementById('svgF');
+  const lbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  lbl.setAttribute('x', '190');
+  lbl.setAttribute('y', '376');
+  lbl.setAttribute('text-anchor', 'middle');
+  lbl.setAttribute('fill', '#ef4444');
+  lbl.setAttribute('font-size', '11');
+  lbl.setAttribute('font-weight', '700');
+  lbl.textContent = 'TRANSACCION ATASCADA — SIN CIRCUIT BREAKER';
+  svg.appendChild(lbl);
+}
+
+// ─── MAIN ────────────────────────────────────────────────────────────────────
+async function playAnimation() {
+  if (phase === 'running') return;
+  phase = 'running';
+  document.getElementById('btnPlay').textContent = '⏳ Animando...';
+  document.getElementById('btnPlay').disabled = true;
+
+  await animSuccess();
+  await wait(1200);
+  await animFailure();
+
+  phase = 'done';
+  document.getElementById('btnPlay').textContent = '✓ Completado';
+  document.getElementById('btnPlay').style.background = '#16a34a';
+}
+
+function onPlay() {
+  if (phase === 'idle') playAnimation();
+  else if (phase === 'done') { resetAnim(); setTimeout(playAnimation, 80); }
+}
+
+function resetAnim() {
+  timers.forEach(clearTimeout);
+  timers = [];
+  phase = 'idle';
+
+  const btn = document.getElementById('btnPlay');
+  btn.textContent = '▶ Reproducir';
+  btn.disabled = false;
+  btn.style.background = '';
+
+  // Reset SVG S
+  ['sN1','sN2','sN3'].forEach(id => setStroke(id, '#C5CCE8', 1.5));
+  ['sCk1','sCk2','sCk3','sResp','sDone'].forEach(hide);
+  hide('sPkt');
+  movePkt('sPkt', 190, 41);
+
+  // Reset SVG F
+  setStroke('fN1', '#C5CCE8', 1.5);
+  setStroke('fN2', '#C5CCE8', 1.5);
+  setStroke('fN3', '#f97316', 1.5);
+  setStroke('fN4', '#7f1d1d', 1.5);
+  ['fX1','fCk2','fX4','fExc','fLoop','fRetBadge'].forEach(hide);
+  hide('fPkt');
+  movePkt('fPkt', 190, 33);
+  attr('fRetText', 'textContent', '0/13');
+
+  // Reset HUD
+  document.getElementById('hudRetry').textContent = '0';
+  document.getElementById('hudTime').textContent  = '18:00';
+  setHudStatus('EN ESPERA', '#64748b');
+
+  // Reset logs
+  document.getElementById('logS').innerHTML = '<div style="color:#8896cc;font-size:10px;margin-bottom:4px;"># Producción 2026-04-24 08:xx · CDMX</div>';
+  document.getElementById('logF').innerHTML = '<div style="color:#8896cc;font-size:10px;margin-bottom:4px;"># Producción 2026-04-24 18:xx–23:xx · CDMX</div>';
+
+  // Reset timeline
+  document.getElementById('tlOk').style.width  = '0%';
+  document.getElementById('tlErr').style.width  = '0%';
+  document.getElementById('tlOkDur').textContent = '—';
+  document.getElementById('tlErrDur').textContent = '—';
+  document.getElementById('tlErrBg').querySelectorAll('.retry-dot').forEach(d => d.remove());
+
+  // Remove dynamic SVG labels
+  document.querySelectorAll('#svgF text[data-dyn]').forEach(e => e.remove());
+  const stuckLbls = document.querySelectorAll('#svgF text');
+  stuckLbls.forEach(el => {
+    if (el.textContent.includes('ATASCADA')) el.remove();
+  });
+}
+
+// Auto-start
+setTimeout(playAnimation, 900);
+</script>
+</body>
+</html>

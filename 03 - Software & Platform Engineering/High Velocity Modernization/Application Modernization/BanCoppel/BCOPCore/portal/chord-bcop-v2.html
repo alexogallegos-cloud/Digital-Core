@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BCOPCore · Integraciones del core v2</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#3D5FCD;--blued:#122FB1;--bluedd:#0d2185;
+  --yellow:#F0D224;
+  --ink:#F4F6FF;--muted:#aab3d4;--muted2:#818ab0;
+  --glass:rgba(255,255,255,.055);--glassb:rgba(255,255,255,.10)
+}
+body{background:#060a1a;color:#F4F6FF;
+  font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter',sans-serif;
+  -webkit-font-smoothing:antialiased;min-height:100vh}
+
+/* aurora */
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(27,63,208,.65),transparent 70%);animation:f1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(13,33,133,.7),transparent 70%);animation:f2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(240,210,36,.22),transparent 70%);animation:f3 32s ease-in-out infinite}
+@keyframes f1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes f2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes f3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+.grain{position:fixed;inset:0;z-index:-1;opacity:.045;pointer-events:none;
+ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* nav */
+nav{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;gap:14px;padding:15px 30px;
+ backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);background:rgba(6,10,26,.55);border-bottom:1px solid rgba(255,255,255,.06)}
+nav img{height:21px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+nav .nt{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em}
+nav .sp{flex:1}
+nav .v2badge{font-size:10px;font-weight:800;letter-spacing:.12em;color:#060a1a;background:var(--yellow);padding:3px 9px;border-radius:20px}
+nav a.back{font-size:12px;color:var(--muted);padding:6px 13px;border-radius:20px;border:1px solid rgba(255,255,255,.09);transition:.22s;text-decoration:none}
+nav a.back:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+
+/* stats tiles — glass; padding-top accommodates fixed nav */
+.stats{display:flex;gap:12px;padding:20px 30px 4px;flex-wrap:wrap;padding-top:calc(20px + 56px)}
+.tile{
+  background:rgba(255,255,255,.055);
+  backdrop-filter:blur(22px) saturate(155%);
+  -webkit-backdrop-filter:blur(22px) saturate(155%);
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:16px;
+  padding:16px 20px;min-width:120px;
+  box-shadow:0 8px 32px rgba(0,0,0,.3);
+}
+.tile .n{font-size:24px;font-weight:800;letter-spacing:-.02em;
+  background:linear-gradient(180deg,#fff,#c4d0ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.tile .l{font-size:9px;color:#aab3d4;text-transform:uppercase;letter-spacing:.06em;margin-top:5px}
+
+/* lead */
+.lead{padding:8px 30px 0}
+.lead .h{font-size:14px;font-weight:800;color:#F4F6FF}
+.lead .s{font-size:11px;color:#aab3d4;margin-top:4px;max-width:96ch;line-height:1.55}
+
+/* wrap / chart */
+.wrap{display:flex;gap:16px;align-items:flex-start;padding:12px 24px 32px;flex-wrap:wrap;justify-content:center}
+#chart{flex:1;min-width:640px;display:flex;justify-content:center}
+
+/* legend — glass */
+.legend{
+  background:rgba(255,255,255,.045);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:16px;padding:16px;
+  min-width:220px;max-width:260px;
+}
+.legend h4{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#aab3d4;margin-bottom:10px;font-weight:700}
+.lrow{display:flex;align-items:center;gap:9px;font-size:11px;margin:6px 0}
+.sw{width:11px;height:11px;border-radius:3px;flex-shrink:0}
+.legend .hint{font-size:10px;color:#818ab0;margin-top:12px;line-height:1.55}
+
+/* arc labels */
+.arclbl{font-size:9.5px;fill:#c4d0ff;font-family:'SF Pro Display','Inter',sans-serif}
+.arclbl.sys{font-weight:700;fill:#F4F6FF}
+
+/* tooltip */
+#tip{
+  position:fixed;pointer-events:none;
+  background:rgba(6,10,26,.95);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  border:1px solid rgba(240,210,36,.4);
+  border-radius:10px;padding:9px 12px;
+  font-size:11px;opacity:0;transition:opacity .1s;
+  max-width:260px;
+  box-shadow:0 8px 24px rgba(0,0,0,.6);z-index:9;
+}
+#tip b{color:#F0D224}
+
+/* hero strip */
+.hstrip{margin-top:52px;display:flex;align-items:center;gap:16px;padding:8px 26px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06)}
+.hstrip-capa{display:inline-flex;align-items:center;gap:7px;padding:4px 12px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.06em;color:#dfe6ff;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09)}
+.hstrip-capa .dot{width:6px;height:6px;border-radius:50%;background:#F0D224;box-shadow:0 0 8px #F0D224;animation:pulse 2.4s infinite;flex-shrink:0}
+@keyframes pulse{50%{opacity:.4}}
+.hstrip-title{font-size:14px;font-weight:800;letter-spacing:-.01em;background:linear-gradient(135deg,#fff 40%,#9fb4ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hstrip-sp{flex:1}
+.hstrip-tiles{display:flex;gap:8px}
+.hstrip-tile{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:5px 14px;text-align:center}
+.hstrip-tile .n{font-size:15px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;background:linear-gradient(180deg,#fff,#c4d0ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hstrip-tile .l{font-size:8px;color:#818ab0;text-transform:uppercase;letter-spacing:.06em;margin-top:2px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<div class="grain"></div>
+
+<nav>
+  <img src="../bancoppel-logo.png" alt="BanCoppel">
+  <span class="nt">BCOPCore · Integraciones del Core</span>
+  <span class="v2badge">v2</span>
+  <span class="sp"></span>
+  <a class="back" href="index-bcop-v2.html">← Portal v2</a>
+</nav>
+
+<div class="hstrip">
+  <div class="hstrip-capa"><span class="dot"></span> Capa 4 · Intención</div>
+  <div class="hstrip-title">Integraciones del Core</div>
+  <div class="hstrip-sp"></div>
+  <div class="hstrip-tiles">
+    <div class="hstrip-tile"><div class="n" id="t-doms">12</div><div class="l">Dominios</div></div>
+    <div class="hstrip-tile"><div class="n">18</div><div class="l">Sistemas externos</div></div>
+    <div class="hstrip-tile"><div class="n">5,254</div><div class="l">Conexiones</div></div>
+  </div>
+</div>
+
+<div class="lead">
+  <div class="h">Cómo leerlo</div>
+  <div class="s">Los <b>12 dominios del core</b> (azul, mitad interior) y los <b>18 sistemas externos</b> (por categoría) en un anillo. Cada <b>cinta</b> une un dominio con un sistema; su grosor = nº de <b>endpoints</b> (SPs invocados desde fuera del core) que conectan a ese sistema. Pasa el mouse sobre un arco para aislar sus conexiones, o sobre una cinta para el detalle.</div>
+</div>
+
+<div class="wrap">
+  <div id="chart"></div>
+  <div class="legend" id="legend"></div>
+</div>
+<div id="tip"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script>
+const D = {"domains":[{"key":"D01 Canal Web","total":4636},{"key":"D02 Integración","total":60},{"key":"D03 Crédito","total":169},{"key":"D04 Cheques","total":72},{"key":"D05 SAC","total":126},{"key":"D06 Solicitudes","total":28},{"key":"D07 Aclaraciones","total":74},{"key":"D08 SPEI","total":27},{"key":"D09 Mensajería","total":0},{"key":"D10 Sucursales","total":38},{"key":"D11 Cobranza","total":24},{"key":"D12 Contabilidad","total":0}],"systems":[{"key":"SPEI · Banxico","cat":"Pagos Banxico","total":657},{"key":"CoDi · Banxico","cat":"Pagos Banxico","total":215},{"key":"SPID USD","cat":"Pagos Banxico","total":44},{"key":"Western Union","cat":"Remesas","total":343},{"key":"MoneyGram","cat":"Remesas","total":44},{"key":"Buró de Crédito","cat":"Crédito/Tarjetas","total":448},{"key":"PROSA switch","cat":"Crédito/Tarjetas","total":75},{"key":"Cajero/ATM","cat":"Red física","total":813},{"key":"OXXO/corresponsal","cat":"Red física","total":48},{"key":"Domiciliación","cat":"Red física","total":418},{"key":"CNBV","cat":"Reguladores","total":179},{"key":"SAT fiscal","cat":"Reguladores","total":367},{"key":"UIF/PLD","cat":"Reguladores","total":137},{"key":"IPAB","cat":"Reguladores","total":45},{"key":"Nómina Coppel","cat":"Grupo Coppel","total":935},{"key":"App móvil","cat":"Canales propios","total":363},{"key":"Banca x Internet","cat":"Canales propios","total":89},{"key":"BanCoppel Clic","cat":"Canales propios","total":34}],"cats":{"Pagos Banxico":"#2E6B8A","Remesas":"#2E6B48","Crédito/Tarjetas":"#B8860B","Red física":"#A0602A","Reguladores":"#8B3A62","Grupo Coppel":"#F0D224","Canales propios":"#4A6FA5"},"matrix":{"D07 Aclaraciones":{"Cajero/ATM":5,"Banca x Internet":22,"Domiciliación":22,"Nómina Coppel":25,"SPEI · Banxico":0,"CoDi · Banxico":0,"SPID USD":0,"Western Union":0,"MoneyGram":0,"Buró de Crédito":0,"PROSA switch":0,"OXXO/corresponsal":0,"CNBV":0,"SAT fiscal":0,"UIF/PLD":0,"IPAB":0,"App móvil":0,"BanCoppel Clic":0},"D04 Cheques":{"SPEI · Banxico":22,"Nómina Coppel":35,"App móvil":6,"Cajero/ATM":5,"Banca x Internet":2,"CNBV":1,"OXXO/corresponsal":1,"CoDi · Banxico":0,"SPID USD":0,"Western Union":0,"MoneyGram":0,"Buró de Crédito":0,"PROSA switch":0,"Domiciliación":0,"SAT fiscal":0,"UIF/PLD":0,"IPAB":0,"BanCoppel Clic":0},"D01 Canal Web":{"Cajero/ATM":720,"SAT fiscal":367,"Nómina Coppel":748,"CoDi · Banxico":179,"SPEI · Banxico":602,"Buró de Crédito":421,"Domiciliación":390,"App móvil":321,"BanCoppel Clic":34,"Western Union":312,"UIF/PLD":127,"IPAB":45,"MoneyGram":40,"PROSA switch":75,"OXXO/corresponsal":42,"CNBV":169,"SPID USD":44,"Banca x Internet":0},"D11 Cobranza":{"Buró de Crédito":4,"Banca x Internet":11,"Cajero/ATM":7,"UIF/PLD":1,"Nómina Coppel":1,"SPEI · Banxico":0,"CoDi · Banxico":0,"SPID USD":0,"Western Union":0,"MoneyGram":0,"PROSA switch":0,"OXXO/corresponsal":0,"Domiciliación":0,"CNBV":0,"SAT fiscal":0,"IPAB":0,"App móvil":0,"BanCoppel Clic":0},"D03 Crédito":{"Nómina Coppel":72,"CoDi · Banxico":11,"Buró de Crédito":19,"App móvil":10,"Cajero/ATM":26,"SPEI · Banxico":9,"Banca x Internet":7,"Domiciliación":4,"CNBV":7,"OXXO/corresponsal":4,"SPID USD":0,"Western Union":0,"MoneyGram":0,"PROSA switch":0,"SAT fiscal":0,"UIF/PLD":0,"IPAB":0,"BanCoppel Clic":0},"D02 Integración":{"App móvil":20,"CoDi · Banxico":12,"Domiciliación":2,"Nómina Coppel":10,"Buró de Crédito":3,"SPEI · Banxico":5,"Cajero/ATM":2,"CNBV":2,"Banca x Internet":2,"UIF/PLD":1,"OXXO/corresponsal":1,"SPID USD":0,"Western Union":0,"MoneyGram":0,"PROSA switch":0,"SAT fiscal":0,"IPAB":0,"BanCoppel Clic":0},"D05 SAC":{"Cajero/ATM":27,"Banca x Internet":45,"Western Union":31,"MoneyGram":4,"SPEI · Banxico":2,"UIF/PLD":8,"Nómina Coppel":2,"App móvil":6,"CoDi · Banxico":1,"SPID USD":0,"Buró de Crédito":0,"PROSA switch":0,"OXXO/corresponsal":0,"Domiciliación":0,"CNBV":0,"SAT fiscal":0,"IPAB":0,"BanCoppel Clic":0},"D06 Solicitudes":{"Nómina Coppel":18,"Buró de Crédito":1,"CoDi · Banxico":9,"SPEI · Banxico":0,"SPID USD":0,"Western Union":0,"MoneyGram":0,"PROSA switch":0,"Cajero/ATM":0,"OXXO/corresponsal":0,"Domiciliación":0,"CNBV":0,"SAT fiscal":0,"UIF/PLD":0,"IPAB":0,"App móvil":0,"Banca x Internet":0,"BanCoppel Clic":0},"D08 SPEI":{"SPEI · Banxico":17,"Nómina Coppel":7,"CoDi · Banxico":3,"SPID USD":0,"Western Union":0,"MoneyGram":0,"Buró de Crédito":0,"PROSA switch":0,"Cajero/ATM":0,"OXXO/corresponsal":0,"Domiciliación":0,"CNBV":0,"SAT fiscal":0,"UIF/PLD":0,"IPAB":0,"App móvil":0,"Banca x Internet":0,"BanCoppel Clic":0},"D10 Sucursales":{"Cajero/ATM":21,"Nómina Coppel":17,"SPEI · Banxico":0,"CoDi · Banxico":0,"SPID USD":0,"Western Union":0,"MoneyGram":0,"Buró de Crédito":0,"PROSA switch":0,"OXXO/corresponsal":0,"Domiciliación":0,"CNBV":0,"SAT fiscal":0,"UIF/PLD":0,"IPAB":0,"App móvil":0,"Banca x Internet":0,"BanCoppel Clic":0},"D09 Mensajería":{"SPEI · Banxico":0,"CoDi · Banxico":0,"SPID USD":0,"Western Union":0,"MoneyGram":0,"Buró de Crédito":0,"PROSA switch":0,"Cajero/ATM":0,"OXXO/corresponsal":0,"Domiciliación":0,"CNBV":0,"SAT fiscal":0,"UIF/PLD":0,"IPAB":0,"Nómina Coppel":0,"App móvil":0,"Banca x Internet":0,"BanCoppel Clic":0},"D12 Contabilidad":{"SPEI · Banxico":0,"CoDi · Banxico":0,"SPID USD":0,"Western Union":0,"MoneyGram":0,"Buró de Crédito":0,"PROSA switch":0,"Cajero/ATM":0,"OXXO/corresponsal":0,"Domiciliación":0,"CNBV":0,"SAT fiscal":0,"UIF/PLD":0,"IPAB":0,"Nómina Coppel":0,"App móvil":0,"Banca x Internet":0,"BanCoppel Clic":0}},"endpoints_leidos":2553};
+const DOMCOL = "#3D5FCD";
+const doms = D.domains, syss = D.systems, CATS = D.cats;
+const names = doms.map(d=>d.key).concat(syss.map(s=>s.key));
+const nDom = doms.length, N = names.length;
+const color = doms.map(()=>DOMCOL).concat(syss.map(s=>CATS[s.cat]));
+const isSys = i => i >= nDom;
+const sysIdx = {}; syss.forEach((s,i)=>sysIdx[s.key]=nDom+i);
+const domIdx = {}; doms.forEach((d,i)=>domIdx[d.key]=i);
+
+// matriz cuadrada simétrica (bipartita: dominio↔sistema)
+const M = Array.from({length:N},()=>new Array(N).fill(0));
+for(const dn in D.matrix){ const di=domIdx[dn]; if(di==null) continue;
+  for(const sy in D.matrix[dn]){ const si=sysIdx[sy]; if(si==null) continue;
+    const v=D.matrix[dn][sy]; M[di][si]=v; M[si][di]=v; } }
+
+const W=Math.min(760, (window.innerWidth||1000)-320), H=W;
+const outer=W/2-118, inner=outer-14;
+const svg=d3.select("#chart").append("svg").attr("width",W).attr("height",H)
+  .attr("viewBox",[-W/2,-H/2,W,H]);
+const chord=d3.chord().padAngle(0.028).sortSubgroups(d3.descending).sortChords(d3.descending);
+const chords=chord(M);
+const arc=d3.arc().innerRadius(inner).outerRadius(outer);
+const ribbon=d3.ribbon().radius(inner);
+
+// cintas
+const rib=svg.append("g").attr("fill-opacity",0.72).selectAll("path").data(chords).join("path")
+  .attr("d",ribbon)
+  .attr("fill",d=>color[isSys(d.source.index)?d.source.index:d.target.index])
+  .attr("stroke",d=>d3.rgb(color[isSys(d.source.index)?d.source.index:d.target.index]).darker(0.6))
+  .attr("stroke-width",0.4)
+  .on("mousemove",(e,d)=>{ const si=isSys(d.source.index)?d.source.index:d.target.index;
+    const di=isSys(d.source.index)?d.target.index:d.source.index;
+    tip(e,`<b>${names[di]}</b> ↔ <b>${names[si]}</b><br>${d.source.value} endpoints`); })
+  .on("mouseleave",hide);
+
+// arcos
+const g=svg.append("g").selectAll("g").data(chords.groups).join("g");
+g.append("path").attr("d",arc).attr("fill",d=>color[d.index])
+  .attr("stroke","#0a1330").attr("stroke-width",1)
+  .style("cursor","pointer")
+  .on("mouseover",(e,d)=>{ rib.style("opacity",r=>(r.source.index===d.index||r.target.index===d.index)?1:0.05);
+    const tot=isSys(d.index)?syss[d.index-nDom].total:doms[d.index].total;
+    tip(e,`<b>${names[d.index]}</b><br>${tot} endpoints · ${isSys(d.index)?syss[d.index-nDom].cat:'dominio del core'}`); })
+  .on("mousemove",moveTip).on("mouseout",(e,d)=>{ rib.style("opacity",1); hide(); });
+
+// etiquetas
+g.append("text").each(d=>{d.a=(d.startAngle+d.endAngle)/2;})
+  .attr("class",d=>"arclbl"+(isSys(d.index)?" sys":""))
+  .attr("dy","0.35em")
+  .attr("transform",d=>`rotate(${d.a*180/Math.PI-90}) translate(${outer+7}) ${d.a>Math.PI?"rotate(180)":""}`)
+  .attr("text-anchor",d=>d.a>Math.PI?"end":null)
+  .text(d=>names[d.index]);
+
+// leyenda
+const legcats=[["Dominios del core",DOMCOL]].concat(Object.entries(CATS));
+d3.select("#legend").html("<h4>Categorías</h4>"+
+  legcats.map(([k,c])=>`<div class="lrow"><span class="sw" style="background:${c}"></span>${k}</div>`).join("")+
+  `<div class="hint">Cinta = endpoints que conectan un dominio con un sistema. Total ${5254} conexiones sobre ${18} sistemas.</div>`);
+
+const tipEl=document.getElementById("tip");
+function tip(e,html){ tipEl.innerHTML=html; tipEl.style.opacity=1; moveTip(e); }
+function moveTip(e){ tipEl.style.left=(e.clientX+14)+"px"; tipEl.style.top=(e.clientY+14)+"px"; }
+function hide(){ tipEl.style.opacity=0; }
+</script>
+</body>
+</html>

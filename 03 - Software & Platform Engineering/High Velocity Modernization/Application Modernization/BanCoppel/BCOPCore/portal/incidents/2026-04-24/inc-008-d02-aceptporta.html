@@ -1,0 +1,520 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INC-008 D02 ACEPTPORTA &#8212; SFTP Auth Failure · BanCoppel BCOPCore</title>
+<style>
+:root {
+  --ancla: #122FB1; --senal: #F0D224; --plano: #EEF0FA; --trazo: #C5CCE8;
+  --blue: #122FB1; --yellow: #F0D224; --bg: #EEF0FA; --card: #ffffff;
+  --node: #f5f6fe; --ok: #22c55e; --err: #ef4444; --warn: #f97316;
+  --amber: #f59e0b; --info: #60a5fa; --txt: #0d1a3a; --dim: #4a5a8a; --border: #C5CCE8;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--txt); font-family: Calibri, 'Segoe UI', Arial, sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+.hud-sep   { color: #C5CCE8; font-size: 20px; }
+.hud-right { margin-left: auto; }
+.hud-status-pill { font-size: 11px; color: var(--dim); background: rgba(255,255,255,.04); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); }
+.signal-top { height: 3px; background: var(--senal); width: 100%; flex-shrink: 0; }
+header { background: var(--ancla); border-bottom: 1px solid rgba(240,210,36,.35); padding: 14px 28px 13px; flex-shrink: 0; }
+.hdr-row1 { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
+.bc-logo-wrap { display: flex; align-items: center; gap: 0; flex-shrink: 0; flex-direction: column; align-items: flex-start; }
+.bc-logo { height: 30px; width: auto; display: block; }
+.bc-wordmark-sub { font-size: 9px; color: rgba(255,255,255,.50); text-transform: uppercase; letter-spacing: .8px; margin-top: 3px; padding-left: 2px; }
+.hdr-title { font-size: 17px; font-weight: 700; color: #fff; }
+.hdr-sub   { font-size: 11px; color: rgba(255,255,255,.65); margin-top: 1px; }
+.metrics { display: flex; gap: 8px; flex-wrap: nowrap; }
+.met { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-bottom: 2px solid var(--senal); border-radius: 6px 6px 0 0; padding: 6px 12px; text-align: center; flex: 1; min-width: 0; }
+.met-v { font-size: 18px; font-weight: 800; line-height: 1; color: var(--err); white-space: nowrap; }
+.met-v.w { color: var(--warn); } .met-v.i { color: var(--senal); } .met-v.g { color: var(--ok); }
+.met-l { font-size: 9px; color: rgba(255,255,255,.70); text-transform: uppercase; letter-spacing: .4px; margin-top: 2px; white-space: nowrap; }
+.nav-bar { display: flex; align-items: center; gap: 8px; padding: 6px 28px; background: #ffffff; border-bottom: 1px solid var(--border); font-size: 11px; flex-shrink: 0; }
+.nav-bar a { color: var(--ancla); text-decoration: none; }
+.nav-bar a:hover { text-decoration: underline; }
+.nav-sep { color: #C5CCE8; }
+.panels { display: grid; grid-template-columns: 1fr 1fr; flex: 1; min-height: 0; overflow: hidden; background: #EEF0FA; }
+.panel { padding: 16px 20px; border-right: 1px solid #C5CCE8; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: #EEF0FA; }
+.panel:last-child { border-right: none; }
+.panel-hdr { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+.ph-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; letter-spacing: .5px; }
+.pb-ok  { background: rgba(34,197,94,.15); color: var(--ok); border:1px solid var(--ok); }
+.pb-err { background: rgba(239,68,68,.15); color: var(--err); border:1px solid var(--err); }
+.ph-title { font-size: 14px; font-weight: 700; }
+.ph-sub   { font-size: 11px; color: var(--dim); }
+.flow-wrap { width: 100%; display: flex; justify-content: center; }
+.flow-wrap svg { display: block; width: 100%; max-width: 340px; height: auto; }
+svg text { font-family: 'Segoe UI', system-ui, sans-serif; }
+.hud { display: flex; align-items: center; gap: 18px; background: rgba(239,68,68,.06); border: 1px solid rgba(239,68,68,.2); border-radius: 8px; padding: 8px 16px; }
+.hud-item { text-align: center; }
+.hud-v { font-size: 24px; font-weight: 800; color: var(--err); line-height: 1; font-variant-numeric: tabular-nums; }
+.hud-v.t { color: var(--warn); }
+.hud-l { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: .4px; }
+.log-stream { background: #e8ebf8; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-family: 'Cascadia Code','Fira Code','Consolas',monospace; font-size: 11px; min-height: 100px; max-height: 150px; overflow-y: auto; flex-shrink: 0; }
+.le { display: flex; gap: 6px; padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,.025); opacity: 0; transform: translateX(-8px); transition: opacity .25s ease, transform .25s ease; }
+.le.show { opacity: 1; transform: none; }
+.le-t  { color: var(--dim); min-width: 46px; flex-shrink: 0; }
+.le-ok  { color: var(--ok); min-width: 38px; flex-shrink: 0; }
+.le-err { color: var(--err); min-width: 38px; flex-shrink: 0; }
+.le-m  { flex: 1; color: var(--txt); word-break: break-all; }
+.root-cause { background: rgba(239,68,68,.04); border: 1px solid rgba(239,68,68,.25); border-left: 3px solid var(--err); border-radius: 8px; padding: 12px 14px; flex-shrink: 0; }
+.rc-title { font-size: 11px; font-weight: 700; color: var(--err); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 6px; }
+.rc-body { font-size: 12px; color: #334155; line-height: 1.6; }
+code { background: rgba(18,47,177,.08); color: #122FB1; padding: 1px 5px; border-radius: 3px; font-size: 10.5px; font-family: 'Cascadia Code','Fira Code',monospace; }
+.fix-list { margin-top: 8px; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; }
+.fix-list li { font-size: 11px; color: #64748b; display: flex; gap: 6px; }
+.fix-list li::before { content: attr(data-n); background: rgba(239,68,68,.15); color: var(--err); font-weight: 700; font-size: 10px; min-width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+.tl-section { padding: 14px 28px 16px; background: #EEF0FA; border-top: 1px solid #C5CCE8; flex-shrink: 0; }
+.tl-title { font-size: 11px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 10px; }
+.tl-rows { display: flex; flex-direction: column; gap: 8px; }
+.tl-row { display: flex; align-items: center; gap: 12px; }
+.tl-lbl { font-size: 11px; color: var(--dim); min-width: 200px; }
+.tl-bg { flex: 1; height: 14px; background: #dde0f0; border-radius: 7px; position: relative; overflow: visible; }
+.tl-fill { height: 100%; border-radius: 7px; position: absolute; left: 0; transition: width .5s ease; }
+.tl-ok  { background: linear-gradient(90deg, #16a34a, #22c55e); }
+.tl-err { background: linear-gradient(90deg, #991b1b, #ef4444); }
+.tl-dur { font-size: 11px; min-width: 50px; text-align: right; }
+.tl-markers { display: flex; justify-content: space-between; font-size: 10px; color: var(--dim); margin-top: 5px; }
+.controls { position: fixed; bottom: 20px; right: 20px; display: flex; gap: 8px; z-index: 99; }
+.btn { padding: 8px 18px; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .2s; }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-primary:hover { background: #1a3ed4; transform: translateY(-1px); }
+.btn-reset { background: var(--card); color: var(--dim); border: 1px solid var(--border); }
+.btn-reset:hover { background: var(--node); color: var(--txt); }
+.ctx-section { padding: 14px 28px 16px; background: #e8ebf8; border-top: 1px solid #C5CCE8; border-bottom: 1px solid #C5CCE8; flex-shrink: 0; }
+.ctx-title { font-size: 10px; font-weight: 700; color: var(--ancla); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+.ctx-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.ctx-card { background: #ffffff; border: 1px solid #C5CCE8; border-top: 2px solid var(--ancla); border-radius: 6px; padding: 10px 12px; }
+.ctx-card-reg { border-top-color: var(--err); }
+.ctx-card-num { font-size: 13px; font-weight: 800; color: var(--ancla); margin-bottom: 4px; line-height: 1; }
+.ctx-card-num.ctx-reg { color: var(--err); }
+.ctx-card-title { font-size: 12px; font-weight: 700; color: #0d1a3a; margin-bottom: 5px; line-height: 1.3; }
+.ctx-card-body { font-size: 11px; color: #64748b; line-height: 1.55; }
+.ctx-card-body strong { color: var(--ancla); font-weight: 700; }
+.ctx-card-body code { background: rgba(18,47,177,.08); color: #122FB1; border: none; font-size: 10px; }
+.impact-section { display: flex; align-items: center; gap: 0; padding: 10px 28px; background: #ffffff; border-bottom: 2px solid #C5CCE8; flex-shrink: 0; }
+.impact-severity { display: flex; align-items: center; gap: 10px; padding-right: 20px; border-right: 1px solid #C5CCE8; margin-right: 20px; flex-shrink: 0; }
+.impact-badge { font-size: 10px; font-weight: 800; padding: 5px 10px; border-radius: 4px; letter-spacing: .5px; text-transform: uppercase; white-space: nowrap; }
+.impact-medium { background: rgba(245,158,11,.10); color: #b45309; border: 1px solid rgba(245,158,11,.30); }
+.impact-sev-lbl { font-size: 10px; color: #4a5a8a; line-height: 1.3; text-align: center; }
+.impact-items { display: flex; flex: 1; gap: 0; }
+.impact-item { flex: 1; padding: 0 16px; border-right: 1px solid #C5CCE8; }
+.impact-lbl { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: #4a5a8a; margin-bottom: 2px; }
+.impact-val { font-size: 12px; font-weight: 700; color: #0d1a3a; line-height: 1.2; }
+.impact-val.impact-crit { color: #dc2626; }
+.impact-val.impact-warn { color: var(--warn); }
+.impact-val.impact-reg  { color: #122FB1; }
+.impact-sub { font-size: 10px; color: #4a5a8a; margin-top: 1px; line-height: 1.3; }
+.d05-section { margin: 0 28px 20px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.d05-hdr { background: #f0f2fb; padding: 10px 16px 9px; border-bottom: 1px solid var(--border); display: flex; align-items: baseline; gap: 10px; }
+.d05-hdr-title { font-size: 12px; font-weight: 700; color: var(--txt); }
+.d05-hdr-sub   { font-size: 10px; color: var(--dim); }
+.d05-table { width: 100%; border-collapse: collapse; }
+.d05-table th { padding: 6px 14px; font-size: 10px; font-weight: 600; color: var(--dim); text-align: left; border-bottom: 1px solid var(--border); background: #f8f9fd; }
+.d05-table td { padding: 7px 14px; font-size: 11px; color: var(--txt); border-bottom: 1px solid #eef0fa; vertical-align: top; }
+.d05-table tr:last-child td { border-bottom: none; }
+.d05-sp  { font-family: monospace; font-size: 11px; color: var(--ancla); font-weight: 600; }
+.d05-src { font-size: 9px; color: #94a3b8; margin-top: 1px; }
+.d05-rate      { font-weight: 700; font-size: 12px; }
+.d05-rate-high { color: #ef4444; }
+.d05-rate-mid  { color: #f97316; }
+.d05-badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 9px; font-weight: 600; white-space: nowrap; }
+.d05-badge-defecto  { background: #fee2e2; color: #dc2626; }
+.d05-badge-sftp     { background: #fef3c7; color: #92400e; }
+.d05-type { font-size: 10px; color: var(--dim); line-height: 1.4; }
+.d05-note { padding: 7px 14px 8px; font-size: 10px; color: var(--dim); border-top: 1px solid var(--border); background: #f8f9fd; }
+@keyframes blink-err { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+.blink { animation: blink-err 1s infinite; }
+</style>
+</head>
+<body>
+<div class="signal-top"></div>
+
+<header>
+  <div class="hdr-row1">
+    <div class="bc-logo-wrap">
+      <img class="bc-logo" src="../../../bancoppel-logo.png" alt="BanCoppel">
+      <div class="bc-wordmark-sub">Modernización Core Bancario</div>
+    </div>
+    <div>
+      <div class="hdr-title">D02 ACEPTPORTA &#8212; SFTP Auth Failure · Portabilidad Nómina</div>
+      <div class="hdr-sub">Análisis de producción &#183; Integración ESB &#183; BanCoppel &#183; 24 abril 2026</div>
+    </div>
+  </div>
+  <div class="metrics">
+    <div class="met"><div class="met-v">3,244</div><div class="met-l">Fallos SFTP/día</div></div>
+    <div class="met"><div class="met-v">3381</div><div class="met-l">Código de error</div></div>
+    <div class="met"><div class="met-v">100%</div><div class="met-l">Tasa de fallo</div></div>
+    <div class="met"><div class="met-v w">D02 bdinteg</div><div class="met-l">Dominio afectado</div></div>
+    <div class="met"><div class="met-v">3,073</div><div class="met-l">Inserciones fallidas/día</div></div>
+    <div class="met"><div class="met-v i">P655-R007</div><div class="met-l">Risk register</div></div>
+  </div>
+</header>
+
+<nav class="nav-bar">
+  <a href="../../index-bcop-v2.html">BCOPCore</a>
+  <span class="nav-sep">&#8250;</span>
+  <a href="../../capability-model-bcop-v2.html">Modelo de Capacidades</a>
+  <span class="nav-sep">&#8250;</span>
+  <span style="color:var(--dim)">INC-008 &#8212; D02 ACEPTPORTA &#183; SFTP Auth Failure</span>
+</nav>
+
+<div class="impact-section">
+  <div class="impact-severity">
+    <div>
+      <div class="impact-badge impact-medium">N2 MEDIO</div>
+      <div class="impact-sev-lbl">Severidad<br>de impacto</div>
+    </div>
+  </div>
+  <div class="impact-items">
+    <div class="impact-item">
+      <div class="impact-lbl">Dominio afectado</div>
+      <div class="impact-val">D02 &#183; bdinteg</div>
+      <div class="impact-sub">Integración ESB &#183; Portabilidad Nómina</div>
+    </div>
+    <div class="impact-item">
+      <div class="impact-lbl">Servicio externo fallando</div>
+      <div class="impact-val">SFTP sysportabnominaapp</div>
+      <div class="impact-sub">Servidor SFTP de expedientes digitales &#183; credenciales inválidas o expiradas</div>
+    </div>
+    <div class="impact-item">
+      <div class="impact-lbl">Proceso de negocio detenido</div>
+      <div class="impact-val impact-warn">Expediente digital sin imágenes</div>
+      <div class="impact-sub">sp_inserta_reg_expediente_dig_img falla &#183; 3,073 intentos/día sin resultado</div>
+    </div>
+    <div class="impact-item">
+      <div class="impact-lbl">Riesgo regulatorio</div>
+      <div class="impact-val impact-reg">CNBV &#183; Portabilidad</div>
+      <div class="impact-sub">Proceso de portabilidad de nómina sin expediente digital completo</div>
+    </div>
+    <div class="impact-item" style="border-right:none">
+      <div class="impact-lbl">Estado en risk register</div>
+      <div class="impact-val">P655-R007 ABIERTO</div>
+      <div class="impact-sub">No documentado como incidente &#183; detectado desde análisis de logs</div>
+    </div>
+  </div>
+</div>
+
+<div class="ctx-section">
+  <div class="ctx-title">Contexto funcional &#8212; ¿por qué sucede esto?</div>
+  <div class="ctx-grid">
+    <div class="ctx-card">
+      <div class="ctx-card-num">01</div>
+      <div class="ctx-card-title">¿Qué es ACEPTPORTA?</div>
+      <div class="ctx-card-body">
+        Servicio ESB (<code>PrestamoNominaExpedienteDigital</code>) que gestiona la portabilidad de nómina. Para completar una solicitud, descarga las imágenes del expediente digital del cliente desde el servidor SFTP <code>sysportabnominaapp</code> y las almacena via <code>sp_inserta_reg_expediente_dig_img</code>.
+      </div>
+    </div>
+    <div class="ctx-card">
+      <div class="ctx-card-num">02</div>
+      <div class="ctx-card-title">¿Por qué falla el SFTP?</div>
+      <div class="ctx-card-body">
+        El código de error <code>3381</code> indica autenticación fallida: <em>"password authentication credentials invalid"</em>. Las credenciales del usuario <code>sysportabnominaapp</code> están inválidas o expiradas. El fallo ocurre en <code>postActualizaImagen.lectura_Imagen_Portabilidad</code> &#8212; cada intento resulta en rechazo inmediato del servidor SFTP.
+      </div>
+    </div>
+    <div class="ctx-card">
+      <div class="ctx-card-num">03</div>
+      <div class="ctx-card-title">Impacto operacional</div>
+      <div class="ctx-card-body">
+        Con <strong>3,244 fallos diarios constantes</strong>, el proceso de portabilidad de nómina es incapaz de adjuntar imágenes al expediente digital. Las solicitudes quedan incompletas. El SP <code>sp_consulta_reg_contr_evid_notif_porta_x_estatus</code> que consulta el estado del contrato solo registra 1 llamada exitosa, confirmando que el flujo nunca llega a completarse.
+      </div>
+    </div>
+    <div class="ctx-card ctx-card-reg">
+      <div class="ctx-card-num ctx-reg">!</div>
+      <div class="ctx-card-title">Riesgo regulatorio &#183; CNBV</div>
+      <div class="ctx-card-body">
+        La portabilidad de nómina requiere expediente digital completo conforme a regulación CNBV. Sin imágenes válidas, las solicitudes de portabilidad no pueden completarse formalmente &#8212; exposición a <strong>CONDUSEF</strong> por incumplimiento de plazos de portabilidad y posible sanción por obstaculizar el proceso.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="d05-section">
+  <div class="d05-hdr">
+    <div class="d05-hdr-title">SPs afectados en el dominio D02 &#8212; bdinteg</div>
+    <div class="d05-hdr-sub">Flujo ACEPTPORTA &#183; evidencia 2026-04-24 &#183; verificado desde logs de producción (service-topology.json)</div>
+  </div>
+  <table class="d05-table">
+    <thead>
+      <tr><th>Stored Procedure</th><th>Llamadas/día</th><th>Tipo</th><th>Mecanismo confirmado</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><div class="d05-sp">sp_inserta_reg_expediente_dig_img</div><div class="d05-src">bdinteg &#183; inserción de imagen de expediente digital</div></td>
+        <td><span class="d05-rate d05-rate-high">3,073</span></td>
+        <td><span class="d05-badge d05-badge-defecto">100% fallo</span></td>
+        <td class="d05-type">Código <code>3381</code> SFTP auth failure antes de la inserción. <code>lectura_Imagen_Portabilidad</code> rechazada por <code>sysportabnominaapp</code> con "password authentication credentials invalid". Registro nunca llega a insertarse.</td>
+      </tr>
+      <tr>
+        <td><div class="d05-sp">sp_consulta_reg_contr_evid_notif_porta_x_estatus</div><div class="d05-src">bdinteg &#183; consulta estado del contrato de portabilidad</div></td>
+        <td><span class="d05-rate" style="color:#94a3b8">1</span></td>
+        <td><span class="d05-badge d05-badge-sftp">Flujo incompleto</span></td>
+        <td class="d05-type">Solo 1 llamada registrada vs. 3,073 intentos de inserción — confirma que el flujo nunca llega a la etapa de consulta de contrato. El proceso de portabilidad queda bloqueado en la descarga de imágenes.</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="d05-note">El error 3381 es sistemático y constante: 3,244 ocurrencias/día sin variación horaria significativa. No es un fallo esporádico &#8212; las credenciales SFTP llevan expiradas desde antes del periodo de observación (2026-04-24). Clasificado como P655-R007 en migration risk register, nivel N2 MEDIO, SME SRE &amp; AIOps.</div>
+</div>
+
+<div class="tl-section">
+  <div class="tl-title">Timeline de solicitud &#8212; escala diaria (3,244 intentos fallidos)</div>
+  <div class="tl-rows">
+    <div class="tl-row">
+      <div class="tl-lbl">Exitosa &#183; descarga imagen SFTP + inserción en bdinteg</div>
+      <div class="tl-bg">
+        <div class="tl-fill tl-ok" id="tlOk" style="width:0%"></div>
+      </div>
+      <div class="tl-dur" style="color:var(--ok)" id="tlOkDur">&#8212;</div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-lbl">Fallida &#183; código 3381 SFTP auth rejected &#183; sin imagen</div>
+      <div class="tl-bg" id="tlErrBg">
+        <div class="tl-fill tl-err" id="tlErr" style="width:0%"></div>
+      </div>
+      <div class="tl-dur" style="color:var(--err)" id="tlErrDur">&#8212;</div>
+    </div>
+  </div>
+  <div class="tl-markers">
+    <span>00:00</span><span>04:00</span><span>08:00</span><span>12:00</span><span>16:00</span><span>20:00</span>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn btn-reset" onclick="resetAnim()">&#8635; Reiniciar</button>
+  <button class="btn btn-primary" id="btnPlay" onclick="onPlay()">&#9654; Reproducir</button>
+</div>
+
+<div class="panels">
+
+  <!-- SUCCESS PANEL -->
+  <div class="panel">
+    <div class="panel-hdr">
+      <span class="ph-badge pb-ok">EXITO</span>
+      <div>
+        <div class="ph-title">Portabilidad nómina &#8212; expediente completo</div>
+        <div class="ph-sub">idSolicitud=PRT-0078231 &#183; flujo completo &#183; 4 pasos &#183; imagen insertada</div>
+      </div>
+    </div>
+    <div class="flow-wrap">
+      <svg id="svgS008" viewBox="0 0 380 450" width="100%">
+        <defs>
+          <filter id="glow-ok-008" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <!-- ESB -->
+        <rect x="90" y="18" width="200" height="42" rx="8" fill="#ffffff" stroke="#122FB1" stroke-width="1.5"/>
+        <text x="190" y="32" text-anchor="middle" fill="#4a5a8a" font-size="10">ESB IBM WebSphere</text>
+        <text x="190" y="49" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="600">ACEPTPORTA</text>
+        <line x1="190" y1="60" x2="190" y2="108" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <polygon points="190,108 184,96 196,96" fill="#A0AEDC"/>
+        <!-- SFTP Server -->
+        <rect id="s008N1" x="90" y="108" width="200" height="42" rx="8" fill="#ffffff" stroke="#C5CCE8" stroke-width="1.5"/>
+        <text x="190" y="122" text-anchor="middle" fill="#4a5a8a" font-size="10">SFTP &#183; sysportabnominaapp</text>
+        <text x="190" y="139" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="600">lectura_Imagen_Portabilidad</text>
+        <line x1="190" y1="150" x2="190" y2="198" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <polygon points="190,198 184,186 196,186" fill="#A0AEDC"/>
+        <!-- Auth OK -->
+        <rect id="s008N2" x="90" y="198" width="200" height="42" rx="8" fill="#f0fff4" stroke="#22c55e" stroke-width="1.5"/>
+        <text x="190" y="212" text-anchor="middle" fill="#22c55e" font-size="10">AUTH OK &#183; imagen descargada</text>
+        <text x="190" y="229" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="600">gen.imagenes_expediente_digital</text>
+        <line x1="190" y1="240" x2="190" y2="288" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <polygon points="190,288 184,276 196,276" fill="#A0AEDC"/>
+        <!-- SP Insert -->
+        <rect id="s008N3" x="90" y="288" width="200" height="48" rx="8" fill="#ffffff" stroke="#C5CCE8" stroke-width="1.5"/>
+        <text x="190" y="304" text-anchor="middle" fill="#4a5a8a" font-size="9">Informix &#183; bdinteg</text>
+        <text x="190" y="318" text-anchor="middle" fill="#0d1a3a" font-size="10" font-weight="600">sp_inserta_reg_expediente_dig_img</text>
+        <text x="190" y="330" text-anchor="middle" fill="#22c55e" font-size="9">Registro insertado exitosamente</text>
+        <!-- Check marks -->
+        <g id="s008Ck1" opacity="0"><circle cx="316" cy="129" r="10" fill="#16a34a"/><text x="316" y="133" text-anchor="middle" fill="#fff" font-size="12">&#10003;</text></g>
+        <g id="s008Ck2" opacity="0"><circle cx="316" cy="219" r="10" fill="#16a34a"/><text x="316" y="223" text-anchor="middle" fill="#fff" font-size="12">&#10003;</text></g>
+        <g id="s008Ck3" opacity="0"><circle cx="316" cy="314" r="10" fill="#16a34a"/><text x="316" y="318" text-anchor="middle" fill="#fff" font-size="12">&#10003;</text></g>
+        <text id="s008Done" x="190" y="408" text-anchor="middle" fill="#22c55e" font-size="12" font-weight="700" opacity="0">Expediente digital completo &#183; portabilidad procesada</text>
+        <circle id="s008Pkt" cx="190" cy="39" r="8" fill="#122FB1" stroke="#ffffff" stroke-width="2.5" opacity="0"/>
+      </svg>
+    </div>
+    <div class="log-stream" id="logS">
+      <div style="color:#8896cc;font-size:10px;margin-bottom:4px;"># Producción 2026-04-24 09:12 &#183; CDMX (escenario esperado)</div>
+    </div>
+  </div>
+
+  <!-- FAILURE PANEL -->
+  <div class="panel">
+    <div class="panel-hdr">
+      <span class="ph-badge pb-err">FALLO</span>
+      <div>
+        <div class="ph-title">SFTP 3381 &#8212; Auth rejected, expediente incompleto</div>
+        <div class="ph-sub">idSolicitud=PRT-0078412 &#183; 09:14 &#183; código 3381 &#183; sin imagen adjunta</div>
+      </div>
+    </div>
+    <div class="hud">
+      <div class="hud-item">
+        <div class="hud-v" id="hudRetry">0</div>
+        <div class="hud-l">Reintentos</div>
+      </div>
+      <div class="hud-sep">/0</div>
+      <div class="hud-item">
+        <div class="hud-v t" id="hudTime">09:14</div>
+        <div class="hud-l">Hora (CDMX)</div>
+      </div>
+      <div class="hud-item hud-right">
+        <div id="hudStatus" class="hud-status-pill">EN ESPERA</div>
+      </div>
+    </div>
+    <div class="flow-wrap">
+      <svg id="svgF008" viewBox="0 0 380 380" width="100%">
+        <defs>
+          <filter id="glow-err2-008" x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="5" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <!-- ESB -->
+        <rect x="90" y="10" width="200" height="42" rx="8" fill="#ffffff" stroke="#122FB1" stroke-width="1.5"/>
+        <text x="190" y="24" text-anchor="middle" fill="#4a5a8a" font-size="10">ESB IBM WebSphere</text>
+        <text x="190" y="41" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="600">ACEPTPORTA</text>
+        <line x1="190" y1="52" x2="190" y2="100" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <polygon points="190,100 184,88 196,88" fill="#A0AEDC"/>
+        <!-- SFTP Server -->
+        <rect id="f008N1" x="90" y="100" width="200" height="42" rx="8" fill="#ffffff" stroke="#C5CCE8" stroke-width="1.5"/>
+        <text x="190" y="114" text-anchor="middle" fill="#4a5a8a" font-size="10">SFTP &#183; sysportabnominaapp</text>
+        <text x="190" y="131" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="600">lectura_Imagen_Portabilidad</text>
+        <line x1="190" y1="142" x2="190" y2="190" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <polygon points="190,190 184,178 196,178" fill="#A0AEDC"/>
+        <!-- Auth FAIL -->
+        <rect id="f008N2" x="90" y="190" width="200" height="54" rx="8" fill="#fff0f0" stroke="#ef4444" stroke-width="1.5"/>
+        <text x="190" y="206" text-anchor="middle" fill="#4a5a8a" font-size="10">SFTP &#183; sysportabnominaapp</text>
+        <text x="190" y="222" text-anchor="middle" fill="#ef4444" font-size="11" font-weight="700">AUTH FAILED · 3381</text>
+        <text x="190" y="236" text-anchor="middle" fill="#fca5a5" font-size="9">"password authentication credentials invalid"</text>
+        <line x1="190" y1="244" x2="190" y2="272" stroke="rgba(239,68,68,.4)" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <!-- Dead end box -->
+        <rect x="70" y="272" width="240" height="62" rx="6" fill="rgba(239,68,68,.04)" stroke="rgba(239,68,68,.5)" stroke-width="1" stroke-dasharray="5,3"/>
+        <text x="190" y="290" text-anchor="middle" fill="#f87171" font-size="10" font-weight="700" letter-spacing="1">SIN IMAGEN &#183; SIN REINTENTO</text>
+        <text x="190" y="307" text-anchor="middle" fill="#ef4444" font-size="10" font-family="monospace">sp_inserta_reg: NUNCA INVOCADO</text>
+        <text x="190" y="322" text-anchor="middle" fill="#94a3b8" font-size="9">expediente digital incompleto &#183; portabilidad bloqueada</text>
+        <!-- X mark -->
+        <g id="f008X" opacity="0">
+          <circle cx="64" cy="217" r="11" fill="#ef4444" filter="url(#glow-err2-008)"/>
+          <text x="64" y="222" text-anchor="middle" fill="#fff" font-size="13" font-weight="900">&#10007;</text>
+        </g>
+        <g id="f008Alert" opacity="0">
+          <rect x="265" y="192" width="90" height="22" rx="4" fill="rgba(239,68,68,.15)" stroke="rgba(239,68,68,.4)"/>
+          <text x="310" y="207" text-anchor="middle" fill="#f87171" font-size="10" font-weight="700">SIN ALERTA</text>
+        </g>
+        <circle id="f008Pkt" cx="190" cy="31" r="8" fill="#ef4444" stroke="#ffffff" stroke-width="2.5" opacity="0"/>
+      </svg>
+    </div>
+    <div class="log-stream" id="logF">
+      <div style="color:#8896cc;font-size:10px;margin-bottom:4px;"># Producción 2026-04-24 09:14 &#183; CDMX</div>
+    </div>
+    <div class="root-cause">
+      <div class="rc-title">Causa Raíz &amp; Plan de Acción</div>
+      <div class="rc-body">
+        Credenciales del usuario <code>sysportabnominaapp</code> en el servidor SFTP inválidas o expiradas. El servicio ESB <code>ACEPTPORTA</code> (<code>PrestamoNominaExpedienteDigital</code>) intenta autenticarse para descargar imágenes del expediente digital y recibe rechazo inmediato con código <code>3381</code>. Sin imagen, <code>sp_inserta_reg_expediente_dig_img</code> nunca es invocado y el expediente queda incompleto, bloqueando 3,244 solicitudes de portabilidad nómina al día.
+      </div>
+      <ul class="fix-list">
+        <li data-n="1">Rotar credenciales de <code>sysportabnominaapp</code> en el servidor SFTP y actualizar el keystore del ESB</li>
+        <li data-n="2">Implementar alerta en <code>errores_bus</code> para código <code>3381</code> con notificación inmediata a SRE</li>
+        <li data-n="3">Configurar rotación automática de credenciales SFTP con vault (HashiCorp/AWS Secrets Manager)</li>
+        <li data-n="4">Documentar P655-R007 en <code>knowledge-base/D02-bdinteg/06-exceptions.md</code> como incidente INC-008</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+let timers = [];
+let phase  = 'idle';
+function wait(ms) { return new Promise(r => { const t = setTimeout(r, ms); timers.push(t); }); }
+function attr(id, a, v) { const el = document.getElementById(id); if (el) el.setAttribute(a, v); }
+function setStroke(id, color, w) { const el = document.getElementById(id); if (!el) return; el.setAttribute('stroke', color); el.setAttribute('stroke-width', w || 2); }
+function movePkt(id, x, y) { const el = document.getElementById(id); if (!el) return; el.setAttribute('cx', x); el.setAttribute('cy', y); }
+function show(id) { attr(id, 'opacity', 1); }
+function hide(id) { attr(id, 'opacity', 0); }
+function addLog(cid, time, type, msg) {
+  const c = document.getElementById(cid); if (!c) return;
+  const d = document.createElement('div'); d.className = 'le';
+  d.innerHTML = `<span class="le-t">${time}</span><span class="${type==='ok'?'le-ok':'le-err'}">${type==='ok'?'[OK] ':'[ERR]'}</span><span class="le-m">${msg}</span>`;
+  c.appendChild(d); requestAnimationFrame(() => { d.classList.add('show'); c.scrollTop = c.scrollHeight; });
+}
+function setHudStatus(text, color) {
+  const el = document.getElementById('hudStatus'); if (!el) return;
+  el.textContent = text; el.style.color = color; el.style.borderColor = color + '44'; el.style.background = color + '11';
+}
+async function animSuccess() {
+  show('s008Pkt'); movePkt('s008Pkt', 190, 39);
+  await wait(1400);
+  setStroke('s008N1', '#F0D224'); movePkt('s008Pkt', 190, 129);
+  addLog('logS', '09:12:04', 'ok', 'ACEPTPORTA -> sysportabnominaapp SFTP connect · user=sysportabnominaapp');
+  await wait(2000);
+  setStroke('s008N1', '#22c55e'); show('s008Ck1');
+  setStroke('s008N2', '#F0D224'); movePkt('s008Pkt', 190, 219);
+  addLog('logS', '09:12:05', 'ok', 'SFTP AUTH OK -> descargando gen.imagenes_expediente_digital_portabilidad_nom');
+  await wait(2200);
+  setStroke('s008N2', '#22c55e'); show('s008Ck2');
+  setStroke('s008N3', '#F0D224'); movePkt('s008Pkt', 190, 314);
+  addLog('logS', '09:12:06', 'ok', 'imagen descargada -> sp_inserta_reg_expediente_dig_img invocado');
+  await wait(2000);
+  setStroke('s008N3', '#22c55e'); show('s008Ck3');
+  addLog('logS', '09:12:07', 'ok', 'sp_inserta_reg_expediente_dig_img -> OK · idSolicitud=PRT-0078231');
+  await wait(1500); hide('s008Pkt'); show('s008Done');
+  document.getElementById('tlOk').style.width = '1%';
+  document.getElementById('tlOkDur').textContent = '~3s';
+}
+async function animFailure() {
+  show('f008Pkt'); movePkt('f008Pkt', 190, 31); setHudStatus('CONECTANDO', '#f97316');
+  await wait(2200);
+  setStroke('f008N1', '#F0D224'); movePkt('f008Pkt', 190, 121);
+  addLog('logF', '09:14:11', 'ok', 'ACEPTPORTA -> sysportabnominaapp SFTP connect · user=sysportabnominaapp');
+  await wait(1800);
+  movePkt('f008Pkt', 190, 217); setStroke('f008N2', '#F0D224');
+  await wait(1400);
+  setStroke('f008N1', '#22c55e'); setStroke('f008N2', '#ef4444', 2);
+  show('f008X'); show('f008Alert');
+  addLog('logF', '09:14:11', 'err', 'SFTP 3381 :: password authentication credentials invalid || sysportabnominaapp');
+  addLog('logF', '09:14:11', 'err', 'postActualizaImagen.lectura_Imagen_Portabilidad FAILED');
+  addLog('logF', '09:14:11', 'err', 'sp_inserta_reg_expediente_dig_img: NO INVOCADO · expediente incompleto');
+  setHudStatus('BLOQUEADO', '#ef4444');
+  await wait(1500);
+  document.getElementById('tlErr').style.width = '99%';
+  document.getElementById('tlErrDur').textContent = '3,244/día';
+  hide('f008Pkt');
+}
+async function playAnimation() {
+  if (phase === 'running') return; phase = 'running';
+  document.getElementById('btnPlay').textContent = '&#9203; Animando...';
+  document.getElementById('btnPlay').disabled = true;
+  await animSuccess(); await wait(1000); await animFailure();
+  phase = 'done';
+  document.getElementById('btnPlay').textContent = '&#10003; Completado';
+  document.getElementById('btnPlay').style.background = '#16a34a';
+}
+function onPlay() {
+  if (phase === 'idle') playAnimation();
+  else if (phase === 'done') { resetAnim(); setTimeout(playAnimation, 80); }
+}
+function resetAnim() {
+  timers.forEach(clearTimeout); timers = []; phase = 'idle';
+  const btn = document.getElementById('btnPlay');
+  btn.textContent = '&#9654; Reproducir'; btn.disabled = false; btn.style.background = '';
+  ['s008N1','s008N2','s008N3'].forEach(id => setStroke(id, '#C5CCE8', 1.5));
+  ['s008Ck1','s008Ck2','s008Ck3','s008Done'].forEach(hide);
+  hide('s008Pkt'); movePkt('s008Pkt', 190, 39);
+  setStroke('f008N1', '#C5CCE8', 1.5); setStroke('f008N2', '#ef4444', 1.5);
+  ['f008X','f008Alert'].forEach(hide);
+  hide('f008Pkt'); movePkt('f008Pkt', 190, 31);
+  document.getElementById('hudRetry').textContent = '0';
+  document.getElementById('hudTime').textContent = '09:14';
+  setHudStatus('EN ESPERA', '#64748b');
+  document.getElementById('logS').innerHTML = '<div style="color:#8896cc;font-size:10px;margin-bottom:4px;"># Producción 2026-04-24 09:12 &#183; CDMX (escenario esperado)</div>';
+  document.getElementById('logF').innerHTML = '<div style="color:#8896cc;font-size:10px;margin-bottom:4px;"># Producción 2026-04-24 09:14 &#183; CDMX</div>';
+  document.getElementById('tlOk').style.width = '0%';
+  document.getElementById('tlErr').style.width = '0%';
+  document.getElementById('tlOkDur').textContent = '—';
+  document.getElementById('tlErrDur').textContent = '—';
+}
+setTimeout(playAnimation, 900);
+</script>
+</body>
+</html>

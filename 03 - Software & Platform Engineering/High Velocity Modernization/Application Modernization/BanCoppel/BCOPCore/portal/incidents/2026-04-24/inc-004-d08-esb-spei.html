@@ -1,0 +1,545 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INC-004 D08 SPEI — ESB Error Codes Sin Documentar · BanCoppel BCOPCore</title>
+<style>
+:root {
+  --ancla: #122FB1; --senal: #F0D224; --plano: #EEF0FA; --trazo: #C5CCE8;
+  --blue: #122FB1; --yellow: #F0D224; --bg: #EEF0FA; --card: #ffffff;
+  --node: #f5f6fe; --ok: #22c55e; --err: #ef4444; --warn: #f97316;
+  --amber: #f59e0b; --info: #60a5fa; --txt: #0d1a3a; --dim: #4a5a8a; --border: #C5CCE8;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--txt); font-family: Calibri, 'Segoe UI', Arial, sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+.hud-sep   { color: #C5CCE8; font-size: 20px; }
+.hud-right { margin-left: auto; }
+.hud-status-pill { font-size: 11px; color: var(--dim); background: rgba(255,255,255,.04); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); }
+.signal-top { height: 3px; background: var(--senal); width: 100%; flex-shrink: 0; }
+header { background: var(--ancla); border-bottom: 1px solid rgba(240,210,36,.35); padding: 14px 28px 13px; flex-shrink: 0; }
+.hdr-row1 { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
+.bc-logo-wrap { display: flex; align-items: center; gap: 0; flex-shrink: 0; flex-direction: column; align-items: flex-start; }
+.bc-logo { height: 30px; width: auto; display: block; }
+.bc-wordmark-sub { font-size: 9px; color: rgba(255,255,255,.50); text-transform: uppercase; letter-spacing: .8px; margin-top: 3px; padding-left: 2px; }
+.hdr-title { font-size: 17px; font-weight: 700; color: #fff; }
+.hdr-sub   { font-size: 11px; color: rgba(255,255,255,.65); margin-top: 1px; }
+.metrics { display: flex; gap: 8px; flex-wrap: nowrap; }
+.met { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-bottom: 2px solid var(--senal); border-radius: 6px 6px 0 0; padding: 6px 12px; text-align: center; flex: 1; min-width: 0; }
+.met-v { font-size: 18px; font-weight: 800; line-height: 1; color: var(--err); white-space: nowrap; }
+.met-v.w { color: var(--warn); } .met-v.i { color: var(--senal); } .met-v.g { color: var(--ok); }
+.met-l { font-size: 9px; color: rgba(255,255,255,.70); text-transform: uppercase; letter-spacing: .4px; margin-top: 2px; white-space: nowrap; }
+.nav-bar { display: flex; align-items: center; gap: 8px; padding: 6px 28px; background: #ffffff; border-bottom: 1px solid var(--border); font-size: 11px; flex-shrink: 0; }
+.nav-bar a { color: var(--ancla); text-decoration: none; }
+.nav-bar a:hover { text-decoration: underline; }
+.nav-sep { color: #C5CCE8; }
+.panels { display: grid; grid-template-columns: 1fr 1fr; flex: 1; min-height: 0; overflow: hidden; background: #EEF0FA; }
+.panel { padding: 16px 20px; border-right: 1px solid #C5CCE8; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: #EEF0FA; }
+.panel:last-child { border-right: none; }
+.panel-hdr { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+.ph-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; letter-spacing: .5px; }
+.pb-ok  { background: rgba(34,197,94,.15); color: var(--ok); border:1px solid var(--ok); }
+.pb-err { background: rgba(239,68,68,.15); color: var(--err); border:1px solid var(--err); }
+.ph-title { font-size: 14px; font-weight: 700; }
+.ph-sub   { font-size: 11px; color: var(--dim); }
+.flow-wrap { width: 100%; display: flex; justify-content: center; }
+.flow-wrap svg { display: block; width: 100%; max-width: 340px; height: auto; }
+svg text { font-family: 'Segoe UI', system-ui, sans-serif; }
+.hud { display: flex; align-items: center; gap: 18px; background: rgba(239,68,68,.06); border: 1px solid rgba(239,68,68,.2); border-radius: 8px; padding: 8px 16px; }
+.hud-item { text-align: center; }
+.hud-v { font-size: 24px; font-weight: 800; color: var(--err); line-height: 1; font-variant-numeric: tabular-nums; }
+.hud-v.t { color: var(--warn); }
+.hud-l { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: .4px; }
+.log-stream { background: #e8ebf8; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-family: 'Cascadia Code','Fira Code','Consolas',monospace; font-size: 11px; min-height: 100px; max-height: 150px; overflow-y: auto; flex-shrink: 0; }
+.le { display: flex; gap: 6px; padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,.025); opacity: 0; transform: translateX(-8px); transition: opacity .25s ease, transform .25s ease; }
+.le.show { opacity: 1; transform: none; }
+.le-t  { color: var(--dim); min-width: 46px; flex-shrink: 0; }
+.le-ok  { color: var(--ok); min-width: 38px; flex-shrink: 0; }
+.le-err { color: var(--err); min-width: 38px; flex-shrink: 0; }
+.le-m  { flex: 1; color: var(--txt); word-break: break-all; }
+.root-cause { background: rgba(239,68,68,.04); border: 1px solid rgba(239,68,68,.25); border-left: 3px solid var(--err); border-radius: 8px; padding: 12px 14px; flex-shrink: 0; }
+.rc-title { font-size: 11px; font-weight: 700; color: var(--err); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 6px; }
+.rc-body { font-size: 12px; color: #334155; line-height: 1.6; }
+code { background: rgba(18,47,177,.08); color: #122FB1; padding: 1px 5px; border-radius: 3px; font-size: 10.5px; font-family: 'Cascadia Code','Fira Code',monospace; }
+.fix-list { margin-top: 8px; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; }
+.fix-list li { font-size: 11px; color: #64748b; display: flex; gap: 6px; }
+.fix-list li::before { content: attr(data-n); background: rgba(239,68,68,.15); color: var(--err); font-weight: 700; font-size: 10px; min-width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+.tl-section { padding: 14px 28px 16px; background: #EEF0FA; border-top: 1px solid #C5CCE8; flex-shrink: 0; }
+.tl-title { font-size: 11px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 10px; }
+.tl-rows { display: flex; flex-direction: column; gap: 8px; }
+.tl-row { display: flex; align-items: center; gap: 12px; }
+.tl-lbl { font-size: 11px; color: var(--dim); min-width: 200px; }
+.tl-bg { flex: 1; height: 14px; background: #dde0f0; border-radius: 7px; position: relative; overflow: visible; }
+.tl-fill { height: 100%; border-radius: 7px; position: absolute; left: 0; transition: width .5s ease; }
+.tl-ok  { background: linear-gradient(90deg, #16a34a, #22c55e); }
+.tl-err { background: linear-gradient(90deg, #991b1b, #ef4444); }
+.tl-dur { font-size: 11px; min-width: 50px; text-align: right; }
+.tl-markers { display: flex; justify-content: space-between; font-size: 10px; color: var(--dim); margin-top: 5px; }
+.retry-dot { position: absolute; top: -3px; width: 2px; height: 20px; background: rgba(239,68,68,.6); border-radius: 1px; }
+.controls { position: fixed; bottom: 20px; right: 20px; display: flex; gap: 8px; z-index: 99; }
+.btn { padding: 8px 18px; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .2s; }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-primary:hover { background: #1a3ed4; transform: translateY(-1px); }
+.btn-reset { background: var(--card); color: var(--dim); border: 1px solid var(--border); }
+.btn-reset:hover { background: var(--node); color: var(--txt); }
+.ctx-section { padding: 14px 28px 16px; background: #e8ebf8; border-top: 1px solid #C5CCE8; border-bottom: 1px solid #C5CCE8; flex-shrink: 0; }
+.ctx-title { font-size: 10px; font-weight: 700; color: var(--ancla); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+.ctx-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.ctx-card { background: #ffffff; border: 1px solid #C5CCE8; border-top: 2px solid var(--ancla); border-radius: 6px; padding: 10px 12px; }
+.ctx-card-reg { border-top-color: var(--err); }
+.ctx-card-num { font-size: 13px; font-weight: 800; color: var(--ancla); margin-bottom: 4px; line-height: 1; }
+.ctx-card-num.ctx-reg { color: var(--err); }
+.ctx-card-title { font-size: 12px; font-weight: 700; color: #fff; margin-bottom: 5px; line-height: 1.3; }
+.ctx-card-body { font-size: 11px; color: #94a3b8; line-height: 1.55; }
+.ctx-card-body strong { color: var(--ancla); font-weight: 700; }
+.ctx-card-body code { background: rgba(18,47,177,.08); color: #122FB1; border: none; font-size: 10px; }
+.impact-section { display: flex; align-items: center; gap: 0; padding: 10px 28px; background: #ffffff; border-bottom: 2px solid #C5CCE8; flex-shrink: 0; }
+.impact-severity { display: flex; align-items: center; gap: 10px; padding-right: 20px; border-right: 1px solid #C5CCE8; margin-right: 20px; flex-shrink: 0; }
+.impact-badge { font-size: 10px; font-weight: 800; padding: 5px 10px; border-radius: 4px; letter-spacing: .5px; text-transform: uppercase; white-space: nowrap; }
+.impact-critical { background: rgba(220,38,38,.08); color: #dc2626; border: 1px solid rgba(220,38,38,.25); }
+.impact-sev-lbl { font-size: 10px; color: #4a5a8a; line-height: 1.3; text-align: center; }
+.impact-items { display: flex; flex: 1; gap: 0; }
+.impact-item { flex: 1; padding: 0 16px; border-right: 1px solid #C5CCE8; }
+.impact-lbl { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: #4a5a8a; margin-bottom: 2px; }
+.impact-val { font-size: 12px; font-weight: 700; color: #0d1a3a; line-height: 1.2; }
+.impact-val.impact-crit { color: #dc2626; }
+.impact-val.impact-warn { color: var(--warn); }
+.impact-val.impact-reg  { color: #122FB1; }
+.impact-sub { font-size: 10px; color: #4a5a8a; margin-top: 1px; line-height: 1.3; }
+.d05-section { margin: 0 28px 20px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.d05-hdr { background: #f0f2fb; padding: 10px 16px 9px; border-bottom: 1px solid var(--border); display: flex; align-items: baseline; gap: 10px; }
+.d05-hdr-title { font-size: 12px; font-weight: 700; color: var(--txt); }
+.d05-hdr-sub   { font-size: 10px; color: var(--dim); }
+.d05-table { width: 100%; border-collapse: collapse; }
+.d05-table th { padding: 6px 14px; font-size: 10px; font-weight: 600; color: var(--dim); text-align: left; border-bottom: 1px solid var(--border); background: #f8f9fd; }
+.d05-table td { padding: 7px 14px; font-size: 11px; color: var(--txt); border-bottom: 1px solid #eef0fa; vertical-align: top; }
+.d05-table tr:last-child td { border-bottom: none; }
+.d05-sp  { font-family: monospace; font-size: 11px; color: var(--ancla); font-weight: 600; }
+.d05-src { font-size: 9px; color: #94a3b8; margin-top: 1px; }
+.d05-rate      { font-weight: 700; font-size: 12px; }
+.d05-rate-high { color: #ef4444; }
+.d05-rate-mid  { color: #f97316; }
+.d05-badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 9px; font-weight: 600; white-space: nowrap; }
+.d05-badge-defecto  { background: #fee2e2; color: #dc2626; }
+.d05-badge-gating   { background: #fef3c7; color: #92400e; }
+.d05-badge-restrict { background: #dbeafe; color: #1e40af; }
+.d05-type { font-size: 10px; color: var(--dim); line-height: 1.4; }
+.d05-note { padding: 7px 14px 8px; font-size: 10px; color: var(--dim); border-top: 1px solid var(--border); background: #f8f9fd; }
+.d05-table th:nth-child(1) { width: 26%; } .d05-table th:nth-child(2) { width: 9%; } .d05-table th:nth-child(3) { width: 16%; }
+@keyframes blink-err { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+.blink { animation: blink-err 1s infinite; }
+@keyframes blink-n5 { 0%,100%{opacity:1} 50%{opacity:0.2} }
+.blink-n5 { animation: blink-n5 0.7s infinite; }
+@keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="signal-top"></div>
+
+<header>
+  <div class="hdr-row1">
+    <div class="bc-logo-wrap">
+      <img class="bc-logo" src="../../../bancoppel-logo.png" alt="BanCoppel">
+      <div class="bc-wordmark-sub">Modernización Core Bancario</div>
+    </div>
+    <div>
+      <div class="hdr-title">D08 SPEI &#8212; ESB Error Codes Sin Documentar</div>
+      <div class="hdr-sub">Análisis de producción &#183; Pagos Interbancarios (SPEI) &#183; BanCoppel &#183; 24 abril 2026</div>
+    </div>
+  </div>
+  <div class="metrics">
+    <div class="met"><div class="met-v">4,153</div><div class="met-l">Errores ESB/día</div></div>
+    <div class="met"><div class="met-v">5</div><div class="met-l">Códigos sin documentar</div></div>
+    <div class="met"><div class="met-v">0</div><div class="met-l">Runbooks actualizados</div></div>
+    <div class="met"><div class="met-v w">D08 SPEI</div><div class="met-l">Dominio afectado</div></div>
+    <div class="met"><div class="met-v">2,452</div><div class="met-l">MQ Exceptions/día</div></div>
+    <div class="met"><div class="met-v i">~15 min</div><div class="met-l">RTO Banxico SPEI</div></div>
+  </div>
+</header>
+
+<nav class="nav-bar">
+  <a href="../../index-bcop-v2.html">BCOPCore</a>
+  <span class="nav-sep">&#8250;</span>
+  <a href="../../capability-model-bcop-v2.html">Modelo de Capacidades</a>
+  <span class="nav-sep">&#8250;</span>
+  <span style="color:var(--dim)">INC-004 &#8212; D08 SPEI &#183; ESB Error Codes Sin Documentar</span>
+</nav>
+
+<div class="impact-section">
+  <div class="impact-severity">
+    <div>
+      <div class="impact-badge impact-critical">N3 CRÍTICO</div>
+      <div class="impact-sev-lbl">Severidad<br>de impacto</div>
+    </div>
+  </div>
+  <div class="impact-items">
+    <div class="impact-item">
+      <div class="impact-lbl">Dominio afectado</div>
+      <div class="impact-val">D08 &#183; bdispei</div>
+      <div class="impact-sub">Pagos Interbancarios (SPEI/CoDi)</div>
+    </div>
+    <div class="impact-item">
+      <div class="impact-lbl">Capacidad ETB afectada</div>
+      <div class="impact-val">Payments &amp; Transfers L2</div>
+      <div class="impact-sub">SPEI &#183; CoDi &#183; Transferencias interbancarias</div>
+    </div>
+    <div class="impact-item">
+      <div class="impact-lbl">Qué deja de recibir el cliente</div>
+      <div class="impact-val impact-warn">Mitigación automática imposible</div>
+      <div class="impact-sub">5 códigos ESB sin handler &#8594; timeouts silenciosos sin reintentos controlados</div>
+    </div>
+    <div class="impact-item">
+      <div class="impact-lbl">Riesgo regulatorio</div>
+      <div class="impact-val impact-reg">Banxico Circular 14/2017</div>
+      <div class="impact-sub">RTO SPEI 15 min &#183; sin handler = sin evidencia de fallo = sin rollback</div>
+    </div>
+    <div class="impact-item" style="border-right:none">
+      <div class="impact-lbl">SPs críticos involucrados</div>
+      <div class="impact-val">sp_spei_envio_orden</div>
+      <div class="impact-sub">sp_spei_consulta_saldo &#183; sp_spei_devolucion &#183; ~4,153 errores/día</div>
+    </div>
+  </div>
+</div>
+
+<div class="ctx-section">
+  <div class="ctx-title">Contexto funcional &#8212; ¿por qué sucede esto?</div>
+  <div class="ctx-grid">
+    <div class="ctx-card">
+      <div class="ctx-card-num">01</div>
+      <div class="ctx-card-title">¿Qué es el ESB SPEI?</div>
+      <div class="ctx-card-body">
+        El ESB IBM WebSphere actúa como middleware entre BanCoppel Informix y el sistema SPEI de Banxico. Cada transferencia pasa por el bus: Canal &#8594; ESB &#8594; Informix bdispei &#8594; Banxico SPEI. Un error en el ESB que no genera entrada en <code>errores_bus</code> es una falla <strong>invisible al sistema</strong>.
+      </div>
+    </div>
+    <div class="ctx-card">
+      <div class="ctx-card-num">02</div>
+      <div class="ctx-card-title">¿Por qué 5 códigos sin documentar?</div>
+      <div class="ctx-card-body">
+        La tabla <code>errores_bus</code> registra códigos de error del middleware. <code>4394 MbUserException</code> (IBM MQ), <code>3743 SOAPException</code> (timeout), <code>3701 JNI/Axis2</code>, <code>3165 SSL socket</code>, <code>6233 código interno</code> &#8212; ninguno tiene handler definido. El SP receptor recibe <code>NULL</code> o excepción no catalogada.
+      </div>
+    </div>
+    <div class="ctx-card">
+      <div class="ctx-card-num">03</div>
+      <div class="ctx-card-title">Impacto operacional</div>
+      <div class="ctx-card-body">
+        La transferencia inicia, el canal la registra como enviada, pero el ACK de Banxico no llega. El cliente ve "en proceso" indefinidamente. Sin handler = sin retry = sin reversión automática = <strong>exposición manual</strong> para el equipo de operaciones.
+      </div>
+    </div>
+    <div class="ctx-card ctx-card-reg">
+      <div class="ctx-card-num ctx-reg">!</div>
+      <div class="ctx-card-title">Riesgo regulatorio &#183; Banxico</div>
+      <div class="ctx-card-body">
+        Circular 14/2017: BanCoppel debe confirmar acreditación SPEI en &#8804; 15 minutos. Un código <code>3743 SOAPTimeout</code> sin circuit breaker puede dejar una operación pendiente sin que el sistema registre formalmente el fallo, <strong>exponiendo al banco a sanción directa</strong>.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="d05-section">
+  <div class="d05-hdr">
+    <div class="d05-hdr-title">Salud del dominio D08 &#8212; bdispei</div>
+    <div class="d05-hdr-sub">SPs con errores ESB sin handler documentado &#183; evidencia 2026-04-24 &#183; mecanismo verificado desde logs de producción</div>
+  </div>
+  <table class="d05-table">
+    <thead>
+      <tr><th>Stored Procedure</th><th>Tasa error</th><th>Tipo</th><th>Mecanismo confirmado</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><div class="d05-sp">sp_spei_envio_orden</div><div class="d05-src">bdispei &#183; flujo principal SPEI envío</div></td>
+        <td><span class="d05-rate d05-rate-mid">2.1%</span></td>
+        <td><span class="d05-badge d05-badge-defecto">Defecto ESB</span></td>
+        <td class="d05-type">Código <code>4394 MbUserException</code> IBM MQ: excepción Java no mapeada en <code>errores_bus</code>. 2,452 ocurrencias/día.</td>
+      </tr>
+      <tr>
+        <td><div class="d05-sp">sp_spei_consulta_saldo</div><div class="d05-src">bdispei &#183; consulta saldo previo a transferencia</div></td>
+        <td><span class="d05-rate d05-rate-mid">0.8%</span></td>
+        <td><span class="d05-badge d05-badge-defecto">Defecto ESB</span></td>
+        <td class="d05-type">Código <code>3743 SOAPException</code> timeout 30s sin circuit breaker. 761 ocurrencias/día durante ventana nocturna.</td>
+      </tr>
+      <tr>
+        <td><div class="d05-sp">sp_spei_devolucion</div><div class="d05-src">bdispei &#183; flujo de devolución</div></td>
+        <td><span class="d05-rate d05-rate-mid">0.4%</span></td>
+        <td><span class="d05-badge d05-badge-defecto">Defecto ESB</span></td>
+        <td class="d05-type">Código <code>3701 JNI/Axis2</code> error. 356 ocurrencias/día. Afecta flujo de devolución de transferencias.</td>
+      </tr>
+      <tr>
+        <td><div class="d05-sp">sp_spei_consulta_cert</div><div class="d05-src">bdispei &#183; validación de certificado SPEI</div></td>
+        <td><span class="d05-rate d05-rate-mid">0.3%</span></td>
+        <td><span class="d05-badge d05-badge-defecto">Defecto ESB</span></td>
+        <td class="d05-type">Código <code>3165 SSL socket</code> error. 320 ocurrencias/día. Riesgo de expiración de certificado Banxico.</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="d05-note">Línea base D08-bdispei: ~198,000 llamadas/día totales. Los 5 códigos ESB acumulan 4,153 errores/día (2.1% del tráfico). Código <code>4394</code> IBM MQ es el más frecuente &#8212; correlaciona con ventana batch 22:00&#8211;02:00.</div>
+</div>
+
+<div class="tl-section">
+  <div class="tl-title">Timeline de transacción &#8212; escala 22:00&#8211;03:00</div>
+  <div class="tl-rows">
+    <div class="tl-row">
+      <div class="tl-lbl">Exitosa &#183; sp_spei_envio_orden &#183; ACK Banxico ~30s</div>
+      <div class="tl-bg">
+        <div class="tl-fill tl-ok" id="tlOk" style="width:0%"></div>
+      </div>
+      <div class="tl-dur" style="color:var(--ok)" id="tlOkDur">&#8212;</div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-lbl">Fallida &#183; código 4394 MbUserException &#183; sin resolución</div>
+      <div class="tl-bg" id="tlErrBg">
+        <div class="tl-fill tl-err" id="tlErr" style="width:0%"></div>
+      </div>
+      <div class="tl-dur" style="color:var(--err)" id="tlErrDur">&#8212;</div>
+    </div>
+  </div>
+  <div class="tl-markers">
+    <span>22:00</span><span>23:00</span><span>00:00</span><span>01:00</span><span>02:00</span><span>03:00</span>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn btn-reset" onclick="resetAnim()">&#8635; Reiniciar</button>
+  <button class="btn btn-primary" id="btnPlay" onclick="onPlay()">&#9654; Reproducir</button>
+</div>
+
+<div class="panels">
+
+  <!-- SUCCESS PANEL -->
+  <div class="panel">
+    <div class="panel-hdr">
+      <span class="ph-badge pb-ok">EXITO</span>
+      <div>
+        <div class="ph-title">Transferencia SPEI confirmada</div>
+        <div class="ph-sub">idTrxGlobal=420156832791 &#183; 22:05 &#183; 3 pasos &#183; ~30 segundos</div>
+      </div>
+    </div>
+    <div class="flow-wrap">
+      <svg id="svgS004" viewBox="0 0 380 405" width="100%">
+        <defs>
+          <filter id="glow-ok-004" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <rect x="90" y="18" width="200" height="42" rx="8" fill="#ffffff" stroke="#122FB1" stroke-width="1.5"/>
+        <text x="190" y="32" text-anchor="middle" fill="#4a5a8a" font-size="10">ESB IBM WebSphere</text>
+        <text x="190" y="49" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="600">SPEIBanxico.java</text>
+        <line x1="190" y1="60" x2="190" y2="108" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <polygon points="190,108 184,96 196,96" fill="#A0AEDC"/>
+        <rect id="s004N1" x="90" y="108" width="200" height="42" rx="8" fill="#ffffff" stroke="#C5CCE8" stroke-width="1.5"/>
+        <text x="190" y="122" text-anchor="middle" fill="#4a5a8a" font-size="10">Informix &#183; bdispei</text>
+        <text x="190" y="139" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="600">sp_spei_envio_orden</text>
+        <line x1="190" y1="150" x2="190" y2="198" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <polygon points="190,198 184,186 196,186" fill="#A0AEDC" id="s004A2"/>
+        <rect id="s004N2" x="90" y="198" width="200" height="42" rx="8" fill="#f0f2fe" stroke="#122FB1" stroke-width="1.5"/>
+        <text x="190" y="212" text-anchor="middle" fill="#122FB1" font-size="10">BANXICO &#183; Sistema SPEI</text>
+        <text x="190" y="229" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="600">ACK Confirmación</text>
+        <line x1="190" y1="240" x2="190" y2="288" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <polygon points="190,288 184,276 196,276" fill="#A0AEDC" id="s004A3"/>
+        <rect id="s004N3" x="90" y="288" width="200" height="42" rx="8" fill="#ffffff" stroke="#C5CCE8" stroke-width="1.5"/>
+        <text x="190" y="302" text-anchor="middle" fill="#4a5a8a" font-size="10">Informix &#183; bdispei</text>
+        <text x="190" y="319" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="600">sp_spei_actualiza_estado</text>
+        <g id="s004Ck1" opacity="0"><circle cx="316" cy="129" r="10" fill="#16a34a"/><text x="316" y="133" text-anchor="middle" fill="#fff" font-size="12">&#10003;</text></g>
+        <g id="s004Ck2" opacity="0"><circle cx="316" cy="219" r="10" fill="#16a34a"/><text x="316" y="223" text-anchor="middle" fill="#fff" font-size="12">&#10003;</text></g>
+        <g id="s004Ck3" opacity="0"><circle cx="316" cy="309" r="10" fill="#16a34a"/><text x="316" y="313" text-anchor="middle" fill="#fff" font-size="12">&#10003;</text></g>
+        <g id="s004Resp" opacity="0">
+          <rect x="56" y="201" width="26" height="18" rx="3" fill="rgba(34,197,94,.15)" stroke="#22c55e"/>
+          <text x="69" y="213" text-anchor="middle" fill="#22c55e" font-size="9" font-weight="700">0000</text>
+        </g>
+        <text id="s004Done" x="190" y="368" text-anchor="middle" fill="#22c55e" font-size="12" font-weight="700" opacity="0">Acreditación confirmada &#183; ACK Banxico ~30s</text>
+        <circle id="s004Pkt" cx="190" cy="39" r="8" fill="#122FB1" stroke="#ffffff" stroke-width="2.5" opacity="0"/>
+      </svg>
+    </div>
+    <div class="log-stream" id="logS">
+      <div style="color:#8896cc;font-size:10px;margin-bottom:4px;"># Producción 2026-04-24 22:05 &#183; CDMX</div>
+    </div>
+  </div>
+
+  <!-- FAILURE PANEL -->
+  <div class="panel">
+    <div class="panel-hdr">
+      <span class="ph-badge pb-err">FALLO</span>
+      <div>
+        <div class="ph-title">MbUserException sin handler &#8212; falla silenciosa</div>
+        <div class="ph-sub">idTrxGlobal=835279614802 &#183; 22:07 &#183; código 4394 &#183; sin ACK Banxico</div>
+      </div>
+    </div>
+    <div class="hud">
+      <div class="hud-item">
+        <div class="hud-v" id="hudRetry">0</div>
+        <div class="hud-l">Reintentos</div>
+      </div>
+      <div class="hud-sep">/0</div>
+      <div class="hud-item">
+        <div class="hud-v t" id="hudTime">22:07</div>
+        <div class="hud-l">Hora (CDMX)</div>
+      </div>
+      <div class="hud-item hud-right">
+        <div id="hudStatus" class="hud-status-pill">EN ESPERA</div>
+      </div>
+    </div>
+    <div class="flow-wrap">
+      <svg id="svgF004" viewBox="0 0 380 356" width="100%">
+        <defs>
+          <filter id="glow-err2-004" x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="5" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <rect x="90" y="10" width="200" height="42" rx="8" fill="#ffffff" stroke="#122FB1" stroke-width="1.5"/>
+        <text x="190" y="24" text-anchor="middle" fill="#4a5a8a" font-size="10">ESB IBM WebSphere</text>
+        <text x="190" y="41" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="600">SPEIBanxico.java</text>
+        <line x1="190" y1="52" x2="190" y2="100" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <polygon points="190,100 184,88 196,88" fill="#A0AEDC"/>
+        <rect id="f004N1" x="90" y="100" width="200" height="42" rx="8" fill="#ffffff" stroke="#C5CCE8" stroke-width="1.5"/>
+        <text x="190" y="114" text-anchor="middle" fill="#4a5a8a" font-size="10">Informix &#183; bdispei</text>
+        <text x="190" y="131" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="600">sp_spei_envio_orden</text>
+        <line x1="190" y1="142" x2="190" y2="190" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <polygon points="190,190 184,178 196,178" fill="#A0AEDC"/>
+        <rect id="f004N2" x="90" y="190" width="200" height="48" rx="8" fill="#fff0f0" stroke="#ef4444" stroke-width="1.5"/>
+        <text x="190" y="206" text-anchor="middle" fill="#4a5a8a" font-size="10">IBM MQ &#183; Cola SPEI</text>
+        <text x="190" y="221" text-anchor="middle" fill="#ef4444" font-size="11" font-weight="700">MbUserException 4394</text>
+        <text x="190" y="232" text-anchor="middle" fill="#fca5a5" font-size="9">(código sin handler en errores_bus)</text>
+        <line x1="190" y1="238" x2="190" y2="266" stroke="rgba(239,68,68,.4)" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <rect x="70" y="266" width="240" height="62" rx="6" fill="rgba(239,68,68,.04)" stroke="rgba(239,68,68,.5)" stroke-width="1" stroke-dasharray="5,3"/>
+        <text x="190" y="283" text-anchor="middle" fill="#f87171" font-size="10" font-weight="700" letter-spacing="1">SIN HANDLER</text>
+        <text x="190" y="300" text-anchor="middle" fill="#ef4444" font-size="10" font-family="monospace">errores_bus: NULL</text>
+        <text x="190" y="316" text-anchor="middle" fill="#94a3b8" font-size="9">código 4394 no registrado &#183; sin ACK Banxico</text>
+        <g id="f004X" opacity="0">
+          <circle cx="64" cy="214" r="11" fill="#ef4444" filter="url(#glow-err2-004)"/>
+          <text x="64" y="219" text-anchor="middle" fill="#fff" font-size="13" font-weight="900">&#10007;</text>
+        </g>
+        <g id="f004Alert" opacity="0">
+          <rect x="265" y="192" width="90" height="22" rx="4" fill="rgba(239,68,68,.15)" stroke="rgba(239,68,68,.4)"/>
+          <text x="310" y="207" text-anchor="middle" fill="#f87171" font-size="10" font-weight="700">SIN ALERTA</text>
+        </g>
+        <circle id="f004Pkt" cx="190" cy="31" r="8" fill="#ef4444" stroke="#ffffff" stroke-width="2.5" opacity="0"/>
+      </svg>
+    </div>
+    <div class="log-stream" id="logF">
+      <div style="color:#8896cc;font-size:10px;margin-bottom:4px;"># Producción 2026-04-24 22:07 &#183; CDMX</div>
+    </div>
+    <div class="root-cause">
+      <div class="rc-title">Causa Raíz &amp; Plan de Acción</div>
+      <div class="rc-body">
+        <code>MbUserException 4394</code> (IBM MQ) lanzada durante encolado de mensaje SPEI. El SP <code>sp_spei_envio_orden</code> no tiene handler para este código — el error no se registra en <code>errores_bus</code>. La transferencia queda en estado "en proceso" sin ACK Banxico y sin mecanismo de rollback automático.
+      </div>
+      <ul class="fix-list">
+        <li data-n="1">Mapear código <code>4394</code> en <code>errores_bus</code> con handler definido y acción correctiva</li>
+        <li data-n="2">Implementar circuit breaker en <code>SPEIBanxico.java</code> con max_retries=3 + backoff exponencial</li>
+        <li data-n="3">Alertar operaciones cuando ACK Banxico no llega en &#8804; 15 min (SLA regulatorio)</li>
+        <li data-n="4">Documentar los 5 códigos ESB en <code>knowledge-base/D08-bdispei/06-exceptions.md</code></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+let timers = [];
+let phase  = 'idle';
+function wait(ms) { return new Promise(r => { const t = setTimeout(r, ms); timers.push(t); }); }
+function attr(id, a, v) { const el = document.getElementById(id); if (el) el.setAttribute(a, v); }
+function setStroke(id, color, w) { const el = document.getElementById(id); if (!el) return; el.setAttribute('stroke', color); el.setAttribute('stroke-width', w || 2); }
+function movePkt(id, x, y) { const el = document.getElementById(id); if (!el) return; el.setAttribute('cx', x); el.setAttribute('cy', y); }
+function show(id) { attr(id, 'opacity', 1); }
+function hide(id) { attr(id, 'opacity', 0); }
+function addLog(cid, time, type, msg) {
+  const c = document.getElementById(cid); if (!c) return;
+  const d = document.createElement('div'); d.className = 'le';
+  d.innerHTML = `<span class="le-t">${time}</span><span class="${type==='ok'?'le-ok':'le-err'}">${type==='ok'?'[OK] ':'[ERR]'}</span><span class="le-m">${msg}</span>`;
+  c.appendChild(d); requestAnimationFrame(() => { d.classList.add('show'); c.scrollTop = c.scrollHeight; });
+}
+function setHudStatus(text, color) {
+  const el = document.getElementById('hudStatus'); if (!el) return;
+  el.textContent = text; el.style.color = color; el.style.borderColor = color + '44'; el.style.background = color + '11';
+}
+function addRetryDot(pct) {
+  const bg = document.getElementById('tlErrBg'); if (!bg) return;
+  const dot = document.createElement('div'); dot.className = 'retry-dot'; dot.style.left = pct + '%'; bg.appendChild(dot);
+}
+async function animSuccess() {
+  show('s004Pkt'); movePkt('s004Pkt', 190, 39);
+  await wait(1400);
+  setStroke('s004N1', '#F0D224'); movePkt('s004Pkt', 190, 129);
+  addLog('logS', '22:05:08', 'ok', 'SPEIBanxico.java -> sp_spei_envio_orden invocado · id=420156832791');
+  await wait(2000);
+  setStroke('s004N1', '#22c55e'); show('s004Ck1');
+  setStroke('s004N2', '#F0D224'); movePkt('s004Pkt', 190, 219);
+  addLog('logS', '22:05:09', 'ok', 'sp_spei_envio_orden -> IBM MQ encolado · estado: ENVIADA');
+  await wait(2200);
+  setStroke('s004N2', '#22c55e'); show('s004Ck2'); show('s004Resp');
+  setStroke('s004N3', '#F0D224'); movePkt('s004Pkt', 190, 309);
+  addLog('logS', '22:05:21', 'ok', 'BANXICO SPEI -> ACK recibido · CodRetorno=0000');
+  await wait(2000);
+  setStroke('s004N3', '#22c55e'); show('s004Ck3');
+  addLog('logS', '22:05:22', 'ok', 'sp_spei_actualiza_estado -> id=420156832791 CONFIRMADA');
+  await wait(1500); hide('s004Pkt'); show('s004Done');
+  document.getElementById('tlOk').style.width = '1%';
+  document.getElementById('tlOkDur').textContent = '~30s';
+}
+async function animFailure() {
+  show('f004Pkt'); movePkt('f004Pkt', 190, 31); setHudStatus('EN PROGRESO', '#f97316');
+  await wait(2200);
+  setStroke('f004N1', '#F0D224'); movePkt('f004Pkt', 190, 121);
+  addLog('logF', '22:07:03', 'ok', 'SPEIBanxico.java -> sp_spei_envio_orden invocado · id=835279614802');
+  await wait(1800);
+  movePkt('f004Pkt', 190, 214); setStroke('f004N2', '#F0D224');
+  await wait(1400);
+  setStroke('f004N1', '#22c55e'); setStroke('f004N2', '#ef4444', 2);
+  show('f004X'); show('f004Alert');
+  addLog('logF', '22:07:03', 'err', 'IBM MQ -> MbUserException 4394 (codigo sin handler)');
+  addLog('logF', '22:07:03', 'err', 'errores_bus: NULL — codigo 4394 no mapeado');
+  addLog('logF', '22:07:03', 'err', 'id=835279614802 -> estado: EN PROCESO (sin ACK Banxico)');
+  setHudStatus('SIN ALERTA', '#ef4444');
+  await wait(1500);
+  document.getElementById('tlErr').style.width = '30%';
+  document.getElementById('tlErrDur').textContent = '~1h';
+  addRetryDot(30);
+  await wait(1200);
+  document.getElementById('tlErr').style.width = '65%';
+  document.getElementById('tlErrDur').textContent = '~3h';
+  addRetryDot(65);
+  await wait(1200);
+  document.getElementById('tlErr').style.width = '99%';
+  document.getElementById('tlErrDur').textContent = 'sin resolver';
+  addRetryDot(99);
+  hide('f004Pkt');
+}
+async function playAnimation() {
+  if (phase === 'running') return; phase = 'running';
+  document.getElementById('btnPlay').textContent = '&#9203; Animando...';
+  document.getElementById('btnPlay').disabled = true;
+  await animSuccess(); await wait(1000); await animFailure();
+  phase = 'done';
+  document.getElementById('btnPlay').textContent = '&#10003; Completado';
+  document.getElementById('btnPlay').style.background = '#16a34a';
+}
+function onPlay() {
+  if (phase === 'idle') playAnimation();
+  else if (phase === 'done') { resetAnim(); setTimeout(playAnimation, 80); }
+}
+function resetAnim() {
+  timers.forEach(clearTimeout); timers = []; phase = 'idle';
+  const btn = document.getElementById('btnPlay');
+  btn.textContent = '&#9654; Reproducir'; btn.disabled = false; btn.style.background = '';
+  ['s004N1','s004N2','s004N3'].forEach(id => setStroke(id, '#C5CCE8', 1.5));
+  ['s004Ck1','s004Ck2','s004Ck3','s004Resp','s004Done'].forEach(hide);
+  hide('s004Pkt'); movePkt('s004Pkt', 190, 39);
+  setStroke('f004N1', '#C5CCE8', 1.5); setStroke('f004N2', '#ef4444', 1.5);
+  ['f004X','f004Alert'].forEach(hide);
+  hide('f004Pkt'); movePkt('f004Pkt', 190, 31);
+  document.getElementById('hudRetry').textContent = '0';
+  document.getElementById('hudTime').textContent = '22:07';
+  setHudStatus('EN ESPERA', '#64748b');
+  document.getElementById('logS').innerHTML = '<div style="color:#8896cc;font-size:10px;margin-bottom:4px;"># Producción 2026-04-24 22:05 &#183; CDMX</div>';
+  document.getElementById('logF').innerHTML = '<div style="color:#8896cc;font-size:10px;margin-bottom:4px;"># Producción 2026-04-24 22:07 &#183; CDMX</div>';
+  document.getElementById('tlOk').style.width = '0%';
+  document.getElementById('tlErr').style.width = '0%';
+  document.getElementById('tlOkDur').textContent = '—';
+  document.getElementById('tlErrDur').textContent = '—';
+  document.getElementById('tlErrBg').querySelectorAll('.retry-dot').forEach(d => d.remove());
+}
+setTimeout(playAnimation, 900);
+</script>
+</body>
+</html>

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BCOPCore · Flujo de Control v2</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#3D5FCD;--blued:#122FB1;--bluedd:#0d2185;
+  --yellow:#F0D224;
+  --ink:#F4F6FF;--muted:#aab3d4;--muted2:#818ab0;
+  --glass:rgba(255,255,255,.055);--glassb:rgba(255,255,255,.10)
+}
+body{background:#060a1a;color:var(--ink);
+  font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Calibri,sans-serif;
+  -webkit-font-smoothing:antialiased;overflow:hidden}
+
+/* aurora */
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(27,63,208,.65),transparent 70%);animation:f1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(13,33,133,.7),transparent 70%);animation:f2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(240,210,36,.22),transparent 70%);animation:f3 32s ease-in-out infinite}
+@keyframes f1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes f2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes f3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+.grain{position:fixed;inset:0;z-index:-1;opacity:.045;pointer-events:none;
+ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* nav */
+nav{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;gap:14px;padding:15px 30px;
+ backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);background:rgba(6,10,26,.55);border-bottom:1px solid rgba(255,255,255,.06)}
+nav img{height:21px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+nav .nt{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em}
+nav .sp{flex:1}
+nav .v2badge{font-size:10px;font-weight:800;letter-spacing:.12em;color:#060a1a;background:var(--yellow);padding:3px 9px;border-radius:20px}
+nav a.back{font-size:12px;color:var(--muted);padding:6px 13px;border-radius:20px;border:1px solid rgba(255,255,255,.09);transition:.22s;text-decoration:none}
+nav a.back:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+
+/* layout wrapper — sits below fixed nav */
+#wrapper{position:fixed;top:96px;left:0;right:0;bottom:0;display:flex;overflow:hidden}
+
+/* sidebar */
+#side{
+  width:320px;min-width:320px;height:100%;
+  background:rgba(255,255,255,.045);
+  backdrop-filter:blur(22px) saturate(155%);
+  -webkit-backdrop-filter:blur(22px) saturate(155%);
+  border-right:1px solid rgba(255,255,255,.10);
+  overflow-y:auto;padding:14px;
+  display:flex;flex-direction:column;gap:8px;
+  scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.15) transparent;
+}
+#side::-webkit-scrollbar{width:5px}
+#side::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:2px}
+
+/* sidebar banner */
+#banner{
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.12);
+  border-bottom:3px solid var(--yellow);
+  border-radius:12px;padding:14px;
+}
+#banner h2{font-size:13px;font-weight:800;color:#F4F6FF}
+#banner .sub{font-size:9px;color:#aab3d4;margin-top:2px}
+
+/* search */
+#q{
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:10px;color:#F4F6FF;
+  padding:8px 12px;font-size:11px;width:100%;outline:none;
+}
+#q:focus{border-color:var(--yellow);box-shadow:0 0 0 3px rgba(240,210,36,.12)}
+
+/* section label */
+.pt{font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin:4px 0 2px}
+
+/* journey rows */
+.jrow{
+  background:rgba(255,255,255,.05);
+  border-radius:10px;padding:8px 10px;
+  cursor:pointer;border-left:3px solid transparent;
+  transition:background .15s,border-color .15s;
+}
+.jrow:hover{background:rgba(255,255,255,.09)}
+.jrow.on{background:rgba(61,95,205,.25);border-left-color:var(--yellow)}
+.jrow .l1{display:flex;align-items:center;gap:6px}
+.jrow .biz{font-size:11px;font-weight:700;color:#F4F6FF;flex:1;line-height:1.2}
+.jrow .sp{font-family:'SF Mono','Cascadia Code','Consolas',monospace;font-size:8.5px;color:#818ab0;margin-top:1px;word-break:break-all}
+.sc{font-size:9px;font-weight:800;padding:1px 6px;border-radius:8px;flex-shrink:0}
+.sc.c{background:#450a0a;color:#fca5a5}.sc.h{background:#3a2a08;color:#fdba74}.sc.l{background:#052e16;color:#86efac}
+.dom-badge{font-size:7px;color:#9ab0d0;background:rgba(61,95,205,.2);padding:1px 4px;border-radius:2px;flex-shrink:0}
+
+/* main panel */
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* head panel */
+#head{
+  padding:14px 20px;border-bottom:1px solid rgba(255,255,255,.08);
+  background:rgba(255,255,255,.04);flex-shrink:0;
+}
+#head .sp{font-family:'SF Mono','Cascadia Code','Consolas',monospace;font-size:15px;font-weight:800;color:#F4F6FF}
+#head .biz{font-size:12px;color:#aab3d4;margin-top:2px}
+#metrics{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+
+/* metrics cards */
+.mt{
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:10px;padding:7px 12px;
+  border-left:3px solid rgba(255,255,255,.15);
+}
+.mt .n{font-size:16px;font-weight:800;color:#F4F6FF}
+.mt .l{font-size:8px;color:#aab3d4;text-transform:uppercase;letter-spacing:.05em}
+.mt.crit{border-left-color:#ef4444}
+
+#legend{font-size:9px;color:var(--muted);margin-top:7px;display:flex;gap:14px;flex-wrap:wrap}
+#legend b{font-weight:400}
+.lg{display:inline-flex;align-items:center;gap:4px}.lg i{width:9px;height:9px;border-radius:2px;display:inline-block}
+
+/* flow area */
+#flow{
+  flex:1;overflow:auto;padding:14px 20px;
+  font-family:'SF Mono','Cascadia Code','Consolas',monospace;
+  font-size:12px;line-height:1.6;
+  background:transparent;
+}
+.node{display:flex;align-items:baseline;gap:7px;padding:1px 0;border-radius:4px}
+.node:hover{background:rgba(255,255,255,.04)}
+.gutter{color:rgba(255,255,255,.2);font-size:10px;flex-shrink:0;width:44px;text-align:right;user-select:none}
+.ico{flex-shrink:0;width:15px;text-align:center}
+.if>.ico{color:#fdba74}.loop>.ico{color:#4a90cc}.call>.ico{color:#5a9a6a}
+.if>.body{color:#fdba74}
+.loop>.body{color:#7fb8e6}
+.call>.body{color:#F4F6FF}
+.call .cbiz{color:#a7f3d0}
+.call .csp{color:#818ab0;font-size:10px}
+.call .tag{font-size:8px;padding:0 5px;border-radius:6px;margin-left:4px}
+.tag.x{background:#3a1f2a;color:#fca5a5}.tag.r{background:#450a0a;color:#fdba74}
+.cond{color:#8a7a5c;font-style:italic;font-size:10px}
+
+#empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;text-align:center;padding:40px}
+
+/* status bar */
+#ls{font-size:9px;border-radius:8px;padding:6px 10px;line-height:1.4}
+#ls.ok{background:rgba(5,46,22,.6);border:1px solid rgba(34,197,94,.3);color:#86efac}
+#ls.err{background:rgba(69,26,26,.6);border:1px solid rgba(239,68,68,.3);color:#fca5a5}
+#ls.wait{background:rgba(30,58,138,.4);border:1px solid rgba(61,95,205,.3);color:#93c5fd}
+#ls code{background:rgba(0,0,0,.35);padding:0 3px;border-radius:2px}
+
+/* hero strip */
+.hstrip{position:fixed;top:52px;left:0;right:0;z-index:49;display:flex;align-items:center;gap:16px;padding:8px 26px;flex-shrink:0;background:rgba(6,10,26,.45);-webkit-backdrop-filter:blur(18px) saturate(150%);backdrop-filter:blur(18px) saturate(150%);border-bottom:1px solid rgba(255,255,255,.06)}
+.hstrip-capa{display:inline-flex;align-items:center;gap:7px;padding:4px 12px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.06em;color:#dfe6ff;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09)}
+.hstrip-capa .dot{width:6px;height:6px;border-radius:50%;background:#F0D224;box-shadow:0 0 8px #F0D224;animation:pulse 2.4s infinite;flex-shrink:0}
+@keyframes pulse{50%{opacity:.4}}
+.hstrip-title{font-size:14px;font-weight:800;letter-spacing:-.01em;background:linear-gradient(135deg,#fff 40%,#9fb4ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hstrip-sp{flex:1}
+.hstrip-tiles{display:flex;gap:8px}
+.hstrip-tile{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:5px 14px;text-align:center}
+.hstrip-tile .n{font-size:15px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;background:linear-gradient(180deg,#fff,#c4d0ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hstrip-tile .l{font-size:8px;color:#818ab0;text-transform:uppercase;letter-spacing:.06em;margin-top:2px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<div class="grain"></div>
+
+<nav>
+  <img src="../bancoppel-logo.png" alt="BanCoppel">
+  <span class="nt">BCOPCore · Flujo de Control</span>
+  <span class="v2badge">v2</span>
+  <span class="sp"></span>
+  <a class="back" href="index-bcop-v2.html">← Portal v2</a>
+</nav>
+
+<div class="hstrip">
+  <div class="hstrip-capa"><span class="dot"></span> Capa 4 · Intención</div>
+  <div class="hstrip-title">Visor de Flujo de Control</div>
+  <div class="hstrip-sp"></div>
+  <div class="hstrip-tiles">
+    <div class="hstrip-tile"><div class="n">131</div><div class="l">Journeys</div></div>
+    <div class="hstrip-tile"><div class="n" id="hs-sps">–</div><div class="l">SPs en journey</div></div>
+    <div class="hstrip-tile"><div class="n" id="hs-rules">–</div><div class="l">Reglas</div></div>
+  </div>
+</div>
+
+<div id="wrapper">
+<div id="side">
+  <div id="banner">
+    <h2>Flujo de Control</h2>
+    <div class="sub">BCOPCore · secuencia real (orden + IF + bucles)</div>
+    <div class="sub">extraído del código SPL · no del call graph</div>
+  </div>
+  <div id="ls" class="wait">Cargando flujos…</div>
+  <input id="q" placeholder="Buscar journey…" autocomplete="off">
+  <div class="pt">Journeys — ordenados por complejidad ▼</div>
+  <div id="list" style="display:flex;flex-direction:column;gap:3px"></div>
+</div>
+<div id="main">
+  <div id="head" style="display:none">
+    <div class="sp" id="h-sp">—</div>
+    <div class="biz" id="h-biz"></div>
+    <div id="metrics"></div>
+    <div id="legend">
+      <span class="lg"><i style="background:#5a9a6a"></i>invocación (CALL)</span>
+      <span class="lg"><i style="background:#fdba74"></i>condición (IF)</span>
+      <span class="lg"><i style="background:#4a90cc"></i>bucle (FOREACH/WHILE)</span>
+      <span class="lg"><b style="color:#fca5a5">▪ cross-dominio</b></span>
+      <span class="lg"><b style="color:#fdba74">▪ regulatorio</b></span>
+    </div>
+  </div>
+  <div id="flow"><div id="empty">Selecciona un journey para ver su <b>secuencia de ejecución real</b><br>(orden de invocaciones + condiciones + bucles, extraídos del código)</div></div>
+</div>
+</div>
+
+<script>
+const FILE='data/flow-data.json';
+const DOMN={d01:'D01 Canal',d02:'D02 Integr.',d03:'D03 Créditos',d04:'D04 Cheques',d05:'D05 Saldos',
+ d06:'D06 Solic.',d07:'D07 Aclar.',d08:'D08 SPEI',d09:'D09 Msj',d10:'D10 Suc.',d11:'D11 Cobr.',d12:'D12 Cont.'};
+const REGDB={bdispei:'Banxico',bdicont:'SAT'};
+let DATA=null, cur=null;
+
+function scoreClass(s){return s>=60?'c':s>=30?'h':'l';}
+
+function buildList(filter=''){
+  const arr=Object.entries(DATA).map(([id,d])=>({id,...d}))
+    .filter(d=>!filter || d.sp.toLowerCase().includes(filter) || (d.biz||'').toLowerCase().includes(filter))
+    .sort((a,b)=>b.metrics.score-a.metrics.score);
+  document.getElementById('list').innerHTML=arr.map(d=>`
+    <div class="jrow" data-id="${d.id}" onclick="sel('${d.id}')">
+      <div class="l1">
+        <span class="biz">${d.biz||d.sp}</span>
+        <span class="sc ${scoreClass(d.metrics.score)}">${d.metrics.score}</span>
+      </div>
+      <div class="l1" style="margin-top:1px"><span class="dom-badge">${DOMN[d.dom]||d.dom}</span>
+        <span class="sp">${d.sp}</span></div>
+    </div>`).join('');
+}
+
+function sel(id){
+  cur=id; const d=DATA[id];
+  document.querySelectorAll('.jrow').forEach(r=>r.classList.toggle('on',r.dataset.id===id));
+  document.getElementById('head').style.display='block';
+  document.getElementById('h-sp').textContent=d.sp;
+  document.getElementById('h-biz').innerHTML=(d.biz||'')+(d.reg?' · <span style="color:#fdba74">REGULATORIO</span>':'');
+  const m=d.metrics, sc=scoreClass(m.score);
+  document.getElementById('metrics').innerHTML=[
+    ['LOC',m.loc.toLocaleString('es-MX'),''],['Invocaciones',m.n_call,''],['Condiciones IF',m.n_if,''],
+    ['Bucles',m.n_loop,''],['Profundidad',m.depth_max,''],['Score',m.score,sc==='c'?'crit':'']
+  ].map(([l,n,c])=>`<div class="mt ${c}"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+  renderFlow(d.flow);
+}
+
+function esc(s){return (s||'').replace(/</g,'&lt;');}
+function renderFlow(root){
+  const out=[];
+  (function walk(node,depth){
+    for(const c of node.children){
+      const pad=`padding-left:${depth*22}px`;
+      const g=c.line?`<span class="gutter">L${c.line}</span>`:'<span class="gutter"></span>';
+      if(c.kind==='CALL'){
+        const db=(c.sp&&window._dbmap)?'':''; // dominio destino no resuelto aquí
+        out.push(`<div class="node call" style="${pad}">${g}<span class="ico">→</span>
+          <span class="body"><span class="cbiz">${esc(c.biz)||esc(c.sp)}</span>
+          <span class="csp">${esc(c.sp)}</span></span></div>`);
+      }else if(c.kind==='IF'){
+        out.push(`<div class="node if" style="${pad}">${g}<span class="ico">◆</span>
+          <span class="body">IF <span class="cond">${esc(c.cond)}</span></span></div>`);
+        walk(c,depth+1);
+      }else{ // FOREACH/WHILE/FOR
+        const ic=c.kind==='WHILE'?'↻':'↻';
+        out.push(`<div class="node loop" style="${pad}">${g}<span class="ico">${ic}</span>
+          <span class="body">${c.kind} <span class="cond">${esc(c.cond)}</span></span></div>`);
+        walk(c,depth+1);
+      }
+    }
+  })(root,0);
+  document.getElementById('flow').innerHTML=out.length?out.join(''):
+    '<div id="empty">Este journey no tiene invocaciones internas (SP hoja o lógica sin llamadas).</div>';
+}
+
+(async function(){
+  const ls=document.getElementById('ls');
+  try{
+    const r=await fetch(FILE); if(!r.ok) throw new Error('HTTP '+r.status);
+    DATA=await r.json();
+    const n=Object.keys(DATA).length;
+    const crit=Object.values(DATA).filter(d=>d.metrics.score>=60).length;
+    ls.className='ok'; ls.innerHTML=`✓ ${n} journeys · ${crit} orquestadores críticos (score≥60)`;
+    buildList();
+    // arranca en el más complejo
+    const top=Object.entries(DATA).sort((a,b)=>b[1].metrics.score-a[1].metrics.score)[0];
+    if(top) sel(top[0]);
+  }catch(e){
+    ls.className='err'; ls.innerHTML=`✗ No se pudo cargar <code>${FILE}</code> (${e.message}).<br>
+      Requiere servidor local:<br><code>python -m http.server 8080</code>`;
+  }
+})();
+document.getElementById('q').oninput=e=>buildList(e.target.value.toLowerCase());
+</script>
+</body>
+</html>
