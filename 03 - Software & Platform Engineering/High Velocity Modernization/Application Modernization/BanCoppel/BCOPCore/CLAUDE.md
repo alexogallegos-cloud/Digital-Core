@@ -68,6 +68,8 @@ Estas dos lentes alimentan flujos de valor distintos y no deben mezclarse en el 
 | Industry Banking | `Delivery - SME/Industry Banking/` | Banca retail MX — todos los dominios funcionales | DISCOVER → DESIGN |
 | Industry Banking Accounting | `Delivery - SME/Industry Banking Accounting/` | D12-bdicont — CUB Anexo 33-36, catálogo mínimo, Serie R, contabilidad regulatoria CNBV | DISCOVER → DESIGN |
 | Industry Payments → SPEI | `SME/Industry/Industry Payments/SPEI/` | D08-bdispei — pagos interbancarios, certificación Banxico, SPEI/CoDi | DISCOVER → BUILD |
+| Industry Payments (orquestador) | `SME/Industry/Industry Payments/` | Capa de autorización externa — rieles de pago MX, procesadores, clearing; DT-Autorizador de Pagos | DISCOVER → BUILD |
+| Regulatory — Banxico | `SME/Regulatory/Banxico/` | Circulares SPEI: RTO 15 min, T+10 notificación, ventanas SIAC; DT-SPEI regulatorio | DISCOVER → RELEASE |
 
 ### Arquitectura target
 
@@ -75,6 +77,7 @@ Estas dos lentes alimentan flujos de valor distintos y no deben mezclarse en el 
 |-----|---------------|--------------------|------|
 | Core Banking Transformation | `Delivery - SME/Core Banking Transformation/` | Arquitectura target bancaria, ACL design, API contracts, strangler fig | DESIGN → BUILD |
 | Cloud Architect — AWS Banking | `SME/Cloud/AWS/` | Arquitectura target AWS, servicios, costos estimados, cutover técnico | DESIGN → BUILD |
+| Framework — Integration Architecture | `SME/Framework/Integration Architecture/` | Interfaz e-global ↔ ESB ↔ microservicios target; governance de integración; contract design | DESIGN → BUILD |
 
 ### Build y data
 
@@ -92,24 +95,26 @@ Estas dos lentes alimentan flujos de valor distintos y no deben mezclarse en el 
 | Cybersecurity | `Delivery - SME/Cybersecurity/` | PII assessment, LFPDPPP, IAM, audit log CNBV, CONDUSEF | Todas |
 | SRE & AIOps | `Delivery - SME/SRE & AIOps/` | Observability, runbooks, SLOs, cutover operations, DR | RELEASE → OPERATE |
 
-**Total: 14 SMEs** (roster v3.8 — 2 nuevos respecto a v0 del 2026-07-03: Industry Banking Accounting + Code Quality Assessment)
+**Total: 17 SMEs** (roster v3.9 — 3 nuevos respecto a v3.8: Industry Payments orquestador + Regulatory Banxico + Framework Integration Architecture; activados por DT-SPEI y DT-Autorizador de Pagos · 2026-08-06)
 
 ---
 
 ## DIGITAL TWINS · `dt/`
 
-Ocho Digital Twins de proyecto — siete por artefacto del Gemelo Cognitivo más el DT-Validador (integridad de la KB). Cada DT hereda talento de los SMEs declarados y opera exclusivamente en el contexto de BCOPCore.
+Diez Digital Twins de proyecto — siete por artefacto del Gemelo Cognitivo, el DT-Validador (integridad de la KB), y dos especialistas de dominio de pagos. Cada DT hereda talento de los SMEs declarados y opera exclusivamente en el contexto de BCOPCore.
 
 | DT | Artefacto propietario | SMEs heredados | Versión |
 |----|----------------------|----------------|---------|
 | `dt-vocabulario/` | Vocabulario (634 términos en brain.db sobre D01-D16; sincronizado 2026-08-06) | SPL Analysis · Industry Banking | 1.1.0 |
 | `dt-almas/` | Almas del sistema (11 sobre D01-D16) | SPL Analysis · Core Banking Transformation | 1.1.0 |
 | `dt-journeys/` | Journey map (166 sobre D01-D16) | SPL Analysis · Industry Banking | 1.1.0 |
-| `dt-reglas/` | Reglas — 7,784 extraídas (amplia v2.2) · 1,308 SBVR en brain.db · plan enriquecimiento Layer A+ | SPL Analysis · Industry Banking · Industry Banking Accounting | 1.2.0 |
+| `dt-reglas/` | Reglas — 7,785 extraídas (amplia v2.2 + Layer A+) · 1,308 SBVR en brain.db · `business_name` 100% · 45 dominios | SPL Analysis · Industry Banking · Industry Banking Accounting | 1.3.0 |
 | `dt-capacidades/` | Mapa ETB L3 (261 caps sobre D01-D16) | Core Banking Transformation · Industry Banking | 1.1.0 |
 | `dt-riesgos/` | Risk register — 11 producción/integración · 44 equivalencia en 05-risks.md | SPL Analysis · Cybersecurity · SRE & AIOps | 1.1.0 |
 | `dt-modelo-dominio/` | **Taxonomía negocio AS-IS** — 7 dominios · 24 subdominios · 67 capacidades (hilo conductor) | Core Banking Transformation · Industry Banking · DBA IBM Informix | 0.2.0 |
 | `dt-validador/` | Integridad del Knowledge Base — Capa 1 automática (`build-validation-report.py`) + Capa 2 smoke tests multi-DT | — (opera sobre estructura, no dominio) | 1.0.0 |
+| `dt-spei/` | Análisis AS-IS D08 — 7 BDs de pagos (bdispei + satélites) · riesgos regulatorios Banxico · interfaz con capa de autorización externa | Industry Payments/SPEI · Regulatory/Banxico · SPL Analysis | 0.1.0 |
+| `dt-autorizador-pagos/` | Capa de autorización externa (e-global) — arquitectura de integración, flows de autorización, touchpoints Informix, riesgos de migración para la capa media | Industry Payments · Integration Architecture · Interoperability | 0.1.0 |
 
 Cada `dt/` contiene su propio `CLAUDE.md` con: declaración de SMEs heredados, versión (regla 12), gestión de conocimiento (regla 14), y capacidades por herencia (regla 15).
 
@@ -137,7 +142,7 @@ Confianza en cadena (regla ontológica v3.8): la confianza del equipo es la del 
 - Alcance de código fuente: **TODO** `source/BCOPCore/informix/` — 49 bases de datos descubiertas (D01-D49); excludes: `borra_dba_espera` (script DBA), `sentinel` (herramienta de monitoreo)
 - Vocabulario sincronizado — 634 términos en brain.db (Ola A + lincred/aumlincred/consutacat); 0 términos fantasma
 - SP nuevo incorporado: `bdisac:sp_obtiene_clientes_pre_aprobado_notificar` (D05 · loc=109 · FOREACH streaming · cross-DB bdicred+bdinteg); fuente renombrada a `bdisac_sp_obtiene_clientes_pre_aprobado_notificar.sql`
-- Reglas: extracción amplia v2.2 completada — 7,784 reglas en `knowledge-base/rules/business-rules-bcop.md`; SBVR formal (1,308 reglas) cubre D01-D12; triaje D13-D16 deuda en DT-Reglas
+- Reglas: extracción amplia v2.2 + Layer A+ completado 2026-08-06 — 7,785 reglas en `knowledge-base/rules/business-rules-bcop.md`; `business_name` 100% (7,785/7,785); dominio canónico D01-D51 (45 dominios, 5,543 labels corregidos); 553 con riesgo equivalencia financiera; fuente JSON: `portal/data/business-rules-v3.json`; SBVR formal (1,308 reglas) cubre D01-D12; triaje D13-D16 deuda en Layer B+
 - Risk register v1.2.0 — 11 riesgos producción/integración (2 DEFECTO-PROD N5 activos en P655) + 44 riesgos equivalencia
 - **DT-Validador Capa 1: PASS — 0 errores · 0 advertencias · 70 OK** (2026-08-06; cerradas 8 WARNs de links rotos con `generators/build-incidents.py`)
 
@@ -192,7 +197,8 @@ Todo hallazgo extraído de `source/logs/` tiene dos destinos en paralelo:
 | Trigger | SME destino | Canal |
 |---------|-------------|-------|
 | Pregunta sobre plan de cuentas CNBV / CUB Anexo 33-36 | Industry Banking Accounting | Invocar directamente |
-| Pregunta sobre SPEI / CoDi / Banxico protocolo | Industry Payments → SPEI | Invocar directamente |
+| Pregunta sobre SPEI / CoDi / Banxico protocolo | Industry Payments → SPEI + DT-SPEI | Invocar DT-SPEI para análisis D08; invocar SME para protocolo regulatorio |
+| Pregunta sobre e-global / capa de autorización / códigos ESB sin contexto | DT-Autorizador de Pagos | Invocar directamente; escalar a Integration Architecture SME si requiere diseño de interfaz |
 | Decisión 7R (rehost/refactor/replatform/rebuild) | Code Quality Assessment + Core Banking Transformation | Convocar ambos |
 | Criterio go/no-go de equivalencia funcional | QA Lead — Equivalencia Funcional | Soberano — no se pasa por alto |
 | Auditoría PII, IAM, audit log CNBV | Cybersecurity | Invocar en cualquier fase |
@@ -202,4 +208,4 @@ Todo hallazgo extraído de `source/logs/` tiene dos destinos en paralelo:
 
 **Component Spec:** [spec-spe-am-bcop-core.md](spec-spe-am-bcop-core.md) — especificación del componente BCOPCore siguiendo §16 DC Universal Rules.
 
-*Última actualización: 2026-08-04 · Ontología v3.8 · Correcciones validación: conteos reales de reglas (7,795) y taxonomía (24 subdominios · 67 caps); aclaración dos capas de riesgos; scope expandido D01-D49 (49 BDs — todo el código fuente en scope); DT-Reglas v1.1.0*
+*Última actualización: 2026-08-06 · Ontología v3.9 · 2 nuevos DTs: DT-SPEI (D08 Informix + regulatorio Banxico) y DT-Autorizador de Pagos (capa e-global fuera de Informix); 3 nuevos SMEs: Industry Payments orquestador + Regulatory Banxico + Integration Architecture; total: 10 DTs · 17 SMEs*
