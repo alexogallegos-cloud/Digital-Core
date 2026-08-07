@@ -5,6 +5,15 @@ Autorizador de BanCoppel, controlando estacionalidad multicapa. Reemplaza los sc
 scratchpad `growth_forecast_v*.py`. Diseñado para **re-ejecutarse cada vez que llegan datos
 reales nuevos** y recalcular todos los factores.
 
+**Doble propósito** (un mismo modelo):
+1. **Aproximar el pasado** — ajuste histórico (real vs `ajustado`) para entender el comportamiento.
+2. **Generar el futuro** — proyección diaria con banda de confianza, aplicando todos los factores
+   (los de calendario/temporada se calculan para las fechas futuras: el patrón anual se repite,
+   Semana Santa/pre-Pascua siguen la Pascua de cada año, etc.).
+
+Al alimentar datos nuevos y re-ejecutar, el modelo se recalibra y la proyección se vuelve más
+precisa — el ciclo que permite ser **proactivo con el comportamiento** (dimensionar, planear).
+
 ## Cómo re-ejecutar
 
 Desde `BCOPCore/`:
@@ -17,6 +26,8 @@ Genera, en `knowledge-base/cross-reference/`:
 - `growth-forecast-autorizador-spei.html` — dashboard D3 (series, tendencia, proyección, factores)
 - `growth-forecast-autorizador-spei.md` — resultados y tabla de factores
 - `growth-forecast-outliers.json` — días atípicos removidos + mayores residuos (insumo del RCA)
+- `forecast-series-diaria.csv` — **serie diaria consumible**: pasado (real + ajustado) y futuro
+  (proyección + banda) por canal. El entregable para dimensionar/planear día a día.
 
 ## Cómo alimentar datos nuevos
 

@@ -55,6 +55,8 @@ def main():
     # Salidas
     R.render_html(df, cal, models, cleans, outliers, results, str(OUT / "growth-forecast-autorizador-spei.html"))
     R.render_markdown(results, models, str(OUT / "growth-forecast-autorizador-spei.md"))
+    # serie diaria consumible: pasado (real+ajustado) + futuro (proyeccion+banda)
+    R.render_series_csv(df, cal, models, cleans, str(OUT / "forecast-series-diaria.csv"))
 
     # Reporte de dias atipicos: separa removidos (inexplicables) de mantenidos (explicables)
     def split(ch, top):

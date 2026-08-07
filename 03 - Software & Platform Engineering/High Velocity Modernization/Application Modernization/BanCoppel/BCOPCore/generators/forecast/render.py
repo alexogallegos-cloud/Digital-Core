@@ -2,12 +2,12 @@
 render — Salida del pipeline a HTML (D3) y Markdown en knowledge-base/cross-reference/.
 """
 
-import json
+import json, csv
 import numpy as np
 from datetime import date
 
 from . import model as M
-from .factors import FACTOR_LABELS
+from .factors import FACTOR_LABELS, CHANNELS
 
 
 def _hist_series(df_all, df_clean, channel, model, outlier_dates):
@@ -154,6 +154,43 @@ document.getElementById("note").innerHTML=`OLS log-lineal &middot; SPEI 7 dias (
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"\n  HTML: {out_path}")
+
+
+def render_series_csv(df_hist, cal, models, cleans, out_path,
+                      start_fut=date(2026, 8, 5), end_fut=date(2027, 8, 4)):
+    """
+    Serie diaria consumible por canal: PASADO (real + ajustado del modelo) y FUTURO (proyección
+    con banda de confianza). Para ser proactivos con el comportamiento (dimensionar, planear).
+    Formato tidy: fecha, canal, tipo, real, ajustado, proyeccion, ci_low, ci_high.
+    Se regenera con datos nuevos al re-ejecutar el pipeline.
+    """
+    feats = {c: [x for x in models[c].model.exog_names if x != "const"] for c in models}
+    fitmap = {c: dict(zip(cleans[c]["d"], np.exp(models[c].fittedvalues.values))) for c in models}
+    rows = []
+    # pasado: real vs ajustado
+    for _, r in df_hist.iterrows():
+        d = r["d"]
+        for c in models:
+            rows.append({"fecha": str(d), "canal": c, "tipo": "historico",
+                         "real": int(r[c]) if r[c] > 200_000 else "",
+                         "ajustado": int(fitmap[c][d]) if d in fitmap[c] else "",
+                         "proyeccion": "", "ci_low": "", "ci_high": ""})
+    # futuro: proyección + banda
+    df_fut = M.build_future(cal, start_fut, end_fut)
+    for c in models:
+        wk = CHANNELS[c]["include_weekends"]
+        ff = df_fut[df_fut.is_holiday == 0] if wk else df_fut[(df_fut.is_holiday == 0) & (df_fut.dow < 5)]
+        for p in M.forecast_points(models[c], ff.reset_index(drop=True), feats[c]):
+            rows.append({"fecha": p["date"], "canal": c, "tipo": "proyeccion",
+                         "real": "", "ajustado": "",
+                         "proyeccion": p["mean"], "ci_low": p["ci_low"], "ci_high": p["ci_high"]})
+    rows.sort(key=lambda x: (x["fecha"], x["canal"]))
+    cols = ["fecha", "canal", "tipo", "real", "ajustado", "proyeccion", "ci_low", "ci_high"]
+    with open(out_path, "w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=cols)
+        w.writeheader()
+        w.writerows(rows)
+    print(f"  CSV serie: {out_path}  ({len(rows)} filas)")
 
 
 def render_markdown(results, models, out_path):
