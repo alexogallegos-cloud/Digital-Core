@@ -38,7 +38,8 @@ Cambios v1.5.0 (2026-08-07):
 SPE-AM-001 · DT-Reglas v1.5.0
 """
 import json, re, io, sys
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
@@ -256,6 +257,9 @@ ABBREV = {
     'faltsob': 'faltante o sobrante', 'faltante': 'faltante', 'sobrante': 'sobrante',
     'ofi': 'oficina', 'oficina': 'oficina', 'pag': 'pago', 'ordi': 'ordinario', 'ini': 'inicio',
     'genrep': 'generación de reporte', 'burofisicas': 'buró de personas físicas',
+    # Buró de Crédito / Círculo de Crédito — validado por SME Industry Banking 2026-08-07
+    # bccc = módulo conjunto BC+CC (sp_bccc_*); bc/cc sin prefijo son ambiguos en este corpus
+    'bccc': 'Buró de Crédito y Círculo de Crédito',
     'intdiario': 'interés diario', 'intgrav': 'interés gravable', 'baseisr': 'base de ISR',
     'pagares': 'pagarés', 'pagare': 'pagaré', 'renueva': 'renovación',
     'conhuella': 'con huella biométrica',
@@ -297,6 +301,17 @@ ABBREV = {
     # Productos confirmados en el portafolio público BanCoppel
     'invcrec': 'inversión creciente', 'inversioncreciente': 'inversión creciente',
     'creciente': 'creciente', 'pagare': 'pagaré',
+    # Top variables en UMBRAL/FÓRMULA fallback — validadas en corpus 2026-08-07
+    'diasinact': 'días inactivo', 'idiasinact': 'días inactivo',
+    'catfinal': 'categoría final',
+    'cuotasvenc': 'cuotas vencidas',
+    'pagopropuesto': 'pago propuesto',
+    'nom': 'nombre',          # vnomtabla → 'nombre tabla'
+    'nomtabla': 'nombre de tabla',
+    'mny': 'monto',           # vmnysdoprom → 'monto saldo promedio' (pendiente validación DBA)
+    'contintento': 'contador de intentos',
+    'nobeneficiarios': 'número de beneficiarios',
+    'saldomorhist': 'saldo mora histórico',
     'consumo': 'consumo', 'cartconsumo': 'cartera de consumo',
     'califcartconsumo': 'calificación de cartera de consumo',
     'extcartconsumo': 'extracción de cartera de consumo', 'enc': 'encabezado',
@@ -624,7 +639,7 @@ RE_SET   = re.compile(r'\bset\s+([a-z_][a-z0-9_]*)\s*=\s*(.{1,200})', re.I)
 RE_RAISE = re.compile(r'\braise\s+exception\b', re.I)
 RE_CODRET = re.compile(
     r'(?:codret|v_codret|pcod_ret|cod_ret|cCodRet)\s*=\s*[\'"]([A-Z0-9]{3,})[\'"]|'
-    r'\breturn\s+[\'"]?([0-9]{3,6})[\'"]?',
+    r'\breturn\s+[\'"]?([0-9]{3,8})[\'"]?',
     re.I
 )
 RE_IF_COND = re.compile(r'\bif\s+(.{5,80}?)\s+then\b', re.I)
@@ -927,6 +942,8 @@ def infer_name(rule: dict) -> str:
                     name += f" — {if_cond}"
         elif if_cond:
             name = f"Validación: {if_cond}"; src = 'V-cond'
+        elif re.search(r'\breturn\s+["\']0+["\']', code, re.I):
+            name = f"Retorno exitoso — {_v_subj}" if _v_subj else "Retorno exitoso"; src = 'V-exit'
 
     elif tipo == 'UMBRAL':
         if lhs_mean:
@@ -1088,48 +1105,50 @@ def business_explanation(rule, human_expr: str) -> str:
     return ''
 
 # ── 7. Main ───────────────────────────────────────────────────────────────────
-from collections import Counter
-data  = json.load(open(BASE + "portal/data/business-rules-v3.json", encoding="utf-8"))
-rules = data["rules"]
-N = len(rules)
+if __name__ == '__main__':
+    from collections import Counter
+    data  = json.load(open(BASE + "portal/data/business-rules-v3.json", encoding="utf-8"))
+    rules = data["rules"]
+    N = len(rules)
 
-# Fuentes que representan fallback a tokenización del nombre del SP (sin señal semántica)
-FALLBACK_SRCS = {'I-sp', 'I-sp-verb', 'I-sp-override', 'NONE'}
-src_counter = Counter()
+    # Fuentes que representan fallback a tokenización del nombre del SP (sin señal semántica)
+    FALLBACK_SRCS = {'I-sp', 'I-sp-verb', 'I-sp-override', 'NONE'}
+    src_counter = Counter()
 
-n_money = 0
-for r in rules:
-    name, src = infer_name(r)
-    r['business_name'] = name
-    src_counter[src] += 1
-    # Humanizar expresión SPL con vocabulario de negocio
-    code = (r.get('code', '') or '').strip()
-    r['human_expr'] = humanize_expr(code) if code else ''
-    # Señal MONEY (tipo declarado) → riesgo de equivalencia por redondeo
-    mr = money_risk(r)
-    if mr:
-        rg = r.get('riesgo') or []
-        if mr not in rg:
-            rg.append(mr)
-        r['riesgo'] = rg
-        n_money += 1
-    # Explicación de negocio (cascada comentario→regulatorio→sintetizado)
-    r['expl_negocio'] = business_explanation(r, r['human_expr'])
+    n_money = 0
+    for r in rules:
+        name, src = infer_name(r)
+        r['business_name'] = name
+        r['src'] = src
+        src_counter[src] += 1
+        # Humanizar expresión SPL con vocabulario de negocio
+        code = (r.get('code', '') or '').strip()
+        r['human_expr'] = humanize_expr(code) if code else ''
+        # Señal MONEY (tipo declarado) → riesgo de equivalencia por redondeo
+        mr = money_risk(r)
+        if mr:
+            rg = r.get('riesgo') or []
+            if mr not in rg:
+                rg.append(mr)
+            r['riesgo'] = rg
+            n_money += 1
+        # Explicación de negocio (cascada comentario→regulatorio→sintetizado)
+        r['expl_negocio'] = business_explanation(r, r['human_expr'])
 
-real = sum(c for s, c in src_counter.items() if s not in FALLBACK_SRCS)
-fb   = N - real
+    real = sum(c for s, c in src_counter.items() if s not in FALLBACK_SRCS)
+    fb   = N - real
 
-json.dump(data, open(BASE + "portal/data/business-rules-v3.json", "w", encoding="utf-8"),
-          ensure_ascii=False, separators=(",", ":"))
+    json.dump(data, open(BASE + "portal/data/business-rules-v3.json", "w", encoding="utf-8"),
+              ensure_ascii=False, separators=(",", ":"))
 
-print(f"Reglas procesadas: {N:,}\n")
-print("── Fuente del nombre (métrica real por rama de inferencia) ──")
-for s, c in src_counter.most_common():
-    flag = '  ← fallback SP' if s in FALLBACK_SRCS else ''
-    print(f"  {s:20} {c:6,}  {c/N*100:5.1f}%{flag}")
-print()
-print(f"  Nombre semántico real : {real:6,}  ({real/N*100:.1f}%)")
-print(f"  Fallback tokeniza SP  : {fb:6,}  ({fb/N*100:.1f}%)")
-print(f"  Riesgo MONEY (tipo DEFINE): {n_money:,}  reglas monetarias marcadas para revisión de redondeo")
-print()
-print(f"Saved: {BASE}portal/data/business-rules-v3.json")
+    print(f"Reglas procesadas: {N:,}\n")
+    print("── Fuente del nombre (métrica real por rama de inferencia) ──")
+    for s, c in src_counter.most_common():
+        flag = '  ← fallback SP' if s in FALLBACK_SRCS else ''
+        print(f"  {s:20} {c:6,}  {c/N*100:5.1f}%{flag}")
+    print()
+    print(f"  Nombre semántico real : {real:6,}  ({real/N*100:.1f}%)")
+    print(f"  Fallback tokeniza SP  : {fb:6,}  ({fb/N*100:.1f}%)")
+    print(f"  Riesgo MONEY (tipo DEFINE): {n_money:,}  reglas monetarias marcadas para revisión de redondeo")
+    print()
+    print(f"Saved: {BASE}portal/data/business-rules-v3.json")
