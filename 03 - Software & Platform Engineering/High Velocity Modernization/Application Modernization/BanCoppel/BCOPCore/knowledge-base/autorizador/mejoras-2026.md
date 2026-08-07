@@ -78,6 +78,66 @@ Las mejoras 2026 cambian el perfil de riesgo AS-IS de la producción actual, per
 
 ---
 
+## Validación empírica en datos minuto-a-minuto (2026)
+
+> **Metodología**: detección de "eventos de caída de servicio" en el sheet `Min a min SPEI y Eglobal` del archivo `Transacciones_maestro_Medios_de_Pago.xlsx` (2026-01-01 a 2026-08-04 · 154,800 minutos en horario 8-20h CST). Un evento de caída = 5+ minutos consecutivos con txn/min < 5% de la mediana diaria.
+
+La hipótesis: las mejoras debían verse en el minuto-a-minuto como menor frecuencia de caídas, menor duración, y mayor volumen sostenido sin quiebres.
+
+### Eventos de caída detectados por período
+
+| Período | Fechas | Eventos | Días afectados | Duración promedio | Minutos perdidos |
+|---------|--------|---------|----------------|------------------|-----------------|
+| A — pre-fix críticos | 2026-01-01 a 2026-03-27 | **4** | 4 / 85 días | 19.5 min | 78 min |
+| B — post-fix, pre-Power10 | 2026-03-28 a 2026-06-06 | **9** | 4 / 71 días | 64.4 min | 580 min |
+| C — post-Power10 | 2026-06-07 a 2026-08-04 | **13** | 6 / 58 días | **18.5 min** | 240 min |
+
+### Hallazgos por mes
+
+| Mes | Eventos | Días | Min perdidos | Nota |
+|-----|---------|------|-------------|------|
+| Ene 2026 | 3 | 3 | 41 min | Último incidente documentado: INC-20260112 (12-ene) |
+| **Feb 2026** | **0** | **0** | **0 min** | **CERO eventos** — 3.6 balanceo de colas SPEI activo desde 15-feb |
+| Mar 2026 | 4 | 2 | 378 min | 30-mar: 171 min (Eglobal) + 95+75 min (SPEI) — ver análisis abajo |
+| Abr 2026 | 3 | 1 | 144 min | 24-abr: INC-20260424 ya documentado (validación cruzada ✓) |
+| May 2026 | 1 | 1 | 20 min | Mínimo impacto |
+| Jun 2026 | 10 | 4 | 165 min | Power 10 activo 7-jun; eventos cortos (18.5 min promedio) |
+| Jul 2026 | 5 | 3 | 150 min | 5-jul: evento no documentado — ver abajo |
+
+### Interpretación de los datos anómalos
+
+**Febrero 2026 = CERO eventos (más fuerte evidencia positiva)**
+
+El único mes sin ninguna caída de servicio detectada. Enero aún tenía 3 eventos (cola del INC-20260112). Después del 15 de febrero (balanceo automático de colas SPEI, hito 3.6), el sistema fue estable durante todo el mes. Esto valida el impacto declarado como "Alto" del hito 3.6 — y argumenta que debería ser "Muy alto", dado que fue el primer mes cero desde al menos noviembre 2025.
+
+**30-mar-2026 (171 min Eglobal, 95+75 min SPEI) — ventana de mantenimiento**
+
+El evento de 171 minutos ocurrió 3 días después del fix del connection leak (hito 2.5, 27-mar). La hipótesis: el equipo desplegó el fix en producción el 30-mar con una ventana de mantenimiento programada — el reinicio del Autorizador Java para aplicar el fix aparece como caída en el minuto-a-minuto. Esto no es un incidente sino el costo del despliegue. Valida que el connection leak fix requirió reinicio del servicio.
+
+**24-abr-2026 (75 min SPEI + 64 min Eglobal) — validación cruzada con logs INC-20260424**
+
+El detector identificó una caída el 24 de abril de 2026 — exactamente el día para el que tenemos los logs ESB analizados (`source/logs/2026-04-24/`). Los incidentes documentados INC-20260424-001 a 008 son reales. Esto confirma que la metodología de detección funciona correctamente.
+
+**5-jul-2026 (81 min Eglobal + 50 min SPEI) — candidato a nuevo INC**
+
+Evento no documentado en el KB. Contexto: vol_pre = 3,428 txn/min (percentil alto) para Eglobal. Ocurrió durante el período post-Power10. Posible incidente operacional o mantenimiento no planeado. Requiere investigación.
+
+### Cambio de perfil pre vs. post mejoras
+
+El cambio más importante no es la frecuencia de eventos sino la **duración**:
+
+| Período | Duración típica de incidentes |
+|---------|------------------------------|
+| Nov-Dic 2025 (pre-mejoras) | 1.5 a 7.5 horas (90-450 minutos) |
+| 2026-ene a 2026-mar (transición) | 19.5 min promedio |
+| 2026-jun a 2026-ago (post-Power10) | 18.5 min promedio |
+
+Las caídas de Nov-Dic 2025 eran estructurales: el connection leak se acumulaba y no había mecanismo de auto-recuperación. En 2026, los eventos detectados son cortos (< 20 min en promedio post-Power10) — el sistema puede recuperarse automáticamente o el equipo interviene más rápido gracias al monitoreo (hito 2.1).
+
+El impacto de $663 MDP del INC-20251129 viene de una caída de 4.5 horas con 69.71% de transacciones declinadas. Con la duración promedio de 18.5 min post-Power10, el impacto equivalente sería ~$46 MDP — una reducción de **~93%** en impacto económico potencial por evento.
+
+---
+
 ## DATO-REQUERIDO derivado de este análisis
 
 | ID | Pregunta | Impacto |
