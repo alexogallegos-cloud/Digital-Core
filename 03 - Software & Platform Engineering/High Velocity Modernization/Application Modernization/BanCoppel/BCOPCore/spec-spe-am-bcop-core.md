@@ -72,7 +72,7 @@
 
 Los canales (banca en línea, cajeros automáticos, sucursales, sistemas internos) invocan los SPs directamente via JDBC o ODBC, pasando parámetros y recibiendo resultados. El sistema atiende operaciones OLTP en tiempo real y también ejecuta carga batch nocturna (cierre de jornada, dispersión de nómina, domiciliaciones, cálculo de intereses).
 
-Este caso es distinto a Mainframe Modernization (Banamex S500/S151) en plataforma y lenguaje, pero comparte el mismo nivel de criticidad financiera y exposición regulatoria CNBV, por lo que se aplican los umbrales de equivalencia y parallel-run del nivel MM.
+Este caso es distinto a Mainframe Modernization (COBOL/z-OS) en plataforma y lenguaje, pero comparte el mismo nivel de criticidad financiera y exposición regulatoria CNBV, por lo que se aplican los umbrales de equivalencia y parallel-run del nivel MM.
 
 ### 01.2 Contexto Técnico Legacy
 
@@ -150,7 +150,7 @@ Este caso es distinto a Mainframe Modernization (Banamex S500/S151) en plataform
 | **B — Refactor + Replatform** | Strangler-Fig SP por SP | Extracción de SPs → Java 21 + Quarkus · Migración Informix → PostgreSQL / Aurora · Parallel-run por dominio funcional | 12–24 meses | Alto |
 
 **Riesgo crítico de Fase B — aritmética financiera:**
-El tipo `MONEY` y `DECIMAL(p,s)` de Informix aplica rounding y precisión con semántica propia. La conversión a `BigDecimal` de Java requiere un plan de equivalencia financiera explícito (equivalente al riesgo COMP-3 → BigDecimal de Banamex S151). Una divergencia de un centavo en cálculo de intereses o comisiones es un error auditable CNBV.
+El tipo `MONEY` y `DECIMAL(p,s)` de Informix aplica rounding y precisión con semántica propia. La conversión a `BigDecimal` de Java requiere un plan de equivalencia financiera explícito (mismo tipo de riesgo que una conversión de tipo decimal de precisión fija a `BigDecimal`). Una divergencia de un centavo en cálculo de intereses o comisiones es un error auditable CNBV.
 
 ---
 
@@ -187,7 +187,7 @@ La metodología del Specialist - Reverse Engineering (ETAPAs 0–4) se adapta pa
 | Señal | Descripción | Severidad |
 |---|---|---|
 | SPs con > 500 LOC | Lógica monolítica dentro del SP — alta complejidad de extracción | Alta |
-| SPs con acceso a > 10 tablas | Mega-acoplamiento de datos (equivalente a DT-002 de Banamex S500/P010) | Alta |
+| SPs con acceso a > 10 tablas | Mega-acoplamiento de datos | Alta |
 | Triggers que llaman SPs | Acoplamiento oculto — difícil de detectar por análisis estático superficial | Alta |
 | CURSOR anidados en loops FOR | Lógica batch embebida en contexto OLTP — antipatrón de extracción | Media |
 | MONEY / DECIMAL con rounding implícito | Riesgo de equivalencia financiera en conversión a BigDecimal Java | **Crítica** |

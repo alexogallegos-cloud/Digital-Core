@@ -14,7 +14,7 @@
 | `ADR-ANCE-004` | Identidad y accesos: IAM propio para el mock · SSO federado en prod | `[ACCEPTED · mock]` → prod `[PENDIENTE · DATO-REQUERIDO]` | dt-security-engineer |
 | `ADR-ANCE-005` | Integración SPEI (gateway Scotiabank México) | `[PENDIENTE · DATO-REQUERIDO]` | dt-solution-architect |
 | `ADR-ANCE-006` | Plataforma Kubernetes target (AKS vs. on-prem) | `[PENDIENTE · DATO-REQUERIDO]` | dt-devops-engineer |
-| `ADR-ANCE-007` | Integración al Portal Empresa existente (micro-frontend · iframe · link + SSO federado) | mock: `[RESUELTO · standalone c/auth propia]` · prod: `[PENDIENTE · DATO-REQUERIDO]` | dt-solution-architect |
+| `ADR-ANCE-007` | Integración al Portal Empresa existente (micro-frontend · iframe · link + SSO federado) | `[PARTIALLY ACCEPTED]` — premisa OIDC Relying Party aprobada; datos IdP Scotiabank + stack portal padre `[DATO-REQUERIDO]` | dt-solution-architect |
 
 ## Plantilla
 

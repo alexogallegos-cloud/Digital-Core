@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BCOPCore · Ontología del Conocimiento</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<style>
+:root{--bg:#f5f7ff;--bg2:#eaedfa;--panel:#ffffff;--line:rgba(18,47,177,.12);
+  --blue:#122FB1;--yellow:#F0D224;--txt:#0a1330;--muted:#556080}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:'Inter',system-ui,sans-serif;min-height:100vh}
+/* ── HEADER ── */
+header{background:linear-gradient(135deg,#0d2185 0%,#122FB1 55%,#1a3abf 100%);
+  border-bottom:3px solid #F0D224;padding:18px 28px;
+  display:flex;align-items:center;gap:20px;box-shadow:0 4px 24px rgba(0,0,0,.45)}
+header img{height:40px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.5));object-fit:contain}
+header .div{width:1px;height:38px;background:rgba(255,255,255,.2)}
+header .meta{flex:1}
+header .bc{font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+  color:rgba(255,255,255,.45);margin-bottom:4px}
+header .bc span{color:#F0D224}
+header h1{font-size:18px;font-weight:800;color:#fff;letter-spacing:-.01em}
+header .sub{font-size:11px;color:#a0b4e8;margin-top:3px}
+header .bw{display:flex;gap:8px;margin-left:auto}
+.hbadge{font-size:10px;font-weight:700;padding:4px 12px;border-radius:20px;white-space:nowrap}
+.hbadge.y{background:rgba(240,210,36,.15);border:1px solid rgba(240,210,36,.4);color:#F0D224}
+.hbadge.b{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);color:#c9d3f5}
+/* ── STAT TILES ── */
+#tiles{display:flex;gap:8px;padding:14px 20px;flex-wrap:wrap;background:var(--bg2);
+  border-bottom:1px solid var(--line)}
+.tile{background:#fff;border-radius:8px;padding:8px 14px;min-width:100px;
+  border-left:3px solid var(--line);box-shadow:0 1px 4px rgba(18,47,177,.07)}
+.tile .n{font-size:22px;font-weight:800;letter-spacing:-.02em}
+.tile .l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+/* ── SECTIONS ── */
+.section{padding:28px 28px 0}
+.shead{font-size:17px;font-weight:800;letter-spacing:-.01em;margin-bottom:6px;display:flex;
+  align-items:center;gap:10px}
+.shead .icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;
+  justify-content:center;font-size:14px;flex-shrink:0}
+.ssub{font-size:12px;color:var(--muted);margin-bottom:18px;max-width:90ch}
+/* ── GEMELO COGNITIVO LAYERS ── */
+.gc-wrap{display:flex;gap:10px;align-items:stretch;overflow-x:auto;padding-bottom:8px}
+.gc-layer{background:#fff;border:1px solid var(--line);border-radius:12px;
+  padding:14px 16px;min-width:170px;flex:1;position:relative;
+  box-shadow:0 2px 8px rgba(18,47,177,.06)}
+.gc-layer.transv{background:#f8f5ff;border-style:dashed}
+.gc-num{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;
+  justify-content:center;font-size:12px;font-weight:900;color:#fff;margin-bottom:10px}
+.gc-title{font-size:13px;font-weight:700;margin-bottom:3px}
+.gc-count{font-size:11px;font-weight:700;color:var(--blue);margin-bottom:4px}
+.gc-desc{font-size:10px;color:var(--muted);line-height:1.4;margin-bottom:8px}
+.gc-dt{font-size:9.5px;color:#122FB1;font-weight:600;margin-bottom:2px}
+.gc-sme{font-size:9px;color:var(--muted)}
+.gc-arrow{position:absolute;right:-18px;top:50%;transform:translateY(-50%);
+  font-size:18px;color:rgba(18,47,177,.3);z-index:2;pointer-events:none}
+/* ── D3 FORCE GRAPH ── */
+#domain-graph{background:#fff;border:1px solid var(--line);border-radius:14px;
+  box-shadow:0 2px 10px rgba(18,47,177,.07);overflow:hidden}
+#domain-graph svg{display:block}
+.node-label{font-size:9.5px;font-weight:700;fill:#fff;text-anchor:middle;pointer-events:none;dominant-baseline:central}
+.node-sub{font-size:8px;fill:rgba(255,255,255,.75);text-anchor:middle;pointer-events:none}
+.edge-path{fill:none;stroke-opacity:.5}
+.edge-path:hover{stroke-opacity:1}
+#graph-tooltip{position:fixed;background:rgba(10,19,48,.93);color:#eaedfa;padding:8px 12px;
+  border-radius:8px;font-size:11px;pointer-events:none;display:none;z-index:100;
+  border:1px solid rgba(240,210,36,.3);max-width:280px;line-height:1.5}
+/* ── LEGEND ── */
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)}
+.leg-dot{width:10px;height:10px;border-radius:50%}
+/* ── HEATMAP ── */
+.hm-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--line);
+  box-shadow:0 2px 8px rgba(18,47,177,.05)}
+table.hm-table{border-collapse:collapse;width:100%;background:#fff}
+.hm-table th{background:var(--bg2);font-size:9.5px;text-transform:uppercase;
+  letter-spacing:.06em;color:var(--muted);padding:6px 8px;font-weight:700;
+  white-space:nowrap;border-bottom:1px solid var(--line);text-align:center}
+.hm-table th:first-child{text-align:left;min-width:180px}
+.hm-bc{font-size:11px;padding:7px 10px;white-space:nowrap}
+.hm-bcid{font-size:9px;font-weight:800;letter-spacing:.06em;margin-right:4px}
+.hm-bcname{color:var(--muted);font-size:10px;margin-right:8px}
+.hm-total{font-size:9px;font-weight:700;color:var(--blue);
+  background:rgba(18,47,177,.08);border-radius:10px;padding:0 5px}
+.hm-cell{text-align:center;font-size:10px;font-weight:700;padding:6px 4px;
+  width:56px;cursor:default;transition:opacity .12s;font-variant-numeric:tabular-nums}
+.hm-cell:hover{opacity:.7;outline:1px solid var(--blue)}
+.hm-table tbody tr:hover .hm-bc{background:rgba(18,47,177,.04)}
+/* ── TAXONOMY ── */
+.tax-wrap{background:#fff;border:1px solid var(--line);border-radius:12px;
+  padding:18px 20px;box-shadow:0 2px 8px rgba(18,47,177,.05)}
+.tx-l1{margin-bottom:16px}
+.tx-l1-hd{font-size:14px;font-weight:800;color:var(--blue);padding:8px 0 6px;
+  border-bottom:2px solid rgba(18,47,177,.12);display:flex;align-items:center;gap:8px;
+  cursor:pointer;user-select:none}
+.tx-l1-hd:hover{color:#0a1330}
+.tx-badge{font-size:9px;font-weight:600;color:var(--muted);background:rgba(18,47,177,.08);
+  border-radius:10px;padding:2px 8px;margin-left:auto}
+.tx-l2{border-left:2px solid rgba(18,47,177,.15);margin-left:12px;padding-left:12px;
+  margin-top:8px}
+.tx-l2-hd{font-size:12px;font-weight:700;color:#2a3a6a;padding:4px 0;
+  display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+.tx-l2-hd:hover{color:var(--blue)}
+.tx-caps{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;margin-bottom:6px}
+.tx-l3{font-size:10px;color:var(--muted);background:#f5f7ff;border:1px solid rgba(18,47,177,.1);
+  border-radius:6px;padding:3px 9px;display:flex;align-items:center;gap:5px}
+.tx-l3:hover{border-color:var(--blue);color:var(--blue)}
+.tx-num{font-size:9px;font-weight:800;color:rgba(18,47,177,.5);margin-right:4px;
+  font-family:'Cascadia Code',monospace}
+.tx-db{font-size:9px;font-weight:700;color:#122FB1;background:rgba(18,47,177,.08);
+  border:1px solid rgba(18,47,177,.15);border-radius:4px;padding:1px 5px;margin-left:6px}
+.tx-cnbv{font-size:8.5px;font-weight:700;color:#dc2626;background:rgba(220,38,38,.07);
+  border:1px solid rgba(220,38,38,.2);border-radius:4px;padding:0 4px}
+/* ── DT SWARM ── */
+.dt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.dt-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;
+  box-shadow:0 2px 8px rgba(18,47,177,.05);position:relative;overflow:hidden}
+.dt-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.dt-num{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;
+  justify-content:center;font-size:11px;font-weight:900;color:#fff;margin-bottom:8px}
+.dt-name{font-size:12px;font-weight:800;margin-bottom:2px}
+.dt-count{font-size:11px;font-weight:700;color:var(--blue);margin-bottom:4px}
+.dt-desc{font-size:10px;color:var(--muted);line-height:1.4;margin-bottom:6px}
+.dt-sme{font-size:9px;color:#556080;border-top:1px solid var(--line);padding-top:5px}
+/* ── KB COVERAGE MATRIX ── */
+.kb-cov-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--line);
+  box-shadow:0 2px 8px rgba(18,47,177,.05)}
+table.kb-cov-table{border-collapse:collapse;width:100%;background:#fff;font-size:11px}
+.kb-cov-table thead tr{background:var(--bg2)}
+.kb-dh{padding:5px 3px;font-size:8.5px;font-weight:800;text-align:center;white-space:nowrap;
+  color:var(--muted);min-width:32px;border-bottom:1px solid var(--line)}
+.stub-h{color:#aab;font-style:italic}
+.kb-ct{padding:5px 10px;font-size:10px;color:var(--muted);white-space:nowrap;
+  min-width:190px;font-weight:500}
+.kb-num{font-size:9px;font-weight:800;font-family:'Cascadia Code',monospace;
+  color:rgba(18,47,177,.4);margin-right:7px}
+.cov-cell{width:32px;height:22px;text-align:center}
+.cov-full{background:#dcfce7}
+.cov-miss{background:#f5f7ff}
+.cov-stub{background:#fef3c7}
+.kb-cov-table tbody tr:hover td{opacity:.8}
+/* ── KB DOC GRAPH ── */
+#kb-doc-graph{background:#fff;border:1px solid var(--line);border-radius:14px;
+  box-shadow:0 2px 10px rgba(18,47,177,.07);overflow:hidden;margin-top:18px}
+.kb-doc-label{font-size:8px;fill:var(--txt);text-anchor:middle;pointer-events:none;
+  dominant-baseline:central;font-weight:600}
+.kb-doc-sub{font-size:7px;fill:var(--muted);text-anchor:middle;pointer-events:none}
+/* ── KB LEGEND STRIP ── */
+.kb-legend{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0;align-items:center}
+.kb-leg{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)}
+.kb-leg .dot{width:11px;height:11px;border-radius:3px}
+.kb-leg .line-s{width:22px;height:2px}
+/* ── FOOTER ── */
+footer{font-size:9px;color:var(--muted);padding:10px 28px;margin-top:40px;
+  border-top:1px solid var(--line);background:var(--bg2);
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px}
+</style>
+</head>
+<body>
+<header>
+  <img src="bancoppel-logo.png" alt="BanCoppel">
+  <div class="div"></div>
+  <div class="meta">
+    <div class="bc">BCOPCore · <span>SPE-AM-001</span> · Gemelo Cognitivo del Sistema</div>
+    <h1>Ontología y Semántica del Conocimiento</h1>
+    <div class="sub">IBM Informix IDS 14.10 · POWER-AIX · Fase DISCOVER — Etapa 3</div>
+  </div>
+  <div class="bw">
+    <span class="hbadge y">Knowledge Graph</span>
+    <span class="hbadge b">Informix SPL</span>
+  </div>
+</header>
+
+<div id="tiles">
+  <div class="tile" style="border-left-color:#F0D224"><div class="n">0</div><div class="l">Términos de vocabulario</div></div>
+  <div class="tile" style="border-left-color:#122FB1"><div class="n">10,144</div><div class="l">Stored Procedures</div></div>
+  <div class="tile" style="border-left-color:#6882AA"><div class="n">34,279</div><div class="l">Edges call graph</div></div>
+  <div class="tile" style="border-left-color:#8b3a8b"><div class="n">7,795</div><div class="l">Reglas de negocio</div></div>
+  <div class="tile" style="border-left-color:#2e6b48"><div class="n">131</div><div class="l">Customer journeys</div></div>
+  <div class="tile" style="border-left-color:#B71C1C"><div class="n">12</div><div class="l">Dominios Informix</div></div>
+  <div class="tile" style="border-left-color:#0277BD"><div class="n">10</div><div class="l">Bounded Contexts cubiertos</div></div>
+  <div class="tile" style="border-left-color:#37474F"><div class="n">8</div><div class="l">Digital Twins</div></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECCIÓN 1: ARQUITECTURA DEL GEMELO COGNITIVO
+═══════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="shead"><div class="icon" style="background:#122FB1">🧠</div>Arquitectura del Gemelo Cognitivo</div>
+  <div class="ssub">4 capas de comprensión del sistema + 2 capas transversales. Cada capa materializa un artefacto del conocimiento gobernado por un Digital Twin peer.</div>
+  <div class="gc-wrap">
+    <div class="gc-layer">
+      <div class="gc-num" style="background:#F0D224;color:#0a1330">1</div>
+      <div class="gc-title">Lenguaje</div>
+      <div class="gc-count">787 términos · 438 clasificados</div>
+      <div class="gc-desc">Vocabulario del dominio extraído del corpus SPL: morfemas del lenguaje de negocio del banco codificado en Informix.</div>
+      <div class="gc-dt">DT-Vocabulario</div>
+      <div class="gc-sme">SPL Analysis · Industry Banking</div>
+      <div class="gc-arrow">→</div>
+    </div>
+    <div class="gc-layer">
+      <div class="gc-num" style="background:#122FB1">2</div>
+      <div class="gc-title">Almas</div>
+      <div class="gc-count">16 módulos funcionales</div>
+      <div class="gc-desc">Identidades propias del sistema: los actores internos del core — cada uno con responsabilidades, dependencias y biometría de código.</div>
+      <div class="gc-dt">DT-Almas</div>
+      <div class="gc-sme">SPL Analysis · Core Banking Transformation</div>
+      <div class="gc-arrow">→</div>
+    </div>
+    <div class="gc-layer">
+      <div class="gc-num" style="background:#6882AA">3</div>
+      <div class="gc-title">Biografía</div>
+      <div class="gc-count">131 journeys extractados</div>
+      <div class="gc-desc">Historia del sistema: cómo evolucionó el código, qué procesos de negocio ejecuta hoy, la narrativa de su ciclo de vida.</div>
+      <div class="gc-dt">DT-Journeys</div>
+      <div class="gc-sme">SPL Analysis · Industry Banking</div>
+      <div class="gc-arrow">→</div>
+    </div>
+    <div class="gc-layer">
+      <div class="gc-num" style="background:#8b3a8b">4</div>
+      <div class="gc-title">Intención</div>
+      <div class="gc-count">7,795 reglas · 1,308 SBVR</div>
+      <div class="gc-desc">Propósito del sistema: las reglas de negocio que gobiernan el comportamiento — condiciones, umbrales, restricciones regulatorias.</div>
+      <div class="gc-dt">DT-Reglas</div>
+      <div class="gc-sme">SPL Analysis · Industry Banking · Banking Accounting</div>
+    </div>
+    <div class="gc-layer transv" style="margin-left:10px">
+      <div class="gc-num" style="background:#2e6b48">H</div>
+      <div class="gc-title">Hilo Conductor</div>
+      <div class="gc-count">7 dom · 67 capacidades</div>
+      <div class="gc-desc">Taxonomía AS-IS 5 niveles: la referencia canónica que ancla todo artefacto del Gemelo a un nodo del negocio.</div>
+      <div class="gc-dt">DT-Modelo-Dominio</div>
+      <div class="gc-sme">Core Banking · Industry Banking · DBA Informix</div>
+    </div>
+    <div class="gc-layer transv">
+      <div class="gc-num" style="background:#8b2020">⚠</div>
+      <div class="gc-title">Calidad</div>
+      <div class="gc-count">ISO 5055 · CWE · 7R</div>
+      <div class="gc-desc">Salud estructural del AS-IS: métricas de deuda técnica, complejidad ciclomática, vulnerabilidades CWE — input de la decisión 7R.</div>
+      <div class="gc-dt">Specialist Code Quality</div>
+      <div class="gc-sme">Code Quality Assessment (HVM-wide)</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECCIÓN 2: GRAFO DE DEPENDENCIAS
+═══════════════════════════════════════════════════════════ -->
+<div class="section" style="margin-top:28px">
+  <div class="shead"><div class="icon" style="background:#B71C1C">🔗</div>Grafo de Dependencias de Dominios Informix</div>
+  <div class="ssub">Las 12 bases de datos Informix como nodos. Las aristas representan llamadas cross-DB reales del call graph (34,279 total). El grosor es proporcional al volumen de llamadas. Color = wave de migración.</div>
+  <div id="domain-graph"></div>
+  <div class="legend" style="margin-top:12px">
+    <span style="font-size:10px;font-weight:700;color:var(--muted);margin-right:4px">Wave:</span>
+    <div class="leg-item"><div class="leg-dot" style="background:#F57F17"></div>Wave 1</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#B71C1C"></div>Wave 2</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#2E7D32"></div>Wave 3</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#0277BD"></div>Wave 4</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#6A00B3"></div>Wave 5</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#A100FF"></div>ÚLTIMO (migra al final)</div>
+    <span style="margin-left:16px;font-size:10px;font-weight:700;color:var(--muted)">Riesgo:</span>
+    <div class="leg-item"><div class="leg-dot" style="background:#22c55e"></div>Bajo</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#f59e0b"></div>Medio</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#ef4444"></div>Alto</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#dc2626;border:2px solid #ff4444"></div>Crítico</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECCIÓN 3: MAPA SEMÁNTICO BC × DOMINIO
+═══════════════════════════════════════════════════════════ -->
+<div class="section" style="margin-top:28px">
+  <div class="shead"><div class="icon" style="background:#0277BD">📊</div>Mapa Semántico — Vocabulario por Bounded Context × Dominio</div>
+  <div class="ssub">Cada celda = número de términos del vocabulario con esa combinación BC–Dominio Informix. Intensidad del azul = densidad semántica. Las celdas vacías indican que ese dominio no aporta vocabulario a ese BC.</div>
+  <div class="hm-wrap"><table class='hm-table'><thead><tr><th>BC</th>
+<th title='bdicnweb'>D01</th>
+<th title='bdinteg'>D02</th>
+<th title='bdicred'>D03</th>
+<th title='bdicheq'>D04</th>
+<th title='bdisac'>D05</th>
+<th title='bdisolic'>D06</th>
+<th title='bdiaclaracion'>D07</th>
+<th title='bdispei'>D08</th>
+<th title='bdimnsj'>D09</th>
+<th title='bdisuc'>D10</th>
+<th title='bdicobranza'>D11</th>
+<th title='bdicont'>D12</th>
+</tr></thead><tbody>
+<tr><td class='hm-bc' style='border-left:3px solid #122FB1'><span class='hm-bcid' style='color:#122FB1'>BC-7.1</span><span class='hm-bcname'>Customer</span><span class='hm-total'>47</span></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.29);color:#0a1330' title='BC-7.1 × D01: 5 términos'>5</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.76);color:#ffffff' title='BC-7.1 × D02: 19 términos'>19</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.29);color:#0a1330' title='BC-7.1 × D03: 5 términos'>5</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.26);color:#0a1330' title='BC-7.1 × D04: 4 términos'>4</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.22);color:#0a1330' title='BC-7.1 × D05: 3 términos'>3</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.19);color:#0a1330' title='BC-7.1 × D06: 2 términos'>2</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.19);color:#0a1330' title='BC-7.1 × D07: 2 términos'>2</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-7.1 × D08: 1 términos'>1</td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-7.1 × D09: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-7.1 × D10: 0 términos'></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-7.1 × D11: 1 términos'>1</td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-7.1 × D12: 0 términos'></td>
+</tr>
+<tr><td class='hm-bc' style='border-left:3px solid #0277BD'><span class='hm-bcid' style='color:#0277BD'>BC-3.2</span><span class='hm-bcname'>Accounts</span><span class='hm-total'>66</span></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.46);color:#0a1330' title='BC-3.2 × D01: 10 términos'>10</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.59);color:#ffffff' title='BC-3.2 × D02: 14 términos'>14</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.53);color:#ffffff' title='BC-3.2 × D03: 12 términos'>12</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.80);color:#ffffff' title='BC-3.2 × D04: 20 términos'>20</td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-3.2 × D05: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-3.2 × D06: 0 términos'></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-3.2 × D07: 1 términos'>1</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-3.2 × D08: 1 términos'>1</td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-3.2 × D09: 0 términos'></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.19);color:#0a1330' title='BC-3.2 × D10: 2 términos'>2</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-3.2 × D11: 1 términos'>1</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-3.2 × D12: 1 términos'>1</td>
+</tr>
+<tr><td class='hm-bc' style='border-left:3px solid #B71C1C'><span class='hm-bcid' style='color:#B71C1C'>BC-3.3</span><span class='hm-bcname'>Lending</span><span class='hm-total'>52</span></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.39);color:#0a1330' title='BC-3.3 × D01: 8 términos'>8</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.19);color:#0a1330' title='BC-3.3 × D02: 2 términos'>2</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.90);color:#ffffff' title='BC-3.3 × D03: 23 términos'>23</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.19);color:#0a1330' title='BC-3.3 × D04: 2 términos'>2</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.19);color:#0a1330' title='BC-3.3 × D05: 2 términos'>2</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.29);color:#0a1330' title='BC-3.3 × D06: 5 términos'>5</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-3.3 × D07: 1 términos'>1</td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-3.3 × D08: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-3.3 × D09: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-3.3 × D10: 0 términos'></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.32);color:#0a1330' title='BC-3.3 × D11: 6 términos'>6</td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-3.3 × D12: 0 términos'></td>
+</tr>
+<tr><td class='hm-bc' style='border-left:3px solid #2E7D32'><span class='hm-bcid' style='color:#2E7D32'>BC-3.4</span><span class='hm-bcname'>Payments</span><span class='hm-total'>39</span></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.43);color:#0a1330' title='BC-3.4 × D01: 9 términos'>9</td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-3.4 × D02: 0 términos'></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.26);color:#0a1330' title='BC-3.4 × D03: 4 términos'>4</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.22);color:#0a1330' title='BC-3.4 × D04: 3 términos'>3</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.32);color:#0a1330' title='BC-3.4 × D05: 6 términos'>6</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-3.4 × D06: 1 términos'>1</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-3.4 × D07: 1 términos'>1</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.36);color:#0a1330' title='BC-3.4 × D08: 7 términos'>7</td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-3.4 × D09: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-3.4 × D10: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-3.4 × D11: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-3.4 × D12: 0 términos'></td>
+</tr>
+<tr><td class='hm-bc' style='border-left:3px solid #6A00B3'><span class='hm-bcid' style='color:#6A00B3'>BC-3.5</span><span class='hm-bcname'>Cards</span><span class='hm-total'>16</span></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-3.5 × D01: 0 términos'></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-3.5 × D02: 1 términos'>1</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-3.5 × D03: 1 términos'>1</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.19);color:#0a1330' title='BC-3.5 × D04: 2 términos'>2</td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-3.5 × D05: 0 términos'></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-3.5 × D06: 1 términos'>1</td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-3.5 × D07: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-3.5 × D08: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-3.5 × D09: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-3.5 × D10: 0 términos'></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-3.5 × D11: 1 términos'>1</td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-3.5 × D12: 0 términos'></td>
+</tr>
+<tr><td class='hm-bc' style='border-left:3px solid #F57F17'><span class='hm-bcid' style='color:#F57F17'>BC-3.18</span><span class='hm-bcname'>Disputes</span><span class='hm-total'>21</span></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.26);color:#0a1330' title='BC-3.18 × D01: 4 términos'>4</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.26);color:#0a1330' title='BC-3.18 × D02: 4 términos'>4</td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-3.18 × D03: 0 términos'></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.22);color:#0a1330' title='BC-3.18 × D04: 3 términos'>3</td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-3.18 × D05: 0 términos'></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.29);color:#0a1330' title='BC-3.18 × D06: 5 términos'>5</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-3.18 × D07: 1 términos'>1</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-3.18 × D08: 1 términos'>1</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.19);color:#0a1330' title='BC-3.18 × D09: 2 términos'>2</td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-3.18 × D10: 0 términos'></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-3.18 × D11: 1 términos'>1</td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-3.18 × D12: 0 términos'></td>
+</tr>
+<tr><td class='hm-bc' style='border-left:3px solid #37474F'><span class='hm-bcid' style='color:#37474F'>BC-1.x</span><span class='hm-bcname'>Channels</span><span class='hm-total'>18</span></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.26);color:#0a1330' title='BC-1.x × D01: 4 términos'>4</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.22);color:#0a1330' title='BC-1.x × D02: 3 términos'>3</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-1.x × D03: 1 términos'>1</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-1.x × D04: 1 términos'>1</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-1.x × D05: 1 términos'>1</td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-1.x × D06: 0 términos'></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.19);color:#0a1330' title='BC-1.x × D07: 2 términos'>2</td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-1.x × D08: 0 términos'></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-1.x × D09: 1 términos'>1</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-1.x × D10: 1 términos'>1</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-1.x × D11: 1 términos'>1</td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-1.x × D12: 0 términos'></td>
+</tr>
+<tr><td class='hm-bc' style='border-left:3px solid #827717'><span class='hm-bcid' style='color:#827717'>BC-5.4</span><span class='hm-bcname'>Finance</span><span class='hm-total'>15</span></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.32);color:#0a1330' title='BC-5.4 × D01: 6 términos'>6</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-5.4 × D02: 1 términos'>1</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-5.4 × D03: 1 términos'>1</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.22);color:#0a1330' title='BC-5.4 × D04: 3 términos'>3</td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-5.4 × D05: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-5.4 × D06: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-5.4 × D07: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-5.4 × D08: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-5.4 × D09: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-5.4 × D10: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-5.4 × D11: 0 términos'></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.19);color:#0a1330' title='BC-5.4 × D12: 2 términos'>2</td>
+</tr>
+<tr><td class='hm-bc' style='border-left:3px solid #C62828'><span class='hm-bcid' style='color:#C62828'>BC-5.8</span><span class='hm-bcname'>AML/Risk</span><span class='hm-total'>10</span></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-5.8 × D01: 1 términos'>1</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-5.8 × D02: 1 términos'>1</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-5.8 × D03: 1 términos'>1</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.32);color:#0a1330' title='BC-5.8 × D04: 6 términos'>6</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-5.8 × D05: 1 términos'>1</td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-5.8 × D06: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-5.8 × D07: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-5.8 × D08: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-5.8 × D09: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-5.8 × D10: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-5.8 × D11: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-5.8 × D12: 0 términos'></td>
+</tr>
+<tr><td class='hm-bc' style='border-left:3px solid #00695C'><span class='hm-bcid' style='color:#00695C'>BC-4.x</span><span class='hm-bcname'>Ref.Data</span><span class='hm-total'>28</span></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.56);color:#ffffff' title='BC-4.x × D01: 13 términos'>13</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.29);color:#0a1330' title='BC-4.x × D02: 5 términos'>5</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.22);color:#0a1330' title='BC-4.x × D03: 3 términos'>3</td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-4.x × D04: 1 términos'>1</td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-4.x × D05: 0 términos'></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-4.x × D06: 1 términos'>1</td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-4.x × D07: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-4.x × D08: 0 términos'></td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-4.x × D09: 0 términos'></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.19);color:#0a1330' title='BC-4.x × D10: 2 términos'>2</td>
+<td class='hm-cell' style='background:transparent;color:#ccc' title='BC-4.x × D11: 0 términos'></td>
+<td class='hm-cell' style='background:rgba(18,47,177,0.15);color:#0a1330' title='BC-4.x × D12: 1 términos'>1</td>
+</tr>
+</tbody></table></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECCIÓN 4: TAXONOMÍA DE NEGOCIO
+═══════════════════════════════════════════════════════════ -->
+<div class="section" style="margin-top:28px">
+  <div class="shead"><div class="icon" style="background:#2e6b48">🌲</div>Taxonomía de Negocio BanCoppel</div>
+  <div class="ssub">Modelo lógico AS-IS de 5 niveles: L1 Dominio → L2 Subdominio → L3 Capacidad → L4 Proceso → L5 Tarea. Hilo conductor del Gemelo Cognitivo: todo artefacto se referencia a un nodo de esta jerarquía. Clic en un nodo para expandir/colapsar.</div>
+  <div class="tax-wrap" id="tax-tree"><div class="tx-l1"><div class="tx-l1-hd"><span class="tx-num">1</span>Cliente y Onboarding<span class="tx-badge">4 subdominios · 10 caps</span></div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">1.1</span>Perfil del Cliente</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">1.1.1</span>Creación del Perfil</div>
+<div class="tx-l3"><span class="tx-num">1.1.2</span>Actualización del Perfil</div>
+<div class="tx-l3"><span class="tx-num">1.1.3</span>Consulta del Perfil</div>
+</div>
+</div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">1.2</span>Onboarding y KYC</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">1.2.1</span>Solicitud de Producto</div>
+<div class="tx-l3"><span class="tx-num">1.2.2</span>Verificación de Identidad</div>
+<div class="tx-l3"><span class="tx-num">1.2.3</span>Lista Negra y Restricciones</div>
+</div>
+</div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">1.3</span>Autenticación e Identidad Digital</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">1.3.1</span>Autenticación por Canal</div>
+<div class="tx-l3"><span class="tx-num">1.3.2</span>Gestión de Sesión</div>
+</div>
+</div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">1.4</span>Mantenimiento y Cancelación de Relación</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">1.4.1</span>Modificación de Datos de Contacto</div>
+<div class="tx-l3"><span class="tx-num">1.4.2</span>Cancelación de Relación Bancaria</div>
+</div>
+</div>
+</div>
+<div class="tx-l1"><div class="tx-l1-hd"><span class="tx-num">2</span>Captación y Saldos<span class="tx-badge">3 subdominios · 11 caps</span></div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">2.1</span>Cuenta de Ahorro</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">2.1.1</span>Apertura de Cuenta de Ahorro</div>
+<div class="tx-l3"><span class="tx-num">2.1.2</span>Consulta de Saldo</div>
+<div class="tx-l3"><span class="tx-num">2.1.3</span>Registro de Movimientos</div>
+<div class="tx-l3"><span class="tx-num">2.1.4</span>Estado de Cuenta</div>
+<div class="tx-l3"><span class="tx-num">2.1.5</span>Cancelación de Cuenta de Ahorro</div>
+</div>
+</div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">2.2</span>Cuenta de Cheques</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">2.2.1</span>Apertura de Cuenta de Cheques</div>
+<div class="tx-l3"><span class="tx-num">2.2.2</span>Emisión y Gestión de Cheques</div>
+<div class="tx-l3"><span class="tx-num">2.2.3</span>Consulta y Movimientos</div>
+<div class="tx-l3"><span class="tx-num">2.2.4</span>Cancelación</div>
+</div>
+</div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">2.3</span>Saldos y Posición Financiera del Cliente</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">2.3.1</span>Saldo Consolidado por Cliente</div>
+<div class="tx-l3"><span class="tx-num">2.3.2</span>Posición de Caja (operativa interna)</div>
+</div>
+</div>
+</div>
+<div class="tx-l1"><div class="tx-l1-hd"><span class="tx-num">3</span>Crédito al Consumo<span class="tx-badge">3 subdominios · 11 caps</span></div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">3.1</span>Originación de Crédito</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">3.1.1</span>Solicitud de Crédito</div>
+<div class="tx-l3"><span class="tx-num">3.1.2</span>Autorización de Crédito</div>
+<div class="tx-l3"><span class="tx-num">3.1.3</span>Disposición del Crédito</div>
+</div>
+</div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">3.2</span>Administración de Cartera</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">3.2.1</span>Cálculo de Intereses y Comisiones</div>
+<div class="tx-l3"><span class="tx-num">3.2.2</span>Ciclo de Corte</div>
+<div class="tx-l3"><span class="tx-num">3.2.3</span>Registro de Pagos</div>
+</div>
+</div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">3.3</span>Cobranza y Recuperación</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">3.3.1</span>Gestión de Mora Temprana (0–30 días)</div>
+<div class="tx-l3"><span class="tx-num">3.3.2</span>Gestión de Mora Tardía (30–180 días)</div>
+<div class="tx-l3"><span class="tx-num">3.3.3</span>Castigo de Cartera</div>
+<div class="tx-l3"><span class="tx-num">3.3.4</span>Recuperación Post-Castigo</div>
+<div class="tx-l3"><span class="tx-num">3.3.5</span>Reestructuras y Quitas</div>
+</div>
+</div>
+</div>
+<div class="tx-l1"><div class="tx-l1-hd"><span class="tx-num">4</span>Tarjetas BanCoppel<span class="tx-badge">2 subdominios · 6 caps</span></div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">4.1</span>Gestión del Plástico</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">4.1.1</span>Emisión de Tarjeta</div>
+<div class="tx-l3"><span class="tx-num">4.1.2</span>Activación de Tarjeta</div>
+<div class="tx-l3"><span class="tx-num">4.1.3</span>Bloqueo y Desbloqueo</div>
+<div class="tx-l3"><span class="tx-num">4.1.4</span>Reposición de Tarjeta</div>
+</div>
+</div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">4.2</span>Operación de Tarjeta</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">4.2.1</span>Autorización de Compra</div>
+<div class="tx-l3"><span class="tx-num">4.2.2</span>Control de Límites</div>
+</div>
+</div>
+</div>
+<div class="tx-l1"><div class="tx-l1-hd"><span class="tx-num">5</span>Pagos y Transferencias<span class="tx-badge">4 subdominios · 9 caps</span></div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">5.1</span>Pagos Interbancarios SPEI</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">5.1.1</span>Transferencia SPEI Saliente</div>
+<div class="tx-l3"><span class="tx-num">5.1.2</span>Transferencia SPEI Entrante</div>
+<div class="tx-l3"><span class="tx-num">5.1.3</span>CoDi — Cobro Digital</div>
+</div>
+</div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">5.2</span>Transferencias Electrónicas de Fondos (TEF)</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">5.2.1</span>Transferencia entre Cuentas Propias</div>
+<div class="tx-l3"><span class="tx-num">5.2.2</span>Transferencia a Terceros BanCoppel</div>
+</div>
+</div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">5.3</span>Pagos de Servicios</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">5.3.1</span>Pago de Servicio por Convenio</div>
+<div class="tx-l3"><span class="tx-num">5.3.2</span>Gestión de Convenios</div>
+</div>
+</div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">5.4</span>Remesas Internacionales</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">5.4.1</span>Recepción de Remesa</div>
+<div class="tx-l3"><span class="tx-num">5.4.2</span>Envío de Remesa</div>
+</div>
+</div>
+</div>
+<div class="tx-l1"><div class="tx-l1-hd"><span class="tx-num">6</span>Canales y Distribución<span class="tx-badge">4 subdominios · 9 caps</span></div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">6.1</span>Canal Digital</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">6.1.1</span>Banca en Línea (Web)</div>
+<div class="tx-l3"><span class="tx-num">6.1.2</span>Banca Móvil</div>
+<div class="tx-l3"><span class="tx-num">6.1.3</span>Atención Telefónica / IVR</div>
+</div>
+</div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">6.2</span>Canal Físico</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">6.2.1</span>Sucursales BanCoppel</div>
+<div class="tx-l3"><span class="tx-num">6.2.2</span>Cajeros Automáticos (ATM)</div>
+</div>
+</div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">6.3</span>Corresponsalía — Tiendas Coppel (BTS)</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">6.3.1</span>Operaciones de Caja en Tienda</div>
+<div class="tx-l3"><span class="tx-num">6.3.2</span>Gestión de Caja BTS</div>
+</div>
+</div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">6.4</span>Banca Electrónica Institucional (BEI)</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">6.4.1</span>Acceso Empresarial</div>
+<div class="tx-l3"><span class="tx-num">6.4.2</span>Pagos y Transferencias Masivas</div>
+</div>
+</div>
+</div>
+<div class="tx-l1"><div class="tx-l1-hd"><span class="tx-num">7</span>Finanzas y Cumplimiento Regulatorio<span class="tx-badge">4 subdominios · 11 caps</span></div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">7.1</span>Contabilidad y Libro Mayor</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">7.1.1</span>Libro Mayor (GL)</div>
+<div class="tx-l3"><span class="tx-num">7.1.2</span>Cierre Contable Diario</div>
+<div class="tx-l3"><span class="tx-num">7.1.3</span>Reportes Serie R</div>
+</div>
+</div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">7.2</span>Prevención de Lavado de Dinero (PLD/AML)</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">7.2.1</span>Monitoreo de Transacciones</div>
+<div class="tx-l3"><span class="tx-num">7.2.2</span>Lista de Personas Inhabilitadas (LIDE)</div>
+<div class="tx-l3"><span class="tx-num">7.2.3</span>Reportes PLD</div>
+</div>
+</div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">7.3</span>Cumplimiento Regulatorio</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">7.3.1</span>Obligaciones CNBV</div>
+<div class="tx-l3"><span class="tx-num">7.3.2</span>Obligaciones Banxico</div>
+<div class="tx-l3"><span class="tx-num">7.3.3</span>Obligaciones CONDUSEF</div>
+</div>
+</div>
+<div class="tx-l2"><div class="tx-l2-hd"><span class="tx-num">7.4</span>Aclaraciones y Disputas</div>
+<div class="tx-caps">
+<div class="tx-l3"><span class="tx-num">7.4.1</span>Recepción de Aclaración</div>
+<div class="tx-l3"><span class="tx-num">7.4.2</span>Resolución de Aclaración</div>
+</div>
+</div>
+</div></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECCIÓN 5: DIGITAL TWINS SWARM
+═══════════════════════════════════════════════════════════ -->
+<div class="section" style="margin-top:28px;padding-bottom:40px">
+  <div class="shead"><div class="icon" style="background:#8b3a8b">🤖</div>Swarm de Digital Twins</div>
+  <div class="ssub">8 Digital Twins peers, cada uno propietario de un artefacto del Gemelo Cognitivo. Heredan talento de los SMEs declarados en su CLAUDE.md y operan en el contexto exclusivo de BCOPCore.</div>
+  <div class="dt-grid"><div class="dt-card" style="border-top:3px solid #F0D224"><div class="dt-num" style="background:#F0D224;color:#0a1330">1</div><div class="dt-name">DT-Vocabulario</div><div class="dt-count">787 términos</div><div class="dt-desc">Léxico del sistema: átomos, compuestos, candidatos</div><div class="dt-sme">SMEs: SPL Analysis · Industry Banking</div></div>
+<div class="dt-card" style="border-top:3px solid #122FB1"><div class="dt-num" style="background:#122FB1;color:#fff">2</div><div class="dt-name">DT-Almas</div><div class="dt-count">16 módulos</div><div class="dt-desc">Identidades funcionales del core bancario</div><div class="dt-sme">SMEs: SPL Analysis · Core Banking Transformation</div></div>
+<div class="dt-card" style="border-top:3px solid #6882AA"><div class="dt-num" style="background:#6882AA;color:#fff">3</div><div class="dt-name">DT-Journeys</div><div class="dt-count">131 journeys</div><div class="dt-desc">Procesos bancarios end-to-end desde el código</div><div class="dt-sme">SMEs: SPL Analysis · Industry Banking</div></div>
+<div class="dt-card" style="border-top:3px solid #8b3a8b"><div class="dt-num" style="background:#8b3a8b;color:#fff">4</div><div class="dt-name">DT-Reglas</div><div class="dt-count">7,795 reglas</div><div class="dt-desc">Condiciones de negocio SBVR: umbrales y restricciones</div><div class="dt-sme">SMEs: SPL Analysis · Industry Banking · Banking Accounting</div></div>
+<div class="dt-card" style="border-top:3px solid #2e6b48"><div class="dt-num" style="background:#2e6b48;color:#fff">H</div><div class="dt-name">DT-Modelo-Dominio</div><div class="dt-count">7 dom · 67 caps</div><div class="dt-desc">Hilo conductor: taxonomía 5 niveles AS-IS</div><div class="dt-sme">SMEs: Core Banking Transformation · Industry Banking · DBA Informix</div></div>
+<div class="dt-card" style="border-top:3px solid #1e5a8a"><div class="dt-num" style="background:#1e5a8a;color:#fff">C</div><div class="dt-name">DT-Capacidades</div><div class="dt-count">261 caps ETB</div><div class="dt-desc">Cobertura BIAN L3: 23.8% covered</div><div class="dt-sme">SMEs: Core Banking Transformation · Industry Banking</div></div>
+<div class="dt-card" style="border-top:3px solid #8b2020"><div class="dt-num" style="background:#8b2020;color:#fff">R</div><div class="dt-name">DT-Riesgos</div><div class="dt-count">44 riesgos</div><div class="dt-desc">Registro de riesgos de migración N1→N5</div><div class="dt-sme">SMEs: SPL Analysis · Cybersecurity · SRE & AIOps</div></div>
+<div class="dt-card" style="border-top:3px solid #333"><div class="dt-num" style="background:#333;color:#fff">★</div><div class="dt-name">DT-SPL-Analysis</div><div class="dt-count">10,144 SPs</div><div class="dt-desc">Orquestador scatter-gather: 34,279 edges</div><div class="dt-sme">SMEs: Specialist propio (auto-suficiente)</div></div></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECCIÓN 6: ARQUITECTURA DEL KNOWLEDGE BASE
+═══════════════════════════════════════════════════════════ -->
+<div class="section" style="margin-top:28px">
+  <div class="shead"><div class="icon" style="background:#0277BD">📁</div>Arquitectura del Knowledge Base — Relaciones entre Documentos</div>
+  <div class="ssub">361 archivos .md organizados en 4 capas de conocimiento. Las capas síntesis y cross-reference agregan información de los 16 dominios analizados. Los dominios D17–D49 tienen solo el índice inicial (00-index.md).</div>
+
+  <div class="kb-legend">
+    <div class="kb-leg"><div class="dot" style="background:#dcfce7;border:1px solid #86efac"></div>Artefacto analizado (22 tipos)</div>
+    <div class="kb-leg"><div class="dot" style="background:#fef3c7;border:1px solid #fcd34d"></div>Solo 00-index.md (stub)</div>
+    <div class="kb-leg"><div class="dot" style="background:#f5f7ff;border:1px solid #c7d2fe"></div>Tipo no generado (D16 parcial)</div>
+    <div style="flex:1"></div>
+    <div class="kb-leg" style="font-size:9px;background:rgba(18,47,177,.05);padding:4px 10px;border-radius:6px">
+      D01–D15: 22 tipos de artefacto completos · D16: 8/22 · D17–D49: 1/22</div>
+  </div>
+
+  <div><div class='kb-cov-wrap'><table class='kb-cov-table'><thead><tr>
+<th class='kb-ct'>Tipo de artefacto</th>
+<th class='kb-dh' style='border-top:3px solid #A100FF' title='D01 bdicnweb · 1058 SPs'>D01</th>
+<th class='kb-dh' style='border-top:3px solid #6A00B3' title='D02 bdinteg · 396 SPs'>D02</th>
+<th class='kb-dh' style='border-top:3px solid #0277BD' title='D03 bdicred · 522 SPs'>D03</th>
+<th class='kb-dh' style='border-top:3px solid #0277BD' title='D04 bdicheq · 658 SPs'>D04</th>
+<th class='kb-dh' style='border-top:3px solid #2E7D32' title='D05 bdisac · 99 SPs'>D05</th>
+<th class='kb-dh' style='border-top:3px solid #2E7D32' title='D06 bdisolic · 96 SPs'>D06</th>
+<th class='kb-dh' style='border-top:3px solid #B71C1C' title='D07 bdiaclaracion · 41 SPs'>D07</th>
+<th class='kb-dh' style='border-top:3px solid #B71C1C' title='D08 bdispei · 53 SPs'>D08</th>
+<th class='kb-dh' style='border-top:3px solid #F57F17' title='D09 bdimnsj · 19 SPs'>D09</th>
+<th class='kb-dh' style='border-top:3px solid #2E7D32' title='D10 bdisuc · 31 SPs'>D10</th>
+<th class='kb-dh' style='border-top:3px solid #B71C1C' title='D11 bdicobranza · 75 SPs'>D11</th>
+<th class='kb-dh' style='border-top:3px solid #0277BD' title='D12 bdicont · 51 SPs'>D12</th>
+<th class='kb-dh' style='border-top:3px solid #aaa' title='D13 bditef · 38 SPs'>D13</th>
+<th class='kb-dh' style='border-top:3px solid #aaa' title='D14 bdibei · 34 SPs'>D14</th>
+<th class='kb-dh' style='border-top:3px solid #aaa' title='D15 bdilide · 21 SPs'>D15</th>
+<th class='kb-dh' style='border-top:3px solid #aaa' title='D16 intercard · 113 SPs'>D16</th>
+<th class='kb-dh stub-h' title='D17-D49: 33 dominios con solo 00-index.md'>D17–D49</th>
+</tr></thead><tbody>
+<tr><td class='kb-ct' style=''><span class='kb-num'>00</span>Catálogo de Procesos</td>
+<td class='cov-cell cov-full' title='D01 bdicnweb: Catálogo de Procesos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D02 bdinteg: Catálogo de Procesos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D03 bdicred: Catálogo de Procesos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D04 bdicheq: Catálogo de Procesos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D05 bdisac: Catálogo de Procesos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D06 bdisolic: Catálogo de Procesos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D07 bdiaclaracion: Catálogo de Procesos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D08 bdispei: Catálogo de Procesos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D09 bdimnsj: Catálogo de Procesos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D10 bdisuc: Catálogo de Procesos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D11 bdicobranza: Catálogo de Procesos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D12 bdicont: Catálogo de Procesos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D13 bditef: Catálogo de Procesos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D14 bdibei: Catálogo de Procesos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D15 bdilide: Catálogo de Procesos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D16: Catálogo de Procesos ✓ presente'></td>
+<td class='cov-cell cov-stub' title='D17-D49: solo índice' ></td>
+</tr>
+<tr><td class='kb-ct' style='border-left:3px solid #2e6b48'><span class='kb-num'>01</span>Journey Map</td>
+<td class='cov-cell cov-full' title='D01 bdicnweb: Journey Map ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D02 bdinteg: Journey Map ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D03 bdicred: Journey Map ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D04 bdicheq: Journey Map ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D05 bdisac: Journey Map ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D06 bdisolic: Journey Map ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D07 bdiaclaracion: Journey Map ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D08 bdispei: Journey Map ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D09 bdimnsj: Journey Map ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D10 bdisuc: Journey Map ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D11 bdicobranza: Journey Map ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D12 bdicont: Journey Map ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D13 bditef: Journey Map ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D14 bdibei: Journey Map ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D15 bdilide: Journey Map ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D16: Journey Map ✓ presente'></td>
+<td class='cov-cell cov-miss' title='D17-D49: pendiente' ></td>
+</tr>
+<tr><td class='kb-ct' style=''><span class='kb-num'>02</span>Catálogo de Datos</td>
+<td class='cov-cell cov-full' title='D01 bdicnweb: Catálogo de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D02 bdinteg: Catálogo de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D03 bdicred: Catálogo de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D04 bdicheq: Catálogo de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D05 bdisac: Catálogo de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D06 bdisolic: Catálogo de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D07 bdiaclaracion: Catálogo de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D08 bdispei: Catálogo de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D09 bdimnsj: Catálogo de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D10 bdisuc: Catálogo de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D11 bdicobranza: Catálogo de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D12 bdicont: Catálogo de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D13 bditef: Catálogo de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D14 bdibei: Catálogo de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D15 bdilide: Catálogo de Datos ✓ analizado'></td>
+<td class='cov-cell cov-miss' title='D16: Catálogo de Datos — no generado (D16 parcial)'></td>
+<td class='cov-cell cov-miss' title='D17-D49: pendiente' ></td>
+</tr>
+<tr><td class='kb-ct' style=''><span class='kb-num'>03</span>Diccionario de Datos</td>
+<td class='cov-cell cov-full' title='D01 bdicnweb: Diccionario de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D02 bdinteg: Diccionario de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D03 bdicred: Diccionario de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D04 bdicheq: Diccionario de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D05 bdisac: Diccionario de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D06 bdisolic: Diccionario de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D07 bdiaclaracion: Diccionario de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D08 bdispei: Diccionario de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D09 bdimnsj: Diccionario de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D10 bdisuc: Diccionario de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D11 bdicobranza: Diccionario de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D12 bdicont: Diccionario de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D13 bditef: Diccionario de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D14 bdibei: Diccionario de Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D15 bdilide: Diccionario de Datos ✓ analizado'></td>
+<td class='cov-cell cov-miss' title='D16: Diccionario de Datos — no generado (D16 parcial)'></td>
+<td class='cov-cell cov-miss' title='D17-D49: pendiente' ></td>
+</tr>
+<tr><td class='kb-ct' style='border-left:3px solid #8b3a8b'><span class='kb-num'>04</span>Reglas de Negocio</td>
+<td class='cov-cell cov-full' title='D01 bdicnweb: Reglas de Negocio ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D02 bdinteg: Reglas de Negocio ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D03 bdicred: Reglas de Negocio ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D04 bdicheq: Reglas de Negocio ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D05 bdisac: Reglas de Negocio ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D06 bdisolic: Reglas de Negocio ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D07 bdiaclaracion: Reglas de Negocio ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D08 bdispei: Reglas de Negocio ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D09 bdimnsj: Reglas de Negocio ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D10 bdisuc: Reglas de Negocio ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D11 bdicobranza: Reglas de Negocio ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D12 bdicont: Reglas de Negocio ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D13 bditef: Reglas de Negocio ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D14 bdibei: Reglas de Negocio ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D15 bdilide: Reglas de Negocio ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D16: Reglas de Negocio ✓ presente'></td>
+<td class='cov-cell cov-miss' title='D17-D49: pendiente' ></td>
+</tr>
+<tr><td class='kb-ct' style='border-left:3px solid #dc2626'><span class='kb-num'>05</span>Riesgos</td>
+<td class='cov-cell cov-full' title='D01 bdicnweb: Riesgos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D02 bdinteg: Riesgos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D03 bdicred: Riesgos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D04 bdicheq: Riesgos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D05 bdisac: Riesgos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D06 bdisolic: Riesgos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D07 bdiaclaracion: Riesgos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D08 bdispei: Riesgos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D09 bdimnsj: Riesgos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D10 bdisuc: Riesgos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D11 bdicobranza: Riesgos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D12 bdicont: Riesgos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D13 bditef: Riesgos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D14 bdibei: Riesgos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D15 bdilide: Riesgos ✓ analizado'></td>
+<td class='cov-cell cov-miss' title='D16: Riesgos — no generado (D16 parcial)'></td>
+<td class='cov-cell cov-miss' title='D17-D49: pendiente' ></td>
+</tr>
+<tr><td class='kb-ct' style=''><span class='kb-num'>06</span>Excepciones</td>
+<td class='cov-cell cov-full' title='D01 bdicnweb: Excepciones ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D02 bdinteg: Excepciones ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D03 bdicred: Excepciones ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D04 bdicheq: Excepciones ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D05 bdisac: Excepciones ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D06 bdisolic: Excepciones ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D07 bdiaclaracion: Excepciones ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D08 bdispei: Excepciones ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D09 bdimnsj: Excepciones ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D10 bdisuc: Excepciones ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D11 bdicobranza: Excepciones ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D12 bdicont: Excepciones ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D13 bditef: Excepciones ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D14 bdibei: Excepciones ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D15 bdilide: Excepciones ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D16: Excepciones ✓ presente'></td>
+<td class='cov-cell cov-miss' title='D17-D49: pendiente' ></td>
+</tr>
+<tr><td class='kb-ct' style='border-left:3px solid #B71C1C'><span class='kb-num'>07</span>Mapa de Dependencias</td>
+<td class='cov-cell cov-full' title='D01 bdicnweb: Mapa de Dependencias ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D02 bdinteg: Mapa de Dependencias ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D03 bdicred: Mapa de Dependencias ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D04 bdicheq: Mapa de Dependencias ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D05 bdisac: Mapa de Dependencias ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D06 bdisolic: Mapa de Dependencias ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D07 bdiaclaracion: Mapa de Dependencias ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D08 bdispei: Mapa de Dependencias ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D09 bdimnsj: Mapa de Dependencias ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D10 bdisuc: Mapa de Dependencias ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D11 bdicobranza: Mapa de Dependencias ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D12 bdicont: Mapa de Dependencias ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D13 bditef: Mapa de Dependencias ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D14 bdibei: Mapa de Dependencias ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D15 bdilide: Mapa de Dependencias ✓ analizado'></td>
+<td class='cov-cell cov-miss' title='D16: Mapa de Dependencias — no generado (D16 parcial)'></td>
+<td class='cov-cell cov-miss' title='D17-D49: pendiente' ></td>
+</tr>
+<tr><td class='kb-ct' style=''><span class='kb-num'>08</span>SP × Tabla Matrix</td>
+<td class='cov-cell cov-full' title='D01 bdicnweb: SP × Tabla Matrix ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D02 bdinteg: SP × Tabla Matrix ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D03 bdicred: SP × Tabla Matrix ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D04 bdicheq: SP × Tabla Matrix ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D05 bdisac: SP × Tabla Matrix ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D06 bdisolic: SP × Tabla Matrix ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D07 bdiaclaracion: SP × Tabla Matrix ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D08 bdispei: SP × Tabla Matrix ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D09 bdimnsj: SP × Tabla Matrix ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D10 bdisuc: SP × Tabla Matrix ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D11 bdicobranza: SP × Tabla Matrix ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D12 bdicont: SP × Tabla Matrix ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D13 bditef: SP × Tabla Matrix ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D14 bdibei: SP × Tabla Matrix ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D15 bdilide: SP × Tabla Matrix ✓ analizado'></td>
+<td class='cov-cell cov-miss' title='D16: SP × Tabla Matrix — no generado (D16 parcial)'></td>
+<td class='cov-cell cov-miss' title='D17-D49: pendiente' ></td>
+</tr>
+<tr><td class='kb-ct' style=''><span class='kb-num'>09</span>Dead Code</td>
+<td class='cov-cell cov-full' title='D01 bdicnweb: Dead Code ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D02 bdinteg: Dead Code ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D03 bdicred: Dead Code ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D04 bdicheq: Dead Code ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D05 bdisac: Dead Code ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D06 bdisolic: Dead Code ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D07 bdiaclaracion: Dead Code ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D08 bdispei: Dead Code ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D09 bdimnsj: Dead Code ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D10 bdisuc: Dead Code ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D11 bdicobranza: Dead Code ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D12 bdicont: Dead Code ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D13 bditef: Dead Code ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D14 bdibei: Dead Code ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D15 bdilide: Dead Code ✓ analizado'></td>
+<td class='cov-cell cov-miss' title='D16: Dead Code — no generado (D16 parcial)'></td>
+<td class='cov-cell cov-miss' title='D17-D49: pendiente' ></td>
+</tr>
+<tr><td class='kb-ct' style='border-left:3px solid #0277BD'><span class='kb-num'>10</span>Test Strategy</td>
+<td class='cov-cell cov-full' title='D01 bdicnweb: Test Strategy ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D02 bdinteg: Test Strategy ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D03 bdicred: Test Strategy ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D04 bdicheq: Test Strategy ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D05 bdisac: Test Strategy ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D06 bdisolic: Test Strategy ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D07 bdiaclaracion: Test Strategy ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D08 bdispei: Test Strategy ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D09 bdimnsj: Test Strategy ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D10 bdisuc: Test Strategy ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D11 bdicobranza: Test Strategy ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D12 bdicont: Test Strategy ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D13 bditef: Test Strategy ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D14 bdibei: Test Strategy ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D15 bdilide: Test Strategy ✓ analizado'></td>
+<td class='cov-cell cov-miss' title='D16: Test Strategy — no generado (D16 parcial)'></td>
+<td class='cov-cell cov-miss' title='D17-D49: pendiente' ></td>
+</tr>
+<tr><td class='kb-ct' style=''><span class='kb-num'>11</span>Batch Processes</td>
+<td class='cov-cell cov-full' title='D01 bdicnweb: Batch Processes ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D02 bdinteg: Batch Processes ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D03 bdicred: Batch Processes ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D04 bdicheq: Batch Processes ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D05 bdisac: Batch Processes ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D06 bdisolic: Batch Processes ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D07 bdiaclaracion: Batch Processes ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D08 bdispei: Batch Processes ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D09 bdimnsj: Batch Processes ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D10 bdisuc: Batch Processes ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D11 bdicobranza: Batch Processes ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D12 bdicont: Batch Processes ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D13 bditef: Batch Processes ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D14 bdibei: Batch Processes ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D15 bdilide: Batch Processes ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D16: Batch Processes ✓ presente'></td>
+<td class='cov-cell cov-miss' title='D17-D49: pendiente' ></td>
+</tr>
+<tr><td class='kb-ct' style=''><span class='kb-num'>12</span>ER Model</td>
+<td class='cov-cell cov-full' title='D01 bdicnweb: ER Model ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D02 bdinteg: ER Model ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D03 bdicred: ER Model ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D04 bdicheq: ER Model ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D05 bdisac: ER Model ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D06 bdisolic: ER Model ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D07 bdiaclaracion: ER Model ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D08 bdispei: ER Model ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D09 bdimnsj: ER Model ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D10 bdisuc: ER Model ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D11 bdicobranza: ER Model ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D12 bdicont: ER Model ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D13 bditef: ER Model ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D14 bdibei: ER Model ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D15 bdilide: ER Model ✓ analizado'></td>
+<td class='cov-cell cov-miss' title='D16: ER Model — no generado (D16 parcial)'></td>
+<td class='cov-cell cov-miss' title='D17-D49: pendiente' ></td>
+</tr>
+<tr><td class='kb-ct' style=''><span class='kb-num'>13</span>Deps. Externas</td>
+<td class='cov-cell cov-full' title='D01 bdicnweb: Deps. Externas ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D02 bdinteg: Deps. Externas ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D03 bdicred: Deps. Externas ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D04 bdicheq: Deps. Externas ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D05 bdisac: Deps. Externas ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D06 bdisolic: Deps. Externas ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D07 bdiaclaracion: Deps. Externas ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D08 bdispei: Deps. Externas ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D09 bdimnsj: Deps. Externas ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D10 bdisuc: Deps. Externas ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D11 bdicobranza: Deps. Externas ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D12 bdicont: Deps. Externas ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D13 bditef: Deps. Externas ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D14 bdibei: Deps. Externas ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D15 bdilide: Deps. Externas ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D16: Deps. Externas ✓ presente'></td>
+<td class='cov-cell cov-miss' title='D17-D49: pendiente' ></td>
+</tr>
+<tr><td class='kb-ct' style=''><span class='kb-num'>14</span>Arquitectura Target</td>
+<td class='cov-cell cov-full' title='D01 bdicnweb: Arquitectura Target ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D02 bdinteg: Arquitectura Target ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D03 bdicred: Arquitectura Target ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D04 bdicheq: Arquitectura Target ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D05 bdisac: Arquitectura Target ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D06 bdisolic: Arquitectura Target ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D07 bdiaclaracion: Arquitectura Target ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D08 bdispei: Arquitectura Target ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D09 bdimnsj: Arquitectura Target ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D10 bdisuc: Arquitectura Target ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D11 bdicobranza: Arquitectura Target ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D12 bdicont: Arquitectura Target ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D13 bditef: Arquitectura Target ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D14 bdibei: Arquitectura Target ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D15 bdilide: Arquitectura Target ✓ analizado'></td>
+<td class='cov-cell cov-miss' title='D16: Arquitectura Target — no generado (D16 parcial)'></td>
+<td class='cov-cell cov-miss' title='D17-D49: pendiente' ></td>
+</tr>
+<tr><td class='kb-ct' style=''><span class='kb-num'>15</span>Type Mapping</td>
+<td class='cov-cell cov-full' title='D01 bdicnweb: Type Mapping ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D02 bdinteg: Type Mapping ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D03 bdicred: Type Mapping ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D04 bdicheq: Type Mapping ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D05 bdisac: Type Mapping ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D06 bdisolic: Type Mapping ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D07 bdiaclaracion: Type Mapping ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D08 bdispei: Type Mapping ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D09 bdimnsj: Type Mapping ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D10 bdisuc: Type Mapping ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D11 bdicobranza: Type Mapping ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D12 bdicont: Type Mapping ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D13 bditef: Type Mapping ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D14 bdibei: Type Mapping ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D15 bdilide: Type Mapping ✓ analizado'></td>
+<td class='cov-cell cov-miss' title='D16: Type Mapping — no generado (D16 parcial)'></td>
+<td class='cov-cell cov-miss' title='D17-D49: pendiente' ></td>
+</tr>
+<tr><td class='kb-ct' style=''><span class='kb-num'>16</span>API Contract</td>
+<td class='cov-cell cov-full' title='D01 bdicnweb: API Contract ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D02 bdinteg: API Contract ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D03 bdicred: API Contract ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D04 bdicheq: API Contract ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D05 bdisac: API Contract ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D06 bdisolic: API Contract ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D07 bdiaclaracion: API Contract ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D08 bdispei: API Contract ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D09 bdimnsj: API Contract ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D10 bdisuc: API Contract ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D11 bdicobranza: API Contract ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D12 bdicont: API Contract ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D13 bditef: API Contract ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D14 bdibei: API Contract ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D15 bdilide: API Contract ✓ analizado'></td>
+<td class='cov-cell cov-miss' title='D16: API Contract — no generado (D16 parcial)'></td>
+<td class='cov-cell cov-miss' title='D17-D49: pendiente' ></td>
+</tr>
+<tr><td class='kb-ct' style=''><span class='kb-num'>17</span>Plan Migración Datos</td>
+<td class='cov-cell cov-full' title='D01 bdicnweb: Plan Migración Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D02 bdinteg: Plan Migración Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D03 bdicred: Plan Migración Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D04 bdicheq: Plan Migración Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D05 bdisac: Plan Migración Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D06 bdisolic: Plan Migración Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D07 bdiaclaracion: Plan Migración Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D08 bdispei: Plan Migración Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D09 bdimnsj: Plan Migración Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D10 bdisuc: Plan Migración Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D11 bdicobranza: Plan Migración Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D12 bdicont: Plan Migración Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D13 bditef: Plan Migración Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D14 bdibei: Plan Migración Datos ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D15 bdilide: Plan Migración Datos ✓ analizado'></td>
+<td class='cov-cell cov-miss' title='D16: Plan Migración Datos — no generado (D16 parcial)'></td>
+<td class='cov-cell cov-miss' title='D17-D49: pendiente' ></td>
+</tr>
+<tr><td class='kb-ct' style='border-left:3px solid #C62828'><span class='kb-num'>18</span>PII / Security</td>
+<td class='cov-cell cov-full' title='D01 bdicnweb: PII / Security ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D02 bdinteg: PII / Security ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D03 bdicred: PII / Security ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D04 bdicheq: PII / Security ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D05 bdisac: PII / Security ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D06 bdisolic: PII / Security ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D07 bdiaclaracion: PII / Security ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D08 bdispei: PII / Security ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D09 bdimnsj: PII / Security ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D10 bdisuc: PII / Security ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D11 bdicobranza: PII / Security ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D12 bdicont: PII / Security ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D13 bditef: PII / Security ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D14 bdibei: PII / Security ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D15 bdilide: PII / Security ✓ analizado'></td>
+<td class='cov-cell cov-miss' title='D16: PII / Security — no generado (D16 parcial)'></td>
+<td class='cov-cell cov-miss' title='D17-D49: pendiente' ></td>
+</tr>
+<tr><td class='kb-ct' style=''><span class='kb-num'>19</span>Perf. Baseline</td>
+<td class='cov-cell cov-full' title='D01 bdicnweb: Perf. Baseline ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D02 bdinteg: Perf. Baseline ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D03 bdicred: Perf. Baseline ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D04 bdicheq: Perf. Baseline ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D05 bdisac: Perf. Baseline ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D06 bdisolic: Perf. Baseline ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D07 bdiaclaracion: Perf. Baseline ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D08 bdispei: Perf. Baseline ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D09 bdimnsj: Perf. Baseline ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D10 bdisuc: Perf. Baseline ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D11 bdicobranza: Perf. Baseline ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D12 bdicont: Perf. Baseline ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D13 bditef: Perf. Baseline ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D14 bdibei: Perf. Baseline ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D15 bdilide: Perf. Baseline ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D16: Perf. Baseline ✓ presente'></td>
+<td class='cov-cell cov-miss' title='D17-D49: pendiente' ></td>
+</tr>
+<tr><td class='kb-ct' style=''><span class='kb-num'>20</span>Cutover Plan</td>
+<td class='cov-cell cov-full' title='D01 bdicnweb: Cutover Plan ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D02 bdinteg: Cutover Plan ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D03 bdicred: Cutover Plan ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D04 bdicheq: Cutover Plan ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D05 bdisac: Cutover Plan ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D06 bdisolic: Cutover Plan ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D07 bdiaclaracion: Cutover Plan ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D08 bdispei: Cutover Plan ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D09 bdimnsj: Cutover Plan ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D10 bdisuc: Cutover Plan ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D11 bdicobranza: Cutover Plan ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D12 bdicont: Cutover Plan ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D13 bditef: Cutover Plan ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D14 bdibei: Cutover Plan ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D15 bdilide: Cutover Plan ✓ analizado'></td>
+<td class='cov-cell cov-miss' title='D16: Cutover Plan — no generado (D16 parcial)'></td>
+<td class='cov-cell cov-miss' title='D17-D49: pendiente' ></td>
+</tr>
+<tr><td class='kb-ct' style='border-left:3px solid #37474F'><span class='kb-num'>21</span>Observability Runbook</td>
+<td class='cov-cell cov-full' title='D01 bdicnweb: Observability Runbook ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D02 bdinteg: Observability Runbook ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D03 bdicred: Observability Runbook ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D04 bdicheq: Observability Runbook ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D05 bdisac: Observability Runbook ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D06 bdisolic: Observability Runbook ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D07 bdiaclaracion: Observability Runbook ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D08 bdispei: Observability Runbook ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D09 bdimnsj: Observability Runbook ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D10 bdisuc: Observability Runbook ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D11 bdicobranza: Observability Runbook ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D12 bdicont: Observability Runbook ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D13 bditef: Observability Runbook ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D14 bdibei: Observability Runbook ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D15 bdilide: Observability Runbook ✓ analizado'></td>
+<td class='cov-cell cov-full' title='D16: Observability Runbook ✓ presente'></td>
+<td class='cov-cell cov-miss' title='D17-D49: pendiente' ></td>
+</tr>
+</tbody></table></div></div>
+
+  <div style="margin-top:22px">
+    <div style="font-size:13px;font-weight:700;margin-bottom:6px;color:var(--blue)">Red de Documentos — Síntesis · Cross-Reference · Vocabulario · Dominios</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Cada nodo es un documento o carpeta de dominio. Las aristas sólidas = cobertura específica. Las aristas punteadas = cobertura universal (el documento cubre todos los dominios D01–D16). El tamaño del nodo es proporcional al tamaño del archivo.</div>
+    <div class="kb-legend">
+      <div class="kb-leg"><div class="dot" style="background:#8b3a8b"></div>Síntesis (root KB)</div>
+      <div class="kb-leg"><div class="dot" style="background:#0277BD"></div>Cross-Reference</div>
+      <div class="kb-leg"><div class="dot" style="background:#d4a800"></div>Vocabulario</div>
+      <div class="kb-leg"><div class="dot" style="background:#dc2626"></div>Reglas formales</div>
+      <div class="kb-leg"><div class="dot" style="background:#A100FF"></div>Dominio Informix analizado</div>
+      <div class="kb-leg"><div class="dot" style="background:#aab;border:1px solid #888"></div>Stubs D17–D49</div>
+      <div style="flex:1"></div>
+      <div class="kb-leg"><div class="line-s" style="background:#888;border-top:2px dashed #aaa"></div>Cubre todos</div>
+      <div class="kb-leg"><div class="line-s" style="background:#888;border-top:2px solid #555"></div>Cubre dominio específico</div>
+    </div>
+    <div id="kb-doc-graph"></div>
+  </div>
+</div>
+
+<footer>
+  <span>BCOPCore · SPE-AM-001 · Gemelo Cognitivo del Sistema · knowledge-graph-bcop.html</span>
+  <span>IBM Informix IDS 14.10 / POWER-AIX · generado con build-knowledge-graph.py · 2026-08-03</span>
+</footer>
+
+<div id="graph-tooltip"></div>
+
+<script>
+// ── DATA ──
+const NODES = [{"id": "bdicnweb", "label": "D01", "name": "Canal Digital Web", "wave": "ÚLTIMO", "risk": "ALTO", "bc": "BC-1.x", "color": "#A100FF", "r": 56, "total_in": 17, "total_out": 29033}, {"id": "bdinteg", "label": "D02", "name": "Integración y Auth", "wave": "Wave 5", "risk": "CRÍTICO", "bc": "BC-7.1", "color": "#6A00B3", "r": 49.195564357032005, "total_in": 11540, "total_out": 201}, {"id": "bdicred", "label": "D03", "name": "Créditos", "wave": "Wave 4", "risk": "CRÍTICO", "bc": "BC-3.3", "color": "#0277BD", "r": 46.74871680847, "total_in": 9202, "total_out": 511}, {"id": "bdicheq", "label": "D04", "name": "Cheques / Cuentas", "wave": "Wave 4", "risk": "CRÍTICO", "bc": "BC-3.2", "color": "#0277BD", "r": 29.733315991758754, "total_in": 1273, "total_out": 138}, {"id": "bdisac", "label": "D05", "name": "Saldos y Cuentas", "wave": "Wave 3", "risk": "ALTO", "bc": "BC-3.2", "color": "#2E7D32", "r": 34.865319332540324, "total_in": 2611, "total_out": 355}, {"id": "bdisolic", "label": "D06", "name": "Solicitudes", "wave": "Wave 3", "risk": "ALTO", "bc": "BC-7.1", "color": "#2E7D32", "r": 29.80508074217041, "total_in": 1334, "total_out": 94}, {"id": "bdiaclaracion", "label": "D07", "name": "Aclaraciones", "wave": "Wave 2", "risk": "ALTO", "bc": "BC-3.18", "color": "#B71C1C", "r": 21.194548621436653, "total_in": 0, "total_out": 180}, {"id": "bdispei", "label": "D08", "name": "SPEI", "wave": "Wave 2", "risk": "CRÍTICO", "bc": "BC-3.4", "color": "#B71C1C", "r": 19.07909514786534, "total_in": 3, "total_out": 69}, {"id": "bdimnsj", "label": "D09", "name": "Mensajería", "wave": "Wave 1", "risk": "BAJO", "bc": "BC-4.x", "color": "#F57F17", "r": 29.29547936124394, "total_in": 1310, "total_out": 0}, {"id": "bdisuc", "label": "D10", "name": "Sucursales", "wave": "Wave 3", "risk": "ALTO", "bc": "BC-1.x", "color": "#2E7D32", "r": 35.68617387038395, "total_in": 3256, "total_out": 27}, {"id": "bdicobranza", "label": "D11", "name": "Cobranza", "wave": "Wave 2", "risk": "MEDIO", "bc": "BC-3.3", "color": "#B71C1C", "r": 21.88383421746516, "total_in": 155, "total_out": 74}, {"id": "bdicont", "label": "D12", "name": "Contabilidad", "wave": "Wave 4", "risk": "ALTO", "bc": "BC-5.4", "color": "#0277BD", "r": 18, "total_in": 0, "total_out": 19}];
+const EDGES = [{"source": "bdicnweb", "target": "bdinteg", "value": 11391, "tooltip": "bdicnweb → bdinteg · 11,391 llamadas cross-DB · Top callees: ·   bdinteg:sp_cnsif_confirmaejecutivo (fi=2,400) ·   bdinteg:sp_cnsif_permisosejecutivo (fi=621) ·   bdinteg:sp_valida_perfil_usuario (fi=388)"}, {"source": "bdicnweb", "target": "bdicred", "value": 9027, "tooltip": "bdicnweb → bdicred · 9,027 llamadas cross-DB · Top callees: ·   bdicred:sp_consulta_saldos_general (fi=435) ·   bdicred:sp_mon_buro_conssolcredlincred2 (fi=325) ·   bdicred:sp_inserta_productos (fi=305)"}, {"source": "bdicnweb", "target": "bdisuc", "value": 3255, "tooltip": "bdicnweb → bdisuc · 3,255 llamadas cross-DB · Top callees: ·   bdisuc:sp_consultadatospiezas_bym3 (fi=381) ·   bdisuc:sp_consutacat_dictamen_bym (fi=378) ·   bdisuc:sp_consultadatospiezas_bym2 (fi=376)"}, {"source": "bdicnweb", "target": "bdisac", "value": 2601, "tooltip": "bdicnweb → bdisac · 2,601 llamadas cross-DB · Top callees: ·   bdisac:sp_validanombenefbts (fi=243) ·   bdisac:sp_sac_consucursales (fi=195) ·   bdisac:sp_validabts (fi=182)"}, {"source": "bdicnweb", "target": "bdisolic", "value": 1316, "tooltip": "bdicnweb → bdisolic · 1,316 llamadas cross-DB · Top callees: ·   bdisolic:sp_asigna_solicitud_soc (fi=236) ·   bdisolic:determina_lincred_tc_cjunk (fi=208) ·   bdisolic:sp_obtienegrupo (fi=174)"}, {"source": "bdicnweb", "target": "bdimnsj", "value": 949, "tooltip": "bdicnweb → bdimnsj · 949 llamadas cross-DB · Top callees: ·   bdimnsj:sp_registra_evento (fi=1,404)"}, {"source": "bdicnweb", "target": "bdicheq", "value": 494, "tooltip": "bdicnweb → bdicheq · 494 llamadas cross-DB · Top callees: ·   bdicheq:cargo_ref (fi=561) ·   bdicheq:abono_ref (fi=520) ·   bdicheq:reversion (fi=377)"}, {"source": "bdisac", "target": "bdicheq", "value": 312, "tooltip": "bdisac → bdicheq · 312 llamadas cross-DB · Top callees: ·   bdicheq:cargo_ref (fi=561) ·   bdicheq:abono_ref (fi=520) ·   bdicheq:reversion (fi=377)"}, {"source": "bdicred", "target": "bdicheq", "value": 242, "tooltip": "bdicred → bdicheq · 242 llamadas cross-DB · Top callees: ·   bdicheq:cargo_ref (fi=561) ·   bdicheq:abono_ref (fi=520) ·   bdicheq:reversion (fi=377)"}, {"source": "bdicred", "target": "bdicobranza", "value": 138, "tooltip": "bdicred → bdicobranza · 138 llamadas cross-DB · Top callees: ·   bdicobranza:sp_inserta_bitacora_cob (fi=406)"}, {"source": "bdiaclaracion", "target": "bdicheq", "value": 125, "tooltip": "bdiaclaracion → bdicheq · 125 llamadas cross-DB · Top callees: ·   bdicheq:cargo_ref (fi=561) ·   bdicheq:abono_ref (fi=520) ·   bdicheq:bloqueo_cta (fi=184)"}, {"source": "bdicred", "target": "bdimnsj", "value": 77, "tooltip": "bdicred → bdimnsj · 77 llamadas cross-DB · Top callees: ·   bdimnsj:sp_registra_evento (fi=1,404)"}, {"source": "bdinteg", "target": "bdimnsj", "value": 73, "tooltip": "bdinteg → bdimnsj · 73 llamadas cross-DB · Top callees: ·   bdimnsj:sp_registra_evento (fi=1,404)"}, {"source": "bdicheq", "target": "bdimnsj", "value": 72, "tooltip": "bdicheq → bdimnsj · 72 llamadas cross-DB · Top callees: ·   bdimnsj:sp_registra_evento (fi=1,404)"}, {"source": "bdisolic", "target": "bdicred", "value": 54, "tooltip": "bdisolic → bdicred · 54 llamadas cross-DB · Top callees: ·   bdicred:sp_consulta_saldos_general (fi=435) ·   bdicred:monthadd (fi=271) ·   bdicred:genmov (fi=176)"}, {"source": "bdinteg", "target": "bdicred", "value": 53, "tooltip": "bdinteg → bdicred · 53 llamadas cross-DB · Top callees: ·   bdicred:sp_consulta_saldos_general (fi=435) ·   bdicred:monthadd (fi=271) ·   bdicred:genmov (fi=176)"}, {"source": "bdicobranza", "target": "bdimnsj", "value": 53, "tooltip": "bdicobranza → bdimnsj · 53 llamadas cross-DB · Top callees: ·   bdimnsj:sp_registra_evento (fi=1,404)"}, {"source": "bdispei", "target": "bdicheq", "value": 48, "tooltip": "bdispei → bdicheq · 48 llamadas cross-DB · Top callees: ·   bdicheq:cargo_ref (fi=561) ·   bdicheq:abono_ref (fi=520) ·   bdicheq:sp_cons_sdodisp_x_tpcalculo (fi=131)"}, {"source": "bdinteg", "target": "bdicheq", "value": 46, "tooltip": "bdinteg → bdicheq · 46 llamadas cross-DB · Top callees: ·   bdicheq:cargo_ref (fi=561) ·   bdicheq:reversion (fi=377) ·   bdicheq:sp_generafolionomina (fi=253)"}, {"source": "bdicheq", "target": "bdinteg", "value": 43, "tooltip": "bdicheq → bdinteg · 43 llamadas cross-DB · Top callees: ·   bdinteg:sp_cnsif_confirmaejecutivo (fi=2,400) ·   bdinteg:sp_inserta_msjafore (fi=36) ·   bdinteg:sp_limite_max (fi=15)"}, {"source": "bdicred", "target": "bdinteg", "value": 39, "tooltip": "bdicred → bdinteg · 39 llamadas cross-DB · Top callees: ·   bdinteg:sp_cnsif_confirmaejecutivo (fi=2,400) ·   bdinteg:sp_desc_ret (fi=358) ·   bdinteg:valor_divisa_pesos (fi=53)"}, {"source": "bdiaclaracion", "target": "bdimnsj", "value": 34, "tooltip": "bdiaclaracion → bdimnsj · 34 llamadas cross-DB · Top callees: ·   bdimnsj:sp_registra_evento (fi=1,404)"}, {"source": "bdisuc", "target": "bdinteg", "value": 27, "tooltip": "bdisuc → bdinteg · 27 llamadas cross-DB · Top callees: ·   bdinteg:sp_cnsif_confirmaejecutivo (fi=2,400)"}, {"source": "bdisolic", "target": "bdimnsj", "value": 23, "tooltip": "bdisolic → bdimnsj · 23 llamadas cross-DB · Top callees: ·   bdimnsj:sp_registra_evento (fi=1,404)"}, {"source": "bdiaclaracion", "target": "bdicred", "value": 21, "tooltip": "bdiaclaracion → bdicred · 21 llamadas cross-DB · Top callees: ·   bdicred:sp_consulta_saldos_general (fi=435)"}, {"source": "bdicobranza", "target": "bdicred", "value": 21, "tooltip": "bdicobranza → bdicred · 21 llamadas cross-DB · Top callees: ·   bdicred:sp_consulta_saldos_general (fi=435) ·   bdicred:monthadd (fi=271)"}, {"source": "bdisac", "target": "bdicred", "value": 21, "tooltip": "bdisac → bdicred · 21 llamadas cross-DB · Top callees: ·   bdicred:sp_consulta_saldos_general (fi=435) ·   bdicred:reversion (fi=114)"}, {"source": "bdicont", "target": "bdinteg", "value": 19, "tooltip": "bdicont → bdinteg · 19 llamadas cross-DB · Top callees: ·   bdinteg:sp_cnsif_confirmaejecutivo (fi=2,400)"}, {"source": "bdispei", "target": "bdimnsj", "value": 19, "tooltip": "bdispei → bdimnsj · 19 llamadas cross-DB · Top callees: ·   bdimnsj:sp_registra_evento (fi=1,404)"}, {"source": "bdicred", "target": "bdisolic", "value": 15, "tooltip": "bdicred → bdisolic · 15 llamadas cross-DB · Top callees: ·   bdisolic:determina_lincred_tc_cjunk (fi=208) ·   bdisolic:sp_obtienegrupo (fi=174) ·   bdisolic:sp_actualiza_statusmttobcycc (fi=9)"}, {"source": "bdinteg", "target": "bdicobranza", "value": 13, "tooltip": "bdinteg → bdicobranza · 13 llamadas cross-DB · Top callees: ·   bdicobranza:sp_inserta_bitacora_cob (fi=406)"}, {"source": "bdicheq", "target": "bdicnweb", "value": 13, "tooltip": "bdicheq → bdicnweb · 13 llamadas cross-DB · Top callees: ·   bdicnweb:sp_split_cadena (fi=857)"}, {"source": "bdisac", "target": "bdinteg", "value": 12, "tooltip": "bdisac → bdinteg · 12 llamadas cross-DB · Top callees: ·   bdinteg:sp_cnsif_confirmaejecutivo (fi=2,400) ·   bdinteg:sp_registra_telefonos (fi=82) ·   bdinteg:sp_actvalidacioncofetel (fi=16)"}, {"source": "bdisac", "target": "bdimnsj", "value": 10, "tooltip": "bdisac → bdimnsj · 10 llamadas cross-DB · Top callees: ·   bdimnsj:sp_registra_evento (fi=1,404)"}, {"source": "bdinteg", "target": "bdisac", "value": 9, "tooltip": "bdinteg → bdisac · 9 llamadas cross-DB · Top callees: ·   bdisac:sp_sac_guardamensajeerror (fi=321) ·   bdisac:sp_validanombenefbts (fi=243)"}, {"source": "bdisolic", "target": "bdinteg", "value": 7, "tooltip": "bdisolic → bdinteg · 7 llamadas cross-DB · Top callees: ·   bdinteg:sp_cnsif_confirmaejecutivo (fi=2,400) ·   bdinteg:valor_divisa_pesos (fi=53) ·   bdinteg:mesesvalidoscte (fi=16)"}, {"source": "bdisolic", "target": "bdicheq", "value": 6, "tooltip": "bdisolic → bdicheq · 6 llamadas cross-DB · Top callees: ·   bdicheq:abono_ref (fi=520) ·   bdicheq:sp_generafolionomina (fi=253) ·   bdicheq:sp_cons_sdodisp_x_tpcalculo (fi=131)"}, {"source": "bdicheq", "target": "bdicred", "value": 5, "tooltip": "bdicheq → bdicred · 5 llamadas cross-DB · Top callees: ·   bdicred:sp_consulta_saldos_general (fi=435) ·   bdicred:monthadd (fi=271) ·   bdicred:principalrefer (fi=51)"}, {"source": "bdinteg", "target": "bdicnweb", "value": 4, "tooltip": "bdinteg → bdicnweb · 4 llamadas cross-DB · Top callees: ·   bdicnweb:sp_calificacion_scoring (fi=117) ·   bdicnweb:sp_validacte_transfer (fi=66)"}, {"source": "bdisolic", "target": "bdicobranza", "value": 4, "tooltip": "bdisolic → bdicobranza · 4 llamadas cross-DB · Top callees: ·   bdicobranza:sp_inserta_bitacora_cob (fi=406)"}, {"source": "bdicheq", "target": "bdispei", "value": 3, "tooltip": "bdicheq → bdispei · 3 llamadas cross-DB · Top callees: ·   bdispei:sp_validafecha (fi=52)"}, {"source": "bdinteg", "target": "bdisolic", "value": 3, "tooltip": "bdinteg → bdisolic · 3 llamadas cross-DB · Top callees: ·   bdisolic:sp_obtienegrupo (fi=174) ·   bdisolic:sp_actualiza_status_sol (fi=100) ·   bdisolic:sp_valida_cliente_coppel (fi=28)"}, {"source": "bdispei", "target": "bdinteg", "value": 2, "tooltip": "bdispei → bdinteg · 2 llamadas cross-DB · Top callees: ·   bdinteg:sp_desc_ret (fi=358)"}, {"source": "bdicheq", "target": "bdisac", "value": 1, "tooltip": "bdicheq → bdisac · 1 llamadas cross-DB · Top callees: ·   bdisac:sp_reversionsac (fi=9)"}, {"source": "bdicheq", "target": "bdisuc", "value": 1, "tooltip": "bdicheq → bdisuc · 1 llamadas cross-DB · Top callees: ·   bdisuc:reversion (fi=12)"}];
+const ROOTS = [{"term": "cliente", "bc": "BC-7.1", "name": "Cliente", "db": "D02,D06"}, {"term": "cuenta", "bc": "BC-3.2", "name": "Cuenta", "db": "D04,D05"}, {"term": "credito", "bc": "BC-3.3", "name": "Crédito", "db": "D03,D06"}, {"term": "pago", "bc": "BC-3.4", "name": "Pago / Transacción", "db": "D05,D08"}, {"term": "tarjeta", "bc": "BC-3.5", "name": "Tarjeta", "db": "D16"}, {"term": "asiento", "bc": "BC-5.4", "name": "Asiento Contable", "db": "D12"}, {"term": "aclaracion", "bc": "BC-3.18", "name": "Aclaración", "db": "D07"}, {"term": "alerta", "bc": "BC-5.8", "name": "Alerta AML", "db": "D15"}];
+
+// ── TAXONOMY toggle ──
+document.querySelectorAll('.tx-l1-hd').forEach(hd=>{
+  const l1 = hd.parentElement;
+  hd.onclick=()=>l1.classList.toggle('collapsed');
+});
+document.querySelectorAll('.tx-l2-hd').forEach(hd=>{
+  const l2 = hd.parentElement;
+  hd.onclick=()=>{l2.classList.toggle('collapsed');};
+});
+
+// ── D3 FORCE GRAPH ──
+(function(){
+  const W=900, H=520, PR=window.devicePixelRatio||1;
+  const svg = d3.select('#domain-graph')
+    .append('svg')
+    .attr('width','100%')
+    .attr('height',H)
+    .attr('viewBox',`0 0 ${W} ${H}`)
+    .attr('preserveAspectRatio','xMidYMid meet');
+
+  const defs = svg.append('defs');
+  // arrow marker per color
+  const markers=[{id:'arr-heavy',color:'#ef4444'},{id:'arr-med',color:'#94a3b8'}];
+  markers.forEach(m=>{
+    defs.append('marker').attr('id',m.id).attr('viewBox','0 -5 10 10')
+      .attr('refX',10).attr('refY',0).attr('markerWidth',5).attr('markerHeight',5)
+      .attr('orient','auto')
+      .append('path').attr('d','M0,-5L10,0L0,5').attr('fill',m.color).attr('opacity',.7);
+  });
+
+  // Pre-build node lookup
+  const nodeById = {};
+  NODES.forEach(n=>{nodeById[n.id]=n;});
+
+  // Make links reference node objects
+  const links = EDGES.map(e=>({
+    ...e, source:nodeById[e.source]||e.source, target:nodeById[e.target]||e.target
+  }));
+
+  // ── PRE-CALCULATE LAYOUT (no tick listener, per CLAUDE.md rules) ──
+  const sim = d3.forceSimulation(NODES)
+    .force('link', d3.forceLink(links).id(d=>d.id).distance(d=>{
+      const v=d.value||1; return v>5000?80:v>1000?100:v>100?120:140;
+    }).strength(0.4))
+    .force('charge', d3.forceManyBody().strength(-700))
+    .force('center', d3.forceCenter(W/2, H/2))
+    .force('collision', d3.forceCollide().radius(d=>d.r+12))
+    .stop();
+
+  for(let i=0;i<500;++i) sim.tick();
+
+  // Clamp to viewport
+  NODES.forEach(n=>{
+    n.x = Math.max(n.r+8, Math.min(W-n.r-8, n.x));
+    n.y = Math.max(n.r+8, Math.min(H-n.r-8, n.y));
+  });
+
+  // ── RENDER EDGES ──
+  const edgeG = svg.append('g').attr('class','edges');
+  const edgeSel = edgeG.selectAll('path').data(links).enter().append('path')
+    .attr('class','edge-path')
+    .attr('d', d=>{
+      const sx=d.source.x, sy=d.source.y, tx=d.target.x, ty=d.target.y;
+      const mx=(sx+tx)/2, my=(sy+ty)/2;
+      const dx=tx-sx, dy=ty-sy;
+      const perp = Math.sqrt(dx*dx+dy*dy);
+      const cx=mx - dy*0.15, cy=my + dx*0.15;
+      return `M${sx},${sy} Q${cx},${cy} ${tx},${ty}`;
+    })
+    .attr('stroke', d=>{
+      const v=d.value||1;
+      return v>5000?'#dc2626':v>1000?'#ef4444':v>200?'#f97316':'#94a3b8';
+    })
+    .attr('stroke-width', d=>Math.max(1, Math.min(8, 0.7+Math.log10(d.value||1)*1.5)))
+    .attr('marker-end', d=>d.value>200?'url(#arr-heavy)':'url(#arr-med)');
+
+  // ── RENDER NODES ──
+  const nodeG = svg.append('g').attr('class','nodes');
+  const nodeSel = nodeG.selectAll('g').data(NODES).enter().append('g')
+    .attr('class',d=>`node node-${d.id}`)
+    .attr('transform',d=>`translate(${d.x},${d.y})`)
+    .attr('cursor','grab');
+
+  nodeSel.append('circle')
+    .attr('r',d=>d.r)
+    .attr('fill',d=>d.color)
+    .attr('stroke','rgba(255,255,255,.3)')
+    .attr('stroke-width',2);
+
+  // risk ring
+  nodeSel.append('circle')
+    .attr('r',d=>d.r+3)
+    .attr('fill','none')
+    .attr('stroke',d=>{
+      const rc={BAJO:'#22c55e',MEDIO:'#f59e0b',ALTO:'#ef4444',CRÍTICO:'#dc2626'};
+      return rc[d.risk]||'transparent';
+    })
+    .attr('stroke-width',d=>d.risk==='CRÍTICO'?2.5:1.5)
+    .attr('stroke-dasharray',d=>d.risk==='CRÍTICO'?'none':'4,3')
+    .attr('opacity',.7);
+
+  nodeSel.append('text').attr('class','node-label').attr('y',-3).text(d=>d.label);
+  nodeSel.append('text').attr('class','node-sub').attr('y',9)
+    .text(d=>{const tot=d.total_in+d.total_out;return tot>1000?(tot/1000).toFixed(1)+'k':tot;});
+
+  // ── TOOLTIP ──
+  const tip = document.getElementById('graph-tooltip');
+  nodeSel.on('mouseenter',(ev,d)=>{
+    tip.style.display='block';
+    tip.innerHTML=`<b>${d.label} — ${d.name}</b><br>Wave: ${d.wave} · Riesgo: ${d.risk}<br>BC target: ${d.bc}<br>Llamadas entrantes: ${d.total_in.toLocaleString()}<br>Llamadas salientes: ${d.total_out.toLocaleString()}`;
+  }).on('mousemove',ev=>{
+    tip.style.left=(ev.clientX+14)+'px'; tip.style.top=(ev.clientY-10)+'px';
+  }).on('mouseleave',()=>{ tip.style.display='none'; });
+
+  edgeSel.on('mouseenter',(ev,d)=>{
+    tip.style.display='block';
+    tip.innerHTML=d.tooltip;
+  }).on('mousemove',ev=>{
+    tip.style.left=(ev.clientX+14)+'px'; tip.style.top=(ev.clientY-10)+'px';
+  }).on('mouseleave',()=>{ tip.style.display='none'; });
+
+  // ── DRAG (sin reiniciar simulación) ──
+  nodeSel.call(d3.drag()
+    .on('start',function(ev,d){ d3.select(this).raise().attr('cursor','grabbing'); })
+    .on('drag',function(ev,d){
+      d.x += ev.dx; d.y += ev.dy;
+      d3.select(this).attr('transform',`translate(${d.x},${d.y})`);
+      edgeSel.filter(l=>l.source.id===d.id||l.target.id===d.id)
+        .attr('d', l=>{
+          const sx=l.source.x, sy=l.source.y, tx=l.target.x, ty=l.target.y;
+          const mx=(sx+tx)/2, my=(sy+ty)/2;
+          const dx2=tx-sx, dy2=ty-sy;
+          const cx=mx - dy2*0.15, cy=my + dx2*0.15;
+          return `M${sx},${sy} Q${cx},${cy} ${tx},${ty}`;
+        });
+    })
+    .on('end',function(){ d3.select(this).attr('cursor','grab'); })
+  );
+})();
+
+// ── KB DOCUMENT GRAPH ──
+(function(){
+  const KBNODES = [{"id": "sd-rules", "label": "business-rules-bcop", "type": "synthesis", "desc": "7,795 reglas de negocio", "color": "#8b3a8b", "r": 25.641305768684198, "size_kb": 28, "universal": true}, {"id": "sd-journeys", "label": "journeys-catalog", "type": "synthesis", "desc": "131 journeys de negocio", "color": "#2e6b48", "r": 27.56171080653175, "size_kb": 38, "universal": true}, {"id": "sd-almas", "label": "CAPA-2-mapa-almas", "type": "synthesis", "desc": "15 almas / módulos", "color": "#122FB1", "r": 24.08166652890285, "size_kb": 21, "universal": false}, {"id": "sd-risks", "label": "migration-risk-register", "type": "synthesis", "desc": "44 riesgos de migración", "color": "#dc2626", "r": 23.589577675789485, "size_kb": 19, "universal": false}, {"id": "sd-dep-matrix", "label": "domain-dependency-matrix", "type": "synthesis", "desc": "Matriz call graph cross-DB", "color": "#B71C1C", "r": 20.6, "size_kb": 9, "universal": false}, {"id": "sd-reg-val", "label": "regulatory-validation", "type": "synthesis", "desc": "Paquetes HITL regulatorio", "color": "#d4a800", "r": 26.44507934888324, "size_kb": 32, "universal": false}, {"id": "sd-latency", "label": "latency-baseline", "type": "synthesis", "desc": "Baseline latencia producción", "color": "#555", "r": 20, "size_kb": 7, "universal": false}, {"id": "sd-audit", "label": "vocab-audit", "type": "synthesis", "desc": "Auditoría falsos positivos", "color": "#556080", "r": 20.957010852370438, "size_kb": 10, "universal": false}, {"id": "sd-banking", "label": "banking-operating-model", "type": "synthesis", "desc": "Modelo operativo BIAN", "color": "#37474F", "r": 20.957010852370438, "size_kb": 10, "universal": true}, {"id": "sd-orch", "label": "orchestrators-complexity", "type": "synthesis", "desc": "Orquestadores — deuda técnica", "color": "#827717", "r": 20, "size_kb": 6, "universal": false}, {"id": "xr-sp-rules", "label": "sp-rules-vocab-map", "type": "crossref", "desc": "Top 100 SPs × reglas × vocab", "color": "#0277BD", "r": 33.30492165226267, "size_kb": 77, "universal": false}, {"id": "xr-vocab-sp", "label": "vocab-sp-coverage", "type": "crossref", "desc": "Vocabulario → cobertura SPs", "color": "#0277BD", "r": 31.736967046256808, "size_kb": 65, "universal": true}, {"id": "xr-reg", "label": "regulatory-sp-index", "type": "crossref", "desc": "Índice regulatorio CNBV/SAT/Banxico", "color": "#0277BD", "r": 42.25951167306329, "size_kb": 165, "universal": false}, {"id": "xr-dep-map", "label": "component-dep-map", "type": "crossref", "desc": "Mapa dependencias de componentes", "color": "#0277BD", "r": 27.914021704740872, "size_kb": 40, "universal": true}, {"id": "vc-inv", "label": "vocabulary-inventory", "type": "vocabulary", "desc": "Inventario 787 términos", "color": "#d4a800", "r": 31.4619586530263, "size_kb": 63, "universal": true}, {"id": "vc-kb", "label": "vocabulary-knowledge-base", "type": "vocabulary", "desc": "Base conocimiento léxico", "color": "#d4a800", "r": 25.641305768684198, "size_kb": 28, "universal": false}, {"id": "rl-cat", "label": "rules/business-rules", "type": "rules", "desc": "Catálogo formal v2.2", "color": "#dc2626", "r": 26.049896265113656, "size_kb": 30, "universal": true}, {"id": "D01", "label": "D01", "type": "domain", "desc": "bdicnweb · 1058 SPs · 1339 reglas", "color": "#A100FF", "r": 16, "wave": "ÚLTIMO", "sps": 1058, "rules": 1339, "universal": false}, {"id": "D02", "label": "D02", "type": "domain", "desc": "bdinteg · 396 SPs · 723 reglas", "color": "#6A00B3", "r": 16, "wave": "Wave 5", "sps": 396, "rules": 723, "universal": false}, {"id": "D03", "label": "D03", "type": "domain", "desc": "bdicred · 522 SPs · 1743 reglas", "color": "#0277BD", "r": 16, "wave": "Wave 4", "sps": 522, "rules": 1743, "universal": false}, {"id": "D04", "label": "D04", "type": "domain", "desc": "bdicheq · 658 SPs · 1344 reglas", "color": "#0277BD", "r": 16, "wave": "Wave 4", "sps": 658, "rules": 1344, "universal": false}, {"id": "D05", "label": "D05", "type": "domain", "desc": "bdisac · 99 SPs · 208 reglas", "color": "#2E7D32", "r": 16, "wave": "Wave 3", "sps": 99, "rules": 208, "universal": false}, {"id": "D06", "label": "D06", "type": "domain", "desc": "bdisolic · 96 SPs · 251 reglas", "color": "#2E7D32", "r": 16, "wave": "Wave 3", "sps": 96, "rules": 251, "universal": false}, {"id": "D07", "label": "D07", "type": "domain", "desc": "bdiaclaracion · 41 SPs · 217 reglas", "color": "#B71C1C", "r": 16, "wave": "Wave 2", "sps": 41, "rules": 217, "universal": false}, {"id": "D08", "label": "D08", "type": "domain", "desc": "bdispei · 53 SPs · 117 reglas", "color": "#B71C1C", "r": 16, "wave": "Wave 2", "sps": 53, "rules": 117, "universal": false}, {"id": "D09", "label": "D09", "type": "domain", "desc": "bdimnsj · 19 SPs · 22 reglas", "color": "#F57F17", "r": 16, "wave": "Wave 1", "sps": 19, "rules": 22, "universal": false}, {"id": "D10", "label": "D10", "type": "domain", "desc": "bdisuc · 31 SPs · 62 reglas", "color": "#2E7D32", "r": 16, "wave": "Wave 3", "sps": 31, "rules": 62, "universal": false}, {"id": "D11", "label": "D11", "type": "domain", "desc": "bdicobranza · 75 SPs · 209 reglas", "color": "#B71C1C", "r": 16, "wave": "Wave 2", "sps": 75, "rules": 209, "universal": false}, {"id": "D12", "label": "D12", "type": "domain", "desc": "bdicont · 51 SPs · 87 reglas", "color": "#0277BD", "r": 16, "wave": "Wave 4", "sps": 51, "rules": 87, "universal": false}, {"id": "D13", "label": "D13", "type": "domain", "desc": "bditef · 38 SPs · 75 reglas", "color": "#aaa", "r": 16, "wave": "—", "sps": 38, "rules": 75, "universal": false}, {"id": "D14", "label": "D14", "type": "domain", "desc": "bdibei · 34 SPs · 90 reglas", "color": "#aaa", "r": 16, "wave": "—", "sps": 34, "rules": 90, "universal": false}, {"id": "D15", "label": "D15", "type": "domain", "desc": "bdilide · 21 SPs · 44 reglas", "color": "#aaa", "r": 16, "wave": "—", "sps": 21, "rules": 44, "universal": false}, {"id": "D16", "label": "D16", "type": "domain", "desc": "intercard · 113 SPs · 324 reglas", "color": "#aaa", "r": 16, "wave": "—", "sps": 113, "rules": 324, "universal": false}, {"id": "D17-49", "label": "D17–D49", "type": "stub", "desc": "33 dominios pendientes de análisis (solo 00-index.md)", "color": "#aab", "r": 24, "universal": false}];
+  const KBEDGES = [{"source": "sd-rules", "target": "D17-49", "kind": "universal", "dashed": true}, {"source": "sd-rules", "target": "D01", "kind": "universal", "dashed": true}, {"source": "sd-rules", "target": "D02", "kind": "universal", "dashed": true}, {"source": "sd-rules", "target": "D03", "kind": "universal", "dashed": true}, {"source": "sd-rules", "target": "D04", "kind": "universal", "dashed": true}, {"source": "sd-rules", "target": "D05", "kind": "universal", "dashed": true}, {"source": "sd-rules", "target": "D06", "kind": "universal", "dashed": true}, {"source": "sd-rules", "target": "D07", "kind": "universal", "dashed": true}, {"source": "sd-rules", "target": "D08", "kind": "universal", "dashed": true}, {"source": "sd-rules", "target": "D09", "kind": "universal", "dashed": true}, {"source": "sd-rules", "target": "D10", "kind": "universal", "dashed": true}, {"source": "sd-rules", "target": "D11", "kind": "universal", "dashed": true}, {"source": "sd-rules", "target": "D12", "kind": "universal", "dashed": true}, {"source": "sd-rules", "target": "D13", "kind": "universal", "dashed": true}, {"source": "sd-rules", "target": "D14", "kind": "universal", "dashed": true}, {"source": "sd-rules", "target": "D15", "kind": "universal", "dashed": true}, {"source": "sd-rules", "target": "D16", "kind": "universal", "dashed": true}, {"source": "sd-journeys", "target": "D17-49", "kind": "universal", "dashed": true}, {"source": "sd-journeys", "target": "D01", "kind": "universal", "dashed": true}, {"source": "sd-journeys", "target": "D02", "kind": "universal", "dashed": true}, {"source": "sd-journeys", "target": "D03", "kind": "universal", "dashed": true}, {"source": "sd-journeys", "target": "D04", "kind": "universal", "dashed": true}, {"source": "sd-journeys", "target": "D05", "kind": "universal", "dashed": true}, {"source": "sd-journeys", "target": "D06", "kind": "universal", "dashed": true}, {"source": "sd-journeys", "target": "D07", "kind": "universal", "dashed": true}, {"source": "sd-journeys", "target": "D08", "kind": "universal", "dashed": true}, {"source": "sd-journeys", "target": "D09", "kind": "universal", "dashed": true}, {"source": "sd-journeys", "target": "D10", "kind": "universal", "dashed": true}, {"source": "sd-journeys", "target": "D11", "kind": "universal", "dashed": true}, {"source": "sd-journeys", "target": "D12", "kind": "universal", "dashed": true}, {"source": "sd-journeys", "target": "D13", "kind": "universal", "dashed": true}, {"source": "sd-journeys", "target": "D14", "kind": "universal", "dashed": true}, {"source": "sd-journeys", "target": "D15", "kind": "universal", "dashed": true}, {"source": "sd-journeys", "target": "D16", "kind": "universal", "dashed": true}, {"source": "sd-almas", "target": "D01", "kind": "covers", "dashed": false}, {"source": "sd-almas", "target": "D02", "kind": "covers", "dashed": false}, {"source": "sd-almas", "target": "D03", "kind": "covers", "dashed": false}, {"source": "sd-almas", "target": "D04", "kind": "covers", "dashed": false}, {"source": "sd-almas", "target": "D05", "kind": "covers", "dashed": false}, {"source": "sd-almas", "target": "D06", "kind": "covers", "dashed": false}, {"source": "sd-almas", "target": "D07", "kind": "covers", "dashed": false}, {"source": "sd-almas", "target": "D08", "kind": "covers", "dashed": false}, {"source": "sd-almas", "target": "D09", "kind": "covers", "dashed": false}, {"source": "sd-almas", "target": "D10", "kind": "covers", "dashed": false}, {"source": "sd-almas", "target": "D11", "kind": "covers", "dashed": false}, {"source": "sd-almas", "target": "D12", "kind": "covers", "dashed": false}, {"source": "sd-risks", "target": "D01", "kind": "covers", "dashed": false}, {"source": "sd-risks", "target": "D02", "kind": "covers", "dashed": false}, {"source": "sd-risks", "target": "D03", "kind": "covers", "dashed": false}, {"source": "sd-risks", "target": "D04", "kind": "covers", "dashed": false}, {"source": "sd-risks", "target": "D05", "kind": "covers", "dashed": false}, {"source": "sd-dep-matrix", "target": "D01", "kind": "covers", "dashed": false}, {"source": "sd-dep-matrix", "target": "D02", "kind": "covers", "dashed": false}, {"source": "sd-dep-matrix", "target": "D03", "kind": "covers", "dashed": false}, {"source": "sd-dep-matrix", "target": "D04", "kind": "covers", "dashed": false}, {"source": "sd-dep-matrix", "target": "D05", "kind": "covers", "dashed": false}, {"source": "sd-dep-matrix", "target": "D06", "kind": "covers", "dashed": false}, {"source": "sd-dep-matrix", "target": "D07", "kind": "covers", "dashed": false}, {"source": "sd-dep-matrix", "target": "D08", "kind": "covers", "dashed": false}, {"source": "sd-dep-matrix", "target": "D09", "kind": "covers", "dashed": false}, {"source": "sd-dep-matrix", "target": "D10", "kind": "covers", "dashed": false}, {"source": "sd-dep-matrix", "target": "D11", "kind": "covers", "dashed": false}, {"source": "sd-dep-matrix", "target": "D12", "kind": "covers", "dashed": false}, {"source": "sd-reg-val", "target": "D02", "kind": "covers", "dashed": false}, {"source": "sd-reg-val", "target": "D03", "kind": "covers", "dashed": false}, {"source": "sd-reg-val", "target": "D04", "kind": "covers", "dashed": false}, {"source": "sd-reg-val", "target": "D08", "kind": "covers", "dashed": false}, {"source": "sd-reg-val", "target": "D12", "kind": "covers", "dashed": false}, {"source": "sd-reg-val", "target": "D15", "kind": "covers", "dashed": false}, {"source": "sd-latency", "target": "D01", "kind": "covers", "dashed": false}, {"source": "sd-latency", "target": "D02", "kind": "covers", "dashed": false}, {"source": "sd-latency", "target": "D03", "kind": "covers", "dashed": false}, {"source": "sd-latency", "target": "D04", "kind": "covers", "dashed": false}, {"source": "sd-audit", "target": "D01", "kind": "covers", "dashed": false}, {"source": "sd-audit", "target": "D02", "kind": "covers", "dashed": false}, {"source": "sd-audit", "target": "D03", "kind": "covers", "dashed": false}, {"source": "sd-audit", "target": "D04", "kind": "covers", "dashed": false}, {"source": "sd-audit", "target": "D05", "kind": "covers", "dashed": false}, {"source": "sd-audit", "target": "D06", "kind": "covers", "dashed": false}, {"source": "sd-banking", "target": "D17-49", "kind": "universal", "dashed": true}, {"source": "sd-banking", "target": "D01", "kind": "universal", "dashed": true}, {"source": "sd-banking", "target": "D02", "kind": "universal", "dashed": true}, {"source": "sd-banking", "target": "D03", "kind": "universal", "dashed": true}, {"source": "sd-banking", "target": "D04", "kind": "universal", "dashed": true}, {"source": "sd-banking", "target": "D05", "kind": "universal", "dashed": true}, {"source": "sd-banking", "target": "D06", "kind": "universal", "dashed": true}, {"source": "sd-banking", "target": "D07", "kind": "universal", "dashed": true}, {"source": "sd-banking", "target": "D08", "kind": "universal", "dashed": true}, {"source": "sd-banking", "target": "D09", "kind": "universal", "dashed": true}, {"source": "sd-banking", "target": "D10", "kind": "universal", "dashed": true}, {"source": "sd-banking", "target": "D11", "kind": "universal", "dashed": true}, {"source": "sd-banking", "target": "D12", "kind": "universal", "dashed": true}, {"source": "sd-banking", "target": "D13", "kind": "universal", "dashed": true}, {"source": "sd-banking", "target": "D14", "kind": "universal", "dashed": true}, {"source": "sd-banking", "target": "D15", "kind": "universal", "dashed": true}, {"source": "sd-banking", "target": "D16", "kind": "universal", "dashed": true}, {"source": "sd-orch", "target": "D01", "kind": "covers", "dashed": false}, {"source": "sd-orch", "target": "D02", "kind": "covers", "dashed": false}, {"source": "sd-orch", "target": "D03", "kind": "covers", "dashed": false}, {"source": "xr-sp-rules", "target": "D01", "kind": "covers", "dashed": false}, {"source": "xr-sp-rules", "target": "D02", "kind": "covers", "dashed": false}, {"source": "xr-sp-rules", "target": "D03", "kind": "covers", "dashed": false}, {"source": "xr-sp-rules", "target": "D04", "kind": "covers", "dashed": false}, {"source": "xr-sp-rules", "target": "D05", "kind": "covers", "dashed": false}, {"source": "xr-sp-rules", "target": "D06", "kind": "covers", "dashed": false}, {"source": "xr-vocab-sp", "target": "D17-49", "kind": "universal", "dashed": true}, {"source": "xr-vocab-sp", "target": "D01", "kind": "universal", "dashed": true}, {"source": "xr-vocab-sp", "target": "D02", "kind": "universal", "dashed": true}, {"source": "xr-vocab-sp", "target": "D03", "kind": "universal", "dashed": true}, {"source": "xr-vocab-sp", "target": "D04", "kind": "universal", "dashed": true}, {"source": "xr-vocab-sp", "target": "D05", "kind": "universal", "dashed": true}, {"source": "xr-vocab-sp", "target": "D06", "kind": "universal", "dashed": true}, {"source": "xr-vocab-sp", "target": "D07", "kind": "universal", "dashed": true}, {"source": "xr-vocab-sp", "target": "D08", "kind": "universal", "dashed": true}, {"source": "xr-vocab-sp", "target": "D09", "kind": "universal", "dashed": true}, {"source": "xr-vocab-sp", "target": "D10", "kind": "universal", "dashed": true}, {"source": "xr-vocab-sp", "target": "D11", "kind": "universal", "dashed": true}, {"source": "xr-vocab-sp", "target": "D12", "kind": "universal", "dashed": true}, {"source": "xr-vocab-sp", "target": "D13", "kind": "universal", "dashed": true}, {"source": "xr-vocab-sp", "target": "D14", "kind": "universal", "dashed": true}, {"source": "xr-vocab-sp", "target": "D15", "kind": "universal", "dashed": true}, {"source": "xr-vocab-sp", "target": "D16", "kind": "universal", "dashed": true}, {"source": "xr-reg", "target": "D02", "kind": "covers", "dashed": false}, {"source": "xr-reg", "target": "D03", "kind": "covers", "dashed": false}, {"source": "xr-reg", "target": "D04", "kind": "covers", "dashed": false}, {"source": "xr-reg", "target": "D08", "kind": "covers", "dashed": false}, {"source": "xr-reg", "target": "D12", "kind": "covers", "dashed": false}, {"source": "xr-reg", "target": "D15", "kind": "covers", "dashed": false}, {"source": "xr-dep-map", "target": "D17-49", "kind": "universal", "dashed": true}, {"source": "xr-dep-map", "target": "D01", "kind": "universal", "dashed": true}, {"source": "xr-dep-map", "target": "D02", "kind": "universal", "dashed": true}, {"source": "xr-dep-map", "target": "D03", "kind": "universal", "dashed": true}, {"source": "xr-dep-map", "target": "D04", "kind": "universal", "dashed": true}, {"source": "xr-dep-map", "target": "D05", "kind": "universal", "dashed": true}, {"source": "xr-dep-map", "target": "D06", "kind": "universal", "dashed": true}, {"source": "xr-dep-map", "target": "D07", "kind": "universal", "dashed": true}, {"source": "xr-dep-map", "target": "D08", "kind": "universal", "dashed": true}, {"source": "xr-dep-map", "target": "D09", "kind": "universal", "dashed": true}, {"source": "xr-dep-map", "target": "D10", "kind": "universal", "dashed": true}, {"source": "xr-dep-map", "target": "D11", "kind": "universal", "dashed": true}, {"source": "xr-dep-map", "target": "D12", "kind": "universal", "dashed": true}, {"source": "xr-dep-map", "target": "D13", "kind": "universal", "dashed": true}, {"source": "xr-dep-map", "target": "D14", "kind": "universal", "dashed": true}, {"source": "xr-dep-map", "target": "D15", "kind": "universal", "dashed": true}, {"source": "xr-dep-map", "target": "D16", "kind": "universal", "dashed": true}, {"source": "vc-inv", "target": "D17-49", "kind": "universal", "dashed": true}, {"source": "vc-inv", "target": "D01", "kind": "universal", "dashed": true}, {"source": "vc-inv", "target": "D02", "kind": "universal", "dashed": true}, {"source": "vc-inv", "target": "D03", "kind": "universal", "dashed": true}, {"source": "vc-inv", "target": "D04", "kind": "universal", "dashed": true}, {"source": "vc-inv", "target": "D05", "kind": "universal", "dashed": true}, {"source": "vc-inv", "target": "D06", "kind": "universal", "dashed": true}, {"source": "vc-inv", "target": "D07", "kind": "universal", "dashed": true}, {"source": "vc-inv", "target": "D08", "kind": "universal", "dashed": true}, {"source": "vc-inv", "target": "D09", "kind": "universal", "dashed": true}, {"source": "vc-inv", "target": "D10", "kind": "universal", "dashed": true}, {"source": "vc-inv", "target": "D11", "kind": "universal", "dashed": true}, {"source": "vc-inv", "target": "D12", "kind": "universal", "dashed": true}, {"source": "vc-inv", "target": "D13", "kind": "universal", "dashed": true}, {"source": "vc-inv", "target": "D14", "kind": "universal", "dashed": true}, {"source": "vc-inv", "target": "D15", "kind": "universal", "dashed": true}, {"source": "vc-inv", "target": "D16", "kind": "universal", "dashed": true}, {"source": "vc-kb", "target": "D01", "kind": "covers", "dashed": false}, {"source": "vc-kb", "target": "D02", "kind": "covers", "dashed": false}, {"source": "vc-kb", "target": "D03", "kind": "covers", "dashed": false}, {"source": "vc-kb", "target": "D04", "kind": "covers", "dashed": false}, {"source": "vc-kb", "target": "D05", "kind": "covers", "dashed": false}, {"source": "vc-kb", "target": "D06", "kind": "covers", "dashed": false}, {"source": "rl-cat", "target": "D17-49", "kind": "universal", "dashed": true}, {"source": "rl-cat", "target": "D01", "kind": "universal", "dashed": true}, {"source": "rl-cat", "target": "D02", "kind": "universal", "dashed": true}, {"source": "rl-cat", "target": "D03", "kind": "universal", "dashed": true}, {"source": "rl-cat", "target": "D04", "kind": "universal", "dashed": true}, {"source": "rl-cat", "target": "D05", "kind": "universal", "dashed": true}, {"source": "rl-cat", "target": "D06", "kind": "universal", "dashed": true}, {"source": "rl-cat", "target": "D07", "kind": "universal", "dashed": true}, {"source": "rl-cat", "target": "D08", "kind": "universal", "dashed": true}, {"source": "rl-cat", "target": "D09", "kind": "universal", "dashed": true}, {"source": "rl-cat", "target": "D10", "kind": "universal", "dashed": true}, {"source": "rl-cat", "target": "D11", "kind": "universal", "dashed": true}, {"source": "rl-cat", "target": "D12", "kind": "universal", "dashed": true}, {"source": "rl-cat", "target": "D13", "kind": "universal", "dashed": true}, {"source": "rl-cat", "target": "D14", "kind": "universal", "dashed": true}, {"source": "rl-cat", "target": "D15", "kind": "universal", "dashed": true}, {"source": "rl-cat", "target": "D16", "kind": "universal", "dashed": true}];
+
+  const W=960, H=580;
+  const svg = d3.select('#kb-doc-graph')
+    .append('svg')
+    .attr('width','100%')
+    .attr('height',H)
+    .attr('viewBox',`0 0 ${W} ${H}`)
+    .attr('preserveAspectRatio','xMidYMid meet');
+
+  const defs2 = svg.append('defs');
+  defs2.append('marker').attr('id','kb-arr').attr('viewBox','0 -4 8 8')
+    .attr('refX',8).attr('refY',0).attr('markerWidth',5).attr('markerHeight',5)
+    .attr('orient','auto')
+    .append('path').attr('d','M0,-4L8,0L0,4').attr('fill','#aaa').attr('opacity',.6);
+
+  const kbNodeById = {};
+  KBNODES.forEach(n=>{ kbNodeById[n.id]=n; });
+
+  const kbLinks = KBEDGES.map(e=>({
+    ...e,
+    source: kbNodeById[e.source]||e.source,
+    target: kbNodeById[e.target]||e.target
+  }));
+
+  // ── PRE-CALCULATE LAYOUT (no tick listener) ──
+  const DOC_TYPES = ['synthesis','crossref','vocabulary','rules'];
+  const sim2 = d3.forceSimulation(KBNODES)
+    .force('link', d3.forceLink(kbLinks).id(d=>d.id).distance(d=>d.dashed?110:70).strength(0.25))
+    .force('charge', d3.forceManyBody().strength(d=>DOC_TYPES.includes(d.type)?-350:-200))
+    .force('center', d3.forceCenter(W/2, H/2))
+    .force('collision', d3.forceCollide().radius(d=>d.r+8))
+    .force('x', d3.forceX().x(d=>{
+      if(DOC_TYPES.includes(d.type)) return W*0.25;
+      if(d.type==='stub') return W*0.82;
+      return W*0.68;
+    }).strength(0.12))
+    .stop();
+
+  for(let i=0;i<500;++i) sim2.tick();
+
+  KBNODES.forEach(n=>{
+    n.x = Math.max(n.r+4, Math.min(W-n.r-4, n.x));
+    n.y = Math.max(n.r+4, Math.min(H-n.r-4, n.y));
+  });
+
+  // ── EDGES ──
+  const kbEdgeSel = svg.append('g').selectAll('line').data(kbLinks).enter()
+    .append('line')
+    .attr('x1',d=>d.source.x).attr('y1',d=>d.source.y)
+    .attr('x2',d=>d.target.x).attr('y2',d=>d.target.y)
+    .attr('stroke',d=>d.dashed?'#c0c8e8':'#94a3b8')
+    .attr('stroke-width',d=>d.dashed?1:1.2)
+    .attr('stroke-dasharray',d=>d.dashed?'5,3':'none')
+    .attr('stroke-opacity',d=>d.dashed?.5:.7)
+    .attr('marker-end','url(#kb-arr)');
+
+  // ── NODES ──
+  const kbNodeSel = svg.append('g').selectAll('g').data(KBNODES).enter()
+    .append('g')
+    .attr('transform',d=>`translate(${d.x},${d.y})`)
+    .attr('cursor','grab');
+
+  kbNodeSel.append('circle')
+    .attr('r',d=>d.r)
+    .attr('fill',d=>d.color)
+    .attr('stroke','rgba(255,255,255,.35)').attr('stroke-width',1.5)
+    .attr('opacity',d=>d.type==='stub'?.55:1);
+
+  // icon by type
+  const typeIcon = {synthesis:'◆',crossref:'⬡',vocabulary:'◉',rules:'▲',domain:'●',stub:'○'};
+  kbNodeSel.append('text').attr('class','kb-doc-label').attr('y',d=>d.r>20?-4:-2)
+    .text(d=>{
+      if(d.type==='domain'||d.type==='stub') return d.label;
+      const w=d.label.replace('vocabulary-','vocab-').replace('business-','biz-')
+               .replace('migration-risk','mig-risk').replace('-bcop','');
+      return w.length>14?w.slice(0,13)+'…':w;
+    });
+  kbNodeSel.filter(d=>d.r>20).append('text').attr('class','kb-doc-sub').attr('y',8)
+    .text(d=>{
+      if(d.type==='domain') return `${d.sps}SPs`;
+      return `${d.size_kb}KB`;
+    });
+
+  // ── TOOLTIP ──
+  const tip2 = document.getElementById('graph-tooltip');
+  kbNodeSel.on('mouseenter',(ev,d)=>{
+    tip2.style.display='block';
+    const typeLabel = {synthesis:'Síntesis KB',crossref:'Cross-Reference',vocabulary:'Vocabulario',
+                       rules:'Reglas Formales',domain:'Dominio Informix',stub:'Stubs pendientes'}[d.type]||d.type;
+    tip2.innerHTML=`<b>${d.label}</b><br>Tipo: ${typeLabel}<br>${d.desc}${d.size_kb?'<br>Tamaño: '+d.size_kb+'KB':''}`;
+  }).on('mousemove',ev=>{
+    tip2.style.left=(ev.clientX+14)+'px'; tip2.style.top=(ev.clientY-10)+'px';
+  }).on('mouseleave',()=>{ tip2.style.display='none'; });
+
+  // ── DRAG ──
+  kbNodeSel.call(d3.drag()
+    .on('start',function(ev,d){ d3.select(this).raise().attr('cursor','grabbing'); })
+    .on('drag',function(ev,d){
+      d.x += ev.dx; d.y += ev.dy;
+      d3.select(this).attr('transform',`translate(${d.x},${d.y})`);
+      kbEdgeSel.filter(l=>l.source.id===d.id||l.target.id===d.id)
+        .attr('x1',l=>l.source.x).attr('y1',l=>l.source.y)
+        .attr('x2',l=>l.target.x).attr('y2',l=>l.target.y);
+    })
+    .on('end',function(){ d3.select(this).attr('cursor','grab'); })
+  );
+})();
+</script>
+</body>
+</html>

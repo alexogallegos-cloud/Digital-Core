@@ -52,6 +52,6 @@ SPs orquestadores ordenados por **complejidad de orquestación** = `invocaciones
 
 ## Anti-patrón detectado
 
-- **`[DT-IFX]` Mega-orquestador con anidamiento profundo:** un SP con profundidad de control ≥ 5 y decenas de invocaciones condicionales es equivalente al DT-002 (P010) de Banamex S500 — reescribirlo 1:1 arrastra la complejidad; refactorizar por rama de negocio reduce el riesgo de equivalencia.
+- **`[DT-IFX]` Mega-orquestador con anidamiento profundo:** un SP con profundidad de control ≥ 5 y decenas de invocaciones condicionales es un mega-orquestador de alto riesgo — reescribirlo 1:1 arrastra la complejidad; refactorizar por rama de negocio reduce el riesgo de equivalencia.
 
 *Generado por Specialist — Informix SPL Analysis · Etapa 3 · fuente: source/ + extract-flow.py*

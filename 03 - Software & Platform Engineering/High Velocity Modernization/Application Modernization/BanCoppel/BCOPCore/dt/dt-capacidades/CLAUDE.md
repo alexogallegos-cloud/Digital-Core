@@ -1,8 +1,8 @@
 # DT-Capacidades — Digital Twin · BCOPCore
 > **Artefacto propietario**: Mapa de capacidades ETB v5.0 — cobertura BCOPCore
 > **Proyecto**: BanCoppel BCOPCore · SPE-AM-001
-> **Versión**: 1.0.0
-> **Vigencia**: Activo desde 2026-07-31
+> **Versión**: 1.1.0
+> **Vigencia**: Activo desde 2026-07-31 · Actualizado: 2026-08-03
 
 ---
 
@@ -50,4 +50,17 @@ Las Capacidades son el puente entre el Gemelo Cognitivo y la arquitectura target
 
 ---
 
-*v1.0.0 · 2026-07-31 · BCOPCore project DT*
+## SMOKE TESTS (Capa 2 — DT-Validador los invoca)
+
+Al ejecutar estos smoke tests, reportar con formato `| ID | Descripción | Resultado | Detalle |`.
+
+| ID | Descripción | Severidad si falla |
+|----|-------------|--------------------|
+| C-01 | `knowledge-base/ontology/etb-capabilities.json` existe y es JSON válido | ERROR |
+| C-02 | El conteo de capacidades L3 en `etb-capabilities.json` es consistente con el declarado en este CLAUDE.md (261 capacidades L3) — tolerancia ±5 para actualizaciones menores del ETB | WARN |
+| C-03 | `digital-brain/brain.db` existe — es la fuente de coverage COVERED/NOT_COVERED/CROSS_CUTTING | ERROR |
+| C-04 | Las tablas `etb_l1`, `etb_l2`, `etb_l3`, `domain_capabilities` existen en `brain.db` (verificar con `sqlite3 brain.db ".tables"`) | WARN |
+
+---
+
+*v1.1.0 · 2026-08-03 · BCOPCore project DT — DISCOVER · Mapa ETB v5.0 sobre D01-D16; D17-D49 expandirán la cobertura conforme se analicen*

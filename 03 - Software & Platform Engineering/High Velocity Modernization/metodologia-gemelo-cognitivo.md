@@ -1,31 +1,9 @@
 # Gemelo Cognitivo del Sistema
-### *Cognitive Digital Twin* — método HVM-wide de comprensión de legacy para modernización
+### *Cognitive Digital Twin* — metodología de comprensión de legacy para modernización
 
-> **Qué es:** un método para destilar la inteligencia acumulada de un sistema legacy —su lenguaje, sus autores y su evolución— en un **modelo vivo y consultable** que sobrevive al sistema original y guía su modernización.
+> **Qué es:** una metodología para destilar la inteligencia acumulada de un sistema legacy —su lenguaje, sus autores y su evolución— en un **modelo vivo y consultable** que sobrevive al sistema original y guía su modernización.
 >
-> **Alcance:** activo **HVM-wide**, reutilizable por **Application Modernization** (Informix, Oracle Forms, SQL Server) y **Mainframe Modernization** (COBOL, ALGOL, PL/I). Independiente de la tecnología: *lo que se destila es constante; de dónde se extrae cambia por tecnología*.
->
-> **Nivel:** ★ Digital Core · S&PE · HVM (L3) · aplica en fase **DISCOVER**, se proyecta a todo el SDLC.
-
----
-
-## 0 · Principio de reutilización — *método vs. mecánica*
-
-La confusión más costosa es tratar cada engagement de legacy como si fuera nuevo. No lo es. El **90% del valor es el método** (qué destilar, por qué, con qué honestidad) y es idéntico para un core Informix, un mainframe COBOL o un Oracle Forms. Solo el **10% —la mecánica de extracción— es específico de la tecnología**.
-
-```
-   LEGACY (varía)                EXTRACTOR (1 por tecnología)         RENDERER COGNITIVO (constante)
- ┌──────────────────┐          ┌───────────────────────────┐       ┌──────────────────────────────┐
- │ Informix SPL      │          │ lee el catálogo / fuentes │       │ vocabulario + dedup canónico   │
- │ COBOL / z-OS      │  ──────▶ │ y emite el                │ ────▶ │ Mapa de las Almas              │
- │ Oracle Forms/PLSQL│          │ JSON NORMALIZADO           │       │ Biografía / evolución          │
- │ SQL Server T-SQL  │          │ (contrato §7)              │       │ Intención (journeys/reglas)    │
- │ SAP ABAP (/CBB/)  │          └───────────────────────────┘       │ portal + marca del cliente     │
- └──────────────────┘                                               └──────────────────────────────┘
-                                                                     └──────────────────────────────┘
-```
-
-Un engagement nuevo **no reescribe el método ni el renderer** — solo elige (o construye) el extractor de su tecnología y hace *swap* de cuatro insumos del cliente: **source code · knowledge base del cliente · paleta de marca · semilla del vocabulario (CAT)**.
+> **Componente:** BanCoppel BCOPCore · SPE-AM-001 · Fase DISCOVER · Etapa 3 · Specialist Informix SPL · **v1.0 · 2026-07-06**
 
 ---
 
@@ -43,7 +21,7 @@ La ingeniería inversa clásica *desentierra el pasado*. El Gemelo Cognitivo hac
 
 ## 2 · Fundamento de mercado
 
-No es una metáfora aislada: cada capa se apoya en una disciplina establecida — y todas son independientes de la tecnología del legacy.
+No es una metáfora aislada: cada capa se apoya en una disciplina establecida.
 
 | Capa del gemelo | Disciplina | Referencia |
 |-----------------|------------|------------|
@@ -52,272 +30,141 @@ No es una metáfora aislada: cada capa se apoya en una disciplina establecida �
 | Biografía | **Mining Software Repositories** + **Behavioral Code Analysis** | Adam Tornhill, *Your Code as a Crime Scene* / CodeScene |
 | Intención | **Program Comprehension / Concept Location** | ICPC; *Software Archaeology* (Harry Sneed, 1994) |
 
-> **Linaje honesto:** la *técnica* subyacente (software archaeology, análisis conductual) normalmente requiere **historia de Git**. En la mayoría de los cores legacy **no la hay** — por eso el gemelo se reconstruye de *vestigios*: headers de comentarios (autor/fecha/proyecto/ticket) + estilo de nombrado. El resultado es un gemelo **probabilístico y declarado por fuente**, no un registro completo. La cobertura de esos vestigios **varía por tecnología** (ver §6).
+> **Linaje honesto:** la *técnica* subyacente proviene de la software archaeology (Sneed) y del análisis conductual (Tornhill), que normalmente requieren **historia de Git**. Aquí **no la hay** — por eso el gemelo se reconstruye de *vestigios*: headers de comentarios (autor/fecha/proyecto/RQM) + estilo de nombrado. El resultado es un gemelo **probabilístico y declarado por fuente**, no un registro completo.
 
 ---
 
 ## 3 · Las ocho capas del Gemelo
 
-Ocho capas en dos mitades: **1–4 entienden** el sistema tal como es (AS-IS) y dan nacimiento al gemelo; **5–8 lo proyectan** al futuro (TO-BE) y lo mantienen vivo. La *destilación* de cada capa —el "qué" y el "por qué"— es constante entre tecnologías; la *extracción* se adapta (§4).
+Ocho capas en dos mitades: **1–4 entienden** el sistema tal como es (AS-IS) y dan nacimiento al gemelo; **5–8 lo proyectan** al futuro (TO-BE) y lo mantienen vivo.
 
 ### Capas 1–4 · Entender el sistema (AS-IS) — *el gemelo nace*
 
 Del lenguaje a la intención. **El lenguaje primero.**
 
-**Capa 1 · Lenguaje — *el idioma del gemelo.*** El vocabulario del negocio fosilizado en los identificadores. Antes de saber *qué hace*, el gemelo aprende a *hablar* el idioma del sistema.
-- **Se destila:** identificadores → vocabulario controlado (átomos, compuestos, convenciones), con nivel de confiabilidad por fuente y **término canónico único por concepto** (se preserva todo alias para trazabilidad).
-- **Artefacto canónico — `vocab-{sistema}.md`:** tabla de 8 columnas con esquema `# | Termino | Frecuencia | Categoria | Confianza | Evidencia | Significado | Alcance`. La columna **Alcance** clasifica cada campo en uno de 6 valores mutuamente excluyentes que revelan el rol arquitectónico del campo — fundamental para decidir qué persiste, qué se integra y qué desaparece en el target:
+### Capa 1 · Lenguaje — *el idioma del gemelo*
+El vocabulario del negocio fosilizado en los identificadores. Antes de saber *qué hace*, el gemelo aprende a *hablar* el idioma del sistema.
+- **Se destila:** identificadores → vocabulario controlado (átomos, compuestos, convenciones), con nivel de confiabilidad por fuente.
+- **Artefacto:** `sp_vocab.py` · `vocabulary-report-bcop.html` (531 términos). **✅ construido.**
+- **Hallazgo · deuda de nombrado:** el mismo concepto se escribe bajo múltiples alias (~86 conceptos en ~196 términos: cliente/cte, movimiento/mov/movto, cheque/cheques, cheque/cheques). Inconsistencia acumulada entre dialectos/generaciones; se normaliza a un término canónico al sembrar el target (Capa 5/6).
 
-  | Alcance | Significado |
-  |---------|-------------|
-  | `Persistente-BD` | Campo que persiste en base de datos (DMSII, VSAM, SQL) — core del modelo de dominio |
-  | `Interfaz-Externo` | Campo de mensaje o buffer de interfaz con sistema externo (TCP/IP, TRF, BNE) — contrato de integración |
-  | `Efimero` | Working storage, variables de trabajo, acumuladores — sin persistencia fuera del job/transacción |
-  | `Parametrico-Catalogo` | Campo con valores fijos de negocio codificados (condiciones 88, VALUE hardcoded) |
-  | `Control-proceso` | Campo de control de flujo de batch/online (status, restart, punteo, llave-CTE) |
-  | `N/A-componente` | Grupo/estructura contenedora, o término curado S1 — clasificación no aplica |
+### Capa 2 · Almas — *la memoria social*  `← NUEVO`
+Quién pensó el código y qué dialecto hablaba. Cientos de personas lo tocaron; cada una dejó un vestigio.
+- **Se destila:** autoría *declarada* (Autor/Realizó/Proyecto/RQM en **~27%** de los headers — nombres reales + terceros como *Solser*) + huella *estilométrica* (dialectos de nombrado: prefijos húngaros, mezcla ES/EN, sufijos de versión, hábitos de abreviación).
+- **Artefacto (pendiente):** **Mapa de las Almas** (`souls-bcop.html`) — quién/qué proyecto moldeó cada dominio · dialectos y eras de estilo · **bus factor** (concentración de conocimiento) · código huérfano · huella de terceros. *Ley de Conway: la organización fosilizada en el código.*
 
-  La clasificación se obtiene por **swarm de agentes CAP** (~400 campos/agente, heurísticas de prioridad) + auto-clasificación automática de GRUPOs/ESTRUCTURAs. **Distribución de referencia (Banamex S151, 20,114 campos clasificados):** Efimero 67.2% · Interfaz-Externo 24.4% · Persistente-BD 7.1% · Parametrico-Catalogo 0.75% · Control-proceso 0.59%.
+### Capa 3 · Biografía — *la evolución en el tiempo*
+Las vetas del árbol: cuándo nació y mutó, cómo derivó el lenguaje y el estilo entre eras, dónde están los *hotspots*.
+- **Se destila:** fechas en comentarios (~11–44% cobertura) + productos + hitos correlacionados con la historia de Coppel/BanCoppel y la regulación.
+- **Artefacto:** `evolution-bcop.html` (18 hitos, 2007–2025). **✅ construido** — se enriquece con hotspots y *drift* de lenguaje por era.
 
-- **Hallazgo recurrente · deuda de nombrado:** el mismo concepto se escribe bajo múltiples alias (sinónimos, abreviaturas, plurales, anglicismos: cliente/cte, movimiento/mov/movto, status/estatus). Inconsistencia acumulada entre dialectos/generaciones; se normaliza al sembrar el target (Capa 5/6). Regla canónica: *forma completa singular en español, frecuencia como desempate, firma del SME.*
-
-**Capa 2 · Almas — *la memoria social.*** Quién pensó el código y qué dialecto hablaba. Cientos de personas lo tocaron; cada una dejó un vestigio.
-- **Se destila:** autoría *declarada* (Autor/Realizó/Proyecto/ticket en los headers) + huella *estilométrica* (dialectos de nombrado: prefijos húngaros, mezcla ES/EN, sufijos de versión, hábitos de abreviación).
-- **Salidas:** Mapa de las Almas — quién/qué proyecto moldeó cada dominio · dialectos y eras de estilo · **bus factor** (concentración de conocimiento) · código huérfano · huella de terceros. *Ley de Conway: la organización fosilizada en el código.*
-
-**Capa 3 · Biografía — *la evolución en el tiempo.*** Las vetas del árbol: cuándo nació y mutó, cómo derivó el lenguaje y el estilo entre eras, dónde están los *hotspots*.
-- **Se destila:** fechas en comentarios + productos + hitos correlacionados con la historia del cliente y la regulación. Relevo generacional (¿cada generación heredó o reinventó el vocabulario?) y deuda por era.
-
-**Capa 4 · Intención — *el modelo mental consultable.*** De lenguaje + almas + tiempo se reconstruye el propósito: journeys, reglas, capacidades. La "cognición" del gemelo = **la suma de intenciones de cientos de personas**.
-- **Se destila:** orquestadores y servicios (journeys), reglas de negocio + fórmulas mapeadas a reguladores, cobertura del modelo de capacidades, topología de componentes.
-- **Punto de partida de lectura:** el **modelo de capacidades de negocio** enmarca todo (qué hace el banco) antes del código (cómo lo hace).
+### Capa 4 · Intención — *el modelo mental consultable*
+De lenguaje + almas + tiempo se reconstruye el propósito: journeys, reglas, capacidades. La "cognición" del gemelo = **la suma de intenciones de cientos de personas**.
+- **Se destila:** orquestadores y servicios (journeys), reglas de negocio + fórmulas mapeadas a reguladores, cobertura del modelo de capacidades.
+- **Artefacto:** `journeys-bcop.html` · `rules-report-bcop.html` · `capability-model-bcop.html` · `banking-model-bcop.html`. **✅ construido.**
 
 ### Capas 5–8 · Engendrar el futuro (TO-BE) — *el gemelo da a luz*
 
 De entender a transformar. El gemelo deja de describir y empieza a **construir el mañana**.
 
-**Capa 5 · Fronteras — *el mapa del futuro.*** Del *qué es* al *cómo debería partirse*. Se derivan los **bounded contexts** del target desde la intención (capa 4) y el lenguaje (capa 1) — **no** desde la partición física del legacy (base de datos, LPAR, librería). Las dependencias cruzando frontera revelan las **costuras** (*seams*) por donde cortar con Strangler-Fig.
-- **Disciplina:** DDD (bounded contexts, context mapping) + análisis de modularidad/costuras (M. Feathers).
-- **Salida:** contextos delimitados del target + **decisión 7R por capability**.
-- ⚠ *Regla de oro:* dominio técnico ≠ capability de negocio. No heredar el corte físico del legacy.
+### Capa 5 · Fronteras — *el mapa del futuro*
+Del *qué es* al *cómo debería partirse*. Se derivan los **bounded contexts** del target desde la intención (capa 4) y el lenguaje (capa 1) — **no** desde la partición por base de datos del legacy. Las 34,279 dependencias (casi todas cruzando frontera de BD) revelan las **costuras** (*seams*) por donde cortar con Strangler-Fig.
+- **Disciplina:** Domain-Driven Design (bounded contexts, context mapping) + análisis de modularidad/costuras (M. Feathers).
+- **Salida:** contextos delimitados del target + **decisión 7R por capability** (ADR-SPE-AM-001/002).
+- ⚠ *Regla de oro:* dominio técnico ≠ capability de negocio. No heredar el corte por base de datos.
 
-**Capa 6 · Siembra — *engendrar el target.*** El gemelo se vuelve la **especificación y el contexto** que siembra la construcción AI-assisted: vocabulario → modelo de dominio y nombrado del target; reglas → lógica de negocio; journeys → servicios y contratos. La capa de **Almas marca dónde el juicio humano es crítico** (código financiero/regulatorio).
+### Capa 6 · Siembra — *engendrar el target*
+El gemelo se vuelve la **especificación y el contexto** que siembra la construcción AI-assisted: vocabulario → modelo de dominio y nombrado del target; reglas → lógica de negocio; journeys → servicios y contratos. La capa de **Almas marca dónde el juicio humano es crítico** (código financiero/regulatorio).
 - **Disciplina:** transformación AI-assisted (Amazon Q Developer Transform, Copilot) + generación contract-first / spec-driven.
 - **Salida:** contratos (OpenAPI/AsyncAPI), scaffolds del target, librería de contexto para los agentes.
 
-**Capa 7 · Equivalencia — *el juicio de la verdad.*** El gemelo se vuelve **oráculo de comportamiento**: golden-master tests derivados de la intención + datos de regresión; comparador de parallel-run; monitoreo de *equivalence drift*. Los riesgos marcados en las capas 1–4 (rounding, aritmética de fechas, tipos propietarios) son el foco de prueba.
+### Capa 7 · Equivalencia — *el juicio de la verdad*
+El gemelo se vuelve **oráculo de comportamiento**: golden-master tests derivados de la intención + datos de regresión; comparador de parallel-run; monitoreo de *equivalence drift*. Los riesgos marcados en las capas 1–4 (TRUNC vs ROUND, base 360/365, redondeo MONEY) son el foco de prueba.
 - **Disciplina:** Golden Master / characterization tests (M. Feathers) + parallel-run / shadow (HVM §19 EQUIVALENCE-CHECK).
-- **Salida:** suite golden-master, comparador + dashboard de equivalencia (≥ 99.95% AM · ≥ 99.99% MM banca).
-- **Handoff:** sub-specialist **Equivalence Testing** (HVM-wide).
+- **Salida:** suite golden-master, comparador + dashboard de equivalencia (≥ 99.95% AM).
 
-**Capa 8 · Continuidad — *el gemelo vivo.*** El gemelo **no muere en el cutover**: persiste en OPERATE/AMS como documentación viva + semántica de observabilidad + libro de *decommission*. Mientras el legacy se apaga capability por capability, el gemelo registra el % migrado, el residual y preserva el *porqué* para los mantenedores futuros.
+### Capa 8 · Continuidad — *el gemelo vivo*
+El gemelo **no muere en el cutover**: persiste en OPERATE/AMS como documentación viva + semántica de observabilidad + libro de *decommission*. Mientras el legacy se apaga capability por capability, el gemelo registra el % migrado, el residual y preserva el *porqué* para los mantenedores futuros. El legado se vuelve **semilla y memoria** a la vez.
 - **Disciplina:** Living Documentation + Observabilidad/AIOps + gestión del conocimiento.
 - **Salida:** gemelo vivo (se actualiza con el target), tracking de decommission, memoria institucional que sobrevive a ambos sistemas.
 
 ### Transversales · Calidad y Seguridad — *dos hilos que atraviesan las 8 capas*
 
-La calidad y la seguridad **no son una capa**: recorren las ocho. Cada una tiene un punto de máxima concentración.
+La calidad y la seguridad **no son una capa**: recorren las ocho. Forzarlas a un solo lugar las esconde del resto. Cada una tiene, eso sí, un punto de máxima concentración.
 
-**Calidad** — *¿el gemelo es fiel, el código legacy está sano, y el target es equivalente?* Tres preguntas, un solo hilo:
-- **Fidelidad del gemelo** en 1–4 (confiabilidad declarada por fuente, caza de falsos positivos, cobertura).
-- **Salud estructural del código AS-IS** medida contra **ISO/IEC 5055:2021** (CISQ) — los 4 factores (Reliability · Security · Performance Efficiency · Maintainability) como conteo de *weaknesses* del catálogo **CWE**. Es el **input estructural de la decisión 7R** (baja calidad + alto acoplamiento → Rewrite/Retire; dead-code → Retire), del **pricing** (deuda técnica = días de remediación) y de la **priorización de golden-masters** (el código más enredado es el más riesgoso de probar equivalencia). Se monta sobre el toolkit del gemelo (call graph → acoplamiento/dead-code; corpus → complejidad/LoC) — no reimplementa parsing.
-- **Calidad del target** en 6 (DoD) → **corazón en 7 (equivalencia ≥ 99.95%)** → SLOs/DORA en 8.
+**Calidad** — *¿el gemelo es fiel, y el target es equivalente?*
 
-> **Frontera:** *calidad estructural del AS-IS* (¿está bien escrito el legacy?, fase DISCOVER) ≠ *equivalencia funcional* (¿el target hace lo mismo?, fase TEST). Son preguntas y fases distintas, complementarias: la primera prioriza el trabajo de la segunda. **Handoff de ejecución:** sub-specialist **Code Quality Assessment** (HVM-wide) para la salud del AS-IS; **Equivalence Testing** (HVM-wide) para la paridad del target. El mercado no ofrece herramientas de calidad para dialectos nicho (Informix SPL, COBOL) — por eso se implementa el *estándar* ISO 5055 (agnóstico del lenguaje) con reglas calibradas al dialecto, evitando el ruido de las tools genéricas.
+| Capa | Manifestación de calidad |
+|------|--------------------------|
+| 1–4 · AS-IS | **Fidelidad del gemelo**: confiabilidad declarada por fuente, caza de falsos positivos, cobertura — el gemelo no miente sobre lo que sabe |
+| 5 · Fronteras | Contextos cohesivos y de bajo acoplamiento, validados con SME |
+| 6 · Siembra | Calidad del target: cobertura de tests, linting, complejidad (DoD-SPE-02) |
+| **7 · Equivalencia** | **El corazón de la calidad** — golden-master + parallel-run ≥ 99.95% |
+| 8 · Continuidad | Calidad en producción: SLOs, error budget, métricas DORA |
 
-**Seguridad** — *DevSecOps (shift-left) + security archaeology en el AS-IS.* Arqueología de postura en 1–4 (autenticación, PLD/antilavado, PII, secretos hardcodeados, SQL/código dinámico) → threat modeling de bounded contexts en 5 → secure-by-design (SAST/SCA/secrets/container) en 6 → datos enmascarados en parallel-run en 7 → runtime + AIOps en 8.
+**Seguridad** — *el hueco más grande si no se hace explícita.* Enfoque **DevSecOps** (shift-left) + *security archaeology* en el AS-IS.
 
-> **Cumplimiento regulatorio** (CNBV · Banxico · CONDUSEF · PLD · PCI-DSS · ISO 27001) atraviesa ambos hilos. **Handoff de ejecución de seguridad:** SME de **Cybersecurity / Cloud Security** de `SME/`. El gemelo le entrega el *mapa* (dónde viven secretos, auth y datos sensibles), no reemplaza su juicio.
+| Capa | Manifestación de seguridad |
+|------|----------------------------|
+| 1–4 · AS-IS | **Arqueología de postura de seguridad**: lógica de autenticación (dominio Integración/Auth), controles PLD/antilavado, reglas de acceso/privilegio, flujos de datos sensibles/PII, secretos/credenciales hardcodeados, SQL dinámico propenso a inyección |
+| 5 · Fronteras | **Threat modeling** de los bounded contexts; clasificación de sensibilidad de datos; los límites de confianza = las nuevas fronteras de servicio |
+| 6 · Siembra | **Secure-by-design**: SAST · SCA · secrets · container scan en CI (gates DoD-SPE); no propagar vulnerabilidades del legacy al target |
+| 7 · Equivalencia | **Seguridad de datos en parallel-run**: enmascarado de PII en datasets shadow, comparador seguro; DAST / pentest del target |
+| 8 · Continuidad | **Seguridad en runtime + AIOps**: detección de anomalías, rotación de secretos, trazas de auditoría (regulatorio) |
 
----
+**Cumplimiento regulatorio** (CNBV · Banxico · CONDUSEF · PLD · PCI-DSS · ISO 27001) atraviesa ambos hilos y ya tiene a los 6 SME reguladores presentes desde la capa 4.
 
-## 4 · Adaptadores por tecnología — *la mecánica de extracción*
-
-El método es el mismo; **de dónde sale la evidencia cambia**. Esta tabla es el corazón de la reutilización cross-tecnología: define, capa por capa, la fuente de extracción de cada tecnología. Cada *Specialist* de RE implementa su columna.
-
-| Capa (qué destila — constante) | **Informix SPL** (AM) | **COBOL / z-OS** (MM) | **Oracle Forms + PL/SQL** (AM) | **SQL Server T-SQL** (AM) | **SAP ABAP** (AM) |
-|---|---|---|---|---|---|
-| **1 · Lenguaje** (identificadores → vocabulario) | nombres de SP/tabla/columna en `sysprocedures`/`syscolumns` | nombres de párrafos, *data items*, copybooks | items de bloque `.fmb`, paquetes/procedimientos PL/SQL | `sys.procedures`, `sys.columns`, nombres de objetos | nombres de clase/método/atributo/tipo — namespace stripped (`/CBB/`) — fuente: TADIR + source parse |
-| **2 · Almas** (autoría + estilometría) | headers de comentario en `sysprocbody` | cabecera de programa + `CHANGE-LOG` en comentarios | headers en `.fmb`/`.pll`/*package spec* | headers de comentario + *extended properties* | headers de comentario ABAP (`Autor/Usuario SAP/Fecha/Ticket`) — TRDIR `changed_by`/`created_by` |
-| **3 · Biografía** (fechas + productos + hitos) | fechas en comentarios | fechas + niveles de versión + calendario JCL | fechas en fuentes/versión de módulo | fechas en comentarios + git si existe | fechas en headers + TRDIR `created_on`/`changed_on` + E070/E071 transport history |
-| **4 · Intención** (journeys + reglas + capacidades) | call graph SP→SP + DML + triggers | grafo `PERFORM`/`CALL` + `COPY` + jobs JCL | triggers de Forms + llamadas PL/SQL | grafo de `EXEC`/call + DML + triggers | `CALL METHOD`/`CREATE OBJECT` + BADIs + RFC + DML (`SELECT`/`UPDATE`/`INSERT`/`DELETE`) |
-| **5 · Fronteras** (bounded contexts / costuras) | dependencias cruzando frontera de BD | dependencias cross-program + copybooks compartidos | módulos Forms + esquemas PL/SQL | esquemas / bases / *linked servers* | namespaces (`/CBB/`, `/CBCR/`), módulo SAP (FI/CO/SD/HR), dependencias cross-namespace |
-| **6 · Siembra** (spec del target) | tipos Informix → PostgreSQL/Java | COBOL → Java/microservicios | Forms/PLSQL → SPA + servicios | T-SQL → target | ABAP → Java/microservicios; RFC → API REST; tipos SAP → target; BADIs → extension points |
-| **7 · Equivalencia** (riesgos de tipo/rounding) | `MONEY`/`DECIMAL`, TRUNC vs ROUND, 360/365 | `COMP-3`/packed decimal, `PIC` edición | `NUMBER` rounding, `DATE` semántica | `MONEY`/`DECIMAL`, `DATETIME` precision | tipo `P(decimals)` (packed/BCD), `CURR` con `TCURR`, `DATS`/`TIMS`, ABAP DECIMAL PLACES |
-| **8 · Continuidad** (decommission) | apagado de instancia IDS | apagado de LPAR/región | retiro de Forms runtime | retiro de instancia | retiro de cliente SAP + shutdown del landscape ECC/S4 |
-| **✕ Calidad AS-IS** (weaknesses ISO 5055 — *transversal*) | nodos de decisión SPL (`IF`/`FOREACH`/`ON EXCEPTION`), `OPEN` sin `CLOSE`, `COMMIT` en `FOREACH`, SQL dinámico | complejidad de párrafos, `GO TO` salvaje, `PERFORM THRU`, tablas sin `INITIALIZE` | triggers Forms complejos, PL/SQL sin `EXCEPTION`, cursores no cerrados | `TRY/CATCH` ausente, cursores, `sp_executesql` dinámico | `IF`/`CASE`/`WHEN`/`ON EXCEPTION` sin `CATCH`, `CALL FUNCTION ... EXCEPTIONS OTHERS = 1` sin manejo, SQL dinámico ABAP (`SELECT (lv_fields)`) |
-
-**Confiabilidad de vestigios por tecnología (Capa 2–3):** COBOL/mainframe suele tener headers y `CHANGE-LOG` más estructurados + scheduling JCL explícito (mayor cobertura de autoría/fechas); Informix y stored-proc-heavy suelen tener menos (cobertura declarada más baja → más peso en estilometría). **Se declara la cobertura real por engagement, no se asume.**
+> **Handoff:** la ejecución de seguridad la lleva el SME de **Cybersecurity / Cloud Security** de `SME/` (gates SAST/SCA/DAST). El gemelo le entrega el **mapa** — dónde viven los secretos, la autenticación y los datos sensibles — no reemplaza su juicio.
 
 ---
 
-## 5 · El toolkit reutilizable — *renderer cognitivo + extractores*
+## 4 · Salidas de valor futuro
 
-El activo de software que acelera cada engagement, en dos partes:
+| Salida | Para quién | Valor |
+|--------|-----------|-------|
+| **Modelo consultable** (portal `index-bcop.html`) | Equipo de modernización, AMS, cliente | Memoria institucional que persiste tras el decommission |
+| **Vocabulario + reglas + intención** | Agentes AI-assisted + SMEs | Especificación y contexto para construir el target |
+| **Bus factor + código huérfano** (Capa 2) | Gestión de riesgo / delivery lead | Dónde el conocimiento está en riesgo de perderse |
+| **Riesgos de equivalencia** (fórmulas, TRUNC/360-365/MONEY) | Risk officer / QA equivalencia | Qué validar antes del cutover |
 
-**A) Renderer cognitivo (tech-agnóstico — se construye una vez):**
-- Motor de vocabulario: tokenización, clasificación por categoría, **deduplicación canónica** (sinónimos + plurales + anglicismos vía union-find), confiabilidad por fuente.
-- Generadores de vistas: Mapa de las Almas, evolución/biografía, relevo generacional y deuda, journeys, reglas, modelo de capacidades, mapa de componentes, **portal/landing** navegable por las 4 capas.
-- **Brand-swap:** paleta + logo del cliente parametrizables (validados con `validate_palette` — banda de luminosidad, piso de croma, separación CVD ≥ 12, contraste). Los colores categóricos de dominio NO se tocan; solo el *chrome* de marca.
-- Marco de confiabilidad honesta embebido (declarado vs. inferido, evidencia dura vs. convención).
+### 4.1 · Cadena fuente → generador → artefacto (instancia de CORE §7.3)
 
-**B) Extractores (uno por tecnología — se construye por familia):**
-- Ingiere el legacy (catálogo, fuentes, copybooks…) y emite el **JSON normalizado** (§7).
-- Informix SPL: ✅ existe (probado en BanCoppel). SAP ABAP: ✅ existe (probado en Gentera — GENCore, `parse-abap.py` + `extract-vocabulary.py` + `build-vocab-report.py` + `build-souls-report.py`). COBOL/z-OS, Oracle Forms/PL-SQL, T-SQL: por construir cuando un deal lo demande.
+Todos los portales del Gemelo (`index-*.html`, catálogo de reglas, catálogo de vocabulario, etc.) son artefactos **DERIVADOS**. Instancian la regla global de reproducibilidad (`AGENTES-UNIVERSAL-RULES-CORE.md` §7.3): la fuente de verdad es el **brain / KB**, y cada portal se **regenera** desde ahí ante cualquier enriquecimiento.
 
-> Estado actual: el renderer está construido pero **acoplado a la instancia BanCoppel** (`.../Application Modernization/BanCoppel/BCOPCore/`). El plan de extracción a starter-kit reutilizable lo definirá el `delivery-playbook` de HVM. Hasta entonces, BCOPCore es la **implementación de referencia**.
+Cadena canónica: **extractor (1 por tecnología) → JSON/brain normalizado (el KB) → renderer/generador (tech-agnóstico) → HTML**.
 
----
-
-## 6 · Contrato del JSON normalizado — *la interfaz extractor → renderer*
-
-Lo que todo extractor debe emitir para que el renderer tech-agnóstico funcione sin cambios. Es la frontera que hace posible la reutilización cross-tecnología.
-
-```jsonc
-{
-  "meta":    { "sistema": "…", "tecnologia": "informix-spl|cobol|oracle-forms|tsql|sap-abap",
-               "objetos": 0, "conectados": 0, "fuente_evidencia": "catalogo|fuentes" },
-  "objetos": [ { "id": "", "nombre": "", "tipo": "sp|programa|trigger|form|funcion",
-                 "loc": 0, "dominio": "", "params": 0 } ],
-  "callgraph": [ { "from": "", "to": "", "tipo": "call|perform|trigger|dml" } ],
-  "acceso":  [ { "objeto": "", "entidad": "", "modo": "R|W|RW" } ],
-  "headers": [ { "objeto": "", "autor": "", "fecha": "", "proyecto": "", "ticket": "" } ],
-  "hitos":   [ { "anio": 0, "titulo": "", "tipo": "cliente|regulatorio|tecnologico" } ],
-  "riesgos_tipo": [ { "entidad": "", "campo": "", "tipo_origen": "", "riesgo": "bajo|medio|alto|critico" } ]
-}
-```
-
-- **Constante entre tecnologías:** el esquema. Un extractor COBOL y uno Informix producen el mismo shape.
-- **Variable:** cómo se llena cada arreglo (los adaptadores de §4).
-- El renderer consume solo este contrato → **cero acoplamiento** a la tecnología origen.
+- El HTML **nunca se edita a mano**; se enriquece el KB (JSON del brain / inventario) y se corre el generador.
+- Si un portal existe **sin su generador** (p. ej. se perdió), se reconstruye el generador cosechando su diseño+datos de vuelta al KB (plantilla en repo + `*-data.json` en `knowledge-base/`), de modo que quede regenerable. Ej.: `build-vocab-catalog.py` → plantilla `vocab-catalog.tmpl.html` + `knowledge-base/vocabulary/vocabulary-catalog-data.json`.
+- El generador **no altera el contenido curado** (no vuelca léxico mecánico en una vista curada); enriquecer es curaduría deliberada sobre el KB.
 
 ---
 
-## 7 · Lugar en el SDLC y quién lo implementa
+## 5 · Lugar en el SDLC de HVM
 
-| Capa | Fase SDLC | Ejecutor (Specialist de RE) |
-|------|-----------|------------------------------|
-| 1–4 · Lenguaje · Almas · Biografía · Intención | DISCOVER | Specialist de la tecnología (Informix SPL · Reverse Engineering COBOL · …) |
-| 5 · Fronteras | DESIGN | Solution architect + SME |
-| 6 · Siembra | BUILD | Software Engineering SME + AI-assisted tooling |
-| 7 · Equivalencia | TEST | Sub-specialist **Equivalence Testing** (HVM-wide) |
-| 8 · Continuidad | RELEASE→ITERATE | AMS Reinvention + observabilidad |
-| ✕ Calidad AS-IS (transversal) | DISCOVER | Sub-specialist **Code Quality Assessment** (HVM-wide) — ISO 5055; coordina la mecánica de detección con el Specialist de RE de cada tecnología |
+Las 8 capas recorren el SDLC completo: las 4 de entendimiento en DISCOVER, las 4 del futuro en la mitad de delivery.
 
-**Familia de Specialists que implementan el método:**
+| Capa | Fase SDLC |
+|------|-----------|
+| 1–4 · Lenguaje · Almas · Biografía · Intención | DISCOVER |
+| 5 · Fronteras | DESIGN |
+| 6 · Siembra | BUILD |
+| 7 · Equivalencia | TEST |
+| 8 · Continuidad | RELEASE · OPERATE · OBSERVE · ITERATE |
 
-| Specialist | Solution L4 | Tecnología | Estado |
-|---|---|---|---|
-| Specialist - Informix SPL | Application Modernization | Informix IDS / SPL | ✅ activo (BanCoppel) |
-| Specialist - SAP ABAP | Application Modernization | SAP ABAP — namespace `/CBB/` + Z/Y | ✅ activo (Gentera) |
-| Specialist - Reverse Engineering | Mainframe Modernization | COBOL / ALGOL / WFL | ✅ activo (Banamex) — alinear al método |
-| Specialist - Oracle Forms / PL-SQL | Application Modernization | Oracle Forms + PL/SQL | ⏳ stub por crear |
-| Specialist - SQL Server T-SQL | Application Modernization | SQL Server T-SQL | ⏳ stub por crear |
+- **Fase de origen:** DISCOVER (Etapa 3 · Business Logic Extraction). Alimenta directamente:
+  - la decisión **7R por capability** (qué refactor / rehost / replace / retire),
+  - el gate de **equivalencia funcional** (§19 EQUIVALENCE-CHECK),
+  - el **ADR-SPE-AM-006** (tipos propietarios / semántica del datastore origen).
+- **Reutilizable:** la metodología aplica a cualquier sistema legacy con patrón "base de datos como aplicación" (Informix, Oracle Forms, SQL Server stored-proc-heavy) donde la lógica vive en el datastore y la documentación es escasa.
 
 ---
 
-## 7a · Modelo de datos para Capa 4 — Capacidades, Tareas y Flujos
+## 6 · Notas de honestidad
 
-La Capa 4 (Intención) produce el modelo de capacidades de negocio del sistema legacy. Para que ese modelo sea consultable, trazable y útil como especificación del target, se estructura en una jerarquía de cinco niveles con artefactos concretos.
-
-### Jerarquía de conocimiento
-
-```
-Dominio → Subdominio → Capacidad → Proceso → Tarea → Regla de Negocio
-                                                  ↕
-                                            Casuística (secuencia de tareas)
-                                                  ↕
-                                            Diagrama Mermaid (flujo/secuencia)
-```
-
-La **Tarea** es la unidad atómica: es el nivel donde la regla ancla, la secuencia ordena y el diagrama visualiza. Intentar vincular reglas directamente a Capacidades o Procesos produce trazabilidad imprecisa — la regla siempre se activa en el contexto de una tarea específica.
-
-### IDs canónicos
-
-| Tipo | Formato | Ejemplo |
-|------|---------|---------|
-| Tarea | `T-{SLUG_CAPACIDAD}-{NNN}` | `T-TEL-001`, `T-ATM-003` |
-| Casuística | `CS-{SLUG_CAPACIDAD}-{NN}` | `CS-TEL-01`, `CS-ATM-02` |
-| Regla de negocio | `RN-{SISTEMA}-{NNN}` | `RN-S151-042`, `RN-S500-017` |
-
-`{SLUG_CAPACIDAD}` es el identificador corto de la capacidad (3-5 caracteres, mayúsculas). Ejemplos: `TEL` (Telecomunicaciones), `ATM` (ATM/Cajeros), `INT` (Intereses), `COM` (Comisiones).
-
-### Estructura de archivo por capacidad (`cap-{slug}.md`)
-
-Un archivo por capacidad cubierta, con secciones en este orden:
-
-```markdown
-# Capacidad: {Nombre} [{Sistema}]
-> Dominio: X · Subdominio: Y · Cobertura: S500/S151/compartida/gap
-
-## Inventario de Tareas
-| ID | Tarea | Programa | Componente fuente | Tipo |
-|----|-------|----------|-------------------|------|
-| T-{SLUG}-001 | {descripción imperativa} | P010 | COBOL_P010.txt | validación |
-
-## Casuísticas
-### CS-{SLUG}-01: {Nombre casuística}
-**Tipo:** happy-path / error / edge-case
-**Condición de entrada:** {precondición}
-**Resultado:** {postcondición / efecto}
-**Secuencia:** T-{X}-001 → T-{X}-002 → T-{X}-003
-
-## Diagrama
-```mermaid
-sequenceDiagram
-  ...
-```
-
-## Reglas vinculadas
-| Tarea | Regla | Componente fuente | Descripción |
-|-------|-------|-------------------|-------------|
-| T-{X}-001 | RN-{S}-NNN | COBOL_P010.txt | {descripción breve} |
-```
-
-### Tipos válidos de Tarea
-
-| Tipo | Cuándo usarlo |
-|------|---------------|
-| `validación` | Verifica una condición antes de continuar |
-| `consulta` | Lee datos sin modificarlos |
-| `escritura` | Persiste o actualiza un campo |
-| `contable` | Genera un asiento o movimiento GL |
-| `control` | Maneja flujo de batch (restart, punteo, control de llave) |
-
-### Flujo de construcción (orden obligatorio)
-
-1. **Inventario de tareas** — derivado del código fuente + reglas ya extraídas del catálogo RN-NNN
-2. **Casuísticas** — agrupar tareas en secuencias por escenario (happy path primero, luego errores, luego edge cases)
-3. **Diagrama Mermaid** — generado mecánicamente de la secuencia de cada casuística
-4. **Vincular reglas** — cruzar cada tarea contra el catálogo `RN-{SISTEMA}-NNN`
-
-No construir el diagrama antes de tener las casuísticas. No vincular reglas antes de tener el inventario de tareas. El orden garantiza trazabilidad completa de código → tarea → casuística → diagrama → regla.
-
-### Relación con los otros artefactos del Gemelo (Capa 1 y 2)
-
-- **Vocabulario (Capa 1):** los nombres de las Tareas usan el término canónico del vocab (`vocab-{sistema}.md`), no sinónimos. El `{SLUG_CAPACIDAD}` deriva del término canónico de la capacidad.
-- **Reglas (Capa 2):** el catálogo `RN-{SISTEMA}-NNN` es el input de la columna "Reglas vinculadas". Una regla puede vincularse a múltiples tareas si es distribuida (`[REGLA-DISTRIBUIDA]`).
-- **Fronteras (Capa 5):** los bounded contexts del target se derivan agrupando Capacidades de la misma Capa 4 — la jerarquía Dominio → Capacidad es el insumo directo de la decisión 7R por capability.
-
----
-
-## 8 · Notas de honestidad
-
-- El gemelo es **probabilístico**: la cobertura de autoría y fechas depende de los vestigios disponibles (varía por tecnología, §4). Se declara por fuente, no se infla.
+- El gemelo es **probabilístico**: autoría declarada ~27%, fechas 11–44%, vocabulario 84% "confirmado" (código + SME + convención; la evidencia *dura* de código es menor).
 - La Capa 2 combina evidencia **declarada** (headers, alta certeza donde existe) con **inferida** (estilometría, para el resto) — se marca la diferencia, no se mezcla.
 - El gemelo **no reemplaza al SME**: lo acelera y le da un mapa. La validación final del negocio y lo regulatorio sigue siendo humana.
-- El vocabulario canónico es una **recomendación automática** que requiere **firma del SME** antes de volverse nombre permanente del target.
 
 ---
 
-## 9 · Instancias de referencia
-
-**BanCoppel (`SPE-AM-001`) — Informix SPL — referencia canónica del renderer:**
-Primera implementación completa del método, sobre **IBM Informix IDS 14.10** (patrón "base de datos como aplicación", ~13,223 SPs / 3,761 conectados). Artefactos vivos en `.../Application Modernization/BanCoppel/BCOPCore/`: `sp_vocab.py` (fuente única del vocabulario), pipeline de ~15 generadores, portal `index-bcop.html` con las 4 capas, y `metodologia-gemelo-cognitivo.md` (instancia local de este método). Sirve como **plantilla de referencia** para el renderer y el primer extractor (Informix). Contexto de cliente: `.../BanCoppel/knowledge-base-coppel-bancoppel.md`.
-
-**Gentera (`SPE-AM-002`) — SAP ABAP — segunda instancia (Capa 1 + 2 operativas):**
-Segunda implementación del método, sobre **SAP ABAP** con namespace `/CBB/` (Compartamos Banco). Artefactos vivos en `.../Application Modernization/Gentera/GENCore/`: `parse-abap.py` (inventario de objetos), `extract-vocabulary.py` (vocabulario tokenizado), `build-vocab-report.py` (portal Capa 1), `build-souls-report.py` (portal Capa 2 — Mapa de las Almas). Hallazgos iniciales: patrón feature flag IFRS sobre TVARVC, segundo namespace `/CBCR/`, developer GBELTRAN (2022). Corpus en crecimiento — pipeline re-ejecutable con `python3 parse-abap.py && python3 extract-vocabulary.py && python3 build-vocab-report.py && python3 build-souls-report.py`. Contexto de cliente: `.../Gentera/knowledge-base-gentera.md`.
-
----
-
-*Gemelo Cognitivo del Sistema · método HVM-wide · v2.3 · Añadido adaptador **SAP ABAP** (§4 sexta columna, §5 extractor activo, §7 specialist activo) con instancia de referencia Gentera GENCore (`SPE-AM-002`) — Capa 1 (Lenguaje) y Capa 2 (Mapa de las Almas) operativas. Pipeline: `parse-abap.py` + `extract-vocabulary.py` + `build-vocab-report.py` + `build-souls-report.py`. §9 extendido con segunda instancia de referencia. v2.2: Añadido artefacto canónico Capa 1: esquema 8 columnas con columna **Alcance** (6 valores: Persistente-BD · Interfaz-Externo · Efímero · Parametrico-Catalogo · Control-proceso · N/A-componente), pipeline swarm de agentes CAP y distribución de referencia Banamex S151 (20,114 campos). v2.1: Añadido el hilo transversal **Calidad AS-IS** anclado a ISO/IEC 5055:2021 (§3) con mecánica de detección por tecnología (§4) y ejecutor **Code Quality Assessment** HVM-wide (§7). v2.0: generalizado a cross-tecnología (Informix · COBOL · Oracle Forms · T-SQL) con adaptadores (§4), toolkit renderer+extractores (§5) y contrato JSON normalizado (§6). Instancia de referencia original: BanCoppel BCOPCore.*
+*Gemelo Cognitivo del Sistema · v1.2 · 8 capas (1–4 entender el AS-IS · 5–8 engendrar el TO-BE) + 2 transversales (Calidad, Seguridad). Sustituye el marco previo "Arqueología del Código" (mismo método, propósito reorientado al futuro). Fuente única del pipeline: `sp_vocab.py`. Ver base de conocimiento del cliente: `../knowledge-base-coppel-bancoppel.md`.*

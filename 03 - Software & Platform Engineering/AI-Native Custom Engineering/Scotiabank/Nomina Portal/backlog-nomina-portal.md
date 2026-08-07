@@ -1,12 +1,16 @@
 # Backlog Inicial — Portal Empresas Nómina · Scotiabank México
-> dt-product-owner · SPE-ANCE-001 · v0.1 · 2026-07-24
+> dt-product-owner · SPE-ANCE-001 · v0.2 · 2026-08-06
 > Fuente: Análisis Portal Empresa Scotiabank (versión actual) + BIAN capacidades mapeadas + regulatorio MX
+>
+> **Cambio v0.2 (2026-08-06):** EP-06 Dispersión de Nómina y EP-07 CFDI de Nómina declarados **OUT OF SCOPE** del portal de empresas. La instrucción SPEI y el timbrado SAT quedan fuera de este canal; el portal cubre el ciclo de gestión de empleados y su padrón nómina. Ver [Scope Changes](#scope-changes).
 
 ---
 
 ## Contexto
 
-La nueva versión del Portal Empresas Nómina de Scotiabank México va **más allá del portal actual**: además de gestionar la apertura y seguimiento de cuentas nómina de empleados (modelo del portal actual), incluye la dispersión real de nómina vía SPEI y la generación de CFDI. El portal es el canal único B2B end-to-end.
+El Portal Empresas Nómina de Scotiabank México gestiona el ciclo de vida del padrón de empleados nómina: alta individual y masiva, seguimiento de estado de cuenta, centros de trabajo, y acceso a CFDI. **La instrucción de dispersión SPEI y el timbrado de CFDI son OUT OF SCOPE** — se resuelven por un canal distinto (core bancario o sistema del empleador).
+
+> **Alcance original (v0.1):** el portal también cubría dispersión real vía SPEI y generación de CFDI (EP-06, EP-07). Removidos de alcance el 2026-08-06.
 
 ### Roles de Usuario
 
@@ -26,8 +30,8 @@ La nueva versión del Portal Empresas Nómina de Scotiabank México va **más al
 | EP-03 Gestión de Empresas | **Must** | S1 |
 | EP-04 Gestión de Empleados | **Must** | S2–S3 |
 | EP-05 Centros de Trabajo | **Should** | S3–S4 |
-| EP-06 Dispersión de Nómina | **Must** | S3–S5 |
-| EP-07 CFDI de Nómina | **Must** | S4–S5 |
+| EP-06 Dispersión de Nómina | ~~Must~~ · **OUT OF SCOPE** | — |
+| EP-07 CFDI de Nómina | ~~Must~~ · **OUT OF SCOPE** | — |
 | EP-08 Registros y Auditoría | **Should** | S4–S5 |
 | EP-09 Administración Scotiabank | **Could** | S5–S6 |
 
@@ -267,5 +271,19 @@ La nueva versión del Portal Empresas Nómina de Scotiabank México va **más al
 
 ---
 
+---
+
+## Scope Changes
+
+| Fecha | Versión | Cambio | Razón |
+|-------|---------|--------|-------|
+| 2026-08-06 | v0.1 → v0.2 | EP-06 Dispersión de Nómina (NP-038 a NP-050) declarado **OUT OF SCOPE** | La instrucción SPEI no es parte del alcance del portal de empresas en esta fase |
+| 2026-08-06 | v0.1 → v0.2 | EP-07 CFDI de Nómina (NP-051 a NP-055) declarado **OUT OF SCOPE** | Timbrado SAT es responsabilidad del empleador, no del canal bancario |
+| 2026-08-06 | v0.1 → v0.2 | Rutas `/nominas` y `/dispersiones` eliminadas del frontend | Consecuencia de la exclusión de EP-06 y EP-07 |
+
+Las historias NP-038 a NP-055 se mantienen en el documento para referencia histórica, pero **no entran al sprint**. Si el alcance se extiende en fases posteriores, se re-activan desde aquí.
+
+---
+
 *Backlog generado por dt-product-owner · 2026-07-24 · v0.1*
-*Próxima acción: revisar con Scotiabank México los DATOs REQUERIDOS y desbloquear ADR-ANCE-004*
+*Actualizado 2026-08-06 · v0.2 · EP-06 y EP-07 OUT OF SCOPE*

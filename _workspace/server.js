@@ -7,6 +7,7 @@ const url  = require('url');
 const ROOT_DC  = 'C:\\Users\\alejandro.gallegos\\OneDrive - Accenture\\Documents\\Digital Core';
 const ROOT_SOL = 'C:\\Users\\alejandro.gallegos\\OneDrive - Accenture\\Documents\\Solutioning';
 const ROOT_SME = 'C:\\Users\\alejandro.gallegos\\OneDrive - Accenture\\Documents\\SME';
+const ROOT_PER = 'C:\\Users\\alejandro.gallegos\\OneDrive - Accenture\\Documents\\Personal';
 const PORT     = 3000;
 
 const MIME = {
@@ -33,7 +34,7 @@ http.createServer((req, res) => {
   if (req.method === 'DELETE' && pathname === '/api/file') {
     let rel;
     try { rel = decodeURIComponent(parsed.query.path || ''); } catch { res.writeHead(400); res.end('Bad path'); return; }
-    const rootDir = (parsed.query.root === 'sol') ? ROOT_SOL : (parsed.query.root === 'sme') ? ROOT_SME : ROOT_DC;
+    const rootDir = (parsed.query.root === 'sol') ? ROOT_SOL : (parsed.query.root === 'sme') ? ROOT_SME : (parsed.query.root === 'personal') ? ROOT_PER : ROOT_DC;
     const full    = path.resolve(rootDir, rel);
     if (!full.startsWith(rootDir + path.sep) || !full.endsWith('.html')) {
       res.writeHead(403); res.end('Forbidden'); return;
@@ -56,6 +57,9 @@ http.createServer((req, res) => {
   } else if (pathname.startsWith('/sme/')) {
     servRoot = ROOT_SME;
     filePath = path.join(ROOT_SME, pathname.slice('/sme/'.length));
+  } else if (pathname.startsWith('/personal/')) {
+    servRoot = ROOT_PER;
+    filePath = path.join(ROOT_PER, pathname.slice('/personal/'.length));
   } else {
     servRoot = ROOT_DC;
     filePath = path.join(ROOT_DC, pathname === '/' ? '_catalog.html' : pathname);
