@@ -166,7 +166,8 @@ class BCOPBrain:
         soul_filter = 'AND is_soul=1' if only_souls else ''
         rows = self._db().execute(f'''
             SELECT id, label, db, fan_in, fan_out, loc, biz, biz_estado,
-                   verdict, is_soul, soul_rank, soul_pattern, weaknesses, complexity
+                   verdict, is_soul, soul_rank, soul_pattern, weaknesses, complexity,
+                   prod_p50_s, prod_p95_s, flow_p50_s, flow_p95_s, flow_n
             FROM sps
             WHERE domain=? AND fan_in>=? {soul_filter}
             ORDER BY fan_in DESC LIMIT ?
@@ -426,7 +427,7 @@ class BCOPBrain:
         sp_rows = fts('sps_fts', 'sps', 'id',
                       't.id, t.domain, t.biz, t.fan_in, t.is_soul, t.soul_pattern')
         rule_rows = fts('rules_fts', 'rules', 'id',
-                        't.id, t.sp, t.domain, t.tipo, t.reg, t.riesgo, t.code')
+                        't.id, t.sp, t.domain, t.tipo, t.reg, t.riesgo, t.code, t.business_name')
         term_rows = fts('terms_fts', 'terms', 'term',
                         't.term, t.cat, t.meaning, t.scope')
         jrn_rows  = fts('journeys_fts', 'journeys', 'id',

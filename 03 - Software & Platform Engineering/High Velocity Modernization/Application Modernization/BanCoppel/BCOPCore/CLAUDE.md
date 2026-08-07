@@ -105,6 +105,7 @@ Diez Digital Twins de proyecto — siete por artefacto del Gemelo Cognitivo, el 
 
 | DT | Artefacto propietario | SMEs heredados | Versión |
 |----|----------------------|----------------|---------|
+| `dt-spl-analysis/` | Orquestador scatter-gather · Specialist código Informix SPL — extracción, parsing, análisis de SPs | SPL Analysis (propio) · DBA IBM Informix | 1.1.0 |
 | `dt-vocabulario/` | Vocabulario (634 términos en brain.db sobre D01-D16; sincronizado 2026-08-06) | SPL Analysis · Industry Banking | 1.1.0 |
 | `dt-almas/` | Almas del sistema (11 sobre D01-D16) | SPL Analysis · Core Banking Transformation | 1.1.0 |
 | `dt-journeys/` | Journey map (166 sobre D01-D16) | SPL Analysis · Industry Banking | 1.1.0 |
@@ -115,6 +116,9 @@ Diez Digital Twins de proyecto — siete por artefacto del Gemelo Cognitivo, el 
 | `dt-validador/` | Integridad del Knowledge Base — Capa 1 automática (`build-validation-report.py`) + Capa 2 smoke tests multi-DT | — (opera sobre estructura, no dominio) | 1.0.0 |
 | `dt-spei/` | Análisis AS-IS D08 — 7 BDs de pagos (bdispei + satélites) · riesgos regulatorios Banxico · interfaz con capa de autorización externa | Industry Payments/SPEI · Regulatory/Banxico · SPL Analysis | 0.1.0 |
 | `dt-autorizador-pagos/` | Capa de autorización externa (e-global) — arquitectura de integración, flows de autorización, touchpoints Informix, riesgos de migración para la capa media | Industry Payments · Integration Architecture · Interoperability | 0.1.0 |
+| `dt-operacional-batch/` | Taxonomía de scripts batch/shell (~1,104 reglas) — clasificación operacional por tipo (DESCARGA/CARGA/ELIMINACION/EJECUCION_SQL/etc.) · owner de RE_SHELL y classify_shell_cmd | SPL Analysis · DBA IBM Informix | 0.1.0 |
+| `dt-regulatorio/` | Tabla regulación → artículo + descripción corta (CNBV/LISR/LTOSF/LRSIC/PLD/FATCA/SPEI) — alimenta paso G del pipeline de inferencia | Industry Banking · Industry Banking Accounting · Regulatory/Banxico | 0.1.0 |
+| `dt-catalogo-errores/` | Catálogo de códigos de error BanCoppel → descripción humana — enriquece ~500 reglas VALIDACIÓN con "Validación: código de error NNNN" | DBA IBM Informix · Industry Banking | 0.1.0 |
 
 Cada `dt/` contiene su propio `CLAUDE.md` con: declaración de SMEs heredados, versión (regla 12), gestión de conocimiento (regla 14), y capacidades por herencia (regla 15).
 
@@ -208,4 +212,4 @@ Todo hallazgo extraído de `source/logs/` tiene dos destinos en paralelo:
 
 **Component Spec:** [spec-spe-am-bcop-core.md](spec-spe-am-bcop-core.md) — especificación del componente BCOPCore siguiendo §16 DC Universal Rules.
 
-*Última actualización: 2026-08-06 · Ontología v3.9 · 2 nuevos DTs: DT-SPEI (D08 Informix + regulatorio Banxico) y DT-Autorizador de Pagos (capa e-global fuera de Informix); 3 nuevos SMEs: Industry Payments orquestador + Regulatory Banxico + Integration Architecture; total: 10 DTs · 17 SMEs*
+*Última actualización: 2026-08-07 · Ontología v3.9 · 3 nuevos DTs inferencia: DT-Operacional-Batch (taxonomía batch/shell ~1,104 reglas), DT-Regulatorio (tabla regulación → descripción corta, paso G), DT-Catálogo-Errores (códigos de error → descripción humana, ~500 reglas VALIDACIÓN); v anterior 2026-08-06: DT-SPEI + DT-Autorizador de Pagos + 3 SMEs Industry Payments/Banxico/Integration Arch; total: 14 DTs · 17 SMEs (DT-SPL-Analysis faltaba del roster — corregido)*
