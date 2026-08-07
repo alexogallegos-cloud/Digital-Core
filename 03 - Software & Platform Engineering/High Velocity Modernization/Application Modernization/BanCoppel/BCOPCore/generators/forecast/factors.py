@@ -247,6 +247,69 @@ def _bienestar(df, cal):
     return (df["month"].isin([1, 3, 5, 7, 9, 11]) & (df["dom"] <= 25)).astype(int)
 
 
+# ── temporadas de consumo del segmento BanCoppel (Coppel core) ───────────────────
+# Todas registradas; el FEATURE_SET activa solo las que tienen soporte. Activas:
+# is_pre_dia_nino (p=0.002) e is_post_fiesta (rational fuerte, -4%). Las demas quedan como
+# candidatas (nulas/marginales en tarjeta con los datos actuales).
+@factor("is_pre_dia_nino", "comercial",
+        "Compras previas al Dia del Nino (25-30 abr): juguetes (Coppel core)")
+def _pre_nino(df, cal):
+    return ((df["month"] == 4) & df["dom"].between(25, 30)).astype(int)
+
+@factor("is_post_fiesta", "calendario-of",
+        "Resaca post-fiesta grande: dia siguiente no festivo (17-sep, 26-dic, 2-ene) -> consumo bajo")
+def _post_fiesta(df, cal):
+    pf = {(9, 17), (12, 26), (1, 2)}
+    return df.apply(lambda r: int((int(r["month"]), int(r["dom"])) in pf), axis=1)
+
+@factor("is_regreso_clases", "comercial",
+        "Regreso a clases (15-jul a 25-ago): utiles/uniformes. Candidato (p=0.16 en tarjeta)")
+def _regreso(df, cal):
+    return df["doy"].between(196, 237).astype(int)
+
+@factor("is_fiestas_patrias", "comercial",
+        "Fiestas patrias (10-15 sep). Candidato (nulo en tarjeta)")
+def _patrias(df, cal):
+    return ((df["month"] == 9) & df["dom"].between(10, 15)).astype(int)
+
+@factor("is_pre_dia_madres", "comercial",
+        "Compras previas al 10-may (3-9 may). Candidato (nulo en tarjeta: el segmento compra a "
+        "credito Coppel, no debito/e-global)")
+def _pre_madres(df, cal):
+    return ((df["month"] == 5) & df["dom"].between(3, 9)).astype(int)
+
+@factor("is_dia_padre", "comercial",
+        "Dia del Padre (3er domingo de junio +/-2). Candidato (p~0.08 marginal)")
+def _padre(df, cal):
+    from .calendar_mx import nth_weekday
+    s = set()
+    for yr in cal.years:
+        p = nth_weekday(yr, 6, 6, 3)
+        for k in range(-2, 1):
+            s.add(p + timedelta(k))
+    return df["d"].apply(lambda x: int(x in s))
+
+@factor("is_vispera_puente", "calendario-of",
+        "Ultimo dia habil antes de un puente (>=3 dias no habiles con festivo). Candidato (nulo)")
+def _vispera_puente(df, cal):
+    def f(d):
+        if not cal.is_business_day(d):
+            return 0
+        run = 0; k = 1; festivo = False
+        while not cal.is_business_day(d + timedelta(k)):
+            if (d + timedelta(k)) in cal.holidays:
+                festivo = True
+            run += 1; k += 1
+            if run > 6:
+                break
+        return int(run >= 3 and festivo)
+    return df["d"].apply(f)
+
+@factor("is_mes_corto", "candidato", "Febrero (mes corto). Nulo: la longitud del mes se maneja al agregar dia a dia")
+def _mes_corto(df, cal):
+    return (df["month"] == 2).astype(int)
+
+
 # ── patron ANUAL REPETIBLE del Autorizador (piecewise sobre dia-del-anio) ─────────
 # El Autorizador NO es log-lineal: su forma intra-anual sube y baja a lo largo del anio y
 # se REPITE cada anio. Se modela como piecewise-linear sobre el DIA-DEL-ANIO (doy), continuo
@@ -313,8 +376,11 @@ FEATURE_SETS = {
         "is_holiday_eve", "is_post_holiday",
         "is_semana_santa", "is_pascua_finde",         # moviles: siguen la Pascua
         "is_pre_semana_santa",                        # compras pre-Pascua (movil; rational fuerte,
-        #   p~0.14 con 2 SS -> re-validar con mas datos)
-        "is_sat_reembolso",                           # temporada fiscal abr-may (p~0.10 -> re-validar)
+        #   p~0.09 -> re-validar con mas datos)
+        "is_pre_dia_nino",                            # compras previas al Dia del Nino (p=0.001)
+        "is_post_fiesta",                             # resaca post-fiesta grande (-4%, p~0.06)
+        # is_sat_reembolso NO se activa: quedo nulo (p=0.57) al competir con is_pre_dia_nino, que
+        # captura mejor el pico de fin de abril. Registrado en el catalogo, inactivo.
         "is_aguinaldo",                               # aguinaldo (evento especifico)
         # NO se incluyen cuesta_enero / temporada_dic / navidad: el patron anual (annual_*)
         # ya absorbe la forma de baja frecuencia (enero bajo, subida hacia primavera, etc.).
@@ -349,6 +415,14 @@ FACTOR_LABELS = {
     "is_pre_semana_santa": "Pre-Semana Santa (compras, movil)",
     "is_sat_reembolso": "Temporada fiscal SAT (abr-may)",
     "is_bienestar": "Programas Bienestar (bimestral)",
+    "is_pre_dia_nino": "Pre-Dia del Nino (compras)",
+    "is_post_fiesta": "Resaca post-fiesta (17sep/26dic/2ene)",
+    "is_regreso_clases": "Regreso a clases (jul-ago)",
+    "is_fiestas_patrias": "Fiestas patrias (10-15 sep)",
+    "is_pre_dia_madres": "Pre-Dia de las Madres",
+    "is_dia_padre": "Dia del Padre",
+    "is_vispera_puente": "Vispera de puente",
+    "is_mes_corto": "Mes corto (feb)",
     "is_aguinaldo": "Aguinaldo (15-23 dic)",
     "is_temporada_dic": "Temporada dic (1-14)",
     "is_cuesta_enero": "Cuesta de enero (2-28)",

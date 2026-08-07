@@ -69,12 +69,20 @@ OLS log-lineal: `log V(t) = β₀ + β₁·t + Σ βₖ·factorₖ(t) + ε`
 - `candidato` — temporalidades en evaluación (no en el modelo final hasta validarse)
 
 **Todas las reglas exploradas quedan registradas** aunque no estén activas; el `FEATURE_SET`
-de cada canal selecciona las activas y son las que se aplican al proyectar. Reglas con rational
-de negocio fuerte pero significancia marginal con los datos actuales — pre-Semana Santa
-(`is_pre_semana_santa`, móvil, sigue la Pascua) y temporada fiscal SAT (`is_sat_reembolso`) —
-están **activas en el Autorizador, marcadas para re-validar** con más datos. El pico anómalo de
-abril-2025 (no explicado por campañas nacionales, pre-Pascua, SAT ni Bienestar) apunta a una
-**campaña interna Coppel** (p.ej. Hot Fashion); falta ese calendario para modelarlo.
+de cada canal selecciona las activas y son las que se aplican al proyectar.
+
+Temporadas de consumo del segmento BanCoppel (Coppel core) evaluadas para el Autorizador:
+- **Activas**: `is_pre_dia_nino` (compras previas al Día del Niño, +4.2%, p=0.001, sólida);
+  `is_pre_semana_santa` (móvil, sigue la Pascua, +2%, p~0.10) e `is_post_fiesta` (resaca
+  post-fiesta grande 17-sep/26-dic/2-ene, −4%, p~0.06) — activas por rational fuerte, re-validar.
+- **Registradas pero inactivas (nulas/marginales en tarjeta con los datos actuales)**:
+  `is_sat_reembolso` (redundante con pre-Día del Niño en fin de abril), `is_regreso_clases`
+  (¿va por crédito Coppel, no débito?), `is_pre_dia_madres` (ídem), `is_fiestas_patrias`,
+  `is_dia_padre`, `is_vispera_puente`, `is_bienestar` (Banco del Bienestar, no BanCoppel),
+  `is_mes_corto` (la longitud del mes ya se maneja al proyectar día a día).
+
+El pico anómalo de abril-2025 restante apunta a una **campaña interna Coppel** (p.ej. Hot
+Fashion); falta ese calendario para modelarlo.
 
 El análisis que fundamenta los factores descubiertos vía días atípicos vive en
 `knowledge-base/cross-reference/growth-forecast-dias-atipicos.md`.
