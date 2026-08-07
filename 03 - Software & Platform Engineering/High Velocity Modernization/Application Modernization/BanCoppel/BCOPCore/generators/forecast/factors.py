@@ -332,6 +332,117 @@ for _i, _kd in enumerate(ANNUAL_KNOTS_DOY, start=1):
            f"Cambio de pendiente intra-anual en doy={_kd}")(_mk_adoy(_kd))
 
 
+# ── CATALOGO EXTENDIDO (marco de factores del usuario; registrados, se activan por FEATURE_SET) ──
+
+# Ventana de quincena ampliada a +/-4 dias (offsets calendario desde el ancla de deposito)
+def _q_off(cal, k):
+    from datetime import timedelta as _td
+    return {a + _td(k) for a in cal.anchors}
+for _k in (2, 3, 4):
+    def _mk_dm(k):
+        return lambda df, cal: df["d"].apply(lambda x: int(x in _q_off(cal, -k) and x not in cal.anchors))
+    factor(f"is_q_dm{_k}", "ciclo-pagos", f"Quincena Q-{_k} (dias antes del deposito)")(_mk_dm(_k))
+def _q_dp4(df, cal):
+    return df["d"].apply(lambda x: int(x in _q_off(cal, 4) and x not in cal.anchors))
+factor("is_q_dp4", "ciclo-pagos", "Quincena Q+4")(_q_dp4)
+
+# Semana Santa dia por dia + semana de Pascua + PTU
+def _ss_day(offset):
+    def f(df, cal):
+        from .calendar_mx import easter_sunday
+        s = {easter_sunday(yr) + timedelta(offset) for yr in cal.years}
+        return df["d"].apply(lambda x: int(x in s))
+    return f
+factor("is_lunes_santo", "calendario-of", "Lunes Santo (Pascua-6)")(_ss_day(-6))
+factor("is_martes_santo", "calendario-of", "Martes Santo (Pascua-5)")(_ss_day(-5))
+factor("is_miercoles_santo", "calendario-of", "Miercoles Santo (Pascua-4)")(_ss_day(-4))
+
+@factor("is_semana_pascua", "calendario-of", "Semana de Pascua (6 dias despues del Domingo de Pascua)")
+def _sem_pascua(df, cal):
+    from .calendar_mx import easter_sunday
+    s = set()
+    for yr in cal.years:
+        e = easter_sunday(yr)
+        for k in range(1, 7):
+            s.add(e + timedelta(k))
+    return df["d"].apply(lambda x: int(x in s))
+
+@factor("is_ptu", "gobierno", "Reparto de utilidades PTU (15-may a 15-jun): ingreso extra al trabajador")
+def _ptu(df, cal):
+    return (((df["month"] == 5) & (df["dom"] >= 15)) | ((df["month"] == 6) & (df["dom"] <= 15))).astype(int)
+
+# Fechas fijas
+@factor("is_san_valentin", "comercial", "San Valentin (13-14 feb)")
+def _sanval(df, cal):
+    return ((df["month"] == 2) & df["dom"].between(13, 14)).astype(int)
+
+@factor("is_vispera_dia_madre", "comercial", "Vispera del Dia de la Madre (8-9 may)")
+def _visp_madre(df, cal):
+    return ((df["month"] == 5) & df["dom"].between(8, 9)).astype(int)
+
+@factor("is_dia_maestro", "comercial", "Dia del Maestro (15 may)")
+def _maestro(df, cal):
+    return ((df["month"] == 5) & (df["dom"] == 15)).astype(int)
+
+@factor("is_dia_muertos", "comercial", "Dia de Muertos (1-2 nov)")
+def _muertos(df, cal):
+    return ((df["month"] == 11) & df["dom"].between(1, 2)).astype(int)
+
+@factor("is_vispera_guadalupe", "comercial", "Vispera Virgen de Guadalupe (11 dic)")
+def _visp_guad(df, cal):
+    return ((df["month"] == 12) & (df["dom"] == 11)).astype(int)
+
+@factor("is_guadalupe", "comercial", "Virgen de Guadalupe (12 dic)")
+def _guad(df, cal):
+    return ((df["month"] == 12) & (df["dom"] == 12)).astype(int)
+
+# Flotantes
+@factor("is_black_cyber", "comercial", "Black Friday (4to vie nov) + Cyber Monday (lun siguiente)")
+def _black_cyber(df, cal):
+    from .calendar_mx import nth_weekday
+    s = set()
+    for yr in cal.years:
+        bf = nth_weekday(yr, 11, 4, 4)   # 4to viernes de noviembre
+        s.add(bf); s.add(bf + timedelta(3))  # Black Friday + Cyber Monday
+    return df["d"].apply(lambda x: int(x in s))
+
+@factor("is_inicio_vacacional", "candidato", "Inicio de periodo vacacional escolar (~15-jul, ~19-dic)")
+def _inicio_vac(df, cal):
+    return (((df["month"] == 7) & df["dom"].between(13, 18)) |
+            ((df["month"] == 12) & df["dom"].between(18, 22))).astype(int)
+
+# Efectos mensuales
+@factor("is_domingo_quincena", "ciclo-pagos", "Domingo que cae en ventana de quincena (interaccion)")
+def _dom_q(df, cal):
+    en_q = df["d"].apply(lambda x: x in cal.q15 or x in cal.qfin or x in cal.qp1 or x in cal.qp2)
+    return ((df["dow"] == 6) & en_q).astype(int)
+
+@factor("is_mundial", "candidato", "Mundial de futbol 2026 (11-jun a 19-jul): efecto disperso, evento cada 4 anios")
+def _mundial(df, cal):
+    return df["d"].apply(lambda x: int(date(2026, 6, 11) <= x <= date(2026, 7, 19)))
+
+# Navidad detallada
+@factor("is_pre_navidad", "comercial", "Pre-Navidad (20-23 dic)")
+def _prenav(df, cal):
+    return ((df["month"] == 12) & df["dom"].between(20, 23)).astype(int)
+
+@factor("is_post_navidad", "calendario-of", "Post-Navidad (26 dic)")
+def _postnav(df, cal):
+    return ((df["month"] == 12) & (df["dom"] == 26)).astype(int)
+
+@factor("is_vispera_ano_nuevo", "comercial", "Vispera de Anio Nuevo (30-31 dic)")
+def _visp_an(df, cal):
+    return ((df["month"] == 12) & df["dom"].between(30, 31)).astype(int)
+
+@factor("is_rezago_pre_quincena", "ciclo-pagos", "Rezago pre-quincena (7 a 4 dias antes del deposito)")
+def _rezago(df, cal):
+    s = set()
+    for a in cal.anchors:
+        for k in range(4, 8):
+            s.add(a - timedelta(k))
+    return df["d"].apply(lambda x: int(x in s and x not in cal.anchors))
+
+
 # ── construccion de features ──────────────────────────────────────────────────────
 
 def build_features(df, cal, origin=ORIGIN):
@@ -368,9 +479,9 @@ FEATURE_SETS = {
         "annual_doy", "annual_h1", "annual_h2",       # patron anual repetible (reset en ene)
         "dow_tue", "dow_wed", "dow_thu", "dow_fri", "dow_sat", "dow_sun",
         "is_q15_exact", "is_qlast_exact",             # anclas de quincena (dia de deposito)
-        "is_q_dp1", "is_q_dp2", "is_q_dp3",            # ventana POST-pago (en tarjetas se gasta
-        #   despues de cobrar, cola de ~3 dias; Q-1 se podo -no se gasta antes de cobrar-, y
-        #   Q+4/Q+5 no son significativos -a diferencia de SPEI, que tiene Q-1 por pre-funding-).
+        "is_q_dp1", "is_q_dp2", "is_q_dp3",            # ventana POST-pago (cola de gasto ~3 dias)
+        "is_q_dm3",                                    # valle pre-cobro (Q-3, -1.5%, p=0.02): sin
+        #   dinero antes de la quincena. Q-1/Q-2/Q-4/Q+4 no significativos en tarjeta.
         "is_q1st_exact",
         "is_precierre_mes", "is_lunes_post_qfinde",   # pre-cierre + rebote de quincena en finde
         "is_holiday_eve", "is_post_holiday",
@@ -423,6 +534,19 @@ FACTOR_LABELS = {
     "is_dia_padre": "Dia del Padre",
     "is_vispera_puente": "Vispera de puente",
     "is_mes_corto": "Mes corto (feb)",
+    "is_q_dm2": "Quincena Q-2", "is_q_dm3": "Quincena Q-3", "is_q_dm4": "Quincena Q-4",
+    "is_q_dp4": "Post-quincena (Q+4)",
+    "is_lunes_santo": "Lunes Santo", "is_martes_santo": "Martes Santo",
+    "is_miercoles_santo": "Miercoles Santo", "is_semana_pascua": "Semana de Pascua",
+    "is_ptu": "PTU (reparto utilidades may-jun)",
+    "is_san_valentin": "San Valentin", "is_vispera_dia_madre": "Vispera Dia de la Madre",
+    "is_dia_maestro": "Dia del Maestro", "is_dia_muertos": "Dia de Muertos",
+    "is_vispera_guadalupe": "Vispera Virgen de Guadalupe", "is_guadalupe": "Virgen de Guadalupe",
+    "is_black_cyber": "Black Friday + Cyber Monday", "is_inicio_vacacional": "Inicio periodo vacacional",
+    "is_domingo_quincena": "Domingo en quincena", "is_mundial": "Mundial 2026",
+    "is_pre_navidad": "Pre-Navidad (20-23 dic)", "is_post_navidad": "Post-Navidad (26 dic)",
+    "is_vispera_ano_nuevo": "Vispera Anio Nuevo (30-31 dic)",
+    "is_rezago_pre_quincena": "Rezago pre-quincena (Q-7 a Q-4)",
     "is_aguinaldo": "Aguinaldo (15-23 dic)",
     "is_temporada_dic": "Temporada dic (1-14)",
     "is_cuesta_enero": "Cuesta de enero (2-28)",

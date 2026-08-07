@@ -84,6 +84,17 @@ Temporadas de consumo del segmento BanCoppel (Coppel core) evaluadas para el Aut
 El pico anómalo de abril-2025 restante apunta a una **campaña interna Coppel** (p.ej. Hot
 Fashion); falta ese calendario para modelarlo.
 
+**Catálogo extendido (marco completo de factores, ~70 registrados).** Se evaluó en batch un
+catálogo exhaustivo (ventana de quincena ±4, Semana Santa día por día, PTU, San Valentín, Día
+de la Madre/Maestro/Muertos/Guadalupe, Black Friday+Cyber, Mundial, pre/post-Navidad, etc.).
+**Hallazgo central del segmento**: el volumen de tarjeta de BanCoppel **no responde a las
+festividades comerciales** (casi todas p>0.05) — porque su base compra regalos/temporadas a
+crédito Coppel, no con débito/e-global. Lo único que lo mueve: quincena, día de semana, patrón
+anual, y pocos eventos (pre-Día del Niño, pre-Semana Santa, resaca post-fiesta). Del catálogo
+extendido solo se activó `is_q_dm3` (valle pre-cobro Q−3, −1.5%, p=0.02). No activados por
+muestra insuficiente o no recurrencia: `is_lunes_santo` (n=2), `is_mundial` (evento cada-4-años,
+efecto disperso). El resto queda registrado inactivo para re-evaluar con más datos.
+
 El análisis que fundamenta los factores descubiertos vía días atípicos vive en
 `knowledge-base/cross-reference/growth-forecast-dias-atipicos.md`.
 
