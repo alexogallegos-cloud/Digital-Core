@@ -48,6 +48,9 @@ Este DT opera en **modo mixto**: tiene evidencia indirecta disponible en brain.d
 | AUTH-DR-02 | Diagrama de arquitectura de la capa media (e-global ↔ ESB ↔ Informix) — flujos por tipo de pago (SPEI / TEF / tarjeta) | Arquitectura de BanCoppel | 🟡 PARCIAL — el diagnóstico arquitectónico enero 2026 provee las 7 capas y la cadena de fallo; faltan los flujos por tipo de pago | Ver `knowledge-base/autorizador/arquitectura-as-is.md` para la arquitectura disponible |
 | AUTH-DR-03 | Catálogo de códigos de error ESB propios de e-global — especialmente 4395 (el más frecuente: 3,980/day, no documentado en los runbooks Informix) | Equipo de integración / documentación ESB IBM DataPower | 🔴 ABIERTO | 4395 es el código con mayor volumen y cero contexto; podría ser el principal indicador de fallos e-global→ESB |
 | AUTH-DR-04 | Modelo de recertificación — ¿qué certificaciones/acuerdos tiene e-global con BanCoppel? ¿cambia algo si el endpoint Informix es reemplazado por un microservicio? | Área de operaciones BanCoppel + e-global | 🔴 ABIERTO | El cutover del core podría invalidar acuerdos vigentes con e-global sin planificación previa |
+| AUTH-DR-05 | ¿El hito 2.5 (Connection Leak fix) implementó pool de conexiones formal (HikariCP/DBCP) o solo corrigió el bug de cierre? | Eduardo Reynoso / equipo Syndein | 🔴 ABIERTO | Si solo fue bug fix, P655-R012 (sin pool) sigue completamente abierto para la migración |
+| AUTH-DR-06 | ¿El balanceo de colas SPEI (hito 3.6) es mecanismo en AIX/ESB o en el código del procesador SPEI? | Ricardo Pellicer / equipo SPEI | 🔴 ABIERTO | Determina si el balanceo debe reimplementarse en el microservicio SPEI target |
+| AUTH-DR-07 | ¿El Autorizador sigue siendo instancia única o se añadió segunda instancia como parte de las mejoras 2026? | Arquitectura / Daniel Ángeles | 🔴 ABIERTO | Determina si P655-R014 (sin load balancing) está cerrado o sigue abierto |
 
 ---
 
@@ -106,8 +109,14 @@ El diagnóstico arquitectónico de enero 2026 documentó 7 capas físicas y lóg
 - **Tag D — Subutilización**: recursos POWER-AIX no aprovechados
 - **Tag O — Bottleneck**: Queue Mensajes
 
-**Connection leak sistémico (hallazgo 23-DIC-2025, confirmado 12-ENE-2026)**:
-Las 25 conexiones directas no se liberan correctamente. Para enero 2026, el sistema fallaba con carga en percentil 15 — el leak era permanente. Ver P655-R017 (N5) y `knowledge-base/incidentes/INC-20260112-encolamiento-700-paquetes.md`.
+**Connection leak sistémico (hallazgo 23-DIC-2025, confirmado 12-ENE-2026, corregido 27-MAR-2026)**:
+Las 25 conexiones directas no se liberaban correctamente. Para enero 2026, el sistema fallaba con carga en percentil 15. El hito **2.5 (Eduardo Reynoso / Syndein, 27-mar-2026)** corrigió el leak en el código del Autorizador Java — P655-R017 CERRADO. Pendiente confirmar si además se implementó pool formal (AUTH-DR-05). Ver `knowledge-base/incidentes/INC-20260112-encolamiento-700-paquetes.md`.
+
+**Mejoras 2026 aplicadas a esta capa** (ver `knowledge-base/autorizador/mejoras-2026.md` para análisis completo):
+- 2.1 Monitoreo de Trx (14-ene) — observabilidad activa de la cola y conexiones
+- 2.5 Connection Leak fix (27-mar) — P655-R017 CERRADO
+- 1.4 Power 10 (7-jun) — headroom de cómputo expandido
+- 1.5 Optimización de SPLs Autorizador/SPEI (30-jun) — buffer waits reducidos
 
 ---
 

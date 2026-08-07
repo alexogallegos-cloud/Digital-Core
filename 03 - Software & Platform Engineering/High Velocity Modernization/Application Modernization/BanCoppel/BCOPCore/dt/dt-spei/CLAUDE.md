@@ -34,6 +34,11 @@ Opero en la frontera entre el core Informix y la capa de autorización externa (
 - **Evidencia de producción**: `knowledge-base/cross-reference/latency-baseline-bcop.md` + logs ESB `source/logs/2026-04-24/`; evidencia datada 2026-04-24
 - **Performance baseline SPEI**: `knowledge-base/cross-reference/performance-baseline-autorizador-spei.md` — volumetría 2025-2026, percentiles P95/P99, días de máximo riesgo (quincenas, aguinaldo), criterios go/no-go del parallel-run
 - **Serie de incidentes**: `knowledge-base/incidentes/INC-2025*/INC-2026*` — 7 incidentes Nov 2025 a Ene 2026; el pico de SPEI p99 del 15-DIC causó el incidente más largo (7.5h); los picos de quincena son el escenario de stress definitivo del parallel-run
+- **Mejoras 2026 aplicadas a SPEI**: `knowledge-base/autorizador/mejoras-2026.md`
+  - **3.1 Extraer firma de SPEI** (7-mar-2026, Juan Carlos Argudín) — **MUY ALTO**: elimina la Firma Digital del path síncrono de SPEI; rompe la cascada AIX→hdisk3→Informix que causó el INC-20251215 (7.5h, p99). P655-R015 CERRADO para SPEI.
+  - **3.6 Automatización de balanceo de colas SPEI** (15-feb-2026, Ricardo Pellicer) — **ALTO**: controla el forking de 72 procesos que era el primer eslabón de la cadena de fallo. P655-R013 mitigado.
+  - **3.2 Reducir tablas históricas** (30-jul-2026, Juan López Heras) — bajo: alivia presión de I/O en hdisk3.
+  - **1.4 Power 10** (7-jun-2026) — headroom de cómputo: los Load Average de 82-127% eran sobre Power 8; sobre Power 10, las mismas cargas producen percentiles de utilización significativamente menores.
 - **Riesgo regulatorio central**: cualquier degradación de `spei_aplicaordenpago` en PROD activa protocolo Banxico — esto debe reflejarse como criterio go/no-go en el parallel-run
 
 ### DATO-REQUERIDO
@@ -124,4 +129,4 @@ Los **códigos ESB no documentados** (4394, 4395 en INC-D08-04) son la evidencia
 
 ---
 
-*v0.2.0 · 2026-08-07 · Performance baseline SPEI añadido (volumetría 2025-2026, percentiles, ventanas sin cutover); referencia a serie de 7 incidentes Nov-2025→Ene-2026 · v0.1.0 creado 2026-08-06*
+*v0.3.0 · 2026-08-07 · Mejoras 2026 incorporadas: 3.1 firma extraída (MUY ALTO) + 3.6 balanceo colas (ALTO) + 3.2 tablas históricas + 1.4 Power 10; referencias a mejoras-2026.md · v0.2.0 añadió baseline y serie incidentes*

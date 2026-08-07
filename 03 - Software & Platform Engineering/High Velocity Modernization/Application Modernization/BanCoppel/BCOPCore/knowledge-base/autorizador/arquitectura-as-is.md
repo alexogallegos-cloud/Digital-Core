@@ -134,4 +134,26 @@ El volumen del 12-ene era significativamente menor (Eglobal p15, SPEI p48) — e
 
 ---
 
-*v1.0.0 · 2026-08-07 · Fuente: diagnóstico arquitectónico enero 2026 post-incidentes Nov-Dic 2025 · Complementado con análisis de volumetría Excel (Eglobal + SPEI minxmin)*
+---
+
+## Estado actual vs. diagnóstico enero 2026
+
+El diagnóstico de enero 2026 describía la arquitectura en estado crítico post-incidentes. Entre enero y julio de 2026 se ejecutaron **11 mejoras** que cambiaron el perfil de riesgo de producción. La arquitectura de capas sigue siendo la misma; los cambios son a nivel de configuración, código y hardware.
+
+| Capa | Elemento | Estado enero 2026 | Estado agosto 2026 | Mejora aplicada |
+|------|----------|------------------|--------------------|-----------------|
+| Capa 7 | e-Global → Autorizador | Connection leak sistémico | **Sin leak** (corregido en código) | 2.5 — Eduardo Reynoso / Syndein (27-mar) |
+| Capa 5 | Queue Mensajes umbral | 2 paquetes (diseño) vs 3,285 pico | Bajo por balanceo automático | 3.6 — Balanceo de colas SPEI (15-feb) |
+| Capa 4 | Informix SPL | 193 buffer waits pico | Reducido (optimización SPLs) | 1.5 — Juan C. Argudín / E. Dardo (30-jun) |
+| Capa 3 | Informix OLTP | Estadísticas desactualizadas | Estadísticas optimizadas | 1.6 — Ricardo Pelliser (24-mar) |
+| Capa 2 | AIX + Firma Digital (SPEI) | Síncrona, bottleneck para SPEI | **Firma extraída del flujo SPEI** | 3.1 — Juan Carlos Argudín (7-mar) |
+| Capa 2 | HSM / tablas | Tablas sin optimizar | Tablas optimizadas | 1.1 — Juan López Heras (8-ene) |
+| Capa 1 | Hardware | **Power 8** | **Power 10** (activo desde 2026-06-07) | 1.4 — Daniel Ángeles / Francisco Alles (6-jun) |
+
+**Impacto neto en producción**: el último incidente documentado de la serie fue el 12-ENE-2026. Tras las mejoras, especialmente la corrección del connection leak (27-mar) y la extracción de la firma SPEI (7-mar), no hay evidencia de incidentes recurrentes del mismo patrón.
+
+**Detalles de impacto preciso por mejora**: ver `knowledge-base/autorizador/mejoras-2026.md`.
+
+---
+
+*v1.1.0 · 2026-08-07 · Añadida sección "Estado actual vs. diagnóstico enero 2026" con las 11 mejoras del roadmap 2026 · v1.0.0 creado 2026-08-07*

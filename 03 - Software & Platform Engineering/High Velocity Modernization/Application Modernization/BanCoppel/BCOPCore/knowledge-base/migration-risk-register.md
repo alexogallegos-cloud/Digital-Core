@@ -541,8 +541,33 @@ El espacio entre `bdicred:` y `"informix"` es inconsistente. Dependiendo de la v
 | 1.1.0 | 2026-08-01 | P655-R003 a R008 — hallazgos de análisis de logs producción 2026-04-24 |
 | 1.2.0 | 2026-08-01 | P655-R009 a R011 — D11-bdicobranza análisis de código fuente `bdicobranza_sp_obtener_datos_cv_web.sql` vs `bdicred_sp_consulta_saldos_general.sql`; causa raíz del 97.4% error rate: type mismatch CHAR(5)/CHAR(6); + silent exception swallowing + space en cross-DB call |
 | 1.3.0 | 2026-08-07 | P655-R012 a R017 — diagnóstico arquitectónico capa Autorizador/e-global (enero 2026 post-incidentes Nov-Dic 2025); connection leak sistémico (R012, R017), SPEI forking (R013), sin load balancing (R014), Firma Digital bottleneck (R015), SLA e-Global 8s (R016) |
+| 1.4.0 | 2026-08-07 | Actualización de estados R012-R017 — 11 mejoras ejecutadas en 2026 (enero-julio); R017 CERRADO (2.5 connection leak fix), R015 CERRADO para SPEI (3.1 firma extraída), R013/R016 MITIGADOS para producción; R012/R014 PARCIALMENTE MITIGADOS (pendiente AUT-DR-05/06/07) |
+
+---
+
+## Estado post-mejoras 2026 (P655-R012 a R017)
+
+> Fuente: `knowledge-base/autorizador/mejoras-2026.md` — 11 hitos completados entre enero y julio 2026.
+
+| ID | Estado actualizado | Mejora que lo resuelve | DATO-REQUERIDO pendiente |
+|----|-------------------|------------------------|--------------------------|
+| P655-R012 | 🟡 PARCIALMENTE MITIGADO — leak corregido (2.5), sin evidencia de pool formal | Hito 2.5 (Connection Leak fix) | AUT-DR-05 |
+| P655-R013 | 🟢 MITIGADO para producción — balanceo automático + firma extraída + Power 10 | Hitos 3.6, 3.1, 1.4 | Validar en target |
+| P655-R014 | 🟡 PARCIALMENTE MITIGADO — colas SPEI balanceadas; instancia única Autorizador sin confirmar | Hito 3.6 (SPEI queues) | AUT-DR-07 |
+| P655-R015 | 🟢 CERRADO para SPEI — firma extraída del flujo síncrono + HSM tables optimizadas | Hitos 3.1, 1.1 | Verificar otros flujos con Firma Digital |
+| P655-R016 | 🟢 MITIGADO para producción / 🟡 Abierto para migración — el target debe validar latencia ≤ 4s P95 | Hitos 2.5, 3.6, 3.1, 1.4 | Validar en parallel-run |
+| P655-R017 | ✅ **CERRADO** — connection leak corregido en código del Autorizador Java | Hito 2.5 (27-mar-2026, Eduardo Reynoso / Syndein) | — |
+
+**Resumen conteo actualizado:**
+
+| Nivel | Total | Producción ABIERTOS | Migración ABIERTOS | Cerrados |
+|-------|-------|--------------------|--------------------|---------|
+| N5 | 5 | 2 (R001, R002) | 3 (R012 parcial, R013, R017✅) | 1 (R017) |
+| N4 | 4 | 1 (R009) | 3 (R014 parcial, R015✅SPEI, R016 mig.) | — |
+| N3 | 5 | 5 | — | — |
+| N2 | 3 | 3 | — | — |
 
 ---
 
 *Mantenido por: DT-Riesgos · `BCOPCore/dt/dt-riesgos/CLAUDE.md`*
-*Fuente primaria validada: `source/logs/` (producción 2026-04-24) + `source/BCOPCore/informix/*.sql` + `source/spei-aut-ent/` (volumetría 2025-2026) + diagnóstico arquitectónico enero 2026*
+*Fuente primaria validada: `source/logs/` (producción 2026-04-24) + `source/BCOPCore/informix/*.sql` + `source/spei-aut-ent/` (volumetría 2025-2026) + diagnóstico arquitectónico enero 2026 + roadmap mejoras 2026 (11 hitos completados)*
