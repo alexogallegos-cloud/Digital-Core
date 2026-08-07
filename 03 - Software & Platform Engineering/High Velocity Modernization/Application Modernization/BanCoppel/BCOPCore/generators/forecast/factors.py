@@ -52,6 +52,7 @@ def add_base_columns(df, origin=ORIGIN):
     df["month"] = df["date"].dt.month
     df["dom"] = df["date"].dt.day
     df["t"] = df["d"].apply(lambda x: (x - origin).days)
+    df["doy"] = df["date"].dt.dayofyear          # dia del anio (para patrones anuales repetibles)
     return df
 
 
@@ -217,6 +218,28 @@ def _reyes(df, cal):
     return ((df["month"] == 1) & df["dom"].between(5, 6)).astype(int)
 
 
+# ── patron ANUAL REPETIBLE del Autorizador (piecewise sobre dia-del-anio) ─────────
+# El Autorizador NO es log-lineal: su forma intra-anual sube y baja a lo largo del anio y
+# se REPITE cada anio. Se modela como piecewise-linear sobre el DIA-DEL-ANIO (doy), continuo
+# dentro del anio pero con RESET en el cambio de anio (doy salta 365->1 => "arranque de cero"
+# cultural, sin wraparound). Esto se repite igual en 2025, 2026, 2027... y por eso SI proyecta
+# (a diferencia de breakpoints en tiempo absoluto). La tendencia de crecimiento anio-a-anio se
+# estima aparte con 't'. Knots optimos (maximizar adjR2, sin infra):
+#   1-ene->10-abr +5.0%/mes · 10-abr->19-jul -2.0%/mes · 19-jul->31-dic +0.4%/mes.
+# Recalcular con datos nuevos: generators/build-autorizador-knots.py.
+ANNUAL_KNOTS_DOY = [100, 200]   # ~10-abr, ~19-jul
+
+@factor("annual_doy", "estacional-anual", "Pendiente intra-anual base (dia-del-anio, reset en ene)")
+def _annual_doy(df, cal):
+    return df["doy"].astype(float)
+
+for _i, _kd in enumerate(ANNUAL_KNOTS_DOY, start=1):
+    def _mk_adoy(kd):
+        return lambda df, cal: (df["doy"] - kd).clip(lower=0).astype(float)
+    factor(f"annual_h{_i}", "estacional-anual",
+           f"Cambio de pendiente intra-anual en doy={_kd}")(_mk_adoy(_kd))
+
+
 # ── construccion de features ──────────────────────────────────────────────────────
 
 def build_features(df, cal, origin=ORIGIN):
@@ -246,24 +269,37 @@ FEATURE_SETS = {
         "is_10_mayo", "is_ano_nuevo", "is_buen_fin",
         "is_holiday_eve", "is_post_holiday",
     ],
-    # E-Global: dias habiles L-V (sin cambios respecto a v2)
+    # E-Global / Autorizador: 7 dias (el pico de tarjetas es en fin de semana) + tendencia
+    # SEGMENTADA por escalones (no log-lineal). Factores propios de tarjetas.
     "eglobal": [
-        "t",
-        "dow_tue", "dow_wed", "dow_thu", "dow_fri",
-        "is_semana_santa", "is_buen_fin", "is_aguinaldo",
-        "is_10_mayo", "is_navidad", "is_ano_nuevo",
-        "is_q15_exact", "is_qlast_exact", "is_q1st_exact", "is_d17_exact",
+        "t",                                          # tendencia de crecimiento anio-a-anio
+        "annual_doy", "annual_h1", "annual_h2",       # patron anual repetible (reset en ene)
+        "dow_tue", "dow_wed", "dow_thu", "dow_fri", "dow_sat", "dow_sun",
+        "is_q15_exact", "is_qlast_exact",             # anclas de quincena (dia de deposito)
+        "is_q_dp1", "is_q_dp2",                        # ventana POST-pago (en tarjetas se gasta
+        #   despues de cobrar; Q-1 se podo por no-significativo -a diferencia de SPEI que si
+        #   tiene pre-funding de empleadores-).
+        "is_q1st_exact",
+        "is_precierre_mes", "is_lunes_post_qfinde",   # pre-cierre + rebote de quincena en finde
         "is_holiday_eve", "is_post_holiday",
-        "is_q15_fri", "is_qlast_fri",
+        "is_semana_santa", "is_pascua_finde",         # moviles: siguen la Pascua
+        "is_aguinaldo",                               # aguinaldo (evento especifico)
+        # NO se incluyen cuesta_enero / temporada_dic / navidad: el patron anual (annual_*)
+        # ya absorbe la forma de baja frecuencia (enero bajo, subida hacia primavera, etc.).
+        # Podados por no-significancia en tarjetas: is_10_mayo (p=0.99), is_d17_exact (0.53),
+        # is_q15_fri (0.31), is_qlast_fri (0.12) -- el efecto quincena-en-viernes ya se apila
+        # via el ancla (que apunta al viernes cuando la quincena cae en finde) + el factor Viernes.
     ],
 }
 
 CHANNELS = {
-    "spei":    {"include_weekends": True,  "min_vol": 500_000, "label": "SPEI Entradas (7 dias)"},
-    "eglobal": {"include_weekends": False, "min_vol": 500_000, "label": "E-Global / Autorizador"},
+    "spei":    {"include_weekends": True, "min_vol": 500_000, "label": "SPEI Entradas (7 dias)"},
+    "eglobal": {"include_weekends": True, "min_vol": 500_000, "label": "E-Global / Autorizador (7 dias)"},
 }
 
 FACTOR_LABELS = {
+    "trend_eg_h1": "Cambio pendiente (17-abr-25)",
+    "trend_eg_h2": "Cambio pendiente (1-jul-25)",
     "dow_tue": "Martes", "dow_wed": "Miercoles", "dow_thu": "Jueves",
     "dow_fri": "Viernes", "dow_sat": "Sabado", "dow_sun": "Domingo",
     "is_q15_exact": "Quincena 15 (dia deposito)",

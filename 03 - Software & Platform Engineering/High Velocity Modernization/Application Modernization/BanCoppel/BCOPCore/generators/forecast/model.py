@@ -129,16 +129,35 @@ def residual_report(model, df_clean, channel, top=25):
 
 
 def interpret(model, label, factor_labels, n_raw):
+    names = list(model.params.index)
+    annual = "annual_doy" in names   # Autorizador: patron anual repetible sobre dia-del-anio
+
     bt = model.params["t"]
     ci = model.conf_int()
     mg = (np.exp(bt * 30) - 1) * 100
     mlo = (np.exp(ci.loc["t", 0] * 30) - 1) * 100
     mhi = (np.exp(ci.loc["t", 1] * 30) - 1) * 100
     ag = (np.exp(bt * 365) - 1) * 100
+    p_t = float(model.pvalues["t"])
+
+    if annual:
+        # pendientes intra-anuales del patron repetible (sobre doy), en %/mes por tramo.
+        # La tendencia de crecimiento anio-a-anio es 't' (arriba); el patron se repite y
+        # resetea cada 1-ene.
+        hs = [p for p in names if p.startswith("annual_h")]
+        segs = [model.params["annual_doy"]]
+        for h in hs:
+            segs.append(segs[-1] + model.params[h])
+        segments_pct = [round((np.exp(s * 30) - 1) * 100, 2) for s in segs]
+    else:
+        segments_pct = None
 
     print(f"\n{'='*68}\n  {label}\n{'='*68}")
     print(f"  R2 {model.rsquared:.4f} (adj {model.rsquared_adj:.4f}) · obs {int(model.nobs)}/{n_raw}")
-    print(f"  Crecimiento/mes {mg:+.2f}% IC95%[{mlo:+.2f}%,{mhi:+.2f}%] · /anio {ag:+.1f}%")
+    print(f"  {'Tendencia anio-a-anio' if annual else 'Crecimiento'}/mes {mg:+.2f}% "
+          f"IC95%[{mlo:+.2f}%,{mhi:+.2f}%] · /anio {ag:+.1f}%")
+    if segments_pct:
+        print(f"  Patron anual repetible (%/mes intra-anio por tramo): {segments_pct}")
     print(f"\n  {'Factor':<42} {'Efecto':>8} {'p':>8}")
     print(f"  {'-'*60}")
     factors_out = {}
@@ -160,7 +179,8 @@ def interpret(model, label, factor_labels, n_raw):
         "monthly_ci_low": round(mlo, 3),
         "monthly_ci_high": round(mhi, 3),
         "annual_growth_pct": round(ag, 2),
-        "p_value_t": float(model.pvalues["t"]),
+        "p_value_t": p_t,
+        "segments_pct": segments_pct,
         "factors": factors_out,
     }
 

@@ -192,29 +192,46 @@ factor, registrado con `@factor`). Al llegar datos reales nuevos: agregar la fue
 
 ---
 
-## SPEI es un riel 24/7
+## Dos canales, dos estructuras
 
-El EDA mostro volumen alto todos los dias (Sabado 112%, Domingo 79% del volumen habil L-V);
-por eso SPEI se modela sobre los 7 dias. La ventana de quincena se ancla al dia habil de
-deposito y es asimetrica: Q+1 pesa mas que Q-1, y el fin de semana absorbe el flujo cuando
-el deposito cae en viernes.
+Ambos canales se modelan sobre los **7 dias** (SPEI y el Autorizador tienen su pico en fin de
+semana), pero su TENDENCIA es distinta:
+
+- **SPEI** es log-lineal: tras quitar estacionalidad, la tendencia es una recta ascendente
+  (R2 de una recta sobre la tendencia des-estacionalizada = 0.92). Se proyecta con una sola
+  pendiente + los factores en inversa.
+- **El Autorizador NO es log-lineal**: tiene un **patron anual repetible** (misma forma cada
+  anio, funcion del dia-del-anio) mas una tendencia de crecimiento anio-a-anio. El patron es
+  piecewise-linear continuo DENTRO del anio y **se resetea el 1-ene** ("arranque de cero"): sube
+  fuerte ene-abr, baja abr-jul, mesetea jul-dic. Comparte temporalidades con SPEI pero con
+  **factores propios**: la quincena mueve a SPEI +39/+47% y al Autorizador +7/+10%, y en tarjetas
+  el efecto quincena es POST-pago (Q+1/Q+2 significativos, Q-1 no) porque se gasta despues de
+  cobrar. El ajuste a nivel diario (~0.81) carga el ruido irregular de tarjetas (~3.6%); sobre la
+  senial agregada el ajuste es 0.97 semanal / 0.99 mensual.
 
 ---
 
-## Resultados: Crecimiento Organico
+## Resultados
 
 | Metrica | E-Global / Autorizador | SPEI Entradas |
 |---------|------------------------|---------------|
-| **Crecimiento mensual** | **{re_["monthly_growth_pct"]:+.2f}%** | **{rs["monthly_growth_pct"]:+.2f}%** |
+| **Tendencia** | pendiente base + escalones (segmentada) | log-lineal |
+| **Crecimiento mensual (pendiente base)** | **{re_["monthly_growth_pct"]:+.2f}%** | **{rs["monthly_growth_pct"]:+.2f}%** |
 | IC 95% mensual | [{re_["monthly_ci_low"]:+.2f}%, {re_["monthly_ci_high"]:+.2f}%] | [{rs["monthly_ci_low"]:+.2f}%, {rs["monthly_ci_high"]:+.2f}%] |
-| **Crecimiento anual** | **{re_["annual_growth_pct"]:+.1f}%** | **{rs["annual_growth_pct"]:+.1f}%** |
+| **Crecimiento anual (pendiente base)** | **{re_["annual_growth_pct"]:+.1f}%** | **{rs["annual_growth_pct"]:+.1f}%** |
 | R² | {re_["r2"]:.4f} | {rs["r2"]:.4f} |
 | R² ajustado | {re_["r2_adj"]:.4f} | {rs["r2_adj"]:.4f} |
-| Observaciones | {re_["n_obs"]} dias habiles | {rs["n_obs"]} dias (7-dia) |
+| Observaciones | {re_["n_obs"]} dias (7-dia) | {rs["n_obs"]} dias (7-dia) |
+
+> El "crecimiento mensual" del Autorizador es la **tendencia anio-a-anio** (continua); sobre
+> ella se monta el patron anual repetible (sube ene-abr, baja abr-jul, resetea en enero). Para
+> proyectar se combina la tendencia con el patron del dia-del-anio correspondiente. Ademas hay
+> evidencia de censura por saturacion (techo de throughput ~4,300 txn/min) — ver el analisis de
+> capacidad.
 
 ---
 
-## Factores Estacionales: E-Global / Autorizador (dias habiles L-V)
+## Factores Estacionales: E-Global / Autorizador (7 dias, tendencia segmentada)
 
 | Factor | Efecto vs lunes base | p-valor |
 |--------|----------------------|---------|
