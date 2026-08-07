@@ -440,6 +440,69 @@ class BCOPBrain:
             'journeys': self._rows(jrn_rows),
         }
 
+    # ── Trazabilidad Reglas ↔ Vocabulario ─────────────────────────────────────
+
+    def terms_for_rule(self, rule_id: str) -> list[dict]:
+        """
+        Términos del vocabulario referenciados por una regla SBVR.
+        Útil para entender qué conceptos de negocio gobierna una regla.
+        """
+        rows = self._db().execute('''
+            SELECT t.term, t.cat, t.meaning, t.nivel, rt.source
+            FROM rule_terms rt
+            JOIN terms t ON rt.term = t.term
+            WHERE rt.rule_id = ?
+            ORDER BY t.nivel DESC, t.cat
+        ''', (rule_id,)).fetchall()
+        return self._rows(rows)
+
+    def rules_for_term(self, token: str, limit: int = 50) -> list[dict]:
+        """
+        Reglas SBVR que referencian un término del vocabulario.
+        Análisis de impacto: qué reglas revisar si se migra un concepto.
+        """
+        rows = self._db().execute('''
+            SELECT r.id, r.sp, r.domain, r.tipo, r.business_name,
+                   r.reg, r.riesgo, rt.source,
+                   s.fan_in, s.biz as sp_biz
+            FROM rule_terms rt
+            JOIN rules r ON rt.rule_id = r.id
+            LEFT JOIN sps s ON r.sp = s.id
+            WHERE rt.term = ?
+            ORDER BY s.fan_in DESC, r.sp, r.line
+            LIMIT ?
+        ''', (token, limit)).fetchall()
+        return self._rows(rows)
+
+    def term_impact(self, token: str) -> dict:
+        """
+        Análisis de impacto completo de un término de vocabulario:
+        reglas que lo referencian, SPs involucrados, dominios afectados,
+        riesgo regulatorio asociado.
+        Útil para planificar la migración de un concepto de negocio.
+        """
+        term_data = self.term(token)
+        if not term_data:
+            return {'error': f'Término no encontrado: {token}'}
+
+        rules = self.rules_for_term(token, limit=500)
+        sps_affected  = list({r['sp'] for r in rules if r.get('sp')})
+        doms_affected = sorted({r['domain'] for r in rules if r.get('domain')})
+        reg_rules     = [r for r in rules if r.get('riesgo')]
+        by_tipo       = {}
+        for r in rules:
+            by_tipo.setdefault(r.get('tipo', '?'), []).append(r)
+
+        return {
+            'term':             term_data,
+            'rules_total':      len(rules),
+            'sps_affected':     len(sps_affected),
+            'domains_affected': doms_affected,
+            'regulatory_rules': len(reg_rules),
+            'by_tipo':          {t: len(rs) for t, rs in by_tipo.items()},
+            'top_rules':        rules[:20],
+        }
+
     # ── Stats generales ────────────────────────────────────────────────────────
 
     def stats(self) -> dict:
@@ -448,6 +511,10 @@ class BCOPBrain:
         l3_n = db.execute('SELECT COUNT(*) FROM etb_l3').fetchone()[0]
         cov  = db.execute("SELECT COUNT(*) FROM etb_l3 WHERE bcop_status='COVERED'").fetchone()[0]
         cc   = db.execute("SELECT COUNT(*) FROM etb_l3 WHERE bcop_status='CROSS_CUTTING'").fetchone()[0]
+        try:
+            rule_terms_n = db.execute('SELECT COUNT(*) FROM rule_terms').fetchone()[0]
+        except sqlite3.OperationalError:
+            rule_terms_n = 0
         return {
             'sps':             db.execute('SELECT COUNT(*) FROM sps').fetchone()[0],
             'sp_calls':        db.execute('SELECT COUNT(*) FROM sp_calls').fetchone()[0],
@@ -458,6 +525,7 @@ class BCOPBrain:
             'terms':           db.execute('SELECT COUNT(*) FROM terms').fetchone()[0],
             'external_systems':db.execute('SELECT COUNT(*) FROM external_systems').fetchone()[0],
             'sp_terms_links':  db.execute('SELECT COUNT(*) FROM sp_terms').fetchone()[0],
+            'rule_terms_links': rule_terms_n,
             'authors':         db.execute('SELECT COUNT(*) FROM authors').fetchone()[0],
             'etb_l1':          db.execute('SELECT COUNT(*) FROM etb_l1').fetchone()[0],
             'etb_l2':          db.execute('SELECT COUNT(*) FROM etb_l2').fetchone()[0],
