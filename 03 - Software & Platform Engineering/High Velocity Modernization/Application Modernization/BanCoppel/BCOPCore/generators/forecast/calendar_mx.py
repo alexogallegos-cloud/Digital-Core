@@ -53,6 +53,7 @@ class MxCalendar:
         self.qm1 = {a - timedelta(1) for a in self.anchors}
         self.qp1 = {a + timedelta(1) for a in self.anchors}
         self.qp2 = {a + timedelta(2) for a in self.anchors}
+        self.qp3 = {a + timedelta(3) for a in self.anchors}   # cola de gasto (tarjetas)
         # Penultimo dia habil de cada mes (pre-cierre) y lunes de rebote cuando la
         # quincena calendario (15 o fin de mes) cayo en fin de semana.
         self.precierre = self._precierre()

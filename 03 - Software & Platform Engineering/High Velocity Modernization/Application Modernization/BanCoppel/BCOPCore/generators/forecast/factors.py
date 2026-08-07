@@ -92,6 +92,11 @@ def _qdp1(df, cal):
 def _qdp2(df, cal):
     return df["d"].apply(lambda x: int(x in cal.qp2 and x not in cal.anchors and x not in cal.qp1))
 
+@factor("is_q_dp3", "ciclo-pagos", "Post-quincena (Q+3): cola de gasto con tarjeta (tras cobrar)")
+def _qdp3(df, cal):
+    return df["d"].apply(lambda x: int(
+        x in cal.qp3 and x not in cal.anchors and x not in cal.qp1 and x not in cal.qp2))
+
 
 # ── calendario oficial ──────────────────────────────────────────────────────────
 @factor("is_holiday", "calendario-of", "Festivo oficial (LFTSS + Banxico Santo)")
@@ -276,9 +281,9 @@ FEATURE_SETS = {
         "annual_doy", "annual_h1", "annual_h2",       # patron anual repetible (reset en ene)
         "dow_tue", "dow_wed", "dow_thu", "dow_fri", "dow_sat", "dow_sun",
         "is_q15_exact", "is_qlast_exact",             # anclas de quincena (dia de deposito)
-        "is_q_dp1", "is_q_dp2",                        # ventana POST-pago (en tarjetas se gasta
-        #   despues de cobrar; Q-1 se podo por no-significativo -a diferencia de SPEI que si
-        #   tiene pre-funding de empleadores-).
+        "is_q_dp1", "is_q_dp2", "is_q_dp3",            # ventana POST-pago (en tarjetas se gasta
+        #   despues de cobrar, cola de ~3 dias; Q-1 se podo -no se gasta antes de cobrar-, y
+        #   Q+4/Q+5 no son significativos -a diferencia de SPEI, que tiene Q-1 por pre-funding-).
         "is_q1st_exact",
         "is_precierre_mes", "is_lunes_post_qfinde",   # pre-cierre + rebote de quincena en finde
         "is_holiday_eve", "is_post_holiday",
@@ -307,6 +312,7 @@ FACTOR_LABELS = {
     "is_q_dm1": "Vispera de quincena (Q-1)",
     "is_q_dp1": "Post-quincena (Q+1)",
     "is_q_dp2": "Post-quincena (Q+2)",
+    "is_q_dp3": "Post-quincena (Q+3)",
     "is_q1st_exact": "Primer dia habil del mes",
     "is_precierre_mes": "Pre-cierre de mes (penultimo habil)",
     "is_lunes_post_qfinde": "Rebote de quincena en finde",
