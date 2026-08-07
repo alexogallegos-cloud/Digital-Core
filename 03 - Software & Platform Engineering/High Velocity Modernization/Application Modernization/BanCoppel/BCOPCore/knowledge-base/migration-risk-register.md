@@ -25,14 +25,14 @@
 
 | Nivel | Total | Abiertos | Cerrados |
 |-------|-------|----------|---------|
-| N5 | 2 | 2 🔴 | 0 |
-| N4 | 1 | 1 🔴 | 0 |
+| N5 | 5 | 5 🔴 | 0 |
+| N4 | 4 | 4 🔴 | 0 |
 | N3 | 5 | 5 🟠 | 0 |
 | N2 | 3 | 3 🟡 | 0 |
 | N1 | 0 | 0 | 0 |
-| **Total** | **11** | **11** | **0** |
+| **Total** | **17** | **17** | **0** |
 
-> Los 44 riesgos de los archivos `05-risks.md` por dominio son riesgos de equivalencia de migración (código). Este registro contiene riesgos **de producción y de integración** descubiertos por análisis de logs y código fuente.
+> Los 44 riesgos de los archivos `05-risks.md` por dominio son riesgos de equivalencia de migración (código). Este registro contiene riesgos **de producción y de integración** descubiertos por análisis de logs, código fuente, y el diagnóstico arquitectónico de la capa de autorización (Autorizador / e-global).
 
 ---
 
@@ -369,6 +369,170 @@ El espacio entre `bdicred:` y `"informix"` es inconsistente. Dependiendo de la v
 
 ---
 
+## Riesgos Autorizador / e-Global (N5 y N4 — bloquean RELEASE de la wave de pagos)
+
+> Fuente: diagnóstico arquitectónico enero 2026 (post-incidentes Nov-Dic 2025) + análisis de incidentes INC-20251129 a INC-20260112 + volumetría Excel `source/spei-aut-ent/`.
+
+### P655-R012
+
+| Campo | Valor |
+|-------|-------|
+| **ID** | P655-R012 |
+| **Categoría** | TAR |
+| **Nivel** | N5 🔴 CRÍTICO |
+| **Dominio** | Autorizador Java (capa externa — e-global) |
+| **Estado** | ABIERTO |
+| **Bloquea** | RELEASE de la wave del Autorizador |
+| **SME validador** | Integration Architecture + DBA IBM Informix |
+| **Fecha de detección** | 2026-08-07 |
+| **Fuente** | Diagnóstico arquitectónico enero 2026 + INC-20260112 |
+
+**Descripción**: El Autorizador Java tiene **25 conexiones directas a Informix sin pool de conexiones y sin mecanismo de self-healing**. Cuando las 25 conexiones se agotan, el Autorizador no puede abrir nuevas conexiones de forma autónoma. El único mecanismo de recuperación disponible es el **reinicio manual** del Autorizador (ejecutado 5 veces el 31-DIC-2025). El INC-20260112 confirmó que el connection leak es sistémico: el sistema falló con Load Average de 50% porque el leak agotó todas las conexiones sin carga extraordinaria.
+
+**Evidencia**: 7 incidentes Nov-2025 a Ene-2026; INC-20260112 (p15 E-Global, 50% Load, 6.58h de degradación).
+
+**Impacto en migración**: si el Autorizador Java se conecta al nuevo backend (Aurora PostgreSQL + microservicios) sin haber corregido el connection leak + sin pool, el comportamiento se replica exactamente. El target heredará el mismo patrón de fallos.
+
+**Mitigación**:
+1. Implementar HikariCP (o equivalente) en el Autorizador Java como prerequisito de BUILD
+2. Configurar pool con: `minimumIdle=5`, `maximumPoolSize=50`, `connectionTimeout=3000ms`, `idleTimeout=600000ms`, `maxLifetime=1800000ms`
+3. Test de leak: 72 horas sostenidas a carga P95 sin reinicios manuales — prerequisito de RELEASE
+4. Instrumentar métrica de conexiones activas en pool como SLO operacional (alerta si > 80% durante > 5 min)
+
+---
+
+### P655-R013
+
+| Campo | Valor |
+|-------|-------|
+| **ID** | P655-R013 |
+| **Categoría** | TAR |
+| **Nivel** | N5 🔴 CRÍTICO |
+| **Dominio** | SPEI AIX — capa de infraestructura |
+| **Estado** | ABIERTO |
+| **Bloquea** | RELEASE de la wave SPEI |
+| **SME validador** | SRE & AIOps + Core Banking Transformation |
+| **Fecha de detección** | 2026-08-07 |
+| **Fuente** | Diagnóstico arquitectónico enero 2026 |
+
+**Descripción**: El sistema SPEI en AIX **forkea hasta 72 procesos** para procesar volumen de quincena / aguinaldo, versus 1-5 procesos en operación nominal. Este forking masivo satura el sistema operativo AIX y el disco hdisk3 (100% I/O wait observado en INC-20251215). El forking no es controlado — crece sin límite en función del volumen entrante.
+
+**Evidencia**: INC-20251215 (hdisk3 100% I/O wait con SPEI p99, 7.5h de degradación).
+
+**Impacto en migración**: el target (microservicios Java en Aurora PostgreSQL / AWS EKS) debe manejar spikes de SPEI sin forking OS. Aurora PostgreSQL + HPA en EKS distribuye la carga horizontalmente, pero el microservicio SPEI debe tener autoscaling configurado con límites explícitos antes de RELEASE.
+
+**Mitigación**:
+1. En el target: configurar HPA para el microservicio SPEI con `targetCPUUtilizationPercentage: 70`, `minReplicas: 2`, `maxReplicas: 20`
+2. Test de spike: inyectar 32,000 txn/min (el máximo absoluto observado en 18-DIC-2025 — aguinaldo) en el microservicio SPEI target y validar que no hay degradación de latencia
+3. Load test con perfil quincena (gradual p50 → p99 en 15 min) durante el parallel-run
+
+---
+
+### P655-R014
+
+| Campo | Valor |
+|-------|-------|
+| **ID** | P655-R014 |
+| **Categoría** | TAR |
+| **Nivel** | N4 🔴 CRÍTICO |
+| **Dominio** | Autorizador Java (capa externa) |
+| **Estado** | ABIERTO |
+| **Bloquea** | RELEASE de la wave del Autorizador |
+| **SME validador** | Integration Architecture |
+| **Fecha de detección** | 2026-08-07 |
+| **Fuente** | Diagnóstico arquitectónico enero 2026 |
+
+**Descripción**: La capa del Autorizador no tiene **load balancing**. Una sola instancia del Autorizador atiende todo el tráfico. Si la instancia falla o se satura, no hay failover automático. La única instancia configura 25 conexiones directas (riesgo P655-R012) — si el volumen supera la capacidad (3,240 txn/min), no hay segunda instancia que absorba el exceso.
+
+**Impacto en migración**: el target debe desplegar al menos 2 instancias activas del Autorizador con load balancer delante. El patrón AS-IS de instancia única es un SPOF que no puede replicarse en el target.
+
+**Mitigación**:
+1. Desplegar mínimo 2 instancias del Autorizador con AWS ALB o Kubernetes Service balanceando tráfico round-robin
+2. Test de failover: terminar una instancia durante carga P95 y validar que la segunda absorbe el tráfico sin incidente
+3. Documentar en `ADR-SPE-AM-008` la estrategia de deployment del Autorizador modernizado
+
+---
+
+### P655-R015
+
+| Campo | Valor |
+|-------|-------|
+| **ID** | P655-R015 |
+| **Categoría** | TAR |
+| **Nivel** | N4 🔴 CRÍTICO |
+| **Dominio** | AIX + HSM (Firma Digital) |
+| **Estado** | ABIERTO |
+| **Bloquea** | RELEASE de cualquier wave que use Firma Digital |
+| **SME validador** | Cybersecurity + SRE & AIOps |
+| **Fecha de detección** | 2026-08-07 |
+| **Fuente** | Diagnóstico arquitectónico enero 2026 |
+
+**Descripción**: La **Firma Digital / HSM** es un bottleneck síncrono en la cadena de autorización. Cuando el forking de SPEI (P655-R013) satura AIX, la Firma Digital se convierte en el cuello de botella entre el OS y el OLTP de Informix. El HSM procesa operaciones criptográficas en cola secuencial sin paralelismo visible, lo que lleva el sistema operativo a 100% de utilización.
+
+**Impacto en migración**: el target debe evaluar si la Firma Digital puede operarse de forma asíncrona o si se puede aumentar el throughput del HSM. Si el HSM sigue siendo síncrono y secuencial, el target replica el bottleneck aunque Aurora PostgreSQL sea más rápido.
+
+**Mitigación**:
+1. Consultar con Cybersecurity SME: ¿la Firma Digital puede paralelizarse? ¿el HSM tiene capacidad de procesar en batch o de forma asíncrona?
+2. Evaluar HSM de alta disponibilidad (multi-instance) para el target
+3. Si el HSM no puede paralelizarse, documentar como restricción regulatoria y dimensionar el target para que el throughput del HSM sea el límite explícito del SLA (no una sorpresa en producción)
+
+---
+
+### P655-R016
+
+| Campo | Valor |
+|-------|-------|
+| **ID** | P655-R016 |
+| **Categoría** | TAR |
+| **Nivel** | N4 🔴 CRÍTICO |
+| **Dominio** | e-Global ↔ target (SLA de integración) |
+| **Estado** | ABIERTO |
+| **Bloquea** | RELEASE de la wave del Autorizador |
+| **SME validador** | Integration Architecture + Industry Payments |
+| **Fecha de detección** | 2026-08-07 |
+| **Fuente** | Diagnóstico arquitectónico enero 2026 |
+
+**Descripción**: e-Global tiene un SLA estricto de **8 segundos de round-trip** — si el backend no responde en 8 segundos, e-Global cancela la transacción automáticamente sin posibilidad de retry. El sistema AS-IS frecuentemente supera este SLA en días de alta carga (INC-20251129, 69.71% de transacciones canceladas). El target debe garantizar que el nuevo backend responde en ≤ 4 segundos en P95 para mantener un margen de seguridad del 50%.
+
+**Evidencia**: INC-20251129 ($663 MDP, 69.71% declinadas), INC-20251215 (7.5h), INC-20251223 (23 min).
+
+**Impacto en migración**: si la latencia del nuevo backend Aurora PostgreSQL + microservicios es mayor que el legacy Informix bajo carga moderada, el SLA de e-Global se violará y las transacciones se cancelarán exactamente igual que en los incidentes. La latencia del target no puede "ser aceptable en promedio" — debe cumplir en P95.
+
+**Mitigación**:
+1. Definir SLO del target: latencia P95 ≤ 4s en el path completo e-Global → microservicio → Aurora PostgreSQL → respuesta
+2. Test de latencia P95 en el parallel-run con carga P95 de E-Global (3,400 txn/min)
+3. Implementar timeout en el microservicio objetivo de 6 segundos (dejando 2s de overhead de red antes del límite de e-Global)
+
+---
+
+### P655-R017
+
+| Campo | Valor |
+|-------|-------|
+| **ID** | P655-R017 |
+| **Categoría** | TAR |
+| **Nivel** | N5 🔴 CRÍTICO |
+| **Dominio** | e-Global (connection leak sistémico) |
+| **Estado** | ABIERTO |
+| **Bloquea** | RELEASE de la wave del Autorizador |
+| **SME validador** | Integration Architecture + DBA IBM Informix |
+| **Fecha de detección** | 2026-08-07 |
+| **Fuente** | INC-20251223 + INC-20260112 |
+
+**Descripción**: El **connection leak de e-Global** fue identificado el 23-DIC-2025 y confirmado como sistémico el 12-ENE-2026. Las 25 conexiones directas del Autorizador a Informix no se liberan correctamente al finalizar las transacciones. Para enero 2026, el leak se acumulaba incluso con volumen en percentil 15 — el sistema llegaba a agotamiento de conexiones sin carga extraordinaria.
+
+**Evidencia**: INC-20260112 — 6.58 horas de degradación con Load Average de 50% y E-Global p15. Sin fix de código aplicado entre 23-DIC-2025 y 12-ENE-2026.
+
+**Impacto en migración**: si el connection leak existe en el código del Autorizador Java (no en Informix), el leak **se replicará contra el nuevo backend Aurora PostgreSQL**. El comportamiento será idéntico: el Autorizador agotará el pool de conexiones al nuevo backend y fallará. Resolver R012 (pool de conexiones) mitiga parcialmente el impacto pero no elimina el leak subyacente.
+
+**Mitigación**:
+1. Identificar la línea de código en el Autorizador Java que causa el leak (conexión que se abre pero no se cierra en el finally block, o que se cierra solo en el happy path)
+2. Fix de código + test de leak: 72 horas sostenidas a carga P50 sin incremento de conexiones activas
+3. R012 (HikariCP pool) es prerequisito — con pool, el leak produce reconexión automática en lugar de fallo total. Sin pool, el leak sigue siendo N5
+4. Este fix es prerequisito de entrar al parallel-run — no puede detectarse durante el parallel-run
+
+---
+
 ## Historial de cambios
 
 | Versión | Fecha | Cambio |
@@ -376,8 +540,9 @@ El espacio entre `bdicred:` y `"informix"` es inconsistente. Dependiendo de la v
 | 1.0.0 | 2026-07-31 | Creación — P655-R001 y P655-R002 registrados (pre-existentes en KNOWLEDGE-MANIFEST) |
 | 1.1.0 | 2026-08-01 | P655-R003 a R008 — hallazgos de análisis de logs producción 2026-04-24 |
 | 1.2.0 | 2026-08-01 | P655-R009 a R011 — D11-bdicobranza análisis de código fuente `bdicobranza_sp_obtener_datos_cv_web.sql` vs `bdicred_sp_consulta_saldos_general.sql`; causa raíz del 97.4% error rate: type mismatch CHAR(5)/CHAR(6); + silent exception swallowing + space en cross-DB call |
+| 1.3.0 | 2026-08-07 | P655-R012 a R017 — diagnóstico arquitectónico capa Autorizador/e-global (enero 2026 post-incidentes Nov-Dic 2025); connection leak sistémico (R012, R017), SPEI forking (R013), sin load balancing (R014), Firma Digital bottleneck (R015), SLA e-Global 8s (R016) |
 
 ---
 
 *Mantenido por: DT-Riesgos · `BCOPCore/dt/dt-riesgos/CLAUDE.md`*
-*Fuente primaria validada: `source/logs/` (producción 2026-04-24) + `source/BCOPCore/informix/*.sql`*
+*Fuente primaria validada: `source/logs/` (producción 2026-04-24) + `source/BCOPCore/informix/*.sql` + `source/spei-aut-ent/` (volumetría 2025-2026) + diagnóstico arquitectónico enero 2026*

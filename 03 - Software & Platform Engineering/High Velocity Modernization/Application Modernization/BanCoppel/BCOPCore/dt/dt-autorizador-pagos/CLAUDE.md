@@ -42,12 +42,12 @@ Este DT opera en **modo mixto**: tiene evidencia indirecta disponible en brain.d
 
 ### DATO-REQUERIDO (críticos para que este DT sea operativo)
 
-| ID | Dato faltante | Fuente esperada | Impacto si no se obtiene |
-|----|--------------|-----------------|--------------------------|
-| AUTH-DR-01 | Documentación de integración e-global — especificación de mensajería, protocolo (REST/SOAP/MQ), versión de la interfaz | Equipo de integración BanCoppel / e-global | Sin esto el DT opera solo por inferencia; no se puede diseñar la interfaz target |
-| AUTH-DR-02 | Diagrama de arquitectura de la capa media (e-global ↔ ESB ↔ Informix) — flujos por tipo de pago (SPEI / TEF / tarjeta) | Arquitectura de BanCoppel | Sin el mapa completo no se puede identificar qué cambia en la migración |
-| AUTH-DR-03 | Catálogo de códigos de error ESB propios de e-global — especialmente 4395 (el más frecuente: 3,980/day, no documentado en los runbooks Informix) | Equipo de integración / documentación ESB IBM DataPower | 4395 es el código con mayor volumen y cero contexto; podría ser el principal indicador de fallos e-global→ESB |
-| AUTH-DR-04 | Modelo de recertificación — ¿qué certificaciones/acuerdos tiene e-global con BanCoppel? ¿cambia algo si el endpoint Informix es reemplazado por un microservicio? | Área de operaciones BanCoppel + e-global | El cutover del core podría invalidar acuerdos vigentes con e-global sin planificación previa |
+| ID | Dato faltante | Fuente esperada | Estado | Impacto si no se obtiene |
+|----|--------------|-----------------|--------|--------------------------|
+| AUTH-DR-01 | Documentación de integración e-global — especificación de mensajería, protocolo (REST/SOAP/MQ), versión de la interfaz | Equipo de integración BanCoppel / e-global | 🔴 ABIERTO | Sin esto el DT opera solo por inferencia; no se puede diseñar la interfaz target |
+| AUTH-DR-02 | Diagrama de arquitectura de la capa media (e-global ↔ ESB ↔ Informix) — flujos por tipo de pago (SPEI / TEF / tarjeta) | Arquitectura de BanCoppel | 🟡 PARCIAL — el diagnóstico arquitectónico enero 2026 provee las 7 capas y la cadena de fallo; faltan los flujos por tipo de pago | Ver `knowledge-base/autorizador/arquitectura-as-is.md` para la arquitectura disponible |
+| AUTH-DR-03 | Catálogo de códigos de error ESB propios de e-global — especialmente 4395 (el más frecuente: 3,980/day, no documentado en los runbooks Informix) | Equipo de integración / documentación ESB IBM DataPower | 🔴 ABIERTO | 4395 es el código con mayor volumen y cero contexto; podría ser el principal indicador de fallos e-global→ESB |
+| AUTH-DR-04 | Modelo de recertificación — ¿qué certificaciones/acuerdos tiene e-global con BanCoppel? ¿cambia algo si el endpoint Informix es reemplazado por un microservicio? | Área de operaciones BanCoppel + e-global | 🔴 ABIERTO | El cutover del core podría invalidar acuerdos vigentes con e-global sin planificación previa |
 
 ---
 
@@ -82,6 +82,53 @@ e-global cumple al menos dos funciones en el sistema BanCoppel:
 
 ---
 
+## ARQUITECTURA AS-IS (diagnóstico enero 2026)
+
+> Fuente completa: `knowledge-base/autorizador/arquitectura-as-is.md`
+
+El diagnóstico arquitectónico de enero 2026 documentó 7 capas físicas y lógicas de la capa de autorización. Los números clave para la migración:
+
+| Métrica | Valor | Riesgo de migración |
+|---------|-------|---------------------|
+| Conexiones directas Autorizador → Informix | **25 sin pool, sin self-healing** | P655-R012 (N5) |
+| Capacidad Autorizador | **3,240 txn/min** | P-R016 (N4 — SLA e-Global) |
+| Queue Mensajes — umbral diseñado | **2 paquetes** | Sobredimensionar en target |
+| Queue Mensajes — pico en incidentes | **3,285 paquetes** | — |
+| SLA e-Global | **8 segundos round-trip** | P655-R016 (N4) |
+| SPEI forking en AIX | **72 procesos vs 1-5 nominal** | P655-R013 (N5) |
+| Buffer waits Informix SPL | **193 simultáneos** | Indicador de saturación OLTP |
+| Load Average máximo | **127%** (23-DIC-2025) | — |
+
+**Deudas técnicas del diagnóstico (tags):**
+- **Tag A — Obsolescencia**: Autorizador + InterSec + Informix SPL
+- **Tag B — Alto acoplamiento**: Autorizador ↔ Informix OLTP sin capa de abstracción
+- **Tag C — Sin balanceo**: instancia única del Autorizador (P655-R014)
+- **Tag D — Subutilización**: recursos POWER-AIX no aprovechados
+- **Tag O — Bottleneck**: Queue Mensajes
+
+**Connection leak sistémico (hallazgo 23-DIC-2025, confirmado 12-ENE-2026)**:
+Las 25 conexiones directas no se liberan correctamente. Para enero 2026, el sistema fallaba con carga en percentil 15 — el leak era permanente. Ver P655-R017 (N5) y `knowledge-base/incidentes/INC-20260112-encolamiento-700-paquetes.md`.
+
+---
+
+## EVIDENCIA DE INCIDENTES (Nov 2025 — Ene 2026)
+
+Serie de 7 incidentes documentados en `knowledge-base/incidentes/`. Todos involucran la capa del Autorizador como punto de fallo central:
+
+| Fecha | Severidad | Causa | Duración | Impacto |
+|-------|-----------|-------|----------|---------|
+| 2025-11-29 | N5 | Saturación p94+p93 | 4.5 h | $663 MDP · 69.71% declinadas |
+| 2025-12-15 | N5 | SPEI p99 + hdisk3 100% I/O | 7.5 h | Encolamiento masivo |
+| 2025-12-17 | N4 | Estado degradado residual | 5.7 h | — |
+| 2025-12-21 | N3 | Carga moderada + leak inicial | 1.5 h | 3,500 paquetes en cola |
+| 2025-12-23 | N5 | Connection leak identificado | 23 min | Load 127% |
+| 2025-12-31 | N4 | Leak sistémico (5 episodios) | 3.9 h | 1,500–3,200 paquetes |
+| 2026-01-12 | N4 | Leak permanente a carga baja | 6.58 h | p15 E-Global, 50% Load |
+
+**Baseline de volumetría** (para dimensionar el target): ver `knowledge-base/cross-reference/performance-baseline-autorizador-spei.md`.
+
+---
+
 ## INTERFAZ CON DT-SPEI
 
 Los dos DTs cubren extremos complementarios del mismo flujo de pago:
@@ -106,4 +153,4 @@ Canal  →  e-global  →  ESB  →  bdispei               ← frontera
 
 ---
 
-*v0.1.0 · 2026-08-06 · Creado en DISCOVER Etapa 1 · Modo DATO-REQUERIDO hasta carga de documentación e-global · SMEs heredados: Industry Payments + Integration Architecture + Interoperability*
+*v0.2.0 · 2026-08-07 · Arquitectura AS-IS documentada (diagnóstico enero 2026); 7 INC de la serie Nov-2025→Ene-2026 registrados; AUTH-DR-02 actualizado a PARCIAL; P655-R012 a R017 en migration-risk-register.md · v0.1.0 creado 2026-08-06*

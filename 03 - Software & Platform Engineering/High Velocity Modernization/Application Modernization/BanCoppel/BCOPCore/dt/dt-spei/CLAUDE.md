@@ -32,6 +32,8 @@ Opero en la frontera entre el core Informix y la capa de autorización externa (
 - **Runbook AS-IS**: `knowledge-base/D08-bdispei/21-observability-runbook.md` — métricas baseline, god-procedures, cross-DB calls, sistemas llamadores, escenarios INC-D08-01 a INC-D08-04
 - **Bloqueante activo**: `INC-D08-04` — 5 códigos ESB sin documentar (4394, 4395, 3743, 3701, 3165, 6233) bloquean el RELEASE de la wave D08; coordinar con `dt-autorizador-pagos/` para identificar si los códigos provienen de la capa e-global
 - **Evidencia de producción**: `knowledge-base/cross-reference/latency-baseline-bcop.md` + logs ESB `source/logs/2026-04-24/`; evidencia datada 2026-04-24
+- **Performance baseline SPEI**: `knowledge-base/cross-reference/performance-baseline-autorizador-spei.md` — volumetría 2025-2026, percentiles P95/P99, días de máximo riesgo (quincenas, aguinaldo), criterios go/no-go del parallel-run
+- **Serie de incidentes**: `knowledge-base/incidentes/INC-2025*/INC-2026*` — 7 incidentes Nov 2025 a Ene 2026; el pico de SPEI p99 del 15-DIC causó el incidente más largo (7.5h); los picos de quincena son el escenario de stress definitivo del parallel-run
 - **Riesgo regulatorio central**: cualquier degradación de `spei_aplicaordenpago` en PROD activa protocolo Banxico — esto debe reflejarse como criterio go/no-go en el parallel-run
 
 ### DATO-REQUERIDO
@@ -122,4 +124,4 @@ Los **códigos ESB no documentados** (4394, 4395 en INC-D08-04) son la evidencia
 
 ---
 
-*v0.1.0 · 2026-08-06 · Creado en DISCOVER Etapa 1 · SMEs heredados: Industry Payments/SPEI + Regulatory/Banxico + SPL Analysis · 3 DATO-REQUERIDO activos*
+*v0.2.0 · 2026-08-07 · Performance baseline SPEI añadido (volumetría 2025-2026, percentiles, ventanas sin cutover); referencia a serie de 7 incidentes Nov-2025→Ene-2026 · v0.1.0 creado 2026-08-06*

@@ -1,6 +1,6 @@
 # Registro de Incidentes — BCOPCore · BanCoppel Application Modernization
 
-> **Fuente de verdad:** este directorio contiene el análisis estructurado de todos los incidentes observados en producción durante el período de captura de logs del proyecto. Los incidentes se derivan directamente de los logs ESB (`errores_bus_*.txt`, `transacciones_bus_*.txt`) y del análisis de código fuente.
+> **Fuente de verdad:** este directorio contiene el análisis estructurado de todos los incidentes observados en producción durante el período de captura de logs del proyecto. Los incidentes se derivan directamente de los logs ESB (`errores_bus_*.txt`, `transacciones_bus_*.txt`), del análisis de código fuente, y del análisis de volumetría de pagos (`source/spei-aut-ent/`).
 >
 > **Complemento:** cada INC tiene su página de diagnóstico visual en `portal/incidents/` y su runbook operacional en `knowledge-base/D{NN}-{db}/21-observability-runbook.md`.
 
@@ -51,6 +51,26 @@
 
 ---
 
+### Serie Autorizador / SPEI Entrantes — Nov 2025 a Ene 2026 (diagnóstico enero 2026)
+
+> Fuente: análisis de volumetría `source/spei-aut-ent/` + diagnóstico arquitectónico enero 2026. Los 7 incidentes de esta serie revelan la deuda técnica de la capa de autorización e-Global → Informix (connection leak, sin pool, sin load balancing, SPEI forking).
+
+| ID | Slug | Severidad | Sistema | Causa dominante | Duración |
+|----|------|-----------|---------|-----------------|----------|
+| [INC-20251129](INC-20251129-encolamiento-autorizador-spei.md) | encolamiento-autorizador-spei | **N5** | Autorizador + SPEI | Saturación concurrente p94+p93 | 4.5 h |
+| [INC-20251215](INC-20251215-hdisk3-io-wait.md) | hdisk3-io-wait | **N5** | SPEI + Informix + hdisk3 | SPEI p99 + hdisk3 100% I/O wait | 7.5 h |
+| [INC-20251217](INC-20251217-encolamiento-autorizador.md) | encolamiento-autorizador | N4 | Autorizador + Informix | Estado degradado post-15DIC | 5.7 h |
+| [INC-20251221](INC-20251221-encolamiento-3500-paquetes.md) | encolamiento-3500-paquetes | N3 | Autorizador | Carga moderada p59 + leak inicial | 1.5 h |
+| [INC-20251223](INC-20251223-eglobal-connection-leak.md) | eglobal-connection-leak | **N5** | Autorizador | Connection leak identificado explícitamente | 23 min |
+| [INC-20251231](INC-20251231-encolamientos-multiples.md) | encolamientos-multiples | N4 | Autorizador | Connection leak sistémico (5 episodios) | 3.9 h |
+| [INC-20260112](INC-20260112-encolamiento-700-paquetes.md) | encolamiento-700-paquetes | N4 | Autorizador | Leak permanente a carga p15 | 6.58 h |
+
+**Impacto documentado**: $663 millones MXN (INC-20251129) · 69.71% transacciones declinadas · Duración máxima 7.5 horas (INC-20251215).
+
+**Riesgos de migración derivados**: P655-R012 (sin pool), P655-R013 (SPEI forking), P655-R014 (sin load balancing), P655-R015 (Firma Digital bottleneck), P655-R016 (SLA 8s e-Global), P655-R017 (connection leak sistémico).
+
+---
+
 ## Relaciones entre incidentes
 
 ```
@@ -79,11 +99,11 @@ INC-20260424-002 (CWE-390) ←→ INC-20260731/20260801 (COMMIT comentado)
 | Severidad | Incidentes | IDs |
 |-----------|-----------|-----|
 | CRÍTICA | 2 | INC-20260731, INC-20260801 |
-| **N5** | 1 | INC-20260424-003 |
-| N4 | 1 | INC-20260424-002 |
-| N3 | 2 | INC-20260424-001, INC-20260424-004/005/006 |
+| **N5** | 4 | INC-20260424-003, INC-20251129, INC-20251215, INC-20251223 |
+| N4 | 4 | INC-20260424-002, INC-20251217, INC-20251231, INC-20260112 |
+| N3 | 3 | INC-20260424-001, INC-20260424-004/005/006, INC-20251221 |
 | N2 | 2 | INC-20260424-007, INC-20260424-008 |
 
 ---
 
-*Última actualización: 2026-08-06 | BCOPCore Gemelo Cognitivo — DISCOVER Etapa 1*
+*Última actualización: 2026-08-07 | BCOPCore Gemelo Cognitivo — DISCOVER Etapa 1*
