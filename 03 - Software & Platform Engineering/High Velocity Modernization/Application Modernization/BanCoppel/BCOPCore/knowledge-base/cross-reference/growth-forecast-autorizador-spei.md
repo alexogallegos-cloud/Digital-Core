@@ -59,7 +59,7 @@ semana), pero su TENDENCIA es distinta:
 
 ---
 
-## Factores Estacionales: E-Global / Autorizador (7 dias, tendencia segmentada)
+## Factores Estacionales: E-Global / Autorizador (7 dias, patron anual repetible)
 
 | Factor | Efecto vs lunes base | p-valor |
 |--------|----------------------|---------|

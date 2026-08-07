@@ -83,7 +83,7 @@ def render_html(df_hist, cal, models, cleans, outliers, results, out_path):
 <h1>BanCoppel · Proyeccion Organica SPEI + E-Global</h1>
 <div class="sub">BCOPCore SPE-AM-001 · OLS log-lineal · SPEI modelado 7 dias (riel 24/7) con ventana de quincena asimetrica · pipeline generators/forecast · datos 2025-01-01 a 2026-08-04</div>
 <div class="kpi-row" id="kpis"></div>
-<div class="section"><div class="section-title">E-Global / Autorizador — Volumen dias habiles L-V (txn)</div><div id="ceg"></div>
+<div class="section"><div class="section-title">E-Global / Autorizador — Volumen 7 dias · patron anual repetible (txn)</div><div id="ceg"></div>
 <div class="legend"><span><span class="sw" style="background:#3b82f6;opacity:.4"></span>Real</span>
 <span><span class="sw" style="background:#3b82f6"></span>Tendencia ajustada</span>
 <span><span class="sw" style="background:#93c5fd"></span>Proyeccion</span>
@@ -231,7 +231,7 @@ semana), pero su TENDENCIA es distinta:
 
 ---
 
-## Factores Estacionales: E-Global / Autorizador (7 dias, tendencia segmentada)
+## Factores Estacionales: E-Global / Autorizador (7 dias, patron anual repetible)
 
 | Factor | Efecto vs lunes base | p-valor |
 |--------|----------------------|---------|
