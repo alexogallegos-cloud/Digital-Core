@@ -223,6 +223,30 @@ def _reyes(df, cal):
     return ((df["month"] == 1) & df["dom"].between(5, 6)).astype(int)
 
 
+# ── temporada fiscal / gubernamental (recurrentes; validar con mas datos) ────────
+@factor("is_pre_semana_santa", "calendario-of",
+        "Compras previas a Semana Santa (MOVIL: ~11-4 dias antes del Domingo de Pascua)")
+def _pre_ss(df, cal):
+    from .calendar_mx import easter_sunday
+    s = set()
+    for yr in cal.years:
+        e = easter_sunday(yr)
+        for k in range(4, 12):
+            s.add(e - timedelta(k))
+    return df["d"].apply(lambda x: int(x in s))
+
+@factor("is_sat_reembolso", "gobierno",
+        "Temporada de declaracion/reembolso SAT PF (~15-abr a 20-may; vence 30-abr)")
+def _sat(df, cal):
+    return ((df["doy"] >= 105) & (df["doy"] <= 140)).astype(int)
+
+@factor("is_bienestar", "gobierno",
+        "Dispersion bimestral programas Bienestar (meses impares, dias 1-25). NULO en BanCoppel "
+        "(se dispersa via Banco del Bienestar, no BanCoppel); registrado pero no activado.")
+def _bienestar(df, cal):
+    return (df["month"].isin([1, 3, 5, 7, 9, 11]) & (df["dom"] <= 25)).astype(int)
+
+
 # ── patron ANUAL REPETIBLE del Autorizador (piecewise sobre dia-del-anio) ─────────
 # El Autorizador NO es log-lineal: su forma intra-anual sube y baja a lo largo del anio y
 # se REPITE cada anio. Se modela como piecewise-linear sobre el DIA-DEL-ANIO (doy), continuo
@@ -288,6 +312,9 @@ FEATURE_SETS = {
         "is_precierre_mes", "is_lunes_post_qfinde",   # pre-cierre + rebote de quincena en finde
         "is_holiday_eve", "is_post_holiday",
         "is_semana_santa", "is_pascua_finde",         # moviles: siguen la Pascua
+        "is_pre_semana_santa",                        # compras pre-Pascua (movil; rational fuerte,
+        #   p~0.14 con 2 SS -> re-validar con mas datos)
+        "is_sat_reembolso",                           # temporada fiscal abr-may (p~0.10 -> re-validar)
         "is_aguinaldo",                               # aguinaldo (evento especifico)
         # NO se incluyen cuesta_enero / temporada_dic / navidad: el patron anual (annual_*)
         # ya absorbe la forma de baja frecuencia (enero bajo, subida hacia primavera, etc.).
@@ -319,6 +346,9 @@ FACTOR_LABELS = {
     "is_d17_exact": "Dia 17 SAT/IMSS (dia habil exacto)",
     "is_semana_santa": "Semana Santa",
     "is_pascua_finde": "Pascua (Sab Gloria + Dom)",
+    "is_pre_semana_santa": "Pre-Semana Santa (compras, movil)",
+    "is_sat_reembolso": "Temporada fiscal SAT (abr-may)",
+    "is_bienestar": "Programas Bienestar (bimestral)",
     "is_aguinaldo": "Aguinaldo (15-23 dic)",
     "is_temporada_dic": "Temporada dic (1-14)",
     "is_cuesta_enero": "Cuesta de enero (2-28)",

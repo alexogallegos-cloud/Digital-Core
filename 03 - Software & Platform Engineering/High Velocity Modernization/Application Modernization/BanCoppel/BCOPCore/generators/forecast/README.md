@@ -62,7 +62,19 @@ OLS log-lineal: `log V(t) = β₀ + β₁·t + Σ βₖ·factorₖ(t) + ε`
 - `calendario-of` — festivos y vecindad (víspera / post), Semana Santa, núcleo de Pascua
 - `comercial` — Buen Fin, aguinaldo (15-23), temporada decembrina (1-14), cuesta de enero,
   10 de mayo, Navidad, Año Nuevo
+- `gobierno` — temporada fiscal SAT (reembolsos abr-may), programas Bienestar (bimestral;
+  **nulo en BanCoppel** — se dispersa vía Banco del Bienestar; registrado, no activado)
+- `estacional-anual` — patrón anual repetible del Autorizador (`annual_doy` + `annual_h*`,
+  piecewise sobre día-del-año, reset en enero)
 - `candidato` — temporalidades en evaluación (no en el modelo final hasta validarse)
+
+**Todas las reglas exploradas quedan registradas** aunque no estén activas; el `FEATURE_SET`
+de cada canal selecciona las activas y son las que se aplican al proyectar. Reglas con rational
+de negocio fuerte pero significancia marginal con los datos actuales — pre-Semana Santa
+(`is_pre_semana_santa`, móvil, sigue la Pascua) y temporada fiscal SAT (`is_sat_reembolso`) —
+están **activas en el Autorizador, marcadas para re-validar** con más datos. El pico anómalo de
+abril-2025 (no explicado por campañas nacionales, pre-Pascua, SAT ni Bienestar) apunta a una
+**campaña interna Coppel** (p.ej. Hot Fashion); falta ese calendario para modelarlo.
 
 El análisis que fundamenta los factores descubiertos vía días atípicos vive en
 `knowledge-base/cross-reference/growth-forecast-dias-atipicos.md`.
