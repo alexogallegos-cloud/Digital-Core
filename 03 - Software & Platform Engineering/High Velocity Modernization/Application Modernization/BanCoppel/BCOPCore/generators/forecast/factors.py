@@ -443,6 +443,21 @@ def _rezago(df, cal):
     return df["d"].apply(lambda x: int(x in s and x not in cal.anchors))
 
 
+# ── interaccion dia-de-semana x mes (SATURADA) — config de MAXIMO AJUSTE DIARIO ──────
+# Cada combinacion (dia de semana, mes) tiene su propio nivel. Sube el R2 DIARIO (~0.84) pero
+# es un modelo no-parametrico: sobreajusta las celdas de sep-dic (solo 1 anio de datos) y NO
+# mejora la senial agregada (semanal/mensual). Reemplaza de facto a dow + patron anual. Se
+# activa a peticion de negocio para el esquema diario; reversible quitandolo del FEATURE_SET.
+_DOWMES_NAMES = {1: "tue", 2: "wed", 3: "thu", 4: "fri", 5: "sat", 6: "sun"}
+for _mm in range(2, 13):
+    for _dd, _dn in _DOWMES_NAMES.items():
+        def _mk_dm(dd, mm):
+            return lambda df, cal: ((df["dow"] == dd) & (df["month"] == mm)).astype(int)
+        factor(f"dowmes_{_dn}_{_mm}", "dow-mes-saturado",
+               f"{_dn} de mes {_mm} (interaccion dia x mes)")(_mk_dm(_dd, _mm))
+DOWMES_FACTORS = [f"dowmes_{_dn}_{_mm}" for _mm in range(2, 13) for _dn in _DOWMES_NAMES.values()]
+
+
 # ── construccion de features ──────────────────────────────────────────────────────
 
 def build_features(df, cal, origin=ORIGIN):
@@ -493,12 +508,10 @@ FEATURE_SETS = {
         # is_sat_reembolso NO se activa: quedo nulo (p=0.57) al competir con is_pre_dia_nino, que
         # captura mejor el pico de fin de abril. Registrado en el catalogo, inactivo.
         "is_aguinaldo",                               # aguinaldo (evento especifico)
-        # NO se incluyen cuesta_enero / temporada_dic / navidad: el patron anual (annual_*)
-        # ya absorbe la forma de baja frecuencia (enero bajo, subida hacia primavera, etc.).
-        # Podados por no-significancia en tarjetas: is_10_mayo (p=0.99), is_d17_exact (0.53),
-        # is_q15_fri (0.31), is_qlast_fri (0.12) -- el efecto quincena-en-viernes ya se apila
-        # via el ancla (que apunta al viernes cuando la quincena cae en finde) + el factor Viernes.
-    ],
+        # NO se incluyen cuesta_enero / temporada_dic / navidad (el patron anual los absorbe);
+        # podados por no-significancia: is_10_mayo, is_d17_exact, is_q15_fri, is_qlast_fri.
+    ] + DOWMES_FACTORS,   # config MAXIMO AJUSTE DIARIO: dia x mes saturado (R2 diario ~0.84;
+    #                       sobreajusta celdas sep-dic con 1 anio; la senial agregada no mejora).
 }
 
 CHANNELS = {

@@ -47,8 +47,8 @@ semana), pero su TENDENCIA es distinta:
 | **Crecimiento mensual (pendiente base)** | **+0.70%** | **+1.55%** |
 | IC 95% mensual | [+0.65%, +0.76%] | [+1.47%, +1.63%] |
 | **Crecimiento anual (pendiente base)** | **+8.9%** | **+20.6%** |
-| R² | 0.8187 | 0.9347 |
-| R² ajustado | 0.8094 | 0.9316 |
+| R² | 0.8396 | 0.9347 |
+| R² ajustado | 0.8074 | 0.9316 |
 | Observaciones | 558 dias (7-dia) | 558 dias (7-dia) |
 
 > El "crecimiento mensual" del Autorizador es la **tendencia anio-a-anio** (continua); sobre
@@ -63,29 +63,29 @@ semana), pero su TENDENCIA es distinta:
 
 | Factor | Efecto vs lunes base | p-valor |
 |--------|----------------------|---------|
-| Martes | -4.7% | 0.0000 *** |
-| Miercoles | -2.8% | 0.0000 *** |
-| Jueves | -4.0% | 0.0000 *** |
-| Viernes | +4.0% | 0.0000 *** |
-| Sabado | +0.8% | 0.1926  |
-| Domingo | -7.0% | 0.0000 *** |
-| Quincena 15 (dia deposito) | +7.0% | 0.0000 *** |
+| Martes | -5.4% | 0.0010 *** |
+| Miercoles | -2.6% | 0.1099  |
+| Jueves | -4.5% | 0.0053 ** |
+| Viernes | +2.0% | 0.2059  |
+| Sabado | -1.5% | 0.3445  |
+| Domingo | -6.9% | 0.0000 *** |
+| Quincena 15 (dia deposito) | +6.4% | 0.0000 *** |
 | Quincena fin de mes (dia deposito) | +8.0% | 0.0000 *** |
-| Post-quincena (Q+1) | +5.4% | 0.0000 *** |
+| Post-quincena (Q+1) | +5.2% | 0.0000 *** |
 | Post-quincena (Q+2) | +3.5% | 0.0000 *** |
-| Post-quincena (Q+3) | +1.8% | 0.0226 * |
-| Primer dia habil del mes | +2.4% | 0.0163 * |
-| Pre-cierre de mes (penultimo habil) | +3.8% | 0.0000 *** |
-| Rebote de quincena en finde | +1.2% | 0.3553  |
-| Semana Santa | -3.7% | 0.0562  |
-| Pascua (Sab Gloria + Dom) | -2.7% | 0.3106  |
-| Pre-Semana Santa (compras, movil) | +2.1% | 0.0824  |
-| Pre-Dia del Nino (compras) | +4.2% | 0.0003 *** |
-| Resaca post-fiesta (17sep/26dic/2ene) | -3.9% | 0.0816  |
-| Quincena Q-3 | -1.5% | 0.0180 * |
-| Aguinaldo (15-23 dic) | +2.3% | 0.1893  |
-| Vispera de festivo | +1.9% | 0.1166  |
-| Primer dia post-festivo | +0.1% | 0.9268  |
+| Post-quincena (Q+3) | +2.0% | 0.0168 * |
+| Primer dia habil del mes | +2.0% | 0.0653  |
+| Pre-cierre de mes (penultimo habil) | +3.2% | 0.0008 *** |
+| Rebote de quincena en finde | +1.5% | 0.2748  |
+| Semana Santa | -3.9% | 0.0537  |
+| Pascua (Sab Gloria + Dom) | -1.3% | 0.6752  |
+| Pre-Semana Santa (compras, movil) | +2.5% | 0.0502  |
+| Pre-Dia del Nino (compras) | +4.1% | 0.0011 ** |
+| Resaca post-fiesta (17sep/26dic/2ene) | -3.8% | 0.1255  |
+| Quincena Q-3 | -1.1% | 0.1229  |
+| Aguinaldo (15-23 dic) | +2.8% | 0.1434  |
+| Vispera de festivo | +1.3% | 0.3157  |
+| Primer dia post-festivo | +0.9% | 0.5323  |
 
 ---
 
