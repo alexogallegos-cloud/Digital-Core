@@ -315,6 +315,11 @@ ABBREV = {
     'consumo': 'consumo', 'cartconsumo': 'cartera de consumo',
     'califcartconsumo': 'calificación de cartera de consumo',
     'extcartconsumo': 'extracción de cartera de consumo', 'enc': 'encabezado',
+    # Confirmados por código fuente 2026-08-07 (string literal en sp_bccc_*):
+    # 'FUNCIONALIDAD: MONITOR DE LA SITUACIÓN DE LOS ENVÍOS A BC Y CC'
+    'bc': 'Buró de Crédito', 'cc': 'Círculo de Crédito',
+    # bdisuc: catdenominacion_bym / piezas_bym / dictamen_bym → denominaciones y piezas físicas de efectivo
+    'bym': 'billetes y monedas',
     # inv/ctamec/cnsif/cope/par/mib/cjunk/tes/fin/esp/ant: AMBIGUOS — pendientes de source/SME (no adivinar)
 }
 
