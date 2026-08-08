@@ -162,6 +162,9 @@ Evolución reportada **por quincena** (Q1 días 1-15, Q2 días 16-fin), 38 quinc
   es casi invariante al tamaño de ventana; la capacidad de SPEI sí baja de 1→5 min (~4,673 pico 1 min →
   ~3,073 sostenido top-10 5 min) porque las ráfagas de nómina se promedian; el Autorizador se mantiene plano (~3,3xx, base
   estable). La **ventana horaria** 13–22h (meseta) sube el P70/P90 ~6% vs 07–23h al excluir rampa y cola.
+  El HTML tiene un **toggle de escenario de umbral**: P70/P90 a **1 min** (pico) o a **5 min sostenido**
+  (misma ventana que la roja). A 5 min el P90 baja (SPEI máx histórico P90 3,115→2,811) porque los picos
+  de diciembre se promedian; el P70 casi no cambia (suavizar comprime hacia la mediana en la meseta).
 - **Evolución 2025→2026**: SPEI P70 +32% (1,678→2,208, ~+18%/año), Autorizador P70 +23%
   (2,550→3,130, ~+11%/año) por el crecimiento orgánico; cada canal cruza su P70/P90 cada vez más
   seguido y la zona de riesgo se ensancha → se come el margen del Informix actual. Argumento
