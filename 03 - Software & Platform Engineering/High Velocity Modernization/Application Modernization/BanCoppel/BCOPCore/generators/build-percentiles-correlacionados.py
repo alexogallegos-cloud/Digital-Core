@@ -49,25 +49,38 @@ def main():
     spm = {(d, m): v for d, mm in C.load_minute_channel(ROOT, "spei").items()
            if len(mm) >= 1400 for m, v in mm}
 
-    # pico MAXIMO PROCESADO por mes = mayor ventana de 1 HORA (promedio txn/min sostenido 60 min) por canal, 13-22h
+    # Percentiles de ventanas de 1 HORA sostenida (promedio txn/min sobre 60 min) por mes/canal, 13-22h.
+    # En el regimen CONFIABLE (post-fix) los tres umbrales salen de ESTA misma distribucion:
+    #   P99 = techo (carga sostenida que solo se supera 1% del tiempo -> "no llegar nominalmente"),
+    #   P90 = incidente, P70 = alerta. El max absoluto (p.ej. aguinaldo) es un outlier P100 por encima
+    #   del P99; se guarda como referencia (max_1h) pero NO se grafica.
     from collections import defaultdict as _dd
     _WPICO = 60
-    def _maxwin_mes(dic):
-        acc = _dd(list)
+    def _pct(a, p):
+        if not a: return 0.0
+        a = sorted(a); k = (len(a) - 1) * p / 100.0; f = int(k); c = min(f + 1, len(a) - 1)
+        return a[f] + (a[c] - a[f]) * (k - f)
+    def _pctls1h_mes(dic):
+        perhr = _dd(list)
         for (d, m), v in dic.items():
             if 13*60 <= m < 22*60:
-                acc[(d, m // _WPICO)].append(v)
-        pm = {}
-        for (d, wk), vs in acc.items():
-            if len(vs) == _WPICO:
-                mn = sum(vs) / _WPICO; key = (d.year, d.month)
-                if mn > pm.get(key, 0): pm[key] = mn
-        return pm
-    _mp_sp, _mp_eg = _maxwin_mes(spm), _maxwin_mes(egm)
+                perhr[(d, m // _WPICO)].append(v)
+        bym = _dd(list)
+        for (d, _hb), vs in perhr.items():
+            if len(vs) == _WPICO:                       # solo horas completas (60 min)
+                bym[(d.year, d.month)].append(sum(vs) / _WPICO)
+        return {ym: {"p70": round(_pct(ms, 70)), "p90": round(_pct(ms, 90)),
+                     "p99": round(_pct(ms, 99)), "max": round(max(ms))}
+                for ym, ms in bym.items()}
+    _q_sp, _q_eg = _pctls1h_mes(spm), _pctls1h_mes(egm)
 
     # evolucion MENSUAL — rango AUTO-DETECTADO de los datos: meses con >=15 dias completos (evita meses
-    # a medias). Se EXTIENDE SOLO al cargar datos nuevos. P70/P90 = percentil sobre TODAS las ventanas
-    # de 10 min del mes.
+    # a medias). Se EXTIENDE SOLO al cargar datos nuevos.
+    #   Pre-fix  (< PICO_CONFIABLE_DESDE): P70/P90 = percentil sobre ventanas de 10 min (demanda historica);
+    #                                       sin P99 (throughput no confiable por encolamientos + leak).
+    #   Post-fix (>= PICO_CONFIABLE_DESDE): P70/P90/P99 = percentiles de la MISMA distribucion de ventanas
+    #                                       de 1 h sostenida. El azul (P99) es el techo; de esa distribucion
+    #                                       se DERIVAN los nuevos P70/P90, sustituyendo a los de 10 min.
     _dias_mes = _dd(set)
     for (d, _m) in egm:
         _dias_mes[(d.year, d.month)].add(d)
@@ -77,22 +90,31 @@ def main():
     meses = []
     for (y, mo) in meses_validos:
         d0 = date(y, mo, 1); d1 = date(y, mo, monthrange(y, mo)[1])
-        r = C.correlated_percentiles(ROOT, cal, d0, d1, w=10, _egm=egm, _spm=spm)   # P70/P90 sobre ventanas de 10 min
+        r = C.correlated_percentiles(ROOT, cal, d0, d1, w=10, _egm=egm, _spm=spm)   # P70/P90 base (10 min) + zona/correl
         r["mes"] = f"{y}-{mo:02d}"
         r["x"] = str(date(y, mo, 15))             # fecha representativa (mitad de mes) para el eje temporal
-        if r["mes"] < PICO_CONFIABLE_DESDE:   # pico no confiable pre-fix (encolamientos + leak) -> se limpia
-            r["max_proc"] = {"spei": None, "eglobal": None}
+        qs, qe = _q_sp.get((y, mo)), _q_eg.get((y, mo))
+        if r["mes"] >= PICO_CONFIABLE_DESDE and qs and qe:
+            # regimen confiable: el azul = P99, y se DERIVAN P70/P90 de la misma distribucion de 1 h (sustituyen a los de 10 min)
+            r["p70"] = {"spei": qs["p70"], "eglobal": qe["p70"]}
+            r["p90"] = {"spei": qs["p90"], "eglobal": qe["p90"]}
+            r["p99"] = {"spei": qs["p99"], "eglobal": qe["p99"]}
+            r["max_1h"] = {"spei": qs["max"], "eglobal": qe["max"]}
         else:
-            r["max_proc"] = {"spei": round(_mp_sp.get((y, mo), 0)), "eglobal": round(_mp_eg.get((y, mo), 0))}
+            # pre-fix: se conservan los P70/P90 de 10 min; sin P99 confiable
+            r["p99"] = {"spei": None, "eglobal": None}
+            r["max_1h"] = {"spei": None, "eglobal": None}
         meses.append(r)
         print(f"  {r['mes']}: SPEI P70={r['p70']['spei']:>5,} P90={r['p90']['spei']:>5,} | "
               f"Aut P70={r['p70']['eglobal']:>5,} P90={r['p90']['eglobal']:>5,} | "
               f"riesgo={r['pct_zona_riesgo']:>4}% r={r['correlacion']}")
 
     actual = meses[-1]
-    report = {"metodologia": "percentiles correlacionados (P70/P90 en ventanas PROMEDIO de 10 min, TODOS los dias 13-22h); "
-              "P70/P90 por canal por separado (SPEI y Autorizador), sin combinado; "
+    report = {"metodologia": "percentiles correlacionados por canal (SPEI y Autorizador), sin combinado, todos los dias 13-22h; "
+              "regimen confiable (mes>=2026-03 leak-fix): P70/P90/P99 sobre ventanas de 1 h sostenida (P99=techo, P70/P90 derivados de la misma distribucion); "
+              "pre-fix: P70/P90 sobre ventanas de 10 min, sin P99 (throughput no confiable por encolamientos + connection leak); "
               "zona de riesgo = ambos canales >= su P70 a la vez",
+              "pico_confiable_desde": PICO_CONFIABLE_DESDE,
               "actual": actual, "evolucion": meses}
     (OUT / "percentiles-correlacionados.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -103,71 +125,67 @@ def main():
 
 
 def _render_md(meses, a, path):
+    def _f99(m, ch):
+        v = m.get("p99", {}).get(ch)
+        return f"{v:,}" if v else "—"
     filas = "\n".join(
-        f"| {m['mes']} | {m['p70']['spei']:,} | {m['p90']['spei']:,} | "
-        f"{m['p70']['eglobal']:,} | {m['p90']['eglobal']:,} | {m['pct_zona_riesgo']}% | {m['correlacion']} |"
+        f"| {m['mes']} | {m['p70']['spei']:,} | {m['p90']['spei']:,} | {_f99(m,'spei')} | "
+        f"{m['p70']['eglobal']:,} | {m['p90']['eglobal']:,} | {_f99(m,'eglobal')} |"
         for m in meses)
     md = f"""# Percentiles Correlacionados — SPEI y Autorizador sobre Informix
-> **Fuente**: pipeline `generators/forecast/capacity.py` (funcion `correlated_percentiles`)
+> **Fuente**: pipeline `generators/build-percentiles-correlacionados.py` (+ `forecast/capacity.py`)
 > **DT dueño**: `dt/dt-autorizador-pagos/` · co-ref `dt/dt-spei/`, `dt/dt-riesgos/`
-> **Versión**: 1.6.0 (mensual · ventana 10 min · mejora medida por incidentes 7→0) · regenerable con `python generators/build-percentiles-correlacionados.py`
+> **Versión**: 2.0.0 (P70/P90/P99 sobre ventanas de 1 h en régimen confiable; P99 = techo, P70/P90 derivados) · regenerable con `python generators/build-percentiles-correlacionados.py`
 
 ## Metodología
 
-**Cálculo de percentiles correlacionados**: mide la carga que SPEI y el Autorizador ejercen
-**simultáneamente** sobre Informix (recurso compartido), sobre **ventanas promedio de 10 minutos**
-(carga sostenida). Los **umbrales P70/P90** son percentiles sobre **todas las ventanas de 10 min**
-del periodo. **Todos los días** (hábiles y no hábiles — SPEI y el Autorizador operan también el fin
-de semana), horario operativo 13–22h.
+Mide la carga que SPEI y el Autorizador ejercen **simultáneamente** sobre Informix (recurso
+compartido). **Por canal, por separado** — no se suman (la suma combinada no es la métrica de
+interés). **Todos los días** (SPEI y el Autorizador operan también el fin de semana), horario
+operativo **13–22h**. Evolución **mensual**; el rango de meses se **auto-detecta** de los datos
+(meses con ≥15 días completos), así que se extiende solo al cargar datos nuevos.
 
-- **P70/P90 por canal, por separado** — cada canal conserva su propio umbral. El P70 es alerta,
-  el P90 es incidencia. No se suman: la suma combinada no es la métrica de interés. (Ventana prom. 10 min.)
-- **Zona de riesgo** = ambos canales ≥ su P70 **a la vez**.
-- **Incidencia inminente** = ambos ≥ su P90 a la vez.
+Tres umbrales por canal:
 
-La **correlación** es lo que importa: los picos de ambos canales coinciden en el tiempo (mismo
-perfil intradía, r≈0.99), así que no se diversifican y la carga se apila sobre Informix. Por eso
-la alerta se mide por co-ocurrencia (ambos altos), no sumando percentiles independientes.
+- **P99 — techo**: carga sostenida que solo se supera **1% del tiempo**; no se debe alcanzar de
+  forma nominal. Es el ancla de dimensionamiento del target.
+- **P90 — incidente** y **P70 — alerta**.
+
+En el **régimen confiable** (desde el **leak-fix de mar-2026**) los tres salen de la **misma
+distribución de ventanas de 1 hora sostenida** (promedio txn/min sobre 60 min): el P99 es el techo
+y de esa distribución se **derivan** P70 y P90. **Antes** del fix, P70/P90 provienen de ventanas de
+10 min (demanda histórica) y **no hay P99**: los encolamientos y el connection leak (INC-20251223)
+distorsionaban el throughput medido, así que la cola alta de la distribución no es confiable.
+
+> La **correlación** es lo que hace correlacionado al método: los picos de ambos canales coinciden
+> en el tiempo (mismo perfil intradía, r≈0.99), no se diversifican y la carga se apila sobre Informix.
+> **Zona de riesgo** = ambos canales ≥ su P70 a la vez.
 
 ## Umbrales actuales (último mes {a['mes']}) — por canal
 
-| Canal | P70 (alerta) | P90 (incidencia) |
-|-------|-------------|------------------|
-| SPEI | {a['p70']['spei']:,} | {a['p90']['spei']:,} |
-| Autorizador | {a['p70']['eglobal']:,} | {a['p90']['eglobal']:,} |
+| Canal | P70 (alerta) | P90 (incidente) | P99 (techo) |
+|-------|-------------|------------------|-------------|
+| SPEI | {a['p70']['spei']:,} | {a['p90']['spei']:,} | {_f99(a,'spei')} |
+| Autorizador | {a['p70']['eglobal']:,} | {a['p90']['eglobal']:,} | {_f99(a,'eglobal')} |
 
-- Zona de riesgo (ambos ≥ su P70 a la vez): **{a['pct_zona_riesgo']}%** del tiempo operativo.
-- Correlación intra-ventana: **r = {a['correlacion']}**.
+El Informix/Aurora target se dimensiona contra el **P99** de cada canal (el techo sostenido), no
+contra el promedio. El pico absoluto puntual (p.ej. aguinaldo) es un outlier P100 por encima del P99.
 
-## Mejora demostrada (medida, no derivada de un factor)
+## Evolución mensual — por canal (txn/min)
 
-Ver `knowledge-base/autorizador/mejoras-2026.md`. **No** se expresa como un multiplicador de capacidad:
-el minxmin mide throughput (txn servidas/min), no latencia ni utilización, así que no contiene
-limpiamente la señal que cambiaron las mejoras. Se mide con datos duros:
-
-- **Encolamientos**: {INCIDENTES['pre']} incidentes (29-nov-2025 → 12-ene-2026) → **{INCIDENTES['post']}** después
-  (feb-2026 = primer mes limpio, tras el balanceo automático de colas SPEI del 15-feb).
-- **Duración de incidente**: {INCIDENTES['dur_pre']} (nov-dic 2025) → **{INCIDENTES['dur_post']}** post-Power10
-  ({INCIDENTES['impacto']} de impacto económico por evento: $663 MDP del INC-20251129 → ~$46 MDP equivalente).
-- **Capacidad de cómputo**: Power 8 → Power 10 (activo 7-jun-2026). El ratio rPerf/CPW exacto para
-  dimensionar el target es `[DATO-REQUERIDO]` del SME DBA/Mainframe (modelos exactos Power 8 y Power 10).
-
-## Evolución mensual — P70/P90 por canal (txn/min)
-
-| Mes | SPEI P70 | SPEI P90 | Aut P70 | Aut P90 | Zona riesgo | Correl. |
-|-----|----------|----------|---------|---------|-------------|---------|
+| Mes | SPEI P70 | SPEI P90 | SPEI P99 | Aut P70 | Aut P90 | Aut P99 |
+|-----|----------|----------|----------|---------|---------|---------|
 {filas}
 
-> Los umbrales de cada canal suben con el crecimiento orgánico (SPEI ~+20%/año, Autorizador
-> ~+9%/año): cada canal cruza su P70/P90 cada vez más seguido y la zona de riesgo (co-ocurrencia)
-> se ensancha, comiéndose el margen del Informix actual. Es el argumento cuantitativo de capacidad
-> para la migración.
+> Los umbrales de cada canal suben con el crecimiento orgánico; cada canal cruza sus umbrales cada
+> vez más seguido y se come el margen del Informix actual. Es el argumento cuantitativo de capacidad
+> para la migración. (P99 solo desde mar-2026 — régimen confiable.)
 
 ---
 
-*v1.5.0 · Generado por generators/build-percentiles-correlacionados.py · P70/P90 por canal (sin
-combinado) · ventana 10 min · evolución mensual · mejora medida (encolamientos 7→0, duración −93%) · gráfica en
-`percentiles-correlacionados-evolucion.html`.*
+*v2.0.0 · Generado por generators/build-percentiles-correlacionados.py · P70/P90/P99 por canal ·
+régimen confiable sobre ventanas de 1 h (P99 techo, P70/P90 derivados) · evolución mensual · gráfica
+en `percentiles-correlacionados-evolucion.html`.*
 """
     path.write_text(md, encoding="utf-8")
     print(f"  MD: {path}")
@@ -251,7 +269,7 @@ svg circle.pt{{transition:r .1s}}
 <div class="wrap">
   <div class="hero-label">Capacidad · Percentiles Correlacionados</div>
   <h1 class="hero-h1">Percentiles Correlacionados por Canal</h1>
-  <p class="hero-sub">P70 (riesgo) y P90 (incidente) por canal sobre <b>ventanas promedio de 10 min</b> (13–22h, mes a mes). La banda roja marca los <b>7 incidentes de encolamiento</b> (nov-2025→ene-2026); las líneas <b>leak-fix</b> (mar) y <b>Power 10</b> (jun) son las mejoras. La mejora es <b>medida, no un factor</b>: encolamientos <b>7 → 0</b> y duración de incidente <b>1.5–7.5 h → ~18.5 min</b> (−93% impacto/evento). Detalle en <code>mejoras-2026.md</code>.</p>
+  <p class="hero-sub"><b>P99</b> (techo — no llegar nominalmente), <b>P90</b> (incidente) y <b>P70</b> (alerta) por canal. En el régimen confiable, desde el <b>leak-fix de mar-2026</b>, los tres umbrales salen de la <b>misma distribución de ventanas de 1 h sostenida</b> (13–22h): el P99 es el techo y de esa distribución se <b>derivan los P70/P90</b>. Antes, P70/P90 provienen de ventanas de 10 min y el P99 no se muestra porque los encolamientos y el connection leak distorsionaban el throughput medido.</p>
   <div class="kpi-row" id="kpis"></div>
   <div class="panels">
     <div class="panel glass">
@@ -266,10 +284,10 @@ svg circle.pt{{transition:r .1s}}
     </div>
   </div>
   <div class="legend">
-    <span><span class="sw" style="background:var(--p70)"></span>P70 (riesgo)</span>
+    <span><span class="sw" style="background:var(--p70)"></span>P70 (alerta)</span>
     <span><span class="sw" style="background:var(--p90)"></span>P90 (incidente)</span>
-    <span><span class="sw" style="background:#38bdf8"></span>pico máx procesado (1 h)</span>
-    <span><span class="sw" style="background:#ff6b6b;opacity:.4"></span>periodo de 7 encolamientos (nov'25–ene'26)</span>
+    <span><span class="sw" style="background:#38bdf8"></span>P99 (techo — no nominal)</span>
+    <span><span class="sw" style="background:#ff6b6b;opacity:.4"></span>periodo no confiable (nov'25–ene'26)</span>
   </div>
   <div class="note" id="note"></div>
 </div>
@@ -277,17 +295,12 @@ svg circle.pt{{transition:r .1s}}
 <script>
 const DATA={data};const M=DATA.meses;const pD=d3.timeParse("%Y-%m-%d");const INC=DATA.inc;
 M.forEach(m=>{{m.D=pD(m.x);
-  m.sp70=m.p70.spei;   m.sp90=m.p90.spei;
-  m.eg70=m.p70.eglobal;m.eg90=m.p90.eglobal;
-  m.mxsp=m.max_proc.spei; m.mxeg=m.max_proc.eglobal;}});
+  m.sp70=m.p70.spei;   m.sp90=m.p90.spei;   m.sp99=m.p99.spei;
+  m.eg70=m.p70.eglobal;m.eg90=m.p90.eglobal;m.eg99=m.p99.eglobal;}});
 const a=M[M.length-1];
-const mxSp70=d3.max(M,m=>m.sp70), mxSp90=d3.max(M,m=>m.sp90);
-const mxEg70=d3.max(M,m=>m.eg70), mxEg90=d3.max(M,m=>m.eg90);
 document.getElementById("kpis").innerHTML=`
-<div class="kpi glass"><div class="val" style="color:var(--riesgo)">${{mxSp70.toLocaleString()}} / ${{mxSp90.toLocaleString()}}</div><div class="lbl">SPEI — P70 / P90 máx histórico</div></div>
-<div class="kpi glass"><div class="val" style="color:#9fb4ff">${{mxEg70.toLocaleString()}} / ${{mxEg90.toLocaleString()}}</div><div class="lbl">Autorizador — P70 / P90 máx histórico</div></div>
-<div class="kpi glass"><div class="val" style="color:var(--riesgo)">${{INC.pre}} → ${{INC.post}}</div><div class="lbl">Encolamientos (nov'25–ene'26 → post-mejoras)</div></div>
-<div class="kpi glass"><div class="val" style="color:var(--yellow)">${{INC.dur_pre}} → ${{INC.dur_post}}</div><div class="lbl">Duración de incidente (${{INC.impacto}} impacto/evento)</div></div>`;
+<div class="kpi glass"><div class="val" style="color:#38bdf8">${{(a.sp99||0).toLocaleString()}}</div><div class="lbl">SPEI — P99 techo (${{a.mes}}) &middot; P70 ${{a.sp70.toLocaleString()}} / P90 ${{a.sp90.toLocaleString()}}</div></div>
+<div class="kpi glass"><div class="val" style="color:#38bdf8">${{(a.eg99||0).toLocaleString()}}</div><div class="lbl">Autorizador — P99 techo (${{a.mes}}) &middot; P70 ${{a.eg70.toLocaleString()}} / P90 ${{a.eg90.toLocaleString()}}</div></div>`;
 
 const tip=document.getElementById("tt");
 function showTip(ev,mes,color,label,valStr){{
@@ -311,7 +324,7 @@ function chart(id,keys,cols,labels,ymaxVal,fmt,tf,H,dashes){{
  const iA=pD(INC.periodo[0]), iB=pD(INC.periodo[1]);
  if(iA&&iB){{svg.append("rect").attr("x",x(iA)).attr("width",x(iB)-x(iA)).attr("y",0).attr("height",h)
    .attr("fill","#ff6b6b").attr("opacity",.10);
-   svg.append("text").attr("x",(x(iA)+x(iB))/2).attr("y",10).attr("text-anchor","middle").attr("font-size",8).attr("fill","#ff6b6b").attr("opacity",.85).text(INC.pre+" encolamientos");}}
+   svg.append("text").attr("x",(x(iA)+x(iB))/2).attr("y",10).attr("text-anchor","middle").attr("font-size",8).attr("fill","#ff6b6b").attr("opacity",.85).text("periodo no confiable");}}
  for(const[mk,txt] of Object.entries(DATA.hitos)){{const dx=pD(mk+"-15");if(!dx)continue;
   svg.append("line").attr("x1",x(dx)).attr("x2",x(dx)).attr("y1",0).attr("y2",h).attr("stroke","var(--yellow)").attr("stroke-dasharray","3,3").attr("opacity",.4);
   svg.append("text").attr("x",x(dx)+3).attr("y",10).attr("font-size",8).attr("fill","var(--yellow)").attr("opacity",.7).text(txt);}}
@@ -332,15 +345,15 @@ function chart(id,keys,cols,labels,ymaxVal,fmt,tf,H,dashes){{
 }}
 function draw(){{
  const kf=d=>(d/1000).toFixed(1)+"k", kt=v=>v.toLocaleString()+" txn/min";
- const L=["P70 (riesgo)","P90 (incidente)","Pico máx procesado (1 h)"];
+ const L=["P70 (alerta)","P90 (incidente)","P99 (techo — no nominal)"];
  const C=["#818ab0","#F0D224","#38bdf8"];
- const yMaxSP=d3.max(M,m=>d3.max([m.sp70,m.sp90,m.mxsp]))*1.10;
- const yMaxEG=d3.max(M,m=>d3.max([m.eg70,m.eg90,m.mxeg]))*1.10;
- chart("chartSP",["sp70","sp90","mxsp"],C,L,yMaxSP,kf,kt,300);
- chart("chartEG",["eg70","eg90","mxeg"],C,L,yMaxEG,kf,kt,300);
+ const yMaxSP=d3.max(M,m=>d3.max([m.sp70,m.sp90,m.sp99]))*1.10;
+ const yMaxEG=d3.max(M,m=>d3.max([m.eg70,m.eg90,m.eg99]))*1.10;
+ chart("chartSP",["sp70","sp90","sp99"],C,L,yMaxSP,kf,kt,300);
+ chart("chartEG",["eg70","eg90","eg99"],C,L,yMaxEG,kf,kt,300);
 }}
 draw();window.addEventListener("resize",draw);
-document.getElementById("note").innerHTML=`P70 (riesgo) y P90 (incidente) por canal, percentil sobre todas las ventanas de <b>10 min</b> (13–22h, mes a mes) &middot; línea cian = <b>pico máx procesado</b> (máx ventana de <b>1 h</b> sostenida del mes; escala Y independiente por panel — SPEI llega a ~6k en aguinaldo; <b>solo desde el primer fix</b> mar-2026, antes no es confiable por los encolamientos + connection leak) &middot; banda roja = <b>${{INC.pre}} incidentes de encolamiento</b> nov'25–ene'26; leak-fix (mar) y Power 10 (jun) marcados &middot; mejora medida: encolamientos <b>${{INC.pre}}→${{INC.post}}</b>, duración <b>${{INC.dur_pre}}→${{INC.dur_post}}</b> (${{INC.impacto}} impacto) &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
+document.getElementById("note").innerHTML=`<b>P99</b> (cian) = techo de carga sostenida (se supera solo 1% del tiempo, no llegar nominalmente); <b>P90</b> = incidente; <b>P70</b> = alerta &middot; escala Y independiente por panel &middot; en el régimen confiable (desde <b>mar-2026</b>, leak-fix) los tres salen de la <b>misma distribución de ventanas de 1 h sostenida</b> (13–22h) y de ahí se <b>derivan P70/P90</b>; antes, P70/P90 provienen de ventanas de 10 min y no hay P99 confiable (encolamientos + connection leak distorsionaban el throughput) &middot; banda = periodo no confiable (nov'25–ene'26); leak-fix (mar) y Power 10 (jun) marcados &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
 </script></body></html>"""
     path.write_text(html, encoding="utf-8")
     print(f"  HTML: {path}")
