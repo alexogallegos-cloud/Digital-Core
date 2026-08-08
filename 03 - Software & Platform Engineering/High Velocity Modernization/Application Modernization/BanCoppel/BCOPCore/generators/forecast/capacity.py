@@ -179,7 +179,7 @@ def intraday_dow(root, cal, bins=288):
     return out
 
 
-def correlated_percentiles(root, cal, d0, d1, w=1, w_cap=5, op=(13, 22), top_n=5, _egm=None, _spm=None):
+def correlated_percentiles(root, cal, d0, d1, w=1, w_cap=5, op=(13, 22), top_n=10, _egm=None, _spm=None):
     """
     CALCULO DE PERCENTILES CORRELACIONADOS. Usa DOS ventanas:
       - `w` min (default 1 = pico instantaneo por minuto): para P70/P90 por canal, zona de riesgo
