@@ -146,20 +146,23 @@ sus picos coinciden en el tiempo, apilándose sobre el Informix. **Por canal, po
 combinado** (no se suman); **todos los días** (hábiles y no hábiles — ambos operan el fin de semana),
 **franja horaria 13–22h**, evolución **mensual** con rango **auto-detectado** de los datos.
 
-- **Reencuadre P99 (2026-08-08)**: la línea azul del dashboard es el **P99 = techo de carga
-  sostenida** (percentil 99 de las ventanas de 1 h; se supera solo 1% del tiempo → no llegar
-  nominalmente; es el **ancla de dimensionamiento del target**). En el **régimen confiable**
-  (mes ≥ 2026-03, leak-fix) los tres umbrales salen de la **misma distribución de ventanas de 1 h
-  sostenida** y de ahí se **DERIVAN** P70 (alerta) y P90 (incidente). **Pre-fix** (< 2026-03):
-  P70/P90 se conservan de **ventanas de 10 min** (demanda histórica) y **no hay P99** — los 7
-  encolamientos + el connection leak (INC-20251223) distorsionan la cola alta del throughput
-  (mar-2026 a 5 min llegaba a 11,218 pero a 1 h baja a 3,075 = queue-flush, no demanda). Corte:
-  `PICO_CONFIABLE_DESDE = "2026-03"`.
-- **Umbrales actuales (jul-2026, régimen confiable, 1 h, txn/min)**: SPEI **P70/P90/P99 = 2,222 /
-  2,509 / 2,972**; Autorizador **3,075 / 3,235 / 3,393**. El target Informix/Aurora se dimensiona
-  contra el **P99** de cada canal (techo sostenido), no contra el promedio. El máximo absoluto por
-  mes (p.ej. aguinaldo dic SPEI ~6,015 a 1 h) es un outlier **P100** por encima del P99: se guarda
-  como `max_1h` de referencia pero **no se grafica**.
+- **Base = PICO DIARIO (2026-08-08)**: los tres umbrales se calculan sobre el **pico diario** — para
+  cada día su **hora de mayor carga sostenida** (mayor ventana de 1 h, 13-22h) y el percentil sobre
+  los picos diarios del mes. Así los tres viven en el **régimen de carga alta** (no diluidos por las
+  horas medias). **P99 = techo** (pico diario superado solo **1% de los días** = día peor; no llegar
+  nominalmente; **ancla de dimensionamiento del target**), **P90 = incidente** (10% de días),
+  **P70 = alerta** (30% de días). La línea azul del dashboard es el P99. Corrección clave del usuario:
+  con base "todas las horas" el P70/P90 caían al régimen de hora típica, muy por debajo del P99 — el
+  pico diario los sube al régimen de carga alta.
+- **P70/P90 en toda la serie; P99 (azul) solo desde el leak-fix** (mes ≥ 2026-03, `PICO_CONFIABLE_DESDE
+  = "2026-03"`): pre-fix el pico diario está contaminado por los 7 encolamientos + el connection leak
+  (INC-20251223: colas atascadas → bajo; drenado → alto).
+- **Umbrales actuales (jul-2026, pico diario, txn/min)**: SPEI **P70/P90/P99 = 2,464 / 2,633 / 3,193**;
+  Autorizador **3,319 / 3,391 / 3,440**. Band: Autorizador (estable) tiene P70/P90 al 96%/99% del P99
+  (pegado al techo); SPEI (con ráfagas) al 77%/82% (mantiene separación real por aguinaldo/nómina). El
+  target Informix/Aurora se dimensiona contra el **P99** de cada canal (techo del día peor), no contra
+  el promedio. El máximo absoluto del mes es un outlier por encima del P99: se guarda como `max_1h`
+  pero **no se grafica**.
 - **Zona de riesgo** = ambos canales ≥ su P70 a la vez (lente correlacionada).
 - **Evolución**: los umbrales suben con el crecimiento orgánico (SPEI ~+18%/año, Autorizador
   ~+11%/año) → cada canal cruza sus umbrales cada vez más seguido y se come el margen del Informix
