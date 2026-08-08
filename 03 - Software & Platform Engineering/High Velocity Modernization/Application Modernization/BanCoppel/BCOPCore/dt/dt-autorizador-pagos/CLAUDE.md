@@ -144,21 +144,21 @@ Este DT gobierna el **cálculo de percentiles correlacionados**: SPEI y el Autor
 por el mismo Informix (recurso compartido) y —al tener perfil intradía casi idéntico (r≈0.99)—
 sus picos coinciden en el tiempo, apilándose sobre el Informix. Todo se mide sobre **ventanas
 promedio de 5 min** (carga sostenida), **todos los días** (hábiles y no hábiles — ambos operan el
-fin de semana), **franja horaria 13–22h** (meseta de carga alta), evolución **quincenal**
-(Q1 días 1-15, Q2 16-fin; 38 quincenas 2025-2026).
+fin de semana), **franja horaria 13–22h** (meseta de carga alta), evolución **mensual**
+(19 meses 2025-01→2026-07).
 
 - **P70/P90 por canal, por separado — sin combinado**: cada canal conserva su propio P70 (alerta)
   y P90 (incidencia); no se suman. La lente correlacionada es la **co-ocurrencia**: **zona de
   riesgo** = ambos ≥ su P70 a la vez; **incidencia** = ambos ≥ su P90.
 - **Capacidad demostrada = top-10 GENERAL de ventanas de 5 min** (las 10 mayores en concurrencia
   sin caída, **sin dedup por día** — puede haber varias del mismo día), promedio por canal.
-- **Umbrales (última quincena jul-2026 Q2, txn/min)**: SPEI P70 **2,240** / P90 **2,564**;
-  Autorizador P70 **3,129** / P90 **3,271**; zona de riesgo **19.9%**; r=**0.61**. Capacidad top-10:
-  SPEI **~4,289** / Autorizador **~3,369** (~coincide con el SLA e-Global de 3,240 de la arq. AS-IS).
-- **Máximo histórico de umbrales (5 min)**: SPEI P70 **2,269** / P90 **2,811**; Autorizador P70
-  **3,129** / P90 **3,434** (en el HTML las tarjetas muestran este máx histórico).
-- **Techo de capacidad CORRELACIONADA demostrada (máx del top-10 por quincena, ambos ≥ su P70 local)**:
-  SPEI **~5,269** (abr-2026 Q2) / Autorizador **~4,085** (abr-2025 Q2) txn/min. Es el número honesto
+- **Umbrales (último mes jul-2026, txn/min)**: SPEI P70 **2,214** / P90 **2,558**;
+  Autorizador P70 **3,090** / P90 **3,249**. Capacidad top-10 del mes:
+  SPEI y Autorizador ~3-4k (~coincide con el SLA e-Global de 3,240 de la arq. AS-IS).
+- **Máximo histórico de umbrales (5 min)**: SPEI P70 **2,237** / P90 **2,789**; Autorizador P70
+  **3,090** / P90 **3,306** (en el HTML las tarjetas muestran este máx histórico).
+- **Techo de capacidad CORRELACIONADA demostrada (máx del top-10 por mes, ambos ≥ su P70 local)**:
+  SPEI **~5,312** (may-2026) / Autorizador **~4,107** (abr-2025) txn/min. Es el número honesto
   para dimensionar el Informix bajo carga concurrente real (ambos canales altos a la vez).
 - **OJO — pico SPEI en SOLITARIO ≠ concurrencia**: el 18-dic-2025 19:30 SPEI llegó a **11,064 txn/min
   sostenido 5 min** (aguinaldo), pero el Autorizador estaba en solo 2,937 (< P70 dic 3,101), así que
