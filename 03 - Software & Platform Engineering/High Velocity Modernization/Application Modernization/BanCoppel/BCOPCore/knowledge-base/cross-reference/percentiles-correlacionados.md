@@ -1,7 +1,7 @@
 # Percentiles Correlacionados — SPEI y Autorizador sobre Informix
 > **Fuente**: pipeline `generators/forecast/capacity.py` (funcion `correlated_percentiles`)
 > **DT dueño**: `dt/dt-autorizador-pagos/` · co-ref `dt/dt-spei/`, `dt/dt-riesgos/`
-> **Versión**: 1.3.0 (evolución mensual) · regenerable con `python generators/build-percentiles-correlacionados.py`
+> **Versión**: 1.4.0 (mensual + umbrales con mejoras) · regenerable con `python generators/build-percentiles-correlacionados.py`
 
 ## Metodología
 
@@ -20,15 +20,27 @@ La **correlación** es lo que importa: los picos de ambos canales coinciden en e
 perfil intradía, r≈0.99), así que no se diversifican y la carga se apila sobre Informix. Por eso
 la alerta se mide por co-ocurrencia (ambos altos), no sumando percentiles independientes.
 
-## Umbrales actuales (último mes 2026-07) — por canal
+## Umbrales actuales vs con mejoras (último mes 2026-07) — por canal
 
-| Canal | P70 (alerta) | P90 (incidencia) |
-|-------|-------------|------------------|
-| SPEI | 2,214 | 2,558 |
-| Autorizador | 3,090 | 3,249 |
+Umbrales **con mejoras** = umbral actual × factor de capacidad demostrado sin incidentes
+(SPEI ×3.18, Autorizador ×1.23; ver Derivación abajo). Se calculan **mes a mes**.
+
+| Canal | P70 actual | P90 actual | k | P70 con mejoras | P90 con mejoras |
+|-------|-----------|-----------|---|-----------------|-----------------|
+| SPEI | 2,214 | 2,558 | ×3.18 | 7,041 | 8,134 |
+| Autorizador | 3,090 | 3,249 | ×1.23 | 3,801 | 3,996 |
 
 - Zona de riesgo (ambos ≥ su P70 a la vez): **20.4%** del tiempo operativo.
 - Correlación intra-ventana: **r = 0.431**.
+
+### Derivación del factor con mejoras
+
+En **diciembre 2025** el sistema entraba en incidente al llegar a P90 (SPEI 2,799 / Autorizador 3,266,
+ventana 5 min). Tras las mejoras (**leak-fix** mar-2026 + **Power 10** jun-2026) sostuvo, **sin un solo
+incidente**, hasta **SPEI 8,889 / Autorizador 4,007 txn/min** (máx 5 min, abr–ago 2026). El factor
+demostrado es `k = máx_sostenido_post ÷ P90_dic` → **SPEI ×3.18, Autorizador ×1.23**. Son **cotas
+inferiores** (aún no tocamos el nuevo techo). El ×1.23 de Autorizador es conservador (canal estable,
+no se ha estresado más allá de ~4,000). Los umbrales con mejoras = P70/P90 × k, aplicado **mes a mes**.
 
 ## Evolución mensual — P70/P90 por canal (txn/min)
 

@@ -153,8 +153,15 @@ fin de semana), **franja horaria 13–22h** (meseta de carga alta), evolución *
   de percentil** (no exige que ambos estén sobre su P70) y **SIN dedup por día** (pueden repetirse
   días); promedio por canal. **[Hallazgo documentado — el dashboard de percentiles muestra SOLO
   P70/P90 desde 2026-08-08; la capacidad top-N sigue en el JSON pero ya no se grafica.]**
-- **Umbrales (último mes jul-2026, txn/min)**: SPEI P70 **2,214** / P90 **2,558**;
+- **Umbrales actuales (último mes jul-2026, txn/min)**: SPEI P70 **2,214** / P90 **2,558**;
   Autorizador P70 **3,090** / P90 **3,249**.
+- **Umbrales CON MEJORAS (derivados, mes a mes)** = P70/P90 × factor de capacidad demostrado sin
+  incidentes. **k SPEI = 3.18, k Autorizador = 1.23**, derivado de: dic-2025 entraba en incidente en
+  P90 (SPEI 2,799 / Aut 3,266); post leak-fix + Power 10 sostuvo sin incidente hasta SPEI 8,889 /
+  Aut 4,007 (máx 5 min abr–ago 2026); k = máx_post ÷ P90_dic. Umbrales nuevos (últ. mes): SPEI
+  riesgo **7,041** / incidente **8,134**; Autorizador riesgo **3,801** / incidente **3,996**. Son
+  cotas inferiores (no hemos tocado el nuevo techo); el ×1.23 de Autorizador es conservador. El
+  dashboard grafica ambos: sólido = actual, punteado = con mejoras (parametrizado en `MEJORAS_K`).
 - **Máximo histórico de umbrales (5 min)**: SPEI P70 **2,237** / P90 **2,789**; Autorizador P70
   **3,090** / P90 **3,306** (en el HTML las tarjetas muestran este máx histórico).
 - **Techo de capacidad demostrada (máx del top-10 por mes, sin gate)**: SPEI **~8,827** (dic-2025,
