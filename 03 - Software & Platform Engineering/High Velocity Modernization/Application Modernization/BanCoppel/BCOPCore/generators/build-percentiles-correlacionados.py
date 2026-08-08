@@ -29,6 +29,11 @@ from forecast.calendar_mx import MxCalendar
 
 OUT = ROOT / "knowledge-base" / "cross-reference"
 HITOS = {"2026-03": "leak-fix", "2026-06": "Power 10"}
+# El pico maximo procesado (linea cian) solo es CONFIABLE a partir del primer fix: antes conviven los
+# 7 encolamientos + el connection leak (INC-20251223), que distorsionan el throughput medido (colas
+# atascadas -> pico artificialmente bajo, o drenados de cola -> pico artificialmente alto). Se limpia
+# (null) todo mes anterior al primer fix. Se deriva del primer hito para quedar consistente con la grafica.
+PICO_CONFIABLE_DESDE = min(HITOS)  # "2026-03" (leak-fix)
 # Evidencia de mejora MEDIDA (no derivada de un factor) — ver knowledge-base/autorizador/mejoras-2026.md.
 # Encolamientos: 7 incidentes nov-2025→ene-2026 -> 0 después (feb-2026 = primer mes limpio, balanceo 15-feb).
 # Duración de incidente: 1.5-7.5 h (nov-dic 2025) -> ~18.5 min post-Power10 (~-93% impacto por evento).
@@ -60,22 +65,29 @@ def main():
         return pm
     _mp_sp, _mp_eg = _maxwin_mes(spm), _maxwin_mes(egm)
 
-    # evolucion MENSUAL 2025-01 .. 2026-07 (P70/P90 = percentil sobre TODAS las ventanas de 10 min del mes)
+    # evolucion MENSUAL — rango AUTO-DETECTADO de los datos: meses con >=15 dias completos (evita meses
+    # a medias). Se EXTIENDE SOLO al cargar datos nuevos. P70/P90 = percentil sobre TODAS las ventanas
+    # de 10 min del mes.
+    _dias_mes = _dd(set)
+    for (d, _m) in egm:
+        _dias_mes[(d.year, d.month)].add(d)
+    meses_validos = sorted(ym for ym, ds in _dias_mes.items() if len(ds) >= 15)
+    print(f"  meses con datos (>=15 dias): {meses_validos[0][0]}-{meses_validos[0][1]:02d} .. "
+          f"{meses_validos[-1][0]}-{meses_validos[-1][1]:02d} ({len(meses_validos)} meses)")
     meses = []
-    y, mo = 2025, 1
-    while (y, mo) <= (2026, 7):
+    for (y, mo) in meses_validos:
         d0 = date(y, mo, 1); d1 = date(y, mo, monthrange(y, mo)[1])
         r = C.correlated_percentiles(ROOT, cal, d0, d1, w=10, _egm=egm, _spm=spm)   # P70/P90 sobre ventanas de 10 min
         r["mes"] = f"{y}-{mo:02d}"
         r["x"] = str(date(y, mo, 15))             # fecha representativa (mitad de mes) para el eje temporal
-        r["max_proc"] = {"spei": round(_mp_sp.get((y, mo), 0)), "eglobal": round(_mp_eg.get((y, mo), 0))}
+        if r["mes"] < PICO_CONFIABLE_DESDE:   # pico no confiable pre-fix (encolamientos + leak) -> se limpia
+            r["max_proc"] = {"spei": None, "eglobal": None}
+        else:
+            r["max_proc"] = {"spei": round(_mp_sp.get((y, mo), 0)), "eglobal": round(_mp_eg.get((y, mo), 0))}
         meses.append(r)
         print(f"  {r['mes']}: SPEI P70={r['p70']['spei']:>5,} P90={r['p90']['spei']:>5,} | "
               f"Aut P70={r['p70']['eglobal']:>5,} P90={r['p90']['eglobal']:>5,} | "
               f"riesgo={r['pct_zona_riesgo']:>4}% r={r['correlacion']}")
-        mo += 1
-        if mo == 13:
-            y, mo = y + 1, 1
 
     actual = meses[-1]
     report = {"metodologia": "percentiles correlacionados (P70/P90 en ventanas PROMEDIO de 10 min, TODOS los dias 13-22h); "
@@ -305,12 +317,13 @@ function chart(id,keys,cols,labels,ymaxVal,fmt,tf,H,dashes){{
   svg.append("text").attr("x",x(dx)+3).attr("y",10).attr("font-size",8).attr("fill","var(--yellow)").attr("opacity",.7).text(txt);}}
  keys.forEach((k,i)=>{{
   const dash=(dashes&&dashes[i])?dashes[i]:null;
+  const P=M.filter(m=>m[k]!=null);   // meses con dato para esta serie (pico se limpia pre-fix)
   svg.append("path").datum(M).attr("fill","none").attr("stroke",cols[i]).attr("stroke-width",dash?1.8:2.2)
    .attr("stroke-dasharray",dash).attr("opacity",dash?.9:1)
-   .attr("d",d3.line().x(m=>x(m.D)).y(m=>y(m[k])));
-  svg.selectAll(".pt"+id+i).data(M).join("circle").attr("class","pt").attr("cx",m=>x(m.D)).attr("cy",m=>y(m[k]))
+   .attr("d",d3.line().defined(m=>m[k]!=null).x(m=>x(m.D)).y(m=>y(m[k])));
+  svg.selectAll(".pt"+id+i).data(P).join("circle").attr("class","pt").attr("cx",m=>x(m.D)).attr("cy",m=>y(m[k]))
    .attr("r",dash?2:2.8).attr("fill",cols[i]).attr("stroke","#060a1a").attr("stroke-width",1);
-  svg.selectAll(".ht"+id+i).data(M).join("circle").attr("cx",m=>x(m.D)).attr("cy",m=>y(m[k]))
+  svg.selectAll(".ht"+id+i).data(P).join("circle").attr("cx",m=>x(m.D)).attr("cy",m=>y(m[k]))
    .attr("r",9).attr("fill","transparent").style("cursor","pointer")
    .on("mouseenter",function(ev,m){{d3.select(this).attr("r",6).attr("fill",cols[i]).attr("fill-opacity",.22);}})
    .on("mousemove",(ev,m)=>showTip(ev,m.mes,cols[i],labels[i],tf(m[k])))
@@ -327,7 +340,7 @@ function draw(){{
  chart("chartEG",["eg70","eg90","mxeg"],C,L,yMaxEG,kf,kt,300);
 }}
 draw();window.addEventListener("resize",draw);
-document.getElementById("note").innerHTML=`P70 (riesgo) y P90 (incidente) por canal, percentil sobre todas las ventanas de <b>10 min</b> (13–22h, mes a mes) &middot; línea cian = <b>pico máx procesado</b> (máx ventana de <b>1 h</b> sostenida del mes; escala Y independiente por panel — SPEI llega a ~6k en aguinaldo) &middot; banda roja = <b>${{INC.pre}} incidentes de encolamiento</b> nov'25–ene'26; leak-fix (mar) y Power 10 (jun) marcados &middot; mejora medida: encolamientos <b>${{INC.pre}}→${{INC.post}}</b>, duración <b>${{INC.dur_pre}}→${{INC.dur_post}}</b> (${{INC.impacto}} impacto) &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
+document.getElementById("note").innerHTML=`P70 (riesgo) y P90 (incidente) por canal, percentil sobre todas las ventanas de <b>10 min</b> (13–22h, mes a mes) &middot; línea cian = <b>pico máx procesado</b> (máx ventana de <b>1 h</b> sostenida del mes; escala Y independiente por panel — SPEI llega a ~6k en aguinaldo; <b>solo desde el primer fix</b> mar-2026, antes no es confiable por los encolamientos + connection leak) &middot; banda roja = <b>${{INC.pre}} incidentes de encolamiento</b> nov'25–ene'26; leak-fix (mar) y Power 10 (jun) marcados &middot; mejora medida: encolamientos <b>${{INC.pre}}→${{INC.post}}</b>, duración <b>${{INC.dur_pre}}→${{INC.dur_post}}</b> (${{INC.impacto}} impacto) &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
 </script></body></html>"""
     path.write_text(html, encoding="utf-8")
     print(f"  HTML: {path}")

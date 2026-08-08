@@ -36,9 +36,17 @@ Mismo pipeline, ejecutables aparte, todos regenerables con datos nuevos:
 - `python generators/build-capacity-spei.py` — percentiles de carga (P70/P90/P99/Max txn/min)
   mes a mes + detección de ráfagas → `capacity-percentiles-*.{md,html,json}`.
 - `python generators/build-percentiles-correlacionados.py` — **percentiles correlacionados**
-  (carga simultánea SPEI+Autorizador sobre Informix, ventanas 5 min): umbrales P70/P90 por canal
-  y combinados, zona de riesgo, capacidad demostrada, evolución mensual →
-  `percentiles-correlacionados.{md,json}` + `-evolucion.html`. Método en `capacity.py::correlated_percentiles`.
+  (carga simultánea SPEI+Autorizador sobre Informix): umbrales **P70 (riesgo) / P90 (incidente)
+  por canal, por separado** (el combinado NO se presenta), percentil sobre **todas las ventanas de
+  10 min** del mes, **todos los días** (SPEI y Autorizador operan 24/7), franja **13–22h**,
+  evolución **mensual**. El **rango de meses se auto-detecta** de los datos (meses con ≥15 días) →
+  se extiende solo al cargar datos nuevos. Cada panel añade una 3ª línea (cian) = **pico máx
+  procesado** = máx ventana de **1 h** sostenida del mes, **limpiada antes del primer fix**
+  (`PICO_CONFIABLE_DESDE`, derivado del 1er hito) porque los encolamientos + connection leak
+  distorsionan el throughput medido. La mejora se cuantifica con **datos duros** (encolamientos
+  7→0, duración 1.5–7.5 h→18.5 min), NO con un factor multiplicativo (descartado). Salida:
+  `percentiles-correlacionados.{md,json}` + `-evolucion.html`. Método en
+  `capacity.py::correlated_percentiles`; hitos e incidentes en constantes del runner.
 - `python generators/build-curvas-intradia.py` — **dashboard navegable** de la curva intradía
   (txn/min 00:00–23:59) de cualquier día de 2025-2026. Pipeline: **7 formas normalizadas** (una por
   día de la semana, Lun–Dom, suma=1) **× volumen del día** (real donde hay dato, proyectado por el
