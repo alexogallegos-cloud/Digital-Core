@@ -46,14 +46,18 @@ def main():
         r = C.correlated_percentiles(ROOT, cal, d0, d1, _egm=egm, _spm=spm)
         r["mes"] = f"{y}-{mo:02d}"
         meses.append(r)
-        print(f"  {r['mes']}: P70c={r['p70']['suma']:>5,} P90c={r['p90']['suma']:>5,} "
-              f"riesgo={r['pct_zona_riesgo']:>4}% top5c={r['top_promedio']['combinada']:>6,} r={r['correlacion']}")
+        print(f"  {r['mes']}: SPEI P70={r['p70']['spei']:>5,} P90={r['p90']['spei']:>5,} | "
+              f"Aut P70={r['p70']['eglobal']:>5,} P90={r['p90']['eglobal']:>5,} | "
+              f"riesgo={r['pct_zona_riesgo']:>4}% r={r['correlacion']}")
         mo += 1
         if mo == 13:
             y, mo = y + 1, 1
 
     actual = meses[-1]
-    report = {"metodologia": "percentiles correlacionados (ventana 5 min, dias habiles 07-23h)",
+    report = {"metodologia": "percentiles correlacionados (ventana 5 min, dias habiles 07-23h); "
+              "P70/P90 por canal por separado (SPEI y Autorizador), sin combinado; "
+              "top-5 concurrencia en ventanas de 5 min = capacidad demostrada; "
+              "zona de riesgo = ambos canales >= su P70 a la vez (lente correlacionada)",
               "actual": actual, "evolucion": meses}
     (OUT / "percentiles-correlacionados.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -65,12 +69,13 @@ def main():
 
 def _render_md(meses, a, path):
     filas = "\n".join(
-        f"| {m['mes']} | {m['p70']['suma']:,} | {m['p90']['suma']:,} | {m['pct_zona_riesgo']}% | "
-        f"{m['top_promedio']['combinada']:,} | {m['correlacion']} |" for m in meses)
-    md = f"""# Percentiles Correlacionados — SPEI + Autorizador sobre Informix
+        f"| {m['mes']} | {m['p70']['spei']:,} | {m['p90']['spei']:,} | "
+        f"{m['p70']['eglobal']:,} | {m['p90']['eglobal']:,} | {m['pct_zona_riesgo']}% | {m['correlacion']} |"
+        for m in meses)
+    md = f"""# Percentiles Correlacionados — SPEI y Autorizador sobre Informix
 > **Fuente**: pipeline `generators/forecast/capacity.py` (funcion `correlated_percentiles`)
 > **DT dueño**: `dt/dt-autorizador-pagos/` · co-ref `dt/dt-spei/`, `dt/dt-riesgos/`
-> **Versión**: 1.0.0 · regenerable con `python generators/build-percentiles-correlacionados.py`
+> **Versión**: 1.1.0 · regenerable con `python generators/build-percentiles-correlacionados.py`
 
 ## Metodología
 
@@ -79,42 +84,42 @@ def _render_md(meses, a, path):
 sostenida — suaviza las ráfagas de 1 min de las que el sistema se restablece con buffer). Días
 hábiles, horario operativo 07–23h.
 
-- **P70 por canal** = umbral de alerta.
-- **Zona de riesgo** = ambos canales ≥ su P70 a la vez.
-- **Incidencia inminente** = ambos ≥ su P90.
-- **Top-N de concurrencia sin caída** = capacidad sostenida demostrada.
+- **P70/P90 por canal, por separado** — cada canal conserva su propio umbral. El P70 es alerta,
+  el P90 es incidencia. No se suman: la suma combinada no es la métrica de interés.
+- **Zona de riesgo** = ambos canales ≥ su P70 **a la vez** (esta es la lente correlacionada).
+- **Incidencia inminente** = ambos ≥ su P90 a la vez.
+- **Top-5 de concurrencia sin caída, en ventanas de 5 min** = capacidad sostenida demostrada por
+  canal (el nivel de cada canal en las 5 mayores ventanas de concurrencia sin caída de servicio).
 
-A diferencia de sumar percentiles individuales (que asume independencia), esto respeta la
-**correlación temporal**: los picos de ambos canales coinciden (mismo perfil intradía), por lo
-que no se diversifican y la carga se apila sobre Informix.
+La **correlación** es lo que importa: los picos de ambos canales coinciden en el tiempo (mismo
+perfil intradía, r≈0.99), así que no se diversifican y la carga se apila sobre Informix. Por eso
+la alerta se mide por co-ocurrencia (ambos altos), no sumando percentiles independientes.
 
-## Umbrales actuales ({a['mes']})
+## Umbrales actuales ({a['mes']}) — por canal
 
-| Canal | P70 (alerta) | P90 (incidencia) |
-|-------|-------------|------------------|
-| Autorizador | {a['p70']['eglobal']:,} | {a['p90']['eglobal']:,} |
-| SPEI | {a['p70']['spei']:,} | {a['p90']['spei']:,} |
-| **Combinado (Informix)** | **{a['p70']['suma']:,}** | **{a['p90']['suma']:,}** |
+| Canal | P70 (alerta) | P90 (incidencia) | Capacidad demostrada (top-5, ventana 5 min) |
+|-------|-------------|------------------|---------------------------------------------|
+| SPEI | {a['p70']['spei']:,} | {a['p90']['spei']:,} | {a['top_promedio']['spei']:,} |
+| Autorizador | {a['p70']['eglobal']:,} | {a['p90']['eglobal']:,} | {a['top_promedio']['eglobal']:,} |
 
-- Zona de riesgo (ambos ≥ P70): **{a['pct_zona_riesgo']}%** del tiempo operativo.
+- Zona de riesgo (ambos ≥ su P70 a la vez): **{a['pct_zona_riesgo']}%** del tiempo operativo.
 - Correlación intra-ventana: **r = {a['correlacion']}**.
-- Capacidad sostenida demostrada (top-5 concurrencia): **{a['top_promedio']['combinada']:,} txn/min**
-  (Autorizador {a['top_promedio']['eglobal']:,} + SPEI {a['top_promedio']['spei']:,}).
 
-## Evolución mensual (txn/min)
+## Evolución mensual — P70/P90 por canal (txn/min)
 
-| Mes | P70 comb | P90 comb | Zona riesgo | Top-5 comb | Correl. |
-|-----|----------|----------|-------------|------------|---------|
+| Mes | SPEI P70 | SPEI P90 | Aut P70 | Aut P90 | Zona riesgo | Correl. |
+|-----|----------|----------|---------|---------|-------------|---------|
 {filas}
 
-> Los umbrales suben con el crecimiento orgánico (SPEI ~+20%/año, Autorizador ~+9%/año): la
-> carga combinada cruza el P70/P90 cada vez más seguido, comiéndose el margen del Informix
-> actual. Es el argumento cuantitativo de capacidad para la migración.
+> Los umbrales de cada canal suben con el crecimiento orgánico (SPEI ~+20%/año, Autorizador
+> ~+9%/año): cada canal cruza su P70/P90 cada vez más seguido y la zona de riesgo (co-ocurrencia)
+> se ensancha, comiéndose el margen del Informix actual. Es el argumento cuantitativo de capacidad
+> para la migración.
 
 ---
 
-*v1.0.0 · Generado por generators/build-percentiles-correlacionados.py · gráfica de evolución en
-`percentiles-correlacionados-evolucion.html`.*
+*v1.1.0 · Generado por generators/build-percentiles-correlacionados.py · P70/P90 por canal (sin
+combinado) · gráfica de evolución en `percentiles-correlacionados-evolucion.html`.*
 """
     path.write_text(md, encoding="utf-8")
     print(f"  MD: {path}")
@@ -123,61 +128,137 @@ que no se diversifican y la carga se apila sobre Informix.
 def _render_html(meses, a, path):
     data = json.dumps({"meses": meses, "hitos": HITOS}, ensure_ascii=False)
     html = f"""<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
-<title>Percentiles correlacionados — evolucion</title><script src="https://d3js.org/d3.v7.min.js"></script>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BCOPCore · Percentiles Correlacionados por Canal</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
-body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0f1117;color:#e2e8f0;padding:24px}}
-h1{{font-size:18px;font-weight:600;color:#fff;margin-bottom:4px}} .sub{{font-size:11px;color:#64748b;margin-bottom:18px}}
-.kpi-row{{display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap}}
-.kpi{{background:#1e2330;border:1px solid #2d3548;border-radius:8px;padding:10px 16px;min-width:150px}}
-.kpi .val{{font-size:22px;font-weight:700}} .kpi .lbl{{font-size:10px;color:#64748b;margin-top:3px}}
-.section{{background:#1e2330;border:1px solid #2d3548;border-radius:8px;padding:16px;margin-bottom:14px}}
-.section-title{{font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:10px}}
-svg text{{fill:#94a3b8}} .axis line,.axis path{{stroke:#2d3548}}
-.legend{{display:flex;gap:14px;margin-top:8px;font-size:10px;color:#94a3b8;flex-wrap:wrap}}
-.legend span{{display:inline-flex;align-items:center;gap:5px}} .sw{{width:18px;height:3px;display:inline-block}}
-.note{{font-size:9px;color:#475569;margin-top:12px;border-top:1px solid #2d3548;padding-top:10px}}
+:root{{--blue:#3D5FCD;--blued:#122FB1;--bluedd:#0d2185;--yellow:#F0D224;
+ --ink:#F4F6FF;--muted:#aab3d4;--muted2:#818ab0;--glass:rgba(255,255,255,.055);--glassb:rgba(255,255,255,.10);
+ --p70:#818ab0;--p90:#F0D224;--cap:#ff6b6b;--riesgo:#34d399}}
+html{{scroll-behavior:smooth}}
+body{{background:#060a1a;color:var(--ink);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}}
+.aurora{{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none}}
+.aurora::before{{content:"";position:absolute;width:62vw;height:62vw;left:-12vw;top:-16vw;border-radius:50%;filter:blur(90px);background:radial-gradient(circle,rgba(27,63,208,.65),transparent 70%);animation:f1 24s ease-in-out infinite}}
+.aurora::after{{content:"";position:absolute;width:56vw;height:56vw;right:-14vw;top:6vw;border-radius:50%;filter:blur(90px);background:radial-gradient(circle,rgba(13,33,133,.7),transparent 70%);animation:f2 28s ease-in-out infinite}}
+.aurora .blob{{position:absolute;width:40vw;height:40vw;left:34vw;bottom:-14vw;border-radius:50%;filter:blur(90px);background:radial-gradient(circle,rgba(240,210,36,.20),transparent 70%);animation:f3 32s ease-in-out infinite}}
+@keyframes f1{{50%{{transform:translate(6vw,8vh) scale(1.15)}}}}
+@keyframes f2{{50%{{transform:translate(-7vw,10vh) scale(1.12)}}}}
+@keyframes f3{{50%{{transform:translate(-9vw,-9vh) scale(1.22)}}}}
+.grain{{position:fixed;inset:0;z-index:-1;opacity:.045;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}}
+.hero-bar{{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;gap:18px;
+ padding:14px 32px;backdrop-filter:blur(20px) saturate(150%);-webkit-backdrop-filter:blur(20px) saturate(150%);
+ background:rgba(6,10,26,.6);border-bottom:1px solid rgba(255,255,255,.06)}}
+.hero-bar img{{height:34px;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))}}
+.hero-bar .hb-sep{{width:1px;height:28px;background:rgba(255,255,255,.15);flex-shrink:0}}
+.hero-bar .crumb{{font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.35)}}
+.hero-bar .crumb em{{color:var(--yellow);font-style:normal}}
+.hero-bar .hb-sp{{flex:1}}
+.hero-bar .badge{{font-size:10px;font-weight:800;letter-spacing:.1em;color:#060a1a;background:var(--yellow);padding:3px 9px;border-radius:20px}}
+.hero-bar a.back{{font-size:12px;color:var(--muted);padding:6px 13px;border-radius:20px;border:1px solid rgba(255,255,255,.09);text-decoration:none;transition:.22s}}
+.hero-bar a.back:hover{{color:var(--ink);background:rgba(255,255,255,.07)}}
+.glass{{background:var(--glass);backdrop-filter:blur(22px) saturate(155%);-webkit-backdrop-filter:blur(22px) saturate(155%);border:1px solid var(--glassb);border-radius:22px;box-shadow:0 12px 44px rgba(0,0,0,.36),inset 0 1px 0 rgba(255,255,255,.10)}}
+.wrap{{max-width:1280px;margin:0 auto;padding:96px 30px 40px}}
+.hero-label{{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--yellow);margin-bottom:12px}}
+.hero-h1{{font-size:clamp(28px,4.4vw,48px);font-weight:900;letter-spacing:-.035em;line-height:1.0;
+ background:linear-gradient(176deg,#fff 34%,#9fb4ff);-webkit-background-clip:text;background-clip:text;color:transparent}}
+.hero-sub{{margin-top:14px;font-size:13px;color:var(--muted);line-height:1.6;max-width:82ch}}
+.kpi-row{{display:flex;gap:12px;margin:26px 0 8px;flex-wrap:wrap}}
+.kpi{{padding:14px 20px;min-width:150px}}
+.kpi .val{{font-size:26px;font-weight:900;letter-spacing:-.02em;font-variant-numeric:tabular-nums}}
+.kpi .lbl{{font-size:9.5px;color:var(--muted2);letter-spacing:.05em;text-transform:uppercase;margin-top:4px}}
+.panels{{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:8px}}
+.panel{{padding:20px 22px}}
+.panel-head{{display:flex;align-items:center;gap:10px;margin-bottom:10px}}
+.panel-dot{{width:11px;height:11px;border-radius:3px;flex-shrink:0}}
+.panel-name{{font-size:15px;font-weight:800;letter-spacing:-.01em}}
+.panel-tag{{font-size:10px;color:var(--muted2);margin-left:auto;letter-spacing:.05em}}
+.section{{padding:20px 22px;margin-top:20px}}
+.section-title{{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:12px;letter-spacing:-.01em}}
+svg text{{fill:var(--muted2);font-size:10px}} .axis path{{stroke:none}} .axis line{{stroke:rgba(255,255,255,.10)}}
+.legend{{display:flex;gap:16px;margin-top:12px;font-size:11px;color:var(--muted);flex-wrap:wrap}}
+.legend span{{display:inline-flex;align-items:center;gap:6px}} .sw{{width:18px;height:3px;display:inline-block;border-radius:2px}}
+.note{{font-size:10px;color:var(--muted2);margin-top:18px;line-height:1.6}}
+footer{{text-align:center;padding:36px 0 8px;font-size:11px;color:var(--muted2);border-top:1px solid rgba(255,255,255,.06);margin-top:30px}}
+@media(max-width:920px){{.panels{{grid-template-columns:1fr}}}}
 </style></head><body>
-<h1>Percentiles correlacionados — SPEI + Autorizador sobre Informix</h1>
-<div class="sub">BCOPCore SPE-AM-001 · carga combinada sostenida (ventana 5 min) · evolucion 2025-2026 · DT dt-autorizador-pagos</div>
-<div class="kpi-row" id="kpis"></div>
-<div class="section"><div class="section-title">Evolucion mensual — carga combinada (txn/min)</div><div id="chart"></div>
-<div class="legend">
-<span><span class="sw" style="background:#64748b"></span>P70 combinado (alerta)</span>
-<span><span class="sw" style="background:#f59e0b"></span>P90 combinado (incidencia)</span>
-<span><span class="sw" style="background:#ef4444"></span>Top-5 concurrencia (capacidad demostrada)</span>
-</div></div>
-<div class="section"><div class="section-title">Zona de riesgo — % del tiempo con ambos &ge; P70</div><div id="chart2"></div></div>
-<div class="note" id="note"></div>
+<div class="aurora"><div class="blob"></div></div>
+<div class="grain"></div>
+<div class="hero-bar">
+  <img src="../../portal/bancoppel-logo.png" alt="BanCoppel">
+  <div class="hb-sep"></div>
+  <span class="crumb">BCOPCORE &nbsp;·&nbsp; SPE-AM-001 &nbsp;·&nbsp; GEMELO COGNITIVO &nbsp;·&nbsp; <em>PERCENTILES CORRELACIONADOS</em></span>
+  <span class="hb-sp"></span>
+  <span class="badge">DISCOVER</span>
+  <a href="../../portal/index-bcop-v2.html" class="back">← Portal</a>
+</div>
+<div class="wrap">
+  <div class="hero-label">Capacidad · Percentiles Correlacionados</div>
+  <h1 class="hero-h1">Percentiles Correlacionados por Canal</h1>
+  <p class="hero-sub">P70 (alerta) y P90 (incidencia) de <b style="color:var(--riesgo)">SPEI</b> y del <b style="color:#9fb4ff">Autorizador</b>, <b>cada canal por separado</b>, sobre ventanas de 5 min (carga sostenida, dias habiles 07–23h). La lente correlacionada es la <b>zona de riesgo</b>: el % del tiempo con ambos canales &ge; su P70 a la vez — sus picos coinciden (r&asymp;0.99), no se diversifican y se apilan sobre el Informix.</p>
+  <div class="kpi-row" id="kpis"></div>
+  <div class="panels">
+    <div class="panel glass">
+      <div class="panel-head"><span class="panel-dot" style="background:var(--riesgo)"></span>
+        <span class="panel-name">SPEI Entradas</span><span class="panel-tag">D08 · txn/min</span></div>
+      <div id="chartSP"></div>
+    </div>
+    <div class="panel glass">
+      <div class="panel-head"><span class="panel-dot" style="background:#9fb4ff"></span>
+        <span class="panel-name">Autorizador / E-Global</span><span class="panel-tag">capa de autorizacion · txn/min</span></div>
+      <div id="chartEG"></div>
+    </div>
+  </div>
+  <div class="legend">
+    <span><span class="sw" style="background:var(--p70)"></span>P70 (alerta)</span>
+    <span><span class="sw" style="background:var(--p90)"></span>P90 (incidencia)</span>
+    <span><span class="sw" style="background:var(--cap)"></span>Capacidad demostrada — top-5 concurrencia (ventana 5 min)</span>
+  </div>
+  <div class="section glass"><div class="section-title">Zona de riesgo correlacionada — % del tiempo con ambos canales &ge; su P70</div><div id="chart2"></div></div>
+  <div class="note" id="note"></div>
+</div>
+<footer>BCOPCore · Gemelo Cognitivo del Sistema · SPE-AM-001 · Accenture México · 2026</footer>
 <script>
 const DATA={data};const M=DATA.meses;const pM=d3.timeParse("%Y-%m");
-M.forEach(m=>{{m.D=pM(m.mes);m.p70=m.p70.suma;m.p90=m.p90.suma;m.top5=m.top_promedio.combinada;m.riesgo=m.pct_zona_riesgo;}});
+M.forEach(m=>{{m.D=pM(m.mes);
+  m.sp70=m.p70.spei;   m.sp90=m.p90.spei;   m.spCap=m.top_promedio.spei;
+  m.eg70=m.p70.eglobal;m.eg90=m.p90.eglobal;m.egCap=m.top_promedio.eglobal;
+  m.riesgo=m.pct_zona_riesgo;}});
 const a=M[M.length-1];
 document.getElementById("kpis").innerHTML=`
-<div class="kpi"><div class="val" style="color:#64748b">${{a.p70.toLocaleString()}}</div><div class="lbl">P70 combinado actual (alerta)</div></div>
-<div class="kpi"><div class="val" style="color:#f59e0b">${{a.p90.toLocaleString()}}</div><div class="lbl">P90 combinado actual (incidencia)</div></div>
-<div class="kpi"><div class="val" style="color:#ef4444">${{a.top5.toLocaleString()}}</div><div class="lbl">Capacidad demostrada (top-5)</div></div>
-<div class="kpi"><div class="val">${{a.riesgo}}%</div><div class="lbl">Tiempo en zona de riesgo</div></div>`;
+<div class="kpi glass"><div class="val" style="color:var(--riesgo)">${{a.sp70.toLocaleString()}} / ${{a.sp90.toLocaleString()}}</div><div class="lbl">SPEI — P70 / P90 actual</div></div>
+<div class="kpi glass"><div class="val" style="color:#9fb4ff">${{a.eg70.toLocaleString()}} / ${{a.eg90.toLocaleString()}}</div><div class="lbl">Autorizador — P70 / P90 actual</div></div>
+<div class="kpi glass"><div class="val" style="color:var(--yellow)">${{a.riesgo}}%</div><div class="lbl">Tiempo en zona de riesgo</div></div>
+<div class="kpi glass"><div class="val">r = ${{a.correlacion}}</div><div class="lbl">Correlacion intra-ventana</div></div>`;
 
-function chart(id,keys,cols,fmt){{
- const W=document.getElementById(id).offsetWidth||1000,H=id==="chart"?300:170,Mg={{top:10,right:16,bottom:26,left:60}};
+// mismo dominio Y en ambos paneles de canal
+const yMaxCh=d3.max(M,m=>d3.max([m.sp70,m.sp90,m.spCap,m.eg70,m.eg90,m.egCap]))*1.12;
+
+function chart(id,keys,cols,ymaxVal,fmt,H){{
+ d3.select("#"+id+" svg").remove();
+ const W=document.getElementById(id).offsetWidth||560,Mg={{top:12,right:16,bottom:26,left:52}};
  const w=W-Mg.left-Mg.right,h=H-Mg.top-Mg.bottom;
  const x=d3.scaleTime().domain(d3.extent(M,m=>m.D)).range([0,w]);
- const y=d3.scaleLinear().domain([0,d3.max(M,m=>d3.max(keys,k=>m[k]))*1.12]).range([h,0]);
+ const y=d3.scaleLinear().domain([0,ymaxVal]).range([h,0]);
  const svg=d3.select("#"+id).append("svg").attr("width",W).attr("height",H).append("g").attr("transform",`translate(${{Mg.left}},${{Mg.top}})`);
  svg.append("g").attr("class","axis").call(d3.axisLeft(y).ticks(5).tickFormat(fmt)).call(g=>g.select(".domain").remove())
-  .call(g=>g.selectAll(".tick line").clone().attr("x2",w).attr("stroke","#2d3548").attr("stroke-dasharray","3,3"));
- svg.append("g").attr("class","axis").attr("transform",`translate(0,${{h}})`).call(d3.axisBottom(x).ticks(9).tickFormat(d3.timeFormat("%b'%y")));
+  .call(g=>g.selectAll(".tick line").clone().attr("x2",w).attr("stroke","rgba(255,255,255,.06)"));
+ svg.append("g").attr("class","axis").attr("transform",`translate(0,${{h}})`).call(d3.axisBottom(x).ticks(8).tickFormat(d3.timeFormat("%b'%y"))).call(g=>g.select(".domain").remove());
  for(const[mk,txt] of Object.entries(DATA.hitos)){{const dx=pM(mk);if(!dx)continue;
-  svg.append("line").attr("x1",x(dx)).attr("x2",x(dx)).attr("y1",0).attr("y2",h).attr("stroke","#38bdf8").attr("stroke-dasharray","3,3").attr("opacity",.5);
-  svg.append("text").attr("x",x(dx)+3).attr("y",10).attr("font-size",8).attr("fill","#38bdf8").text(txt);}}
- keys.forEach((k,i)=>{{svg.append("path").datum(M).attr("fill","none").attr("stroke",cols[i]).attr("stroke-width",2)
+  svg.append("line").attr("x1",x(dx)).attr("x2",x(dx)).attr("y1",0).attr("y2",h).attr("stroke","var(--yellow)").attr("stroke-dasharray","3,3").attr("opacity",.4);
+  svg.append("text").attr("x",x(dx)+3).attr("y",10).attr("font-size",8).attr("fill","var(--yellow)").attr("opacity",.7).text(txt);}}
+ keys.forEach((k,i)=>{{svg.append("path").datum(M).attr("fill","none").attr("stroke",cols[i]).attr("stroke-width",2.2)
   .attr("d",d3.line().x(m=>x(m.D)).y(m=>y(m[k])));
-  svg.selectAll(".d"+i).data(M).join("circle").attr("cx",m=>x(m.D)).attr("cy",m=>y(m[k])).attr("r",2.5).attr("fill",cols[i]);}});
+  svg.selectAll(".d"+id+i).data(M).join("circle").attr("cx",m=>x(m.D)).attr("cy",m=>y(m[k])).attr("r",2.4).attr("fill",cols[i]);}});
 }}
-chart("chart",["p70","p90","top5"],["#64748b","#f59e0b","#ef4444"],d=>(d/1000).toFixed(1)+"k");
-chart("chart2",["riesgo"],["#10b981"],d=>d+"%");
-document.getElementById("note").innerHTML=`Percentiles correlacionados (ventana 5 min, habil 07-23h) &middot; P70/P90 = suma de umbrales por canal en concurrencia &middot; top-5 = capacidad sostenida demostrada sin caida &middot; los umbrales suben con el crecimiento organico &middot; generado por generators/build-percentiles-correlacionados.py`;
+function draw(){{
+ const kf=d=>(d/1000).toFixed(1)+"k";
+ chart("chartSP",["sp70","sp90","spCap"],["#818ab0","#F0D224","#ff6b6b"],yMaxCh,kf,280);
+ chart("chartEG",["eg70","eg90","egCap"],["#818ab0","#F0D224","#ff6b6b"],yMaxCh,kf,280);
+ chart("chart2",["riesgo"],["#34d399"],d3.max(M,m=>m.riesgo)*1.2,d=>d+"%",170);
+}}
+draw();window.addEventListener("resize",draw);
+document.getElementById("note").innerHTML=`Percentiles correlacionados (ventana 5 min, dias habiles 07–23h) &middot; P70/P90 <b>por canal, sin combinar</b> &middot; capacidad demostrada = top-5 de concurrencia sostenida sin caida, en ventanas de 5 min &middot; la zona de riesgo (ambos &ge; su P70 a la vez) es la lente correlacionada &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
 </script></body></html>"""
     path.write_text(html, encoding="utf-8")
     print(f"  HTML: {path}")
