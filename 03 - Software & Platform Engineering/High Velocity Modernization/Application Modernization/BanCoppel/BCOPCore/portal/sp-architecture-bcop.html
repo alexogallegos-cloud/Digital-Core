@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BCOPCore · Taxonomía de SP Types</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--blue:#3D5FCD;--blued:#122FB1;--bluedd:#0d2185;--yellow:#F0D224;
+ --ink:#F4F6FF;--muted:#aab3d4;--muted2:#818ab0;--glass:rgba(255,255,255,.055);--glassb:rgba(255,255,255,.10);
+ --c-frontera:#122FB1;--c-orq-s:#e85d04;--c-orq:#2196F3;--c-impl:#29b6f6;--c-leaf:#81d4fa;
+ --c-prim:#F0D224;--c-shared:#ffd54f;--c-batch:#546e7a;--c-batch-orq:#78909c}
+html{scroll-behavior:smooth}
+body{background:#060a1a;color:var(--ink);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none}
+.aurora::before{content:"";position:absolute;width:62vw;height:62vw;left:-12vw;top:-16vw;border-radius:50%;filter:blur(90px);background:radial-gradient(circle,rgba(27,63,208,.65),transparent 70%);animation:f1 24s ease-in-out infinite}
+.aurora::after{content:"";position:absolute;width:56vw;height:56vw;right:-14vw;top:6vw;border-radius:50%;filter:blur(90px);background:radial-gradient(circle,rgba(13,33,133,.7),transparent 70%);animation:f2 28s ease-in-out infinite}
+.aurora .blob{content:"";position:absolute;width:40vw;height:40vw;left:34vw;bottom:-14vw;border-radius:50%;filter:blur(90px);background:radial-gradient(circle,rgba(240,210,36,.22),transparent 70%);animation:f3 32s ease-in-out infinite}
+@keyframes f1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes f2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes f3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+.grain{position:fixed;inset:0;z-index:-1;opacity:.045;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.hero-bar{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;gap:18px;
+ padding:14px 32px;backdrop-filter:blur(20px) saturate(150%);-webkit-backdrop-filter:blur(20px) saturate(150%);
+ background:rgba(6,10,26,.6);border-bottom:1px solid rgba(255,255,255,.06)}
+.hero-bar img{height:34px;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))}
+.hero-bar .hb-sep{width:1px;height:28px;background:rgba(255,255,255,.15);flex-shrink:0}
+.hero-bar .crumb{font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+ color:rgba(255,255,255,.35)}
+.hero-bar .crumb em{color:var(--yellow);font-style:normal}
+.hero-bar .hb-sp{flex:1}
+.hero-bar .badge{font-size:10px;font-weight:800;letter-spacing:.1em;color:#060a1a;background:var(--yellow);padding:3px 9px;border-radius:20px}
+.hero-bar a.back{font-size:12px;color:var(--muted);padding:6px 13px;border-radius:20px;
+ border:1px solid rgba(255,255,255,.09);text-decoration:none;transition:.22s}
+.hero-bar a.back:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+
+/* hero two-column */
+.hero-body{display:flex;align-items:flex-end;gap:48px;flex-wrap:wrap;margin-top:36px}
+.hero-title{flex:1;min-width:260px}
+.hero-label{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+ color:var(--yellow);margin-bottom:12px}
+.hero-h1{font-size:clamp(30px,5vw,56px);font-weight:900;letter-spacing:-.035em;line-height:1.0;
+ background:linear-gradient(176deg,#fff 34%,#9fb4ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero-sub{margin-top:14px;font-size:13px;color:var(--muted);line-height:1.6;max-width:56ch}
+.hero-stats{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding-bottom:4px}
+.stat-block{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+ border-radius:14px;padding:16px 22px;min-width:100px}
+.stat-block .sn{font-size:30px;font-weight:900;letter-spacing:-.03em;font-variant-numeric:tabular-nums;
+ background:linear-gradient(135deg,var(--yellow),#f6e27a);
+ -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1}
+.stat-block.blue .sn{background:linear-gradient(135deg,#93c5fd,#6f8ce6);
+ -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.stat-block .sl{font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+ color:var(--muted2);margin-top:5px}
+.glass{background:var(--glass);backdrop-filter:blur(22px) saturate(155%);-webkit-backdrop-filter:blur(22px) saturate(155%);border:1px solid var(--glassb);border-radius:22px;box-shadow:0 12px 44px rgba(0,0,0,.36),inset 0 1px 0 rgba(255,255,255,.10)}
+.wrap{max-width:1200px;margin:0 auto;padding:0 30px}
+section{padding:72px 0;scroll-margin-top:70px}
+
+/* hero */
+.hero{padding:80px 0 32px}
+@keyframes pulse{50%{opacity:.4}}
+
+/* section headings */
+.shead{margin-bottom:36px}
+.kick{font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--yellow);margin-bottom:12px}
+.shead h2{font-size:clamp(24px,3.4vw,40px);font-weight:800;letter-spacing:-.025em;line-height:1.06}
+.shead p{color:var(--muted);font-size:14px;margin-top:12px;max-width:72ch;line-height:1.55}
+
+/* graph section */
+#graph-container{position:relative;width:100%;min-height:620px;padding:0}
+#force-svg{width:100%;height:620px;display:block;cursor:grab}
+#force-svg:active{cursor:grabbing}
+.graph-hint{text-align:center;font-size:11px;color:var(--muted2);margin-top:12px}
+
+/* tooltip */
+#tooltip{position:fixed;z-index:100;pointer-events:none;opacity:0;transition:opacity .18s;
+ background:rgba(6,10,26,.96);border:1px solid var(--glassb);border-radius:14px;padding:16px 20px;max-width:280px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+#tooltip h4{font-size:14px;font-weight:800;margin-bottom:6px}
+#tooltip .tc{font-size:12px;color:var(--muted);line-height:1.5}
+#tooltip .tn{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:8px 0 4px}
+#tooltip .te{font-size:11px;color:var(--muted2);margin-top:6px;font-style:italic}
+
+/* architecture diagram */
+.arch-wrap{display:grid;grid-template-columns:1fr 380px;gap:24px;align-items:start}
+@media(max-width:900px){.arch-wrap{grid-template-columns:1fr}}
+#arch-svg{width:100%;height:auto;overflow:visible}
+
+/* right panel — context cards */
+.arch-right{display:flex;flex-direction:column;gap:0;max-height:730px;overflow-y:auto;
+ scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.15) transparent;padding-right:4px}
+.arch-right::-webkit-scrollbar{width:4px}
+.arch-right::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:4px}
+.ctx-layer-hdr{font-size:9px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;
+ color:var(--muted2);padding:14px 4px 7px;border-top:1px solid rgba(255,255,255,.07)}
+.ctx-layer-hdr:first-child{border-top:none;padding-top:0}
+.ctx-card{padding:13px 15px;border-radius:12px;border:1px solid rgba(255,255,255,.07);
+ background:rgba(255,255,255,.03);margin-bottom:8px;border-left-width:3px;transition:.2s}
+.ctx-card:hover{background:rgba(255,255,255,.065);transform:translateX(2px)}
+.ctx-head{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+.ctx-ico{font-size:9px;font-weight:800;letter-spacing:.08em;font-family:monospace;
+ padding:3px 7px;border-radius:6px;border:1px solid currentColor;opacity:.85;flex-shrink:0;line-height:1.4}
+.ctx-name{font-size:12px;font-weight:800;flex:1;letter-spacing:-.01em}
+.ctx-count-line{font-size:10.5px;font-weight:700;font-variant-numeric:tabular-nums;color:#c4d0ff;margin-bottom:5px}
+.ctx-count-line span{font-size:9.5px;color:var(--muted2);font-weight:400;margin-left:4px}
+.ctx-desc{font-size:11px;color:var(--muted);line-height:1.48;margin-bottom:6px}
+.ctx-fan{font-size:9.5px;color:var(--muted2);font-family:monospace;margin-bottom:6px}
+.ctx-impl{font-size:10.5px;color:rgba(240,210,36,.75);font-weight:500;margin-top:6px;
+ padding:5px 9px;border-radius:6px;background:rgba(240,210,36,.05);border:1px solid rgba(240,210,36,.15);line-height:1.45}
+.ctx-impl-label{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+ color:rgba(240,210,36,.6);display:block;margin-bottom:3px}
+.ctx-badges{display:flex;gap:5px;margin-top:7px;flex-wrap:wrap;align-items:center}
+.arc-soul{font-size:9px;font-weight:700;color:#F0D224;letter-spacing:.05em;background:rgba(240,210,36,.1);padding:1px 6px;border-radius:8px;border:1px solid rgba(240,210,36,.25)}
+
+/* cards */
+.arch-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:16px}
+@media(max-width:1000px){.arch-cards{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.arch-cards{grid-template-columns:1fr}}
+.acard{padding:22px;border-radius:18px;border:1px solid var(--glassb);background:rgba(255,255,255,.035);transition:.28s cubic-bezier(.16,1,.3,1)}
+.acard:hover{transform:translateY(-5px);box-shadow:0 20px 48px rgba(0,0,0,.4)}
+.acard-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.acard-ico{width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+.acard-name{font-size:14px;font-weight:800;letter-spacing:-.01em}
+.acard-layer{font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted2);margin-top:2px}
+.acard-count{font-size:28px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;background:linear-gradient(180deg,#fff,#c4d0ff);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:4px}
+.acard-pct{font-size:11px;color:var(--muted2);margin-bottom:12px}
+.acard-desc{font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:12px}
+.acard-ex{font-size:11px;color:var(--muted2);font-family:monospace;border-top:1px solid rgba(255,255,255,.06);padding-top:10px;line-height:1.7}
+.acard-badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.badge-risk{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:2px 8px;border-radius:8px}
+.badge-soul{font-size:9px;font-weight:700;color:#F0D224;background:rgba(240,210,36,.1);border:1px solid rgba(240,210,36,.25);padding:2px 8px;border-radius:8px}
+.risk-critico{color:#ff6b6b;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.25)}
+.risk-alto{color:#ffa94d;background:rgba(255,169,77,.1);border:1px solid rgba(255,169,77,.25)}
+.risk-medio{color:#74c0fc;background:rgba(116,192,252,.1);border:1px solid rgba(116,192,252,.25)}
+.risk-bajo{color:var(--muted2);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
+
+footer{text-align:center;padding:40px 0;font-size:11px;color:var(--muted2);border-top:1px solid rgba(255,255,255,.06)}
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<div class="grain"></div>
+
+<div id="tooltip">
+  <h4 id="tt-name"></h4>
+  <div class="tc" id="tt-layer"></div>
+  <div class="tn" id="tt-count"></div>
+  <div class="tc" id="tt-desc"></div>
+  <div class="te" id="tt-ex"></div>
+</div>
+
+<div class="hero-bar">
+  <img src="bancoppel-logo.png" alt="BanCoppel">
+  <div class="hb-sep"></div>
+  <span class="crumb">BCOPCORE &nbsp;·&nbsp; SPE-AM-001 &nbsp;·&nbsp; GEMELO COGNITIVO &nbsp;·&nbsp; <em>ARQUETIPOS SPL</em></span>
+  <span class="hb-sp"></span>
+  <span class="badge">DISCOVER</span>
+  <a href="index-bcop-v2.html" class="back">← Portal</a>
+</div>
+
+<section class="hero wrap">
+  <div class="hero-body">
+    <div class="hero-title">
+      <div class="hero-label">Arquetipos SPL</div>
+      <h1 class="hero-h1">Taxonomía de<br>Stored Procedures</h1>
+      <p class="hero-sub">10,968 SPs clasificados en 7 arquetipos funcionales, derivados del análisis de fan_in, fan_out y rol en el call graph sobre IBM Informix IDS 14.10 en 49 bases de datos.</p>
+    </div>
+    <div class="hero-stats">
+      <div class="stat-block">
+        <div class="sn">10,968</div>
+        <div class="sl">SPs totales</div>
+      </div>
+      <div class="stat-block blue">
+        <div class="sn">636</div>
+        <div class="sl">Frontera ESB</div>
+      </div>
+      <div class="stat-block blue">
+        <div class="sn">381</div>
+        <div class="sl">Super-orquestadores</div>
+      </div>
+      <div class="stat-block">
+        <div class="sn">9,181</div>
+        <div class="sl">Batch offline</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════
+     ARCHITECTURE DIAGRAM + CONTEXT
+══════════════════════════════════════════ -->
+<section id="arch" class="wrap">
+  <div class="shead">
+    <p class="kick">Flujo de Llamadas</p>
+    <h2>Capas Arquitecturales</h2>
+    <p>El core bancario Informix organiza sus 10,968 SPs en cuatro capas transaccionales (Frontera → Orquestación → Implementación → Core) más una capa offline de procesos batch. El panel derecho describe cada arquetipo con su criterio de clasificación e implicación de migración.</p>
+  </div>
+  <div class="arch-wrap">
+    <div class="glass" style="padding:24px;overflow:hidden">
+      <svg id="arch-svg" viewBox="0 0 560 680"></svg>
+    </div>
+    <div class="arch-right" id="arch-stats"></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════
+     FORCE-DIRECTED GRAPH — pre-computed
+══════════════════════════════════════════ -->
+<section id="graph" class="wrap">
+  <div class="shead">
+    <p class="kick">Visualización Interactiva</p>
+    <h2>Mapa de Arquetipos</h2>
+    <p>Cada nodo representa un arquetipo. El tamaño es proporcional al número de SPs y las líneas indican el flujo de llamadas entre arquetipos. El punto dorado sobre un nodo señala que contiene Almas del sistema. Se puede arrastrar para explorar.</p>
+  </div>
+  <div class="glass" style="padding:8px 8px 4px;overflow:hidden;border-radius:22px">
+    <svg id="force-svg"></svg>
+  </div>
+  <p class="graph-hint">Tamaño proporcional a la raíz cuadrada del número de SPs. Posición pre-calculada. Los nodos en naranja y amarillo corresponden a los arquetipos de mayor riesgo en migración.</p>
+</section>
+
+
+<footer>BCOPCore · Gemelo Cognitivo del Sistema · SPE-AM-001 · Accenture México · 2026</footer>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   DATA — verified counts from brain.db + session context
+═══════════════════════════════════════════════════════ */
+const TOTAL = 10968;
+
+const ARCHETYPES = [
+  {id:'esb_exposed',   label:'ESB Exposed',        short:'ESB',    count:538,   souls:0, color:'#1a40d4',
+   layer:'FRONTERA', risk:'CRÍTICO', icon:'🔌',
+   desc:'Interfaz pública del core bancario — SPs expuestos al middleware ESB. Primer punto de contacto entre los canales digitales y el core Informix.',
+   ex:['sp_web_*', 'sp_sac_*', 'sp_bccc_detsolicitudeslincred'],
+   fanIn:'externo', fanOut:'→ orquestadores'},
+
+  {id:'entry_point',   label:'Entry Points',        short:'ENTRY',  count:98,    souls:0, color:'#2a5ae8',
+   layer:'FRONTERA', risk:'ALTO', icon:'🚪',
+   desc:'Puntos de entrada de transacciones bancarias. Inician los flujos de negocio y delegan a los orquestadores internos.',
+   ex:['sp_*_inicio_transaccion', 'sp_*_apertura'],
+   fanIn:'frontera', fanOut:'→ super-orq'},
+
+  {id:'super_orchestrator', label:'Super-Orquestadores', short:'S-ORQ', count:381, souls:0, color:'#e85d04',
+   layer:'ORQUESTACIÓN', risk:'CRÍTICO', icon:'🔄',
+   desc:'Coordinadores de flujos complejos con más de 50 SPs dependientes. Alta complejidad ciclomática y mayor riesgo en migración. Incluye sp_atms_* con 84 llamadas cross-DB.',
+   ex:['sp_atms_* (×84 cross-DB)', 'sp_operacion_*', 'sp_proceso_lote_*'],
+   fanIn:'frontera + batch', fanOut:'> 50 SPs'},
+
+  {id:'batch_orchestrator', label:'Batch Orquestadores', short:'B-ORQ', count:1369, souls:0, color:'#78909c',
+   layer:'BATCH', risk:'MEDIO', icon:'⏱',
+   desc:'Procesos batch con orquestación compleja. No tienen callers SP-to-SP (fan_in=0) — son iniciados por el scheduler AIX. Pueden llamar a más de 5 SPs downstream.',
+   ex:['sp_cierre_*', 'sp_concilia_*', 'sp_descarga_*'],
+   fanIn:'scheduler (fan_in=0)', fanOut:'> 5 SPs'},
+
+  {id:'orchestrator',  label:'Orquestadores',       short:'ORQ',    count:330,   souls:3, color:'#2196F3',
+   layer:'ORQUESTACIÓN', risk:'ALTO', icon:'🎯',
+   desc:'Coordinadores internos de flujos de negocio con 6-50 SPs dependientes. Tienen callers conocidos (fan_in > 0). Contienen 3 Almas del sistema.',
+   ex:['sp_*_proceso', 'sp_*_transaccion_det', 'sp_*_valida_autori'],
+   fanIn:'> 0 SPs', fanOut:'6–50 SPs'},
+
+  {id:'implementation', label:'Implementación',     short:'IMPL',   count:269,   souls:3, color:'#29b6f6',
+   layer:'IMPLEMENTACIÓN', risk:'MEDIO', icon:'⚙️',
+   desc:'SPs de lógica de negocio con 1-5 dependencias y callers conocidos. Encapsulan reglas de negocio específicas. Contienen 3 Almas.',
+   ex:['sp_*_detalle', 'sp_*_calcula_interes', 'sp_*_aplica_cargo'],
+   fanIn:'> 0 SPs', fanOut:'1–5 SPs'},
+
+  {id:'leaf',          label:'Leaf (Hojas)',         short:'LEAF',   count:93,    souls:0, color:'#81d4fa',
+   layer:'IMPLEMENTACIÓN', risk:'BAJO', icon:'🌿',
+   desc:'SPs atómicos — tienen callers pero no llaman a otros SPs. Implementan operaciones de negocio indivisibles (read, write, validate). Candidatos a tests de equivalencia directos.',
+   ex:['sp_altamodificacion_piezas_bym (×373 callers)', 'sp_sac_guardamensajeerror (×321)', 'sp_obtieneencabezadomasivo (×314)'],
+   fanIn:'> 0 SPs', fanOut:'0 SPs'},
+
+  {id:'cross_domain_primitive', label:'Primitivas Cross-Domain', short:'PRIM', count:44, souls:5, color:'#F0D224',
+   layer:'CORE', risk:'CRÍTICO', icon:'⭐',
+   desc:'Operaciones fundamentales compartidas entre múltiples dominios. Mayor riesgo de migración por dependencia transversal. Incluye cargo_ref (×425 callers, 24.8K calls/día) y sp_cnsif_confirmaejecutivo (×2,284 callers).',
+   ex:['cargo_ref ×425  →  24,802 calls/día', 'abono_ref ×410  →  7,280 calls/día', 'sp_cnsif_confirmaejecutivo ×2,284 (security gate)', 'califica_scoring2_cjunk (motor crediticio)', 'sp_consulta_saldos_general'],
+   fanIn:'multi-dominio', fanOut:'atómica'},
+
+  {id:'shared_service', label:'Servicios Compartidos', short:'SVC', count:34, souls:6, color:'#ffd54f',
+   layer:'CORE', risk:'MEDIO', icon:'🔧',
+   desc:'Infraestructura funcional transversal — utilerías y servicios de soporte del core. Mayor cantidad de Almas del sistema (6). sp_obtenerfechahoy recibe 161K llamadas/día.',
+   ex:['sp_obtenerfechahoy  →  161,000 calls/día', 'sp_registra_evento ×1,398 callers', 'sp_bitacorawstae (70% error rate)', 'sp_sac_guardamensajeerror'],
+   fanIn:'multi-dominio', fanOut:'utilerías'},
+
+  {id:'batch',         label:'Batch Standalone',    short:'BATCH',  count:7812, souls:2, color:'#546e7a',
+   layer:'BATCH', risk:'BAJO', icon:'📦',
+   desc:'Procesos offline — sin callers SP-to-SP (fan_in=0) y con bajo fan_out (≤5). Ejecutados por el scheduler AIX o iniciados directamente por la capa de aplicación Java. Representan el 71% del total de SPs.',
+   ex:['sp_cierre_diario_*', 'sp_descarga_buro_*', 'sp_envio_*'],
+   fanIn:'scheduler / app (fan_in=0)', fanOut:'0–5 SPs'},
+];
+
+const LAYERS = [
+  {id:'FRONTERA',       label:'Capa de Frontera',       color:'#122FB1', y:40},
+  {id:'ORQUESTACIÓN',   label:'Capa de Orquestación',   color:'#e85d04', y:190},
+  {id:'IMPLEMENTACIÓN', label:'Capa de Implementación', color:'#29b6f6', y:340},
+  {id:'CORE',           label:'Capa Funcional Core',    color:'#F0D224', y:490},
+  {id:'BATCH',          label:'Procesos Batch',         color:'#546e7a', y:40},
+];
+
+/* ═══════════════════════════════════════════════════════
+   FORCE-DIRECTED GRAPH (pre-computed, no tick handler)
+═══════════════════════════════════════════════════════ */
+(function buildForceGraph() {
+  const el  = document.getElementById('force-svg');
+  const W   = el.clientWidth || 1100;
+  const H   = 620;
+  el.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  el.style.height = H + 'px';
+
+  const svg = d3.select('#force-svg');
+  const r   = d => Math.sqrt(d.count) * 1.8 + 18;
+
+  // Nodes (clone so sim can mutate)
+  const nodes = ARCHETYPES.map(d => ({...d}));
+
+  // Links: directed call-flow between archetypes
+  const linkDefs = [
+    {s:'esb_exposed',   t:'super_orchestrator'},
+    {s:'esb_exposed',   t:'orchestrator'},
+    {s:'entry_point',   t:'super_orchestrator'},
+    {s:'entry_point',   t:'orchestrator'},
+    {s:'super_orchestrator', t:'orchestrator'},
+    {s:'super_orchestrator', t:'implementation'},
+    {s:'super_orchestrator', t:'cross_domain_primitive'},
+    {s:'orchestrator',  t:'implementation'},
+    {s:'orchestrator',  t:'leaf'},
+    {s:'orchestrator',  t:'cross_domain_primitive'},
+    {s:'implementation',t:'leaf'},
+    {s:'implementation',t:'cross_domain_primitive'},
+    {s:'implementation',t:'shared_service'},
+    {s:'batch_orchestrator', t:'super_orchestrator'},
+    {s:'batch_orchestrator', t:'orchestrator'},
+    {s:'batch',         t:'orchestrator'},
+    {s:'batch',         t:'implementation'},
+    {s:'cross_domain_primitive', t:'shared_service'},
+  ];
+
+  const idMap = {};
+  nodes.forEach(n => idMap[n.id] = n);
+
+  const links = linkDefs
+    .filter(l => idMap[l.s] && idMap[l.t])
+    .map(l => ({source: idMap[l.s], target: idMap[l.t]}));
+
+  // ── Pre-compute layout (no tick handler, no DOM mutation during sim) ──
+  const sim = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).id(d => d.id).distance(d => {
+      // Shorter links for nearby layers
+      return (r(d.source) + r(d.target)) * 1.5 + 30;
+    }).strength(0.4))
+    .force('charge', d3.forceManyBody().strength(d => -r(d) * 22))
+    .force('center', d3.forceCenter(W / 2, H / 2))
+    .force('collision', d3.forceCollide(d => r(d) + 12).strength(0.85))
+    .force('x', d3.forceX(d => {
+      // Nudge batch nodes to the left, core nodes to the right
+      if (d.layer === 'BATCH') return W * 0.18;
+      if (d.layer === 'CORE')  return W * 0.75;
+      if (d.layer === 'FRONTERA') return W * 0.5;
+      return W * 0.5;
+    }).strength(0.12))
+    .force('y', d3.forceY(d => {
+      const layerY = {FRONTERA:H*0.2, ORQUESTACIÓN:H*0.42, IMPLEMENTACIÓN:H*0.65, CORE:H*0.82, BATCH:H*0.45};
+      return layerY[d.layer] ?? H / 2;
+    }).strength(0.18))
+    .stop();
+
+  for (let i = 0; i < 500; ++i) sim.tick();
+
+  // Clamp to viewport
+  nodes.forEach(n => {
+    const rd = r(n);
+    n.x = Math.max(rd + 4, Math.min(W - rd - 4, n.x));
+    n.y = Math.max(rd + 4, Math.min(H - rd - 4, n.y));
+  });
+
+  // ── Render (one-shot, no tick callbacks) ──
+  const defs = svg.append('defs');
+  // Arrow marker
+  defs.append('marker')
+    .attr('id', 'arrow').attr('viewBox', '0 -5 10 10')
+    .attr('refX', 10).attr('refY', 0)
+    .attr('markerWidth', 6).attr('markerHeight', 6)
+    .attr('orient', 'auto')
+    .append('path').attr('d', 'M0,-5L10,0L0,5').attr('fill', 'rgba(255,255,255,.25)');
+
+  // Glow filter
+  const glow = defs.append('filter').attr('id', 'glow').attr('x', '-30%').attr('y', '-30%').attr('width', '160%').attr('height', '160%');
+  glow.append('feGaussianBlur').attr('stdDeviation', '6').attr('result', 'blur');
+  const merge = glow.append('feMerge');
+  merge.append('feMergeNode').attr('in', 'blur');
+  merge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+  // Links
+  const linkG = svg.append('g').attr('class', 'links');
+  const linkSel = linkG.selectAll('line').data(links).join('line')
+    .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+    .attr('x2', d => d.target.x).attr('y2', d => d.target.y)
+    .attr('stroke', 'rgba(255,255,255,.14)')
+    .attr('stroke-width', 1.2)
+    .attr('marker-end', 'url(#arrow)');
+
+  // Nodes
+  const nodeG = svg.append('g').attr('class', 'nodes');
+  const nodeSel = nodeG.selectAll('g').data(nodes).join('g')
+    .attr('transform', d => `translate(${d.x},${d.y})`)
+    .style('cursor', 'pointer');
+
+  nodeSel.append('circle')
+    .attr('r', d => r(d))
+    .attr('fill', d => d.color + '22')
+    .attr('stroke', d => d.color)
+    .attr('stroke-width', 2.2);
+
+  // Glow ring for critical
+  nodeSel.filter(d => d.risk === 'CRÍTICO')
+    .append('circle')
+    .attr('r', d => r(d) + 5)
+    .attr('fill', 'none')
+    .attr('stroke', d => d.color)
+    .attr('stroke-width', 1)
+    .attr('stroke-opacity', 0.35)
+    .attr('filter', 'url(#glow)');
+
+  // Label (count)
+  nodeSel.append('text')
+    .attr('text-anchor', 'middle').attr('dy', '-0.1em')
+    .attr('fill', '#fff').attr('font-weight', '800')
+    .attr('font-size', d => Math.max(10, Math.min(16, r(d) * 0.42)))
+    .text(d => d.count.toLocaleString());
+
+  // Alma indicator — small gold dot instead of star glyph
+  nodeSel.filter(d => d.souls > 0)
+    .append('circle')
+    .attr('cx', d => r(d) * 0.55)
+    .attr('cy', d => -r(d) * 0.55)
+    .attr('r', 5)
+    .attr('fill', '#F0D224')
+    .attr('stroke', '#060a1a')
+    .attr('stroke-width', 1.5);
+  nodeSel.filter(d => d.souls > 0)
+    .append('text')
+    .attr('x', d => r(d) * 0.55)
+    .attr('y', d => -r(d) * 0.55 + 4)
+    .attr('text-anchor', 'middle')
+    .attr('fill', '#060a1a').attr('font-size', '7').attr('font-weight', '900')
+    .text(d => d.souls);
+
+  // Short label below node
+  nodeSel.append('text')
+    .attr('text-anchor', 'middle')
+    .attr('dy', d => r(d) + 14)
+    .attr('fill', 'rgba(255,255,255,.7)')
+    .attr('font-size', '10.5')
+    .attr('font-weight', '700')
+    .text(d => d.short);
+
+  // ── Tooltip ──
+  const tt = document.getElementById('tooltip');
+  nodeSel
+    .on('mouseenter', function(event, d) {
+      d3.select(this).select('circle').transition().duration(180).attr('fill', d.color + '44').attr('stroke-width', 3);
+      document.getElementById('tt-name').textContent  = d.label;
+      document.getElementById('tt-layer').textContent = d.layer + '  —  ' + d.count.toLocaleString() + ' SPs (' + (d.count/TOTAL*100).toFixed(1) + '%)';
+      document.getElementById('tt-count').textContent = d.souls > 0 ? d.souls + ' alma' + (d.souls > 1 ? 's' : '') : '';
+      document.getElementById('tt-count').style.color = d.souls > 0 ? '#F0D224' : 'transparent';
+      document.getElementById('tt-desc').textContent  = d.desc.slice(0, 120) + (d.desc.length > 120 ? '…' : '');
+      document.getElementById('tt-ex').textContent    = d.ex.slice(0,2).join(', ');
+      document.getElementById('tt-name').style.color  = d.color;
+      tt.style.opacity = 1;
+    })
+    .on('mousemove', function(event) {
+      const x = event.clientX + 16, y = event.clientY - 20;
+      tt.style.left = Math.min(x, window.innerWidth - 300) + 'px';
+      tt.style.top  = Math.max(10, y) + 'px';
+    })
+    .on('mouseleave', function(event, d) {
+      d3.select(this).select('circle').transition().duration(180).attr('fill', d.color + '22').attr('stroke-width', 2.2);
+      tt.style.opacity = 0;
+    });
+
+  // ── Drag (no sim restart — update node + connected links only) ──
+  // Build adjacency map
+  const connLinks = {};
+  nodes.forEach(n => connLinks[n.id] = []);
+  links.forEach(l => {
+    connLinks[l.source.id].push(l);
+    connLinks[l.target.id].push(l);
+  });
+
+  nodeSel.call(d3.drag()
+    .on('drag', function(event, d) {
+      d.x = event.x; d.y = event.y;
+      d3.select(this).attr('transform', `translate(${d.x},${d.y})`);
+      connLinks[d.id].forEach(l => {
+        linkSel.filter(ll => ll === l)
+          .attr('x1', l.source.x).attr('y1', l.source.y)
+          .attr('x2', l.target.x).attr('y2', l.target.y);
+      });
+    })
+  );
+})();
+
+
+/* ═══════════════════════════════════════════════════════
+   ARCHITECTURE DIAGRAM — static SVG positions
+═══════════════════════════════════════════════════════ */
+(function buildArchDiagram() {
+  const svg = d3.select('#arch-svg');
+  const W = 560, H = 680;
+
+  // Layer boxes definition (online transaction flow, left side)
+  const onlineLayers = [
+    {
+      y: 10, h: 100, color: '#122FB1',
+      label: 'CAPA DE FRONTERA', sublabel: 'Canal → ESB → Entry Point',
+      items: [
+        {label:'ESB Exposed', count:538, color:'#1a40d4', x:10},
+        {label:'Entry Points', count:98,  color:'#2a5ae8', x:195},
+      ]
+    },
+    {
+      y: 140, h: 100, color: '#e85d04',
+      label: 'CAPA DE ORQUESTACIÓN', sublabel: 'Coordinadores de flujo',
+      items: [
+        {label:'Super-Orquestadores', count:381, color:'#e85d04', x:10},
+        {label:'Orquestadores',       count:330, color:'#2196F3', x:205},
+      ]
+    },
+    {
+      y: 270, h: 100, color: '#29b6f6',
+      label: 'CAPA DE IMPLEMENTACIÓN', sublabel: 'Lógica de negocio',
+      items: [
+        {label:'Implementación', count:269, color:'#29b6f6', x:10},
+        {label:'Leaf (Hojas)',   count:93,  color:'#81d4fa', x:195},
+      ]
+    },
+    {
+      y: 400, h: 110, color: '#F0D224',
+      label: 'CAPA FUNCIONAL CORE', sublabel: '★ Primitivas y servicios transversales',
+      items: [
+        {label:'★ Primitivas Cross-Domain', count:44, color:'#F0D224', x:10},
+        {label:'★ Servicios Compartidos',   count:34, color:'#ffd54f', x:215},
+      ]
+    },
+  ];
+
+  // Batch section (right side)
+  const batchBox = {x: 370, y: 10, w: 178, h: 500, color: '#546e7a',
+    items: [
+      {label:'Batch Orquestadores', count:1369, color:'#78909c', y:30, h:100},
+      {label:'Batch Standalone',    count:7812, color:'#546e7a', y:150, h:330},
+    ]
+  };
+
+  // Draw online layers
+  onlineLayers.forEach((layer, li) => {
+    const g = svg.append('g').attr('transform', `translate(0,${layer.y})`);
+
+    // Layer background
+    g.append('rect')
+      .attr('x', 10).attr('y', 0).attr('width', 348).attr('height', layer.h)
+      .attr('rx', 12)
+      .attr('fill', layer.color + '15')
+      .attr('stroke', layer.color + '40')
+      .attr('stroke-width', 1.2);
+
+    // Layer label
+    g.append('text')
+      .attr('x', 22).attr('y', 18)
+      .attr('fill', layer.color).attr('font-size', '9').attr('font-weight', '800')
+      .attr('letter-spacing', '0.12em').attr('text-transform', 'uppercase')
+      .text(layer.label);
+    g.append('text')
+      .attr('x', 22).attr('y', 30)
+      .attr('fill', 'rgba(255,255,255,.4)').attr('font-size', '8.5')
+      .text(layer.sublabel);
+
+    // Sub-boxes
+    layer.items.forEach(item => {
+      const boxW = item.x > 180 ? 148 : 180;
+      const sg = g.append('g').attr('transform', `translate(${item.x + 10},40)`);
+      sg.append('rect').attr('width', boxW).attr('height', layer.h - 48)
+        .attr('rx', 8).attr('fill', item.color + '25').attr('stroke', item.color + '70').attr('stroke-width', 1.2);
+      sg.append('text').attr('x', 10).attr('y', 18)
+        .attr('fill', item.color).attr('font-size', '10').attr('font-weight', '700')
+        .text(item.label);
+      sg.append('text').attr('x', 10).attr('y', 34)
+        .attr('fill', '#fff').attr('font-size', '18').attr('font-weight', '800')
+        .attr('font-variant-numeric', 'tabular-nums')
+        .text(item.count.toLocaleString());
+      sg.append('text').attr('x', 10).attr('y', 48)
+        .attr('fill', 'rgba(255,255,255,.4)').attr('font-size', '8.5')
+        .text((item.count / TOTAL * 100).toFixed(1) + '%');
+    });
+
+    // Arrow to next layer
+    if (li < onlineLayers.length - 1) {
+      const arrowY = layer.y + layer.h + 2;
+      svg.append('line')
+        .attr('x1', 184).attr('y1', arrowY)
+        .attr('x2', 184).attr('y2', arrowY + 22)
+        .attr('stroke', 'rgba(255,255,255,.3)').attr('stroke-width', 1.5)
+        .attr('marker-end', 'url(#arch-arrow)');
+    }
+  });
+
+  // Batch box
+  const bg = svg.append('g').attr('transform', `translate(${batchBox.x},${batchBox.y})`);
+  bg.append('rect')
+    .attr('width', batchBox.w).attr('height', batchBox.h)
+    .attr('rx', 12).attr('fill', '#546e7a22').attr('stroke', '#546e7a55').attr('stroke-width', 1.2);
+  bg.append('text').attr('x', 12).attr('y', 18)
+    .attr('fill', '#78909c').attr('font-size', '9').attr('font-weight', '800').attr('letter-spacing', '0.12em')
+    .text('PROCESOS BATCH');
+  bg.append('text').attr('x', 12).attr('y', 28)
+    .attr('fill', 'rgba(255,255,255,.35)').attr('font-size', '8')
+    .text('fan_in = 0 · scheduler / app');
+
+  batchBox.items.forEach(item => {
+    const sg = bg.append('g').attr('transform', `translate(10,${item.y})`);
+    sg.append('rect').attr('width', batchBox.w - 20).attr('height', item.h)
+      .attr('rx', 8).attr('fill', item.color + '25').attr('stroke', item.color + '60').attr('stroke-width', 1);
+    sg.append('text').attr('x', 10).attr('y', 18)
+      .attr('fill', item.color).attr('font-size', '9.5').attr('font-weight', '700')
+      .text(item.label);
+    sg.append('text').attr('x', 10).attr('y', 38)
+      .attr('fill', '#fff').attr('font-size', '20').attr('font-weight', '800')
+      .text(item.count.toLocaleString());
+    sg.append('text').attr('x', 10).attr('y', 54)
+      .attr('fill', 'rgba(255,255,255,.4)').attr('font-size', '8.5')
+      .text((item.count / TOTAL * 100).toFixed(1) + '% del total');
+    if (item.label.includes('Standalone')) {
+      sg.append('text').attr('x', 10).attr('y', 72)
+        .attr('fill', 'rgba(255,255,255,.3)').attr('font-size', '8')
+        .text('Ejecutados por scheduler AIX');
+      sg.append('text').attr('x', 10).attr('y', 84)
+        .attr('fill', 'rgba(255,255,255,.3)').attr('font-size', '8')
+        .text('o llamados directo desde app');
+    }
+  });
+
+  // Dashed arrow: Batch Orquestadores → Orquestadores (orq layer)
+  svg.append('defs').append('marker')
+    .attr('id', 'arch-arrow').attr('viewBox', '0 -5 10 10')
+    .attr('refX', 10).attr('refY', 0).attr('markerWidth', 6).attr('markerHeight', 6).attr('orient', 'auto')
+    .append('path').attr('d', 'M0,-5L10,0L0,5').attr('fill', 'rgba(255,255,255,.4)');
+
+  svg.append('defs').append('marker')
+    .attr('id', 'dash-arrow').attr('viewBox', '0 -5 10 10')
+    .attr('refX', 10).attr('refY', 0).attr('markerWidth', 5).attr('markerHeight', 5).attr('orient', 'auto')
+    .append('path').attr('d', 'M0,-5L10,0L0,5').attr('fill', 'rgba(120,144,156,.7)');
+
+  // Dashed line from batch orq box to orchestration layer
+  svg.append('path')
+    .attr('d', `M370,105 C340,105 340,185 358,185`)
+    .attr('fill', 'none').attr('stroke', 'rgba(120,144,156,.5)').attr('stroke-width', 1.5)
+    .attr('stroke-dasharray', '5,3').attr('marker-end', 'url(#dash-arrow)');
+
+  // Label "Scheduler" at top
+  svg.append('text').attr('x', 416).attr('y', 525)
+    .attr('fill', 'rgba(255,255,255,.25)').attr('font-size', '8').attr('text-anchor', 'middle')
+    .text('scheduler AIX / app Java');
+
+  // Big label at top of arch (external layer)
+  svg.append('text').attr('x', 184).attr('y', 640)
+    .attr('fill', 'rgba(255,255,255,.25)').attr('font-size', '8.5').attr('text-anchor', 'middle')
+    .text('Canales externos → Middleware / Java App');
+})();
+
+/* ═══════════════════════════════════════════════════════
+   RIGHT PANEL — contexto rico por capa
+═══════════════════════════════════════════════════════ */
+(function buildContextPanel() {
+  const container = document.getElementById('arch-stats');
+  const riskClass = {CRÍTICO:'risk-critico', ALTO:'risk-alto', MEDIO:'risk-medio', BAJO:'risk-bajo'};
+
+  // Implicaciones de migración por arquetipo
+  const MIGRATION = {
+    esb_exposed:           'El contrato API debe mantenerse íntegro. Cualquier cambio de firma rompe los consumers downstream.',
+    entry_point:           'Requiere parallel-run completo: mismo input debe producir el mismo estado transaccional en ambos sistemas.',
+    super_orchestrator:    'Cobertura de equivalencia compleja: los más de 50 SPs dependientes deben pasar golden master en conjunto.',
+    batch_orchestrator:    'La migración del scheduler AIX es obligatoria. Existen dependencias de timing y ventanas nocturnas que deben mapearse antes del cutover.',
+    orchestrator:          'Equivalencia funcional estándar. Se requiere un caso de prueba por cada flujo de negocio coordinado.',
+    implementation:        'Tests unitarios directos. Principal riesgo: conversión de tipos MONEY Informix a NUMERIC en PostgreSQL.',
+    leaf:                  'Los más sencillos de migrar. Tienen input y output directos sin dependencias de otros SPs.',
+    cross_domain_primitive:'Riesgo máximo de migración: un fallo afecta simultáneamente múltiples dominios. Plan de rollback obligatorio antes del cutover.',
+    shared_service:        'Alta frecuencia de uso (161 mil llamadas al día). La equivalencia de rendimiento es tan crítica como la equivalencia funcional.',
+    batch:                 'Se requiere inventario de jobs y dependencias entre procesos antes de migrar el scheduler a AWS Batch o Step Functions.',
+  };
+
+  const LAYER_ORDER = ['FRONTERA','ORQUESTACIÓN','IMPLEMENTACIÓN','CORE','BATCH'];
+  const LAYER_LABELS = {
+    FRONTERA:       'Capa de Frontera',
+    ORQUESTACIÓN:   'Capa de Orquestación',
+    IMPLEMENTACIÓN: 'Capa de Implementación',
+    CORE:           'Core Funcional',
+    BATCH:          'Procesos Offline',
+  };
+
+  LAYER_ORDER.forEach(layerId => {
+    const group = ARCHETYPES.filter(d => d.layer === layerId);
+    if (!group.length) return;
+
+    const hdr = document.createElement('div');
+    hdr.className = 'ctx-layer-hdr';
+    hdr.textContent = LAYER_LABELS[layerId];
+    container.appendChild(hdr);
+
+    group.forEach(d => {
+      const pct = (d.count / TOTAL * 100).toFixed(1);
+      const card = document.createElement('div');
+      card.className = 'ctx-card';
+      card.style.borderLeftColor = d.color;
+      card.innerHTML = `
+        <div class="ctx-head">
+          <span class="ctx-ico" style="color:${d.color}">${d.short}</span>
+          <span class="ctx-name" style="color:${d.color}">${d.label}</span>
+          ${d.souls > 0 ? `<span class="arc-soul">${d.souls} alma${d.souls > 1 ? 's' : ''}</span>` : ''}
+        </div>
+        <div class="ctx-count-line">${d.count.toLocaleString()} SPs<span>${pct}% del total</span></div>
+        <div class="ctx-fan">fan_in: ${d.fanIn} &emsp; fan_out: ${d.fanOut}</div>
+        <div class="ctx-desc">${d.desc}</div>
+        <div class="ctx-impl"><span class="ctx-impl-label">Implicación de migración</span>${MIGRATION[d.id]}</div>
+        <div class="ctx-badges">
+          <span class="badge-risk ${riskClass[d.risk]}">${d.risk}</span>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+  });
+})();
+
+</script>
+</body></html>
