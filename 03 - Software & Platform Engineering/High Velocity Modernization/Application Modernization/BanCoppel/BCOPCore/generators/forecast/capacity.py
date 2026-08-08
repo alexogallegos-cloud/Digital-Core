@@ -149,6 +149,36 @@ def intraday_profiles(root, cal, bins=288):
     return out
 
 
+def intraday_dow(root, cal, bins=288):
+    """7 patrones intradia NORMALIZADOS (forma; cada uno suma 1) por canal y dia de la semana
+    (0=Lun .. 6=Dom). A diferencia de intraday_profiles (solo 2 tipos: habil/finde), aqui hay 7
+    formas -> cada dia de la semana tiene su propia curva (variaciones pequenas pero visibles).
+    El NIVEL lo pone el volumen diario (real o proyectado por el forecast): reconstruir un dia con
+    volumen V es  curva[bin] = patron[bin]*V/step, con lo que el AREA BAJO LA CURVA
+    (sum(curva[bin]*step)) = V exacto -> la suma del intradia coincide con el volumen total del dia."""
+    step = 1440 // bins
+    out = {}
+    for ch in ("eglobal", "spei"):
+        by_day = load_minute_channel(root, ch)
+        out[ch] = {}
+        for wd in range(7):
+            acc = np.zeros(bins); n = 0
+            for d, mins in by_day.items():
+                if len(mins) < 1400 or d.weekday() != wd:
+                    continue
+                b = np.zeros(bins); cnt = np.zeros(bins)
+                for mod, v in mins:
+                    if 0 <= mod < 1440:
+                        b[mod // step] += v; cnt[mod // step] += 1
+                cnt[cnt == 0] = 1
+                acc += b / cnt          # txn/min promedio por bin de este dia
+                n += 1
+            prof = acc / max(n, 1)      # forma promedio del weekday (txn/min por bin)
+            s = prof.sum()
+            out[ch][wd] = (prof / s if s > 0 else prof).tolist()   # NORMALIZADO: suma=1
+    return out
+
+
 def correlated_percentiles(root, cal, d0, d1, w=1, op=(12, 23), top_n=5, _egm=None, _spm=None):
     """
     CALCULO DE PERCENTILES CORRELACIONADOS.

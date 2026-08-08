@@ -40,9 +40,11 @@ Mismo pipeline, ejecutables aparte, todos regenerables con datos nuevos:
   y combinados, zona de riesgo, capacidad demostrada, evolución mensual →
   `percentiles-correlacionados.{md,json}` + `-evolucion.html`. Método en `capacity.py::correlated_percentiles`.
 - `python generators/build-curvas-intradia.py` — **dashboard navegable** de la curva intradía
-  (txn/min 00:00–23:59) de cualquier día de 2025-2026: perfil intradía × volumen (real donde hay
-  dato, proyectado después), con selector de fecha y filtros por canal →
-  `curvas-intradia-navegable.html`. Perfiles en `capacity.py::intraday_profiles`.
+  (txn/min 00:00–23:59) de cualquier día de 2025-2026. Pipeline: **7 formas normalizadas** (una por
+  día de la semana, Lun–Dom, suma=1) **× volumen del día** (real donde hay dato, proyectado por el
+  forecast después) → el **área bajo la curva coincide con el volumen total del día**; cada día de
+  la semana tiene su propia forma. Selector de fecha + filtros por canal →
+  `curvas-intradia-navegable.html`. Formas en `capacity.py::intraday_dow`.
 
 ## Cómo alimentar datos nuevos
 

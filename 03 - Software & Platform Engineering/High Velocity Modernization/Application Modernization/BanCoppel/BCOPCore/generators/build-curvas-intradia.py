@@ -3,8 +3,10 @@
 build-curvas-intradia.py — BCOPCore · Dashboard navegable de curvas intradia (txn/min).
 
 Reconstruye la curva intradia (00:00-23:59) de CUALQUIER dia de 2025-2026 para SPEI y el
-Autorizador: perfil intradia promedio (por tipo de dia) x volumen diario. Usa VOLUMEN REAL
-donde existe (2025-01-01 a 2026-08-04) y PROYECTADO donde no (2026-08-05 a 2026-12-31).
+Autorizador con el pipeline: 7 FORMAS NORMALIZADAS (una por dia de la semana, suma=1) x VOLUMEN
+DEL DIA -> el area bajo la curva coincide con el volumen total del dia. Usa VOLUMEN REAL donde
+existe (2025-01-01 a 2026-08-04) y PROYECTADO por el forecast donde no (2026-08-05 a 2026-12-31).
+Asi la curva futura refleja el comportamiento del dia de la semana escalado al volumen proyectado.
 HTML interactivo con selector de fecha y filtros por canal.
 
 Uso: python generators/build-curvas-intradia.py   (ejecutar desde BCOPCore/)
@@ -30,8 +32,8 @@ END_PROJ = date(2026, 12, 31)
 
 def main():
     cal = MxCalendar(range(2023, 2031))
-    print("Perfiles intradia (por tipo de dia)...")
-    perfiles = C.intraday_profiles(ROOT, cal)   # {canal: {habil:[288], finde:[288]}}
+    print("Perfiles intradia (7 formas normalizadas L-D por canal)...")
+    perfiles = C.intraday_dow(ROOT, cal)   # {canal: {0..6: [288] txn/min}} (0=Lun .. 6=Dom)
 
     print("Volumen diario real + proyectado...")
     df = F.build_features(DS.load_all(ROOT), cal)
@@ -41,7 +43,7 @@ def main():
         d = r["d"]
         if date(2025, 1, 1) <= d <= LAST_REAL:
             vol[str(d)] = {"eg": int(r["eglobal"]), "sp": int(r["spei"]),
-                           "tipo": "habil" if cal.is_business_day(d) else "finde", "origen": "real"}
+                           "wd": d.weekday(), "habil": bool(cal.is_business_day(d)), "origen": "real"}
     # proyectado 2026-08-05 .. 2026-12-31
     models = {}
     for ch in ("eglobal", "spei"):
@@ -57,7 +59,7 @@ def main():
         d = r["d"]
         # E-Global no opera fin de semana en su modelo (L-V-> pero es 7 dias ahora); usamos ambos
         vol[str(d)] = {"eg": int(pred["eglobal"][i]), "sp": int(pred["spei"][i]),
-                       "tipo": "habil" if cal.is_business_day(d) else "finde", "origen": "proyectado"}
+                       "wd": d.weekday(), "habil": bool(cal.is_business_day(d)), "origen": "proyectado"}
 
     data = json.dumps({"perfiles": perfiles, "vol": vol,
                        "last_real": str(LAST_REAL), "step": 1440 // 288}, ensure_ascii=False)
@@ -140,7 +142,7 @@ footer{{text-align:center;padding:36px 0 8px;font-size:11px;color:var(--muted2);
 <div class="wrap">
   <div class="hero-label">Capacidad · Curvas Intradia</div>
   <h1 class="hero-h1">Curvas Intradia por Canal</h1>
-  <p class="hero-sub">Reconstruccion de la carga intradia (txn/min, 00:00–23:59) de SPEI y el Autorizador para cualquier dia de 2025–2026. Perfil intradia promedio (por tipo de dia) &times; volumen diario. <b style="color:var(--sp)">Real</b> hasta el ultimo dato observado, <b style="color:var(--yellow)">proyectado</b> despues.</p>
+  <p class="hero-sub">Reconstruccion de la carga intradia (txn/min, 00:00–23:59) de SPEI y el Autorizador para cualquier dia de 2025–2026. Usa <b>7 formas normalizadas</b> (una por dia de la semana, Lun–Dom, suma=1) &times; <b>volumen del dia</b> (real o proyectado): el <b>area bajo la curva coincide con el volumen total del dia</b>. Cada dia tiene su propia forma, con variaciones pequeñas pero visibles. <b style="color:var(--sp)">Real</b> hasta el ultimo dato observado, <b style="color:var(--yellow)">proyectado</b> despues.</p>
   <div class="navbar glass">
     <button id="prev7">◀◀ 7d</button><button id="prev">◀ 1d</button>
     <label>Fecha <input type="date" id="fecha"></label>
@@ -174,14 +176,15 @@ footer{{text-align:center;padding:36px 0 8px;font-size:11px;color:var(--muted2);
 <script>
 const DATA={data_js};const P=DATA.perfiles;const V=DATA.vol;const STEP=DATA.step;
 const CSP="#34d399",CEG="#6f8ce6";
+const DOW=["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
 const fechas=Object.keys(V).sort();
 const inp=document.getElementById("fecha");
 inp.min=fechas[0];inp.max=fechas[fechas.length-1];inp.value=DATA.last_real;
 const hh=m=>`${{String(m/60|0).padStart(2,"0")}}:${{String(m%60).padStart(2,"0")}}`;
 
-function curva(canal,tipo,volumen){{
-  const pf=P[canal][tipo];
-  return pf.map((f,i)=>({{min:i*STEP, y: f*volumen/STEP}}));  // txn/min por bin
+function curva(canal,wd,volumen){{
+  const pf=P[canal][wd];                                    // forma NORMALIZADA (suma=1) del dia de la semana
+  return pf.map((f,i)=>({{min:i*STEP, y: f*volumen/STEP}}));// area = sum(y*STEP) = volumen del dia
 }}
 function drawPanel(sel,color,cur,ymax){{
   d3.select(sel+" svg").remove();
@@ -219,8 +222,8 @@ function render(){{
   if(!v){{oel.className="origen";oel.textContent="";tel.textContent="(sin dato para esta fecha)";
     d3.select("#chartSP svg").remove();d3.select("#chartEG svg").remove();return;}}
   oel.className="origen "+(v.origen==="real"?"o-real":"o-proj");oel.textContent=v.origen.toUpperCase();
-  tel.textContent=v.tipo==="habil"?"día hábil":"fin de semana / no hábil";
-  const cvSP=curva("spei",v.tipo,v.sp), cvEG=curva("eglobal",v.tipo,v.eg);
+  tel.textContent=DOW[v.wd]+" · "+(v.habil?"hábil":"no hábil");
+  const cvSP=curva("spei",v.wd,v.sp), cvEG=curva("eglobal",v.wd,v.eg);
   const ymax=d3.max([...cvSP,...cvEG],p=>p.y)*1.12||1;   // escala compartida
   const pkSP=cvSP.reduce((a,b)=>b.y>a.y?b:a), pkEG=cvEG.reduce((a,b)=>b.y>a.y?b:a);
   document.getElementById("spTot").textContent=(v.sp/1e6).toFixed(2)+"M";
@@ -231,7 +234,7 @@ function render(){{
   document.getElementById("egPkH").textContent=`Pico txn/min (~${{hh(pkEG.min)}})`;
   if(showSP)drawPanel("#chartSP",CSP,cvSP,ymax);else d3.select("#chartSP svg").remove();
   if(showEG)drawPanel("#chartEG",CEG,cvEG,ymax);else d3.select("#chartEG svg").remove();
-  document.getElementById("note").innerHTML=`Curva = perfil intradia promedio (${{v.tipo}}) &times; volumen diario <b>${{v.origen}}</b> &middot; forma compartida entre canales (r=0.99), niveles propios de cada uno &middot; meseta 13–20h sombreada &middot; escala Y compartida entre paneles &middot; generado por <code>generators/build-curvas-intradia.py</code>`;
+  document.getElementById("note").innerHTML=`Curva = forma normalizada del <b>${{DOW[v.wd]}}</b> (patrón histórico de ese día de la semana, suma=1) &times; volumen diario <b>${{v.origen}}</b> &middot; el área bajo la curva = volumen total del día &middot; cada día de la semana tiene su propia forma &middot; meseta 13–20h sombreada &middot; escala Y compartida entre paneles &middot; generado por <code>generators/build-curvas-intradia.py</code>`;
 }}
 function shift(days){{const d=new Date(inp.value);d.setUTCDate(d.getUTCDate()+days);const s=d.toISOString().slice(0,10);if(V[s])inp.value=s;render();}}
 document.getElementById("prev").onclick=()=>shift(-1);document.getElementById("next").onclick=()=>shift(1);
