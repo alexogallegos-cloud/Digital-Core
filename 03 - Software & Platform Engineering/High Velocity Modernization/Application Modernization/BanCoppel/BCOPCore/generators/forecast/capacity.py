@@ -191,8 +191,9 @@ def correlated_percentiles(root, cal, d0, d1, w=1, w_cap=5, op=(13, 22), top_n=1
       - P70/P90 por canal (umbral de alerta) y su suma   [ventana w]
       - zona de riesgo = % de ventanas con AMBOS >= su P70; incidencia = AMBOS >= su P90   [ventana w]
       - correlacion minuto-ventana entre canales   [ventana w]
-      - top_n de concurrencia sostenida (ambos >= P70 de la ventana de 5 min) sin caida cerca =
-        capacidad demostrada por canal   [ventana w_cap = 5 min promedio]
+      - top_n de las ventanas de 5 min de MAYOR carga combinada (SIN gate de percentil: no exige
+        ambos >= P70; SIN dedup por dia; solo excluye blips post-caida) = capacidad demostrada
+        por canal   [ventana w_cap = 5 min promedio]
     """
     from collections import defaultdict
     import numpy as np
@@ -222,12 +223,11 @@ def correlated_percentiles(root, cal, d0, d1, w=1, w_cap=5, op=(13, 22), top_n=1
     riesgo = float(np.mean((a_eg >= p70e) & (a_sp >= p70s)))
     incidencia = float(np.mean((a_eg >= p90e) & (a_sp >= p90s)))
 
-    # CAPACIDAD DEMOSTRADA: top_n de concurrencia en ventanas PROMEDIO de w_cap min (carga sostenida)
+    # CAPACIDAD DEMOSTRADA: top_n de MAYOR carga combinada en ventanas de w_cap min sobre TODA la
+    # data. SIN gate de percentil (no exige que ambos esten sobre su P70) y SIN dedup por dia
+    # (pueden repetirse dias). Solo se excluyen blips post-caida (sin_caida, higiene de datos).
     vegc, vspc = ventanas(egm, w_cap), ventanas(spm, w_cap)
     kc = sorted(vegc.keys() & vspc.keys())
-    ac_eg = np.array([vegc[k] for k in kc]); ac_sp = np.array([vspc[k] for k in kc])
-    p70e_c = float(np.percentile(ac_eg, 70)) if len(kc) else 0.0
-    p70s_c = float(np.percentile(ac_sp, 70)) if len(kc) else 0.0
     comc = {k: vegc[k] + vspc[k] for k in kc}
     por_dia = defaultdict(list)
     for k, v in comc.items():
@@ -236,8 +236,7 @@ def correlated_percentiles(root, cal, d0, d1, w=1, w_cap=5, op=(13, 22), top_n=1
     def sin_caida(d, wc):
         return all(comc.get((d, ww), med[d]) >= 0.20 * med[d]
                    for ww in range(wc - 6, wc + 7) if (d, ww) in comc)
-    conc = [(k, vegc[k], vspc[k], comc[k]) for k in kc
-            if vegc[k] >= p70e_c and vspc[k] >= p70s_c and sin_caida(k[0], k[1])]
+    conc = [(k, vegc[k], vspc[k], comc[k]) for k in kc if sin_caida(k[0], k[1])]
     conc.sort(key=lambda x: -x[3])
     top = []
     for (d, wc), e, s, c in conc[:top_n]:   # top-N GENERAL (sin dedup por dia): las N ventanas mas grandes

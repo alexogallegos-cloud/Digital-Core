@@ -5,7 +5,7 @@ build-percentiles-correlacionados.py — BCOPCore · Percentiles CORRELACIONADOS
 Calculo de percentiles correlacionados: carga que SPEI y el Autorizador ejercen SIMULTANEAMENTE
 sobre Informix (recurso compartido), en ventanas PROMEDIO de 5 min (carga sostenida). Todas las curvas (P70/P90 y capacidad) usan la misma ventana de 5 min.
  - P70 por canal = umbral de alerta;  zona de riesgo = AMBOS >= P70;  incidencia = AMBOS >= P90.
- - top-N de concurrencia sostenida sin caida = capacidad demostrada.
+ - top-N de mayor carga combinada (sin gate de percentil, sin dedup) = capacidad demostrada.
 Genera la evolucion mes a mes (2025-2026) + los umbrales del ultimo mes, en HTML/MD/JSON.
 
 DT dueño: dt-autorizador-pagos (interfaz con el core Informix / capacidad de la capa media),
@@ -57,7 +57,7 @@ def main():
     actual = meses[-1]
     report = {"metodologia": "percentiles correlacionados (P70/P90 en ventanas PROMEDIO de 5 min, TODOS los dias 13-22h); "
               "P70/P90 por canal por separado (SPEI y Autorizador), sin combinado; "
-              "capacidad demostrada = top-10 concurrencia en ventanas PROMEDIO de 5 min (carga sostenida); "
+              "capacidad demostrada = top-10 de MAYOR carga combinada en ventanas de 5 min sobre toda la data (sin gate de percentil, sin dedup); "
               "zona de riesgo = ambos canales >= su P70 a la vez (lente correlacionada)",
               "actual": actual, "evolucion": meses}
     (OUT / "percentiles-correlacionados.json").write_text(
@@ -91,8 +91,9 @@ operativo 13–22h.
   el P90 es incidencia. No se suman: la suma combinada no es la métrica de interés. (Ventana prom. 5 min.)
 - **Zona de riesgo** = ambos canales ≥ su P70 **a la vez** (esta es la lente correlacionada).
 - **Incidencia inminente** = ambos ≥ su P90 a la vez.
-- **Top-10 de concurrencia sin caída, en ventanas promedio de 5 min** = capacidad sostenida demostrada
-  por canal (el nivel de cada canal en las 10 mayores ventanas de 5 min de concurrencia sin caída).
+- **Top-10 de mayor carga combinada, en ventanas promedio de 5 min** = capacidad demostrada por canal
+  (el nivel de cada canal en las 10 ventanas de 5 min de mayor carga total; **SIN gate de percentil**
+  — no exige ambos ≥ P70 — y **SIN dedup por día**; toda la data, 13–22h).
 
 La **correlación** es lo que importa: los picos de ambos canales coinciden en el tiempo (mismo
 perfil intradía, r≈0.99), así que no se diversifican y la carga se apila sobre Informix. Por eso
@@ -224,7 +225,7 @@ svg circle.pt{{transition:r .1s}}
   <div class="legend">
     <span><span class="sw" style="background:var(--p70)"></span>P70 (alerta)</span>
     <span><span class="sw" style="background:var(--p90)"></span>P90 (incidencia)</span>
-    <span><span class="sw" style="background:var(--cap)"></span>Capacidad demostrada — top-10 concurrencia (ventanas prom. 5 min)</span>
+    <span><span class="sw" style="background:var(--cap)"></span>Capacidad demostrada — top-10 mayor carga (ventanas prom. 5 min)</span>
   </div>
   <div class="note" id="note"></div>
 </div>
@@ -287,7 +288,7 @@ function draw(){{
  chart("chartEG",["eg70","eg90","egCap"],["#818ab0","#F0D224","#ff6b6b"],L,yMaxCh,kf,kt,280);
 }}
 draw();window.addEventListener("resize",draw);
-document.getElementById("note").innerHTML=`P70/P90 <b>por canal, sin combinar</b>, sobre <b>ventanas promedio de 5 min</b> (carga sostenida) &middot; capacidad demostrada = top-10 de concurrencia (5 min) sin caida &middot; todos los dias 13–22h &middot; la zona de riesgo (ambos &ge; su P70 a la vez) es la lente correlacionada &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
+document.getElementById("note").innerHTML=`P70/P90 <b>por canal</b>, percentil sobre <b>todas las ventanas de 5 min</b> (13–22h, todos los días) &middot; capacidad demostrada = <b>top-10 de mayor carga combinada</b> (5 min) sobre toda la data, <b>sin gate de percentil ni dedup</b> (pueden repetirse días) &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
 </script></body></html>"""
     path.write_text(html, encoding="utf-8")
     print(f"  HTML: {path}")

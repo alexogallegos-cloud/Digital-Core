@@ -16,8 +16,9 @@ operativo 13–22h.
   el P90 es incidencia. No se suman: la suma combinada no es la métrica de interés. (Ventana prom. 5 min.)
 - **Zona de riesgo** = ambos canales ≥ su P70 **a la vez** (esta es la lente correlacionada).
 - **Incidencia inminente** = ambos ≥ su P90 a la vez.
-- **Top-10 de concurrencia sin caída, en ventanas promedio de 5 min** = capacidad sostenida demostrada
-  por canal (el nivel de cada canal en las 10 mayores ventanas de 5 min de concurrencia sin caída).
+- **Top-10 de mayor carga combinada, en ventanas promedio de 5 min** = capacidad demostrada por canal
+  (el nivel de cada canal en las 10 ventanas de 5 min de mayor carga total; **SIN gate de percentil**
+  — no exige ambos ≥ P70 — y **SIN dedup por día**; toda la data, 13–22h).
 
 La **correlación** es lo que importa: los picos de ambos canales coinciden en el tiempo (mismo
 perfil intradía, r≈0.99), así que no se diversifican y la carga se apila sobre Informix. Por eso
@@ -27,8 +28,8 @@ la alerta se mide por co-ocurrencia (ambos altos), no sumando percentiles indepe
 
 | Canal | P70 (alerta) | P90 (incidencia) | Capacidad demostrada (top-10, ventana prom. 5 min) |
 |-------|-------------|------------------|---------------------------------------------|
-| SPEI | 2,214 | 2,558 | 4,332 |
-| Autorizador | 3,090 | 3,249 | 3,339 |
+| SPEI | 2,214 | 2,558 | 4,536 |
+| Autorizador | 3,090 | 3,249 | 3,235 |
 
 - Zona de riesgo (ambos ≥ su P70 a la vez): **20.4%** del tiempo operativo.
 - Correlación intra-ventana: **r = 0.431**.
