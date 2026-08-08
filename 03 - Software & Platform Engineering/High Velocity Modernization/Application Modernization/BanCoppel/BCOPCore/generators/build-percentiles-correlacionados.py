@@ -44,6 +44,21 @@ def main():
     spm = {(d, m): v for d, mm in C.load_minute_channel(ROOT, "spei").items()
            if len(mm) >= 1400 for m, v in mm}
 
+    # pico MAXIMO PROCESADO por mes = mayor ventana de 5 min (promedio txn/min) por canal, 13-22h
+    from collections import defaultdict as _dd
+    def _max5_mes(dic):
+        acc = _dd(list)
+        for (d, m), v in dic.items():
+            if 13*60 <= m < 22*60:
+                acc[(d, m // 5)].append(v)
+        pm = {}
+        for (d, w5), vs in acc.items():
+            if len(vs) == 5:
+                mn = sum(vs) / 5; key = (d.year, d.month)
+                if mn > pm.get(key, 0): pm[key] = mn
+        return pm
+    _mp_sp, _mp_eg = _max5_mes(spm), _max5_mes(egm)
+
     # evolucion MENSUAL 2025-01 .. 2026-07 (P70/P90 = percentil sobre TODAS las ventanas de 10 min del mes)
     meses = []
     y, mo = 2025, 1
@@ -52,6 +67,7 @@ def main():
         r = C.correlated_percentiles(ROOT, cal, d0, d1, w=10, _egm=egm, _spm=spm)   # P70/P90 sobre ventanas de 10 min
         r["mes"] = f"{y}-{mo:02d}"
         r["x"] = str(date(y, mo, 15))             # fecha representativa (mitad de mes) para el eje temporal
+        r["max_proc"] = {"spei": round(_mp_sp.get((y, mo), 0)), "eglobal": round(_mp_eg.get((y, mo), 0))}
         meses.append(r)
         print(f"  {r['mes']}: SPEI P70={r['p70']['spei']:>5,} P90={r['p90']['spei']:>5,} | "
               f"Aut P70={r['p70']['eglobal']:>5,} P90={r['p90']['eglobal']:>5,} | "
@@ -241,6 +257,14 @@ svg circle.pt{{transition:r .1s}}
     <span><span class="sw" style="background:var(--p90)"></span>P90 (incidente)</span>
     <span><span class="sw" style="background:#ff6b6b;opacity:.4"></span>periodo de 7 encolamientos (nov'25–ene'26)</span>
   </div>
+  <div class="panel glass" style="margin-top:20px">
+    <div class="panel-head"><span class="panel-name">Pico máximo procesado por mes</span><span class="panel-tag">máx ventana 5 min · txn/min</span></div>
+    <div id="chartMax"></div>
+    <div class="legend">
+      <span><span class="sw" style="background:#34d399"></span>SPEI</span>
+      <span><span class="sw" style="background:#6f8ce6"></span>Autorizador / E-Global</span>
+    </div>
+  </div>
   <div class="note" id="note"></div>
 </div>
 <footer>BCOPCore · Gemelo Cognitivo del Sistema · SPE-AM-001 · Accenture México · 2026</footer>
@@ -248,7 +272,8 @@ svg circle.pt{{transition:r .1s}}
 const DATA={data};const M=DATA.meses;const pD=d3.timeParse("%Y-%m-%d");const INC=DATA.inc;
 M.forEach(m=>{{m.D=pD(m.x);
   m.sp70=m.p70.spei;   m.sp90=m.p90.spei;
-  m.eg70=m.p70.eglobal;m.eg90=m.p90.eglobal;}});
+  m.eg70=m.p70.eglobal;m.eg90=m.p90.eglobal;
+  m.mxsp=m.max_proc.spei; m.mxeg=m.max_proc.eglobal;}});
 const a=M[M.length-1];
 const mxSp70=d3.max(M,m=>m.sp70), mxSp90=d3.max(M,m=>m.sp90);
 const mxEg70=d3.max(M,m=>m.eg70), mxEg90=d3.max(M,m=>m.eg90);
@@ -305,6 +330,8 @@ function draw(){{
  const yMax=d3.max(M,m=>d3.max([m.sp70,m.sp90,m.eg70,m.eg90]))*1.12;
  chart("chartSP",["sp70","sp90"],C,L,yMax,kf,kt,300);
  chart("chartEG",["eg70","eg90"],C,L,yMax,kf,kt,300);
+ const yMaxMx=d3.max(M,m=>d3.max([m.mxsp,m.mxeg]))*1.10;
+ chart("chartMax",["mxsp","mxeg"],["#34d399","#6f8ce6"],["SPEI (pico máx 5 min)","Autorizador (pico máx 5 min)"],yMaxMx,kf,kt,240);
 }}
 draw();window.addEventListener("resize",draw);
 document.getElementById("note").innerHTML=`P70 (riesgo) y P90 (incidente) por canal, percentil sobre todas las ventanas de <b>10 min</b> (13–22h, mes a mes) &middot; banda roja = <b>${{INC.pre}} incidentes de encolamiento</b> nov'25–ene'26; leak-fix (mar) y Power 10 (jun) marcados &middot; mejora medida: encolamientos <b>${{INC.pre}}→${{INC.post}}</b>, duración <b>${{INC.dur_pre}}→${{INC.dur_post}}</b> (${{INC.impacto}} impacto) &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
