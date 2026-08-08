@@ -57,9 +57,9 @@ def main():
             y, mo = y + 1, 1
 
     actual = meses[-1]
-    report = {"metodologia": "percentiles correlacionados (ventana 1 min, TODOS los dias 13-22h); "
+    report = {"metodologia": "percentiles correlacionados (P70/P90 en ventana 1 min, TODOS los dias 13-22h); "
               "P70/P90 por canal por separado (SPEI y Autorizador), sin combinado; "
-              "top-5 concurrencia en ventanas de 1 min = capacidad demostrada; "
+              "capacidad demostrada = top-5 concurrencia en ventanas PROMEDIO de 5 min (carga sostenida); "
               "zona de riesgo = ambos canales >= su P70 a la vez (lente correlacionada)",
               "actual": actual, "evolucion": meses}
     (OUT / "percentiles-correlacionados.json").write_text(
@@ -83,18 +83,18 @@ def _render_md(meses, a, path):
 ## Metodología
 
 **Cálculo de percentiles correlacionados**: mide la carga que SPEI y el Autorizador ejercen
-**simultáneamente** sobre Informix (recurso compartido), en **ventanas de 1 minuto** (resolución
-cruda: el pico instantáneo por minuto, sin suavizado ni buffer de restablecimiento — es la máxima
-resolución, la que el usuario originalmente evitó por no dar tiempo de recuperación). **Todos
-los días** (hábiles y no hábiles — SPEI y el Autorizador operan también el fin de semana), horario
-operativo 13–22h.
+**simultáneamente** sobre Informix (recurso compartido). Los **umbrales P70/P90** se calculan en
+**ventanas de 1 minuto** (resolución cruda: el pico instantáneo por minuto, sin suavizado); la
+**capacidad demostrada** (top-5) en **ventanas promedio de 5 minutos** (carga sostenida, no el pico
+del que el sistema se restablece). **Todos los días** (hábiles y no hábiles — SPEI y el Autorizador
+operan también el fin de semana), horario operativo 13–22h.
 
 - **P70/P90 por canal, por separado** — cada canal conserva su propio umbral. El P70 es alerta,
-  el P90 es incidencia. No se suman: la suma combinada no es la métrica de interés.
+  el P90 es incidencia. No se suman: la suma combinada no es la métrica de interés. (Ventana 1 min.)
 - **Zona de riesgo** = ambos canales ≥ su P70 **a la vez** (esta es la lente correlacionada).
 - **Incidencia inminente** = ambos ≥ su P90 a la vez.
-- **Top-5 de concurrencia sin caída, en ventanas de 1 min** = capacidad sostenida demostrada por
-  canal (el nivel de cada canal en las 5 mayores ventanas de concurrencia sin caída de servicio).
+- **Top-5 de concurrencia sin caída, en ventanas promedio de 5 min** = capacidad sostenida demostrada
+  por canal (el nivel de cada canal en las 5 mayores ventanas de 5 min de concurrencia sin caída).
 
 La **correlación** es lo que importa: los picos de ambos canales coinciden en el tiempo (mismo
 perfil intradía, r≈0.99), así que no se diversifican y la carga se apila sobre Informix. Por eso
@@ -102,7 +102,7 @@ la alerta se mide por co-ocurrencia (ambos altos), no sumando percentiles indepe
 
 ## Umbrales actuales (última quincena {a['mes']}) — por canal
 
-| Canal | P70 (alerta) | P90 (incidencia) | Capacidad demostrada (top-5, ventana 1 min) |
+| Canal | P70 (alerta) | P90 (incidencia) | Capacidad demostrada (top-5, ventana prom. 5 min) |
 |-------|-------------|------------------|---------------------------------------------|
 | SPEI | {a['p70']['spei']:,} | {a['p90']['spei']:,} | {a['top_promedio']['spei']:,} |
 | Autorizador | {a['p70']['eglobal']:,} | {a['p90']['eglobal']:,} | {a['top_promedio']['eglobal']:,} |
@@ -227,7 +227,7 @@ svg circle.pt{{transition:r .1s}}
   <div class="legend">
     <span><span class="sw" style="background:var(--p70)"></span>P70 (alerta)</span>
     <span><span class="sw" style="background:var(--p90)"></span>P90 (incidencia)</span>
-    <span><span class="sw" style="background:var(--cap)"></span>Capacidad demostrada — top-5 concurrencia (ventana 1 min)</span>
+    <span><span class="sw" style="background:var(--cap)"></span>Capacidad demostrada — top-5 concurrencia (ventanas prom. 5 min)</span>
   </div>
   <div class="note" id="note"></div>
 </div>
@@ -284,12 +284,12 @@ function chart(id,keys,cols,labels,ymaxVal,fmt,tf,H){{
 }}
 function draw(){{
  const kf=d=>(d/1000).toFixed(1)+"k", kt=v=>v.toLocaleString()+" txn/min";
- const L=["P70 (alerta)","P90 (incidencia)","Capacidad top-5 (1 min)"];
+ const L=["P70 (alerta)","P90 (incidencia)","Capacidad top-5 (prom. 5 min)"];
  chart("chartSP",["sp70","sp90","spCap"],["#818ab0","#F0D224","#ff6b6b"],L,yMaxCh,kf,kt,280);
  chart("chartEG",["eg70","eg90","egCap"],["#818ab0","#F0D224","#ff6b6b"],L,yMaxCh,kf,kt,280);
 }}
 draw();window.addEventListener("resize",draw);
-document.getElementById("note").innerHTML=`Percentiles correlacionados (ventana 1 min, todos los dias 13–22h) &middot; P70/P90 <b>por canal, sin combinar</b> &middot; capacidad demostrada = top-5 de concurrencia (pico por minuto) sin caida &middot; la zona de riesgo (ambos &ge; su P70 a la vez) es la lente correlacionada &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
+document.getElementById("note").innerHTML=`P70/P90 <b>por canal, sin combinar</b> en <b>ventanas de 1 min</b> (pico) &middot; capacidad demostrada = top-5 de concurrencia en <b>ventanas promedio de 5 min</b> (carga sostenida) sin caida &middot; todos los dias 13–22h &middot; la zona de riesgo (ambos &ge; su P70 a la vez) es la lente correlacionada &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
 </script></body></html>"""
     path.write_text(html, encoding="utf-8")
     print(f"  HTML: {path}")

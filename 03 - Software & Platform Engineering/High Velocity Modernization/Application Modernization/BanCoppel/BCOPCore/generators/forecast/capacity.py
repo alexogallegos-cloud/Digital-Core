@@ -179,19 +179,20 @@ def intraday_dow(root, cal, bins=288):
     return out
 
 
-def correlated_percentiles(root, cal, d0, d1, w=1, op=(13, 22), top_n=5, _egm=None, _spm=None):
+def correlated_percentiles(root, cal, d0, d1, w=1, w_cap=5, op=(13, 22), top_n=5, _egm=None, _spm=None):
     """
-    CALCULO DE PERCENTILES CORRELACIONADOS.
-    Carga que SPEI y Autorizador ejercen SIMULTANEAMENTE sobre Informix (recurso compartido),
-    en ventanas de `w` minutos: con w>1 mide carga sostenida (promedia y suaviza rafagas de 1 min
-    de las que el sistema se restablece); con w=1 es la resolucion cruda por minuto (pico
-    instantaneo, sin suavizado ni buffer). Devuelve, para el periodo [d0, d1], TODOS los dias
-    (habiles y no habiles —
-    SPEI y el Autorizador operan el fin de semana) y horario operativo `op`:
-      - P70/P90 por canal (umbral de alerta) y su suma
-      - zona de riesgo = % de ventanas con AMBOS >= su P70; incidencia = AMBOS >= su P90
-      - correlacion minuto-ventana entre canales
-      - top_n de concurrencia sostenida (ambos >= P70) sin caida cerca (capacidad demostrada)
+    CALCULO DE PERCENTILES CORRELACIONADOS. Usa DOS ventanas:
+      - `w` min (default 1 = pico instantaneo por minuto): para P70/P90 por canal, zona de riesgo
+        e incidencia. Umbral de alerta/incidencia sobre la resolucion cruda.
+      - `w_cap` min (default 5 = promedio de 5 min): SOLO para la capacidad demostrada (top_n de
+        concurrencia). Mide CARGA SOSTENIDA, no el pico de 1 min del que el sistema se restablece.
+    Devuelve, para el periodo [d0, d1], TODOS los dias (habiles y no habiles — SPEI y el Autorizador
+    operan el fin de semana) y horario operativo `op`:
+      - P70/P90 por canal (umbral de alerta) y su suma   [ventana w]
+      - zona de riesgo = % de ventanas con AMBOS >= su P70; incidencia = AMBOS >= su P90   [ventana w]
+      - correlacion minuto-ventana entre canales   [ventana w]
+      - top_n de concurrencia sostenida (ambos >= P70 de la ventana de 5 min) sin caida cerca =
+        capacidad demostrada por canal   [ventana w_cap = 5 min promedio]
     """
     from collections import defaultdict
     import numpy as np
@@ -203,17 +204,17 @@ def correlated_percentiles(root, cal, d0, d1, w=1, op=(13, 22), top_n=5, _egm=No
                 if len(mm) >= 1400 for m, v in mm}
     egm, spm = _egm, _spm
 
-    def ventanas(dic):
+    def ventanas(dic, ww):
         acc = defaultdict(list)
         for (d, m), v in dic.items():
             if d0 <= d <= d1 and op[0]*60 <= m < op[1]*60:   # todos los dias (habiles y no habiles)
-                acc[(d, m // w)].append(v)
-        return {k: float(np.mean(vs)) for k, vs in acc.items() if len(vs) == w}
+                acc[(d, m // ww)].append(v)
+        return {k: float(np.mean(vs)) for k, vs in acc.items() if len(vs) == ww}
 
-    veg, vsp = ventanas(egm), ventanas(spm)
+    # ventana w (1 min) -> umbrales P70/P90, zona de riesgo, incidencia, correlacion
+    veg, vsp = ventanas(egm, w), ventanas(spm, w)
     keys = sorted(veg.keys() & vsp.keys())
     a_eg = np.array([veg[k] for k in keys]); a_sp = np.array([vsp[k] for k in keys])
-    com = a_eg + a_sp
     p70e, p90e = np.percentile(a_eg, 70), np.percentile(a_eg, 90)
     p70s, p90s = np.percentile(a_sp, 70), np.percentile(a_sp, 90)
     from scipy.stats import pearsonr
@@ -221,24 +222,29 @@ def correlated_percentiles(root, cal, d0, d1, w=1, op=(13, 22), top_n=5, _egm=No
     riesgo = float(np.mean((a_eg >= p70e) & (a_sp >= p70s)))
     incidencia = float(np.mean((a_eg >= p90e) & (a_sp >= p90s)))
 
-    # top_n de concurrencia sostenida (ambos >= P70) sin caida cerca
-    comk = {k: com[i] for i, k in enumerate(keys)}
+    # CAPACIDAD DEMOSTRADA: top_n de concurrencia en ventanas PROMEDIO de w_cap min (carga sostenida)
+    vegc, vspc = ventanas(egm, w_cap), ventanas(spm, w_cap)
+    kc = sorted(vegc.keys() & vspc.keys())
+    ac_eg = np.array([vegc[k] for k in kc]); ac_sp = np.array([vspc[k] for k in kc])
+    p70e_c = float(np.percentile(ac_eg, 70)) if len(kc) else 0.0
+    p70s_c = float(np.percentile(ac_sp, 70)) if len(kc) else 0.0
+    comc = {k: vegc[k] + vspc[k] for k in kc}
     por_dia = defaultdict(list)
-    for k, v in comk.items():
+    for k, v in comc.items():
         por_dia[k[0]].append(v)
     med = {d: np.median(vs) for d, vs in por_dia.items()}
-    def sin_caida(d, w5):
-        return all(comk.get((d, ww), med[d]) >= 0.20 * med[d]
-                   for ww in range(w5 - 6, w5 + 7) if (d, ww) in comk)
-    conc = [(k, veg[k], vsp[k], comk[k]) for k in keys
-            if veg[k] >= p70e and vsp[k] >= p70s and sin_caida(k[0], k[1])]
+    def sin_caida(d, wc):
+        return all(comc.get((d, ww), med[d]) >= 0.20 * med[d]
+                   for ww in range(wc - 6, wc + 7) if (d, ww) in comc)
+    conc = [(k, vegc[k], vspc[k], comc[k]) for k in kc
+            if vegc[k] >= p70e_c and vspc[k] >= p70s_c and sin_caida(k[0], k[1])]
     conc.sort(key=lambda x: -x[3])
     top, vistos = [], set()
-    for (d, w5), e, s, c in conc:
+    for (d, wc), e, s, c in conc:
         if d in vistos:
             continue
         vistos.add(d)
-        top.append({"fecha": str(d), "hora": f"{(w5*w)//60:02d}:{(w5*w)%60:02d}",
+        top.append({"fecha": str(d), "hora": f"{(wc*w_cap)//60:02d}:{(wc*w_cap)%60:02d}",
                     "eglobal": round(e), "spei": round(s), "combinada": round(c)})
         if len(top) == top_n:
             break
@@ -246,7 +252,7 @@ def correlated_percentiles(root, cal, d0, d1, w=1, op=(13, 22), top_n=5, _egm=No
             "spei": round(np.mean([t["spei"] for t in top])) if top else 0,
             "combinada": round(np.mean([t["combinada"] for t in top])) if top else 0}
     return {
-        "periodo": f"{d0} a {d1}", "ventana_min": w, "n_ventanas": len(keys),
+        "periodo": f"{d0} a {d1}", "ventana_min": w, "ventana_cap_min": w_cap, "n_ventanas": len(keys),
         "p70": {"eglobal": round(p70e), "spei": round(p70s), "suma": round(p70e + p70s)},
         "p90": {"eglobal": round(p90e), "spei": round(p90s), "suma": round(p90e + p90s)},
         "correlacion": round(r, 3),
