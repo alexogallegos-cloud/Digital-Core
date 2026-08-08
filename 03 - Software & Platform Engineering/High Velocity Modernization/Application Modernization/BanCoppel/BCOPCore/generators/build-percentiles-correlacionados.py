@@ -239,9 +239,11 @@ M.forEach(m=>{{m.D=pD(m.x);
 const a=M[M.length-1];
 const mxSp70=d3.max(M,m=>m.sp70), mxSp90=d3.max(M,m=>m.sp90);
 const mxEg70=d3.max(M,m=>m.eg70), mxEg90=d3.max(M,m=>m.eg90);
+const mxSpCap=d3.max(M,m=>m.spCap), mxEgCap=d3.max(M,m=>m.egCap);
 document.getElementById("kpis").innerHTML=`
-<div class="kpi glass"><div class="val" style="color:var(--riesgo)">${{mxSp70.toLocaleString()}} / ${{mxSp90.toLocaleString()}}</div><div class="lbl">SPEI — P70 / P90 máx histórico</div></div>
-<div class="kpi glass"><div class="val" style="color:#9fb4ff">${{mxEg70.toLocaleString()}} / ${{mxEg90.toLocaleString()}}</div><div class="lbl">Autorizador — P70 / P90 máx histórico</div></div>
+<div class="kpi glass"><div class="val" style="color:var(--riesgo)">${{mxSp70.toLocaleString()}} / ${{mxSp90.toLocaleString()}}</div><div class="lbl">SPEI — umbral P70 / P90 máx histórico</div></div>
+<div class="kpi glass"><div class="val" style="color:#9fb4ff">${{mxEg70.toLocaleString()}} / ${{mxEg90.toLocaleString()}}</div><div class="lbl">Autorizador — umbral P70 / P90 máx histórico</div></div>
+<div class="kpi glass"><div class="val" style="color:var(--cap)">${{mxSpCap.toLocaleString()}} / ${{mxEgCap.toLocaleString()}}</div><div class="lbl">Capacidad demostrada máx (SPEI / Aut · top-10, 5 min)</div></div>
 <div class="kpi glass"><div class="val" style="color:var(--yellow)">${{a.pct_zona_riesgo}}%</div><div class="lbl">Tiempo en zona de riesgo (últ. quincena)</div></div>
 <div class="kpi glass"><div class="val">r = ${{a.correlacion}}</div><div class="lbl">Correlacion intra-ventana (últ. quincena)</div></div>`;
 const yMaxCh=d3.max(M,m=>d3.max([m.sp70,m.sp90,m.spCap,m.eg70,m.eg90,m.egCap]))*1.12;

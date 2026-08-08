@@ -157,11 +157,15 @@ fin de semana), **franja horaria 13–22h** (meseta de carga alta), evolución *
   SPEI **~4,289** / Autorizador **~3,369** (~coincide con el SLA e-Global de 3,240 de la arq. AS-IS).
 - **Máximo histórico de umbrales (5 min)**: SPEI P70 **2,269** / P90 **2,811**; Autorizador P70
   **3,129** / P90 **3,434** (en el HTML las tarjetas muestran este máx histórico).
-- **Techo de capacidad demostrada (top-10 global 2025-2026, sin dedup)**: promedio SPEI **~7,467** /
-  Autorizador **~3,141** txn/min. **Pico absoluto: 18-dic-2025 (aguinaldo), SPEI 11,064 txn/min
-  sostenido 5 min** (combinada 14,000); **4 de las 10 mayores ventanas de todo el histórico son de
-  ese día 18:50–19:30**. **El Informix target debe dimensionarse contra el pico de diciembre (peor
-  caso recurrente anual), no contra el promedio.**
+- **Techo de capacidad CORRELACIONADA demostrada (máx del top-10 por quincena, ambos ≥ su P70 local)**:
+  SPEI **~5,269** (abr-2026 Q2) / Autorizador **~4,085** (abr-2025 Q2) txn/min. Es el número honesto
+  para dimensionar el Informix bajo carga concurrente real (ambos canales altos a la vez).
+- **OJO — pico SPEI en SOLITARIO ≠ concurrencia**: el 18-dic-2025 19:30 SPEI llegó a **11,064 txn/min
+  sostenido 5 min** (aguinaldo), pero el Autorizador estaba en solo 2,937 (< P70 dic 3,101), así que
+  **NO fue un evento correlacionado** — es un pico de SPEI solo. Sirve para dimensionar el canal SPEI,
+  no la carga concurrente. (Un top-10 "global" con gate de P70 promediado del año lo colaba y daba un
+  falso ~7,467; el gate por quincena lo excluye correctamente.) Aún así, diciembre/aguinaldo es la
+  temporada de mayor estrés y el target debe cubrir tanto el pico SPEI-solo (~11k) como la concurrencia.
 - **Evolución 2025→2026**: SPEI P70 +32% (~+18%/año), Autorizador P70 +23% (~+11%/año) por el
   crecimiento orgánico; cada canal cruza su P70/P90 cada vez más seguido → se come el margen del
   Informix actual. Argumento cuantitativo de capacidad para la migración.
