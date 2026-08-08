@@ -38,20 +38,18 @@ def main():
     spm = {(d, m): v for d, mm in C.load_minute_channel(ROOT, "spei").items()
            if len(mm) >= 1400 for m, v in mm}
 
-    # evolucion QUINCENAL (Q1 = dias 1-15, Q2 = dias 16-fin de mes) 2025-01 .. 2026-07
+    # evolucion MENSUAL 2025-01 .. 2026-07 (P70/P90 = percentil sobre TODAS las ventanas de 5 min del mes)
     meses = []
     y, mo = 2025, 1
     while (y, mo) <= (2026, 7):
-        last = monthrange(y, mo)[1]
-        for qi, (ds, de, xr) in enumerate([(1, 15, 8), (16, last, 23)], start=1):
-            d0 = date(y, mo, ds); d1 = date(y, mo, de)
-            r = C.correlated_percentiles(ROOT, cal, d0, d1, w=5, _egm=egm, _spm=spm)   # P70/P90 sobre ventanas de 5 min (todas las curvas)
-            r["mes"] = f"{y}-{mo:02d} Q{qi}"          # etiqueta de quincena
-            r["x"] = str(date(y, mo, xr))             # fecha representativa para el eje temporal
-            meses.append(r)
-            print(f"  {r['mes']}: SPEI P70={r['p70']['spei']:>5,} P90={r['p90']['spei']:>5,} | "
-                  f"Aut P70={r['p70']['eglobal']:>5,} P90={r['p90']['eglobal']:>5,} | "
-                  f"riesgo={r['pct_zona_riesgo']:>4}% r={r['correlacion']}")
+        d0 = date(y, mo, 1); d1 = date(y, mo, monthrange(y, mo)[1])
+        r = C.correlated_percentiles(ROOT, cal, d0, d1, w=5, _egm=egm, _spm=spm)   # P70/P90 sobre ventanas de 5 min
+        r["mes"] = f"{y}-{mo:02d}"
+        r["x"] = str(date(y, mo, 15))             # fecha representativa (mitad de mes) para el eje temporal
+        meses.append(r)
+        print(f"  {r['mes']}: SPEI P70={r['p70']['spei']:>5,} P90={r['p90']['spei']:>5,} | "
+              f"Aut P70={r['p70']['eglobal']:>5,} P90={r['p90']['eglobal']:>5,} | "
+              f"riesgo={r['pct_zona_riesgo']:>4}% r={r['correlacion']}")
         mo += 1
         if mo == 13:
             y, mo = y + 1, 1
@@ -78,7 +76,7 @@ def _render_md(meses, a, path):
     md = f"""# Percentiles Correlacionados — SPEI y Autorizador sobre Informix
 > **Fuente**: pipeline `generators/forecast/capacity.py` (funcion `correlated_percentiles`)
 > **DT dueño**: `dt/dt-autorizador-pagos/` · co-ref `dt/dt-spei/`, `dt/dt-riesgos/`
-> **Versión**: 1.2.0 (evolución quincenal) · regenerable con `python generators/build-percentiles-correlacionados.py`
+> **Versión**: 1.3.0 (evolución mensual) · regenerable con `python generators/build-percentiles-correlacionados.py`
 
 ## Metodología
 
@@ -100,7 +98,7 @@ La **correlación** es lo que importa: los picos de ambos canales coinciden en e
 perfil intradía, r≈0.99), así que no se diversifican y la carga se apila sobre Informix. Por eso
 la alerta se mide por co-ocurrencia (ambos altos), no sumando percentiles independientes.
 
-## Umbrales actuales (última quincena {a['mes']}) — por canal
+## Umbrales actuales (último mes {a['mes']}) — por canal
 
 | Canal | P70 (alerta) | P90 (incidencia) | Capacidad demostrada (top-10, ventana prom. 5 min) |
 |-------|-------------|------------------|---------------------------------------------|
@@ -110,10 +108,10 @@ la alerta se mide por co-ocurrencia (ambos altos), no sumando percentiles indepe
 - Zona de riesgo (ambos ≥ su P70 a la vez): **{a['pct_zona_riesgo']}%** del tiempo operativo.
 - Correlación intra-ventana: **r = {a['correlacion']}**.
 
-## Evolución quincenal — P70/P90 por canal (txn/min)
+## Evolución mensual — P70/P90 por canal (txn/min)
 
-| Quincena | SPEI P70 | SPEI P90 | Aut P70 | Aut P90 | Zona riesgo | Correl. |
-|----------|----------|----------|---------|---------|-------------|---------|
+| Mes | SPEI P70 | SPEI P90 | Aut P70 | Aut P90 | Zona riesgo | Correl. |
+|-----|----------|----------|---------|---------|-------------|---------|
 {filas}
 
 > Los umbrales de cada canal suben con el crecimiento orgánico (SPEI ~+20%/año, Autorizador
@@ -124,7 +122,7 @@ la alerta se mide por co-ocurrencia (ambos altos), no sumando percentiles indepe
 ---
 
 *v1.2.0 · Generado por generators/build-percentiles-correlacionados.py · P70/P90 por canal (sin
-combinado) · evolución quincenal (Q1 días 1-15, Q2 días 16-fin) · gráfica en
+combinado) · evolución mensual · gráfica en
 `percentiles-correlacionados-evolucion.html`.*
 """
     path.write_text(md, encoding="utf-8")
@@ -244,8 +242,8 @@ document.getElementById("kpis").innerHTML=`
 <div class="kpi glass"><div class="val" style="color:var(--riesgo)">${{mxSp70.toLocaleString()}} / ${{mxSp90.toLocaleString()}}</div><div class="lbl">SPEI — umbral P70 / P90 máx histórico</div></div>
 <div class="kpi glass"><div class="val" style="color:#9fb4ff">${{mxEg70.toLocaleString()}} / ${{mxEg90.toLocaleString()}}</div><div class="lbl">Autorizador — umbral P70 / P90 máx histórico</div></div>
 <div class="kpi glass"><div class="val" style="color:var(--cap)">${{mxSpCap.toLocaleString()}} / ${{mxEgCap.toLocaleString()}}</div><div class="lbl">Capacidad demostrada máx (SPEI / Aut · top-10, 5 min)</div></div>
-<div class="kpi glass"><div class="val" style="color:var(--yellow)">${{a.pct_zona_riesgo}}%</div><div class="lbl">Tiempo en zona de riesgo (últ. quincena)</div></div>
-<div class="kpi glass"><div class="val">r = ${{a.correlacion}}</div><div class="lbl">Correlacion intra-ventana (últ. quincena)</div></div>`;
+<div class="kpi glass"><div class="val" style="color:var(--yellow)">${{a.pct_zona_riesgo}}%</div><div class="lbl">Tiempo en zona de riesgo (último mes)</div></div>
+<div class="kpi glass"><div class="val">r = ${{a.correlacion}}</div><div class="lbl">Correlacion intra-ventana (último mes)</div></div>`;
 const yMaxCh=d3.max(M,m=>d3.max([m.sp70,m.sp90,m.spCap,m.eg70,m.eg90,m.egCap]))*1.12;
 
 const tip=document.getElementById("tt");
