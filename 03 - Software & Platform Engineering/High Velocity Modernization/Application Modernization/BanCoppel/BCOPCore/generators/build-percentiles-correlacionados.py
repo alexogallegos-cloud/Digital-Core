@@ -49,13 +49,13 @@ def main():
     spm = {(d, m): v for d, mm in C.load_minute_channel(ROOT, "spei").items()
            if len(mm) >= 1400 for m, v in mm}
 
-    # PICO DIARIO por mes/canal. Para cada dia se toma su hora de mayor carga sostenida (mayor ventana de
-    # 1 h, promedio txn/min sobre 60 min, 13-22h). El helper devuelve percentiles P70/P90/P99 sobre esos
-    # picos diarios del mes. USO en el runner: en el regimen confiable el P99 es el TECHO medido (pico
-    # diario superado solo 1% de los dias = dia peor, no llegar nominalmente) y los umbrales P90/P70 se
-    # DERIVAN proporcionalmente del techo -> P_n = P99 * n/99 (band uniforme bajo el techo). En pre-fix
-    # (no confiable, sin P99) se muestran los P70/P90 MEDIDOS como contexto. El max absoluto del mes se
-    # guarda como max_1h pero NO se grafica.
+    # Percentiles del PICO DIARIO por mes/canal. Para cada dia se toma su hora de mayor carga sostenida
+    # (mayor ventana de 1 h, promedio txn/min sobre 60 min, 13-22h); P70/P90/P99 son percentiles sobre
+    # esos picos diarios del mes. Asi los tres umbrales viven en el regimen de CARGA ALTA (no diluidos
+    # por las horas medias del dia). Interpretacion de capacidad:
+    #   P99 = el pico diario se supera solo 1% de los dias (dia peor = techo, no llegar nominalmente),
+    #   P90 = 10% de los dias (incidente), P70 = 30% de los dias (alerta).
+    # El max absoluto del mes es un outlier por encima del P99; se guarda como max_1h pero NO se grafica.
     from collections import defaultdict as _dd
     _WPICO = 60
     def _pct(a, p):
@@ -98,17 +98,14 @@ def main():
         r["mes"] = f"{y}-{mo:02d}"
         r["x"] = str(date(y, mo, 15))             # fecha representativa (mitad de mes) para el eje temporal
         qs, qe = _q_sp.get((y, mo)), _q_eg.get((y, mo))
+        # P70/P90 = percentiles del PICO DIARIO (todos los meses, regimen de carga alta)
+        r["p70"] = {"spei": qs["p70"], "eglobal": qe["p70"]}
+        r["p90"] = {"spei": qs["p90"], "eglobal": qe["p90"]}
         if r["mes"] >= PICO_CONFIABLE_DESDE:
-            # regimen confiable: P99 = techo medido (pico diario, percentil 99). P90/P70 se DERIVAN
-            # proporcionalmente del techo -> P_n = P99 * n/99 (band uniforme bajo el techo).
+            # techo P99 solo en regimen confiable (pre-fix contaminado por queue-flush)
             r["p99"] = {"spei": qs["p99"], "eglobal": qe["p99"]}
-            r["p90"] = {c: round(r["p99"][c] * 90 / 99) for c in ("spei", "eglobal")}
-            r["p70"] = {c: round(r["p99"][c] * 70 / 99) for c in ("spei", "eglobal")}
             r["max_1h"] = {"spei": qs["max"], "eglobal": qe["max"]}
         else:
-            # pre-fix (no confiable): P70/P90 del pico diario MEDIDO como contexto; sin P99 (techo)
-            r["p70"] = {"spei": qs["p70"], "eglobal": qe["p70"]}
-            r["p90"] = {"spei": qs["p90"], "eglobal": qe["p90"]}
             r["p99"] = {"spei": None, "eglobal": None}
             r["max_1h"] = {"spei": None, "eglobal": None}
         meses.append(r)
@@ -118,9 +115,9 @@ def main():
 
     actual = meses[-1]
     report = {"metodologia": "percentiles correlacionados por canal (SPEI y Autorizador), sin combinado, todos los dias 13-22h; "
-              "P99 = TECHO medido = pico diario (hora de mayor carga sostenida de cada dia, ventana de 1 h; percentil 99 sobre los dias del mes = dia peor); "
-              "P90 y P70 DERIVADOS proporcionalmente del techo: P90 = P99*90/99 (incidente), P70 = P99*70/99 (alerta); "
-              "techo (P99) solo desde el leak-fix (mes>=2026-03); pre-fix el pico diario esta contaminado por encolamientos + connection leak (se muestran P70/P90 medidos como contexto); "
+              "P70/P90/P99 sobre el PICO DIARIO (hora de mayor carga sostenida de cada dia, ventana de 1 h; percentil sobre los dias del mes): "
+              "P99=techo (pico diario superado 1% de los dias=dia peor), P90=incidente (10% de dias), P70=alerta (30% de dias); "
+              "P99 solo desde el leak-fix (mes>=2026-03); pre-fix el pico diario esta contaminado por encolamientos + connection leak; "
               "zona de riesgo = ambos canales >= su P70 a la vez",
               "pico_confiable_desde": PICO_CONFIABLE_DESDE,
               "actual": actual, "evolucion": meses}
@@ -143,7 +140,7 @@ def _render_md(meses, a, path):
     md = f"""# Percentiles Correlacionados — SPEI y Autorizador sobre Informix
 > **Fuente**: pipeline `generators/build-percentiles-correlacionados.py` (+ `forecast/capacity.py`)
 > **DT dueño**: `dt/dt-autorizador-pagos/` · co-ref `dt/dt-spei/`, `dt/dt-riesgos/`
-> **Versión**: 2.2.0 (P99 = techo medido sobre el pico diario; P90/P70 derivados proporcionalmente) · regenerable con `python generators/build-percentiles-correlacionados.py`
+> **Versión**: 2.1.0 (P70/P90/P99 sobre el **pico diario**; P99 = techo del día peor) · regenerable con `python generators/build-percentiles-correlacionados.py`
 
 ## Metodología
 
@@ -153,17 +150,18 @@ interés). **Todos los días** (SPEI y el Autorizador operan también el fin de 
 operativo **13–22h**. Evolución **mensual**; el rango de meses se **auto-detecta** de los datos
 (meses con ≥15 días completos), así que se extiende solo al cargar datos nuevos.
 
-**El P99 es el techo medido**, y **P90/P70 se derivan proporcionalmente de él**:
+Los tres umbrales se calculan sobre el **pico diario**: para cada día se toma su **hora de mayor
+carga sostenida** (mayor ventana de 1 h, promedio txn/min sobre 60 min, 13–22h), y los percentiles
+se sacan sobre esos picos diarios del mes. Así los tres viven en el **régimen de carga alta** (no
+diluidos por las horas medias del día):
 
-- **P99 — techo**: el **pico diario** — la **hora de mayor carga sostenida** de cada día (mayor
-  ventana de 1 h, promedio txn/min sobre 60 min, 13–22h) — superado solo **1% de los días** (el día
-  peor). No se debe alcanzar de forma nominal. Es el ancla de dimensionamiento del target.
-- **P90 — incidente** = **P99 × 90/99**. **P70 — alerta** = **P99 × 70/99**. Band uniforme y
-  predecible bajo el techo, independiente de la forma real de la distribución.
+- **P99 — techo**: el pico diario se supera solo **1% de los días** (el día peor); no se debe
+  alcanzar de forma nominal. Es el ancla de dimensionamiento del target.
+- **P90 — incidente**: superado **10% de los días**. **P70 — alerta**: superado **30% de los días**.
 
-El **techo (P99) solo se muestra desde el leak-fix de mar-2026** (régimen confiable): antes, el pico
-diario está contaminado por los encolamientos y el connection leak (INC-20251223), así que no es
-confiable. En pre-fix se muestran los P70/P90 **medidos** del pico diario como contexto (sin techo).
+El **P99 solo se muestra desde el leak-fix de mar-2026** (régimen confiable): antes, el pico diario
+está contaminado por los encolamientos y el connection leak (INC-20251223), así que su cola alta no
+es confiable. Los P70/P90 (más robustos) se muestran en toda la serie.
 
 > La **correlación** es lo que hace correlacionado al método: los picos de ambos canales coinciden
 > en el tiempo (mismo perfil intradía, r≈0.99), no se diversifican y la carga se apila sobre Informix.
@@ -191,9 +189,9 @@ contra el promedio. El pico absoluto puntual (p.ej. aguinaldo) es un outlier P10
 
 ---
 
-*v2.2.0 · Generado por generators/build-percentiles-correlacionados.py · P99 = techo medido (pico
-diario, día peor); P90 = P99×90/99, P70 = P99×70/99 · por canal · evolución mensual · gráfica en
-`percentiles-correlacionados-evolucion.html`.*
+*v2.1.0 · Generado por generators/build-percentiles-correlacionados.py · P70/P90/P99 por canal
+sobre el **pico diario** (hora de mayor carga sostenida de cada día; P99 = techo del día peor) ·
+evolución mensual · gráfica en `percentiles-correlacionados-evolucion.html`.*
 """
     path.write_text(md, encoding="utf-8")
     print(f"  MD: {path}")
@@ -277,7 +275,7 @@ svg circle.pt{{transition:r .1s}}
 <div class="wrap">
   <div class="hero-label">Capacidad · Percentiles Correlacionados</div>
   <h1 class="hero-h1">Percentiles Correlacionados por Canal</h1>
-  <p class="hero-sub">El <b>P99</b> es el <b>techo</b> de capacidad por canal: el <b>pico diario</b> (la hora de mayor carga sostenida de cada día — ventana de 1 h, 13–22h) superado solo <b>1% de los días</b>, que no se debe alcanzar de forma nominal. Los umbrales <b>P90</b> (incidente) y <b>P70</b> (alerta) se <b>derivan del techo</b> de forma proporcional: <b>P90 = P99 × 90/99</b>, <b>P70 = P99 × 70/99</b>. El techo se muestra desde el <b>leak-fix de mar-2026</b> (régimen confiable); antes, el pico diario está distorsionado por los encolamientos y el connection leak.</p>
+  <p class="hero-sub"><b>P99</b> (techo — no llegar nominalmente), <b>P90</b> (incidente) y <b>P70</b> (alerta) por canal, calculados sobre el <b>pico diario</b>: la hora de mayor carga sostenida de cada día (ventana de 1 h, 13–22h) y su percentil sobre los días del mes. Así el P99 es el pico del <b>día peor</b> (superado 1% de los días), el P90 el de un día alto (10%) y el P70 el de un día por encima de lo típico (30%). El P99 se muestra desde el <b>leak-fix de mar-2026</b>; antes, el pico diario está distorsionado por los encolamientos y el connection leak.</p>
   <div class="kpi-row" id="kpis"></div>
   <div class="panels">
     <div class="panel glass">
@@ -306,9 +304,12 @@ M.forEach(m=>{{m.D=pD(m.x);
   m.sp70=m.p70.spei;   m.sp90=m.p90.spei;   m.sp99=m.p99.spei;
   m.eg70=m.p70.eglobal;m.eg90=m.p90.eglobal;m.eg99=m.p99.eglobal;}});
 const a=M[M.length-1];
+// P70/P90 = MAXIMO HISTORICO por canal (mismo calculo que las lineas de referencia de curvas intradia: max sobre la evolucion)
+const mxSp70=d3.max(M,m=>m.sp70), mxSp90=d3.max(M,m=>m.sp90);
+const mxEg70=d3.max(M,m=>m.eg70), mxEg90=d3.max(M,m=>m.eg90);
 document.getElementById("kpis").innerHTML=`
-<div class="kpi glass"><div class="val" style="color:#38bdf8">${{(a.sp99||0).toLocaleString()}}</div><div class="lbl">SPEI — P99 techo (${{a.mes}}) &middot; P70 ${{a.sp70.toLocaleString()}} / P90 ${{a.sp90.toLocaleString()}}</div></div>
-<div class="kpi glass"><div class="val" style="color:#38bdf8">${{(a.eg99||0).toLocaleString()}}</div><div class="lbl">Autorizador — P99 techo (${{a.mes}}) &middot; P70 ${{a.eg70.toLocaleString()}} / P90 ${{a.eg90.toLocaleString()}}</div></div>`;
+<div class="kpi glass"><div class="val" style="color:#38bdf8">${{(a.sp99||0).toLocaleString()}}</div><div class="lbl">SPEI — P99 techo (${{a.mes}}) &middot; P70/P90 máx hist. ${{mxSp70.toLocaleString()}} / ${{mxSp90.toLocaleString()}}</div></div>
+<div class="kpi glass"><div class="val" style="color:#38bdf8">${{(a.eg99||0).toLocaleString()}}</div><div class="lbl">Autorizador — P99 techo (${{a.mes}}) &middot; P70/P90 máx hist. ${{mxEg70.toLocaleString()}} / ${{mxEg90.toLocaleString()}}</div></div>`;
 
 const tip=document.getElementById("tt");
 function showTip(ev,mes,color,label,valStr){{
@@ -361,7 +362,7 @@ function draw(){{
  chart("chartEG",["eg70","eg90","eg99"],C,L,yMaxEG,kf,kt,300);
 }}
 draw();window.addEventListener("resize",draw);
-document.getElementById("note").innerHTML=`El <b>P99</b> (cian) es el <b>techo</b> medido: el pico diario (hora de mayor carga sostenida de cada día — ventana de 1 h, 13–22h) superado solo <b>1% de los días</b>, no llegar nominalmente &middot; <b>P90 y P70 se derivan del techo</b>: P90 = P99 × 90/99, P70 = P99 × 70/99 (band uniforme bajo el techo) &middot; escala Y independiente por panel &middot; el band con techo <b>solo desde mar-2026</b> (régimen confiable); antes el pico diario está contaminado (encolamientos + connection leak), se muestran los P70/P90 <b>medidos</b> como contexto &middot; banda = periodo no confiable (nov'25–ene'26); leak-fix (mar) y Power 10 (jun) marcados &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
+document.getElementById("note").innerHTML=`Percentiles sobre el <b>pico diario</b> (la hora de mayor carga sostenida de cada día — ventana de 1 h, 13–22h — y su percentil sobre los días del mes) &middot; <b>P99</b> (cian) = pico diario superado solo <b>1% de los días</b> (día peor = techo, no llegar nominalmente); <b>P90</b> = 10% de los días (incidente); <b>P70</b> = 30% (alerta) &middot; escala Y independiente por panel &middot; el <b>P99 solo desde mar-2026</b> (régimen confiable; antes el pico diario está contaminado por encolamientos + connection leak) &middot; banda = periodo no confiable (nov'25–ene'26); leak-fix (mar) y Power 10 (jun) marcados &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
 </script></body></html>"""
     path.write_text(html, encoding="utf-8")
     print(f"  HTML: {path}")

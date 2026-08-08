@@ -146,28 +146,30 @@ sus picos coinciden en el tiempo, apilándose sobre el Informix. **Por canal, po
 combinado** (no se suman); **todos los días** (hábiles y no hábiles — ambos operan el fin de semana),
 **franja horaria 13–22h**, evolución **mensual** con rango **auto-detectado** de los datos.
 
-- **P99 = TECHO medido (2026-08-08)**: el **pico diario** — para cada día su **hora de mayor carga
-  sostenida** (mayor ventana de 1 h, 13-22h) y el **percentil 99** sobre los picos diarios del mes
-  (el día peor) — superado solo **1% de los días**; no llegar nominalmente; **ancla de dimensionamiento
-  del target**. La línea azul del dashboard es el P99.
-- **P90/P70 DERIVADOS proporcionalmente del techo** (no percentiles calculados): **P90 = P99 × 90/99**
-  (incidente), **P70 = P99 × 70/99** (alerta). Band uniforme bajo el techo (decisión del usuario:
-  "si el P99 es 3815, el P90 debería ser 3468"). **Nota — NO anclar el band al piso:** el Autorizador
-  vive alto/comprimido cerca de su techo y eso es CORRECTO, porque tiene un **techo de throughput duro
-  y demostrado (~4,300 txn/min por minuto)** que las mejoras de 2026 NO subieron: la distribución se
-  comprime (pico/mediana 1.84→1.22), la pared máx/min P90/P99 no se mueve entre periodos (~4,000–4,300,
-  CV→8%), mesetas de 30–44 min a tasa tope = throttling; el cuello es el **pool de conexiones/BD/HSM, no
-  CPU** (Power 10 dio fiabilidad, no throughput pico); su volumen está **censurado en los picos** → el
-  forecast log-lineal falla (R²=0.685). Análisis en `knowledge-base/cross-reference/growth-forecast-autorizador-spei.md`
-  ("El Autorizador está topando un techo"). El P99 del Autorizador es un techo real, no un percentil suave.
-- **Techo + band derivado solo desde el leak-fix** (mes ≥ 2026-03, `PICO_CONFIABLE_DESDE = "2026-03"`);
-  pre-fix el pico diario está contaminado por los 7 encolamientos + el connection leak (INC-20251223).
-  En **pre-fix se muestran los P70/P90 MEDIDOS** del pico diario como contexto (se dejan como están —
-  hay un escalón en el leak-fix por el cambio medido→derivado).
-- **Umbrales actuales (jul-2026, txn/min)**: SPEI **P99=3,193** → P90 2,903 / P70 2,258; Autorizador
-  **P99=3,440** → P90 3,127 / P70 2,432. Referencia abr-2026: SPEI P99=3,815 → P90=3,468. El target
-  Informix/Aurora se dimensiona contra el **P99** de cada canal. El máximo absoluto del mes es un
-  outlier por encima del P99: se guarda como `max_1h` pero **no se grafica**.
+- **P70/P90/P99 = percentiles del PICO DIARIO (2026-08-08)**: para cada día su **hora de mayor carga
+  sostenida** (mayor ventana de 1 h, 13-22h) y los percentiles sobre los picos diarios del mes. Así los
+  tres viven en el **régimen de carga alta** (no diluidos por las horas medias). **P99 = techo** (pico
+  diario superado solo **1% de los días** = día peor; no llegar nominalmente; ancla de dimensionamiento
+  del target), **P90 = incidente** (10% de días), **P70 = alerta** (30% de días). La línea azul es el P99.
+- **El Autorizador topa un techo real** (NO se deriva proporcionalmente ni se ancla al piso — se probó y
+  se descartó): su band queda **tight/pegado al techo** (P70/P90 al 96%/99% del P99) y eso es CORRECTO,
+  porque tiene un **techo de throughput duro y demostrado (~4,300 txn/min por minuto)** que las mejoras de
+  2026 NO subieron: la distribución se comprime (pico/mediana 1.84→1.22), la pared máx/min P90/P99 no se
+  mueve entre periodos (~4,000–4,300, CV→8%), mesetas de 30–44 min a tasa tope = throttling; el cuello es
+  el **pool de conexiones/BD/HSM, no CPU** (Power 10 dio fiabilidad, no throughput pico); su volumen está
+  **censurado en los picos** → el forecast log-lineal falla (R²=0.685). Análisis en
+  `knowledge-base/cross-reference/growth-forecast-autorizador-spei.md` ("El Autorizador está topando un
+  techo"). El P99 del Autorizador es un techo real, no un percentil suave.
+- **P70/P90 en toda la serie (continuas, sin escalón); P99 (azul) solo desde el leak-fix** (mes ≥ 2026-03,
+  `PICO_CONFIABLE_DESDE = "2026-03"`): pre-fix el pico diario está contaminado por los 7 encolamientos + el
+  connection leak (INC-20251223).
+- **Umbrales actuales (jul-2026, pico diario, txn/min)**: SPEI **P70/P90/P99 = 2,464 / 2,633 / 3,193**;
+  Autorizador **3,319 / 3,391 / 3,440** (band tight = pegado a su techo). El target Informix/Aurora se
+  dimensiona contra el **P99** de cada canal. El máximo absoluto del mes es un outlier por encima del P99:
+  se guarda como `max_1h` pero **no se grafica**.
+- **KPI del dashboard = MÁX HISTÓRICO de P70/P90** por canal (mismo cálculo que las líneas de referencia
+  de curvas intradía: `max` sobre la evolución): SPEI **2,547 / 2,982**; Autorizador **3,319 / 3,601**.
+  El headline del KPI es el P99 techo del último mes.
 - **Zona de riesgo** = ambos canales ≥ su P70 a la vez (lente correlacionada).
 - **Evolución**: los umbrales suben con el crecimiento orgánico (SPEI ~+18%/año, Autorizador
   ~+11%/año) → cada canal cruza sus umbrales cada vez más seguido y se come el margen del Informix
