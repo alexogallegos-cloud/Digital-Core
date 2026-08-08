@@ -115,7 +115,7 @@ function curva(canal,wd,volumen){
   const pf=P[canal][wd];                                    // forma NORMALIZADA (suma=1) del dia de la semana
   return pf.map((f,i)=>({min:i*STEP, y: f*volumen/STEP}));// area = sum(y*STEP) = volumen del dia
 }
-function drawPanel(sel,color,cur,ymax,umb){
+function drawPanel(sel,color,cur,ymax,umb,zones){
   d3.select(sel+" svg").remove();
   const cont=document.querySelector(sel);
   const W=cont.offsetWidth||520,H=320,Mg={top:12,right:14,bottom:30,left:52};
@@ -139,7 +139,22 @@ function drawPanel(sel,color,cur,ymax,umb){
     .attr("d",d3.area().x(p=>x(p.min)).y0(h).y1(p=>y(p.y)).curve(d3.curveBasis));
   svg.append("path").datum(cur).attr("fill","none").attr("stroke",color).attr("stroke-width",2.2)
     .attr("d",d3.line().x(p=>x(p.min)).y(p=>y(p.y)).curve(d3.curveBasis));
-  // lineas de referencia: maximo historico de P70/P90 del canal (percentiles, ventana 5 min)
+  // ZONAS de riesgo correlacionado (bandas verticales por bin): 1 = este canal cruza su P70 (naranja),
+  // 2 = AMBOS canales sobre su P70 (amarillo = riesgo), 3 = AMBOS sobre su P90 (rojo = incidencia)
+  if(zones){
+    const zc={1:["#f59e0b",.13],2:["#F0D224",.17],3:["#ff5c5c",.26]};
+    let i=0;
+    while(i<zones.length){
+      const lvl=zones[i];
+      if(!lvl){i++;continue;}
+      let j=i; while(j<zones.length&&zones[j]===lvl) j++;
+      const zx=x(i*STEP), zw=Math.max(x(Math.min(j*STEP,1440))-zx,1.5);
+      svg.append("rect").attr("x",zx).attr("width",zw).attr("y",0).attr("height",h)
+        .attr("fill",zc[lvl][0]).attr("opacity",zc[lvl][1]);
+      i=j;
+    }
+  }
+  // lineas de referencia: P70/P90 OFICIALES del canal (maximo historico)
   if(umb){[["P90",umb.p90,"#F0D224","4,3"],["P70",umb.p70,"#ffffff","6,4"]].forEach(([lab,val,col,dash])=>{
     if(val==null||val>ymax) return;
     svg.append("line").attr("x1",0).attr("x2",w).attr("y1",y(val)).attr("y2",y(val))
@@ -171,9 +186,21 @@ function render(){
   document.getElementById("egPk").textContent=Math.round(pkEG.y).toLocaleString();
   document.getElementById("spPkH").textContent=`Pico txn/min (~${hh(pkSP.min)})`;
   document.getElementById("egPkH").textContent=`Pico txn/min (~${hh(pkEG.min)})`;
-  if(showSP)drawPanel("#chartSP",CSP,cvSP,ymax,U.spei);else d3.select("#chartSP svg").remove();
-  if(showEG)drawPanel("#chartEG",CEG,cvEG,ymax,U.eglobal);else d3.select("#chartEG svg").remove();
-  document.getElementById("note").innerHTML=`Curva = forma normalizada del <b>${DOW[v.wd]}</b> (patrón histórico de ese día de la semana, suma=1) &times; volumen diario <b>${v.origen}</b> &middot; el área bajo la curva = volumen total del día &middot; líneas punteadas <b>P70/P90 = máximo histórico</b> (ventana 5 min) del canal &middot; meseta 13–20h sombreada &middot; generado por <code>generators/build-curvas-intradia.py</code>`;
+  // ZONAS de riesgo correlacionado por bin (usa AMBOS canales aunque un panel esté oculto):
+  //  3 = ambos ≥ su P90 (rojo, incidencia) · 2 = ambos ≥ su P70 (amarillo, riesgo) · 1 = este canal ≥ su P70 (naranja)
+  let zSP=null, zEG=null;
+  if(U.spei&&U.eglobal){
+    zSP=[]; zEG=[];
+    for(let i=0;i<cvSP.length;i++){
+      const sp=cvSP[i].y, eg=cvEG[i].y;
+      const s7=sp>=U.spei.p70, s9=sp>=U.spei.p90, e7=eg>=U.eglobal.p70, e9=eg>=U.eglobal.p90;
+      const b9=s9&&e9, b7=s7&&e7;
+      zSP.push(b9?3:b7?2:s7?1:0); zEG.push(b9?3:b7?2:e7?1:0);
+    }
+  }
+  if(showSP)drawPanel("#chartSP",CSP,cvSP,ymax,U.spei,zSP);else d3.select("#chartSP svg").remove();
+  if(showEG)drawPanel("#chartEG",CEG,cvEG,ymax,U.eglobal,zEG);else d3.select("#chartEG svg").remove();
+  document.getElementById("note").innerHTML=`Curva = forma normalizada del <b>${DOW[v.wd]}</b> (patrón del día de la semana, suma=1) &times; volumen diario <b>${v.origen}</b>; el área = volumen total del día &middot; líneas punteadas <b>P70/P90 oficiales</b> del canal (máx histórico) &middot; <b>zonas</b>: <span style="color:#f59e0b;font-weight:700">naranja</span> = el canal cruza su P70 &middot; <span style="color:#F0D224;font-weight:700">amarillo</span> = <b>ambos</b> canales sobre su P70 (riesgo) &middot; <span style="color:#ff5c5c;font-weight:700">rojo</span> = <b>ambos</b> sobre su P90 (incidencia) &middot; generado por <code>generators/build-curvas-intradia.py</code>`;
 }
 function shift(days){const d=new Date(inp.value);d.setUTCDate(d.getUTCDate()+days);const s=d.toISOString().slice(0,10);if(V[s])inp.value=s;render();}
 document.getElementById("prev").onclick=()=>shift(-1);document.getElementById("next").onclick=()=>shift(1);
