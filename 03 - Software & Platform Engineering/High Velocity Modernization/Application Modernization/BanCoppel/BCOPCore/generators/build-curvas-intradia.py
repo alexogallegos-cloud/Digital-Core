@@ -260,9 +260,17 @@ function drawPanel(sel,color,cur,ymax,umb,zones){{
 function render(){{
   const f=inp.value, v=V[f];
   const oel=document.getElementById("origen"), tel=document.getElementById("tipo");
-  if(!v){{oel.className="origen";oel.textContent="";tel.textContent="(sin dato para esta fecha)";
+  if(!v){{
+    oel.className="origen"; oel.textContent="";
+    tel.textContent="(sin datos para esta fecha)";
+    ["spTot","spPk","egTot","egPk"].forEach(id=>document.getElementById(id).textContent="—");
+    document.getElementById("spPkH").textContent="Pico txn/min";
+    document.getElementById("egPkH").textContent="Pico txn/min";
     document.getElementById("riskbar").innerHTML="";
-    d3.select("#chartSP svg").remove();d3.select("#chartEG svg").remove();return;}}
+    document.getElementById("note").innerHTML=`<b>Sin datos para ${{f}}.</b> Esta fecha no está en la serie observada — es un hueco en la fuente (no se reconstruye para no fabricar volumen).`;
+    d3.select("#chartSP svg").remove(); d3.select("#chartEG svg").remove();
+    return;
+  }}
   oel.className="origen "+(v.origen==="real"?"o-real":"o-proj");oel.textContent=v.origen.toUpperCase();
   tel.textContent=DOW[v.wd]+" · "+(v.habil?"hábil":"no hábil");
   const cvSP=curva("spei",v.wd,v.sp), cvEG=curva("eglobal",v.wd,v.eg);
