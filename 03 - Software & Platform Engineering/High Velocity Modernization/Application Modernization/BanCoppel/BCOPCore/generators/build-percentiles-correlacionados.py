@@ -3,7 +3,7 @@
 build-percentiles-correlacionados.py — BCOPCore · Percentiles CORRELACIONADOS SPEI+Autorizador.
 
 Calculo de percentiles: P70 y P90 por canal (SPEI y Autorizador) sobre TODAS las ventanas PROMEDIO
-de 5 min dentro del horario operativo, mes a mes.
+de 10 min dentro del horario operativo, mes a mes.
  - P70 por canal = umbral de alerta;  P90 = incidencia.
  - zona de riesgo (KPI) = % de ventanas con AMBOS >= su P70.
 Genera la evolucion mensual (2025-2026) + los umbrales del ultimo mes, en HTML/MD/JSON.
@@ -29,9 +29,9 @@ from forecast.calendar_mx import MxCalendar
 
 OUT = ROOT / "knowledge-base" / "cross-reference"
 HITOS = {"2026-03": "leak-fix", "2026-06": "Power 10"}
-# Factor de capacidad DEMOSTRADO sin incidentes: (máx sostenido post-mejora abr-ago 2026) / (P90 dic-2025,
-# nivel de "incidente" viejo). Deriva los umbrales "con mejoras" = P70/P90 x k, mes a mes, por canal.
-MEJORAS_K = {"spei": 3.18, "eglobal": 1.23}
+# Factor de capacidad DEMOSTRADO sin incidentes: (máx sostenido 10 min post-mejora abr-ago 2026) /
+# (P90 dic-2025 ventana 10 min = nivel de "incidente" viejo). Umbrales "con mejoras" = P70/P90 x k, mes a mes.
+MEJORAS_K = {"spei": 2.92, "eglobal": 1.18}
 
 
 def main():
@@ -42,12 +42,12 @@ def main():
     spm = {(d, m): v for d, mm in C.load_minute_channel(ROOT, "spei").items()
            if len(mm) >= 1400 for m, v in mm}
 
-    # evolucion MENSUAL 2025-01 .. 2026-07 (P70/P90 = percentil sobre TODAS las ventanas de 5 min del mes)
+    # evolucion MENSUAL 2025-01 .. 2026-07 (P70/P90 = percentil sobre TODAS las ventanas de 10 min del mes)
     meses = []
     y, mo = 2025, 1
     while (y, mo) <= (2026, 7):
         d0 = date(y, mo, 1); d1 = date(y, mo, monthrange(y, mo)[1])
-        r = C.correlated_percentiles(ROOT, cal, d0, d1, w=5, _egm=egm, _spm=spm)   # P70/P90 sobre ventanas de 5 min
+        r = C.correlated_percentiles(ROOT, cal, d0, d1, w=10, _egm=egm, _spm=spm)   # P70/P90 sobre ventanas de 10 min
         r["mes"] = f"{y}-{mo:02d}"
         r["x"] = str(date(y, mo, 15))             # fecha representativa (mitad de mes) para el eje temporal
         meses.append(r)
@@ -59,7 +59,7 @@ def main():
             y, mo = y + 1, 1
 
     actual = meses[-1]
-    report = {"metodologia": "percentiles correlacionados (P70/P90 en ventanas PROMEDIO de 5 min, TODOS los dias 13-22h); "
+    report = {"metodologia": "percentiles correlacionados (P70/P90 en ventanas PROMEDIO de 10 min, TODOS los dias 13-22h); "
               "P70/P90 por canal por separado (SPEI y Autorizador), sin combinado; "
               "zona de riesgo = ambos canales >= su P70 a la vez",
               "actual": actual, "evolucion": meses}
@@ -79,18 +79,18 @@ def _render_md(meses, a, path):
     md = f"""# Percentiles Correlacionados — SPEI y Autorizador sobre Informix
 > **Fuente**: pipeline `generators/forecast/capacity.py` (funcion `correlated_percentiles`)
 > **DT dueño**: `dt/dt-autorizador-pagos/` · co-ref `dt/dt-spei/`, `dt/dt-riesgos/`
-> **Versión**: 1.4.0 (mensual + umbrales con mejoras) · regenerable con `python generators/build-percentiles-correlacionados.py`
+> **Versión**: 1.5.0 (mensual · ventana 10 min · umbrales con mejoras) · regenerable con `python generators/build-percentiles-correlacionados.py`
 
 ## Metodología
 
 **Cálculo de percentiles correlacionados**: mide la carga que SPEI y el Autorizador ejercen
-**simultáneamente** sobre Informix (recurso compartido), sobre **ventanas promedio de 5 minutos**
-(carga sostenida). Los **umbrales P70/P90** son percentiles sobre **todas las ventanas de 5 min**
+**simultáneamente** sobre Informix (recurso compartido), sobre **ventanas promedio de 10 minutos**
+(carga sostenida). Los **umbrales P70/P90** son percentiles sobre **todas las ventanas de 10 min**
 del periodo. **Todos los días** (hábiles y no hábiles — SPEI y el Autorizador operan también el fin
 de semana), horario operativo 13–22h.
 
 - **P70/P90 por canal, por separado** — cada canal conserva su propio umbral. El P70 es alerta,
-  el P90 es incidencia. No se suman: la suma combinada no es la métrica de interés. (Ventana prom. 5 min.)
+  el P90 es incidencia. No se suman: la suma combinada no es la métrica de interés. (Ventana prom. 10 min.)
 - **Zona de riesgo** = ambos canales ≥ su P70 **a la vez**.
 - **Incidencia inminente** = ambos ≥ su P90 a la vez.
 
@@ -113,11 +113,11 @@ Umbrales **con mejoras** = umbral actual × factor de capacidad demostrado sin i
 
 ### Derivación del factor con mejoras
 
-En **diciembre 2025** el sistema entraba en incidente al llegar a P90 (SPEI 2,799 / Autorizador 3,266,
-ventana 5 min). Tras las mejoras (**leak-fix** mar-2026 + **Power 10** jun-2026) sostuvo, **sin un solo
-incidente**, hasta **SPEI 8,889 / Autorizador 4,007 txn/min** (máx 5 min, abr–ago 2026). El factor
-demostrado es `k = máx_sostenido_post ÷ P90_dic` → **SPEI ×3.18, Autorizador ×1.23**. Son **cotas
-inferiores** (aún no tocamos el nuevo techo). El ×1.23 de Autorizador es conservador (canal estable,
+En **diciembre 2025** el sistema entraba en incidente al llegar a P90 (SPEI 2,725 / Autorizador 3,259,
+ventana 10 min). Tras las mejoras (**leak-fix** mar-2026 + **Power 10** jun-2026) sostuvo, **sin un solo
+incidente**, hasta **SPEI 7,950 / Autorizador 3,850 txn/min** (máx sostenido 10 min, abr–ago 2026). El
+factor demostrado es `k = máx_sostenido_post ÷ P90_dic` → **SPEI ×2.92, Autorizador ×1.18**. Son **cotas
+inferiores** (aún no tocamos el nuevo techo). El ×1.18 de Autorizador es conservador (canal estable,
 no se ha estresado más allá de ~4,000). Los umbrales con mejoras = P70/P90 × k, aplicado **mes a mes**.
 
 ## Evolución mensual — P70/P90 por canal (txn/min)
@@ -133,8 +133,8 @@ no se ha estresado más allá de ~4,000). Los umbrales con mejoras = P70/P90 × 
 
 ---
 
-*v1.2.0 · Generado por generators/build-percentiles-correlacionados.py · P70/P90 por canal (sin
-combinado) · evolución mensual · gráfica en
+*v1.5.0 · Generado por generators/build-percentiles-correlacionados.py · P70/P90 por canal (sin
+combinado) · ventana 10 min · evolución mensual · umbrales con mejoras (×k) · gráfica en
 `percentiles-correlacionados-evolucion.html`.*
 """
     path.write_text(md, encoding="utf-8")
@@ -219,7 +219,7 @@ svg circle.pt{{transition:r .1s}}
 <div class="wrap">
   <div class="hero-label">Capacidad · Percentiles Correlacionados</div>
   <h1 class="hero-h1">Percentiles Correlacionados por Canal</h1>
-  <p class="hero-sub">P70 (riesgo) y P90 (incidente) por canal sobre <b>ventanas promedio de 5 min</b> (13–22h, mes a mes). Líneas sólidas = <b>umbrales actuales</b> (observados); líneas punteadas = <b>umbrales con mejoras</b> = P70/P90 × factor de capacidad demostrado sin incidentes (SPEI ×3.18, Autorizador ×1.23, derivado de dic-2025 → carga sostenida post leak-fix + Power 10). La separación entre sólida y punteada es el <b>margen ganado</b>.</p>
+  <p class="hero-sub">P70 (riesgo) y P90 (incidente) por canal sobre <b>ventanas promedio de 10 min</b> (13–22h, mes a mes). Líneas sólidas = <b>umbrales actuales</b> (observados); líneas punteadas = <b>umbrales con mejoras</b> = P70/P90 × factor de capacidad demostrado sin incidentes (SPEI ×2.92, Autorizador ×1.18, derivado de dic-2025 → carga sostenida 10 min post leak-fix + Power 10). La separación entre sólida y punteada es el <b>margen ganado</b>.</p>
   <div class="kpi-row" id="kpis"></div>
   <div class="panels">
     <div class="panel glass">
@@ -300,7 +300,7 @@ function draw(){{
  chart("chartEG",["eg70","eg90","eg70m","eg90m"],C,L,yMaxEG,kf,kt,300,D);
 }}
 draw();window.addEventListener("resize",draw);
-document.getElementById("note").innerHTML=`Sólidas = P70/P90 <b>actuales</b> (percentil sobre todas las ventanas de 5 min, 13–22h, mes a mes) &middot; punteadas = <b>umbrales con mejoras</b> = P70/P90 × k (SPEI ×${{K.spei}}, Autorizador ×${{K.eglobal}}; factor demostrado sin incidentes: máx sostenido post-mejora / P90 dic-2025) &middot; escala Y independiente por panel &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
+document.getElementById("note").innerHTML=`Sólidas = P70/P90 <b>actuales</b> (percentil sobre todas las ventanas de 10 min, 13–22h, mes a mes) &middot; punteadas = <b>umbrales con mejoras</b> = P70/P90 × k (SPEI ×${{K.spei}}, Autorizador ×${{K.eglobal}}; factor demostrado sin incidentes: máx sostenido post-mejora / P90 dic-2025) &middot; escala Y independiente por panel &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
 </script></body></html>"""
     path.write_text(html, encoding="utf-8")
     print(f"  HTML: {path}")
