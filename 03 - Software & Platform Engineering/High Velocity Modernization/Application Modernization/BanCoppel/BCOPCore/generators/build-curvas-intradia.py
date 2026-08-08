@@ -132,6 +132,11 @@ body{{background:#060a1a;color:var(--ink);font-family:'SF Pro Display',-apple-sy
 .o-real{{background:rgba(52,211,153,.14);color:var(--sp);border:1px solid rgba(52,211,153,.3)}}
 .o-proj{{background:rgba(240,210,36,.12);color:var(--yellow);border:1px solid rgba(240,210,36,.3)}}
 .tipo{{font-size:11px;color:var(--muted2)}}
+.riskbar{{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:12px 16px;margin:10px 0 4px}}
+.riskbar .rt{{font-size:10px;color:var(--muted2);letter-spacing:.08em;text-transform:uppercase;margin-right:4px}}
+.riskbar .rc{{display:inline-flex;align-items:center;gap:7px;font-size:11px;color:var(--muted);background:rgba(255,255,255,.04);border:1px solid var(--glassb);border-radius:20px;padding:6px 13px}}
+.riskbar .rc b{{color:var(--ink);font-variant-numeric:tabular-nums;font-size:13px;font-weight:800}}
+.riskbar .rd{{width:9px;height:9px;border-radius:50%;flex-shrink:0}}
 .toggle{{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer;user-select:none}}
 .panels{{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:8px}}
 .panels.solo{{grid-template-columns:1fr}}
@@ -168,6 +173,7 @@ footer{{text-align:center;padding:36px 0 8px;font-size:11px;color:var(--muted2);
     <button id="next">1d ▶</button><button id="next7">7d ▶▶</button>
     <span id="origen" class="origen"></span><span id="tipo" class="tipo"></span>
   </div>
+  <div class="riskbar glass" id="riskbar"></div>
   <div class="panels" id="panels">
     <div class="panel glass" id="panelSP">
       <div class="panel-head"><span class="panel-dot" style="background:var(--sp)"></span>
@@ -255,6 +261,7 @@ function render(){{
   const f=inp.value, v=V[f];
   const oel=document.getElementById("origen"), tel=document.getElementById("tipo");
   if(!v){{oel.className="origen";oel.textContent="";tel.textContent="(sin dato para esta fecha)";
+    document.getElementById("riskbar").innerHTML="";
     d3.select("#chartSP svg").remove();d3.select("#chartEG svg").remove();return;}}
   oel.className="origen "+(v.origen==="real"?"o-real":"o-proj");oel.textContent=v.origen.toUpperCase();
   tel.textContent=DOW[v.wd]+" · "+(v.habil?"hábil":"no hábil");
@@ -270,7 +277,7 @@ function render(){{
   document.getElementById("egPkH").textContent=`Pico txn/min (~${{hh(pkEG.min)}})`;
   // ZONAS de riesgo correlacionado por bin (usa AMBOS canales aunque un panel esté oculto):
   //  3 = ambos ≥ su P90 (rojo, incidencia) · 2 = ambos ≥ su P70 (amarillo, riesgo) · 1 = este canal ≥ su P70 (naranja)
-  let zSP=null, zEG=null;
+  let zSP=null, zEG=null, cSP70=0, cSP90=0, cB70=0, cB90=0;
   if(U.spei&&U.eglobal){{
     zSP=[]; zEG=[];
     for(let i=0;i<cvSP.length;i++){{
@@ -278,8 +285,21 @@ function render(){{
       const s7=sp>=U.spei.p70, s9=sp>=U.spei.p90, e7=eg>=U.eglobal.p70, e9=eg>=U.eglobal.p90;
       const b9=s9&&e9, b7=s7&&e7;
       zSP.push(b9?3:b7?2:s7?1:0); zEG.push(b9?3:b7?2:e7?1:0);
+      if(s7)cSP70++; if(s9)cSP90++; if(b7)cB70++; if(b9)cB90++;
     }}
   }}
+  // resumen de EXPOSICION del dia (minutos = bins x STEP): SPEI>P70, ambas>P70, SPEI>P90, ambas>P90
+  const rb=document.getElementById("riskbar");
+  if(U.spei&&U.eglobal){{
+    const mn=n=>(n*STEP).toLocaleString();
+    const chip=(col,lab,n)=>`<span class="rc"><span class="rd" style="background:${{col}}"></span>${{lab}} <b>${{mn(n)}} min</b></span>`;
+    rb.innerHTML=`<span class="rt">Exposición del día</span>`
+      +chip("#f59e0b","SPEI &gt; P70",cSP70)
+      +chip("#F0D224","Ambas &gt; P70",cB70)
+      +chip("#fb7185","SPEI &gt; P90",cSP90)
+      +chip("#ff5c5c","Ambas &gt; P90",cB90);
+    rb.style.display="flex";
+  }} else {{ rb.style.display="none"; }}
   drawPanel("#chartSP",CSP,cvSP,ymax,U.spei,zSP);
   drawPanel("#chartEG",CEG,cvEG,ymax,U.eglobal,zEG);
   document.getElementById("note").innerHTML=`Curva = forma normalizada del <b>${{DOW[v.wd]}}</b> (patrón del día de la semana, suma=1) &times; volumen diario <b>${{v.origen}}</b>; el área = volumen total del día &middot; líneas punteadas <b>P70/P90 oficiales</b> del canal (máx histórico) &middot; <b>zonas</b>: <span style="color:#f59e0b;font-weight:700">naranja</span> = el canal cruza su P70 &middot; <span style="color:#F0D224;font-weight:700">amarillo</span> = <b>ambos</b> canales sobre su P70 (riesgo) &middot; <span style="color:#ff5c5c;font-weight:700">rojo</span> = <b>ambos</b> sobre su P90 (incidencia) &middot; generado por <code>generators/build-curvas-intradia.py</code>`;
