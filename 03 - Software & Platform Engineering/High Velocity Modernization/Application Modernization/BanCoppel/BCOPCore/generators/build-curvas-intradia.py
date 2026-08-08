@@ -61,7 +61,21 @@ def main():
         vol[str(d)] = {"eg": int(pred["eglobal"][i]), "sp": int(pred["spei"][i]),
                        "wd": d.weekday(), "habil": bool(cal.is_business_day(d)), "origen": "proyectado"}
 
-    data = json.dumps({"perfiles": perfiles, "vol": vol,
+    # umbrales historicos P70/P90 (max sobre la evolucion quincenal) del pipeline de percentiles,
+    # para pintar lineas de referencia en cada panel. Ventana de 5 min (misma que percentiles).
+    umbrales = {}
+    pj = OUT / "percentiles-correlacionados.json"
+    if pj.exists():
+        ev = json.loads(pj.read_text(encoding="utf-8")).get("evolucion", [])
+        if ev:
+            for ch in ("eglobal", "spei"):
+                umbrales[ch] = {"p70": max(m["p70"][ch] for m in ev),
+                                "p90": max(m["p90"][ch] for m in ev)}
+        print(f"  umbrales historicos P70/P90 (5 min): {umbrales}")
+    else:
+        print("  [aviso] percentiles-correlacionados.json no existe; sin lineas P70/P90")
+
+    data = json.dumps({"perfiles": perfiles, "vol": vol, "umbrales": umbrales,
                        "last_real": str(LAST_REAL), "step": 1440 // 288}, ensure_ascii=False)
     _render(data, OUT / "curvas-intradia-navegable.html")
     print(f"  dias: {len(vol)} ({min(vol)} a {max(vol)})")
@@ -175,7 +189,7 @@ footer{{text-align:center;padding:36px 0 8px;font-size:11px;color:var(--muted2);
 <footer>BCOPCore · Gemelo Cognitivo del Sistema · SPE-AM-001 · Accenture México · 2026</footer>
 <script>
 const DATA={data_js};const P=DATA.perfiles;const V=DATA.vol;const STEP=DATA.step;
-const CSP="#34d399",CEG="#6f8ce6";
+const CSP="#34d399",CEG="#6f8ce6";const U=DATA.umbrales||{{}};
 const DOW=["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
 const fechas=Object.keys(V).sort();
 const inp=document.getElementById("fecha");
@@ -186,7 +200,7 @@ function curva(canal,wd,volumen){{
   const pf=P[canal][wd];                                    // forma NORMALIZADA (suma=1) del dia de la semana
   return pf.map((f,i)=>({{min:i*STEP, y: f*volumen/STEP}}));// area = sum(y*STEP) = volumen del dia
 }}
-function drawPanel(sel,color,cur,ymax){{
+function drawPanel(sel,color,cur,ymax,umb){{
   d3.select(sel+" svg").remove();
   const cont=document.querySelector(sel);
   const W=cont.offsetWidth||520,H=320,Mg={{top:12,right:14,bottom:30,left:52}};
@@ -210,6 +224,14 @@ function drawPanel(sel,color,cur,ymax){{
     .attr("d",d3.area().x(p=>x(p.min)).y0(h).y1(p=>y(p.y)).curve(d3.curveBasis));
   svg.append("path").datum(cur).attr("fill","none").attr("stroke",color).attr("stroke-width",2.2)
     .attr("d",d3.line().x(p=>x(p.min)).y(p=>y(p.y)).curve(d3.curveBasis));
+  // lineas de referencia: maximo historico de P70/P90 del canal (percentiles, ventana 5 min)
+  if(umb){{[["P70",umb.p70,"#c7cbe0"],["P90",umb.p90,"#F0D224"]].forEach(([lab,val,col])=>{{
+    if(val==null||val>ymax) return;
+    svg.append("line").attr("x1",0).attr("x2",w).attr("y1",y(val)).attr("y2",y(val))
+      .attr("stroke",col).attr("stroke-width",1).attr("stroke-dasharray","5,4").attr("opacity",.7);
+    svg.append("text").attr("x",w-3).attr("y",y(val)-4).attr("text-anchor","end")
+      .attr("font-size",9).attr("fill",col).attr("opacity",.9).text(lab+" hist "+Math.round(val).toLocaleString());
+  }});}}
 }}
 function render(){{
   const f=inp.value, v=V[f];
@@ -224,7 +246,8 @@ function render(){{
   oel.className="origen "+(v.origen==="real"?"o-real":"o-proj");oel.textContent=v.origen.toUpperCase();
   tel.textContent=DOW[v.wd]+" · "+(v.habil?"hábil":"no hábil");
   const cvSP=curva("spei",v.wd,v.sp), cvEG=curva("eglobal",v.wd,v.eg);
-  const ymax=d3.max([...cvSP,...cvEG],p=>p.y)*1.12||1;   // escala compartida
+  const umbMax=Math.max(U.spei?U.spei.p90:0, U.eglobal?U.eglobal.p90:0);   // que las lineas historicas quepan
+  const ymax=Math.max(d3.max([...cvSP,...cvEG],p=>p.y)||0, umbMax)*1.10||1;   // escala compartida
   const pkSP=cvSP.reduce((a,b)=>b.y>a.y?b:a), pkEG=cvEG.reduce((a,b)=>b.y>a.y?b:a);
   document.getElementById("spTot").textContent=(v.sp/1e6).toFixed(2)+"M";
   document.getElementById("egTot").textContent=(v.eg/1e6).toFixed(2)+"M";
@@ -232,9 +255,9 @@ function render(){{
   document.getElementById("egPk").textContent=Math.round(pkEG.y).toLocaleString();
   document.getElementById("spPkH").textContent=`Pico txn/min (~${{hh(pkSP.min)}})`;
   document.getElementById("egPkH").textContent=`Pico txn/min (~${{hh(pkEG.min)}})`;
-  if(showSP)drawPanel("#chartSP",CSP,cvSP,ymax);else d3.select("#chartSP svg").remove();
-  if(showEG)drawPanel("#chartEG",CEG,cvEG,ymax);else d3.select("#chartEG svg").remove();
-  document.getElementById("note").innerHTML=`Curva = forma normalizada del <b>${{DOW[v.wd]}}</b> (patrón histórico de ese día de la semana, suma=1) &times; volumen diario <b>${{v.origen}}</b> &middot; el área bajo la curva = volumen total del día &middot; cada día de la semana tiene su propia forma &middot; meseta 13–20h sombreada &middot; escala Y compartida entre paneles &middot; generado por <code>generators/build-curvas-intradia.py</code>`;
+  if(showSP)drawPanel("#chartSP",CSP,cvSP,ymax,U.spei);else d3.select("#chartSP svg").remove();
+  if(showEG)drawPanel("#chartEG",CEG,cvEG,ymax,U.eglobal);else d3.select("#chartEG svg").remove();
+  document.getElementById("note").innerHTML=`Curva = forma normalizada del <b>${{DOW[v.wd]}}</b> (patrón histórico de ese día de la semana, suma=1) &times; volumen diario <b>${{v.origen}}</b> &middot; el área bajo la curva = volumen total del día &middot; líneas punteadas <b>P70/P90 = máximo histórico</b> (ventana 5 min) del canal &middot; meseta 13–20h sombreada &middot; generado por <code>generators/build-curvas-intradia.py</code>`;
 }}
 function shift(days){{const d=new Date(inp.value);d.setUTCDate(d.getUTCDate()+days);const s=d.toISOString().slice(0,10);if(V[s])inp.value=s;render();}}
 document.getElementById("prev").onclick=()=>shift(-1);document.getElementById("next").onclick=()=>shift(1);
