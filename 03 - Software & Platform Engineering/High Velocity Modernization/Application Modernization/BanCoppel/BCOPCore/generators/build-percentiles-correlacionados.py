@@ -38,17 +38,20 @@ def main():
     spm = {(d, m): v for d, mm in C.load_minute_channel(ROOT, "spei").items()
            if len(mm) >= 1400 for m, v in mm}
 
-    # evolucion mes a mes (2025-01 .. 2026-07)
+    # evolucion QUINCENAL (Q1 = dias 1-15, Q2 = dias 16-fin de mes) 2025-01 .. 2026-07
     meses = []
     y, mo = 2025, 1
     while (y, mo) <= (2026, 7):
-        d0 = date(y, mo, 1); d1 = date(y, mo, monthrange(y, mo)[1])
-        r = C.correlated_percentiles(ROOT, cal, d0, d1, _egm=egm, _spm=spm)
-        r["mes"] = f"{y}-{mo:02d}"
-        meses.append(r)
-        print(f"  {r['mes']}: SPEI P70={r['p70']['spei']:>5,} P90={r['p90']['spei']:>5,} | "
-              f"Aut P70={r['p70']['eglobal']:>5,} P90={r['p90']['eglobal']:>5,} | "
-              f"riesgo={r['pct_zona_riesgo']:>4}% r={r['correlacion']}")
+        last = monthrange(y, mo)[1]
+        for qi, (ds, de, xr) in enumerate([(1, 15, 8), (16, last, 23)], start=1):
+            d0 = date(y, mo, ds); d1 = date(y, mo, de)
+            r = C.correlated_percentiles(ROOT, cal, d0, d1, _egm=egm, _spm=spm)
+            r["mes"] = f"{y}-{mo:02d} Q{qi}"          # etiqueta de quincena
+            r["x"] = str(date(y, mo, xr))             # fecha representativa para el eje temporal
+            meses.append(r)
+            print(f"  {r['mes']}: SPEI P70={r['p70']['spei']:>5,} P90={r['p90']['spei']:>5,} | "
+                  f"Aut P70={r['p70']['eglobal']:>5,} P90={r['p90']['eglobal']:>5,} | "
+                  f"riesgo={r['pct_zona_riesgo']:>4}% r={r['correlacion']}")
         mo += 1
         if mo == 13:
             y, mo = y + 1, 1
@@ -75,7 +78,7 @@ def _render_md(meses, a, path):
     md = f"""# Percentiles Correlacionados — SPEI y Autorizador sobre Informix
 > **Fuente**: pipeline `generators/forecast/capacity.py` (funcion `correlated_percentiles`)
 > **DT dueño**: `dt/dt-autorizador-pagos/` · co-ref `dt/dt-spei/`, `dt/dt-riesgos/`
-> **Versión**: 1.1.0 · regenerable con `python generators/build-percentiles-correlacionados.py`
+> **Versión**: 1.2.0 (evolución quincenal) · regenerable con `python generators/build-percentiles-correlacionados.py`
 
 ## Metodología
 
@@ -97,7 +100,7 @@ La **correlación** es lo que importa: los picos de ambos canales coinciden en e
 perfil intradía, r≈0.99), así que no se diversifican y la carga se apila sobre Informix. Por eso
 la alerta se mide por co-ocurrencia (ambos altos), no sumando percentiles independientes.
 
-## Umbrales actuales ({a['mes']}) — por canal
+## Umbrales actuales (última quincena {a['mes']}) — por canal
 
 | Canal | P70 (alerta) | P90 (incidencia) | Capacidad demostrada (top-5, ventana 1 min) |
 |-------|-------------|------------------|---------------------------------------------|
@@ -107,10 +110,10 @@ la alerta se mide por co-ocurrencia (ambos altos), no sumando percentiles indepe
 - Zona de riesgo (ambos ≥ su P70 a la vez): **{a['pct_zona_riesgo']}%** del tiempo operativo.
 - Correlación intra-ventana: **r = {a['correlacion']}**.
 
-## Evolución mensual — P70/P90 por canal (txn/min)
+## Evolución quincenal — P70/P90 por canal (txn/min)
 
-| Mes | SPEI P70 | SPEI P90 | Aut P70 | Aut P90 | Zona riesgo | Correl. |
-|-----|----------|----------|---------|---------|-------------|---------|
+| Quincena | SPEI P70 | SPEI P90 | Aut P70 | Aut P90 | Zona riesgo | Correl. |
+|----------|----------|----------|---------|---------|-------------|---------|
 {filas}
 
 > Los umbrales de cada canal suben con el crecimiento orgánico (SPEI ~+20%/año, Autorizador
@@ -120,8 +123,9 @@ la alerta se mide por co-ocurrencia (ambos altos), no sumando percentiles indepe
 
 ---
 
-*v1.1.0 · Generado por generators/build-percentiles-correlacionados.py · P70/P90 por canal (sin
-combinado) · gráfica de evolución en `percentiles-correlacionados-evolucion.html`.*
+*v1.2.0 · Generado por generators/build-percentiles-correlacionados.py · P70/P90 por canal (sin
+combinado) · evolución quincenal (Q1 días 1-15, Q2 días 16-fin) · gráfica en
+`percentiles-correlacionados-evolucion.html`.*
 """
     path.write_text(md, encoding="utf-8")
     print(f"  MD: {path}")
@@ -230,8 +234,8 @@ svg circle.pt{{transition:r .1s}}
 </div>
 <footer>BCOPCore · Gemelo Cognitivo del Sistema · SPE-AM-001 · Accenture México · 2026</footer>
 <script>
-const DATA={data};const M=DATA.meses;const pM=d3.timeParse("%Y-%m");
-M.forEach(m=>{{m.D=pM(m.mes);
+const DATA={data};const M=DATA.meses;const pD=d3.timeParse("%Y-%m-%d");
+M.forEach(m=>{{m.D=pD(m.x);
   m.sp70=m.p70.spei;   m.sp90=m.p90.spei;   m.spCap=m.top_promedio.spei;
   m.eg70=m.p70.eglobal;m.eg90=m.p90.eglobal;m.egCap=m.top_promedio.eglobal;
   m.riesgo=m.pct_zona_riesgo;}});
@@ -264,7 +268,7 @@ function chart(id,keys,cols,labels,ymaxVal,fmt,tf,H){{
  svg.append("g").attr("class","axis").call(d3.axisLeft(y).ticks(5).tickFormat(fmt)).call(g=>g.select(".domain").remove())
   .call(g=>g.selectAll(".tick line").clone().attr("x2",w).attr("stroke","rgba(255,255,255,.06)"));
  svg.append("g").attr("class","axis").attr("transform",`translate(0,${{h}})`).call(d3.axisBottom(x).ticks(8).tickFormat(d3.timeFormat("%b'%y"))).call(g=>g.select(".domain").remove());
- for(const[mk,txt] of Object.entries(DATA.hitos)){{const dx=pM(mk);if(!dx)continue;
+ for(const[mk,txt] of Object.entries(DATA.hitos)){{const dx=pD(mk+"-15");if(!dx)continue;
   svg.append("line").attr("x1",x(dx)).attr("x2",x(dx)).attr("y1",0).attr("y2",h).attr("stroke","var(--yellow)").attr("stroke-dasharray","3,3").attr("opacity",.4);
   svg.append("text").attr("x",x(dx)+3).attr("y",10).attr("font-size",8).attr("fill","var(--yellow)").attr("opacity",.7).text(txt);}}
  keys.forEach((k,i)=>{{
