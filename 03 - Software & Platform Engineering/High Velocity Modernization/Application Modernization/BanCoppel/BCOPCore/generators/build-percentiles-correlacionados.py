@@ -29,9 +29,11 @@ from forecast.calendar_mx import MxCalendar
 
 OUT = ROOT / "knowledge-base" / "cross-reference"
 HITOS = {"2026-03": "leak-fix", "2026-06": "Power 10"}
-# Factor de capacidad DEMOSTRADO sin incidentes: (máx sostenido 10 min post-mejora abr-ago 2026) /
-# (P90 dic-2025 ventana 10 min = nivel de "incidente" viejo). Umbrales "con mejoras" = P70/P90 x k, mes a mes.
-MEJORAS_K = {"spei": 2.92, "eglobal": 1.18}
+# Evidencia de mejora MEDIDA (no derivada de un factor) — ver knowledge-base/autorizador/mejoras-2026.md.
+# Encolamientos: 7 incidentes nov-2025→ene-2026 -> 0 después (feb-2026 = primer mes limpio, balanceo 15-feb).
+# Duración de incidente: 1.5-7.5 h (nov-dic 2025) -> ~18.5 min post-Power10 (~-93% impacto por evento).
+INCIDENTES = {"periodo": ["2025-11-15", "2026-01-31"], "pre": 7, "post": 0,
+              "dur_pre": "1.5–7.5 h", "dur_post": "18.5 min", "impacto": "−93%"}
 
 
 def main():
@@ -79,7 +81,7 @@ def _render_md(meses, a, path):
     md = f"""# Percentiles Correlacionados — SPEI y Autorizador sobre Informix
 > **Fuente**: pipeline `generators/forecast/capacity.py` (funcion `correlated_percentiles`)
 > **DT dueño**: `dt/dt-autorizador-pagos/` · co-ref `dt/dt-spei/`, `dt/dt-riesgos/`
-> **Versión**: 1.5.0 (mensual · ventana 10 min · umbrales con mejoras) · regenerable con `python generators/build-percentiles-correlacionados.py`
+> **Versión**: 1.6.0 (mensual · ventana 10 min · mejora medida por incidentes 7→0) · regenerable con `python generators/build-percentiles-correlacionados.py`
 
 ## Metodología
 
@@ -98,27 +100,28 @@ La **correlación** es lo que importa: los picos de ambos canales coinciden en e
 perfil intradía, r≈0.99), así que no se diversifican y la carga se apila sobre Informix. Por eso
 la alerta se mide por co-ocurrencia (ambos altos), no sumando percentiles independientes.
 
-## Umbrales actuales vs con mejoras (último mes {a['mes']}) — por canal
+## Umbrales actuales (último mes {a['mes']}) — por canal
 
-Umbrales **con mejoras** = umbral actual × factor de capacidad demostrado sin incidentes
-(SPEI ×{MEJORAS_K['spei']}, Autorizador ×{MEJORAS_K['eglobal']}; ver Derivación abajo). Se calculan **mes a mes**.
-
-| Canal | P70 actual | P90 actual | k | P70 con mejoras | P90 con mejoras |
-|-------|-----------|-----------|---|-----------------|-----------------|
-| SPEI | {a['p70']['spei']:,} | {a['p90']['spei']:,} | ×{MEJORAS_K['spei']} | {round(a['p70']['spei']*MEJORAS_K['spei']):,} | {round(a['p90']['spei']*MEJORAS_K['spei']):,} |
-| Autorizador | {a['p70']['eglobal']:,} | {a['p90']['eglobal']:,} | ×{MEJORAS_K['eglobal']} | {round(a['p70']['eglobal']*MEJORAS_K['eglobal']):,} | {round(a['p90']['eglobal']*MEJORAS_K['eglobal']):,} |
+| Canal | P70 (alerta) | P90 (incidencia) |
+|-------|-------------|------------------|
+| SPEI | {a['p70']['spei']:,} | {a['p90']['spei']:,} |
+| Autorizador | {a['p70']['eglobal']:,} | {a['p90']['eglobal']:,} |
 
 - Zona de riesgo (ambos ≥ su P70 a la vez): **{a['pct_zona_riesgo']}%** del tiempo operativo.
 - Correlación intra-ventana: **r = {a['correlacion']}**.
 
-### Derivación del factor con mejoras
+## Mejora demostrada (medida, no derivada de un factor)
 
-En **diciembre 2025** el sistema entraba en incidente al llegar a P90 (SPEI 2,725 / Autorizador 3,259,
-ventana 10 min). Tras las mejoras (**leak-fix** mar-2026 + **Power 10** jun-2026) sostuvo, **sin un solo
-incidente**, hasta **SPEI 7,950 / Autorizador 3,850 txn/min** (máx sostenido 10 min, abr–ago 2026). El
-factor demostrado es `k = máx_sostenido_post ÷ P90_dic` → **SPEI ×2.92, Autorizador ×1.18**. Son **cotas
-inferiores** (aún no tocamos el nuevo techo). El ×1.18 de Autorizador es conservador (canal estable,
-no se ha estresado más allá de ~4,000). Los umbrales con mejoras = P70/P90 × k, aplicado **mes a mes**.
+Ver `knowledge-base/autorizador/mejoras-2026.md`. **No** se expresa como un multiplicador de capacidad:
+el minxmin mide throughput (txn servidas/min), no latencia ni utilización, así que no contiene
+limpiamente la señal que cambiaron las mejoras. Se mide con datos duros:
+
+- **Encolamientos**: {INCIDENTES['pre']} incidentes (29-nov-2025 → 12-ene-2026) → **{INCIDENTES['post']}** después
+  (feb-2026 = primer mes limpio, tras el balanceo automático de colas SPEI del 15-feb).
+- **Duración de incidente**: {INCIDENTES['dur_pre']} (nov-dic 2025) → **{INCIDENTES['dur_post']}** post-Power10
+  ({INCIDENTES['impacto']} de impacto económico por evento: $663 MDP del INC-20251129 → ~$46 MDP equivalente).
+- **Capacidad de cómputo**: Power 8 → Power 10 (activo 7-jun-2026). El ratio rPerf/CPW exacto para
+  dimensionar el target es `[DATO-REQUERIDO]` del SME DBA/Mainframe (modelos exactos Power 8 y Power 10).
 
 ## Evolución mensual — P70/P90 por canal (txn/min)
 
@@ -134,7 +137,7 @@ no se ha estresado más allá de ~4,000). Los umbrales con mejoras = P70/P90 × 
 ---
 
 *v1.5.0 · Generado por generators/build-percentiles-correlacionados.py · P70/P90 por canal (sin
-combinado) · ventana 10 min · evolución mensual · umbrales con mejoras (×k) · gráfica en
+combinado) · ventana 10 min · evolución mensual · mejora medida (encolamientos 7→0, duración −93%) · gráfica en
 `percentiles-correlacionados-evolucion.html`.*
 """
     path.write_text(md, encoding="utf-8")
@@ -142,7 +145,7 @@ combinado) · ventana 10 min · evolución mensual · umbrales con mejoras (×k)
 
 
 def _render_html(meses, a, path):
-    data = json.dumps({"meses": meses, "hitos": HITOS, "k": MEJORAS_K}, ensure_ascii=False)
+    data = json.dumps({"meses": meses, "hitos": HITOS, "inc": INCIDENTES}, ensure_ascii=False)
     html = f"""<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>BCOPCore · Percentiles Correlacionados por Canal</title>
@@ -219,7 +222,7 @@ svg circle.pt{{transition:r .1s}}
 <div class="wrap">
   <div class="hero-label">Capacidad · Percentiles Correlacionados</div>
   <h1 class="hero-h1">Percentiles Correlacionados por Canal</h1>
-  <p class="hero-sub">P70 (riesgo) y P90 (incidente) por canal sobre <b>ventanas promedio de 10 min</b> (13–22h, mes a mes). Líneas sólidas = <b>umbrales actuales</b> (observados); líneas punteadas = <b>umbrales con mejoras</b> = P70/P90 × factor de capacidad demostrado sin incidentes (SPEI ×2.92, Autorizador ×1.18, derivado de dic-2025 → carga sostenida 10 min post leak-fix + Power 10). La separación entre sólida y punteada es el <b>margen ganado</b>.</p>
+  <p class="hero-sub">P70 (riesgo) y P90 (incidente) por canal sobre <b>ventanas promedio de 10 min</b> (13–22h, mes a mes). La banda roja marca los <b>7 incidentes de encolamiento</b> (nov-2025→ene-2026); las líneas <b>leak-fix</b> (mar) y <b>Power 10</b> (jun) son las mejoras. La mejora es <b>medida, no un factor</b>: encolamientos <b>7 → 0</b> y duración de incidente <b>1.5–7.5 h → ~18.5 min</b> (−93% impacto/evento). Detalle en <code>mejoras-2026.md</code>.</p>
   <div class="kpi-row" id="kpis"></div>
   <div class="panels">
     <div class="panel glass">
@@ -234,25 +237,26 @@ svg circle.pt{{transition:r .1s}}
     </div>
   </div>
   <div class="legend">
-    <span><span class="sw" style="background:var(--p70)"></span>P70 actual (riesgo)</span>
-    <span><span class="sw" style="background:var(--p90)"></span>P90 actual (incidente)</span>
-    <span><span class="sw" style="background:#34d399"></span>P70 con mejoras (×k)</span>
-    <span><span class="sw" style="background:#ff6b6b"></span>P90 con mejoras (×k)</span>
+    <span><span class="sw" style="background:var(--p70)"></span>P70 (riesgo)</span>
+    <span><span class="sw" style="background:var(--p90)"></span>P90 (incidente)</span>
+    <span><span class="sw" style="background:#ff6b6b;opacity:.4"></span>periodo de 7 encolamientos (nov'25–ene'26)</span>
   </div>
   <div class="note" id="note"></div>
 </div>
 <footer>BCOPCore · Gemelo Cognitivo del Sistema · SPE-AM-001 · Accenture México · 2026</footer>
 <script>
-const DATA={data};const M=DATA.meses;const pD=d3.timeParse("%Y-%m-%d");const K=DATA.k;
+const DATA={data};const M=DATA.meses;const pD=d3.timeParse("%Y-%m-%d");const INC=DATA.inc;
 M.forEach(m=>{{m.D=pD(m.x);
-  m.sp70=m.p70.spei;   m.sp90=m.p90.spei;   m.sp70m=Math.round(m.sp70*K.spei);   m.sp90m=Math.round(m.sp90*K.spei);
-  m.eg70=m.p70.eglobal;m.eg90=m.p90.eglobal;m.eg70m=Math.round(m.eg70*K.eglobal);m.eg90m=Math.round(m.eg90*K.eglobal);}});
+  m.sp70=m.p70.spei;   m.sp90=m.p90.spei;
+  m.eg70=m.p70.eglobal;m.eg90=m.p90.eglobal;}});
 const a=M[M.length-1];
+const mxSp70=d3.max(M,m=>m.sp70), mxSp90=d3.max(M,m=>m.sp90);
+const mxEg70=d3.max(M,m=>m.eg70), mxEg90=d3.max(M,m=>m.eg90);
 document.getElementById("kpis").innerHTML=`
-<div class="kpi glass"><div class="val" style="color:var(--riesgo)">${{a.sp70m.toLocaleString()}} / ${{a.sp90m.toLocaleString()}}</div><div class="lbl">SPEI con mejoras — riesgo / incidente (últ. mes)</div></div>
-<div class="kpi glass"><div class="val" style="color:#9fb4ff">${{a.eg70m.toLocaleString()}} / ${{a.eg90m.toLocaleString()}}</div><div class="lbl">Autorizador con mejoras — riesgo / incidente (últ. mes)</div></div>
-<div class="kpi glass"><div class="val">×${{K.spei}} · ×${{K.eglobal}}</div><div class="lbl">Factor demostrado SPEI · Autorizador (sin incidentes)</div></div>
-<div class="kpi glass"><div class="val" style="color:var(--yellow)">${{a.pct_zona_riesgo}}%</div><div class="lbl">Tiempo en zona de riesgo (último mes)</div></div>`;
+<div class="kpi glass"><div class="val" style="color:var(--riesgo)">${{mxSp70.toLocaleString()}} / ${{mxSp90.toLocaleString()}}</div><div class="lbl">SPEI — P70 / P90 máx histórico</div></div>
+<div class="kpi glass"><div class="val" style="color:#9fb4ff">${{mxEg70.toLocaleString()}} / ${{mxEg90.toLocaleString()}}</div><div class="lbl">Autorizador — P70 / P90 máx histórico</div></div>
+<div class="kpi glass"><div class="val" style="color:var(--riesgo)">${{INC.pre}} → ${{INC.post}}</div><div class="lbl">Encolamientos (nov'25–ene'26 → post-mejoras)</div></div>
+<div class="kpi glass"><div class="val" style="color:var(--yellow)">${{INC.dur_pre}} → ${{INC.dur_post}}</div><div class="lbl">Duración de incidente (${{INC.impacto}} impacto/evento)</div></div>`;
 
 const tip=document.getElementById("tt");
 function showTip(ev,mes,color,label,valStr){{
@@ -273,6 +277,10 @@ function chart(id,keys,cols,labels,ymaxVal,fmt,tf,H,dashes){{
  svg.append("g").attr("class","axis").call(d3.axisLeft(y).ticks(5).tickFormat(fmt)).call(g=>g.select(".domain").remove())
   .call(g=>g.selectAll(".tick line").clone().attr("x2",w).attr("stroke","rgba(255,255,255,.06)"));
  svg.append("g").attr("class","axis").attr("transform",`translate(0,${{h}})`).call(d3.axisBottom(x).ticks(8).tickFormat(d3.timeFormat("%b'%y"))).call(g=>g.select(".domain").remove());
+ const iA=pD(INC.periodo[0]), iB=pD(INC.periodo[1]);
+ if(iA&&iB){{svg.append("rect").attr("x",x(iA)).attr("width",x(iB)-x(iA)).attr("y",0).attr("height",h)
+   .attr("fill","#ff6b6b").attr("opacity",.10);
+   svg.append("text").attr("x",(x(iA)+x(iB))/2).attr("y",10).attr("text-anchor","middle").attr("font-size",8).attr("fill","#ff6b6b").attr("opacity",.85).text(INC.pre+" encolamientos");}}
  for(const[mk,txt] of Object.entries(DATA.hitos)){{const dx=pD(mk+"-15");if(!dx)continue;
   svg.append("line").attr("x1",x(dx)).attr("x2",x(dx)).attr("y1",0).attr("y2",h).attr("stroke","var(--yellow)").attr("stroke-dasharray","3,3").attr("opacity",.4);
   svg.append("text").attr("x",x(dx)+3).attr("y",10).attr("font-size",8).attr("fill","var(--yellow)").attr("opacity",.7).text(txt);}}
@@ -292,15 +300,14 @@ function chart(id,keys,cols,labels,ymaxVal,fmt,tf,H,dashes){{
 }}
 function draw(){{
  const kf=d=>(d/1000).toFixed(1)+"k", kt=v=>v.toLocaleString()+" txn/min";
- const L=["P70 actual (riesgo)","P90 actual (incidente)","P70 con mejoras","P90 con mejoras"];
- const C=["#818ab0","#F0D224","#34d399","#ff6b6b"], D=[null,null,"6,4","6,4"];
- const yMaxSP=d3.max(M,m=>d3.max([m.sp70,m.sp90,m.sp70m,m.sp90m]))*1.10;
- const yMaxEG=d3.max(M,m=>d3.max([m.eg70,m.eg90,m.eg70m,m.eg90m]))*1.10;
- chart("chartSP",["sp70","sp90","sp70m","sp90m"],C,L,yMaxSP,kf,kt,300,D);
- chart("chartEG",["eg70","eg90","eg70m","eg90m"],C,L,yMaxEG,kf,kt,300,D);
+ const L=["P70 (riesgo)","P90 (incidente)"];
+ const C=["#818ab0","#F0D224"];
+ const yMax=d3.max(M,m=>d3.max([m.sp70,m.sp90,m.eg70,m.eg90]))*1.12;
+ chart("chartSP",["sp70","sp90"],C,L,yMax,kf,kt,300);
+ chart("chartEG",["eg70","eg90"],C,L,yMax,kf,kt,300);
 }}
 draw();window.addEventListener("resize",draw);
-document.getElementById("note").innerHTML=`Sólidas = P70/P90 <b>actuales</b> (percentil sobre todas las ventanas de 10 min, 13–22h, mes a mes) &middot; punteadas = <b>umbrales con mejoras</b> = P70/P90 × k (SPEI ×${{K.spei}}, Autorizador ×${{K.eglobal}}; factor demostrado sin incidentes: máx sostenido post-mejora / P90 dic-2025) &middot; escala Y independiente por panel &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
+document.getElementById("note").innerHTML=`P70 (riesgo) y P90 (incidente) por canal, percentil sobre todas las ventanas de <b>10 min</b> (13–22h, mes a mes) &middot; banda roja = <b>${{INC.pre}} incidentes de encolamiento</b> nov'25–ene'26; leak-fix (mar) y Power 10 (jun) marcados &middot; mejora medida: encolamientos <b>${{INC.pre}}→${{INC.post}}</b>, duración <b>${{INC.dur_pre}}→${{INC.dur_post}}</b> (${{INC.impacto}} impacto) &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
 </script></body></html>"""
     path.write_text(html, encoding="utf-8")
     print(f"  HTML: {path}")

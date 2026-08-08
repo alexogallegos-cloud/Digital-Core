@@ -1,7 +1,7 @@
 # Percentiles Correlacionados — SPEI y Autorizador sobre Informix
 > **Fuente**: pipeline `generators/forecast/capacity.py` (funcion `correlated_percentiles`)
 > **DT dueño**: `dt/dt-autorizador-pagos/` · co-ref `dt/dt-spei/`, `dt/dt-riesgos/`
-> **Versión**: 1.5.0 (mensual · ventana 10 min · umbrales con mejoras) · regenerable con `python generators/build-percentiles-correlacionados.py`
+> **Versión**: 1.6.0 (mensual · ventana 10 min · mejora medida por incidentes 7→0) · regenerable con `python generators/build-percentiles-correlacionados.py`
 
 ## Metodología
 
@@ -20,27 +20,28 @@ La **correlación** es lo que importa: los picos de ambos canales coinciden en e
 perfil intradía, r≈0.99), así que no se diversifican y la carga se apila sobre Informix. Por eso
 la alerta se mide por co-ocurrencia (ambos altos), no sumando percentiles independientes.
 
-## Umbrales actuales vs con mejoras (último mes 2026-07) — por canal
+## Umbrales actuales (último mes 2026-07) — por canal
 
-Umbrales **con mejoras** = umbral actual × factor de capacidad demostrado sin incidentes
-(SPEI ×2.92, Autorizador ×1.18; ver Derivación abajo). Se calculan **mes a mes**.
-
-| Canal | P70 actual | P90 actual | k | P70 con mejoras | P90 con mejoras |
-|-------|-----------|-----------|---|-----------------|-----------------|
-| SPEI | 2,217 | 2,542 | ×2.92 | 6,474 | 7,423 |
-| Autorizador | 3,090 | 3,246 | ×1.18 | 3,646 | 3,830 |
+| Canal | P70 (alerta) | P90 (incidencia) |
+|-------|-------------|------------------|
+| SPEI | 2,217 | 2,542 |
+| Autorizador | 3,090 | 3,246 |
 
 - Zona de riesgo (ambos ≥ su P70 a la vez): **20.5%** del tiempo operativo.
 - Correlación intra-ventana: **r = 0.453**.
 
-### Derivación del factor con mejoras
+## Mejora demostrada (medida, no derivada de un factor)
 
-En **diciembre 2025** el sistema entraba en incidente al llegar a P90 (SPEI 2,725 / Autorizador 3,259,
-ventana 10 min). Tras las mejoras (**leak-fix** mar-2026 + **Power 10** jun-2026) sostuvo, **sin un solo
-incidente**, hasta **SPEI 7,950 / Autorizador 3,850 txn/min** (máx sostenido 10 min, abr–ago 2026). El
-factor demostrado es `k = máx_sostenido_post ÷ P90_dic` → **SPEI ×2.92, Autorizador ×1.18**. Son **cotas
-inferiores** (aún no tocamos el nuevo techo). El ×1.18 de Autorizador es conservador (canal estable,
-no se ha estresado más allá de ~4,000). Los umbrales con mejoras = P70/P90 × k, aplicado **mes a mes**.
+Ver `knowledge-base/autorizador/mejoras-2026.md`. **No** se expresa como un multiplicador de capacidad:
+el minxmin mide throughput (txn servidas/min), no latencia ni utilización, así que no contiene
+limpiamente la señal que cambiaron las mejoras. Se mide con datos duros:
+
+- **Encolamientos**: 7 incidentes (29-nov-2025 → 12-ene-2026) → **0** después
+  (feb-2026 = primer mes limpio, tras el balanceo automático de colas SPEI del 15-feb).
+- **Duración de incidente**: 1.5–7.5 h (nov-dic 2025) → **18.5 min** post-Power10
+  (−93% de impacto económico por evento: $663 MDP del INC-20251129 → ~$46 MDP equivalente).
+- **Capacidad de cómputo**: Power 8 → Power 10 (activo 7-jun-2026). El ratio rPerf/CPW exacto para
+  dimensionar el target es `[DATO-REQUERIDO]` del SME DBA/Mainframe (modelos exactos Power 8 y Power 10).
 
 ## Evolución mensual — P70/P90 por canal (txn/min)
 
@@ -74,5 +75,5 @@ no se ha estresado más allá de ~4,000). Los umbrales con mejoras = P70/P90 × 
 ---
 
 *v1.5.0 · Generado por generators/build-percentiles-correlacionados.py · P70/P90 por canal (sin
-combinado) · ventana 10 min · evolución mensual · umbrales con mejoras (×k) · gráfica en
+combinado) · ventana 10 min · evolución mensual · mejora medida (encolamientos 7→0, duración −93%) · gráfica en
 `percentiles-correlacionados-evolucion.html`.*

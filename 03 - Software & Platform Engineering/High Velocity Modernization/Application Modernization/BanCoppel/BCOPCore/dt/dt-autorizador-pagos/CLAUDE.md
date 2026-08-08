@@ -155,13 +155,17 @@ fin de semana), **franja horaria 13–22h** (meseta de carga alta), evolución *
   P70/P90 desde 2026-08-08; la capacidad top-N sigue en el JSON pero ya no se grafica.]**
 - **Umbrales actuales (último mes jul-2026, ventana 10 min, txn/min)**: SPEI P70 **2,217** / P90 **2,542**;
   Autorizador P70 **3,090** / P90 **3,246**.
-- **Umbrales CON MEJORAS (derivados, mes a mes)** = P70/P90 × factor de capacidad demostrado sin
-  incidentes. **k SPEI = 2.92, k Autorizador = 1.18** (ventana 10 min), derivado de: dic-2025 entraba
-  en incidente en P90 (SPEI 2,725 / Aut 3,259, 10 min); post leak-fix + Power 10 sostuvo sin incidente
-  hasta SPEI 7,950 / Aut 3,850 (máx sostenido 10 min abr–ago 2026); k = máx_post ÷ P90_dic. Umbrales
-  nuevos (últ. mes): SPEI riesgo **6,474** / incidente **7,423**; Autorizador riesgo **3,646** /
-  incidente **3,830**. Son cotas inferiores (no hemos tocado el nuevo techo); el ×1.18 de Autorizador
-  es conservador. El dashboard grafica ambos: sólido = actual, punteado = con mejoras (`MEJORAS_K`).
+- **Mejora MEDIDA (no un factor derivado) — descartado el multiplicador ×k 2026-08-08.** El minxmin
+  mide throughput, no latencia/utilización, así que no contiene limpiamente la señal que cambiaron las
+  mejoras (se intentó `k = máx_sostenido ÷ P90_dic` pero era frágil/arbitrario). La mejora se cuantifica
+  con datos duros (ver `knowledge-base/autorizador/mejoras-2026.md`):
+  - **Encolamientos: 7 incidentes (29-nov-2025 → 12-ene-2026) → 0** después (feb-2026 = primer mes limpio,
+    balanceo de colas SPEI 15-feb; leak-fix 27-mar; Power 10 7-jun).
+  - **Duración de incidente: 1.5–7.5 h (nov-dic 2025) → ~18.5 min post-Power10** (recuperación ~15× más
+    rápida; **−93% de impacto económico/evento**: $663 MDP del INC-20251129 → ~$46 MDP equivalente).
+  - **Capacidad de cómputo: Power 8 → Power 10** (activo 7-jun-2026); ratio rPerf/CPW exacto para
+    dimensionar el target = `[DATO-REQUERIDO]` del SME DBA/Mainframe.
+  El dashboard grafica P70/P90 (sólidas) con la banda del periodo de 7 encolamientos y los hitos de mejora.
 - **Máximo histórico de umbrales (10 min)**: SPEI P70 **2,237** / P90 **2,712**; Autorizador P70
   **3,090** / P90 **3,301** (en el HTML las tarjetas muestran este máx histórico).
 - **Techo de capacidad demostrada (máx del top-10 por mes, sin gate)**: SPEI **~8,827** (dic-2025,
