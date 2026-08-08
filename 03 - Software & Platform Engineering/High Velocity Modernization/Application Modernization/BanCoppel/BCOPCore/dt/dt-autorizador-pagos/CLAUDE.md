@@ -166,6 +166,11 @@ Evolución reportada **por quincena** (Q1 días 1-15, Q2 días 16-fin), 38 quinc
   (2,550→3,130, ~+11%/año) por el crecimiento orgánico; cada canal cruza su P70/P90 cada vez más
   seguido y la zona de riesgo se ensancha → se come el margen del Informix actual. Argumento
   cuantitativo de capacidad para la migración.
+- **Pico histórico = DICIEMBRE (aguinaldo)**: el máximo histórico de percentiles cae en dic-2025,
+  no en la última quincena. SPEI: máx P70 **2,300** (dic-2025 Q2) / máx P90 **3,115** (dic-2025 Q1);
+  Autorizador: máx P70 **3,130** (jul-2026 Q2) / máx P90 **3,434** (dic-2025 Q2). La temporada de
+  aguinaldo dispara las transferencias SPEI. **El Informix target debe dimensionarse contra el pico
+  de diciembre, no contra el promedio del año** — es el peor caso recurrente cada 12 meses.
 - **SPEI mete las ráfagas** (dispersiones de nómina/lotes, cola pesada), el **Autorizador aporta
   la base estable** (~3,240, sin ráfagas). El target debe absorber ambas simultáneamente.
 

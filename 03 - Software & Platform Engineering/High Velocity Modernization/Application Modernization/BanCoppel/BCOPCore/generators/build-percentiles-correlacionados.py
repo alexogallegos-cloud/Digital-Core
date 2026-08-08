@@ -239,11 +239,13 @@ M.forEach(m=>{{m.D=pD(m.x);
   m.eg70=m.p70.eglobal;m.eg90=m.p90.eglobal;m.egCap=m.top_promedio.eglobal;
   m.riesgo=m.pct_zona_riesgo;}});
 const a=M[M.length-1];
+const mxSp70=d3.max(M,m=>m.sp70), mxSp90=d3.max(M,m=>m.sp90);
+const mxEg70=d3.max(M,m=>m.eg70), mxEg90=d3.max(M,m=>m.eg90);
 document.getElementById("kpis").innerHTML=`
-<div class="kpi glass"><div class="val" style="color:var(--riesgo)">${{a.sp70.toLocaleString()}} / ${{a.sp90.toLocaleString()}}</div><div class="lbl">SPEI — P70 / P90 actual</div></div>
-<div class="kpi glass"><div class="val" style="color:#9fb4ff">${{a.eg70.toLocaleString()}} / ${{a.eg90.toLocaleString()}}</div><div class="lbl">Autorizador — P70 / P90 actual</div></div>
-<div class="kpi glass"><div class="val" style="color:var(--yellow)">${{a.riesgo}}%</div><div class="lbl">Tiempo en zona de riesgo</div></div>
-<div class="kpi glass"><div class="val">r = ${{a.correlacion}}</div><div class="lbl">Correlacion intra-ventana</div></div>`;
+<div class="kpi glass"><div class="val" style="color:var(--riesgo)">${{mxSp70.toLocaleString()}} / ${{mxSp90.toLocaleString()}}</div><div class="lbl">SPEI — P70 / P90 máx histórico</div></div>
+<div class="kpi glass"><div class="val" style="color:#9fb4ff">${{mxEg70.toLocaleString()}} / ${{mxEg90.toLocaleString()}}</div><div class="lbl">Autorizador — P70 / P90 máx histórico</div></div>
+<div class="kpi glass"><div class="val" style="color:var(--yellow)">${{a.riesgo}}%</div><div class="lbl">Tiempo en zona de riesgo (últ. quincena)</div></div>
+<div class="kpi glass"><div class="val">r = ${{a.correlacion}}</div><div class="lbl">Correlacion intra-ventana (últ. quincena)</div></div>`;
 
 // mismo dominio Y en ambos paneles de canal
 const yMaxCh=d3.max(M,m=>d3.max([m.sp70,m.sp90,m.spCap,m.eg70,m.eg90,m.egCap]))*1.12;
