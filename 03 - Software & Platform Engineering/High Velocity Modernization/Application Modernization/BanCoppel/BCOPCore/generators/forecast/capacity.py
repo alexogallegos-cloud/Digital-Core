@@ -149,12 +149,14 @@ def intraday_profiles(root, cal, bins=288):
     return out
 
 
-def correlated_percentiles(root, cal, d0, d1, w=2, op=(7, 23), top_n=5, _egm=None, _spm=None):
+def correlated_percentiles(root, cal, d0, d1, w=1, op=(7, 23), top_n=5, _egm=None, _spm=None):
     """
     CALCULO DE PERCENTILES CORRELACIONADOS.
     Carga que SPEI y Autorizador ejercen SIMULTANEAMENTE sobre Informix (recurso compartido),
-    en ventanas de `w` minutos (carga sostenida; suaviza rafagas de 1 min de las que el sistema
-    se restablece). Devuelve, para el periodo [d0, d1], TODOS los dias (habiles y no habiles —
+    en ventanas de `w` minutos: con w>1 mide carga sostenida (promedia y suaviza rafagas de 1 min
+    de las que el sistema se restablece); con w=1 es la resolucion cruda por minuto (pico
+    instantaneo, sin suavizado ni buffer). Devuelve, para el periodo [d0, d1], TODOS los dias
+    (habiles y no habiles —
     SPEI y el Autorizador operan el fin de semana) y horario operativo `op`:
       - P70/P90 por canal (umbral de alerta) y su suma
       - zona de riesgo = % de ventanas con AMBOS >= su P70; incidencia = AMBOS >= su P90

@@ -143,20 +143,24 @@ Serie de 7 incidentes documentados en `knowledge-base/incidentes/`. Todos involu
 Este DT gobierna el **cálculo de percentiles correlacionados**: SPEI y el Autorizador compiten
 por el mismo Informix (recurso compartido) y —al tener perfil intradía casi idéntico (r≈0.99)—
 sus picos coinciden en el tiempo, sin diversificarse y apilándose sobre el Informix. Medición en
-ventanas de 2 min (carga sostenida, no ráfagas de 1 min), **todos los días** (hábiles y no hábiles
-— ambos canales operan el fin de semana), horario operativo 07–23h.
+ventanas de 1 min (resolución cruda por minuto: pico instantáneo, sin suavizado), **todos los días**
+(hábiles y no hábiles — ambos canales operan el fin de semana), horario operativo 07–23h.
 
 - **P70/P90 por canal, por separado — sin combinado**: cada canal conserva su propio P70 (alerta)
   y P90 (incidencia); no se suman. Lo que hace correlacionado al método es la **co-ocurrencia**:
   **zona de riesgo** = ambos canales ≥ su propio P70 a la vez; **incidencia inminente** = ambos ≥
-  su P90; **top-5 concurrencia sin caída en ventanas de 2 min** = capacidad demostrada por canal.
-- **Umbrales actuales (julio 2026, txn/min)**: SPEI P70 **2,062** / P90 **2,459**; Autorizador
-  P70 **2,983** / P90 **3,190**; zona de riesgo **19.9%** del tiempo operativo; r=**0.75**.
-  Capacidad sostenida demostrada (top-5): Autorizador **~3,216** (coincide con el SLA e-Global de
-  3,240 txn/min de la arquitectura AS-IS) y SPEI **~5,258** (con ventana de 2 min afloran las
-  ráfagas de dispersión de nómina de SPEI; P70/P90 típicos apenas se mueven vs 4-5 min).
-- **Evolución 2025→2026**: SPEI P70 +34% (1,535→2,062, ~+19%/año), Autorizador P70 +20%
-  (2,490→2,983, ~+9%/año) por el crecimiento orgánico; cada canal cruza su P70/P90 cada vez más
+  su P90; **top-5 concurrencia sin caída, pico por minuto** = capacidad demostrada por canal.
+- **Umbrales actuales (julio 2026, txn/min)**: SPEI P70 **2,068** / P90 **2,485**; Autorizador
+  P70 **2,984** / P90 **3,195**; zona de riesgo **19.0%** del tiempo operativo; r=**0.72**.
+  Capacidad demostrada (top-5): Autorizador **~3,256** (coincide con el SLA e-Global de
+  3,240 txn/min de la arquitectura AS-IS) y SPEI **~5,638** (pico crudo por minuto).
+- **Sweep de ventana (5→4→2→1 min)**: el **P70/P90 es casi invariante** al tamaño de ventana (SPEI
+  P70 2,055→2,068, +0.6%) porque es carga típica; pero la **capacidad demostrada de SPEI crece
+  monótonamente** (3,833→4,031→5,258→5,638 txn/min) al acortar la ventana, revelando las ráfagas de
+  dispersión de nómina. El Autorizador se mantiene plano ~3,2xx (base estable, sin ráfagas). A 5 min
+  se dimensiona la carga sostenida; a 1 min el pico de ráfaga instantáneo.
+- **Evolución 2025→2026**: SPEI P70 +35% (1,527→2,068, ~+19%/año), Autorizador P70 +20%
+  (2,487→2,984, ~+9%/año) por el crecimiento orgánico; cada canal cruza su P70/P90 cada vez más
   seguido y la zona de riesgo se ensancha → se come el margen del Informix actual. Argumento
   cuantitativo de capacidad para la migración.
 - **SPEI mete las ráfagas** (dispersiones de nómina/lotes, cola pesada), el **Autorizador aporta

@@ -6,8 +6,9 @@
 ## Metodología
 
 **Cálculo de percentiles correlacionados**: mide la carga que SPEI y el Autorizador ejercen
-**simultáneamente** sobre Informix (recurso compartido), en **ventanas de 2 minutos** (carga
-sostenida — suaviza las ráfagas de 1 min de las que el sistema se restablece con buffer). **Todos
+**simultáneamente** sobre Informix (recurso compartido), en **ventanas de 1 minuto** (resolución
+cruda: el pico instantáneo por minuto, sin suavizado ni buffer de restablecimiento — es la máxima
+resolución, la que el usuario originalmente evitó por no dar tiempo de recuperación). **Todos
 los días** (hábiles y no hábiles — SPEI y el Autorizador operan también el fin de semana), horario
 operativo 07–23h.
 
@@ -15,7 +16,7 @@ operativo 07–23h.
   el P90 es incidencia. No se suman: la suma combinada no es la métrica de interés.
 - **Zona de riesgo** = ambos canales ≥ su P70 **a la vez** (esta es la lente correlacionada).
 - **Incidencia inminente** = ambos ≥ su P90 a la vez.
-- **Top-5 de concurrencia sin caída, en ventanas de 2 min** = capacidad sostenida demostrada por
+- **Top-5 de concurrencia sin caída, en ventanas de 1 min** = capacidad sostenida demostrada por
   canal (el nivel de cada canal en las 5 mayores ventanas de concurrencia sin caída de servicio).
 
 La **correlación** es lo que importa: los picos de ambos canales coinciden en el tiempo (mismo
@@ -24,37 +25,37 @@ la alerta se mide por co-ocurrencia (ambos altos), no sumando percentiles indepe
 
 ## Umbrales actuales (2026-07) — por canal
 
-| Canal | P70 (alerta) | P90 (incidencia) | Capacidad demostrada (top-5, ventana 2 min) |
+| Canal | P70 (alerta) | P90 (incidencia) | Capacidad demostrada (top-5, ventana 1 min) |
 |-------|-------------|------------------|---------------------------------------------|
-| SPEI | 2,062 | 2,459 | 5,258 |
-| Autorizador | 2,983 | 3,190 | 3,216 |
+| SPEI | 2,068 | 2,485 | 5,638 |
+| Autorizador | 2,984 | 3,195 | 3,256 |
 
-- Zona de riesgo (ambos ≥ su P70 a la vez): **19.9%** del tiempo operativo.
-- Correlación intra-ventana: **r = 0.748**.
+- Zona de riesgo (ambos ≥ su P70 a la vez): **19.0%** del tiempo operativo.
+- Correlación intra-ventana: **r = 0.721**.
 
 ## Evolución mensual — P70/P90 por canal (txn/min)
 
 | Mes | SPEI P70 | SPEI P90 | Aut P70 | Aut P90 | Zona riesgo | Correl. |
 |-----|----------|----------|---------|---------|-------------|---------|
-| 2025-01 | 1,535 | 1,922 | 2,490 | 2,658 | 17.9% | 0.745 |
-| 2025-02 | 1,540 | 2,045 | 2,547 | 2,757 | 18.4% | 0.738 |
-| 2025-03 | 1,554 | 2,126 | 2,625 | 2,846 | 18.9% | 0.717 |
-| 2025-04 | 1,570 | 2,148 | 2,816 | 3,020 | 18.5% | 0.671 |
-| 2025-05 | 1,662 | 2,153 | 2,703 | 2,902 | 18.5% | 0.723 |
-| 2025-06 | 1,674 | 2,122 | 2,623 | 2,838 | 18.4% | 0.732 |
-| 2025-07 | 1,745 | 2,065 | 2,626 | 2,777 | 18.4% | 0.747 |
-| 2025-08 | 1,766 | 2,192 | 2,712 | 2,944 | 18.9% | 0.731 |
-| 2025-09 | 1,768 | 2,261 | 2,710 | 2,927 | 18.2% | 0.714 |
-| 2025-10 | 1,826 | 2,398 | 2,762 | 2,970 | 18.2% | 0.743 |
-| 2025-11 | 1,834 | 2,554 | 2,834 | 3,140 | 18.6% | 0.731 |
-| 2025-12 | 2,094 | 2,693 | 2,894 | 3,172 | 16.7% | 0.594 |
-| 2026-01 | 1,756 | 2,446 | 2,652 | 2,860 | 18.1% | 0.727 |
-| 2026-02 | 1,828 | 2,549 | 2,773 | 3,021 | 17.9% | 0.742 |
-| 2026-03 | 1,904 | 2,414 | 2,899 | 3,110 | 18.3% | 0.683 |
-| 2026-04 | 1,942 | 2,405 | 2,889 | 3,082 | 18.3% | 0.681 |
-| 2026-05 | 2,009 | 2,533 | 2,941 | 3,176 | 18.6% | 0.693 |
-| 2026-06 | 2,007 | 2,465 | 2,970 | 3,184 | 18.3% | 0.673 |
-| 2026-07 | 2,062 | 2,459 | 2,983 | 3,190 | 19.9% | 0.748 |
+| 2025-01 | 1,527 | 2,053 | 2,487 | 2,662 | 16.7% | 0.663 |
+| 2025-02 | 1,549 | 2,277 | 2,546 | 2,765 | 15.6% | 0.525 |
+| 2025-03 | 1,615 | 2,347 | 2,623 | 2,851 | 15.3% | 0.486 |
+| 2025-04 | 1,633 | 2,334 | 2,816 | 3,028 | 15.3% | 0.462 |
+| 2025-05 | 1,711 | 2,322 | 2,702 | 2,904 | 16.8% | 0.599 |
+| 2025-06 | 1,727 | 2,213 | 2,624 | 2,840 | 17.5% | 0.667 |
+| 2025-07 | 1,763 | 2,164 | 2,624 | 2,783 | 17.4% | 0.673 |
+| 2025-08 | 1,806 | 2,307 | 2,710 | 2,948 | 17.8% | 0.655 |
+| 2025-09 | 1,807 | 2,337 | 2,708 | 2,932 | 16.7% | 0.639 |
+| 2025-10 | 1,859 | 2,482 | 2,759 | 2,976 | 17.1% | 0.687 |
+| 2025-11 | 1,862 | 2,816 | 2,837 | 3,146 | 17.4% | 0.669 |
+| 2025-12 | 2,001 | 2,976 | 2,892 | 3,179 | 16.3% | 0.497 |
+| 2026-01 | 1,765 | 2,694 | 2,652 | 2,864 | 17.0% | 0.678 |
+| 2026-02 | 1,816 | 2,842 | 2,771 | 3,027 | 17.5% | 0.689 |
+| 2026-03 | 1,908 | 2,476 | 2,897 | 3,111 | 17.6% | 0.635 |
+| 2026-04 | 1,937 | 2,476 | 2,888 | 3,086 | 17.3% | 0.613 |
+| 2026-05 | 2,009 | 2,605 | 2,941 | 3,178 | 17.9% | 0.629 |
+| 2026-06 | 2,023 | 2,485 | 2,970 | 3,192 | 17.7% | 0.64 |
+| 2026-07 | 2,068 | 2,485 | 2,984 | 3,195 | 19.0% | 0.721 |
 
 > Los umbrales de cada canal suben con el crecimiento orgánico (SPEI ~+20%/año, Autorizador
 > ~+9%/año): cada canal cruza su P70/P90 cada vez más seguido y la zona de riesgo (co-ocurrencia)
