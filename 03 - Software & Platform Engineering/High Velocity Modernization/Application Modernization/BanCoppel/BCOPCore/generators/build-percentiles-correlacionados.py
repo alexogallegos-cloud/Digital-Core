@@ -44,20 +44,21 @@ def main():
     spm = {(d, m): v for d, mm in C.load_minute_channel(ROOT, "spei").items()
            if len(mm) >= 1400 for m, v in mm}
 
-    # pico MAXIMO PROCESADO por mes = mayor ventana de 5 min (promedio txn/min) por canal, 13-22h
+    # pico MAXIMO PROCESADO por mes = mayor ventana de 1 HORA (promedio txn/min sostenido 60 min) por canal, 13-22h
     from collections import defaultdict as _dd
-    def _max5_mes(dic):
+    _WPICO = 60
+    def _maxwin_mes(dic):
         acc = _dd(list)
         for (d, m), v in dic.items():
             if 13*60 <= m < 22*60:
-                acc[(d, m // 5)].append(v)
+                acc[(d, m // _WPICO)].append(v)
         pm = {}
-        for (d, w5), vs in acc.items():
-            if len(vs) == 5:
-                mn = sum(vs) / 5; key = (d.year, d.month)
+        for (d, wk), vs in acc.items():
+            if len(vs) == _WPICO:
+                mn = sum(vs) / _WPICO; key = (d.year, d.month)
                 if mn > pm.get(key, 0): pm[key] = mn
         return pm
-    _mp_sp, _mp_eg = _max5_mes(spm), _max5_mes(egm)
+    _mp_sp, _mp_eg = _maxwin_mes(spm), _maxwin_mes(egm)
 
     # evolucion MENSUAL 2025-01 .. 2026-07 (P70/P90 = percentil sobre TODAS las ventanas de 10 min del mes)
     meses = []
@@ -255,7 +256,7 @@ svg circle.pt{{transition:r .1s}}
   <div class="legend">
     <span><span class="sw" style="background:var(--p70)"></span>P70 (riesgo)</span>
     <span><span class="sw" style="background:var(--p90)"></span>P90 (incidente)</span>
-    <span><span class="sw" style="background:#38bdf8"></span>pico máx procesado (5 min)</span>
+    <span><span class="sw" style="background:#38bdf8"></span>pico máx procesado (1 h)</span>
     <span><span class="sw" style="background:#ff6b6b;opacity:.4"></span>periodo de 7 encolamientos (nov'25–ene'26)</span>
   </div>
   <div class="note" id="note"></div>
@@ -318,7 +319,7 @@ function chart(id,keys,cols,labels,ymaxVal,fmt,tf,H,dashes){{
 }}
 function draw(){{
  const kf=d=>(d/1000).toFixed(1)+"k", kt=v=>v.toLocaleString()+" txn/min";
- const L=["P70 (riesgo)","P90 (incidente)","Pico máx procesado (5 min)"];
+ const L=["P70 (riesgo)","P90 (incidente)","Pico máx procesado (1 h)"];
  const C=["#818ab0","#F0D224","#38bdf8"];
  const yMaxSP=d3.max(M,m=>d3.max([m.sp70,m.sp90,m.mxsp]))*1.10;
  const yMaxEG=d3.max(M,m=>d3.max([m.eg70,m.eg90,m.mxeg]))*1.10;
@@ -326,7 +327,7 @@ function draw(){{
  chart("chartEG",["eg70","eg90","mxeg"],C,L,yMaxEG,kf,kt,300);
 }}
 draw();window.addEventListener("resize",draw);
-document.getElementById("note").innerHTML=`P70 (riesgo) y P90 (incidente) por canal, percentil sobre todas las ventanas de <b>10 min</b> (13–22h, mes a mes) &middot; línea cian = <b>pico máx procesado</b> (máx ventana 5 min del mes; escala Y independiente por panel — SPEI llega a ~11k) &middot; banda roja = <b>${{INC.pre}} incidentes de encolamiento</b> nov'25–ene'26; leak-fix (mar) y Power 10 (jun) marcados &middot; mejora medida: encolamientos <b>${{INC.pre}}→${{INC.post}}</b>, duración <b>${{INC.dur_pre}}→${{INC.dur_post}}</b> (${{INC.impacto}} impacto) &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
+document.getElementById("note").innerHTML=`P70 (riesgo) y P90 (incidente) por canal, percentil sobre todas las ventanas de <b>10 min</b> (13–22h, mes a mes) &middot; línea cian = <b>pico máx procesado</b> (máx ventana de <b>1 h</b> sostenida del mes; escala Y independiente por panel — SPEI llega a ~6k en aguinaldo) &middot; banda roja = <b>${{INC.pre}} incidentes de encolamiento</b> nov'25–ene'26; leak-fix (mar) y Power 10 (jun) marcados &middot; mejora medida: encolamientos <b>${{INC.pre}}→${{INC.post}}</b>, duración <b>${{INC.dur_pre}}→${{INC.dur_post}}</b> (${{INC.impacto}} impacto) &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
 </script></body></html>"""
     path.write_text(html, encoding="utf-8")
     print(f"  HTML: {path}")
