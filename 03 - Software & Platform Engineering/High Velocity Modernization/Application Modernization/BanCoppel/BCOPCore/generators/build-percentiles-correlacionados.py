@@ -2,11 +2,12 @@
 """
 build-percentiles-correlacionados.py — BCOPCore · Percentiles CORRELACIONADOS SPEI+Autorizador.
 
-Calculo de percentiles correlacionados: carga que SPEI y el Autorizador ejercen SIMULTANEAMENTE
-sobre Informix (recurso compartido), en ventanas PROMEDIO de 5 min (carga sostenida). Todas las curvas (P70/P90 y capacidad) usan la misma ventana de 5 min.
- - P70 por canal = umbral de alerta;  zona de riesgo = AMBOS >= P70;  incidencia = AMBOS >= P90.
- - top-N de mayor carga combinada (sin gate de percentil, sin dedup) = capacidad demostrada.
-Genera la evolucion mes a mes (2025-2026) + los umbrales del ultimo mes, en HTML/MD/JSON.
+Calculo de percentiles: P70 y P90 por canal (SPEI y Autorizador) sobre TODAS las ventanas PROMEDIO
+de 5 min dentro del horario operativo, mes a mes.
+ - P70 por canal = umbral de alerta;  P90 = incidencia.
+ - zona de riesgo (KPI) = % de ventanas con AMBOS >= su P70.
+Genera la evolucion mensual (2025-2026) + los umbrales del ultimo mes, en HTML/MD/JSON.
+(La capacidad top-N que devuelve capacity.py se conserva en el JSON pero ya NO se grafica.)
 
 DT dueño: dt-autorizador-pagos (interfaz con el core Informix / capacidad de la capa media),
 co-referencia dt-spei (canal SPEI) y dt-riesgos (riesgo de capacidad de migracion).
@@ -57,8 +58,7 @@ def main():
     actual = meses[-1]
     report = {"metodologia": "percentiles correlacionados (P70/P90 en ventanas PROMEDIO de 5 min, TODOS los dias 13-22h); "
               "P70/P90 por canal por separado (SPEI y Autorizador), sin combinado; "
-              "capacidad demostrada = top-10 de MAYOR carga combinada en ventanas de 5 min sobre toda la data (sin gate de percentil, sin dedup); "
-              "zona de riesgo = ambos canales >= su P70 a la vez (lente correlacionada)",
+              "zona de riesgo = ambos canales >= su P70 a la vez",
               "actual": actual, "evolucion": meses}
     (OUT / "percentiles-correlacionados.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -82,18 +82,14 @@ def _render_md(meses, a, path):
 
 **Cálculo de percentiles correlacionados**: mide la carga que SPEI y el Autorizador ejercen
 **simultáneamente** sobre Informix (recurso compartido), sobre **ventanas promedio de 5 minutos**
-(carga sostenida, no el pico de 1 min del que el sistema se restablece). Tanto los **umbrales
-P70/P90** como la **capacidad demostrada** (top-10) usan esa misma ventana de 5 min. **Todos los
-días** (hábiles y no hábiles — SPEI y el Autorizador operan también el fin de semana), horario
-operativo 13–22h.
+(carga sostenida). Los **umbrales P70/P90** son percentiles sobre **todas las ventanas de 5 min**
+del periodo. **Todos los días** (hábiles y no hábiles — SPEI y el Autorizador operan también el fin
+de semana), horario operativo 13–22h.
 
 - **P70/P90 por canal, por separado** — cada canal conserva su propio umbral. El P70 es alerta,
   el P90 es incidencia. No se suman: la suma combinada no es la métrica de interés. (Ventana prom. 5 min.)
-- **Zona de riesgo** = ambos canales ≥ su P70 **a la vez** (esta es la lente correlacionada).
+- **Zona de riesgo** = ambos canales ≥ su P70 **a la vez**.
 - **Incidencia inminente** = ambos ≥ su P90 a la vez.
-- **Top-10 de mayor carga combinada, en ventanas promedio de 5 min** = capacidad demostrada por canal
-  (el nivel de cada canal en las 10 ventanas de 5 min de mayor carga total; **SIN gate de percentil**
-  — no exige ambos ≥ P70 — y **SIN dedup por día**; toda la data, 13–22h).
 
 La **correlación** es lo que importa: los picos de ambos canales coinciden en el tiempo (mismo
 perfil intradía, r≈0.99), así que no se diversifican y la carga se apila sobre Informix. Por eso
@@ -101,10 +97,10 @@ la alerta se mide por co-ocurrencia (ambos altos), no sumando percentiles indepe
 
 ## Umbrales actuales (último mes {a['mes']}) — por canal
 
-| Canal | P70 (alerta) | P90 (incidencia) | Capacidad demostrada (top-10, ventana prom. 5 min) |
-|-------|-------------|------------------|---------------------------------------------|
-| SPEI | {a['p70']['spei']:,} | {a['p90']['spei']:,} | {a['top_promedio']['spei']:,} |
-| Autorizador | {a['p70']['eglobal']:,} | {a['p90']['eglobal']:,} | {a['top_promedio']['eglobal']:,} |
+| Canal | P70 (alerta) | P90 (incidencia) |
+|-------|-------------|------------------|
+| SPEI | {a['p70']['spei']:,} | {a['p90']['spei']:,} |
+| Autorizador | {a['p70']['eglobal']:,} | {a['p90']['eglobal']:,} |
 
 - Zona de riesgo (ambos ≥ su P70 a la vez): **{a['pct_zona_riesgo']}%** del tiempo operativo.
 - Correlación intra-ventana: **r = {a['correlacion']}**.
@@ -225,7 +221,6 @@ svg circle.pt{{transition:r .1s}}
   <div class="legend">
     <span><span class="sw" style="background:var(--p70)"></span>P70 (alerta)</span>
     <span><span class="sw" style="background:var(--p90)"></span>P90 (incidencia)</span>
-    <span><span class="sw" style="background:var(--cap)"></span>Capacidad demostrada — top-10 mayor carga (ventanas prom. 5 min)</span>
   </div>
   <div class="note" id="note"></div>
 </div>
@@ -233,19 +228,17 @@ svg circle.pt{{transition:r .1s}}
 <script>
 const DATA={data};const M=DATA.meses;const pD=d3.timeParse("%Y-%m-%d");
 M.forEach(m=>{{m.D=pD(m.x);
-  m.sp70=m.p70.spei;   m.sp90=m.p90.spei;   m.spCap=m.top_promedio.spei;
-  m.eg70=m.p70.eglobal;m.eg90=m.p90.eglobal;m.egCap=m.top_promedio.eglobal;}});
+  m.sp70=m.p70.spei;   m.sp90=m.p90.spei;
+  m.eg70=m.p70.eglobal;m.eg90=m.p90.eglobal;}});
 const a=M[M.length-1];
 const mxSp70=d3.max(M,m=>m.sp70), mxSp90=d3.max(M,m=>m.sp90);
 const mxEg70=d3.max(M,m=>m.eg70), mxEg90=d3.max(M,m=>m.eg90);
-const mxSpCap=d3.max(M,m=>m.spCap), mxEgCap=d3.max(M,m=>m.egCap);
 document.getElementById("kpis").innerHTML=`
-<div class="kpi glass"><div class="val" style="color:var(--riesgo)">${{mxSp70.toLocaleString()}} / ${{mxSp90.toLocaleString()}}</div><div class="lbl">SPEI — umbral P70 / P90 máx histórico</div></div>
-<div class="kpi glass"><div class="val" style="color:#9fb4ff">${{mxEg70.toLocaleString()}} / ${{mxEg90.toLocaleString()}}</div><div class="lbl">Autorizador — umbral P70 / P90 máx histórico</div></div>
-<div class="kpi glass"><div class="val" style="color:var(--cap)">${{mxSpCap.toLocaleString()}} / ${{mxEgCap.toLocaleString()}}</div><div class="lbl">Capacidad demostrada máx (SPEI / Aut · top-10, 5 min)</div></div>
+<div class="kpi glass"><div class="val" style="color:var(--riesgo)">${{mxSp70.toLocaleString()}} / ${{mxSp90.toLocaleString()}}</div><div class="lbl">SPEI — P70 / P90 máx histórico</div></div>
+<div class="kpi glass"><div class="val" style="color:#9fb4ff">${{mxEg70.toLocaleString()}} / ${{mxEg90.toLocaleString()}}</div><div class="lbl">Autorizador — P70 / P90 máx histórico</div></div>
 <div class="kpi glass"><div class="val" style="color:var(--yellow)">${{a.pct_zona_riesgo}}%</div><div class="lbl">Tiempo en zona de riesgo (último mes)</div></div>
 <div class="kpi glass"><div class="val">r = ${{a.correlacion}}</div><div class="lbl">Correlacion intra-ventana (último mes)</div></div>`;
-const yMaxCh=d3.max(M,m=>d3.max([m.sp70,m.sp90,m.spCap,m.eg70,m.eg90,m.egCap]))*1.12;
+const yMaxCh=d3.max(M,m=>d3.max([m.sp70,m.sp90,m.eg70,m.eg90]))*1.12;
 
 const tip=document.getElementById("tt");
 function showTip(ev,mes,color,label,valStr){{
@@ -283,12 +276,12 @@ function chart(id,keys,cols,labels,ymaxVal,fmt,tf,H){{
 }}
 function draw(){{
  const kf=d=>(d/1000).toFixed(1)+"k", kt=v=>v.toLocaleString()+" txn/min";
- const L=["P70 (alerta)","P90 (incidencia)","Capacidad top-10 (prom. 5 min)"];
- chart("chartSP",["sp70","sp90","spCap"],["#818ab0","#F0D224","#ff6b6b"],L,yMaxCh,kf,kt,280);
- chart("chartEG",["eg70","eg90","egCap"],["#818ab0","#F0D224","#ff6b6b"],L,yMaxCh,kf,kt,280);
+ const L=["P70 (alerta)","P90 (incidencia)"];
+ chart("chartSP",["sp70","sp90"],["#818ab0","#F0D224"],L,yMaxCh,kf,kt,280);
+ chart("chartEG",["eg70","eg90"],["#818ab0","#F0D224"],L,yMaxCh,kf,kt,280);
 }}
 draw();window.addEventListener("resize",draw);
-document.getElementById("note").innerHTML=`P70/P90 <b>por canal</b>, percentil sobre <b>todas las ventanas de 5 min</b> (13–22h, todos los días) &middot; capacidad demostrada = <b>top-10 de mayor carga combinada</b> (5 min) sobre toda la data, <b>sin gate de percentil ni dedup</b> (pueden repetirse días) &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
+document.getElementById("note").innerHTML=`P70 (alerta) y P90 (incidencia) <b>por canal</b>, percentil sobre <b>todas las ventanas de 5 min</b> (13–22h, todos los días, evolución mensual) &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
 </script></body></html>"""
     path.write_text(html, encoding="utf-8")
     print(f"  HTML: {path}")

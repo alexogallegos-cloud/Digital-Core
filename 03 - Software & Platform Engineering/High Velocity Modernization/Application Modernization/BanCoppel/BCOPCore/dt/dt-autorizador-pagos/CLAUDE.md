@@ -151,7 +151,8 @@ fin de semana), **franja horaria 13–22h** (meseta de carga alta), evolución *
   y P90 (incidencia); percentiles sobre TODAS las ventanas de 5 min del mes (no se suman).
 - **Capacidad demostrada = top-10 de MAYOR carga combinada** (5 min), sobre toda la data, **SIN gate
   de percentil** (no exige que ambos estén sobre su P70) y **SIN dedup por día** (pueden repetirse
-  días); promedio por canal.
+  días); promedio por canal. **[Hallazgo documentado — el dashboard de percentiles muestra SOLO
+  P70/P90 desde 2026-08-08; la capacidad top-N sigue en el JSON pero ya no se grafica.]**
 - **Umbrales (último mes jul-2026, txn/min)**: SPEI P70 **2,214** / P90 **2,558**;
   Autorizador P70 **3,090** / P90 **3,249**.
 - **Máximo histórico de umbrales (5 min)**: SPEI P70 **2,237** / P90 **2,789**; Autorizador P70

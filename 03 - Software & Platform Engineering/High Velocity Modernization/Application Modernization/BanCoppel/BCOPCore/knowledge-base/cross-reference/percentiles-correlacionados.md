@@ -7,18 +7,14 @@
 
 **Cálculo de percentiles correlacionados**: mide la carga que SPEI y el Autorizador ejercen
 **simultáneamente** sobre Informix (recurso compartido), sobre **ventanas promedio de 5 minutos**
-(carga sostenida, no el pico de 1 min del que el sistema se restablece). Tanto los **umbrales
-P70/P90** como la **capacidad demostrada** (top-10) usan esa misma ventana de 5 min. **Todos los
-días** (hábiles y no hábiles — SPEI y el Autorizador operan también el fin de semana), horario
-operativo 13–22h.
+(carga sostenida). Los **umbrales P70/P90** son percentiles sobre **todas las ventanas de 5 min**
+del periodo. **Todos los días** (hábiles y no hábiles — SPEI y el Autorizador operan también el fin
+de semana), horario operativo 13–22h.
 
 - **P70/P90 por canal, por separado** — cada canal conserva su propio umbral. El P70 es alerta,
   el P90 es incidencia. No se suman: la suma combinada no es la métrica de interés. (Ventana prom. 5 min.)
-- **Zona de riesgo** = ambos canales ≥ su P70 **a la vez** (esta es la lente correlacionada).
+- **Zona de riesgo** = ambos canales ≥ su P70 **a la vez**.
 - **Incidencia inminente** = ambos ≥ su P90 a la vez.
-- **Top-10 de mayor carga combinada, en ventanas promedio de 5 min** = capacidad demostrada por canal
-  (el nivel de cada canal en las 10 ventanas de 5 min de mayor carga total; **SIN gate de percentil**
-  — no exige ambos ≥ P70 — y **SIN dedup por día**; toda la data, 13–22h).
 
 La **correlación** es lo que importa: los picos de ambos canales coinciden en el tiempo (mismo
 perfil intradía, r≈0.99), así que no se diversifican y la carga se apila sobre Informix. Por eso
@@ -26,10 +22,10 @@ la alerta se mide por co-ocurrencia (ambos altos), no sumando percentiles indepe
 
 ## Umbrales actuales (último mes 2026-07) — por canal
 
-| Canal | P70 (alerta) | P90 (incidencia) | Capacidad demostrada (top-10, ventana prom. 5 min) |
-|-------|-------------|------------------|---------------------------------------------|
-| SPEI | 2,214 | 2,558 | 4,536 |
-| Autorizador | 3,090 | 3,249 | 3,235 |
+| Canal | P70 (alerta) | P90 (incidencia) |
+|-------|-------------|------------------|
+| SPEI | 2,214 | 2,558 |
+| Autorizador | 3,090 | 3,249 |
 
 - Zona de riesgo (ambos ≥ su P70 a la vez): **20.4%** del tiempo operativo.
 - Correlación intra-ventana: **r = 0.431**.
