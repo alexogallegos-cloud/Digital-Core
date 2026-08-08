@@ -152,8 +152,14 @@ combinado** (no se suman); **todos los días** (hábiles y no hábiles — ambos
   del target**. La línea azul del dashboard es el P99.
 - **P90/P70 DERIVADOS proporcionalmente del techo** (no percentiles calculados): **P90 = P99 × 90/99**
   (incidente), **P70 = P99 × 70/99** (alerta). Band uniforme bajo el techo (decisión del usuario:
-  "si el P99 es 3815, el P90 debería ser 3468"). Nota: para el Autorizador (canal estable) el band
-  proporcional queda por debajo de su piso real (su pico diario nunca baja tanto) → vive alto en su band.
+  "si el P99 es 3815, el P90 debería ser 3468"). **Nota — NO anclar el band al piso:** el Autorizador
+  vive alto/comprimido cerca de su techo y eso es CORRECTO, porque tiene un **techo de throughput duro
+  y demostrado (~4,300 txn/min por minuto)** que las mejoras de 2026 NO subieron: la distribución se
+  comprime (pico/mediana 1.84→1.22), la pared máx/min P90/P99 no se mueve entre periodos (~4,000–4,300,
+  CV→8%), mesetas de 30–44 min a tasa tope = throttling; el cuello es el **pool de conexiones/BD/HSM, no
+  CPU** (Power 10 dio fiabilidad, no throughput pico); su volumen está **censurado en los picos** → el
+  forecast log-lineal falla (R²=0.685). Análisis en `knowledge-base/cross-reference/growth-forecast-autorizador-spei.md`
+  ("El Autorizador está topando un techo"). El P99 del Autorizador es un techo real, no un percentil suave.
 - **Techo + band derivado solo desde el leak-fix** (mes ≥ 2026-03, `PICO_CONFIABLE_DESDE = "2026-03"`);
   pre-fix el pico diario está contaminado por los 7 encolamientos + el connection leak (INC-20251223).
   En **pre-fix se muestran los P70/P90 MEDIDOS** del pico diario como contexto (se dejan como están —
