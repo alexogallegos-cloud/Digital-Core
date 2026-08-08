@@ -138,6 +138,33 @@ Serie de 7 incidentes documentados en `knowledge-base/incidentes/`. Todos involu
 
 ---
 
+## ANÁLISIS DE CAPACIDAD CORRELACIONADA (SPEI + Autorizador sobre Informix)
+
+Este DT gobierna el **cálculo de percentiles correlacionados**: SPEI y el Autorizador compiten
+por el mismo Informix (recurso compartido) y —al tener perfil intradía casi idéntico (r=0.99)—
+sus picos coinciden en el tiempo, sin diversificarse. La carga que estresa Informix es la
+**combinada simultánea**, medida en ventanas de 5 min (carga sostenida, no ráfagas de 1 min).
+
+- **Definición**: P70 por canal = umbral de alerta; **zona de riesgo** = ambos ≥ P70 a la vez;
+  **incidencia inminente** = ambos ≥ P90; **top-N concurrencia sin caída** = capacidad demostrada.
+- **Umbrales actuales (julio 2026, txn/min)**: Autorizador P70 2,990 / SPEI P70 2,093 →
+  **combinado P70 = 5,083 (alerta), P90 = 5,631 (incidencia)**; zona de riesgo **20.4%** del
+  tiempo operativo; capacidad sostenida demostrada (top-5) **~7,090** (Autorizador ~3,240 —
+  coincide con el SLA e-Global de 3,240 txn/min de la arquitectura AS-IS — + SPEI ~3,850).
+- **Evolución 2025→2026**: el P70 combinado sube de 4,036 a 5,083 (**+26%**, ~+17%/año) por el
+  crecimiento orgánico; la carga cruza el P70/P90 cada vez más seguido → se come el margen del
+  Informix actual. Argumento cuantitativo de capacidad para la migración.
+- **SPEI mete las ráfagas** (dispersiones de nómina/lotes, cola pesada), el **Autorizador aporta
+  la base estable** (~3,240, sin ráfagas). El target debe absorber ambas simultáneamente.
+
+**Artefactos** (regenerables con `python generators/build-percentiles-correlacionados.py`):
+`knowledge-base/cross-reference/percentiles-correlacionados.{md,json}` +
+`percentiles-correlacionados-evolucion.html`. Método en `generators/forecast/capacity.py`
+(`correlated_percentiles`). Forecast de volumen y proyección: `growth-forecast-autorizador-spei.*`.
+Co-referencia: `dt-spei/` (canal SPEI) y `dt-riesgos/` (riesgo de capacidad de migración).
+
+---
+
 ## INTERFAZ CON DT-SPEI
 
 Los dos DTs cubren extremos complementarios del mismo flujo de pago:

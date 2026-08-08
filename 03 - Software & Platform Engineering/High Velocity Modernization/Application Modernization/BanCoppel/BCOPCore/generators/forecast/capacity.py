@@ -121,6 +121,80 @@ def monthly(daily):
     return rows
 
 
+def correlated_percentiles(root, cal, d0, d1, w=5, op=(7, 23), top_n=5, _egm=None, _spm=None):
+    """
+    CALCULO DE PERCENTILES CORRELACIONADOS.
+    Carga que SPEI y Autorizador ejercen SIMULTANEAMENTE sobre Informix (recurso compartido),
+    en ventanas de `w` minutos (carga sostenida; suaviza rafagas de 1 min de las que el sistema
+    se restablece). Devuelve, para el periodo [d0, d1], dias habiles y horario operativo `op`:
+      - P70/P90 por canal (umbral de alerta) y su suma
+      - zona de riesgo = % de ventanas con AMBOS >= su P70; incidencia = AMBOS >= su P90
+      - correlacion minuto-ventana entre canales
+      - top_n de concurrencia sostenida (ambos >= P70) sin caida cerca (capacidad demostrada)
+    """
+    from collections import defaultdict
+    import numpy as np
+    if _egm is None:
+        _egm = {(d, m): v for d, mm in load_minute_channel(root, "eglobal").items()
+                if len(mm) >= 1400 for m, v in mm}
+    if _spm is None:
+        _spm = {(d, m): v for d, mm in load_minute_channel(root, "spei").items()
+                if len(mm) >= 1400 for m, v in mm}
+    egm, spm = _egm, _spm
+
+    def ventanas(dic):
+        acc = defaultdict(list)
+        for (d, m), v in dic.items():
+            if d0 <= d <= d1 and cal.is_business_day(d) and op[0]*60 <= m < op[1]*60:
+                acc[(d, m // w)].append(v)
+        return {k: float(np.mean(vs)) for k, vs in acc.items() if len(vs) == w}
+
+    veg, vsp = ventanas(egm), ventanas(spm)
+    keys = sorted(veg.keys() & vsp.keys())
+    a_eg = np.array([veg[k] for k in keys]); a_sp = np.array([vsp[k] for k in keys])
+    com = a_eg + a_sp
+    p70e, p90e = np.percentile(a_eg, 70), np.percentile(a_eg, 90)
+    p70s, p90s = np.percentile(a_sp, 70), np.percentile(a_sp, 90)
+    from scipy.stats import pearsonr
+    r = float(pearsonr(a_eg, a_sp)[0]) if len(keys) > 2 else float("nan")
+    riesgo = float(np.mean((a_eg >= p70e) & (a_sp >= p70s)))
+    incidencia = float(np.mean((a_eg >= p90e) & (a_sp >= p90s)))
+
+    # top_n de concurrencia sostenida (ambos >= P70) sin caida cerca
+    comk = {k: com[i] for i, k in enumerate(keys)}
+    por_dia = defaultdict(list)
+    for k, v in comk.items():
+        por_dia[k[0]].append(v)
+    med = {d: np.median(vs) for d, vs in por_dia.items()}
+    def sin_caida(d, w5):
+        return all(comk.get((d, ww), med[d]) >= 0.20 * med[d]
+                   for ww in range(w5 - 6, w5 + 7) if (d, ww) in comk)
+    conc = [(k, veg[k], vsp[k], comk[k]) for k in keys
+            if veg[k] >= p70e and vsp[k] >= p70s and sin_caida(k[0], k[1])]
+    conc.sort(key=lambda x: -x[3])
+    top, vistos = [], set()
+    for (d, w5), e, s, c in conc:
+        if d in vistos:
+            continue
+        vistos.add(d)
+        top.append({"fecha": str(d), "hora": f"{(w5*w)//60:02d}:{(w5*w)%60:02d}",
+                    "eglobal": round(e), "spei": round(s), "combinada": round(c)})
+        if len(top) == top_n:
+            break
+    prom = {"eglobal": round(np.mean([t["eglobal"] for t in top])) if top else 0,
+            "spei": round(np.mean([t["spei"] for t in top])) if top else 0,
+            "combinada": round(np.mean([t["combinada"] for t in top])) if top else 0}
+    return {
+        "periodo": f"{d0} a {d1}", "ventana_min": w, "n_ventanas": len(keys),
+        "p70": {"eglobal": round(p70e), "spei": round(p70s), "suma": round(p70e + p70s)},
+        "p90": {"eglobal": round(p90e), "spei": round(p90s), "suma": round(p90e + p90s)},
+        "correlacion": round(r, 3),
+        "pct_zona_riesgo": round(riesgo * 100, 1),
+        "pct_incidencia": round(incidencia * 100, 1),
+        "top_concurrencia": top, "top_promedio": prom,
+    }
+
+
 def detect_bursts(by_day, daily, win, cal=None, atypical=None, k=2.5, top=20):
     """Minutos con val > k * P99_dia. Marca si hay valle en los 30 min previos (recuperacion)."""
     atypical = atypical or set()
