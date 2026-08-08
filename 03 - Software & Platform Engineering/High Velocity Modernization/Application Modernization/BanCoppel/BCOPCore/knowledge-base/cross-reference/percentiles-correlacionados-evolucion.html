@@ -51,10 +51,19 @@ svg text{fill:var(--muted2);font-size:10px} .axis path{stroke:none} .axis line{s
 .legend span{display:inline-flex;align-items:center;gap:6px} .sw{width:18px;height:3px;display:inline-block;border-radius:2px}
 .note{font-size:10px;color:var(--muted2);margin-top:18px;line-height:1.6}
 footer{text-align:center;padding:36px 0 8px;font-size:11px;color:var(--muted2);border-top:1px solid rgba(255,255,255,.06);margin-top:30px}
+#tt{position:fixed;z-index:100;pointer-events:none;opacity:0;transition:opacity .12s;
+ background:rgba(6,10,26,.97);border:1px solid var(--glassb);border-radius:12px;padding:9px 12px;
+ box-shadow:0 16px 44px rgba(0,0,0,.6);font-size:12px;color:var(--ink)}
+#tt .tm{font-size:10px;color:var(--muted2);letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px}
+#tt .tr{display:flex;align-items:center;gap:7px;white-space:nowrap}
+#tt .tdot{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+#tt .tv{font-weight:800;font-variant-numeric:tabular-nums;margin-left:16px}
+svg circle.pt{transition:r .1s}
 @media(max-width:920px){.panels{grid-template-columns:1fr}}
 </style></head><body>
 <div class="aurora"><div class="blob"></div></div>
 <div class="grain"></div>
+<div id="tt"></div>
 <div class="hero-bar">
   <img src="../../portal/bancoppel-logo.png" alt="BanCoppel">
   <div class="hb-sep"></div>
@@ -105,7 +114,16 @@ document.getElementById("kpis").innerHTML=`
 // mismo dominio Y en ambos paneles de canal
 const yMaxCh=d3.max(M,m=>d3.max([m.sp70,m.sp90,m.spCap,m.eg70,m.eg90,m.egCap]))*1.12;
 
-function chart(id,keys,cols,ymaxVal,fmt,H){
+const tip=document.getElementById("tt");
+function showTip(ev,mes,color,label,valStr){
+ tip.style.opacity=1;
+ tip.style.left=Math.min(ev.clientX+14,window.innerWidth-190)+"px";
+ tip.style.top=(ev.clientY-14)+"px";
+ tip.innerHTML=`<div class="tm">${mes}</div><div class="tr"><span class="tdot" style="background:${color}"></span><span>${label}</span><span class="tv">${valStr}</span></div>`;
+}
+function hideTip(){tip.style.opacity=0;}
+
+function chart(id,keys,cols,labels,ymaxVal,fmt,tf,H){
  d3.select("#"+id+" svg").remove();
  const W=document.getElementById(id).offsetWidth||560,Mg={top:12,right:16,bottom:26,left:52};
  const w=W-Mg.left-Mg.right,h=H-Mg.top-Mg.bottom;
@@ -118,15 +136,24 @@ function chart(id,keys,cols,ymaxVal,fmt,H){
  for(const[mk,txt] of Object.entries(DATA.hitos)){const dx=pM(mk);if(!dx)continue;
   svg.append("line").attr("x1",x(dx)).attr("x2",x(dx)).attr("y1",0).attr("y2",h).attr("stroke","var(--yellow)").attr("stroke-dasharray","3,3").attr("opacity",.4);
   svg.append("text").attr("x",x(dx)+3).attr("y",10).attr("font-size",8).attr("fill","var(--yellow)").attr("opacity",.7).text(txt);}
- keys.forEach((k,i)=>{svg.append("path").datum(M).attr("fill","none").attr("stroke",cols[i]).attr("stroke-width",2.2)
-  .attr("d",d3.line().x(m=>x(m.D)).y(m=>y(m[k])));
-  svg.selectAll(".d"+id+i).data(M).join("circle").attr("cx",m=>x(m.D)).attr("cy",m=>y(m[k])).attr("r",2.4).attr("fill",cols[i]);});
+ keys.forEach((k,i)=>{
+  svg.append("path").datum(M).attr("fill","none").attr("stroke",cols[i]).attr("stroke-width",2.2)
+   .attr("d",d3.line().x(m=>x(m.D)).y(m=>y(m[k])));
+  svg.selectAll(".pt"+id+i).data(M).join("circle").attr("class","pt").attr("cx",m=>x(m.D)).attr("cy",m=>y(m[k]))
+   .attr("r",2.8).attr("fill",cols[i]).attr("stroke","#060a1a").attr("stroke-width",1);
+  svg.selectAll(".ht"+id+i).data(M).join("circle").attr("cx",m=>x(m.D)).attr("cy",m=>y(m[k]))
+   .attr("r",9).attr("fill","transparent").style("cursor","pointer")
+   .on("mouseenter",function(ev,m){d3.select(this).attr("r",6).attr("fill",cols[i]).attr("fill-opacity",.22);})
+   .on("mousemove",(ev,m)=>showTip(ev,m.mes,cols[i],labels[i],tf(m[k])))
+   .on("mouseleave",function(){d3.select(this).attr("r",9).attr("fill","transparent");hideTip();});
+ });
 }
 function draw(){
- const kf=d=>(d/1000).toFixed(1)+"k";
- chart("chartSP",["sp70","sp90","spCap"],["#818ab0","#F0D224","#ff6b6b"],yMaxCh,kf,280);
- chart("chartEG",["eg70","eg90","egCap"],["#818ab0","#F0D224","#ff6b6b"],yMaxCh,kf,280);
- chart("chart2",["riesgo"],["#34d399"],d3.max(M,m=>m.riesgo)*1.2,d=>d+"%",170);
+ const kf=d=>(d/1000).toFixed(1)+"k", kt=v=>v.toLocaleString()+" txn/min", pf=v=>v+"%";
+ const L=["P70 (alerta)","P90 (incidencia)","Capacidad top-5 (5 min)"];
+ chart("chartSP",["sp70","sp90","spCap"],["#818ab0","#F0D224","#ff6b6b"],L,yMaxCh,kf,kt,280);
+ chart("chartEG",["eg70","eg90","egCap"],["#818ab0","#F0D224","#ff6b6b"],L,yMaxCh,kf,kt,280);
+ chart("chart2",["riesgo"],["#34d399"],["Zona de riesgo"],d3.max(M,m=>m.riesgo)*1.2,pf,pf,170);
 }
 draw();window.addEventListener("resize",draw);
 document.getElementById("note").innerHTML=`Percentiles correlacionados (ventana 5 min, todos los dias 07–23h) &middot; P70/P90 <b>por canal, sin combinar</b> &middot; capacidad demostrada = top-5 de concurrencia sostenida sin caida, en ventanas de 5 min &middot; la zona de riesgo (ambos &ge; su P70 a la vez) es la lente correlacionada &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
