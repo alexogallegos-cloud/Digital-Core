@@ -143,18 +143,19 @@ Serie de 7 incidentes documentados en `knowledge-base/incidentes/`. Todos involu
 Este DT gobierna el **cálculo de percentiles correlacionados**: SPEI y el Autorizador compiten
 por el mismo Informix (recurso compartido) y —al tener perfil intradía casi idéntico (r≈0.99)—
 sus picos coinciden en el tiempo, sin diversificarse y apilándose sobre el Informix. Medición en
-ventanas de 5 min (carga sostenida, no ráfagas de 1 min).
+ventanas de 5 min (carga sostenida, no ráfagas de 1 min), **todos los días** (hábiles y no hábiles
+— ambos canales operan el fin de semana), horario operativo 07–23h.
 
 - **P70/P90 por canal, por separado — sin combinado**: cada canal conserva su propio P70 (alerta)
   y P90 (incidencia); no se suman. Lo que hace correlacionado al método es la **co-ocurrencia**:
   **zona de riesgo** = ambos canales ≥ su propio P70 a la vez; **incidencia inminente** = ambos ≥
   su P90; **top-5 concurrencia sin caída en ventanas de 5 min** = capacidad demostrada por canal.
-- **Umbrales actuales (julio 2026, txn/min)**: SPEI P70 **2,093** / P90 **2,459**; Autorizador
-  P70 **2,990** / P90 **3,172**; zona de riesgo **20.4%** del tiempo operativo; r=**0.82**.
-  Capacidad sostenida demostrada (top-5): Autorizador **~3,240** (coincide con el SLA e-Global de
-  3,240 txn/min de la arquitectura AS-IS) y SPEI **~3,850**.
-- **Evolución 2025→2026**: SPEI P70 +35% (1,556→2,093, ~+20%/año), Autorizador P70 +21%
-  (2,481→2,990, ~+9%/año) por el crecimiento orgánico; cada canal cruza su P70/P90 cada vez más
+- **Umbrales actuales (julio 2026, txn/min)**: SPEI P70 **2,055** / P90 **2,440**; Autorizador
+  P70 **2,983** / P90 **3,184**; zona de riesgo **20.6%** del tiempo operativo; r=**0.77**.
+  Capacidad sostenida demostrada (top-5): Autorizador **~3,262** (coincide con el SLA e-Global de
+  3,240 txn/min de la arquitectura AS-IS) y SPEI **~3,833**.
+- **Evolución 2025→2026**: SPEI P70 +34% (1,529→2,055, ~+19%/año), Autorizador P70 +20%
+  (2,491→2,983, ~+9%/año) por el crecimiento orgánico; cada canal cruza su P70/P90 cada vez más
   seguido y la zona de riesgo se ensancha → se come el margen del Informix actual. Argumento
   cuantitativo de capacidad para la migración.
 - **SPEI mete las ráfagas** (dispersiones de nómina/lotes, cola pesada), el **Autorizador aporta

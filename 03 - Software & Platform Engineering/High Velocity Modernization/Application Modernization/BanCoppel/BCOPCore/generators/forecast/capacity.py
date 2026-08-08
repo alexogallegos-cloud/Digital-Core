@@ -154,7 +154,8 @@ def correlated_percentiles(root, cal, d0, d1, w=5, op=(7, 23), top_n=5, _egm=Non
     CALCULO DE PERCENTILES CORRELACIONADOS.
     Carga que SPEI y Autorizador ejercen SIMULTANEAMENTE sobre Informix (recurso compartido),
     en ventanas de `w` minutos (carga sostenida; suaviza rafagas de 1 min de las que el sistema
-    se restablece). Devuelve, para el periodo [d0, d1], dias habiles y horario operativo `op`:
+    se restablece). Devuelve, para el periodo [d0, d1], TODOS los dias (habiles y no habiles —
+    SPEI y el Autorizador operan el fin de semana) y horario operativo `op`:
       - P70/P90 por canal (umbral de alerta) y su suma
       - zona de riesgo = % de ventanas con AMBOS >= su P70; incidencia = AMBOS >= su P90
       - correlacion minuto-ventana entre canales
@@ -173,7 +174,7 @@ def correlated_percentiles(root, cal, d0, d1, w=5, op=(7, 23), top_n=5, _egm=Non
     def ventanas(dic):
         acc = defaultdict(list)
         for (d, m), v in dic.items():
-            if d0 <= d <= d1 and cal.is_business_day(d) and op[0]*60 <= m < op[1]*60:
+            if d0 <= d <= d1 and op[0]*60 <= m < op[1]*60:   # todos los dias (habiles y no habiles)
                 acc[(d, m // w)].append(v)
         return {k: float(np.mean(vs)) for k, vs in acc.items() if len(vs) == w}
 
