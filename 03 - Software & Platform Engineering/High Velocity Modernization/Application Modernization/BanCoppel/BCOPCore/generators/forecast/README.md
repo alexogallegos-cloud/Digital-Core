@@ -29,6 +29,21 @@ Genera, en `knowledge-base/cross-reference/`:
 - `forecast-series-diaria.csv` — **serie diaria consumible**: pasado (real + ajustado) y futuro
   (proyección + banda) por canal. El entregable para dimensionar/planear día a día.
 
+## Generadores adicionales (capacidad y curvas)
+
+Mismo pipeline, ejecutables aparte, todos regenerables con datos nuevos:
+
+- `python generators/build-capacity-spei.py` — percentiles de carga (P70/P90/P99/Max txn/min)
+  mes a mes + detección de ráfagas → `capacity-percentiles-*.{md,html,json}`.
+- `python generators/build-percentiles-correlacionados.py` — **percentiles correlacionados**
+  (carga simultánea SPEI+Autorizador sobre Informix, ventanas 5 min): umbrales P70/P90 por canal
+  y combinados, zona de riesgo, capacidad demostrada, evolución mensual →
+  `percentiles-correlacionados.{md,json}` + `-evolucion.html`. Método en `capacity.py::correlated_percentiles`.
+- `python generators/build-curvas-intradia.py` — **dashboard navegable** de la curva intradía
+  (txn/min 00:00–23:59) de cualquier día de 2025-2026: perfil intradía × volumen (real donde hay
+  dato, proyectado después), con selector de fecha y filtros por canal →
+  `curvas-intradia-navegable.html`. Perfiles en `capacity.py::intraday_profiles`.
+
 ## Cómo alimentar datos nuevos
 
 1. **Nueva fuente de datos** → agregar una entrada a `SOURCES` en `data_sources.py`

@@ -121,6 +121,34 @@ def monthly(daily):
     return rows
 
 
+def intraday_profiles(root, cal, bins=288):
+    """Perfil intradia NORMALIZADO (suma=1) por canal y tipo de dia (habil/finde), en `bins`
+    intervalos (288 = cada 5 min). Reconstruye la curva de cualquier dia: txn/min[bin] =
+    perfil[bin] * volumen_diario / (1440/bins)."""
+    import numpy as np
+    step = 1440 // bins
+    out = {}
+    for ch in ("eglobal", "spei"):
+        by_day = load_minute_channel(root, ch)
+        out[ch] = {}
+        for tipo, cond in (("habil", lambda d: cal.is_business_day(d)),
+                           ("finde", lambda d: not cal.is_business_day(d))):
+            acc = np.zeros(bins); n = 0
+            for d, mins in by_day.items():
+                if len(mins) < 1400 or not cond(d):
+                    continue
+                b = np.zeros(bins)
+                for mod, v in mins:
+                    if 0 <= mod < 1440:
+                        b[mod // step] += v
+                tot = b.sum()
+                if tot < 100_000:
+                    continue
+                acc += b / tot; n += 1
+            out[ch][tipo] = (acc / max(n, 1)).tolist()
+    return out
+
+
 def correlated_percentiles(root, cal, d0, d1, w=5, op=(7, 23), top_n=5, _egm=None, _spm=None):
     """
     CALCULO DE PERCENTILES CORRELACIONADOS.
