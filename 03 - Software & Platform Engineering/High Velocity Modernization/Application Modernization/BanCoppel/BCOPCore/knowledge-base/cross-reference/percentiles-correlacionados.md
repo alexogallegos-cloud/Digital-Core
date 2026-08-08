@@ -1,7 +1,7 @@
 # Percentiles Correlacionados — SPEI y Autorizador sobre Informix
 > **Fuente**: pipeline `generators/build-percentiles-correlacionados.py` (+ `forecast/capacity.py`)
 > **DT dueño**: `dt/dt-autorizador-pagos/` · co-ref `dt/dt-spei/`, `dt/dt-riesgos/`
-> **Versión**: 2.1.0 (P70/P90/P99 sobre el **pico diario**; P99 = techo del día peor) · regenerable con `python generators/build-percentiles-correlacionados.py`
+> **Versión**: 2.3.0 (percentiles OFICIALES del canal = máx histórico de P70/P90) · regenerable con `python generators/build-percentiles-correlacionados.py`
 
 ## Metodología
 
@@ -28,12 +28,22 @@ es confiable. Los P70/P90 (más robustos) se muestran en toda la serie.
 > en el tiempo (mismo perfil intradía, r≈0.99), no se diversifican y la carga se apila sobre Informix.
 > **Zona de riesgo** = ambos canales ≥ su P70 a la vez.
 
-## Umbrales actuales (último mes 2026-07) — por canal
+## Percentiles OFICIALES por canal (máx histórico) — umbrales de referencia
+
+Son la cifra oficial del canal: el **máximo histórico** de cada umbral sobre la evolución (el mismo
+valor que dibuja curvas intradía como líneas de referencia). El P70 (alerta) y el P90 (incidente)
+son los **percentiles oficiales** para operación; el P99 es el techo de dimensionamiento.
 
 | Canal | P70 (alerta) | P90 (incidente) | P99 (techo) |
 |-------|-------------|------------------|-------------|
-| SPEI | 2,464 | 2,633 | 3,193 |
-| Autorizador | 3,319 | 3,391 | 3,440 |
+| SPEI | 2,547 | 2,982 | 3,815 |
+| Autorizador | 3,319 | 3,601 | 3,513 |
+
+> Autorizador: su P90 y P99 quedan al mismo nivel (~3,600) porque **topa un techo real** y su carga
+> está censurada en los picos (ver DT-Autorizador y `growth-forecast-autorizador-spei.md`).
+
+Último mes (2026-07), como referencia de la tendencia: SPEI P70/P90 2,464/2,633,
+Autorizador 3,319/3,391.
 
 El Informix/Aurora target se dimensiona contra el **P99** de cada canal (el techo sostenido), no
 contra el promedio. El pico absoluto puntual (p.ej. aguinaldo) es un outlier P100 por encima del P99.

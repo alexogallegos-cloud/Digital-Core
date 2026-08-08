@@ -167,9 +167,11 @@ combinado** (no se suman); **todos los días** (hábiles y no hábiles — ambos
   Autorizador **3,319 / 3,391 / 3,440** (band tight = pegado a su techo). El target Informix/Aurora se
   dimensiona contra el **P99** de cada canal. El máximo absoluto del mes es un outlier por encima del P99:
   se guarda como `max_1h` pero **no se grafica**.
-- **KPI del dashboard = MÁX HISTÓRICO de P70/P90** por canal (mismo cálculo que las líneas de referencia
-  de curvas intradía: `max` sobre la evolución): SPEI **2,547 / 2,982**; Autorizador **3,319 / 3,601**.
-  El headline del KPI es el P99 techo del último mes.
+- **Percentiles OFICIALES del canal = MÁX HISTÓRICO de P70/P90** (mismo cálculo que las líneas de
+  referencia de curvas intradía: `max` sobre la evolución; bloque `oficiales` en el JSON): SPEI
+  **P70/P90 = 2,547 / 2,982**; Autorizador **3,319 / 3,601**. Son la **cifra oficial** del canal (P70
+  alerta, P90 incidente) y es lo que el **KPI del dashboard muestra como headline** (reemplazó al P99).
+  Techo P99 oficial (máx hist): SPEI **3,815**; Autorizador **3,513** (≈ su P90 por censura en el techo).
 - **Zona de riesgo** = ambos canales ≥ su P70 a la vez (lente correlacionada).
 - **Evolución**: los umbrales suben con el crecimiento orgánico (SPEI ~+18%/año, Autorizador
   ~+11%/año) → cada canal cruza sus umbrales cada vez más seguido y se come el margen del Informix

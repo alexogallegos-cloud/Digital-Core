@@ -114,25 +114,40 @@ def main():
               f"riesgo={r['pct_zona_riesgo']:>4}% r={r['correlacion']}")
 
     actual = meses[-1]
+    # PERCENTILES OFICIALES por canal = maximo historico de cada umbral sobre la evolucion (mismo criterio
+    # que las lineas de referencia de curvas intradia). Son la cifra de referencia del canal: P70 alerta,
+    # P90 incidente. (P99 techo se incluye para dimensionamiento.)
+    def _maxhist(ch, k):
+        vals = [m[k][ch] for m in meses if m[k][ch] is not None]
+        return max(vals) if vals else None
+    oficiales = {ch: {"p70": _maxhist(ch, "p70"), "p90": _maxhist(ch, "p90"), "p99": _maxhist(ch, "p99")}
+                 for ch in ("spei", "eglobal")}
+    print(f"  percentiles OFICIALES (max hist): SPEI P70/P90={oficiales['spei']['p70']:,}/{oficiales['spei']['p90']:,} | "
+          f"Aut P70/P90={oficiales['eglobal']['p70']:,}/{oficiales['eglobal']['p90']:,}")
     report = {"metodologia": "percentiles correlacionados por canal (SPEI y Autorizador), sin combinado, todos los dias 13-22h; "
               "P70/P90/P99 sobre el PICO DIARIO (hora de mayor carga sostenida de cada dia, ventana de 1 h; percentil sobre los dias del mes): "
               "P99=techo (pico diario superado 1% de los dias=dia peor), P90=incidente (10% de dias), P70=alerta (30% de dias); "
               "P99 solo desde el leak-fix (mes>=2026-03); pre-fix el pico diario esta contaminado por encolamientos + connection leak; "
-              "zona de riesgo = ambos canales >= su P70 a la vez",
+              "zona de riesgo = ambos canales >= su P70 a la vez. "
+              "PERCENTILES OFICIALES del canal = maximo historico de P70/P90 (bloque 'oficiales'), = lineas de referencia de curvas intradia",
               "pico_confiable_desde": PICO_CONFIABLE_DESDE,
+              "oficiales": oficiales,
               "actual": actual, "evolucion": meses}
     (OUT / "percentiles-correlacionados.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    _render_md(meses, actual, OUT / "percentiles-correlacionados.md")
+    _render_md(meses, actual, oficiales, OUT / "percentiles-correlacionados.md")
     _render_html(meses, actual, OUT / "percentiles-correlacionados-evolucion.html")
     print("\n[OK] Percentiles correlacionados generados.")
 
 
-def _render_md(meses, a, path):
+def _render_md(meses, a, oficiales, path):
     def _f99(m, ch):
         v = m.get("p99", {}).get(ch)
         return f"{v:,}" if v else "—"
+    def _of(ch, k):
+        v = oficiales[ch][k]
+        return f"{v:,}" if v is not None else "—"
     filas = "\n".join(
         f"| {m['mes']} | {m['p70']['spei']:,} | {m['p90']['spei']:,} | {_f99(m,'spei')} | "
         f"{m['p70']['eglobal']:,} | {m['p90']['eglobal']:,} | {_f99(m,'eglobal')} |"
@@ -140,7 +155,7 @@ def _render_md(meses, a, path):
     md = f"""# Percentiles Correlacionados — SPEI y Autorizador sobre Informix
 > **Fuente**: pipeline `generators/build-percentiles-correlacionados.py` (+ `forecast/capacity.py`)
 > **DT dueño**: `dt/dt-autorizador-pagos/` · co-ref `dt/dt-spei/`, `dt/dt-riesgos/`
-> **Versión**: 2.1.0 (P70/P90/P99 sobre el **pico diario**; P99 = techo del día peor) · regenerable con `python generators/build-percentiles-correlacionados.py`
+> **Versión**: 2.3.0 (percentiles OFICIALES del canal = máx histórico de P70/P90) · regenerable con `python generators/build-percentiles-correlacionados.py`
 
 ## Metodología
 
@@ -167,12 +182,22 @@ es confiable. Los P70/P90 (más robustos) se muestran en toda la serie.
 > en el tiempo (mismo perfil intradía, r≈0.99), no se diversifican y la carga se apila sobre Informix.
 > **Zona de riesgo** = ambos canales ≥ su P70 a la vez.
 
-## Umbrales actuales (último mes {a['mes']}) — por canal
+## Percentiles OFICIALES por canal (máx histórico) — umbrales de referencia
+
+Son la cifra oficial del canal: el **máximo histórico** de cada umbral sobre la evolución (el mismo
+valor que dibuja curvas intradía como líneas de referencia). El P70 (alerta) y el P90 (incidente)
+son los **percentiles oficiales** para operación; el P99 es el techo de dimensionamiento.
 
 | Canal | P70 (alerta) | P90 (incidente) | P99 (techo) |
 |-------|-------------|------------------|-------------|
-| SPEI | {a['p70']['spei']:,} | {a['p90']['spei']:,} | {_f99(a,'spei')} |
-| Autorizador | {a['p70']['eglobal']:,} | {a['p90']['eglobal']:,} | {_f99(a,'eglobal')} |
+| SPEI | {_of('spei','p70')} | {_of('spei','p90')} | {_of('spei','p99')} |
+| Autorizador | {_of('eglobal','p70')} | {_of('eglobal','p90')} | {_of('eglobal','p99')} |
+
+> Autorizador: su P90 y P99 quedan al mismo nivel (~3,600) porque **topa un techo real** y su carga
+> está censurada en los picos (ver DT-Autorizador y `growth-forecast-autorizador-spei.md`).
+
+Último mes ({a['mes']}), como referencia de la tendencia: SPEI P70/P90 {a['p70']['spei']:,}/{a['p90']['spei']:,},
+Autorizador {a['p70']['eglobal']:,}/{a['p90']['eglobal']:,}.
 
 El Informix/Aurora target se dimensiona contra el **P99** de cada canal (el techo sostenido), no
 contra el promedio. El pico absoluto puntual (p.ej. aguinaldo) es un outlier P100 por encima del P99.
@@ -304,12 +329,12 @@ M.forEach(m=>{{m.D=pD(m.x);
   m.sp70=m.p70.spei;   m.sp90=m.p90.spei;   m.sp99=m.p99.spei;
   m.eg70=m.p70.eglobal;m.eg90=m.p90.eglobal;m.eg99=m.p99.eglobal;}});
 const a=M[M.length-1];
-// P70/P90 = MAXIMO HISTORICO por canal (mismo calculo que las lineas de referencia de curvas intradia: max sobre la evolucion)
+// PERCENTILES OFICIALES por canal = MAXIMO HISTORICO de P70/P90 (mismo calculo que las lineas de referencia de curvas intradia)
 const mxSp70=d3.max(M,m=>m.sp70), mxSp90=d3.max(M,m=>m.sp90);
 const mxEg70=d3.max(M,m=>m.eg70), mxEg90=d3.max(M,m=>m.eg90);
 document.getElementById("kpis").innerHTML=`
-<div class="kpi glass"><div class="val" style="color:#38bdf8">${{(a.sp99||0).toLocaleString()}}</div><div class="lbl">SPEI — P99 techo (${{a.mes}}) &middot; P70/P90 máx hist. ${{mxSp70.toLocaleString()}} / ${{mxSp90.toLocaleString()}}</div></div>
-<div class="kpi glass"><div class="val" style="color:#38bdf8">${{(a.eg99||0).toLocaleString()}}</div><div class="lbl">Autorizador — P99 techo (${{a.mes}}) &middot; P70/P90 máx hist. ${{mxEg70.toLocaleString()}} / ${{mxEg90.toLocaleString()}}</div></div>`;
+<div class="kpi glass"><div class="val" style="color:#38bdf8">${{mxSp70.toLocaleString()}} / ${{mxSp90.toLocaleString()}}</div><div class="lbl">SPEI — P70 / P90 oficiales (máx histórico · txn/min)</div></div>
+<div class="kpi glass"><div class="val" style="color:#38bdf8">${{mxEg70.toLocaleString()}} / ${{mxEg90.toLocaleString()}}</div><div class="lbl">Autorizador — P70 / P90 oficiales (máx histórico · txn/min)</div></div>`;
 
 const tip=document.getElementById("tt");
 function showTip(ev,mes,color,label,valStr){{
