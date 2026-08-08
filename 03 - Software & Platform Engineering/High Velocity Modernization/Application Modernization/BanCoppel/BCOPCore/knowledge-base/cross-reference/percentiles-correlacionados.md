@@ -1,7 +1,7 @@
 # Percentiles Correlacionados — SPEI y Autorizador sobre Informix
 > **Fuente**: pipeline `generators/build-percentiles-correlacionados.py` (+ `forecast/capacity.py`)
 > **DT dueño**: `dt/dt-autorizador-pagos/` · co-ref `dt/dt-spei/`, `dt/dt-riesgos/`
-> **Versión**: 2.1.0 (P70/P90/P99 sobre el **pico diario**; P99 = techo del día peor) · regenerable con `python generators/build-percentiles-correlacionados.py`
+> **Versión**: 2.2.0 (P99 = techo medido sobre el pico diario; P90/P70 derivados proporcionalmente) · regenerable con `python generators/build-percentiles-correlacionados.py`
 
 ## Metodología
 
@@ -11,18 +11,17 @@ interés). **Todos los días** (SPEI y el Autorizador operan también el fin de 
 operativo **13–22h**. Evolución **mensual**; el rango de meses se **auto-detecta** de los datos
 (meses con ≥15 días completos), así que se extiende solo al cargar datos nuevos.
 
-Los tres umbrales se calculan sobre el **pico diario**: para cada día se toma su **hora de mayor
-carga sostenida** (mayor ventana de 1 h, promedio txn/min sobre 60 min, 13–22h), y los percentiles
-se sacan sobre esos picos diarios del mes. Así los tres viven en el **régimen de carga alta** (no
-diluidos por las horas medias del día):
+**El P99 es el techo medido**, y **P90/P70 se derivan proporcionalmente de él**:
 
-- **P99 — techo**: el pico diario se supera solo **1% de los días** (el día peor); no se debe
-  alcanzar de forma nominal. Es el ancla de dimensionamiento del target.
-- **P90 — incidente**: superado **10% de los días**. **P70 — alerta**: superado **30% de los días**.
+- **P99 — techo**: el **pico diario** — la **hora de mayor carga sostenida** de cada día (mayor
+  ventana de 1 h, promedio txn/min sobre 60 min, 13–22h) — superado solo **1% de los días** (el día
+  peor). No se debe alcanzar de forma nominal. Es el ancla de dimensionamiento del target.
+- **P90 — incidente** = **P99 × 90/99**. **P70 — alerta** = **P99 × 70/99**. Band uniforme y
+  predecible bajo el techo, independiente de la forma real de la distribución.
 
-El **P99 solo se muestra desde el leak-fix de mar-2026** (régimen confiable): antes, el pico diario
-está contaminado por los encolamientos y el connection leak (INC-20251223), así que su cola alta no
-es confiable. Los P70/P90 (más robustos) se muestran en toda la serie.
+El **techo (P99) solo se muestra desde el leak-fix de mar-2026** (régimen confiable): antes, el pico
+diario está contaminado por los encolamientos y el connection leak (INC-20251223), así que no es
+confiable. En pre-fix se muestran los P70/P90 **medidos** del pico diario como contexto (sin techo).
 
 > La **correlación** es lo que hace correlacionado al método: los picos de ambos canales coinciden
 > en el tiempo (mismo perfil intradía, r≈0.99), no se diversifican y la carga se apila sobre Informix.
@@ -32,8 +31,8 @@ es confiable. Los P70/P90 (más robustos) se muestran en toda la serie.
 
 | Canal | P70 (alerta) | P90 (incidente) | P99 (techo) |
 |-------|-------------|------------------|-------------|
-| SPEI | 2,464 | 2,633 | 3,193 |
-| Autorizador | 3,319 | 3,391 | 3,440 |
+| SPEI | 2,258 | 2,903 | 3,193 |
+| Autorizador | 2,432 | 3,127 | 3,440 |
 
 El Informix/Aurora target se dimensiona contra el **P99** de cada canal (el techo sostenido), no
 contra el promedio. El pico absoluto puntual (p.ej. aguinaldo) es un outlier P100 por encima del P99.
@@ -56,11 +55,11 @@ contra el promedio. El pico absoluto puntual (p.ej. aguinaldo) es un outlier P10
 | 2025-12 | 2,547 | 2,870 | — | 3,148 | 3,601 | — |
 | 2026-01 | 2,207 | 2,843 | — | 2,916 | 3,018 | — |
 | 2026-02 | 2,276 | 2,914 | — | 3,014 | 3,254 | — |
-| 2026-03 | 2,443 | 2,730 | 3,074 | 3,176 | 3,293 | 3,393 |
-| 2026-04 | 2,376 | 2,951 | 3,815 | 3,162 | 3,281 | 3,350 |
-| 2026-05 | 2,443 | 2,911 | 3,462 | 3,237 | 3,334 | 3,386 |
-| 2026-06 | 2,469 | 2,727 | 3,579 | 3,261 | 3,429 | 3,513 |
-| 2026-07 | 2,464 | 2,633 | 3,193 | 3,319 | 3,391 | 3,440 |
+| 2026-03 | 2,174 | 2,795 | 3,074 | 2,399 | 3,085 | 3,393 |
+| 2026-04 | 2,697 | 3,468 | 3,815 | 2,369 | 3,045 | 3,350 |
+| 2026-05 | 2,448 | 3,147 | 3,462 | 2,394 | 3,078 | 3,386 |
+| 2026-06 | 2,531 | 3,254 | 3,579 | 2,484 | 3,194 | 3,513 |
+| 2026-07 | 2,258 | 2,903 | 3,193 | 2,432 | 3,127 | 3,440 |
 
 > Los umbrales de cada canal suben con el crecimiento orgánico; cada canal cruza sus umbrales cada
 > vez más seguido y se come el margen del Informix actual. Es el argumento cuantitativo de capacidad
@@ -68,6 +67,6 @@ contra el promedio. El pico absoluto puntual (p.ej. aguinaldo) es un outlier P10
 
 ---
 
-*v2.1.0 · Generado por generators/build-percentiles-correlacionados.py · P70/P90/P99 por canal
-sobre el **pico diario** (hora de mayor carga sostenida de cada día; P99 = techo del día peor) ·
-evolución mensual · gráfica en `percentiles-correlacionados-evolucion.html`.*
+*v2.2.0 · Generado por generators/build-percentiles-correlacionados.py · P99 = techo medido (pico
+diario, día peor); P90 = P99×90/99, P70 = P99×70/99 · por canal · evolución mensual · gráfica en
+`percentiles-correlacionados-evolucion.html`.*
