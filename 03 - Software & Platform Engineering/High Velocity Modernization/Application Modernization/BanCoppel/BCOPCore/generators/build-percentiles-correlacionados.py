@@ -255,15 +255,8 @@ svg circle.pt{{transition:r .1s}}
   <div class="legend">
     <span><span class="sw" style="background:var(--p70)"></span>P70 (riesgo)</span>
     <span><span class="sw" style="background:var(--p90)"></span>P90 (incidente)</span>
+    <span><span class="sw" style="background:#38bdf8"></span>pico máx procesado (5 min)</span>
     <span><span class="sw" style="background:#ff6b6b;opacity:.4"></span>periodo de 7 encolamientos (nov'25–ene'26)</span>
-  </div>
-  <div class="panel glass" style="margin-top:20px">
-    <div class="panel-head"><span class="panel-name">Pico máximo procesado por mes</span><span class="panel-tag">máx ventana 5 min · txn/min</span></div>
-    <div id="chartMax"></div>
-    <div class="legend">
-      <span><span class="sw" style="background:#34d399"></span>SPEI</span>
-      <span><span class="sw" style="background:#6f8ce6"></span>Autorizador / E-Global</span>
-    </div>
   </div>
   <div class="note" id="note"></div>
 </div>
@@ -325,16 +318,15 @@ function chart(id,keys,cols,labels,ymaxVal,fmt,tf,H,dashes){{
 }}
 function draw(){{
  const kf=d=>(d/1000).toFixed(1)+"k", kt=v=>v.toLocaleString()+" txn/min";
- const L=["P70 (riesgo)","P90 (incidente)"];
- const C=["#818ab0","#F0D224"];
- const yMax=d3.max(M,m=>d3.max([m.sp70,m.sp90,m.eg70,m.eg90]))*1.12;
- chart("chartSP",["sp70","sp90"],C,L,yMax,kf,kt,300);
- chart("chartEG",["eg70","eg90"],C,L,yMax,kf,kt,300);
- const yMaxMx=d3.max(M,m=>d3.max([m.mxsp,m.mxeg]))*1.10;
- chart("chartMax",["mxsp","mxeg"],["#34d399","#6f8ce6"],["SPEI (pico máx 5 min)","Autorizador (pico máx 5 min)"],yMaxMx,kf,kt,240);
+ const L=["P70 (riesgo)","P90 (incidente)","Pico máx procesado (5 min)"];
+ const C=["#818ab0","#F0D224","#38bdf8"];
+ const yMaxSP=d3.max(M,m=>d3.max([m.sp70,m.sp90,m.mxsp]))*1.10;
+ const yMaxEG=d3.max(M,m=>d3.max([m.eg70,m.eg90,m.mxeg]))*1.10;
+ chart("chartSP",["sp70","sp90","mxsp"],C,L,yMaxSP,kf,kt,300);
+ chart("chartEG",["eg70","eg90","mxeg"],C,L,yMaxEG,kf,kt,300);
 }}
 draw();window.addEventListener("resize",draw);
-document.getElementById("note").innerHTML=`P70 (riesgo) y P90 (incidente) por canal, percentil sobre todas las ventanas de <b>10 min</b> (13–22h, mes a mes) &middot; banda roja = <b>${{INC.pre}} incidentes de encolamiento</b> nov'25–ene'26; leak-fix (mar) y Power 10 (jun) marcados &middot; mejora medida: encolamientos <b>${{INC.pre}}→${{INC.post}}</b>, duración <b>${{INC.dur_pre}}→${{INC.dur_post}}</b> (${{INC.impacto}} impacto) &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
+document.getElementById("note").innerHTML=`P70 (riesgo) y P90 (incidente) por canal, percentil sobre todas las ventanas de <b>10 min</b> (13–22h, mes a mes) &middot; línea cian = <b>pico máx procesado</b> (máx ventana 5 min del mes; escala Y independiente por panel — SPEI llega a ~11k) &middot; banda roja = <b>${{INC.pre}} incidentes de encolamiento</b> nov'25–ene'26; leak-fix (mar) y Power 10 (jun) marcados &middot; mejora medida: encolamientos <b>${{INC.pre}}→${{INC.post}}</b>, duración <b>${{INC.dur_pre}}→${{INC.dur_post}}</b> (${{INC.impacto}} impacto) &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
 </script></body></html>"""
     path.write_text(html, encoding="utf-8")
     print(f"  HTML: {path}")
