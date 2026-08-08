@@ -149,7 +149,7 @@ def intraday_profiles(root, cal, bins=288):
     return out
 
 
-def correlated_percentiles(root, cal, d0, d1, w=1, op=(7, 23), top_n=5, _egm=None, _spm=None):
+def correlated_percentiles(root, cal, d0, d1, w=1, op=(12, 23), top_n=5, _egm=None, _spm=None):
     """
     CALCULO DE PERCENTILES CORRELACIONADOS.
     Carga que SPEI y Autorizador ejercen SIMULTANEAMENTE sobre Informix (recurso compartido),
