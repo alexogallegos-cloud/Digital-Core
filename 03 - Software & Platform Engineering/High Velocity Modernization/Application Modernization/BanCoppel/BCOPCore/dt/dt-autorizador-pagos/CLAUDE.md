@@ -142,43 +142,37 @@ Serie de 7 incidentes documentados en `knowledge-base/incidentes/`. Todos involu
 
 Este DT gobierna el **cálculo de percentiles correlacionados**: SPEI y el Autorizador compiten
 por el mismo Informix (recurso compartido) y —al tener perfil intradía casi idéntico (r≈0.99)—
-sus picos coinciden en el tiempo, apilándose sobre el Informix. P70/P90 se miden sobre **ventanas
-promedio de 10 min** (carga sostenida), **todos los días** (hábiles y no hábiles — ambos operan el
-fin de semana), **franja horaria 13–22h** (meseta de carga alta), evolución **mensual**
-(19 meses 2025-01→2026-07).
+sus picos coinciden en el tiempo, apilándose sobre el Informix. **Por canal, por separado — sin
+combinado** (no se suman); **todos los días** (hábiles y no hábiles — ambos operan el fin de semana),
+**franja horaria 13–22h**, evolución **mensual** con rango **auto-detectado** de los datos.
 
-- **P70/P90 por canal, por separado — sin combinado**: cada canal conserva su propio P70 (alerta)
-  y P90 (incidencia); percentiles sobre TODAS las ventanas de 10 min del mes (no se suman).
-- **Capacidad demostrada = top-10 de MAYOR carga combinada** (5 min), sobre toda la data, **SIN gate
-  de percentil** (no exige que ambos estén sobre su P70) y **SIN dedup por día** (pueden repetirse
-  días); promedio por canal. **[Hallazgo documentado — el dashboard de percentiles muestra SOLO
-  P70/P90 desde 2026-08-08; la capacidad top-N sigue en el JSON pero ya no se grafica.]**
-- **Umbrales actuales (último mes jul-2026, ventana 10 min, txn/min)**: SPEI P70 **2,217** / P90 **2,542**;
-  Autorizador P70 **3,090** / P90 **3,246**.
-- **Mejora MEDIDA (no un factor derivado) — descartado el multiplicador ×k 2026-08-08.** El minxmin
-  mide throughput, no latencia/utilización, así que no contiene limpiamente la señal que cambiaron las
-  mejoras (se intentó `k = máx_sostenido ÷ P90_dic` pero era frágil/arbitrario). La mejora se cuantifica
-  con datos duros (ver `knowledge-base/autorizador/mejoras-2026.md`):
-  - **Encolamientos: 7 incidentes (29-nov-2025 → 12-ene-2026) → 0** después (feb-2026 = primer mes limpio,
-    balanceo de colas SPEI 15-feb; leak-fix 27-mar; Power 10 7-jun).
-  - **Duración de incidente: 1.5–7.5 h (nov-dic 2025) → ~18.5 min post-Power10** (recuperación ~15× más
-    rápida; **−93% de impacto económico/evento**: $663 MDP del INC-20251129 → ~$46 MDP equivalente).
-  - **Capacidad de cómputo: Power 8 → Power 10** (activo 7-jun-2026); ratio rPerf/CPW exacto para
-    dimensionar el target = `[DATO-REQUERIDO]` del SME DBA/Mainframe.
-  El dashboard grafica P70/P90 (sólidas) con la banda del periodo de 7 encolamientos y los hitos de mejora.
-- **Máximo histórico de umbrales (10 min)**: SPEI P70 **2,237** / P90 **2,712**; Autorizador P70
-  **3,090** / P90 **3,301** (en el HTML las tarjetas muestran este máx histórico).
-- **Techo de capacidad demostrada (máx del top-10 por mes, sin gate)**: SPEI **~8,827** (dic-2025,
-  aguinaldo) / Autorizador **~4,107** (abr-2025) txn/min. El pico absoluto es **18-dic-2025: SPEI
-  11,064 txn/min sostenido 5 min** (aguinaldo). En ese momento el Autorizador estaba en ~2,860 (no
-  era concurrencia — es un pico de SPEI solo), pero al quitar el gate de percentil **ahora sí cuenta**
-  en la capacidad. Para dimensionar: SPEI debe soportar ~11k en aguinaldo; el Autorizador ~4,100.
-  **El Informix target se dimensiona contra el pico de diciembre, no contra el promedio.**
-- **Evolución 2025→2026**: SPEI P70 +32% (~+18%/año), Autorizador P70 +23% (~+11%/año) por el
-  crecimiento orgánico; cada canal cruza su P70/P90 cada vez más seguido → se come el margen del
-  Informix actual. Argumento cuantitativo de capacidad para la migración.
-- **SPEI mete las ráfagas** (dispersiones de nómina/lotes, cola pesada — sobre todo aguinaldo), el
-  **Autorizador aporta la base estable** (~3,200, sin ráfagas). El target debe absorber ambas.
+- **Reencuadre P99 (2026-08-08)**: la línea azul del dashboard es el **P99 = techo de carga
+  sostenida** (percentil 99 de las ventanas de 1 h; se supera solo 1% del tiempo → no llegar
+  nominalmente; es el **ancla de dimensionamiento del target**). En el **régimen confiable**
+  (mes ≥ 2026-03, leak-fix) los tres umbrales salen de la **misma distribución de ventanas de 1 h
+  sostenida** y de ahí se **DERIVAN** P70 (alerta) y P90 (incidente). **Pre-fix** (< 2026-03):
+  P70/P90 se conservan de **ventanas de 10 min** (demanda histórica) y **no hay P99** — los 7
+  encolamientos + el connection leak (INC-20251223) distorsionan la cola alta del throughput
+  (mar-2026 a 5 min llegaba a 11,218 pero a 1 h baja a 3,075 = queue-flush, no demanda). Corte:
+  `PICO_CONFIABLE_DESDE = "2026-03"`.
+- **Umbrales actuales (jul-2026, régimen confiable, 1 h, txn/min)**: SPEI **P70/P90/P99 = 2,222 /
+  2,509 / 2,972**; Autorizador **3,075 / 3,235 / 3,393**. El target Informix/Aurora se dimensiona
+  contra el **P99** de cada canal (techo sostenido), no contra el promedio. El máximo absoluto por
+  mes (p.ej. aguinaldo dic SPEI ~6,015 a 1 h) es un outlier **P100** por encima del P99: se guarda
+  como `max_1h` de referencia pero **no se grafica**.
+- **Zona de riesgo** = ambos canales ≥ su P70 a la vez (lente correlacionada).
+- **Evolución**: los umbrales suben con el crecimiento orgánico (SPEI ~+18%/año, Autorizador
+  ~+11%/año) → cada canal cruza sus umbrales cada vez más seguido y se come el margen del Informix
+  actual. Argumento cuantitativo de capacidad para la migración.
+- **SPEI mete las ráfagas** (dispersiones de nómina/lotes — sobre todo aguinaldo), el **Autorizador
+  aporta la base estable** (~3,200, sin ráfagas). El target debe absorber ambas.
+- **Narrativa de incidentes retirada del dashboard (2026-08-08)**: se quitaron del HTML los KPI
+  "encolamientos 7→0" y "duración 1.5-7.5h→18.5min" y la frase del hero sobre la mejora; la banda
+  del periodo quedó neutral ("periodo no confiable"). Los hechos (7→0 encolamientos, duración
+  1.5-7.5h→18.5min −93%, balanceo colas 15-feb / leak-fix 27-mar / Power 10 7-jun, Power 8→Power 10
+  ratio = `[DATO-REQUERIDO]` SME DBA/Mainframe) quedan SOLO como justificación **interna** del corte
+  pre-fix, en `knowledge-base/autorizador/mejoras-2026.md`. Descartado también el multiplicador ×k
+  (el minxmin mide throughput, no latencia/utilización).
 
 **Artefactos** (regenerables con `python generators/build-percentiles-correlacionados.py`):
 `knowledge-base/cross-reference/percentiles-correlacionados.{md,json}` +
