@@ -239,15 +239,10 @@ def correlated_percentiles(root, cal, d0, d1, w=1, w_cap=5, op=(13, 22), top_n=1
     conc = [(k, vegc[k], vspc[k], comc[k]) for k in kc
             if vegc[k] >= p70e_c and vspc[k] >= p70s_c and sin_caida(k[0], k[1])]
     conc.sort(key=lambda x: -x[3])
-    top, vistos = [], set()
-    for (d, wc), e, s, c in conc:
-        if d in vistos:
-            continue
-        vistos.add(d)
+    top = []
+    for (d, wc), e, s, c in conc[:top_n]:   # top-N GENERAL (sin dedup por dia): las N ventanas mas grandes
         top.append({"fecha": str(d), "hora": f"{(wc*w_cap)//60:02d}:{(wc*w_cap)%60:02d}",
                     "eglobal": round(e), "spei": round(s), "combinada": round(c)})
-        if len(top) == top_n:
-            break
     prom = {"eglobal": round(np.mean([t["eglobal"] for t in top])) if top else 0,
             "spei": round(np.mean([t["spei"] for t in top])) if top else 0,
             "combinada": round(np.mean([t["combinada"] for t in top])) if top else 0}

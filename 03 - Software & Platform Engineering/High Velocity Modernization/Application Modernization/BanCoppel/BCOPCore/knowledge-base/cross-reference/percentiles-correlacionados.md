@@ -27,8 +27,8 @@ la alerta se mide por co-ocurrencia (ambos altos), no sumando percentiles indepe
 
 | Canal | P70 (alerta) | P90 (incidencia) | Capacidad demostrada (top-10, ventana prom. 5 min) |
 |-------|-------------|------------------|---------------------------------------------|
-| SPEI | 2,240 | 2,564 | 3,073 |
-| Autorizador | 3,129 | 3,271 | 3,282 |
+| SPEI | 2,240 | 2,564 | 4,289 |
+| Autorizador | 3,129 | 3,271 | 3,369 |
 
 - Zona de riesgo (ambos ≥ su P70 a la vez): **19.9%** del tiempo operativo.
 - Correlación intra-ventana: **r = 0.613**.
