@@ -142,40 +142,31 @@ Serie de 7 incidentes documentados en `knowledge-base/incidentes/`. Todos involu
 
 Este DT gobierna el **cálculo de percentiles correlacionados**: SPEI y el Autorizador compiten
 por el mismo Informix (recurso compartido) y —al tener perfil intradía casi idéntico (r≈0.99)—
-sus picos coinciden en el tiempo, sin diversificarse y apilándose sobre el Informix. Medición en
-ventanas de 1 min (resolución cruda por minuto: pico instantáneo, sin suavizado), **todos los días**
-(hábiles y no hábiles — ambos canales operan el fin de semana), **ventana horaria 13–22h** (meseta
-de carga alta; se excluye la rampa 07–13h para que el percentil sea representativo del pico).
-Evolución reportada **por quincena** (Q1 días 1-15, Q2 días 16-fin), 38 quincenas 2025-2026.
+sus picos coinciden en el tiempo, apilándose sobre el Informix. Todo se mide sobre **ventanas
+promedio de 5 min** (carga sostenida), **todos los días** (hábiles y no hábiles — ambos operan el
+fin de semana), **franja horaria 13–22h** (meseta de carga alta), evolución **quincenal**
+(Q1 días 1-15, Q2 16-fin; 38 quincenas 2025-2026).
 
 - **P70/P90 por canal, por separado — sin combinado**: cada canal conserva su propio P70 (alerta)
-  y P90 (incidencia); no se suman. Lo que hace correlacionado al método es la **co-ocurrencia**:
-  **zona de riesgo** = ambos canales ≥ su propio P70 a la vez; **incidencia inminente** = ambos ≥
-  su P90; **top-10 concurrencia sin caída en ventanas promedio de 5 min** = capacidad demostrada por canal.
-- **Umbrales actuales (última quincena jul-2026 Q2, txn/min)**: SPEI P70 **2,208** / P90 **2,619**;
-  Autorizador P70 **3,130** / P90 **3,279**; zona de riesgo **18.3%** del tiempo operativo; r=**0.54**.
-  Capacidad demostrada (top-10, promedio 5 min): Autorizador **~3,282** (coincide con el SLA e-Global de
-  3,240 txn/min de la arquitectura AS-IS) y SPEI **~3,073** (carga sostenida 5 min; su pico de 1 min llega
-  a ~6,300 en fin de mes por dispersión de nómina).
-- **Dos ventanas por diseño**: los umbrales **P70/P90 se miden a 1 min** (pico instantáneo = alerta) y la
-  **capacidad demostrada a 5 min promedio** (carga sostenida que el Informix aguantó sin caer). El P70/P90
-  es casi invariante al tamaño de ventana; la capacidad de SPEI sí baja de 1→5 min (~4,673 pico 1 min →
-  ~3,073 sostenido top-10 5 min) porque las ráfagas de nómina se promedian; el Autorizador se mantiene plano (~3,3xx, base
-  estable). La **ventana horaria** 13–22h (meseta) sube el P70/P90 ~6% vs 07–23h al excluir rampa y cola.
-  El HTML tiene un **toggle de escenario de umbral**: P70/P90 a **1 min** (pico) o a **5 min sostenido**
-  (misma ventana que la roja). A 5 min el P90 baja (SPEI máx histórico P90 3,115→2,811) porque los picos
-  de diciembre se promedian; el P70 casi no cambia (suavizar comprime hacia la mediana en la meseta).
-- **Evolución 2025→2026**: SPEI P70 +32% (1,678→2,208, ~+18%/año), Autorizador P70 +23%
-  (2,550→3,130, ~+11%/año) por el crecimiento orgánico; cada canal cruza su P70/P90 cada vez más
-  seguido y la zona de riesgo se ensancha → se come el margen del Informix actual. Argumento
-  cuantitativo de capacidad para la migración.
-- **Pico histórico = DICIEMBRE (aguinaldo)**: el máximo histórico de percentiles cae en dic-2025,
-  no en la última quincena. SPEI: máx P70 **2,300** (dic-2025 Q2) / máx P90 **3,115** (dic-2025 Q1);
-  Autorizador: máx P70 **3,130** (jul-2026 Q2) / máx P90 **3,434** (dic-2025 Q2). La temporada de
-  aguinaldo dispara las transferencias SPEI. **El Informix target debe dimensionarse contra el pico
-  de diciembre, no contra el promedio del año** — es el peor caso recurrente cada 12 meses.
-- **SPEI mete las ráfagas** (dispersiones de nómina/lotes, cola pesada), el **Autorizador aporta
-  la base estable** (~3,240, sin ráfagas). El target debe absorber ambas simultáneamente.
+  y P90 (incidencia); no se suman. La lente correlacionada es la **co-ocurrencia**: **zona de
+  riesgo** = ambos ≥ su P70 a la vez; **incidencia** = ambos ≥ su P90.
+- **Capacidad demostrada = top-10 GENERAL de ventanas de 5 min** (las 10 mayores en concurrencia
+  sin caída, **sin dedup por día** — puede haber varias del mismo día), promedio por canal.
+- **Umbrales (última quincena jul-2026 Q2, txn/min)**: SPEI P70 **2,240** / P90 **2,564**;
+  Autorizador P70 **3,129** / P90 **3,271**; zona de riesgo **19.9%**; r=**0.61**. Capacidad top-10:
+  SPEI **~4,289** / Autorizador **~3,369** (~coincide con el SLA e-Global de 3,240 de la arq. AS-IS).
+- **Máximo histórico de umbrales (5 min)**: SPEI P70 **2,269** / P90 **2,811**; Autorizador P70
+  **3,129** / P90 **3,434** (en el HTML las tarjetas muestran este máx histórico).
+- **Techo de capacidad demostrada (top-10 global 2025-2026, sin dedup)**: promedio SPEI **~7,467** /
+  Autorizador **~3,141** txn/min. **Pico absoluto: 18-dic-2025 (aguinaldo), SPEI 11,064 txn/min
+  sostenido 5 min** (combinada 14,000); **4 de las 10 mayores ventanas de todo el histórico son de
+  ese día 18:50–19:30**. **El Informix target debe dimensionarse contra el pico de diciembre (peor
+  caso recurrente anual), no contra el promedio.**
+- **Evolución 2025→2026**: SPEI P70 +32% (~+18%/año), Autorizador P70 +23% (~+11%/año) por el
+  crecimiento orgánico; cada canal cruza su P70/P90 cada vez más seguido → se come el margen del
+  Informix actual. Argumento cuantitativo de capacidad para la migración.
+- **SPEI mete las ráfagas** (dispersiones de nómina/lotes, cola pesada — sobre todo aguinaldo), el
+  **Autorizador aporta la base estable** (~3,200, sin ráfagas). El target debe absorber ambas.
 
 **Artefactos** (regenerables con `python generators/build-percentiles-correlacionados.py`):
 `knowledge-base/cross-reference/percentiles-correlacionados.{md,json}` +
