@@ -144,7 +144,7 @@ Este DT gobierna el **cálculo de percentiles correlacionados**: SPEI y el Autor
 por el mismo Informix (recurso compartido) y —al tener perfil intradía casi idéntico (r≈0.99)—
 sus picos coinciden en el tiempo, sin diversificarse y apilándose sobre el Informix. Medición en
 ventanas de 1 min (resolución cruda por minuto: pico instantáneo, sin suavizado), **todos los días**
-(hábiles y no hábiles — ambos canales operan el fin de semana), **ventana horaria 13–23h** (meseta
+(hábiles y no hábiles — ambos canales operan el fin de semana), **ventana horaria 13–22h** (meseta
 de carga alta; se excluye la rampa 07–13h para que el percentil sea representativo del pico).
 Evolución reportada **por quincena** (Q1 días 1-15, Q2 días 16-fin), 38 quincenas 2025-2026.
 
@@ -152,17 +152,17 @@ Evolución reportada **por quincena** (Q1 días 1-15, Q2 días 16-fin), 38 quinc
   y P90 (incidencia); no se suman. Lo que hace correlacionado al método es la **co-ocurrencia**:
   **zona de riesgo** = ambos canales ≥ su propio P70 a la vez; **incidencia inminente** = ambos ≥
   su P90; **top-5 concurrencia sin caída, pico por minuto** = capacidad demostrada por canal.
-- **Umbrales actuales (última quincena jul-2026 Q2, txn/min)**: SPEI P70 **2,156** / P90 **2,583**;
-  Autorizador P70 **3,110** / P90 **3,268**; zona de riesgo **19.4%** del tiempo operativo; r=**0.64**.
+- **Umbrales actuales (última quincena jul-2026 Q2, txn/min)**: SPEI P70 **2,208** / P90 **2,619**;
+  Autorizador P70 **3,130** / P90 **3,279**; zona de riesgo **18.3%** del tiempo operativo; r=**0.54**.
   Capacidad demostrada (top-5): Autorizador **~3,325** (coincide con el SLA e-Global de
   3,240 txn/min de la arquitectura AS-IS) y SPEI **~4,673** (pico crudo por minuto).
 - **Sensibilidad de la ventana**: el **P70/P90 es casi invariante al tamaño de ventana** (1–5 min,
   ±1%: es carga típica), pero la **capacidad demostrada de SPEI crece al acortar la ventana** (afloran
   las ráfagas de dispersión de nómina) mientras el Autorizador se mantiene plano (base estable). La
-  **ventana horaria sí mueve el umbral**: acortar a 13–23h (meseta) sube el P70/P90 ~5% vs 07–23h
-  porque excluye la rampa matutina. A ventana ancha se dimensiona carga sostenida; a 1 min el pico de ráfaga.
-- **Evolución 2025→2026**: SPEI P70 +33% (1,625→2,156, ~+18%/año), Autorizador P70 +23%
-  (2,535→3,110, ~+11%/año) por el crecimiento orgánico; cada canal cruza su P70/P90 cada vez más
+  **ventana horaria sí mueve el umbral**: acortar a 13–22h (meseta) sube el P70/P90 ~6% vs 07–23h
+  porque excluye la rampa matutina y la cola nocturna. A ventana ancha se dimensiona carga sostenida; a 1 min el pico de ráfaga.
+- **Evolución 2025→2026**: SPEI P70 +32% (1,678→2,208, ~+18%/año), Autorizador P70 +23%
+  (2,550→3,130, ~+11%/año) por el crecimiento orgánico; cada canal cruza su P70/P90 cada vez más
   seguido y la zona de riesgo se ensancha → se come el margen del Informix actual. Argumento
   cuantitativo de capacidad para la migración.
 - **SPEI mete las ráfagas** (dispersiones de nómina/lotes, cola pesada), el **Autorizador aporta

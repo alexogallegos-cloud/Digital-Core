@@ -57,7 +57,7 @@ def main():
             y, mo = y + 1, 1
 
     actual = meses[-1]
-    report = {"metodologia": "percentiles correlacionados (ventana 1 min, TODOS los dias 13-23h); "
+    report = {"metodologia": "percentiles correlacionados (ventana 1 min, TODOS los dias 13-22h); "
               "P70/P90 por canal por separado (SPEI y Autorizador), sin combinado; "
               "top-5 concurrencia en ventanas de 1 min = capacidad demostrada; "
               "zona de riesgo = ambos canales >= su P70 a la vez (lente correlacionada)",
@@ -87,7 +87,7 @@ def _render_md(meses, a, path):
 cruda: el pico instantáneo por minuto, sin suavizado ni buffer de restablecimiento — es la máxima
 resolución, la que el usuario originalmente evitó por no dar tiempo de recuperación). **Todos
 los días** (hábiles y no hábiles — SPEI y el Autorizador operan también el fin de semana), horario
-operativo 13–23h.
+operativo 13–22h.
 
 - **P70/P90 por canal, por separado** — cada canal conserva su propio umbral. El P70 es alerta,
   el P90 es incidencia. No se suman: la suma combinada no es la métrica de interés.
@@ -210,7 +210,7 @@ svg circle.pt{{transition:r .1s}}
 <div class="wrap">
   <div class="hero-label">Capacidad · Percentiles Correlacionados</div>
   <h1 class="hero-h1">Percentiles Correlacionados por Canal</h1>
-  <p class="hero-sub">P70 (alerta) y P90 (incidencia) de <b style="color:var(--riesgo)">SPEI</b> y del <b style="color:#9fb4ff">Autorizador</b>, <b>cada canal por separado</b>, sobre ventanas de 1 min (resolución cruda por minuto, todos los dias 13–23h). La lente correlacionada es la <b>zona de riesgo</b>: el % del tiempo con ambos canales &ge; su P70 a la vez — sus picos coinciden (r&asymp;0.99), no se diversifican y se apilan sobre el Informix.</p>
+  <p class="hero-sub">P70 (alerta) y P90 (incidencia) de <b style="color:var(--riesgo)">SPEI</b> y del <b style="color:#9fb4ff">Autorizador</b>, <b>cada canal por separado</b>, sobre ventanas de 1 min (resolución cruda por minuto, todos los dias 13–22h). La lente correlacionada es la <b>zona de riesgo</b>: el % del tiempo con ambos canales &ge; su P70 a la vez — sus picos coinciden (r&asymp;0.99), no se diversifican y se apilan sobre el Informix.</p>
   <div class="kpi-row" id="kpis"></div>
   <div class="panels">
     <div class="panel glass">
@@ -229,7 +229,6 @@ svg circle.pt{{transition:r .1s}}
     <span><span class="sw" style="background:var(--p90)"></span>P90 (incidencia)</span>
     <span><span class="sw" style="background:var(--cap)"></span>Capacidad demostrada — top-5 concurrencia (ventana 1 min)</span>
   </div>
-  <div class="section glass"><div class="section-title">Zona de riesgo correlacionada — % del tiempo con ambos canales &ge; su P70</div><div id="chart2"></div></div>
   <div class="note" id="note"></div>
 </div>
 <footer>BCOPCore · Gemelo Cognitivo del Sistema · SPE-AM-001 · Accenture México · 2026</footer>
@@ -284,14 +283,13 @@ function chart(id,keys,cols,labels,ymaxVal,fmt,tf,H){{
  }});
 }}
 function draw(){{
- const kf=d=>(d/1000).toFixed(1)+"k", kt=v=>v.toLocaleString()+" txn/min", pf=v=>v+"%";
+ const kf=d=>(d/1000).toFixed(1)+"k", kt=v=>v.toLocaleString()+" txn/min";
  const L=["P70 (alerta)","P90 (incidencia)","Capacidad top-5 (1 min)"];
  chart("chartSP",["sp70","sp90","spCap"],["#818ab0","#F0D224","#ff6b6b"],L,yMaxCh,kf,kt,280);
  chart("chartEG",["eg70","eg90","egCap"],["#818ab0","#F0D224","#ff6b6b"],L,yMaxCh,kf,kt,280);
- chart("chart2",["riesgo"],["#34d399"],["Zona de riesgo"],d3.max(M,m=>m.riesgo)*1.2,pf,pf,170);
 }}
 draw();window.addEventListener("resize",draw);
-document.getElementById("note").innerHTML=`Percentiles correlacionados (ventana 1 min, todos los dias 13–23h) &middot; P70/P90 <b>por canal, sin combinar</b> &middot; capacidad demostrada = top-5 de concurrencia (pico por minuto) sin caida &middot; la zona de riesgo (ambos &ge; su P70 a la vez) es la lente correlacionada &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
+document.getElementById("note").innerHTML=`Percentiles correlacionados (ventana 1 min, todos los dias 13–22h) &middot; P70/P90 <b>por canal, sin combinar</b> &middot; capacidad demostrada = top-5 de concurrencia (pico por minuto) sin caida &middot; la zona de riesgo (ambos &ge; su P70 a la vez) es la lente correlacionada &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
 </script></body></html>"""
     path.write_text(html, encoding="utf-8")
     print(f"  HTML: {path}")
