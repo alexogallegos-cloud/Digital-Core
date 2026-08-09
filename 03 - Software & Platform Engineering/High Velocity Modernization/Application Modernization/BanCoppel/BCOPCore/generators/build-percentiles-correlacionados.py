@@ -131,7 +131,7 @@ def main():
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
 
     _render_md(meses, actual, oficiales, OUT / "percentiles-correlacionados.md")
-    _render_html(meses, actual, oficiales, OUT / "percentiles-correlacionados-evolucion.html")
+    _render_html(meses, actual, oficiales, ROOT / "portal" / "percentiles-correlacionados-evolucion.html")
     print("\n[OK] Percentiles correlacionados generados.")
 
 
@@ -279,7 +279,7 @@ svg circle.pt{{transition:r .1s}}
 <div class="grain"></div>
 <div id="tt"></div>
 <div class="hero-bar">
-  <img src="../../portal/bancoppel-logo.png" alt="BanCoppel">
+  <img src="bancoppel-logo.png" alt="BanCoppel">
   <div class="hb-sep"></div>
   <span class="crumb">BCOPCORE &nbsp;·&nbsp; SPE-AM-001 &nbsp;·&nbsp; GEMELO COGNITIVO &nbsp;·&nbsp; <em>PERCENTILES CORRELACIONADOS</em></span>
   <span class="hb-sp"></span>
