@@ -42,6 +42,9 @@ PICO_CONFIABLE_DESDE = min(HITOS)  # "2026-03" (leak-fix)
 # throughput (~4,300 txn/min, cuello = pool de conexiones/BD/HSM; ver growth-forecast-autorizador-spei.md)
 # => holgura 1.00 hasta remediar. SPEI tiene margen (ráfagas, no topa) => 1.10.
 HOLGURA = {"spei": 1.10, "eglobal": 1.00}
+# Percentiles CONFIRMADOS por el cliente para TODO 2025 + ene/feb 2026 (periodo pre-leak-fix, < 2026-03).
+# Son fijos para ese periodo (no computados); de marzo-2026 en adelante se usan los computados del pico diario.
+CONFIRMADOS = {"spei": {"p70": 2080, "p90": 3240}, "eglobal": {"p70": 3000, "p90": 3500}}
 # Evidencia de mejora MEDIDA (no derivada de un factor) — ver knowledge-base/autorizador/mejoras-2026.md.
 # Encolamientos: 7 incidentes nov-2025→ene-2026 -> 0 después (feb-2026 = primer mes limpio, balanceo 15-feb).
 # Duración de incidente: 1.5-7.5 h (nov-dic 2025) -> ~18.5 min post-Power10 (~-93% impacto por evento).
@@ -114,34 +117,35 @@ def main():
         r["x"] = str(date(y, mo, 15))             # fecha representativa (mitad de mes) para el eje temporal
         qs, qe = _q_sp.get((y, mo)), _q_eg.get((y, mo))
         _h = lambda v, ch: round(v * HOLGURA[ch])   # holgura de dimensionamiento POR CANAL
-        # P70/P90 = percentiles del PICO DIARIO (todos los meses, regimen de carga alta) + holgura por canal
-        r["p70"] = {"spei": _h(qs["p70"], "spei"), "eglobal": _h(qe["p70"], "eglobal")}
-        r["p90"] = {"spei": _h(qs["p90"], "spei"), "eglobal": _h(qe["p90"], "eglobal")}
-        if r["mes"] >= PICO_CONFIABLE_DESDE:
-            # techo P99 solo en regimen confiable (pre-fix contaminado por queue-flush)
-            r["p99"] = {"spei": _h(qs["p99"], "spei"), "eglobal": _h(qe["p99"], "eglobal")}
-            r["max_1h"] = {"spei": qs["max"], "eglobal": qe["max"]}   # observado, SIN holgura
-        else:
+        if r["mes"] < PICO_CONFIABLE_DESDE:
+            # 2025 + ene/feb 2026 (< 2026-03) = periodo CONFIRMADO por el cliente -> valores fijos (no computados)
+            r["p70"] = {c: CONFIRMADOS[c]["p70"] for c in ("spei", "eglobal")}
+            r["p90"] = {c: CONFIRMADOS[c]["p90"] for c in ("spei", "eglobal")}
             r["p99"] = {"spei": None, "eglobal": None}
             r["max_1h"] = {"spei": None, "eglobal": None}
+        else:
+            # mar-2026 en adelante = COMO ANTES: percentiles del pico diario computados (con holgura por canal)
+            r["p70"] = {"spei": _h(qs["p70"], "spei"), "eglobal": _h(qe["p70"], "eglobal")}
+            r["p90"] = {"spei": _h(qs["p90"], "spei"), "eglobal": _h(qe["p90"], "eglobal")}
+            r["p99"] = {"spei": _h(qs["p99"], "spei"), "eglobal": _h(qe["p99"], "eglobal")}
+            r["max_1h"] = {"spei": qs["max"], "eglobal": qe["max"]}
         meses.append(r)
         print(f"  {r['mes']}: SPEI P70={r['p70']['spei']:>5,} P90={r['p90']['spei']:>5,} | "
               f"Aut P70={r['p70']['eglobal']:>5,} P90={r['p90']['eglobal']:>5,} | "
               f"riesgo={r['pct_zona_riesgo']:>4}% r={r['correlacion']}")
 
     actual = meses[-1]
-    # PERCENTILES OFICIALES por canal = percentil AGRUPADO sobre TODOS los picos diarios (todo el histórico),
-    # con holgura por canal. Es la metrica del cliente (percentil sobre todos los dias, NO el max de los
-    # percentiles mensuales). P70 alerta, P90 incidente, P99 techo de dimensionamiento.
+    # OFICIALES (los que leen curvas y calendario) = percentil AGRUPADO del pico diario, COMO ANTES (daily-peak
+    # con holgura por canal). Los CONFIRMADOS del cliente van aparte (bloque 'confirmados') y se muestran SOLO
+    # en el dashboard de percentiles (KPI + evolucion 2025..feb-2026); no tocan curvas ni calendario.
     _pkpool = {"spei": list(pk_sp.values()), "eglobal": list(pk_eg.values())}
     oficiales = {ch: {"p70": round(_pct(_pkpool[ch], 70) * HOLGURA[ch]),
                       "p90": round(_pct(_pkpool[ch], 90) * HOLGURA[ch]),
                       "p99": round(_pct(_pkpool[ch], 99) * HOLGURA[ch])}
                  for ch in ("spei", "eglobal")}
-    _hp = {c: f"+{round((HOLGURA[c]-1)*100)}%" for c in HOLGURA}
-    print(f"  percentiles OFICIALES (agrupado todo histórico; holgura SPEI {_hp['spei']}, Aut {_hp['eglobal']}): "
-          f"SPEI P70/P90/P99={oficiales['spei']['p70']:,}/{oficiales['spei']['p90']:,}/{oficiales['spei']['p99']:,} | "
-          f"Aut P70/P90/P99={oficiales['eglobal']['p70']:,}/{oficiales['eglobal']['p90']:,}/{oficiales['eglobal']['p99']:,}")
+    print(f"  oficiales (daily-peak, como antes): SPEI {oficiales['spei']['p70']:,}/{oficiales['spei']['p90']:,} | "
+          f"Aut {oficiales['eglobal']['p70']:,}/{oficiales['eglobal']['p90']:,} · CONFIRMADOS: "
+          f"SPEI {CONFIRMADOS['spei']['p70']:,}/{CONFIRMADOS['spei']['p90']:,} | Aut {CONFIRMADOS['eglobal']['p70']:,}/{CONFIRMADOS['eglobal']['p90']:,}")
     report = {"metodologia": "percentiles correlacionados por canal (SPEI y Autorizador), sin combinado, todos los dias 13-22h; "
               "P70/P90/P99 sobre el PICO DIARIO por minuto (max txn/min de cada dia). VENTANA POR CANAL calibrada vs. cifras "
               "validadas del cliente: Autorizador 1 min (su carga es un plato, el pico/min ES el sostenido -> P70/P90 ~3,400/4,000); "
@@ -155,12 +159,13 @@ def main():
               "ventana_pico_min": WVENT,
               "holgura": HOLGURA,
               "oficiales": oficiales,
+              "confirmados": CONFIRMADOS,
               "actual": actual, "evolucion": meses}
     (OUT / "percentiles-correlacionados.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
 
     _render_md(meses, actual, oficiales, OUT / "percentiles-correlacionados.md")
-    _render_html(meses, actual, oficiales, OUT / "percentiles-correlacionados-evolucion.html")
+    _render_html(meses, actual, oficiales, CONFIRMADOS, OUT / "percentiles-correlacionados-evolucion.html")
     print("\n[OK] Percentiles correlacionados generados.")
 
 
@@ -247,8 +252,8 @@ calibrado vs. cifras validadas del cliente · gráfica en `percentiles-correlaci
     print(f"  MD: {path}")
 
 
-def _render_html(meses, a, oficiales, path):
-    data = json.dumps({"meses": meses, "hitos": HITOS, "inc": INCIDENTES, "oficiales": oficiales}, ensure_ascii=False)
+def _render_html(meses, a, oficiales, confirmados, path):
+    data = json.dumps({"meses": meses, "hitos": HITOS, "inc": INCIDENTES, "oficiales": oficiales, "confirmados": confirmados}, ensure_ascii=False)
     html = f"""<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>BCOPCore · Percentiles Correlacionados por Canal</title>
@@ -355,11 +360,11 @@ M.forEach(m=>{{m.D=pD(m.x);
   m.sp70=m.p70.spei;   m.sp90=m.p90.spei;   m.sp99=m.p99.spei;
   m.eg70=m.p70.eglobal;m.eg90=m.p90.eglobal;m.eg99=m.p99.eglobal;}});
 const a=M[M.length-1];
-// PERCENTILES OFICIALES por canal = percentil AGRUPADO sobre todos los picos diarios (bloque 'oficiales'), = lineas de referencia de curvas
-const OFI=DATA.oficiales;
+// KPI = percentiles CONFIRMADOS por el cliente (2025 + ene/feb 2026); la evolucion mensual los muestra en ese periodo y computados de mar-2026 en adelante
+const OFI=DATA.confirmados;
 document.getElementById("kpis").innerHTML=`
-<div class="kpi glass"><div class="val" style="color:#38bdf8">${{OFI.spei.p70.toLocaleString()}} / ${{OFI.spei.p90.toLocaleString()}}</div><div class="lbl">SPEI — P70 / P90 oficiales (pico/min diario · vent. 3 min · +10% holgura · txn/min)</div></div>
-<div class="kpi glass"><div class="val" style="color:#38bdf8">${{OFI.eglobal.p70.toLocaleString()}} / ${{OFI.eglobal.p90.toLocaleString()}}</div><div class="lbl">Autorizador — P70 / P90 oficiales (pico/min diario · <b style="color:#ff5c5c">SIN holgura: topa techo</b> · txn/min)</div></div>`;
+<div class="kpi glass"><div class="val" style="color:#38bdf8">${{OFI.spei.p70.toLocaleString()}} / ${{OFI.spei.p90.toLocaleString()}}</div><div class="lbl">SPEI — P70 / P90 confirmados (2025–feb 2026 · txn/min)</div></div>
+<div class="kpi glass"><div class="val" style="color:#38bdf8">${{OFI.eglobal.p70.toLocaleString()}} / ${{OFI.eglobal.p90.toLocaleString()}}</div><div class="lbl">Autorizador — P70 / P90 confirmados (2025–feb 2026 · txn/min)</div></div>`;
 
 const tip=document.getElementById("tt");
 function showTip(ev,mes,color,label,valStr){{
