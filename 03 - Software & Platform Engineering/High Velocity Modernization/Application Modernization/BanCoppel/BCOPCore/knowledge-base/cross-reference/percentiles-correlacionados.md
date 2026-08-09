@@ -1,36 +1,35 @@
 # Percentiles Correlacionados — SPEI y Autorizador sobre Informix
 > **Fuente**: pipeline `generators/build-percentiles-correlacionados.py` (+ `forecast/capacity.py`)
 > **DT dueño**: `dt/dt-autorizador-pagos/` · co-ref `dt/dt-spei/`, `dt/dt-riesgos/`
-> **Versión**: 2.5.0 (holgura de dimensionamiento POR CANAL: SPEI +10%, Autorizador +0% por topar su techo) · regenerable con `python generators/build-percentiles-correlacionados.py`
+> **Versión**: 2.6.0 (pico POR MINUTO diario · ventana por canal Aut 1min/SPEI 3min · oficiales = percentil agrupado, calibrado vs. cifras del cliente) · regenerable con `python generators/build-percentiles-correlacionados.py`
 
 ## Metodología
 
 Mide la carga que SPEI y el Autorizador ejercen **simultáneamente** sobre Informix (recurso
-compartido). **Por canal, por separado** — no se suman (la suma combinada no es la métrica de
-interés). **Todos los días** (SPEI y el Autorizador operan también el fin de semana), horario
-operativo **13–22h**. Evolución **mensual**; el rango de meses se **auto-detecta** de los datos
-(meses con ≥15 días completos), así que se extiende solo al cargar datos nuevos.
+compartido). **Por canal, por separado** — no se suman. **Todos los días** (ambos operan también el
+fin de semana), horario operativo **13–22h**.
 
-Los tres umbrales se calculan sobre el **pico diario**: para cada día se toma su **hora de mayor
-carga sostenida** (mayor ventana de 1 h, promedio txn/min sobre 60 min, 13–22h), y los percentiles
-se sacan sobre esos picos diarios del mes. Así los tres viven en el **régimen de carga alta** (no
-diluidos por las horas medias del día):
+Para cada día se toma su **pico por minuto** (máx txn/min). La **ventana del pico es por canal**,
+calibrada contra las métricas validadas del cliente (Aut P70/P90 ≈ 3,400/4,000; SPEI P90 ≈ 3,850):
 
-- **P99 — techo**: el pico diario se supera solo **1% de los días** (el día peor); no se debe
-  alcanzar de forma nominal. Es el ancla de dimensionamiento del target.
-- **P90 — incidente**: superado **10% de los días**. **P70 — alerta**: superado **30% de los días**.
+- **Autorizador — 1 min**: su carga es un **plató**, el pico por minuto ES el sostenido.
+- **SPEI — 3 min**: su pico por minuto lo dominan **dumps batch de dispersión de nómina** (hasta
+  ~32,000 txn/min en un solo minuto, p.ej. 18-dic y 3-mar) que NO son carga sostenida; la ventana de
+  3 min los promedia y aterriza en el pico sostenido real.
 
-El **P99 solo se muestra desde el leak-fix de mar-2026** (régimen confiable): antes, el pico diario
-está contaminado por los encolamientos y el connection leak (INC-20251223), así que su cola alta no
-es confiable. Los P70/P90 (más robustos) se muestran en toda la serie.
+Los **percentiles oficiales** (P70 alerta, P90 incidente, P99 techo) son el **percentil agrupado
+sobre TODOS los picos diarios del histórico** (no el máximo de los percentiles mensuales) — la misma
+definición que usa el cliente. La evolución mensual (gráfica) es el percentil por mes.
 
-> La **correlación** es lo que hace correlacionado al método: los picos de ambos canales coinciden
-> en el tiempo (mismo perfil intradía, r≈0.99), no se diversifican y la carga se apila sobre Informix.
-> **Zona de riesgo** = ambos canales ≥ su P70 a la vez.
+El **P99 solo se muestra desde el leak-fix de mar-2026** (antes el pico está contaminado por los
+encolamientos y el connection leak, INC-20251223).
 
-## Percentiles OFICIALES por canal (máx histórico) — umbrales de referencia
+> **Correlación**: los picos de ambos canales coinciden en el tiempo (perfil intradía r≈0.99), no se
+> diversifican y la carga se apila sobre Informix. **Zona de riesgo** = ambos ≥ su P70 a la vez.
 
-Son la cifra oficial del canal: el **máximo histórico** de cada umbral sobre la evolución (el mismo
+## Percentiles OFICIALES por canal (percentil agrupado, todo el histórico) — umbrales de referencia
+
+Son la cifra oficial del canal: el **percentil sobre todos los picos diarios** del histórico (el mismo
 valor que dibuja curvas intradía como líneas de referencia). El P70 (alerta) y el P90 (incidente)
 son los **percentiles oficiales** para operación; el P99 es el techo de dimensionamiento.
 **Holgura de dimensionamiento por canal** — REGLA: solo se asigna holgura a un canal con margen real;
@@ -39,14 +38,14 @@ margen). **Autorizador: +0%** (topa su techo ~4,300 txn/min; cuello = pool de co
 
 | Canal | P70 (alerta) | P90 (incidente) | P99 (techo) |
 |-------|-------------|------------------|-------------|
-| SPEI | 2,802 | 3,280 | 4,196 |
-| Autorizador | 3,319 | 3,601 | 3,513 |
+| SPEI | 3,629 | 4,382 | 8,473 |
+| Autorizador | 3,394 | 3,986 | 4,568 |
 
 > Autorizador: su P90 y P99 quedan al mismo nivel (~3,600) porque **topa un techo real** y su carga
 > está censurada en los picos (ver DT-Autorizador y `growth-forecast-autorizador-spei.md`).
 
-Último mes (2026-07), como referencia de la tendencia: SPEI P70/P90 2,710/2,896,
-Autorizador 3,319/3,391.
+Último mes (2026-07), como referencia de la tendencia: SPEI P70/P90 3,633/4,253,
+Autorizador 3,539/3,754.
 
 El Informix/Aurora target se dimensiona contra el **P99** de cada canal (el techo sostenido), no
 contra el promedio. El pico absoluto puntual (p.ej. aguinaldo) es un outlier P100 por encima del P99.
@@ -55,25 +54,25 @@ contra el promedio. El pico absoluto puntual (p.ej. aguinaldo) es un outlier P10
 
 | Mes | SPEI P70 | SPEI P90 | SPEI P99 | Aut P70 | Aut P90 | Aut P99 |
 |-----|----------|----------|----------|---------|---------|---------|
-| 2025-01 | 2,052 | 2,444 | — | 2,708 | 2,818 | — |
-| 2025-02 | 2,048 | 2,582 | — | 2,817 | 2,913 | — |
-| 2025-03 | 2,184 | 2,710 | — | 2,900 | 3,046 | — |
-| 2025-04 | 2,154 | 2,508 | — | 3,068 | 3,266 | — |
-| 2025-05 | 2,286 | 2,747 | — | 3,020 | 3,114 | — |
-| 2025-06 | 2,289 | 2,738 | — | 2,889 | 3,013 | — |
-| 2025-07 | 2,280 | 2,484 | — | 2,824 | 2,908 | — |
-| 2025-08 | 2,350 | 2,972 | — | 2,965 | 3,095 | — |
-| 2025-09 | 2,545 | 2,954 | — | 2,985 | 3,122 | — |
-| 2025-10 | 2,524 | 2,693 | — | 3,041 | 3,119 | — |
-| 2025-11 | 2,517 | 3,280 | — | 3,165 | 3,393 | — |
-| 2025-12 | 2,802 | 3,157 | — | 3,148 | 3,601 | — |
-| 2026-01 | 2,428 | 3,127 | — | 2,916 | 3,018 | — |
-| 2026-02 | 2,504 | 3,205 | — | 3,014 | 3,254 | — |
-| 2026-03 | 2,687 | 3,003 | 3,381 | 3,176 | 3,293 | 3,393 |
-| 2026-04 | 2,614 | 3,246 | 4,196 | 3,162 | 3,281 | 3,350 |
-| 2026-05 | 2,687 | 3,202 | 3,808 | 3,237 | 3,334 | 3,386 |
-| 2026-06 | 2,716 | 3,000 | 3,937 | 3,261 | 3,429 | 3,513 |
-| 2026-07 | 2,710 | 2,896 | 3,512 | 3,319 | 3,391 | 3,440 |
+| 2025-01 | 3,456 | 3,812 | — | 3,024 | 3,971 | — |
+| 2025-02 | 3,418 | 3,889 | — | 3,131 | 4,047 | — |
+| 2025-03 | 3,594 | 3,865 | — | 3,252 | 3,768 | — |
+| 2025-04 | 3,649 | 3,859 | — | 3,431 | 4,548 | — |
+| 2025-05 | 3,650 | 4,148 | — | 4,018 | 4,416 | — |
+| 2025-06 | 4,024 | 4,380 | — | 3,200 | 3,592 | — |
+| 2025-07 | 3,496 | 4,096 | — | 3,070 | 3,182 | — |
+| 2025-08 | 3,805 | 4,305 | — | 3,265 | 4,183 | — |
+| 2025-09 | 3,724 | 4,414 | — | 3,249 | 3,891 | — |
+| 2025-10 | 3,411 | 3,559 | — | 3,283 | 3,475 | — |
+| 2025-11 | 3,648 | 3,711 | — | 3,398 | 3,728 | — |
+| 2025-12 | 3,694 | 4,486 | — | 3,867 | 3,986 | — |
+| 2026-01 | 3,560 | 3,618 | — | 3,190 | 3,632 | — |
+| 2026-02 | 3,566 | 3,710 | — | 3,366 | 3,867 | — |
+| 2026-03 | 3,733 | 5,400 | 15,881 | 3,405 | 3,912 | 4,252 |
+| 2026-04 | 3,926 | 6,116 | 9,292 | 3,469 | 3,773 | 4,085 |
+| 2026-05 | 4,076 | 6,786 | 8,146 | 3,509 | 3,997 | 4,214 |
+| 2026-06 | 4,466 | 8,434 | 8,809 | 3,594 | 3,840 | 3,989 |
+| 2026-07 | 3,633 | 4,253 | 7,808 | 3,539 | 3,754 | 4,132 |
 
 > Los umbrales de cada canal suben con el crecimiento orgánico; cada canal cruza sus umbrales cada
 > vez más seguido y se come el margen del Informix actual. Es el argumento cuantitativo de capacidad
@@ -81,6 +80,6 @@ contra el promedio. El pico absoluto puntual (p.ej. aguinaldo) es un outlier P10
 
 ---
 
-*v2.1.0 · Generado por generators/build-percentiles-correlacionados.py · P70/P90/P99 por canal
-sobre el **pico diario** (hora de mayor carga sostenida de cada día; P99 = techo del día peor) ·
-evolución mensual · gráfica en `percentiles-correlacionados-evolucion.html`.*
+*v2.6.0 · Generado por generators/build-percentiles-correlacionados.py · P70/P90/P99 por canal sobre el
+**pico por minuto diario** (ventana Aut 1 min / SPEI 3 min) · oficiales = percentil agrupado del histórico ·
+calibrado vs. cifras validadas del cliente · gráfica en `percentiles-correlacionados-evolucion.html`.*
