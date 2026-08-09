@@ -163,16 +163,20 @@ combinado** (no se suman); **todos los días** (hábiles y no hábiles — ambos
 - **P70/P90 en toda la serie (continuas, sin escalón); P99 (azul) solo desde el leak-fix** (mes ≥ 2026-03,
   `PICO_CONFIABLE_DESDE = "2026-03"`): pre-fix el pico diario está contaminado por los 7 encolamientos + el
   connection leak (INC-20251223).
-- **Umbrales actuales (jul-2026, pico diario, +10% holgura, txn/min)**: SPEI **P70/P90/P99 = 2,710 / 2,896 / 3,512**;
-  Autorizador **3,651 / 3,730 / 3,784** (band tight = pegado a su techo). El target Informix/Aurora se
-  dimensiona contra el **P99** de cada canal. El máximo absoluto del mes es un outlier por encima del P99:
-  se guarda como `max_1h` pero **no se grafica**.
+- **REGLA de holgura de dimensionamiento (2026-08-08):** solo se asigna holgura a un canal con
+  **margen real**; un canal que **ya topa su techo NO recibe holgura** hasta que haya acciones de
+  **remediación** que suban el techo (provisionar 10% sobre un techo duro ya alcanzado = fabricar
+  capacidad inexistente). Constante `HOLGURA` por canal en el generador: **SPEI +10%** (tiene margen,
+  ráfagas); **Autorizador +0%** (topa su techo ~4,300 txn/min, cuello = pool de conexiones/BD/HSM).
+  Cuando se remedie el techo del Autorizador, revisar esta regla.
+- **Umbrales actuales (jul-2026, pico diario, txn/min)**: SPEI (+10% holgura) **P70/P90/P99 = 2,710 /
+  2,896 / 3,512**; Autorizador (sin holgura) **3,319 / 3,391 / 3,440** (band tight = pegado a su techo).
+  El target Informix/Aurora se dimensiona contra el **P99** de cada canal. El máximo absoluto del mes es
+  un outlier por encima del P99: se guarda como `max_1h` (SIN holgura) pero **no se grafica**.
 - **Percentiles OFICIALES del canal = MÁX HISTÓRICO de P70/P90** (mismo cálculo que las líneas de
-  referencia de curvas intradía: `max` sobre la evolución; bloque `oficiales` en el JSON) **+ 10% de
-  holgura de dimensionamiento** (constante `HOLGURA=1.10`, aplicada a TODOS los umbrales P70/P90/P99):
-  SPEI **P70/P90 = 2,802 / 3,280**; Autorizador **3,651 / 3,961**. Son la **cifra oficial** del canal
-  (P70 alerta, P90 incidente) y es lo que el **KPI del dashboard muestra como headline**. Techo P99
-  oficial: SPEI **4,196**; Autorizador **3,864**. El `max_1h` (observado) va SIN holgura como referencia.
+  referencia de curvas intradía: `max` sobre la evolución; bloque `oficiales` en el JSON) con la holgura
+  por canal: SPEI **P70/P90 = 2,802 / 3,280** (P99 4,196); Autorizador **3,319 / 3,601** (P99 3,513, sin
+  holgura). Son la **cifra oficial** del canal y es lo que el **KPI del dashboard muestra como headline**.
 - **Zona de riesgo** = ambos canales ≥ su P70 a la vez (lente correlacionada).
 - **Evolución**: los umbrales suben con el crecimiento orgánico (SPEI ~+18%/año, Autorizador
   ~+11%/año) → cada canal cruza sus umbrales cada vez más seguido y se come el margen del Informix
