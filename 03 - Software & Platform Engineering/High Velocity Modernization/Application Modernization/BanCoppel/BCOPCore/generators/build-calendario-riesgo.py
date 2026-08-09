@@ -36,6 +36,28 @@ END_PROJ = date(2026, 12, 31)
 CORTES = [5, 15, 30, 60]   # Bajo <5 / Medio 5-15 / Alto 15-30 / Muy alto 30-60 / Critico >=60
 UPLIFT_SUBE = 0.02   # uplift estacional (modelo SPEI) >= +2% marca el dia como "sube por temporalidad"
 
+# Factores de temporalidad -> etiqueta corta para el popup (columna de factors.build_features -> nombre humano).
+# Solo eventos con nombre (no dia-de-semana ni interacciones); se muestran los activos de cada dia.
+EVENT_LABELS = {
+    "is_q15_exact": "Quincena (día 15)", "is_qlast_exact": "Quincena (fin de mes)",
+    "is_q1st_exact": "Primer día del mes", "is_d17_exact": "Día 17 (SAT/IMSS)",
+    "is_precierre_mes": "Precierre de mes",
+    "is_q_dm1": "Víspera de quincena", "is_q_dm2": "Pre-quincena", "is_q_dm3": "Pre-quincena",
+    "is_q_dp1": "Post-quincena", "is_q_dp2": "Post-quincena", "is_q_dp3": "Post-quincena", "is_q_dp4": "Post-quincena",
+    "is_holiday": "Festivo", "is_holiday_eve": "Víspera de festivo", "is_post_holiday": "Post-festivo",
+    "is_semana_santa": "Semana Santa", "is_pre_semana_santa": "Pre-Semana Santa", "is_sabado_gloria": "Sábado de Gloria",
+    "is_buen_fin": "Buen Fin", "is_black_cyber": "Black Friday / Cyber",
+    "is_aguinaldo": "Aguinaldo", "is_temporada_dic": "Temporada decembrina",
+    "is_pre_navidad": "Pre-Navidad", "is_navidad": "Navidad", "is_post_navidad": "Post-Navidad",
+    "is_ano_nuevo": "Año Nuevo", "is_cuesta_enero": "Cuesta de enero", "is_reyes": "Día de Reyes",
+    "is_pre_dia_nino": "Día del Niño", "is_dia_muertos": "Día de Muertos",
+    "is_vispera_guadalupe": "Víspera de Guadalupe", "is_guadalupe": "Día de la Guadalupe",
+    "is_10_mayo": "Día de las Madres", "is_pre_dia_madres": "Pre-Día de las Madres", "is_dia_padre": "Día del Padre",
+    "is_san_valentin": "San Valentín", "is_dia_maestro": "Día del Maestro", "is_fiestas_patrias": "Fiestas Patrias",
+    "is_ptu": "PTU (utilidades)", "is_sat_reembolso": "Reembolso SAT", "is_regreso_clases": "Regreso a clases",
+    "is_reyes_compras": "Compras de Reyes",
+}
+
 
 def nivel(rm):
     if rm <= 0: return 0
@@ -80,6 +102,16 @@ def main():
     trend = np.exp(models["spei"].predict(Xt)).values
     uplift = {allf.iloc[i]["d"]: float(full[i] / trend[i] - 1) for i in range(len(allf))}
 
+    # Temporalidad: etiquetas de EVENTOS activos por dia (columnas de factors en allf que valen >=1)
+    from collections import defaultdict as _dd
+    _evcols = [c for c in EVENT_LABELS if c in allf.columns]
+    temp_by_day = _dd(list)
+    for c in _evcols:
+        for d in allf.loc[allf[c].astype(float) >= 1, "d"]:
+            lab = EVENT_LABELS[c]
+            if lab not in temp_by_day[d]:
+                temp_by_day[d].append(lab)
+
     # Umbrales del pipeline de percentiles. Para DETECTAR riesgo (no dimensionar) se usa el P70/P90 CRUDO
     # (sin holgura): demanda real vs. umbral observado. La holgura es margen de dimensionamiento, no de deteccion.
     pdata = json.loads((OUT / "percentiles-correlacionados.json").read_text(encoding="utf-8"))
@@ -95,7 +127,7 @@ def main():
     dias = {}
     for d, vv in vol.items():
         up = uplift.get(d, 0.0)
-        base = {"up": round(up * 100, 1), "sube": int(up >= UPLIFT_SUBE), "o": vv["o"]}
+        base = {"up": round(up * 100, 1), "sube": int(up >= UPLIFT_SUBE), "o": vv["o"], "temp": temp_by_day.get(d, [])}
         if d in minSP and d in minEG:            # dia con datos minuto -> CO-OCURRENCIA REAL (minutos ambos >= P70)
             sp, eg = minSP[d], minEG[d]
             rm = sum(1 for m in OP if sp.get(m, 0) >= P70sp and eg.get(m, 0) >= P70eg)
@@ -250,9 +282,10 @@ function showTip(ev,key,info){{
                           : (info.rm>0 ? `<b style="color:${{LVL[info.lvl]}}">${{NLBL[info.lvl]}}</b> · ${{info.rm}} min de co-ocurrencia real (ambos ≥ P70)`
                           : (info.sube ? `Solo temporalidad (sin riesgo)` : `Sin riesgo`));
     let extra="";
+    if(info.temp && info.temp.length) extra+=`<div class="tl"><b style="color:var(--yellow)">Temporalidad:</b> ${{info.temp.join(" &middot; ")}}</div>`;
     if(info.eg90) extra+=`<div class="tl">▲ Autorizador alcanzó su P90 (${{U.eglobal.p90.toLocaleString()}})</div>`;
     if(info.sp90) extra+=`<div class="tl">▲ SPEI alcanzó su P90 (${{U.spei.p90.toLocaleString()}})</div>`;
-    if(info.sube) extra+=`<div class="tl">Temporalidad SPEI: <b style="color:var(--yellow)">+${{info.up}}%</b> sobre tendencia</div>`;
+    if(info.sube) extra+=`<div class="tl">Uplift estacional SPEI: <b style="color:var(--yellow)">+${{info.up}}%</b> sobre tendencia</div>`;
     body=`<div class="tl">${{niv}}</div>${{extra}}<div class="tl" style="color:var(--muted2)">${{info.o}}</div>`;
   }}
   tip.innerHTML=`<div class="tm">${{d}} ${{MESES[m-1]}} ${{y}}</div>${{body}}`;
