@@ -204,7 +204,7 @@ footer{{text-align:center;padding:34px 0 8px;font-size:11px;color:var(--muted2);
   <h1 style="font-size:clamp(26px,4vw,42px);font-weight:900;letter-spacing:-.035em;line-height:1;background:linear-gradient(176deg,#fff 34%,#9fb4ff);-webkit-background-clip:text;background-clip:text;color:transparent">Calendario de Riesgo de Capacidad</h1>
   <p style="margin-top:12px;font-size:13px;color:var(--muted);line-height:1.6;max-width:88ch">Riesgo diario = <b>minutos reales donde SPEI y el Autorizador están simultáneamente ≥ su P70</b> (co-ocurrencia = zona de riesgo, minuto a minuto de los datos observados; umbral crudo de detección, sin holgura). Cada día se colorea por nivel; los triángulos marcan si un canal alcanzó su <b>P90</b> ese día; el borde punteado marca días que <b>suben por temporalidad</b> (uplift estacional). Los días <b>proyectados</b> (sin datos minuto) no calculan riesgo.</p>
   <div class="topbar glass">
-    <div class="yb"><button id="y2025" class="on">2025</button><button id="y2026">2026 <span class="proy">PROY</span></button></div>
+    <div class="yb"><button id="y2025">2025</button><button id="y2026" class="on">2026 <span class="proy">PROY</span></button></div>
     <span class="stat" id="stat"></span>
   </div>
   <div class="legend glass">
@@ -232,7 +232,7 @@ const DOW=["Do","Lu","Ma","Mi","Ju","Vi","Sa"];
 const LVL=["#0a0e1f","#1a5e3a","#7a7320","#b45309","#c0392b","#d61f69"];   // 0 Ninguno .. 5 Critico
 const TEMPORAL="#2b2550";
 const NLBL=["Ninguno","Bajo","Medio","Alto","Muy alto","Crítico"];
-let YEAR=2025;
+let YEAR=2026;
 const tip=document.getElementById("tt");
 const pad=n=>String(n).padStart(2,"0");
 function color(info){{
