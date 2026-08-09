@@ -2,14 +2,15 @@
 """
 build-calendario-riesgo.py — BCOPCore · Calendario de riesgo de capacidad 2025-2026.
 
-Para cada dia (real 2025-01-01..LAST_REAL, proyectado despues) reconstruye las curvas intradia de
-SPEI y el Autorizador (7 formas normalizadas x volumen del dia, igual que build-curvas-intradia) y
-mide el RIESGO CORRELACIONADO del dia = minutos donde AMBOS canales estan >= su P70 oficial
-(zona de riesgo = co-ocurrencia). Colorea el dia por nivel de riesgo (minutos), marca los dias donde
-un canal alcanza su P90 (triangulos) y la temporalidad (uplift estacional del modelo SPEI).
+Para cada dia con datos minuto a minuto REALES (2025-01-01..LAST_REAL) mide el RIESGO CORRELACIONADO
+= numero de minutos donde SPEI y el Autorizador estan SIMULTANEAMENTE >= su P70 (co-ocurrencia = zona
+de riesgo, minuto a minuto de los datos observados). Colorea el dia por nivel (minutos), marca los dias
+donde un canal alcanza su P90 (triangulos) y la temporalidad (uplift estacional del modelo SPEI). Los
+dias proyectados (sin datos minuto, > LAST_REAL) se marcan aparte y NO calculan riesgo.
 
-Umbrales P70/P90: los OFICIALES del pipeline de percentiles (bloque 'oficiales', con holgura por
-canal). Regenerable con datos nuevos.
+Umbrales P70/P90: los del pipeline de percentiles pero en su forma CRUDA (sin holgura) — para DETECTAR
+riesgo se compara demanda real vs. umbral observado; la holgura es margen de dimensionamiento, no de
+deteccion. Regenerable con datos nuevos.
 
 Uso: python generators/build-calendario-riesgo.py   (ejecutar desde BCOPCore/)
 """
@@ -30,8 +31,9 @@ import numpy as np, pandas as pd, statsmodels.api as sm
 OUT = ROOT / "knowledge-base" / "cross-reference"
 LAST_REAL = date(2026, 8, 4)
 END_PROJ = date(2026, 12, 31)
-# Taxonomia de riesgo por minutos de co-ocurrencia (ambos >= su P70). Fronteras: <30 / 30-90 / 90-180 / 180-280 / >=280.
-CORTES = [30, 90, 180, 280]
+# Taxonomia de riesgo por MINUTOS DE CO-OCURRENCIA REAL (ambos canales >= su P70 crudo, minuto a minuto).
+# Fronteras calibradas al rango observado de co-ocurrencia (max ~33 min/dia):
+CORTES = [5, 15, 30, 60]   # Bajo <5 / Medio 5-15 / Alto 15-30 / Muy alto 30-60 / Critico >=60
 UPLIFT_SUBE = 0.02   # uplift estacional (modelo SPEI) >= +2% marca el dia como "sube por temporalidad"
 
 
@@ -44,9 +46,7 @@ def nivel(rm):
 
 def main():
     cal = MxCalendar(range(2023, 2031))
-    print("Perfiles intradia + volumen diario (real + proyectado)...")
-    perfiles = C.intraday_dow(ROOT, cal)                 # {canal: {0..6: [288]}}
-    STEP = 1440 // len(perfiles["spei"][0])               # 5 min por bin
+    print("Volumen diario (real + proyectado) + minuto a minuto (co-ocurrencia real)...")
     df = F.build_features(DS.load_all(ROOT), cal)
     df["is_atypical"] = df["d"].apply(lambda x: int(x in A.to_set()))
 
@@ -80,30 +80,36 @@ def main():
     trend = np.exp(models["spei"].predict(Xt)).values
     uplift = {allf.iloc[i]["d"]: float(full[i] / trend[i] - 1) for i in range(len(allf))}
 
-    # umbrales OFICIALES (con holgura por canal) del pipeline de percentiles
-    pj = OUT / "percentiles-correlacionados.json"
-    ofi = json.loads(pj.read_text(encoding="utf-8"))["oficiales"]
-    P70sp, P90sp = ofi["spei"]["p70"], ofi["spei"]["p90"]
-    P70eg, P90eg = ofi["eglobal"]["p70"], ofi["eglobal"]["p90"]
-    print(f"  umbrales oficiales: SPEI P70/P90={P70sp:,}/{P90sp:,} | Aut P70/P90={P70eg:,}/{P90eg:,}")
+    # Umbrales del pipeline de percentiles. Para DETECTAR riesgo (no dimensionar) se usa el P70/P90 CRUDO
+    # (sin holgura): demanda real vs. umbral observado. La holgura es margen de dimensionamiento, no de deteccion.
+    pdata = json.loads((OUT / "percentiles-correlacionados.json").read_text(encoding="utf-8"))
+    ofi, hol = pdata["oficiales"], pdata["holgura"]
+    P70sp = round(ofi["spei"]["p70"] / hol["spei"]);   P90sp = round(ofi["spei"]["p90"] / hol["spei"])
+    P70eg = round(ofi["eglobal"]["p70"] / hol["eglobal"]); P90eg = round(ofi["eglobal"]["p90"] / hol["eglobal"])
+    print(f"  umbrales crudos (deteccion): SPEI P70/P90={P70sp:,}/{P90sp:,} | Aut P70/P90={P70eg:,}/{P90eg:,}")
+    # minuto a minuto REAL para la co-ocurrencia (dias con >=1400 min de dato)
+    minSP = {d: dict(mm) for d, mm in C.load_minute_channel(ROOT, "spei").items() if len(mm) >= 1400}
+    minEG = {d: dict(mm) for d, mm in C.load_minute_channel(ROOT, "eglobal").items() if len(mm) >= 1400}
+    OP = range(13 * 60, 22 * 60)
 
     dias = {}
     for d, vv in vol.items():
-        wd = vv["wd"]
-        cvsp = [f * vv["sp"] / STEP for f in perfiles["spei"][wd]]
-        cveg = [f * vv["eg"] / STEP for f in perfiles["eglobal"][wd]]
-        both = sum(1 for i in range(len(cvsp)) if cvsp[i] >= P70sp and cveg[i] >= P70eg)
-        rm = both * STEP
         up = uplift.get(d, 0.0)
-        dias[str(d)] = {"rm": rm, "lvl": nivel(rm),
-                        "sp90": int(max(cvsp) >= P90sp), "eg90": int(max(cveg) >= P90eg),
-                        "up": round(up * 100, 1), "sube": int(up >= UPLIFT_SUBE), "o": vv["o"]}
+        base = {"up": round(up * 100, 1), "sube": int(up >= UPLIFT_SUBE), "o": vv["o"]}
+        if d in minSP and d in minEG:            # dia con datos minuto -> CO-OCURRENCIA REAL (minutos ambos >= P70)
+            sp, eg = minSP[d], minEG[d]
+            rm = sum(1 for m in OP if sp.get(m, 0) >= P70sp and eg.get(m, 0) >= P70eg)
+            sp90 = int(max((sp.get(m, 0) for m in OP), default=0) >= P90sp)
+            eg90 = int(max((eg.get(m, 0) for m in OP), default=0) >= P90eg)
+            dias[str(d)] = {**base, "rm": rm, "lvl": nivel(rm), "sp90": sp90, "eg90": eg90, "proj": 0}
+        else:                                    # proyectado: sin datos minuto, no se calcula riesgo real
+            dias[str(d)] = {**base, "rm": None, "lvl": 0, "sp90": 0, "eg90": 0, "proj": 1}
 
-    # resumen por año (dias con riesgo, total min)
+    # resumen por año (dias con riesgo, total min de co-ocurrencia real)
     for yr in (2025, 2026):
-        dd = [v for k, v in dias.items() if k.startswith(str(yr))]
-        nr = sum(1 for v in dd if v["rm"] > 0); tot = sum(v["rm"] for v in dd)
-        print(f"  {yr}: dias con riesgo={nr} · total={tot:,} min · dias con dato={len(dd)}")
+        dd = [v for k, v in dias.items() if k.startswith(str(yr)) and v["rm"] is not None]
+        nr = sum(1 for v in dd if v["rm"] > 0); tot = sum(v["rm"] for v in dd if v["rm"] > 0)
+        print(f"  {yr}: dias con riesgo={nr} · total={tot:,} min · dias con dato real={len(dd)}")
 
     data = json.dumps({"dias": dias, "last_real": str(LAST_REAL),
                        "umbrales": {"spei": {"p70": P70sp, "p90": P90sp},
@@ -172,6 +178,7 @@ body{{background:#060a1a;color:var(--ink);font-family:'SF Pro Display',-apple-sy
 .cell.has:hover{{transform:translateY(-2px);border-color:rgba(255,255,255,.28);z-index:5}}
 .cell.empty{{border-color:transparent;background:transparent}}
 .cell.sube{{border:1.5px dashed var(--yellow)}}
+.cell.proj{{opacity:.5;background-image:repeating-linear-gradient(45deg,transparent,transparent 4px,rgba(255,255,255,.05) 4px,rgba(255,255,255,.05) 8px)}}
 .cell .tri{{position:absolute;width:0;height:0;border-style:solid}}
 .cell .t-eg{{top:0;right:0;border-width:0 11px 11px 0;border-color:transparent #38bdf8 transparent transparent}}
 .cell .t-sp{{bottom:0;left:0;border-width:11px 0 0 11px;border-color:transparent transparent transparent #2dd4bf}}
@@ -194,7 +201,7 @@ footer{{text-align:center;padding:34px 0 8px;font-size:11px;color:var(--muted2);
 <div class="wrap">
   <div class="hero-label" style="font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--yellow);margin-bottom:10px">Capacidad · Calendario de Riesgo</div>
   <h1 style="font-size:clamp(26px,4vw,42px);font-weight:900;letter-spacing:-.035em;line-height:1;background:linear-gradient(176deg,#fff 34%,#9fb4ff);-webkit-background-clip:text;background-clip:text;color:transparent">Calendario de Riesgo de Capacidad</h1>
-  <p style="margin-top:12px;font-size:13px;color:var(--muted);line-height:1.6;max-width:86ch">Riesgo diario = <b>minutos donde SPEI y el Autorizador están simultáneamente ≥ su P70</b> (zona de riesgo correlacionada, umbrales oficiales con holgura por canal). Cada día se colorea por nivel de riesgo; los triángulos marcan si un canal alcanzó su <b>P90</b> ese día; el borde punteado marca días que <b>suben por temporalidad</b> (uplift estacional del modelo).</p>
+  <p style="margin-top:12px;font-size:13px;color:var(--muted);line-height:1.6;max-width:88ch">Riesgo diario = <b>minutos reales donde SPEI y el Autorizador están simultáneamente ≥ su P70</b> (co-ocurrencia = zona de riesgo, minuto a minuto de los datos observados; umbral crudo de detección, sin holgura). Cada día se colorea por nivel; los triángulos marcan si un canal alcanzó su <b>P90</b> ese día; el borde punteado marca días que <b>suben por temporalidad</b> (uplift estacional). Los días <b>proyectados</b> (sin datos minuto) no calculan riesgo.</p>
   <div class="topbar glass">
     <div class="yb"><button id="y2025" class="on">2025</button><button id="y2026">2026 <span class="proy">PROY</span></button></div>
     <span class="stat" id="stat"></span>
@@ -203,11 +210,11 @@ footer{{text-align:center;padding:34px 0 8px;font-size:11px;color:var(--muted2);
     <span class="lt">Riesgo:</span>
     <span class="li"><span class="sw" style="background:#0a0e1f"></span>Ninguno</span>
     <span class="li"><span class="sw" style="background:#2b2550"></span>Solo temporalidad</span>
-    <span class="li"><span class="sw" style="background:#1a5e3a"></span>Bajo &lt;30</span>
-    <span class="li"><span class="sw" style="background:#7a7320"></span>Medio 30–90</span>
-    <span class="li"><span class="sw" style="background:#b45309"></span>Alto 90–180</span>
-    <span class="li"><span class="sw" style="background:#c0392b"></span>Muy alto 180–280</span>
-    <span class="li"><span class="sw" style="background:#d61f69"></span>Crítico &gt;280</span>
+    <span class="li"><span class="sw" style="background:#1a5e3a"></span>Bajo &lt;5</span>
+    <span class="li"><span class="sw" style="background:#7a7320"></span>Medio 5–15</span>
+    <span class="li"><span class="sw" style="background:#b45309"></span>Alto 15–30</span>
+    <span class="li"><span class="sw" style="background:#c0392b"></span>Muy alto 30–60</span>
+    <span class="li"><span class="sw" style="background:#d61f69"></span>Crítico &gt;60</span>
     <span class="li"><span class="sw" style="border:1.5px dashed var(--yellow);background:transparent"></span>Sube por temporalidad</span>
     <span class="sep"></span>
     <span class="li"><span class="tri" style="border-width:0 12px 12px 0;border-color:transparent #38bdf8 transparent transparent"></span>Auth ≥ P90</span>
@@ -229,6 +236,7 @@ const tip=document.getElementById("tt");
 const pad=n=>String(n).padStart(2,"0");
 function color(info){{
   if(!info) return "#0a0e1f";
+  if(info.proj) return "#111830";                 // proyectado: sin calculo de riesgo
   if(info.rm>0) return LVL[info.lvl];
   return info.sube ? TEMPORAL : "#0a0e1f";
 }}
@@ -237,8 +245,9 @@ function showTip(ev,key,info){{
   let body="";
   if(!info){{body=`<div class="tl">Sin dato para esta fecha (hueco en la fuente).</div>`;}}
   else{{
-    const niv = info.rm>0 ? `<b style="color:${{LVL[info.lvl]}}">${{NLBL[info.lvl]}}</b> · ${{info.rm}} min de co-ocurrencia (ambos ≥ P70)`
-                          : (info.sube ? `Solo temporalidad (sin riesgo)` : `Sin riesgo`);
+    const niv = info.proj ? `<span style="color:var(--muted2)">Proyectado — sin datos minuto, riesgo no calculado</span>`
+                          : (info.rm>0 ? `<b style="color:${{LVL[info.lvl]}}">${{NLBL[info.lvl]}}</b> · ${{info.rm}} min de co-ocurrencia real (ambos ≥ P70)`
+                          : (info.sube ? `Solo temporalidad (sin riesgo)` : `Sin riesgo`));
     let extra="";
     if(info.eg90) extra+=`<div class="tl">▲ Autorizador alcanzó su P90 (${{U.eglobal.p90.toLocaleString()}})</div>`;
     if(info.sp90) extra+=`<div class="tl">▲ SPEI alcanzó su P90 (${{U.spei.p90.toLocaleString()}})</div>`;
@@ -263,12 +272,12 @@ function render(){{
       const info=D[key];
       const has=info!==undefined;
       if(has&&info.rm>0){{mr++;mmin+=info.rm;}}
-      const cls="cell "+(has?"has":"empty2")+(has&&info.sube?" sube":"");
+      const cls="cell "+(has?"has":"empty2")+(has&&info.sube?" sube":"")+(has&&info.proj?" proj":"");
       const bg=color(info);
       let tri="";
       if(has&&info.eg90) tri+=`<span class="tri t-eg"></span>`;
       if(has&&info.sp90) tri+=`<span class="tri t-sp"></span>`;
-      const txtcol = (has&&info.rm>=90)?"#fff":"var(--muted)";
+      const txtcol = (has&&info.rm>=30)?"#fff":"var(--muted)";
       cells+=`<div class="${{cls}}" style="background:${{bg}};color:${{txtcol}}" data-k="${{key}}">${{dnum}}${{tri}}</div>`;
     }}
     yr+=mr; ytot+=mmin;
@@ -282,7 +291,7 @@ function render(){{
     el.addEventListener("mousemove",ev=>showTip(ev,el.dataset.k,D[el.dataset.k]));
     el.addEventListener("mouseleave",()=>tip.style.opacity=0);
   }});
-  document.getElementById("note").innerHTML=`Riesgo = minutos de co-ocurrencia (SPEI y Autorizador ≥ su P70 a la vez; P70 oficial con holgura: SPEI ${{U.spei.p70.toLocaleString()}}, Aut ${{U.eglobal.p70.toLocaleString()}}) &middot; niveles &lt;30 / 30–90 / 90–180 / 180–280 / &gt;280 min &middot; ▲ = el canal alcanzó su P90 ese día &middot; borde punteado = uplift estacional SPEI ≥ +2% &middot; 2026 real hasta ${{DATA.last_real}}, proyectado después &middot; generado por <code>generators/build-calendario-riesgo.py</code>`;
+  document.getElementById("note").innerHTML=`Riesgo = <b>minutos reales de co-ocurrencia</b> (SPEI y Autorizador ≥ su P70 a la vez, minuto a minuto de los datos observados; P70 crudo de detección: SPEI ${{U.spei.p70.toLocaleString()}}, Aut ${{U.eglobal.p70.toLocaleString()}}) &middot; niveles &lt;5 / 5–15 / 15–30 / 30–60 / &gt;60 min &middot; ▲ = el canal alcanzó su P90 (SPEI ${{U.spei.p90.toLocaleString()}}, Aut ${{U.eglobal.p90.toLocaleString()}}) ese día &middot; borde punteado = uplift estacional SPEI ≥ +2% &middot; celdas rayadas = <b>proyectado</b> (sin datos minuto, riesgo no calculado; real hasta ${{DATA.last_real}}) &middot; generado por <code>generators/build-calendario-riesgo.py</code>`;
 }}
 document.getElementById("y2025").onclick=()=>{{YEAR=2025;document.getElementById("y2025").classList.add("on");document.getElementById("y2026").classList.remove("on");render();}};
 document.getElementById("y2026").onclick=()=>{{YEAR=2026;document.getElementById("y2026").classList.add("on");document.getElementById("y2025").classList.remove("on");render();}};
