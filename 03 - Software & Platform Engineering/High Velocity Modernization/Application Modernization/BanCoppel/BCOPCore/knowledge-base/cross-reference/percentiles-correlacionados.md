@@ -1,7 +1,7 @@
 # Percentiles Correlacionados — SPEI y Autorizador sobre Informix
 > **Fuente**: pipeline `generators/build-percentiles-correlacionados.py` (+ `forecast/capacity.py`)
 > **DT dueño**: `dt/dt-autorizador-pagos/` · co-ref `dt/dt-spei/`, `dt/dt-riesgos/`
-> **Versión**: 2.7.0 (percentil sobre TODOS los minutos 13-22h · oficiales = valores CONFIRMADOS por el cliente) · regenerable con `python generators/build-percentiles-correlacionados.py`
+> **Versión**: 2.6.0 (pico POR MINUTO diario · ventana por canal Aut 1min/SPEI 3min · oficiales = percentil agrupado, calibrado vs. cifras del cliente) · regenerable con `python generators/build-percentiles-correlacionados.py`
 
 ## Metodología
 
@@ -9,35 +9,43 @@ Mide la carga que SPEI y el Autorizador ejercen **simultáneamente** sobre Infor
 compartido). **Por canal, por separado** — no se suman. **Todos los días** (ambos operan también el
 fin de semana), horario operativo **13–22h**.
 
-Los umbrales son el **percentil sobre TODOS los minutos** de la ventana operativa (la base que usa
-el cliente): **P70 = carga típica** (el 70% de los minutos está por debajo), **P90 = carga alta**,
-**P99 = pico**. La evolución mensual es el percentil por mes; el pooled (agrupado sobre todo el
-histórico) da la referencia. Esta base reproduce las cifras confirmadas por el cliente.
+Para cada día se toma su **pico por minuto** (máx txn/min). La **ventana del pico es por canal**,
+calibrada contra las métricas validadas del cliente (Aut P70/P90 ≈ 3,400/4,000; SPEI P90 ≈ 3,850):
 
-El **P99 solo se muestra desde el leak-fix de mar-2026** (antes está contaminado por los encolamientos
-y el connection leak, INC-20251223).
+- **Autorizador — 1 min**: su carga es un **plató**, el pico por minuto ES el sostenido.
+- **SPEI — 3 min**: su pico por minuto lo dominan **dumps batch de dispersión de nómina** (hasta
+  ~32,000 txn/min en un solo minuto, p.ej. 18-dic y 3-mar) que NO son carga sostenida; la ventana de
+  3 min los promedia y aterriza en el pico sostenido real.
+
+Los **percentiles oficiales** (P70 alerta, P90 incidente, P99 techo) son el **percentil agrupado
+sobre TODOS los picos diarios del histórico** (no el máximo de los percentiles mensuales) — la misma
+definición que usa el cliente. La evolución mensual (gráfica) es el percentil por mes.
+
+El **P99 solo se muestra desde el leak-fix de mar-2026** (antes el pico está contaminado por los
+encolamientos y el connection leak, INC-20251223).
 
 > **Correlación**: los picos de ambos canales coinciden en el tiempo (perfil intradía r≈0.99), no se
 > diversifican y la carga se apila sobre Informix. **Zona de riesgo** = ambos ≥ su P70 a la vez.
 
-## Percentiles OFICIALES por canal — valores CONFIRMADOS por el cliente
+## Percentiles OFICIALES por canal (percentil agrupado, todo el histórico) — umbrales de referencia
 
-Los umbrales oficiales son los **valores confirmados por el cliente** (baseline **dic-2025 a feb-2026**,
-base all-minutes 13–22h): **P70 = carga típica** (alerta), **P90 = carga alta** (incidente). El P99
-(techo de dimensionamiento) es el percentil 99 agrupado del histórico. Son las **líneas de referencia**
-de curvas intradía y el **umbral de detección** del calendario de riesgo. (Holgura de dimensionamiento
-del target, si se requiere, se aplica aparte — no se infla el dato confirmado.)
+Son la cifra oficial del canal: el **percentil sobre todos los picos diarios** del histórico (el mismo
+valor que dibuja curvas intradía como líneas de referencia). El P70 (alerta) y el P90 (incidente)
+son los **percentiles oficiales** para operación; el P99 es el techo de dimensionamiento.
+**Holgura de dimensionamiento por canal** — REGLA: solo se asigna holgura a un canal con margen real;
+un canal que **topa su techo** NO recibe holgura hasta que haya remediación. **SPEI: +10%** (tiene
+margen). **Autorizador: +0%** (topa su techo ~4,300 txn/min; cuello = pool de conexiones/BD/HSM).
 
 | Canal | P70 (alerta) | P90 (incidente) | P99 (techo) |
 |-------|-------------|------------------|-------------|
-| SPEI | 2,080 | 3,240 | 3,798 |
-| Autorizador | 3,000 | 3,500 | 3,500 |
+| SPEI | 3,629 | 4,382 | 8,473 |
+| Autorizador | 3,394 | 3,986 | 4,568 |
 
-> Autorizador: su P90 y P99 quedan casi al mismo nivel (~3,500) porque **topa un techo real** y su
-> carga está censurada en los picos (ver DT-Autorizador y `growth-forecast-autorizador-spei.md`).
+> Autorizador: su P90 y P99 quedan al mismo nivel (~3,600) porque **topa un techo real** y su carga
+> está censurada en los picos (ver DT-Autorizador y `growth-forecast-autorizador-spei.md`).
 
-Último mes (2026-07), como referencia de la tendencia: SPEI P70/P90 2,205/2,606,
-Autorizador 3,096/3,260.
+Último mes (2026-07), como referencia de la tendencia: SPEI P70/P90 3,633/4,253,
+Autorizador 3,539/3,754.
 
 El Informix/Aurora target se dimensiona contra el **P99** de cada canal (el techo sostenido), no
 contra el promedio. El pico absoluto puntual (p.ej. aguinaldo) es un outlier P100 por encima del P99.
@@ -46,25 +54,25 @@ contra el promedio. El pico absoluto puntual (p.ej. aguinaldo) es un outlier P10
 
 | Mes | SPEI P70 | SPEI P90 | SPEI P99 | Aut P70 | Aut P90 | Aut P99 |
 |-----|----------|----------|----------|---------|---------|---------|
-| 2025-01 | 1,678 | 2,229 | — | 2,577 | 2,710 | — |
-| 2025-02 | 1,709 | 2,509 | — | 2,662 | 2,847 | — |
-| 2025-03 | 1,801 | 2,631 | — | 2,743 | 2,918 | — |
-| 2025-04 | 1,833 | 2,595 | — | 2,927 | 3,113 | — |
-| 2025-05 | 1,848 | 2,443 | — | 2,805 | 2,973 | — |
-| 2025-06 | 1,844 | 2,309 | — | 2,735 | 2,904 | — |
-| 2025-07 | 1,894 | 2,253 | — | 2,715 | 2,833 | — |
-| 2025-08 | 1,944 | 2,444 | — | 2,817 | 3,026 | — |
-| 2025-09 | 1,958 | 2,533 | — | 2,835 | 2,999 | — |
-| 2025-10 | 2,010 | 2,630 | — | 2,892 | 3,036 | — |
-| 2025-11 | 2,021 | 3,038 | — | 2,984 | 3,256 | — |
-| 2025-12 | 2,302 | 3,094 | — | 3,007 | 3,283 | — |
-| 2026-01 | 1,933 | 2,895 | — | 2,772 | 2,934 | — |
-| 2026-02 | 1,982 | 2,979 | — | 2,896 | 3,135 | — |
-| 2026-03 | 2,056 | 2,638 | 3,452 | 3,009 | 3,171 | 3,388 |
-| 2026-04 | 2,057 | 2,667 | 4,593 | 2,994 | 3,149 | 3,375 |
-| 2026-05 | 2,133 | 2,760 | 4,446 | 3,061 | 3,248 | 3,449 |
-| 2026-06 | 2,154 | 2,597 | 3,828 | 3,081 | 3,264 | 3,564 |
-| 2026-07 | 2,205 | 2,606 | 3,344 | 3,096 | 3,260 | 3,492 |
+| 2025-01 | 3,456 | 3,812 | — | 3,024 | 3,971 | — |
+| 2025-02 | 3,418 | 3,889 | — | 3,131 | 4,047 | — |
+| 2025-03 | 3,594 | 3,865 | — | 3,252 | 3,768 | — |
+| 2025-04 | 3,649 | 3,859 | — | 3,431 | 4,548 | — |
+| 2025-05 | 3,650 | 4,148 | — | 4,018 | 4,416 | — |
+| 2025-06 | 4,024 | 4,380 | — | 3,200 | 3,592 | — |
+| 2025-07 | 3,496 | 4,096 | — | 3,070 | 3,182 | — |
+| 2025-08 | 3,805 | 4,305 | — | 3,265 | 4,183 | — |
+| 2025-09 | 3,724 | 4,414 | — | 3,249 | 3,891 | — |
+| 2025-10 | 3,411 | 3,559 | — | 3,283 | 3,475 | — |
+| 2025-11 | 3,648 | 3,711 | — | 3,398 | 3,728 | — |
+| 2025-12 | 3,694 | 4,486 | — | 3,867 | 3,986 | — |
+| 2026-01 | 3,560 | 3,618 | — | 3,190 | 3,632 | — |
+| 2026-02 | 3,566 | 3,710 | — | 3,366 | 3,867 | — |
+| 2026-03 | 3,733 | 5,400 | 15,881 | 3,405 | 3,912 | 4,252 |
+| 2026-04 | 3,926 | 6,116 | 9,292 | 3,469 | 3,773 | 4,085 |
+| 2026-05 | 4,076 | 6,786 | 8,146 | 3,509 | 3,997 | 4,214 |
+| 2026-06 | 4,466 | 8,434 | 8,809 | 3,594 | 3,840 | 3,989 |
+| 2026-07 | 3,633 | 4,253 | 7,808 | 3,539 | 3,754 | 4,132 |
 
 > Los umbrales de cada canal suben con el crecimiento orgánico; cada canal cruza sus umbrales cada
 > vez más seguido y se come el margen del Informix actual. Es el argumento cuantitativo de capacidad
@@ -72,6 +80,6 @@ contra el promedio. El pico absoluto puntual (p.ej. aguinaldo) es un outlier P10
 
 ---
 
-*v2.7.0 · Generado por generators/build-percentiles-correlacionados.py · P70/P90/P99 por canal =
-**percentil sobre todos los minutos** (13–22h) · oficiales = valores confirmados por el cliente
-(Aut 3,000/3,500, SPEI 2,080/3,240) · gráfica en `percentiles-correlacionados-evolucion.html`.*
+*v2.6.0 · Generado por generators/build-percentiles-correlacionados.py · P70/P90/P99 por canal sobre el
+**pico por minuto diario** (ventana Aut 1 min / SPEI 3 min) · oficiales = percentil agrupado del histórico ·
+calibrado vs. cifras validadas del cliente · gráfica en `percentiles-correlacionados-evolucion.html`.*
