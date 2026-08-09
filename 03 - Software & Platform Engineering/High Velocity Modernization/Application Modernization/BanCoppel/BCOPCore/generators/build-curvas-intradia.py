@@ -82,7 +82,7 @@ def main():
 
     data = json.dumps({"perfiles": perfiles, "vol": vol, "umbrales": umbrales,
                        "last_real": str(LAST_REAL), "step": 1440 // 288}, ensure_ascii=False)
-    _render(data, ROOT / "portal" / "curvas-intradia-navegable.html")
+    _render(data, OUT / "curvas-intradia-navegable.html")
     print(f"  dias: {len(vol)} ({min(vol)} a {max(vol)})")
     print("[OK] Dashboard de curvas intradia generado.")
 
@@ -155,13 +155,13 @@ footer{{text-align:center;padding:36px 0 8px;font-size:11px;color:var(--muted2);
 <div class="aurora"><div class="blob"></div></div>
 <div class="grain"></div>
 <div class="hero-bar">
-  <img src="bancoppel-logo.png" alt="BanCoppel">
+  <img src="../../portal/bancoppel-logo.png" alt="BanCoppel">
   <div class="hb-sep"></div>
   <span class="crumb">BCOPCORE &nbsp;·&nbsp; SPE-AM-001 &nbsp;·&nbsp; GEMELO COGNITIVO &nbsp;·&nbsp; <em>CURVAS INTRADIA</em></span>
   <span class="hb-sp"></span>
   <a href="percentiles-correlacionados-evolucion.html" class="back">Percentiles →</a>
   <a href="calendario-riesgo.html" class="back">Calendario →</a>
-  <a href="index-bcop-v2.html" class="back">← Portal</a>
+  <a href="../../portal/index-bcop-v2.html" class="back">← Portal</a>
 </div>
 <div class="wrap">
   <div class="hero-label">Capacidad · Curvas Intradia</div>

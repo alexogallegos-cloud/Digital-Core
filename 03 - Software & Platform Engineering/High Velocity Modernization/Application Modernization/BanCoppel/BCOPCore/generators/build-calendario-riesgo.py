@@ -147,7 +147,7 @@ def main():
                        "umbrales": {"spei": {"p70": P70sp, "p90": P90sp},
                                     "eglobal": {"p70": P70eg, "p90": P90eg}},
                        "cortes": CORTES}, ensure_ascii=False)
-    _render(data, ROOT / "portal" / "calendario-riesgo.html")
+    _render(data, OUT / "calendario-riesgo.html")
     print("[OK] Calendario de riesgo generado.")
 
 
@@ -224,7 +224,7 @@ footer{{text-align:center;padding:34px 0 8px;font-size:11px;color:var(--muted2);
 <div class="grain"></div>
 <div id="tt"></div>
 <div class="hero-bar">
-  <img src="bancoppel-logo.png" alt="BanCoppel">
+  <img src="../../portal/bancoppel-logo.png" alt="BanCoppel">
   <div class="hb-sep"></div>
   <span class="crumb">BCOPCORE &nbsp;·&nbsp; SPE-AM-001 &nbsp;·&nbsp; GEMELO COGNITIVO &nbsp;·&nbsp; <em>CALENDARIO DE RIESGO</em></span>
   <span class="hb-sp"></span>
