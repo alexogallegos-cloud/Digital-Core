@@ -146,13 +146,13 @@ sus picos coinciden en el tiempo, apilándose sobre el Informix. **Por canal, po
 combinado** (no se suman); **todos los días** (hábiles y no hábiles — ambos operan el fin de semana),
 **franja horaria 13–22h**, evolución **mensual** con rango **auto-detectado** de los datos.
 
-- **⭐ RECALIBRADO 2026-08-09 vs. cifras validadas del cliente** (Aut P70/P90 ≈3,428/4,000, SPEI P90
-  ≈3,852): P70/P90/P99 sobre el **pico POR MINUTO diario** con **ventana por canal** — **Autorizador
-  1 min** (plató → P70/P90 = **3,394/3,986** ≈ validado ✓); **SPEI 3 min** (promedia los dumps batch de
-  nómina de ~32k txn/min en 1 min → P90 **3,984** ≈ 3,852). **OFICIALES = percentil AGRUPADO sobre todos
-  los picos diarios del histórico** (no el máx de meses). Con holgura: SPEI **3,629/4,382** (P99 8,473),
-  Aut **3,394/3,986** (P99 4,568). El método previo (pico de 1 h sostenida) suavizaba de más y daba bajo.
-  Pendiente: reconciliar la detección de riesgo del calendario (usar co-ocurrencia de minutos reales).
+- **⭐ ESTADO FINAL 2026-08-09 — base ALL-MINUTES + valores CONFIRMADOS por el cliente.** El cliente
+  confirmó (baseline dic-2025..feb-2026): **Autorizador P70/P90 = 3,000/3,500**, **SPEI = 2,080/3,240**.
+  Base = **percentil sobre TODOS los minutos de la ventana 13-22h** (P70 = carga típica, P90 = carga alta;
+  NO el pico diario, que daba ~4,000 = otra base descartada). **OFICIALES = los valores confirmados**
+  (`CONFIRMADOS` dict, override; P99 = pct99 agrupado del histórico, SPEI 3,798 / Aut 3,500). Holgura
+  reseteada a 1.00 (no se infla el dato confirmado). El KPI/curvas leen el bloque `oficiales`. Método
+  `_minutos()` en `build-percentiles-correlacionados.py` v2.7.0.
 - **[HISTORIA] P70/P90/P99 = percentiles del PICO DIARIO (2026-08-08)**: para cada día su **hora de mayor carga
   sostenida** (mayor ventana de 1 h, 13-22h) y los percentiles sobre los picos diarios del mes. Así los
   tres viven en el **régimen de carga alta** (no diluidos por las horas medias). **P99 = techo** (pico
