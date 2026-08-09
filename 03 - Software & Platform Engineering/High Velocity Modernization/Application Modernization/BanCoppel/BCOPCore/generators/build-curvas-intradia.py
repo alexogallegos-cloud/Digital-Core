@@ -160,6 +160,7 @@ footer{{text-align:center;padding:36px 0 8px;font-size:11px;color:var(--muted2);
   <span class="crumb">BCOPCORE &nbsp;·&nbsp; SPE-AM-001 &nbsp;·&nbsp; GEMELO COGNITIVO &nbsp;·&nbsp; <em>CURVAS INTRADIA</em></span>
   <span class="hb-sp"></span>
   <a href="percentiles-correlacionados-evolucion.html" class="back">Percentiles →</a>
+  <a href="calendario-riesgo.html" class="back">Calendario →</a>
   <a href="../../portal/index-bcop-v2.html" class="back">← Portal</a>
 </div>
 <div class="wrap">
