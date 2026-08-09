@@ -31,9 +31,9 @@ import numpy as np, pandas as pd, statsmodels.api as sm
 OUT = ROOT / "knowledge-base" / "cross-reference"
 LAST_REAL = date(2026, 8, 4)
 END_PROJ = date(2026, 12, 31)
-# Taxonomia de riesgo por MINUTOS DE CO-OCURRENCIA REAL (ambos canales >= su P70 crudo, minuto a minuto).
-# Fronteras calibradas al rango observado de co-ocurrencia (max ~33 min/dia):
-CORTES = [5, 15, 30, 60]   # Bajo <5 / Medio 5-15 / Alto 15-30 / Muy alto 30-60 / Critico >=60
+# Taxonomia de riesgo por MINUTOS DE CO-OCURRENCIA REAL (ambos canales >= su P70 crudo confirmado, minuto a minuto).
+# Fronteras al rango observado de co-ocurrencia con el P70 confirmado (max ~430 min/dia, P90 ~270):
+CORTES = [30, 90, 180, 280]   # Bajo <30 / Medio 30-90 / Alto 90-180 / Muy alto 180-280 / Critico >=280
 UPLIFT_SUBE = 0.02   # uplift estacional (modelo SPEI) >= +2% marca el dia como "sube por temporalidad"
 
 # Factores de temporalidad -> etiqueta corta para el popup (columna de factors.build_features -> nombre humano).
@@ -243,11 +243,11 @@ footer{{text-align:center;padding:34px 0 8px;font-size:11px;color:var(--muted2);
     <span class="lt">Riesgo:</span>
     <span class="li"><span class="sw" style="background:#0a0e1f"></span>Ninguno</span>
     <span class="li"><span class="sw" style="background:#2b2550"></span>Solo temporalidad</span>
-    <span class="li"><span class="sw" style="background:#1a5e3a"></span>Bajo &lt;5</span>
-    <span class="li"><span class="sw" style="background:#7a7320"></span>Medio 5–15</span>
-    <span class="li"><span class="sw" style="background:#b45309"></span>Alto 15–30</span>
-    <span class="li"><span class="sw" style="background:#c0392b"></span>Muy alto 30–60</span>
-    <span class="li"><span class="sw" style="background:#d61f69"></span>Crítico &gt;60</span>
+    <span class="li"><span class="sw" style="background:#1a5e3a"></span>Bajo &lt;30</span>
+    <span class="li"><span class="sw" style="background:#7a7320"></span>Medio 30–90</span>
+    <span class="li"><span class="sw" style="background:#b45309"></span>Alto 90–180</span>
+    <span class="li"><span class="sw" style="background:#c0392b"></span>Muy alto 180–280</span>
+    <span class="li"><span class="sw" style="background:#d61f69"></span>Crítico &gt;280</span>
     <span class="li"><span class="sw" style="border:1.5px dashed var(--yellow);background:transparent"></span>Sube por temporalidad</span>
     <span class="sep"></span>
     <span class="li"><span class="tri" style="border-width:0 12px 12px 0;border-color:transparent #38bdf8 transparent transparent"></span>Auth ≥ P90</span>
@@ -311,7 +311,7 @@ function render(){{
       let tri="";
       if(has&&info.eg90) tri+=`<span class="tri t-eg"></span>`;
       if(has&&info.sp90) tri+=`<span class="tri t-sp"></span>`;
-      const txtcol = (has&&info.rm>=30)?"#fff":"var(--muted)";
+      const txtcol = (has&&info.rm>=90)?"#fff":"var(--muted)";
       cells+=`<div class="${{cls}}" style="background:${{bg}};color:${{txtcol}}" data-k="${{key}}">${{dnum}}${{tri}}</div>`;
     }}
     yr+=mr; ytot+=mmin;
@@ -326,7 +326,7 @@ function render(){{
     el.addEventListener("mouseleave",()=>tip.style.opacity=0);
     el.addEventListener("click",()=>{{location.href="curvas-intradia-navegable.html?d="+el.dataset.k;}});
   }});
-  document.getElementById("note").innerHTML=`Riesgo = <b>minutos reales de co-ocurrencia</b> (SPEI y Autorizador ≥ su P70 a la vez, minuto a minuto de los datos observados; P70 crudo de detección: SPEI ${{U.spei.p70.toLocaleString()}}, Aut ${{U.eglobal.p70.toLocaleString()}}) &middot; niveles &lt;5 / 5–15 / 15–30 / 30–60 / &gt;60 min &middot; ▲ = el canal alcanzó su P90 (SPEI ${{U.spei.p90.toLocaleString()}}, Aut ${{U.eglobal.p90.toLocaleString()}}) ese día &middot; borde punteado = uplift estacional SPEI ≥ +2% &middot; celdas rayadas = <b>proyectado</b> (sin datos minuto, riesgo no calculado; real hasta ${{DATA.last_real}}) &middot; generado por <code>generators/build-calendario-riesgo.py</code>`;
+  document.getElementById("note").innerHTML=`Riesgo = <b>minutos reales de co-ocurrencia</b> (SPEI y Autorizador ≥ su P70 a la vez, minuto a minuto de los datos observados; P70 confirmado por el cliente: SPEI ${{U.spei.p70.toLocaleString()}}, Aut ${{U.eglobal.p70.toLocaleString()}}) &middot; niveles &lt;30 / 30–90 / 90–180 / 180–280 / &gt;280 min &middot; ▲ = el canal alcanzó su P90 (SPEI ${{U.spei.p90.toLocaleString()}}, Aut ${{U.eglobal.p90.toLocaleString()}}) ese día &middot; borde punteado = uplift estacional SPEI ≥ +2% &middot; celdas rayadas = <b>proyectado</b> (sin datos minuto, riesgo no calculado; real hasta ${{DATA.last_real}}) &middot; generado por <code>generators/build-calendario-riesgo.py</code>`;
 }}
 document.getElementById("y2025").onclick=()=>{{YEAR=2025;document.getElementById("y2025").classList.add("on");document.getElementById("y2026").classList.remove("on");render();}};
 document.getElementById("y2026").onclick=()=>{{YEAR=2026;document.getElementById("y2026").classList.add("on");document.getElementById("y2025").classList.remove("on");render();}};

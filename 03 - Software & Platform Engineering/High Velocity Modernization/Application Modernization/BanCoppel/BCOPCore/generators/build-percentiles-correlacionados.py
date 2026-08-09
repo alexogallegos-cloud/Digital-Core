@@ -34,14 +34,11 @@ HITOS = {"2026-03": "leak-fix", "2026-06": "Power 10"}
 # atascadas -> pico artificialmente bajo, o drenados de cola -> pico artificialmente alto). Se limpia
 # (null) todo mes anterior al primer fix. Se deriva del primer hito para quedar consistente con la grafica.
 PICO_CONFIABLE_DESDE = min(HITOS)  # "2026-03" (leak-fix)
-# Holgura de dimensionamiento POR CANAL, aplicada a TODOS los umbrales P70/P90/P99 (el max observado
-# max_1h va SIN holgura como referencia de la realidad).
-# REGLA (2026-08-08): solo se asigna holgura a un canal con MARGEN REAL. Un canal que YA TOPA su techo
-# NO recibe holgura hasta que haya acciones de REMEDIACION que suban el techo — provisionar 10% sobre
-# un techo duro que ya se alcanza es fabricar capacidad inexistente. El Autorizador topa su techo de
-# throughput (~4,300 txn/min, cuello = pool de conexiones/BD/HSM; ver growth-forecast-autorizador-spei.md)
-# => holgura 1.00 hasta remediar. SPEI tiene margen (ráfagas, no topa) => 1.10.
-HOLGURA = {"spei": 1.10, "eglobal": 1.00}
+# Holgura de dimensionamiento POR CANAL. 2026-08-09: los umbrales oficiales pasan a ser los VALORES
+# CONFIRMADOS por el cliente (ver CONFIRMADOS en main), que ya son las cifras operativas -> holgura 1.00
+# (no se infla el dato confirmado). La holgura de dimensionamiento del target, si se requiere, se aplica
+# aparte. Se conserva el dict por canal para el pipeline (JSON) y por si se reactiva.
+HOLGURA = {"spei": 1.00, "eglobal": 1.00}
 # Evidencia de mejora MEDIDA (no derivada de un factor) — ver knowledge-base/autorizador/mejoras-2026.md.
 # Encolamientos: 7 incidentes nov-2025→ene-2026 -> 0 después (feb-2026 = primer mes limpio, balanceo 15-feb).
 # Duración de incidente: 1.5-7.5 h (nov-dic 2025) -> ~18.5 min post-Power10 (~-93% impacto por evento).
@@ -57,43 +54,25 @@ def main():
     spm = {(d, m): v for d, mm in C.load_minute_channel(ROOT, "spei").items()
            if len(mm) >= 1400 for m, v in mm}
 
-    # Percentiles del PICO POR MINUTO DIARIO por mes/canal (granularidad operativa real, validada vs. las
-    # metricas del cliente: Autorizador P70/P90 ~3,400/4,000). Para cada dia se toma su MAYOR txn/min
-    # (13-22h) y P70/P90/P99 son percentiles sobre esos picos diarios del mes. Interpretacion de capacidad:
-    #   P99 = el pico diario se supera solo 1% de los dias (dia peor = techo), P90 = 10% (incidente), P70 = 30% (alerta).
-    # El max absoluto del mes es un outlier por encima del P99; se guarda como max_1h pero NO se grafica.
+    # Percentiles sobre TODOS los minutos de la ventana operativa 13-22h (la base del cliente):
+    #   P70 = carga TIPICA (el 70% de los minutos esta por debajo), P90 = carga ALTA, P99 = pico.
+    # Reproduce las cifras CONFIRMADAS por el cliente (Dic-2025..Feb-2026): Autorizador P70/P90 ~3,000/3,500,
+    # SPEI P70/P90 ~2,080/3,240. Por mes para la evolucion; agrupado (todo el historico) para el pooled/P99.
     from collections import defaultdict as _dd
-    # Ventana del PICO DIARIO por canal (calibrada vs. las cifras validadas del cliente):
-    #  - Autorizador = 1 min: su carga es un PLATÓ, el pico por minuto ES el sostenido (P90 ~4,000, P70 ~3,400).
-    #  - SPEI = 3 min: su pico por minuto lo dominan dumps batch de dispersion de nomina (hasta ~32k txn/min en
-    #    UN minuto) que NO son carga sostenida; 3 min los promedia y aterriza en el sostenido (P90 ~3,850).
-    WVENT = {"spei": 3, "eglobal": 1}
     def _pct(a, p):
         if not a: return 0.0
         a = sorted(a); k = (len(a) - 1) * p / 100.0; f = int(k); c = min(f + 1, len(a) - 1)
         return a[f] + (a[c] - a[f]) * (k - f)
-    def _daily_peaks(dic, W):                            # pico diario = max de ventanas de W min (promedio), 13-22h
-        if W == 1:
-            by = {}
-            for (d, m), v in dic.items():
-                if 13*60 <= m < 22*60 and v > by.get(d, 0.0): by[d] = v
-            return by
-        acc = _dd(list)
-        for (d, m), v in dic.items():
-            if 13*60 <= m < 22*60: acc[(d, m // W)].append(v)
-        by = {}
-        for (d, wk), vs in acc.items():
-            if len(vs) == W:
-                mn = sum(vs) / W
-                if mn > by.get(d, 0.0): by[d] = mn
-        return by
-    pk_sp = _daily_peaks(spm, WVENT["spei"]); pk_eg = _daily_peaks(egm, WVENT["eglobal"])
-    def _mes(peaks):                                     # {(y,mo): {p70,p90,p99,max}} = percentil sobre los picos del mes
+    def _minutos(dic):                                   # {(y,mo): [txn/min de TODOS los minutos 13-22h]}
         bym = _dd(list)
-        for d, v in peaks.items(): bym[(d.year, d.month)].append(v)
+        for (d, m), v in dic.items():
+            if 13*60 <= m < 22*60: bym[(d.year, d.month)].append(v)
+        return bym
+    _bs, _be = _minutos(spm), _minutos(egm)
+    def _mes(bym):
         return {ym: {"p70": round(_pct(ms, 70)), "p90": round(_pct(ms, 90)),
                      "p99": round(_pct(ms, 99)), "max": round(max(ms))} for ym, ms in bym.items()}
-    _q_sp, _q_eg = _mes(pk_sp), _mes(pk_eg)
+    _q_sp, _q_eg = _mes(_bs), _mes(_be)
 
     # evolucion MENSUAL — rango AUTO-DETECTADO de los datos: meses con >=15 dias completos (evita meses
     # a medias). Se EXTIENDE SOLO al cargar datos nuevos.
@@ -113,14 +92,12 @@ def main():
         r["mes"] = f"{y}-{mo:02d}"
         r["x"] = str(date(y, mo, 15))             # fecha representativa (mitad de mes) para el eje temporal
         qs, qe = _q_sp.get((y, mo)), _q_eg.get((y, mo))
-        _h = lambda v, ch: round(v * HOLGURA[ch])   # holgura de dimensionamiento POR CANAL
-        # P70/P90 = percentiles del PICO DIARIO (todos los meses, regimen de carga alta) + holgura por canal
-        r["p70"] = {"spei": _h(qs["p70"], "spei"), "eglobal": _h(qe["p70"], "eglobal")}
-        r["p90"] = {"spei": _h(qs["p90"], "spei"), "eglobal": _h(qe["p90"], "eglobal")}
+        # P70/P90 = percentil sobre TODOS los minutos del mes (13-22h)
+        r["p70"] = {"spei": qs["p70"], "eglobal": qe["p70"]}
+        r["p90"] = {"spei": qs["p90"], "eglobal": qe["p90"]}
         if r["mes"] >= PICO_CONFIABLE_DESDE:
-            # techo P99 solo en regimen confiable (pre-fix contaminado por queue-flush)
-            r["p99"] = {"spei": _h(qs["p99"], "spei"), "eglobal": _h(qe["p99"], "eglobal")}
-            r["max_1h"] = {"spei": qs["max"], "eglobal": qe["max"]}   # observado, SIN holgura
+            r["p99"] = {"spei": qs["p99"], "eglobal": qe["p99"]}
+            r["max_1h"] = {"spei": qs["max"], "eglobal": qe["max"]}
         else:
             r["p99"] = {"spei": None, "eglobal": None}
             r["max_1h"] = {"spei": None, "eglobal": None}
@@ -130,29 +107,23 @@ def main():
               f"riesgo={r['pct_zona_riesgo']:>4}% r={r['correlacion']}")
 
     actual = meses[-1]
-    # PERCENTILES OFICIALES por canal = percentil AGRUPADO sobre TODOS los picos diarios (todo el histórico),
-    # con holgura por canal. Es la metrica del cliente (percentil sobre todos los dias, NO el max de los
-    # percentiles mensuales). P70 alerta, P90 incidente, P99 techo de dimensionamiento.
-    _pkpool = {"spei": list(pk_sp.values()), "eglobal": list(pk_eg.values())}
-    oficiales = {ch: {"p70": round(_pct(_pkpool[ch], 70) * HOLGURA[ch]),
-                      "p90": round(_pct(_pkpool[ch], 90) * HOLGURA[ch]),
-                      "p99": round(_pct(_pkpool[ch], 99) * HOLGURA[ch])}
-                 for ch in ("spei", "eglobal")}
-    _hp = {c: f"+{round((HOLGURA[c]-1)*100)}%" for c in HOLGURA}
-    print(f"  percentiles OFICIALES (agrupado todo histórico; holgura SPEI {_hp['spei']}, Aut {_hp['eglobal']}): "
+    # PERCENTILES OFICIALES = valores CONFIRMADOS por el cliente (baseline Dic-2025..Feb-2026, base all-minutes 13-22h):
+    #   P70 = carga tipica, P90 = carga alta. P99 (techo) = percentil 99 AGRUPADO sobre todos los minutos del historico.
+    CONFIRMADOS = {"spei": {"p70": 2080, "p90": 3240}, "eglobal": {"p70": 3000, "p90": 3500}}
+    _poolsp = [v for (d, m), v in spm.items() if 13*60 <= m < 22*60]
+    _pooleg = [v for (d, m), v in egm.items() if 13*60 <= m < 22*60]
+    oficiales = {"spei":    {**CONFIRMADOS["spei"],    "p99": max(round(_pct(_poolsp, 99)), CONFIRMADOS["spei"]["p90"])},
+                 "eglobal": {**CONFIRMADOS["eglobal"], "p99": max(round(_pct(_pooleg, 99)), CONFIRMADOS["eglobal"]["p90"])}}
+    print(f"  percentiles OFICIALES (CONFIRMADOS por el cliente): "
           f"SPEI P70/P90/P99={oficiales['spei']['p70']:,}/{oficiales['spei']['p90']:,}/{oficiales['spei']['p99']:,} | "
           f"Aut P70/P90/P99={oficiales['eglobal']['p70']:,}/{oficiales['eglobal']['p90']:,}/{oficiales['eglobal']['p99']:,}")
-    report = {"metodologia": "percentiles correlacionados por canal (SPEI y Autorizador), sin combinado, todos los dias 13-22h; "
-              "P70/P90/P99 sobre el PICO DIARIO por minuto (max txn/min de cada dia). VENTANA POR CANAL calibrada vs. cifras "
-              "validadas del cliente: Autorizador 1 min (su carga es un plato, el pico/min ES el sostenido -> P70/P90 ~3,400/4,000); "
-              "SPEI 3 min (su pico por minuto lo dominan dumps batch de nomina de ~32k txn/min en 1 min, no sostenidos; 3 min los promedia -> P90 ~3,850). "
-              "PERCENTILES OFICIALES (bloque 'oficiales') = percentil AGRUPADO sobre TODOS los picos diarios del historico (no el max de meses); "
-              "son las lineas de referencia de curvas intradia. P90=incidente, P70=alerta, P99=techo. "
-              "HOLGURA de dimensionamiento POR CANAL (max_1h va SIN holgura). REGLA: solo se asigna holgura a un canal con margen real; "
-              "uno que topa su techo NO recibe holgura hasta REMEDIAR. SPEI +10% (tiene margen); Autorizador +0% (topa su techo ~4,300 txn/min, cuello pool de conexiones/BD/HSM). "
-              "P99 solo desde el leak-fix (mes>=2026-03); zona de riesgo = ambos canales >= su P70 a la vez",
+    report = {"metodologia": "percentiles correlacionados por canal (SPEI y Autorizador), sin combinado, ventana operativa 13-22h; "
+              "P70/P90/P99 = percentil sobre TODOS los minutos (base del cliente): P70 = carga tipica, P90 = carga alta, P99 = pico. "
+              "PERCENTILES OFICIALES (bloque 'oficiales') = valores CONFIRMADOS por el cliente (baseline Dic-2025..Feb-2026): "
+              "Autorizador P70/P90 = 3,000/3,500; SPEI P70/P90 = 2,080/3,240 (P99 = percentil 99 agrupado del historico). "
+              "Son las lineas de referencia de curvas intradia y el umbral de deteccion del calendario. "
+              "P99 en la evolucion solo desde el leak-fix (mes>=2026-03); zona de riesgo = ambos canales >= su P70 a la vez",
               "pico_confiable_desde": PICO_CONFIABLE_DESDE,
-              "ventana_pico_min": WVENT,
               "holgura": HOLGURA,
               "oficiales": oficiales,
               "actual": actual, "evolucion": meses}
@@ -178,7 +149,7 @@ def _render_md(meses, a, oficiales, path):
     md = f"""# Percentiles Correlacionados — SPEI y Autorizador sobre Informix
 > **Fuente**: pipeline `generators/build-percentiles-correlacionados.py` (+ `forecast/capacity.py`)
 > **DT dueño**: `dt/dt-autorizador-pagos/` · co-ref `dt/dt-spei/`, `dt/dt-riesgos/`
-> **Versión**: 2.6.0 (pico POR MINUTO diario · ventana por canal Aut 1min/SPEI 3min · oficiales = percentil agrupado, calibrado vs. cifras del cliente) · regenerable con `python generators/build-percentiles-correlacionados.py`
+> **Versión**: 2.7.0 (percentil sobre TODOS los minutos 13-22h · oficiales = valores CONFIRMADOS por el cliente) · regenerable con `python generators/build-percentiles-correlacionados.py`
 
 ## Metodología
 
@@ -186,40 +157,32 @@ Mide la carga que SPEI y el Autorizador ejercen **simultáneamente** sobre Infor
 compartido). **Por canal, por separado** — no se suman. **Todos los días** (ambos operan también el
 fin de semana), horario operativo **13–22h**.
 
-Para cada día se toma su **pico por minuto** (máx txn/min). La **ventana del pico es por canal**,
-calibrada contra las métricas validadas del cliente (Aut P70/P90 ≈ 3,400/4,000; SPEI P90 ≈ 3,850):
+Los umbrales son el **percentil sobre TODOS los minutos** de la ventana operativa (la base que usa
+el cliente): **P70 = carga típica** (el 70% de los minutos está por debajo), **P90 = carga alta**,
+**P99 = pico**. La evolución mensual es el percentil por mes; el pooled (agrupado sobre todo el
+histórico) da la referencia. Esta base reproduce las cifras confirmadas por el cliente.
 
-- **Autorizador — 1 min**: su carga es un **plató**, el pico por minuto ES el sostenido.
-- **SPEI — 3 min**: su pico por minuto lo dominan **dumps batch de dispersión de nómina** (hasta
-  ~32,000 txn/min en un solo minuto, p.ej. 18-dic y 3-mar) que NO son carga sostenida; la ventana de
-  3 min los promedia y aterriza en el pico sostenido real.
-
-Los **percentiles oficiales** (P70 alerta, P90 incidente, P99 techo) son el **percentil agrupado
-sobre TODOS los picos diarios del histórico** (no el máximo de los percentiles mensuales) — la misma
-definición que usa el cliente. La evolución mensual (gráfica) es el percentil por mes.
-
-El **P99 solo se muestra desde el leak-fix de mar-2026** (antes el pico está contaminado por los
-encolamientos y el connection leak, INC-20251223).
+El **P99 solo se muestra desde el leak-fix de mar-2026** (antes está contaminado por los encolamientos
+y el connection leak, INC-20251223).
 
 > **Correlación**: los picos de ambos canales coinciden en el tiempo (perfil intradía r≈0.99), no se
 > diversifican y la carga se apila sobre Informix. **Zona de riesgo** = ambos ≥ su P70 a la vez.
 
-## Percentiles OFICIALES por canal (percentil agrupado, todo el histórico) — umbrales de referencia
+## Percentiles OFICIALES por canal — valores CONFIRMADOS por el cliente
 
-Son la cifra oficial del canal: el **percentil sobre todos los picos diarios** del histórico (el mismo
-valor que dibuja curvas intradía como líneas de referencia). El P70 (alerta) y el P90 (incidente)
-son los **percentiles oficiales** para operación; el P99 es el techo de dimensionamiento.
-**Holgura de dimensionamiento por canal** — REGLA: solo se asigna holgura a un canal con margen real;
-un canal que **topa su techo** NO recibe holgura hasta que haya remediación. **SPEI: +10%** (tiene
-margen). **Autorizador: +0%** (topa su techo ~4,300 txn/min; cuello = pool de conexiones/BD/HSM).
+Los umbrales oficiales son los **valores confirmados por el cliente** (baseline **dic-2025 a feb-2026**,
+base all-minutes 13–22h): **P70 = carga típica** (alerta), **P90 = carga alta** (incidente). El P99
+(techo de dimensionamiento) es el percentil 99 agrupado del histórico. Son las **líneas de referencia**
+de curvas intradía y el **umbral de detección** del calendario de riesgo. (Holgura de dimensionamiento
+del target, si se requiere, se aplica aparte — no se infla el dato confirmado.)
 
 | Canal | P70 (alerta) | P90 (incidente) | P99 (techo) |
 |-------|-------------|------------------|-------------|
 | SPEI | {_of('spei','p70')} | {_of('spei','p90')} | {_of('spei','p99')} |
 | Autorizador | {_of('eglobal','p70')} | {_of('eglobal','p90')} | {_of('eglobal','p99')} |
 
-> Autorizador: su P90 y P99 quedan al mismo nivel (~3,600) porque **topa un techo real** y su carga
-> está censurada en los picos (ver DT-Autorizador y `growth-forecast-autorizador-spei.md`).
+> Autorizador: su P90 y P99 quedan casi al mismo nivel (~3,500) porque **topa un techo real** y su
+> carga está censurada en los picos (ver DT-Autorizador y `growth-forecast-autorizador-spei.md`).
 
 Último mes ({a['mes']}), como referencia de la tendencia: SPEI P70/P90 {a['p70']['spei']:,}/{a['p90']['spei']:,},
 Autorizador {a['p70']['eglobal']:,}/{a['p90']['eglobal']:,}.
@@ -239,9 +202,9 @@ contra el promedio. El pico absoluto puntual (p.ej. aguinaldo) es un outlier P10
 
 ---
 
-*v2.6.0 · Generado por generators/build-percentiles-correlacionados.py · P70/P90/P99 por canal sobre el
-**pico por minuto diario** (ventana Aut 1 min / SPEI 3 min) · oficiales = percentil agrupado del histórico ·
-calibrado vs. cifras validadas del cliente · gráfica en `percentiles-correlacionados-evolucion.html`.*
+*v2.7.0 · Generado por generators/build-percentiles-correlacionados.py · P70/P90/P99 por canal =
+**percentil sobre todos los minutos** (13–22h) · oficiales = valores confirmados por el cliente
+(Aut 3,000/3,500, SPEI 2,080/3,240) · gráfica en `percentiles-correlacionados-evolucion.html`.*
 """
     path.write_text(md, encoding="utf-8")
     print(f"  MD: {path}")
@@ -326,7 +289,7 @@ svg circle.pt{{transition:r .1s}}
 <div class="wrap">
   <div class="hero-label">Capacidad · Percentiles Correlacionados</div>
   <h1 class="hero-h1">Percentiles Correlacionados por Canal</h1>
-  <p class="hero-sub"><b>P99</b> (techo), <b>P90</b> (incidente) y <b>P70</b> (alerta) por canal, medidos sobre el <b>pico por minuto</b> de cada día (13–22h) y su percentil sobre <b>todos los días</b> del histórico. Ventana del pico calibrada con las métricas validadas del cliente: <b>Autorizador a 1 min</b> (su carga es un plató, el pico/min es el sostenido → P90 ≈ 4,000), <b>SPEI a 3 min</b> (promedia los dumps batch de nómina de 1 minuto → P90 ≈ 3,850). El P99 se muestra desde el <b>leak-fix de mar-2026</b>. <b>SPEI</b> incluye un <b>10% de holgura</b> de dimensionamiento; el <b>Autorizador NO</b> — ya topa su techo, y la regla es no asignar holgura a un canal saturado hasta que haya remediación.</p>
+  <p class="hero-sub"><b>P70</b> (carga típica), <b>P90</b> (carga alta) y <b>P99</b> (pico) por canal, como <b>percentil sobre todos los minutos</b> de la ventana operativa (13–22h) — la base que usa el cliente. Los umbrales oficiales son los <b>valores confirmados por el cliente</b> (baseline dic-2025 a feb-2026): Autorizador <b>P70/P90 = 3,000/3,500</b>, SPEI <b>2,080/3,240</b>. La evolución mensual muestra cómo se mueven con el crecimiento; el P99 (techo) se muestra desde el leak-fix de mar-2026.</p>
   <div class="kpi-row" id="kpis"></div>
   <div class="panels">
     <div class="panel glass">
@@ -358,8 +321,8 @@ const a=M[M.length-1];
 // PERCENTILES OFICIALES por canal = percentil AGRUPADO sobre todos los picos diarios (bloque 'oficiales'), = lineas de referencia de curvas
 const OFI=DATA.oficiales;
 document.getElementById("kpis").innerHTML=`
-<div class="kpi glass"><div class="val" style="color:#38bdf8">${{OFI.spei.p70.toLocaleString()}} / ${{OFI.spei.p90.toLocaleString()}}</div><div class="lbl">SPEI — P70 / P90 oficiales (pico/min diario · vent. 3 min · +10% holgura · txn/min)</div></div>
-<div class="kpi glass"><div class="val" style="color:#38bdf8">${{OFI.eglobal.p70.toLocaleString()}} / ${{OFI.eglobal.p90.toLocaleString()}}</div><div class="lbl">Autorizador — P70 / P90 oficiales (pico/min diario · <b style="color:#ff5c5c">SIN holgura: topa techo</b> · txn/min)</div></div>`;
+<div class="kpi glass"><div class="val" style="color:#38bdf8">${{OFI.spei.p70.toLocaleString()}} / ${{OFI.spei.p90.toLocaleString()}}</div><div class="lbl">SPEI — P70 / P90 oficiales (confirmados por el cliente · txn/min)</div></div>
+<div class="kpi glass"><div class="val" style="color:#38bdf8">${{OFI.eglobal.p70.toLocaleString()}} / ${{OFI.eglobal.p90.toLocaleString()}}</div><div class="lbl">Autorizador — P70 / P90 oficiales (confirmados por el cliente · txn/min)</div></div>`;
 
 const tip=document.getElementById("tt");
 function showTip(ev,mes,color,label,valStr){{
@@ -412,7 +375,7 @@ function draw(){{
  chart("chartEG",["eg70","eg90","eg99"],C,L,yMaxEG,kf,kt,300);
 }}
 draw();window.addEventListener("resize",draw);
-document.getElementById("note").innerHTML=`Percentiles sobre el <b>pico por minuto</b> de cada día (13–22h; ventana por canal: <b>Aut 1 min</b>, <b>SPEI 3 min</b> para promediar los dumps batch) &middot; <b>P99</b> (cian) = techo (pico superado ~1% de los días); <b>P90</b> = incidente (10%); <b>P70</b> = alerta (30%) &middot; los KPI/líneas son el percentil <b>agrupado sobre todo el histórico</b> &middot; holgura por canal: <b>SPEI +10%</b>, <b>Autorizador +0%</b> (topa su techo — regla: sin holgura hasta remediar) &middot; escala Y independiente por panel &middot; el <b>P99 solo desde mar-2026</b> &middot; banda = periodo no confiable (nov'25–ene'26); leak-fix (mar) y Power 10 (jun) marcados &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
+document.getElementById("note").innerHTML=`<b>P70</b> (carga típica), <b>P90</b> (carga alta) y <b>P99</b> (pico) = percentil sobre <b>todos los minutos</b> de la ventana 13–22h (base del cliente) &middot; los KPI/líneas son los <b>valores confirmados por el cliente</b> (Aut 3,000/3,500, SPEI 2,080/3,240; baseline dic'25–feb'26) &middot; la evolución mensual es el percentil por mes &middot; escala Y independiente por panel &middot; el <b>P99 solo desde mar-2026</b> &middot; banda = periodo no confiable (nov'25–ene'26); leak-fix (mar) y Power 10 (jun) marcados &middot; generado por <code>generators/build-percentiles-correlacionados.py</code>`;
 </script></body></html>"""
     path.write_text(html, encoding="utf-8")
     print(f"  HTML: {path}")
