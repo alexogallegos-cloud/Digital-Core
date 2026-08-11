@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """
-build-sp-fine-mapping.py — BCOPCore SP Fine-Grained Capability Mapping v3.7
+build-sp-fine-mapping.py — BCOPCore SP Fine-Grained Capability Mapping v3.8
+# v3.8 (2026-08-11): Round 26 — sucursal/grupo/noconciliad/msjafore/consaldo + D02→5.4.8
+#   7.1.3  +'sucursal' — D02 sp_valida_sucursal fi=124; zero regression (only NONE SP with sucursal in 7.1.3 domains)
+#   3.3.4  +'grupo' — D06 sp_obtienegrupo fi=174 (grupo crédito grupal); also D01 sp_pm_obtienegrupo fi=0
+#   3.17.8 +'noconciliad' — D05 sp_sacreportesremesasnoconciliadasbts fi=26×2 (break 3-way tie vs 3.4.3/3.17.2)
+#   5.3.5  +'msjafore' — D02 sp_inserta_msjafore fi=36 (mensaje AFORE = CONSAR regulatory message)
+#   5.3.5  +'consaldo' — D02 sp_cnsif_consaldoscap* fi=0 (CNSIF saldos query — break tie vs 3.2.4/3.3.4)
+#   D02→5.4.8(secondary) — valor_divisa_pesos fi=53 + sp_consulta_divisas_bym fi=0×2
 # v3.7 (2026-08-11): Round 25 — cod47totales/statusaumlincred/principalrefer/principal_suc/actualizarfechacheques (tie-breakers for 5 high-fi SPs)
 #   3.2.4  +'cod47totales' — breaks 3-way tie on sp_consultachequescod47totales_ccep fi=78 (ccep/totales/cod47 each 5.0)
 #   3.3.1  +'statusaumlincred' — breaks 3-way tie on sp_cac_obtenstatusaumlincred fi=40 (status/aumlincred/lincred each 5.0)
@@ -325,7 +332,10 @@ KEYWORDS: dict[str, list[str]] = {
               # Round 20: D01/D02 cnsif temporary-transaction purge (sp_cnsif_depuramovimientostempo fi=133)
               'depuramov',    # 'depuramov' subset of 'depuramovimientos' — double-scores with 'cnsif' → conf=0.4
               # Round 23: D01 FATCA classification (sp_cap_clasificadorparametrosfatca fi=78)
-              'fatca'],      # Foreign Account Tax Compliance Act — clasificador de parámetros FATCA
+              'fatca',       # Foreign Account Tax Compliance Act — clasificador de parámetros FATCA
+              # Round 26: D02 AFORE regulatory message + CNSIF saldo queries
+              'msjafore',    # sp_inserta_msjafore fi=36 — CONSAR/AFORE regulated message; msjafore NOT in 3.4.3 for D02
+              'consaldo'],   # sp_cnsif_consaldo* pattern — double-scores with 'cnsif' → 10 pts vs 3.2.4 6pts
     '7.1.1': ['alta_clien', 'registro_clien', 'nuevo_clien', 'onboard', 'crea_clien',
               'inserta_clien', 'graba_clien',
               # consulta de datos de cliente (patrones sin confundir con "credito")
@@ -371,7 +381,9 @@ KEYWORDS: dict[str, list[str]] = {
               # Round 15: D02 domicilio del cliente (sp_*domicilio* — 10 SPs address management)
               'domicilio',
               # Round 15: D04 Medallia NPS (sp_*medalia* — customer satisfaction survey ops)
-              'medalia'],   # BanCoppel spelling: medalia (sic) = Medallia NPS platform
+              'medalia',    # BanCoppel spelling: medalia (sic) = Medallia NPS platform
+              # Round 26: D02 branch validation (sp_valida_sucursal fi=124; only NONE in 7.1.3 domains)
+              'sucursal'],  # branch/office — validación de sucursal para ops de integración D02
     # 7.1.4 shared
 
     # ── Créditos (D03) ───────────────────────────────────────────
@@ -449,7 +461,9 @@ KEYWORDS: dict[str, list[str]] = {
               'pagoscre',        # pagos+credito portmanteau — doubly scores with 'pago' → conf OK
               # Round 25: D03 principal debt SPs (principalrefer fi=51, sp_principal_suc_rr fi=32)
               'principalrefer',  # exact SP name — capital principal de deuda (referenciado)
-              'principal_suc'],  # sp_principal_suc_rr — principal de sucursal (deuda por sucursal)
+              'principal_suc',   # sp_principal_suc_rr — principal de sucursal (deuda por sucursal)
+              # Round 26: D06 grupo crédito (sp_obtienegrupo fi=174 — group loan in bdisolic)
+              'grupo'],          # grupo de crédito — crédito grupal Coppel (microfinance group loan model)
     # '3.3.6' stub D03 eliminado — D11 es superset; ver definición canónica en sección D11
     '5.9.1': ['parametro_riesgo', 'politica_cred', 'regla_cred', 'score_param',
               # Round 11: D03 motor de crédito (credit scoring engine)
@@ -657,7 +671,9 @@ KEYWORDS: dict[str, list[str]] = {
                'consecutivoarch',     # sp_ope_consultaconsecutivoarch fi=52 — consecutivo de archivo
                # Round 24: D13 file sequence (sp_consultaconsecutivoarchivo fi=54)
                'consecutivoarchivo',  # D13 TEF consecutive file number — D13 also has 3.17.8
-               'reportesbc'],         # sp_ope_reportesbc fi=42 — reportes banco central/buró crédito
+               'reportesbc',          # sp_ope_reportesbc fi=42 — reportes banco central/buró crédito
+               # Round 26: D05 SAC non-conciliated remittance report (break 3-way tie vs 3.4.3/3.17.2)
+               'noconciliad'],        # sp_sacreportesremesas*noconciliad* fi=26×2; doubly-scores with 'sacreporte'
                # NOTE: 'cheque' intentionally NOT added — conflicts with 'cheq' keyword in 3.17.11
                # causing ~30 regressions in domains with both caps (D04/D11/D16/D44/D12)
                # NO restaurados: 'consulta','reporte','movimiento','saldo','estado','consultar'
@@ -1138,6 +1154,8 @@ DOMAIN_CAPS_ADD: list[tuple[str, str, str]] = [
     ('D44', '3.17.11', 'primary'),   # bdirech: conciliación operativa — reconciliation services (match exacto)
     ('D48', '5.9.2', 'primary'),     # bdiriesgos: riesgos de crédito — risk assessment (match exacto)
     ('D49', '1.2.2', 'primary'),     # bdirst: retiro sin tarjeta — ATM, POS and Kiosk (cardless ATM withdrawal)
+    # Round 26: D02 bdinteg — forex/divisas operations (valor_divisa_pesos fi=53 + consulta_divisas_bym fi=0×2)
+    ('D02', '5.4.8', 'secondary'),   # foreign exchange: valor_divisa_pesos, consulta_divisas_bym* — 'divisa' keyword
 ]
 # NOTE: D01→3.17.11 NOT added — would activate 'cheq' keyword for all D01 cheque* SPs,
 # conflicting with 3.17.8 in D01 and causing regressions in domains with both caps
