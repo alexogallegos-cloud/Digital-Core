@@ -55,7 +55,7 @@ import json as _json, re as _re, os as _os
 # ── failures-registry.json → incidentes activos por dominio ──
 _fail_path = _os.path.join(BASE, 'knowledge-base/failures-registry.json')
 if _os.path.exists(_fail_path):
-    _FAILS_RAW = _json.loads(open(_fail_path, encoding='utf-8').read())
+    _FAILS_RAW = _json.loads(open(_fail_path, encoding='utf-8-sig').read())
     FAILURES_BY_DOM = {}
     for _inc in _FAILS_RAW.get('incidents', []):
         _d = _inc['domain'].lower()

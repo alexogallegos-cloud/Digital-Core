@@ -77,12 +77,13 @@ try:
     for _r in _bc.execute("SELECT name, sp_role FROM sps WHERE sp_role IS NOT NULL").fetchall():
         if _r[0] not in sp_role_map:  # first occurrence wins (same name can appear in multiple DBs)
             sp_role_map[_r[0]] = _r[1]
-    # Journeys con su primary_l3 para remapeo capacidad→journey
+    # Journeys con sus L3 ETB (desde sp_capabilities, puede ser multiple)
     _jrows = _bc.execute("""
         SELECT j.id, lower(j.domain) as dom, j.biz, j.sp, j.fan_out, j.reg,
-               s.primary_l3
+               GROUP_CONCAT(DISTINCT sc.l3_id) as l3_set
         FROM journeys j
-        JOIN sps s ON s.id = j.id
+        LEFT JOIN sp_capabilities sc ON sc.sp_id = j.id
+        GROUP BY j.id, j.domain
         ORDER BY j.domain, j.id
     """).fetchall()
     JOURNEYS_BY_DOM: dict = {}
@@ -91,7 +92,7 @@ try:
         JOURNEYS_BY_DOM.setdefault(_jd, []).append({
             "id": _jr[0], "biz": _jr[2] or _jr[3], "sp": _jr[3],
             "fo": _jr[4] or 0, "reg": bool(_jr[5]),
-            "l3": _jr[6] or "",
+            "l3": set(_jr[6].split(",")) if _jr[6] else set(),
         })
     _bc.close()
 except Exception as _exc:
@@ -717,10 +718,11 @@ for _a, _groups in MODEL_V2:
             dom_j = JOURNEYS_BY_DOM.get(_dom, [])
             if not dom_j:
                 continue
-            # Tier 1: L3 directo — primary_l3 del journey vs CAP_L3_MAP
+            # Tier 1: L3 directo — L3 set del journey (sp_capabilities) vs CAP_L3_MAP
             _l3_ids = CAP_L3_MAP.get(_cn)
             if _l3_ids:
-                _l3_matched = [_j for _j in dom_j if _j.get("l3") in _l3_ids]
+                _l3_set = set(_l3_ids)
+                _l3_matched = [_j for _j in dom_j if _j.get("l3") & _l3_set]
                 if _l3_matched:
                     JOURNEY_CAP_MAP[_cn] = _l3_matched
                     continue
@@ -732,7 +734,8 @@ for _a, _groups in MODEL_V2:
                 matched = sorted([(_j, _s) for _j, _s in scored if _s > 0], key=lambda x: -x[1])
                 if matched:
                     JOURNEY_CAP_MAP[_cn] = [_j for _j, _ in matched[:8]]
-JOURNEY_CAP_JSON = _json.dumps(JOURNEY_CAP_MAP, ensure_ascii=False)
+JOURNEY_CAP_JSON = _json.dumps(JOURNEY_CAP_MAP, ensure_ascii=False,
+                              default=lambda x: list(x) if isinstance(x, set) else x)
 
 allcaps2 = [(c,d) for _,groups in MODEL_V2 for _,caps in groups for c,d in caps]
 tot2    = len(allcaps2)
@@ -1029,29 +1032,40 @@ function openDrill(did,capName){{
     }}
 
     // ── Journeys específicos de esta capacidad (JOURNEYDATA) ───────────────
+    const procMap=Object.fromEntries(d.procs.map(p=>[p.sp,p]));
     if(capJs&&capJs.length){{
       h+=`<div class="dsec">Journeys de esta capacidad (${{capJs.length}})</div>`;
       capJs.forEach(j=>{{
+        const proc=procMap[j.sp]||{{}};
         const biz=j.biz?j.biz.charAt(0).toUpperCase()+j.biz.slice(1):j.sp;
         const reg=j.reg?'<span class="regtag">REGULATORIO</span>':'';
+        const roleTag=proc.role?`<span class="proc-role-tag">${{PROC_ROLE_LABELS[proc.role]||proc.role}}</span>`:'';
+        const desc=proc.desc?`<div class="pdesc">${{proc.desc}}</div>`:'';
+        const trig=proc.trig?`<div class="ptrig">Disparado por: <b>${{proc.trig}}</b></div>`:'';
+        const flow=(proc.flow||[]).length?'<div class="flabel">Flujo</div><div class="flow">'+
+          proc.flow.map((s,i)=>`${{i?'<span class=arr>&rarr;</span>':''}}<span class="step">${{s}}</span>`).join('')+'</div>':'';
         const url=_jDetailUrl(j.id);
         h+=`<div class="proc${{j.reg?' regp':''}}">
           <div class="pbiz">${{biz}}${{reg}}</div>
-          <div class="psp">${{j.sp}} · fan_out ${{j.fo}}</div>
+          ${{desc}}
+          <div class="psp">${{j.sp}}${{roleTag}} · fan_out ${{j.fo}}</div>
+          ${{trig}}${{flow}}
           <a class="sp-detail-btn" href="${{url}}" target="_blank">Ver historia funcional →</a>
         </div>`;
       }});
     }}
 
-    // ── Todos los journeys del dominio (dimmed) ────────────────────────────
+    // ── Todos los journeys del dominio ────────────────────────────────────
     if(d.procs.length){{
+      const enrichedBiz={{}}; Object.values(JOURNEYDATA||{{}}).forEach(jl=>jl.forEach(j=>{{if(!enrichedBiz[j.sp])enrichedBiz[j.sp]=j.biz;}}));
       const allLabel=capJs&&capJs.length&&capJs.length<d.procs.length
         ?'Otros journeys del dominio':'Todos los journeys del dominio';
       h+=`<div class="dsec" style="margin-top:18px;opacity:.65">${{allLabel}} (${{d.procs.length}})</div>`;
       const capJids=new Set((capJs||[]).map(j=>j.sp));
       d.procs.forEach(p=>{{
         if(capJids.has(p.sp))return;  // ya mostrado arriba
-        const ptitle=p.biz?p.biz.charAt(0).toUpperCase()+p.biz.slice(1):p.sp;
+        const rawBiz=enrichedBiz[p.sp]||p.biz||p.sp;
+        const ptitle=rawBiz.charAt(0).toUpperCase()+rawBiz.slice(1);
         const roleTag=p.role?`<span class="proc-role-tag">${{PROC_ROLE_LABELS[p.role]||p.role}}</span>`:'';
         const flow=p.flow.length?'<div class="flabel">Flujo</div><div class="flow">'+
           p.flow.map((s,i)=>`${{i?'<span class=arr>&rarr;</span>':''}}<span class="step">${{s}}</span>`).join('')+'</div>':'';
@@ -1061,6 +1075,7 @@ function openDrill(did,capName){{
           <div class="pdesc">${{p.desc}}</div>
           <div class="psp">${{p.sp}}${{roleTag}} · fan_out ${{p.fo}}</div>
           <div class="ptrig">Disparado por: <b>${{p.trig||'—'}}</b></div>${{flow}}
+          <a class="sp-detail-btn" href="${{url}}" target="_blank">Ver historia funcional →</a>
         </div>`;
       }});
     }}
