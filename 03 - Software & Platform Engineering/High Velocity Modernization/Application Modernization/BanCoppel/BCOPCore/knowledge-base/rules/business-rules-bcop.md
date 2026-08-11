@@ -130,11 +130,11 @@
 |----|---|---|---|
 | BR-V2-0006 | Cálculo con umbral/factor 365.25 | `sp_acl_validarpreguntasiniciosesion` | base 365 — verificar vs 360 |
 | BR-V2-0305 | Cálculo con umbral/factor 65536 | `sp_random` | TRUNC — Informix trunca; PostgreSQL puede redondear (divergencia centavos) |
-| BR-V2-0316 | LRSIC | `burofisicas_cnr` | ROUND — validar modo (banker's vs half-up) |
-| BR-V2-0318 | LRSIC | `burofisicas_cnr_pba` | ROUND — validar modo (banker's vs half-up) |
-| BR-V2-0343 | Fórmula: credito revolvente | `credito_revolvente` | ROUND — validar modo (banker's vs half-up) |
+| BR-V2-0316 | Calcular plazo: pago ÷ 2 | `burofisicas_cnr` | ROUND — validar modo (banker's vs half-up) |
+| BR-V2-0318 | Calcular plazo: pago ÷ 2 | `burofisicas_cnr_pba` | ROUND — validar modo (banker's vs half-up) |
+| BR-V2-0343 | Calcular abono (multiplicación) | `credito_revolvente` | ROUND — validar modo (banker's vs half-up) |
 | BR-V2-0365 | Cálculo con umbral/factor 30.4 | `sp_burofisicas_cortos_cnr` | ROUND — validar modo (banker's vs half-up) |
-| BR-V2-0367 | LRSIC | `sp_burofisicas_cortos_cnr` | ROUND — validar modo (banker's vs half-up) |
+| BR-V2-0367 | Calcular plazo: pago ÷ 2 | `sp_burofisicas_cortos_cnr` | ROUND — validar modo (banker's vs half-up) |
 | BR-V2-0506 | Cálculo con umbral/factor 04 | `arr_intacum` | base 360 (año comercial) — verificar vs 365 |
 | BR-V2-0508 | Cálculo con umbral/factor 025 | `arr_invcrec_12262009` | base 360 (año comercial) — verificar vs 365 |
 | BR-V2-0509 | Cálculo con umbral/factor 04 | `arr_pagaint` | base 360 (año comercial) — verificar vs 365 |

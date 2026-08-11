@@ -239,6 +239,9 @@ ACTION_MAP = {
     'consulta': 'Consulta', 'graba': 'Registro', 'guarda': 'Registro',
     'carga': 'Carga', 'envía': 'Envío', 'envia': 'Envío',
     'notifica': 'Notificación', 'registra': 'Registro',
+    'rep': 'Reporte de', 'reporte': 'Reporte de',
+    'batch': 'Proceso batch', 'conciliar': 'Conciliación de', 'concilia': 'Conciliación de',
+    'conciladm': 'Conciliación ADM', 'concilatm': 'Conciliación ATM',
 }
 TIPO_PREFIX = {'FÓRMULA':'Fórmula', 'VALIDACIÓN':'Validación',
                'UMBRAL':'Umbral de', 'ESTADO':'Transición de estado'}
@@ -253,10 +256,12 @@ _SQL_STMT_RE  = re.compile(
     r'|WHERE\s+\w|AND\s+\(|OR\s+\('
     r'|FROM\s+\w+:\w+'
     r'|IF\s*\('
+    r'|ORDER\s+BY\s+'
     r'|NR\s*==\s*FNR)', re.I)
 _UNIX_CMD_RE  = re.compile(
     r'^(chmod|chown|rm\s|mv\s|cp\s|mkdir|touch|ln\s|cat\s|grep\s|'
-    r'sed\s|awk\s|echo\s|sh\s|bash\s|perl\s|python\s|export\s)', re.I)
+    r'sed\s|awk\s|echo\s|sh\s|bash\s|perl\s|python\s|export\s|'
+    r'dbaccess\s|dbload\s|oncheck\s|dbschema\s)', re.I)
 _FILEPATH_RE  = re.compile(r'[/\\][a-z0-9_\-]+[/\\]', re.I)   # /word/word/ path segment
 _FILENAME_RE  = re.compile(r'^\S+\.(sql|txt|unl|sh|csv|dat|log|html|xml|json|py)$', re.I)
 _DATE_LIT_RE  = re.compile(r'^\d{1,2}/\d{1,2}/\d{4}')          # 01/08/2022
@@ -300,6 +305,9 @@ def first_clause(text):
     # Rechaza nombres de archivo solos: encabezado.txt, query.sql
     if _FILENAME_RE.match(t):
         return ''
+    # Rechaza fragmentos de shell UNLOAD: "nombre.unl >" o "nombre.unl >>" (redirect operador)
+    if re.search(r'\.(unl|sql|dat)\s*>{1,2}', t, re.I):
+        return ''
     # Rechaza fechas en español: 14/dic/95
     if _DATE_ES_RE.match(t):
         return ''
@@ -334,9 +342,9 @@ def first_clause(text):
         t = m_var.group(1).strip()
     if not t:
         return ''
-    # Quita secuencias largas de guiones/asteriscos al inicio: "------texto" → "texto"
-    t = re.sub(r'^[-=]{2,}\s*', '', t).strip()
-    # Quita marcadores de comentario y decoradores líderes: //, -*, --, -, * (1-4 asteriscos)
+    # Quita guiones/iguales al inicio (1+): "-texto", "------texto", "- // texto" → "texto"
+    t = re.sub(r'^[-=]+\s*', '', t).strip()
+    # Quita marcadores de comentario y decoradores líderes: //, -*, --, *, * (1-4 asteriscos)
     t = re.sub(r'^(//\s*|-\*\s*|\*{1,4}\s*)', '', t).strip()
     # Quita asteriscos decorativos finales: "texto *" o "texto ****"
     t = re.sub(r'\s*\*+\s*$', '', t).strip()
@@ -405,6 +413,22 @@ for r in rules:
         named += 1
 
 print(f"business_name added: {named} / {len(rules)}")
+
+# ── 5b. Apply Layer B+ overrides (name-overrides-ai.json) ────────────────────
+_overrides_path = BASE + 'knowledge-base/rules/name-overrides-ai.json'
+try:
+    ov_raw = json.load(open(_overrides_path, encoding='utf-8'))
+    ov_names = ov_raw.get('names', ov_raw) if isinstance(ov_raw, dict) else {}
+    ov_applied = 0
+    rules_idx = {r['id']: r for r in rules}
+    for rule_id, better_name in ov_names.items():
+        r = rules_idx.get(rule_id)
+        if r and better_name and better_name.strip():
+            r['business_name'] = better_name.strip()
+            ov_applied += 1
+    print(f"Layer B+ overlay: {ov_applied} / {len(ov_names)} overrides applied")
+except FileNotFoundError:
+    print(f"Layer B+ overrides not found at {_overrides_path}, skipping")
 
 # ── 6. Stats ──────────────────────────────────────────────────────────────────
 by_tipo = {}
