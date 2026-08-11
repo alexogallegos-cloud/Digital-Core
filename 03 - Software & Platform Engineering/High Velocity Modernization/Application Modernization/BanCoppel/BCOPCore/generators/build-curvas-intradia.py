@@ -25,7 +25,7 @@ from forecast import capacity as C, data_sources as DS, factors as F, atypical_d
 from forecast.calendar_mx import MxCalendar
 import numpy as np, pandas as pd, statsmodels.api as sm
 
-OUT = ROOT / "knowledge-base" / "cross-reference"
+OUT = ROOT / "portal"
 LAST_REAL = date(2026, 8, 4)
 END_PROJ = date(2026, 12, 31)
 
@@ -61,9 +61,13 @@ def main():
         vol[str(d)] = {"eg": int(pred["eglobal"][i]), "sp": int(pred["spei"][i]),
                        "wd": d.weekday(), "habil": bool(cal.is_business_day(d)), "origen": "proyectado"}
 
-    # P70/P90 OFICIALES del canal (bloque 'oficiales' del pipeline de percentiles = maximo historico);
-    # se usan como lineas de referencia y para clasificar las ZONAS de riesgo correlacionado por bin.
-    umbrales = {}
+    # P70/P90: dos conjuntos de umbrales segun el periodo del dia navegado.
+    # - Para dias < pico_confiable_desde (2025 + ene/feb 2026): se usan los CONFIRMADOS por el cliente.
+    # - Para dias >= pico_confiable_desde (mar-2026+): se usan los OFICIALES (maximo historico post-fix).
+    # El JS elige el conjunto correcto en funcion de la fecha del dia seleccionado.
+    umbrales = {}          # oficiales (post-fix)
+    umbrales_conf = {}     # confirmados (pre-fix)
+    pico_confiable_desde = "2026-03"
     pj = OUT / "percentiles-correlacionados.json"
     if pj.exists():
         pdata = json.loads(pj.read_text(encoding="utf-8"))
@@ -71,16 +75,25 @@ def main():
         if ofi:
             for ch in ("eglobal", "spei"):
                 umbrales[ch] = {"p70": ofi[ch]["p70"], "p90": ofi[ch]["p90"]}
-        else:   # fallback: max sobre la evolucion
+        else:
             ev = pdata.get("evolucion", [])
             for ch in ("eglobal", "spei"):
                 umbrales[ch] = {"p70": max(m["p70"][ch] for m in ev),
                                 "p90": max(m["p90"][ch] for m in ev)}
-        print(f"  P70/P90 oficiales (max hist): {umbrales}")
+        conf = pdata.get("confirmados")
+        if conf:
+            for ch in ("eglobal", "spei"):
+                umbrales_conf[ch] = {"p70": conf[ch]["p70"], "p90": conf[ch]["p90"]}
+        else:
+            umbrales_conf = umbrales   # fallback: mismo que oficiales
+        print(f"  umbrales oficiales (post-fix):  {umbrales}")
+        print(f"  umbrales confirmados (pre-fix): {umbrales_conf}")
     else:
         print("  [aviso] percentiles-correlacionados.json no existe; sin lineas P70/P90 ni zonas")
 
-    data = json.dumps({"perfiles": perfiles, "vol": vol, "umbrales": umbrales,
+    data = json.dumps({"perfiles": perfiles, "vol": vol,
+                       "umbrales": umbrales, "umbrales_conf": umbrales_conf,
+                       "pico_confiable_desde": pico_confiable_desde,
                        "last_real": str(LAST_REAL), "step": 1440 // 288}, ensure_ascii=False)
     _render(data, OUT / "curvas-intradia-navegable.html")
     print(f"  dias: {len(vol)} ({min(vol)} a {max(vol)})")
@@ -155,13 +168,13 @@ footer{{text-align:center;padding:36px 0 8px;font-size:11px;color:var(--muted2);
 <div class="aurora"><div class="blob"></div></div>
 <div class="grain"></div>
 <div class="hero-bar">
-  <img src="../../portal/bancoppel-logo.png" alt="BanCoppel">
+  <img src="bancoppel-logo.png" alt="BanCoppel">
   <div class="hb-sep"></div>
   <span class="crumb">BCOPCORE &nbsp;·&nbsp; SPE-AM-001 &nbsp;·&nbsp; GEMELO COGNITIVO &nbsp;·&nbsp; <em>CURVAS INTRADIA</em></span>
   <span class="hb-sp"></span>
   <a href="percentiles-correlacionados-evolucion.html" class="back">Percentiles →</a>
   <a href="calendario-riesgo.html" class="back">Calendario →</a>
-  <a href="../../portal/index-bcop-v2.html" class="back">← Portal</a>
+  <a href="index-bcop-v2.html" class="back">← Portal</a>
 </div>
 <div class="wrap">
   <div class="hero-label">Capacidad · Curvas Intradia</div>
@@ -200,7 +213,13 @@ footer{{text-align:center;padding:36px 0 8px;font-size:11px;color:var(--muted2);
 <footer>BCOPCore · Gemelo Cognitivo del Sistema · SPE-AM-001 · Accenture México · 2026</footer>
 <script>
 const DATA={data_js};const P=DATA.perfiles;const V=DATA.vol;const STEP=DATA.step;
-const CSP="#34d399",CEG="#6f8ce6";const U=DATA.umbrales||{{}};
+const CSP="#34d399",CEG="#6f8ce6";
+// Elige umbrales segun el periodo del dia: confirmados para pre-fix (<2026-03), oficiales para post-fix
+function getUmbrales(fechaStr){{
+  if(!fechaStr) return DATA.umbrales||{{}};
+  return fechaStr.slice(0,7)<DATA.pico_confiable_desde ? (DATA.umbrales_conf||DATA.umbrales||{{}}) : (DATA.umbrales||{{}});
+}}
+let U=DATA.umbrales||{{}};
 const DOW=["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
 const fechas=Object.keys(V).sort();
 const inp=document.getElementById("fecha");
@@ -263,6 +282,7 @@ function drawPanel(sel,color,cur,ymax,umb,zones){{
 }}
 function render(){{
   const f=inp.value, v=V[f];
+  U=getUmbrales(f);  // umbrales segun el periodo de la fecha navegada
   const oel=document.getElementById("origen"), tel=document.getElementById("tipo");
   if(!v){{
     oel.className="origen"; oel.textContent="";

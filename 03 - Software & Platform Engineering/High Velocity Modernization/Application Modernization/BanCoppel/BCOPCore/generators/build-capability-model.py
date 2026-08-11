@@ -73,8 +73,13 @@ try:
             "errors": _errors,
             "error_rate": round(_errors / _calls * 100, 2) if _calls else 0.0,
         }
+    sp_role_map = {}
+    for _r in _bc.execute("SELECT name, sp_role FROM sps WHERE sp_role IS NOT NULL").fetchall():
+        if _r[0] not in sp_role_map:  # first occurrence wins (same name can appear in multiple DBs)
+            sp_role_map[_r[0]] = _r[1]
     _bc.close()
 except Exception as _exc:
+    sp_role_map = {}
     print(f"[WARN] No se pudo cargar sp_metrics_daily: {_exc}")
 
 # Umbrales: error_rate ≥25% → critical; ≥8% → warn
@@ -181,8 +186,10 @@ for d, dd in J.items():
                          for t in jj.get("triggered_by", []))
         procs.append({"biz": jj.get("biz") or jj["sp"], "sp": jj["sp"], "fo": jj["fan_out"],
                       "trig": trig, "flow": flow, "reg": jj.get("reg", False),
+                      "role": sp_role_map.get(jj["sp"]) or "",
                       "desc": biz_desc(jj, d, trig, flow)})
-    exposed = [{"biz": jj.get("biz") or jj["sp"], "sp": jj["sp"], "ext": jj["ext_callers"]}
+    exposed = [{"biz": jj.get("biz") or jj["sp"], "sp": jj["sp"], "ext": jj["ext_callers"],
+                "role": sp_role_map.get(jj["sp"]) or ""}
                for jj in dd.get("exposed", [])]
     DOMDATA[d] = {"name": NAME[d], "procs": procs, "exposed": exposed,
                   "reglas": rules_by_db.get(DBOF[d], 0), "sps": dd["sp_count"]}
@@ -536,6 +543,61 @@ MODEL_V2 = [
 DOMDATA_V2 = dict(DOMDATA)
 DOMDATA_V2_JSON = _json.dumps(DOMDATA_V2, ensure_ascii=False)
 
+# ── CAPDATA: SPs específicos por capacidad BanCoppel ─────────────────────────
+# Cada entrada: (db, [fragmentos de nombre SP]) → filtra brain.db por LIKE
+# Resuelve el problema de múltiples capacidades en el mismo dominio mostrando
+# la misma lista de procesos (e.g., Creación/Actualización/Consulta del Perfil → d06)
+CAP_SP_FILTER = {
+    # D06 · bdisolic — Solicitudes
+    "Creación del Perfil":       ("bdisolic", ["alta_sol", "altaclientehuellatitular"]),
+    "Actualización del Perfil":  ("bdisolic", ["sp_actualiza_status_sol", "sp_actualiza_monto", "actualiza_solicitud", "sp_envia_sms_actualiza_sol"]),
+    "Consulta del Perfil":       ("bdisolic", ["sp_obtienegrupo", "sp_cons_empleado", "sp_obtienecompingresos", "sp_obtensolicitud"]),
+    "Solicitud de Producto":     ("bdisolic", ["sp_obtiene_productos", "sp_getprodcte", "sp_consulta_productos"]),
+    "Verificación de Identidad": ("bdisolic", ["sp_valida_cliente", "sp_prepara_buro", "sp_verifica_pre_aprobados"]),
+    "Solicitud de Crédito":      ("bdisolic", ["califica_scoring", "determina_lincred", "sp_conssolic_cred", "sp_apercredcoppel", "sp_consulta_status_solic"]),
+    "Modificación de Datos":     ("bdisolic", ["sp_actualiza_status_sol", "sp_guarda_sol", "sp_modifica_sol"]),
+    "Cancelación de Relación":   ("bdisolic", ["sp_cancela_sol", "sp_baja_sol", "sp_cierra_sol"]),
+    # D05 · bdisac — Saldos
+    "Apertura Cuenta de Ahorro": ("bdisac",   ["sp_apertura", "sp_abre_cta", "sp_alta_cta", "sp_crea_cuenta", "sp_crea_cta"]),
+    "Consulta de Saldo":         ("bdisac",   ["sp_cons_saldo", "sp_obtiene_saldo", "sp_consulta_saldo", "sp_obtiens"]),
+    "Estado de Cuenta":          ("bdisac",   ["edocta", "estado_cta", "sp_obtentipoedocta", "sp_genera_edo"]),
+    "Registro de Movimientos":   ("bdisac",   ["cargo_ref", "abono_ref", "sp_movimiento", "sp_registra_mov"]),
+    "Cancelación Cuenta Ahorro": ("bdisac",   ["sp_cancela_cta", "sp_cierra_cta", "sp_baja_cta"]),
+    "Saldo Consolidado por Cliente": ("bdisac", ["sp_saldo_consolid", "sp_posicion", "sp_obtiene_saldos"]),
+    "Recepción de Remesa APPRIZA": ("bdisac", ["appriza", "remesa", "sp_wu_", "sp_recibe_remesa"]),
+    "Envío de Remesa":           ("bdisac",   ["sp_envia_remesa", "sp_wu_envia", "sp_wu_paga"]),
+    # D03 · bdicred — Créditos
+    "Autorización de Crédito":   ("bdicred",  ["sp_autoriza", "sp_aprueba", "autoriza_cred"]),
+    "Disposición del Crédito":   ("bdicred",  ["disposi", "sp_disposi", "sp_crea_movimiento_disp"]),
+    "Ciclo de Corte":            ("bdicred",  ["sp_cierre", "sp_corte", "ciclo_corte", "sp_proceso_corte"]),
+    "Registro de Pagos de Crédito": ("bdicred", ["sp_pago_cred", "sp_aplica_pago", "sp_registra_pago", "pago_cred"]),
+    # D04 · bdicheq — Cheques/Cuentas
+    "Apertura Cuenta de Cheques": ("bdicheq", ["sp_abre_cta", "sp_alta_cta", "sp_apertura_chq", "sp_crea_cta"]),
+    "Emisión y Gestión de Cheques": ("bdicheq", ["sp_emite_chq", "cheque", "sp_genera_chq", "sp_talonario"]),
+    "Consulta y Movimientos Cheques": ("bdicheq", ["sp_cons_chq", "sp_cons_mov", "sp_obtiene_chq", "cargo", "abono"]),
+    "Cancelación Cuenta Cheques": ("bdicheq", ["sp_cancela_cta", "sp_cierra_cta", "sp_baja_cta"]),
+    "Cálculo de Intereses":      ("bdicheq",  ["sp_calculo_int", "sp_interes", "sp_calcula_int", "interes_"]),
+}
+
+CAPDATA: dict = {}
+try:
+    _bc2 = sqlite3.connect(_BRAIN_DB)
+    for _cap_name, (_db_name, _patterns) in CAP_SP_FILTER.items():
+        _cond = " OR ".join([f"name LIKE '%{p}%'" for p in _patterns])
+        _rows = _bc2.execute(
+            f"SELECT name, biz, sp_role, fan_in FROM sps WHERE db=? AND ({_cond}) ORDER BY fan_in DESC LIMIT 15",
+            (_db_name,)
+        ).fetchall()
+        if _rows:
+            CAPDATA[_cap_name] = [
+                {"sp": r[0], "biz": r[1] or r[0], "role": r[2] or "", "fi": r[3] or 0}
+                for r in _rows
+            ]
+    _bc2.close()
+except Exception as _exc2:
+    print(f"[WARN] No se pudo construir CAPDATA: {_exc2}")
+CAPDATA_JSON = _json.dumps(CAPDATA, ensure_ascii=False)
+
 allcaps2 = [(c,d) for _,groups in MODEL_V2 for _,caps in groups for c,d in caps]
 tot2    = len(allcaps2)
 cov2    = sum(1 for _,d in allcaps2 if d is not None)   # en código (azul + amarillo)
@@ -579,17 +641,35 @@ HTML_V2=f"""<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>BanCoppel · Gemelo Cognitivo · Taxonomía de Negocio AS-IS</title>
 <style>
-:root{{--bg:#14142b;--bg2:#1A1A2E;--panel:#1f1f3a;--line:#2c2c50;--txt:#E8E8F0;--muted:#9a9ab5;
-  --on:#c8102e;--on-sh:rgba(200,16,46,.4);--acc:#c8102e;--head1:#001a4d;--head2:#1a004d;--hbar:#A100FF}}
-body[data-theme=bcop]{{--bg:#0a1024;--bg2:#0d1533;--panel:#111c47;--line:#26317c;
-  --on:#2E52C8;--on-sh:rgba(46,82,200,.55);--acc:#F0D224;--head1:#0d2185;--head2:#122FB1;--hbar:#F0D224}}
+:root{{--bg:#060a1a;--bg2:#0d1533;--panel:#111c47;--line:#26317c;--txt:#F4F6FF;--muted:#aab3d4;--muted2:#818ab0;
+  --on:#2E52C8;--on-sh:rgba(46,82,200,.55);--acc:#F0D224;--yellow:#F0D224;--head1:#0d2185;--head2:#122FB1;
+  --glass:rgba(255,255,255,.055);--glassb:rgba(255,255,255,.10)}}
 *{{box-sizing:border-box;margin:0;padding:0}}
-body{{background:var(--bg);color:var(--txt);font-family:'Inter',system-ui,sans-serif;min-height:100vh;transition:background .3s}}
-header{{background:linear-gradient(135deg,var(--head1),var(--head2));border-bottom:2px solid var(--hbar);padding:12px 24px;position:sticky;top:0;z-index:10}}
-.brand{{display:flex;align-items:center;gap:13px}}
-.logo{{height:24px;flex-shrink:0;filter:drop-shadow(0 1px 2px rgba(0,0,0,.45))}}
-header h1{{font-size:16px;font-weight:800}}header .sub{{font-size:10px;color:var(--muted);margin-top:2px}}
-#bar{{padding:10px 24px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}}
+body{{background:var(--bg);color:var(--txt);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}}
+.aurora{{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none}}
+.aurora::before{{content:"";position:absolute;width:62vw;height:62vw;left:-12vw;top:-16vw;border-radius:50%;filter:blur(90px);background:radial-gradient(circle,rgba(27,63,208,.65),transparent 70%);animation:f1 24s ease-in-out infinite}}
+.aurora::after{{content:"";position:absolute;width:56vw;height:56vw;right:-14vw;top:6vw;border-radius:50%;filter:blur(90px);background:radial-gradient(circle,rgba(13,33,133,.7),transparent 70%);animation:f2 28s ease-in-out infinite}}
+.aurora .blob{{position:absolute;width:40vw;height:40vw;left:34vw;bottom:-14vw;border-radius:50%;filter:blur(90px);background:radial-gradient(circle,rgba(240,210,36,.20),transparent 70%);animation:f3 32s ease-in-out infinite}}
+@keyframes f1{{50%{{transform:translate(6vw,8vh) scale(1.15)}}}}
+@keyframes f2{{50%{{transform:translate(-7vw,10vh) scale(1.12)}}}}
+@keyframes f3{{50%{{transform:translate(-9vw,-9vh) scale(1.22)}}}}
+.grain{{position:fixed;inset:0;z-index:-1;opacity:.045;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}}
+.hero-bar{{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;gap:18px;
+ padding:14px 32px;-webkit-backdrop-filter:blur(20px) saturate(150%);backdrop-filter:blur(20px) saturate(150%);
+ background:rgba(6,10,26,.6);border-bottom:1px solid rgba(255,255,255,.06)}}
+.hero-bar img{{height:34px;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))}}
+.hero-bar .hb-sep{{width:1px;height:28px;background:rgba(255,255,255,.15);flex-shrink:0}}
+.hero-bar .crumb{{font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.35)}}
+.hero-bar .crumb em{{color:var(--yellow);font-style:normal}}
+.hero-bar .hb-sp{{flex:1}}
+.hero-bar a.back{{font-size:12px;color:var(--muted);padding:6px 13px;border-radius:20px;border:1px solid rgba(255,255,255,.09);text-decoration:none;transition:.22s}}
+.hero-bar a.back:hover{{color:var(--txt);background:rgba(255,255,255,.07)}}
+#intro{{padding:76px 24px 0;max-width:1500px;margin:0 auto}}
+.hero-label{{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--yellow);margin-bottom:12px}}
+.hero-h1{{font-size:clamp(24px,3.5vw,42px);font-weight:900;letter-spacing:-.035em;line-height:1.0;
+ background:linear-gradient(176deg,#fff 34%,#9fb4ff);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:10px}}
+.hero-sub{{font-size:12px;color:var(--muted);line-height:1.5;max-width:90ch;margin-bottom:14px}}
+#bar{{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}}
 .tile{{background:var(--panel);border-radius:8px;padding:6px 13px;border-left:3px solid var(--acc)}}
 .tile .n{{font-size:17px;font-weight:800}}.tile .l{{font-size:8px;color:var(--muted);text-transform:uppercase}}
 #leg{{font-size:10px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-left:auto}}
@@ -602,12 +682,12 @@ header h1{{font-size:16px;font-weight:800}}header .sub{{font-size:10px;color:var
 .gl{{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;padding-left:2px}}
 .caps{{display:flex;flex-wrap:wrap;gap:5px}}
 .cap{{border-radius:5px;padding:6px 9px;font-size:10px;min-width:100px;display:flex;flex-direction:column;gap:3px;position:relative}}
-.cap.on-h{{background:#0C1F90;color:#fff;cursor:pointer;font-weight:700;box-shadow:0 1px 5px rgba(12,31,144,.65)}}
-.cap.on-h:hover{{filter:brightness(1.22)}}
-.cap.on-m{{background:#3068C4;color:#fff;cursor:pointer;font-weight:700;box-shadow:0 1px 4px rgba(48,104,196,.55)}}
+.cap.on-h{{background:#1D4ED8;color:#fff;cursor:pointer;font-weight:700;box-shadow:0 2px 8px rgba(29,78,216,.7)}}
+.cap.on-h:hover{{filter:brightness(1.2)}}
+.cap.on-m{{background:#0369A1;color:#fff;cursor:pointer;font-weight:700;box-shadow:0 1px 5px rgba(3,105,161,.6)}}
 .cap.on-m:hover{{filter:brightness(1.18)}}
-.cap.on-l{{background:#6882AA;color:#fff;cursor:pointer;font-weight:700;box-shadow:0 1px 4px rgba(104,130,170,.45)}}
-.cap.on-l:hover{{filter:brightness(1.12)}}
+.cap.on-l{{background:#1E3A5F;color:#93C5FD;cursor:pointer;font-weight:700;box-shadow:0 1px 4px rgba(30,58,95,.5)}}
+.cap.on-l:hover{{filter:brightness(1.15)}}
 .cap.on{{background:var(--on);color:#fff;cursor:pointer;font-weight:700;box-shadow:0 1px 4px var(--on-sh)}}
 .cap.on:hover{{filter:brightness(1.15)}}
 .cap.cross{{background:var(--acc);color:#1a1a19;cursor:pointer;font-weight:700;box-shadow:0 1px 4px rgba(240,210,36,.45)}}
@@ -640,6 +720,7 @@ header h1{{font-size:16px;font-weight:800}}header .sub{{font-size:10px;color:var
 .step{{background:rgba(30,123,224,.14);border:1px solid var(--on);color:var(--txt);border-radius:6px;padding:3px 9px;font-size:10px}}
 .arr{{color:var(--acc);font-weight:800;font-size:12px}}
 .proc.regp{{border-left-color:var(--acc)}}.regtag{{font-size:8px;font-weight:800;background:var(--acc);color:#1a1a19;padding:1px 6px;border-radius:8px;margin-left:6px}}
+.proc-role-tag{{font-size:8px;font-weight:700;background:rgba(99,179,237,.18);color:#7dd3fc;padding:1px 7px;border-radius:8px;margin-left:6px;letter-spacing:.03em;vertical-align:middle}}
 .dsec{{font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--acc);text-transform:uppercase;margin:14px 0 8px}}
 .expo{{display:inline-flex;flex-direction:column;background:var(--panel);border-radius:7px;padding:8px 11px;margin:0 6px 6px 0;border-left:3px solid var(--muted)}}
 .expo .eb{{font-size:11px;font-weight:700}}.expo .es{{font-family:monospace;font-size:9px;color:var(--muted)}}
@@ -658,24 +739,34 @@ header h1{{font-size:16px;font-weight:800}}header .sub{{font-size:10px;color:var
 #dscrim{{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:150;display:none}}
 #tip{{position:fixed;background:rgba(22,22,44,.98);border:1px solid var(--line);border-radius:8px;padding:10px 13px;font-size:11px;pointer-events:none;display:none;z-index:99;max-width:250px;box-shadow:0 4px 20px rgba(0,0,0,.7)}}
 #tip .tt{{font-weight:700;font-size:12px;margin-bottom:4px}}#tip .tr{{font-size:10px;color:var(--muted);margin:2px 0}}#tip .tr b{{color:var(--txt)}}
-footer{{font-size:9px;color:var(--muted);padding:10px 24px;border-top:1px solid var(--line);line-height:1.5}}
-</style></head><body data-theme="bcop">
-<header><div class="brand"><img class="logo" src="bancoppel-logo.png" alt="BanCoppel"><div>
-<h1>BanCoppel BCOPCore · Gemelo Cognitivo · Modelo de Capacidades Completo</h1>
-<div class="sub">7 dominios · {tot2} capacidades · tono azul = densidad de lógica · ! = riesgo dinámico ({_n_dates} {'días' if _n_dates != 1 else 'día'}: {_date_range}) · ⬜ gap</div>
-</div></div></header>
-<div id="bar">
-  <div class="tile"><div class="n">{cov2}/{tot2}</div><div class="l">Capacidades en código</div></div>
-  <div class="tile"><div class="n">{100*cov2//tot2}%</div><div class="l">Cobertura core actual</div></div>
-  <div class="tile"><div class="n">{analized2}</div><div class="l">Analizadas BCOPBrain</div></div>
-  <div class="tile"><div class="n">{gap2}</div><div class="l">Gaps — modernización</div></div>
-  <div id="leg">
-    <span><span class="sw" style="background:#0C1F90"></span>Núcleo de lógica (D03/D04/D05/D06/D09/D11)</span>
-    <span><span class="sw" style="background:#3068C4"></span>Lógica + integración</span>
-    <span><span class="sw" style="background:#6882AA"></span>Conector / Portal (D01/D10/D14)</span>
-    <span><span class="sw" style="background:#33334d"></span>Gap — capacidad de referencia</span>
-    <span><span style="background:#E8400A;color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:900">!</span>&nbsp;Riesgo crítico activo N5/N4</span>
-    <span><span style="background:#F0D224;color:#1a1a19;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:900">!</span>&nbsp;Riesgo operativo N3</span>
+footer{{text-align:center;padding:36px 0 8px;font-size:11px;color:var(--muted2);border-top:1px solid rgba(255,255,255,.06);margin-top:30px}}
+</style></head><body>
+<div class="aurora"><div class="blob"></div></div>
+<div class="grain"></div>
+<div class="hero-bar">
+  <img src="bancoppel-logo.png" alt="BanCoppel">
+  <div class="hb-sep"></div>
+  <span class="crumb">BCOPCORE &nbsp;·&nbsp; SPE-AM-001 &nbsp;·&nbsp; GEMELO COGNITIVO &nbsp;·&nbsp; <em>MODELO DE CAPACIDADES</em></span>
+  <span class="hb-sp"></span>
+  <a href="index-bcop-v2.html" class="back">← Portal</a>
+</div>
+<div id="intro">
+  <div class="hero-label">Gemelo Cognitivo · Modelo de Capacidades</div>
+  <h1 class="hero-h1">Modelo de Capacidades Completo</h1>
+  <p class="hero-sub">7 dominios · {tot2} capacidades de referencia · tono azul = densidad de lógica de negocio · <b style="color:#E8400A">!</b> = riesgo dinámico ({_n_dates} {'días' if _n_dates != 1 else 'día'}: {_date_range}) · ⬜ gap</p>
+  <div id="bar">
+    <div class="tile"><div class="n">{cov2}/{tot2}</div><div class="l">Capacidades en código</div></div>
+    <div class="tile"><div class="n">{100*cov2//tot2}%</div><div class="l">Cobertura core actual</div></div>
+    <div class="tile"><div class="n">{analized2}</div><div class="l">Analizadas BCOPBrain</div></div>
+    <div class="tile"><div class="n">{gap2}</div><div class="l">Gaps — modernización</div></div>
+    <div id="leg">
+      <span><span class="sw" style="background:#1D4ED8"></span>Núcleo de lógica (D03/D04/D05/D06/D09/D11)</span>
+      <span><span class="sw" style="background:#0369A1"></span>Lógica + integración</span>
+      <span><span class="sw" style="background:#1E3A5F;border:1px solid #93C5FD"></span>Conector / Portal (D01/D10/D14)</span>
+      <span><span class="sw" style="background:#33334d"></span>Gap — capacidad de referencia</span>
+      <span><span style="background:#E8400A;color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:900">!</span>&nbsp;Riesgo crítico activo N5/N4</span>
+      <span><span style="background:#F0D224;color:#1a1a19;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:900">!</span>&nbsp;Riesgo operativo N3</span>
+    </div>
   </div>
 </div>
 <div id="wrap">{areas2}</div>
@@ -690,6 +781,7 @@ footer{{font-size:9px;color:var(--muted);padding:10px 24px;border-top:1px solid 
 </div>
 <script>
 const DOMDATA={DOMDATA_V2_JSON};
+const CAPDATA={CAPDATA_JSON};
 const FAILURES={FAILURES_JSON};
 const DOM_DAILY={_dom_daily_json};
 const LOG_DATES={_log_dates_json};
@@ -759,8 +851,15 @@ function openDrill(did,capName){{
     </div>`;
   }} else if(d){{
     const incs=(typeof FAILURES!=='undefined'&&FAILURES[did])?FAILURES[did]:[];
-    document.getElementById('d-sub').innerHTML=`Capacidad implementada por el dominio <b>${{d.name}}</b> · procesos identificados en BCOPBrain`;
-    document.getElementById('d-stat').innerHTML=`<span><b>${{d.procs.length}}</b> procesos</span><span><b>${{d.exposed.length}}</b> servicios expuestos</span><span><b>${{d.reglas}}</b> reglas</span><span><b>${{Number(d.sps).toLocaleString('es-MX')}}</b> SPs</span>`;
+    const capSps=CAPDATA[capName]||null;
+    const PROC_ROLE_LABELS={{'esb_exposed':'ESB Exposed','entry_point':'Entry Point','super_orchestrator':'Super Orchestrador','orchestrator':'Orchestrador','batch_orchestrator':'Batch Orchestrador','cross_domain_primitive':'Cross-Domain','shared_service':'Shared Service','implementation':'Implementación','leaf':'Leaf','batch':'Batch'}};
+    if(capSps&&capSps.length){{
+      document.getElementById('d-sub').innerHTML=`<b>${{capSps.length}}</b> SPs específicos de esta capacidad · dominio <b>${{d.name}}</b>`;
+      document.getElementById('d-stat').innerHTML=`<span><b>${{capSps.length}}</b> SPs esta cap</span><span><b>${{d.procs.length}}</b> journeys dominio</span><span><b>${{d.reglas}}</b> reglas</span><span><b>${{Number(d.sps).toLocaleString('es-MX')}}</b> SPs total</span>`;
+    }}else{{
+      document.getElementById('d-sub').innerHTML=`Capacidad implementada por el dominio <b>${{d.name}}</b> · procesos identificados en BCOPBrain`;
+      document.getElementById('d-stat').innerHTML=`<span><b>${{d.procs.length}}</b> procesos</span><span><b>${{d.exposed.length}}</b> servicios expuestos</span><span><b>${{d.reglas}}</b> reglas</span><span><b>${{Number(d.sps).toLocaleString('es-MX')}}</b> SPs</span>`;
+    }}
     if(incs.length){{const mx=incs[0];const sc=mx.severity_label==='CRÍTICO'?'color:#E8400A':'color:#F0D224';document.getElementById('d-stat').innerHTML+=`<span style="${{sc}};font-weight:900">! ${{incs.length}} incidente${{incs.length>1?'s':''}} activo${{incs.length>1?'s':''}}</span>`;}}
     let h=_prodTimeline(did);
     if(incs.length){{
@@ -778,22 +877,54 @@ function openDrill(did,capName){{
         </div>`;
       }});
     }}
-    if(d.procs.length){{
-      h+='<div class="dsec">Procesos de negocio (flujo a alto nivel)</div>';
-      d.procs.forEach(p=>{{
-        const flow=p.flow.length?'<div class="flabel">Flujo</div><div class="flow">'+
-          p.flow.map((s,i)=>`${{i?'<span class=arr>&rarr;</span>':''}}<span class="step">${{s}}</span>`).join('')+'</div>':'';
-        h+=`<div class="proc ${{p.reg?'regp':''}}">
-          <div class="pbiz">${{p.biz}}${{p.reg?'<span class="regtag">REGULATORIO</span>':''}}</div>
-          <div class="pdesc">${{p.desc}}</div>
-          <div class="psp">${{p.sp}} · fan_out ${{p.fo}}</div>
-          <div class="ptrig">Disparado por: <b>${{p.trig||'—'}}</b></div>${{flow}}
-          <a class="sp-detail-btn" href="sp-detail-${{p.sp}}.html" target="_blank">Ver historia funcional →</a></div>`;
+    if(capSps&&capSps.length){{
+      h+='<div class="dsec">SPs de esta capacidad</div>';
+      capSps.forEach(s=>{{
+        const roleTag=s.role?`<span class="proc-role-tag">${{PROC_ROLE_LABELS[s.role]||s.role}}</span>`:'';
+        const biz=s.biz?s.biz.charAt(0).toUpperCase()+s.biz.slice(1):s.sp;
+        h+=`<div class="proc">
+          <div class="pbiz">${{biz}}</div>
+          <div class="psp">${{s.sp}}${{roleTag}} · fan_in ${{s.fi}}</div>
+          <a class="sp-detail-btn" href="sp-detail/sp-detail-${{s.sp}}.html" target="_blank">Ver historia funcional →</a></div>`;
       }});
-    }}
-    if(d.exposed.length){{
-      h+='<div class="dsec">Servicios expuestos (endpoints)</div>';
-      d.exposed.forEach(e=>{{h+=`<div class="expo"><span class="eb">${{e.biz}}</span><span class="es">${{e.sp}} · ${{e.ext}} callers</span><a class="sp-detail-btn sp-detail-sm" href="sp-detail-${{e.sp}}.html" target="_blank">→</a></div>`;}});
+      if(d.procs.length){{
+        h+='<div class="dsec" style="margin-top:18px;opacity:.7">Todos los journeys del dominio</div>';
+        d.procs.forEach(p=>{{
+          const flow=p.flow.length?'<div class="flabel">Flujo</div><div class="flow">'+
+            p.flow.map((s,i)=>`${{i?'<span class=arr>&rarr;</span>':''}}<span class="step">${{s}}</span>`).join('')+'</div>':'';
+          const ptitle=p.biz?p.biz.charAt(0).toUpperCase()+p.biz.slice(1):p.sp;
+          const roleTag=p.role?`<span class="proc-role-tag">${{PROC_ROLE_LABELS[p.role]||p.role}}</span>`:'';
+          h+=`<div class="proc" style="opacity:.65">
+            <div class="pbiz">${{ptitle}}${{p.reg?'<span class="regtag">REGULATORIO</span>':''}}</div>
+            <div class="pdesc">${{p.desc}}</div>
+            <div class="psp">${{p.sp}}${{roleTag}} · fan_out ${{p.fo}}</div>
+            <div class="ptrig">Disparado por: <b>${{p.trig||'—'}}</b></div>${{flow}}
+            <a class="sp-detail-btn" href="sp-detail/sp-detail-${{p.sp}}.html" target="_blank">Ver historia funcional →</a></div>`;
+        }});
+      }}
+    }}else{{
+      if(d.procs.length){{
+        h+='<div class="dsec">Procesos de negocio (flujo a alto nivel)</div>';
+        d.procs.forEach(p=>{{
+          const flow=p.flow.length?'<div class="flabel">Flujo</div><div class="flow">'+
+            p.flow.map((s,i)=>`${{i?'<span class=arr>&rarr;</span>':''}}<span class="step">${{s}}</span>`).join('')+'</div>':'';
+          const ptitle=p.biz?p.biz.charAt(0).toUpperCase()+p.biz.slice(1):p.sp;
+          const roleTag=p.role?`<span class="proc-role-tag">${{PROC_ROLE_LABELS[p.role]||p.role}}</span>`:'';
+          h+=`<div class="proc ${{p.reg?'regp':''}}">
+            <div class="pbiz">${{ptitle}}${{p.reg?'<span class="regtag">REGULATORIO</span>':''}}</div>
+            <div class="pdesc">${{p.desc}}</div>
+            <div class="psp">${{p.sp}}${{roleTag}} · fan_out ${{p.fo}}</div>
+            <div class="ptrig">Disparado por: <b>${{p.trig||'—'}}</b></div>${{flow}}
+            <a class="sp-detail-btn" href="sp-detail/sp-detail-${{p.sp}}.html" target="_blank">Ver historia funcional →</a></div>`;
+        }});
+      }}
+      if(d.exposed.length){{
+        h+='<div class="dsec">Servicios expuestos (endpoints)</div>';
+        d.exposed.forEach(e=>{{
+          const eroleTag=e.role?`<span class="proc-role-tag">${{PROC_ROLE_LABELS[e.role]||e.role}}</span>`:'';
+          h+=`<div class="expo"><span class="eb">${{e.biz.charAt(0).toUpperCase()+e.biz.slice(1)}}</span><span class="es">${{e.sp}} · ${{e.ext}} callers${{eroleTag}}</span><a class="sp-detail-btn sp-detail-sm" href="sp-detail/sp-detail-${{e.sp}}.html" target="_blank">→</a></div>`;
+        }});
+      }}
     }}
     body.innerHTML=h;
   }}

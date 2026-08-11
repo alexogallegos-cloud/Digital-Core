@@ -1,8 +1,8 @@
 # BCOPCore · Catálogo de Reglas de Negocio — v3.0 (Layer A+)
 
 > **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Enrichment Layer A+
-> **Generado:** 2026-08-06 · `enrich-rules-v3.py` · 7,785 reglas · 7,785 con nombre natural · 5,759 con explicación
-> **Cobertura:** D01-D53 (todos los dominios) · 51 bases de datos activas
+> **Generado:** 2026-08-06 · `enrich-rules-v3.py` · 8,008 reglas · 8,008 con nombre natural · 5,759 con explicación
+> **Cobertura:** D01-D53 (todos los dominios) · 49 bases de datos activas
 > **Fuente primaria:** `business-rules-v3.json` (v3.0, Layer A+)
 
 ## Resumen ejecutivo
@@ -10,17 +10,18 @@
 | Tipo | Reglas |
 |----|---:|
 | FÓRMULA | 4,597 |
-| VALIDACIÓN | 2,919 |
+| VALIDACIÓN | 3,141 |
 | UMBRAL | 241 |
 | ESTADO | 28 |
-| **TOTAL** | **7,785** |
+| CONDICIÓN | 1 |
+| **TOTAL** | **8,008** |
 
 | Dimensión | Valor |
 |---|---|
-| Reglas con nombre natural (business_name) | 7,785 |
+| Reglas con nombre natural (business_name) | 8,008 |
 | Reglas con explicación | 5,759 |
 | Reglas con riesgo de equivalencia | 553 |
-| Dominios cubiertos | 45 |
+| Dominios cubiertos | 30 |
 
 ## Por categoría
 
@@ -28,7 +29,7 @@
 |---|---:|
 | CALCULO_FINANCIERO | 2,499 |
 | REGULATORIO | 2,443 |
-| OPERACIONAL | 1,697 |
+| OPERACIONAL | 1,920 |
 | PARAMETRIA | 455 |
 | RIESGO_CREDITO | 320 |
 | PAGOS_TRANSFERENCIAS | 172 |
@@ -94,49 +95,34 @@
 |---|---:|
 | D01 Canal Digital Web | 1,338 |
 | D02 Integración y Auth | 729 |
-| D03 Créditos | 1,733 |
-| D04 Cheques / Cuentas | 1,336 |
-| D05 Saldos y Cuentas | 211 |
+| D03 Créditos | 1,903 |
+| D04 Cheques / Cuentas | 1,593 |
+| D05 Saldos y Cuentas | 216 |
 | D06 Solicitudes | 245 |
 | D07 Aclaraciones | 216 |
-| D08 SPEI | 117 |
-| D09 Mensajería | 10 |
-| D10 Sucursales | 92 |
-| D11 Cobranza | 209 |
+| D08 SPEI | 448 |
+| D09 Mensajería | 11 |
+| D10 Sucursales | 120 |
+| D11 Cobranza | 240 |
 | D12 Contabilidad | 56 |
 | D13 TEF | 34 |
 | D14 BEI | 43 |
-| D15 LIDE / PLD | 49 |
-| D16 Tarjetas | 314 |
-| D17 Banca por Internet (BPI) | 17 |
-| D18 Intercard BPI | 38 |
-| D19 Tarjetas Débito | 93 |
-| D20 Pagos Programados | 115 |
-| D21 Domiciliación | 98 |
-| D22 Inversiones | 159 |
-| D23 Buró de Crédito | 163 |
-| D24 Transferencias | 45 |
-| D25 MIS / Inteligencia de Negocio | 24 |
-| D26 Rechazos y Faltantes | 3 |
-| D27 Prospectos | 11 |
-| D28 Situación Especial / Fraude | 29 |
-| D29 Auditoría / PLD | 27 |
-| D30 Estado de Cuenta Electrónico | 1 |
-| D31 Expediente Digital | 8 |
-| D32 Tarjeta Coppel (física) | 8 |
-| D33 Control de Chequeras | 7 |
-| D34 Reportes Tarjeta | 11 |
-| D35 Monitor de Cobranza | 29 |
-| D36 Corresponsales | 24 |
-| D38 Transacciones Cajas y Giros | 91 |
-| D39 IVR (Canal Voz) | 4 |
-| D40 Reportes Automáticos | 27 |
-| D41 Oficina / Punto de Venta | 5 |
-| D42 Nómina | 2 |
-| D44 Transferencia Préstamos | 7 |
-| D45 WhatsCoppel (Chatbot) | 1 |
-| D50 Catálogos Sistema | 2 |
-| D51 Riesgos | 4 |
+| D15 LIDE / PLD | 198 |
+| D16 Tarjetas | 352 |
+| D23 MIS Sucursales | 24 |
+| D26 Prospectos | 11 |
+| D32 Reportes Visa/MC | 11 |
+| D34 Respaldos DBA | 142 |
+| D35 Digitalización | 8 |
+| D36 Reportería CNBV | 27 |
+| D37 Nómina BPI | 2 |
+| D40 Banca Internet | 13 |
+| D44 Conciliación Operativa | 3 |
+| D45 Premios | 8 |
+| D46 Oficinas de Cobro | 5 |
+| D47 Garantías | 7 |
+| D48 Riesgos de Crédito | 4 |
+| D49 Retiro sin Tarjeta | 1 |
 
 ## Reglas críticas — riesgo de equivalencia financiera
 

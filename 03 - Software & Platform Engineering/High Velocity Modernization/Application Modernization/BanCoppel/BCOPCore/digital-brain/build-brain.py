@@ -53,9 +53,64 @@ DB_TO_DOMAIN = {
     'intercardbpi': 'D16',  # Tarjetas — INTERCARD portal institucional
     'bditarjeta':   'D15',  # AML/Regulatorio — SAT reporting (conciliación → D12 vía override)
     'bditarjcop':   'D08',  # Pagos — sp_conslotepend (lotes pendientes, fan_in=137)
-    # ── Cross-cutting (sin dominio propio) ────────────────────────────────────
-    # 'bdiprog'  → D08 (AFORE batch payments)  ← asignado arriba
-    # 'bdicat'   → catalogos infraestructura; 1 SP; se queda sin dominio
+    # ── Nuevos dominios D23-D49 — swarm mapping 2026-08-10 ───────────────────
+    # Fuente: swarm 3-agentes (A=nombre, B=código fuente, D=vocab); B tiene mayor peso
+    'bdmis':          'D23',   # Fuerza de Ventas / MIS Sucursales
+    'bdiprospectos':  'D26',   # Prospectos / Captación Nuevos Clientes
+    'bdireports':     'D32',   # Reportes Redes de Pago Visa/MC
+    'bdiresp':        'D34',   # Respaldos / Administración DBA
+    'bdidigital':     'D35',   # Digitalización / Expediente Documental
+    'bdirepaut':      'D36',   # Reportería Regulatoria Automatizada CNBV
+    'bdiadminnomina': 'D37',   # Nómina / Dispersión de Cuentas Nómina
+    'bdibi':          'D40',   # Banca por Internet / Portal BPI Consumer
+    'bdiprem':        'D45',   # Premios / Promociones Comerciales
+    'bdiofi':         'D46',   # Oficinas de Cobro / Cajeros Distribuidores
+    'bdigaran':       'D47',   # Garantías / Colaterales y Avales
+    'bdiriesgos':     'D48',   # Riesgos de Crédito / Reportería Regulatoria
+    'bdirst':         'D49',   # Claves de Retiro sin Tarjeta
+    'bdirech':        'D44',   # Faltantes de Caja / Conciliación Operativa
+    # ── Colapsos a dominios existentes (sin identidad propia) ─────────────────
+    'bdiservicios':   'D05',   # → bdisac: capa MSW que delega vía EXECUTE PROCEDURE
+    'bdicat':         'D11',   # → bdicobranza: fachada XML-RPC del catálogo de mensajes
+}
+
+# Nombres canónicos de dominio — ÚNICA fuente de verdad para etiquetas humanas.
+# DB_TO_DOMAIN define qué BD pertenece a qué dominio; DOMAIN_NAMES define cómo se llama.
+# Al agregar un dominio nuevo: (1) agregar su BD(s) a DB_TO_DOMAIN, (2) agregar su nombre aquí.
+# INSERT OR IGNORE en ensure_all_domains() protege los registros D01-D16 ya cargados por load_journeys().
+DOMAIN_NAMES: dict[str, str] = {
+    # ── D01-D16 (referencia — load_journeys() los inserta primero desde journeys-data.json) ──
+    'D01': 'Canal Digital Web',
+    'D02': 'Integración y Auth',
+    'D03': 'Créditos',
+    'D04': 'Cheques y Cuentas',
+    'D05': 'Saldos y Ahorro',
+    'D06': 'Solicitudes',
+    'D07': 'Aclaraciones',
+    'D08': 'Pagos y SPEI',
+    'D09': 'Mensajería',
+    'D10': 'Sucursales y ATM',
+    'D11': 'Cobranza',
+    'D12': 'Contabilidad',
+    'D13': 'TEF',
+    'D14': 'Banca Electrónica Institucional',
+    'D15': 'AML y Regulatorio',
+    'D16': 'Tarjetas',
+    # ── D23-D49 (fuente primaria — solo existen aquí) ──────────────────────────
+    'D23': 'MIS Sucursales',
+    'D26': 'Prospectos',
+    'D32': 'Reportes Visa/MC',
+    'D34': 'Respaldos DBA',
+    'D35': 'Digitalización',
+    'D36': 'Reportería CNBV',
+    'D37': 'Nómina BPI',
+    'D40': 'Banca Internet',
+    'D44': 'Conciliación Operativa',
+    'D45': 'Premios',
+    'D46': 'Oficinas de Cobro',
+    'D47': 'Garantías',
+    'D48': 'Riesgos de Crédito',
+    'D49': 'Retiro sin Tarjeta',
 }
 
 # 12 Almas — Capa 2 del Gemelo Cognitivo (keyed by short sp_name)
@@ -113,6 +168,7 @@ PRAGMA journal_mode=WAL;
 PRAGMA synchronous=NORMAL;
 
 DROP TABLE IF EXISTS etb_l3_fts;
+DROP TABLE IF EXISTS sp_capabilities;
 DROP TABLE IF EXISTS domain_capabilities;
 DROP TABLE IF EXISTS etb_l3;
 DROP TABLE IF EXISTS etb_l2;
@@ -167,7 +223,11 @@ CREATE TABLE sps (
     prod_p95_s       REAL,
     prod_p99_s       REAL,
     prod_evidence_date TEXT,
-    prod_calling_systems TEXT
+    prod_calling_systems TEXT,
+    -- Clasificación de patrón estructural (poblada por classify-batch.py)
+    sp_archetype    TEXT,   -- patrón estructural universal (todos los SPs)
+    batch_archetype TEXT,   -- ídem, alias para compatibilidad y filtros batch
+    batch_l2        TEXT
 );
 
 CREATE TABLE domains (
@@ -272,6 +332,14 @@ CREATE TABLE domain_capabilities (
     PRIMARY KEY (domain_id, l3_id)
 );
 
+CREATE TABLE sp_capabilities (
+    sp_id        TEXT NOT NULL,
+    l3_id        TEXT NOT NULL,
+    mapping_type TEXT,          -- 'primary' | 'secondary' (inherited from domain_capabilities)
+    source       TEXT,          -- 'domain' (inherited) | 'override' (manual SP-level)
+    PRIMARY KEY (sp_id, l3_id)
+);
+
 CREATE INDEX idx_sps_domain   ON sps(domain);
 CREATE INDEX idx_sps_name     ON sps(name);
 CREATE INDEX idx_sps_fanin    ON sps(fan_in DESC);
@@ -288,6 +356,8 @@ CREATE INDEX idx_etb_l3_status ON etb_l3(bcop_status);
 CREATE INDEX idx_etb_l3_l2    ON etb_l3(l2_id);
 CREATE INDEX idx_dc_domain     ON domain_capabilities(domain_id);
 CREATE INDEX idx_dc_l3         ON domain_capabilities(l3_id);
+CREATE INDEX idx_sp_cap_sp     ON sp_capabilities(sp_id);
+CREATE INDEX idx_sp_cap_l3     ON sp_capabilities(l3_id);
 
 CREATE VIRTUAL TABLE sps_fts USING fts5(
     id, label, biz, justification, soul_pattern,
@@ -472,6 +542,42 @@ def load_journeys(conn):
     print(f'  journeys     {len(dom_rows):>6,} domains {len(j_rows):>6,} journeys')
 
 
+def ensure_all_domains(conn):
+    """Garantiza que cada dominio en DOMAIN_NAMES tiene fila en `domains`.
+
+    Fuente única de verdad:
+      - DB_TO_DOMAIN  → qué BD canónica representa al dominio
+      - DOMAIN_NAMES  → nombre humano del dominio
+
+    D01-D16 ya los inserta load_journeys() desde journeys-data.json; el INSERT OR IGNORE
+    los protege (no sobreescribe). Los dominios D23-D49 los crea esta función.
+    Para agregar un dominio nuevo: añadir a DB_TO_DOMAIN + a DOMAIN_NAMES — nada más.
+    """
+    # canonical_db: domain_id → primera BD en DB_TO_DOMAIN que apunta a ese dominio
+    canonical_db: dict[str, str] = {}
+    for db, did in DB_TO_DOMAIN.items():
+        if did not in canonical_db:
+            canonical_db[did] = db
+
+    rows = []
+    for did, name in sorted(DOMAIN_NAMES.items()):
+        db = canonical_db.get(did, '')
+        sp_count = conn.execute(
+            'SELECT COUNT(*) FROM sps WHERE domain=?', (did,)
+        ).fetchone()[0]
+        rows.append((did, db, name, 3, '', sp_count, '[]', 0, 0.0))
+
+    conn.executemany('''
+        INSERT OR IGNORE INTO domains
+        (id, db, name, wave, color, sp_count, reg, weaknesses, densidad)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', rows)
+    conn.commit()
+    inserted = conn.execute('SELECT COUNT(*) FROM domains').fetchone()[0]
+    new_domains = len(DOMAIN_NAMES) - 16  # D01-D16 vienen de journeys-data.json
+    print(f'  domains      {inserted:>6,} total ({new_domains} D17+ garantizados desde DOMAIN_NAMES)')
+
+
 def load_souls(conn):
     with open(BASE / 'portal' / 'data' / 'souls-data.json') as f:
         sd = json.load(f)
@@ -645,6 +751,60 @@ def load_etb_capabilities(conn):
     pct     = round(100 * (covered + cross) / len(caps), 1)
     print(f'  etb          {len(l1_rows):>3} L1  {len(l2_rows):>3} L2  {len(l3_rows):>4} L3'
           f'   covered {covered}+{cross}cc/{len(l3_rows)} ({pct}%)')
+
+
+def build_sp_capabilities(conn):
+    """
+    Deriva sp_capabilities heredando de domain_capabilities.
+    Cada SP recibe los L3 caps de su dominio con source='domain'.
+    Soporte futuro para source='override' (asignación manual por SP).
+    """
+    conn.execute('''
+        INSERT OR IGNORE INTO sp_capabilities (sp_id, l3_id, mapping_type, source)
+        SELECT s.id, dc.l3_id, dc.mapping_type, 'domain'
+        FROM sps s
+        JOIN domain_capabilities dc ON s.domain = dc.domain_id
+        WHERE s.domain IS NOT NULL AND s.domain != ''
+    ''')
+    conn.commit()
+    n         = conn.execute('SELECT COUNT(*) FROM sp_capabilities').fetchone()[0]
+    sps_cov   = conn.execute('SELECT COUNT(DISTINCT sp_id) FROM sp_capabilities').fetchone()[0]
+    l3_cov    = conn.execute('SELECT COUNT(DISTINCT l3_id) FROM sp_capabilities').fetchone()[0]
+    print(f'  sp_capabilities {n:>7,} links   {sps_cov:>6,} SPs cubiertos   {l3_cov} L3 distintas')
+
+
+def merge_fine_capabilities(conn):
+    """
+    Fusiona sp_capability_map → sp_capabilities con source='override'.
+    Solo inserta asignaciones genuinamente nuevas (no cubiertas ya por domain-inheritance).
+    Filtra entradas con l3_id='shared' (categoría sintética del fine-mapping, no ETB real).
+    Umbral mínimo de confianza: 0.35.
+    Requiere que sp_capability_map exista (creada por build-sp-fine-mapping.py).
+    """
+    has_map = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='sp_capability_map'"
+    ).fetchone()
+    if not has_map:
+        print('  merge_fine_capabilities: sp_capability_map no existe — omitido')
+        return
+
+    n_before = conn.execute('SELECT COUNT(*) FROM sp_capabilities').fetchone()[0]
+    conn.execute('''
+        INSERT OR IGNORE INTO sp_capabilities (sp_id, l3_id, mapping_type, source)
+        SELECT scm.sp_id, scm.l3_id, 'override', 'override'
+        FROM sp_capability_map scm
+        WHERE scm.confidence >= 0.35
+          AND scm.l3_id != 'shared'
+          AND NOT EXISTS (
+              SELECT 1 FROM sp_capabilities sc
+              WHERE sc.sp_id = scm.sp_id AND sc.l3_id = scm.l3_id
+          )
+    ''')
+    conn.commit()
+    n_after    = conn.execute('SELECT COUNT(*) FROM sp_capabilities').fetchone()[0]
+    overrides  = conn.execute("SELECT COUNT(*) FROM sp_capabilities WHERE source='override'").fetchone()[0]
+    l3_after   = conn.execute('SELECT COUNT(DISTINCT l3_id) FROM sp_capabilities').fetchone()[0]
+    print(f'  merge fine-map +{n_after - n_before:,} overrides   total {n_after:,} links   {l3_after} L3 distintas   ({overrides} overrides)')
 
 
 def classify_sps(conn):
@@ -829,7 +989,7 @@ def build_fts(conn):
 
 def print_summary(conn):
     tables = ['sps', 'domains', 'rules', 'terms', 'external_systems',
-              'journeys', 'sp_calls', 'sp_terms', 'authors']
+              'journeys', 'sp_calls', 'sp_terms', 'authors', 'sp_capabilities']
     print('\n── Entidades en brain.db ──────────────────────────')
     for t in tables:
         n = conn.execute(f'SELECT COUNT(*) FROM {t}').fetchone()[0]
@@ -886,12 +1046,15 @@ def main():
     load_callgraph(conn)
     load_sp_validations(conn)
     load_journeys(conn)
+    ensure_all_domains(conn)
     load_souls(conn)
     load_integrations(conn)
     load_quality(conn)
     load_rules(conn)
     load_vocabulary(conn)
     load_etb_capabilities(conn)
+    build_sp_capabilities(conn)
+    merge_fine_capabilities(conn)
     classify_sps(conn)
     load_prod_metrics(conn)
     build_sp_terms(conn)

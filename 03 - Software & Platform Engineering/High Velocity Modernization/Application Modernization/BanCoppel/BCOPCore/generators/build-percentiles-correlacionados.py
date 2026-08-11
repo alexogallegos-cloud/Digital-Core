@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from forecast import capacity as C
 from forecast.calendar_mx import MxCalendar
 
-OUT = ROOT / "knowledge-base" / "cross-reference"
+OUT = ROOT / "portal"
 HITOS = {"2026-03": "leak-fix", "2026-06": "Power 10"}
 # El pico maximo procesado (linea cian) solo es CONFIABLE a partir del primer fix: antes conviven los
 # 7 encolamientos + el connection leak (INC-20251223), que distorsionan el throughput medido (colas
@@ -117,18 +117,15 @@ def main():
         r["x"] = str(date(y, mo, 15))             # fecha representativa (mitad de mes) para el eje temporal
         qs, qe = _q_sp.get((y, mo)), _q_eg.get((y, mo))
         _h = lambda v, ch: round(v * HOLGURA[ch])   # holgura de dimensionamiento POR CANAL
-        if r["mes"] < PICO_CONFIABLE_DESDE:
-            # 2025 + ene/feb 2026 (< 2026-03) = periodo CONFIRMADO por el cliente -> valores fijos (no computados)
-            r["p70"] = {c: CONFIRMADOS[c]["p70"] for c in ("spei", "eglobal")}
-            r["p90"] = {c: CONFIRMADOS[c]["p90"] for c in ("spei", "eglobal")}
-            r["p99"] = {"spei": None, "eglobal": None}
-            r["max_1h"] = {"spei": None, "eglobal": None}
-        else:
-            # mar-2026 en adelante = COMO ANTES: percentiles del pico diario computados (con holgura por canal)
-            r["p70"] = {"spei": _h(qs["p70"], "spei"), "eglobal": _h(qe["p70"], "eglobal")}
-            r["p90"] = {"spei": _h(qs["p90"], "spei"), "eglobal": _h(qe["p90"], "eglobal")}
+        # Evolucion = percentiles del PICO DIARIO computados mes a mes (COMO ANTES; no se aplana con los confirmados)
+        r["p70"] = {"spei": _h(qs["p70"], "spei"), "eglobal": _h(qe["p70"], "eglobal")}
+        r["p90"] = {"spei": _h(qs["p90"], "spei"), "eglobal": _h(qe["p90"], "eglobal")}
+        if r["mes"] >= PICO_CONFIABLE_DESDE:
             r["p99"] = {"spei": _h(qs["p99"], "spei"), "eglobal": _h(qe["p99"], "eglobal")}
             r["max_1h"] = {"spei": qs["max"], "eglobal": qe["max"]}
+        else:
+            r["p99"] = {"spei": None, "eglobal": None}
+            r["max_1h"] = {"spei": None, "eglobal": None}
         meses.append(r)
         print(f"  {r['mes']}: SPEI P70={r['p70']['spei']:>5,} P90={r['p90']['spei']:>5,} | "
               f"Aut P70={r['p70']['eglobal']:>5,} P90={r['p90']['eglobal']:>5,} | "
@@ -321,7 +318,7 @@ svg circle.pt{{transition:r .1s}}
 <div class="grain"></div>
 <div id="tt"></div>
 <div class="hero-bar">
-  <img src="../../portal/bancoppel-logo.png" alt="BanCoppel">
+  <img src="bancoppel-logo.png" alt="BanCoppel">
   <div class="hb-sep"></div>
   <span class="crumb">BCOPCORE &nbsp;·&nbsp; SPE-AM-001 &nbsp;·&nbsp; GEMELO COGNITIVO &nbsp;·&nbsp; <em>PERCENTILES CORRELACIONADOS</em></span>
   <span class="hb-sp"></span>
@@ -360,11 +357,10 @@ M.forEach(m=>{{m.D=pD(m.x);
   m.sp70=m.p70.spei;   m.sp90=m.p90.spei;   m.sp99=m.p99.spei;
   m.eg70=m.p70.eglobal;m.eg90=m.p90.eglobal;m.eg99=m.p99.eglobal;}});
 const a=M[M.length-1];
-// KPI = percentiles CONFIRMADOS por el cliente (2025 + ene/feb 2026); la evolucion mensual los muestra en ese periodo y computados de mar-2026 en adelante
-const OFI=DATA.confirmados;
+const OFI=DATA.oficiales;
 document.getElementById("kpis").innerHTML=`
-<div class="kpi glass"><div class="val" style="color:#38bdf8">${{OFI.spei.p70.toLocaleString()}} / ${{OFI.spei.p90.toLocaleString()}}</div><div class="lbl">SPEI — P70 / P90 confirmados (2025–feb 2026 · txn/min)</div></div>
-<div class="kpi glass"><div class="val" style="color:#38bdf8">${{OFI.eglobal.p70.toLocaleString()}} / ${{OFI.eglobal.p90.toLocaleString()}}</div><div class="lbl">Autorizador — P70 / P90 confirmados (2025–feb 2026 · txn/min)</div></div>`;
+<div class="kpi glass"><div class="val" style="color:#38bdf8">${{OFI.spei.p70.toLocaleString()}} / ${{OFI.spei.p90.toLocaleString()}}</div><div class="lbl">SPEI — P70 / P90 máx histórico (txn/min)</div></div>
+<div class="kpi glass"><div class="val" style="color:#38bdf8">${{OFI.eglobal.p70.toLocaleString()}} / ${{OFI.eglobal.p90.toLocaleString()}}</div><div class="lbl">Autorizador — P70 / P90 máx histórico (txn/min)</div></div>`;
 
 const tip=document.getElementById("tt");
 function showTip(ev,mes,color,label,valStr){{

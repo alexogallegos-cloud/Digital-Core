@@ -28,8 +28,10 @@ from forecast.calendar_mx import MxCalendar
 from forecast import data_sources as DS
 from forecast import atypical_days as A
 
-OUT = ROOT / "knowledge-base" / "cross-reference"
-OUT.mkdir(parents=True, exist_ok=True)
+OUT_KB     = ROOT / "knowledge-base" / "cross-reference"   # knowledge: MD, CSV, JSON
+OUT_PORTAL = ROOT / "portal"                                # presentación: HTML
+OUT_KB.mkdir(parents=True, exist_ok=True)
+OUT_PORTAL.mkdir(parents=True, exist_ok=True)
 
 
 def main():
@@ -53,10 +55,10 @@ def main():
         results[ch] = M.interpret(m, cfg["label"], F.FACTOR_LABELS, n_total)
 
     # Salidas
-    R.render_html(df, cal, models, cleans, outliers, results, str(OUT / "growth-forecast-autorizador-spei.html"))
-    R.render_markdown(results, models, str(OUT / "growth-forecast-autorizador-spei.md"))
+    R.render_html(df, cal, models, cleans, outliers, results, str(OUT_PORTAL / "growth-forecast-autorizador-spei.html"))
+    R.render_markdown(results, models, str(OUT_KB / "growth-forecast-autorizador-spei.md"))
     # serie diaria consumible: pasado (real+ajustado) + futuro (proyeccion+banda)
-    R.render_series_csv(df, cal, models, cleans, str(OUT / "forecast-series-diaria.csv"))
+    R.render_series_csv(df, cal, models, cleans, str(OUT_KB / "forecast-series-diaria.csv"))
 
     # Reporte de dias atipicos: separa removidos (inexplicables) de mantenidos (explicables)
     def split(ch, top):
@@ -67,7 +69,7 @@ def main():
             "largest_residuals_clean": M.residual_report(models[ch], cleans[ch], ch, top=top),
         }
     atypical_report = {"spei": split("spei", 25), "eglobal": split("eglobal", 15)}
-    rep_path = OUT / "growth-forecast-outliers.json"
+    rep_path = OUT_KB / "growth-forecast-outliers.json"
     with open(rep_path, "w", encoding="utf-8") as f:
         json.dump(atypical_report, f, ensure_ascii=False, indent=2)
     print(f"  Outliers: {rep_path}")

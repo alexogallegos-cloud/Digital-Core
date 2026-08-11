@@ -28,7 +28,7 @@ from forecast import capacity as C, data_sources as DS, factors as F, atypical_d
 from forecast.calendar_mx import MxCalendar
 import numpy as np, pandas as pd, statsmodels.api as sm
 
-OUT = ROOT / "knowledge-base" / "cross-reference"
+OUT = ROOT / "portal"
 LAST_REAL = date(2026, 8, 4)
 END_PROJ = date(2026, 12, 31)
 # Taxonomia de riesgo por MINUTOS DE CO-OCURRENCIA REAL (ambos canales >= su P70 crudo, minuto a minuto).
@@ -114,11 +114,19 @@ def main():
 
     # Umbrales del pipeline de percentiles. Para DETECTAR riesgo (no dimensionar) se usa el P70/P90 CRUDO
     # (sin holgura): demanda real vs. umbral observado. La holgura es margen de dimensionamiento, no de deteccion.
+    # Dos conjuntos: OFICIALES (post-fix, mar-2026+) y CONFIRMADOS (pre-fix, 2025+ene/feb 2026).
     pdata = json.loads((OUT / "percentiles-correlacionados.json").read_text(encoding="utf-8"))
     ofi, hol = pdata["oficiales"], pdata["holgura"]
+    PICO_CONFIABLE_DESDE = pdata.get("pico_confiable_desde", "2026-03")
+    # Oficiales: quitar holgura para obtener el umbral crudo de deteccion
     P70sp = round(ofi["spei"]["p70"] / hol["spei"]);   P90sp = round(ofi["spei"]["p90"] / hol["spei"])
     P70eg = round(ofi["eglobal"]["p70"] / hol["eglobal"]); P90eg = round(ofi["eglobal"]["p90"] / hol["eglobal"])
-    print(f"  umbrales crudos (deteccion): SPEI P70/P90={P70sp:,}/{P90sp:,} | Aut P70/P90={P70eg:,}/{P90eg:,}")
+    # Confirmados: valores directos del cliente (ya son crudos, sin holgura)
+    conf = pdata.get("confirmados", {})
+    P70sp_c = conf.get("spei",    {}).get("p70", P70sp);  P90sp_c = conf.get("spei",    {}).get("p90", P90sp)
+    P70eg_c = conf.get("eglobal", {}).get("p70", P70eg);  P90eg_c = conf.get("eglobal", {}).get("p90", P90eg)
+    print(f"  umbrales oficiales  (post-fix): SPEI P70/P90={P70sp:,}/{P90sp:,} | Aut P70/P90={P70eg:,}/{P90eg:,}")
+    print(f"  umbrales confirmados (pre-fix): SPEI P70/P90={P70sp_c:,}/{P90sp_c:,} | Aut P70/P90={P70eg_c:,}/{P90eg_c:,}")
     # minuto a minuto REAL para la co-ocurrencia (dias con >=1400 min de dato)
     minSP = {d: dict(mm) for d, mm in C.load_minute_channel(ROOT, "spei").items() if len(mm) >= 1400}
     minEG = {d: dict(mm) for d, mm in C.load_minute_channel(ROOT, "eglobal").items() if len(mm) >= 1400}
@@ -128,11 +136,15 @@ def main():
     for d, vv in vol.items():
         up = uplift.get(d, 0.0)
         base = {"up": round(up * 100, 1), "sube": int(up >= UPLIFT_SUBE), "o": vv["o"], "temp": temp_by_day.get(d, [])}
+        # Seleccionar umbrales segun el periodo del dia
+        pre = str(d)[:7] < PICO_CONFIABLE_DESDE
+        t70sp, t90sp = (P70sp_c, P90sp_c) if pre else (P70sp, P90sp)
+        t70eg, t90eg = (P70eg_c, P90eg_c) if pre else (P70eg, P90eg)
         if d in minSP and d in minEG:            # dia con datos minuto -> CO-OCURRENCIA REAL (minutos ambos >= P70)
             sp, eg = minSP[d], minEG[d]
-            rm = sum(1 for m in OP if sp.get(m, 0) >= P70sp and eg.get(m, 0) >= P70eg)
-            sp90 = int(max((sp.get(m, 0) for m in OP), default=0) >= P90sp)
-            eg90 = int(max((eg.get(m, 0) for m in OP), default=0) >= P90eg)
+            rm = sum(1 for m in OP if sp.get(m, 0) >= t70sp and eg.get(m, 0) >= t70eg)
+            sp90 = int(max((sp.get(m, 0) for m in OP), default=0) >= t90sp)
+            eg90 = int(max((eg.get(m, 0) for m in OP), default=0) >= t90eg)
             dias[str(d)] = {**base, "rm": rm, "lvl": nivel(rm), "sp90": sp90, "eg90": eg90, "proj": 0}
         else:                                    # proyectado: sin datos minuto, no se calcula riesgo real
             dias[str(d)] = {**base, "rm": None, "lvl": 0, "sp90": 0, "eg90": 0, "proj": 1}
@@ -224,7 +236,7 @@ footer{{text-align:center;padding:34px 0 8px;font-size:11px;color:var(--muted2);
 <div class="grain"></div>
 <div id="tt"></div>
 <div class="hero-bar">
-  <img src="../../portal/bancoppel-logo.png" alt="BanCoppel">
+  <img src="bancoppel-logo.png" alt="BanCoppel">
   <div class="hb-sep"></div>
   <span class="crumb">BCOPCORE &nbsp;·&nbsp; SPE-AM-001 &nbsp;·&nbsp; GEMELO COGNITIVO &nbsp;·&nbsp; <em>CALENDARIO DE RIESGO</em></span>
   <span class="hb-sp"></span>

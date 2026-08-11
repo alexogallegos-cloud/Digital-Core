@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>reversion · BCOPCore</title>
 <script type="module">
@@ -124,17 +124,22 @@ code{background:rgba(240,210,36,.1);border:1px solid rgba(240,210,36,.22);border
 .chip.blue{background:rgba(18,47,177,.3);border:1px solid rgba(61,95,205,.5);color:#9ab0ff}
 .chip.muted{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted)}
 .chip.yellow{background:rgba(240,210,36,.12);border:1px solid rgba(240,210,36,.3);color:var(--yellow)}
+.chip.batch{background:rgba(0,180,120,.15);border:1px solid rgba(0,180,120,.4);color:#6effd5}
+.chip.batch-red{background:rgba(220,60,40,.15);border:1px solid rgba(220,60,40,.4);color:#ff9b9b}
+.chip.batch-orange{background:rgba(255,140,0,.15);border:1px solid rgba(255,140,0,.4);color:#ffd089}
+.chip.batch-purple{background:rgba(130,60,220,.15);border:1px solid rgba(130,60,220,.4);color:#c9a6ff}
+.chip.batch-teal{background:rgba(0,150,200,.15);border:1px solid rgba(0,150,200,.4);color:#80d8ff}
 
 </style></head><body>
 <div class="aurora"></div><div class="grain"></div>
 
 <nav>
-  <img src="../../bancoppel-logo.png" alt="BanCoppel">
+  <img src="bancoppel-logo.png" alt="BanCoppel">
   <span class="sep">/</span>
   <span class="bc">BCOPCore · D04 · Chequera / Debito</span>
   <span class="sp"></span>
-  <a class="back" href="../capability-model-bcop-v2.html">← Modelo de Capacidades</a>
-  <a class="back" href="../component-map-bcop-v2.html">← Mapa de Componentes</a>
+  <a class="back" href="capability-model-bcop-v2.html">← Modelo de Capacidades</a>
+  <a class="back" href="component-map-bcop-v2.html">← Mapa de Componentes</a>
 </nav>
 
 <div class="wrap">
@@ -148,6 +153,7 @@ code{background:rgba(240,210,36,.1);border:1px solid rgba(240,210,36,.22);border
       <span class="chip blue">Chequera / Debito</span>
       <span class="chip muted">bdicheq</span>
       <span class="chip yellow">proc</span>
+      
       
     </div>
     <div class="metrics">
@@ -169,7 +175,7 @@ code{background:rgba(240,210,36,.1);border:1px solid rgba(240,210,36,.22);border
     <p class="sec-sub reveal">Narrativa reconstruida a partir del call graph, el codigo y el vocabulario del dominio.</p>
     <div class="story-body reveal"><p>El procedimiento <b>reversion</b> implementa la lógica de <em>reversa</em> en el dominio Chequera / Debito (<code>bdicheq</code>). Recibe los parámetros: <code>pempresa  CHAR(3)</code>, <code>psucursal CHAR(4)</code>, <code>pusuario  CHAR(8)</code>, <code>pfolio    CHAR(16)</code>, <code>ptiporev  CHAR(1)</code>.</p>
 <p>Antes de ejecutar su lógica principal, verifica las siguientes condiciones de bloqueo: Se inicializan las variables. → retorna <code>00000</code>; Variables de retorno para el sp maestro de retenciones. → retorna <code>00000</code>; Variables de retorno para el sp maestro de retenciones EEAP. → retorna <code>00000</code>; Variables de retorno para el sp maestro de retenciones DFTL. → retorna <code>00000</code>; Variables de retorno para el sp maestro de retenciones OACM. → retorna <code>00000</code>.</p>
-<p>En su cuerpo principal, itera sobre <code>sc_movdia</code>, <code>sc_histbloq</code>, <code>sc_detcomis</code>, <code>sc_movhis</code> y delega a <code>sp_transfer_online_reverso</code>, <code>sp_ReversionSac</code>, <code>reversion</code> (reversa), <code>sp_cons_sdodisp_x_tpcalculo</code> (consulta saldo disponible y tipo de cál.), <code>sp_reversa_acum_x</code>, <code>sp_actualizar_indicadores</code>.</p>
+<p>En su cuerpo principal, itera sobre <code>sc_movdia</code>, <code>sc_histbloq</code>, <code>sc_detcomis</code>, <code>sc_movhis</code> y delega a <code>sp_transfer_online_reverso</code> (reverso transferencia y online — transf.), <code>sp_ReversionSac</code>, <code>reversion</code> (reversa), <code>sp_cons_sdodisp_x_tpcalculo</code> (consulta saldo disponible y tipo de cál.), <code>sp_reversa_acum_x</code> (Reversión — anula/revierte una operación), <code>sp_actualizar_indicadores</code> (actualiza indicadores).</p>
 <p>Dimensión: 1,299 líneas, 33 tablas, 377 callers en producción.</p>
 <p class="mnote">Última modificación documentada: Se agrega la logica para la reversion del saldo inmovilizado a las cuentas de capraciÃ³n</p></div>
     
@@ -190,7 +196,7 @@ flowchart TD
     A["reversion\nRecibe parámetros de entrada"]
     N1{"substr(ccuenta, 1, 2) = '80'\nSí → calcula pcod_ret"}
     A --> N1
-    N2["Llama a sp_transfer_online_reverso"]
+    N2["Llama a sp_transfer_online_reverso\nreverso transferencia y online — transferen."]
     N1 --> N2
     N3{"contador = 0\nSí → calcula cont_exist"}
     N2 --> N3
@@ -198,13 +204,12 @@ flowchart TD
     N3 --> N4
     N5{"contador = 0"}
     N4 --> N5
-    N6["BR-V2-4055: Retorna código de error 439"]
+    N6["BR-V2-4061: Retorna código de error 439"]
     N5 --> N6
-    N7["BR-V2-4056: Pago no es el ultimo reversa en orden"]
+    N7["BR-V2-4062: Pago no es el ultimo reversa en orden"]
     N6 --> N7
     Z["Retorna resultado"]
     N7 --> Z
-    click N2 "sp-detail-sp_transfer_online_reverso.html" "Ver detalle funcional"
       </div>
     </div>
   </section>
@@ -230,8 +235,8 @@ sequenceDiagram
     C1-->>SP: resultado
     SP->>C2: delega a bdisac
     C2-->>SP: resultado
-    Note over SP: BR-V2-4055 RIESGO_CREDITO: Retorna código de error 439
-    Note over SP: BR-V2-4056 RIESGO_CREDITO: Pago no es el ultimo reversa en orden
+    Note over SP: BR-V2-4061 RIESGO_CREDITO: Retorna código de error 439
+    Note over SP: BR-V2-4062 RIESGO_CREDITO: Pago no es el ultimo reversa en orden
     Note over SP,CL: vocab: reversion
     SP-->>CL: retorna resultado
       </div>
@@ -247,7 +252,7 @@ sequenceDiagram
     <p class="sec-sub reveal">2 reglas extraidas del codigo fuente.</p>
     <div class="rules-grid">
       <div class="rule-row reveal">
-        <div class="rule-id">BR-V2-4055<br/>linea 345</div>
+        <div class="rule-id">BR-V2-4061<br/>linea 345</div>
         <div class="rule-main">
           <div class="rule-code">LET v_codret = &quot;439&quot;</div>
           <div class="rule-expl">Retorna código de error 439</div>
@@ -255,7 +260,7 @@ sequenceDiagram
         <div class="rule-badges"><span class="badge muted">RIESGO_CREDITO</span></div>
       </div>
       <div class="rule-row reveal">
-        <div class="rule-id">BR-V2-4056<br/>linea 421</div>
+        <div class="rule-id">BR-V2-4062<br/>linea 421</div>
         <div class="rule-main">
           <div class="rule-code">LET v_codret = &quot;431&quot;; -- PAGO NO ES EL ULTIMO REVERSA EN ORDEN</div>
           <div class="rule-expl">Pago no es el ultimo reversa en orden</div>

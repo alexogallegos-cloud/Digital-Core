@@ -515,6 +515,11 @@ class BCOPBrain:
             rule_terms_n = db.execute('SELECT COUNT(*) FROM rule_terms').fetchone()[0]
         except sqlite3.OperationalError:
             rule_terms_n = 0
+        try:
+            sp_cap_n     = db.execute('SELECT COUNT(*) FROM sp_capabilities').fetchone()[0]
+            sp_cap_sps   = db.execute('SELECT COUNT(DISTINCT sp_id) FROM sp_capabilities').fetchone()[0]
+        except sqlite3.OperationalError:
+            sp_cap_n, sp_cap_sps = 0, 0
         return {
             'sps':             db.execute('SELECT COUNT(*) FROM sps').fetchone()[0],
             'sp_calls':        db.execute('SELECT COUNT(*) FROM sp_calls').fetchone()[0],
@@ -525,7 +530,9 @@ class BCOPBrain:
             'terms':           db.execute('SELECT COUNT(*) FROM terms').fetchone()[0],
             'external_systems':db.execute('SELECT COUNT(*) FROM external_systems').fetchone()[0],
             'sp_terms_links':  db.execute('SELECT COUNT(*) FROM sp_terms').fetchone()[0],
-            'rule_terms_links': rule_terms_n,
+            'rule_terms_links':    rule_terms_n,
+            'sp_capabilities':     sp_cap_n,
+            'sp_capabilities_sps': sp_cap_sps,
             'authors':         db.execute('SELECT COUNT(*) FROM authors').fetchone()[0],
             'etb_l1':          db.execute('SELECT COUNT(*) FROM etb_l1').fetchone()[0],
             'etb_l2':          db.execute('SELECT COUNT(*) FROM etb_l2').fetchone()[0],
@@ -597,18 +604,35 @@ class BCOPBrain:
                 secondary.append(d)
         return {'domain': did, 'primary': primary, 'secondary': secondary}
 
+    def sp_capabilities(self, sp_name: str) -> list[dict]:
+        """
+        Capacidades ETB L3 que implementa un SP.
+        Incluye capacidades heredadas del dominio (source='domain') y
+        cualquier asignación manual por SP (source='override').
+        """
+        full_id = self._resolve_id(sp_name)
+        rows = self._db().execute('''
+            SELECT e.id as l3_id, e.l1_id, e.l2_id, e.name, e.definition,
+                   e.bcop_status, sc.mapping_type, sc.source
+            FROM sp_capabilities sc
+            JOIN etb_l3 e ON sc.l3_id = e.id
+            WHERE sc.sp_id = ?
+            ORDER BY sc.mapping_type, e.l1_id, e.l2_id, e.id
+        ''', (full_id,)).fetchall()
+        return self._rows(rows)
+
     def capability_sps(self, l3_id: str, limit: int = 200) -> list[dict]:
         """
         SPs que implementan una capacidad ETB L3, ordenados por fan_in desc.
-        La relación es: L3 -> dominios -> SPs del dominio.
+        Usa sp_capabilities (relación directa SP→L3) en lugar del join de 2 saltos.
         """
         rows = self._db().execute('''
-            SELECT DISTINCT s.id, s.name, s.db, s.domain, s.fan_in, s.fan_out,
-                            s.biz, s.is_soul, dc.mapping_type
-            FROM domain_capabilities dc
-            JOIN sps s ON s.domain = dc.domain_id
-            WHERE dc.l3_id = ?
-            ORDER BY dc.mapping_type, s.fan_in DESC
+            SELECT s.id, s.name, s.db, s.domain, s.fan_in, s.fan_out,
+                   s.biz, s.is_soul, sc.mapping_type, sc.source
+            FROM sp_capabilities sc
+            JOIN sps s ON sc.sp_id = s.id
+            WHERE sc.l3_id = ?
+            ORDER BY sc.mapping_type, s.fan_in DESC
             LIMIT ?
         ''', (l3_id, limit)).fetchall()
         return self._rows(rows)
@@ -630,4 +654,256 @@ class BCOPBrain:
             GROUP BY e.l1_id, e.l2_id
             ORDER BY e.l1_id, e.l2_id
         ''').fetchall()
+        return self._rows(rows)
+
+    # ── Diagramas de flujo / tareas ───────────────────────────────────────────
+
+    def flow_diagram(self, sp_name: str, depth: int = 2,
+                     include_rules: bool = True,
+                     max_children: int = 20) -> dict:
+        """
+        Árbol de flujo de tareas para cualquier SP: callees recursivos hasta
+        `depth` niveles, enriquecidos con reglas de negocio y etiqueta ETB L3.
+
+        Parámetros:
+          depth:         niveles de expansión (default=2; máx recomendado=3)
+          include_rules: incluir reglas de negocio en cada nodo
+          max_children:  máx callees por nodo (los de mayor fan_in primero)
+
+        Retorna:
+          root:    árbol de nodos (children[]) listo para serializar a JSON
+          mermaid: flowchart TD en sintaxis Mermaid, renderizable directamente
+          stats:   resumen (total_nodes, total_edges, total_rules, unique_domains)
+          journey: steps curados si el SP está en journeys-data; None si no
+
+        Estructura de cada nodo:
+          id, name, biz, domain, sp_role, fan_in, fan_out, is_soul,
+          l3_id, l3_name,
+          rules: [{tipo, business_name, reg, riesgo}],
+          children: [nodo...]
+        """
+        full_id = self._resolve_id(sp_name)
+
+        # ── 1. BFS: recolectar nodos y aristas ────────────────────────────────
+        nodes_map: dict[str, dict] = {}
+        edges: list[tuple[str, str]] = []
+        queue = [(full_id, 0)]
+        visited_bfs: set[str] = set()
+
+        # Preload L3 names in one shot to avoid N+1 queries
+        l3_names: dict[str, str] = {
+            r[0]: r[1]
+            for r in self._db().execute('SELECT id, name FROM etb_l3').fetchall()
+        }
+
+        while queue:
+            sp_id, cur_depth = queue.pop(0)
+            if sp_id in visited_bfs:
+                continue
+            visited_bfs.add(sp_id)
+
+            sp_row = self._db().execute(
+                'SELECT id, name, biz, domain, sp_role, fan_in, fan_out, '
+                '       is_soul, primary_l3 '
+                'FROM sps WHERE id=?', (sp_id,)
+            ).fetchone()
+            if not sp_row:
+                continue
+
+            sp_data = dict(sp_row)
+            l3_id = sp_data.get('primary_l3')
+
+            rules: list[dict] = []
+            if include_rules:
+                rule_rows = self._db().execute(
+                    'SELECT tipo, code, reg, riesgo '
+                    'FROM rules WHERE sp=? ORDER BY line LIMIT 15',
+                    (sp_id,)
+                ).fetchall()
+                rules = [dict(r) for r in rule_rows]
+
+            nodes_map[sp_id] = {
+                'id':        sp_data['id'],
+                'name':      sp_data['name'],
+                'biz':       sp_data.get('biz'),
+                'domain':    sp_data.get('domain'),
+                'sp_role':   sp_data.get('sp_role') or 'internal',
+                'fan_in':    sp_data.get('fan_in', 0),
+                'fan_out':   sp_data.get('fan_out', 0),
+                'is_soul':   bool(sp_data.get('is_soul')),
+                'l3_id':     l3_id,
+                'l3_name':   l3_names.get(l3_id) if l3_id else None,
+                'rules':     rules,
+            }
+
+            if cur_depth < depth:
+                callee_rows = self._db().execute('''
+                    SELECT s.id
+                    FROM sp_calls sc
+                    JOIN sps s ON sc.to_sp = s.id
+                    WHERE sc.from_sp = ?
+                    ORDER BY s.fan_in DESC
+                    LIMIT ?
+                ''', (sp_id, max_children)).fetchall()
+
+                for row in callee_rows:
+                    child_id = row['id']
+                    if child_id == sp_id:
+                        nodes_map[sp_id]['is_recursive'] = True
+                        continue  # skip self-loops in diagram
+                    edges.append((sp_id, child_id))
+                    if child_id not in visited_bfs:
+                        queue.append((child_id, cur_depth + 1))
+
+        if full_id not in nodes_map:
+            return {'error': f'SP no encontrado: {sp_name}'}
+
+        # ── 2. Árbol recursivo desde la raíz ─────────────────────────────────
+        children_index: dict[str, list[str]] = {}
+        for from_id, to_id in edges:
+            children_index.setdefault(from_id, []).append(to_id)
+
+        def build_tree(sp_id: str, tree_seen: set) -> dict:
+            node = dict(nodes_map[sp_id])
+            node['children'] = []
+            if sp_id in tree_seen:
+                node['_ref'] = True   # nodo referenciado (ya aparece arriba)
+                return node
+            tree_seen.add(sp_id)
+            for child_id in children_index.get(sp_id, []):
+                if child_id in nodes_map:
+                    node['children'].append(build_tree(child_id, tree_seen))
+            return node
+
+        root = build_tree(full_id, set())
+
+        # ── 3. Journey curado si existe ───────────────────────────────────────
+        journey = None
+        jrn_row = self._db().execute(
+            'SELECT * FROM journeys WHERE id=?', (full_id,)
+        ).fetchone()
+        if not jrn_row:
+            root_name = nodes_map[full_id]['name']
+            jrn_row = self._db().execute(
+                'SELECT * FROM journeys WHERE sp=? ORDER BY fan_out DESC LIMIT 1',
+                (root_name,)
+            ).fetchone()
+        if jrn_row:
+            journey = self._parse_json_fields(dict(jrn_row), ['steps', 'reg'])
+
+        # ── 4. Mermaid flowchart ──────────────────────────────────────────────
+        def _mid(sp_id: str) -> str:
+            return re.sub(r'[^a-zA-Z0-9]', '_', sp_id)
+
+        def _lbl(node: dict) -> str:
+            name = node['name']
+            biz  = (node.get('biz') or '').replace('"', "'")[:50]
+            l3   = node.get('l3_id') or ''
+            tag  = f'[{l3}]' if l3 else ''
+            if biz:
+                return f'"{name} {tag}<br/>{biz}"'
+            return f'"{name} {tag}"'
+
+        def _shape(node: dict) -> str:
+            mid = _mid(node['id'])
+            lbl = _lbl(node)
+            role = node.get('sp_role', 'internal')
+            if role == 'entry_point':
+                return f'{mid}([{lbl}])'
+            if role == 'esb_exposed':
+                return f'{mid}({lbl})'
+            if role == 'cross_domain_primitive':
+                return f'{mid}[[{lbl}]]'
+            if role == 'shared_service':
+                return f'{mid}[({lbl})]'
+            return f'{mid}[{lbl}]'
+
+        lines = [
+            'flowchart TD',
+            '  classDef entryPoint  fill:#2E7D32,color:#fff,stroke:#1B5E20',
+            '  classDef esb         fill:#1565C0,color:#fff,stroke:#0D47A1',
+            '  classDef crossDomain fill:#E65100,color:#fff,stroke:#BF360C',
+            '  classDef soul        fill:#6A1B9A,color:#fff,stroke:#4A148C',
+            '  classDef shared      fill:#00695C,color:#fff,stroke:#004D40',
+            '  classDef internal    fill:#546E7A,color:#fff,stroke:#37474F',
+        ]
+
+        _role_class = {
+            'entry_point':          'entryPoint',
+            'esb_exposed':          'esb',
+            'cross_domain_primitive': 'crossDomain',
+            'shared_service':       'shared',
+            'internal':             'internal',
+        }
+
+        rendered: set[str] = set()
+        for sp_id, node in nodes_map.items():
+            mid = _mid(sp_id)
+            if mid not in rendered:
+                lines.append(f'  {_shape(node)}')
+                cls = 'soul' if node.get('is_soul') else _role_class.get(
+                    node.get('sp_role', 'internal'), 'internal')
+                lines.append(f'  class {mid} {cls}')
+                rendered.add(mid)
+
+        seen_edges: set[tuple[str, str]] = set()
+        for from_id, to_id in edges:
+            if from_id in nodes_map and to_id in nodes_map:
+                e = (_mid(from_id), _mid(to_id))
+                if e not in seen_edges:
+                    lines.append(f'  {e[0]} --> {e[1]}')
+                    seen_edges.add(e)
+
+        # ── 5. Stats ──────────────────────────────────────────────────────────
+        total_rules    = sum(len(n.get('rules', [])) for n in nodes_map.values())
+        unique_domains = sorted({n['domain'] for n in nodes_map.values()
+                                 if n.get('domain')})
+        soul_nodes     = [n['id'] for n in nodes_map.values() if n.get('is_soul')]
+
+        return {
+            'root':    root,
+            'mermaid': '\n'.join(lines),
+            'stats': {
+                'total_nodes':    len(nodes_map),
+                'total_edges':    len(edges),
+                'total_rules':    total_rules,
+                'unique_domains': unique_domains,
+                'soul_nodes':     soul_nodes,
+                'depth':          depth,
+            },
+            'journey': journey,
+        }
+
+    def orchestrators(self, domain_id: str = None,
+                      min_rules: int = 0,
+                      min_fan_out: int = 3,
+                      limit: int = 50) -> list[dict]:
+        """
+        SPs que son buenos candidatos de diagrama de flujo:
+        roles orquestadores (entry_point, esb_exposed, cross_domain_primitive)
+        con lógica de negocio (rules_n > min_rules) y al menos min_fan_out callees.
+
+        Útil como punto de entrada para seleccionar qué SPs visualizar con
+        flow_diagram().
+        """
+        filters = ['s.sp_role IN ("entry_point","esb_exposed","cross_domain_primitive")',
+                   f's.fan_out >= {min_fan_out}']
+        params: list = []
+
+        if domain_id:
+            filters.append('s.domain=?')
+            params.append(domain_id.upper())
+        if min_rules:
+            filters.append(f's.rules_n >= {min_rules}')
+
+        where = ' AND '.join(filters)
+        rows = self._db().execute(f'''
+            SELECT s.id, s.name, s.db, s.domain, s.sp_role,
+                   s.fan_in, s.fan_out, s.rules_n, s.biz,
+                   s.is_soul, s.primary_l3, s.primary_l3_confidence
+            FROM sps s
+            WHERE {where}
+            ORDER BY s.rules_n DESC, s.fan_out DESC, s.fan_in DESC
+            LIMIT ?
+        ''', params + [limit]).fetchall()
         return self._rows(rows)

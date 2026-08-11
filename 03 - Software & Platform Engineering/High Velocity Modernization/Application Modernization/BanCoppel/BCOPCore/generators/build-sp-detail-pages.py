@@ -7,6 +7,7 @@ Run from BCOPCore/ directory (BASE is set to the script's own directory).
 import json
 import os
 import re
+import sqlite3
 import sys
 from datetime import date
 
@@ -34,9 +35,50 @@ DOMAIN_INFO = {
 }
 
 # Module-level callee info lookup — populated in main() after data load.
-# Covers ONLY the SPs that have their own sp-detail-*.html pages (top-level
-# journeys + exposed entries).  Maps sp_name → {'biz': str, 'rules_n': int}.
+# Phase B: 166 journeys+exposed SPs → has_page=True (click links active).
+# Phase C: up to 10,664 brain.db SPs → has_page=False (biz annotation only).
+# Maps sp_name → {'biz': str, 'rules_n': int, 'has_page': bool}.
 CALLEE_INFO = {}
+
+BRAIN_DB_PATH = os.path.normpath(os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), '..', 'digital-brain', 'brain.db'))
+
+
+# ---------------------------------------------------------------------------
+# Phase C: load biz annotations from brain.db
+# ---------------------------------------------------------------------------
+
+def load_callee_info_from_brain(brain_db_path: str) -> dict:
+    """
+    Phase C — query brain.db for all SPs with a biz annotation.
+    Returns sp_name → {'biz': str, 'rules_n': int, 'has_page': False,
+                        'batch_archetype': str, 'batch_l2': str}.
+    The caller is responsible for overlaying Phase-B journeys entries
+    (which set has_page=True and carry curated biz from journeys-data.json).
+    """
+    result = {}
+    if not os.path.exists(brain_db_path):
+        print(f"  [Phase C] brain.db not found at {brain_db_path} — skipping")
+        return result
+    try:
+        conn = sqlite3.connect(brain_db_path)
+        rows = conn.execute(
+            "SELECT name, biz, rules_n, batch_archetype, batch_l2 "
+            "FROM sps WHERE biz IS NOT NULL AND biz != ''"
+        ).fetchall()
+        conn.close()
+        for name, biz, rules_n, batch_archetype, batch_l2 in rows:
+            result[name] = {
+                'biz': biz or '',
+                'rules_n': rules_n or 0,
+                'has_page': False,
+                'batch_archetype': batch_archetype or '',
+                'batch_l2': batch_l2 or '',
+            }
+        print(f"  [Phase C] {len(result):,} SP entries loaded from brain.db")
+    except Exception as exc:
+        print(f"  [Phase C] Warning — could not read brain.db: {exc}")
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -545,7 +587,9 @@ def generate_flowchart(sp_name, flow_data, rules, source_calls=None, src_lines=N
                 else:
                     ann = ''  # annotate_step returns '' for CALL anyway
                 label = f'Llama a {callee_display}'
-                add_step(build_label(label, ann), 'rect', callee_raw if callee_raw else None)
+                # Click link only for SPs that have their own detail page (Phase B set).
+                click_callee = callee_raw if (callee_raw and ci.get('has_page')) else None
+                add_step(build_label(label, ann), 'rect', click_callee)
             elif kind == 'WHILE':
                 cond = clean_mermaid(truncate(item.get('cond', ''), 32)) or 'Evalúa condición'
                 add_step(build_label(f'Mientras: {cond}', ann), 'pill')
@@ -785,6 +829,11 @@ code{background:rgba(240,210,36,.1);border:1px solid rgba(240,210,36,.22);border
 .chip.blue{background:rgba(18,47,177,.3);border:1px solid rgba(61,95,205,.5);color:#9ab0ff}
 .chip.muted{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted)}
 .chip.yellow{background:rgba(240,210,36,.12);border:1px solid rgba(240,210,36,.3);color:var(--yellow)}
+.chip.batch{background:rgba(0,180,120,.15);border:1px solid rgba(0,180,120,.4);color:#6effd5}
+.chip.batch-red{background:rgba(220,60,40,.15);border:1px solid rgba(220,60,40,.4);color:#ff9b9b}
+.chip.batch-orange{background:rgba(255,140,0,.15);border:1px solid rgba(255,140,0,.4);color:#ffd089}
+.chip.batch-purple{background:rgba(130,60,220,.15);border:1px solid rgba(130,60,220,.4);color:#c9a6ff}
+.chip.batch-teal{background:rgba(0,150,200,.15);border:1px solid rgba(0,150,200,.4);color:#80d8ff}
 """
 
 MERMAID_INIT = """<script type="module">
@@ -831,6 +880,23 @@ document.querySelectorAll('.reveal').forEach(el => {
   io.observe(el);
 });
 </script>"""
+
+
+_BATCH_CHIP_CLASS = {
+    'ACCOUNTING_JOB': 'batch-red',
+    'CIERRE_CORTE':   'batch-red',
+    'CONCILIACION':   'batch-orange',
+    'MASS_OPERATION': 'batch-orange',
+    'ORCHESTRATOR':   'batch-purple',
+    'FILE_LOADER':    'batch',
+    'REPORT_AGGREGATOR': 'batch-teal',
+    'PURGE_JOB':      'muted',
+    'DATA_MAINT':     'muted',
+    'SINGLE_CALL':    'muted',
+}
+
+def batch_chip_class(archetype):
+    return _BATCH_CHIP_CLASS.get(archetype, 'muted')
 
 
 def render_rule_badge(rule):
@@ -892,7 +958,29 @@ def build_html(sp_name, entry, dom_info, flow_data, rules, val_entry, vocab_matc
 
     # Callees
     callees = get_callee_sps(flow_data) if flow_data else []
-    callee_pills = ''.join(f'<span class="pill callee">{html_escape(c)}</span>' for c in callees)
+    pill_parts = []
+    for c in callees:
+        _ci = CALLEE_INFO.get(c, {})
+        _ca = _ci.get('batch_archetype', '')
+        _cl2 = _ci.get('batch_l2', '')
+        if _ca and _ca not in ('NO_SOURCE', 'UNKNOWN', ''):
+            _badge_label = _cl2 or _ca
+            _badge_html  = (
+                f' <span style="font-size:9px;opacity:.65;font-weight:700;'
+                f'letter-spacing:.05em">[{html_escape(_badge_label)}]</span>'
+            )
+        else:
+            _badge_html = ''
+        if _ci.get('has_page'):
+            pill_parts.append(
+                f'<a class="pill callee" href="sp-detail-{c}.html">'
+                f'{html_escape(c)}{_badge_html}</a>'
+            )
+        else:
+            pill_parts.append(
+                f'<span class="pill callee">{html_escape(c)}{_badge_html}</span>'
+            )
+    callee_pills = ''.join(pill_parts)
     callee_section = ''
     if callee_pills:
         callee_section = f'''
@@ -970,6 +1058,20 @@ def build_html(sp_name, entry, dom_info, flow_data, rules, val_entry, vocab_matc
     reg_flag = entry.get('reg', False)
     reg_badge = f'<span class="chip yellow">REGULATORIO</span>' if reg_flag else ''
 
+    # Batch archetype badge — sourced from brain.db via CALLEE_INFO
+    _brain_entry = CALLEE_INFO.get(sp_name, {})
+    _batch_arch  = _brain_entry.get('batch_archetype', '')
+    _batch_l2    = _brain_entry.get('batch_l2', '')
+    _batch_l3    = _brain_entry.get('batch_l3', '')
+    batch_badge  = ''
+    if _batch_arch and _batch_arch not in ('NO_SOURCE', 'UNKNOWN', ''):
+        _label = _batch_l2 or _batch_arch
+        _css   = batch_chip_class(_batch_arch)
+        batch_badge = (
+            f'<span class="chip {_css}" title="{html_escape(_batch_arch)}">'
+            f'BATCH · {html_escape(_label)}</span>'
+        )
+
     html = f"""<!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>{html_escape(sp_name)} · BCOPCore</title>
@@ -1000,6 +1102,7 @@ def build_html(sp_name, entry, dom_info, flow_data, rules, val_entry, vocab_matc
       <span class="chip muted">{html_escape(db)}</span>
       <span class="chip {type_chip_class}">{type_chip}</span>
       {reg_badge}
+      {batch_badge}
     </div>
     <div class="metrics">
       <div class="metric glass{fan_in_cls}"><div class="metric-n">{fan_in_str}</div><div class="metric-l">Fan-in</div></div>
@@ -1286,23 +1389,32 @@ Ver registro completo de riesgos: [migration-risk-register.md](../../knowledge-b
 def main():
     journeys, flow_lookup, rules_lookup, validation, vocab_dict = load_all_data()
 
-    # Populate module-level CALLEE_INFO from the 131 top-level SP entries.
-    # Only these SPs have their own sp-detail-*.html pages, so click directives
-    # and biz annotations are limited to this set.
+    # Phase C: pre-load biz for all brain.db SPs (has_page=False).
     global CALLEE_INFO
+    print("\nBuilding CALLEE_INFO (Phase C + Phase B)...")
+    CALLEE_INFO = load_callee_info_from_brain(BRAIN_DB_PATH)
+
+    # Phase B: overlay curated journeys entries — these SPs have HTML detail
+    # pages so their entries get has_page=True and their biz takes priority.
     for _dom, _ddata in journeys.items():
         for _etype in ('journeys', 'exposed'):
             for _jj in _ddata.get(_etype, []):
                 _sp = _jj.get('sp', '')
                 if _sp:
-                    CALLEE_INFO[_sp] = {'biz': _jj.get('biz') or '', 'rules_n': 0}
-    # Enrich with actual rule counts from rules_lookup
+                    CALLEE_INFO[_sp] = {
+                        'biz': _jj.get('biz') or CALLEE_INFO.get(_sp, {}).get('biz', ''),
+                        'rules_n': 0,
+                        'has_page': True,
+                    }
+    # Enrich journeys entries with actual rule counts
     for _sp, _rlist in rules_lookup.items():
-        if _sp in CALLEE_INFO:
+        if _sp in CALLEE_INFO and CALLEE_INFO[_sp].get('has_page'):
             CALLEE_INFO[_sp]['rules_n'] = len(_rlist)
-    _callee_with_biz = sum(1 for v in CALLEE_INFO.values() if v.get('biz'))
-    print(f"CALLEE_INFO built: {len(CALLEE_INFO)} SP entries, "
-          f"{_callee_with_biz} with biz description")
+
+    _with_biz  = sum(1 for v in CALLEE_INFO.values() if v.get('biz'))
+    _with_page = sum(1 for v in CALLEE_INFO.values() if v.get('has_page'))
+    print(f"CALLEE_INFO: {len(CALLEE_INFO):,} entries  |  "
+          f"{_with_biz:,} with biz  |  {_with_page} with detail page")
 
     html_count = 0
     md_count = 0

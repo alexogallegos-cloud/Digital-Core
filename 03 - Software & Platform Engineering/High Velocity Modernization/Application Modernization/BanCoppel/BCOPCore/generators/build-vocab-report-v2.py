@@ -1,10 +1,11 @@
 ﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-build-vocab-report-v2.py — Genera vocabulary-report-bcop-v2.html
+build-vocab-report-v2.py — Genera vocabulary-catalog-bcop.CANDIDATE.html
 v2: añade dimensión Bounded Context, panel de Aggregate Roots, capas del
 Gemelo Cognitivo y filtro BC en el explorador.
-NO sobreescribe vocabulary-report-bcop.html (v1).
+Output: portal/vocabulary-catalog-bcop.CANDIDATE.html
+        Revisar y renombrar a vocabulary-catalog-bcop.html para promover.
 
 Consume: vocabulary-inventory.json (de build-vocab-inventory.py)
 Etapa 3 — Business Logic Extraction · Specialist Informix SPL · SPE-AM-001
@@ -1112,8 +1113,8 @@ HTML = (HTML
     .replace("__ERDIAG__",    ERDIAG)
     .replace("__SPS__",       f"{meta['sps']:,}"))
 
-out = BASE + "portal/vocabulary-report-bcop-v2.html"
+out = BASE + "portal/vocabulary-catalog-bcop.CANDIDATE.html"
 open(out, "w", encoding="utf-8").write(HTML)
-print(f"vocabulary-report-bcop-v2.html escrito · {len(rows)} términos "
+print(f"vocabulary-catalog-bcop.CANDIDATE.html escrito · {len(rows)} términos "
       f"({bytipo['atómico']} atómicos · {bytipo['compuesto']} compuestos · {bytipo['candidato']} candidatos) · "
       f"{sum(1 for r in rows if r['is_root'])} aggregate roots marcados")

@@ -13,7 +13,7 @@ Qué hace:
 
 Layer A+ — DT-Reglas v1.3.0 · SPE-AM-001
 """
-import json, re, os, sqlite3, io, sys
+import json, re, os, sqlite3, io, sys, datetime
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
@@ -41,9 +41,21 @@ for row in conn.execute("SELECT id, db, name FROM domains ORDER BY id"):
     name = fix_domain_name(row['name'] or '')
     label = f"{did} {name}"
     DB_TO_DOMAIN[db] = {'id': did, 'label': label, 'name': name}
-conn.close()
 
-print(f"Domain map loaded: {len(DB_TO_DOMAIN)} domains")
+# Extender con BDs secundarias desde sps (e.g. bdiburo→D03, bdinvers→D04).
+# La tabla domains solo tiene la BD canónica; sps tiene todas.
+# Esto permite que el paso 4 (fix dominio labels) resuelva las 957 reglas con nombre crudo.
+domain_by_id = {v['id']: v for v in DB_TO_DOMAIN.values()}
+secondary_count = 0
+for row in conn.execute(
+        "SELECT DISTINCT db, domain FROM sps WHERE domain IS NOT NULL AND domain <> ''"):
+    sec_db, did = row['db'], row['domain']
+    if sec_db not in DB_TO_DOMAIN and did in domain_by_id:
+        DB_TO_DOMAIN[sec_db] = domain_by_id[did]
+        secondary_count += 1
+
+conn.close()
+print(f"Domain map loaded: {len(DB_TO_DOMAIN)} entries ({len(DB_TO_DOMAIN)-secondary_count} canonical + {secondary_count} secondary)")
 
 # ── 2. Load current rules ─────────────────────────────────────────────────────
 src_data = json.load(open(BASE + 'portal/data/business-rules-v2.json', encoding='utf-8'))
@@ -80,8 +92,23 @@ RE_CREATE = re.compile(r"create\s+(?:procedure|function)\b", re.I)
 RE_FORMULA = re.compile(r"\b(?:let|set)\s+([a-z_][a-z0-9_]*)\s*=\s*(.+)", re.I)
 RE_BOILERPLATE = re.compile(r"codret\s*=\s*['\"]0+['\"]", re.I)
 RE_RAISE = re.compile(
-    r"raise\s+exception|return\s+['\"]?\d{4,}|codret\s*=\s*['\"][1-9A-Z][A-Z0-9]{2,}['\"]|"
-    r"retornar\s+['\"]?\d{3,}|v_codret\s*[<>]+\s*['\"]", re.I)
+    r"raise\s+exception"
+    r"|retornar\s+['\"]?\d{3,}"
+    r"|v_codret\s*[<>]+\s*['\"]"
+    r"|return\s+['\"]?\d{3,}"                              # 3+ digits (was 4+)
+    r"|codret\s*=\s*['\"][1-9A-Z][A-Z0-9]{1,}['\"]"       # original (shorter min)
+    # Extended: broader codret variable naming — v_codret=, cCodRet=, cod_ret=, vCodRet=
+    r"|\blet\s+\w*cod[_]?ret\w*\s*=\s*"
+        r"(?:sql_err|isam_err|sqlErr|iSqlErr|iSamErr"      # assigned from sql error variable
+        r"|['\"](?!0+['\"])[^'\"]+['\"])",                 # or non-all-zero string literal
+    re.I
+)
+# Single-line IF condition tracker (for context in validation rules)
+RE_IF_COND = re.compile(r'^\s*IF\s+(?P<cond>.+?)\s+THEN\s*$', re.I)
+# Date/temporal comparisons that represent business expiry/threshold rules
+RE_IF_DATECMP = re.compile(r'\b\w+\s*(?:<=|>=)\s*(?:current|today|now)\b', re.I)
+# SQL error variable names — used to filter boilerplate exception handlers
+RE_SQL_ERR_VAR = re.compile(r'\b(?:sql_err|isam_err|sqlerr|isamerr|sqlErr|iSqlErr)\b', re.I)
 FIN_PAT_RE = re.compile(
     r"\b(int|isr|tasa|monto|saldo|comis|iva|cuota|dias|importe|capital|rendim|gat|cat|"
     r"sdo|abono|cargo|mora|interes|reserva|provision|tir|van|pago)\b", re.I)
@@ -96,7 +123,11 @@ def riesgo_equiv(expr):
     return r
 
 def extract_from_db(db):
-    """Extract financial formulas and validations. Uses shared _counter for unique IDs."""
+    """Extract financial formulas, validations and conditions.
+    Uses shared _counter for unique IDs.
+    Extended (Layer A+ v2) to handle broader codret naming conventions and
+    IF-condition context tracking for operational/administrative databases.
+    """
     new = []
     domain_label = DB_TO_DOMAIN.get(db, {}).get('label', db)
     files = sorted(f for f in os.listdir(SRC) if f.startswith(db+'_') and f.endswith('.sql'))
@@ -108,33 +139,62 @@ def extract_from_db(db):
             continue
         ms = list(RE_CREATE.finditer(text))
         body = text[ms[0].start():ms[1].start()] if len(ms)>=2 else text
+        prev_if = None  # (lineno, condition_text) of the most recent non-boilerplate IF
         for lineno, line in enumerate(body.split('\n'), 1):
             ls = line.strip()
             if not ls or ls.startswith('--'): continue
             lo = ls.lower()
+
+            # Track IF conditions for better rule descriptions
+            m_if = RE_IF_COND.match(ls)
+            if m_if:
+                cond = m_if.group('cond')
+                if RE_SQL_ERR_VAR.search(cond):
+                    # Exception-handling boilerplate — don't track as business rule context
+                    prev_if = None
+                else:
+                    prev_if = (lineno, ls)
+                    # Date/temporal comparison = standalone business rule (e.g. expiry check)
+                    if RE_IF_DATECMP.search(cond):
+                        vrefs = detect_vocab_refs(lo)
+                        bc, bc_name = tag_bc(vrefs)
+                        _counter[0] += 1
+                        new.append({'id': f'BR-V3-{_counter[0]:04d}', 'tipo': 'CONDICIÓN',
+                            'sp': f'{db}:{sp}', 'db': db, 'line': lineno, 'code': ls[:200],
+                            'reg': '', 'riesgo': [], 'bc': bc, 'bc_name': bc_name,
+                            'vocab_refs': vrefs, 'dominio': domain_label,
+                            'categoria': 'OPERACIONAL', 'explicacion': '', 'expl_conf': '?',
+                            'sp_rel': [], 'vocab_detail': {}})
+                continue
+            if re.match(r'^\s*(END\s+IF|ELSE\b)', ls, re.I):
+                prev_if = None
+                continue
+
             # FORMULA
             m = RE_FORMULA.match(ls)
             if m and FIN_PAT_RE.search(lo) and not RE_BOILERPLATE.search(lo):
                 vrefs = detect_vocab_refs(lo)
                 bc, bc_name = tag_bc(vrefs)
                 _counter[0] += 1
-                new.append({'id': f'BR-V3-{_counter[0]:04d}','tipo':'FÓRMULA',
-                    'sp': f'{db}:{sp}','db': db,'line': lineno,'code': ls[:200],
-                    'reg':'','riesgo': riesgo_equiv(ls),'bc': bc,'bc_name': bc_name,
-                    'vocab_refs': vrefs,'dominio': domain_label,
-                    'categoria':'CALCULO_FINANCIERO','explicacion':'','expl_conf':'?',
-                    'sp_rel': [],'vocab_detail': {}})
-            # VALIDATION
+                new.append({'id': f'BR-V3-{_counter[0]:04d}', 'tipo': 'FÓRMULA',
+                    'sp': f'{db}:{sp}', 'db': db, 'line': lineno, 'code': ls[:200],
+                    'reg': '', 'riesgo': riesgo_equiv(ls), 'bc': bc, 'bc_name': bc_name,
+                    'vocab_refs': vrefs, 'dominio': domain_label,
+                    'categoria': 'CALCULO_FINANCIERO', 'explicacion': '', 'expl_conf': '?',
+                    'sp_rel': [], 'vocab_detail': {}})
+            # VALIDATION — use IF condition as code when inside an IF block
             elif RE_RAISE.search(ls) and not RE_BOILERPLATE.search(lo):
-                vrefs = detect_vocab_refs(lo)
+                rule_code = prev_if[1] if prev_if else ls
+                rule_line = prev_if[0] if prev_if else lineno
+                vrefs = detect_vocab_refs(rule_code.lower())
                 bc, bc_name = tag_bc(vrefs)
                 _counter[0] += 1
-                new.append({'id': f'BR-V3-{_counter[0]:04d}','tipo':'VALIDACIÓN',
-                    'sp': f'{db}:{sp}','db': db,'line': lineno,'code': ls[:200],
-                    'reg':'','riesgo': [],'bc': bc,'bc_name': bc_name,
-                    'vocab_refs': vrefs,'dominio': domain_label,
-                    'categoria':'OPERACIONAL','explicacion':'','expl_conf':'?',
-                    'sp_rel': [],'vocab_detail': {}})
+                new.append({'id': f'BR-V3-{_counter[0]:04d}', 'tipo': 'VALIDACIÓN',
+                    'sp': f'{db}:{sp}', 'db': db, 'line': rule_line, 'code': rule_code[:200],
+                    'reg': '', 'riesgo': [], 'bc': bc, 'bc_name': bc_name,
+                    'vocab_refs': vrefs, 'dominio': domain_label,
+                    'categoria': 'OPERACIONAL', 'explicacion': '', 'expl_conf': '?',
+                    'sp_rel': [], 'vocab_detail': {}})
     return new
 
 current_dbs = {r['db'] for r in rules}
@@ -269,11 +329,11 @@ for r in rules:
 out = {
     'meta': {
         'version': '3.0',
-        'generated': '2026-08-06',
+        'generated': datetime.date.today().isoformat(),
         'tool': 'enrich-rules-v3.py',
         'sp_scanned': src_data['meta'].get('sp_scanned', 12832),
         'total': len(rules),
-        'enriched': '2026-08-06',
+        'enriched': datetime.date.today().isoformat(),
         'layer': 'A+',
         'business_name_coverage': named,
     },

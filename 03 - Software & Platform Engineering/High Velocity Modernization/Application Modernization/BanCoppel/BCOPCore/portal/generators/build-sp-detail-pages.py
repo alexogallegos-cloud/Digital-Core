@@ -7,6 +7,7 @@ Run from BCOPCore/ directory (BASE is set to the script's own directory).
 import json
 import os
 import re
+import sqlite3
 import sys
 from datetime import date
 
@@ -34,9 +35,43 @@ DOMAIN_INFO = {
 }
 
 # Module-level callee info lookup — populated in main() after data load.
-# Covers ONLY the SPs that have their own sp-detail-*.html pages (top-level
-# journeys + exposed entries).  Maps sp_name → {'biz': str, 'rules_n': int}.
+# Phase B: 166 journeys+exposed SPs → has_page=True (click links active).
+# Phase C: up to 10,664 brain.db SPs → has_page=False (biz annotation only).
+# Maps sp_name → {'biz': str, 'rules_n': int, 'has_page': bool}.
 CALLEE_INFO = {}
+
+# portal/generators/ is two levels below BCOPCore/
+BRAIN_DB_PATH = os.path.normpath(os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), '..', '..', 'digital-brain', 'brain.db'))
+
+
+# ---------------------------------------------------------------------------
+# Phase C: load biz annotations from brain.db
+# ---------------------------------------------------------------------------
+
+def load_callee_info_from_brain(brain_db_path: str) -> dict:
+    """
+    Phase C — query brain.db for all SPs with a biz annotation.
+    Returns sp_name → {'biz': str, 'rules_n': int, 'has_page': False}.
+    The caller is responsible for overlaying Phase-B journeys entries
+    (which set has_page=True and carry curated biz from journeys-data.json).
+    """
+    result = {}
+    if not os.path.exists(brain_db_path):
+        print(f"  [Phase C] brain.db not found at {brain_db_path} — skipping")
+        return result
+    try:
+        conn = sqlite3.connect(brain_db_path)
+        rows = conn.execute(
+            "SELECT name, biz, rules_n FROM sps WHERE biz IS NOT NULL AND biz != ''"
+        ).fetchall()
+        conn.close()
+        for name, biz, rules_n in rows:
+            result[name] = {'biz': biz or '', 'rules_n': rules_n or 0, 'has_page': False}
+        print(f"  [Phase C] {len(result):,} SP entries loaded from brain.db")
+    except Exception as exc:
+        print(f"  [Phase C] Warning — could not read brain.db: {exc}")
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -545,7 +580,9 @@ def generate_flowchart(sp_name, flow_data, rules, source_calls=None, src_lines=N
                 else:
                     ann = ''  # annotate_step returns '' for CALL anyway
                 label = f'Llama a {callee_display}'
-                add_step(build_label(label, ann), 'rect', callee_raw if callee_raw else None)
+                # Click link only for SPs that have their own detail page (Phase B set).
+                click_callee = callee_raw if (callee_raw and ci.get('has_page')) else None
+                add_step(build_label(label, ann), 'rect', click_callee)
             elif kind == 'WHILE':
                 cond = clean_mermaid(truncate(item.get('cond', ''), 32)) or 'Evalúa condición'
                 add_step(build_label(f'Mientras: {cond}', ann), 'pill')
@@ -1287,23 +1324,33 @@ Ver registro completo de riesgos: [migration-risk-register.md](../../knowledge-b
 def main():
     journeys, flow_lookup, rules_lookup, validation, vocab_dict = load_all_data()
 
-    # Populate module-level CALLEE_INFO from the 131 top-level SP entries.
-    # Only these SPs have their own sp-detail-*.html pages, so click directives
-    # and biz annotations are limited to this set.
+    # Phase C: pre-load biz for all brain.db SPs (has_page=False).
     global CALLEE_INFO
+    print("\nBuilding CALLEE_INFO (Phase C + Phase B)...")
+    CALLEE_INFO = load_callee_info_from_brain(BRAIN_DB_PATH)
+
+    # Phase B: overlay curated journeys entries — these SPs have HTML detail
+    # pages so their entries get has_page=True and their biz takes priority.
     for _dom, _ddata in journeys.items():
         for _etype in ('journeys', 'exposed'):
             for _jj in _ddata.get(_etype, []):
                 _sp = _jj.get('sp', '')
                 if _sp:
-                    CALLEE_INFO[_sp] = {'biz': _jj.get('biz') or '', 'rules_n': 0}
-    # Enrich with actual rule counts from rules_lookup
+                    CALLEE_INFO[_sp] = {
+                        'biz': _jj.get('biz') or CALLEE_INFO.get(_sp, {}).get('biz', ''),
+                        'rules_n': 0,
+                        'has_page': True,
+                    }
+    # Enrich journeys entries with actual rule counts
     for _sp, _rlist in rules_lookup.items():
-        if _sp in CALLEE_INFO:
+        if _sp in CALLEE_INFO and CALLEE_INFO[_sp].get('has_page'):
             CALLEE_INFO[_sp]['rules_n'] = len(_rlist)
-    _callee_with_biz = sum(1 for v in CALLEE_INFO.values() if v.get('biz'))
-    print(f"CALLEE_INFO built: {len(CALLEE_INFO)} SP entries, "
-          f"{_callee_with_biz} with biz description")
+    _with_biz  = sum(1 for v in CALLEE_INFO.values() if v.get('biz'))
+    _with_page = sum(1 for v in CALLEE_INFO.values() if v.get('has_page'))
+    print(f"CALLEE_INFO: {len(CALLEE_INFO):,} entries  |  "
+          f"{_with_biz:,} with biz  |  {_with_page} with detail page")
+    # dummy var to preserve indentation of next line
+    _callee_with_biz = _with_biz  # kept for any downstream reference
 
     html_count = 0
     md_count = 0
