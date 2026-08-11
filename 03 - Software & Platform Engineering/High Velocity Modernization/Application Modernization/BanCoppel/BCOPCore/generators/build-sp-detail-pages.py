@@ -1192,7 +1192,7 @@ def build_html(sp_name, entry, dom_info, flow_data, rules, val_entry, vocab_matc
 <div class="aurora"></div><div class="grain"></div>
 
 <nav>
-  <img src="../bancoppel-logo.png" alt="BanCoppel">
+  <img src="../bancoppel-logo.png?v=3" alt="BanCoppel" style="height:32px">
   <span class="sep">/</span>
   <span class="bc">BCOPCore · {dom_num} · {html_escape(dom_name)}</span>
   <span class="sp"></span>

@@ -351,7 +351,7 @@ header h1{{font-size:16px;font-weight:800}}header .sub{{font-size:10px;color:var
 #tip .tt{{font-weight:700;font-size:12px;margin-bottom:4px}}#tip .tr{{font-size:10px;color:var(--muted);margin:2px 0}}#tip .tr b{{color:var(--txt)}}
 footer{{font-size:9px;color:var(--muted);padding:10px 24px;border-top:1px solid var(--line);line-height:1.5}}
 </style></head><body data-theme="bcop">
-<header><div class="brand"><img class="logo" src="bancoppel-logo.png" alt="BanCoppel"><div><h1>Modelo de Capacidades Bancarias · Referencia (agnóstico) — Cobertura BanCoppel BCOPCore</h1>
+<header><div class="brand"><img class="logo" src="bancoppel-logo.png?v=3" alt="BanCoppel"><div><h1>Modelo de Capacidades Bancarias · Referencia (agnóstico) — Cobertura BanCoppel BCOPCore</h1>
 <div class="sub">SME — Modelo Operativo Bancario · 10 áreas de referencia · ● = identificado en los dominios técnicos · ⬜ = capacidad de referencia no vista en el core</div></div></div></header>
 <div id="bar">
   <div class="tile"><div class="n">{cov}/{tot}</div><div class="l">Capacidades cubiertas</div></div>
@@ -890,7 +890,7 @@ footer{{text-align:center;padding:36px 0 8px;font-size:11px;color:var(--muted2);
 <div class="aurora"><div class="blob"></div></div>
 <div class="grain"></div>
 <div class="hero-bar">
-  <img src="bancoppel-logo.png" alt="BanCoppel">
+  <img src="bancoppel-logo.png?v=3" alt="BanCoppel" style="height:32px">
   <div class="hb-sep"></div>
   <span class="crumb">BCOPCORE &nbsp;·&nbsp; SPE-AM-001 &nbsp;·&nbsp; GEMELO COGNITIVO &nbsp;·&nbsp; <em>MODELO DE CAPACIDADES</em></span>
   <span class="hb-sp"></span>
