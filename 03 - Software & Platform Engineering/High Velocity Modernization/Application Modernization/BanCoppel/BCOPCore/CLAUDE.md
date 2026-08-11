@@ -28,14 +28,15 @@ El marco de análisis central de este proyecto es el **Gemelo Cognitivo del Sist
 | **Vocabulario** | 634 términos en brain.db (Ola A + 3 nuevos: lincred/aumlincred/consutacat); la lengua del sistema | 1.1 Subdominio |
 | **Almas** | 11 módulos funcionales con identidad propia (16 instancias, 5 réplicas muertas) | 1 Dominio |
 | **Journeys** | 166 customer journeys extraídos del call graph (16 dominios, corregido 2026-08-03) | 1.1.1.1 Proceso |
-| **Reglas** | 7,784 reglas extraídas (extracción amplia v2.2) · 1,308 en SBVR formal (vigente en brain.db `rules`) — ver DT-Reglas | 1.1.1.1 Proceso / 1.1.1.1.1 Tarea |
+| **Reglas** | 8,005 reglas extraídas (v2.2 + Layer A+ + B+) · 1,308 en SBVR formal (brain.db) · business_name enriquecido (1,883 mejorados) — ver DT-Reglas | 1.1.1.1 Proceso / 1.1.1.1.1 Tarea |
 | **Capacidades** | Mapa ETB v5.0 — L1×7, L2×57, L3×261; cobertura BCOPCore | 1.1.1 Capacidad |
 | **Riesgos** | 11 riesgos de producción/integración en migration-risk-register.md + 44 riesgos de equivalencia en 05-risks.md por dominio; 2 DEFECTO-PROD N5 | 1.1.1 Capacidad |
 
 ### BCOPBrain
 
 Base de conocimiento semántica SQLite (`digital-brain/brain.db`):
-- 10,967 SPs · 34,279 edges · 1,308 reglas SBVR · 626 términos (Ola A aplicada 2026-08-04) · 166 journeys · 11 almas · 552 SPs con métricas de producción (evidencia ESB 2026-04-24)
+- 11,391 SPs · 34,279 edges · 8,005 reglas (1,308 SBVR formal) · 634 términos · 166 journeys · 11 almas · 552 SPs con métricas de producción (evidencia ESB 2026-04-24)
+- sp_capabilities: 164,931 links · 11,389/11,391 SPs cubiertos (99.7%) · 61 L3 distintas
 - ID canónico: `db:sp_name`
 - Patrón de construcción: scatter-gather — orquestador descompone en ≤10 SPs por agente, 12 DTs paralelos extraen, orquestador integra
 - Patrón validado en el Orquestador de SMEs v3.8 como caso de referencia Brain-First
@@ -109,7 +110,7 @@ Diez Digital Twins de proyecto — siete por artefacto del Gemelo Cognitivo, el 
 | `dt-vocabulario/` | Vocabulario (634 términos en brain.db sobre D01-D16; sincronizado 2026-08-06) | SPL Analysis · Industry Banking | 1.1.0 |
 | `dt-almas/` | Almas del sistema (11 sobre D01-D16) | SPL Analysis · Core Banking Transformation | 1.1.0 |
 | `dt-journeys/` | Journey map (166 sobre D01-D16) | SPL Analysis · Industry Banking | 1.1.0 |
-| `dt-reglas/` | Reglas — 7,785 extraídas (amplia v2.2 + Layer A+) · 1,308 SBVR en brain.db · `business_name` 100% · 45 dominios | SPL Analysis · Industry Banking · Industry Banking Accounting | 1.3.0 |
+| `dt-reglas/` | Reglas — 8,005 extraídas (amplia v2.2 + Layer A+) · 1,308 SBVR en brain.db · `business_name` enriquecido (1,883/1,969 weak names mejorados con heurísticas SPL) · 45 dominios | SPL Analysis · Industry Banking · Industry Banking Accounting | 1.5.0 |
 | `dt-capacidades/` | Mapa ETB L3 (261 caps sobre D01-D16) | Core Banking Transformation · Industry Banking | 1.1.0 |
 | `dt-riesgos/` | Risk register — 11 producción/integración · 44 equivalencia en 05-risks.md | SPL Analysis · Cybersecurity · SRE & AIOps | 1.1.0 |
 | `dt-modelo-dominio/` | **Taxonomía negocio AS-IS** — 7 dominios · 24 subdominios · 67 capacidades (hilo conductor) | Core Banking Transformation · Industry Banking · DBA IBM Informix | 0.2.0 |
@@ -141,12 +142,12 @@ Confianza en cadena (regla ontológica v3.8): la confianza del equipo es la del 
 
 ## ESTADO ACTUAL · DISCOVER Etapa 1
 
-- BCOPBrain construido (build-brain.py + brain.py) — 10,968 SPs · 34,279 edges · 634 términos · 166 journeys · 1,308 reglas (re-sincronizado 2026-08-06)
+- BCOPBrain construido (build-brain.py + brain.py) — 11,391 SPs · 634 términos · 166 journeys · 1,308 reglas (re-sincronizado 2026-08-10)
 - Knowledge base activa: `knowledge-base/D01/` → `knowledge-base/D16/` (16 dominios analizados) + `knowledge-base/D17/` → `knowledge-base/D49/` (33 dominios nuevos en scope — placeholders creados 2026-08-03)
 - Alcance de código fuente: **TODO** `source/BCOPCore/informix/` — 49 bases de datos descubiertas (D01-D49); excludes: `borra_dba_espera` (script DBA), `sentinel` (herramienta de monitoreo)
 - Vocabulario sincronizado — 634 términos en brain.db (Ola A + lincred/aumlincred/consutacat); 0 términos fantasma
 - SP nuevo incorporado: `bdisac:sp_obtiene_clientes_pre_aprobado_notificar` (D05 · loc=109 · FOREACH streaming · cross-DB bdicred+bdinteg); fuente renombrada a `bdisac_sp_obtiene_clientes_pre_aprobado_notificar.sql`
-- Reglas: extracción amplia v2.2 + Layer A+ completado 2026-08-06 — 7,785 reglas en `knowledge-base/rules/business-rules-bcop.md`; `business_name` 100% (7,785/7,785); dominio canónico D01-D51 (45 dominios, 5,543 labels corregidos); 553 con riesgo equivalencia financiera; fuente JSON: `portal/data/business-rules-v3.json`; SBVR formal (1,308 reglas) cubre D01-D12; triaje D13-D16 deuda en Layer B+
+- Reglas: extracción amplia v2.2 + Layer A+ completado 2026-08-10 — 8,005 reglas en `knowledge-base/rules/business-rules-bcop.md`; `business_name` 100% (8,005/8,005 con nombre); Layer B+ completado 2026-08-10: 1,883/1,969 nombres débiles enriquecidos con heurísticas SPL (comentarios inline, excepciones, SQL dinámico, acumulaciones) via `generators/enrich-names-local.py`; dominio canónico D01-D51 (45 dominios, 5,543 labels corregidos, mapping BDs secundarias incluido); 553 con riesgo equivalencia financiera; fuente JSON: `portal/data/business-rules-v3.json`; SBVR formal (1,308 reglas) cubre D01-D12; triaje D13-D16 deuda en Layer C+
 - Risk register v1.2.0 — 11 riesgos producción/integración (2 DEFECTO-PROD N5 activos en P655) + 44 riesgos equivalencia
 - **DT-Validador Capa 1: PASS — 0 errores · 0 advertencias · 70 OK** (2026-08-06; cerradas 8 WARNs de links rotos con `generators/build-incidents.py`)
 
@@ -159,7 +160,7 @@ Confianza en cadena (regla ontológica v3.8): la confianza del equipo es la del 
 - Build Phase B con 131 journeys: 131/131 biz 100%, 59/131 con link clickeable a callee, 14/131 con descripción callee — números pre-D13-D16 fix; re-ejecutar `build-sp-detail-pages.py` para actualizar estadísticas a los 166 journeys actuales
 - Anotación en Historia Funcional (P3 "delega a"): muestra `sp_name (biz)` cuando el callee está en CALLEE_INFO
 
-**Limitación conocida (Phase C pendiente):** el sistema completo tiene ~10,967 SPs (BCOPBrain). Los callees fuera del conjunto de 166 journeys no reciben anotación — el nodo CALL muestra solo el nombre. Phase C requeriría extender CALLEE_INFO a los 10,967 SPs usando BCOPBrain como fuente de `biz`.
+**Limitación conocida (Phase C pendiente):** el sistema completo tiene ~11,391 SPs (BCOPBrain). Los callees fuera del conjunto de 166 journeys no reciben anotación — el nodo CALL muestra solo el nombre. Phase C requeriría extender CALLEE_INFO a los 11,391 SPs usando BCOPBrain como fuente de `biz`.
 
 ### Bloqueantes activos
 
@@ -212,4 +213,4 @@ Todo hallazgo extraído de `source/logs/` tiene dos destinos en paralelo:
 
 **Component Spec:** [spec-spe-am-bcop-core.md](spec-spe-am-bcop-core.md) — especificación del componente BCOPCore siguiendo §16 DC Universal Rules.
 
-*Última actualización: 2026-08-07 · Ontología v3.9 · 3 nuevos DTs inferencia: DT-Operacional-Batch (taxonomía batch/shell ~1,104 reglas), DT-Regulatorio (tabla regulación → descripción corta, paso G), DT-Catálogo-Errores (códigos de error → descripción humana, ~500 reglas VALIDACIÓN); v anterior 2026-08-06: DT-SPEI + DT-Autorizador de Pagos + 3 SMEs Industry Payments/Banxico/Integration Arch; total: 14 DTs · 17 SMEs (DT-SPL-Analysis faltaba del roster — corregido)*
+*Última actualización: 2026-08-10 · Reglas v1.5.0: Layer B+ `business_name` enrichment — 1,883/1,969 nombres débiles mejorados con heurísticas SPL (enrich-names-local.py); 8,005 reglas (dedup definitivo); sp_capabilities 164,931 links · 99.7% cobertura. v1.4.0: 8,005 extraídas (mapping BDs secundarias corregido — 5,543 labels arreglados, 7 DBs sin cobertura añadidas); SPs actualizados a 11,391. v anterior 2026-08-07: Ontología v3.9 · 3 nuevos DTs inferencia: DT-Operacional-Batch, DT-Regulatorio, DT-Catálogo-Errores; total: 14 DTs · 17 SMEs*

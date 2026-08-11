@@ -1,7 +1,7 @@
 # BCOPCore · Catálogo de Reglas de Negocio — v3.0 (Layer A+)
 
 > **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Enrichment Layer A+
-> **Generado:** 2026-08-06 · `enrich-rules-v3.py` · 8,008 reglas · 8,008 con nombre natural · 5,759 con explicación
+> **Generado:** 2026-08-06 · `enrich-rules-v3.py` · 8,005 reglas · 8,005 con nombre natural · 5,759 con explicación
 > **Cobertura:** D01-D53 (todos los dominios) · 49 bases de datos activas
 > **Fuente primaria:** `business-rules-v3.json` (v3.0, Layer A+)
 
@@ -14,11 +14,11 @@
 | UMBRAL | 241 |
 | ESTADO | 28 |
 | CONDICIÓN | 1 |
-| **TOTAL** | **8,008** |
+| **TOTAL** | **8,005** |
 
 | Dimensión | Valor |
 |---|---|
-| Reglas con nombre natural (business_name) | 8,008 |
+| Reglas con nombre natural (business_name) | 8,005 |
 | Reglas con explicación | 5,759 |
 | Reglas con riesgo de equivalencia | 553 |
 | Dominios cubiertos | 30 |

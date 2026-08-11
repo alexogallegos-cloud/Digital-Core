@@ -242,46 +242,117 @@ ACTION_MAP = {
 }
 TIPO_PREFIX = {'FÓRMULA':'Fórmula', 'VALIDACIÓN':'Validación',
                'UMBRAL':'Umbral de', 'ESTADO':'Transición de estado'}
-_GARBAGE_RE = re.compile(r'\|---|">|</|https?://|\*{5,}', re.I)
-# SPL function calls y literales que indican que la explicacion ES código, no descripción
+_GARBAGE_RE   = re.compile(r'\|---|">|</|https?://|\*{5,}', re.I)
 _CODE_FUNC_RE = re.compile(r'\b(round|trunc|pow|nvl|isnull|substr|length|mod|abs)\s*\(', re.I)
+# Detectores de texto que ES código, no descripción de negocio
+_SQL_STMT_RE  = re.compile(
+    r'^(INSERT\s+INTO|SELECT\s|UPDATE\s+\w|DELETE\s+FROM'
+    r'|LET\s+\w+\s*=|EXECUTE\s+PROCEDURE|EXECUTE\s+FUNCTION|CALL\s+'
+    r'|FOREACH\s|OPEN\s+\w|CLOSE\s+\w|FETCH\s+\w'
+    r'|LOAD\s+FROM|UNLOAD\s+TO|LOAD\s+\w+\s+FROM'
+    r'|WHERE\s+\w|AND\s+\(|OR\s+\('
+    r'|FROM\s+\w+:\w+'
+    r'|IF\s*\('
+    r'|NR\s*==\s*FNR)', re.I)
+_UNIX_CMD_RE  = re.compile(
+    r'^(chmod|chown|rm\s|mv\s|cp\s|mkdir|touch|ln\s|cat\s|grep\s|'
+    r'sed\s|awk\s|echo\s|sh\s|bash\s|perl\s|python\s|export\s)', re.I)
+_FILEPATH_RE  = re.compile(r'[/\\][a-z0-9_\-]+[/\\]', re.I)   # /word/word/ path segment
+_FILENAME_RE  = re.compile(r'^\S+\.(sql|txt|unl|sh|csv|dat|log|html|xml|json|py)$', re.I)
+_DATE_LIT_RE  = re.compile(r'^\d{1,2}/\d{1,2}/\d{4}')          # 01/08/2022
+_DATE_ES_RE   = re.compile(r'^\d{1,2}/(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/\d{2,4}', re.I)
+_DATE_NUM_RE  = re.compile(r'^\d{8}$')                           # 20191024
+_DATE_FMT_RE  = re.compile(r'\b(dd/mm|aaaa|yyyy|hh:mm)\b', re.I) # formato dd/mm/aaaa
+_NUM_ONLY_RE  = re.compile(r'^\d[\d\s,%\.]+$')                   # 42.67 % ó 1,234.56
+_SHELL_OP_RE  = re.compile(r'^[>\|<&!+]')                        # > < | & ! +
+_DECOR_RE     = re.compile(r'^[#=\-\*\s]{5,}$')                  # ##### === ------
+# Regex para comentario inline SPL: `expr; -- descripcion`
+_INLINE_CMT   = re.compile(r';\s*--\s+(.{6,})')
 
 def first_clause(text):
     """Extrae la primera cláusula significativa de una explicación."""
     if not text:
         return ''
-    if _GARBAGE_RE.search(text):
+    t = text.strip()
+    # Rechaza decoradores: ###... ===... ---...
+    if _DECOR_RE.match(t):
+        return ''
+    # Rechaza sentencias SQL/SPL directas
+    if _SQL_STMT_RE.match(t):
+        return ''
+    # Rechaza fechas literales dd/mm/yyyy y numéricas YYYYMMDD
+    if _DATE_LIT_RE.match(t) or _DATE_NUM_RE.match(t):
+        return ''
+    # Rechaza listas de columnas pipe-separated (2+ pipes = encabezados de reporte)
+    if t.count('|') >= 2:
+        return ''
+    if _GARBAGE_RE.search(t):
+        return ''
+    # Rechaza operadores shell al inicio: > < | & !
+    if _SHELL_OP_RE.match(t):
+        return ''
+    # Rechaza comandos Unix: chmod, rm, mv, cp, mkdir...
+    if _UNIX_CMD_RE.match(t):
+        return ''
+    # Rechaza rutas de archivo Unix/Windows: /resplogifx/word/ o C:\path\
+    if _FILEPATH_RE.search(t):
+        return ''
+    # Rechaza nombres de archivo solos: encabezado.txt, query.sql
+    if _FILENAME_RE.match(t):
+        return ''
+    # Rechaza fechas en español: 14/dic/95
+    if _DATE_ES_RE.match(t):
+        return ''
+    # Rechaza cadenas de formato de fecha: dd/mm/aaaa
+    if _DATE_FMT_RE.search(t):
+        return ''
+    # Rechaza números/porcentajes solos: 42.67 %
+    if _NUM_ONLY_RE.match(t):
         return ''
     # Rechaza literales SQL: 'valor', '1900-01-01', etc.
-    if text.startswith("'"):
+    if t.startswith("'"):
+        return ''
+    # Rechaza fragmentos SQL embebidos: "... update db:table set" o "... where x ="
+    if re.search(r'\b(UPDATE\s+\w+:\w+|WHERE\s+\w+\s*=)', t, re.I):
         return ''
     # Rechaza expresiones de variables SPL: (var_name + var_name), (var * 0.15)
-    if text.startswith('(') and '_' in text:
+    if t.startswith('(') and '_' in t:
         return ''
     # Texto entre paréntesis sin código → quita los paréntesis externos
-    if text.startswith('(') and text.endswith(')') and '_' not in text:
-        text = text[1:-1].strip()
+    if t.startswith('(') and t.endswith(')') and '_' not in t:
+        t = t[1:-1].strip()
     # Rechaza llamadas a funciones matemáticas SPL (round, trunc, pow…)
-    if _CODE_FUNC_RE.search(text):
+    if _CODE_FUNC_RE.search(t):
         return ''
+    # Limpia prefijos hash inline: "# texto útil" → "texto útil"
+    t = re.sub(r'^#+\s*', '', t).strip()
+    if not t:
+        return ''
+    # Limpia prefijos de variable SPL: "v_nombre = descripcion" o "v_nombre descripcion" → "descripcion"
+    m_var = re.match(r'^[vVcCnNlLdD]_\w+\s*=?\s+(.{4,})', t)
+    if m_var:
+        t = m_var.group(1).strip()
+    if not t:
+        return ''
+    # Quita secuencias largas de guiones/asteriscos al inicio: "------texto" → "texto"
+    t = re.sub(r'^[-=]{2,}\s*', '', t).strip()
     # Quita marcadores de comentario y decoradores líderes: //, -*, --, -, * (1-4 asteriscos)
-    # Orden importa: -* antes de -- para que '-*' no se parta en '-' + '*'
-    text = re.sub(r'^(//\s*|-\*\s*|--?\s*|\*{1,4}\s*)', '', text).strip()
+    t = re.sub(r'^(//\s*|-\*\s*|\*{1,4}\s*)', '', t).strip()
     # Quita asteriscos decorativos finales: "texto *" o "texto ****"
-    text = re.sub(r'\s*\*+\s*$', '', text).strip()
-    if not text:
+    t = re.sub(r'\s*\*+\s*$', '', t).strip()
+    if not t:
         return ''
     # Quita prefijos regulatorios tipo "LISR Art.54/135 — " o "CNBV CUB B-5 — "
-    text = re.sub(r'^[A-ZÁÉÍÓÚ][A-ZÁÉÍÓÚa-záéíóú0-9/\.\s]+\s[—–]\s', '', text).strip()
+    t = re.sub(r'^[A-ZÁÉÍÓÚ][A-ZÁÉÍÓÚa-záéíóú0-9/\.\s]+\s[—–]\s', '', t).strip()
     # Corta antes de punto, punto y coma, o guión largo
     for sep in (' — ', ' – ', '; ', '. '):
-        if sep in text:
-            text = text.split(sep)[0].strip()
+        if sep in t:
+            t = t.split(sep)[0].strip()
     # Corta en 65 chars sin cortar palabras
-    if len(text) > 65:
-        cut = text[:65].rsplit(' ', 1)[0]
-        text = cut + '…'
-    return text.strip() if text else ''
+    if len(t) > 65:
+        cut = t[:65].rsplit(' ', 1)[0]
+        t = cut + '…'
+    return t.strip() if t else ''
 
 def sp_to_name(sp_full, tipo):
     sp = sp_full.split(':')[-1] if ':' in sp_full else sp_full
@@ -298,15 +369,36 @@ def sp_to_name(sp_full, tipo):
         label = f"{prefix}: {sp.replace('_',' ')}".strip() if prefix else sp.replace('_',' ')
     return label[:65]
 
+def code_to_hint(code, sp_full, tipo):
+    """Extrae pista de negocio del código SPL cuando explicacion es código o está vacía."""
+    if not code:
+        return sp_to_name(sp_full, tipo)
+    code_s = code.strip()
+    # 1. Comentario inline al final de la sentencia: expr; -- descripcion
+    m = _INLINE_CMT.search(code_s)
+    if m:
+        hint = m.group(1).strip()
+        # Validar que el comentario no sea otro decorador
+        if not _DECOR_RE.match(hint) and not _SQL_STMT_RE.match(hint):
+            cleaned = first_clause(hint)
+            if cleaned:
+                return cleaned
+    # 2. RETURN "CODE"; -- descripcion
+    m = re.match(r'RETURN\s+"(\w+)"\s*;', code_s, re.I)
+    if m:
+        ret_code = m.group(1)
+        sp_label = sp_to_name(sp_full, tipo)
+        return f"{sp_label} — retorno {ret_code}"[:65]
+    # 3. Fallback: SP name en lenguaje de negocio
+    return sp_to_name(sp_full, tipo)
+
 named = 0
 for r in rules:
     expl = (r.get('explicacion') or '').strip()
-    if expl:
-        name = first_clause(expl)
-        if not name:
-            name = sp_to_name(r.get('sp',''), r.get('tipo',''))
-    else:
-        name = sp_to_name(r.get('sp',''), r.get('tipo',''))
+    # Intentar primero con explicacion; si es vacía o código, usar código + SP
+    name = first_clause(expl) if expl else ''
+    if not name:
+        name = code_to_hint(r.get('code', ''), r.get('sp', ''), r.get('tipo', ''))
     # Capitalize first letter
     r['business_name'] = name[0].upper() + name[1:] if name else ''
     if r['business_name']:
@@ -324,6 +416,45 @@ for r in rules:
         v = r.get(k,'?') or '?'
         if isinstance(v, list): v = ','.join(str(x) for x in v) if v else '—'
         d[v] = d.get(v,0) + 1
+
+# ── 6b. Overlay SBVR v1 enrichment (reg manual + riesgo) ────────────────────
+v1_path = BASE + 'portal/data/business-rules.json'
+try:
+    with open(v1_path, encoding='utf-8') as fv1:
+        v1_rules = json.load(fv1).get('rules', [])
+    v1_idx = {(r['sp'], r['db'], r['line']): r for r in v1_rules}
+    reg_applied = riesgo_applied = 0
+    for r in rules:
+        key = (r['sp'], r['db'], r['line'])
+        v1 = v1_idx.get(key)
+        if not v1:
+            continue
+        if v1.get('reg'):                     # reg manual prevalece sobre auto-extraído
+            r['reg'] = v1['reg']
+            reg_applied += 1
+        if v1.get('riesgo') and not r.get('riesgo'):
+            r['riesgo'] = v1['riesgo']
+            riesgo_applied += 1
+    print(f"SBVR v1 overlay: {reg_applied} reg + {riesgo_applied} riesgo applied "
+          f"({len(v1_rules)} v1 rules, {len(v1_idx)} indexed)")
+except FileNotFoundError:
+    print(f"SBVR v1 not found at {v1_path}, skipping overlay")
+
+# ── 6c. Deduplicar reglas (mismo sp+db+line → conservar primero) ─────────────
+seen_keys = set()
+deduped = []
+dup_count = 0
+for r in rules:
+    key = (r['sp'], r['db'], r['line'])
+    if key in seen_keys:
+        dup_count += 1
+    else:
+        seen_keys.add(key)
+        deduped.append(r)
+if dup_count:
+    print(f"Deduplication: removed {dup_count} duplicate(s) → {len(deduped)} rules")
+rules = deduped
+named = sum(1 for r in rules if r.get('business_name'))
 
 # ── 7. Save v3 JSON ───────────────────────────────────────────────────────────
 out = {

@@ -77,9 +77,23 @@ try:
     for _r in _bc.execute("SELECT name, sp_role FROM sps WHERE sp_role IS NOT NULL").fetchall():
         if _r[0] not in sp_role_map:  # first occurrence wins (same name can appear in multiple DBs)
             sp_role_map[_r[0]] = _r[1]
+    # Journeys con su primary_l3 para remapeo capacidad→journey
+    _jrows = _bc.execute("""
+        SELECT j.id, lower(j.domain) as dom, j.biz, j.sp, j.fan_out, j.reg
+        FROM journeys j
+        ORDER BY j.domain, j.id
+    """).fetchall()
+    JOURNEYS_BY_DOM: dict = {}
+    for _jr in _jrows:
+        _jd = _jr[1]
+        JOURNEYS_BY_DOM.setdefault(_jd, []).append({
+            "id": _jr[0], "biz": _jr[2] or _jr[3], "sp": _jr[3],
+            "fo": _jr[4] or 0, "reg": bool(_jr[5]),
+        })
     _bc.close()
 except Exception as _exc:
     sp_role_map = {}
+    JOURNEYS_BY_DOM = {}
     print(f"[WARN] No se pudo cargar sp_metrics_daily: {_exc}")
 
 # Umbrales: error_rate ≥25% → critical; ≥8% → warn
@@ -598,6 +612,46 @@ except Exception as _exc2:
     print(f"[WARN] No se pudo construir CAPDATA: {_exc2}")
 CAPDATA_JSON = _json.dumps(CAPDATA, ensure_ascii=False)
 
+# ── Remapeo capacidad → journeys específicos (scoring de keywords) ──────────
+_STOP = {
+    "por","del","los","las","una","con","que","para","como","este","esta",
+    "entre","desde","hacia","sobre","bajo","ante","tras","sin","cada",
+    "tipo","nivel","via","modo","caso","base","dato","datos",
+    "servicio","servicios","sistema","sistemas",
+}
+
+import unicodedata as _ud
+def _norm(s):
+    return _ud.normalize("NFD", s.lower()).encode("ascii","ignore").decode()
+
+def _score_journey(biz, sp, cap_name):
+    """Cuenta cuántas keywords significativas (≥4 chars, sin stopwords, sin tilde)
+    del nombre de la capacidad aparecen en biz+sp del journey."""
+    words = [w for w in _re.findall(r'\w{4,}', _norm(cap_name)) if w not in _STOP]
+    text  = _norm(f"{biz} {sp}")
+    return sum(1 for w in words if w in text)
+
+JOURNEY_CAP_MAP: dict = {}  # solo capacidades con match real (sin domain-fallback)
+for _a, _groups in MODEL_V2:
+    for _gn, _caps in _groups:
+        for _cn, _dom in _caps:
+            if _dom is None:
+                continue
+            dom_j = JOURNEYS_BY_DOM.get(_dom, [])
+            if not dom_j:
+                continue
+            if len(dom_j) <= 3:
+                # Dominio pequeño (≤3 journeys): todos son relevantes para esta cap
+                JOURNEY_CAP_MAP[_cn] = dom_j
+            else:
+                scored = [(_j, _score_journey(_j["biz"], _j["sp"], _cn)) for _j in dom_j]
+                matched = sorted([(_j, _s) for _j, _s in scored if _s > 0], key=lambda x: -x[1])
+                if matched:
+                    # Sólo capacidades con match real entran al mapa
+                    JOURNEY_CAP_MAP[_cn] = [_j for _j, _ in matched[:8]]
+                # else: sin match → no se agrega; el drill-down usará DOMDATA normalmente
+JOURNEY_CAP_JSON = _json.dumps(JOURNEY_CAP_MAP, ensure_ascii=False)
+
 allcaps2 = [(c,d) for _,groups in MODEL_V2 for _,caps in groups for c,d in caps]
 tot2    = len(allcaps2)
 cov2    = sum(1 for _,d in allcaps2 if d is not None)   # en código (azul + amarillo)
@@ -623,10 +677,14 @@ def render_cap_v2(c, d):
                   else "log" if DOM_RISK_LOGS.get(d)
                   else "register" if DOM_RISK_REGISTER.get(d)
                   else "")
+    n_jcap = len(JOURNEY_CAP_MAP.get(c, []))
+    jbadge = f'<span class="cj">{n_jcap}j</span>' if n_jcap else ""
     return (f'<div class="cap {css_cls}" data-did="{d}" data-n="{c}" data-dom="{mm["n"]}" data-b="{badge}" '
             f'data-j="{mm["j"]}" data-r="{mm["r"]}" data-s="{mm["s"]}" data-risk="{risk}" '
-            f'data-erate="{_last_rate}" data-rsrc="{_risk_src}">'
-            f'<span class="cn">{c}</span><span class="cb">{badge}</span>{risk_html}</div>')
+            f'data-erate="{_last_rate}" data-rsrc="{_risk_src}" data-jcap="{n_jcap}">'
+            f'<span class="cn">{c}</span>'
+            f'<div class="cbrow"><span class="cb">{badge}</span>{jbadge}</div>'
+            f'{risk_html}</div>')
 
 areas2 = ""
 for title, groups in MODEL_V2:
@@ -693,7 +751,10 @@ body{{background:var(--bg);color:var(--txt);font-family:'SF Pro Display',-apple-
 .cap.cross{{background:var(--acc);color:#1a1a19;cursor:pointer;font-weight:700;box-shadow:0 1px 4px rgba(240,210,36,.45)}}
 .cap.cross:hover{{filter:brightness(1.08)}}
 .cap.off{{background:#33334d;color:#8a8aa5}}
-.cap .cn{{line-height:1.2}}.cap .cb{{font-size:7px;font-weight:800;opacity:.85;letter-spacing:.05em}}
+.cap .cn{{line-height:1.2}}
+.cbrow{{display:flex;align-items:center;gap:4px;flex-wrap:wrap}}
+.cap .cb{{font-size:7px;font-weight:800;opacity:.85;letter-spacing:.05em}}
+.cap .cj{{font-size:7px;font-weight:800;background:rgba(240,210,36,.22);color:#F0D224;border-radius:3px;padding:0 4px;letter-spacing:.03em}}
 .wb{{position:absolute;top:3px;right:4px;font-size:8px;font-weight:900;border-radius:3px;padding:0 3px;line-height:13px;pointer-events:none}}
 .wb.wc{{background:#E8400A;color:#fff}}
 .wb.ww{{background:#F0D224;color:#1a1a19}}
@@ -782,6 +843,7 @@ footer{{text-align:center;padding:36px 0 8px;font-size:11px;color:var(--muted2);
 <script>
 const DOMDATA={DOMDATA_V2_JSON};
 const CAPDATA={CAPDATA_JSON};
+const JOURNEYDATA={JOURNEY_CAP_JSON};
 const FAILURES={FAILURES_JSON};
 const DOM_DAILY={_dom_daily_json};
 const LOG_DATES={_log_dates_json};
@@ -837,6 +899,11 @@ function _prodTimeline(did){{
 }}
 
 function closeDrill(){{document.getElementById('dpanel').classList.remove('open');document.getElementById('dscrim').style.display='none';}}
+function _jDetailUrl(jid){{
+  const p=jid.split(':');
+  return p.length===2?`sp-detail/${{p[0]}}_${{p[1]}}.html`:`sp-detail/${{jid}}.html`;
+}}
+
 function openDrill(did,capName){{
   const d=DOMDATA[did];
   const body=document.getElementById('dbody');
@@ -847,21 +914,22 @@ function openDrill(did,capName){{
     body.innerHTML=`<div style="padding:20px 0;font-size:13px;line-height:1.6;color:#c9d2e0">
       <p>Este dominio existe en la base de datos Informix <b style="color:#fff">${{did.toUpperCase()}}</b> pero aún no ha sido procesado por BCOPBrain.</p>
       <p style="margin-top:12px">Para incluirlo en el análisis se debe agregar <code>${{did}}</code> al script <code>build-brain.py</code> y ejecutar el scatter-gather de extracción.</p>
-      <p style="margin-top:12px;color:var(--acc)">Prioridad recomendada: D16 (Tarjetas) → D15 (LIDE/PLD) → D13 (TEF) → D14 (BEI)</p>
     </div>`;
   }} else if(d){{
     const incs=(typeof FAILURES!=='undefined'&&FAILURES[did])?FAILURES[did]:[];
     const capSps=CAPDATA[capName]||null;
+    const capJs=JOURNEYDATA[capName]||null;
     const PROC_ROLE_LABELS={{'esb_exposed':'ESB Exposed','entry_point':'Entry Point','super_orchestrator':'Super Orchestrador','orchestrator':'Orchestrador','batch_orchestrator':'Batch Orchestrador','cross_domain_primitive':'Cross-Domain','shared_service':'Shared Service','implementation':'Implementación','leaf':'Leaf','batch':'Batch'}};
-    if(capSps&&capSps.length){{
-      document.getElementById('d-sub').innerHTML=`<b>${{capSps.length}}</b> SPs específicos de esta capacidad · dominio <b>${{d.name}}</b>`;
-      document.getElementById('d-stat').innerHTML=`<span><b>${{capSps.length}}</b> SPs esta cap</span><span><b>${{d.procs.length}}</b> journeys dominio</span><span><b>${{d.reglas}}</b> reglas</span><span><b>${{Number(d.sps).toLocaleString('es-MX')}}</b> SPs total</span>`;
-    }}else{{
-      document.getElementById('d-sub').innerHTML=`Capacidad implementada por el dominio <b>${{d.name}}</b> · procesos identificados en BCOPBrain`;
-      document.getElementById('d-stat').innerHTML=`<span><b>${{d.procs.length}}</b> procesos</span><span><b>${{d.exposed.length}}</b> servicios expuestos</span><span><b>${{d.reglas}}</b> reglas</span><span><b>${{Number(d.sps).toLocaleString('es-MX')}}</b> SPs</span>`;
-    }}
+
+    const nJcap=capJs?capJs.length:0;
+    const nSps =d.procs.length;
+    document.getElementById('d-sub').innerHTML=`Capacidad del dominio <b>${{d.name}}</b> · ${{nJcap}} journey${{nJcap!==1?'s':''}} específico${{nJcap!==1?'s':''}}`;
+    document.getElementById('d-stat').innerHTML=`<span><b>${{nJcap}}</b> journeys esta cap</span><span><b>${{nSps}}</b> journeys dominio</span><span><b>${{d.reglas}}</b> reglas</span><span><b>${{Number(d.sps).toLocaleString('es-MX')}}</b> SPs</span>`;
     if(incs.length){{const mx=incs[0];const sc=mx.severity_label==='CRÍTICO'?'color:#E8400A':'color:#F0D224';document.getElementById('d-stat').innerHTML+=`<span style="${{sc}};font-weight:900">! ${{incs.length}} incidente${{incs.length>1?'s':''}} activo${{incs.length>1?'s':''}}</span>`;}}
+
     let h=_prodTimeline(did);
+
+    // ── Incidentes ─────────────────────────────────────────────────────────
     if(incs.length){{
       h+='<div class="dsec" style="color:#E8400A">Incidentes activos en producción</div>';
       incs.forEach(f=>{{
@@ -877,55 +945,52 @@ function openDrill(did,capName){{
         </div>`;
       }});
     }}
-    if(capSps&&capSps.length){{
-      h+='<div class="dsec">SPs de esta capacidad</div>';
-      capSps.forEach(s=>{{
-        const roleTag=s.role?`<span class="proc-role-tag">${{PROC_ROLE_LABELS[s.role]||s.role}}</span>`:'';
-        const biz=s.biz?s.biz.charAt(0).toUpperCase()+s.biz.slice(1):s.sp;
-        h+=`<div class="proc">
-          <div class="pbiz">${{biz}}</div>
-          <div class="psp">${{s.sp}}${{roleTag}} · fan_in ${{s.fi}}</div>
-          <a class="sp-detail-btn" href="sp-detail/sp-detail-${{s.sp}}.html" target="_blank">Ver historia funcional →</a></div>`;
+
+    // ── Journeys específicos de esta capacidad (JOURNEYDATA) ───────────────
+    if(capJs&&capJs.length){{
+      h+=`<div class="dsec">Journeys de esta capacidad (${{capJs.length}})</div>`;
+      capJs.forEach(j=>{{
+        const biz=j.biz?j.biz.charAt(0).toUpperCase()+j.biz.slice(1):j.sp;
+        const reg=j.reg?'<span class="regtag">REGULATORIO</span>':'';
+        const url=_jDetailUrl(j.id);
+        h+=`<div class="proc${{j.reg?' regp':''}}">
+          <div class="pbiz">${{biz}}${{reg}}</div>
+          <div class="psp">${{j.sp}} · fan_out ${{j.fo}}</div>
+          <a class="sp-detail-btn" href="${{url}}" target="_blank">Ver historia funcional →</a>
+        </div>`;
       }});
-      if(d.procs.length){{
-        h+='<div class="dsec" style="margin-top:18px;opacity:.7">Todos los journeys del dominio</div>';
-        d.procs.forEach(p=>{{
-          const flow=p.flow.length?'<div class="flabel">Flujo</div><div class="flow">'+
-            p.flow.map((s,i)=>`${{i?'<span class=arr>&rarr;</span>':''}}<span class="step">${{s}}</span>`).join('')+'</div>':'';
-          const ptitle=p.biz?p.biz.charAt(0).toUpperCase()+p.biz.slice(1):p.sp;
-          const roleTag=p.role?`<span class="proc-role-tag">${{PROC_ROLE_LABELS[p.role]||p.role}}</span>`:'';
-          h+=`<div class="proc" style="opacity:.65">
-            <div class="pbiz">${{ptitle}}${{p.reg?'<span class="regtag">REGULATORIO</span>':''}}</div>
-            <div class="pdesc">${{p.desc}}</div>
-            <div class="psp">${{p.sp}}${{roleTag}} · fan_out ${{p.fo}}</div>
-            <div class="ptrig">Disparado por: <b>${{p.trig||'—'}}</b></div>${{flow}}
-            <a class="sp-detail-btn" href="sp-detail/sp-detail-${{p.sp}}.html" target="_blank">Ver historia funcional →</a></div>`;
-        }});
-      }}
-    }}else{{
-      if(d.procs.length){{
-        h+='<div class="dsec">Procesos de negocio (flujo a alto nivel)</div>';
-        d.procs.forEach(p=>{{
-          const flow=p.flow.length?'<div class="flabel">Flujo</div><div class="flow">'+
-            p.flow.map((s,i)=>`${{i?'<span class=arr>&rarr;</span>':''}}<span class="step">${{s}}</span>`).join('')+'</div>':'';
-          const ptitle=p.biz?p.biz.charAt(0).toUpperCase()+p.biz.slice(1):p.sp;
-          const roleTag=p.role?`<span class="proc-role-tag">${{PROC_ROLE_LABELS[p.role]||p.role}}</span>`:'';
-          h+=`<div class="proc ${{p.reg?'regp':''}}">
-            <div class="pbiz">${{ptitle}}${{p.reg?'<span class="regtag">REGULATORIO</span>':''}}</div>
-            <div class="pdesc">${{p.desc}}</div>
-            <div class="psp">${{p.sp}}${{roleTag}} · fan_out ${{p.fo}}</div>
-            <div class="ptrig">Disparado por: <b>${{p.trig||'—'}}</b></div>${{flow}}
-            <a class="sp-detail-btn" href="sp-detail/sp-detail-${{p.sp}}.html" target="_blank">Ver historia funcional →</a></div>`;
-        }});
-      }}
-      if(d.exposed.length){{
-        h+='<div class="dsec">Servicios expuestos (endpoints)</div>';
-        d.exposed.forEach(e=>{{
-          const eroleTag=e.role?`<span class="proc-role-tag">${{PROC_ROLE_LABELS[e.role]||e.role}}</span>`:'';
-          h+=`<div class="expo"><span class="eb">${{e.biz.charAt(0).toUpperCase()+e.biz.slice(1)}}</span><span class="es">${{e.sp}} · ${{e.ext}} callers${{eroleTag}}</span><a class="sp-detail-btn sp-detail-sm" href="sp-detail/sp-detail-${{e.sp}}.html" target="_blank">→</a></div>`;
-        }});
-      }}
     }}
+
+    // ── Todos los journeys del dominio (dimmed) ────────────────────────────
+    if(d.procs.length){{
+      const allLabel=capJs&&capJs.length&&capJs.length<d.procs.length
+        ?'Otros journeys del dominio':'Todos los journeys del dominio';
+      h+=`<div class="dsec" style="margin-top:18px;opacity:.65">${{allLabel}} (${{d.procs.length}})</div>`;
+      const capJids=new Set((capJs||[]).map(j=>j.sp));
+      d.procs.forEach(p=>{{
+        if(capJids.has(p.sp))return;  // ya mostrado arriba
+        const ptitle=p.biz?p.biz.charAt(0).toUpperCase()+p.biz.slice(1):p.sp;
+        const roleTag=p.role?`<span class="proc-role-tag">${{PROC_ROLE_LABELS[p.role]||p.role}}</span>`:'';
+        const flow=p.flow.length?'<div class="flabel">Flujo</div><div class="flow">'+
+          p.flow.map((s,i)=>`${{i?'<span class=arr>&rarr;</span>':''}}<span class="step">${{s}}</span>`).join('')+'</div>':'';
+        const url=`sp-detail/${{did}}_${{p.sp}}.html`;
+        h+=`<div class="proc${{p.reg?' regp':''}}" style="opacity:.6">
+          <div class="pbiz">${{ptitle}}${{p.reg?'<span class="regtag">REGULATORIO</span>':''}}</div>
+          <div class="pdesc">${{p.desc}}</div>
+          <div class="psp">${{p.sp}}${{roleTag}} · fan_out ${{p.fo}}</div>
+          <div class="ptrig">Disparado por: <b>${{p.trig||'—'}}</b></div>${{flow}}
+        </div>`;
+      }});
+    }}
+
+    if(d.exposed.length){{
+      h+='<div class="dsec">Servicios expuestos (endpoints)</div>';
+      d.exposed.forEach(e=>{{
+        const eroleTag=e.role?`<span class="proc-role-tag">${{PROC_ROLE_LABELS[e.role]||e.role}}</span>`:'';
+        h+=`<div class="expo"><span class="eb">${{e.biz.charAt(0).toUpperCase()+e.biz.slice(1)}}</span><span class="es">${{e.sp}} · ${{e.ext}} callers${{eroleTag}}</span></div>`;
+      }});
+    }}
+
     body.innerHTML=h;
   }}
   document.getElementById('dpanel').classList.add('open');
@@ -946,12 +1011,16 @@ document.querySelectorAll('.cap.on-h,.cap.on-m,.cap.on-l,.cap.on,.cap.cross').fo
      :'';
    const tierLabel={{h:'Núcleo de lógica',m:'Lógica + integración',l:'Conector / Portal'}};
    const tier=c.classList.contains('on-h')?'h':c.classList.contains('on-l')?'l':'m';
+   const nJcap=parseInt(c.dataset.jcap||'0');
+   const jcapLine=nJcap>0?`<div class="tr">Journeys esta cap: <b style="color:#F0D224">${{nJcap}}</b> · total dominio: <b>${{c.dataset.j}}</b></div>`
+     :`<div class="tr">Journeys dominio: <b>${{c.dataset.j}}</b></div>`;
    tip.innerHTML=`<div class="tt">${{c.dataset.n}}</div>
      <div class="tr">Dominio: <b>${{c.dataset.b}} · ${{c.dataset.dom}}</b></div>
      <div class="tr">Carácter: <b>${{tierLabel[tier]||'—'}}</b></div>
-     <div class="tr">Journeys: <b>${{c.dataset.j}}</b> · Reglas: <b>${{c.dataset.r}}</b> · SPs: <b>${{Number(c.dataset.s).toLocaleString('es-MX')}}</b></div>
+     ${{jcapLine}}
+     <div class="tr">Reglas: <b>${{c.dataset.r}}</b> · SPs: <b>${{Number(c.dataset.s).toLocaleString('es-MX')}}</b></div>
      ${{rateStr}}${{riskLine}}
-     <div class="tr" style="color:#c4b5fd">▸ Click para ver detalle</div>`;
+     <div class="tr" style="color:#c4b5fd">▸ Click para ver journeys de esta capacidad</div>`;
    tip.style.display='block';
    tip.style.left=Math.min(e.clientX+14,innerWidth-265)+'px';
    tip.style.top=(e.clientY+12)+'px';}};

@@ -243,15 +243,16 @@ CREATE TABLE domains (
 );
 
 CREATE TABLE rules (
-    id      TEXT PRIMARY KEY,
-    tipo    TEXT,
-    sp      TEXT,
-    db      TEXT,
-    domain  TEXT,
-    line    INTEGER,
-    code    TEXT,
-    reg     TEXT,
-    riesgo  TEXT
+    id            TEXT PRIMARY KEY,
+    tipo          TEXT,
+    sp            TEXT,
+    db            TEXT,
+    domain        TEXT,
+    line          INTEGER,
+    code          TEXT,
+    reg           TEXT,
+    riesgo        TEXT,
+    business_name TEXT
 );
 
 CREATE TABLE terms (
@@ -366,7 +367,7 @@ CREATE VIRTUAL TABLE sps_fts USING fts5(
 );
 
 CREATE VIRTUAL TABLE rules_fts USING fts5(
-    id, sp, code, reg, riesgo,
+    id, sp, code, reg, riesgo, business_name,
     content=rules, content_rowid=rowid,
     tokenize='unicode61 remove_diacritics 1'
 );
@@ -646,7 +647,7 @@ def load_quality(conn):
 
 
 def load_rules(conn):
-    with open(BASE / 'portal' / 'data' / 'business-rules.json', encoding='utf-8') as f:
+    with open(BASE / 'portal' / 'data' / 'business-rules-v3.json', encoding='utf-8') as f:
         br = json.load(f)
 
     rows = []
@@ -671,12 +672,13 @@ def load_rules(conn):
             r.get('id', ''), r.get('tipo', ''),
             full_sp_id, db, DB_TO_DOMAIN.get(db, ''),
             r.get('line', 0), r.get('code', ''),
-            reg or '', riesgo or ''
+            reg or '', riesgo or '',
+            r.get('business_name', '')
         ))
 
     conn.executemany('''
-        INSERT OR REPLACE INTO rules (id,tipo,sp,db,domain,line,code,reg,riesgo)
-        VALUES (?,?,?,?,?,?,?,?,?)
+        INSERT OR REPLACE INTO rules (id,tipo,sp,db,domain,line,code,reg,riesgo,business_name)
+        VALUES (?,?,?,?,?,?,?,?,?,?)
     ''', rows)
     conn.commit()
     print(f'  rules        {len(rows):>6,} business rules')
