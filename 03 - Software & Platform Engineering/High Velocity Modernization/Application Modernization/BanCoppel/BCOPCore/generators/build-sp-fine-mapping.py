@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 """
-build-sp-fine-mapping.py — BCOPCore SP Fine-Grained Capability Mapping v3.4
+build-sp-fine-mapping.py — BCOPCore SP Fine-Grained Capability Mapping v3.5
+# v3.5 (2026-08-11): Round 23 — fatca/generararchivo/reportecodigo/consultadatosrpt/chequedup/chequecod/tamdif/cuenta1/digver/cuentascan/extrae_cuentas/totaleslinea/eventos_msj/canaloperacion/conv_productos/cert_pag/msjafore/sw_ro/vdactas/consul_direc/compara_nombres/razonsocial
+#   5.3.5  +'fatca' (D01: sp_cap_clasificadorparametrosfatca fi=78 — FATCA compliance)
+#   3.17.8 +'generararchivo'/'reportecodigo'/'consultadatosrpt' (D01 file/report generation)
+#   3.2.4  +'chequedup'/'chequecod'/'tamdif'/'cuenta1'/'digver'/'cuentascan'/'extrae_cuentas' (D01/D04 cheque+account primitives)
+#   3.3.4  +'totaleslinea'/'eventos_msj'/'canaloperacion' (D03 credit servicing)
+#   3.1.4  +'conv_productos' (D03: sp_conv_productos fi=283 — product conversion eligibility)
+#   3.4.3  +'cert_pag'/'msjafore' (D03/D08 payment certificate + AFORE message)
+#   7.1.4  +'sw ro'/'vdactas' (D01/D02 read-only switch + account view access)
+#   7.1.1  +'consul_direc'/'compara_nombres'/'razonsocial' (D02 customer data queries)
 # v3.4 (2026-08-10): Round 22 — factura/monthadd/genmov/familia + D03→7.1.4 + D23/D26/D36/D37/D40/D45/D46/D47
 #   5.4.5  +'factura'/'facturacion' (D03: sp_obtentipofactura fi=280, sp_grabatipofacturacion fi=274)
 #   3.15.2 +'monthadd' (D03 date-arithmetic utility para cálculo de períodos de interés, fi=271)
@@ -304,7 +313,9 @@ KEYWORDS: dict[str, list[str]] = {
               # Round 6: aviso de privacidad LFPDPPP
               'privacidad',
               # Round 20: D01/D02 cnsif temporary-transaction purge (sp_cnsif_depuramovimientostempo fi=133)
-              'depuramov'],   # 'depuramov' subset of 'depuramovimientos' — double-scores with 'cnsif' → conf=0.4
+              'depuramov',    # 'depuramov' subset of 'depuramovimientos' — double-scores with 'cnsif' → conf=0.4
+              # Round 23: D01 FATCA classification (sp_cap_clasificadorparametrosfatca fi=78)
+              'fatca'],      # Foreign Account Tax Compliance Act — clasificador de parámetros FATCA
     '7.1.1': ['alta_clien', 'registro_clien', 'nuevo_clien', 'onboard', 'crea_clien',
               'inserta_clien', 'graba_clien',
               # consulta de datos de cliente (patrones sin confundir con "credito")
@@ -333,7 +344,11 @@ KEYWORDS: dict[str, list[str]] = {
               # Round 10: D10 consultar nombre cliente + expedientes
               'nombrecliente',
               # Round 17: D02 cuenta digital (sp_ctedigital_* — ~4 SPs en bdinteg)
-              'ctedigital'],
+              'ctedigital',
+              # Round 23: D02 consulta dirección / comparación de nombres / razón social
+              'consul_direc',     # sp_consul_direc* — consulta dirección del cliente
+              'compara_nombres',  # sp_compara_nombres* — comparación de nombres cliente
+              'razonsocial'],     # sp_razonsocial* — razón social (persona moral)
     '7.1.3': ['preferencia', 'dato_contact', 'actualiz_dato', 'configurac',
               # D02 bdinteg: datos de contacto del cliente (correo, teléfono, SMS)
               'correo', 'telefono', 'bitsmstel', 'notifica_mod', 'mensaje_cel',
@@ -361,7 +376,9 @@ KEYWORDS: dict[str, list[str]] = {
               # Round 9: D05 SAC insurance products + agreements; D02 lottery participation
               'cardif', 'convenio', 'boleto',
               # Round 14: D06 bdisolicitudes — cliente prospecto (sp_cteprosp_*, sp_actualiza_*_cteprosp)
-              'cteprosp'],   # cteprosp = cliente prospecto (abreviatura sin separador)
+              'cteprosp',   # cteprosp = cliente prospecto (abreviatura sin separador)
+              # Round 23: D03 conversión de productos (sp_conv_productos fi=283 — product eligibility conversion)
+              'conv_productos'],  # sp_conv_productos* — convierte elegibilidad entre productos de crédito
     '3.3.1': ['solicitud', 'aprobac', 'autorizac_cred', 'comite', 'estructur',
               'alta_cred', 'nuevo_cred', 'crea_cred', 'graba_cred', 'inserta_cred',
               # Round 14: D06 envíos paramétricos = modelos de scoring/aprobación crediticia
@@ -411,7 +428,11 @@ KEYWORDS: dict[str, list[str]] = {
               # Round 19: D03 evaluación disponibilidad efectiva crédito (sp_evaldispefec_cred fi=151 — esb_exposed)
               'evaldispef',   # evalúa disponibilidad efectiva — D03 3.3.4; unique token, zero regression risk
               # Round 20: D01 ticket+abono consulta ops (sp_ope_cons_ticketabonoapp fi=82 + 2 more variants)
-              'ticketabono'], # compound: 'ticketabono' matches all 4 ticketabono* SPs; doubly scores with 'abono'
+              'ticketabono',  # compound: 'ticketabono' matches all 4 ticketabono* SPs; doubly scores with 'abono'
+              # Round 23: D03 credit servicing reports + event messaging + channel ops
+              'totaleslinea',    # sp_totaleslinea* — totales por línea de crédito
+              'eventos_msj',     # sp_eventos_msj* — mensajes de eventos de crédito
+              'canaloperacion'], # sp_canaloperacion* — canal de operación para crédito
     # '3.3.6' stub D03 eliminado — D11 es superset; ver definición canónica en sección D11
     '5.9.1': ['parametro_riesgo', 'politica_cred', 'regla_cred', 'score_param',
               # Round 11: D03 motor de crédito (credit scoring engine)
@@ -500,7 +521,15 @@ KEYWORDS: dict[str, list[str]] = {
                'ctastraspasar',   # specific compound: no collision with 7.1.1's 'traspasocuen'
                # Round 22: D03 genera movimiento (sp_genmov fi=176) + familia de producto crédito (sp_consulta_familia fi=271)
                'genmov',    # sp_genmov — genera movimiento de cuenta; fi=176; D03 domain_cap 3.2.4 ya activo
-               'familia'],  # sp_consulta_familia (D03), conscteppesfamilia (D02 pago programado); 3.3.4 también score → conf OK
+               'familia',   # sp_consulta_familia (D03), conscteppesfamilia (D02 pago programado); 3.3.4 también score → conf OK
+               # Round 23: D01 cheque operations + D04 bdicheq account primitives
+               'chequedup',       # sp_ope_chequeduplicado — cheque duplicado (check dedup)
+               'chequecod',       # sp_ope_consultadetallechequecodigo* — check return code detail
+               'tamdif',          # sp_ope_consultachequetamdif — tamaño diferente check
+               'cuenta1',         # sp_cuenta1* — acceso primitivo a cuenta (basic account access)
+               'digver',          # sp_digver* — dígito verificador (digit check)
+               'cuentascan',      # sp_extrae_cuentascan — extrae cuentas por scan
+               'extrae_cuentas'], # sp_extrae_cuentas* — extrae cuentas (forma general)
     '3.4.3':  ['pago', 'transferencia', 'proceso_pago', 'cargo_pago',
                # cargos directos / SPEI cargos
                'realizacargo', 'reali_cargo',
@@ -520,7 +549,10 @@ KEYWORDS: dict[str, list[str]] = {
                # Round 15: D16 devoluciones POS (sp_devoluciones_pos_* — POS return ops)
                'devoluciones pos',   # compound: devoluciones + pos
                # Round 17: D08 SPEI transfer validation (sp_transfer_valida_cta, sp_transfer_* ~5 SPs)
-               'transfer'],
+               'transfer',
+               # Round 23: D03/D08 certificate of payment + AFORE message
+               'cert_pag',    # sp_cert_pag* — certificado de pago (payment certificate)
+               'msjafore'],   # sp_msjafore* — mensaje AFORE (pension payment messaging)
     '3.5.1':  ['tarjeta', 'emision', 'entrega_tarj', 'plastico', 'emite_tarj', 'enrola',
                # D02 bdinteg round 3: consultas y solicitudes de tarjeta de crédito
                'sol_tc', 'tdcaplazos',
@@ -585,7 +617,11 @@ KEYWORDS: dict[str, list[str]] = {
                # Round 20: D05 SAC reconciliation+convention report (fi=75 — break 3-way tie)
                'sacreporteconciliacion', # doubly-scores with 'sacreporte' → conf=0.5 vs 3.17.11+3.1.4 at 5 each
                # Round 21: D09 innovattia partner report (sp_generar_reporte_innovattia — unique SP)
-               'innovattia'],  # 1 SP globally (D09); D09 has 3.17.8 in caps
+               'innovattia',   # 1 SP globally (D09); D09 has 3.17.8 in caps
+               # Round 23: D01 file/report generation (sp_generararchivo_rst fi=345 + sp_reportecodigo* + sp_consultadatosrpt*)
+               'generararchivo',    # sp_generararchivo_rst — genera archivo RST; no espacio entre 'generar' y 'archivo'
+               'reportecodigo',     # sp_reportecodigo* — reporte por código (D01 bdicnweb)
+               'consultadatosrpt'], # sp_consultadatosrpt* — consulta datos para reporte
                # NOTE: 'cheque' intentionally NOT added — conflicts with 'cheq' keyword in 3.17.11
                # causing ~30 regressions in domains with both caps (D04/D11/D16/D44/D12)
                # NO restaurados: 'consulta','reporte','movimiento','saldo','estado','consultar'
@@ -893,7 +929,10 @@ KEYWORDS: dict[str, list[str]] = {
                # Round 13: D07 — change password (English keyword, missed in R12)
                'change',      # sp_change_password
                # Round 13: D01 bdicnweb — bloqueo+cancelación de cuentas captación
-               'blqcancel'],  # sp_blqcancelactaexcluidacap, sp_blqconcentractainactivascap
+               'blqcancel',   # sp_blqcancelactaexcluidacap, sp_blqconcentractainactivascap
+               # Round 23: D01/D02 switch read-only mode + view/validate accounts
+               'sw ro',     # sp_sw_ro* — switch read-only access control
+               'vdactas'],  # sp_vdactas* — validación/visualización de cuentas (access control)
 }
 
 # Entradas adicionales que deben añadirse a domain_capabilities si aún no existen.
