@@ -97,8 +97,8 @@ def load_all_data():
     print("Loading flow-data.json...")
     flow_raw = load_json(os.path.join(BASE, 'portal/data/flow-data.json'))
 
-    print("Loading business-rules-v2.json...")
-    rules_raw = load_json(os.path.join(BASE, 'portal/data/business-rules-v2.json'))
+    print("Loading business-rules-v3.json...")
+    rules_raw = load_json(os.path.join(BASE, 'portal/data/business-rules-v3.json'))
 
     print("Loading vocabulary-inventory.json...")
     vocab_raw = load_json(os.path.join(BASE, 'knowledge-base/vocabulary-inventory.json'))
@@ -1082,7 +1082,7 @@ def build_html(sp_name, entry, dom_info, flow_data, rules, val_entry, vocab_matc
 <div class="aurora"></div><div class="grain"></div>
 
 <nav>
-  <img src="bancoppel-logo.png" alt="BanCoppel">
+  <img src="../bancoppel-logo.png" alt="BanCoppel">
   <span class="sep">/</span>
   <span class="bc">BCOPCore · {dom_num} · {html_escape(dom_name)}</span>
   <span class="sp"></span>
@@ -1177,7 +1177,7 @@ def build_html(sp_name, entry, dom_info, flow_data, rules, val_entry, vocab_matc
 
 <footer>
   BCOPCore · {dom_num} {html_escape(dom_name)} · <code>{html_escape(sp_name)}</code> · SPE-AM-001 · Fase DISCOVER<br>
-  Datos extraidos desde <code>business-rules-v2.json</code> · <code>flow-data.json</code> · <code>vocabulary-inventory.json</code>
+  Datos extraidos desde <code>business-rules-v3.json</code> · <code>flow-data.json</code> · <code>vocabulary-inventory.json</code>
 </footer>
 
 {REVEAL_SCRIPT}

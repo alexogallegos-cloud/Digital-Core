@@ -986,7 +986,7 @@ function _prodTimeline(did){{
 function closeDrill(){{document.getElementById('dpanel').classList.remove('open');document.getElementById('dscrim').style.display='none';}}
 function _jDetailUrl(jid){{
   const p=jid.split(':');
-  return p.length===2?`sp-detail/${{p[0]}}_${{p[1]}}.html`:`sp-detail/${{jid}}.html`;
+  return p.length===2?`sp-detail/sp-detail-${{p[1]}}.html`:`sp-detail/sp-detail-${{jid}}.html`;
 }}
 
 function openDrill(did,capName){{
@@ -1069,7 +1069,7 @@ function openDrill(did,capName){{
         const roleTag=p.role?`<span class="proc-role-tag">${{PROC_ROLE_LABELS[p.role]||p.role}}</span>`:'';
         const flow=p.flow.length?'<div class="flabel">Flujo</div><div class="flow">'+
           p.flow.map((s,i)=>`${{i?'<span class=arr>&rarr;</span>':''}}<span class="step">${{s}}</span>`).join('')+'</div>':'';
-        const url=`sp-detail/${{did}}_${{p.sp}}.html`;
+        const url=`sp-detail/sp-detail-${{p.sp}}.html`;
         h+=`<div class="proc${{p.reg?' regp':''}}" style="opacity:.6">
           <div class="pbiz">${{ptitle}}${{p.reg?'<span class="regtag">REGULATORIO</span>':''}}</div>
           <div class="pdesc">${{p.desc}}</div>
