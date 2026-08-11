@@ -79,8 +79,10 @@ try:
             sp_role_map[_r[0]] = _r[1]
     # Journeys con su primary_l3 para remapeo capacidad→journey
     _jrows = _bc.execute("""
-        SELECT j.id, lower(j.domain) as dom, j.biz, j.sp, j.fan_out, j.reg
+        SELECT j.id, lower(j.domain) as dom, j.biz, j.sp, j.fan_out, j.reg,
+               s.primary_l3
         FROM journeys j
+        JOIN sps s ON s.id = j.id
         ORDER BY j.domain, j.id
     """).fetchall()
     JOURNEYS_BY_DOM: dict = {}
@@ -89,6 +91,7 @@ try:
         JOURNEYS_BY_DOM.setdefault(_jd, []).append({
             "id": _jr[0], "biz": _jr[2] or _jr[3], "sp": _jr[3],
             "fo": _jr[4] or 0, "reg": bool(_jr[5]),
+            "l3": _jr[6] or "",
         })
     _bc.close()
 except Exception as _exc:
@@ -631,6 +634,80 @@ def _score_journey(biz, sp, cap_name):
     text  = _norm(f"{biz} {sp}")
     return sum(1 for w in words if w in text)
 
+# CAP_L3_MAP: cap MODEL_V2 → ETB L3 IDs esperados (Tier 1 antes de keyword scoring)
+# Fuente: domain_capabilities + primary_l3 de journeys (brain.db explorado 2026-08-10)
+CAP_L3_MAP: dict = {
+    # D08 SPEI — discriminación exacta saliente / entrante / CoDi
+    "Transferencia SPEI Saliente":    ["3.4.3"],          # Core Payment Processing
+    "Transferencia SPEI Entrante":    ["3.4.2"],          # Payment Acquisition Management
+    "CoDi — Cobro Digital":           ["7.4.1"],          # Embedded Finance
+    "Pago de Servicio (Convenio)":    ["3.4.8"],          # Payments Operations Management
+    "Gestión de Convenios":           ["3.4.7"],          # Payment Support Services
+    "Obligaciones Banxico — SPEI":    ["3.4.1","3.4.4","3.4.5"],
+    # D13 TEF
+    "TEF entre Cuentas Propias":      ["3.4.3"],
+    "TEF a Terceros BanCoppel":       ["3.4.4"],
+    # D07 Aclaraciones
+    "Recepción de Aclaración":        ["3.18.1"],         # Dispute Management
+    "Resolución de Aclaración":       ["3.18.1"],
+    "Obligaciones CONDUSEF":          ["4.5.1"],          # Regulatory Compliance Advisement
+    # D11 Cobranza
+    "Gestión de Mora Temprana":       ["5.9.4"],          # Risk Control Management
+    "Gestión de Mora Tardía":         ["5.9.5"],          # Risk Event Management
+    "Castigo de Cartera":             ["5.9.5"],
+    "Recuperación Post-Castigo":      ["3.3.4"],          # Credit Servicing Management
+    "Reestructuras y Quitas":         ["3.3.4"],
+    # D12 Contabilidad
+    "Libro Mayor (GL)":               ["5.4.1"],          # Finance Account Management
+    "Cierre Contable Diario":         ["5.4.8"],          # Financial Position Management
+    "Reportes Serie R (CNBV)":        ["3.17.8"],         # Balance & transaction reporting
+    "Obligaciones CNBV":              ["5.10.4"],         # Compliance Monitoring & Auditing
+    # D15 LIDE / PLD
+    "Monitoreo de Transacciones":     ["5.8.1","5.8.2"],  # Fraud & AML Prevention + Detection
+    "Lista LIDE":                     ["5.8.1"],
+    "Reportes PLD a UIF":             ["5.10.6"],         # Regulatory Engagement & Reporting
+    # D16 Tarjetas
+    "Emisión de Tarjeta":             ["3.5.1"],          # Cards Issuance & Servicing
+    "Activación de Tarjeta":          ["3.5.1"],
+    "Bloqueo y Desbloqueo":           ["7.1.4"],          # Customer Access Management
+    "Reposición de Tarjeta":          ["3.5.1"],
+    "Autorización de Compra":         ["3.5.2"],          # Cards Authorization
+    "Control de Límites":             ["3.16.1"],         # Limits Management
+    # D02 Autenticación
+    "Autenticación por Canal":        ["7.1.2"],          # Customer Authentication & Identification
+    "Gestión de Sesión":              ["7.1.4"],          # Customer Access Management
+    # D14 BEI
+    "Acceso Empresarial BEI":         ["7.1.2"],
+    "Pagos y Dispersiones Masivas":   ["7.1.4"],
+    # D06 Solicitudes
+    "Verificación de Identidad":      ["5.9.2"],          # Risk Assessment
+    "Solicitud de Crédito":           ["3.3.1"],          # Credit structuring & Approval
+    "Creación del Perfil":            ["7.1.1"],          # Customer Establishment
+    "Modificación de Datos":          ["7.1.3"],          # Customer Preference Management
+    # D03 Créditos
+    "Autorización de Crédito":        ["3.3.1","3.3.2"],
+    "Disposición del Crédito":        ["3.3.2"],          # Credit Underwriting & Disbursement
+    "Ciclo de Corte":                 ["3.3.4"],
+    "Registro de Pagos de Crédito":   ["3.3.4"],
+    # D04 Cheques
+    "Apertura Cuenta de Cheques":     ["3.2.1","3.2.2","3.2.3"],
+    "Emisión y Gestión de Cheques":   ["3.2.4"],          # Deposit Account Servicing Management
+    "Consulta y Movimientos Cheques": ["3.2.4"],
+    "Cálculo de Intereses":           ["3.15.2"],         # Interest & Fees Calculation
+    # D05 Saldos
+    "Consulta de Saldo":              ["3.17.8"],
+    "Estado de Cuenta":               ["3.17.8"],
+    "Registro de Movimientos":        ["3.2.4"],
+    # D01 Canal Digital
+    "Banca en Línea Web":             ["1.1.1"],          # Internet Banking
+    "Banca Móvil":                    ["1.1.2"],          # Mobile Banking
+    "Atención Telefónica / IVR":      ["1.1.5"],          # Call Centre and IVR
+    # D10 Sucursales
+    "Sucursales BanCoppel":           ["1.2.1"],          # Branch
+    "Cajeros ATM":                    ["1.2.2"],          # ATM, POS and Kiosk
+    "Operaciones de Caja en Tienda":  ["1.2.1"],
+}
+
 JOURNEY_CAP_MAP: dict = {}  # solo capacidades con match real (sin domain-fallback)
 for _a, _groups in MODEL_V2:
     for _gn, _caps in _groups:
@@ -640,16 +717,21 @@ for _a, _groups in MODEL_V2:
             dom_j = JOURNEYS_BY_DOM.get(_dom, [])
             if not dom_j:
                 continue
+            # Tier 1: L3 directo — primary_l3 del journey vs CAP_L3_MAP
+            _l3_ids = CAP_L3_MAP.get(_cn)
+            if _l3_ids:
+                _l3_matched = [_j for _j in dom_j if _j.get("l3") in _l3_ids]
+                if _l3_matched:
+                    JOURNEY_CAP_MAP[_cn] = _l3_matched
+                    continue
+            # Tier 2: keyword scoring (fallback para caps sin L3 asignado o sin journeys con ese L3)
             if len(dom_j) <= 3:
-                # Dominio pequeño (≤3 journeys): todos son relevantes para esta cap
                 JOURNEY_CAP_MAP[_cn] = dom_j
             else:
                 scored = [(_j, _score_journey(_j["biz"], _j["sp"], _cn)) for _j in dom_j]
                 matched = sorted([(_j, _s) for _j, _s in scored if _s > 0], key=lambda x: -x[1])
                 if matched:
-                    # Sólo capacidades con match real entran al mapa
                     JOURNEY_CAP_MAP[_cn] = [_j for _j, _ in matched[:8]]
-                # else: sin match → no se agrega; el drill-down usará DOMDATA normalmente
 JOURNEY_CAP_JSON = _json.dumps(JOURNEY_CAP_MAP, ensure_ascii=False)
 
 allcaps2 = [(c,d) for _,groups in MODEL_V2 for _,caps in groups for c,d in caps]
