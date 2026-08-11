@@ -403,7 +403,7 @@ footer {{
   </div>
   <div class="breadcrumb">
     <a href="../index-bcop-v2.html">Portal</a> &rsaquo;
-    <a href="../../knowledge-base/{domain_folder}/21-observability-runbook.md">Runbook {domain_id}</a> &rsaquo;
+    Runbook {domain_id} &rsaquo;
     {inc_id_upper}
   </div>
 </header>
@@ -457,6 +457,11 @@ def build_incident(inc_slug: str, rb_rel: str) -> bool:
 
     sev_level, sev_class = get_severity(header_line, body_md)
     body_html = md_to_html(body_md)
+    # Fix links that were authored relative to the runbook (knowledge-base/…)
+    # and point to portal/incidents/ using ../../portal/incidents/ — those 404
+    # from the browser since server root is portal/.  Strip the prefix so the
+    # href becomes just the filename (same directory as the generated page).
+    body_html = body_html.replace('../../portal/incidents/', '')
     today = date.today().strftime('%Y-%m-%d')
 
     html = HTML_TEMPLATE.format(
