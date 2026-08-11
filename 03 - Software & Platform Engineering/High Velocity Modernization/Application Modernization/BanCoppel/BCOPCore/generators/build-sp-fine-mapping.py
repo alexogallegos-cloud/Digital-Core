@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """
-build-sp-fine-mapping.py — BCOPCore SP Fine-Grained Capability Mapping v3.6
+build-sp-fine-mapping.py — BCOPCore SP Fine-Grained Capability Mapping v3.7
+# v3.7 (2026-08-11): Round 25 — cod47totales/statusaumlincred/principalrefer/principal_suc/actualizarfechacheques (tie-breakers for 5 high-fi SPs)
+#   3.2.4  +'cod47totales' — breaks 3-way tie on sp_consultachequescod47totales_ccep fi=78 (ccep/totales/cod47 each 5.0)
+#   3.3.1  +'statusaumlincred' — breaks 3-way tie on sp_cac_obtenstatusaumlincred fi=40 (status/aumlincred/lincred each 5.0)
+#   3.3.4  +'principalrefer'/'principal_suc' — D03 principal debt SP (principalrefer fi=51, sp_principal_suc_rr fi=32)
+#   3.2.4  +'actualizarfechacheques' — D01 sp_ope_actualizarfechacheques fi=35 (date+cheques update op)
 # v3.6 (2026-08-11): Round 24 — pagoscre/archivoxml/genarchivo/tagxml/consecutivoarch/consecutivoarchivo/reportesbc/cod47/cod40/cheqsimg/liberasalret/diasret/imagenchqs/imagenchequedev/cal_fecha/productopermitido/bines
 #   3.3.4  +'pagoscre' (D01: sp_consultareportepagoscre fi=250 — pagos+credito compound)
 #   3.17.8 +'archivoxml'/'genarchivo'/'tagxml'/'consecutivoarch'/'consecutivoarchivo'/'reportesbc' (D01/D13 file ops)
@@ -389,7 +394,9 @@ KEYWORDS: dict[str, list[str]] = {
               # Round 14: D06 envíos paramétricos = modelos de scoring/aprobación crediticia
               'envioparametrico',  # sp_consultar_envioparametricocoppel (5 SPs D06)
               # Round 15: D01 aumento de línea de crédito (sp_aumlincred* — 10 SPs)
-              'aumlincred'],  # aum(ento) + lin(ea) + cred(ito) — compact portmanteau
+              'aumlincred',   # aum(ento) + lin(ea) + cred(ito) — compact portmanteau
+              # Round 25: tie-breaker for sp_cac_obtenstatusaumlincred fi=40 (3-way tie: status/aumlincred/lincred each 5.0)
+              'statusaumlincred'], # compound — makes 3.3.1 score 10.0 vs 5.0 on 3.3.4(lincred) + 3.2.4(status)
     '3.3.2': ['disposicion', 'dispersa', 'ministr', 'origina', 'apertura_cred',
               'desembolso', 'ministrac',
               # Round 6: apertura crédito sin separador (sp_apercred1_pp, etc.)
@@ -439,7 +446,10 @@ KEYWORDS: dict[str, list[str]] = {
               'eventos_msj',     # sp_eventos_msj* — mensajes de eventos de crédito
               'canaloperacion',  # sp_canaloperacion* — canal de operación para crédito
               # Round 24: D01 pagos+crédito compound (sp_consultareportepagoscre fi=250)
-              'pagoscre'],       # pagos+credito portmanteau — doubly scores with 'pago' → conf OK
+              'pagoscre',        # pagos+credito portmanteau — doubly scores with 'pago' → conf OK
+              # Round 25: D03 principal debt SPs (principalrefer fi=51, sp_principal_suc_rr fi=32)
+              'principalrefer',  # exact SP name — capital principal de deuda (referenciado)
+              'principal_suc'],  # sp_principal_suc_rr — principal de sucursal (deuda por sucursal)
     # '3.3.6' stub D03 eliminado — D11 es superset; ver definición canónica en sección D11
     '5.9.1': ['parametro_riesgo', 'politica_cred', 'regla_cred', 'score_param',
               # Round 11: D03 motor de crédito (credit scoring engine)
@@ -544,7 +554,10 @@ KEYWORDS: dict[str, list[str]] = {
                'liberasalret',    # sp_ope_liberasalret fi=42 — libera saldo retenido
                'diasret',         # sp_ope_diasret fi=42 — días de retención
                'imagenchqs',      # sp_ope_grabaimagenchqsdevueltos fi=52 — graba imagen cheques devueltos
-               'imagenchequedev'], # sp_ope_validaimagenchequedev fi=52 — valida imagen cheque devuelto
+               'imagenchequedev', # sp_ope_validaimagenchequedev fi=52 — valida imagen cheque devuelto
+               # Round 25: tie-breakers for 3-way ties (each tie partner alone gives conf=0.333)
+               'cod47totales',     # sp_consultachequescod47totales_ccep fi=78 — breaks tie with ccep(1.1.1) + totales(3.17.8)
+               'actualizarfechacheques'], # sp_ope_actualizarfechacheques fi=35 — D01 cheque date update op
     '3.4.3':  ['pago', 'transferencia', 'proceso_pago', 'cargo_pago',
                # cargos directos / SPEI cargos
                'realizacargo', 'reali_cargo',
