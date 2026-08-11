@@ -39,6 +39,7 @@ DOMAIN_INFO = {
 # Phase C: up to 10,664 brain.db SPs → has_page=False (biz annotation only).
 # Maps sp_name → {'biz': str, 'rules_n': int, 'has_page': bool}.
 CALLEE_INFO = {}
+ETB_CAPS = {}
 
 BRAIN_DB_PATH = os.path.normpath(os.path.join(
     os.path.dirname(os.path.abspath(__file__)), '..', 'digital-brain', 'brain.db'))
@@ -63,17 +64,28 @@ def load_callee_info_from_brain(brain_db_path: str) -> dict:
     try:
         conn = sqlite3.connect(brain_db_path)
         rows = conn.execute(
-            "SELECT name, biz, rules_n, batch_archetype, batch_l2 "
+            "SELECT name, biz, rules_n, batch_archetype, batch_l2, "
+            "is_soul, soul_rank, soul_pattern, sp_role, "
+            "prod_calls_day, prod_p95_s, prod_error_rate "
             "FROM sps WHERE biz IS NOT NULL AND biz != ''"
         ).fetchall()
         conn.close()
-        for name, biz, rules_n, batch_archetype, batch_l2 in rows:
+        for (name, biz, rules_n, batch_archetype, batch_l2,
+             is_soul, soul_rank, soul_pattern, sp_role,
+             prod_calls_day, prod_p95_s, prod_error_rate) in rows:
             result[name] = {
                 'biz': biz or '',
                 'rules_n': rules_n or 0,
                 'has_page': False,
                 'batch_archetype': batch_archetype or '',
                 'batch_l2': batch_l2 or '',
+                'is_soul': bool(is_soul),
+                'soul_rank': soul_rank or 0,
+                'soul_pattern': soul_pattern or '',
+                'sp_role': sp_role or '',
+                'prod_calls_day': prod_calls_day,
+                'prod_p95_s': prod_p95_s,
+                'prod_error_rate': prod_error_rate,
             }
         print(f"  [Phase C] {len(result):,} SP entries loaded from brain.db")
     except Exception as exc:
@@ -83,6 +95,37 @@ def load_callee_info_from_brain(brain_db_path: str) -> dict:
 
 # ---------------------------------------------------------------------------
 # Data loading
+def load_etb_caps_from_brain(brain_db_path: str) -> dict:
+    """Load ETB L1>L2>L3 capability chain per SP from sp_capabilities.
+    Returns {db:sp_id -> [{'type', 'l3_id', 'l3', 'l2', 'l1'}]}
+    """
+    result = {}
+    if not os.path.exists(brain_db_path):
+        return result
+    try:
+        conn = sqlite3.connect(brain_db_path)
+        rows = conn.execute("""
+            SELECT sc.sp_id, sc.mapping_type, sc.l3_id,
+                   l3.name as l3_name, l2.name as l2_name, l1.name as l1_name
+            FROM sp_capabilities sc
+            JOIN etb_l3 l3 ON l3.id = sc.l3_id
+            JOIN etb_l2 l2 ON l2.id = l3.l2_id
+            JOIN etb_l1 l1 ON l1.id = l2.l1_id
+            WHERE sc.mapping_type IN ('primary', 'secondary')
+            ORDER BY sc.sp_id, sc.mapping_type
+        """).fetchall()
+        conn.close()
+        for sp_id, mtype, l3_id, l3_name, l2_name, l1_name in rows:
+            result.setdefault(sp_id, []).append({
+                'type': mtype, 'l3_id': l3_id,
+                'l3': l3_name, 'l2': l2_name, 'l1': l1_name,
+            })
+        print(f"  [etb_caps] {len(result):,} SPs with ETB mappings loaded")
+    except Exception as exc:
+        print(f"  [etb_caps] Warning: {exc}")
+    return result
+
+
 # ---------------------------------------------------------------------------
 
 def load_json(path):
@@ -834,6 +877,14 @@ code{background:rgba(240,210,36,.1);border:1px solid rgba(240,210,36,.22);border
 .chip.batch-orange{background:rgba(255,140,0,.15);border:1px solid rgba(255,140,0,.4);color:#ffd089}
 .chip.batch-purple{background:rgba(130,60,220,.15);border:1px solid rgba(130,60,220,.4);color:#c9a6ff}
 .chip.batch-teal{background:rgba(0,150,200,.15);border:1px solid rgba(0,150,200,.4);color:#80d8ff}
+.chip.soul{background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.4);color:#ffd700;font-weight:700}
+.prod-block{padding:16px 20px;margin:12px 0 0 0}
+.prod-block .prod-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);margin-bottom:12px}
+.prod-metrics{display:flex;gap:24px;flex-wrap:wrap}
+.prod-metric{text-align:center}
+.prod-metric .prod-n{font-size:22px;font-weight:700;color:var(--accent)}
+.prod-metric .prod-l{font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+.pill-biz{font-size:10px;opacity:.7;font-style:italic;margin-left:4px}
 """
 
 MERMAID_INIT = """<script type="module">
@@ -918,7 +969,7 @@ def render_rule_badge(rule):
     return '\n'.join(badges)
 
 
-def build_html(sp_name, entry, dom_info, flow_data, rules, val_entry, vocab_matches):
+def build_html(sp_name, entry, dom_info, flow_data, rules, val_entry, vocab_matches, etb_caps=None):
     dom_name = dom_info['name']
     dom_num = dom_info['num']
     db = dom_info['db']
@@ -971,14 +1022,17 @@ def build_html(sp_name, entry, dom_info, flow_data, rules, val_entry, vocab_matc
             )
         else:
             _badge_html = ''
+        _cbiz = _ci.get('biz', '')
+        _cbiz_html = (f'<span class="pill-biz">{html_escape(_cbiz[:40])}</span>'
+                      if _cbiz else '')
         if _ci.get('has_page'):
             pill_parts.append(
                 f'<a class="pill callee" href="sp-detail-{c}.html">'
-                f'{html_escape(c)}{_badge_html}</a>'
+                f'{html_escape(c)}{_badge_html}{_cbiz_html}</a>'
             )
         else:
             pill_parts.append(
-                f'<span class="pill callee">{html_escape(c)}{_badge_html}</span>'
+                f'<span class="pill callee">{html_escape(c)}{_badge_html}{_cbiz_html}</span>'
             )
     callee_pills = ''.join(pill_parts)
     callee_section = ''
@@ -1072,6 +1126,62 @@ def build_html(sp_name, entry, dom_info, flow_data, rules, val_entry, vocab_matc
             f'BATCH · {html_escape(_label)}</span>'
         )
 
+    # ALMA badge — from brain.db soul columns
+    soul_badge = ''
+    _is_soul = _brain_entry.get('is_soul', False)
+    _soul_pattern = _brain_entry.get('soul_pattern', '')
+    _soul_rank = _brain_entry.get('soul_rank', 0)
+    if _is_soul and _soul_pattern:
+        soul_badge = (f'<span class="chip soul" title="Alma #{_soul_rank} global">'
+                      f'ALMA · {html_escape(_soul_pattern)}</span>')
+
+    # Production metrics block — SPs with real ESB evidence
+    prod_block = ''
+    _prod_calls = _brain_entry.get('prod_calls_day')
+    _prod_p95   = _brain_entry.get('prod_p95_s')
+    _prod_err   = _brain_entry.get('prod_error_rate')
+    if _prod_calls is not None:
+        _calls_fmt = f'{int(_prod_calls):,}' if _prod_calls else '—'
+        _p95_fmt   = f'{_prod_p95*1000:.0f} ms' if _prod_p95 is not None else '—'
+        _err_fmt   = f'{_prod_err*100:.2f}%' if _prod_err is not None else '—'
+        prod_block = (
+            '<div class="glass prod-block reveal">'
+            '<div class="prod-label">Comportamiento en Producción · evidencia ESB 2026-04-24</div>'
+            '<div class="prod-metrics">'
+            f'<div class="prod-metric"><div class="prod-n">{_calls_fmt}</div><div class="prod-l">Llamadas / día</div></div>'
+            f'<div class="prod-metric"><div class="prod-n">{_p95_fmt}</div><div class="prod-l">Latencia P95</div></div>'
+            f'<div class="prod-metric"><div class="prod-n">{_err_fmt}</div><div class="prod-l">Tasa de error</div></div>'
+            '</div></div>'
+        )
+
+    # ETB Capabilities section
+    etb_caps_section = ''
+    _db_sp_id = f'{db}:{sp_name}'
+    _etb_list = (etb_caps or {}).get(_db_sp_id, [])
+    if _etb_list:
+        _cap_rows = []
+        for _cap in _etb_list:
+            _badge_cls = 'chip blue' if _cap['type'] == 'primary' else 'chip muted'
+            _type_label = 'PRIMARY' if _cap['type'] == 'primary' else 'SEC'
+            _cap_rows.append(
+                f'<div class="glass" style="padding:12px 16px;margin-bottom:6px;border-radius:8px;">'
+                f'<span class="{_badge_cls}" style="font-size:9px;padding:2px 6px;">{_type_label}</span> '
+                f'<span style="color:var(--muted2);font-size:11px;">{html_escape(_cap["l1"])}</span>'
+                f' <span style="color:var(--muted2);">›</span> '
+                f'<span style="color:var(--muted2);font-size:11px;">{html_escape(_cap["l2"])}</span>'
+                f' <span style="color:var(--muted2);">›</span> '
+                f'<b style="color:var(--fg);">{html_escape(_cap["l3"])}</b>'
+                f'</div>'
+            )
+        etb_caps_section = (
+            '<section>'
+            '<div class="sec-num reveal">06 · Capacidades</div>'
+            '<h2 class="sec-title reveal">Capacidades de Negocio (ETB)</h2>'
+            '<p class="sec-sub reveal">Capacidades bancarias que este SP implementa segun el Enterprise Technology Blueprint.</p>'
+            + ''.join(_cap_rows) +
+            '</section>'
+        )
+
     html = f"""<!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>{html_escape(sp_name)} · BCOPCore</title>
@@ -1082,7 +1192,7 @@ def build_html(sp_name, entry, dom_info, flow_data, rules, val_entry, vocab_matc
 <div class="aurora"></div><div class="grain"></div>
 
 <nav>
-  <img src="../bancoppel-logo.png" alt="BanCoppel">
+  <img src="../bancoppel-logo.svg" alt="BanCoppel">
   <span class="sep">/</span>
   <span class="bc">BCOPCore · {dom_num} · {html_escape(dom_name)}</span>
   <span class="sp"></span>
@@ -1103,6 +1213,7 @@ def build_html(sp_name, entry, dom_info, flow_data, rules, val_entry, vocab_matc
       <span class="chip {type_chip_class}">{type_chip}</span>
       {reg_badge}
       {batch_badge}
+      {soul_badge}
     </div>
     <div class="metrics">
       <div class="metric glass{fan_in_cls}"><div class="metric-n">{fan_in_str}</div><div class="metric-l">Fan-in</div></div>
@@ -1113,6 +1224,7 @@ def build_html(sp_name, entry, dom_info, flow_data, rules, val_entry, vocab_matc
       <div class="metric glass"><div class="metric-n">{authors_str}</div><div class="metric-l">Autores</div></div>
     </div>
   </header>
+  {prod_block}
 
   <div class="divider"></div>
 
@@ -1172,6 +1284,11 @@ def build_html(sp_name, entry, dom_info, flow_data, rules, val_entry, vocab_matc
     <p class="sec-sub reveal">Terminos del vocabulario controlado de BCOPCore presentes en este procedimiento.</p>
     {vocab_html}
   </section>
+
+  <div class="divider"></div>
+
+  <!-- 06 Capacidades ETB -->
+  {etb_caps_section}
 
 </div>
 
@@ -1390,7 +1507,9 @@ def main():
     journeys, flow_lookup, rules_lookup, validation, vocab_dict = load_all_data()
 
     # Phase C: pre-load biz for all brain.db SPs (has_page=False).
-    global CALLEE_INFO
+    global CALLEE_INFO, ETB_CAPS
+    print("\nLoading ETB capability map from brain.db...")
+    ETB_CAPS = load_etb_caps_from_brain(BRAIN_DB_PATH)
     print("\nBuilding CALLEE_INFO (Phase C + Phase B)...")
     CALLEE_INFO = load_callee_info_from_brain(BRAIN_DB_PATH)
 
@@ -1401,8 +1520,10 @@ def main():
             for _jj in _ddata.get(_etype, []):
                 _sp = _jj.get('sp', '')
                 if _sp:
+                    _existing = CALLEE_INFO.get(_sp, {})
                     CALLEE_INFO[_sp] = {
-                        'biz': _jj.get('biz') or CALLEE_INFO.get(_sp, {}).get('biz', ''),
+                        **_existing,
+                        'biz': _jj.get('biz') or _existing.get('biz', ''),
                         'rules_n': 0,
                         'has_page': True,
                     }
@@ -1466,7 +1587,7 @@ def main():
 
             # --- Generate HTML ---
             html_path = os.path.join(BASE, 'portal', 'sp-detail', f'sp-detail-{sp_name}.html')
-            html_content = build_html(sp_name, sp_entry, dom_info, flow_data, rules, val_entry, vocab_matches)
+            html_content = build_html(sp_name, sp_entry, dom_info, flow_data, rules, val_entry, vocab_matches, etb_caps=ETB_CAPS)
             with open(html_path, 'w', encoding='utf-8') as f:
                 f.write(html_content)
             html_count += 1

@@ -34,9 +34,10 @@ SELECT
   s.prod_p95_s,
   s.prod_p99_s,
   s.prod_evidence_date,
-  s.prod_calling_systems
+  s.prod_calling_systems,
+  b.archetype
 FROM sps s
-WHERE 1=1  -- todos los SPs
+LEFT JOIN batch_analysis b ON s.name = b.sp_name AND s.db = b.db
 ORDER BY
   CASE s.sp_role
     WHEN 'entry_point'          THEN 1
