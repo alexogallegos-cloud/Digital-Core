@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """
-build-sp-fine-mapping.py — BCOPCore SP Fine-Grained Capability Mapping v3.5
+build-sp-fine-mapping.py — BCOPCore SP Fine-Grained Capability Mapping v3.6
+# v3.6 (2026-08-11): Round 24 — pagoscre/archivoxml/genarchivo/tagxml/consecutivoarch/consecutivoarchivo/reportesbc/cod47/cod40/cheqsimg/liberasalret/diasret/imagenchqs/imagenchequedev/cal_fecha/productopermitido/bines
+#   3.3.4  +'pagoscre' (D01: sp_consultareportepagoscre fi=250 — pagos+credito compound)
+#   3.17.8 +'archivoxml'/'genarchivo'/'tagxml'/'consecutivoarch'/'consecutivoarchivo'/'reportesbc' (D01/D13 file ops)
+#   3.2.4  +'cod47'/'cod40'/'cheqsimg'/'liberasalret'/'diasret'/'imagenchqs'/'imagenchequedev' (D01 check/account ops)
+#   3.4.1  +'cal_fecha'/'productopermitido'/'bines' (D13 TEF pre-validation + BINS lookup)
 # v3.5 (2026-08-11): Round 23 — fatca/generararchivo/reportecodigo/consultadatosrpt/chequedup/chequecod/tamdif/cuenta1/digver/cuentascan/extrae_cuentas/totaleslinea/eventos_msj/canaloperacion/conv_productos/cert_pag/msjafore/sw_ro/vdactas/consul_direc/compara_nombres/razonsocial
 #   5.3.5  +'fatca' (D01: sp_cap_clasificadorparametrosfatca fi=78 — FATCA compliance)
 #   3.17.8 +'generararchivo'/'reportecodigo'/'consultadatosrpt' (D01 file/report generation)
@@ -432,7 +437,9 @@ KEYWORDS: dict[str, list[str]] = {
               # Round 23: D03 credit servicing reports + event messaging + channel ops
               'totaleslinea',    # sp_totaleslinea* — totales por línea de crédito
               'eventos_msj',     # sp_eventos_msj* — mensajes de eventos de crédito
-              'canaloperacion'], # sp_canaloperacion* — canal de operación para crédito
+              'canaloperacion',  # sp_canaloperacion* — canal de operación para crédito
+              # Round 24: D01 pagos+crédito compound (sp_consultareportepagoscre fi=250)
+              'pagoscre'],       # pagos+credito portmanteau — doubly scores with 'pago' → conf OK
     # '3.3.6' stub D03 eliminado — D11 es superset; ver definición canónica en sección D11
     '5.9.1': ['parametro_riesgo', 'politica_cred', 'regla_cred', 'score_param',
               # Round 11: D03 motor de crédito (credit scoring engine)
@@ -529,7 +536,15 @@ KEYWORDS: dict[str, list[str]] = {
                'cuenta1',         # sp_cuenta1* — acceso primitivo a cuenta (basic account access)
                'digver',          # sp_digver* — dígito verificador (digit check)
                'cuentascan',      # sp_extrae_cuentascan — extrae cuentas por scan
-               'extrae_cuentas'], # sp_extrae_cuentas* — extrae cuentas (forma general)
+               'extrae_cuentas',  # sp_extrae_cuentas* — extrae cuentas (forma general)
+               # Round 24: D01 check code + retention days + image ops (all fi≥42 bdicnweb)
+               'cod47',           # sp_datosdiahoy_cod47 fi=78 — código 47 = cheque devuelto
+               'cod40',           # sp_eliminasinprocesartmpcod40 fi=78 — código 40 = cheque truncado
+               'cheqsimg',        # sp_ope_cheqsimg fi=52 — cheques + imágenes
+               'liberasalret',    # sp_ope_liberasalret fi=42 — libera saldo retenido
+               'diasret',         # sp_ope_diasret fi=42 — días de retención
+               'imagenchqs',      # sp_ope_grabaimagenchqsdevueltos fi=52 — graba imagen cheques devueltos
+               'imagenchequedev'], # sp_ope_validaimagenchequedev fi=52 — valida imagen cheque devuelto
     '3.4.3':  ['pago', 'transferencia', 'proceso_pago', 'cargo_pago',
                # cargos directos / SPEI cargos
                'realizacargo', 'reali_cargo',
@@ -621,7 +636,15 @@ KEYWORDS: dict[str, list[str]] = {
                # Round 23: D01 file/report generation (sp_generararchivo_rst fi=345 + sp_reportecodigo* + sp_consultadatosrpt*)
                'generararchivo',    # sp_generararchivo_rst — genera archivo RST; no espacio entre 'generar' y 'archivo'
                'reportecodigo',     # sp_reportecodigo* — reporte por código (D01 bdicnweb)
-               'consultadatosrpt'], # sp_consultadatosrpt* — consulta datos para reporte
+               'consultadatosrpt',  # sp_consultadatosrpt* — consulta datos para reporte
+               # Round 24: D01 file/XML/archive operations (high fi SPs not caught by Round 23)
+               'archivoxml',          # sp_ca_cargaarchivoxml/sp_ca_procesaarchivoxml fi=107 (cargaarchivoxml⊃archivoxml)
+               'genarchivo',          # sp_ope_datoscarga_genarchivo fi=78 — genera archivo (≠ generararchivo)
+               'tagxml',              # sp_ro_extraevalor_tagxml fi=58 — extrae valor de tag XML
+               'consecutivoarch',     # sp_ope_consultaconsecutivoarch fi=52 — consecutivo de archivo
+               # Round 24: D13 file sequence (sp_consultaconsecutivoarchivo fi=54)
+               'consecutivoarchivo',  # D13 TEF consecutive file number — D13 also has 3.17.8
+               'reportesbc'],         # sp_ope_reportesbc fi=42 — reportes banco central/buró crédito
                # NOTE: 'cheque' intentionally NOT added — conflicts with 'cheq' keyword in 3.17.11
                # causing ~30 regressions in domains with both caps (D04/D11/D16/D44/D12)
                # NO restaurados: 'consulta','reporte','movimiento','saldo','estado','consultar'
@@ -660,7 +683,11 @@ KEYWORDS: dict[str, list[str]] = {
     '3.4.1':  ['preproceso', 'pre_proceso', 'valida_orden', 'validatransf',
                'valida_spei', 'pre_valid',
                # TEF/cheque truncado: validación de imagen antes de captura
-               'valida_imagen', 'valida_img', 'valida_imagencheque'],
+               'valida_imagen', 'valida_img', 'valida_imagencheque',
+               # Round 24: D13 bditef pre-validation primitives
+               'cal_fecha',          # cal_fecha_pre_fh fi=96 — cálculo de fecha pre-fecha (TEF scheduling)
+               'productopermitido',  # sp_validaproductopermitido fi=57 — valida producto habilitado
+               'bines'],             # sp_obtbines_sif fi=55 — obtiene BINs SIF (card routing validation)
     '3.4.2':  ['recepcion', 'recibe', 'captura_orden', 'rec_orden', 'recerror',
                'recdev', 'recext', 'recorden',
                # TEF/cheque truncado: insertar/consultar imagen de cheque
