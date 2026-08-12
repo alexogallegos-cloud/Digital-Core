@@ -163,6 +163,59 @@ class BankBrain:
             result.append(d)
         return result
 
+    def release_status(self, release_id: str) -> dict:
+        """Detalle de un release: productos que salieron a producción y productos en esa wave."""
+        r = self._db.execute(
+            "SELECT * FROM releases WHERE id = ?", (release_id,)
+        ).fetchone()
+        if not r:
+            return {}
+        result = dict(r)
+        result["scope"] = json.loads(result["scope"] or "[]")
+        result["products_live"] = [
+            dict(p) for p in self._db.execute(
+                """SELECT id, name, platform_id, status, segment
+                   FROM products WHERE went_live_release = ?""",
+                (release_id,),
+            ).fetchall()
+        ]
+        result["products_in_wave"] = [
+            dict(p) for p in self._db.execute(
+                """SELECT id, name, platform_id, status, segment
+                   FROM products WHERE launch_wave = ? AND went_live_release IS NULL""",
+                (release_id,),
+            ).fetchall()
+        ]
+        return result
+
+    # ── Vista TOGAF de sistemas ────────────────────────────────────────────
+    def systems_status(self) -> list[dict]:
+        """Todos los sistemas con clasificación TOGAF (togaf_type, togaf_state, production_status)."""
+        rows = self._db.execute(
+            """SELECT id, name, togaf_type, togaf_state, production_status, production_since,
+                      type, status
+               FROM systems ORDER BY togaf_type NULLS LAST, togaf_state, id"""
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def production_systems(self) -> list[dict]:
+        """Sistemas con al menos algo en producción (production_status = live o partial)."""
+        rows = self._db.execute(
+            """SELECT id, name, togaf_type, togaf_state, production_status, production_since
+               FROM systems WHERE production_status IN ('live', 'partial')
+               ORDER BY production_since NULLS LAST"""
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def in_flight_systems(self) -> list[dict]:
+        """Sistemas en desarrollo activo (production_status = in_flight)."""
+        rows = self._db.execute(
+            """SELECT id, name, togaf_type, togaf_state, production_status
+               FROM systems WHERE production_status = 'in_flight'
+               ORDER BY togaf_type, id"""
+        ).fetchall()
+        return [dict(r) for r in rows]
+
     # ── Capa estratégica ─────────────────────────────────────────────────
     def stakeholders(self, org: Optional[str] = None, level: Optional[str] = None) -> list[dict]:
         """Lista actores estratégicos, opcionalmente filtrado por org o nivel."""
@@ -473,6 +526,85 @@ class BankBrain:
             "by_domain": [dict(r) for r in rows],
         }
 
+    # ── ETB federado ─────────────────────────────────────────────────────
+    def capabilities_consolidated(self) -> list[dict]:
+        """Capacidades ETB cubiertas en algún sistema ATTACHED (COVERED o CROSS_CUTTING).
+        Cada fila incluye el sistema que la cubre y su etb_version local.
+        Permite a bank-brain responder "¿quién cubre L3-ID-X?" sin conocer el sistema de antemano.
+        """
+        # Construir UNION sobre todos los brains ATTACHed que tengan etb_l3
+        # Hoy solo 'legacy' (Informix); cuando Transact tenga brain.db se añade otro UNION.
+        try:
+            rows = self._db.execute("""
+                SELECT 'informix' AS system_id,
+                       id AS l3_id, l1_id, l2_id, name,
+                       bcop_status, etb_version
+                FROM legacy.etb_l3
+                WHERE bcop_status IN ('COVERED', 'CROSS_CUTTING')
+                ORDER BY l1_id, l2_id, id
+            """).fetchall()
+        except Exception:
+            return []
+        return [dict(r) for r in rows]
+
+    def capability_gap(self) -> list[dict]:
+        """Capacidades ETB L3 que ningún sistema cubre (NOT_COVERED en todos los brains).
+        Responde: ¿qué capacidades del modelo ETB quedan sin sistema después de la migración?
+        Es la validación de decommission de PISA: si una capability solo existe en legacy
+        y no hay sistema target que la cubra, es un riesgo de cutover.
+        """
+        try:
+            rows = self._db.execute("""
+                SELECT id AS l3_id, l1_id, l2_id, name, bcop_status, etb_version
+                FROM legacy.etb_l3
+                WHERE bcop_status = 'NOT_COVERED'
+                ORDER BY l1_id, l2_id, id
+            """).fetchall()
+        except Exception:
+            return []
+        return [dict(r) for r in rows]
+
+    def capability_alignment(self) -> list[dict]:
+        """Versión ETB por sistema attached — detecta desalineación cuando el catálogo evoluciona.
+        bank-brain es el custodio del modelo ETB; cuando ETB sube de versión, esta función
+        identifica qué brains todavía usan una versión anterior y necesitan rebuild.
+        """
+        systems_checked = [("informix", "legacy")]
+        result = []
+        for sys_id, schema in systems_checked:
+            try:
+                row = self._db.execute(
+                    f"SELECT DISTINCT etb_version FROM {schema}.etb_l3 LIMIT 1"
+                ).fetchone()
+                version = row["etb_version"] if row else "unknown"
+            except Exception:
+                version = "not_loaded"
+            result.append({"system_id": sys_id, "etb_version": version})
+        return result
+
+    def system_dependencies(
+        self, system_id: Optional[str] = None, direction: Optional[str] = None
+    ) -> list[dict]:
+        """Dependencias cross-sistema declaradas en bank-brain.
+        direction: 'inbound' | 'outbound' (perspectiva de source_system).
+        Refleja la regla: cada cerebro declara SU LADO de la relación — banco-brain agrega la vista global.
+        """
+        try:
+            where, params = [], []
+            if system_id:
+                where.append("(source_system = ? OR target_system = ?)")
+                params.extend([system_id, system_id])
+            if direction:
+                where.append("direction = ?"); params.append(direction)
+            clause = ("WHERE " + " AND ".join(where)) if where else ""
+            rows = self._db.execute(
+                f"SELECT * FROM system_dependencies {clause} ORDER BY source_system, dependency_type",
+                params,
+            ).fetchall()
+            return [dict(r) for r in rows]
+        except Exception:
+            return []
+
     # ── Legacy passthrough ────────────────────────────────────────────────
     def legacy_sp(self, sp_name: str, db_name: Optional[str] = None) -> Optional[dict]:
         """Consulta un SP directamente de brain.db legacy."""
@@ -530,10 +662,54 @@ def _cli():
         print(f"  {d['domain_id']:<4}  {d['target_sys']:<14} {d['confidence']:<8}  "
               f"{d['sp_count']:>5} SPs  {d['domain_name'] or '—'}")
 
-    print("\n-- Releases Unity --")
+    print("\n-- Sistemas (TOGAF) --")
+    for s in bb.systems_status():
+        print(f"  [{s['id']:<12}] {s['togaf_type'] or '?':<12} {s['togaf_state'] or '?':<14} "
+              f"{s['production_status'] or '?':<12} since={s['production_since'] or '—'}")
+
+    print("\n-- Sistemas en producción --")
+    for s in bb.production_systems():
+        print(f"  [{s['id']:<12}] {s['name']:<35} {s['production_status']:<10} since={s['production_since'] or '—'}")
+
+    print("\n-- Releases BanCoppel (R-series) + Waves Accenture (U-series) --")
     for r in bb.releases():
         scope = ", ".join(r["scope"])
-        print(f"  {r['id']}  {r['target_date']}  {r['status']:<10}  [{scope}]  {r['name']}")
+        print(f"  {r['id']:<3}  {r['target_date'] or '?':<9}  {r['status']:<12}  [{scope}]  {r['name']}")
+
+    print("\n-- Release R2 (products live) --")
+    rs = bb.release_status("R2")
+    for p in rs.get("products_live", []):
+        print(f"  LIVE  [{p['platform_id']:<12}] {p['name']}")
+
+    print("\n-- Release R4 (products in wave) --")
+    rs4 = bb.release_status("R4")
+    for p in rs4.get("products_in_wave", []):
+        print(f"  IN WAVE  [{p['platform_id']:<12}] {p['name']}")
+
+    print("\n-- Alineación ETB por sistema --")
+    for a in bb.capability_alignment():
+        print(f"  {a['system_id']:<15} etb_version={a['etb_version']}")
+
+    print("\n-- Capacidades ETB cubiertas (consolidado) --")
+    covered = bb.capabilities_consolidated()
+    by_sys: dict = {}
+    for c in covered:
+        by_sys.setdefault(c["system_id"], 0)
+        by_sys[c["system_id"]] += 1
+    for sys_id, cnt in by_sys.items():
+        print(f"  {sys_id:<15} {cnt:>3} L3 cubiertas")
+
+    print("\n-- Gap ETB (sin sistema que cubra) --")
+    gap = bb.capability_gap()
+    print(f"  {len(gap)} L3 sin cobertura en ningún sistema")
+
+    print("\n-- Dependencias cross-sistema --")
+    deps = bb.system_dependencies()
+    if deps:
+        for d in deps:
+            print(f"  {d['source_system']:<12} --[{d['dependency_type']}]--> {d['target_system']:<12}  {d['criticality'] or '?'}  {d['description'] or ''[:60]}")
+    else:
+        print("  (tabla system_dependencies vacía — sin dependencias declaradas aún)")
 
     print("\n-- Minutas (últimas 10) --")
     for d in bb.documents(limit=10):

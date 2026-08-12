@@ -337,6 +337,27 @@ def build():
 
     CREATE INDEX IF NOT EXISTS idx_products_platform ON products(platform_id);
     CREATE INDEX IF NOT EXISTS idx_products_status   ON products(status);
+
+    -- Dependencias cross-sistema (documentadas desde perspectiva de bank-brain)
+    -- Regla AM: cada cerebro declara su lado; bank-brain agrega la vista global.
+    -- direction: 'outbound' = source_system depende de target_system
+    --            'inbound'  = source_system es proveedor de target_system
+    -- En este contexto la FK es entre sistemas del ecosistema; target_system puede ser
+    -- externo (ej. controlm, banxico, visa) — no FK constraint en target_system.
+    CREATE TABLE IF NOT EXISTS system_dependencies (
+        id               TEXT PRIMARY KEY,
+        source_system    TEXT NOT NULL REFERENCES systems(id),
+        target_system    TEXT NOT NULL,    -- puede ser externo (no FK)
+        dependency_type  TEXT NOT NULL,    -- orchestrates | calls | reads | writes | feeds | notifies
+        direction        TEXT NOT NULL,    -- outbound (source necesita target) | inbound (target necesita source)
+        description      TEXT,
+        evidence         TEXT,             -- cuantificación: "3,847 SPs batch invocados desde malla CTM"
+        criticality      TEXT,             -- critical | high | medium | low
+        notes            TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_sysdep_source ON system_dependencies(source_system);
+    CREATE INDEX IF NOT EXISTS idx_sysdep_target ON system_dependencies(target_system);
     """)
     db.commit()
     print("DDL aplicado")
@@ -376,6 +397,14 @@ def build():
          "Capa de integración y orquestación entre sistemas (reemplaza bdicnweb + bdinteg).",
          "Dominios D01, D02 migran a APIs publicadas en MuleSoft.",
          "integration", "transitional", "in_flight", None),
+        ("controlm",   "Control-M / Malla Batch", "middleware", "active",
+         "BMC Control-M",
+         "Orquestador de trabajos batch del ecosistema BanCoppel. Ejecuta la malla de SPs "
+         "Informix en ventanas horarias programadas (noche, fin de semana). Gestiona cadenas "
+         "de dependencia entre jobs, calendarios, alertas de SLA batch y retry automático.",
+         "Sistema en producción desde operación legacy. Transicionará a nueva malla batch "
+         "cuando PISA entre en decommission. Dato requerido: ¿cuántos jobs activos en CTM?",
+         "integration", "baseline", "live", "~2000"),
     ]
     db.executemany(
         "INSERT OR REPLACE INTO systems VALUES (?,?,?,?,?,?,?,?,?,?,?)",
@@ -612,13 +641,57 @@ def build():
     db.executemany("INSERT OR REPLACE INTO products VALUES (?,?,?,?,?,?,?,?,?,?)", products_data)
     print(f"Productos insertados: {len(products_data)}")
 
+    # ── 10. System Dependencies ───────────────────────────────────────────────
+    # Regla: cada cerebro declara su lado; bank-brain agrega la vista global.
+    # Perspectiva: outbound = el source_system NECESITA al target_system.
+    sys_deps = [
+        # PISA (Informix) ← Control-M: CTM orquesta los SPs batch de PISA.
+        # Desde perspectiva de PISA = inbound (recibe orquestación).
+        # Desde perspectiva de CTM  = outbound (llama a PISA).
+        ("pisa-controlm-batch",
+         "pisa", "controlm", "orchestrates", "inbound",
+         "Control-M invoca los SPs batch de Informix en ventanas programadas. "
+         "La lógica de negocio (SPs) vive en PISA; el cuándo y en qué orden vive en Control-M.",
+         "Dato pendiente: N° de jobs activos en malla CTM → SP Informix",
+         "critical",
+         "Relación bidireccional documentada en ambos brains. "
+         "PISA brain: cross_dependencies → outbound a CTM (batch-callable SPs). "
+         "CTM brain (futuro): cross_dependencies → inbound a PISA (jobs que invocan SPs)."),
+        # Informix → Banxico (SPEI batch liquidaciones nocturnas)
+        ("pisa-banxico-spei-batch",
+         "pisa", "banxico", "feeds", "outbound",
+         "Informix genera los archivos de liquidación SPEI que se envían a Banxico en batch nocturno.",
+         "Dominio D08 — SPs de SPEI generan archivos CECOBAN/SPEI para cierre de día.",
+         "critical",
+         "Externo — Banxico no tiene brain. Dependencia documentada desde perspectiva PISA."),
+        # Informix → VISA/MC reportería
+        ("pisa-visa-reporteria",
+         "pisa", "smartvista", "feeds", "outbound",
+         "Informix genera reportería de tarjetas (D32) que alimenta reconciliación en SmartVista.",
+         "Dominio D32 — SPs de reportería Visa/MC. SmartVista los consume.",
+         "high", None),
+        # Atlas extrae de PISA (ya en interfaces, se documenta también como dependencia)
+        ("pisa-atlas-extraccion",
+         "pisa", "atlas", "reads", "inbound",
+         "Atlas extrae datos históricos de PISA vía JDBC y archivos flat para migración.",
+         "Extracción nocturna por ventana batch. Impacta performance en ventana activa.",
+         "high", None),
+    ]
+    db.executemany(
+        """INSERT OR REPLACE INTO system_dependencies
+           (id, source_system, target_system, dependency_type, direction, description, evidence, criticality, notes)
+           VALUES (?,?,?,?,?,?,?,?,?)""",
+        sys_deps
+    )
+    print(f"System dependencies insertadas: {len(sys_deps)}")
+
     db.commit()
 
     # ── 10. Resumen ───────────────────────────────────────────────────────
     print()
     print("=== RESUMEN bank-brain.db ===")
     for table in ["systems", "documents", "interfaces", "migrations", "releases",
-                  "vendors", "products"]:
+                  "vendors", "products", "system_dependencies"]:
         n, = db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()
         print(f"  {table:<15}: {n:>6}")
 

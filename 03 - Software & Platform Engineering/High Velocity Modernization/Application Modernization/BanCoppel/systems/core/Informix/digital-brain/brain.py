@@ -656,6 +656,35 @@ class BCOPBrain:
         ''').fetchall()
         return self._rows(rows)
 
+    def etb_version(self) -> str:
+        """Versión del catálogo ETB con que fue construido este brain.
+        bank-brain usa este valor para detectar brains desalineados cuando ETB evoluciona.
+        Retorna 'unknown' si el brain fue construido antes de que se introdujera etb_version.
+        """
+        row = self._db().execute(
+            'SELECT DISTINCT etb_version FROM etb_l3 LIMIT 1'
+        ).fetchone()
+        return row['etb_version'] if row and row['etb_version'] else 'unknown'
+
+    def cross_dependencies(self, direction: str = None) -> list[dict]:
+        """Dependencias cross-sistema declaradas desde la perspectiva de ESTE brain.
+        direction: 'inbound' (otros sistemas dependen de nosotros)
+                   'outbound' (nosotros dependemos de otros sistemas)
+                   None = todas.
+        Cada brain es autónomo: si lo desconectas del federation, sigue sabiendo sus dependencias.
+        """
+        sel = 'SELECT * FROM cross_dependencies'
+        if direction:
+            rows = self._db().execute(
+                f'{sel} WHERE direction=? ORDER BY criticality, other_system',
+                (direction,)
+            ).fetchall()
+        else:
+            rows = self._db().execute(
+                f'{sel} ORDER BY direction, criticality, other_system'
+            ).fetchall()
+        return self._rows(rows)
+
     # ── Diagramas de flujo / tareas ───────────────────────────────────────────
 
     def flow_diagram(self, sp_name: str, depth: int = 2,
@@ -873,6 +902,40 @@ class BCOPBrain:
             },
             'journey': journey,
         }
+
+    # ── Interfaz estándar B1 (requerida por AM CLAUDE.md — Regla B1) ────────────
+    # Cinco métodos canónicos que bank-brain espera en todos los sistemas.
+    # Permiten federación uniforme sin conocer los alias internos del brain.
+
+    def coverage(self) -> dict:
+        """Estado del brain: N entidades, N reglas, N dominios. Alias de stats()."""
+        return self.stats()
+
+    def components(self, domain: str = None, limit: int = 200) -> list[dict]:
+        """Entidades del sistema (SPs). Filtra opcionalmente por dominio.
+        Usa columnas base garantizadas — no depende de columnas de enriquecimiento post-build.
+        """
+        base = 'SELECT id, name, db, domain, fan_in, fan_out, biz, sp_role, is_soul FROM sps'
+        if domain:
+            rows = self._db().execute(
+                f'{base} WHERE domain=? ORDER BY fan_in DESC LIMIT ?',
+                (domain.upper(), limit)
+            ).fetchall()
+        else:
+            rows = self._db().execute(
+                f'{base} ORDER BY fan_in DESC LIMIT ?', (limit,)
+            ).fetchall()
+        return self._rows(rows)
+
+    def rules(self, component_id: str) -> list[dict]:
+        """Reglas de negocio de un SP. Alias de rules_of_sp(component_id)."""
+        return self.rules_of_sp(component_id)
+
+    def domains(self) -> list[dict]:
+        """Dominios/módulos del sistema. Alias de all_domains()."""
+        return self.all_domains()
+
+    # ── Diagramas de flujo / tareas ───────────────────────────────────────────
 
     def orchestrators(self, domain_id: str = None,
                       min_rules: int = 0,

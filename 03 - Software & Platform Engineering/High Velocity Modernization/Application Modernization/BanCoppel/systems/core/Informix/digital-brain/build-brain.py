@@ -167,6 +167,7 @@ SCHEMA = '''
 PRAGMA journal_mode=WAL;
 PRAGMA synchronous=NORMAL;
 
+DROP TABLE IF EXISTS cross_dependencies;
 DROP TABLE IF EXISTS etb_l3_fts;
 DROP TABLE IF EXISTS sp_capabilities;
 DROP TABLE IF EXISTS domain_capabilities;
@@ -323,7 +324,8 @@ CREATE TABLE etb_l3 (
     name           TEXT,
     definition     TEXT,
     bcop_status    TEXT,
-    bcop_cross_sps TEXT
+    bcop_cross_sps TEXT,
+    etb_version    TEXT    -- versión del catálogo ETB (ej. "5.0") — detecta desalineación al federar
 );
 
 CREATE TABLE domain_capabilities (
@@ -359,6 +361,20 @@ CREATE INDEX idx_dc_domain     ON domain_capabilities(domain_id);
 CREATE INDEX idx_dc_l3         ON domain_capabilities(l3_id);
 CREATE INDEX idx_sp_cap_sp     ON sp_capabilities(sp_id);
 CREATE INDEX idx_sp_cap_l3     ON sp_capabilities(l3_id);
+
+-- Dependencias cross-sistema declaradas desde la perspectiva de ESTE brain.
+-- Regla AM: cada cerebro es autónomo — declara sus dependencias en ambas direcciones.
+-- direction: outbound = este sistema necesita al otro (lo llama / lee / alimenta)
+--            inbound  = el otro sistema depende de este (lo orquesta / lo lee)
+CREATE TABLE cross_dependencies (
+    id               TEXT PRIMARY KEY,
+    other_system     TEXT NOT NULL,     -- el sistema externo (puede no tener brain propio)
+    dependency_type  TEXT NOT NULL,     -- orchestrates | calls | reads | writes | feeds | notifies
+    direction        TEXT NOT NULL,     -- outbound | inbound (perspectiva de ESTE brain)
+    description      TEXT,
+    evidence         TEXT,              -- cuantificación concreta
+    criticality      TEXT              -- critical | high | medium | low
+);
 
 CREATE VIRTUAL TABLE sps_fts USING fts5(
     id, label, biz, justification, soul_pattern,
@@ -713,6 +729,7 @@ def load_etb_capabilities(conn):
         etb = json.load(f)
 
     caps = etb.get('capabilities', [])
+    etb_version = etb.get('meta', {}).get('version', 'unknown')
     l1_seen, l2_seen = {}, {}
     l3_rows, dc_rows = [], []
 
@@ -727,7 +744,8 @@ def load_etb_capabilities(conn):
             c['l3_id'], c['l2_id'], c['l1_id'],
             c['l3'], c.get('definition', ''),
             c['bcop_status'],
-            json.dumps(c.get('bcop_cross_sps', []), ensure_ascii=False)
+            json.dumps(c.get('bcop_cross_sps', []), ensure_ascii=False),
+            etb_version,
         ))
         for dom_id, mtype in c.get('bcop_domain_mapping', {}).items():
             dc_rows.append((dom_id, c['l3_id'], mtype))
@@ -739,8 +757,8 @@ def load_etb_capabilities(conn):
     conn.executemany('INSERT OR REPLACE INTO etb_l2 (id,l1_id,name) VALUES (?,?,?)', l2_rows)
     conn.executemany('''
         INSERT OR REPLACE INTO etb_l3
-        (id,l2_id,l1_id,name,definition,bcop_status,bcop_cross_sps)
-        VALUES (?,?,?,?,?,?,?)
+        (id,l2_id,l1_id,name,definition,bcop_status,bcop_cross_sps,etb_version)
+        VALUES (?,?,?,?,?,?,?,?)
     ''', l3_rows)
     conn.executemany(
         'INSERT OR IGNORE INTO domain_capabilities (domain_id,l3_id,mapping_type) VALUES (?,?,?)',
@@ -807,6 +825,36 @@ def merge_fine_capabilities(conn):
     overrides  = conn.execute("SELECT COUNT(*) FROM sp_capabilities WHERE source='override'").fetchone()[0]
     l3_after   = conn.execute('SELECT COUNT(DISTINCT l3_id) FROM sp_capabilities').fetchone()[0]
     print(f'  merge fine-map +{n_after - n_before:,} overrides   total {n_after:,} links   {l3_after} L3 distintas   ({overrides} overrides)')
+
+
+def classify_sp_archetypes(conn):
+    """
+    Puebla sp_archetype (patrón estructural) derivado de fan_in/fan_out.
+    Ortogonal a sp_role (topología ESB) — no lo modifica.
+    """
+    rows = conn.execute('SELECT id, fan_in, fan_out FROM sps').fetchall()
+
+    def _arch(fi, fo):
+        fi, fo = fi or 0, fo or 0
+        if fo > 50:                  return 'super_orchestrator'
+        if fo > 5  and fi > 0:       return 'orchestrator'
+        if 1 <= fo <= 5 and fi > 0:  return 'implementation'
+        if fo == 0 and fi > 0:       return 'leaf'
+        if fo > 5  and fi == 0:      return 'batch_orchestrator'
+        return 'batch'
+
+    updates = [(_arch(fi, fo), sp_id) for sp_id, fi, fo in rows]
+    conn.executemany('UPDATE sps SET sp_archetype=? WHERE id=?', updates)
+    conn.commit()
+
+    from collections import Counter
+    dist = Counter(u[0] for u in updates)
+    total = len(updates)
+    print(f'  sp_archetype {total:>6,} SPs clasificados:')
+    for arch in ['super_orchestrator','batch_orchestrator','orchestrator','implementation','leaf','batch']:
+        n = dist.get(arch, 0)
+        if n:
+            print(f'               {arch:<25} {n:>6,}  ({n/total*100:.1f}%)')
 
 
 def classify_sps(conn):
@@ -1031,6 +1079,79 @@ def print_summary(conn):
         print(f'  {"CROSS_CUTTING":<20} {cc:>8,}  ({round(100*cc/l3_n,1)}%)')
 
 
+def seed_cross_dependencies(conn):
+    """Declara las dependencias cross-sistema desde la perspectiva de ESTE brain (Informix/PISA).
+    Regla AM: cada cerebro es autónomo — documenta su lado de la relación.
+    bank-brain agrega la vista global; si desconectas este brain, sigue sabiendo que CTM lo orquesta.
+    """
+    deps = [
+        # INBOUND: Control-M nos orquesta (CTM invoca nuestros SPs en ventanas batch).
+        ("pisa-controlm-batch",
+         "controlm", "orchestrates", "inbound",
+         "Control-M invoca los SPs batch de Informix en ventanas programadas (cierre de día, "
+         "liquidación nocturna, conciliación SPEI, reportería regulatoria). "
+         "La lógica de negocio vive aquí; el cuándo y el orden viven en Control-M.",
+         "87 SPs confirmados batch_archetype=CTM_ENTRY (load-ctm-to-brain.py 2026-08-12). "
+         "1,358 jobs en ctm_jobs; ~1,271 via shell scripts pendientes de mapear.",
+         "critical"),
+        # INBOUND: MuleSoft/ESB nos llama vía los endpoints expuestos (journeys).
+        ("pisa-mulesoft-esb",
+         "mulesoft", "calls", "inbound",
+         "MuleSoft/ESB invoca los SPs de Informix expuestos como endpoints (bdicnweb, bdinteg). "
+         "Los 166 journeys online son el catálogo de endpoints accesibles vía ESB.",
+         "166 journeys on-line; 552 SPs con métricas de producción (ESB logs 2026-04-24). "
+         "D01 bdicnweb: punto de entrada principal del ESB.",
+         "critical"),
+        # INBOUND: e-global (autorizador externo) nos llama para autorización de pagos.
+        ("pisa-eglobal-auth",
+         "e-global", "calls", "inbound",
+         "e-global (capa de autorización externa) invoca SPs de autorización de pagos "
+         "en Informix (dominio D08 SPEI + D16 Tarjetas). Códigos ESB sin contexto son "
+         "probablemente errores de autorización e-global.",
+         "Evidenciado en logs ESB 2026-04-24; análisis en portal/incidents/frontier-latency.html.",
+         "critical"),
+        # OUTBOUND: PISA envía archivos a Banxico (SPEI liquidación nocturna).
+        ("pisa-banxico-spei",
+         "banxico", "feeds", "outbound",
+         "Informix genera archivos de liquidación SPEI (D08) que se entregan a la red Banxico "
+         "en el proceso de cierre de día. RTO 15 min Banxico.",
+         "Dominio D08 — SPs de cierre SPEI generan archivos CECOBAN. "
+         "627 reglas D13-D16 con triaje regulatorio completo.",
+         "critical"),
+        # OUTBOUND: PISA alimenta a SmartVista con reportería de tarjetas.
+        ("pisa-smartvista-reporteria",
+         "smartvista", "feeds", "outbound",
+         "Informix genera reportería batch de tarjetas (D32 — Visa/Mastercard) "
+         "que SmartVista consume para reconciliación nocturna.",
+         "Dominio D32 — bdireports ~reportes nocturnos Visa/MC. "
+         "migration_fate=replicate (12 SPs, 133 reglas).",
+         "high"),
+        # INBOUND: Atlas nos lee para extracción de migración.
+        ("pisa-atlas-extraccion",
+         "atlas", "reads", "inbound",
+         "Atlas extrae datos históricos de Informix vía JDBC y archivos flat para la migración "
+         "a los sistemas target (Transact, Apolo, SmartVista). Compite con ventana batch.",
+         "11,391 SPs en scope; migration_fate cubriendo todos los dominios D01-D49.",
+         "high"),
+        # OUTBOUND: PISA alimenta reportería regulatoria CNBV.
+        ("pisa-cnbv-reporteria",
+         "cnbv", "feeds", "outbound",
+         "Informix genera reportería regulatoria automatizada para CNBV (D36 bdirepaut). "
+         "Incluye Serie R, CUB Anexo 33-36, reportes PLD/LIDE.",
+         "Dominio D36 bdirepaut — regulatoria CNBV. D15 LIDE 100% reg cobertura post-triaje.",
+         "high"),
+    ]
+    conn.executemany(
+        """INSERT OR REPLACE INTO cross_dependencies
+           (id, other_system, dependency_type, direction, description, evidence, criticality)
+           VALUES (?,?,?,?,?,?,?)""",
+        deps
+    )
+    conn.commit()
+    n = conn.execute('SELECT COUNT(*) FROM cross_dependencies').fetchone()[0]
+    print(f'  cross_dependencies {n:>5} dependencias declaradas')
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -1058,8 +1179,10 @@ def main():
     build_sp_capabilities(conn)
     merge_fine_capabilities(conn)
     classify_sps(conn)
+    classify_sp_archetypes(conn)
     load_prod_metrics(conn)
     build_sp_terms(conn)
+    seed_cross_dependencies(conn)
 
     print('\nConstruyendo índices FTS5:')
     build_fts(conn)
