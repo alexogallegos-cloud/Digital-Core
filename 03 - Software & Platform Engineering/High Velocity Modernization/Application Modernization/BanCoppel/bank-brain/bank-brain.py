@@ -163,6 +163,122 @@ class BankBrain:
             result.append(d)
         return result
 
+    # ── Capa estratégica ─────────────────────────────────────────────────
+    def stakeholders(self, org: Optional[str] = None, level: Optional[str] = None) -> list[dict]:
+        """Lista actores estratégicos, opcionalmente filtrado por org o nivel."""
+        where, params = [], []
+        if org:
+            where.append("org = ?"); params.append(org)
+        if level:
+            where.append("level = ?"); params.append(level)
+        clause = ("WHERE " + " AND ".join(where)) if where else ""
+        rows = self._db.execute(
+            f"SELECT * FROM stakeholders {clause} ORDER BY appearance_count DESC",
+            params,
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def stakeholder_brief(self, stakeholder_id: str) -> dict:
+        """Resumen completo de un actor: perfil + decisiones + posturas + ítems abiertos."""
+        sh = self._db.execute(
+            "SELECT * FROM stakeholders WHERE id = ?", (stakeholder_id,)
+        ).fetchone()
+        if not sh:
+            return {}
+        result = dict(sh)
+        result["decisions"] = [
+            dict(r) for r in self._db.execute(
+                "SELECT * FROM decisions WHERE driver_id = ? ORDER BY date", (stakeholder_id,)
+            ).fetchall()
+        ]
+        result["positions"] = [
+            dict(r) for r in self._db.execute(
+                "SELECT * FROM positions WHERE stakeholder_id = ? ORDER BY date", (stakeholder_id,)
+            ).fetchall()
+        ]
+        result["open_items"] = [
+            dict(r) for r in self._db.execute(
+                "SELECT * FROM open_items WHERE owner_id = ? AND status = 'open' ORDER BY priority DESC, date",
+                (stakeholder_id,)
+            ).fetchall()
+        ]
+        return result
+
+    def decisions(
+        self,
+        topic: Optional[str] = None,
+        driver: Optional[str] = None,
+        limit: int = 50,
+    ) -> list[dict]:
+        """Decisiones estratégicas, filtrable por tema o quién la impulsó."""
+        where, params = [], []
+        if topic:
+            where.append("topic LIKE ?"); params.append(f"%{topic}%")
+        if driver:
+            where.append("driver_id = ?"); params.append(driver)
+        clause = ("WHERE " + " AND ".join(where)) if where else ""
+        rows = self._db.execute(
+            f"SELECT * FROM decisions {clause} ORDER BY date LIMIT ?",
+            params + [limit],
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def positions(
+        self,
+        stakeholder_id: Optional[str] = None,
+        topic: Optional[str] = None,
+        sentiment: Optional[str] = None,
+        limit: int = 50,
+    ) -> list[dict]:
+        """Posturas de actores sobre temas, filtrable por persona, tema o sentimiento."""
+        where, params = [], []
+        if stakeholder_id:
+            where.append("stakeholder_id = ?"); params.append(stakeholder_id)
+        if topic:
+            where.append("topic LIKE ?"); params.append(f"%{topic}%")
+        if sentiment:
+            where.append("sentiment = ?"); params.append(sentiment)
+        clause = ("WHERE " + " AND ".join(where)) if where else ""
+        rows = self._db.execute(
+            f"SELECT p.*, s.name AS stakeholder_name FROM positions p "
+            f"LEFT JOIN stakeholders s ON s.id = p.stakeholder_id "
+            f"{clause} ORDER BY p.date LIMIT ?",
+            params + [limit],
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def open_items(
+        self,
+        owner: Optional[str] = None,
+        priority: Optional[str] = None,
+        status: str = "open",
+        limit: int = 50,
+    ) -> list[dict]:
+        """Ítems estratégicos abiertos."""
+        where, params = ["status = ?"], [status]
+        if owner:
+            where.append("owner_id = ?"); params.append(owner)
+        if priority:
+            where.append("priority = ?"); params.append(priority)
+        clause = "WHERE " + " AND ".join(where)
+        rows = self._db.execute(
+            f"SELECT oi.*, s.name AS owner_name FROM open_items oi "
+            f"LEFT JOIN stakeholders s ON s.id = oi.owner_id "
+            f"{clause} ORDER BY priority DESC, date LIMIT ?",
+            params + [limit],
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def topic_brief(self, topic: str) -> dict:
+        """Todo lo que el brain sabe sobre un tema: decisiones + posturas + minutas."""
+        return {
+            "topic": topic,
+            "decisions": self.decisions(topic=topic),
+            "positions": self.positions(topic=topic),
+            "documents": self.search_docs(topic),
+            "open_items": self.open_items(status="open"),
+        }
+
     # ── Legacy passthrough ────────────────────────────────────────────────
     def legacy_sp(self, sp_name: str, db_name: Optional[str] = None) -> Optional[dict]:
         """Consulta un SP directamente de brain.db legacy."""
@@ -229,6 +345,27 @@ def _cli():
     for d in bb.documents(limit=10):
         sys_m = json.loads(d["systems_mentioned"] or "[]")
         print(f"  {d['date'] or '?':<12}  {d['filename'][:55]:<55}  {sys_m}")
+
+    print("\n-- Actores estratégicos (por apariciones) --")
+    for s in bb.stakeholders():
+        if s["appearance_count"] == 0:
+            continue
+        print(f"  {s['name']:<30} {s['org']:<12} {s['level']:<12} {s['influence']:<16} {s['appearance_count']:>3} aparic")
+
+    print("\n-- Posturas de preocupación (concerned) --")
+    for p in bb.positions(sentiment="concerned", limit=10):
+        name = p.get("stakeholder_name") or p["stakeholder_id"]
+        print(f"  {name:<28} [{p['topic']:<14}] {p['stance'][:90]}")
+
+    print("\n-- Decisiones estratégicas recientes --")
+    for d in bb.decisions(limit=8):
+        drv = d["driver_id"] or "—"
+        print(f"  {d['id']} {d['date'] or '?':12} [{d['topic']:<14}] drv={drv:<20} {d['decision'][:70]}")
+
+    print("\n-- Open items HIGH priority --")
+    for oi in bb.open_items(priority="high", limit=10):
+        owner = oi.get("owner_name") or oi["owner_id"] or "—"
+        print(f"  {oi['id']} {oi['date'] or '?':12} {owner:<28} {oi['item'][:70]}")
 
     bb.close()
 
