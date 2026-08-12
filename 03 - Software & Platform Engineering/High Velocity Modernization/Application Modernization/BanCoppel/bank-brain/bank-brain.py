@@ -228,9 +228,23 @@ class BankBrain:
         stakeholder_id: Optional[str] = None,
         topic: Optional[str] = None,
         sentiment: Optional[str] = None,
+        client_only: bool = False,
         limit: int = 50,
     ) -> list[dict]:
-        """Posturas de actores sobre temas, filtrable por persona, tema o sentimiento."""
+        """Posturas de actores sobre temas.
+        client_only=True filtra solo posturas de actores BanCoppel/Grupo Coppel
+        (excluye proveedores: Accenture, AWS, etc.).
+        """
+        base = "client_positions" if client_only else (
+            "positions p LEFT JOIN stakeholders s ON s.id = p.stakeholder_id"
+        )
+        if client_only:
+            base_query = f"SELECT * FROM client_positions"
+        else:
+            base_query = (
+                "SELECT p.*, s.name AS stakeholder_name, s.org FROM positions p "
+                "LEFT JOIN stakeholders s ON s.id = p.stakeholder_id"
+            )
         where, params = [], []
         if stakeholder_id:
             where.append("stakeholder_id = ?"); params.append(stakeholder_id)
@@ -240,9 +254,7 @@ class BankBrain:
             where.append("sentiment = ?"); params.append(sentiment)
         clause = ("WHERE " + " AND ".join(where)) if where else ""
         rows = self._db.execute(
-            f"SELECT p.*, s.name AS stakeholder_name FROM positions p "
-            f"LEFT JOIN stakeholders s ON s.id = p.stakeholder_id "
-            f"{clause} ORDER BY p.date LIMIT ?",
+            f"{base_query} {clause} ORDER BY date LIMIT ?",
             params + [limit],
         ).fetchall()
         return [dict(r) for r in rows]

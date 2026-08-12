@@ -23,7 +23,7 @@ assert BRAIN_DB.exists(), "Ejecuta build-bank-brain.py primero"
 # ── Stakeholders pre-seed (conocimiento previo de las minutas) ─────────────
 KNOWN_STAKEHOLDERS = [
     # id,                    name,                      role,                              org,         level,      area,               influence
-    ("juan-manuel",          "Juan Manuel",             "Director General / Sponsor Unity","bancoppel",  "c-level",  "Dirección General","sponsor"),
+    ("juan-manuel",          "Juan Manuel Fernández Islas", "IT Corporate Director FFSS", "grupo-coppel", "c-level", "IT / Financial Services (FFSS)", "sponsor"),
     ("daniel-angeles",       "Daniel Ángeles",          "Subdirector de Infraestructura",  "bancoppel",  "director", "Infraestructura",  "decision-maker"),
     ("arturo-perez",         "Arturo Pérez",            "Líder Legacy / PISA",             "bancoppel",  "manager",  "Tecnología Legacy","contributor"),
     ("erica-mata",           "Erica Mata",              "CISO / Head OSI",                 "bancoppel",  "director", "Seguridad",        "decision-maker"),
@@ -43,6 +43,10 @@ KNOWN_STAKEHOLDERS = [
 
 # Aliases para normalización de nombres en texto libre
 NAME_ALIASES: dict[str, str] = {
+    "juan manuel fernández islas": "juan-manuel",
+    "juan manuel fernandez islas": "juan-manuel",
+    "fernández islas": "juan-manuel",
+    "fernandez islas": "juan-manuel",
     "juan manuel": "juan-manuel",
     "juanmanuel":  "juan-manuel",
     "daniel":      "daniel-angeles",
@@ -326,6 +330,28 @@ CREATE INDEX IF NOT EXISTS idx_pos_topic ON positions(topic);
 CREATE INDEX IF NOT EXISTS idx_dec_date  ON decisions(date);
 CREATE INDEX IF NOT EXISTS idx_oi_owner  ON open_items(owner_id);
 CREATE INDEX IF NOT EXISTS idx_oi_status ON open_items(status);
+
+-- Posturas solo de actores cliente (BanCoppel / Grupo Coppel)
+-- Excluye proveedores (Accenture, AWS, etc.) para no contaminar la voz del cliente
+CREATE VIEW IF NOT EXISTS client_positions AS
+    SELECT p.*, s.name AS stakeholder_name, s.org, s.level, s.role
+    FROM positions p
+    JOIN stakeholders s ON s.id = p.stakeholder_id
+    WHERE s.org IN ('bancoppel', 'grupo-coppel');
+
+-- Posturas de proveedores (Accenture, AWS, etc.) — análisis y recomendaciones externas
+CREATE VIEW IF NOT EXISTS vendor_positions AS
+    SELECT p.*, s.name AS stakeholder_name, s.org, s.level, s.role
+    FROM positions p
+    JOIN stakeholders s ON s.id = p.stakeholder_id
+    WHERE s.org NOT IN ('bancoppel', 'grupo-coppel');
+
+-- Decisiones conducidas por actores cliente (o sin atribución)
+CREATE VIEW IF NOT EXISTS client_decisions AS
+    SELECT d.*, s.name AS driver_name, s.org
+    FROM decisions d
+    LEFT JOIN stakeholders s ON s.id = d.driver_id
+    WHERE s.org IN ('bancoppel', 'grupo-coppel') OR d.driver_id IS NULL;
 
 CREATE VIEW IF NOT EXISTS stakeholder_activity AS
     SELECT
