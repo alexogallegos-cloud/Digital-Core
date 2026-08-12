@@ -24,8 +24,11 @@ Confidence:
   low    — heurístico débil, requiere revisión de código
 """
 
-import sqlite3
+import sqlite3, sys
 from pathlib import Path
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 DB = Path(__file__).parent / "bank-brain.db"
 assert DB.exists(), "Ejecuta build-bank-brain.py primero"
