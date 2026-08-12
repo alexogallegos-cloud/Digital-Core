@@ -39,6 +39,7 @@ KNOWN_STAKEHOLDERS = [
     ("salomon-monroy",       "Salomon Monroy",          "ACN Delivery",                    "accenture",  "manager",  "Delivery",         "contributor"),
     ("luis-barragan",        "Luis Alberto Barragán Mejía", "Subdirector de Tecnología de Canales", "bancoppel", "director", "Tecnología de Canales", "decision-maker"),
     ("emmy",                 "Emmy",                    "Apoyo de Negocio Unity",          "bancoppel",  "manager",  "Negocio",          "contributor"),
+    ("mercedes-espinosa",   "María Mercedes Espinosa Cortés", "Arquitecto Empresarial", "grupo-coppel", "manager", "Arquitectura Empresarial", "decision-maker"),
 ]
 
 # Aliases para normalización de nombres en texto libre
@@ -90,6 +91,12 @@ NAME_ALIASES: dict[str, str] = {
     "luis barragan": "luis-barragan",
     "emmy":        "emmy",
     "emmys":       "emmy",
+    "maría mercedes espinosa cortés": "mercedes-espinosa",
+    "maria mercedes espinosa cortes": "mercedes-espinosa",
+    "mercedes espinosa": "mercedes-espinosa",
+    "mercedes":    "mercedes-espinosa",
+    "espinosa cortés": "mercedes-espinosa",
+    "espinosa cortes": "mercedes-espinosa",
 }
 
 # ── Patrones de extracción ─────────────────────────────────────────────────
