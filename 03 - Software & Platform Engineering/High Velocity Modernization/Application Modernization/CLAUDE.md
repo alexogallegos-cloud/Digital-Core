@@ -109,6 +109,114 @@ Soy un **Application Modernization Lead** especializado en Strangler-Fig sobre m
 - ADR-SPE-AM-005: AI-assisted tooling stack (Amazon Q Developer Transform · GitHub Copilot · custom agents).
 - ADR-SPE-AM-006: [cuando aplique] Manejo de tipos propietarios del datastore origen — rounding financiero, semántica de tipos legacy, equivalencia en target DB. Obligatorio para proyectos "base de datos como aplicación" (Informix, Oracle Forms, SQL Server stored-proc-heavy).
 - ADR-SPE-AM-007: [cuando aplique SAP] Estrategia de migración SAP — brownfield (in-place upgrade) vs. greenfield (reimplementación) vs. bluefield (selective data migration). Obligatorio para proyectos SAP ECC → S/4HANA.
+- ADR-SPE-AM-008: Taxonomía canónica de sistemas del cliente — clasificación por tipo (core · processors · channels · data · integration · compliance) y estructura de carpetas por sistema. Obligatorio antes de crear el primer sistema en `systems/` del cliente.
+
+---
+
+## Taxonomía Canónica de Sistemas Analizados
+
+> **Regla AM obligatoria**: todo sistema analizado bajo Application Modernization sigue esta taxonomía — sin excepciones. Se aplica a cada proyecto cliente nuevo desde el primer artefacto.
+
+### Clasificación de Sistemas — Alineada a TOGAF 9
+
+TOGAF 9 distingue cuatro dominios de arquitectura empresarial. Para AM, los sistemas del cliente se mapean a tres dominios (Application, Data, Integration); el dominio Technology (infraestructura) es scope de `04 Intelligent Infrastructure`, no de AM.
+
+| Tipo de sistema | TOGAF Domain | System-of-X | Velocidad de cambio | Req. equivalencia | Ejemplo BanCoppel |
+|-----------------|--------------|-------------|---------------------|-------------------|-------------------|
+| `core` | Application Architecture | **SoR** (System of Record) | Baja — alta criticidad | ≥ 99.99% | Informix, Transact |
+| `processors` | Application Architecture | **SoR** especializado | Baja-media | ≥ 99.95% | SmartVista/BPC |
+| `channels` | Application Architecture | **SoD** (System of Differentiation) | Alta — Strangler-Fig | ≥ 99.5% por capability | Apolo, AppMóvil |
+| `data` | **Data Architecture** (dominio propio) | **SoD / SoI** | Media | N/A — no replica AS-IS | Atlas, DataLake |
+| `integration` | Application ↔ Technology | Transitional (no permanente) | Media | N/A — reemplaza routing | MuleSoft |
+| `compliance` | Application Architecture | **SoR** regulatorio | Baja | ≥ 99.99% (CNBV/Banxico) | PLD, reportería CNBV |
+
+**Conceptos TOGAF aplicados:**
+
+- **System-of-X** (Pace Layer): determina la estrategia de migración. Un SoR migra conservadoramente con parallel-run obligatorio. Un SoD migra por capability con Strangler-Fig. Un SoI puede lanzarse greenfield sin equivalencia contra AS-IS.
+- **Architecture State (Baseline → Transitional → Target)**: cada sistema tiene un estado en el continuum. Un cliente puede tener simultáneamente `Informix = Baseline` y `Transact = Target` del mismo ABB — no hay contradicción, eso define el estado Transitional del programa.
+- **ABB vs SBB**: el ABB (Architecture Building Block) describe QUÉ hace el sistema (la capability: "Core Banking", "Card Processing"). El SBB (Solution Building Block) describe CÓMO está implementado (Informix, Transact, SmartVista). La carpeta es el SBB; `knowledge-base/ontology/abb-to-sbb.json` traza ABB → SBB. Sin esta trazabilidad, el `migration_fate` no tiene base formal.
+- **BIAN** (Banking Industry Architecture Network — endorsed por TOGAF como reference architecture bancaria): los dominios de negocio del legacy (ej. D01-D49 en Informix) mapean a BIAN Service Domains, que a su vez mapean a capabilities de los sistemas target. Este mapeo vive en `knowledge-base/ontology/bian-mapping.json`.
+
+### Estructura Canónica del Proyecto Cliente
+
+```
+{Cliente}/
+├── bank-brain/                     ← inteligencia federada del programa (nivel cliente)
+│   ├── bank-brain.db               ← SQLite federado — ATTACHa todos los brain.db de sistemas
+│   ├── bank-brain.py               ← Agent API (federated queries)
+│   ├── build-bank-brain.py         ← pipeline de construcción
+│   └── [scripts de enriquecimiento estratégico]
+└── systems/                        ← todos los sistemas, agrupados por tipo TOGAF
+    ├── core/                       ← SoR de alta criticidad (core bancario, ERP)
+    ├── processors/                 ← procesadores especializados (tarjetas, pagos, liquidación)
+    ├── channels/                   ← canales digitales y físicos (SoD)
+    ├── data/                       ← plataformas de datos — Data Architecture domain propio
+    ├── integration/                ← capa de integración (ESB/iPaaS — transitional)
+    └── compliance/                 ← sistemas regulatorios y de cumplimiento
+```
+
+### Estructura Canónica por Sistema
+
+Cada carpeta leaf dentro de `systems/{tipo}/{sistema}/` sigue esta estructura exacta:
+
+```
+{sistema}/
+├── source/              ← artefactos originales del sistema (readonly — no modificar)
+│   ├── code/            ← código fuente (SQL, SPL, ABAP, COBOL, Java, configuración, etc.)
+│   ├── docs/            ← documentación vendor/técnica original
+│   └── ops/             ← config operativa (scripts de producción, CTM jobs, JCL)
+├── digital-brain/       ← base de conocimiento SQLite + Agent API del sistema
+│   ├── brain.db         ← SQLite del sistema (gitignored)
+│   ├── build-brain.py   ← pipeline de construcción del brain
+│   └── brain.py         ← Agent API — clase {Sistema}Brain con interfaz estándar
+├── knowledge-base/      ← conocimiento estructurado y analítico
+│   ├── rules/           ← reglas de negocio extraídas (JSON por dominio/módulo)
+│   ├── vocab/           ← vocabulario y terminología del sistema
+│   ├── ontology/        ← mapeo TOGAF: abb-to-sbb.json · bian-mapping.json · architecture-states.json
+│   └── regulacion/      ← mapeo a regulación aplicable (CNBV, Banxico, CNBV Anexo 33, etc.)
+├── generators/          ← scripts de análisis y enriquecimiento (re-ejecutables, versionados)
+├── dt/                  ← Digital Twins del sistema (siempre `dt/` — nunca DTs/ ni digital-twins/)
+├── portal/              ← visualizaciones HTML activas
+│   ├── index.html       ← entry point del portal del sistema
+│   └── data/            ← JSON de datos para las visualizaciones
+├── old/                 ← archivos archivados (nunca borrar — mover aquí)
+└── CLAUDE.md            ← agente especializado del sistema (hereda este CLAUDE.md)
+```
+
+### Metadata TOGAF Obligatoria en CLAUDE.md por Sistema
+
+El encabezado del `CLAUDE.md` de cada sistema declara:
+
+```markdown
+# {Nombre del Sistema} — Application Modernization Agent
+# togaf_type: core | processors | channels | data | integration | compliance
+# togaf_state: baseline | transitional | target
+# togaf_system_of: record | differentiation | innovation
+# togaf_abb: {nombre del ABB que implementa, ej. "core-banking"}
+# bian_domains: [{BIAN Service Domains cubiertos, ej. "loan-management", "savings-management"}]
+```
+
+### Interfaz Estándar de `brain.py`
+
+Todo sistema expone como mínimo estos métodos en su clase `{Sistema}Brain`:
+
+| Método | Retorna | Propósito |
+|--------|---------|-----------|
+| `coverage()` | `dict` | Estado del brain (N entidades, N reglas, N dominios) |
+| `components(...)` | `list[dict]` | Entidades del sistema (SPs, programas, tablas, APIs) |
+| `search(query)` | `list[dict]` | Búsqueda fulltext sobre el brain |
+| `rules(component_id)` | `list[dict]` | Reglas asociadas a una entidad |
+| `domains()` | `list[dict]` | Dominios/módulos del sistema |
+
+### Reglas de la Taxonomía (no negociables)
+
+1. `dt/` siempre en minúsculas — nunca `DTs/`, `Dts/`, `digital-twins/`.
+2. `source/` es de solo lectura — el código original no se modifica; los análisis van a `generators/`.
+3. `old/` nunca se borra — los archivos archivados se mueven aquí; son evidencia de evolución del sistema.
+4. `knowledge-base/ontology/abb-to-sbb.json` es obligatorio — sin él, el `migration_fate` de las entidades legacy queda `unknown`.
+5. `brain.py` expone la interfaz estándar de 5 métodos — permite que `bank-brain` (federado) consulte todos los sistemas de forma uniforme.
+6. Un sistema puede tener `togaf_state: baseline` y coexistir con otro que tenga `togaf_state: target` para el mismo ABB — eso es el estado Transitional del programa, no una inconsistencia.
+7. Los sistemas de tipo `data` (Data Architecture domain) no requieren `migration_fate` ni equivalencia funcional contra AS-IS — se construyen, no se migran.
 
 ---
 
@@ -224,4 +332,4 @@ Hereda checklist del sub-offering HVM + criterios AM:
 
 ---
 
-*Última actualización: 2026-07-16 · v0.3 · Añadido Specialist - SAP ABAP `[STATE: ACTIVE]` con instancia de referencia Gentera `SPE-AM-002`; ADR-SPE-AM-007 para estrategia de migración SAP. v0.2 (2026-07-06): sub-agentes RE alineados al Gemelo Cognitivo; stubs Oracle Forms y SQL Server T-SQL. v0.1 (2026-05-28): promovido desde HVM a L4 propio.*
+*Última actualización: 2026-08-12 · v0.4 · Taxonomía Canónica de Sistemas alineada a TOGAF 9 (System-of-X · Baseline/Transitional/Target · ABB/SBB · BIAN) + ADR-SPE-AM-008 + estructura canónica por sistema (source/digital-brain/knowledge-base/generators/dt/portal/old/CLAUDE.md) + interfaz estándar brain.py. v0.3 (2026-07-16): Specialist - SAP ABAP + ADR-SPE-AM-007. v0.2 (2026-07-06): sub-agentes RE alineados al Gemelo Cognitivo. v0.1 (2026-05-28): promovido desde HVM a L4 propio.*
