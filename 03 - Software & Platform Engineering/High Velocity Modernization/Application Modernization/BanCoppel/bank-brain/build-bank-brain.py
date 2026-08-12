@@ -227,13 +227,17 @@ def build():
     db.executescript("""
     -- Sistemas participantes en el ecosistema BanCoppel Unity
     CREATE TABLE IF NOT EXISTS systems (
-        id          TEXT PRIMARY KEY,      -- apolo, smartvista, transact, pisa, atlas, mulesoft
-        name        TEXT NOT NULL,
-        type        TEXT NOT NULL,         -- legacy | target | migration | middleware
-        status      TEXT NOT NULL,         -- active | in-dev | planned | decommission
-        tech_stack  TEXT,
-        description TEXT,
-        notes       TEXT
+        id                TEXT PRIMARY KEY,      -- apolo, smartvista, transact, pisa, atlas, mulesoft
+        name              TEXT NOT NULL,
+        type              TEXT NOT NULL,         -- legacy | target | migration | middleware
+        status            TEXT NOT NULL,         -- active | in-dev | planned | decommission
+        tech_stack        TEXT,
+        description       TEXT,
+        notes             TEXT,
+        togaf_type        TEXT,   -- core | processors | channels | data | integration | compliance
+        togaf_state       TEXT,   -- baseline | transitional | target
+        production_status TEXT,   -- live | partial | in_flight | planned
+        production_since  TEXT    -- primera fecha en producción (YYYY-QN o YYYY-MM)
     );
 
     -- Documentos indexados (minutas + futuros ADRs, specs)
@@ -319,15 +323,16 @@ def build():
 
     -- Productos bancarios (puente producto → plataforma → legacy)
     CREATE TABLE IF NOT EXISTS products (
-        id           TEXT PRIMARY KEY,
-        name         TEXT NOT NULL,
-        platform_id  TEXT REFERENCES systems(id),
-        vendor_id    TEXT REFERENCES vendors(id),
-        segment      TEXT,           -- 'retail', 'empresarial', 'colaboradores'
-        status       TEXT,           -- 'piloto', 'productivo', 'planned'
-        launch_wave  TEXT,
-        target_date  TEXT,
-        notes        TEXT
+        id                TEXT PRIMARY KEY,
+        name              TEXT NOT NULL,
+        platform_id       TEXT REFERENCES systems(id),
+        vendor_id         TEXT REFERENCES vendors(id),
+        segment           TEXT,                -- 'retail', 'empresarial', 'colaboradores'
+        status            TEXT,                -- 'live' | 'partial' | 'in_flight' | 'planned'
+        launch_wave       TEXT,                -- release wave en curso (R4, U1, etc.)
+        target_date       TEXT,
+        notes             TEXT,
+        went_live_release TEXT REFERENCES releases(id)  -- release en que salió a producción (null si aún no)
     );
 
     CREATE INDEX IF NOT EXISTS idx_products_platform ON products(platform_id);
@@ -338,33 +343,42 @@ def build():
 
     # ── 3. Sistemas ───────────────────────────────────────────────────────
     systems = [
-        ("pisa",       "PISA / BCOPCore",      "legacy",     "active",
+        #  id            name                   type       status     tech_stack
+        #  description   notes
+        #  togaf_type    togaf_state            production_status  production_since
+        ("pisa",       "PISA / BCOPCore",      "legacy",  "active",
          "IBM Informix IDS 14.10 / POWER-AIX / SPL",
          "Core bancario legado BanCoppel. 10,144 SPs, 60 TB, 8,005 reglas de negocio catalogadas.",
-         "En proceso de decommission dentro del programa Unity."),
-        ("apolo",      "Apolo",                "target",     "in-dev",
+         "En proceso de decommission dentro del programa Unity.",
+         "core", "baseline", "live", "~2000"),
+        ("apolo",      "Apolo",                "target",  "in-dev",
          "Java / microservicios / Kubernetes / PostgreSQL",
          "Sistema destino para crédito, origination, cobranza, garantías y riesgos de crédito.",
-         "Desarrollo activo. Dominios D03, D06, D11, D26, D46, D47, D48."),
-        ("smartvista", "SmartVista / BPC",     "target",     "in-dev",
+         "Desarrollo activo. Dominios D03, D06, D11, D26, D46, D47, D48.",
+         "channels", "target", "in_flight", None),
+        ("smartvista", "SmartVista / BPC",     "target",  "in-dev",
          "SmartVista (BPC) / Java",
          "Sistema destino para tarjetas TDC y TDD.",
-         "Dominios D16, D32. Procesador de tarjetas certificado Visa/MC."),
-        ("transact",   "Transact",             "target",     "planned",
+         "Dominios D16, D32. Procesador de tarjetas certificado Visa/MC.",
+         "processors", "transitional", "partial", "2026-Q1"),
+        ("transact",   "Transact",             "target",  "in-dev",
          "Temenos Transact / Java",
          "Sistema destino para cuentas, depósitos, SPEI, TEF, sucursales.",
-         "Dominios D04, D05, D07, D08, D10, D13, D14, D23, D37, D49."),
-        ("atlas",      "Atlas",                "migration",  "in-dev",
+         "Dominios D04, D05, D07, D08, D10, D13, D14, D23, D37, D49.",
+         "core", "transitional", "partial", "2026-Q1"),
+        ("atlas",      "Atlas",                "migration", "in-dev",
          "Talend / Python / Spark",
          "Plataforma de migración de datos PISA → sistemas destino.",
-         "No es sistema operativo. Gobierna la extracción, transformación y carga de datos históricos."),
-        ("mulesoft",   "MuleSoft / API Gateway","middleware", "in-dev",
+         "No es sistema operativo. Gobierna la extracción, transformación y carga de datos históricos.",
+         "data", "transitional", "in_flight", None),
+        ("mulesoft",   "MuleSoft / API Gateway","middleware","in-dev",
          "MuleSoft Anypoint Platform",
          "Capa de integración y orquestación entre sistemas (reemplaza bdicnweb + bdinteg).",
-         "Dominios D01, D02 migran a APIs publicadas en MuleSoft."),
+         "Dominios D01, D02 migran a APIs publicadas en MuleSoft.",
+         "integration", "transitional", "in_flight", None),
     ]
     db.executemany(
-        "INSERT OR REPLACE INTO systems VALUES (?,?,?,?,?,?,?)",
+        "INSERT OR REPLACE INTO systems VALUES (?,?,?,?,?,?,?,?,?,?,?)",
         systems
     )
     print(f"Sistemas insertados: {len(systems)}")
@@ -471,8 +485,32 @@ def build():
 
     # ── 7. Releases Unity ─────────────────────────────────────────────────
     releases = [
+        # ── Hitos internos BanCoppel (R-series) ────────────────────────────
+        ("R1", "Release 1 — Infraestructura y Aprobaciones Regulatorias",
+         "2025-12", "completed",
+         json.dumps(["transact", "smartvista", "atlas"], ensure_ascii=False),
+         "Setup de ambientes cloud (AWS). Aprobación CNBV para operación cloud-native.",
+         "Hito regulatorio clave: CNBV autoriza operación sobre AWS antes del primer go-live"),
+        ("R2", "Release 2 — Friends & Family",
+         "2026-Q1", "completed",
+         json.dumps(["transact", "smartvista"], ensure_ascii=False),
+         "Crédito simple empresarial (Transact) + Tarjeta de crédito BanCoppel (SmartVista). "
+         "Usuarios internos y amigos/familia.",
+         "Primer go-live real con productos bancarios en plataformas target"),
+        ("R3", "Release 3 — POC Colaboradores",
+         "2026-Q2", "completed",
+         json.dumps(["smartvista", "atlas"], ensure_ascii=False),
+         "SmartVista: POC con colaboradores BanCoppel. Atlas: primera fase de migración de datos históricos.",
+         "Cerrado — confirmado 2026-08-12"),
+        ("R4", "Release 4 — Go-Live Masivo",
+         "2026-12", "in_flight",
+         json.dumps(["smartvista", "apolo", "transact", "atlas"], ensure_ascii=False),
+         "Rollout masivo cartera TDC (17 funcionalidades críticas SmartVista). Apollo App a mercado abierto. "
+         "Depósitos/cuentas Transact inician.",
+         "Deadline de negocio: diciembre 2026. Hito de cierre del primer bloque Unity"),
+        # ── Waves del Plan Director Accenture (U-series) ───────────────────
         ("U1", "Unity Wave 1 — Crédito Digital",
-         "2026-09", "in-dev",
+         "2026-09", "in_flight",
          json.dumps(["apolo", "mulesoft"], ensure_ascii=False),
          "Migración de origination y crédito personal (D03, D06). Apolo go-live parcial.",
          "Plan Director semanas 1-6 (mar-abr 2026)"),
@@ -534,37 +572,44 @@ def build():
 
     # ── 9. Products ───────────────────────────────────────────────────────
     products_data = [
+        # id, name, platform_id, vendor_id, segment, status, launch_wave, target_date, notes, went_live_release
         ("tarjeta-credito-sv",
          "Tarjeta de Crédito BanCoppel (SmartVista)",
-         "smartvista", "bpc", "retail", "piloto", "R2", "2026-Q1",
-         "Primer producto nativo en SmartVista/BPC. Fase friends & family. "
-         "Rollout masivo cartera completa en R4 (dic-2026)."),
+         "smartvista", "bpc", "retail", "partial", "R4", "2026-Q1",
+         "Primer producto nativo en SmartVista/BPC. Fase friends & family (R2). "
+         "Rollout masivo cartera completa en R4 (dic-2026).",
+         "R2"),     # went_live_release
         ("credito-simple-emp",
          "Crédito Simple Empresarial (Transact)",
-         "transact", "temenos", "empresarial", "piloto", "R2", "2026-Q1",
-         "Primer producto nativo en Temenos Transact. CNBV aprobó operación sobre AWS. "
-         "Escenario minorista y cuentas requieren aprobaciones adicionales."),
+         "transact", "temenos", "empresarial", "partial", "R4", "2026-Q1",
+         "Primer producto nativo en Temenos Transact. CNBV aprobó operación sobre AWS (R2). "
+         "Escenario minorista y cuentas requieren aprobaciones adicionales.",
+         "R2"),     # went_live_release
         ("tarjeta-credito-full",
          "Cartera Completa TDC (migración masiva a SmartVista)",
-         "smartvista", "bpc", "retail", "planned", "R4", "2026-12",
+         "smartvista", "bpc", "retail", "in_flight", "R4", "2026-12",
          "Migración de toda la cartera TDC al procesador SmartVista. "
-         "POC en R3 con colaboradores. 17 funcionalidades críticas en R4."),
+         "POC en R3 con colaboradores. 17 funcionalidades críticas en R4.",
+         None),    # went_live_release = null (no está en producción aún)
         ("apollo-app",
          "Apollo App (experiencia móvil)",
-         "apolo", None, "retail", "planned", "R4", "2026-12",
-         "Experiencia móvil para lanzamiento a mercado abierto. Deadline de negocio: R4."),
+         "apolo", None, "retail", "in_flight", "R4", "2026-12",
+         "Experiencia móvil para lanzamiento a mercado abierto. Deadline de negocio: R4.",
+         None),
         ("depositos-cuentas",
          "Depósitos y Cuentas (Transact)",
          "transact", "temenos", "retail", "planned", None, "2028-Q1",
          "Cuentas y depósitos retail en Temenos Transact. "
-         "Depende de Atlas Fase 2 (Golden Record MDM productivo). Dominios legacy: D04, D05."),
+         "Depende de Atlas Fase 2 (Golden Record MDM productivo). Dominios legacy: D04, D05.",
+         None),
         ("credito-retail",
          "Crédito Retail (Transact)",
          "transact", "temenos", "retail", "planned", None, "2028-Q4",
          "Crédito retail completo en Temenos Transact. Hito de cierre del negocio core Coppel. "
-         "Dominios legacy: D03, D06."),
+         "Dominios legacy: D03, D06.",
+         None),
     ]
-    db.executemany("INSERT OR REPLACE INTO products VALUES (?,?,?,?,?,?,?,?,?)", products_data)
+    db.executemany("INSERT OR REPLACE INTO products VALUES (?,?,?,?,?,?,?,?,?,?)", products_data)
     print(f"Productos insertados: {len(products_data)}")
 
     db.commit()
