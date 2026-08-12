@@ -24,7 +24,7 @@ assert BRAIN_DB.exists(), "Ejecuta build-bank-brain.py primero"
 KNOWN_STAKEHOLDERS = [
     # id,                    name,                      role,                              org,         level,      area,               influence
     ("juan-manuel",          "Juan Manuel Fernández Islas", "IT Corporate Director FFSS", "grupo-coppel", "c-level", "IT / Financial Services (FFSS)", "sponsor"),
-    ("daniel-angeles",       "Daniel Ángeles",          "Subdirector de Infraestructura",  "bancoppel",  "director", "Infraestructura",  "decision-maker"),
+    ("daniel-angeles",       "Daniel Ángeles Baltazar", "Subdirector de Infraestructura",  "bancoppel",  "director", "Infraestructura",  "decision-maker"),
     ("arturo-perez",         "Arturo Pérez",            "Líder Legacy / PISA",             "bancoppel",  "manager",  "Tecnología Legacy","contributor"),
     ("erica-mata",           "Erica Mata",              "CISO / Head OSI",                 "bancoppel",  "director", "Seguridad",        "decision-maker"),
     ("arcadio",              "Arcadio Delgado",         "Enterprise Architect FFSS",       "bancoppel",  "manager",  "Arquitectura Empresarial / FFSS", "decision-maker"),
@@ -50,6 +50,10 @@ NAME_ALIASES: dict[str, str] = {
     "juan manuel": "juan-manuel",
     "juanmanuel":  "juan-manuel",
     "daniel":      "daniel-angeles",
+    "daniel ángeles baltazar": "daniel-angeles",
+    "daniel angeles baltazar": "daniel-angeles",
+    "ángeles baltazar": "daniel-angeles",
+    "angeles baltazar": "daniel-angeles",
     "daniel ángeles": "daniel-angeles",
     "daniel angeles": "daniel-angeles",
     "arturo":      "arturo-perez",
