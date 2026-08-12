@@ -1,10 +1,15 @@
-# BCOPCore — Component Delivery Agent
+# Informix Core (BCOPCore / PISA) — Component Delivery Agent
 > **Proyecto**: BanCoppel Application Modernization · `SPE-AM-001`
-> **Componente**: BCOPCore — Core bancario IBM Informix IDS 14.10 / POWER-AIX
+> **Componente**: Core bancario IBM Informix IDS 14.10 / POWER-AIX · alias: BCOPCore, PISA
+> **Ruta canónica**: `BanCoppel/systems/core/Informix/`
 > **Target**: AWS Aurora PostgreSQL · microservicios · API Gateway
 > **Offering**: Software & Platform Engineering · DevOps classic
 > **Fase actual**: DISCOVER · Etapa 1 (en progreso)
 > **Ontología de SMEs**: v3.8 (2026-07-30)
+>
+> **TOGAF metadata**
+> `togaf_type: core` · `togaf_state: baseline` · `togaf_system_of: record`
+> `togaf_abb: core-banking` · `bian_domains: [loan-management, savings-management, payments-execution, financial-accounting, regulatory-reporting]`
 
 ---
 

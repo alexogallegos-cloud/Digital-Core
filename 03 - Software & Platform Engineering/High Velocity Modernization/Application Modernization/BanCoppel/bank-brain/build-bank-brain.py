@@ -1,7 +1,7 @@
 """
 build-bank-brain.py — Federated Bank Brain para BanCoppel Unity
 Crea bank-brain.db que integra:
-  - BCOPCore legacy (via ATTACH brain.db)
+  - Informix Core legacy (via ATTACH brain.db — systems/core/Informix/)
   - Minutas Plan Director (56 .docx)
   - Mapa de migración: dominio → sistema destino
   - Interfaces entre sistemas
@@ -14,8 +14,8 @@ from datetime import datetime
 
 # ── Rutas ──────────────────────────────────────────────────────────────────
 BASE = Path(__file__).parent.parent
-LEGACY_DB  = BASE / "BCOPCore/digital-brain/brain.db"
-MINUTAS_DIR = BASE / "BCOPCore/source/minutas/pd"
+LEGACY_DB  = BASE / "systems/core/Informix/digital-brain/brain.db"
+MINUTAS_DIR = BASE / "systems/core/Informix/source/minutas/pd"
 OUT_DB = Path(__file__).parent / "bank-brain.db"
 
 assert LEGACY_DB.exists(), f"No se encuentra brain.db en {LEGACY_DB}"
@@ -306,6 +306,32 @@ def build():
     CREATE INDEX IF NOT EXISTS idx_mig_domain  ON migrations(domain_id);
     CREATE INDEX IF NOT EXISTS idx_doc_date    ON documents(date);
     CREATE INDEX IF NOT EXISTS idx_doc_systems ON documents(systems_mentioned);
+
+    -- Vendors tecnológicos (Temenos, BPC, etc.)
+    CREATE TABLE IF NOT EXISTS vendors (
+        id          TEXT PRIMARY KEY,
+        name        TEXT NOT NULL,
+        system_id   TEXT REFERENCES systems(id),
+        category    TEXT,
+        modules     TEXT,   -- JSON array
+        notes       TEXT
+    );
+
+    -- Productos bancarios (puente producto → plataforma → legacy)
+    CREATE TABLE IF NOT EXISTS products (
+        id           TEXT PRIMARY KEY,
+        name         TEXT NOT NULL,
+        platform_id  TEXT REFERENCES systems(id),
+        vendor_id    TEXT REFERENCES vendors(id),
+        segment      TEXT,           -- 'retail', 'empresarial', 'colaboradores'
+        status       TEXT,           -- 'piloto', 'productivo', 'planned'
+        launch_wave  TEXT,
+        target_date  TEXT,
+        notes        TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_products_platform ON products(platform_id);
+    CREATE INDEX IF NOT EXISTS idx_products_status   ON products(status);
     """)
     db.commit()
     print("DDL aplicado")
@@ -477,12 +503,77 @@ def build():
     )
     print(f"Releases insertados: {len(releases)}")
 
+    # ── 8. Vendors ────────────────────────────────────────────────────────
+    vendors_data = [
+        (
+            "temenos", "Temenos", "transact", "core-banking",
+            json.dumps([
+                "Retail Banking", "Corporate Banking / Crédito Empresarial",
+                "Depósitos y Cuentas", "Pagos (SPEI/TEF/ACH)", "Sucursales",
+                "Gestión de Límites", "Cumplimiento Regulatorio"
+            ], ensure_ascii=False),
+            "Vendor del core bancario Transact. EY consultor responsable de implementación. "
+            "Productivo: crédito simple empresarial (CNBV aprobado sobre AWS). "
+            "Roadmap: cuentas/depósitos 1T-2028, crédito retail 4T-2028."
+        ),
+        (
+            "bpc", "BPC (Budget Pro Consulting) — SmartVista", "smartvista", "card-processing",
+            json.dumps([
+                "Emisión de Tarjetas (TDC/TDD)", "Autorización en tiempo real",
+                "Liquidación y Compensación", "Gestión de Límites de Crédito",
+                "Recompensas y Beneficios", "Reportería Visa/Mastercard",
+                "Gestión de Disputas y Aclaraciones"
+            ], ensure_ascii=False),
+            "Vendor del procesador de tarjetas SmartVista. Certificado Visa/Mastercard. "
+            "Productivo: tarjeta de crédito BanCoppel (friends & family, R2). "
+            "Rollout masivo cartera completa R4 (dic-2026)."
+        ),
+    ]
+    db.executemany("INSERT OR REPLACE INTO vendors VALUES (?,?,?,?,?,?)", vendors_data)
+    print(f"Vendors insertados: {len(vendors_data)}")
+
+    # ── 9. Products ───────────────────────────────────────────────────────
+    products_data = [
+        ("tarjeta-credito-sv",
+         "Tarjeta de Crédito BanCoppel (SmartVista)",
+         "smartvista", "bpc", "retail", "piloto", "R2", "2026-Q1",
+         "Primer producto nativo en SmartVista/BPC. Fase friends & family. "
+         "Rollout masivo cartera completa en R4 (dic-2026)."),
+        ("credito-simple-emp",
+         "Crédito Simple Empresarial (Transact)",
+         "transact", "temenos", "empresarial", "piloto", "R2", "2026-Q1",
+         "Primer producto nativo en Temenos Transact. CNBV aprobó operación sobre AWS. "
+         "Escenario minorista y cuentas requieren aprobaciones adicionales."),
+        ("tarjeta-credito-full",
+         "Cartera Completa TDC (migración masiva a SmartVista)",
+         "smartvista", "bpc", "retail", "planned", "R4", "2026-12",
+         "Migración de toda la cartera TDC al procesador SmartVista. "
+         "POC en R3 con colaboradores. 17 funcionalidades críticas en R4."),
+        ("apollo-app",
+         "Apollo App (experiencia móvil)",
+         "apolo", None, "retail", "planned", "R4", "2026-12",
+         "Experiencia móvil para lanzamiento a mercado abierto. Deadline de negocio: R4."),
+        ("depositos-cuentas",
+         "Depósitos y Cuentas (Transact)",
+         "transact", "temenos", "retail", "planned", None, "2028-Q1",
+         "Cuentas y depósitos retail en Temenos Transact. "
+         "Depende de Atlas Fase 2 (Golden Record MDM productivo). Dominios legacy: D04, D05."),
+        ("credito-retail",
+         "Crédito Retail (Transact)",
+         "transact", "temenos", "retail", "planned", None, "2028-Q4",
+         "Crédito retail completo en Temenos Transact. Hito de cierre del negocio core Coppel. "
+         "Dominios legacy: D03, D06."),
+    ]
+    db.executemany("INSERT OR REPLACE INTO products VALUES (?,?,?,?,?,?,?,?,?)", products_data)
+    print(f"Productos insertados: {len(products_data)}")
+
     db.commit()
 
-    # ── 8. Resumen ────────────────────────────────────────────────────────
+    # ── 10. Resumen ───────────────────────────────────────────────────────
     print()
     print("=== RESUMEN bank-brain.db ===")
-    for table in ["systems", "documents", "interfaces", "migrations", "releases"]:
+    for table in ["systems", "documents", "interfaces", "migrations", "releases",
+                  "vendors", "products"]:
         n, = db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()
         print(f"  {table:<15}: {n:>6}")
 

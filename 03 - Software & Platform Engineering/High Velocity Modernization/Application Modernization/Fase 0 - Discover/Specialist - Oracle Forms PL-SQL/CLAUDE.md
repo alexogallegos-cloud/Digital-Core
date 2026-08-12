@@ -43,7 +43,7 @@ No es un agente estratégico: **hace el trabajo** de documentar qué hace el sis
 ## Pendiente para activación (cuando haya deal)
 
 1. Portar las **5 Etapas** (Setup & Inventory · Static Analysis · Data RE · Business Logic Extraction · Domain Decomposition) desde el Specialist Informix SPL, sustituyendo las queries de catálogo Informix por los catálogos Oracle de arriba.
-2. Construir el **extractor Oracle** que emite el JSON normalizado (§6 del método) — reutiliza el **renderer cognitivo** (tech-agnóstico) de la instancia de referencia `../../BanCoppel/BCOPCore/`.
+2. Construir el **extractor Oracle** que emite el JSON normalizado (§6 del método) — reutiliza el **renderer cognitivo** (tech-agnóstico) de la instancia de referencia `../../BanCoppel/systems/core/Informix/`.
 3. Catálogo de tipos Oracle → target con `[RIESGO-EQUIVALENCIA]` (NUMBER/DATE/secuencias).
 
 ---

@@ -32,7 +32,7 @@ from typing import Optional
 # ── Rutas ──────────────────────────────────────────────────────────────────
 BASE      = Path(__file__).parent.parent
 BRAIN_DB  = Path(__file__).parent / "bank-brain.db"
-MINUTAS   = BASE / "BCOPCore/source/minutas/pd"
+MINUTAS   = BASE / "systems/core/Informix/source/minutas/pd"
 
 # ── Modelos disponibles ────────────────────────────────────────────────────
 MODELS = {

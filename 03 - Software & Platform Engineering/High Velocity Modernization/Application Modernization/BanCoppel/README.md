@@ -9,7 +9,7 @@
 
 | ID | Sistema | Función | Tecnología legacy | Spec | Fase SDLC |
 |---|---|---|---|---|---|
-| `SPE-AM-001` | BCOPCore | Core bancario BanCoppel — crédito · captación · pagos · batch · reportería | IBM Informix IDS · SPL (Stored Procedure Language) | [spec-spe-am-bcop-core.md](BCOPCore/spec-spe-am-bcop-core.md) | DISCOVER — Etapa 0 |
+| `SPE-AM-001` | Informix Core (BCOPCore) | Core bancario BanCoppel — crédito · captación · pagos · batch · reportería | IBM Informix IDS · SPL (Stored Procedure Language) | [spec-spe-am-bcop-core.md](systems/core/Informix/spec-spe-am-bcop-core.md) | DISCOVER — Etapa 0 |
 
 ---
 
@@ -46,7 +46,7 @@ BanCoppel opera su core bancario bajo el patrón **"base de datos como aplicaci�
 
 ### Insumos del cliente
 
-- [ ] **0.1** Código fuente SPL cargado en `BCOPCore/source/BCOPCore/`
+- [ ] **0.1** Código fuente SPL cargado en `systems/core/Informix/source/BCOPCore/`
 - [ ] **0.2** Inventario maestro de objetos: SPs · funciones · triggers · tablas · vistas · secuencias (de `sysprocedures`, `systables`, `systriggers`)
 - [ ] **0.3** Esquema DDL completo: `CREATE TABLE` · tipos · constraints · índices
 - [ ] **0.4** Logs de ejecución (onstat · sysmaster · slow query log ≥ 30 días producción) — para baselining NFR

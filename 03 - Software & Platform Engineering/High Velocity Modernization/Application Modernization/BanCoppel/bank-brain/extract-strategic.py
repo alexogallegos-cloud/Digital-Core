@@ -16,7 +16,7 @@ from collections import defaultdict
 # ── Rutas ──────────────────────────────────────────────────────────────────
 BASE      = Path(__file__).parent.parent
 BRAIN_DB  = Path(__file__).parent / "bank-brain.db"
-MINUTAS   = BASE / "BCOPCore/source/minutas/pd"
+MINUTAS   = BASE / "systems/core/Informix/source/minutas/pd"
 
 assert BRAIN_DB.exists(), "Ejecuta build-bank-brain.py primero"
 
@@ -41,6 +41,9 @@ KNOWN_STAKEHOLDERS = [
     ("emmy",                 "Emmy",                    "Apoyo de Negocio Unity",          "bancoppel",  "manager",  "Negocio",          "contributor"),
     ("mercedes-espinosa",   "María Mercedes Espinosa Cortés", "Arquitecto Empresarial", "grupo-coppel", "manager", "Arquitectura Empresarial", "decision-maker"),
     ("angelica-tolosa",     "Angélica María Tolosa Bravo",  "Executive Director",      "ey",          "director", "Advisory / Estrategia",    "decision-maker"),
+    ("miguel-bucio",        "Miguel Ángel Bucio",           "Gerente de Infraestructura", "bancoppel", "manager",  "Infraestructura",          "decision-maker"),
+    ("christian-zazueta",   "Christian Alfonso Zazueta Treviño", "Senior Manager — Data & Operational Readiness", "bancoppel", "manager", "Data / Readiness Operacional", "decision-maker"),
+    ("teresa-gonzalez",     "Teresa González Navarro", "Gerente Nacional — Alineación Estratégica y Oficina Dirección General SSFF", "grupo-coppel", "director", "Estrategia / Oficina DG / SSFF Coppel", "sponsor"),
 ]
 
 # Aliases para normalización de nombres en texto libre
@@ -105,6 +108,22 @@ NAME_ALIASES: dict[str, str] = {
     "tolosa bravo":    "angelica-tolosa",
     "angélica":        "angelica-tolosa",
     "angelica":        "angelica-tolosa",
+    "miguel ángel bucio": "miguel-bucio",
+    "miguel angel bucio": "miguel-bucio",
+    "miguel bucio":    "miguel-bucio",
+    "miguel":          "miguel-bucio",
+    "christian alfonso zazueta treviño": "christian-zazueta",
+    "christian alfonso zazueta trevino": "christian-zazueta",
+    "christian zazueta": "christian-zazueta",
+    "zazueta treviño": "christian-zazueta",
+    "zazueta trevino": "christian-zazueta",
+    "christian":       "christian-zazueta",
+    "teresa gonzález navarro": "teresa-gonzalez",
+    "teresa gonzalez navarro": "teresa-gonzalez",
+    "teresa gonzález":  "teresa-gonzalez",
+    "teresa gonzalez":  "teresa-gonzalez",
+    "teresa":           "teresa-gonzalez",
+    "tere":             "teresa-gonzalez",
 }
 
 # ── Patrones de extracción ─────────────────────────────────────────────────

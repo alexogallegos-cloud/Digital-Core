@@ -204,7 +204,7 @@ WHERE b.datakey = 'D' AND b.data MATCHES '*[0-9][0-9]/[0-9][0-9]/[0-9][0-9]*';
 - Correlacionar fechas + productos + hitos del cliente y la regulación → curva de crecimiento por dominio, relevo generacional y deuda por era.
 - `[ARTEFACTO]` `evolution-{sistema}.html` + `generations-{sistema}.html`.
 
-> El **renderer** que produce estas vistas (vocabulario, almas, biografía, portal) es tech-agnóstico y reutilizable — hoy implementado como referencia en la instancia BanCoppel (`../../BanCoppel/BCOPCore/`). Este specialist aporta los **extractores Informix** que lo alimentan.
+> El **renderer** que produce estas vistas (vocabulario, almas, biografía, portal) es tech-agnóstico y reutilizable — hoy implementado como referencia en la instancia BanCoppel (`../../BanCoppel/systems/core/Informix/`). Este specialist aporta los **extractores Informix** que lo alimentan.
 
 ---
 
@@ -238,7 +238,7 @@ ORDER BY p.seqno;
 ```
 
 **Método alternativo: scripts .sql de creación**
-Si el cliente tiene scripts de creación DDL/SPL en archivos `.sql`, cargarlos en `source/BCOPCore/`. Verificar que sean consistentes con el catálogo activo en producción.
+Si el cliente tiene scripts de creación DDL/SPL en archivos `.sql`, cargarlos en `source/{sistema}/` (dentro del folder del sistema en `systems/core/`). Verificar que sean consistentes con el catálogo activo en producción.
 
 **Insumos a solicitar al cliente:**
 

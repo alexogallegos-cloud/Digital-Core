@@ -136,7 +136,7 @@ Método de comprensión de legacy **reutilizable por AM + MM**, independiente de
 | Principio de reutilización | *método vs. mecánica* — lo que se destila es constante; la extracción se adapta por tecnología (§4 del método) |
 | Arquitectura del toolkit | **extractor** (1 por tecnología) → **JSON normalizado** (contrato §6) → **renderer cognitivo** (tech-agnóstico, se construye una vez) |
 | Implementan el método | los **Specialists de RE** de cada solution: Informix SPL (AM ✅) · Reverse Engineering COBOL (MM ✅) · Oracle Forms/PL-SQL y T-SQL (AM ⏳ stub) |
-| Instancia de referencia | BanCoppel `SPE-AM-001` (Informix) — renderer construido en `.../BanCoppel/BCOPCore/`, pendiente de extracción a starter-kit |
+| Instancia de referencia | BanCoppel `SPE-AM-001` (Informix) — renderer construido en `.../BanCoppel/systems/core/Informix/`, pendiente de extracción a starter-kit |
 
 > **Frontera:** el método (el "qué/por qué") vive aquí, en HVM, una sola vez. La **mecánica de extracción** (el "cómo", específico de cada tecnología) vive en el CLAUDE.md de cada Specialist de RE. El renderer cognitivo es un activo de software HVM-wide, hoy implementado como referencia en la instancia BanCoppel.
 

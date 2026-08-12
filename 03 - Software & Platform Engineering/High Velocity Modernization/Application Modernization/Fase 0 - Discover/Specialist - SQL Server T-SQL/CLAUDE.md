@@ -43,7 +43,7 @@ No es un agente estratégico: **hace el trabajo** de documentar qué hace el sis
 ## Pendiente para activación (cuando haya deal)
 
 1. Portar las **5 Etapas** desde el Specialist Informix SPL, sustituyendo las queries de catálogo Informix por los catálogos `sys.*` de arriba (el call graph sale directo de `sys.sql_expression_dependencies`, sin el regex de substring de Informix).
-2. Construir el **extractor T-SQL** que emite el JSON normalizado (§6 del método) — reutiliza el **renderer cognitivo** (tech-agnóstico) de la instancia de referencia `../../BanCoppel/BCOPCore/`.
+2. Construir el **extractor T-SQL** que emite el JSON normalizado (§6 del método) — reutiliza el **renderer cognitivo** (tech-agnóstico) de la instancia de referencia `../../BanCoppel/systems/core/Informix/`.
 3. Catálogo de tipos T-SQL → target con `[RIESGO-EQUIVALENCIA]` (MONEY/DATETIME/COLLATE).
 
 ---

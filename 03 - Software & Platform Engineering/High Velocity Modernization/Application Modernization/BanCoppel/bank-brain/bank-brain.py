@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Optional
 
 DB_PATH = Path(__file__).parent / "bank-brain.db"
-LEGACY_DB = Path(__file__).parent.parent / "BCOPCore/digital-brain/brain.db"
+LEGACY_DB = Path(__file__).parent.parent / "systems/core/Informix/digital-brain/brain.db"
 
 
 class BankBrain:
@@ -291,6 +291,188 @@ class BankBrain:
             "open_items": self.open_items(status="open"),
         }
 
+    # ── Vendors ──────────────────────────────────────────────────────────
+    def vendors(self) -> list[dict]:
+        """Vendors tecnológicos y sus plataformas en Unity."""
+        import json as _json
+        rows = self._db.execute(
+            "SELECT * FROM vendors ORDER BY category, id"
+        ).fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            d["modules"] = _json.loads(d["modules"] or "[]")
+            result.append(d)
+        return result
+
+    # ── Productos bancarios ───────────────────────────────────────────────
+    def products(
+        self,
+        platform: Optional[str] = None,
+        status: Optional[str] = None,
+        segment: Optional[str] = None,
+    ) -> list[dict]:
+        """Productos bancarios, filtrable por plataforma, estado o segmento."""
+        where, params = [], []
+        if platform:
+            where.append("p.platform_id = ?"); params.append(platform)
+        if status:
+            where.append("p.status = ?"); params.append(status)
+        if segment:
+            where.append("p.segment = ?"); params.append(segment)
+        clause = ("WHERE " + " AND ".join(where)) if where else ""
+        rows = self._db.execute(
+            f"""SELECT p.*, v.name AS vendor_name, s.name AS platform_name
+                FROM products p
+                LEFT JOIN vendors v ON v.id = p.vendor_id
+                LEFT JOIN systems s ON s.id = p.platform_id
+                {clause}
+                ORDER BY p.target_date NULLS LAST, p.status""",
+            params,
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def product_detail(self, product_id: str) -> dict:
+        """Detalle completo: plataforma + vendor + SPs legacy + estado."""
+        r = self._db.execute(
+            """SELECT p.*, v.name AS vendor_name, v.category AS vendor_category,
+                      v.modules AS vendor_modules,
+                      s.name AS platform_name, s.tech_stack
+               FROM products p
+               LEFT JOIN vendors v ON v.id = p.vendor_id
+               LEFT JOIN systems s ON s.id = p.platform_id
+               WHERE p.id = ?""",
+            (product_id,),
+        ).fetchone()
+        if not r:
+            return {}
+        import json as _json
+        result = dict(r)
+        result["vendor_modules"] = _json.loads(result["vendor_modules"] or "[]")
+        result["legacy_scope"] = self.migration_gap(product_id)
+        return result
+
+    def product_legacy_sps(
+        self, product_id: str, domain: Optional[str] = None, limit: int = 50
+    ) -> list[dict]:
+        """SPs del legado que mapean a la plataforma de este producto."""
+        prod = self._db.execute(
+            "SELECT platform_id FROM products WHERE id = ?", (product_id,)
+        ).fetchone()
+        if not prod:
+            return []
+        where = ["m.target_sys = ?"]
+        params: list = [prod["platform_id"]]
+        if domain:
+            where.append("m.domain_id = ?"); params.append(domain)
+        rows = self._db.execute(
+            f"""SELECT m.sp, m.db, m.domain_id, m.domain_name,
+                       m.target_sys, m.confidence, m.rule_count
+                FROM migrations m
+                WHERE {' AND '.join(where)}
+                ORDER BY m.rule_count DESC, m.domain_id, m.sp
+                LIMIT ?""",
+            params + [limit],
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def fate_summary(self, target: Optional[str] = None) -> dict:
+        """Resumen de migration_fate global o por sistema destino."""
+        where = "WHERE target_sys = ?" if target else ""
+        params = [target] if target else []
+        rows = self._db.execute(
+            f"""SELECT migration_fate, fate_confidence,
+                       COUNT(*) sp_count, SUM(rule_count) rule_count
+                FROM migrations {where}
+                GROUP BY migration_fate, fate_confidence
+                ORDER BY sp_count DESC""",
+            params,
+        ).fetchall()
+        total = sum(r["sp_count"] for r in rows)
+        by_fate: dict = {}
+        for r in rows:
+            fate = r["migration_fate"]
+            if fate not in by_fate:
+                by_fate[fate] = {"sps": 0, "rules": 0, "by_confidence": {}}
+            by_fate[fate]["sps"]   += r["sp_count"]
+            by_fate[fate]["rules"] += r["rule_count"] or 0
+            by_fate[fate]["by_confidence"][r["fate_confidence"]] = r["sp_count"]
+        return {"target": target or "all", "total_sps": total, "by_fate": by_fate}
+
+    def critical_replicate(
+        self,
+        target: Optional[str] = None,
+        min_rules: int = 10,
+        limit: int = 50,
+    ) -> list[dict]:
+        """SPs clasificados como replicate con alta carga de reglas — los más críticos."""
+        where = ["migration_fate = 'replicate'", "rule_count >= ?"]
+        params: list = [min_rules]
+        if target:
+            where.append("target_sys = ?"); params.append(target)
+        rows = self._db.execute(
+            f"""SELECT sp, db, target_sys, domain_id, domain_name,
+                       rule_count, fate_confidence
+                FROM migrations
+                WHERE {' AND '.join(where)}
+                ORDER BY rule_count DESC
+                LIMIT ?""",
+            params + [limit],
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def fated_migrations(
+        self,
+        fate: str,
+        target: Optional[str] = None,
+        limit: int = 100,
+    ) -> list[dict]:
+        """Lista SPs filtrados por fate y opcionalmente por sistema destino."""
+        where = ["migration_fate = ?"]
+        params: list = [fate]
+        if target:
+            where.append("target_sys = ?"); params.append(target)
+        rows = self._db.execute(
+            f"""SELECT sp, db, target_sys, domain_id, domain_name,
+                       rule_count, migration_fate, fate_confidence
+                FROM migrations
+                WHERE {' AND '.join(where)}
+                ORDER BY rule_count DESC, domain_id, sp
+                LIMIT ?""",
+            params + [limit],
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def migration_gap(self, product_id: str) -> dict:
+        """Cuántos SPs legacy quedan en scope para este producto, por dominio."""
+        prod = self._db.execute(
+            "SELECT platform_id FROM products WHERE id = ?", (product_id,)
+        ).fetchone()
+        if not prod:
+            return {}
+        platform = prod["platform_id"]
+        rows = self._db.execute(
+            """SELECT domain_id, domain_name, confidence,
+                      COUNT(*) AS sp_count, SUM(rule_count) AS rule_count
+               FROM migrations
+               WHERE target_sys = ?
+               GROUP BY domain_id
+               ORDER BY rule_count DESC""",
+            (platform,),
+        ).fetchall()
+        totals = self._db.execute(
+            """SELECT COUNT(*) sp_count, SUM(rule_count) rule_count
+               FROM migrations WHERE target_sys = ?""",
+            (platform,),
+        ).fetchone()
+        return {
+            "product_id": product_id,
+            "platform": platform,
+            "total_sps": totals["sp_count"],
+            "total_rules": totals["rule_count"] or 0,
+            "by_domain": [dict(r) for r in rows],
+        }
+
     # ── Legacy passthrough ────────────────────────────────────────────────
     def legacy_sp(self, sp_name: str, db_name: Optional[str] = None) -> Optional[dict]:
         """Consulta un SP directamente de brain.db legacy."""
@@ -357,6 +539,21 @@ def _cli():
     for d in bb.documents(limit=10):
         sys_m = json.loads(d["systems_mentioned"] or "[]")
         print(f"  {d['date'] or '?':<12}  {d['filename'][:55]:<55}  {sys_m}")
+
+    print("\n-- Vendors y plataformas --")
+    for v in bb.vendors():
+        mods = ", ".join(v["modules"][:3])
+        print(f"  [{v['id']:<10}] → {v['system_id']:<12} ({v['category']})  módulos: {mods}...")
+
+    print("\n-- Productos bancarios --")
+    for p in bb.products():
+        print(f"  [{p['platform_id']:<12}] {p['name']:<50} {p['status']:<12} {p['target_date'] or '?'}")
+
+    print("\n-- Gap de migración legacy por producto --")
+    for p in bb.products():
+        gap = bb.migration_gap(p["id"])
+        print(f"  {p['id']:<28} → {gap['platform']:<12}: "
+              f"{gap['total_sps']:>5} SPs  {gap['total_rules']:>6} reglas")
 
     print("\n-- Actores estratégicos (por apariciones) --")
     for s in bb.stakeholders():
