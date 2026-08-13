@@ -141,49 +141,45 @@ for row in cur.execute("""
 
 # ── 6. Inferencia directa para reglas sin match (brain-only SPs) ─────────────
 print("\n── Paso 5: inferencia directa para reglas sin match ─────────────────")
-import sys as _sys
-_sys.path.insert(0, str(BASE / "generators"))
-
-# Importar funciones de inferencia desde infer-rule-names
-import importlib.util as _ilu
-_spec = _ilu.spec_from_file_location("infer_mod", BASE / "generators" / "infer-rule-names.py")
-_mod  = _ilu.module_from_spec(_spec)
-_spec.loader.exec_module(_mod)   # ejecuta el script (carga VOCAB + ABBREV + funciones)
-_infer = _mod.infer_name
-
 unmatched = cur.execute(
-    "SELECT id, tipo, sp, line, code, reg FROM rules WHERE business_name IS NULL"
+    "SELECT id FROM rules WHERE business_name IS NULL"
 ).fetchall()
 
-inf_updated = 0
-for (rid, tipo, sp_full, line, code, reg_raw) in unmatched:
-    try:
-        reg = json.loads(reg_raw) if reg_raw else []
-    except Exception:
-        reg = []
+if not unmatched:
+    print(f"  0 reglas sin match — skip inferencia")
+    inf_updated = 0
+else:
+    import sys as _sys
+    _sys.path.insert(0, str(BASE / "generators"))
+    import importlib.util as _ilu
+    _spec = _ilu.spec_from_file_location("infer_mod", BASE / "generators" / "infer-rule-names.py")
+    _mod  = _ilu.module_from_spec(_spec)
+    _spec.loader.exec_module(_mod)
+    _infer = _mod.infer_name
 
-    rule_dict = {
-        "tipo":       tipo or "",
-        "code":       code or "",
-        "vocab_refs": [],
-        "explicacion": "",
-        "sp":         sp_full.split(":")[-1] if ":" in sp_full else sp_full,
-        "bc_name":    "",
-        "reg":        reg,
-        "db":         sp_full.split(":")[0] if ":" in sp_full else "",
-    }
-    name, src = _infer(rule_dict)
-    if name:
-        human = _mod.humanize_expr(code or "")
-        expl  = _mod.business_explanation(rule_dict, human)
-        cur.execute(
-            "UPDATE rules SET business_name=?, human_expr=?, expl_negocio=? WHERE id=?",
-            (name, human, expl, rid)
-        )
-        inf_updated += 1
-
-conn.commit()
-print(f"  {inf_updated}/{len(unmatched)} reglas inferidas directamente")
+    unmatched_full = cur.execute(
+        "SELECT id, tipo, sp, line, code, reg FROM rules WHERE business_name IS NULL"
+    ).fetchall()
+    inf_updated = 0
+    for (rid, tipo, sp_full, line, code, reg_raw) in unmatched_full:
+        try:
+            reg = json.loads(reg_raw) if reg_raw else []
+        except Exception:
+            reg = []
+        rule_dict = {
+            "tipo": tipo or "", "code": code or "", "vocab_refs": [],
+            "explicacion": "", "sp": sp_full.split(":")[-1] if ":" in sp_full else sp_full,
+            "bc_name": "", "reg": reg, "db": sp_full.split(":")[0] if ":" in sp_full else "",
+        }
+        name, _ = _infer(rule_dict)
+        if name:
+            human = _mod.humanize_expr(code or "")
+            expl  = _mod.business_explanation(rule_dict, human)
+            cur.execute("UPDATE rules SET business_name=?, human_expr=?, expl_negocio=? WHERE id=?",
+                        (name, human, expl, rid))
+            inf_updated += 1
+    conn.commit()
+    print(f"  {inf_updated}/{len(unmatched_full)} reglas inferidas directamente")
 
 # ── 7. Resumen final ──────────────────────────────────────────────────────────
 print("\n── Resumen final ─────────────────────────────────────────────────────")

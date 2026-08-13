@@ -300,9 +300,7 @@ from collections import defaultdict
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-BCOP = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
-        "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore")
+BCOP     = str(__import__("pathlib").Path(__file__).resolve().parent.parent)
 DB       = f"{BCOP}/digital-brain/brain.db"
 OUT_JSON = f"{BCOP}/portal/data/capability-sp-mapping.json"
 
