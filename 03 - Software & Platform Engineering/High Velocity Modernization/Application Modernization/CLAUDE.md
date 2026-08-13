@@ -470,6 +470,72 @@ Todo `build-brain.py` genera activamente evidencia estructurada —**seeds**— 
 
 **Invariante:** los seeds son evidencia, no configuración. No reemplazan el código fuente del receptor ni sus propias reglas. Son el punto de partida mínimo para que el brain receptor sepa que existe y con quién se relaciona, incluso antes de ver su primer línea de código.
 
+### Regla B12 — Seed Brain Initialization (ningún brain arranca de cero)
+
+**Principio:** si otro sistema ya tiene conocimiento sobre ti, ese conocimiento es el punto de partida de tu brain — no un papel en blanco.
+
+Cuando B9 crea la estructura canónica de un sistema descubierto, B12 inicializa un `brain.db` mínimo en su `digital-brain/` con toda la evidencia que los sistemas emisores ya tienen sobre él. Este brain mínimo es "la otra mitad del puente": lo que el emisor sabe de la relación, invertido a la perspectiva del receptor.
+
+**Diferencia con B9 y B11:**
+
+| Regla | Qué hace | Output |
+|-------|----------|--------|
+| B9 | Crea la estructura de carpetas | `systems/{tipo}/{sistema}/` con subdirs |
+| B11 | El emisor genera evidencia estructurada | `digital-brain/seeds/{receptor}-seed.json` |
+| **B12** | El receptor inicializa su brain con esa evidencia | `digital-brain/brain.db` con tablas pre-pobladas |
+
+**Schema del seed brain (mínimo viable):**
+
+```sql
+CREATE TABLE system_info (               -- identidad del sistema
+    slug TEXT PRIMARY KEY,
+    display_name TEXT,
+    togaf_type TEXT, togaf_state TEXT, togaf_abb TEXT,
+    seeded_by TEXT,                      -- sistema(s) emisor(es)
+    seeded_at TEXT, seed_version TEXT
+);
+CREATE TABLE cross_dependencies (        -- la otra mitad del puente
+    id TEXT PRIMARY KEY,
+    other_system TEXT,                   -- el emisor (ej: "informix")
+    relationship TEXT,                   -- feeds/calls/orchestrates/reads/writes/notifies
+    direction TEXT,                      -- inbound/outbound DESDE ESTE SISTEMA
+    volume INTEGER DEFAULT 0,
+    domains TEXT,                        -- JSON array
+    regulation TEXT,                     -- JSON array
+    description TEXT, criticality TEXT, origin_artifact TEXT
+);
+CREATE TABLE signals (                   -- señales cuantitativas
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    signal_type TEXT,                    -- "endpoint", "ctm_job", "sp_reference"
+    source_system TEXT, value INTEGER DEFAULT 0, metadata TEXT
+);
+CREATE VIRTUAL TABLE cross_dependencies_fts USING fts5(
+    id, other_system, relationship, description
+);
+```
+
+**Inversión de perspectiva ("la otra mitad"):** el seed viene del emisor con su perspectiva; al cargarse en el brain del receptor se invierte la dirección.
+
+| En el seed de Informix | En el brain del receptor |
+|------------------------|--------------------------|
+| `feeds · outbound` | `direction: inbound` — "recibo datos de Informix" |
+| `calls · inbound` | `direction: outbound` — "yo llamo a Informix" |
+| `orchestrates · inbound` | `direction: outbound` — "yo orquesto a Informix" |
+
+**Herramienta canónica:**
+
+```bash
+python bank-brain/initialize-seed-brains.py           # todos los sistemas
+python bank-brain/initialize-seed-brains.py --system SPEI  # uno solo
+```
+
+**Contrato con el `build-brain.py` del receptor:** cuando el sistema obtenga su propio código fuente y construya su brain completo, su `build-brain.py` DEBE:
+1. Detectar si existe un `brain.db` con `seed_version` — si existe, preservar `cross_dependencies` y `signals` del seed
+2. Enriquecer con sus propios datos (SPs, reglas, journeys, config, etc.)
+3. Emitir sus propios seeds (B11) al terminar
+
+**Invariante:** `digital-brain/brain.db` existe desde el momento en que la estructura se crea (B9 + B12 corren juntos). El brain crece de seed → completo; nunca retrocede.
+
 ### Regla B7 — Capability gap como gate de decommission
 
 Antes de cualquier decommission de un sistema legacy (ej: apagar PISA/Informix), `bank-brain.capability_gap()` debe retornar **cero capabilities sin cobertura** — o bien cada L3 sin cobertura tiene un `[BREAK-GLASS]` firmado con owner del riesgo. El gap es la validación técnica de que todos los comportamientos del legacy han sido absorbidos por los sistemas target.
