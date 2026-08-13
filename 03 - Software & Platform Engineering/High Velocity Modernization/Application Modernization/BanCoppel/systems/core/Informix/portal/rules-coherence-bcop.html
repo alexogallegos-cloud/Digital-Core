@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Informix · Rules vs. Code — Coherencia Semántica</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#3D5FCD;--blued:#122FB1;--yellow:#F0D224;
+  --ink:#F4F6FF;--muted:#aab3d4;--muted2:#818ab0;
+  --glass:rgba(255,255,255,.055);--glassb:rgba(255,255,255,.10);
+  --ok:#4fde8a;--med:#f5c842;--low:#f55f5f;--gen:#a78bfa;--reg:#60a5fa;
+}
+html{scroll-behavior:smooth}
+body{background:#060a1a;color:var(--ink);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Calibri,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(27,63,208,.65),transparent 70%);animation:f1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(13,33,133,.7),transparent 70%);animation:f2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(79,222,138,.12),transparent 70%);animation:f3 32s ease-in-out infinite}
+@keyframes f1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes f2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes f3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+.grain{position:fixed;inset:0;z-index:-1;opacity:.045;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+nav{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;gap:14px;padding:15px 30px;
+  backdrop-filter:blur(18px) saturate(150%);background:rgba(6,10,26,.55);border-bottom:1px solid rgba(255,255,255,.06)}
+nav .nt{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em}
+nav .sp{flex:1}
+nav a.back{font-size:12px;color:var(--muted);padding:6px 13px;border-radius:20px;
+  border:1px solid rgba(255,255,255,.09);text-decoration:none;transition:.22s}
+nav a.back:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+.glass{background:var(--glass);backdrop-filter:blur(22px) saturate(155%);border:1px solid var(--glassb);border-radius:22px;
+  box-shadow:0 12px 44px rgba(0,0,0,.36),inset 0 1px 0 rgba(255,255,255,.10)}
+.wrap{max-width:1380px;margin:0 auto;padding:0 30px}
+section{padding:56px 0;scroll-margin-top:70px}
+.hero{min-height:38vh;display:flex;flex-direction:column;justify-content:center;padding:94px 0 8px}
+.eyebrow{display:inline-flex;align-items:center;gap:9px;align-self:flex-start;padding:8px 16px;border-radius:30px;
+  font-size:12px;font-weight:600;letter-spacing:.03em;color:#dfe6ff;margin-bottom:26px;
+  background:rgba(255,255,255,.05);border:1px solid var(--glassb)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 12px var(--ok);animation:pulse 2.4s infinite}
+@keyframes pulse{50%{opacity:.4}}
+.hero h1{font-size:clamp(26px,4.5vw,52px);font-weight:800;line-height:1.05;letter-spacing:-.035em;
+  max-width:24ch;background:linear-gradient(176deg,#fff 34%,#9fb4ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{font-size:clamp(12px,1.3vw,14.5px);color:var(--muted);margin-top:16px;max-width:80ch;line-height:1.65}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:28px}
+.kpi{padding:20px 16px;text-align:center;border-radius:18px}
+.kpi .kv{font-size:clamp(26px,3.5vw,40px);font-weight:800;letter-spacing:-.03em}
+.kpi .kl{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-top:4px}
+.kpi .ksub{font-size:11px;color:var(--muted2);margin-top:5px}
+/* Subtipo grid */
+.st-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;margin-bottom:28px}
+.st-card{padding:14px 18px;border-radius:16px;position:relative;overflow:hidden}
+.st-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px}
+.st-card.ok::before{background:var(--ok)}
+.st-card.med::before{background:var(--med)}
+.st-card.low::before{background:var(--low)}
+.st-name{font-size:12px;font-weight:700;color:var(--ink);letter-spacing:.02em;margin-bottom:8px;font-family:'SF Mono',Consolas,monospace}
+.st-bar-wrap{height:6px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden;margin-bottom:7px}
+.st-bar{height:100%;border-radius:99px}
+.st-stats{display:flex;gap:10px;font-size:10.5px}
+.st-stats span{display:flex;align-items:center;gap:3px}
+.dot-ok{width:6px;height:6px;border-radius:50%;background:var(--ok)}
+.dot-med{width:6px;height:6px;border-radius:50%;background:var(--med)}
+.dot-low{width:6px;height:6px;border-radius:50%;background:var(--low)}
+.dot-gen{width:6px;height:6px;border-radius:50%;background:var(--gen)}
+.st-low-pct{font-size:11px;font-weight:700;margin-left:auto}
+/* Table */
+.tbl-wrap{overflow-x:auto;border-radius:16px;max-height:540px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{font-size:10.5px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;
+  padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.07);text-align:left;
+  position:sticky;top:0;background:rgba(6,10,26,.88);backdrop-filter:blur(8px)}
+td{padding:9px 12px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top;line-height:1.4}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.mono{font-family:'SF Mono',Consolas,monospace;font-size:11px;color:#9fb4ff}
+.pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;letter-spacing:.04em}
+.pill.ok{background:rgba(79,222,138,.12);color:var(--ok)}
+.pill.med{background:rgba(245,200,66,.12);color:var(--med)}
+.pill.low{background:rgba(245,85,95,.12);color:var(--low)}
+.pill.gen{background:rgba(167,139,250,.12);color:var(--gen)}
+.pill.reg{background:rgba(96,165,250,.12);color:var(--reg)}
+/* Insight */
+.insight{padding:18px 22px;border-radius:14px;border-left:3px solid var(--yellow);
+  background:rgba(240,210,36,.05);margin-top:20px}
+.insight .ih{font-size:11px;font-weight:700;color:var(--yellow);letter-spacing:.06em;text-transform:uppercase;margin-bottom:7px}
+.insight p{font-size:13px;color:var(--muted);line-height:1.6}
+/* Filter */
+.filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.filter-row label{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.filter-btn{padding:5px 13px;border-radius:20px;border:1px solid rgba(255,255,255,.1);
+  background:rgba(255,255,255,.04);color:var(--muted);font-size:11px;cursor:pointer;transition:.2s}
+.filter-btn.active{background:rgba(79,222,138,.15);color:var(--ok);border-color:rgba(79,222,138,.3)}
+.filter-btn.active.med{background:rgba(245,200,66,.15);color:var(--med);border-color:rgba(245,200,66,.3)}
+.filter-btn.active.low{background:rgba(245,85,95,.15);color:var(--low);border-color:rgba(245,85,95,.3)}
+/* Section header */
+.sh{display:flex;align-items:baseline;gap:12px;margin-bottom:20px}
+.sh h2{font-size:clamp(18px,2.2vw,24px);font-weight:700;letter-spacing:-.02em}
+#loading{text-align:center;padding:80px;color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<div class="grain"></div>
+
+<nav>
+  <span class="nt">Informix Digital Brain</span>
+  <span class="sp"></span>
+  <a class="back" href="index-bcop-v2.html">← Portal</a>
+</nav>
+
+<div id="loading">Cargando análisis de coherencia…</div>
+<div id="main" style="display:none">
+<div class="wrap">
+
+<!-- HERO -->
+<div class="hero">
+  <div class="eyebrow"><span class="dot"></span>Semantic Coherence · business_name vs. código fuente</div>
+  <h1>Rules vs. Code</h1>
+  <p class="sub">Para cada una de las <span id="total-r">–</span> reglas NEGOCIO: se leen ±8 líneas de contexto alrededor de <code>rule.line</code>,
+  se extraen los identificadores del SPL (camelCase + prefijos húngaros), se normalizan y se mide solapamiento con los tokens del <code>business_name</code>.
+  21 sub-tipos derivados empíricamente de los patrones de código.</p>
+  <div class="kpi-row">
+    <div class="kpi glass" style="border-top:2px solid var(--ok)">
+      <div class="kv" style="color:var(--ok)" id="k-high">–%</div>
+      <div class="kl">HIGH coherence</div>
+      <div class="ksub" id="k-high-n">–</div>
+    </div>
+    <div class="kpi glass" style="border-top:2px solid var(--med)">
+      <div class="kv" style="color:var(--med)" id="k-med">–%</div>
+      <div class="kl">MEDIUM coherence</div>
+      <div class="ksub" id="k-med-n">–</div>
+    </div>
+    <div class="kpi glass" style="border-top:2px solid var(--low)">
+      <div class="kv" style="color:var(--low)" id="k-low">–%</div>
+      <div class="kl">LOW coherence</div>
+      <div class="ksub" id="k-low-n">–</div>
+    </div>
+    <div class="kpi glass" style="border-top:2px solid var(--gen)">
+      <div class="kv" style="color:var(--gen)" id="k-gen">–%</div>
+      <div class="kl">GENÉRICO (sin enriquecer)</div>
+      <div class="ksub" id="k-gen-n">174 UMBRAL</div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 1 — SUBTIPO BREAKDOWN -->
+<section id="s1">
+  <div class="sh"><h2>Coherencia por sub-tipo</h2></div>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:20px">
+    21 sub-tipos clasificados por patrón de código SPL. La barra muestra HIGH (verde) · MEDIUM (amarillo) · LOW (rojo).
+    El % LOW indica el gap de documentación en esa categoría.
+  </p>
+  <div class="st-grid" id="st-grid"></div>
+
+  <div class="insight">
+    <div class="ih">Hallazgo principal</div>
+    <p><strong>La familia de errores y retornos (CÓDIGO_RETORNO + EXCEPCIÓN + RETORNO_CÓDIGO) concentra el 46.5% de las reglas y tiene coherencia ≤2% LOW</strong> —
+    el catálogo completo de códigos de error del sistema está correctamente documentado.
+    El gap real está en <strong>CÁLCULO_ARITMÉTICO (35% LOW, 678 reglas)</strong> y <strong>CÁLCULO_FECHA (37% LOW)</strong>:
+    los nombres húngaros de variables SPL (<code>MtoMoraOrdiMa</code>, <code>dIntDiario_inh</code>) no hacen match directo con
+    las descripciones en español ("interés moratorio diario") — es un gap semántico del tokenizador, no necesariamente
+    un error de documentación. El muestreo manual confirmó que las fórmulas describen correctamente su código.</p>
+  </div>
+</section>
+
+<!-- SECTION 2 — LOW RULES TABLE -->
+<section id="s2">
+  <div class="sh"><h2>Reglas con coherencia baja</h2></div>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:16px">
+    Candidatos para revisión manual. Se excluyen las marcadas como <span style="color:var(--reg)">REG_REF</span>
+    (referencias regulatorias añadidas por triaje — esperado que no aparezcan en SPL).
+  </p>
+  <div class="filter-row">
+    <label>Filtrar:</label>
+    <button class="filter-btn active" data-f="all" onclick="filterTable(this,'all')">Todos</button>
+    <button class="filter-btn" data-f="no-reg" onclick="filterTable(this,'no-reg')">Sin REG_REF</button>
+  </div>
+  <div class="glass tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>ID</th><th>SP</th><th>sub_tipo</th><th>score</th><th>business_name</th>
+        <th>Fragmento código</th><th>Tokens no matcheados</th>
+      </tr></thead>
+      <tbody id="low-tbody"></tbody>
+    </table>
+  </div>
+</section>
+
+</div>
+</div>
+
+<script>
+let _allRows = [];
+let _curFilter = 'all';
+
+function filterTable(btn, f) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _curFilter = f;
+  renderTable();
+}
+
+function renderTable() {
+  const rows = _curFilter === 'no-reg'
+    ? _allRows.filter(r => !r.reg_ref)
+    : _allRows;
+  const tbody = document.getElementById('low-tbody');
+  tbody.innerHTML = '';
+  rows.forEach(r => {
+    const unmatched = (r.name_tokens || []).filter(t => !(r.matched || []).includes(t));
+    const tr = document.createElement('tr');
+    tr.dataset.reg = r.reg_ref ? '1' : '0';
+    tr.innerHTML = `
+      <td class="mono">${r.id}</td>
+      <td class="mono" style="font-size:10.5px;max-width:180px;word-break:break-all">${r.sp}</td>
+      <td class="mono" style="font-size:10.5px">${r.sub_tipo||r.tipo}</td>
+      <td><span class="pill low">${r.score.toFixed(2)}</span>${r.reg_ref?'<span class="pill reg" style="margin-left:4px">REG</span>':''}</td>
+      <td style="max-width:200px;color:var(--muted2);font-size:11.5px">${(r.business_name||'').substring(0,70)}</td>
+      <td class="mono" style="max-width:240px;word-break:break-all;font-size:10.5px;color:#818ab0">${(r.code_fragment||'').substring(0,80)}</td>
+      <td style="font-size:10.5px;color:var(--low)">${unmatched.slice(0,5).join(', ')}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+fetch('data/rules-coherence.json')
+  .then(r => r.json())
+  .then(data => {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('main').style.display = 'block';
+
+    const lvl = data.by_level;
+    const tot = data.total;
+    document.getElementById('total-r').textContent = tot.toLocaleString('es-MX');
+
+    function pct(n){ return (n/tot*100).toFixed(1)+'%'; }
+    document.getElementById('k-high').textContent  = pct(lvl.HIGH||0);
+    document.getElementById('k-high-n').textContent = (lvl.HIGH||0).toLocaleString('es-MX') + ' reglas';
+    document.getElementById('k-med').textContent   = pct(lvl.MEDIUM||0);
+    document.getElementById('k-med-n').textContent  = (lvl.MEDIUM||0).toLocaleString('es-MX') + ' reglas';
+    document.getElementById('k-low').textContent   = pct(lvl.LOW||0);
+    document.getElementById('k-low-n').textContent  = (lvl.LOW||0).toLocaleString('es-MX') + ' reglas';
+    document.getElementById('k-gen').textContent   = pct(lvl.GENERIC||0);
+
+    // Subtipo grid
+    const grid = document.getElementById('st-grid');
+    const byTipo = data.by_tipo;
+    const rows = Object.entries(byTipo).map(([st, lvls]) => {
+      const h=lvls.HIGH||0,m=lvls.MEDIUM||0,l=lvls.LOW||0,g=lvls.GENERIC||0;
+      const t=h+m+l+g;
+      return {st,h,m,l,g,t,lowPct: t?l/t:0};
+    }).sort((a,b)=>b.t-a.t);
+
+    rows.forEach(({st,h,m,l,g,t,lowPct}) => {
+      const cls = lowPct<=0.05?'ok':lowPct<=0.20?'med':'low';
+      const card = document.createElement('div');
+      card.className = 'st-card glass '+cls;
+      card.innerHTML = `
+        <div class="st-name">${st}</div>
+        <div class="st-bar-wrap">
+          <div class="st-bar" style="width:${t?h/t*100:0}%;background:linear-gradient(90deg,rgba(79,222,138,.7),var(--ok))"></div>
+        </div>
+        <div class="st-stats">
+          <span><div class="dot-ok"></div>${h}</span>
+          <span><div class="dot-med"></div>${m}</span>
+          <span><div class="dot-low"></div>${l}</span>
+          ${g>0?`<span><div class="dot-gen"></div>${g}</span>`:''}
+          <span class="st-low-pct" style="color:${lowPct>0.25?'var(--low)':lowPct>0.1?'var(--med)':'var(--muted2)'}">
+            ${(lowPct*100).toFixed(0)}% low
+          </span>
+        </div>`;
+      grid.appendChild(card);
+    });
+
+    // Low rules table
+    _allRows = data.low_rules || [];
+    renderTable();
+  })
+  .catch(e => {
+    document.getElementById('loading').textContent = 'Error: ' + e.message;
+  });
+</script>
+</body>
+</html>
