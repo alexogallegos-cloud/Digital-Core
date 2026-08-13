@@ -128,6 +128,13 @@ def extract_signals(sp_name, db_name):
     # debe usar el protocolo FOREACH/RESUME y migrar cuando el producer migre.
     has_return_resume = bool(re.search(r'\bRETURN\b[^;]+\bWITH\s+RESUME\b', code_u, re.S))
 
+    # FOREACH EXECUTE PROCEDURE: este SP consume un producer via cursor SPL.
+    # Patrón Informix-específico sin equivalente directo en PostgreSQL ni Java.
+    # Detección directa en código fuente (más fuerte que inferencia por call graph).
+    has_foreach_exec_proc = bool(re.search(
+        r'\bFOREACH\b\s+EXECUTE\s+PROCEDURE\b', code_u, re.S
+    ))
+
     inserts = len(re.findall(r'\bINSERT\b', code_u))
     updates = len(re.findall(r'\bUPDATE\b', code_u))
     deletes = len(re.findall(r'\bDELETE\b', code_u))
@@ -150,7 +157,8 @@ def extract_signals(sp_name, db_name):
         inserts=inserts,   updates=updates,   deletes=deletes,
         n_writes=inserts + updates + deletes,
         n_foreach=n_foreach, n_commit=n_commit,
-        has_return_resume = has_return_resume,
+        has_return_resume     = has_return_resume,
+        has_foreach_exec_proc = has_foreach_exec_proc,
         has_returning  = has_returning,
         has_contproc   = 'sx_contproc'   in write_targets or 'sd_contproc' in write_targets,
         has_hist       = bool(re.search(r'_hist\b', write_targets)),
@@ -241,9 +249,10 @@ for i, row in enumerate(candidates):
         sig['n_foreach']       if sig else None,
         sig['n_writes']        if sig else None,
         sig['n_commit']        if sig else None,
-        1 if (sig and sig['has_contproc'])      else 0,
-        1 if (sig and sig['has_hist'])          else 0,
-        1 if (sig and sig['has_return_resume']) else 0,
+        1 if (sig and sig['has_contproc'])           else 0,
+        1 if (sig and sig['has_hist'])               else 0,
+        1 if (sig and sig['has_return_resume'])      else 0,
+        1 if (sig and sig.get('has_foreach_exec_proc')) else 0,  # índice 13
     ))
 
     if (i + 1) % 500 == 0:
@@ -255,20 +264,29 @@ print(f'Pasada 1 completa: {len(rows):,} SPs en {elapsed:.1f}s', flush=True)
 
 # ── 4b. Segunda pasada — detectar consumers de producers ──────────────────
 # Producer: índice 12 == has_return_resume
+# FOREACH EXECUTE PROCEDURE directo: índice 13 == has_foreach_exec_proc
 producer_names = {r[2] for r in rows if r[12] == 1}
-print(f'Producers (RETURN...WITH RESUME): {len(producer_names):,}', flush=True)
+print(f'Producers (RETURN...WITH RESUME):        {len(producer_names):,}', flush=True)
+
+# Mapa rápido para FOREACH EXECUTE PROCEDURE (detección directa en código)
+foreach_exec_by_key = {(r[1], r[2]): r[13] for r in rows}
+n_foreach_exec = sum(1 for v in foreach_exec_by_key.values() if v)
+print(f'FOREACH EXECUTE PROCEDURE (directo):     {n_foreach_exec:,}', flush=True)
 
 final_rows = []
 n_consumers = 0
 for r in rows:
     db, sp_name = r[1], r[2]
     calls = all_calls_map.get((db, sp_name), set())
-    # Un SP es consumer si llama a algún producer (compara solo la parte después de ':')
-    has_consumer = int(any(c.split(':')[-1] in producer_names for c in calls))
+    # Consumer si: llama a un producer por call graph OR tiene FOREACH EXECUTE PROCEDURE directo
+    has_consumer = int(
+        any(c.split(':')[-1] in producer_names for c in calls)
+        or bool(foreach_exec_by_key.get((db, sp_name), 0))
+    )
     n_consumers += has_consumer
     final_rows.append(r + (has_consumer,))
 
-print(f'Consumers (FOREACH → producer): {n_consumers:,}', flush=True)
+print(f'Consumers (call graph + FOREACH directo): {n_consumers:,}', flush=True)
 
 
 # ── 5. Guardar en brain.db ─────────────────────────────────────────────────
@@ -288,13 +306,14 @@ conn.execute('''
         n_commit            INTEGER,
         has_contproc        INTEGER,
         has_hist            INTEGER,
-        has_return_resume   INTEGER,  -- 1 = producer: RETURN...WITH RESUME (streaming cursor Informix-específico)
-        has_resume_consumer INTEGER,  -- 1 = consumer: llama a un producer vía FOREACH
+        has_return_resume     INTEGER,  -- 1 = producer: RETURN...WITH RESUME (streaming SPL-específico)
+        has_foreach_exec_proc INTEGER,  -- 1 = FOREACH EXECUTE PROCEDURE directo (consumer SPL)
+        has_resume_consumer   INTEGER,  -- 1 = consumer: call graph + FOREACH EXEC PROC
         PRIMARY KEY (db, sp_name)
     )
 ''')
 conn.executemany('''
-    INSERT OR REPLACE INTO batch_analysis VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    INSERT OR REPLACE INTO batch_analysis VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ''', final_rows)
 conn.commit()
 print(f'  {len(final_rows):,} filas insertadas', flush=True)
