@@ -33,9 +33,16 @@ _RULES: list[tuple[str, re.Pattern]] = [
     ('RETORNO_CÓDIGO',
      re.compile(r'\bRETURN\b[^;]{0,80}[\'\"]\d{3,}', re.I)),
 
-    # 4. CÁLCULO_FISCAL — IVA, ISR, SAT, impuesto calculations
+    # 4. CÁLCULO_FISCAL — IVA (16% MX), ISR, SAT, impuesto calculations
+    #    Includes implicit IVA patterns: /1.16, *0.16, factor 16, /116
     ('CÁLCULO_FISCAL',
-     re.compile(r'\b(IVA|ISR|SAT|IMPUEST|RETENCION|TASA_IVA|iva_suc|ivasuc)\b', re.I)),
+     re.compile(
+         r'\b(IVA|ISR|SAT|IMPUEST|RETENCION|TASA_IVA|iva_suc|ivasuc'
+         r'|AGREGADO|VALOR_AGRE|impuesto_iva|impiva'
+         r')\b'
+         r'|/\s*1\.16\b|[*]\s*0\.16\b|[*]\s*16\s*/\s*100|/\s*116\b'
+         r'|\bfactor\s+16\b|\biva_factor\b',
+         re.I)),
 
     # 5. CÁLCULO_FECHA — date arithmetic
     ('CÁLCULO_FECHA',

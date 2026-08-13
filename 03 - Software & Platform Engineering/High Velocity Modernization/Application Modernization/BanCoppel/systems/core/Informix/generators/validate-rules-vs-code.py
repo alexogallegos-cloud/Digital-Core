@@ -90,7 +90,16 @@ def tokenize_name(biz: str) -> list[str]:
         return []
     clean = strip_accents(biz.lower())
     words = re.split(r'[\s\-_:/·,\.]+', clean)
-    return [w for w in words if len(w) >= 3 and w not in _ES_STOP and w not in _SPL_STOP]
+    result = []
+    for w in words:
+        if w in _ES_STOP or w in _SPL_STOP:
+            continue
+        # Keep numeric tokens even if short (16 = IVA, 10 = PLD threshold, etc.)
+        if re.match(r'^\d+$', w):
+            result.append(w)
+        elif len(w) >= 3:
+            result.append(w)
+    return result
 
 
 def is_generic_name(biz: str) -> bool:
