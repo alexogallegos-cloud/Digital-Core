@@ -1140,6 +1140,25 @@ def seed_cross_dependencies(conn):
          "Incluye Serie R, CUB Anexo 33-36, reportes PLD/LIDE.",
          "Dominio D36 bdirepaut — regulatoria CNBV. D15 LIDE 100% reg cobertura post-triaje.",
          "high"),
+        # OUTBOUND: PISA genera señales AML que PLD/Minds consume (D15).
+        ("pisa-pld-aml-signals",
+         "pld", "feeds", "outbound",
+         "Informix (D15 bdilide/bdiauditor/bdisitesp) genera señales batch de prevención de "
+         "lavado de dinero (AML) que el sistema PLD/Minds consume para análisis y reporte "
+         "regulatorio LFPIORPI/UIF. Los SPs generan los datos; PLD aplica los modelos de riesgo.",
+         "Dominio D15 — bdilide (LIDE), bdiauditor (listas negras), bdisitesp (PLD core). "
+         "208 jobs CTM en servidores PLD confirmados en inventario 2026-08-12.",
+         "high"),
+        # INBOUND: DataStage lee de PISA para integración Unity Transact (UTR-UNITY_TRANSACT).
+        ("pisa-datastage-transact",
+         "datastage", "reads", "inbound",
+         "DataStage tiene una carpeta UTR-UNITY_TRANSACT en producción (inventario CTM 2026-08-12) "
+         "lo que indica que ya extrae datos de Informix para la integración con Unity/Transact. "
+         "DataStage opera como capa ETL entre el core Informix y el sistema Transact destino, "
+         "complementando o reemplazando la función de Atlas en este flujo.",
+         "Hallazgo CTM 2026-08-12: carpeta UTR-UNITY_TRANSACT en host datastage "
+         "(dccinfsph2/dccinfsphe2/dccinfsph1). Relación confirmada por evidencia operativa.",
+         "high"),
     ]
     conn.executemany(
         """INSERT OR REPLACE INTO cross_dependencies

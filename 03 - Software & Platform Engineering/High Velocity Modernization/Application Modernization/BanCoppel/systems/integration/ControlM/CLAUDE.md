@@ -37,43 +37,40 @@ Control-M **no contiene lógica de negocio propia** — la lógica vive en los S
 
 ---
 
-## Estructura del Brain (cuando esté construido)
+## Brain — Estado Actual
 
-El `digital-brain/brain.db` de Control-M contendrá:
+`digital-brain/brain.db` construido desde fuente real (`source/Cierre ControlM 12082026 (1) (1).xls`):
 
-| Tabla | Contenido |
-|-------|-----------|
-| `jobs` | Catálogo de jobs: nombre, folder, servidor, schedule, sistema invocado |
-| `job_dependencies` | Cadena de dependencias entre jobs (job A → job B → job C) |
-| `schedules` | Calendarios: ventanas nocturnas, fin de semana, fin de mes, regulatorias |
-| `sp_invocations` | Mapeo job → SP de Informix que invoca (si está disponible en el export) |
-| `flow_chains` | Flujos completos: nombre del proceso batch end-to-end (ej. "Cierre SPEI") |
-| `cross_dependencies` | Dependencias cross-sistema (Regla B5 AM) — perspectiva de este brain |
+| Tabla | Contenido | Filas |
+|-------|-----------|-------|
+| `jobs` | Catálogo de jobs: nombre, folder, tipo, servidor, sitio, host, usuario, script | 5,052 |
+| `flows` | Procesos batch por folder/carpeta — estadísticas agregadas (OS, AFT, Informix, Unity) | 65 |
+| `sp_hints` | Referencias a SPs de Informix encontradas en nombre o script de jobs | 1,107 |
+| `cross_dependencies` | Dependencias cross-sistema (Regla B5 AM) — perspectiva CTM | 4 |
+
+### Hallazgos clave (build 2026-08-12)
+
+- **5,052 jobs totales** — 3,859 corren en servidores Informix (`dccsif01`/`dcmsif01`) — 1,243 son AFT (file transfers)
+- **32 jobs Unity** ya en producción — carpeta `USV-UNITY_SMARTVISTA_001` (SmartVista R2/R3 en producción parcial)
+- **1,107 SP hints** — referencias a SPs encontradas en nombres de jobs (ej. `sp_generaredoctaeje_factelect_pag`)
+- **65 flows/carpetas** con dominio Informix mapeado — PRO_JOBS_001 (multi-dominio, 3,042 jobs) es el flujo principal
+- **Dos sitios replicados**: CLN (Culiacán) + MTY (Monterrey) — carpetas `_001` + `_001_MTY`
+
+### DATO-REQUERIDO — pendiente
+
+- `DR-CTM-003` parcial: export actual no incluye dependencias job→job (cadena de ejecución) — requiere export adicional desde CTM API o doc de malla
+- `DR-CTM-004` parcial: SP hints extraídos por regex del nombre del job; la columna `Mem Name` en su mayoría contiene scripts `.sh`, no el nombre del SP directamente
 
 ---
 
 ## Fuentes de Datos
 
-Artefactos esperados en `source/`:
-
-| Carpeta | Tipo de archivo | Descripción |
-|---------|----------------|-------------|
-| `source/code/` | `.xls`, `.xlsx`, `.csv` | Inventario de jobs exportado de CTM |
-| `source/docs/` | `.pdf`, `.docx` | Documentación de la malla batch |
-| `source/ops/` | `.json`, `.xml` | Exports directos de la API de BMC Control-M (si disponible) |
-
-**Estado actual:** pendiente carga de inventario Excel (`Cierre ControlM 12082026.xls`).
+| Ruta | Tipo | Descripción |
+|------|------|-------------|
+| `source/Cierre ControlM 12082026 (1) (1).xls` | Excel `.xls` | Inventario completo de jobs exportado de BMC Control-M — 5,052 jobs · cargado 2026-08-12 |
+| `source/docs/` | `.pdf`, `.docx` | Documentación de la malla batch (pendiente) |
+| `source/ops/` | `.json`, `.xml` | Exports directos de la API CTM con dependencias job→job (pendiente) |
 
 ---
 
-## DATO-REQUERIDO
-
-- `DR-CTM-001`: Número exacto de jobs activos en la malla CTM
-- `DR-CTM-002`: Número de jobs que invocan SPs de Informix directamente
-- `DR-CTM-003`: ¿Existe un export de dependencias entre jobs (cadena de ejecución)?
-- `DR-CTM-004`: ¿Los jobs tienen información del SP/script de Informix que invocan?
-- `DR-CTM-005`: ¿Hay jobs que ya apuntan a Transact o SmartVista (malla target parcial)?
-
----
-
-*Última actualización: 2026-08-12 · v0.1 · Estructura inicial — brain pendiente de construir.*
+*Última actualización: 2026-08-12 · v0.2 · Brain construido — 5,052 jobs · 3,859 Informix · 1,107 SP hints · 32 Unity · 65 flows.*

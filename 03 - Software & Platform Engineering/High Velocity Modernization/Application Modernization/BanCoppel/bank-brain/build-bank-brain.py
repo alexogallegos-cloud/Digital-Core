@@ -402,9 +402,43 @@ def build():
          "Orquestador de trabajos batch del ecosistema BanCoppel. Ejecuta la malla de SPs "
          "Informix en ventanas horarias programadas (noche, fin de semana). Gestiona cadenas "
          "de dependencia entre jobs, calendarios, alertas de SLA batch y retry automático.",
-         "Sistema en producción desde operación legacy. Transicionará a nueva malla batch "
-         "cuando PISA entre en decommission. Dato requerido: ¿cuántos jobs activos en CTM?",
+         "Sistema en producción desde operación legacy. 5,052 jobs confirmados en inventario "
+         "2026-08-12: 3,859 Informix, 32 Unity/SmartVista, 65 flujos batch identificados.",
          "integration", "baseline", "live", "~2000"),
+        # ── Sistemas descubiertos vía inventario CTM 2026-08-12 (Regla B8 AM) ──
+        ("pld",        "PLD / Minds AML",          "compliance", "active",
+         "Minds (vendor pendiente confirmar)",
+         "Sistema de Prevención de Lavado de Dinero de BanCoppel. Gestiona la carga de "
+         "información de transacciones, detección de patrones sospechosos y generación de "
+         "reportes regulatorios para CNBV/UIF (LFPIORPI R17/R35).",
+         "Descubierto: inventario CTM 2026-08-12. 208 jobs en servidores PLD dedicados "
+         "(dccpld01/dcmpld01/dccpld02/dcmpld02). DR-PLD-001 pendiente: vendor/versión Minds.",
+         "compliance", "baseline", "live", "unknown"),
+        ("datastage",  "IBM InfoSphere DataStage",  "data",      "active",
+         "IBM InfoSphere DataStage (ETL)",
+         "Motor ETL de BanCoppel. Gestiona flujos de integración de datos: extracción desde "
+         "Informix, transformación y carga hacia Data Warehouse y sistemas destino. "
+         "HALLAZGO CRÍTICO: carpeta UTR-UNITY_TRANSACT confirma que DataStage ya está "
+         "integrado en la malla de migración Unity/Transact.",
+         "Descubierto: inventario CTM 2026-08-12. Hosts: dccinfsph2/dccinfsphe2/dccinfsph1. "
+         "UTR-UNITY_TRANSACT activo en producción — DataStage ES parte de la migración.",
+         "data", "transitional", "live", "unknown"),
+        ("digitalizacion", "Digitalización / Expediente Digital", "data", "active",
+         "Sistema de gestión documental (vendor pendiente confirmar)",
+         "Sistema de gestión documental de BanCoppel. Gestiona el expediente digital de "
+         "clientes: imágenes de identificaciones, contratos firmados, comprobantes, "
+         "estados de cuenta y archivos de intercambio entre áreas.",
+         "Descubierto: inventario CTM 2026-08-12. 156 jobs en servidores imagen "
+         "(dccimg01/dcmimg01). DR-DIG-001 pendiente: vendor/plataforma documental.",
+         "data", "baseline", "live", "unknown"),
+        ("paytrue",    "PayTrue / Prevención de Fraudes", "channels", "active",
+         "PayTrue (vendor/interno pendiente confirmar) + Python",
+         "Sistema de prevención de fraude transaccional. Corre sobre servidores Python. "
+         "Aplica modelos de scoring para detección de fraude sobre transacciones y "
+         "señales de comportamiento de clientes (transacciones NO financieras).",
+         "Descubierto: inventario CTM 2026-08-12. 56 jobs en servidores Python "
+         "(dccpyt01/dcmpyt01). DR-PT-001 pendiente: vendor vs desarrollo interno.",
+         "channels", "baseline", "live", "unknown"),
     ]
     db.executemany(
         "INSERT OR REPLACE INTO systems VALUES (?,?,?,?,?,?,?,?,?,?,?)",
@@ -675,6 +709,52 @@ def build():
          "pisa", "atlas", "reads", "inbound",
          "Atlas extrae datos históricos de PISA vía JDBC y archivos flat para migración.",
          "Extracción nocturna por ventana batch. Impacta performance en ventana activa.",
+         "high", None),
+        # ── Dependencias de sistemas descubiertos CTM 2026-08-12 (Regla B8 + B10 AM) ──
+        # PLD recibe señales AML de PISA (D15) orquestadas por Control-M.
+        ("pisa-pld-feeds",
+         "pisa", "pld", "feeds", "outbound",
+         "PISA (D15 bdilide/bdiauditor/bdisitesp) genera señales AML batch que PLD/Minds "
+         "consume para análisis de lavado de dinero y reportes CNBV/UIF.",
+         "208 jobs CTM en servidores PLD. Inventario 2026-08-12. "
+         "Knowledge interlock: Informix brain declaró pisa-pld-aml-signals el mismo día.",
+         "high",
+         "Regla B10 AM — knowledge interlock: hallado en inventario CTM, propagado a "
+         "Informix brain (pisa-pld-aml-signals) y a bank-brain (este registro)."),
+        # DataStage lee de PISA para Unity Transact (UTR-UNITY_TRANSACT).
+        ("pisa-datastage-unity",
+         "pisa", "datastage", "reads", "inbound",
+         "DataStage extrae datos de PISA para la integración Unity/Transact "
+         "(carpeta UTR-UNITY_TRANSACT activa en producción). DataStage es capa ETL "
+         "entre el core Informix y el sistema Transact destino.",
+         "Hallazgo crítico CTM 2026-08-12: UTR-UNITY_TRANSACT en host datastage. "
+         "Knowledge interlock: Informix brain declaró pisa-datastage-transact el mismo día.",
+         "high",
+         "Regla B10 AM — knowledge interlock: hallado en inventario CTM, propagado a "
+         "Informix brain (pisa-datastage-transact) y a bank-brain (este registro). "
+         "IMPLICACIÓN: DataStage IS parte de la migración Unity, no solo del legacy."),
+        # Control-M orquesta a DataStage, PLD, Digitalización y PayTrue.
+        ("controlm-datastage-batch",
+         "controlm", "datastage", "orchestrates", "outbound",
+         "Control-M orquesta los jobs de DataStage via PRO_DATA_WAREHOUSE_001 y "
+         "carpeta UTR-UNITY_TRANSACT. CTM gestiona el scheduling y dependencias.",
+         "Inventario CTM 2026-08-12: jobs en hosts dccinfsph2/dccinfsphe2.",
+         "high", None),
+        ("controlm-pld-batch",
+         "controlm", "pld", "orchestrates", "outbound",
+         "Control-M orquesta los jobs de PLD/Minds (208 jobs en PRO_PLD_MINDS_001).",
+         "Inventario CTM 2026-08-12: hosts dccpld01/dcmpld01.",
+         "high", None),
+        ("controlm-digitalizacion-batch",
+         "controlm", "digitalizacion", "orchestrates", "outbound",
+         "Control-M orquesta los jobs de Digitalización (156 jobs en PRO_DIGITALIZACION_001).",
+         "Inventario CTM 2026-08-12: hosts dccimg01/dcmimg01.",
+         "medium", None),
+        ("controlm-paytrue-batch",
+         "controlm", "paytrue", "orchestrates", "outbound",
+         "Control-M orquesta los jobs de PayTrue/Prevención de Fraudes (56 jobs en "
+         "PRO_PAYTRUE_001 + PFR-PREVENCION_FRAUDES).",
+         "Inventario CTM 2026-08-12: hosts dccpyt01/dcmpyt01.",
          "high", None),
     ]
     db.executemany(
