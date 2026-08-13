@@ -25,9 +25,11 @@ _RULES: list[tuple[str, re.Pattern]] = [
      re.compile(r'\bRAISE\s+EXCEPTION\b', re.I)),
 
     # 2. CÓDIGO_RETORNO — assigning a return/error code to a variable
-    #    LET cCodRet = '207', LET vCodRetorno = '000', etc.
+    #    LET cCodRet = '207', LET vCodRetorno = '000', vchrcodret = '020', etc.
+    #    For no-LET variants: anchor to start-of-line or after ';' to avoid catching
+    #    IF/ELIF comparisons that also contain cod/ret variable names.
     ('CÓDIGO_RETORNO',
-     re.compile(r'\bLET\s+[a-z_]*(?:cod|ret|retorno|resultado|res|status)[a-z_]*\s*=\s*[\'\"]\d', re.I)),
+     re.compile(r'(?:\bLET\s+[a-z_]*|(?:^|;\s*)[a-z_]*)(?:cod|ret|retorno|resultado|res|status)[a-z_]*\s*=\s*[\'\"]\d', re.I)),
 
     # 3. RETORNO_CÓDIGO — RETURN with literal code string
     ('RETORNO_CÓDIGO',

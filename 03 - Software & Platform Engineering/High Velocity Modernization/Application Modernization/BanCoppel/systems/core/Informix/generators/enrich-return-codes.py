@@ -152,7 +152,9 @@ _INLINE_CMT_RE = re.compile(r'--\s*(.+)$')
 def extract_inline_comment(code: str) -> str | None:
     m = _INLINE_CMT_RE.search(code)
     if m:
-        return m.group(1).strip()
+        text = m.group(1).strip()
+        text = re.sub(r'^//\s*', '', text)   # strip C-style // prefix (-- // pattern)
+        return text or None
     return None
 
 
