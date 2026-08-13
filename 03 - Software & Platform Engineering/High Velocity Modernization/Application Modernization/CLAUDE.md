@@ -220,6 +220,175 @@ Todo sistema expone como mínimo estos métodos en su clase `{Sistema}Brain`:
 
 ---
 
+## Arquitectura de Brains — Reglas Canónicas
+
+> **Reglas AM obligatorias**: todo proyecto con `bank-brain/` + `systems/` sigue estas reglas sin excepción. Aplican desde el primer brain creado en el proyecto cliente.
+
+### Regla B1 — Brain auto-sustentable (Self-Sustaining Brain)
+
+Cada sistema bajo `systems/{tipo}/{sistema}/digital-brain/` es una entidad completamente autónoma. Debe funcionar de forma independiente aunque no esté conectado a `bank-brain` (el federador). Esto significa:
+
+- El brain **no depende de bank-brain en runtime** para responder preguntas sobre sus propias capabilities, reglas, vocabulario o dependencias.
+- Toda la información que el brain necesita para ser consultado está dentro de su propio `brain.db`.
+- La interfaz estándar de 5 métodos (`coverage`, `components`, `search`, `rules`, `domains`) es invariante y funciona sin federation.
+
+### Regla B2 — ETB embebido con versión por brain (etb_version)
+
+Cada brain embebe el catálogo completo ETB (Banking Enterprise Technology Blueprint) — las 261 capacidades L3 — en su propia tabla `etb_l3`, incluyendo:
+
+- **Definición** de cada L3 (qué es la capability)
+- **Cobertura propia** del sistema (`bcop_status`: COVERED / CROSS_CUTTING / NOT_COVERED)
+- **`etb_version`** en cada fila — la versión del catálogo ETB con que fue construido
+
+El brain puede responder "¿qué capabilities cubro?" sin preguntar a nadie más. Los IDs de L3 son el vocabulario compartido entre todos los brains — un contrato estable análogo a un namespace de DNS.
+
+### Regla B3 — bank-brain como custodio del modelo ETB
+
+`bank-brain` es la **única fuente de verdad sobre la evolución del catálogo ETB**. Cuando ETB evoluciona:
+
+1. `bank-brain` actualiza su catálogo master.
+2. `bank-brain` detecta qué brains individuales tienen `etb_version` desalineada via `capability_alignment()`.
+3. Cada brain desalineado debe ejecutar `build-brain.py` con el nuevo `etb-capabilities.json` para realinearse.
+4. La pregunta "¿todos los brains hablan el mismo idioma ETB?" se responde en segundos via `capability_alignment()`.
+
+### Regla B4 — Federación via ATTACH (no API runtime)
+
+`bank-brain` federada queries sobre los brains de sistemas individuales mediante SQLite `ATTACH DATABASE`. Esto significa:
+
+- No hay servidor de API entre `bank-brain` y los brains individuales — solo archivos `brain.db`.
+- Las queries federadas (`capabilities_consolidated()`, `capability_gap()`) operan directamente sobre los archivos.
+- Agregar un sistema nuevo al federation = ATTACHar su `brain.db` y añadir un UNION en los métodos federados.
+
+### Regla B5 — Cross-brain dependencies declaradas en ambos lados
+
+Cuando un sistema tiene una dependencia con otro sistema (o con un sistema externo sin brain propio), **ambos lados deben declararla de forma explícita**. Esto es la regla del "pasto": el Brain 1 que necesita pasto declara `inbound` (Control-M me orquesta); el Brain 2 que tiene el pasto declara `outbound` (yo orquesto a Informix).
+
+**Implementación:**
+
+Cada brain tiene una tabla `cross_dependencies` con:
+
+| Campo | Descripción |
+|-------|-------------|
+| `other_system` | El sistema del que depende / que depende de mí |
+| `dependency_type` | `orchestrates \| calls \| reads \| writes \| feeds \| notifies` |
+| `direction` | `inbound` (el otro me necesita a mí) `\|` `outbound` (yo necesito al otro) |
+| `evidence` | Cuantificación concreta ("3,847 SPs batch invocados desde CTM") |
+| `criticality` | `critical \| high \| medium \| low` |
+
+`bank-brain` agrega la vista global en `system_dependencies` y expone el método `system_dependencies()`.
+
+**Tipos de dependencia reconocidos:**
+
+| Tipo | Significado | Ejemplo BanCoppel |
+|------|-------------|-------------------|
+| `orchestrates` | El otro sistema decide cuándo/en qué orden ejecuto | Control-M → Informix batch |
+| `calls` | Invocación síncrona directa | MuleSoft → Informix SP |
+| `reads` | Lee datos de mi almacén | Atlas extrae de Informix |
+| `writes` | Escribe datos en mi almacén | — |
+| `feeds` | Yo genero outputs que el otro consume | Informix → Banxico SPEI batch |
+| `notifies` | Eventos/mensajes asíncronos | — |
+
+**La dependencia se documenta aunque el sistema externo no tenga brain propio** (ej: Banxico, Visa, sistemas regulatorios externos). El brain declara su lado; si el sistema externo adquiere un brain en el futuro, declara el suyo y la dependencia queda bidireccional.
+
+### Regla B6 — Estructura de carpetas del sistema externo con brain propio
+
+Cuando un sistema externo al core bancario tiene suficiente complejidad propia para merecer un brain (Control-M, un portal externo, un sistema regulatorio con lógica propia), sigue la misma estructura canónica que cualquier sistema:
+
+```
+systems/{togaf_type}/{sistema}/
+├── source/
+│   ├── code/     ← exports del sistema (CTM: XML/JSON de jobs; otros: config, scripts)
+│   ├── docs/     ← docs del sistema
+│   └── ops/      ← configuración operativa
+├── digital-brain/
+│   ├── brain.db
+│   ├── build-brain.py   ← parsea los artefactos del sistema externo
+│   └── brain.py         ← interfaz estándar 5 métodos + cross_dependencies + etb_version
+├── knowledge-base/
+├── dt/
+├── portal/
+└── CLAUDE.md            ← agente del sistema (hereda este CLAUDE.md)
+```
+
+El `togaf_type` de sistemas de orquestación batch (Control-M) es **`integration`** — no son SoR de negocio sino capa de orquestación.
+
+### Regla B8 — Evidencia operativa como prueba de existencia (Del Árbol al Bosque)
+
+Un artefacto operativo **es prueba suficiente para abrir un sistema en la estructura**. No se necesita el código fuente, ni un arquitecto que confirme, ni un documento de arquitectura actualizado. Si la operación dice que el sistema existe y se relaciona, existe.
+
+**Tipos de artefactos operativos que tienen fuerza probatoria:**
+
+| Artefacto | Qué revela |
+|-----------|-----------|
+| Inventario de jobs CTM/TWS | Qué sistemas tienen batch sobre ellos, cuántos jobs, qué carpetas |
+| Tabla de ruteo ESB/MuleSoft | Qué sistemas exponen APIs y cuáles las consumen |
+| Log de conexiones DB | Qué aplicaciones se conectan a qué bases de datos |
+| Catálogo de interfaces (EDI, SWIFT, SPEI) | Qué sistemas mandan o reciben mensajes financieros |
+| Topología de red / CMDB | Qué servidores existen y qué servicios corren |
+| Reportes de Dynatrace/Datadog | Qué servicios tienen tráfico real en producción |
+
+**Protocolo "Del árbol al bosque":**
+
+1. Se analiza **un sistema** (el árbol) con un artefacto operativo.
+2. El artefacto revela N sistemas relacionados. Cada uno es un descubrimiento.
+3. Para cada sistema descubierto con presencia significativa (≥10 interacciones en el artefacto), se abre inmediatamente su estructura canónica.
+4. El artefacto se preserva como evidencia en `source/` del sistema que lo originó.
+5. Cada sistema descubierto referencia en su CLAUDE.md el artefacto y la fecha de descubrimiento.
+6. Cada sistema descubierto puede a su vez revelar más sistemas — el proceso es iterativo hasta que el bosque converge.
+
+**La estructura vacía + CLAUDE.md con metadatos es suficiente para sembrar el sistema.** El brain se llena cuando llegue el artefacto fuente del sistema (su código, su export, su configuración). Lo que no puede perderse es el registro de que el sistema existe y sus dependencias conocidas desde el primer día.
+
+**Ejemplo BanCoppel:** el Excel de Control-M (un artefacto operativo real, exportado de producción) reveló 10 sistemas no documentados previamente: PLD/Minds, Digitalización, DataStage, PayTrue, IST/ATM, BI/DW, Nómina-Informix, Orion (scoring), PayTrue, Pure Systems. Cada uno recibe su carpeta ese mismo día.
+
+### Regla B9 — Acción inmediata al descubrir un sistema (Knowledge-Driven Structure)
+
+Al analizar cualquier artefacto cross-sistema — inventario de jobs de un orquestador (Control-M), tabla de ruteo de un ESB, catálogo de interfaces, topología de red, o diagrama de arquitectura — **todo sistema descubierto con presencia significativa debe recibir inmediatamente su estructura canónica**.
+
+**Presencia significativa** = cualquiera de estas condiciones:
+- ≥ 10 jobs/interfaces que involucran al sistema
+- Aparece nombrado explícitamente en la arquitectura del cliente
+- Tiene un servidor/host dedicado identificado
+- Forma parte de un proceso regulatorio (PLD, CNBV, SPEI, etc.)
+
+**Acción inmediata al descubrir el sistema:**
+1. Crear `systems/{togaf_type}/{sistema}/` con la estructura canónica completa
+2. Crear `CLAUDE.md` del sistema con metadata TOGAF y `cross_dependencies` conocidas desde el artefacto de descubrimiento
+3. Agregar el sistema a la tabla `systems` de bank-brain (aunque sea como placeholder con `status='discovered'`)
+4. Documentar el artefacto de origen en `source/` como evidencia del descubrimiento
+
+**La estructura es el compromiso; el brain se llena después.** No esperar a tener el código fuente del sistema para crear la carpeta. El conocimiento que ya existe (quién lo orquesta, qué dominios cubre, qué tipo TOGAF es) debe preservarse de inmediato antes de que se pierda el contexto.
+
+**Motivación (el "pasto" de ambos lados):** cuando Control-M nos dice que tiene 208 jobs sobre servidores PLD, el sistema PLD existe en la realidad operativa de BanCoppel aunque no hayamos visto su código. No documentarlo sería perder la mitad de la dependencia. La estructura vacía + CLAUDE.md es suficiente para que el conocimiento fluya en ambas direcciones.
+
+### Regla B10 — Knowledge Interlock (propagación bidireccional de conocimiento verificado)
+
+**Todo conocimiento comprobado sobre un sistema, descubierto mientras se analiza otro sistema, debe ser comunicado a ambos extremos.**
+
+La regla opera en tres pasos:
+1. **Descubrimiento**: al analizar un artefacto de sistema A (código, logs, inventario, diagrama), se identifica una relación con sistema B.
+2. **Documentación en A**: el sistema descubridor documenta lo que encontró en su propio brain (`cross_dependencies`) y en su CLAUDE.md.
+3. **Propagación a B**: el mismo conocimiento se agrega al brain de B (como el otro lado de la misma relación) y a bank-brain (vista global). B puede **validar o actualizar** su conocimiento existente.
+
+**El interlock es obligatorio** — no es opcional ni "para después". El motivo: sin propagación, el conocimiento queda atrapado en el sistema descubridor y B sigue operando con una visión incompleta de sus propias dependencias.
+
+**Ejemplos que activan Regla B10:**
+- Análisis del código de una App revela que llama a un SP de Informix → documentar en la App Y notificar a Informix para que valide/actualice su catálogo de interfaces
+- Inventario de Control-M revela que DataStage tiene la carpeta `UTR-UNITY_TRANSACT` → documentar en CTM brain Y agregar a Informix brain (`pisa-datastage-transact`) Y a DataStage CLAUDE.md Y a bank-brain
+- Revisión de logs ESB revela un código de error nuevo de e-global → documentar en Informix D08 Y en el DT-Autorizador de Pagos Y en el registro de dependencias de e-global
+
+**Impacto en la arquitectura de brains:**
+- Cada brain siempre puede responder a "¿quién me llama?" y "¿a quién llamo?" basándose en su propio `cross_dependencies` — no necesita preguntar a bank-brain ni a otro brain
+- bank-brain agrega la vista global pero no es el canal de propagación; la propagación es directa entre brains vía edición de sus `build-brain.py`
+- Si el brain de B no existe aún, la propagación se hace en su CLAUDE.md (sección `cross_dependencies` conocidas) hasta que el brain se construya
+
+**Indicador de cumplimiento:** en cada sesión donde se descubra una relación cross-sistema, el commit debe incluir cambios en al menos 2 archivos (`build-brain.py` del descubridor + `build-brain.py` o `CLAUDE.md` del receptor).
+
+### Regla B7 — Capability gap como gate de decommission
+
+Antes de cualquier decommission de un sistema legacy (ej: apagar PISA/Informix), `bank-brain.capability_gap()` debe retornar **cero capabilities sin cobertura** — o bien cada L3 sin cobertura tiene un `[BREAK-GLASS]` firmado con owner del riesgo. El gap es la validación técnica de que todos los comportamientos del legacy han sido absorbidos por los sistemas target.
+
+---
+
 ## SLOs canónicos
 
 - SLO-AM-01: Equivalence drift < 0.05% sostenido en parallel-run.
