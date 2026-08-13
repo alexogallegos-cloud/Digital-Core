@@ -161,7 +161,7 @@ LEGSEV = "".join(f'<span class="lg"><i style="background:{c}"></i>{l}</span>' fo
 
 HTML = f"""<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>BanCoppel · Calidad del Código (ISO 5055) · BCOPCore</title>
+<title>BanCoppel · Calidad del Código (ISO 5055) · Informix</title>
 <style>
 :root{{--bg:#0a1330;--bg2:#0d1a3d;--panel:#132152;--line:#26317c;--gold:#F0D224;--blue:#3D5FCD;--txt:#EAEDF7;--muted:#9aa4c4}}
 *{{box-sizing:border-box;margin:0;padding:0}}
@@ -234,7 +234,7 @@ td.num{{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}}
 </style></head><body>
 <header>
   <img src="bancoppel-logo.png" alt="BanCoppel">
-  <div><h1>Calidad del código del core · BCOPCore</h1>
+  <div><h1>Calidad del código del core · Informix</h1>
   <div class="sub">SPE-AM-001 · Gemelo Cognitivo · Capa Transversal · Calidad AS-IS · evidencia del código SPL · {fecha}</div></div>
   <span class="iso">ISO/IEC 5055:2021</span>
 </header>

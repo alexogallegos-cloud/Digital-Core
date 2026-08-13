@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-rebuild-capability-model.py — Pipeline completo del modelo de capacidades BCOPCore
+rebuild-capability-model.py — Pipeline completo del modelo de capacidades Informix
 
 Pasos (en orden obligatorio):
   1. build-sp-capabilities.py   → tabla sp_capabilities + capability-sp-mapping.json base
@@ -37,7 +37,7 @@ def run(script: str) -> bool:
 
 def main():
     print("=" * 60)
-    print("  BCOPCore — Rebuild Capability Model")
+    print("  Informix — Rebuild Capability Model")
     print("=" * 60)
     total_start = time.time()
 

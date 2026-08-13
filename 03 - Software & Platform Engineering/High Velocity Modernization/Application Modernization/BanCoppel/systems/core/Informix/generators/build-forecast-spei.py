@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-build-forecast-spei.py — BCOPCore · Proyeccion de crecimiento organico SPEI + E-Global.
+build-forecast-spei.py — Informix · Proyeccion de crecimiento organico SPEI + E-Global.
 
 Orquesta el pipeline generators/forecast/: carga fuentes -> genera factores -> ajusta OLS
 (SPEI 7 dias, E-Global dias habiles) con remocion iterativa de outliers -> escribe HTML,
 Markdown y el reporte de dias atipicos en knowledge-base/cross-reference/.
 
-Uso: python generators/build-forecast-spei.py   (ejecutar desde BCOPCore/)
+Uso: python generators/build-forecast-spei.py   (ejecutar desde Informix/)
 
 Re-ejecutable cada vez que llegan datos reales nuevos: basta registrar la nueva fuente en
 forecast/data_sources.py y cualquier incidente en forecast/atypical_days.py.
@@ -18,7 +18,7 @@ from pathlib import Path
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-ROOT = Path(__file__).resolve().parent.parent          # BCOPCore/
+ROOT = Path(__file__).resolve().parent.parent          # Informix/
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # generators/ (para importar forecast)
 
 from forecast import factors as F

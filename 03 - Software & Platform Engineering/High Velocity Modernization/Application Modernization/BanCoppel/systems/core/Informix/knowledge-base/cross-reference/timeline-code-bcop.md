@@ -1,6 +1,6 @@
-# BCOPCore · Línea Temporal del Código (creación / modificación)
+# Informix · Línea Temporal del Código (creación / modificación)
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 · **Generado:** 2026-07-05 por `extract-timeline.py`  
+> **Componente:** Informix · SPE-AM-001 · Etapa 3 · **Generado:** 2026-07-05 por `extract-timeline.py`  
 > **472 de 3,738 SPs** (12%) tienen fecha documentada en comentarios.
 
 > ⚠ **Fuente = comentarios del código, no metadata de sistema.** Informix no guarda fecha de creación/modificación de SPs; el `mtime` del `.sql` es la fecha del dump. Las fechas son las que **el desarrollador escribió** en el header/bitácora — pueden faltar o estar desactualizadas.

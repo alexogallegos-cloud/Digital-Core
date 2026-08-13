@@ -1,8 +1,8 @@
 # Base de Conocimiento — Grupo Coppel & BanCoppel
 
-> **Propósito:** contexto de negocio del cliente para el proyecto de modernización `SPE-AM-001` (BCOPCore, core bancario Informix). Coppel (el retailer) es el origen de la base de clientes de BanCoppel — su historia de crédito al consumo explica gran parte de la lógica del core. Mantener siempre en cuenta al analizar dominios, journeys, reglas de negocio y decisiones 7R.
+> **Propósito:** contexto de negocio del cliente para el proyecto de modernización `SPE-AM-001` (Informix, core bancario Informix). Coppel (el retailer) es el origen de la base de clientes de BanCoppel — su historia de crédito al consumo explica gran parte de la lógica del core. Mantener siempre en cuenta al analizar dominios, journeys, reglas de negocio y decisiones 7R.
 >
-> **Componente:** BanCoppel BCOPCore · **Investigación web:** 2026-07-06 · fuentes al pie.
+> **Componente:** BanCoppel Informix · **Investigación web:** 2026-07-06 · fuentes al pie.
 
 ---
 

@@ -1,6 +1,6 @@
 # D08 · SPEI — Plan de Cutover
 
-> **Componente:** BCOPCore · SPE-AM-001 · RELEASE Phase
+> **Componente:** Informix · SPE-AM-001 · RELEASE Phase
 > **Base de datos:** `bdispei` → Aurora PostgreSQL
 > **Wave:** Wave 2 · Riesgo: **CRÍTICO**
 > **Última actualización:** 2026-07-03

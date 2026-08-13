@@ -1,6 +1,6 @@
 # D15 · LIDE/PLD (Prevención de Lavado de Dinero) — Plan de Cutover
 
-> **Componente:** BCOPCore · SPE-AM-001 · RELEASE Phase
+> **Componente:** Informix · SPE-AM-001 · RELEASE Phase
 > **Base de datos:** bdilide
 > **Wave:** Wave 4 · Riesgo: CRÍTICO (regulatorio — PLD/CNBV/SHCP)
 > **Última actualización:** 2026-08-03
@@ -9,7 +9,7 @@
 
 ## Declaración de criticidad especial
 
-> `[COMPLIANCE-SIGN-OFF-REQUIRED]` — El cutover de `bdilide` es el evento de mayor riesgo regulatorio de todo el proyecto BCOPCore. Requiere:
+> `[COMPLIANCE-SIGN-OFF-REQUIRED]` — El cutover de `bdilide` es el evento de mayor riesgo regulatorio de todo el proyecto Informix. Requiere:
 > 1. Aprobación formal del CAB estándar de BanCoppel.
 > 2. Sign-off explícito del Director del Área de Cumplimiento de BanCoppel.
 > 3. **Notificación previa a CNBV y SHCP** — ver sección "Notificación regulatoria" abajo.

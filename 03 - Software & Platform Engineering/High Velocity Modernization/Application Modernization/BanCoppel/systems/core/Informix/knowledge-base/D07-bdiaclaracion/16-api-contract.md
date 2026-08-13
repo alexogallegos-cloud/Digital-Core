@@ -1,6 +1,6 @@
 # D07 · Aclaraciones — Contratos de API (OpenAPI / AsyncAPI)
 
-> **Componente:** BCOPCore · SPE-AM-001 · DESIGN Phase
+> **Componente:** Informix · SPE-AM-001 · DESIGN Phase
 > **Base de datos:** `bdiaclaracion` → Target: Lambda + Step Functions
 > **Última actualización:** 2026-07-03
 

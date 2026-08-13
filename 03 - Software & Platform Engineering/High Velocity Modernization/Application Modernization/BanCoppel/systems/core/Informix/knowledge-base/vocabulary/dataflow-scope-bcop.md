@@ -1,4 +1,4 @@
-# BCOPCore - Scope del Vocabulario (10 tipos)
+# Informix - Scope del Vocabulario (10 tipos)
 
 > **Corpus:** 3,738 SPs analizados  
 > **Identificadores:** AIN=21,360  AOUT=103,950  BDR=15,067  BDW=4,247  LOC=83,391  LC=5,914  CUR=192  EXC=921

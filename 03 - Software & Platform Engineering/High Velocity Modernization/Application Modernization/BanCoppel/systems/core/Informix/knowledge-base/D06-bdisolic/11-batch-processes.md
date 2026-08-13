@@ -1,6 +1,6 @@
 # D06 · Solicitudes — Procesos Batch y Schedulers
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1
+> **Componente:** Informix · SPE-AM-001 · Etapa 1
 > **Base de datos:** `bdisolic` · IBM Informix IDS 14.10 / POWER-AIX
 > **Wave:** Wave 3 · Riesgo: **ALTO**
 > **Última actualización:** 2026-07-03
@@ -133,7 +133,7 @@ Los procesos de purga y archivado asumen disponibilidad nocturna exclusiva. En A
 
 
 ---
-*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdisolic_*.sql (análisis estático de 70 archivos SQL) · análisis de patrones de nombres + código*
+*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/informix/bdisolic_*.sql (análisis estático de 70 archivos SQL) · análisis de patrones de nombres + código*
 
 <!-- LOG-DATA-BEGIN -->
 ## Procesos batch detectados en logs — 2026-04-24

@@ -1,6 +1,6 @@
 # D16 · Intercard (Tarjetas) — Reglas de Negocio
 
-> **Componente:** BCOPCore · SPE-AM-001
+> **Componente:** Informix · SPE-AM-001
 > **Base de datos:** `intercard`
 > **Última actualización:** 2026-08-03
 

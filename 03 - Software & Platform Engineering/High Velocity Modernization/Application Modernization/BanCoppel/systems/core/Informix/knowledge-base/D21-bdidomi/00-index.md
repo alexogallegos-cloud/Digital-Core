@@ -1,7 +1,7 @@
 # D21-bdidomi - Knowledge Base Placeholder
 > **Dominio**: Domiciliacion
 > **Base de datos Informix**: bdidomi
-> **Archivos fuente**: 142 SPs en source/BCOPCore/informix/bdidomi/
+> **Archivos fuente**: 142 SPs en source/informix/bdidomi/
 > **Estado**: [PENDIENTE ANALISIS] -- carpeta creada, contenido por generar
 > **Prioridad**: ALTA
 > **Incorporado al scope**: 2026-08-03
@@ -12,7 +12,7 @@
 
 ## Descripcion
 
-Domiciliacion. Tiene 142 stored procedures en el codigo fuente de BCOPCore.
+Domiciliacion. Tiene 142 stored procedures en el codigo fuente de Informix.
 
 ## Estado de Artefactos
 
@@ -28,4 +28,4 @@ Seguir el template de D01-bdicnweb como referencia.
 
 ---
 
-*Placeholder creado 2026-08-03 - BCOPCore scope expansion D01-D49*
+*Placeholder creado 2026-08-03 - Informix scope expansion D01-D49*

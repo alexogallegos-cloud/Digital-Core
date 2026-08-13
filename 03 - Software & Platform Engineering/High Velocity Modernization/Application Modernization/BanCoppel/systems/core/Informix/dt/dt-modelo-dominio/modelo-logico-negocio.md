@@ -1,4 +1,4 @@
-# Modelo Lógico de Negocio — BCOPCore
+# Modelo Lógico de Negocio — Informix
 > **Framework**: Banking ETB v5.0 — L2 Groups como Bounded Contexts
 > **Versión**: 0.1.0 · 2026-08-02
 > **Proyecto**: SPE-AM-001 · BanCoppel Application Modernization
@@ -8,7 +8,7 @@
 
 ## 1. Contexto y Decisión Arquitectónica
 
-El modelo lógico de negocio de BCOPCore está definido por los **23 ETB L2 Groups** que tienen al menos una capacidad COVERED o CROSS_CUTTING en el sistema Informix actual.
+El modelo lógico de negocio de Informix está definido por los **23 ETB L2 Groups** que tienen al menos una capacidad COVERED o CROSS_CUTTING en el sistema Informix actual.
 
 | Métrica | Valor |
 |---------|-------|
@@ -234,13 +234,13 @@ Estos 4 BCs son los que mayor impacto tienen en el sistema y deben tener diseño
 
 ## 6. Bounded Contexts Excluidos del Scope Actual
 
-Los 34 L2 groups restantes del ETB que no tienen capacidades COVERED en BCOPCore están **fuera del scope del sistema actual**. Ejemplos relevantes:
+Los 34 L2 groups restantes del ETB que no tienen capacidades COVERED en Informix están **fuera del scope del sistema actual**. Ejemplos relevantes:
 - 1.3 Channel Development — no hay capabilities de desarrollo de canal
 - 2.1–2.6 — Marketing, Sales, Campaign — BanCoppel no tiene CRM en este stack
 - 3.6–3.14 — Trade Finance, Securities, etc. — no aplica para banca de consumo
 - 4.1–4.4 — Supply Chain, Asset Mgmt — fuera de scope bancario retail
 - 6.x — Responsible Business — ESG/sostenibilidad, fuera de scope
-- 5.1, 5.2 — Strategic/Financial Planning — back-office fuera de BCOPCore
+- 5.1, 5.2 — Strategic/Financial Planning — back-office fuera de Informix
 
 Estos pueden ser candidatos a fases futuras o a soluciones complementarias.
 
@@ -265,17 +265,17 @@ Agrupación preliminar de bounded contexts en waves basada en dependencias y cri
 
 ## 8. Gaps Identificados vs. ETB Completo
 
-Los 199 L3 capabilities NOT_COVERED representan funcionalidades que el sistema Informix actual no implementa. Para BCOPCore, los gaps más relevantes de la banca de consumo son:
+Los 199 L3 capabilities NOT_COVERED representan funcionalidades que el sistema Informix actual no implementa. Para Informix, los gaps más relevantes de la banca de consumo son:
 
 | L2 Group | Gap notable | Implicación |
 |----------|-------------|-------------|
 | 3.7 Insurance | Sin bancaseguros en stack actual | Producto futuro — fuera de scope |
 | 3.19 Remittance Management | Remesas vía APPRIZA (externo) — gap interno | Dependencia de sistema externo sin ownership |
-| 2.1–2.6 Marketing/CRM | Sin CRM en BCOPCore | El CRM vive fuera del stack Informix |
+| 2.1–2.6 Marketing/CRM | Sin CRM en Informix | El CRM vive fuera del stack Informix |
 | 5.5 Treasury | Sin gestión de tesorería interna | Probablemente en otro sistema |
 | 5.6 HR Management | Fuera de scope de core bancario | Otro sistema |
 | 4.3 Supplier Management | Fuera de scope | Otro sistema |
 
 ---
 
-*v0.1.0 · 2026-08-02 · dt-modelo-dominio · BCOPCore SPE-AM-001*
+*v0.1.0 · 2026-08-02 · dt-modelo-dominio · Informix SPE-AM-001*

@@ -1,4 +1,4 @@
-# Análisis de Enriquecimiento del Vocabulario BCOPCore
+# Análisis de Enriquecimiento del Vocabulario Informix
 
 > **Proyecto**: SPE-AM-001 — BanCoppel Application Modernization  
 > **Fecha**: 2026-08-04  

@@ -1,6 +1,6 @@
 # D02 · Integración y Autenticación — Arquitectura Target
 
-> **Componente:** BCOPCore · SPE-AM-001 · DESIGN Phase
+> **Componente:** Informix · SPE-AM-001 · DESIGN Phase
 > **Base de datos:** `bdinteg` · Target: **AWS Aurora PostgreSQL**
 > **Wave:** Wave 5 · Riesgo: **CRÍTICO**
 > **Última actualización:** 2026-07-03

@@ -1,7 +1,7 @@
 # D34-bdiresp - Knowledge Base Placeholder
 > **Dominio**: Respaldo Response
 > **Base de datos Informix**: bdiresp
-> **Archivos fuente**: 30 SPs en source/BCOPCore/informix/bdiresp/
+> **Archivos fuente**: 30 SPs en source/informix/bdiresp/
 > **Estado**: [PENDIENTE ANALISIS] -- carpeta creada, contenido por generar
 > **Prioridad**: BAJA
 > **Incorporado al scope**: 2026-08-03
@@ -10,7 +10,7 @@
 
 ## Descripcion
 
-Respaldo Response. Tiene 30 stored procedures en el codigo fuente de BCOPCore.
+Respaldo Response. Tiene 30 stored procedures en el codigo fuente de Informix.
 
 ## Estado de Artefactos
 
@@ -26,4 +26,4 @@ Seguir el template de D01-bdicnweb como referencia.
 
 ---
 
-*Placeholder creado 2026-08-03 - BCOPCore scope expansion D01-D49*
+*Placeholder creado 2026-08-03 - Informix scope expansion D01-D49*

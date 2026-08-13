@@ -1,6 +1,6 @@
 # D15 · LIDE/PLD (Prevención de Lavado de Dinero) — Riesgos de Equivalencia
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1 — Static Analysis
+> **Componente:** Informix · SPE-AM-001 · Etapa 1 — Static Analysis
 > **Base de datos:** bdilide
 > **Wave:** Wave 4 · Riesgo: CRÍTICO (regulatorio — PLD/CNBV/SHCP)
 > **Última actualización:** 2026-08-03
@@ -26,7 +26,7 @@
 
 **Nivel:** 🔴 CRÍTICO (máximo del proyecto)
 
-El motor PLD de BanCoppel es el sistema más auditado por los reguladores en BCOPCore. Cualquier diferencia de comportamiento entre el sistema legacy y el sistema target después del cutover puede constituir un incumplimiento de la CUB (CNBV) o de la LFPIORPI. La CNBV tiene facultad de imponer sanciones por millones de pesos por falla en el sistema de monitoreo PLD.
+El motor PLD de BanCoppel es el sistema más auditado por los reguladores en Informix. Cualquier diferencia de comportamiento entre el sistema legacy y el sistema target después del cutover puede constituir un incumplimiento de la CUB (CNBV) o de la LFPIORPI. La CNBV tiene facultad de imponer sanciones por millones de pesos por falla en el sistema de monitoreo PLD.
 
 **Criterio go/no-go específico para D15:** equivalencia funcional ≥ 99.99% en todos los SPs regulatorios. Si el QA Lead detecta cualquier divergencia en reportes regulatorios, el cutover se detiene independientemente del progreso del proyecto.
 

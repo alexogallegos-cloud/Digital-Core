@@ -16,8 +16,8 @@ from sp_vocab import compose
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
-SRC = BASE + "source/BCOPCore/informix/"
+        "Application Modernization/BanCoppel/Informix/")
+SRC = BASE + "source/informix/"
 J = json.load(open(BASE + "portal/data/journeys-data.json", encoding="utf-8"))
 CG = json.load(open(BASE + "portal/data/callgraph-data.json", encoding="utf-8"))
 DBOF = lambda i: i.split(":")[0]
@@ -135,9 +135,9 @@ complexity.sort(key=lambda r: -r["score"])
 DOMN = {"d01":"Canal Digital","d02":"Integración","d03":"Créditos","d04":"Cheques",
         "d05":"Saldos","d06":"Solicitudes","d07":"Aclaraciones","d08":"SPEI",
         "d09":"Mensajería","d10":"Sucursales","d11":"Cobranza","d12":"Contabilidad"}
-L = ["# BCOPCore · Orquestadores Complejos — Deuda Técnica de Refactor",
+L = ["# Informix · Orquestadores Complejos — Deuda Técnica de Refactor",
  "",
- "> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 · **Fuente:** análisis de flujo de control del código SPL",
+ "> **Componente:** Informix · SPE-AM-001 · Etapa 3 · **Fuente:** análisis de flujo de control del código SPL",
  "> **Generado:** 2026-07-03 por `extract-flow.py`",
  "",
  "SPs orquestadores ordenados por **complejidad de orquestación** = "

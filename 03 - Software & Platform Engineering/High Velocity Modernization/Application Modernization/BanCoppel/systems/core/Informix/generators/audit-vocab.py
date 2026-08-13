@@ -17,8 +17,8 @@ import sp_vocab
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
-SRC = BASE + "source/BCOPCore/informix/"
+        "Application Modernization/BanCoppel/Informix/")
+SRC = BASE + "source/informix/"
 CG = json.load(open(BASE + "portal/data/callgraph-data.json", encoding="utf-8"))
 
 # corpus de tokens crudos (segmentos entre _) de todos los nombres conectados + params
@@ -97,9 +97,9 @@ for tok, c in raw.most_common():
 badseg.sort(key=lambda x: -x[1])
 
 # ── reporte ──
-L = ["# BCOPCore · Auditoría Exhaustiva del Vocabulario — Falsos Positivos",
+L = ["# Informix · Auditoría Exhaustiva del Vocabulario — Falsos Positivos",
  "",
- "> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 · **Generado:** 2026-07-06 por `audit-vocab.py`  ",
+ "> **Componente:** Informix · SPE-AM-001 · Etapa 3 · **Generado:** 2026-07-06 por `audit-vocab.py`  ",
  f"> Analizados {len(toks):,} tokens crudos únicos del corpus (nombres + parámetros).",
  "",
  "Caza tokens del vocabulario que se interpretan mal por la **segmentación greedy** — igual que "

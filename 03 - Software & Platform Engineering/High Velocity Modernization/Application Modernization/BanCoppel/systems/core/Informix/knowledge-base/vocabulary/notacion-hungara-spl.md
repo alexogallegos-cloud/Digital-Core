@@ -1,7 +1,7 @@
 # Notación húngara SPL — Convención de nombres de variables BanCoppel
 
 > **Artefacto de KB · Capa 1 (Lenguaje) del Gemelo Cognitivo**
-> Owner: DT-Vocabulario · Proyecto: BanCoppel BCOPCore · SPE-AM-001
+> Owner: DT-Vocabulario · Proyecto: BanCoppel Informix · SPE-AM-001
 > Creado: 2026-08-07
 
 ## Qué es y por qué importa
@@ -84,7 +84,7 @@ El tipo **declarado** (no el prefijo adivinado) es la señal:
 - `DATE`/`DATETIME` → lógica temporal (vencimientos, corte).
 - `SMALLINT`/`CHAR(1)` con dominio {0,1,'S','N'} → bandera → sugiere ESTADO/VALIDACIÓN.
 
-Esto requiere extraer los `DEFINE` del source (`source/BCOPCore/informix/*.sql`) a un mapa `variable→tipo declarado` por SP. Es el siguiente build (owner DT-Reglas + DBA IBM Informix para la semántica de tipos Informix).
+Esto requiere extraer los `DEFINE` del source (`source/informix/*.sql`) a un mapa `variable→tipo declarado` por SP. Es el siguiente build (owner DT-Reglas + DBA IBM Informix para la semántica de tipos Informix).
 
 ## Caveats — es legacy, no es 100% consistente
 

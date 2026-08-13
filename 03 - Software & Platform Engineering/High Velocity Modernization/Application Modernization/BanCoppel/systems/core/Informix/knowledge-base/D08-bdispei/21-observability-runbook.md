@@ -1,6 +1,6 @@
 ﻿# D08 · bdispei (SPEI / Pagos Interbancarios) — Observabilidad y Runbook
 
-> **Componente:** BCOPCore · SPE-AM-001 · OPERATE Phase
+> **Componente:** Informix · SPE-AM-001 · OPERATE Phase
 > **Microservicio target:** SPEIService
 > **Wave:** Wave 2 · Riesgo: **CRÍTICO**
 > **Última actualización:** 2026-07-31
@@ -71,7 +71,7 @@ de bdispei persiste más de 10 min sin resolución (5 min de margen).
 | `spei_reccancelacion` | `bancoppel.bdispei.spei_reccancelacion.latency` | `bancoppel.bdispei.spei_reccancelacion.errors` | [SME-PENDING] ms |
 | `spei_recdevolucion` | `bancoppel.bdispei.spei_recdevolucion.latency` | `bancoppel.bdispei.spei_recdevolucion.errors` | [SME-PENDING] ms |
 
-> Verificar lógica de cada SP en `source/BCOPCore/informix/{sp_name}.sql` antes de ajustar umbrales.
+> Verificar lógica de cada SP en `source/informix/{sp_name}.sql` antes de ajustar umbrales.
 
 ### 2. Traffic (throughput)
 
@@ -185,16 +185,16 @@ DETECTAR:
 
 DIAGNOSTICAR (tiempo máximo de diagnóstico: 5 min para dejar 10 min de resolución):
   1. brain.py — verificar dependencias de spei_aplicaordenpago:
-       python BCOPCore/digital-brain/brain.py search "spei_aplicaordenpago"
-       python BCOPCore/digital-brain/brain.py callers "spei_aplicaordenpago"
+       python Informix/digital-brain/brain.py search "spei_aplicaordenpago"
+       python Informix/digital-brain/brain.py callers "spei_aplicaordenpago"
 
   2. Verificar si bdicheq (D04) está respondiendo — bdispei hace 67 cross-DB
      a bdicheq (57% del total); si bdicheq está degradado la acreditación falla:
-       python BCOPCore/digital-brain/brain.py search "bdicheq"
+       python Informix/digital-brain/brain.py search "bdicheq"
      Si bdicheq es la causa → ver INC-D08-03
 
   3. Revisar lógica del SP en:
-       source/BCOPCore/informix/spei_aplicaordenpago.sql
+       source/informix/spei_aplicaordenpago.sql
      Identificar si el SP hace UPDATE de saldo en bdicheq y en qué paso falla
 
   4. X-Ray: localizar el tramo de falla en el trace
@@ -234,12 +234,12 @@ DETECTAR:
 
 DIAGNOSTICAR:
   1. brain.py — identificar callers activos y relación con spei_devcodi:
-       python BCOPCore/digital-brain/brain.py callers "spei_recerrorescodi"
-       python BCOPCore/digital-brain/brain.py search "spei_devcodi"
+       python Informix/digital-brain/brain.py callers "spei_recerrorescodi"
+       python Informix/digital-brain/brain.py search "spei_devcodi"
 
   2. Revisar lógica de manejo de errores en:
-       source/BCOPCore/informix/spei_recerrorescodi.sql
-       source/BCOPCore/informix/spei_devcodi.sql
+       source/informix/spei_recerrorescodi.sql
+       source/informix/spei_devcodi.sql
      Identificar si el SP tiene transacciones sin COMMIT ante errores y si
      hay lógica de rollback parcial que pueda dejar estado inconsistente
 
@@ -253,7 +253,7 @@ DIAGNOSTICAR:
      o interno (el SP falla al procesar)
 
   4. Verificar si spei_devcodi quedó en estado inconsistente:
-       python BCOPCore/digital-brain/brain.py search "spei_devcodi"
+       python Informix/digital-brain/brain.py search "spei_devcodi"
      Si hay transacciones de devolución CoDi sin completar, el riesgo
      regulatorio es equivalente a INC-D08-01
 
@@ -293,10 +293,10 @@ DETECTAR:
 DIAGNOSTICAR:
   1. Confirmar estado de bdicheq (D04) como causa raíz — no debuggear bdispei
      hasta confirmar que D04 es el origen del problema:
-       python BCOPCore/digital-brain/brain.py search "bdicheq"
+       python Informix/digital-brain/brain.py search "bdicheq"
 
   2. brain.py — identificar los SPs de bdispei que disparan las 67 calls:
-       python BCOPCore/digital-brain/brain.py crossdb "bdispei" "bdicheq"
+       python Informix/digital-brain/brain.py crossdb "bdispei" "bdicheq"
 
   3. CloudWatch Insights — aislar errores de cross-DB hacia bdicheq:
        fields @timestamp, @message
@@ -385,5 +385,5 @@ Ninguno de estos códigos está documentado en `06-exceptions.md` del dominio.
 ---
 
 *Generado por: SRE & AIOps · 2026-07-31 · [SME-PENDING] umbrales SLO requieren validación con baseline real de QA Lead + Domain Expert BanCoppel + Regulatory Banxico.*
-*Lógica de SPs: verificar en `source/BCOPCore/informix/{sp_name}.sql` antes de ajustar cualquier umbral o implementar fix.*
+*Lógica de SPs: verificar en `source/informix/{sp_name}.sql` antes de ajustar cualquier umbral o implementar fix.*
 *RTO Banxico = 15 min — más estricto que el RTO general CNBV de 30 min. Este runbook tiene precedencia operativa sobre otros dominios en caso de incidente simultáneo.*

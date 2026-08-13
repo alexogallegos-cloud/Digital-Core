@@ -242,7 +242,7 @@ def main():
 
     total_weak = sum(regla_cnt.values())
     out = {
-      'meta': {'sistema':'BCOPCore','tecnologia':'informix-spl','estandar':'ISO/IEC 5055:2021',
+      'meta': {'sistema':'Informix','tecnologia':'informix-spl','estandar':'ISO/IEC 5055:2021',
                'sps_analizados': len(per_sp), 'sps_en_callgraph': len(CG['nodes']),
                'weaknesses_total': total_weak},
       'umbrales': {'complejidad': TH_CC, 'loc': TH_LOC, 'fanout': TH_FO,

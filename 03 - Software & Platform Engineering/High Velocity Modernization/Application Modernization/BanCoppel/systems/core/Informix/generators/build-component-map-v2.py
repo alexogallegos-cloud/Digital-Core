@@ -1,6 +1,6 @@
 ﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""build-component-map-v2.py — Mapa de componentes BCOPCore v2 con D3 force graph.
+"""build-component-map-v2.py — Mapa de componentes Informix v2 con D3 force graph.
 
 Fuentes : callgraph-data.json · business-rules-v2.json · vocabulary-inventory.json
 Genera  : component-map-bcop-v2.html · SPE-AM-001 · Etapa 3
@@ -14,7 +14,7 @@ from collections import defaultdict, Counter
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
+        "Application Modernization/BanCoppel/Informix/")
 
 # ── Logo ──────────────────────────────────────────────────────────────────────
 with open(BASE + "bancoppel-logo.png", "rb") as _f:
@@ -278,7 +278,7 @@ J_TILE     = jd(TILE_META)
 # ── HTML Template ─────────────────────────────────────────────────────────────
 HTML = r"""<!DOCTYPE html><html lang="es"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>BCOPCore · Mapa de Componentes v2</title>
+<title>Informix · Mapa de Componentes v2</title>
 <style>
 :root{
   --bg:#060d1f;--bg2:#0a1535;--panel:#0e1e45;--line:#122FB1;
@@ -413,7 +413,7 @@ header .badge{font-size:10px;color:var(--acc);font-weight:700;
 <header>
   <img class="logo" src="data:image/png;base64,__LOGO__" alt="BanCoppel">
   <div class="hinfo">
-    <h1>Mapa de Componentes · BCOPCore v2</h1>
+    <h1>Mapa de Componentes · Informix v2</h1>
     <div class="sub">SPE-AM-001 · Etapa 3 · D3 Force Graph · callgraph + reglas de negocio + vocabulario · 2026-08-02</div>
   </div>
   <div class="badge" id="hbadge"></div>

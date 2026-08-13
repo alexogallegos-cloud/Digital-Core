@@ -1,6 +1,6 @@
 # D07 · Aclaraciones — Matriz SP × Tabla (READ / WRITE)
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1
+> **Componente:** Informix · SPE-AM-001 · Etapa 1
 > **Base de datos:** `bdiaclaracion` · IBM Informix IDS 14.10 / POWER-AIX
 > **Wave:** Wave 2 · Riesgo: **ALTO**
 > **Última actualización:** 2026-07-03
@@ -184,4 +184,4 @@ Esta matriz determina:
 - `intercard:bitacoracancelaciontarjetas` (R) — desde `sp_acl_es_cliente_sv`, `sp_buscaqueda_folio_csuac`
 
 ---
-*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdiaclaracion_*.sql (análisis estático de 70 archivos SQL) · análisis estático de cláusulas FROM/INSERT/UPDATE/DELETE*
+*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/informix/bdiaclaracion_*.sql (análisis estático de 70 archivos SQL) · análisis estático de cláusulas FROM/INSERT/UPDATE/DELETE*

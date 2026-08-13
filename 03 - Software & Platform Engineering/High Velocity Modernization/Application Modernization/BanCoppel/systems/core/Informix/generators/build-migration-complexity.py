@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-build-migration-complexity.py — BCOPCore Migration Complexity Generator v1.0
+build-migration-complexity.py — Informix Migration Complexity Generator v1.0
 Genera portal/data/migration-complexity.json desde bank-brain.db + brain.db.
 
 Fuentes:

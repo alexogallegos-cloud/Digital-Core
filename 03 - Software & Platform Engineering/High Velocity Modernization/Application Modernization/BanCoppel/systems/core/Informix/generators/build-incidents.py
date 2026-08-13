@@ -1,11 +1,11 @@
 ﻿#!/usr/bin/env python3
 """
-build-incidents.py — BCOPCore · Generador de páginas de incidentes
+build-incidents.py — Informix · Generador de páginas de incidentes
 Lee secciones INC-D{NN}-{NN} de los runbooks (21-observability-runbook.md)
 y genera páginas HTML standalone en portal/incidents/.
 
 Uso: python generators/build-incidents.py
-     (ejecutar desde BCOPCore/)
+     (ejecutar desde Informix/)
 """
 
 import re, sys, json
@@ -15,7 +15,7 @@ from datetime import date
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-ROOT    = Path(__file__).resolve().parent.parent   # BCOPCore/
+ROOT    = Path(__file__).resolve().parent.parent   # Informix/
 KB      = ROOT / 'knowledge-base'
 OUT_DIR = ROOT / 'portal' / 'incidents'
 OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -222,7 +222,7 @@ HTML_TEMPLATE = '''\
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{inc_id_upper} · {title_short} · BanCoppel BCOPCore</title>
+<title>{inc_id_upper} · {title_short} · BanCoppel Informix</title>
 <style>
 :root {{
   --ancla: #122FB1;
@@ -395,7 +395,7 @@ footer {{
   <div class="hdr-row">
     <div>
       <div class="bc-wordmark">BanCoppel</div>
-      <div class="bc-sub">BCOPCore · SPE-AM-001</div>
+      <div class="bc-sub">Informix · SPE-AM-001</div>
     </div>
     <span class="hdr-divider">|</span>
     <div class="hdr-title">{inc_id_upper} · {title_short}</div>
@@ -419,7 +419,7 @@ footer {{
     {body_html}
   </div>
 </main>
-<footer>BCOPCore Digital Brain · BanCoppel Application Modernization · SPE-AM-001 · Accenture</footer>
+<footer>Informix Digital Brain · BanCoppel Application Modernization · SPE-AM-001 · Accenture</footer>
 </body>
 </html>
 '''
@@ -483,7 +483,7 @@ def build_incident(inc_slug: str, rb_rel: str) -> bool:
 
 
 def main():
-    print(f'BCOPCore Incident Pages — build')
+    print(f'Informix Incident Pages — build')
     print(f'Output: {OUT_DIR}\n')
     ok = err = 0
     for inc_slug, rb_rel in INCIDENTS:

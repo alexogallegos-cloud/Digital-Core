@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-build-curvas-intradia.py — BCOPCore · Dashboard navegable de curvas intradia (txn/min).
+build-curvas-intradia.py — Informix · Dashboard navegable de curvas intradia (txn/min).
 
 Reconstruye la curva intradia (00:00-23:59) de CUALQUIER dia de 2025-2026 para SPEI y el
 Autorizador con el pipeline: 7 FORMAS NORMALIZADAS (una por dia de la semana, suma=1) x VOLUMEN
@@ -9,7 +9,7 @@ existe (2025-01-01 a 2026-08-04) y PROYECTADO por el forecast donde no (2026-08-
 Asi la curva futura refleja el comportamiento del dia de la semana escalado al volumen proyectado.
 HTML interactivo con selector de fecha y filtros por canal.
 
-Uso: python generators/build-curvas-intradia.py   (ejecutar desde BCOPCore/)
+Uso: python generators/build-curvas-intradia.py   (ejecutar desde Informix/)
 Regenerable con datos nuevos (extiende el tramo real, recorta el proyectado).
 """
 import sys, json
@@ -103,7 +103,7 @@ def main():
 def _render(data_js, path):
     html = f"""<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>BCOPCore · Curvas Intradia por Canal</title>
+<title>Informix · Curvas Intradia por Canal</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
@@ -210,7 +210,7 @@ footer{{text-align:center;padding:36px 0 8px;font-size:11px;color:var(--muted2);
   </div>
   <div class="note" id="note"></div>
 </div>
-<footer>BCOPCore · Gemelo Cognitivo del Sistema · SPE-AM-001 · Accenture México · 2026</footer>
+<footer>Informix · Gemelo Cognitivo del Sistema · SPE-AM-001 · Accenture México · 2026</footer>
 <script>
 const DATA={data_js};const P=DATA.perfiles;const V=DATA.vol;const STEP=DATA.step;
 const CSP="#34d399",CEG="#6f8ce6";

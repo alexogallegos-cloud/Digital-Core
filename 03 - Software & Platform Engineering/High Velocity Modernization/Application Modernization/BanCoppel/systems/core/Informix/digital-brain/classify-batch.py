@@ -19,7 +19,7 @@ Sub-arquetipos:
   NO_SOURCE          — no se encontró el archivo SQL
   UNKNOWN            — señales insuficientes (residual mínimo esperado)
 
-Ejecutar desde BCOPCore/:
+Ejecutar desde Informix/:
     python digital-brain/classify-batch.py
 """
 
@@ -29,7 +29,7 @@ from collections import Counter, defaultdict
 sys.stdout.reconfigure(encoding='utf-8')
 
 BASE       = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SOURCE_DIR = os.path.join(BASE, 'source', 'BCOPCore', 'informix')
+SOURCE_DIR = os.path.join(BASE, 'source', 'informix')
 DB_PATH    = os.path.join(BASE, 'digital-brain', 'brain.db')
 
 # Alias explícitos para SPs registrados bajo nombre canónico pero cuyo archivo

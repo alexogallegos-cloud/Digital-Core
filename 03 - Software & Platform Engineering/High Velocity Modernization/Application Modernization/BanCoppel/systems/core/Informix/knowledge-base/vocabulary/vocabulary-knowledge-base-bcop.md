@@ -1,6 +1,6 @@
-﻿# BCOPCore · Base de Conocimiento del Vocabulario SPL
+﻿# Informix · Base de Conocimiento del Vocabulario SPL
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Extraction
+> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Extraction
 > **Base:** IBM Informix IDS 14.10 FC10W2 / POWER-AIX · **Corpus:** 10,144 SPs · 16 dominios (D01-D16)
 > **Última actualización:** 2026-08-02 · colaboración swarm de DTs peer (v2)
 
@@ -16,7 +16,7 @@ Documento de referencia curado que explica **cómo leer los nombres de los store
 
 **Productos → dominios del core** (así se mapea el negocio al código):
 
-| Producto de negocio | Descripción | Dominio(s) BCOPCore |
+| Producto de negocio | Descripción | Dominio(s) Informix |
 |---------------------|-------------|---------------------|
 | Cuenta Efectiva Digital · Nómina | Débito, sin comisión, PIN dinámico, retiro sin tarjeta | D04 `bdicheq` · D05 `bdisac` |
 | Tarjeta de Crédito (VISA / Básica) | Sin anualidad; MSI 3–24 meses en comercios afiliados y Coppel | D03 `bdicred` |
@@ -34,7 +34,7 @@ Documento de referencia curado que explica **cómo leer los nombres de los store
 
 ## 1 · Por qué existe este vocabulario
 
-En un sistema *"base de datos como aplicación"* como BCOPCore, la lógica de negocio vive como **13,223 stored procedures** cuyos nombres son la única pista inmediata de su propósito (no hay capa de servicios documentada). Los nombres son **morfemas concatenados en español** con notación abreviada — `spei_aplicaordenpago`, `sp_cont_cargamovimientob3`, `sp_fal_busca_pagares_cliente`.
+En un sistema *"base de datos como aplicación"* como Informix, la lógica de negocio vive como **13,223 stored procedures** cuyos nombres son la única pista inmediata de su propósito (no hay capa de servicios documentada). Los nombres son **morfemas concatenados en español** con notación abreviada — `spei_aplicaordenpago`, `sp_cont_cargamovimientob3`, `sp_fal_busca_pagares_cliente`.
 
 El vocabulario ([`sp_vocab.py`](../../generators/sp_vocab.py)) descompone esos nombres en términos con significado, permitiendo **inferir el objetivo de cualquier SP sin leer su código** — y priorizar cuáles sí requieren lectura manual (los ambiguos). Es la base de la Etapa 3 y alimenta el catálogo de journeys y el inventario de términos.
 
@@ -192,7 +192,7 @@ Cada candidato clasificado **sube la cobertura de todos los SPs que lo contienen
 ### Pipeline reproducible (orden de ejecución)
 
 ```
-sp_vocab.py  (fuente única del vocabulario — editar aquí; en root de BCOPCore)
+sp_vocab.py  (fuente única del vocabulario — editar aquí; en root de Informix)
    │
    ├─ python extract-journeys.py        → journeys-data.json (journeys + objetivos)
    ├─ python mine-source.py             → enriquece con evidencia del código fuente
@@ -290,7 +290,7 @@ Los cuatro dominios nuevos aportan patrones de nomenclatura propios que extiende
 - **Prefijos dominantes**: `sp_synmotor_` (integración con procesador Syndein), `sp_cnc_` (configuración de tarjeta)
 - **Términos dominantes**: `intercard`, `synmotor`, `cnc`, `stat06`, `tco` (Tarjetas Coppel), `platino`, `oro`, `bloqueo`, `parametro`, `proceso`
 - **SynMotor**: motor de procesamiento del fintech Syndein — los SPs `sp_synmotor_*` son wrappers de llamadas a API/WSDL externas, no lógica bancaria propia de BanCoppel
-- **Implicación para migración**: la lógica crítica de autorización de tarjetas vive en Syndein, no en BCOPCore — el alcance debe delimitar explícitamente qué queda en el target y qué sigue en el procesador externo
+- **Implicación para migración**: la lógica crítica de autorización de tarjetas vive en Syndein, no en Informix — el alcance debe delimitar explícitamente qué queda en el target y qué sigue en el procesador externo
 - **stat06**: código de estado de tarjeta — probablemente estatus 06 (bloqueada por reporte de fraude); `[CONFIRMAR→DBA]`
 
 ---

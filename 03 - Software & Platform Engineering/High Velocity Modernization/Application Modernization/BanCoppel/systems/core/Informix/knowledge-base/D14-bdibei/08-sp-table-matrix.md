@@ -1,6 +1,6 @@
 # D14 · Banca Electrónica Institucional (BEI) — Matriz SP × Tabla
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 2 — Schema Extraction
+> **Componente:** Informix · SPE-AM-001 · Etapa 2 — Schema Extraction
 > **Base de datos:** bdibei
 > **Wave:** Wave 3 · Riesgo: CRÍTICO (batch nómina)
 > **Última actualización:** 2026-08-03

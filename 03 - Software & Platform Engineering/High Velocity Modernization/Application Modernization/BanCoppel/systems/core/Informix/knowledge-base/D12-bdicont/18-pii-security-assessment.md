@@ -1,6 +1,6 @@
 # D12 · Contabilidad — Evaluación de Seguridad y PII
 
-> **Componente:** BCOPCore · SPE-AM-001 · DESIGN Phase
+> **Componente:** Informix · SPE-AM-001 · DESIGN Phase
 > **Base de datos:** `bdicont` · Nivel PII: 🟠 MEDIA
 > **Última actualización:** 2026-07-03
 

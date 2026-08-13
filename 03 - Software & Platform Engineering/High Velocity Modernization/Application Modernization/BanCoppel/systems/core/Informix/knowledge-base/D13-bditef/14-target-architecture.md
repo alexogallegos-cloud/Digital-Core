@@ -1,13 +1,13 @@
 # D13 · Transferencias Electrónicas de Fondos (TEF) — Arquitectura Target
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Extraction
+> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Extraction
 > **Base de datos:** `bditef`
 > **Wave:** Wave 3 · Riesgo: ALTO
 > **Última actualización:** 2026-08-03
 
 ---
 **SME responsable:**
-- Architect Target — BCOPCore (diseño del microservicio)
+- Architect Target — Informix (diseño del microservicio)
 - SME — Core Banking Transformation (patrones de migración bancaria)
 - SME — SRE & AIOps (operabilidad, SLOs, observabilidad)
 - SME Regulatorio — CNBV (cumplimiento regulatorio en el target)

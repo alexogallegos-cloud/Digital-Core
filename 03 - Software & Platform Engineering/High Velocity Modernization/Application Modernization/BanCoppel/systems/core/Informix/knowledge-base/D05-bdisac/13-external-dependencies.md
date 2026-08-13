@@ -1,6 +1,6 @@
 # D05 · Saldos y Cuentas — Dependencias Externas y Terceros
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1
+> **Componente:** Informix · SPE-AM-001 · Etapa 1
 > **Base de datos:** `bdisac` · IBM Informix IDS 14.10 / POWER-AIX
 > **Wave:** Wave 3 · Riesgo: **ALTO**
 > **Última actualización:** 2026-07-03
@@ -185,7 +185,7 @@ find /opt /home -name "*.cron" 2>/dev/null | head -20
 
 **Criticidad:** 🟠 ALTA — 1 SP de `bdisac` hace cross-DB call
 
-> **Fuente:** `source/BCOPCore/informix/intercard_sp_consultaregtarjeta.sql` · Verificado: 2026-08-01
+> **Fuente:** `source/informix/intercard_sp_consultaregtarjeta.sql` · Verificado: 2026-08-01
 
 | SP de `bdisac` | Tablas accedidas en `intercard` | Tipo | Notas |
 |----|----|----|---|
@@ -323,7 +323,7 @@ find /opt /home -name "*.cron" 2>/dev/null | head -20
 
 
 ---
-*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdisac_*.sql (análisis estático de 58 archivos SQL) · análisis estático de archivos SQL*
+*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/informix/bdisac_*.sql (análisis estático de 58 archivos SQL) · análisis estático de archivos SQL*
 
 <!-- LOG-DATA-BEGIN -->
 ## Sistemas externos observados en logs — 2026-04-24

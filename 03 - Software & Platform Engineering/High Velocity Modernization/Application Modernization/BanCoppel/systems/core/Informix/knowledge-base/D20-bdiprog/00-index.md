@@ -1,7 +1,7 @@
 # D20-bdiprog - Knowledge Base Placeholder
 > **Dominio**: Programacion y Beneficios
 > **Base de datos Informix**: bdiprog
-> **Archivos fuente**: 143 SPs en source/BCOPCore/informix/bdiprog/
+> **Archivos fuente**: 143 SPs en source/informix/bdiprog/
 > **Estado**: [PENDIENTE ANALISIS] -- carpeta creada, contenido por generar
 > **Prioridad**: ALTA
 > **Incorporado al scope**: 2026-08-03
@@ -12,7 +12,7 @@
 
 ## Descripcion
 
-Programacion y Beneficios. Tiene 143 stored procedures en el codigo fuente de BCOPCore.
+Programacion y Beneficios. Tiene 143 stored procedures en el codigo fuente de Informix.
 
 ## Estado de Artefactos
 
@@ -28,4 +28,4 @@ Seguir el template de D01-bdicnweb como referencia.
 
 ---
 
-*Placeholder creado 2026-08-03 - BCOPCore scope expansion D01-D49*
+*Placeholder creado 2026-08-03 - Informix scope expansion D01-D49*

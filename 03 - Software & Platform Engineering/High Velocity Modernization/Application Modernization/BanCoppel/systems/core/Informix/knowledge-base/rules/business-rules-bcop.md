@@ -1,6 +1,6 @@
-# BCOPCore · Catálogo de Reglas de Negocio — v3.0 (Layer A+)
+# Informix · Catálogo de Reglas de Negocio — v3.0 (Layer A+)
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Enrichment Layer A+
+> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Enrichment Layer A+
 > **Generado:** 2026-08-06 · `enrich-rules-v3.py` · 8,005 reglas · 8,005 con nombre natural · 5,759 con explicación
 > **Cobertura:** D01-D53 (todos los dominios) · 49 bases de datos activas
 > **Fuente primaria:** `business-rules-v3.json` (v3.0, Layer A+)

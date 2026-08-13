@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """enrich-d17-d49.py — Extrae biz + reglas de los 415 SPs de D17-D49
-Parsea los archivos SQL fuente en source/BCOPCore/informix/{db}_{sp}.sql
+Parsea los archivos SQL fuente en source/informix/{db}_{sp}.sql
 y actualiza brain.db directamente con:
   - sps.biz (descripción de negocio inferida del código)
   - rules (reglas de negocio extraídas: IF/WHEN/ON EXCEPTION)
   - sps.rules_n (conteo actualizado)
 
 Uso:
-  cd BCOPCore/
+  cd Informix/
   python generators/enrich-d17-d49.py
 """
 
@@ -21,7 +21,7 @@ if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 BASE       = Path(__file__).resolve().parent.parent
-SOURCE_DIR = BASE / "source" / "BCOPCore" / "informix"
+SOURCE_DIR = BASE / "source" / "Informix" / "informix"
 DB_PATH    = BASE / "digital-brain" / "brain.db"
 
 # D17-D49 databases con sus dominios
@@ -320,7 +320,7 @@ def update_brain(con: sqlite3.Connection, parsed: list[dict]) -> dict:
 
 def main():
     print("=" * 60)
-    print("BCOPCore — enrich-d17-d49.py")
+    print("Informix — enrich-d17-d49.py")
     print(f"Source: {SOURCE_DIR}")
     print(f"Brain:  {DB_PATH}")
     print("=" * 60)

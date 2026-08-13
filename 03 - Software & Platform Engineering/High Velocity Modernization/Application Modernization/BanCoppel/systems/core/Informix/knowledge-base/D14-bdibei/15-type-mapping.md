@@ -1,6 +1,6 @@
 # D14 · Banca Electrónica Institucional (BEI) — Mapeo de Tipos Informix → PostgreSQL
 
-> **Componente:** BCOPCore · SPE-AM-001 · BUILD Phase
+> **Componente:** Informix · SPE-AM-001 · BUILD Phase
 > **Base de datos:** bdibei
 > **Wave:** Wave 3 · Riesgo: CRÍTICO (batch nómina)
 > **Última actualización:** 2026-08-03

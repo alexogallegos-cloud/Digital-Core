@@ -14,7 +14,7 @@
 | Versión runbook | 1.0 |
 | Última revisión | 2026-07-31 |
 
-> **Nota de verificación:** la lógica interna de `sp_consultadatospiezas_bym2` y `sp_tipo_servicio_etv2` debe validarse en `BCOPCore/source/bdisuc/` antes de confirmar comportamiento bajo carga o ante modificaciones. Los 376 callers de `sp_consultadatospiezas_bym2` representan el mayor fan-in de este dominio y cualquier cambio en su signatura tiene impacto sistémico.
+> **Nota de verificación:** la lógica interna de `sp_consultadatospiezas_bym2` y `sp_tipo_servicio_etv2` debe validarse en `Informix/source/bdisuc/` antes de confirmar comportamiento bajo carga o ante modificaciones. Los 376 callers de `sp_consultadatospiezas_bym2` representan el mayor fan-in de este dominio y cualquier cambio en su signatura tiene impacto sistémico.
 
 ---
 
@@ -115,13 +115,13 @@ bancoppel.bdisuc.caja.cierre.failed                  — cierres de caja fallido
 
 ```bash
 # Paso 1: confirmar el estado del SP y su posición en el grafo de dependencias
-python BCOPCore/digital-brain/brain.py sp "sp_consultadatospiezas_bym2" --show-body --show-callers --show-callees
+python Informix/digital-brain/brain.py sp "sp_consultadatospiezas_bym2" --show-body --show-callers --show-callees
 
 # Paso 2: identificar los 376 callers para dimensionar el impacto
-python BCOPCore/digital-brain/brain.py edges --target sp_consultadatospiezas_bym2 --direction inbound --count
+python Informix/digital-brain/brain.py edges --target sp_consultadatospiezas_bym2 --direction inbound --count
 
 # Paso 3: verificar si la falla es aislada al SP o se extiende a bdisuc completo
-python BCOPCore/digital-brain/brain.py query "bdisuc health status godproc"
+python Informix/digital-brain/brain.py query "bdisuc health status godproc"
 ```
 
 **Resolución:**
@@ -149,20 +149,20 @@ python BCOPCore/digital-brain/brain.py query "bdisuc health status godproc"
 
 ```bash
 # Paso 1: revisar el SP y sus dependencias de datos
-python BCOPCore/digital-brain/brain.py sp "sp_tipo_servicio_etv2" --show-body --show-callers --show-callees
+python Informix/digital-brain/brain.py sp "sp_tipo_servicio_etv2" --show-body --show-callers --show-callees
 
 # Paso 2: verificar si hay dependencia de tablas de catálogo que pueden estar corruptas o bloqueadas
-python BCOPCore/digital-brain/brain.py query "sp_tipo_servicio_etv2 tables catalog dependencies"
+python Informix/digital-brain/brain.py query "sp_tipo_servicio_etv2 tables catalog dependencies"
 
 # Paso 3: correlacionar con otros incidentes activos en bdisuc
-python BCOPCore/digital-brain/brain.py query "bdisuc active incidents concurrent errors"
+python Informix/digital-brain/brain.py query "bdisuc active incidents concurrent errors"
 ```
 
 **Resolución:**
 
 1. Revisar el log de errores de Informix en bdisuc para el SP. Un error de acceso a tabla de catálogo es el origen más común según el análisis estático.
 2. Verificar si las tablas de catálogo de tipo de servicio tienen registros vigentes; una tabla de catálogo vacía o con datos corruptos puede causar este incidente.
-3. Si el SP fue modificado recientemente, comparar con la versión anterior en el repositorio BCOPCore y evaluar rollback.
+3. Si el SP fue modificado recientemente, comparar con la versión anterior en el repositorio Informix y evaluar rollback.
 4. Confirmar resolución verificando que `bancoppel.bdisuc.godproc.tiposervicio.calls` retorna a valores normales sin errores.
 
 **RTO objetivo:** [SME-PENDING]
@@ -182,19 +182,19 @@ python BCOPCore/digital-brain/brain.py query "bdisuc active incidents concurrent
 
 ```bash
 # Paso 1: verificar el estado de bdicont y confirmar si el incidente es en D12
-python BCOPCore/digital-brain/brain.py query "bdicont health status incidents"
+python Informix/digital-brain/brain.py query "bdicont health status incidents"
 
 # Paso 2: mapear cuáles SPs de bdisuc dependen de bdicont para el cierre de caja
-python BCOPCore/digital-brain/brain.py edges --source bdisuc --target bdicont --detail
+python Informix/digital-brain/brain.py edges --source bdisuc --target bdicont --detail
 
 # Paso 3: verificar cuántos cierres de caja están pendientes
-python BCOPCore/digital-brain/brain.py query "bdisuc caja cierre pending bdicont"
+python Informix/digital-brain/brain.py query "bdisuc caja cierre pending bdicont"
 ```
 
 **Resolución:**
 
 1. Confirmar si bdicont (D12) tiene una alarma CRITICAL activa. Si es así, escalar al equipo responsable de D12 y coordinar resolución conjunta.
-2. Verificar si existe un procedimiento de cierre diferido en bdisuc que permita registrar el cierre de caja cuando bdicont se restaure. Revisar en `BCOPCore/source/bdisuc/`.
+2. Verificar si existe un procedimiento de cierre diferido en bdisuc que permita registrar el cierre de caja cuando bdicont se restaure. Revisar en `Informix/source/bdisuc/`.
 3. Si no existe modo diferido, documentar los cierres de caja pendientes con timestamp para reproceso manual una vez bdicont esté disponible.
 4. Una vez bdicont restaurado, ejecutar el reproceso de cierres pendientes y confirmar que `bancoppel.bdisuc.caja.cierre.success` los registra correctamente.
 5. Reportar el incidente al equipo de contabilidad y, si la ventana batch fue afectada, evaluar con el equipo regulatorio la necesidad de notificación.
@@ -228,7 +228,7 @@ python BCOPCore/digital-brain/brain.py query "bdisuc caja cierre pending bdicont
 
 ---
 
-*Generado por BCOPCore — DISCOVER Etapa 1 · BanCoppel Application Modernization · Accenture México*
+*Generado por Informix — DISCOVER Etapa 1 · BanCoppel Application Modernization · Accenture México*
 
 <!-- LOG-DATA-BEGIN -->
 ## Patrones de incidente observados — Logs 2026-04-24

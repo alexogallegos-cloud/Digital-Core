@@ -3,11 +3,11 @@
 """
 build-sanitized.py — Genera una versión SANITIZADA del showcase del Gemelo Cognitivo,
 apta para pitch a cualquier cliente:
-  · anonimiza al cliente:  BanCoppel/BCOPCore/Coppel → LegacyCore / "el grupo"
+  · anonimiza al cliente:  BanCoppel/Informix/Coppel → LegacyCore / "el grupo"
   · marca Accenture:        logo BanCoppel → logo Accenture · paleta azul+dorado → morado
   · renombra archivos:      *-bcop.html → *-legacy.html (y sus hrefs internos)
 
-NO toca los originales: lee de BCOPCore/ y escribe a BCOPCore/sanitized/.
+NO toca los originales: lee de Informix/ y escribe a Informix/sanitized/.
 Preserva los colores SEMÁNTICOS (severidad, dominios, reguladores) — solo cambia el
 chrome de marca, por hex exacto.
 """
@@ -26,12 +26,12 @@ TEXT = [
   ("Nómina/dispersión", "Nómina / dispersión"),
   ("Coppel/BanCoppel", "el grupo"),
   ("Coppel y BanCoppel", "el grupo"),
-  ("BanCoppel/BCOPCore", "LegacyCore"),
+  ("BanCoppel/Informix", "LegacyCore"),
   ("clientes de crédito de Coppel", "clientes de crédito del grupo"),
   ("base de clientes de BanCoppel", "base de clientes del banco"),
   ("historia de Coppel", "historia del grupo"),
   ("BanCoppel", "LegacyCore"),
-  ("BCOPCore", "LegacyCore"),
+  ("Informix", "LegacyCore"),
   ("knowledge-base-coppel-bancoppel", "knowledge-base-cliente"),
   ("bancoppel", "legacycore"),   # minúscula explícita (evita 'bangrupo')
   ("BANCOPPEL", "LEGACYCORE"),

@@ -8,7 +8,7 @@ from collections import Counter
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
+        "Application Modernization/BanCoppel/Informix/")
 BR = json.load(open(BASE + "portal/data/business-rules.json", encoding="utf-8"))
 
 DOMN = {"bdicheq":"D04 Cheques","bdicred":"D03 Créditos","bdisac":"D05 Saldos","bdispei":"D08 SPEI",
@@ -32,7 +32,7 @@ M = json.dumps({"total": len(rows), "byreg": byreg, "bytipo": bytipo,
 
 HTML = """<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>BCOPCore · Reglas de Negocio y Fórmulas</title>
+<title>Informix · Reglas de Negocio y Fórmulas</title>
 <style>
 :root{--bg:#14142b;--bg2:#1A1A2E;--panel:#1f1f3a;--line:#2c2c50;--magenta:#A100FF;--txt:#E8E8F0;--muted:#9a9ab5}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -69,7 +69,7 @@ tbody tr:hover{background:rgba(161,0,255,.06)}
 footer{font-size:9px;color:var(--muted);padding:6px 20px;flex-shrink:0;border-top:1px solid var(--line)}
 #ls{font-size:9px;padding:4px 20px;flex-shrink:0}#ls.err{color:#fca5a5}
 </style></head><body>
-<header><h1>Reglas de Negocio y Fórmulas · BCOPCore</h1>
+<header><h1>Reglas de Negocio y Fórmulas · Informix</h1>
 <div class="sub">SPE-AM-001 · Etapa 3 Business Logic Extraction · evidencia del código SPL · 2026-07-04</div></header>
 <div id="tiles"></div>
 <div id="regbar"></div>

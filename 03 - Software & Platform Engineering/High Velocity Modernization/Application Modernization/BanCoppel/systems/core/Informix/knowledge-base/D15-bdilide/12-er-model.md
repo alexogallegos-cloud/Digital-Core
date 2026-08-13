@@ -1,6 +1,6 @@
 # D15 · LIDE/PLD (Prevención de Lavado de Dinero) — Modelo Entidad-Relación
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 2 — Schema Analysis
+> **Componente:** Informix · SPE-AM-001 · Etapa 2 — Schema Analysis
 > **Base de datos:** bdilide
 > **Wave:** Wave 4 · Riesgo: CRÍTICO (regulatorio — PLD/CNBV/SHCP)
 > **Última actualización:** 2026-08-03

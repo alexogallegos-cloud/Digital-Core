@@ -1,6 +1,6 @@
 # D11 · Cobranza — Excepciones y Manejo de Errores
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1 — Static Analysis
+> **Componente:** Informix · SPE-AM-001 · Etapa 1 — Static Analysis
 > **Base de datos:** `bdicobranza` · IBM Informix IDS 14.10 FC10W2 / POWER-AIX
 > **Última actualización:** 2026-08-03 *(CWE-390 + CHAR(5) confirmados en código — P655-R009/R010)*
 
@@ -106,7 +106,7 @@ SPs que tienen bloques `ON EXCEPTION … END EXCEPTION` (patrones de recuperaci�
 
 ### CWE-390 — Excepción silenciosa en `sp_obtener_datos_cv_web` (VERIFICADO EN CÓDIGO · P655-R010)
 
-**Fuente:** `source/BCOPCore/informix/bdicobranza_sp_obtener_datos_cv_web.sql` · Verificado: 2026-08-01
+**Fuente:** `source/informix/bdicobranza_sp_obtener_datos_cv_web.sql` · Verificado: 2026-08-01
 
 Este SP muestra el patrón CWE-390 (*Detection of Error Condition Without Action*): el bloque `ON EXCEPTION` captura la excepción del motor Informix, la convierte a código numérico y la retorna como si fuera un código de negocio ordinario, sin escribir a bitácora ni relanzar la excepción.
 
@@ -149,7 +149,7 @@ Los patrones "comportamiento silencioso" que el análisis estático dejó como [
 | `ON EXCEPTION → ROLLBACK → CONTINUE sin log` | [SME-PENDING] otros SPs | Por confirmar en sesión DBA |
 
 ---
-*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdicobranza_*.sql*
+*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/informix/bdicobranza_*.sql*
 *Actualizado: DT-Riesgos · 2026-08-01 · Verificación en código de CWE-390 + CHAR(5) en sp_obtener_datos_cv_web (P655-R009/R010)*
 
 <!-- LOG-DATA-BEGIN -->

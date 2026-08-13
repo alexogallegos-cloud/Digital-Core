@@ -1,6 +1,6 @@
 # D14 · Banca Electrónica Institucional (BEI) — Reglas de Negocio y Fórmulas
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Extraction
+> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Extraction
 > **Base de datos:** bdibei
 > **Wave:** Wave 3 · Riesgo: CRÍTICO (batch nómina)
 > **Última actualización:** 2026-08-03

@@ -128,5 +128,5 @@ Una tasa de 97.37% de error se convierte en el baseline de producción. En el ta
 
 ---
 
-*Fuentes: `knowledge-base/D11-bdicobranza/21-observability-runbook.md` INC-D11-04 · `source/BCOPCore/informix/bdicobranza_sp_obtener_datos_cv_web.sql` · risk register P655-R009/R010/R011.*  
-*Creado: 2026-08-06 | BCOPCore Gemelo Cognitivo — DISCOVER Etapa 1*
+*Fuentes: `knowledge-base/D11-bdicobranza/21-observability-runbook.md` INC-D11-04 · `source/informix/bdicobranza_sp_obtener_datos_cv_web.sql` · risk register P655-R009/R010/R011.*  
+*Creado: 2026-08-06 | Informix Gemelo Cognitivo — DISCOVER Etapa 1*

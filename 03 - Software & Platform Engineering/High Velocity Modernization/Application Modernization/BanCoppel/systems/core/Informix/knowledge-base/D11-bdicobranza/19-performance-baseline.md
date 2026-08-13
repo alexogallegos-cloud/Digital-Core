@@ -1,6 +1,6 @@
 # D11 · Cobranza — Baseline de Performance
 
-> **Componente:** BCOPCore · SPE-AM-001 · TEST Phase
+> **Componente:** Informix · SPE-AM-001 · TEST Phase
 > **Base de datos:** `bdicobranza` · IBM Informix IDS 14.10 POWER-AIX → Aurora PostgreSQL
 > **Última actualización:** 2026-07-03
 

@@ -1,6 +1,6 @@
 # D05 · Saldos y Cuentas — Estrategia de Pruebas de Equivalencia (Golden Master)
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1
+> **Componente:** Informix · SPE-AM-001 · Etapa 1
 > **Base de datos:** `bdisac` · IBM Informix IDS 14.10 / POWER-AIX
 > **Wave:** Wave 3 · Riesgo: **ALTO**
 > **Última actualización:** 2026-07-03
@@ -122,4 +122,4 @@ Mitigación: configurar RoundingMode.HALF_EVEN en la capa de aplicación
 
 
 ---
-*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdisac_*.sql (análisis estático de 58 archivos SQL) · Specialist — Informix SPL Analysis + QA Lead Equivalencia*
+*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/informix/bdisac_*.sql (análisis estático de 58 archivos SQL) · Specialist — Informix SPL Analysis + QA Lead Equivalencia*

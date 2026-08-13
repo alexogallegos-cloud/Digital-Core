@@ -324,7 +324,7 @@ OPEN_ITEMS = [
      "Mapear todas las dependencias críticas entre Transact y el sistema legado (ejemplos: Western Union, "
      "recargas); el legado es una 'caja gris' que dificulta construir el roadmap; Gloria debe detallar "
      "el estado y naturaleza de cada dependencia crítica.",
-     None, "high", '["PISA/BCOPCore", "Transact"]'),
+     None, "high", '["PISA/Informix", "Transact"]'),
 
     ("SW2-OI-0009", "2026-04-28",
      "Oscar Melo y Eduardo Ponce deben compartir el inventario Excel completo de las 8 interfaces batch "
@@ -402,13 +402,13 @@ OPEN_ITEMS = [
      "Sandra Figueroa y Araceli Barcena deben buscar documentación para reforzar la lista de "
      "dependencias críticas del legado con Transact; coordinar con Angélica Tolosa y Gloria para "
      "tener inventario completo.",
-     None, "medium", '["PISA/BCOPCore", "Transact"]'),
+     None, "medium", '["PISA/Informix", "Transact"]'),
 
     ("SW2-OI-0022", "2026-03-24",
      "Definir estrategia de migración de datos Informix: determinar qué datos históricos permanecen "
      "on-premise y cuáles (clientes activos, saldos) migran a la nube; actualmente la estrategia "
      "no está definida y la latencia Informix bloquea el avance de la migración a nube.",
-     None, "high", '["PISA/BCOPCore", "Atlas"]'),
+     None, "high", '["PISA/Informix", "Atlas"]'),
 
     ("SW2-OI-0023", "2026-04-28",
      "Definir SLAs realistas para resolución de defectos: los SLAs actuales (ej. 4 horas para defecto "

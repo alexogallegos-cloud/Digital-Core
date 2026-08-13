@@ -1,6 +1,6 @@
 # D07 · Aclaraciones — Baseline de Performance
 
-> **Componente:** BCOPCore · SPE-AM-001 · TEST Phase
+> **Componente:** Informix · SPE-AM-001 · TEST Phase
 > **Base de datos:** `bdiaclaracion` · IBM Informix IDS 14.10 POWER-AIX → Aurora PostgreSQL
 > **Última actualización:** 2026-07-03
 

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 build-vocab-enrichment.py — Genera/actualiza vocabulary-enrichment.json
-Capa semántica del vocabulario BCOPCore: enriquece con BC, dominio AS-IS,
+Capa semántica del vocabulario Informix: enriquece con BC, dominio AS-IS,
 relaciones ontológicas y stubs para anotación SME.
 
 Consume: vocabulary-inventory.json  ·  digital-brain/brain.db
@@ -40,7 +40,7 @@ from pathlib import Path
 
 BASE = Path("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
             "03 - Software & Platform Engineering/High Velocity Modernization/"
-            "Application Modernization/BanCoppel/BCOPCore/")
+            "Application Modernization/BanCoppel/Informix/")
 
 INV_FILE    = BASE / "knowledge-base" / "vocabulary-inventory.json"
 BRAIN_DB    = BASE / "digital-brain/brain.db"

@@ -1,8 +1,8 @@
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Cross-Reference KB · Generado: 2026-08-02 · Scope expandido: 2026-08-03 (D01-D49)
+> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Cross-Reference KB · Generado: 2026-08-02 · Scope expandido: 2026-08-03 (D01-D49)
 
-# Cross-Reference KB — BCOPCore
+# Cross-Reference KB — Informix
 
-Este directorio conecta el vocabulario, las reglas de negocio y el grafo de llamadas del sistema BCOPCore en un único mapa de conocimiento navegable. Cada artefacto toma un ángulo de análisis diferente; juntos permiten responder preguntas que ninguna fuente aislada puede responder: ¿qué procedimiento concentra mayor riesgo regulatorio?, ¿qué término de negocio es transversal a más lógica?, ¿cuáles SPs son candidatos obligatorios para el golden master de migración?
+Este directorio conecta el vocabulario, las reglas de negocio y el grafo de llamadas del sistema Informix en un único mapa de conocimiento navegable. Cada artefacto toma un ángulo de análisis diferente; juntos permiten responder preguntas que ninguna fuente aislada puede responder: ¿qué procedimiento concentra mayor riesgo regulatorio?, ¿qué término de negocio es transversal a más lógica?, ¿cuáles SPs son candidatos obligatorios para el golden master de migración?
 
 ---
 

@@ -13,8 +13,8 @@ from collections import Counter, defaultdict
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
-SRC = BASE + "source/BCOPCore/informix/"
+        "Application Modernization/BanCoppel/Informix/")
+SRC = BASE + "source/informix/"
 CG = json.load(open(BASE + "portal/data/callgraph-data.json", encoding="utf-8"))
 
 RE_CREATE = re.compile(r"create\s+(?:procedure|function)\b", re.I)
@@ -77,9 +77,9 @@ for node in CG["graph"]["nodes"]:
 def bar(n, mx, w=30):
     return "█" * int(round(w * n / mx)) if mx else ""
 
-L = ["# BCOPCore · Línea Temporal del Código (creación / modificación)",
+L = ["# Informix · Línea Temporal del Código (creación / modificación)",
  "",
- "> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 · **Generado:** 2026-07-05 por `extract-timeline.py`  ",
+ "> **Componente:** Informix · SPE-AM-001 · Etapa 3 · **Generado:** 2026-07-05 por `extract-timeline.py`  ",
  f"> **{n_with_date:,} de {n_sp:,} SPs** ({100*n_with_date//n_sp if n_sp else 0}%) tienen fecha documentada en comentarios.",
  "",
  "> ⚠ **Fuente = comentarios del código, no metadata de sistema.** Informix no guarda fecha de "

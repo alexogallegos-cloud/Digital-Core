@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-classify-sp-types.py — BCOPCore SP Classifier v1.1
+classify-sp-types.py — Informix SP Classifier v1.1
 Puebla sp_archetype en brain.db con la taxonomía estructural de 7 arquetipos.
 
 sp_archetype (columna) = patrón estructural derivado de fan_in/fan_out (todos los SPs).
@@ -66,7 +66,7 @@ def main():
 
     rows = cur.execute("SELECT id, fan_in, fan_out FROM sps").fetchall()
     total = len(rows)
-    print(f"=== BCOPCore SP Classifier v1.1 ===")
+    print(f"=== Informix SP Classifier v1.1 ===")
     print(f"DB:        {db_path}")
     print(f"Total SPs: {total:,}")
 

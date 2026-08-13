@@ -13,9 +13,9 @@ def q(sql, *args): return conn.execute(sql, args).fetchall()
 lines = []
 def p(s=''): lines.append(s)
 
-p('# BCOPCore — Taxonomía Batch: Sub-arquetipos de SPs')
+p('# Informix — Taxonomía Batch: Sub-arquetipos de SPs')
 p()
-p('> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1')
+p('> **Componente:** Informix · SPE-AM-001 · Etapa 1')
 p('> **Generado:** 2026-08-09 · digital-brain/classify-batch.py')
 p('> **Fuente:** brain.db tabla `batch_analysis` · 6,861 candidatos (fan_in=0 · role=internal · biz≠null · loc>100)')
 p('> **SME responsable:** Specialist — Informix SPL Analysis · DBA IBM Informix')

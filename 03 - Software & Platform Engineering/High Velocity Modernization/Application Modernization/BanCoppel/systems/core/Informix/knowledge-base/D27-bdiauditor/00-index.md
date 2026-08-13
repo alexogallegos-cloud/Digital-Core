@@ -1,7 +1,7 @@
 # D27-bdiauditor - Knowledge Base Placeholder
 > **Dominio**: Auditoria
 > **Base de datos Informix**: bdiauditor
-> **Archivos fuente**: 49 SPs en source/BCOPCore/informix/bdiauditor/
+> **Archivos fuente**: 49 SPs en source/informix/bdiauditor/
 > **Estado**: [PENDIENTE ANALISIS] -- carpeta creada, contenido por generar
 > **Prioridad**: MEDIA
 > **Incorporado al scope**: 2026-08-03
@@ -10,7 +10,7 @@
 
 ## Descripcion
 
-Auditoria. Tiene 49 stored procedures en el codigo fuente de BCOPCore.
+Auditoria. Tiene 49 stored procedures en el codigo fuente de Informix.
 
 ## Estado de Artefactos
 
@@ -26,4 +26,4 @@ Seguir el template de D01-bdicnweb como referencia.
 
 ---
 
-*Placeholder creado 2026-08-03 - BCOPCore scope expansion D01-D49*
+*Placeholder creado 2026-08-03 - Informix scope expansion D01-D49*

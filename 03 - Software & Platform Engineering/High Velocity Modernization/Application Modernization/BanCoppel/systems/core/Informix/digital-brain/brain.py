@@ -1,5 +1,5 @@
 """
-brain.py — BCOPCore Digital Brain · Agent API
+brain.py — Informix Digital Brain · Agent API
 Interfaz Python que cualquier agente puede importar para interrogar el sistema.
 
 Uso básico:
@@ -21,7 +21,7 @@ DB_PATH = Path(__file__).parent / 'brain.db'
 
 class BCOPBrain:
     """
-    Agent-facing interface al Digital Brain de BCOPCore.
+    Agent-facing interface al Digital Brain de Informix.
     Todos los métodos devuelven dicts/listas Python planos — serializables y
     listos para consumir por cualquier agente o LLM.
     """
@@ -177,7 +177,7 @@ class BCOPBrain:
     # ── Las 12 Almas ───────────────────────────────────────────────────────────
 
     def souls(self) -> list[dict]:
-        """Las 12 almas — SPs arquitectónicamente críticos de BCOPCore."""
+        """Las 12 almas — SPs arquitectónicamente críticos de Informix."""
         rows = self._db().execute('''
             SELECT s.id, s.name, s.label, s.db, s.domain, s.fan_in, s.fan_out, s.loc, s.biz,
                    s.soul_rank, s.soul_pattern, s.weaknesses, s.verdict
@@ -293,7 +293,7 @@ class BCOPBrain:
     # ── Sistemas externos ──────────────────────────────────────────────────────
 
     def integrations(self) -> list[dict]:
-        """Sistemas externos integrados con BCOPCore, ordenados por endpoints desc."""
+        """Sistemas externos integrados con Informix, ordenados por endpoints desc."""
         rows = self._db().execute(
             'SELECT * FROM external_systems ORDER BY total_endpoints DESC'
         ).fetchall()

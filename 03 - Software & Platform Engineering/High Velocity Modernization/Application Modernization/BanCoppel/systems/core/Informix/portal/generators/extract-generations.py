@@ -16,8 +16,8 @@ import sp_vocab
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
-SRC = BASE + "source/BCOPCore/informix/"
+        "Application Modernization/BanCoppel/Informix/")
+SRC = BASE + "source/informix/"
 CAT = sp_vocab.CAT
 DOM = {"bdicnweb","bdinteg","bdicred","bdicheq","bdisac","bdisolic",
        "bdiaclaracion","bdispei","bdimnsj","bdisuc","bdicobranza","bdicont"}
@@ -317,7 +317,7 @@ footer{margin-top:34px;font-size:11px;color:var(--muted2);text-align:center;bord
 """
 HTML=f"""<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>BCOPCore · Relevo Generacional y Deuda</title><style>{CSS}</style></head><body>
+<title>Informix · Relevo Generacional y Deuda</title><style>{CSS}</style></head><body>
 <div class="aurora"><span class="b1"></span><span class="b2"></span><span class="b3"></span></div>
 <header><img src="bancoppel-logo.png" alt="BanCoppel">
  <div><h1>Relevo Generacional, Vocabulario y Deuda</h1><div class="sub">Gemelo Cognitivo</div></div></header>

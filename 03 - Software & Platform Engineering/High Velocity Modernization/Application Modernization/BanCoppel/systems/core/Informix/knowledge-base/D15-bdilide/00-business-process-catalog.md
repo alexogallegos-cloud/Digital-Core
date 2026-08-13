@@ -1,6 +1,6 @@
 # D15 · LIDE/PLD (Prevención de Lavado de Dinero) — Catálogo de Procesos de Negocio
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Extraction
+> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Extraction
 > **Base de datos:** bdilide
 > **Wave:** Wave 4 · Riesgo: CRÍTICO (regulatorio — PLD/CNBV/SHCP)
 > **Última actualización:** 2026-08-03
@@ -24,7 +24,7 @@
 
 ## Rol del dominio
 
-`bdilide` · Wave 4 · Riesgo CRÍTICO. 101 SPs; 5 en callgraph, 96 aislados. Dominio de mayor carga regulatoria en BCOPCore: gestiona la Lista de Instancias de Deudores Especiales (LIDE) y el motor de Prevención de Lavado de Dinero (PLD) de BanCoppel. Interactúa con CNBV, SHCP y SAT mediante reportes regulatorios formales. Cualquier degradación funcional post-migración tiene implicaciones de cumplimiento normativo directas.
+`bdilide` · Wave 4 · Riesgo CRÍTICO. 101 SPs; 5 en callgraph, 96 aislados. Dominio de mayor carga regulatoria en Informix: gestiona la Lista de Instancias de Deudores Especiales (LIDE) y el motor de Prevención de Lavado de Dinero (PLD) de BanCoppel. Interactúa con CNBV, SHCP y SAT mediante reportes regulatorios formales. Cualquier degradación funcional post-migración tiene implicaciones de cumplimiento normativo directas.
 
 ## Inventario de procesos de negocio identificados
 

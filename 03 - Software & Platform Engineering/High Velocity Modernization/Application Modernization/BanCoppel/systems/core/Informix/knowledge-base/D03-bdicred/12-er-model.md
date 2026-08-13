@@ -1,6 +1,6 @@
 # D03 · Créditos — Modelo Entidad-Relación (Inferido)
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1
+> **Componente:** Informix · SPE-AM-001 · Etapa 1
 > **Base de datos:** `bdicred` · IBM Informix IDS 14.10 / POWER-AIX
 > **Wave:** Wave 4 · Riesgo: **CRÍTICO**
 > **Última actualización:** 2026-07-03
@@ -241,4 +241,4 @@ ORDER BY t.tabname, c.colno;
 
 
 ---
-*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdicred_*.sql (análisis estático de 70 archivos SQL) · análisis estático de archivos SQL*
+*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/informix/bdicred_*.sql (análisis estático de 70 archivos SQL) · análisis estático de archivos SQL*

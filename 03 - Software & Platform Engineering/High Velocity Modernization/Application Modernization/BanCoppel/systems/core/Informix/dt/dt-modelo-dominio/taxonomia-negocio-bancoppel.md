@@ -1,7 +1,7 @@
 # Taxonomía de Negocio — BanCoppel
 > **Tipo**: Modelo Lógico de Negocio · Taxonomía Canónica del Sistema
 > **Versión**: 0.1.0 · 2026-08-02
-> **Proyecto**: SPE-AM-001 · BCOPCore
+> **Proyecto**: SPE-AM-001 · Informix
 > **Autoridad**: SME Industry Banking · validada con evidencia AS-IS de BCOPBrain
 > **Estado**: DRAFT — L1-L3 definidos · L4-L5 pendientes de análisis SP
 
@@ -9,7 +9,7 @@
 
 ## Propósito
 
-Esta taxonomía es el **hilo conductor** del proyecto BCOPCore. Todo artefacto del Gemelo Cognitivo (reglas de negocio, vocabulario, journeys, capacidades, riesgos) se referencia a un nodo de esta jerarquía.
+Esta taxonomía es el **hilo conductor** del proyecto Informix. Todo artefacto del Gemelo Cognitivo (reglas de negocio, vocabulario, journeys, capacidades, riesgos) se referencia a un nodo de esta jerarquía.
 
 | Nivel | Nombre | Descripción | Ejemplo |
 |-------|--------|-------------|---------|
@@ -534,4 +534,4 @@ Esta taxonomía es el **hilo conductor** del proyecto BCOPCore. Todo artefacto d
 
 ---
 
-*v0.2.0 · 2026-08-03 · dt-modelo-dominio · Autoridad: SME Industry Banking · BCOPCore SPE-AM-001 — Corrección conteos: 24 subdominios · 67 caps; ref 7.3.3.1 → 7.4.1.1*
+*v0.2.0 · 2026-08-03 · dt-modelo-dominio · Autoridad: SME Industry Banking · Informix SPE-AM-001 — Corrección conteos: 24 subdominios · 67 caps; ref 7.3.3.1 → 7.4.1.1*

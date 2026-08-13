@@ -1,4 +1,4 @@
-# 20 — Latency Baseline · BCOPCore
+# 20 — Latency Baseline · Informix
 > **Fuente**: `transacciones_bus_20260424_*.txt` (24h producción)
 > **Metodología**: latencia medida como duración de flujos multi-SP con mismo `idTrxGlobal`
 > **Granularidad**: 1 segundo (resolución del timestamp en campo `referencia`)

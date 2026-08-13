@@ -9,7 +9,7 @@ Consume: integrations-data.json (de _chord_data.py).
 import json
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
+        "Application Modernization/BanCoppel/Informix/")
 D = json.load(open(BASE + "portal/data/integrations-data.json", encoding="utf-8"))
 
 total_conn = sum(sum(v.values()) for v in D["matrix"].values())
@@ -22,7 +22,7 @@ HTML = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>BCOPCore · Integraciones del core (chord)</title>
+<title>Informix · Integraciones del core (chord)</title>
 <style>
 :root{--bg:#0a1330;--bg2:#0d1a3d;--panel:#132152;--line:#26317c;--gold:#F0D224;--blue:#3D5FCD;--txt:#EAEDF7;--muted:#9aa4c4}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,7 +54,7 @@ header .sub{font-size:10px;color:#c9d3f5;margin-top:2px}
 <body>
 <header>
   <img src="bancoppel-logo.png" alt="BanCoppel">
-  <div><h1>Integraciones del core · BCOPCore</h1>
+  <div><h1>Integraciones del core · Informix</h1>
   <div class="sub">SPE-AM-001 · a qué sistemas externos se integra el core · cintas ponderadas por endpoints (SPs entry-point)</div></div>
 </header>
 

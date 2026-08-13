@@ -1,7 +1,7 @@
 # D45-bdiprem - Knowledge Base Placeholder
 > **Dominio**: Premios y Promociones
 > **Base de datos Informix**: bdiprem
-> **Archivos fuente**: 2 SPs en source/BCOPCore/informix/bdiprem/
+> **Archivos fuente**: 2 SPs en source/informix/bdiprem/
 > **Estado**: [PENDIENTE ANALISIS] -- carpeta creada, contenido por generar
 > **Prioridad**: BAJA
 > **Incorporado al scope**: 2026-08-03
@@ -10,7 +10,7 @@
 
 ## Descripcion
 
-Premios y Promociones. Tiene 2 stored procedures en el codigo fuente de BCOPCore.
+Premios y Promociones. Tiene 2 stored procedures en el codigo fuente de Informix.
 
 ## Estado de Artefactos
 
@@ -26,4 +26,4 @@ Seguir el template de D01-bdicnweb como referencia.
 
 ---
 
-*Placeholder creado 2026-08-03 - BCOPCore scope expansion D01-D49*
+*Placeholder creado 2026-08-03 - Informix scope expansion D01-D49*

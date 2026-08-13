@@ -1,4 +1,4 @@
-# Análisis WAS — BanCoppel BCOPCore · 2026-08-07
+# Análisis WAS — BanCoppel Informix · 2026-08-07
 > Generado: 2026-08-07 21:05 · `generators/analyze-was-logs.py` v1.0
 
 ## Contexto
@@ -287,7 +287,7 @@ Ordenados por volumen de llamadas (solo operaciones con ≥5 respuestas).
 | 200 | OK | 4,693,122 |
 | 404 | Not Found | 220,451 |
 
-## Señales para la migración BCOPCore
+## Señales para la migración Informix
 
 Observaciones directamente relevantes para `SPE-AM-001`:
 

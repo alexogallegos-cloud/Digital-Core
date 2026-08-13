@@ -1,6 +1,6 @@
 """
-analyze-logs.py — BCOPCore Bus Log Analyzer
-Proyecto: BanCoppel BCOPCore · SPE-AM-001
+analyze-logs.py — Informix Bus Log Analyzer
+Proyecto: BanCoppel Informix · SPE-AM-001
 Fuente: source/logs/ — 48 archivos (transacciones_bus + errores_bus, 2026-04-24)
 
 Produce en output/:
@@ -325,7 +325,7 @@ def generate_performance_baseline(results: dict, out_dir: Path):
     )
 
     lines = [
-        "# 19 — Performance Baseline · BCOPCore",
+        "# 19 — Performance Baseline · Informix",
         "> **Fuente**: logs de producción del Bus de Servicios — 2026-04-24 (24 horas)",
         "> **Generado por**: analyze-logs.py",
         "> **Nota**: métricas de latencia p50/p95/p99 requieren instrumentación APM — marcadas [APM-PENDING]",
@@ -422,7 +422,7 @@ def generate_performance_baseline(results: dict, out_dir: Path):
         "---",
         "",
         "*Generado automáticamente por analyze-logs.py — 2026-07-31*",
-        "*Validar contra código fuente: `source/BCOPCore/informix/{sp_name}.sql`*",
+        "*Validar contra código fuente: `source/informix/{sp_name}.sql`*",
     ]
 
     out_path = out_dir / "19-performance-baseline-from-logs.md"
@@ -435,7 +435,7 @@ def generate_performance_baseline(results: dict, out_dir: Path):
 # ---------------------------------------------------------------------------
 
 def main():
-    parser = argparse.ArgumentParser(description="BCOPCore Bus Log Analyzer")
+    parser = argparse.ArgumentParser(description="Informix Bus Log Analyzer")
     parser.add_argument("--logs-dir",   default="source/logs",      help="Directorio de logs")
     parser.add_argument("--output-dir", default="output/log-analysis", help="Directorio de salida")
     args = parser.parse_args()

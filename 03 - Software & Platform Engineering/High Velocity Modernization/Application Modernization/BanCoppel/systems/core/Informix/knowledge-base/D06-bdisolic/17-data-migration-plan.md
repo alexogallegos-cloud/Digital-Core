@@ -1,6 +1,6 @@
 # D06 · Solicitudes — Plan de Migración de Datos
 
-> **Componente:** BCOPCore · SPE-AM-001 · DESIGN Phase → BUILD
+> **Componente:** Informix · SPE-AM-001 · DESIGN Phase → BUILD
 > **Base de datos:** `bdisolic` → Target: Aurora PostgreSQL 15+
 > **Wave:** Wave 3 · Riesgo: **ALTO**
 > **Última actualización:** 2026-07-03

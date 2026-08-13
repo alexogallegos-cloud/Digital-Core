@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # generate-missing-sp-detail-pages.py
-# Genera las páginas HTML de detalle de SP faltantes para el portal BCOPCore
+# Genera las páginas HTML de detalle de SP faltantes para el portal Informix
 # Usage: python generators/generate-missing-sp-detail-pages.py
 
 import sys, io, re, os, json, html as html_mod
@@ -40,7 +40,7 @@ DB_DOMAIN_MAP = {
 # ──────────────────────────────────────────────────────────────────────────────
 # STEP 1: Find missing SPs
 # ──────────────────────────────────────────────────────────────────────────────
-print("=== BCOPCore SP Detail Page Generator ===")
+print("=== Informix SP Detail Page Generator ===")
 print()
 
 cap_path = PORTAL + "capability-model-bcop-v2.html"
@@ -442,7 +442,7 @@ def build_html(sp_name, inv_entry, rules, callees, callers):
 
     html = f"""<!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>{title} · BCOPCore</title>
+<title>{title} · Informix</title>
 <style>
 {CSS}
 </style></head><body>
@@ -451,7 +451,7 @@ def build_html(sp_name, inv_entry, rules, callees, callers):
 <nav>
   <img src="../../bancoppel-logo.png" alt="BanCoppel">
   <span class="sep">/</span>
-  <span class="bc">BCOPCore · {domain_id_h} · {domain_label_h}</span>
+  <span class="bc">Informix · {domain_id_h} · {domain_label_h}</span>
   <span class="sp"></span>
   <a class="back" href="../capability-model-bcop-v2.html">← Modelo de Capacidades</a>
 </nav>
@@ -507,7 +507,7 @@ def build_html(sp_name, inv_entry, rules, callees, callers):
 </div>
 
 <footer>
-  BCOPCore · {domain_id_h} {domain_label_h} · <code>{title}</code> · SPE-AM-001 · Fase DISCOVER<br>
+  Informix · {domain_id_h} {domain_label_h} · <code>{title}</code> · SPE-AM-001 · Fase DISCOVER<br>
   Datos extraidos desde <code>sp-inventory.json</code> · <code>business-rules-v2.json</code> · <code>callgraph-data.json</code>
 </footer>
 
@@ -523,7 +523,7 @@ def build_stub_html(sp_name):
     title = html_mod.escape(sp_name)
     return f"""<!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>{title} · BCOPCore</title>
+<title>{title} · Informix</title>
 <style>
 {CSS}
 </style></head><body>
@@ -532,7 +532,7 @@ def build_stub_html(sp_name):
 <nav>
   <img src="../../bancoppel-logo.png" alt="BanCoppel">
   <span class="sep">/</span>
-  <span class="bc">BCOPCore</span>
+  <span class="bc">Informix</span>
   <span class="sp"></span>
   <a class="back" href="../capability-model-bcop-v2.html">← Modelo de Capacidades</a>
 </nav>
@@ -553,7 +553,7 @@ def build_stub_html(sp_name):
 </div>
 
 <footer>
-  BCOPCore · <code>{title}</code> · SPE-AM-001 · Fase DISCOVER<br>
+  Informix · <code>{title}</code> · SPE-AM-001 · Fase DISCOVER<br>
   Stub generado automaticamente — sin datos en sp-inventory.json
 </footer>
 

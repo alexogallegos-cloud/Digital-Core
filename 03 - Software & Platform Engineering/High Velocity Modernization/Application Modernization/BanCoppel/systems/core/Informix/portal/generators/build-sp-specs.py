@@ -30,8 +30,8 @@ from collections import defaultdict
 # ── paths ──────────────────────────────────────────────────────────────────
 BASE = Path("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
             "03 - Software & Platform Engineering/High Velocity Modernization/"
-            "Application Modernization/BanCoppel/BCOPCore/")
-SRC  = BASE / "source/BCOPCore/informix"
+            "Application Modernization/BanCoppel/Informix/")
+SRC  = BASE / "source/informix"
 KB   = BASE / "knowledge-base"
 
 sys.path.insert(0, str(BASE))

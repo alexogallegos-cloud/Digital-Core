@@ -1,6 +1,6 @@
 # D03 · bdicred — Crédito — Observabilidad y Runbook
 
-> **Componente:** BCOPCore · SPE-AM-001 · OPERATE Phase
+> **Componente:** Informix · SPE-AM-001 · OPERATE Phase
 > **Base de datos:** bdicred (Crédito)
 > **Wave:** 4 · Riesgo: **CRÍTICO**
 > **Última actualización:** 2026-07-31
@@ -38,7 +38,7 @@
 | SPs observados en logs | `sp_consulta_pre_aprobado`, `obt_datos_caratula` |
 
 > **Nota de fuente:** Los perfiles completos de cada SP se deben validar contra
-> `source/BCOPCore/informix/{sp_name}.sql` antes de confirmar umbrales de alarma
+> `source/informix/{sp_name}.sql` antes de confirmar umbrales de alarma
 > en producción. `sp_respalda_credito_rr` y `reversioncrd` requieren revisión de
 > Specialist Informix SPL Analysis por su criticidad en el ciclo de vida del crédito.
 
@@ -216,7 +216,7 @@ DIAGNOSTICAR:
        Si bdicheq o bdisolic no responden, el SP puede fallar por dependencia ausente
 
   6. Fuente del SP:
-       source/BCOPCore/informix/sp_respalda_credito_rr.sql
+       source/informix/sp_respalda_credito_rr.sql
        Validar con Specialist Informix SPL Analysis la lógica de transacción y
        los puntos exactos donde el SP puede quedar en estado parcial.
 
@@ -285,7 +285,7 @@ DIAGNOSTICAR:
        cross-DB que degrade bdicheq simultáneamente
 
   6. Fuente del SP:
-       source/BCOPCore/informix/reversioncrd.sql
+       source/informix/reversioncrd.sql
        Validar con Specialist Informix SPL Analysis si hay lógica de reintento
        interno que pueda estar amplificando el volumen real de ejecuciones.
 
@@ -357,7 +357,7 @@ DIAGNOSTICAR:
        operativo inmediato en sucursales
 
   6. Fuente de los SPs afectados:
-       source/BCOPCore/informix/  — revisar los SPs de bdicred que hacen
+       source/informix/  — revisar los SPs de bdicred que hacen
        llamadas cross-DB a bdicheq para entender si tienen fallback local
        o si la dependencia es bloqueante (sin alternativa).
 
@@ -417,7 +417,7 @@ RTO target: < 20 min (288 llamadas cross-DB afectadas; impacto directo en Caja2 
 
 *Generado por: SRE & AIOps · 2026-07-31 · [SME-PENDING] umbrales de SLO requieren
 baseline real con QA Lead. `sp_respalda_credito_rr` y `reversioncrd` pendientes de
-validación contra `source/BCOPCore/informix/` con Specialist Informix SPL Analysis.*
+validación contra `source/informix/` con Specialist Informix SPL Analysis.*
 
 <!-- LOG-DATA-BEGIN -->
 ## Patrones de incidente observados — Logs 2026-04-24

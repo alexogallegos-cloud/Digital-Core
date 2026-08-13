@@ -1,6 +1,6 @@
 # D01 · Canal Digital Web — Arquitectura Target
 
-> **Componente:** BCOPCore · SPE-AM-001 · DESIGN Phase
+> **Componente:** Informix · SPE-AM-001 · DESIGN Phase
 > **Base de datos:** `bdicnweb` · Target: **AWS Aurora PostgreSQL**
 > **Wave:** ÚLTIMO · Riesgo: **ALTO**
 > **Última actualización:** 2026-07-03

@@ -1,6 +1,6 @@
 # D15 · LIDE/PLD (Prevención de Lavado de Dinero) — Contratos de API
 
-> **Componente:** BCOPCore · SPE-AM-001 · DESIGN Phase
+> **Componente:** Informix · SPE-AM-001 · DESIGN Phase
 > **Base de datos:** bdilide
 > **Wave:** Wave 4 · Riesgo: CRÍTICO (regulatorio — PLD/CNBV/SHCP)
 > **Última actualización:** 2026-08-03
@@ -159,7 +159,7 @@ periodo: "202607"
 - [ ] Área de Cumplimiento: confirmar que el comportamiento de falla segura (DENY cuando LIDE no responde) es el correcto desde la perspectiva regulatoria.
 - [ ] Definir el contrato de datos del campo `codigoMotivo` en la respuesta `EN_LIDE`.
 - [ ] Confirmar el SLA de respuesta del LideService: ¿200ms es alcanzable con Aurora Multi-AZ?
-- [ ] Diseñar el contrato OpenAPI 3.0 completo y registrarlo en el API Gateway de BCOPCore.
+- [ ] Diseñar el contrato OpenAPI 3.0 completo y registrarlo en el API Gateway de Informix.
 
 ---
 *Generado: Core Banking Transformation + Cloud Architect · 2026-08-03*

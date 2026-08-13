@@ -1,6 +1,6 @@
 # D01 · Canal Digital Web — Excepciones y Manejo de Errores
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1 — Static Analysis
+> **Componente:** Informix · SPE-AM-001 · Etapa 1 — Static Analysis
 > **Base de datos:** `bdicnweb` · IBM Informix IDS 14.10 FC10W2 / POWER-AIX
 > **Última actualización:** 2026-07-03
 
@@ -127,4 +127,4 @@ Por ejemplo:
 ```
 
 ---
-*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdicnweb_*.sql*
+*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/informix/bdicnweb_*.sql*

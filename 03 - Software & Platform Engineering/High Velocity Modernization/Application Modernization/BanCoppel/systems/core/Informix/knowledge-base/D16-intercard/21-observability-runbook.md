@@ -1,6 +1,6 @@
 # D16 · Intercard (Tarjetas) — Observabilidad y Runbook
 
-> **Componente:** BCOPCore · SPE-AM-001 · OPERATE Phase
+> **Componente:** Informix · SPE-AM-001 · OPERATE Phase
 > **Microservicio target:** TarjetasService
 > **Wave:** Wave 4 · Riesgo: **MEDIO-ALTO**
 > **Última actualización:** 2026-08-03

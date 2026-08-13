@@ -1,6 +1,6 @@
 # D07 · Aclaraciones — Riesgos de Equivalencia
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1 — Static Analysis
+> **Componente:** Informix · SPE-AM-001 · Etapa 1 — Static Analysis
 > **Base de datos:** `bdiaclaracion` · IBM Informix IDS 14.10 FC10W2 / POWER-AIX
 > **Última actualización:** 2026-07-03
 
@@ -124,4 +124,4 @@ Informix `SERIAL` no decrementa al hacer `ROLLBACK` (igual que PostgreSQL `SEQUE
 ```
 
 ---
-*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdiaclaracion_*.sql + callgraph-data.json*
+*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/informix/bdiaclaracion_*.sql + callgraph-data.json*

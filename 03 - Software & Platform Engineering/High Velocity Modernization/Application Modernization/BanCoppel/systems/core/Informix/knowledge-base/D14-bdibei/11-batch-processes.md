@@ -1,6 +1,6 @@
 # D14 · Banca Electrónica Institucional (BEI) — Procesos Batch
 
-> **Componente:** BCOPCore · SPE-AM-001 · DISCOVER / BUILD Phase
+> **Componente:** Informix · SPE-AM-001 · DISCOVER / BUILD Phase
 > **Base de datos:** bdibei
 > **Wave:** Wave 3 · Riesgo: CRÍTICO (batch nómina)
 > **Última actualización:** 2026-08-03
@@ -18,7 +18,7 @@
 
 ## Importancia crítica de los procesos batch en BEI
 
-Los procesos batch del dominio `bdibei` son **los de mayor criticidad empresarial del proyecto BCOPCore** por una razón única: el batch de nómina afecta directamente a los empleados de las empresas clientes de BanCoppel. Un fallo de batch durante la migración tiene impacto inmediato en personas reales (no en transacciones anónimas), genera reclamaciones masivas ante CONDUSEF, y puede comprometer la relación de BanCoppel con sus clientes empresa.
+Los procesos batch del dominio `bdibei` son **los de mayor criticidad empresarial del proyecto Informix** por una razón única: el batch de nómina afecta directamente a los empleados de las empresas clientes de BanCoppel. Un fallo de batch durante la migración tiene impacto inmediato en personas reales (no en transacciones anónimas), genera reclamaciones masivas ante CONDUSEF, y puede comprometer la relación de BanCoppel con sus clientes empresa.
 
 ## Por qué los batches no aparecen en los logs de producción de un día
 
@@ -32,7 +32,7 @@ Los 294 SPs aislados incluyen muy probablemente los SPs de batch. Los logs del 2
 
 | Atributo | Valor |
 |----------|-------|
-| **Criticidad** | CRÍTICA — máxima del proyecto BCOPCore |
+| **Criticidad** | CRÍTICA — máxima del proyecto Informix |
 | **Tipo** | Batch quincenal |
 | **Frecuencia** | 2 veces al mes — día 1 y día 15 (o primer/último hábil del mes) |
 | **Ventana de ejecución** | `[SME-PENDING]` — probable: 22:00 h - 04:00 h CDMX (ventana nocturna) |

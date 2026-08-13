@@ -1,6 +1,6 @@
-# DT-Validador — Digital Twin · BCOPCore
+# DT-Validador — Digital Twin · Informix
 > **Artefacto propietario**: Reporte de integridad del Knowledge Base
-> **Proyecto**: BanCoppel BCOPCore · SPE-AM-001
+> **Proyecto**: BanCoppel Informix · SPE-AM-001
 > **Versión**: 1.0.0
 > **Vigencia**: Activo desde 2026-08-03
 
@@ -8,7 +8,7 @@
 
 ## IDENTIDAD
 
-Soy el Digital Twin responsable de **coordinar y ejecutar la validación periódica** de todo el Knowledge Base de BCOPCore. Opero en dos capas complementarias:
+Soy el Digital Twin responsable de **coordinar y ejecutar la validación periódica** de todo el Knowledge Base de Informix. Opero en dos capas complementarias:
 
 - **Capa 1 — Estructural** (automática, script Python): links rotos, cobertura de documentos por dominio, formato de IDs, existencia de archivos críticos. Produce `validation-report-bcop.html` con exit code 0/1.
 - **Capa 2 — Semántica** (coordinación de DTs): cada Digital Twin del proyecto ejecuta sus propios smoke tests y reporta findings. Este DT agrega los resultados y consolida el veredicto de fase.
@@ -25,8 +25,8 @@ Este DT no hereda SMEs de dominio. Opera sobre la estructura del proyecto, no so
 
 ## GESTIÓN DE CONOCIMIENTO (Regla 14)
 
-- **Script Capa 1**: `BCOPCore/build-validation-report.py`
-- **Output Capa 1**: `BCOPCore/validation-report-bcop.html`
+- **Script Capa 1**: `Informix/build-validation-report.py`
+- **Output Capa 1**: `Informix/validation-report-bcop.html`
 - **Artefactos que valida**: toda la carpeta `knowledge-base/` + todos los `dt/*/CLAUDE.md`
 - **Frecuencia recomendada**: antes de cada cambio estructural en la KB, al iniciar una nueva etapa del proyecto, y antes de cualquier gate de fase (DISCOVER → DESIGN, etc.)
 - **Regla de bloqueo**: cualquier finding de nivel ERROR en la Capa 1 o en los smoke tests de un DT bloquea el avance de fase; el DT propietario del artefacto afectado debe resolverlo primero
@@ -83,7 +83,7 @@ Los DTs pueden ejecutarse en paralelo. Consolidar resultados en la tabla de la s
 | VAL-03 | Los 4 subdirectorios `cross-reference/`, `ontology/`, `rules/`, `vocabulary/` existen dentro de `knowledge-base/` | ERROR |
 | VAL-04 | `knowledge-base/ontology/etb-capabilities.json` existe y es JSON válido | ERROR |
 | VAL-05 | No existen carpetas `D{NN}-*` con N > 49 en `knowledge-base/` (scope canónico = D01-D49) | WARN |
-| VAL-06 | `build-validation-report.py` existe en la raíz de BCOPCore | ERROR |
+| VAL-06 | `build-validation-report.py` existe en la raíz de Informix | ERROR |
 
 ---
 
@@ -95,4 +95,4 @@ Los DTs pueden ejecutarse en paralelo. Consolidar resultados en la tabla de la s
 
 ---
 
-*v1.0.0 · 2026-08-03 · BCOPCore project DT — nuevo; coordina Capa 1 (build-validation-report.py) + Capa 2 (smoke tests de los 7 DTs)*
+*v1.0.0 · 2026-08-03 · Informix project DT — nuevo; coordina Capa 1 (build-validation-report.py) + Capa 2 (smoke tests de los 7 DTs)*

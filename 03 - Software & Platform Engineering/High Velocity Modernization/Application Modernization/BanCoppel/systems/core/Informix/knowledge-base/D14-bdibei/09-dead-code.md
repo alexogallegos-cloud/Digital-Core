@@ -1,6 +1,6 @@
 # D14 · Banca Electrónica Institucional (BEI) — Código Muerto y SPs Aislados
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Extraction
+> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Extraction
 > **Base de datos:** bdibei
 > **Wave:** Wave 3 · Riesgo: CRÍTICO (batch nómina)
 > **Última actualización:** 2026-08-03
@@ -17,9 +17,9 @@
 
 ## Contexto — La anomalía de los SPs aislados
 
-El dominio `bdibei` presenta la situación más inusual del proyecto BCOPCore:
+El dominio `bdibei` presenta la situación más inusual del proyecto Informix:
 
-| Métrica | Valor | Comparación con promedio BCOPCore |
+| Métrica | Valor | Comparación con promedio Informix |
 |---------|-------|----------------------------------|
 | SPs totales | 336 | Alto |
 | SPs en callgraph (observados en logs) | 42 | 12.5% del total |

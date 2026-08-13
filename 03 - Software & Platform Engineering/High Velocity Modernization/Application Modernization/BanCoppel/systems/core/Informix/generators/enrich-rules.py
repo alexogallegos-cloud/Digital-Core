@@ -11,7 +11,7 @@ enrich-rules.py — Enriquece business-rules-v2.json con:
 Fuentes consultadas:
   vocabulary-inventory.json  → significados y BC de cada término
   callgraph-data.json        → relaciones entre SPs
-  source/BCOPCore/informix/  → código fuente (para comentarios inline)
+  source/informix/  → código fuente (para comentarios inline)
 
 También actualiza knowledge-base/rules/business-rules-bcop.md con la tabla de explicaciones.
 
@@ -22,8 +22,8 @@ from collections import defaultdict
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
-SRC = BASE + "source/BCOPCore/informix/"
+        "Application Modernization/BanCoppel/Informix/")
+SRC = BASE + "source/informix/"
 
 # ── 1. Cargar vocabulario ──────────────────────────────────────────────────────
 inv = json.load(open(BASE + "knowledge-base/vocabulary-inventory.json", encoding="utf-8"))
@@ -266,9 +266,9 @@ n_riesgo = sum(1 for r in rules if r.get("riesgo"))
 n_expl_tot = len(rules) - n_expl[""]
 
 L = [
-    "# BCOPCore · Catálogo de Reglas de Negocio — v2.2",
+    "# Informix · Catálogo de Reglas de Negocio — v2.2",
     "",
-    "> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Enrichment  ",
+    "> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Enrichment  ",
     f"> **Generado:** 2026-08-02 · `enrich-rules.py` · {len(rules):,} reglas · {n_expl_tot:,} con explicación  ",
     "> **Anclaje:** vocabulario 787 términos · callgraph 34,279 edges · 12,832 SPs escaneados  ",
     "> **Fuente primaria:** `business-rules-v2.json` (v2.2) — este MD es resumen navegable y auditable  ",
@@ -386,7 +386,7 @@ L += [
     "",
     "---",
     "",
-    "*Generado automáticamente · Specialist — Informix SPL Analysis · BCOPCore Etapa 3*  ",
+    "*Generado automáticamente · Specialist — Informix SPL Analysis · Informix Etapa 3*  ",
     "*Fuentes: `business-rules-v2.json` v2.2 · `vocabulary-inventory.json` · `callgraph-data.json`*  ",
     "*Para actualizar: `python enrich-rules.py`*",
 ]

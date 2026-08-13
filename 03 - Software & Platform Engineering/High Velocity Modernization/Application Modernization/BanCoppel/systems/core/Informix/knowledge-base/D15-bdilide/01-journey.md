@@ -1,6 +1,6 @@
 # D15 · LIDE/PLD (Prevención de Lavado de Dinero) — Journeys y Cadenas de Llamadas
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Extraction
+> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Extraction
 > **Base de datos:** bdilide
 > **Wave:** Wave 4 · Riesgo: CRÍTICO (regulatorio — PLD/CNBV/SHCP)
 > **Última actualización:** 2026-08-03
@@ -21,7 +21,7 @@
 | JRN-D15-04 | `[DATO-REQUERIDO]` | `[DATO-REQUERIDO]` | `[DATO-REQUERIDO]` |
 | JRN-D15-05 | `[DATO-REQUERIDO]` | `[DATO-REQUERIDO]` | `[DATO-REQUERIDO]` |
 
-> `[DATO-REQUERIDO]` — Los nombres exactos de los 5 SPs presentes en el callgraph deben extraerse del archivo `callgraph-data.json` del proyecto BCOPCore. Solicitar al DBA IBM Informix o al Specialist de análisis estático.
+> `[DATO-REQUERIDO]` — Los nombres exactos de los 5 SPs presentes en el callgraph deben extraerse del archivo `callgraph-data.json` del proyecto Informix. Solicitar al DBA IBM Informix o al Specialist de análisis estático.
 
 ## Journey J15-01: Ejecutor Diario PLD (proceso batch nocturno)
 

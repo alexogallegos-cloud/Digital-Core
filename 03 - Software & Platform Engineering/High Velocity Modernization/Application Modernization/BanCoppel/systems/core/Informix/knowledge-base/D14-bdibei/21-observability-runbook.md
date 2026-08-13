@@ -1,6 +1,6 @@
 ﻿# D14 · bdibei (BEI — Banca Electrónica Institucional) — Observabilidad y Runbook
 
-> **Componente:** BCOPCore · SPE-AM-001 · OPERATE Phase
+> **Componente:** Informix · SPE-AM-001 · OPERATE Phase
 > **Base de datos:** bdibei (Banca Electrónica Institucional / Pagos y Dispersiones Masivas)
 > **Wave:** [SME-PENDING]
 > **Última actualización:** 2026-08-03

@@ -1,6 +1,6 @@
 # D11 · Cobranza — Matriz SP × Tabla (READ / WRITE)
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1
+> **Componente:** Informix · SPE-AM-001 · Etapa 1
 > **Base de datos:** `bdicobranza` · IBM Informix IDS 14.10 / POWER-AIX
 > **Wave:** Wave 2 · Riesgo: **MEDIO**
 > **Última actualización:** 2026-07-03
@@ -184,4 +184,4 @@ Esta matriz determina:
 - `sysmaster:systabnames` (R) — desde `sp_archivo_compac`, `sp_cargatelefonosburo`, `sp_actualiza_ejecutivoscat`
 
 ---
-*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdicobranza_*.sql (análisis estático de 70 archivos SQL) · análisis estático de cláusulas FROM/INSERT/UPDATE/DELETE*
+*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/informix/bdicobranza_*.sql (análisis estático de 70 archivos SQL) · análisis estático de cláusulas FROM/INSERT/UPDATE/DELETE*

@@ -19,7 +19,7 @@ import json, re, sqlite3, glob, os, sys
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
+        "Application Modernization/BanCoppel/Informix/")
 SW2  = BASE + "knowledge-base/rules/batches/swarm2/"
 DB   = BASE + "digital-brain/brain.db"
 OUT_OVERRIDES = SW2 + "overrides.json"

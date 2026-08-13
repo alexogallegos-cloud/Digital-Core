@@ -8,7 +8,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='repla
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
+        "Application Modernization/BanCoppel/Informix/")
 rules = json.load(open(BASE+"portal/data/business-rules-v3.json", encoding="utf-8"))["rules"]
 
 # producto -> patrones (nombre y/o código interno) a buscar en code+sp+name

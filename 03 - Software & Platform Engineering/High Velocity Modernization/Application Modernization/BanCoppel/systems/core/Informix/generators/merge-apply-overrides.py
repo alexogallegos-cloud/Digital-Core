@@ -14,7 +14,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='repla
 
 BASE       = Path("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
                   "03 - Software & Platform Engineering/High Velocity Modernization/"
-                  "Application Modernization/BanCoppel/BCOPCore/")
+                  "Application Modernization/BanCoppel/Informix/")
 OVERRIDES_DIR = BASE / "knowledge-base/rules/batches/overrides"
 RULES_FILE    = BASE / "portal/data/business-rules-v3.json"
 

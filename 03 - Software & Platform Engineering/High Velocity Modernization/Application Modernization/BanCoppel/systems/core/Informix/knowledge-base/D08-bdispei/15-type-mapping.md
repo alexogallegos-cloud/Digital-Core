@@ -1,6 +1,6 @@
 # D08 · SPEI — Mapeo de Tipos Informix → PostgreSQL
 
-> **Componente:** BCOPCore · SPE-AM-001 · DESIGN Phase
+> **Componente:** Informix · SPE-AM-001 · DESIGN Phase
 > **Base de datos:** `bdispei` → Target: Aurora PostgreSQL 15+
 > **Última actualización:** 2026-07-03
 

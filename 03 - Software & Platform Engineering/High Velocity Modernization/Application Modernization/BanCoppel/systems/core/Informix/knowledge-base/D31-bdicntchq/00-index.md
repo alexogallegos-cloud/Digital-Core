@@ -1,7 +1,7 @@
 # D31-bdicntchq - Knowledge Base Placeholder
 > **Dominio**: Cuentas Cheques auxiliar
 > **Base de datos Informix**: bdicntchq
-> **Archivos fuente**: 37 SPs en source/BCOPCore/informix/bdicntchq/
+> **Archivos fuente**: 37 SPs en source/informix/bdicntchq/
 > **Estado**: [PENDIENTE ANALISIS] -- carpeta creada, contenido por generar
 > **Prioridad**: BAJA
 > **Incorporado al scope**: 2026-08-03
@@ -10,7 +10,7 @@
 
 ## Descripcion
 
-Cuentas Cheques auxiliar. Tiene 37 stored procedures en el codigo fuente de BCOPCore.
+Cuentas Cheques auxiliar. Tiene 37 stored procedures en el codigo fuente de Informix.
 
 ## Estado de Artefactos
 
@@ -26,4 +26,4 @@ Seguir el template de D01-bdicnweb como referencia.
 
 ---
 
-*Placeholder creado 2026-08-03 - BCOPCore scope expansion D01-D49*
+*Placeholder creado 2026-08-03 - Informix scope expansion D01-D49*

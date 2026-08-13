@@ -15,7 +15,7 @@ from collections import defaultdict
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
+        "Application Modernization/BanCoppel/Informix/")
 KB = BASE + "knowledge-base/"
 J  = json.load(open(BASE + "portal/data/journeys-data.json", encoding="utf-8"))
 BR = json.load(open(BASE + "portal/data/business-rules.json", encoding="utf-8"))
@@ -49,7 +49,7 @@ def header(dom, db, name, folder, wave, riesgo, regs, titulo):
     rr = "\n".join(f"- **SME Regulatorio — {r}** (`{SME_REG[r]}`)" for r in regs)
     return f"""# {dom.upper()} · {name} — {titulo}
 
-> **Componente:** BCOPCore · SPE-AM-001 · **Etapa 3 — Business Logic Extraction**
+> **Componente:** Informix · SPE-AM-001 · **Etapa 3 — Business Logic Extraction**
 > **Base de datos:** `{db}` · IBM Informix IDS 14.10 FC10W2 / POWER-AIX
 > **Wave de migración:** Wave {wave} · Riesgo: **{riesgo}**
 > **Última actualización:** 2026-07-04 · *generado del análisis del código (reemplaza plantilla)*

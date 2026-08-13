@@ -1,6 +1,6 @@
 # D14 · Banca Electrónica Institucional (BEI) — Contrato de API
 
-> **Componente:** BCOPCore · SPE-AM-001 · DESIGN Phase
+> **Componente:** Informix · SPE-AM-001 · DESIGN Phase
 > **Base de datos:** bdibei
 > **Wave:** Wave 3 · Riesgo: CRÍTICO (batch nómina)
 > **Última actualización:** 2026-08-03
@@ -27,7 +27,7 @@ info:
     a la equivalencia funcional con el dominio bdibei de IBM Informix.
   version: "1.0.0"
   contact:
-    name: BCOPCore Team — SPE-AM-001
+    name: Informix Team — SPE-AM-001
 servers:
   - url: https://api-internal.bancoppel.com/bei/v1
     description: Producción

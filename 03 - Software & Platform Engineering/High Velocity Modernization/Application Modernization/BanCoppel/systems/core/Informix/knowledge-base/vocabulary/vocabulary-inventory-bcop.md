@@ -1,6 +1,6 @@
-# BCOPCore · Inventario de Términos del Vocabulario
+# Informix · Inventario de Términos del Vocabulario
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Extraction  
+> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Extraction  
 > **Corpus:** 3,761 SPs conectados (nombres + parámetros del código fuente) · **Vocabulario:** `sp_vocab.py`  
 > **Generado:** 2026-07-03 por `build-vocab-inventory.py`  
 
@@ -126,7 +126,7 @@ Morfemas irreducibles — los building blocks del vocabulario.
 | `mac` | entidad | dirección MAC | 🟢 Alta | 25 | 19 |
 | `origen` | entidad | origen | 🟢 Alta | 7 | 37 |
 | `total` | modificador | total | 🟢 Alta | 44 | 0 |
-| `cnsif` | entidad | CNSIF — sistema de confirmación de ejecutivo (sp_cnsif_confirmaejecutivo fan_in=2400 — #1 SP ecosistema BCOPCore) | 🟢 Alta | 42 | 0 |
+| `cnsif` | entidad | CNSIF — sistema de confirmación de ejecutivo (sp_cnsif_confirmaejecutivo fan_in=2400 — #1 SP ecosistema Informix) | 🟢 Alta | 42 | 0 |
 | `rec` | acción | recepción / recibe | 🟢 Alta | 42 | 0 |
 | `referencia` | entidad | referencia | 🟢 Alta | 7 | 35 |
 | `int` | entidad | interés | 🟢 Alta | 41 | 0 |

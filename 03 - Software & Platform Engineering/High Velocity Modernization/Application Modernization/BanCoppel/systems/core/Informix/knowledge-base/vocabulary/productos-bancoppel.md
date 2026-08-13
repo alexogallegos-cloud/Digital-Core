@@ -1,7 +1,7 @@
 # Portafolio de Productos BanCoppel — Capa de Producto del Vocabulario
 
 > **Artefacto de KB · Capa 1 (Lenguaje) del Gemelo Cognitivo**
-> Owner: DT-Vocabulario + SME Industry Banking · Proyecto: BanCoppel BCOPCore · SPE-AM-001
+> Owner: DT-Vocabulario + SME Industry Banking · Proyecto: BanCoppel Informix · SPE-AM-001
 > Creado: 2026-08-07 · Fuente: portafolio público BanCoppel + evidencia de código
 
 ## Por qué los productos son vocabulario

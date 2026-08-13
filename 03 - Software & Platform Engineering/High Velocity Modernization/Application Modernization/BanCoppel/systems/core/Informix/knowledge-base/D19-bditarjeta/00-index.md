@@ -1,7 +1,7 @@
 # D19-bditarjeta - Knowledge Base Placeholder
 > **Dominio**: Tarjetas
 > **Base de datos Informix**: bditarjeta
-> **Archivos fuente**: 162 SPs en source/BCOPCore/informix/bditarjeta/
+> **Archivos fuente**: 162 SPs en source/informix/bditarjeta/
 > **Estado**: [PENDIENTE ANALISIS] -- carpeta creada, contenido por generar
 > **Prioridad**: ALTA
 > **Incorporado al scope**: 2026-08-03
@@ -12,7 +12,7 @@
 
 ## Descripcion
 
-Tarjetas. Tiene 162 stored procedures en el codigo fuente de BCOPCore.
+Tarjetas. Tiene 162 stored procedures en el codigo fuente de Informix.
 
 ## Estado de Artefactos
 
@@ -28,4 +28,4 @@ Seguir el template de D01-bdicnweb como referencia.
 
 ---
 
-*Placeholder creado 2026-08-03 - BCOPCore scope expansion D01-D49*
+*Placeholder creado 2026-08-03 - Informix scope expansion D01-D49*

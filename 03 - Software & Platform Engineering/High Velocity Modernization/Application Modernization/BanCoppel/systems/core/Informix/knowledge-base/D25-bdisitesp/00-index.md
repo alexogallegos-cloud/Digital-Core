@@ -1,7 +1,7 @@
 # D25-bdisitesp - Knowledge Base Placeholder
 > **Dominio**: Canales Site ESP
 > **Base de datos Informix**: bdisitesp
-> **Archivos fuente**: 53 SPs en source/BCOPCore/informix/bdisitesp/
+> **Archivos fuente**: 53 SPs en source/informix/bdisitesp/
 > **Estado**: [PENDIENTE ANALISIS] -- carpeta creada, contenido por generar
 > **Prioridad**: MEDIA
 > **Incorporado al scope**: 2026-08-03
@@ -10,7 +10,7 @@
 
 ## Descripcion
 
-Canales Site ESP. Tiene 53 stored procedures en el codigo fuente de BCOPCore.
+Canales Site ESP. Tiene 53 stored procedures en el codigo fuente de Informix.
 
 ## Estado de Artefactos
 
@@ -26,4 +26,4 @@ Seguir el template de D01-bdicnweb como referencia.
 
 ---
 
-*Placeholder creado 2026-08-03 - BCOPCore scope expansion D01-D49*
+*Placeholder creado 2026-08-03 - Informix scope expansion D01-D49*

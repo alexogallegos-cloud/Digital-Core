@@ -12,8 +12,8 @@ import json, re, os
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
-SRC = BASE + "source/BCOPCore/informix/"
+        "Application Modernization/BanCoppel/Informix/")
+SRC = BASE + "source/informix/"
 J = json.load(open(BASE + "portal/data/journeys-data.json", encoding="utf-8"))
 
 # ── comentarios: filtramos plantillas de ruido, quedamos con documentación real ──

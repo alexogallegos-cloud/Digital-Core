@@ -1,6 +1,6 @@
 # D14 · Banca Electrónica Institucional (BEI) — Estrategia de Pruebas
 
-> **Componente:** BCOPCore · SPE-AM-001 · TEST Phase
+> **Componente:** Informix · SPE-AM-001 · TEST Phase
 > **Base de datos:** bdibei
 > **Wave:** Wave 3 · Riesgo: CRÍTICO (batch nómina)
 > **Última actualización:** 2026-08-03
@@ -53,7 +53,7 @@
 | Objetivo | Verificar que cada SP del dominio BEI produce outputs idénticos en Informix y en el target |
 | Umbral de aceptación | ≥ 99.95% de outputs idénticos bit-a-bit (0.05% máximo de diferencias documentadas como CR) |
 | Dataset | Histórico de dispersiones últimos 3 meses + casos de borde (monto máximo, CLABE inválida, etc.) |
-| Herramienta | Comparator tool BCOPCore (golden master framework) |
+| Herramienta | Comparator tool Informix (golden master framework) |
 | Responsable | QA Lead — Equivalencia Funcional |
 
 **Casos obligatorios para batch de nómina:**

@@ -1,6 +1,6 @@
 # D11 · Cobranza — Catálogo de Procesos de Negocio
 
-> **Componente:** BCOPCore · SPE-AM-001 · **Etapa 3 — Business Logic Extraction**
+> **Componente:** Informix · SPE-AM-001 · **Etapa 3 — Business Logic Extraction**
 > **Base de datos:** `bdicobranza` · IBM Informix IDS 14.10 FC10W2 / POWER-AIX
 > **Wave de migración:** Wave 2 · Riesgo: **MEDIO**
 > **Última actualización:** 2026-07-04 · *generado del análisis del código (reemplaza plantilla)*

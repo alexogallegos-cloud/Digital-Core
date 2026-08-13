@@ -1,6 +1,6 @@
 # D12 · Contabilidad — Arquitectura Target
 
-> **Componente:** BCOPCore · SPE-AM-001 · DESIGN Phase
+> **Componente:** Informix · SPE-AM-001 · DESIGN Phase
 > **Base de datos:** `bdicont` · Target: **AWS Aurora PostgreSQL**
 > **Wave:** Wave 4 · Riesgo: **ALTO**
 > **Última actualización:** 2026-07-03

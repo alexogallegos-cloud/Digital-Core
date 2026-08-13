@@ -1,6 +1,6 @@
 # D14 · Banca Electrónica Institucional (BEI) — Evaluación PII y Seguridad
 
-> **Componente:** BCOPCore · SPE-AM-001 · Todas las fases
+> **Componente:** Informix · SPE-AM-001 · Todas las fases
 > **Base de datos:** bdibei
 > **Wave:** Wave 3 · Riesgo: CRÍTICO (batch nómina)
 > **Última actualización:** 2026-08-03

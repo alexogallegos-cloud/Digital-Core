@@ -1,7 +1,7 @@
 # D30-bditarjcop - Knowledge Base Placeholder
 > **Dominio**: Tarjeta Coppel retail
 > **Base de datos Informix**: bditarjcop
-> **Archivos fuente**: 41 SPs en source/BCOPCore/informix/bditarjcop/
+> **Archivos fuente**: 41 SPs en source/informix/bditarjcop/
 > **Estado**: [PENDIENTE ANALISIS] -- carpeta creada, contenido por generar
 > **Prioridad**: MEDIA
 > **Incorporado al scope**: 2026-08-03
@@ -10,7 +10,7 @@
 
 ## Descripcion
 
-Tarjeta Coppel retail. Tiene 41 stored procedures en el codigo fuente de BCOPCore.
+Tarjeta Coppel retail. Tiene 41 stored procedures en el codigo fuente de Informix.
 
 ## Estado de Artefactos
 
@@ -26,4 +26,4 @@ Seguir el template de D01-bdicnweb como referencia.
 
 ---
 
-*Placeholder creado 2026-08-03 - BCOPCore scope expansion D01-D49*
+*Placeholder creado 2026-08-03 - Informix scope expansion D01-D49*

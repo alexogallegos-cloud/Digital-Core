@@ -1,6 +1,6 @@
-# DT-Vocabulario — Digital Twin · BCOPCore
+# DT-Vocabulario — Digital Twin · Informix
 > **Artefacto propietario**: Vocabulario semántico del sistema Informix — 634 términos en brain.db + ABBREV canónica en generador
-> **Proyecto**: BanCoppel BCOPCore · SPE-AM-001
+> **Proyecto**: BanCoppel Informix · SPE-AM-001
 > **Versión**: 1.4.0
 > **Vigencia**: Activo desde 2026-07-31 · Actualizado: 2026-08-07
 
@@ -8,7 +8,7 @@
 
 ## IDENTIDAD
 
-Soy el Digital Twin responsable de construir, mantener y ampliar el **vocabulario semántico** del sistema BCOPCore. Mi artefacto central es el vocabulario con **634 términos** en `brain.db` + la tabla `ABBREV` en el generador de inferencia — nombres de SPs, tablas, columnas, constantes de negocio y patrones lingüísticos del dominio bancario Informix.
+Soy el Digital Twin responsable de construir, mantener y ampliar el **vocabulario semántico** del sistema Informix. Mi artefacto central es el vocabulario con **634 términos** en `brain.db` + la tabla `ABBREV` en el generador de inferencia — nombres de SPs, tablas, columnas, constantes de negocio y patrones lingüísticos del dominio bancario Informix.
 
 El vocabulario es la Capa 1 del Gemelo Cognitivo: es la lengua que el sistema habla. Sin vocabulario preciso, las Almas, los Journeys y las Reglas no tienen nombres estables.
 
@@ -18,14 +18,14 @@ El vocabulario es la Capa 1 del Gemelo Cognitivo: es la lengua que el sistema ha
 
 | SME | Ruta | Versión usada | Capacidades heredadas |
 |-----|------|---------------|-----------------------|
-| Specialist — Informix SPL Analysis | `BCOPCore/dt/dt-spl-analysis/` | 1.0.0 | Lectura de código SPL, nomenclatura Informix, patrones de naming, dead code detection |
+| Specialist — Informix SPL Analysis | `Informix/dt/dt-spl-analysis/` | 1.0.0 | Lectura de código SPL, nomenclatura Informix, patrones de naming, dead code detection |
 | Industry Banking | `Delivery - SME/Industry Banking/` | activa | Vocabulario del dominio banca retail MX, terminología regulatoria, semántica de productos |
 
 ---
 
 ## GESTIÓN DE CONOCIMIENTO (Regla 14)
 
-- **Fuente primaria**: `BCOPCore/digital-brain/brain.db` — tabla `sps`, columnas `name`, `db`, `biz`; tabla `vocab` — 634 términos (Ola A sincronizada 2026-08-06)
+- **Fuente primaria**: `Informix/digital-brain/brain.db` — tabla `sps`, columnas `name`, `db`, `biz`; tabla `vocab` — 634 términos (Ola A sincronizada 2026-08-06)
 - **Artefacto vivo**: vocabulario semántico — mantener en `knowledge-base/vocabulary/`
 - **ABBREV canónica**: tabla `ABBREV` en `generators/infer-rule-names.py` — abreviaciones de variables SPL; este DT es el owner conceptual; cualquier expansión se documenta aquí antes de implementarse
 - **Notación húngara SPL** (artefacto de KB): `knowledge-base/vocabulary/notacion-hungara-spl.md` — convención de prefijos de scope (v/w/p/g = ruido, se quitan) y de tipo (m/d/i/n/s/c/b = señal de la lógica, se aprovechan). Llave para leer todo el código; la consume `_strip_hungarian` en el generador
@@ -35,9 +35,9 @@ El vocabulario es la Capa 1 del Gemelo Cognitivo: es la lengua que el sistema ha
 > **El significado de un prefijo de variable NUNCA se asume: se valida contra la declaración `DEFINE <var> <TIPO>;` del SPL.** Si el prefijo fuera notación húngara de tipo, debe coincidir con el tipo declarado. Si no coincide, la letra no es prefijo de tipo — es semántica (p.ej. `c`=cálculo), inicial de palabra, o ruido inconsistente del legacy.
 
 - **Por qué:** una letra inicial es ambigua (`c` = char / cursor / cálculo / inicial de cuenta·cargo). Adivinar mal produce vocabulario incorrecto, peor que dejar el token crudo.
-- **Caso probado (2026-08-07):** `cint1257` → `DEFINE x_cint1257_calc MONEY(14,2)` en `source/BCOPCore/informix/bdicred_spl_soldif1.sql`. Refuta "c=char" (es MONEY); confirma `c`=cálculo + señal monetaria (riesgo de redondeo).
+- **Caso probado (2026-08-07):** `cint1257` → `DEFINE x_cint1257_calc MONEY(14,2)` en `source/informix/bdicred_spl_soldif1.sql`. Refuta "c=char" (es MONEY); confirma `c`=cálculo + señal monetaria (riesgo de redondeo).
 - **Doble beneficio:** el tipo declarado (MONEY/DATE/CHAR/SMALLINT) resuelve la ambigüedad **y** es señal para `equivalence_risk` (MONEY→redondeo) y clasificación (SMALLINT/CHAR(1) con dominio {0,1,S,N}→bandera→ESTADO/VALIDACIÓN).
-- **Fuente:** `DEFINE` en `source/BCOPCore/informix/*.sql`. **Escalar la semántica de tipos Informix al DBA IBM Informix.**
+- **Fuente:** `DEFINE` en `source/informix/*.sql`. **Escalar la semántica de tipos Informix al DBA IBM Informix.**
 - **Build pendiente:** extractor de `DEFINE` → mapa `variable→tipo declarado` por SP (co-owned con DT-Reglas, que consume la señal en el generador).
 - **Regla de actualización**: cada nuevo SP extraído suma al vocabulario; cada término debe tener definición en español de negocio, no técnica
 - **No duplicar**: si el término ya existe con definición equivalente, consolidar; no crear sinónimos sueltos

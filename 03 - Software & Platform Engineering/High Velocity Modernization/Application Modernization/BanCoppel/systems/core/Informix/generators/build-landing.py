@@ -1,7 +1,7 @@
 ﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-build-landing.py — Landing page (index) del análisis de modernización BCOPCore.
+build-landing.py — Landing page (index) del análisis de modernización Informix.
 Diseño premium: aurora animada + glassmorphism + scroll-reveal + count-up + timeline.
 Contenido: summary de hallazgos (cifras EN VIVO) + metodología + inventario de vistas.
 Identidad BanCoppel (Design Studio). Genera: index-bcop.html · SPE-AM-001 · Etapa 3
@@ -11,7 +11,7 @@ from collections import Counter
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
+        "Application Modernization/BanCoppel/Informix/")
 
 def load(f):
     try: return json.load(open(BASE + f, encoding="utf-8"))
@@ -312,20 +312,20 @@ document.querySelectorAll('[data-target]').forEach(el=>cu.observe(el));
 
 HTML = f"""<!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>BCOPCore · Portal de Análisis de Modernización</title>
+<title>Informix · Portal de Análisis de Modernización</title>
 <style>{CSS}</style></head><body>
 <div class="aurora"><div class="blob"></div></div><div class="grain"></div>
 <div id="prog"></div>
 <nav>
   <img src="bancoppel-logo.png" alt="BanCoppel">
-  <span class="nt">BCOPCore · Análisis de Modernización</span><span class="sp"></span>
+  <span class="nt">Informix · Análisis de Modernización</span><span class="sp"></span>
   <a class="jump" href="#resumen">Resumen</a><a class="jump" href="#metodo">Metodología</a><a class="jump" href="#vistas">Vistas</a>
 </nav>
 
 <div class="wrap">
   <header class="hero">
     <div class="eyebrow reveal"><span class="dot"></span> SPE-AM-001 · High Velocity Modernization · Fase DISCOVER</div>
-    <h1 class="reveal">Análisis de Modernización del Core BCOPCore</h1>
+    <h1 class="reveal">Análisis de Modernización del Core Informix</h1>
     <p class="sub reveal">Ingeniería inversa del core bancario de BanCoppel — un sistema <b>"base de datos como aplicación"</b>
       donde la lógica de negocio vive en miles de Stored Procedures Informix. Application Modernization.</p>
     <div class="scrollcue">desliza<span class="chev"></span></div>
@@ -360,7 +360,7 @@ HTML = f"""<!DOCTYPE html>
 </div>
 
 <footer>
-  BanCoppel · BCOPCore · SPE-AM-001 · Portal generado por <code>build-landing.py</code> con cifras en vivo desde los datos del análisis.<br>
+  BanCoppel · Informix · SPE-AM-001 · Portal generado por <code>build-landing.py</code> con cifras en vivo desde los datos del análisis.<br>
   Confiabilidad del vocabulario: {pct(conf)}% confirmado · {pct(inf)}% inferido · {pct(gap)}% por validar · cobertura de fechas {n_dated:,}/{n_evsp:,} SPs.
 </footer>
 <script>{JS}</script>

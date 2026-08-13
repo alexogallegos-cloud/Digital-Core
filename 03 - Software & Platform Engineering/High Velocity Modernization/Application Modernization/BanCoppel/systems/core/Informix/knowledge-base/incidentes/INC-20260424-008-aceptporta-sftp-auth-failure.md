@@ -128,4 +128,4 @@ El proceso de portabilidad de nómina no tiene una validación al final del día
 ---
 
 *Fuentes: `source/logs/2026-04-24/errores_bus_*.txt` (24 archivos) · risk register `migration-risk-register.md` P655-R007 · runbook INC-D02-05.*  
-*Creado: 2026-08-06 | BCOPCore Gemelo Cognitivo — DISCOVER Etapa 1*
+*Creado: 2026-08-06 | Informix Gemelo Cognitivo — DISCOVER Etapa 1*

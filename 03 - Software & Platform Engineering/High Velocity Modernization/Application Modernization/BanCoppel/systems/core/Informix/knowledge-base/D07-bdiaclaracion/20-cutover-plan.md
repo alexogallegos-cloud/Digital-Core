@@ -1,6 +1,6 @@
 # D07 · Aclaraciones — Plan de Cutover
 
-> **Componente:** BCOPCore · SPE-AM-001 · RELEASE Phase
+> **Componente:** Informix · SPE-AM-001 · RELEASE Phase
 > **Base de datos:** `bdiaclaracion` → Aurora PostgreSQL
 > **Wave:** Wave 2 · Riesgo: **ALTO**
 > **Última actualización:** 2026-07-03

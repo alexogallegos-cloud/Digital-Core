@@ -1,6 +1,6 @@
 # D15 · LIDE/PLD (Prevención de Lavado de Dinero) — Arquitectura Target
 
-> **Componente:** BCOPCore · SPE-AM-001 · DESIGN Phase
+> **Componente:** Informix · SPE-AM-001 · DESIGN Phase
 > **Base de datos:** bdilide
 > **Wave:** Wave 4 · Riesgo: CRÍTICO (regulatorio — PLD/CNBV/SHCP)
 > **Última actualización:** 2026-08-03
@@ -60,9 +60,9 @@
 
 | Componente | Tecnología | Justificación |
 |-----------|-----------|--------------|
-| Runtime | Java 21 / Spring Boot 3.x | Estándar BCOPCore |
+| Runtime | Java 21 / Spring Boot 3.x | Estándar Informix |
 | Deployment | ECS Fargate (no Lambda) | Conexiones a Aurora con warm pool; evitar cold starts en consultas LIDE |
-| Base de datos | Aurora PostgreSQL 15 (Multi-AZ) | Estándar BCOPCore; HA para servicio crítico |
+| Base de datos | Aurora PostgreSQL 15 (Multi-AZ) | Estándar Informix; HA para servicio crítico |
 | Secretos | AWS Secrets Manager | Credenciales Aurora, Buró de Crédito, SAT |
 | Feature flag | AWS AppConfig | Porcentaje de tráfico entre legacy y target en parallel-run |
 | Cifrado | KMS CMK exclusiva del dominio PLD | Aislamiento de claves regulatorio |

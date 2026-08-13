@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 build-cross-reference-kb.py
-BCOPCore — Cross-Reference Knowledge Base Generator
+Informix — Cross-Reference Knowledge Base Generator
 Etapa 3 — Conecta vocabulary, business rules y callgraph en KB transversal
 
 Fuentes:
@@ -25,11 +25,11 @@ t0 = time.time()
 BASE = (
     "c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
     "03 - Software & Platform Engineering/High Velocity Modernization/"
-    "Application Modernization/BanCoppel/BCOPCore/"
+    "Application Modernization/BanCoppel/Informix/"
 )
 OUTPUT_DIR = BASE + "knowledge-base/cross-reference/"
 HEADER = (
-    "> **Componente:** BCOPCore · SPE-AM-001 · "
+    "> **Componente:** Informix · SPE-AM-001 · "
     "Etapa 3 — Cross-Reference KB · Generado: 2026-08-02\n\n"
 )
 
@@ -220,10 +220,10 @@ print("\n  Generating index.md...")
 
 lines_index = []
 lines_index.append(HEADER)
-lines_index.append("# Cross-Reference KB — BCOPCore\n\n")
+lines_index.append("# Cross-Reference KB — Informix\n\n")
 lines_index.append(
     "Este directorio conecta el vocabulario, las reglas de negocio y el grafo de llamadas "
-    "del sistema BCOPCore en un único mapa de conocimiento navegable. Cada artefacto "
+    "del sistema Informix en un único mapa de conocimiento navegable. Cada artefacto "
     "toma un ángulo de análisis diferente; juntos permiten responder preguntas que "
     "ninguna fuente aislada puede responder: ¿qué procedimiento concentra mayor riesgo "
     "regulatorio?, ¿qué término de negocio es transversal a más lógica?, ¿cuáles SPs "

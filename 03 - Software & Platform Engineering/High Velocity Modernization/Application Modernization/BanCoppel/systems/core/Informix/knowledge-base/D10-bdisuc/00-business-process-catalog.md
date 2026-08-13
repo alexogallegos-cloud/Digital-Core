@@ -1,6 +1,6 @@
 # D10 · Sucursales — Catálogo de Procesos de Negocio
 
-> **Componente:** BCOPCore · SPE-AM-001 · **Etapa 3 — Business Logic Extraction**
+> **Componente:** Informix · SPE-AM-001 · **Etapa 3 — Business Logic Extraction**
 > **Base de datos:** `bdisuc` · IBM Informix IDS 14.10 FC10W2 / POWER-AIX
 > **Wave de migración:** Wave 3 · Riesgo: **ALTO**
 > **Última actualización:** 2026-07-04 · *generado del análisis del código (reemplaza plantilla)*

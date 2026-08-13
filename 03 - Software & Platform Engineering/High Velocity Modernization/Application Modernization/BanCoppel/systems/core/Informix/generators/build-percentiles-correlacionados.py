@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-build-percentiles-correlacionados.py — BCOPCore · Percentiles CORRELACIONADOS SPEI+Autorizador.
+build-percentiles-correlacionados.py — Informix · Percentiles CORRELACIONADOS SPEI+Autorizador.
 
 Calculo de percentiles: P70 y P90 por canal (SPEI y Autorizador) sobre TODAS las ventanas PROMEDIO
 de 10 min dentro del horario operativo, mes a mes.
@@ -12,7 +12,7 @@ Genera la evolucion mensual (2025-2026) + los umbrales del ultimo mes, en HTML/M
 DT dueño: dt-autorizador-pagos (interfaz con el core Informix / capacidad de la capa media),
 co-referencia dt-spei (canal SPEI) y dt-riesgos (riesgo de capacidad de migracion).
 
-Uso: python generators/build-percentiles-correlacionados.py   (ejecutar desde BCOPCore/)
+Uso: python generators/build-percentiles-correlacionados.py   (ejecutar desde Informix/)
 """
 import sys, json
 from pathlib import Path
@@ -253,7 +253,7 @@ def _render_html(meses, a, oficiales, confirmados, path):
     data = json.dumps({"meses": meses, "hitos": HITOS, "inc": INCIDENTES, "oficiales": oficiales, "confirmados": confirmados}, ensure_ascii=False)
     html = f"""<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>BCOPCore · Percentiles Correlacionados por Canal</title>
+<title>Informix · Percentiles Correlacionados por Canal</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
@@ -350,7 +350,7 @@ svg circle.pt{{transition:r .1s}}
   </div>
   <div class="note" id="note"></div>
 </div>
-<footer>BCOPCore · Gemelo Cognitivo del Sistema · SPE-AM-001 · Accenture México · 2026</footer>
+<footer>Informix · Gemelo Cognitivo del Sistema · SPE-AM-001 · Accenture México · 2026</footer>
 <script>
 const DATA={data};const M=DATA.meses;const pD=d3.timeParse("%Y-%m-%d");const INC=DATA.inc;
 M.forEach(m=>{{m.D=pD(m.x);

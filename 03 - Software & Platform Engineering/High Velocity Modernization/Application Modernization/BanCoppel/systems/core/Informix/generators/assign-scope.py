@@ -10,7 +10,7 @@ from collections import Counter
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
+        "Application Modernization/BanCoppel/Informix/")
 DB = BASE + "digital-brain/brain.db"
 
 conn = sqlite3.connect(DB)

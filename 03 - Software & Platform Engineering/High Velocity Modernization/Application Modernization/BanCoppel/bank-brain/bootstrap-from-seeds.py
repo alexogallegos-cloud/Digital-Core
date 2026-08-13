@@ -140,7 +140,7 @@ def make_claude_md(slug: str, seed: dict) -> str:
     domains = ev.get("domains", [])
     regulation = ev.get("regulation", [])
     origin = ev.get("origin_artifact", "digital-brain/seeds")
-    source_version = seed.get("source_version", "BCOPCore v1.8.0")
+    source_version = seed.get("source_version", "Informix v1.8.0")
 
     rel_path_to_informix_seed = (
         "../../core/Informix/digital-brain/seeds/" + slug + "-seed.json"
@@ -157,7 +157,7 @@ def make_claude_md(slug: str, seed: dict) -> str:
 # togaf_system_of: {system_of}
 # togaf_abb: {abb}
 
-> **Descubierto por:** BCOPCore Informix seed — [{slug}-seed.json]({rel_path_to_informix_seed})
+> **Descubierto por:** Informix Informix seed — [{slug}-seed.json]({rel_path_to_informix_seed})
 > **Fecha descubrimiento:** {TODAY}
 > **Estado:** `[STATE: DISCOVERED]` — estructura canónica abierta por **Regla B9**. Brain pendiente.
 > **Regla B10:** este CLAUDE.md es el registro del otro lado de la relación hasta que exista un brain propio.

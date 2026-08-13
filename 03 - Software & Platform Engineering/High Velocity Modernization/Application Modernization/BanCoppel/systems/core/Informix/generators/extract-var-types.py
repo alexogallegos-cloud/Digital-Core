@@ -7,7 +7,7 @@ Sirve para: (1) validar la notación húngara (¿el prefijo coincide con el tipo
 (2) señal de lógica (MONEY→riesgo redondeo, DATE→temporal, SMALLINT/CHAR(1)→bandera),
 (3) alimentar la columna expl_negocio.
 
-Input:  source/BCOPCore/informix/*.sql   (12,882 SPs, ~1.2 GB)
+Input:  source/informix/*.sql   (12,882 SPs, ~1.2 GB)
 Output: knowledge-base/vocabulary/variable-types.json  {sp: {var: tipo_normalizado}}
         + reporte de validación de prefijos húngaros (stdout)
 
@@ -19,8 +19,8 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='repla
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
-SRC = BASE + "source/BCOPCore/informix/"
+        "Application Modernization/BanCoppel/Informix/")
+SRC = BASE + "source/informix/"
 
 # DEFINE var TIPO;  |  DEFINE var LIKE tabla.col;  |  DEFINE a,b,c TIPO;
 RE_DEFINE = re.compile(r'\bdefine\s+([a-z0-9_,\s]+?)\s+([a-z].*?);', re.I)

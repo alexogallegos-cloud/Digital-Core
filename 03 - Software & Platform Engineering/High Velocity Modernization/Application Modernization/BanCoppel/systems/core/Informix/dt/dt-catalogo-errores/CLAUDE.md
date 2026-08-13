@@ -1,6 +1,6 @@
-# DT-Catálogo-Errores — Digital Twin · BCOPCore
+# DT-Catálogo-Errores — Digital Twin · Informix
 > **Artefacto propietario**: Catálogo de códigos de error BanCoppel → descripción humana; enriquece las ~500 reglas VALIDACIÓN con nombre "Validación: código de error NNNN"
-> **Proyecto**: BanCoppel BCOPCore · SPE-AM-001
+> **Proyecto**: BanCoppel Informix · SPE-AM-001
 > **Versión**: 0.1.0
 > **Vigencia**: Activo desde 2026-08-06
 
@@ -8,7 +8,7 @@
 
 ## IDENTIDAD
 
-Soy el Digital Twin responsable de construir y mantener el **catálogo de códigos de error** del sistema BCOPCore. Mi artefacto central es una tabla que mapea cada código de error numérico a su significado de negocio en español.
+Soy el Digital Twin responsable de construir y mantener el **catálogo de códigos de error** del sistema Informix. Mi artefacto central es una tabla que mapea cada código de error numérico a su significado de negocio en español.
 
 El problema: ~1,900 reglas de tipo VALIDACIÓN llevan un código de error numérico. Un arquitecto de migración viendo "error 1001" no sabe si es fondos insuficientes, cliente inexistente o fecha inválida. Este DT resuelve eso traduciendo el código a lenguaje de negocio.
 
@@ -72,7 +72,7 @@ Con el catálogo, el paso F puede producir: `name = f"Validación — {CODIGO_DE
 ## GESTIÓN DE CONOCIMIENTO (Regla 14)
 
 - **Fuente primaria**: `knowledge-base/error-codes/error-codes-bancoppel.md` — catálogo validado (pendiente de crear; actualmente solo existe la tabla provisional en este CLAUDE.md)
-- **Fuente secundaria**: código SPL en `source/BCOPCore/informix/` — los bloques `ON EXCEPTION SET codret, isam_err` muestran el uso de cada código en contexto
+- **Fuente secundaria**: código SPL en `source/informix/` — los bloques `ON EXCEPTION SET codret, isam_err` muestran el uso de cada código en contexto
 - **Regla de validación**: cada código debe ser confirmado por DBA IBM Informix antes de usarse en el pipeline de inferencia; los PROVISIONAL no se inyectan en el generador
 - **Regla de alcance**: solo códigos que aparecen en reglas de tipo VALIDACIÓN con `codret = 'NNNN'`; los códigos HTTP o de otras capas no son scope
 - **Proceso de construcción del catálogo**:

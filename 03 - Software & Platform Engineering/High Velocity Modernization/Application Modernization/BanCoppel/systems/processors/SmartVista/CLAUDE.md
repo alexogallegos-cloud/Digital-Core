@@ -4,7 +4,7 @@
 # togaf_system_of: record
 # togaf_abb: card-processing
 
-> **Descubierto por:** BCOPCore Informix seed — [smartvista-seed.json](../../core/Informix/digital-brain/seeds/smartvista-seed.json)
+> **Descubierto por:** Informix Informix seed — [smartvista-seed.json](../../core/Informix/digital-brain/seeds/smartvista-seed.json)
 > **Fecha descubrimiento:** 2026-08-12
 > **Estado:** `[STATE: DISCOVERED]` — estructura canónica abierta por **Regla B9**. Brain pendiente.
 > **Regla B10:** este CLAUDE.md es el registro del otro lado de la relación hasta que exista un brain propio.
@@ -41,7 +41,7 @@
 
 | Emisor | Versión | Fecha | Artefacto origen |
 |--------|---------|-------|-----------------|
-| `informix` | `BCOPCore v1.8.0` | 2026-08-12 | `digital-brain/brain.db::cross_dependencies` |
+| `informix` | `Informix v1.8.0` | 2026-08-12 | `digital-brain/brain.db::cross_dependencies` |
 
 ---
 

@@ -26,7 +26,7 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 BASE = Path(__file__).resolve().parent.parent
-SRC  = BASE / "source" / "BCOPCore" / "informix"
+SRC  = BASE / "source" / "Informix" / "informix"
 V3   = BASE / "portal" / "data" / "business-rules-v3.json"
 DB   = BASE / "digital-brain" / "brain.db"
 

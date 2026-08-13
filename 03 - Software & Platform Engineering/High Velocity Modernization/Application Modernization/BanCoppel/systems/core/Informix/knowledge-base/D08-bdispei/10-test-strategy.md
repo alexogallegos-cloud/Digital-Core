@@ -1,6 +1,6 @@
 # D08 · SPEI — Estrategia de Pruebas de Equivalencia (Golden Master)
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1
+> **Componente:** Informix · SPE-AM-001 · Etapa 1
 > **Base de datos:** `bdispei` · IBM Informix IDS 14.10 / POWER-AIX
 > **Wave:** Wave 2 · Riesgo: **CRÍTICO**
 > **Última actualización:** 2026-07-03
@@ -120,4 +120,4 @@ Mitigación: configurar RoundingMode.HALF_EVEN en la capa de aplicación
 
 
 ---
-*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdispei_*.sql (análisis estático de 70 archivos SQL) · Specialist — Informix SPL Analysis + QA Lead Equivalencia*
+*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/informix/bdispei_*.sql (análisis estático de 70 archivos SQL) · Specialist — Informix SPL Analysis + QA Lead Equivalencia*

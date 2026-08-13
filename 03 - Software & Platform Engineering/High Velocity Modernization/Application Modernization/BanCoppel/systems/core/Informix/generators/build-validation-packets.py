@@ -13,7 +13,7 @@ from collections import defaultdict
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
+        "Application Modernization/BanCoppel/Informix/")
 BR = json.load(open(BASE + "portal/data/business-rules.json", encoding="utf-8"))
 
 SME = {
@@ -80,9 +80,9 @@ def es_relevante(r):
     c = r["code"].lower()
     return "raise exception" in c or ("codret" in c and "'00000'" not in c and '"00000"' not in c)
 
-L = ["# BCOPCore · Paquetes de Validación Regulatoria (HITL)",
+L = ["# Informix · Paquetes de Validación Regulatoria (HITL)",
  "",
- "> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Extraction  ",
+ "> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Extraction  ",
  "> **Generado:** 2026-07-04 · Insumo para las sesiones de validación con los **SMEs reguladores**  ",
  "",
  "Para cada regulador: el **packet `[INVOKE]`** hacia su agente SME, las **preguntas específicas** de "
@@ -111,7 +111,7 @@ for reg in ["CNBV", "Banxico", "CONDUSEF", "SAT", "TESOFE", "IPAB"]:
     L.append("### Packet `[INVOKE]`")
     L.append("```")
     L.append(f"[INVOKE: SME Regulatorio — {reg} en {SME[reg]}]")
-    L.append(f"COMPONENTE   : BCOPCore · SPE-AM-001 · Etapa 3 Business Logic Extraction")
+    L.append(f"COMPONENTE   : Informix · SPE-AM-001 · Etapa 3 Business Logic Extraction")
     L.append(f"SOLICITUD    : Validar {len(uniq)} reglas/fórmulas de negocio extraídas del código SPL")
     L.append(f"ALCANCE      : Fórmulas financieras y validaciones con impacto {reg}")
     L.append(f"DOMINIOS     : {', '.join(doms)}")

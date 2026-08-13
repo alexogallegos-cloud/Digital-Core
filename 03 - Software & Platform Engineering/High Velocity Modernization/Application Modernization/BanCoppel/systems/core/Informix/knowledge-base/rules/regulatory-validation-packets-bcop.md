@@ -1,6 +1,6 @@
-# BCOPCore · Paquetes de Validación Regulatoria (HITL)
+# Informix · Paquetes de Validación Regulatoria (HITL)
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Extraction  
+> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Extraction  
 > **Generado:** 2026-07-04 · Insumo para las sesiones de validación con los **SMEs reguladores**  
 
 Para cada regulador: el **packet `[INVOKE]`** hacia su agente SME, las **preguntas específicas** de validación (derivadas de las fórmulas/reglas halladas en el código) y las **reglas a validar**. Cada respuesta del SME se incorpora al golden master (equivalencia ≥ 99.95% en cálculos financieros).
@@ -13,7 +13,7 @@ Para cada regulador: el **packet `[INVOKE]`** hacia su agente SME, las **pregunt
 ### Packet `[INVOKE]`
 ```
 [INVOKE: SME Regulatorio — CNBV en SME/Regulatory/CNBV/]
-COMPONENTE   : BCOPCore · SPE-AM-001 · Etapa 3 Business Logic Extraction
+COMPONENTE   : Informix · SPE-AM-001 · Etapa 3 Business Logic Extraction
 SOLICITUD    : Validar 360 reglas/fórmulas de negocio extraídas del código SPL
 ALCANCE      : Fórmulas financieras y validaciones con impacto CNBV
 DOMINIOS     : D01, D02, D03, D04, D06, D08, D11, bdiburo, bdicorresp, bdinvers
@@ -72,7 +72,7 @@ CRITICIDAD   : Equivalencia ≥ 99.95% (auditable ante CNBV)
 ### Packet `[INVOKE]`
 ```
 [INVOKE: SME Regulatorio — Banxico en SME/Regulatory/Banxico/]
-COMPONENTE   : BCOPCore · SPE-AM-001 · Etapa 3 Business Logic Extraction
+COMPONENTE   : Informix · SPE-AM-001 · Etapa 3 Business Logic Extraction
 SOLICITUD    : Validar 24 reglas/fórmulas de negocio extraídas del código SPL
 ALCANCE      : Fórmulas financieras y validaciones con impacto Banxico
 DOMINIOS     : D08
@@ -124,7 +124,7 @@ CRITICIDAD   : Equivalencia ≥ 99.95% (auditable ante Banxico)
 ### Packet `[INVOKE]`
 ```
 [INVOKE: SME Regulatorio — CONDUSEF en SME/Regulatory/CONDUSEF/]
-COMPONENTE   : BCOPCore · SPE-AM-001 · Etapa 3 Business Logic Extraction
+COMPONENTE   : Informix · SPE-AM-001 · Etapa 3 Business Logic Extraction
 SOLICITUD    : Validar 156 reglas/fórmulas de negocio extraídas del código SPL
 ALCANCE      : Fórmulas financieras y validaciones con impacto CONDUSEF
 DOMINIOS     : D01, D02, D03, D04, D05, D08, bdicorresp, bdidomi, bdiprog, intercard
@@ -184,7 +184,7 @@ CRITICIDAD   : Equivalencia ≥ 99.95% (auditable ante CONDUSEF)
 ### Packet `[INVOKE]`
 ```
 [INVOKE: SME Regulatorio — SAT en SME/Regulatory/SAT/]
-COMPONENTE   : BCOPCore · SPE-AM-001 · Etapa 3 Business Logic Extraction
+COMPONENTE   : Informix · SPE-AM-001 · Etapa 3 Business Logic Extraction
 SOLICITUD    : Validar 62 reglas/fórmulas de negocio extraídas del código SPL
 ALCANCE      : Fórmulas financieras y validaciones con impacto SAT
 DOMINIOS     : D01, D03, D04, D05, bdidomi, bdinvers
@@ -244,7 +244,7 @@ CRITICIDAD   : Equivalencia ≥ 99.95% (auditable ante SAT)
 ### Packet `[INVOKE]`
 ```
 [INVOKE: SME Regulatorio — TESOFE en SME/Regulatory/TESOFE/]
-COMPONENTE   : BCOPCore · SPE-AM-001 · Etapa 3 Business Logic Extraction
+COMPONENTE   : Informix · SPE-AM-001 · Etapa 3 Business Logic Extraction
 SOLICITUD    : Validar 28 reglas/fórmulas de negocio extraídas del código SPL
 ALCANCE      : Fórmulas financieras y validaciones con impacto TESOFE
 DOMINIOS     : D01, D04, bdiprog
@@ -298,7 +298,7 @@ CRITICIDAD   : Equivalencia ≥ 99.95% (auditable ante TESOFE)
 ### Packet `[INVOKE]`
 ```
 [INVOKE: SME Regulatorio — IPAB en SME/Regulatory/IPAB/]
-COMPONENTE   : BCOPCore · SPE-AM-001 · Etapa 3 Business Logic Extraction
+COMPONENTE   : Informix · SPE-AM-001 · Etapa 3 Business Logic Extraction
 SOLICITUD    : Validar 6 reglas/fórmulas de negocio extraídas del código SPL
 ALCANCE      : Fórmulas financieras y validaciones con impacto IPAB
 DOMINIOS     : D01

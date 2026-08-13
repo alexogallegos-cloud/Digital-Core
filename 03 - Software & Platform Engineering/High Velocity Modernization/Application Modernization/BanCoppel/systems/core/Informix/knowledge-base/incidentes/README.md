@@ -1,4 +1,4 @@
-# Registro de Incidentes — BCOPCore · BanCoppel Application Modernization
+# Registro de Incidentes — Informix · BanCoppel Application Modernization
 
 > **Fuente de verdad:** este directorio contiene el análisis estructurado de todos los incidentes observados en producción durante el período de captura de logs del proyecto. Los incidentes se derivan directamente de los logs ESB (`errores_bus_*.txt`, `transacciones_bus_*.txt`), del análisis de código fuente, y del análisis de volumetría de pagos (`source/spei-aut-ent/`).
 >
@@ -106,4 +106,4 @@ INC-20260424-002 (CWE-390) ←→ INC-20260731/20260801 (COMMIT comentado)
 
 ---
 
-*Última actualización: 2026-08-07 | BCOPCore Gemelo Cognitivo — DISCOVER Etapa 1*
+*Última actualización: 2026-08-07 | Informix Gemelo Cognitivo — DISCOVER Etapa 1*

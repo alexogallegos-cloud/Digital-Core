@@ -17,8 +17,8 @@ import sp_vocab
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
-SRC = BASE + "source/BCOPCore/informix/"
+        "Application Modernization/BanCoppel/Informix/")
+SRC = BASE + "source/informix/"
 CAT = sp_vocab.CAT
 
 DOM = {"bdicnweb","bdinteg","bdicred","bdicheq","bdisac","bdisolic",
@@ -244,7 +244,7 @@ n_syn_c = _C['conceptos']; n_syn_a = _C['alias']  # 86 conceptos · 196 término
 pct_dated = round(100 * n_dated / n_files) if n_files else 0
 HTML = f"""<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>BCOPCore · Evolución del Lenguaje y las Almas</title><style>{CSS}</style></head><body>
+<title>Informix · Evolución del Lenguaje y las Almas</title><style>{CSS}</style></head><body>
 <header><img src="bancoppel-logo.png" alt="BanCoppel">
  <div><h1>Evolución del Lenguaje y las Almas</h1><div class="sub">Gemelo Cognitivo · capas 1×2×3 (lenguaje × almas × tiempo) · SPE-AM-001</div></div></header>
 <div class="wrap">

@@ -1,6 +1,6 @@
 # D11 · Cobranza — Plan de Migración de Datos
 
-> **Componente:** BCOPCore · SPE-AM-001 · DESIGN Phase → BUILD
+> **Componente:** Informix · SPE-AM-001 · DESIGN Phase → BUILD
 > **Base de datos:** `bdicobranza` → Target: Aurora PostgreSQL 15+
 > **Wave:** Wave 2 · Riesgo: **MEDIO**
 > **Última actualización:** 2026-07-03

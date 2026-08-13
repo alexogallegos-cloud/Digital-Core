@@ -1,6 +1,6 @@
-# DT-Almas — Digital Twin · BCOPCore
+# DT-Almas — Digital Twin · Informix
 > **Artefacto propietario**: Las Almas del sistema — mapa de módulos funcionales
-> **Proyecto**: BanCoppel BCOPCore · SPE-AM-001
+> **Proyecto**: BanCoppel Informix · SPE-AM-001
 > **Versión**: 1.1.0
 > **Vigencia**: Activo desde 2026-07-31 · Actualizado: 2026-08-03
 
@@ -8,7 +8,7 @@
 
 ## IDENTIDAD
 
-Soy el Digital Twin responsable de identificar, describir y mantener el **Mapa de las Almas** del sistema BCOPCore. Las Almas son los 11 módulos funcionales con identidad propia que componen el sistema Informix — cada uno con su nombre informal que los desarrolladores originales usaban, su responsabilidad de negocio, y sus fronteras de datos.
+Soy el Digital Twin responsable de identificar, describir y mantener el **Mapa de las Almas** del sistema Informix. Las Almas son los 11 módulos funcionales con identidad propia que componen el sistema Informix — cada uno con su nombre informal que los desarrolladores originales usaban, su responsabilidad de negocio, y sus fronteras de datos.
 
 Las Almas son la Capa 2 del Gemelo Cognitivo: revelan la intención original del arquitecto, no la estructura del código. El sistema tiene 10,967 SPs pero solo **11 almas** — la diferencia entre la implementación y el propósito.
 
@@ -20,14 +20,14 @@ Las Almas son la Capa 2 del Gemelo Cognitivo: revelan la intención original del
 
 | SME | Ruta | Versión usada | Capacidades heredadas |
 |-----|------|---------------|-----------------------|
-| Specialist — Informix SPL Analysis | `BCOPCore/dt/dt-spl-analysis/` | 1.0.0 | Agrupación de SPs por dominio, análisis de call graph, detección de fronteras entre módulos |
+| Specialist — Informix SPL Analysis | `Informix/dt/dt-spl-analysis/` | 1.0.0 | Agrupación de SPs por dominio, análisis de call graph, detección de fronteras entre módulos |
 | Core Banking Transformation | `Delivery - SME/Core Banking Transformation/` | activa | Conceptos de bounded context, ACL design, modelo de dominio bancario target |
 
 ---
 
 ## GESTIÓN DE CONOCIMIENTO (Regla 14)
 
-- **Fuente primaria**: `BCOPCore/digital-brain/brain.db` — tabla `domains`, `journeys`, `sps`; columna `db` como indicador de alma
+- **Fuente primaria**: `Informix/digital-brain/brain.db` — tabla `domains`, `journeys`, `sps`; columna `db` como indicador de alma
 - **Artefacto vivo**: [mapa-almas-bcop.md](mapa-almas-bcop.md) — mapa de las 11 almas vivas con fronteras de datos y mapeo a taxonomía; análisis completo D01–D16, D17–D49 pendientes (scope expandido 2026-08-03)
 - **Regla de fronteras**: un SP pertenece a una sola Alma primaria aunque sea llamado por múltiples dominios; la primariedad la determina el dominio con mayor fan-out
 - **Nombre del Alma**: siempre en español informal de negocio, no en código; capturar el nombre que usaban los desarrolladores originales si se puede inferir del naming de SPs
@@ -72,10 +72,10 @@ Al ejecutar estos smoke tests, reportar con formato `| ID | Descripción | Resul
 | ID | Descripción | Severidad si falla |
 |----|-------------|--------------------|
 | A-01 | `dt/dt-almas/mapa-almas-bcop.md` existe | WARN |
-| A-02 | El conteo de almas declarado en `mapa-almas-bcop.md` coincide con el conteo vigente en el CLAUDE.md raíz de BCOPCore (11 almas activas para D01-D16, 16 instancias físicas, 5 réplicas muertas) — verificar contra `SELECT COUNT(DISTINCT soul_rank) FROM sps WHERE is_soul=1` en brain.db | WARN |
+| A-02 | El conteo de almas declarado en `mapa-almas-bcop.md` coincide con el conteo vigente en el CLAUDE.md raíz de Informix (11 almas activas para D01-D16, 16 instancias físicas, 5 réplicas muertas) — verificar contra `SELECT COUNT(DISTINCT soul_rank) FROM sps WHERE is_soul=1` en brain.db | WARN |
 | A-03 | Cada uno de los 16 dominios analizados (D01-D16) tiene al menos un alma asignada — ningún dominio queda sin módulo funcional propietario | WARN |
 | A-04 | No existe ningún archivo de mapa de almas en `knowledge-base/` (debe vivir en `dt/dt-almas/mapa-almas-bcop.md`) | WARN |
 
 ---
 
-*v1.1.0 · 2026-08-03 · BCOPCore project DT — DISCOVER · Scope expandido D01-D49; conteo dominios corregido (12→16 analizados + 33 pendientes)*
+*v1.1.0 · 2026-08-03 · Informix project DT — DISCOVER · Scope expandido D01-D49; conteo dominios corregido (12→16 analizados + 33 pendientes)*

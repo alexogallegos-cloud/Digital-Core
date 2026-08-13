@@ -16,7 +16,7 @@ precisa — el ciclo que permite ser **proactivo con el comportamiento** (dimens
 
 ## Cómo re-ejecutar
 
-Desde `BCOPCore/`:
+Desde `Informix/`:
 
 ```
 python generators/build-forecast-spei.py

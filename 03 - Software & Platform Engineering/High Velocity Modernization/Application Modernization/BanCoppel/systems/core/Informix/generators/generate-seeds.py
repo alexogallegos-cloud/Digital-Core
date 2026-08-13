@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 generate-seeds.py — Regla B11: Seed Generation (Cross-Brain Seeding)
-BCOPCore Informix — implementación de referencia AM.
+Informix Informix — implementación de referencia AM.
 
 Lee brain.db y emite digital-brain/seeds/{sistema}-seed.json para cada
 sistema con evidencia de relación. Idempotente: refleja el estado actual del brain.
@@ -25,7 +25,7 @@ SEEDS_DIR = BASE / "digital-brain" / "seeds"
 
 SOURCE_SYSTEM = "informix"
 SOURCE_TOGAF_TYPE = "core"
-SOURCE_VERSION = "BCOPCore v1.8.0"
+SOURCE_VERSION = "Informix v1.8.0"
 
 # ---------------------------------------------------------------------------
 # TOGAF type mapping — slug → tipo canónico

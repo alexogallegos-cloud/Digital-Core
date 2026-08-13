@@ -239,4 +239,4 @@ La coexistencia de `sysconau` (batch) y `syssiweb` (web) con transacciones larga
 ---
 
 *Fuentes: dato crudo de `source/logs/2026-07-31/`. Análisis independiente, sin referencia a análisis de terceros.*  
-*Creado: 2026-08-05 | BCOPCore Gemelo Cognitivo — DISCOVER Etapa 1*
+*Creado: 2026-08-05 | Informix Gemelo Cognitivo — DISCOVER Etapa 1*

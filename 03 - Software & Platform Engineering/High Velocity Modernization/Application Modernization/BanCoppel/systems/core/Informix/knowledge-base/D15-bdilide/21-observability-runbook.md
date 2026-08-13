@@ -1,6 +1,6 @@
 # D15 · LIDE/PLD (Prevención de Lavado de Dinero) — Observabilidad y Runbook
 
-> **Componente:** BCOPCore · SPE-AM-001 · OPERATE Phase
+> **Componente:** Informix · SPE-AM-001 · OPERATE Phase
 > **Microservicio target:** LideService / PldBatchService
 > **Wave:** Wave 4 · Riesgo: CRÍTICO (regulatorio — PLD/CNBV/SHCP)
 > **Última actualización:** 2026-08-03
@@ -246,12 +246,12 @@ RESOLVER:
   A. ROLLBACK INMEDIATO: AppConfig feature flag al 0% (100% tráfico al legacy)
   B. Aislar el caso de divergencia: obtener el numCte y el escenario exacto
   C. Investigar en el código fuente:
-       source/BCOPCore/informix/[sp-consulta-lide].sql
+       source/informix/[sp-consulta-lide].sql
        vs. implementación Java del LideService
   D. Identificar la regla específica que produce el resultado diferente
   E. Corregir el target y volver a probar con golden master antes de reactivar
 
-ESCALAR: QA Lead + Director de Cumplimiento + Arquitecto Principal BCOPCore
+ESCALAR: QA Lead + Director de Cumplimiento + Arquitecto Principal Informix
 CRITERIO DE REANUDACIÓN: Sign-off del QA Lead + Cumplimiento que confirmen la corrección y re-validación.
 NOTA: El parallel-run DEBE REINICIARSE desde cero después de una corrección — no se acumulan los días previos.
 ```

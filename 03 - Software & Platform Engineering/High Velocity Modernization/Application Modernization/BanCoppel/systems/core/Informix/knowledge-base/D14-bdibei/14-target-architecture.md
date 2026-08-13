@@ -1,6 +1,6 @@
 # D14 · Banca Electrónica Institucional (BEI) — Arquitectura Target
 
-> **Componente:** BCOPCore · SPE-AM-001 · DESIGN Phase
+> **Componente:** Informix · SPE-AM-001 · DESIGN Phase
 > **Base de datos:** bdibei
 > **Wave:** Wave 3 · Riesgo: CRÍTICO (batch nómina)
 > **Última actualización:** 2026-08-03
@@ -207,4 +207,4 @@ DispersarPorBeneficiario:
 | Alertas P1 | PagerDuty | Batch nómina fallido · Dispersión bloqueada > 30 min |
 
 ---
-*Generado por: Core Banking Transformation + Cloud Architect AWS Banking · 2026-08-03 · Fuente: sp-specs-bdibei.md + INC-006 + referencia arquitectura BCOPCore*
+*Generado por: Core Banking Transformation + Cloud Architect AWS Banking · 2026-08-03 · Fuente: sp-specs-bdibei.md + INC-006 + referencia arquitectura Informix*

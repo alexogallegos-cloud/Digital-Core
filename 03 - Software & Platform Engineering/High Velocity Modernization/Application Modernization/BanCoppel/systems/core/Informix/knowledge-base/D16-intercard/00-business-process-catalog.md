@@ -1,6 +1,6 @@
 # D16 · Intercard (Tarjetas) — Catálogo de Procesos de Negocio
 
-> **Componente:** BCOPCore · SPE-AM-001 · **Etapa 3 — Business Logic Extraction**
+> **Componente:** Informix · SPE-AM-001 · **Etapa 3 — Business Logic Extraction**
 > **Base de datos:** `intercard` · IBM Informix IDS 14.10 FC10W2 / POWER-AIX
 > **Wave de migración:** Wave 4 · Riesgo: **MEDIO-ALTO**
 > **Última actualización:** 2026-08-03

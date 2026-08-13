@@ -1,5 +1,5 @@
 """
-triaje-d17-d49.py — BCOPCore Triaje Regulatorio D17-D49 v1.0
+triaje-d17-d49.py — Informix Triaje Regulatorio D17-D49 v1.0
 ==============================================================
 Añade anotaciones reg + riesgo a las ~491 reglas de D17-D49
 que carecen de ellas en portal/data/business-rules-v3.json y brain.db.

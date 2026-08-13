@@ -1,6 +1,6 @@
-# BCOPCore · Auditoría Exhaustiva del Vocabulario — Falsos Positivos
+# Informix · Auditoría Exhaustiva del Vocabulario — Falsos Positivos
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 · **Generado:** 2026-07-06 por `audit-vocab.py`  
+> **Componente:** Informix · SPE-AM-001 · Etapa 3 · **Generado:** 2026-07-06 por `audit-vocab.py`  
 > Analizados 6,210 tokens crudos únicos del corpus (nombres + parámetros).
 
 Caza tokens del vocabulario que se interpretan mal por la **segmentación greedy** — igual que `ini`→re**ini**cia, `nomina`→deno**mina**ción, `pase` mal definido. Dos análisis:

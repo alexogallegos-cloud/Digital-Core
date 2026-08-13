@@ -1,4 +1,4 @@
-# 21 — Latencia Individual por SP · BCOPCore (v2)
+# 21 — Latencia Individual por SP · Informix (v2)
 > **Fuente**: `transacciones_bus_20260424_*.txt` (24h producción)
 > **Metodología v2**: brecha entre eventos consecutivos del mismo `idTrxGlobal`.
 >   Cada SP recibe como latencia el tiempo entre SU ejecución completando y la siguiente llamada del ESB.

@@ -17,7 +17,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='repla
 
 BASE = Path("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
             "03 - Software & Platform Engineering/High Velocity Modernization/"
-            "Application Modernization/BanCoppel/BCOPCore/")
+            "Application Modernization/BanCoppel/Informix/")
 WEAK_IN   = BASE / "knowledge-base/rules/weak-names-export.json"
 OVERRIDES = BASE / "knowledge-base/rules/name-overrides-ai.json"
 

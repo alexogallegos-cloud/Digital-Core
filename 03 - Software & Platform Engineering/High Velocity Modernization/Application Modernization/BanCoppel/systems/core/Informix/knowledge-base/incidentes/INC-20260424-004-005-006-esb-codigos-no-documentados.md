@@ -141,4 +141,4 @@ Los 320 errores/día de SSL pueden indicar un certificado próximo a expirar en 
 ---
 
 *Fuentes: `source/logs/2026-04-24/errores_bus_*.txt` (24 archivos, ventana completa 00:00–23:59 CST) · risk register `migration-risk-register.md` P655-R005 · runbooks INC-D08-04, INC-D13-01, INC-D14-01.*  
-*Creado: 2026-08-06 | BCOPCore Gemelo Cognitivo — DISCOVER Etapa 1*
+*Creado: 2026-08-06 | Informix Gemelo Cognitivo — DISCOVER Etapa 1*

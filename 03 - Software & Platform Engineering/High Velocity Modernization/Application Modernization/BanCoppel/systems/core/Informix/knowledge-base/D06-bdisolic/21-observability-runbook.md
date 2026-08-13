@@ -1,6 +1,6 @@
 # D06 · bdisolic (Solicitudes / Scoring) — Observabilidad y Runbook
 
-> **Componente:** BCOPCore · SPE-AM-001 · OPERATE Phase
+> **Componente:** Informix · SPE-AM-001 · OPERATE Phase
 > **Microservicio target:** SolicitudesYScoringService
 > **Wave:** Wave 3 · Riesgo: **ALTO**
 > **Última actualización:** 2026-07-31
@@ -60,7 +60,7 @@ Cross-DB monitoreado:
 | `califica_scoring2_cjunk` | `bancoppel.bdisolic.califica_scoring2_cjunk.latency` | `bancoppel.bdisolic.califica_scoring2_cjunk.errors` | [SME-PENDING] ms |
 | `determina_lincred_tc_cjunk` | `bancoppel.bdisolic.determina_lincred_tc_cjunk.latency` | `bancoppel.bdisolic.determina_lincred_tc_cjunk.errors` | [SME-PENDING] ms |
 
-> Verificar lógica de cada SP en `source/BCOPCore/informix/{sp_name}.sql` antes de ajustar umbrales.
+> Verificar lógica de cada SP en `source/informix/{sp_name}.sql` antes de ajustar umbrales.
 
 ### 2. Traffic (throughput)
 
@@ -164,16 +164,16 @@ DETECTAR:
 
 DIAGNOSTICAR:
   1. brain.py — identificar callers activos y dependencias del SP:
-       python BCOPCore/digital-brain/brain.py callers "califica_scoring2_cjunk"
-       python BCOPCore/digital-brain/brain.py search "califica_scoring2_cjunk"
+       python Informix/digital-brain/brain.py callers "califica_scoring2_cjunk"
+       python Informix/digital-brain/brain.py search "califica_scoring2_cjunk"
 
   2. Verificar si bdicred (D03) está respondiendo — bdisolic hace 89 cross-DB
      a bdicred; si bdicred está degradado el scoring no puede completar la
      calificación → ver INC-D06-03:
-       python BCOPCore/digital-brain/brain.py search "bdicred"
+       python Informix/digital-brain/brain.py search "bdicred"
 
   3. Revisar lógica interna del SP en:
-       source/BCOPCore/informix/califica_scoring2_cjunk.sql
+       source/informix/califica_scoring2_cjunk.sql
      Identificar paths de error, cursores, y dependencias de tablas
 
   4. X-Ray: localizar el tramo exacto de falla en el trace del SP
@@ -214,10 +214,10 @@ DETECTAR:
 
 DIAGNOSTICAR:
   1. brain.py — mapear los 208 callers para priorizar impacto:
-       python BCOPCore/digital-brain/brain.py callers "determina_lincred_tc_cjunk"
+       python Informix/digital-brain/brain.py callers "determina_lincred_tc_cjunk"
 
   2. Revisar lógica del SP en:
-       source/BCOPCore/informix/determina_lincred_tc_cjunk.sql
+       source/informix/determina_lincred_tc_cjunk.sql
      Con 1,832 LOC y 208 callers, identificar si hay paths de ejecución
      costosos que solo se activan con ciertos parámetros de entrada
 
@@ -258,12 +258,12 @@ DETECTAR:
 
 DIAGNOSTICAR:
   1. Confirmar estado de bdicred (D03):
-       python BCOPCore/digital-brain/brain.py search "bdicred"
+       python Informix/digital-brain/brain.py search "bdicred"
      Verificar si la alarma proviene de D03 o si es error de conexión cross-DB
      en la capa de SolicitudesYScoringService
 
   2. brain.py — identificar qué SPs de bdisolic disparan las 89 calls a bdicred:
-       python BCOPCore/digital-brain/brain.py crossdb "bdisolic" "bdicred"
+       python Informix/digital-brain/brain.py crossdb "bdisolic" "bdicred"
 
   3. CloudWatch Insights — aislar errores de cross-DB:
        fields @timestamp, @message
@@ -284,8 +284,8 @@ RESOLVER:
      rollback total al Informix legacy (AppConfig feature flag al 0%)
   D. Revisar lógica de los SPs involucrados para identificar si los cross-DB
      son indispensables o tienen fallback definido:
-       source/BCOPCore/informix/califica_scoring2_cjunk.sql
-       source/BCOPCore/informix/determina_lincred_tc_cjunk.sql
+       source/informix/califica_scoring2_cjunk.sql
+       source/informix/determina_lincred_tc_cjunk.sql
 
 ESCALAR si no resuelve en 30 min: SRE Lead + equipo D03-bdicred + Program Manager
 RTO: < 30 min (CNBV — sistema bancario crítico)
@@ -317,7 +317,7 @@ RTO: < 30 min (CNBV — sistema bancario crítico)
 ---
 
 *Generado por: SRE & AIOps · 2026-07-31 · [SME-PENDING] umbrales SLO requieren validación con baseline real de QA Lead + Domain Expert BanCoppel.*
-*Lógica de SPs: verificar en `source/BCOPCore/informix/{sp_name}.sql` antes de ajustar cualquier umbral o implementar fix.*
+*Lógica de SPs: verificar en `source/informix/{sp_name}.sql` antes de ajustar cualquier umbral o implementar fix.*
 
 <!-- LOG-DATA-BEGIN -->
 ## Patrones de incidente observados — Logs 2026-04-24

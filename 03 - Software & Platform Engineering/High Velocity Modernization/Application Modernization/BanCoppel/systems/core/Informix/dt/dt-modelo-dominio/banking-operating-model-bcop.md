@@ -1,7 +1,7 @@
 # BanCoppel · Modelo Operativo Lógico de un Banco Retail
 
 > **Autor:** SME — Modelo Operativo Bancario (BIAN · capacidades retail banking · cadena de valor)
-> **Componente:** BCOPCore · SPE-AM-001 · **Etapa 3/4 — Domain Decomposition (input)**
+> **Componente:** Informix · SPE-AM-001 · **Etapa 3/4 — Domain Decomposition (input)**
 > **Última actualización:** 2026-07-05
 
 Modelo **lógico de negocio** de un banco de consumo mexicano como BanCoppel: las **capacidades** que un banco debe tener para operar, organizadas de forma independiente de la tecnología, y su **mapeo a los 12 dominios técnicos** descubiertos en el core Informix (`bdicheq`, `bdicred`, …).
@@ -38,7 +38,7 @@ Esto define qué capacidades son **core** (crédito, captación, pagos, canales 
 ## 3 · Mapa de capacidades lógicas (6 capas BIAN) → dominios técnicos
 
 ### Capa A · CANALES Y EXPERIENCIA  *(Customer Touchpoints)*
-| Capacidad de negocio | BIAN Service Domain (ref.) | Dominio técnico BCOPCore |
+| Capacidad de negocio | BIAN Service Domain (ref.) | Dominio técnico Informix |
 |----------------------|----------------------------|--------------------------|
 | Banca por Internet (BPI) | Channel Activity Analysis | **D01** `bdicnweb` |
 | App móvil (BanCoppel Móvil) | Channel Activity Analysis | **D01** `bdicnweb` |
@@ -134,4 +134,4 @@ Este modelo lógico es el **contrato de negocio** contra el que se validan los b
 
 ---
 
-*Producido por SME — Modelo Operativo Bancario · alineado a BIAN + banca retail MX · cruza con los 12 dominios técnicos de BCOPCore · complementa `component-map`, `journeys` y `business-rules`.*
+*Producido por SME — Modelo Operativo Bancario · alineado a BIAN + banca retail MX · cruza con los 12 dominios técnicos de Informix · complementa `component-map`, `journeys` y `business-rules`.*

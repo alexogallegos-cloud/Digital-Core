@@ -1,6 +1,6 @@
 ﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""build-rules-report-v2.py — HTML v2 de reglas de negocio BCOPCore.
+"""build-rules-report-v2.py — HTML v2 de reglas de negocio Informix.
 
 Mejoras sobre v1:
   · Paleta dark BanCoppel (#0a1330) — consistente con vocabulary-report-bcop-v2.html
@@ -18,7 +18,7 @@ from collections import Counter
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
+        "Application Modernization/BanCoppel/Informix/")
 
 # Logo BanCoppel embebido como base64
 with open(BASE + "bancoppel-logo.png", "rb") as _f:
@@ -82,7 +82,7 @@ M = json.dumps({
 
 HTML = r"""<!DOCTYPE html><html lang="es"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>BCOPCore · Reglas de Negocio v2</title>
+<title>Informix · Reglas de Negocio v2</title>
 <style>
 :root{
   --bg:#060d1f;--bg2:#0a1535;--panel:#0e1e45;--line:#122FB1;
@@ -186,7 +186,7 @@ footer{font-size:9px;color:var(--muted);padding:5px 20px;flex-shrink:0;
 <header>
   <img class="logo" src="data:image/png;base64,__LOGO__" alt="BanCoppel">
   <div class="hinfo">
-    <h1>Reglas de Negocio · BCOPCore v2</h1>
+    <h1>Reglas de Negocio · Informix v2</h1>
     <div class="sub">SPE-AM-001 · Etapa 3 · vocabulario 787 términos · 2026-08-02</div>
   </div>
   <div class="badge" id="hbadge"></div>

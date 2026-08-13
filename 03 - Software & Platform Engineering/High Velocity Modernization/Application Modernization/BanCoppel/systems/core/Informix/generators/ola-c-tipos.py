@@ -22,7 +22,7 @@ from collections import Counter, defaultdict
 sys.stdout.reconfigure(encoding="utf-8")
 
 BASE     = Path(__file__).parent.parent
-SRC_DIR  = BASE / "source" / "BCOPCore" / "informix"
+SRC_DIR  = BASE / "source" / "Informix" / "informix"
 BRAIN_DB = BASE / "digital-brain" / "brain.db"
 
 # ── Patrones regex de extracción de tipos Informix ──────────────────────────

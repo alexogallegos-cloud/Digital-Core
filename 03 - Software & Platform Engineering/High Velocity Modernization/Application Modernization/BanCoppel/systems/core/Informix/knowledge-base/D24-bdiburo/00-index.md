@@ -1,7 +1,7 @@
 # D24-bdiburo - Knowledge Base Placeholder
 > **Dominio**: Buro de Credito
 > **Base de datos Informix**: bdiburo
-> **Archivos fuente**: 64 SPs en source/BCOPCore/informix/bdiburo/
+> **Archivos fuente**: 64 SPs en source/informix/bdiburo/
 > **Estado**: [PENDIENTE ANALISIS] -- carpeta creada, contenido por generar
 > **Prioridad**: ALTA
 > **Incorporado al scope**: 2026-08-03
@@ -12,7 +12,7 @@
 
 ## Descripcion
 
-Buro de Credito. Tiene 64 stored procedures en el codigo fuente de BCOPCore.
+Buro de Credito. Tiene 64 stored procedures en el codigo fuente de Informix.
 
 ## Estado de Artefactos
 
@@ -28,4 +28,4 @@ Seguir el template de D01-bdicnweb como referencia.
 
 ---
 
-*Placeholder creado 2026-08-03 - BCOPCore scope expansion D01-D49*
+*Placeholder creado 2026-08-03 - Informix scope expansion D01-D49*

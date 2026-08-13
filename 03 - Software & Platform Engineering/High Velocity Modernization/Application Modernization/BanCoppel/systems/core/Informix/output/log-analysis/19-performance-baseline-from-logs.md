@@ -1,4 +1,4 @@
-# 19 — Performance Baseline · BCOPCore
+# 19 — Performance Baseline · Informix
 > **Fuente**: logs de producción del Bus de Servicios — 2026-04-24 (24 horas)
 > **Generado por**: analyze-logs.py
 > **Nota**: métricas de latencia p50/p95/p99 requieren instrumentación APM — marcadas [APM-PENDING]
@@ -124,4 +124,4 @@ Detectados en errores_bus_* con recurrencia sistemática:
 ---
 
 *Generado automáticamente por analyze-logs.py — 2026-07-31*
-*Validar contra código fuente: `source/BCOPCore/informix/{sp_name}.sql`*
+*Validar contra código fuente: `source/informix/{sp_name}.sql`*

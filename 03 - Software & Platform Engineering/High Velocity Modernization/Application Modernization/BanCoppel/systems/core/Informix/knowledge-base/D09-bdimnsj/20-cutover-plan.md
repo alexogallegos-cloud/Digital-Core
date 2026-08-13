@@ -1,6 +1,6 @@
 # D09 · Mensajería — Plan de Cutover
 
-> **Componente:** BCOPCore · SPE-AM-001 · RELEASE Phase
+> **Componente:** Informix · SPE-AM-001 · RELEASE Phase
 > **Base de datos:** `bdimnsj` → Aurora PostgreSQL
 > **Wave:** Wave 1 · Riesgo: **BAJO**
 > **Última actualización:** 2026-07-03

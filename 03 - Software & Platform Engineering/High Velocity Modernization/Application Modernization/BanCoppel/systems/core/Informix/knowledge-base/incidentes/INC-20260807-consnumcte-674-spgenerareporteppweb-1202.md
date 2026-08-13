@@ -194,7 +194,7 @@ ON EXCEPTION SET var_err
 END EXCEPTION;
 ```
 
-Este patrón está extendido en el corpus BCOPCore. El motor Informix tiene códigos de error negativos (`-674`, `-1202`, `-255`, `-391`, etc.) que el SP captura y devuelve directamente como primera columna del retorno. La capa Java los recibe, los registra como error, y en algunos casos los propaga al frontend.
+Este patrón está extendido en el corpus Informix. El motor Informix tiene códigos de error negativos (`-674`, `-1202`, `-255`, `-391`, etc.) que el SP captura y devuelve directamente como primera columna del retorno. La capa Java los recibe, los registra como error, y en algunos casos los propaga al frontend.
 
 **Implicación para la migración:** el target no puede simplemente lanzar una excepción Java cuando ocurre una condición equivalente. Debe devolver exactamente el mismo código numérico negativo para que el comportamiento de la capa de presentación sea idéntico.
 
@@ -277,6 +277,6 @@ Una divergencia significativa en estas tasas indica que el target no está repli
 
 ---
 
-*Fuentes: `source/logs/2026-08-07/` · `source/BCOPCore/informix/bdinteg_consnumcte.sql` (313 líneas) · `source/BCOPCore/informix/bdisolic_sp_generareportepp_web.sql` (436 líneas)*  
+*Fuentes: `source/logs/2026-08-07/` · `source/informix/bdinteg_consnumcte.sql` (313 líneas) · `source/informix/bdisolic_sp_generareportepp_web.sql` (436 líneas)*  
 *Parser: `generators/analyze-was-logs.py` v1.0 · Artefacto visual: `portal/incidents/inc-009-was-2026-08-07.html`*  
-*Creado: 2026-08-07 · BCOPCore Gemelo Cognitivo — DISCOVER Etapa 1*
+*Creado: 2026-08-07 · Informix Gemelo Cognitivo — DISCOVER Etapa 1*

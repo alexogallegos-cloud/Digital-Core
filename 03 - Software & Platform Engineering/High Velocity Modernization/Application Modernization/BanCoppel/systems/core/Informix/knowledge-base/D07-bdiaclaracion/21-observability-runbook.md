@@ -1,6 +1,6 @@
 # D07 · bdiaclaracion (Aclaraciones) — Observabilidad y Runbook
 
-> **Componente:** BCOPCore · SPE-AM-001 · OPERATE Phase
+> **Componente:** Informix · SPE-AM-001 · OPERATE Phase
 > **Microservicio target:** AclaracionesService
 > **Wave:** Wave 2 · Riesgo: **ALTO**
 > **Última actualización:** 2026-07-31
@@ -63,7 +63,7 @@ Cross-DB monitoreado:
 | `sp_fal_busca_beneficiarios_por_cuenta` | `bancoppel.bdiaclaracion.fal_busca_beneficiarios_por_cuenta.latency` | `bancoppel.bdiaclaracion.fal_busca_beneficiarios_por_cuenta.errors` | [SME-PENDING] ms |
 | `sp_fal_busca_documentos_faltantes` | `bancoppel.bdiaclaracion.fal_busca_documentos_faltantes.latency` | `bancoppel.bdiaclaracion.fal_busca_documentos_faltantes.errors` | [SME-PENDING] ms |
 
-> Verificar lógica de cada SP en `source/BCOPCore/informix/{sp_name}.sql` antes de ajustar umbrales.
+> Verificar lógica de cada SP en `source/informix/{sp_name}.sql` antes de ajustar umbrales.
 > Los 9 god procedures con 0 callers directos deben instrumentarse con trazas de batch para capturar su ejecución nocturna.
 
 ### 2. Traffic (throughput)
@@ -171,16 +171,16 @@ DETECTAR:
 
 DIAGNOSTICAR:
   1. brain.py — identificar callers activos y dependencias:
-       python BCOPCore/digital-brain/brain.py callers "sp_fal_cancelacion_cuenta_debito"
-       python BCOPCore/digital-brain/brain.py search "sp_fal_cancelacion_cuenta_debito"
+       python Informix/digital-brain/brain.py callers "sp_fal_cancelacion_cuenta_debito"
+       python Informix/digital-brain/brain.py search "sp_fal_cancelacion_cuenta_debito"
 
   2. Revisar lógica completa del SP en:
-       source/BCOPCore/informix/sp_fal_cancelacion_cuenta_debito.sql
+       source/informix/sp_fal_cancelacion_cuenta_debito.sql
      Con 11,516 LOC, identificar las secciones de cierre de cuenta y si hay
      dependencias de cross-DB hacia bdinteg, bdicheq o bdicred
 
   3. Verificar si la falla está en el cross-DB hacia bdinteg:
-       python BCOPCore/digital-brain/brain.py crossdb "bdiaclaracion" "bdinteg"
+       python Informix/digital-brain/brain.py crossdb "bdiaclaracion" "bdinteg"
      bdiaclaracion hace 452 cross-DB a bdinteg (53% del total)
 
   4. X-Ray: localizar el tramo de falla dentro del SP (11,516 LOC)
@@ -225,11 +225,11 @@ DETECTAR:
 
 DIAGNOSTICAR:
   1. brain.py — confirmar mecanismo de invocación (batch vs. externo):
-       python BCOPCore/digital-brain/brain.py search "sp_fal_busca_documentos_faltantes"
-       python BCOPCore/digital-brain/brain.py callers "sp_fal_busca_documentos_faltantes"
+       python Informix/digital-brain/brain.py search "sp_fal_busca_documentos_faltantes"
+       python Informix/digital-brain/brain.py callers "sp_fal_busca_documentos_faltantes"
 
   2. Revisar lógica del SP en:
-       source/BCOPCore/informix/sp_fal_busca_documentos_faltantes.sql
+       source/informix/sp_fal_busca_documentos_faltantes.sql
      Con 12,110 LOC, identificar si hay cursores que iteran sobre conjuntos
      grandes de datos; probable causa de timeout en lotes con alto volumen
 
@@ -277,15 +277,15 @@ DETECTAR:
 
 DIAGNOSTICAR:
   1. Confirmar estado de bdinteg (D02) como causa raíz:
-       python BCOPCore/digital-brain/brain.py search "bdinteg"
+       python Informix/digital-brain/brain.py search "bdinteg"
      No iniciar debug interno de bdiaclaracion hasta confirmar que D02 es el origen
 
   2. brain.py — identificar qué SPs de bdiaclaracion disparan las 452 calls a bdinteg:
-       python BCOPCore/digital-brain/brain.py crossdb "bdiaclaracion" "bdinteg"
+       python Informix/digital-brain/brain.py crossdb "bdiaclaracion" "bdinteg"
 
   3. Evaluar impacto adicional:
-       python BCOPCore/digital-brain/brain.py search "bdicheq"
-       python BCOPCore/digital-brain/brain.py search "bdicred"
+       python Informix/digital-brain/brain.py search "bdicheq"
+       python Informix/digital-brain/brain.py search "bdicred"
      Si bdicheq (153) y bdicred (139) también están degradados, el incidente
      es de infraestructura transversal — escalar a nivel de plataforma
 
@@ -339,7 +339,7 @@ RTO: < 30 min (CNBV — sistema bancario crítico)
 ---
 
 *Generado por: SRE & AIOps · 2026-07-31 · [SME-PENDING] umbrales SLO requieren validación con baseline real de QA Lead + Domain Expert BanCoppel.*
-*Lógica de SPs: verificar en `source/BCOPCore/informix/{sp_name}.sql` antes de ajustar cualquier umbral o implementar fix.*
+*Lógica de SPs: verificar en `source/informix/{sp_name}.sql` antes de ajustar cualquier umbral o implementar fix.*
 *Pendiente crítico: identificar mecanismo de invocación de los 9 god procedures con 0 callers directos antes de Wave 2.*
 
 <!-- LOG-DATA-BEGIN -->

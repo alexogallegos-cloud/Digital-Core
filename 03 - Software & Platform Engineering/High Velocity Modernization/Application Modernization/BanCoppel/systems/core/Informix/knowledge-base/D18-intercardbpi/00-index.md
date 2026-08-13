@@ -1,7 +1,7 @@
 # D18-intercardbpi - Knowledge Base Placeholder
 > **Dominio**: Intercard BPI
 > **Base de datos Informix**: intercardbpi
-> **Archivos fuente**: 203 SPs en source/BCOPCore/informix/intercardbpi/
+> **Archivos fuente**: 203 SPs en source/informix/intercardbpi/
 > **Estado**: [PENDIENTE ANALISIS] -- carpeta creada, contenido por generar
 > **Prioridad**: ALTA
 > **Incorporado al scope**: 2026-08-03
@@ -10,7 +10,7 @@
 
 ## Descripcion
 
-Intercard BPI. Tiene 203 stored procedures en el codigo fuente de BCOPCore.
+Intercard BPI. Tiene 203 stored procedures en el codigo fuente de Informix.
 
 ## Estado de Artefactos
 
@@ -26,4 +26,4 @@ Seguir el template de D01-bdicnweb como referencia.
 
 ---
 
-*Placeholder creado 2026-08-03 - BCOPCore scope expansion D01-D49*
+*Placeholder creado 2026-08-03 - Informix scope expansion D01-D49*

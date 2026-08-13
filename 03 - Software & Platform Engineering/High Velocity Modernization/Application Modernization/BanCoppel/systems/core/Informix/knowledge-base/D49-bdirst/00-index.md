@@ -1,7 +1,7 @@
 # D49-bdirst - Knowledge Base Placeholder
 > **Dominio**: RST
 > **Base de datos Informix**: bdirst
-> **Archivos fuente**: 1 SPs en source/BCOPCore/informix/bdirst/
+> **Archivos fuente**: 1 SPs en source/informix/bdirst/
 > **Estado**: [PENDIENTE ANALISIS] -- carpeta creada, contenido por generar
 > **Prioridad**: BAJA
 > **Incorporado al scope**: 2026-08-03
@@ -10,7 +10,7 @@
 
 ## Descripcion
 
-RST. Tiene 1 stored procedures en el codigo fuente de BCOPCore.
+RST. Tiene 1 stored procedures en el codigo fuente de Informix.
 
 ## Estado de Artefactos
 
@@ -26,4 +26,4 @@ Seguir el template de D01-bdicnweb como referencia.
 
 ---
 
-*Placeholder creado 2026-08-03 - BCOPCore scope expansion D01-D49*
+*Placeholder creado 2026-08-03 - Informix scope expansion D01-D49*

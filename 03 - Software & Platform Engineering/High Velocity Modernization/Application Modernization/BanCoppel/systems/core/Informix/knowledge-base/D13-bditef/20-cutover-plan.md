@@ -1,6 +1,6 @@
 # D13 · Transferencias Electrónicas de Fondos (TEF) — Plan de Cutover
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 5 — Release
+> **Componente:** Informix · SPE-AM-001 · Etapa 5 — Release
 > **Base de datos:** `bditef`
 > **Wave:** Wave 3 · Riesgo: ALTO
 > **Última actualización:** 2026-08-03
@@ -119,7 +119,7 @@ El dominio TEF es de **altísima criticidad** por las siguientes razones:
 | Rol | Responsable | Autoridad |
 |-----|-------------|-----------|
 | Domain Expert BanCoppel | `[SME-PENDING]` | Go/No-Go final |
-| Architect Target BCOPCore | Accenture | Go/No-Go técnico |
+| Architect Target Informix | Accenture | Go/No-Go técnico |
 | SME CNBV | `[SME-PENDING]` | Go/No-Go regulatorio |
 | SRE Lead | Accenture | Go/No-Go operabilidad |
 | CECOBAN | Externo | Confirmación de formato |
@@ -135,4 +135,4 @@ El dominio TEF es de **altísima criticidad** por las siguientes razones:
 - [ ] Confirmar si el cutover de `bditef` debe ser simultáneo con `bdicheq` o puede ser escalonado.
 
 ---
-*Generado por análisis de dependencias del dominio + restricciones CECOBAN + estrategia Wave 3 BCOPCore*
+*Generado por análisis de dependencias del dominio + restricciones CECOBAN + estrategia Wave 3 Informix*

@@ -1,6 +1,6 @@
 # D02 · Integración — Evaluación de Seguridad y PII
 
-> **Componente:** BCOPCore · SPE-AM-001 · DESIGN Phase
+> **Componente:** Informix · SPE-AM-001 · DESIGN Phase
 > **Base de datos:** `bdinteg` · Nivel PII: 🟠 MEDIA
 > **Última actualización:** 2026-07-03
 

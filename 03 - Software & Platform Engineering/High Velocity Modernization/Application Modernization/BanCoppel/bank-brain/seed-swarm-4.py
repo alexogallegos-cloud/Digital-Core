@@ -411,7 +411,7 @@ OPEN_ITEMS = [
         "Definir las arquitecturas de transicion para Transact minorista (8 productos: 4 captacion, 4 colocacion) antes de iniciar desarrollo. Incluye analisis de convivencia con PISA y esquema de integracion con MDM.",
         "arcadio",
         "high",
-        '["Transact", "PISA/BCOPCore", "Atlas"]',
+        '["Transact", "PISA/Informix", "Atlas"]',
     ),
     (
         "SW4-OI-009",
@@ -419,7 +419,7 @@ OPEN_ITEMS = [
         "Determinar timeline definitivo del MDM (Atlas) para decidir si Transact minorista se integra al MDM o directamente a PISA en la primera fase. Sin esta fecha, el diseno de integraciones queda en el aire.",
         None,
         "critical",
-        '["Atlas", "Transact", "PISA/BCOPCore"]',
+        '["Atlas", "Transact", "PISA/Informix"]',
     ),
     (
         "SW4-OI-010",
@@ -451,7 +451,7 @@ OPEN_ITEMS = [
         "Identificar y asignar un responsable unico del ecosistema legacy (canales, PISA, reporting, app) para coordinar dependencias con Unity. Hoy el legado esta fragmentado entre multiples equipos sin un owner central.",
         "arturo-perez",
         "high",
-        '["PISA/BCOPCore"]',
+        '["PISA/Informix"]',
     ),
     (
         "SW4-OI-014",
@@ -467,7 +467,7 @@ OPEN_ITEMS = [
         "Completar el plan integrado end-to-end con inputs de Transact, Apolo y SmartVista (fechas por fase, dependencias, riesgos) para la presentacion al board del 24 de abril. El equipo de legado no puede completarlo en 24 horas; requiere sesiones de entendimiento previas.",
         "pablo-lorenzo",
         "critical",
-        '["Transact", "Apolo", "SmartVista/BPC", "PISA/BCOPCore"]',
+        '["Transact", "Apolo", "SmartVista/BPC", "PISA/Informix"]',
     ),
     (
         "SW4-OI-016",
@@ -475,7 +475,7 @@ OPEN_ITEMS = [
         "Disenar y documentar un modelo robusto de migracion con testing integral, rehearsals (simulacros de produccion) y runbooks detallados antes del go-live. Hoy no existe una fase formal de testing integral ni simulacros.",
         None,
         "high",
-        '["Atlas", "SmartVista/BPC", "Transact", "PISA/BCOPCore"]',
+        '["Atlas", "SmartVista/BPC", "Transact", "PISA/Informix"]',
     ),
     (
         "SW4-OI-017",

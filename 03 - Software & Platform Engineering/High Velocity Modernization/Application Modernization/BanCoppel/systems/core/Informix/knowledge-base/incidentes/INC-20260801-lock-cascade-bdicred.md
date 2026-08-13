@@ -266,7 +266,7 @@ El bloqueador principal libera su transacción (COMMIT o timeout externo)
 
 **SPs únicos identificados como lock holders (24 total):** `sp_app_recuperapayment`, `califica_scoring_cjunk`, `sp_ws_obtiene_prod`, `sp_confpagoservicio_hs`, `sp_apercredcoppel2`, `sp_consultadatos_motor`, `direcciones_sms_tels`, `sp_ws_valida_cotel`, `sp_edoctamovimientos_consedoc`, `sp_consulta_pre_aprobado`, `sp_compara_huellas_ctes`, `sp_obtiene_ctecurp`, `sp_buscarctesamigrar`, `sp_conhuella`, `sp_calcula_sdo_nvo_y_promedio_admin_tasas`, `sp_obtenerparametros_AltaUnica`, `sp_consultactesrelacionados_filtro`, `direcciones_sms`, y variantes del daemon SIC (`INSERT INTO br_respuesta_aprocesar_aux`).
 
-**SP faltante crítico:** `sp_obtiene_clientes_pre_aprobado_notificar` — mencionado en capturas de la crisis como conductor principal pero su DDL no está en el corpus de `source/BCOPCore/informix/` ni en `sp_sql/`. Su código fuente debe obtenerse para completar el análisis.
+**SP faltante crítico:** `sp_obtiene_clientes_pre_aprobado_notificar` — mencionado en capturas de la crisis como conductor principal pero su DDL no está en el corpus de `source/informix/` ni en `sp_sql/`. Su código fuente debe obtenerse para completar el análisis.
 
 ---
 
@@ -346,7 +346,7 @@ Durante el análisis del directorio `source/logs/2026-08-01/` se encontraron fue
 Inventario del servidor DCMSIF01 con 6,590 tablas con descripción en español, 10,804 índices, 13,995 SPs, 211 triggers y 292 synonyms. Las descripciones de tablas son datos estructurados que nunca se habían tenido: "Maestro de créditos (préstamos personales/hipotecarios)", "Maestro central de clientes BanCoppel", "Tarjetas de débito asociadas a cuentas de cheques", etc. Debe cargarse a brain.db como fuente de definiciones canónicas de tablas.
 
 ### 9.2 sp_sql/ — 7,620 archivos SQL individuales
-Un archivo `.sql` por SP nombrado `{base}_{sp}.sql`. Cubre 52 bases de datos, incluyendo 36 que no estaban en el análisis anterior (D17-D49). Total: 7,620 SPs con código fuente accesible directamente sin necesidad de parsear un archivo monolítico. Complementa y extiende el corpus existente de `source/BCOPCore/informix/`.
+Un archivo `.sql` por SP nombrado `{base}_{sp}.sql`. Cubre 52 bases de datos, incluyendo 36 que no estaban en el análisis anterior (D17-D49). Total: 7,620 SPs con código fuente accesible directamente sin necesidad de parsear un archivo monolítico. Complementa y extiende el corpus existente de `source/informix/`.
 
 ### 9.3 bases/ — 56 dumps SQL de todas las bases
 Los dumps completos revelan 35 bases productivas nuevas. Dominios previamente desconocidos: BPI (bdibpi+intercardbpi, 609 SPs), Buró de Crédito (bdiburo), Domiciliación (bdidomi), Inversiones (bdinvers), Tarjetas (bditarjeta+bditarjcop+intercardbpi), Corresponsales (bdicorresp+bdicorresp_mc), Canales digitales (bdidigital+bdivr+bdicplbot), Reportes regulatorios CNBV (bdireports).
@@ -358,7 +358,7 @@ Health check de Informix del 20 de abril de 2026, 18:38 CST. Baseline del servid
 
 ## 11. Preguntas abiertas (requieren investigación adicional)
 
-1. **DDL faltante de `sp_obtiene_clientes_pre_aprobado_notificar`** — no está en `sp_sql/` ni en `source/BCOPCore/informix/`. ¿En qué base está? ¿Tiene el mismo patrón de COMMIT comentado?
+1. **DDL faltante de `sp_obtiene_clientes_pre_aprobado_notificar`** — no está en `sp_sql/` ni en `source/informix/`. ¿En qué base está? ¿Tiene el mismo patrón de COMMIT comentado?
 
 2. **¿Por qué se comentó el COMMIT?** — el COMMIT fue comentado antes del 31/07 (código idéntico en ambas fechas — ningún deploy entre los dos incidentes). El bloque comentado es siempre el mismo patrón: el exception handler para error Informix -535 (`ON EXCEPTION IN (-535) COMMIT WORK; BEGIN WORK; END EXCEPTION WITH RESUME`). Las hipótesis en orden de plausibilidad: (a) inconsistencia de datos por `WITH RESUME` — después del COMMIT el SP retomaba con datos ya modificados por otra sesión, produciendo resultados híbridos; (b) loop infinito entre SPs concurrentes que se bloqueaban mutuamente; (c) reducción de overhead de commits en batch. La hipótesis (a) es consistente con el patrón sistemático en 12 bases: una decisión de "mejor fallar limpio que commitear parcial", sin instrumentar el fallback correcto en el middleware. Pendiente: confirmar con el equipo de BanCoppel cuándo y quién aplicó este cambio.
 
@@ -473,4 +473,4 @@ Los 108 SPs con P1 no pueden migrarse sin primero resolver el manejo de concurre
 ---
 
 *Fuentes: dato crudo de `source/logs/2026-08-01/`. Análisis independiente, sin referencia a análisis de terceros.*  
-*Creado: 2026-08-04 | Actualizado: 2026-08-05 — Sección 12 (auditoría transaccional) + Pregunta 2 (hipótesis del COMMIT comentado) | BCOPCore Gemelo Cognitivo — DISCOVER Etapa 1*
+*Creado: 2026-08-04 | Actualizado: 2026-08-05 — Sección 12 (auditoría transaccional) + Pregunta 2 (hipótesis del COMMIT comentado) | Informix Gemelo Cognitivo — DISCOVER Etapa 1*

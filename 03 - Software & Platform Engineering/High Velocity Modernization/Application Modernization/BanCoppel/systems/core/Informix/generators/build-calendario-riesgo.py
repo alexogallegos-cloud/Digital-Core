@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-build-calendario-riesgo.py — BCOPCore · Calendario de riesgo de capacidad 2025-2026.
+build-calendario-riesgo.py — Informix · Calendario de riesgo de capacidad 2025-2026.
 
 Para cada dia con datos minuto a minuto REALES (2025-01-01..LAST_REAL) mide el RIESGO CORRELACIONADO
 = numero de minutos donde SPEI y el Autorizador estan SIMULTANEAMENTE >= su P70 (co-ocurrencia = zona
@@ -12,7 +12,7 @@ Umbrales P70/P90: los del pipeline de percentiles pero en su forma CRUDA (sin ho
 riesgo se compara demanda real vs. umbral observado; la holgura es margen de dimensionamiento, no de
 deteccion. Regenerable con datos nuevos.
 
-Uso: python generators/build-calendario-riesgo.py   (ejecutar desde BCOPCore/)
+Uso: python generators/build-calendario-riesgo.py   (ejecutar desde Informix/)
 """
 import sys, json, warnings
 from pathlib import Path
@@ -166,7 +166,7 @@ def main():
 def _render(data_js, path):
     html = f"""<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>BCOPCore · Calendario de Riesgo de Capacidad</title>
+<title>Informix · Calendario de Riesgo de Capacidad</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
@@ -268,7 +268,7 @@ footer{{text-align:center;padding:34px 0 8px;font-size:11px;color:var(--muted2);
   <div class="months" id="months"></div>
   <div style="font-size:10px;color:var(--muted2);margin-top:18px;line-height:1.6" id="note"></div>
 </div>
-<footer>BCOPCore · Gemelo Cognitivo del Sistema · SPE-AM-001 · Accenture México · 2026</footer>
+<footer>Informix · Gemelo Cognitivo del Sistema · SPE-AM-001 · Accenture México · 2026</footer>
 <script>
 const DATA={data_js};const D=DATA.dias;const U=DATA.umbrales;
 const MESES=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];

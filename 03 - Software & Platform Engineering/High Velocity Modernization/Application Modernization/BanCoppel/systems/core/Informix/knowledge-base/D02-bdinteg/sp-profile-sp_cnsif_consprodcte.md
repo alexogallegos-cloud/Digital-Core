@@ -89,7 +89,7 @@ sequenceDiagram
 
 | Termino | Categoria | Nivel | Significado |
 |---------|-----------|-------|-------------|
-| `cnsif` | ENTIDAD | ALTA | CNSIF — sistema de confirmación de ejecutivo (sp_cnsif_confirmaejecutivo fan_in=2400 — #1 SP ecosistema BCOPCore) |
+| `cnsif` | ENTIDAD | ALTA | CNSIF — sistema de confirmación de ejecutivo (sp_cnsif_confirmaejecutivo fan_in=2400 — #1 SP ecosistema Informix) |
 | `consprodcte` | ACCION | ALTA | consulta producto de cliente |
 | `cons` | ACCION | ALTA | consulta |
 | `prod` | ENTIDAD | MEDIA | producto |

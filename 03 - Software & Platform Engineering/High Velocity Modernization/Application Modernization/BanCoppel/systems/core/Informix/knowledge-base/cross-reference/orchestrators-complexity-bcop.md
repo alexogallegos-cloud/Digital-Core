@@ -1,6 +1,6 @@
-# BCOPCore · Orquestadores Complejos — Deuda Técnica de Refactor
+# Informix · Orquestadores Complejos — Deuda Técnica de Refactor
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 · **Fuente:** análisis de flujo de control del código SPL
+> **Componente:** Informix · SPE-AM-001 · Etapa 3 · **Fuente:** análisis de flujo de control del código SPL
 > **Generado:** 2026-07-03 por `extract-flow.py`
 
 SPs orquestadores ordenados por **complejidad de orquestación** = `invocaciones + 2·IF + 3·bucles + 2·profundidad`. Los de mayor score son **candidatos prioritarios a refactor antes de transpilar** (`[DT-IFX]`): concentran lógica condicional profunda difícil de reescribir con equivalencia garantizada.

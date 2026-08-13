@@ -1,6 +1,6 @@
-# BCOPCore · Mapa de Dependencias entre Componentes
+# Informix · Mapa de Dependencias entre Componentes
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Dependency Analysis  
+> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Dependency Analysis  
 > **Generado:** 2026-08-02 · `build-dependency-map-kb.py`  
 > **Callgraph:** 3,761 nodos · 34,279 edges · 36 dominios/bases  
 > **Propósito:** fuente de verdad para el plan de migración — qué depende de qué, cuáles SPs son bloqueantes, y qué dominios deben migrarse antes que otros.  
@@ -481,5 +481,5 @@
 
 ---
 
-*Generado automáticamente · `build-dependency-map-kb.py` · BCOPCore SPE-AM-001*  
+*Generado automáticamente · `build-dependency-map-kb.py` · Informix SPE-AM-001*  
 *Fuente: `callgraph-data.json` · Para actualizar: `python build-dependency-map-kb.py`*

@@ -1,7 +1,7 @@
 # D29-bdiedoelec - Knowledge Base Placeholder
 > **Dominio**: Estados de Cuenta Electronicos
 > **Base de datos Informix**: bdiedoelec
-> **Archivos fuente**: 47 SPs en source/BCOPCore/informix/bdiedoelec/
+> **Archivos fuente**: 47 SPs en source/informix/bdiedoelec/
 > **Estado**: [PENDIENTE ANALISIS] -- carpeta creada, contenido por generar
 > **Prioridad**: MEDIA
 > **Incorporado al scope**: 2026-08-03
@@ -10,7 +10,7 @@
 
 ## Descripcion
 
-Estados de Cuenta Electronicos. Tiene 47 stored procedures en el codigo fuente de BCOPCore.
+Estados de Cuenta Electronicos. Tiene 47 stored procedures en el codigo fuente de Informix.
 
 ## Estado de Artefactos
 
@@ -26,4 +26,4 @@ Seguir el template de D01-bdicnweb como referencia.
 
 ---
 
-*Placeholder creado 2026-08-03 - BCOPCore scope expansion D01-D49*
+*Placeholder creado 2026-08-03 - Informix scope expansion D01-D49*

@@ -1,7 +1,7 @@
 # Días Atípicos de SPEI — RCA y Temporalidades Descubiertas
 > **Fuente**: Análisis de residuos del pipeline `generators/forecast/` sobre SPEI Entradas
 > **Versión**: 2.0.0 · 2026-08-07
-> **Proyecto**: BanCoppel BCOPCore · SPE-AM-001
+> **Proyecto**: BanCoppel Informix · SPE-AM-001
 
 Este documento explica el racional de los días que se desvían de la regresión de SPEI, y las
 temporalidades que ese análisis reveló e incorporó al modelo.

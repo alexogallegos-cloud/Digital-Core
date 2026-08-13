@@ -1,13 +1,13 @@
 # Proyeccion de Crecimiento Organico — SPEI Entradas + E-Global
 > **Fuente**: pipeline `generators/forecast/` (OLS log-lineal, SPEI 7 dias con ventana de quincena)
 > **Version**: 3.1.0 · 2026-08-07 · regenerable con datos nuevos
-> **Proyecto**: BanCoppel BCOPCore · SPE-AM-001
+> **Proyecto**: BanCoppel Informix · SPE-AM-001
 
 ---
 
 ## Pipeline reproducible
 
-Este documento y su HTML se regeneran ejecutando, desde `BCOPCore/`:
+Este documento y su HTML se regeneran ejecutando, desde `Informix/`:
 
 ```
 python generators/build-forecast-spei.py

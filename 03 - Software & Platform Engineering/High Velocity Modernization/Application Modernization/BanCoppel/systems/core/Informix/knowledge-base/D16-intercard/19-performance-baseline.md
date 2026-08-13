@@ -1,6 +1,6 @@
 # D16 · Intercard (Tarjetas) — Performance Baseline
 
-> **Componente:** BCOPCore · SPE-AM-001
+> **Componente:** Informix · SPE-AM-001
 > **Base de datos:** `intercard`
 > **Última actualización:** 2026-08-03
 > **Nota:** Métricas de producción `[SME-PENDING]` — pendiente carga de logs de producción de `intercard`.

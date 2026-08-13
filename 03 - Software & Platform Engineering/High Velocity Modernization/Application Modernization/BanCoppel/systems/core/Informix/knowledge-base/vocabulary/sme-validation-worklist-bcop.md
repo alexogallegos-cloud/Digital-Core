@@ -1,6 +1,6 @@
-# BCOPCore · Lista de Validación SME — Vocabulario
+# Informix · Lista de Validación SME — Vocabulario
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Extraction
+> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Extraction
 > **Para:** sesión HITL con Domain Expert / DBA de BanCoppel · **Generado:** 2026-07-03
 
 Términos del vocabulario **sin evidencia dura** (no confirmados por código, SME ni fuente de negocio), ordenados por **impacto** = frecuencia con que aparecen (cuántos SPs se interpretan mal si la hipótesis es incorrecta).

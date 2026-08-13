@@ -1,7 +1,7 @@
-# Risk Register — BCOPCore Migración
-> **Proyecto**: BanCoppel BCOPCore · SPE-AM-001
+# Risk Register — Informix Migración
+> **Proyecto**: BanCoppel Informix · SPE-AM-001
 > **Sistema**: IBM Informix IDS 14.10 / POWER-AIX → AWS Aurora PostgreSQL
-> **DT responsable**: dt-riesgos · `BCOPCore/dt/dt-riesgos/`
+> **DT responsable**: dt-riesgos · `Informix/dt/dt-riesgos/`
 > **Versión**: 1.2.0
 > **Última actualización**: 2026-08-03
 
@@ -183,7 +183,7 @@ estatus: error
 | **ID** | P655-R004 |
 | **Categoría** | TAR |
 | **Nivel** | N3 🟠 ALTO |
-| **Dominio** | PSQL-huellas (fuera de BCOPCore — target ya migrado) |
+| **Dominio** | PSQL-huellas (fuera de Informix — target ya migrado) |
 | **Estado** | ABIERTO |
 | **Bloquea** | Avance a TEST (referencia) |
 | **SME validador** | SRE & AIOps + Cybersecurity |
@@ -200,7 +200,7 @@ com.bancoppel.huellas.clientes.consulta_template_clientes.consultaTemplateClient
 
 **Relevancia para migración**: Evidencia concreta de que el primer servicio migrado a PostgreSQL tiene un bug en producción que nadie ha reportado formalmente. Señal de alerta para el proceso de QA del target.
 
-**Mitigación**: Abrir ticket con el equipo de Huellas442; el bug debe resolverse antes de que BCOPCore inicie parallel-run (cualquier servicio que consulte huellas durante parallel-run recibirá NPEs intermitentes).
+**Mitigación**: Abrir ticket con el equipo de Huellas442; el bug debe resolverse antes de que Informix inicie parallel-run (cualquier servicio que consulte huellas durante parallel-run recibirá NPEs intermitentes).
 
 ---
 
@@ -569,5 +569,5 @@ El espacio entre `bdicred:` y `"informix"` es inconsistente. Dependiendo de la v
 
 ---
 
-*Mantenido por: DT-Riesgos · `BCOPCore/dt/dt-riesgos/CLAUDE.md`*
-*Fuente primaria validada: `source/logs/` (producción 2026-04-24) + `source/BCOPCore/informix/*.sql` + `source/spei-aut-ent/` (volumetría 2025-2026) + diagnóstico arquitectónico enero 2026 + roadmap mejoras 2026 (11 hitos completados)*
+*Mantenido por: DT-Riesgos · `Informix/dt/dt-riesgos/CLAUDE.md`*
+*Fuente primaria validada: `source/logs/` (producción 2026-04-24) + `source/informix/*.sql` + `source/spei-aut-ent/` (volumetría 2025-2026) + diagnóstico arquitectónico enero 2026 + roadmap mejoras 2026 (11 hitos completados)*

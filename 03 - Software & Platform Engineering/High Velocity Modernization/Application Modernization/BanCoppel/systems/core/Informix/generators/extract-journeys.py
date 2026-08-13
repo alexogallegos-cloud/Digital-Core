@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Extrae journeys de negocio (call chains desde entry points) por dominio
-del call graph BCOPCore. Genera journeys-data.json embebible en el HTML.
+del call graph Informix. Genera journeys-data.json embebible en el HTML.
 Etapa 3 — Business Logic Extraction · Specialist Informix SPL.
 """
 import json, re
@@ -10,7 +10,7 @@ from collections import defaultdict
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
+        "Application Modernization/BanCoppel/Informix/")
 CG = json.load(open(BASE + "portal/data/callgraph-data.json", encoding="utf-8"))
 
 nodes = {n["id"]: n for n in CG["graph"]["nodes"]}

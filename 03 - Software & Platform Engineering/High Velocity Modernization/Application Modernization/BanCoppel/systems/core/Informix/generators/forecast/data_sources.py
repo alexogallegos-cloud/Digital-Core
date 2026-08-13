@@ -17,7 +17,7 @@ import openpyxl
 @dataclass
 class Source:
     name: str
-    relpath: str          # relativo a BCOPCore/
+    relpath: str          # relativo a Informix/
     loader: Callable      # (abs_path) -> list[dict]
     priority: int         # mayor gana en fechas solapadas
 

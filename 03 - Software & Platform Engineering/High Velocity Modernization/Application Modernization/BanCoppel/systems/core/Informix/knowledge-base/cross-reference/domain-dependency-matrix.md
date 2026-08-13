@@ -1,4 +1,4 @@
-# BCOPCore — Matriz de Dependencias entre Dominios
+# Informix — Matriz de Dependencias entre Dominios
 
 > **Proyecto:** BanCoppel Application Modernization · SPE-AM-001
 > **Fase:** DISCOVER Etapa 1 — Static Analysis

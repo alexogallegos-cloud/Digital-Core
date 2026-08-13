@@ -1,6 +1,6 @@
 # D15 · LIDE/PLD (Prevención de Lavado de Dinero) — Dependencias Externas
 
-> **Componente:** BCOPCore · SPE-AM-001 · DESIGN Phase
+> **Componente:** Informix · SPE-AM-001 · DESIGN Phase
 > **Base de datos:** bdilide
 > **Wave:** Wave 4 · Riesgo: CRÍTICO (regulatorio — PLD/CNBV/SHCP)
 > **Última actualización:** 2026-08-03
@@ -9,7 +9,7 @@
 
 ## Resumen de dependencias externas
 
-`bdilide` tiene el mayor número de dependencias externas obligatorias de todo BCOPCore. Todas son de naturaleza regulatoria — el sistema debe seguir comunicándose con los mismos reguladores y sistemas externos después de la migración, usando los mismos formatos y protocolos.
+`bdilide` tiene el mayor número de dependencias externas obligatorias de todo Informix. Todas son de naturaleza regulatoria — el sistema debe seguir comunicándose con los mismos reguladores y sistemas externos después de la migración, usando los mismos formatos y protocolos.
 
 | Sistema externo | Tipo | Protocolo | Regulatorio | Criticidad |
 |----------------|------|-----------|:-----------:|:----------:|

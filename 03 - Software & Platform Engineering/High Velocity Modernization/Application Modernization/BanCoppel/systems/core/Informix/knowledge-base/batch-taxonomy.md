@@ -1,6 +1,6 @@
-# BCOPCore — Taxonomía Batch: Sub-arquetipos de SPs
+# Informix — Taxonomía Batch: Sub-arquetipos de SPs
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1
+> **Componente:** Informix · SPE-AM-001 · Etapa 1
 > **Generado:** 2026-08-09 · digital-brain/classify-batch.py
 > **Fuente:** brain.db tabla `batch_analysis` · 6,861 candidatos (fan_in=0 · role=internal · biz≠null · loc>100)
 > **SME responsable:** Specialist — Informix SPL Analysis · DBA IBM Informix

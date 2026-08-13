@@ -1,6 +1,6 @@
-# BCOPCore · Catálogo de Journeys y Términos de Negocio
+# Informix · Catálogo de Journeys y Términos de Negocio
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Extraction  
+> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Extraction  
 > **Base:** IBM Informix IDS 14.10 FC10W2 / POWER-AIX · **Evidencia:** `callgraph-data.json` + `journeys-data.json`  
 > **Generado:** 2026-07-03 · **Método:** tokenización de nombres de SP contra vocabulario bancario es-MX (`sp_vocab.py`)  
 

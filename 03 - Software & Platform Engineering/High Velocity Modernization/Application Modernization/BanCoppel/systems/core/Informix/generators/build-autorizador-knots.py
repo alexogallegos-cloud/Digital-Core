@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-build-autorizador-knots.py — BCOPCore · Recalibra los knots del patron anual del Autorizador.
+build-autorizador-knots.py — Informix · Recalibra los knots del patron anual del Autorizador.
 
 El Autorizador (E-Global) tiene un patron ANUAL REPETIBLE modelado como piecewise-linear sobre
 el DIA-DEL-ANIO (doy), continuo dentro del anio y con reset en enero. Esta herramienta busca
 los knots optimos (donde cambia la pendiente intra-anual) maximizando adjR2, para actualizar
 ANNUAL_KNOTS_DOY en forecast/factors.py cuando lleguen datos nuevos.
 
-Uso: python generators/build-autorizador-knots.py   (ejecutar desde BCOPCore/)
+Uso: python generators/build-autorizador-knots.py   (ejecutar desde Informix/)
 NO modifica el pipeline; solo reporta los knots recomendados.
 """
 import sys

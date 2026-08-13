@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-analyze-ctm-logs.py — BCOPCore Control-M Batch Log Analyzer v1.0
+analyze-ctm-logs.py — Informix Control-M Batch Log Analyzer v1.0
 
 Parsea archivos de salida de jobs Control-M (set -x) del servidor Informix
 de BanCoppel. Detecta errores, extrae metadatos de ejecución y genera un
@@ -26,7 +26,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 
 BCOP = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore")
+        "Application Modernization/BanCoppel/Informix")
 LOGS_ROOT = f"{BCOP}/source/logs"
 KB_OUT    = f"{BCOP}/knowledge-base/cross-reference"
 
@@ -272,7 +272,7 @@ def generate_md(jobs: list[JobResult], log_date: str) -> str:
     warn_n  = len(jobs) - ok_n - err_n
 
     lines = []
-    lines.append(f"# Análisis Batch Control-M — BanCoppel BCOPCore · {log_date}")
+    lines.append(f"# Análisis Batch Control-M — BanCoppel Informix · {log_date}")
     lines.append(f"> Generado: {now_str} · `generators/analyze-ctm-logs.py` v1.0")
     lines.append("")
     lines.append("## Contexto")
@@ -359,14 +359,14 @@ def generate_md(jobs: list[JobResult], log_date: str) -> str:
             lines.append("")
 
     # Señales para la migración
-    lines.append("## Señales para la migración BCOPCore")
+    lines.append("## Señales para la migración Informix")
     lines.append("")
     all_dbs  = sorted({db for j in jobs for db in j.databases})
     all_sqls = sorted({sql for j in jobs for sql in j.sql_files})
     lines.append(f"- **BDs batch activas**: {', '.join(f'`{d}`' for d in all_dbs)} — "
                  "estas BDs tienen jobs de cierre diario que deben reproducirse en el target.")
     lines.append(f"- **Scripts SQL de cierre**: {', '.join(f'`{s}`' for s in all_sqls)} — "
-                 "buscar en `source/BCOPCore/informix/` para análisis de equivalencia funcional.")
+                 "buscar en `source/informix/` para análisis de equivalencia funcional.")
     lines.append(f"- **Scheduler**: Control-M 9.0.22.x en `DCMSIF01` — "
                  "la migración debe incluir la replicación del calendar/schedule en el target "
                  "(preferentemente AWS EventBridge Scheduler o Step Functions).")
@@ -415,7 +415,7 @@ def generate_json(jobs: list[JobResult], log_date: str) -> dict:
 
 def main():
     import argparse
-    ap = argparse.ArgumentParser(description='BCOPCore Control-M Log Analyzer')
+    ap = argparse.ArgumentParser(description='Informix Control-M Log Analyzer')
     ap.add_argument('--date', default=LOG_DATE,
                     help=f'Fecha a analizar YYYY-MM-DD (default: {LOG_DATE})')
     ap.add_argument('--file', help='Analizar un archivo específico directamente')
@@ -433,7 +433,7 @@ def main():
         print(f"  Buscado en: {LOGS_ROOT}/{log_date}/  y  {LOGS_ROOT}/")
         sys.exit(0)
 
-    print(f"=== BCOPCore Control-M Analyzer v1.0 ===")
+    print(f"=== Informix Control-M Analyzer v1.0 ===")
     print(f"Fecha: {log_date}  |  Archivos: {len(files)}")
     print()
 

@@ -1,6 +1,6 @@
 ﻿# D05 · bdisac (Saldos y Cuentas) — Observabilidad y Runbook
 
-> **Componente:** BCOPCore · SPE-AM-001 · OPERATE Phase
+> **Componente:** Informix · SPE-AM-001 · OPERATE Phase
 > **Microservicio target:** SaldosYCuentasService
 > **Wave:** Wave 3 · Riesgo: **ALTO**
 > **Última actualización:** 2026-07-31
@@ -58,7 +58,7 @@ Cross-DB monitoreado: bdisac → bdicheq (331 calls · 52%) · bdinteg (145 call
 | `sp_grabapagocoppel` | `bancoppel.bdisac.grabapagocoppel.latency` | `bancoppel.bdisac.grabapagocoppel.errors` | [SME-PENDING] ms |
 | `sp_consulta_wu_web` | `bancoppel.bdisac.consulta_wu_web.latency` | `bancoppel.bdisac.consulta_wu_web.errors` | [SME-PENDING] ms |
 
-> Verificar lógica de cada SP en `source/BCOPCore/informix/{sp_name}.sql` antes de ajustar umbrales.
+> Verificar lógica de cada SP en `source/informix/{sp_name}.sql` antes de ajustar umbrales.
 
 ### 2. Traffic (throughput)
 
@@ -162,7 +162,7 @@ DETECTAR:
 
 DIAGNOSTICAR:
   1. brain.py — identificar callers activos:
-       python BCOPCore/digital-brain/brain.py callers "sp_reportebts_edocta"
+       python Informix/digital-brain/brain.py callers "sp_reportebts_edocta"
      Confirmar cuáles de los 52 callers están ejecutando en paralelo
 
   2. CloudWatch Insights — correlacionar spike con fecha de corte:
@@ -172,7 +172,7 @@ DIAGNOSTICAR:
 
   3. Aurora — verificar slow queries generadas por el SP (10,152 LOC implica
      múltiples cursores anidados); revisar lógica completa en:
-       source/BCOPCore/informix/sp_reportebts_edocta.sql
+       source/informix/sp_reportebts_edocta.sql
 
   4. Verificar si bdicheq está respondiendo (331 cross-DB calls en riesgo)
 
@@ -204,11 +204,11 @@ DETECTAR:
 
 DIAGNOSTICAR:
   1. brain.py — verificar dependencias del SP:
-       python BCOPCore/digital-brain/brain.py search "sp_grabapagocoppel"
-       python BCOPCore/digital-brain/brain.py callers "sp_grabapagocoppel"
+       python Informix/digital-brain/brain.py search "sp_grabapagocoppel"
+       python Informix/digital-brain/brain.py callers "sp_grabapagocoppel"
 
   2. Revisar lógica de transacción en:
-       source/BCOPCore/informix/sp_grabapagocoppel.sql
+       source/informix/sp_grabapagocoppel.sql
      Identificar si el SP hace BEGIN WORK y si hay transacción abierta sin COMMIT
 
   3. X-Ray: identificar en qué tramo del SP falla (7,295 LOC — múltiples paths)
@@ -247,11 +247,11 @@ DETECTAR:
 
 DIAGNOSTICAR:
   1. Verificar conectividad del DSN ifx_bdisac_remesas:
-       python BCOPCore/digital-brain/brain.py search "sp_consulta_wu_web"
-       python BCOPCore/digital-brain/brain.py search "ifx_bdisac_remesas"
+       python Informix/digital-brain/brain.py search "sp_consulta_wu_web"
+       python Informix/digital-brain/brain.py search "ifx_bdisac_remesas"
 
   2. Revisar lógica del SP en:
-       source/BCOPCore/informix/sp_consulta_wu_web.sql
+       source/informix/sp_consulta_wu_web.sql
      Verificar cómo maneja tipos MONEY y si hay operaciones aritméticas
      que puedan producir redondeo distinto al esperado
 
@@ -310,8 +310,8 @@ DIAGNOSTICAR:
        22e4e9ee-32ea-484e-b89f-2573549bc625 — si APPRIZA expiró el token, TODOS fallarán
   3. Verificar SSL — si hay errores 3165 en la misma ventana → certificado expirado
   4. Leer código fuente:
-       source/BCOPCore/informix/sp_app_confirmpayment.sql
-       source/BCOPCore/informix/sp_app_recordorder.sql
+       source/informix/sp_app_confirmpayment.sql
+       source/informix/sp_app_recordorder.sql
 
 RESOLVER:
   A. Corto plazo (producción actual Informix):
@@ -357,7 +357,7 @@ RIESGO: Exposición a sanción CONDUSEF si > 2 días hábiles sin notificación 
 ---
 
 *Generado por: SRE & AIOps · 2026-07-31 · [SME-PENDING] umbrales SLO requieren validación con baseline real de QA Lead + Domain Expert BanCoppel.*
-*Lógica de SPs: verificar en `source/BCOPCore/informix/{sp_name}.sql` antes de ajustar cualquier umbral o implementar fix.*
+*Lógica de SPs: verificar en `source/informix/{sp_name}.sql` antes de ajustar cualquier umbral o implementar fix.*
 
 <!-- LOG-DATA-BEGIN -->
 ## Patrones de incidente observados — Logs 2026-04-24

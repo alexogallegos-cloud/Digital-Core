@@ -22,10 +22,59 @@ OBJ_PFX_RE  = re.compile(r'^(CL|IF|CX|TY|TT|AL|ZCL|ZIF|ZCX|ZTY|ZTT)_', re.I)
 VAR_PFX_RE  = re.compile(r'^(l[tvsorwcoxn]|g[tvsorwcoxn]|i[tvsorwcoxn]|e[tvsorwcoxn]|r[tvsorwcoxn]|c[tvsorwcoxn])_', re.I)
 
 SAP_STD_TABLES = {
-    'TVARVC','TVARV','BAPIRET2','T000','MARC','MARA','BKPF','BSEG',
-    'KNA1','LFA1','KNVV','VBAK','VBAP','EKKO','EKPO','MCHB','MSEG',
-    'RBKP','RSEG','COAS','COSP','COSS','AFKO','AFPO','QMEL','QMFE',
-    'MAKT','AUFK','PA0001','PA0002','PA0007','PA0008','T001','T001L',
+    # FI clásico / CO
+    'TVARVC','TVARV','BAPIRET2','T000','BKPF','BSEG','BSAK','BSIK',
+    'SKA1','SKAT','T001','T001L','T003','TCURR','TCURF','FAGLFLEXT',
+    'FAGLFLEXA','ACDOCA',
+    # SD / MM
+    'MARC','MARA','MAKT','KNA1','LFA1','KNVV','VBAK','VBAP',
+    'EKKO','EKPO','MCHB','MSEG','RBKP','RSEG',
+    # CO / PS
+    'COAS','COSP','COSS','AFKO','AFPO','QMEL','QMFE','AUFK',
+    # HR
+    'PA0001','PA0002','PA0007','PA0008','PA0009','PA0014','PA0015',
+    # FI-CA / FI-CAx — Contract Accounts (backbone de BSP Banking Services 9.0)
+    'FKKVK',    # contract account header
+    'FKKOP',    # open items (cargos/abonos pendientes)
+    'FKKTL',    # transaction line items
+    'FKKKO',    # FI-CA document header
+    'FKKCOH',   # correspondence history
+    'FKKVKH',   # contract account history
+    'FKKACC',   # account assignment
+    'FKKZED',   # direct debit / domiciliación
+    'FKKDLC',   # dunning / cobranza
+    'FKKBS',    # bill statement items
+    'FKKBIX',   # bill index
+    'FKKCL',    # clearing items
+    'FKKCM',    # cash management
+    'DFKKOP',   # open item posting data
+    'DFKKCOH',  # correspondence header
+    'DFKKVK',   # contract account data
+    'TFKKV',    # FI-CA customizing: account categories
+    'TFKKVK',   # contract account categories
+    'TFKKT',    # transaction types
+    # SAP Banking Services (BSP 9.0) — Loan Management (VICA* en BSP)
+    'VICA_PRODUCT','VICAFLOWTYPE','VICACONDITION','VICACONTRACT',
+    'VICACONTRACT_T','VICACOND_VALUE','VICACAPITAL',
+    'VICAINTEREST','VICAINSTALLMT','VICAMORTPLAN',
+    # SAP Banking Services — Account Management (FSAM, successor de BCA)
+    'BCA_CONTRACT','BCA_CONTRACT_T','BCA_GL_ACCOUNT','BCA_PRODUCT',
+    # SAP CRM 7.0 — Business Partner / Client management
+    'BUT000',   # business partner master
+    'BUT001BU', # BP per client
+    'BUT020',   # address assignments
+    'BUT100',   # BP roles
+    'CRMD_ORDERADM_H',  # CRM order/activity header (gestión de crédito grupal)
+    'CRMD_ORDERADM_I',  # CRM order items
+    'CRMD_ACTIVITY_H',  # activities
+    # SAP Payment Engine (PAY-ENGINE 500) — pagos / SPEI
+    'PAYR',     # payment run
+    'REGUH',    # payment header
+    'REGUP',    # payment items
+    'T012',     # house banks
+    'T012K',    # house bank accounts
+    # Generales financieros
+    'KKBER','KNKK','RFDKLI',
 }
 
 
@@ -100,10 +149,17 @@ def _extract_obj_name(text: str, obj_type: str, stem: str) -> str:
 
 
 def _extract_methods(text: str, result: dict) -> None:
-    SKIP = {'CONSTRUCTOR','DESTRUCTOR','CLASS_CONSTRUCTOR','DEFINITION','IMPLEMENTATION','FOR'}
+    SKIP = {'CONSTRUCTOR','DESTRUCTOR','CLASS_CONSTRUCTOR','DEFINITION','IMPLEMENTATION','FOR',
+            'TABLES','USING','CHANGING','RAISING','EXCEPTIONS','IMPORTING','EXPORTING'}
+    # OO ABAP: METHOD declarations
     for m in re.finditer(r'^\s*(?:class-)?methods?\s+([A-Z_][A-Z0-9_]*)', text, re.I | re.M):
         nm = m.group(1).upper()
         if nm not in SKIP and len(nm) > 1:
+            result['metodos'].append(nm)
+    # Classic ECC ABAP: FORM subroutine definitions
+    for m in re.finditer(r'^\s*FORM\s+([A-Z_][A-Z0-9_]*)', text, re.I | re.M):
+        nm = 'FORM_' + m.group(1).upper()
+        if len(nm) > 6:
             result['metodos'].append(nm)
     result['metodos'] = list(dict.fromkeys(result['metodos']))    # dedup preserving order
 
@@ -153,6 +209,10 @@ def _extract_dependencies(text: str, result: dict) -> None:
     # /ns/msg_class usage in MESSAGE statements
     for m in re.finditer(r'MESSAGE\s+\w+\s*\((/[A-Z0-9]+/[A-Z0-9_]+)\)', text, re.I):
         deps.append({'tipo': 'message_class', 'target': m.group(1)})
+
+    # Classic ECC ABAP: PERFORM subroutine_name [IN PROGRAM progname]
+    for m in re.finditer(r'^\s*PERFORM\s+([A-Z_][A-Z0-9_]*)', text, re.I | re.M):
+        deps.append({'tipo': 'perform', 'target': 'FORM_' + m.group(1).upper()})
 
     # Normalizar targets a uppercase + dedup
     seen = set()

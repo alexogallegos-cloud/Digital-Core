@@ -1,6 +1,6 @@
 ﻿# D02 · bdinteg — Integración y Autenticación — Observabilidad y Runbook
 
-> **Componente:** BCOPCore · SPE-AM-001 · OPERATE Phase
+> **Componente:** Informix · SPE-AM-001 · OPERATE Phase
 > **Base de datos:** bdinteg (Integración y Autenticación)
 > **Wave:** 5 · Riesgo: **CRÍTICO**
 > **Última actualización:** 2026-07-31
@@ -37,7 +37,7 @@
 | SPs observados en logs | `sp_consulta_cte_huella`, `sp_obtparamsorteo`, `sp_ws_valida_cotel` |
 
 > **Nota de fuente:** Los perfiles completos de cada SP se deben validar contra
-> `source/BCOPCore/informix/{sp_name}.sql` antes de confirmar umbrales de alarma
+> `source/informix/{sp_name}.sql` antes de confirmar umbrales de alarma
 > en producción. Con 213,929 LOC, `sysbldsqltextin` requiere revisión de Specialist
 > Informix SPL Analysis antes de cualquier decisión de migración.
 
@@ -202,7 +202,7 @@ DIAGNOSTICAR:
        Si > 80%: hay saturación de pool; sp_consulta_cte_huella no consigue conexión
 
   5. Fuente del SP:
-       source/BCOPCore/informix/sp_consulta_cte_huella.sql
+       source/informix/sp_consulta_cte_huella.sql
        Validar parámetros de entrada, condiciones de error documentadas y
        lógica de verificación de huella biométrica con Specialist Informix SPL Analysis.
 
@@ -267,7 +267,7 @@ DIAGNOSTICAR:
          saturando las tablas base del SP
 
   6. Fuente del SP:
-       source/BCOPCore/informix/sysbldsqltextin.sql
+       source/informix/sysbldsqltextin.sql
        Con 213,929 LOC, buscar las primeras secciones de lógica condicional que
        puedan actuar como cortocircuito en condiciones de error.
        Coordinar revisión con Specialist Informix SPL Analysis antes de cualquier
@@ -339,7 +339,7 @@ DIAGNOSTICAR:
        resultante para las secuencias afectadas
 
   5. Fuente del schema:
-       source/BCOPCore/informix/  — buscar sentencias CREATE TABLE con SERIAL
+       source/informix/  — buscar sentencias CREATE TABLE con SERIAL
        Validar con DBA IBM Informix IDS qué tablas críticas de bdinteg usan SERIAL
        y si ya existe una estrategia documentada de migración a BIGSERIAL o
        secuencia equivalente en Aurora PostgreSQL.
@@ -440,7 +440,7 @@ RTO target: < 20 min (18,511 campos MONEY en riesgo de inconsistencia de datos)
 
 *Generado por: SRE & AIOps · 2026-07-31 · [SME-PENDING] umbrales de SLO requieren
 baseline real con QA Lead. Perfiles de SPs — especialmente `sysbldsqltextin` (213,929 LOC)
-— pendientes de validación contra `source/BCOPCore/informix/` con Specialist Informix SPL Analysis.*
+— pendientes de validación contra `source/informix/` con Specialist Informix SPL Analysis.*
 
 <!-- LOG-DATA-BEGIN -->
 ## Patrones de incidente observados — Logs 2026-04-24

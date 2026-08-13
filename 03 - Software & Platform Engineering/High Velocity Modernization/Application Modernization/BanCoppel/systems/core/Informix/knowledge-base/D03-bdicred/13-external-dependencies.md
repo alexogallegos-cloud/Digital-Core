@@ -1,6 +1,6 @@
 # D03 · Créditos — Dependencias Externas y Terceros
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1
+> **Componente:** Informix · SPE-AM-001 · Etapa 1
 > **Base de datos:** `bdicred` · IBM Informix IDS 14.10 / POWER-AIX
 > **Wave:** Wave 4 · Riesgo: **CRÍTICO**
 > **Última actualización:** 2026-07-03
@@ -272,7 +272,7 @@ find /opt /home -name "*.cron" 2>/dev/null | head -20
 
 
 ---
-*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdicred_*.sql (análisis estático de 70 archivos SQL) · análisis estático de archivos SQL*
+*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/informix/bdicred_*.sql (análisis estático de 70 archivos SQL) · análisis estático de archivos SQL*
 
 <!-- LOG-DATA-BEGIN -->
 ## Sistemas externos observados en logs — 2026-04-24

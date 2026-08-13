@@ -1,7 +1,7 @@
 ﻿#!/usr/bin/env python3
 """build-sp-detail-pages.py
 Generates HTML detail pages and KB markdown files for each SP in journeys-data.json.
-Run from BCOPCore/ directory (BASE is set to the script's own directory).
+Run from Informix/ directory (BASE is set to the script's own directory).
 """
 
 import json
@@ -282,7 +282,7 @@ def get_validation_entry(sp_name, db, validation):
     return None
 
 
-SOURCE_DIR = os.path.join(BASE, 'source', 'BCOPCore', 'informix')
+SOURCE_DIR = os.path.join(BASE, 'source', 'informix')
 
 
 def parse_sp_source(sp_name, db):
@@ -1184,7 +1184,7 @@ def build_html(sp_name, entry, dom_info, flow_data, rules, val_entry, vocab_matc
 
     html = f"""<!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>{html_escape(sp_name)} · BCOPCore</title>
+<title>{html_escape(sp_name)} · Informix</title>
 {MERMAID_INIT}
 <style>
 {CSS}
@@ -1194,7 +1194,7 @@ def build_html(sp_name, entry, dom_info, flow_data, rules, val_entry, vocab_matc
 <nav>
   <img src="../bancoppel-logo.png?v=3" alt="BanCoppel" style="height:32px">
   <span class="sep">/</span>
-  <span class="bc">BCOPCore · {dom_num} · {html_escape(dom_name)}</span>
+  <span class="bc">Informix · {dom_num} · {html_escape(dom_name)}</span>
   <span class="sp"></span>
   <a class="back" href="capability-model-bcop-v2.html">← Modelo de Capacidades</a>
   <a class="back" href="component-map-bcop-v2.html">← Mapa de Componentes</a>
@@ -1281,7 +1281,7 @@ def build_html(sp_name, entry, dom_info, flow_data, rules, val_entry, vocab_matc
   <section>
     <div class="sec-num reveal">05 · Vocabulario</div>
     <h2 class="sec-title reveal">Vocabulario</h2>
-    <p class="sec-sub reveal">Terminos del vocabulario controlado de BCOPCore presentes en este procedimiento.</p>
+    <p class="sec-sub reveal">Terminos del vocabulario controlado de Informix presentes en este procedimiento.</p>
     {vocab_html}
   </section>
 
@@ -1293,7 +1293,7 @@ def build_html(sp_name, entry, dom_info, flow_data, rules, val_entry, vocab_matc
 </div>
 
 <footer>
-  BCOPCore · {dom_num} {html_escape(dom_name)} · <code>{html_escape(sp_name)}</code> · SPE-AM-001 · Fase DISCOVER<br>
+  Informix · {dom_num} {html_escape(dom_name)} · <code>{html_escape(sp_name)}</code> · SPE-AM-001 · Fase DISCOVER<br>
   Datos extraidos desde <code>business-rules-v3.json</code> · <code>flow-data.json</code> · <code>vocabulary-inventory.json</code>
 </footer>
 

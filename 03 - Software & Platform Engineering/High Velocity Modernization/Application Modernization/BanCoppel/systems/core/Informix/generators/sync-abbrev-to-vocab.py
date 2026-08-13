@@ -15,7 +15,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='repla
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
+        "Application Modernization/BanCoppel/Informix/")
 
 # Cargar ABBREV del generador (solo las defs, sin ejecutar el main)
 src = open(BASE + "generators/infer-rule-names.py", encoding="utf-8").read().split("# ── 7. Main")[0]

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 build-knowledge-graph.py
-Genera knowledge-graph-bcop.html — ontología y semántica del conocimiento BCOPCore.
+Genera knowledge-graph-bcop.html — ontología y semántica del conocimiento Informix.
 
 Secciones:
   1. Arquitectura del Gemelo Cognitivo (capas + DTs)
@@ -27,7 +27,7 @@ from collections import defaultdict, Counter
 
 BASE = Path("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
             "03 - Software & Platform Engineering/High Velocity Modernization/"
-            "Application Modernization/BanCoppel/BCOPCore/")
+            "Application Modernization/BanCoppel/Informix/")
 KB = BASE / "knowledge-base"
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -484,7 +484,7 @@ HTML = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>BCOPCore · Ontología del Conocimiento</title>
+<title>Informix · Ontología del Conocimiento</title>
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <style>
 :root{--bg:#f5f7ff;--bg2:#eaedfa;--panel:#ffffff;--line:rgba(18,47,177,.12);
@@ -643,7 +643,7 @@ footer{font-size:9px;color:var(--muted);padding:10px 28px;margin-top:40px;
   <img src="bancoppel-logo.png" alt="BanCoppel">
   <div class="div"></div>
   <div class="meta">
-    <div class="bc">BCOPCore · <span>SPE-AM-001</span> · Gemelo Cognitivo del Sistema</div>
+    <div class="bc">Informix · <span>SPE-AM-001</span> · Gemelo Cognitivo del Sistema</div>
     <h1>Ontología y Semántica del Conocimiento</h1>
     <div class="sub">IBM Informix IDS 14.10 · POWER-AIX · Fase DISCOVER — Etapa 3</div>
   </div>
@@ -771,7 +771,7 @@ footer{font-size:9px;color:var(--muted);padding:10px 28px;margin-top:40px;
 ═══════════════════════════════════════════════════════════ -->
 <div class="section" style="margin-top:28px;padding-bottom:40px">
   <div class="shead"><div class="icon" style="background:#8b3a8b">🤖</div>Swarm de Digital Twins</div>
-  <div class="ssub">8 Digital Twins peers, cada uno propietario de un artefacto del Gemelo Cognitivo. Heredan talento de los SMEs declarados en su CLAUDE.md y operan en el contexto exclusivo de BCOPCore.</div>
+  <div class="ssub">8 Digital Twins peers, cada uno propietario de un artefacto del Gemelo Cognitivo. Heredan talento de los SMEs declarados en su CLAUDE.md y operan en el contexto exclusivo de Informix.</div>
   <div class="dt-grid">__DTCARDS__</div>
 </div>
 
@@ -812,7 +812,7 @@ footer{font-size:9px;color:var(--muted);padding:10px 28px;margin-top:40px;
 </div>
 
 <footer>
-  <span>BCOPCore · SPE-AM-001 · Gemelo Cognitivo del Sistema · knowledge-graph-bcop.html</span>
+  <span>Informix · SPE-AM-001 · Gemelo Cognitivo del Sistema · knowledge-graph-bcop.html</span>
   <span>IBM Informix IDS 14.10 / POWER-AIX · generado con build-knowledge-graph.py · 2026-08-03</span>
 </footer>
 

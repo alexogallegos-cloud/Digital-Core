@@ -1,6 +1,6 @@
 """
-trace-transaction.py — BCOPCore Transaction Tracer
-Proyecto: BanCoppel BCOPCore · SPE-AM-001
+trace-transaction.py — Informix Transaction Tracer
+Proyecto: BanCoppel Informix · SPE-AM-001
 
 Reconstruye el flujo completo de una transacción desde los logs del Bus,
 enriquecido con contexto de brain.py.
@@ -355,7 +355,7 @@ def show_sp_errors(sp_name: str, limit: int = 5):
 # ── Main ────────────────────────────────────────────────────────────────────
 
 def main():
-    ap = argparse.ArgumentParser(description="BCOPCore Transaction Tracer")
+    ap = argparse.ArgumentParser(description="Informix Transaction Tracer")
     ap.add_argument("--id",          help="idTrxGlobal exacto a trazar")
     ap.add_argument("--service",     help="Nombre (o prefijo) del servicio")
     ap.add_argument("--sp",          help="Nombre del SP a analizar")

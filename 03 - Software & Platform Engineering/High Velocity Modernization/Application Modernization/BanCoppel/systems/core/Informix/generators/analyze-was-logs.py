@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-analyze-was-logs.py — BCOPCore WAS Log Analyzer v1.0
+analyze-was-logs.py — Informix WAS Log Analyzer v1.0
 
 Parsea logs WebSphere Application Server 9.0.5.15 de la capa Java/SOAP que
 envuelve el core Informix de BanCoppel (nodos 10.27.31.20 y 10.27.31.32).
@@ -23,7 +23,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 
 BCOP = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore")
+        "Application Modernization/BanCoppel/Informix")
 LOGS_ROOT = f"{BCOP}/source/logs"
 KB_OUT    = f"{BCOP}/knowledge-base/cross-reference"
 
@@ -365,7 +365,7 @@ def generate_md(all_nodes: list[NodeStats], merged: NodeStats, log_date: str) ->
     error_rate = (total_err / total_soap * 100) if total_soap else 0
 
     lines = []
-    lines.append(f"# Análisis WAS — BanCoppel BCOPCore · {log_date}")
+    lines.append(f"# Análisis WAS — BanCoppel Informix · {log_date}")
     lines.append(f"> Generado: {now_str} · `generators/analyze-was-logs.py` v1.0")
     lines.append("")
     lines.append("## Contexto")
@@ -536,7 +536,7 @@ def generate_md(all_nodes: list[NodeStats], merged: NodeStats, log_date: str) ->
     lines.append("")
 
     # Riesgos de migración
-    lines.append("## Señales para la migración BCOPCore")
+    lines.append("## Señales para la migración Informix")
     lines.append("")
     lines.append("Observaciones directamente relevantes para `SPE-AM-001`:")
     lines.append("")
@@ -654,7 +654,7 @@ def main():
         print(f"ERROR: no se encontraron nodos en {date_dir}")
         sys.exit(1)
 
-    print(f"=== BCOPCore WAS Log Analyzer v1.0 ===")
+    print(f"=== Informix WAS Log Analyzer v1.0 ===")
     print(f"Fecha: {LOG_DATE}  |  Nodos: {len(node_dirs)}")
 
     all_stats = []

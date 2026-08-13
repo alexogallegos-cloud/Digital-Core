@@ -1,6 +1,6 @@
 # D08 · SPEI — Dependencias entre Dominios
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1 — Static Analysis
+> **Componente:** Informix · SPE-AM-001 · Etapa 1 — Static Analysis
 > **Base de datos:** `bdispei` · IBM Informix IDS 14.10 FC10W2 / POWER-AIX
 > **Wave de migración:** Wave 2 · Riesgo: **CRÍTICO**
 > **Última actualización:** 2026-07-03

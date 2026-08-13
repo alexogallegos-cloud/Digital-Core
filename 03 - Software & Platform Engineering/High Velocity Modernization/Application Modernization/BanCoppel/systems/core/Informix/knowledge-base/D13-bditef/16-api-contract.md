@@ -1,13 +1,13 @@
 # D13 · Transferencias Electrónicas de Fondos (TEF) — Contrato de API
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 4 — Design
+> **Componente:** Informix · SPE-AM-001 · Etapa 4 — Design
 > **Base de datos:** `bditef`
 > **Wave:** Wave 3 · Riesgo: ALTO
 > **Última actualización:** 2026-08-03
 
 ---
 **SME responsable:**
-- Architect Target — BCOPCore (diseño del contrato)
+- Architect Target — Informix (diseño del contrato)
 - SME — Core Banking Transformation (patrones de API bancaria)
 - SME Regulatorio — CNBV (campos regulatorios obligatorios)
 

@@ -1,6 +1,6 @@
 # D07 · Aclaraciones — Excepciones y Manejo de Errores
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1 — Static Analysis
+> **Componente:** Informix · SPE-AM-001 · Etapa 1 — Static Analysis
 > **Base de datos:** `bdiaclaracion` · IBM Informix IDS 14.10 FC10W2 / POWER-AIX
 > **Última actualización:** 2026-07-03
 
@@ -120,7 +120,7 @@ Por ejemplo:
 ```
 
 ---
-*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdiaclaracion_*.sql*
+*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/informix/bdiaclaracion_*.sql*
 
 <!-- LOG-DATA-BEGIN -->
 ## Hallazgos de producción — Logs 2026-04-24

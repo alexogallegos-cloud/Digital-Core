@@ -1,6 +1,6 @@
 # D01 · Canal Digital Web — Procesos Batch y Schedulers
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1
+> **Componente:** Informix · SPE-AM-001 · Etapa 1
 > **Base de datos:** `bdicnweb` · IBM Informix IDS 14.10 / POWER-AIX
 > **Wave:** ÚLTIMO · Riesgo: **ALTO**
 > **Última actualización:** 2026-07-03
@@ -175,4 +175,4 @@ Los procesos de purga y archivado asumen disponibilidad nocturna exclusiva. En A
 
 
 ---
-*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdicnweb_*.sql (análisis estático de 57 archivos SQL) · análisis de patrones de nombres + código*
+*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/informix/bdicnweb_*.sql (análisis estático de 57 archivos SQL) · análisis de patrones de nombres + código*

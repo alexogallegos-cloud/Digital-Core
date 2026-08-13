@@ -1,6 +1,6 @@
 # D16 · Intercard (Tarjetas) — Dependencias Externas
 
-> **Componente:** BCOPCore · SPE-AM-001
+> **Componente:** Informix · SPE-AM-001
 > **Base de datos:** `intercard`
 > **Última actualización:** 2026-08-03
 
@@ -76,7 +76,7 @@
 | `sp_contacto_vencimiento_credito` | `[SME-PENDING]` 2 callees | Probable: D09 (bdimnsj — mensajería) |
 | `sp_contacto_vencimiento_debito` | `[SME-PENDING]` 2 callees | Probable: D09 (bdimnsj — mensajería) |
 
-> Los callees exactos requieren análisis del código fuente (source/BCOPCore/informix/intercard_*.sql). Los patrones de nombre sugieren dependencia con D09 Mensajería para las notificaciones.
+> Los callees exactos requieren análisis del código fuente (source/informix/intercard_*.sql). Los patrones de nombre sugieren dependencia con D09 Mensajería para las notificaciones.
 
 ---
 *Generado: 2026-08-03 · fuente: brain.db sp_calls + análisis de patrones de nombres · `[SME-PENDING]` = confirmar con DBA IBM Informix*

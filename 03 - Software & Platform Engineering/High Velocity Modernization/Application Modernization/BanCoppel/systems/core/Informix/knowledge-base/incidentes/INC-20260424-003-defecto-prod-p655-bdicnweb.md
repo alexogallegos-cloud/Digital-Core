@@ -77,4 +77,4 @@ Una clasificación N5 sin detalle de causa raíz es una señal de que el anális
 ---
 
 *Fuentes: `migration-risk-register.md` P655-R001/R002 · runbook INC-D01-04.*  
-*Creado: 2026-08-06 | BCOPCore Gemelo Cognitivo — DISCOVER Etapa 1*
+*Creado: 2026-08-06 | Informix Gemelo Cognitivo — DISCOVER Etapa 1*

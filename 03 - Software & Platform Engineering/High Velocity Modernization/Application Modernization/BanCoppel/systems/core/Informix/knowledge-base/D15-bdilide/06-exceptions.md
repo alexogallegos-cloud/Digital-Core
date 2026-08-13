@@ -1,6 +1,6 @@
 # D15 · LIDE/PLD (Prevención de Lavado de Dinero) — Manejo de Excepciones
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Extraction
+> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Extraction
 > **Base de datos:** bdilide
 > **Wave:** Wave 4 · Riesgo: CRÍTICO (regulatorio — PLD/CNBV/SHCP)
 > **Última actualización:** 2026-08-03
@@ -9,7 +9,7 @@
 
 ## Convención de manejo de errores en `bdilide`
 
-El dominio usa la convención de retorno de código estándar de BCOPCore. Los SPs retornan `CHAR(5)` o `CHAR(6)` como código de resultado. La convención es:
+El dominio usa la convención de retorno de código estándar de Informix. Los SPs retornan `CHAR(5)` o `CHAR(6)` como código de resultado. La convención es:
 
 - `00000` o `000000` — éxito
 - Valores distintos de cero — error o condición especial

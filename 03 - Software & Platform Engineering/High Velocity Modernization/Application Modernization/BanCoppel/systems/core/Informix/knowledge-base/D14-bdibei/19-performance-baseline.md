@@ -1,6 +1,6 @@
 # D14 · Banca Electrónica Institucional (BEI) — Baseline de Performance
 
-> **Componente:** BCOPCore · SPE-AM-001 · TEST Phase
+> **Componente:** Informix · SPE-AM-001 · TEST Phase
 > **Base de datos:** bdibei → Aurora PostgreSQL
 > **Wave:** Wave 3 · Riesgo: CRÍTICO (batch nómina)
 > **Última actualización:** 2026-08-03
@@ -158,4 +158,4 @@ export default function() {
 - [ ] QA Lead — ejecutar prueba de carga de batch nocturno antes de go/no-go de RELEASE.
 
 ---
-*Generado por: QA Lead — Equivalencia Funcional + SRE & AIOps · 2026-08-03 · Fuente: sp-specs-bdibei.md + patrón de carga BEI inferido + SLOs BCOPCore. Baseline real PENDIENTE instrumentación DBA Etapa 2.*
+*Generado por: QA Lead — Equivalencia Funcional + SRE & AIOps · 2026-08-03 · Fuente: sp-specs-bdibei.md + patrón de carga BEI inferido + SLOs Informix. Baseline real PENDIENTE instrumentación DBA Etapa 2.*

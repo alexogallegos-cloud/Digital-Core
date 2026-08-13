@@ -1,6 +1,6 @@
 ﻿# D13 · bditef (TEF — Transferencias Electrónicas de Fondos) — Observabilidad y Runbook
 
-> **Componente:** BCOPCore · SPE-AM-001 · OPERATE Phase
+> **Componente:** Informix · SPE-AM-001 · OPERATE Phase
 > **Base de datos:** bditef (Transferencias Electrónicas de Fondos)
 > **Wave:** [SME-PENDING]
 > **Última actualización:** 2026-08-03

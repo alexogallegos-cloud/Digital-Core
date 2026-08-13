@@ -192,7 +192,7 @@ EXTRACT_TOOL = {
 SYSTEM_PROMPT = """\
 Eres un analista experto en minutas del programa Unity de BanCoppel.
 Unity es la modernización del core bancario de BanCoppel:
-  - PISA/BCOPCore: sistema legacy (IBM Informix SPL) que se decommissiona
+  - PISA/Informix: sistema legacy (IBM Informix SPL) que se decommissiona
   - Apolo: sistema destino para crédito, origination y cobranza
   - SmartVista/BPC: sistema destino para tarjetas TDC/TDD
   - Transact (Temenos): sistema destino para cuentas, depósitos, SPEI, TEF

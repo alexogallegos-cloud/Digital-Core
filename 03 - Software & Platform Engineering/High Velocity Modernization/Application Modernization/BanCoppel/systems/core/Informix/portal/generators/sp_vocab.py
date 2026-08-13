@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 sp_vocab.py — Vocabulario y composición de objetivos de negocio a partir de
-nombres de Stored Procedures Informix SPL (BanCoppel BCOPCore).
+nombres de Stored Procedures Informix SPL (BanCoppel Informix).
 
 Fuente ÚNICA de verdad del catálogo de términos. Importado por:
   - extract-journeys.py  (campo "biz" del journeys-data.json)
@@ -45,7 +45,7 @@ CAT = {
  "ctemoral":    ("ENTIDAD","ctemoral — cuenta temporal (sp_guarda*ctemoral — bdicnweb)","inf"),
  "rst":         ("ENTIDAD","rst — formato RST (sp_generararchivo_rst fan_in=345 — NO_VERIFICABLE)","gap"),
  "atms":        ("ENTIDAD","atms — ATM / cajero automático (sp_atms_* — bdicnweb)","conf"),
- "cnsif":       ("ENTIDAD","CNSIF — sistema de confirmación de ejecutivo (sp_cnsif_confirmaejecutivo fan_in=2400 — #1 SP ecosistema BCOPCore)","conf"),
+ "cnsif":       ("ENTIDAD","CNSIF — sistema de confirmación de ejecutivo (sp_cnsif_confirmaejecutivo fan_in=2400 — #1 SP ecosistema Informix)","conf"),
  "dicta":       ("ENTIDAD","dicta — dictamen / subsistema de dictaminación (sp_dicta_* — bdinteg fan_in=268+)","inf"),
  "colonia":     ("ENTIDAD","colonia — colonia postal para validación de domicilio (sp_consultacoloniascp fan_in=281)","conf"),
  "cp":          ("ENTIDAD","cp — código postal (sp_consultacoloniascp — bdinteg)","conf"),

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-gen-rules-portal.py — Portal de reglas de negocio BCOPCore v3.
+gen-rules-portal.py — Portal de reglas de negocio Informix v3.
 
 Genera:
   · portal/data/rules-portal-data.json  (~1.2 MB — slim display data)
@@ -172,7 +172,7 @@ html = f"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>BCOPCore · Reglas de Negocio</title>
+<title>Informix · Reglas de Negocio</title>
 <style>
 :root{{
   --blue:#3D5FCD;--blued:#122FB1;--yellow:#F0D224;
@@ -341,7 +341,7 @@ tr.exp .grp-arrow{{transform:rotate(90deg)}}
   </div>
   <div class="hero-body">
     <div class="hero-title">
-      <div class="hero-label">BCOPCore · DT-Reglas v1.6.0</div>
+      <div class="hero-label">Informix · DT-Reglas v1.6.0</div>
       <h1 class="hero-h1">Reglas de Negocio</h1>
       <div class="hero-sub">{M["total"]:,} reglas de negocio destiladas de los stored procedures del core BanCoppel en IBM Informix IDS 14.10.<br>La lógica que gobierna cada cálculo, validación y umbral — inferida del código y hecha legible.</div>
     </div>

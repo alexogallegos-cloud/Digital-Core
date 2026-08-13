@@ -1,6 +1,6 @@
 # D05 · Saldos y Cuentas — Excepciones y Manejo de Errores
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1 — Static Analysis
+> **Componente:** Informix · SPE-AM-001 · Etapa 1 — Static Analysis
 > **Base de datos:** `bdisac` · IBM Informix IDS 14.10 FC10W2 / POWER-AIX
 > **Última actualización:** 2026-07-03
 
@@ -110,7 +110,7 @@ SPs que tienen bloques `ON EXCEPTION … END EXCEPTION` (patrones de recuperaci�
 
 ### CWE-390 — `sp_consultasaldocortemin_mx2` (VERIFICADO EN CÓDIGO · 2026-08-01)
 
-**Fuente:** `source/BCOPCore/informix/bdicred_sp_consultasaldocortemin_mx2.sql` líneas 42-44
+**Fuente:** `source/informix/bdicred_sp_consultasaldocortemin_mx2.sql` líneas 42-44
 
 ```sql
 ON EXCEPTION SET sSqlErr
@@ -127,7 +127,7 @@ El SP hace múltiples cross-DB hacia `bdicred:sd_fechas`, `bdicred:sd_maecredane
 
 ### Gating query — `sp_consultaregtarjeta` (VERIFICADO EN CÓDIGO · 2026-08-01)
 
-**Fuente:** `source/BCOPCore/informix/intercard_sp_consultaregtarjeta.sql` líneas 29-34
+**Fuente:** `source/informix/intercard_sp_consultaregtarjeta.sql` líneas 29-34
 
 ```sql
 ON EXCEPTION SET sql_err
@@ -144,7 +144,7 @@ Este SP tiene dos modos: `pOpcion=1` (busca tarjeta por lote/número) y `pOpcion
 
 ### Restricción de fecha — `sp_reverso_msw` (VERIFICADO EN CÓDIGO · 2026-08-01)
 
-**Fuente:** `source/BCOPCore/informix/bdisac_sp_reverso_msw.sql` línea 60
+**Fuente:** `source/informix/bdisac_sp_reverso_msw.sql` línea 60
 
 ```sql
 IF pOrigen = "" OR pCategoria = "" OR pConvenio = "" OR pFolio = "" OR cFechaFormat <> pFecha THEN
@@ -207,7 +207,7 @@ El ESB no tiene circuit breaker — la excepción no cerrada propaga el estado `
 > Ninguno de estos códigos tiene mapeo en el target. Requieren definición explícita en el contrato de errores del microservicio antes del cutover.
 
 ---
-*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdisac_*.sql*
+*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/informix/bdisac_*.sql*
 *Actualizado: DT-Riesgos · 2026-08-01 · Incorporación de errores externos desde source/logs/20260424*
 
 <!-- LOG-DATA-BEGIN -->

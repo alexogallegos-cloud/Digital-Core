@@ -1,6 +1,6 @@
 # D02 · Integración y Autenticación — Diccionario de Datos
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1 — Static Analysis
+> **Componente:** Informix · SPE-AM-001 · Etapa 1 — Static Analysis
 > **Base de datos:** `bdinteg` · IBM Informix IDS 14.10 FC10W2 / POWER-AIX
 > **Última actualización:** 2026-07-03
 
@@ -66,4 +66,4 @@ Los siguientes SPs son los más grandes del dominio y por tanto los de mayor rie
 - [ ] Campos PII/PCI-DSS para clasificación de sensibilidad
 
 ---
-*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdinteg_*.sql*
+*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/informix/bdinteg_*.sql*

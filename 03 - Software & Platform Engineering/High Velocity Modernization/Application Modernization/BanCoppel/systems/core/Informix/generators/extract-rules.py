@@ -15,8 +15,8 @@ from collections import defaultdict
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
-SRC = BASE + "source/BCOPCore/informix/"
+        "Application Modernization/BanCoppel/Informix/")
+SRC = BASE + "source/informix/"
 CG = json.load(open(BASE + "portal/data/callgraph-data.json", encoding="utf-8"))
 
 # ── SMEs reguladores (agentes en SME/Regulatory/) ──
@@ -152,9 +152,9 @@ json.dump({"rules": rules, "by_reg_counts": {k: len(v) for k, v in by_reg.items(
           open(BASE + "portal/data/business-rules.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
 
 # ── Markdown ──
-L = ["# BCOPCore · Catálogo de Reglas de Negocio y Fórmulas",
+L = ["# Informix · Catálogo de Reglas de Negocio y Fórmulas",
  "",
- "> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Extraction  ",
+ "> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Extraction  ",
  "> **Evidencia:** extraído del código SPL (SP + línea) · **Generado:** 2026-07-04 por `extract-rules.py`  ",
  "",
  f"**{n_form} fórmulas** + **{n_val} validaciones** extraídas · **{n_reg} con impacto regulatorio**. "

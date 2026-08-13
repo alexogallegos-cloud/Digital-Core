@@ -1,6 +1,6 @@
 # D04 · Cheques / Cuentas — Matriz SP × Tabla (READ / WRITE)
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1
+> **Componente:** Informix · SPE-AM-001 · Etapa 1
 > **Base de datos:** `bdicheq` · IBM Informix IDS 14.10 / POWER-AIX
 > **Wave:** Wave 4 · Riesgo: **CRÍTICO**
 > **Última actualización:** 2026-07-03
@@ -173,4 +173,4 @@ Esta matriz determina:
 - `sysmaster:systabnames` (R) — desde `abono_ctas`, `abono_ctas_comis`, `sp_actualiza_reg_porta`
 
 ---
-*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdicheq_*.sql (análisis estático de 70 archivos SQL) · análisis estático de cláusulas FROM/INSERT/UPDATE/DELETE*
+*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/informix/bdicheq_*.sql (análisis estático de 70 archivos SQL) · análisis estático de cláusulas FROM/INSERT/UPDATE/DELETE*

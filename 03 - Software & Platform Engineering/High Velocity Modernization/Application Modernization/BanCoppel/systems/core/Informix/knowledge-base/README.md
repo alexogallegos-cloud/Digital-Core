@@ -1,4 +1,4 @@
-# BCOPCore — Base de Conocimiento por Dominio
+# Informix — Base de Conocimiento por Dominio
 
 > **Proyecto:** BanCoppel — Application Modernization · SPE-AM-001
 > **Fase:** DISCOVER Etapa 1 — Static Analysis
@@ -52,7 +52,7 @@ Cada dominio contiene los siguientes documentos:
 - **Casos de prueba (Etapa 3):** ⏳ Pendiente
 
 ---
-*BCOPCore Knowledge Base · SPE-AM-001 · Accenture México Digital Core · 2026-07-03*
+*Informix Knowledge Base · SPE-AM-001 · Accenture México Digital Core · 2026-07-03*
 
 ## Dependencias entre dominios
 

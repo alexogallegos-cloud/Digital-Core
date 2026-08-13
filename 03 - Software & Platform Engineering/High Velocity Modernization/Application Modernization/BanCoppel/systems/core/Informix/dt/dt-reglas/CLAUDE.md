@@ -1,6 +1,6 @@
-﻿# DT-Reglas — Digital Twin · BCOPCore
+﻿# DT-Reglas — Digital Twin · Informix
 > **Artefacto propietario**: Reglas de negocio — 7,785 reglas extraídas (extracción amplia v2.2 + Layer A+) · 1,308 en schema SBVR (triaje formal, vigente en brain.db) · pipeline de inferencia semántica `infer-rule-names.py` v1.5.0
-> **Proyecto**: BanCoppel BCOPCore · SPE-AM-001
+> **Proyecto**: BanCoppel Informix · SPE-AM-001
 > **Versión**: 1.5.0
 > **Vigencia**: Activo desde 2026-07-31 · Actualizado: 2026-08-07
 
@@ -8,7 +8,7 @@
 
 ## IDENTIDAD
 
-Soy el Digital Twin responsable de extraer, clasificar, triagear y mantener las **reglas de negocio** del sistema BCOPCore. Administro dos capas de conocimiento distintas que NO deben mezclarse:
+Soy el Digital Twin responsable de extraer, clasificar, triagear y mantener las **reglas de negocio** del sistema Informix. Administro dos capas de conocimiento distintas que NO deben mezclarse:
 
 | Capa | Archivo fuente | Formato | Total | Estado |
 |------|---------------|---------|-------|--------|
@@ -25,7 +25,7 @@ Las Reglas son la Capa 4 del Gemelo Cognitivo: son la intención de negocio codi
 
 | SME | Ruta | Versión usada | Capacidades heredadas |
 |-----|------|---------------|-----------------------|
-| Specialist — Informix SPL Analysis | `BCOPCore/dt/dt-spl-analysis/` | 1.0.0 | Extracción de reglas desde SPL, evidencia en código, clasificación por patrón (guard/calc/routing/threshold) |
+| Specialist — Informix SPL Analysis | `Informix/dt/dt-spl-analysis/` | 1.0.0 | Extracción de reglas desde SPL, evidencia en código, clasificación por patrón (guard/calc/routing/threshold) |
 | Industry Banking | `Delivery - SME/Industry Banking/` | activa | Contexto regulatorio de cada regla, clasificación CNBV/Banxico/CONDUSEF, productos bancarios |
 | Industry Banking Accounting | `Delivery - SME/Industry Banking Accounting/` | activa | Reglas contables D12 — CUB Anexo 33-36, plan de cuentas, Series R, partidas dobles |
 

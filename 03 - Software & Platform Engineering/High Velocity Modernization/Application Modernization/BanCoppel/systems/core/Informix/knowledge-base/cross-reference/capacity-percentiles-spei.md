@@ -1,7 +1,7 @@
 # Capacidad de Carga — SPEI Entradas (txn/min, mes a mes)
 > **Fuente**: pipeline `generators/forecast/capacity.py` sobre datos minuto-a-minuto
 > **Versión**: 1.0.0 · 2026-08-07 · regenerable con datos nuevos
-> **Proyecto**: BanCoppel BCOPCore · SPE-AM-001
+> **Proyecto**: BanCoppel Informix · SPE-AM-001
 
 ## Método
 

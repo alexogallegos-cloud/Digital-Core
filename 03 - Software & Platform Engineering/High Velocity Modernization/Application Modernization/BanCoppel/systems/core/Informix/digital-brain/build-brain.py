@@ -1,10 +1,10 @@
 ﻿"""
-build-brain.py — BCOPCore Digital Brain · Pipeline de construcción
+build-brain.py — Informix Digital Brain · Pipeline de construcción
 Lee todos los artefactos existentes (JSON, py) y construye brain.db (SQLite).
 No modifica ningún archivo fuente.
 
 Uso: python digital-brain/build-brain.py
-     (ejecutar desde BCOPCore/ o desde digital-brain/)
+     (ejecutar desde Informix/ o desde digital-brain/)
 """
 
 import json, sqlite3, re, sys
@@ -17,7 +17,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 # ── Rutas ────────────────────────────────────────────────────────────────────
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-BASE = SCRIPT_DIR.parent           # BCOPCore/
+BASE = SCRIPT_DIR.parent           # Informix/
 DB_PATH = SCRIPT_DIR / 'brain.db'
 
 # ── Mapeos canónicos ─────────────────────────────────────────────────────────
@@ -1220,7 +1220,7 @@ def seed_cross_dependencies(conn):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    print(f'BCOPCore Digital Brain — build pipeline')
+    print(f'Informix Digital Brain — build pipeline')
     print(f'Base:  {BASE}')
     print(f'Output:{DB_PATH}\n')
 

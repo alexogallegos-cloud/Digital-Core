@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-infer-rule-names.py — Inferencia semántica de nombres de reglas de negocio BCOPCore.
+infer-rule-names.py — Inferencia semántica de nombres de reglas de negocio Informix.
 
 Fuentes de conocimiento embebidas:
-  · Vocabulario BCOPCore (mean + bc_name + cat) — léxico de variables SPL
+  · Vocabulario Informix (mean + bc_name + cat) — léxico de variables SPL
   · DT Industry Banking — patrones financieros: tasa, mora, IVA, ISR, reservas CNBV,
                            base 365/360, GAT, CAT, cartera vencida, scoring
   · DT Industry Banking Accounting — patrones contables: póliza, asiento, mayor, cédula
@@ -43,7 +43,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
+        "Application Modernization/BanCoppel/Informix/")
 
 # ── 1. Vocabulario ─────────────────────────────────────────────────────────────
 inv = json.load(open(BASE + "knowledge-base/vocabulary-inventory.json", encoding="utf-8"))
@@ -53,7 +53,7 @@ for section in ("atomos", "compuestos"):
         VOCAB[item["term"]] = item
 
 # ── 1b. Tipos declarados (DEFINE) — mapa {db_sp: {var: tipo}} evidence-based ─────
-# Fuente: extract-var-types.py sobre source/BCOPCore/informix/*.sql (2.9M declaraciones).
+# Fuente: extract-var-types.py sobre source/informix/*.sql (2.9M declaraciones).
 # Se usa para la señal MONEY→riesgo de equivalencia. Índice case-insensitive.
 try:
     _vt_raw = json.load(open(BASE + "knowledge-base/vocabulary/variable-types.json", encoding="utf-8"))

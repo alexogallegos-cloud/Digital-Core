@@ -1,6 +1,6 @@
 # D07 · Aclaraciones — Arquitectura Target
 
-> **Componente:** BCOPCore · SPE-AM-001 · DESIGN Phase
+> **Componente:** Informix · SPE-AM-001 · DESIGN Phase
 > **Base de datos:** `bdiaclaracion` · Target: **AWS Aurora PostgreSQL**
 > **Wave:** Wave 2 · Riesgo: **ALTO**
 > **Última actualización:** 2026-07-03

@@ -1,4 +1,4 @@
-# Análisis Batch Control-M — BanCoppel BCOPCore · 2026-08-07
+# Análisis Batch Control-M — BanCoppel Informix · 2026-08-07
 > Generado: 2026-08-07 21:16 · `generators/analyze-ctm-logs.py` v1.0
 
 ## Contexto
@@ -25,10 +25,10 @@ Jobs del scheduler **BMC Control-M** que se ejecutan sobre el servidor Informix 
 
 Ninguno — todos los jobs terminaron sin errores Informix.
 
-## Señales para la migración BCOPCore
+## Señales para la migración Informix
 
 - **BDs batch activas**: `bdicheq` — estas BDs tienen jobs de cierre diario que deben reproducirse en el target.
-- **Scripts SQL de cierre**: `eje_cierrechqinvcrecparam.sql` — buscar en `source/BCOPCore/informix/` para análisis de equivalencia funcional.
+- **Scripts SQL de cierre**: `eje_cierrechqinvcrecparam.sql` — buscar en `source/informix/` para análisis de equivalencia funcional.
 - **Scheduler**: Control-M 9.0.22.x en `DCMSIF01` — la migración debe incluir la replicación del calendar/schedule en el target (preferentemente AWS EventBridge Scheduler o Step Functions).
 
 ---

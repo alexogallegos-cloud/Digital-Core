@@ -9,7 +9,7 @@ from collections import Counter
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
+        "Application Modernization/BanCoppel/Informix/")
 J = json.load(open(BASE + "portal/data/journeys-data.json", encoding="utf-8"))
 BR = json.load(open(BASE + "portal/data/business-rules.json", encoding="utf-8"))
 DBOF = {"d01":"bdicnweb","d02":"bdinteg","d03":"bdicred","d04":"bdicheq","d05":"bdisac",
@@ -270,7 +270,7 @@ header h1{{font-size:16px;font-weight:800}}header .sub{{font-size:10px;color:var
 #tip .tt{{font-weight:700;font-size:12px;margin-bottom:4px}}#tip .tr{{font-size:10px;color:var(--muted);margin:2px 0}}#tip .tr b{{color:var(--txt)}}
 footer{{font-size:9px;color:var(--muted);padding:10px 24px;border-top:1px solid var(--line);line-height:1.5}}
 </style></head><body data-theme="bcop">
-<header><div class="brand"><img class="logo" src="bancoppel-logo.png" alt="BanCoppel"><div><h1>Modelo de Capacidades Bancarias · Referencia (agnóstico) — Cobertura BanCoppel BCOPCore</h1>
+<header><div class="brand"><img class="logo" src="bancoppel-logo.png" alt="BanCoppel"><div><h1>Modelo de Capacidades Bancarias · Referencia (agnóstico) — Cobertura BanCoppel Informix</h1>
 <div class="sub">SME — Modelo Operativo Bancario · 10 áreas de referencia · ● = identificado en los dominios técnicos · ⬜ = capacidad de referencia no vista en el core</div></div></div></header>
 <div id="bar">
   <div class="tile"><div class="n">{cov}/{tot}</div><div class="l">Capacidades cubiertas</div></div>
@@ -355,7 +355,7 @@ def m2(d):
                 "n": NAME[d]}
     return {"j":0,"r":0,"s":0,"n":NAME.get(d,d)}
 
-N2 = None  # gap ETB — capacidad de referencia no implementada en BCOPCore Informix
+N2 = None  # gap ETB — capacidad de referencia no implementada en Informix Informix
 
 MODEL_V2 = [
   ("1 · Cliente y Onboarding", [
@@ -597,7 +597,7 @@ header h1{{font-size:16px;font-weight:800}}header .sub{{font-size:10px;color:var
 footer{{font-size:9px;color:var(--muted);padding:10px 24px;border-top:1px solid var(--line);line-height:1.5}}
 </style></head><body data-theme="bcop">
 <header><div class="brand"><img class="logo" src="bancoppel-logo.png" alt="BanCoppel"><div>
-<h1>BanCoppel BCOPCore · Gemelo Cognitivo · Modelo de Capacidades Completo</h1>
+<h1>BanCoppel Informix · Gemelo Cognitivo · Modelo de Capacidades Completo</h1>
 <div class="sub">7 dominios · {tot2} capacidades · tono azul = densidad de lógica propia · ! = riesgo operativo del risk register · ⬜ gap</div>
 </div></div></header>
 <div id="bar">
@@ -615,7 +615,7 @@ footer{{font-size:9px;color:var(--muted);padding:10px 24px;border-top:1px solid 
   </div>
 </div>
 <div id="wrap">{areas2}</div>
-<footer>Modelo de capacidades <b>BanCoppel BCOPCore</b> — Taxonomía de Negocio AS-IS (7 dominios) enriquecida con referencia ETB Banking v5.0. <b style="color:#0C1F90">Azul oscuro</b> = núcleo de lógica de negocio (avg rules+tables ≥ 12/SP). <b style="color:#4872D6">Azul claro</b> = conector/portal (&lt;8). <b style="color:#8a8aa5">Gris</b> = gap ETB — objetivo de la modernización. Tono calculado de los sp-validation JSONs (16 dominios, {analized2} capacidades). <b style="color:#E8400A">!</b> rojo = riesgo crítico activo · <b style="color:#F0D224">!</b> amarillo = riesgo operativo (risk register SPE-AM-001). <code>DISCOVER Etapa 1</code></footer>
+<footer>Modelo de capacidades <b>BanCoppel Informix</b> — Taxonomía de Negocio AS-IS (7 dominios) enriquecida con referencia ETB Banking v5.0. <b style="color:#0C1F90">Azul oscuro</b> = núcleo de lógica de negocio (avg rules+tables ≥ 12/SP). <b style="color:#4872D6">Azul claro</b> = conector/portal (&lt;8). <b style="color:#8a8aa5">Gris</b> = gap ETB — objetivo de la modernización. Tono calculado de los sp-validation JSONs (16 dominios, {analized2} capacidades). <b style="color:#E8400A">!</b> rojo = riesgo crítico activo · <b style="color:#F0D224">!</b> amarillo = riesgo operativo (risk register SPE-AM-001). <code>DISCOVER Etapa 1</code></footer>
 <div id="tip"></div>
 <div id="dscrim" onclick="closeDrill()"></div>
 <div id="dpanel">

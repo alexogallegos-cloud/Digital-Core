@@ -1,6 +1,6 @@
 # D09 · Mensajería — Modelo Entidad-Relación
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1 → Etapa 2  
+> **Componente:** Informix · SPE-AM-001 · Etapa 1 → Etapa 2  
 > **Base de datos:** `bdimnsj` · IBM Informix IDS 14.10 / POWER-AIX  
 > **Última actualización:** 2026-07-03
 

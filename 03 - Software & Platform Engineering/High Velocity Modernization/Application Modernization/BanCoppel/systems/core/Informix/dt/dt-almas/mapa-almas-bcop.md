@@ -1,4 +1,4 @@
-# Mapa de las Almas · BCOPCore
+# Mapa de las Almas · Informix
 
 > **Gemelo Cognitivo del Sistema** · BanCoppel Application Modernization (SPE-AM-001)
 > Generado: 2026-07-11 · Grounding Pass completo: 9,695 SPs · 12 dominios
@@ -18,12 +18,12 @@ Los criterios de selección son:
 
 ---
 
-## Las 12 Almas de BCOPCore
+## Las 12 Almas de Informix
 
 ### Alma 1 — El Portero: `sp_cnsif_confirmaejecutivo`
 **Dominio**: D02 · bdinteg · fan_in=**2,400** · VERIFICADO
 
-El SP más llamado de todo BCOPCore. Sin él, ningún ejecutivo BanCoppel puede operar. Es el **gate de autenticación y autorización universal** del sistema — cada acción operativa pasa por aquí antes de ejecutarse.
+El SP más llamado de todo Informix. Sin él, ningún ejecutivo BanCoppel puede operar. Es el **gate de autenticación y autorización universal** del sistema — cada acción operativa pasa por aquí antes de ejecutarse.
 
 ```
 Patrón: GATE DE AUTORIZACIÓN
@@ -57,7 +57,7 @@ Riesgo modernización: ALTO — cualquier gap en equivalencia funcional
 ### Alma 3 — El Débito: `cargo_ref`
 **Dominio**: D04 · bdicheq · fan_in=**561** · PARCIAL · 1,654 LOC
 
-La **primitiva de débito** de BCOPCore. Todo cargo a cuenta — desde un pago de crédito hasta una comisión — termina aquí. El nombre "ref" indica que siempre lleva una referencia (trazabilidad de origen). Junto con `abono_ref`, forman el par debit/credit que es el API transaccional del sistema.
+La **primitiva de débito** de Informix. Todo cargo a cuenta — desde un pago de crédito hasta una comisión — termina aquí. El nombre "ref" indica que siempre lleva una referencia (trazabilidad de origen). Junto con `abono_ref`, forman el par debit/credit que es el API transaccional del sistema.
 
 ```
 Patrón: PRIMITIVA DE TRANSACCIÓN (DÉBITO)
@@ -70,21 +70,21 @@ Riesgo modernización: MÁXIMO — cualquier pérdida de fidelidad en la
     Equivalencia funcional ≥ 99.9999% requerida.
 ```
 
-**¿Por qué vive en bdicheq (Cheques) y no en bdicred (Crédito)?** BCOPCore fue construido sobre una abstracción de "cheque interno" — toda transacción financiera, independientemente de su naturaleza, es modelada como un cheque cargo o abono. Es la convención contable raíz del sistema.
+**¿Por qué vive en bdicheq (Cheques) y no en bdicred (Crédito)?** Informix fue construido sobre una abstracción de "cheque interno" — toda transacción financiera, independientemente de su naturaleza, es modelada como un cheque cargo o abono. Es la convención contable raíz del sistema.
 
 ---
 
 ### Alma 4 — El Crédito: `abono_ref`
 **Dominio**: D04 · bdicheq · fan_in=**520** · PARCIAL · 1,654 LOC
 
-La **primitiva de crédito** de BCOPCore. Simétrica a `cargo_ref`. Ver Alma 3 para contexto completo.
+La **primitiva de crédito** de Informix. Simétrica a `cargo_ref`. Ver Alma 3 para contexto completo.
 
 ---
 
 ### Alma 5 — El Parser: `sp_split_cadena`
 **Dominio**: D01 · bdicnweb · fan_in=**857** · NO_VERIFICABLE (pura computación)
 
-El SP de parsing de strings más llamado del sistema. Con 857 callers, revela un patrón arquitectónico crítico de BCOPCore: **los datos estructurados se pasan como strings concatenados** entre SPs y entre capas. El sistema no usa parámetros tipados para estructuras complejas — usa strings serializados que `sp_split_cadena` descompone en partes.
+El SP de parsing de strings más llamado del sistema. Con 857 callers, revela un patrón arquitectónico crítico de Informix: **los datos estructurados se pasan como strings concatenados** entre SPs y entre capas. El sistema no usa parámetros tipados para estructuras complejas — usa strings serializados que `sp_split_cadena` descompone en partes.
 
 ```
 Patrón: INFRAESTRUCTURA DE SERIALIZACIÓN (string-as-protocol)
@@ -211,7 +211,7 @@ Riesgo modernización: MEDIO — el negocio de bienes es periférico al
 ### Alma 12 — El Motor de Regex: `regex_*` (INFRAESTRUCTURA)
 **Dominio**: D02 · bdinteg · 8 SPs · **~34 MB total** · EXCLUIR DE ANÁLISIS DE NEGOCIO
 
-No es un alma de negocio — es infraestructura. La implementación del motor de regex POSIX en Informix SPL (8 procedimientos, ~4 MB cada uno) usado por la capa de integración para validación y parsing de mensajes. Es el único componente de BCOPCore sin valor de negocio directo — su función es completamente reemplazable por regex nativo en cualquier lenguaje target.
+No es un alma de negocio — es infraestructura. La implementación del motor de regex POSIX en Informix SPL (8 procedimientos, ~4 MB cada uno) usado por la capa de integración para validación y parsing de mensajes. Es el único componente de Informix sin valor de negocio directo — su función es completamente reemplazable por regex nativo en cualquier lenguaje target.
 
 ```
 Patrón: INFRAESTRUCTURA REEMPLAZABLE (zero business logic)

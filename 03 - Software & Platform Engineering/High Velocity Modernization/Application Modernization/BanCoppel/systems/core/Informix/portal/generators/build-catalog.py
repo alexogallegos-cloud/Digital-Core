@@ -9,7 +9,7 @@ from sp_vocab import CAT, COMPOUND, compose, tokenize
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
+        "Application Modernization/BanCoppel/Informix/")
 J = json.load(open(BASE + "portal/data/journeys-data.json", encoding="utf-8"))
 
 DOM_NAME = {"d01":"Canal Digital Web","d02":"Integración y Auth","d03":"Créditos",
@@ -22,9 +22,9 @@ DOM_REG = {"d02":["CNBV"],"d03":["CNBV","SAT","CONDUSEF"],"d04":["CNBV","TESOFE"
 
 ESTADO_ICON = {"conf":"", "partial":" ◔", "gap":" 🔶"}
 
-lines = ["# BCOPCore · Catálogo de Journeys y Términos de Negocio",
+lines = ["# Informix · Catálogo de Journeys y Términos de Negocio",
  "",
- "> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Extraction  ",
+ "> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Extraction  ",
  "> **Base:** IBM Informix IDS 14.10 FC10W2 / POWER-AIX · **Evidencia:** `callgraph-data.json` + `journeys-data.json`  ",
  "> **Generado:** 2026-07-03 · **Método:** tokenización de nombres de SP contra vocabulario bancario es-MX (`sp_vocab.py`)  ",
  "",

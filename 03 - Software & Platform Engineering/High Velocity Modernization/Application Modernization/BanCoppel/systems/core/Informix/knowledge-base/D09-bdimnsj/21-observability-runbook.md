@@ -14,7 +14,7 @@
 | Versión runbook | 1.0 |
 | Última revisión | 2026-07-31 |
 
-> **Nota de verificación:** la lógica de despacho del SP único debe validarse directamente en los fuentes antes de confirmar el comportamiento de idempotencia. Ver `BCOPCore/source/bdimnsj/`.
+> **Nota de verificación:** la lógica de despacho del SP único debe validarse directamente en los fuentes antes de confirmar el comportamiento de idempotencia. Ver `Informix/source/bdimnsj/`.
 
 ---
 
@@ -96,13 +96,13 @@ bancoppel.bdimnsj.messages.duplicate      — mensajes potencialmente duplicados
 
 ```bash
 # Paso 1: verificar estado del SP en el grafo semántico
-python BCOPCore/digital-brain/brain.py query "bdimnsj SP status callers"
+python Informix/digital-brain/brain.py query "bdimnsj SP status callers"
 
 # Paso 2: identificar todos los dominios que llaman a bdimnsj
-python BCOPCore/digital-brain/brain.py edges --target bdimnsj --direction inbound
+python Informix/digital-brain/brain.py edges --target bdimnsj --direction inbound
 
 # Paso 3: revisar el SP único — obtener su definición y dependencias
-python BCOPCore/digital-brain/brain.py sp "bdimnsj" --show-body --show-callees
+python Informix/digital-brain/brain.py sp "bdimnsj" --show-body --show-callees
 ```
 
 **Resolución:**
@@ -121,7 +121,7 @@ python BCOPCore/digital-brain/brain.py sp "bdimnsj" --show-body --show-callees
 
 **Impacto:** clientes reciben notificaciones repetidas. Dado que el SP no tiene lógica de idempotencia visible en el análisis estático, cualquier reintento de un dominio llamador puede generar un despacho duplicado.
 
-> **Verificar antes de asumir:** revisar el cuerpo del SP en `BCOPCore/source/bdimnsj/` para confirmar si existe algún mecanismo de deduplicación no detectado en el análisis estático.
+> **Verificar antes de asumir:** revisar el cuerpo del SP en `Informix/source/bdimnsj/` para confirmar si existe algún mecanismo de deduplicación no detectado en el análisis estático.
 
 **Síntomas:**
 - `bancoppel.bdimnsj.messages.duplicate` > 0
@@ -132,13 +132,13 @@ python BCOPCore/digital-brain/brain.py sp "bdimnsj" --show-body --show-callees
 
 ```bash
 # Paso 1: identificar patrones de reintento desde los dominios llamadores
-python BCOPCore/digital-brain/brain.py query "bdimnsj duplicate retry caller pattern"
+python Informix/digital-brain/brain.py query "bdimnsj duplicate retry caller pattern"
 
 # Paso 2: revisar la lógica del SP para encontrar mecanismos de deduplicación
-python BCOPCore/digital-brain/brain.py sp "bdimnsj" --show-body --show-callees
+python Informix/digital-brain/brain.py sp "bdimnsj" --show-body --show-callees
 
 # Paso 3: correlacionar con el caller que genera el reintento
-python BCOPCore/digital-brain/brain.py edges --target bdimnsj --direction inbound --detail
+python Informix/digital-brain/brain.py edges --target bdimnsj --direction inbound --detail
 ```
 
 **Resolución:**
@@ -165,13 +165,13 @@ python BCOPCore/digital-brain/brain.py edges --target bdimnsj --direction inboun
 
 ```bash
 # Paso 1: verificar estado de bdinteg y sus dependencias
-python BCOPCore/digital-brain/brain.py query "bdinteg health status dependencies"
+python Informix/digital-brain/brain.py query "bdinteg health status dependencies"
 
 # Paso 2: mapear cuáles flujos de bdimnsj requieren bdinteg
-python BCOPCore/digital-brain/brain.py edges --source bdimnsj --target bdinteg --detail
+python Informix/digital-brain/brain.py edges --source bdimnsj --target bdinteg --detail
 
 # Paso 3: verificar si hay ruta alternativa para los mensajes afectados
-python BCOPCore/digital-brain/brain.py query "bdimnsj routing alternative bdinteg down"
+python Informix/digital-brain/brain.py query "bdimnsj routing alternative bdinteg down"
 ```
 
 **Resolución:**
@@ -202,11 +202,11 @@ python BCOPCore/digital-brain/brain.py query "bdimnsj routing alternative bdinte
 | SRE on-call BanCoppel | Cualquier CRITICAL en las métricas del namespace `bancoppel.bdimnsj.*` |
 | DBA Informix BanCoppel | Locks o errores de instancia Informix en bdimnsj |
 | Arquitecto Wave 1 | Cambios al SP, decisiones de idempotencia, modo degradado sin bdinteg |
-| Equipo de Modernización BCOPCore | Defectos encontrados durante análisis de fuentes en `BCOPCore/source/bdimnsj/` |
+| Equipo de Modernización Informix | Defectos encontrados durante análisis de fuentes en `Informix/source/bdimnsj/` |
 
 ---
 
-*Generado por BCOPCore — DISCOVER Etapa 1 · BanCoppel Application Modernization · Accenture México*
+*Generado por Informix — DISCOVER Etapa 1 · BanCoppel Application Modernization · Accenture México*
 
 <!-- LOG-DATA-BEGIN -->
 ## Patrones de incidente observados — Logs 2026-04-24

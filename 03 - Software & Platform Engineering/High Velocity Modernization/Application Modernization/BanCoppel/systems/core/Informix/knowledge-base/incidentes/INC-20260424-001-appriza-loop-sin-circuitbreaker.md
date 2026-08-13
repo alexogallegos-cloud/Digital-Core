@@ -130,5 +130,5 @@ La gestión del UUID de sesión APPRIZA debe migrarse a AWS Secrets Manager con 
 
 ---
 
-*Fuentes: `source/logs/2026-04-24/errores_bus_*.txt` · runbook INC-D05-04 · `source/BCOPCore/informix/sp_app_confirmpayment.sql`.*  
-*Creado: 2026-08-06 | BCOPCore Gemelo Cognitivo — DISCOVER Etapa 1*
+*Fuentes: `source/logs/2026-04-24/errores_bus_*.txt` · runbook INC-D05-04 · `source/informix/sp_app_confirmpayment.sql`.*  
+*Creado: 2026-08-06 | Informix Gemelo Cognitivo — DISCOVER Etapa 1*

@@ -1,6 +1,6 @@
 # D13 · Transferencias Electrónicas de Fondos (TEF) — Registro de Riesgos
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Extraction
+> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Extraction
 > **Base de datos:** `bditef`
 > **Wave:** Wave 3 · Riesgo: ALTO
 > **Última actualización:** 2026-08-03
@@ -10,7 +10,7 @@
 - SME — Core Banking Transformation (riesgos de migración)
 - SME — DBA IBM Informix (riesgos técnicos de datos)
 - SME Regulatorio — CNBV (riesgos regulatorios)
-- Risk Officer — Modernización BCOPCore
+- Risk Officer — Modernización Informix
 
 ---
 

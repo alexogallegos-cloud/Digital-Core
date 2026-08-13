@@ -1,6 +1,6 @@
 # D01 · Canal Digital Web — Estrategia de Pruebas de Equivalencia (Golden Master)
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1
+> **Componente:** Informix · SPE-AM-001 · Etapa 1
 > **Base de datos:** `bdicnweb` · IBM Informix IDS 14.10 / POWER-AIX
 > **Wave:** ÚLTIMO · Riesgo: **ALTO**
 > **Última actualización:** 2026-07-03
@@ -131,4 +131,4 @@ Mitigación: configurar RoundingMode.HALF_EVEN en la capa de aplicación
 
 
 ---
-*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdicnweb_*.sql (análisis estático de 57 archivos SQL) · Specialist — Informix SPL Analysis + QA Lead Equivalencia*
+*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/informix/bdicnweb_*.sql (análisis estático de 57 archivos SQL) · Specialist — Informix SPL Analysis + QA Lead Equivalencia*

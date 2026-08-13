@@ -1,6 +1,6 @@
 # D13 · Transferencias Electrónicas de Fondos (TEF) — Plan de Migración de Datos
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 4 — Design
+> **Componente:** Informix · SPE-AM-001 · Etapa 4 — Design
 > **Base de datos:** `bditef`
 > **Wave:** Wave 3 · Riesgo: ALTO
 > **Última actualización:** 2026-08-03

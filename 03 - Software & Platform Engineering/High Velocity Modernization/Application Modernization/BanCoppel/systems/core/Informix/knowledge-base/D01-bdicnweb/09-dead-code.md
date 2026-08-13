@@ -1,6 +1,6 @@
 # D01 · Canal Digital Web — Análisis de Código Muerto
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1
+> **Componente:** Informix · SPE-AM-001 · Etapa 1
 > **Base de datos:** `bdicnweb` · IBM Informix IDS 14.10 / POWER-AIX
 > **Wave:** ÚLTIMO · Riesgo: **ALTO**
 > **Última actualización:** 2026-07-03
@@ -102,4 +102,4 @@ Scope máximo:                  ~49  SPs (excluyendo solo muerto confirmado)
 
 
 ---
-*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdicnweb_*.sql (análisis estático de 57 archivos SQL) · callgraph-data.json (fan_in) + análisis de nombres*
+*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/informix/bdicnweb_*.sql (análisis estático de 57 archivos SQL) · callgraph-data.json (fan_in) + análisis de nombres*

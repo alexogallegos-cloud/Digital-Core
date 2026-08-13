@@ -1,7 +1,7 @@
 ﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-build-dependency-map-kb.py — Mapa de dependencias entre componentes BCOPCore.
+build-dependency-map-kb.py — Mapa de dependencias entre componentes Informix.
 
 Genera: knowledge-base/cross-reference/component-dependency-map.md
 
@@ -22,7 +22,7 @@ from collections import defaultdict, Counter
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
+        "Application Modernization/BanCoppel/Informix/")
 
 cg    = json.load(open(BASE + "portal/data/callgraph-data.json", encoding="utf-8"))
 NODES = cg["graph"]["nodes"]
@@ -58,7 +58,7 @@ node_by_lbl = {n["label"]: n for n in NODES}
 
 # Full set of SP labels (from source/ scan — all 12,832)
 all_sp_files = set()
-src = BASE + "source/BCOPCore/informix/"
+src = BASE + "source/informix/"
 if os.path.isdir(src):
     for f in os.listdir(src):
         if f.endswith(".sql"):
@@ -111,9 +111,9 @@ os.makedirs(BASE + "knowledge-base/cross-reference", exist_ok=True)
 OUT = BASE + "knowledge-base/cross-reference/component-dependency-map.md"
 
 L = [
-    "# BCOPCore · Mapa de Dependencias entre Componentes",
+    "# Informix · Mapa de Dependencias entre Componentes",
     "",
-    "> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Dependency Analysis  ",
+    "> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Dependency Analysis  ",
     "> **Generado:** 2026-08-02 · `build-dependency-map-kb.py`  ",
     f"> **Callgraph:** {len(NODES):,} nodos · {len(EDGES):,} edges · {len(all_doms)} dominios/bases  ",
     "> **Propósito:** fuente de verdad para el plan de migración — qué depende de qué, cuáles SPs son bloqueantes, y qué dominios deben migrarse antes que otros.  ",
@@ -361,7 +361,7 @@ L += [
     "",
     "---",
     "",
-    "*Generado automáticamente · `build-dependency-map-kb.py` · BCOPCore SPE-AM-001*  ",
+    "*Generado automáticamente · `build-dependency-map-kb.py` · Informix SPE-AM-001*  ",
     "*Fuente: `callgraph-data.json` · Para actualizar: `python build-dependency-map-kb.py`*",
 ]
 

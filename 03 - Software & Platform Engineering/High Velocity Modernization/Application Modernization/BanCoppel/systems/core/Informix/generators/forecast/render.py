@@ -81,7 +81,7 @@ def render_html(df_hist, cal, models, cleans, outliers, results, out_path):
   .note{{font-size:9px;color:#475569;margin-top:16px;border-top:1px solid #2d3548;padding-top:10px}}
 </style></head><body>
 <h1>BanCoppel · Proyeccion Organica SPEI + E-Global</h1>
-<div class="sub">BCOPCore SPE-AM-001 · OLS log-lineal · SPEI modelado 7 dias (riel 24/7) con ventana de quincena asimetrica · pipeline generators/forecast · datos 2025-01-01 a 2026-08-04</div>
+<div class="sub">Informix SPE-AM-001 · OLS log-lineal · SPEI modelado 7 dias (riel 24/7) con ventana de quincena asimetrica · pipeline generators/forecast · datos 2025-01-01 a 2026-08-04</div>
 <div class="kpi-row" id="kpis"></div>
 <div class="section"><div class="section-title">E-Global / Autorizador — Volumen 7 dias · patron anual repetible (txn)</div><div id="ceg"></div>
 <div class="legend"><span><span class="sw" style="background:#3b82f6;opacity:.4"></span>Real</span>
@@ -149,7 +149,7 @@ function drawFactors(id,factors,color){{
   el.insertAdjacentHTML("beforeend",html);
 }}
 drawFactors("feg",DATA.factors_eg,"#3b82f6");drawFactors("fsp",DATA.factors_sp,"#10b981");
-document.getElementById("note").innerHTML=`OLS log-lineal &middot; SPEI 7 dias (riel 24/7; Sab=112%, Dom=79% del volumen habil) con ventana de quincena Q-1..Q+2 &middot; E-Global solo dias habiles L-V &middot; outliers |t*|>2.5 &middot; R&sup2; E-Global ${{g.eg_r2}} / SPEI ${{g.sp_r2}} &middot; generado por generators/forecast &middot; BCOPCore SPE-AM-001`;
+document.getElementById("note").innerHTML=`OLS log-lineal &middot; SPEI 7 dias (riel 24/7; Sab=112%, Dom=79% del volumen habil) con ventana de quincena Q-1..Q+2 &middot; E-Global solo dias habiles L-V &middot; outliers |t*|>2.5 &middot; R&sup2; E-Global ${{g.eg_r2}} / SPEI ${{g.sp_r2}} &middot; generado por generators/forecast &middot; Informix SPE-AM-001`;
 </script></body></html>"""
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)
@@ -210,13 +210,13 @@ def render_markdown(results, models, out_path):
     md = f"""# Proyeccion de Crecimiento Organico — SPEI Entradas + E-Global
 > **Fuente**: pipeline `generators/forecast/` (OLS log-lineal, SPEI 7 dias con ventana de quincena)
 > **Version**: 3.1.0 · 2026-08-07 · regenerable con datos nuevos
-> **Proyecto**: BanCoppel BCOPCore · SPE-AM-001
+> **Proyecto**: BanCoppel Informix · SPE-AM-001
 
 ---
 
 ## Pipeline reproducible
 
-Este documento y su HTML se regeneran ejecutando, desde `BCOPCore/`:
+Este documento y su HTML se regeneran ejecutando, desde `Informix/`:
 
 ```
 python generators/build-forecast-spei.py

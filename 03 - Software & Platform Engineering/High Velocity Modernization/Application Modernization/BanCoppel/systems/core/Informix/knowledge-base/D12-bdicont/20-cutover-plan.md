@@ -1,6 +1,6 @@
 # D12 · Contabilidad — Plan de Cutover
 
-> **Componente:** BCOPCore · SPE-AM-001 · RELEASE Phase
+> **Componente:** Informix · SPE-AM-001 · RELEASE Phase
 > **Base de datos:** `bdicont` → Aurora PostgreSQL
 > **Wave:** Wave 4 · Riesgo: **ALTO**
 > **Última actualización:** 2026-07-03

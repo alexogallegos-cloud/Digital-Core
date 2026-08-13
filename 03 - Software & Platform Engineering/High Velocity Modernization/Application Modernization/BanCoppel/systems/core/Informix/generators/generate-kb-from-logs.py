@@ -1,6 +1,6 @@
 """
-generate-kb-from-logs.py — BCOPCore · Análisis exhaustivo de logs → Knowledge Base
-Proyecto: BanCoppel BCOPCore · SPE-AM-001
+generate-kb-from-logs.py — Informix · Análisis exhaustivo de logs → Knowledge Base
+Proyecto: BanCoppel Informix · SPE-AM-001
 Fuente:   source/logs/ — 48 archivos (transacciones_bus + errores_bus, 2026-04-24)
 
 Para cada dominio con actividad, inserta/actualiza una sección
@@ -631,7 +631,7 @@ DOM_TO_DB = {
 # ---------------------------------------------------------------------------
 
 def main():
-    parser = argparse.ArgumentParser(description="BCOPCore KB generator from production logs")
+    parser = argparse.ArgumentParser(description="Informix KB generator from production logs")
     parser.add_argument("--logs-dir",   default="source/logs",     help="Directorio de logs")
     parser.add_argument("--kb-dir",     default="knowledge-base",  help="Directorio de knowledge-base")
     parser.add_argument("--output-dir", default="output/log-analysis", help="Directorio de salida JSON")

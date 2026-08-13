@@ -1,6 +1,6 @@
 # D09 · Mensajería — Matriz SP × Tabla (READ / WRITE)
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1
+> **Componente:** Informix · SPE-AM-001 · Etapa 1
 > **Base de datos:** `bdimnsj` · IBM Informix IDS 14.10 / POWER-AIX
 > **Última actualización:** 2026-07-03
 
@@ -143,4 +143,4 @@ Las tablas con escrituras desde el SP público (`sp_registra_evento`) son las pr
 
 
 ---
-*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdimnsj_*.sql (análisis estático de cláusulas FROM/INSERT/UPDATE/DELETE)*
+*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/informix/bdimnsj_*.sql (análisis estático de cláusulas FROM/INSERT/UPDATE/DELETE)*

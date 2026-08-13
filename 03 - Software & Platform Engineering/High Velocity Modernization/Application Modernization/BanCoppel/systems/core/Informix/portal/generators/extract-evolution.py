@@ -13,8 +13,8 @@ from collections import defaultdict, Counter
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
-SRC = BASE + "source/BCOPCore/informix/"
+        "Application Modernization/BanCoppel/Informix/")
+SRC = BASE + "source/informix/"
 CG = json.load(open(BASE + "portal/data/callgraph-data.json", encoding="utf-8"))
 
 RE_CREATE = re.compile(r"create\s+(?:procedure|function)\b", re.I)

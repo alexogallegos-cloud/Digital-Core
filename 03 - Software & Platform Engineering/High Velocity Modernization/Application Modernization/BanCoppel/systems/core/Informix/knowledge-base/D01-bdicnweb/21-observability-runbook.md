@@ -1,6 +1,6 @@
 ﻿# D01 · Canal Digital Web — Observabilidad y Runbook
 
-> **Componente:** BCOPCore · SPE-AM-001 · OPERATE Phase
+> **Componente:** Informix · SPE-AM-001 · OPERATE Phase
 > **Microservicio target:** Canal Digital WebService
 > **Wave:** ÚLTIMO · Riesgo: **ALTO**
 > **Última actualización:** 2026-07-03

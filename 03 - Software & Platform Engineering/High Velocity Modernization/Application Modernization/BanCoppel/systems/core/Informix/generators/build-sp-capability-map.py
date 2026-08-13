@@ -31,7 +31,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
+        "Application Modernization/BanCoppel/Informix/")
 BRAIN_DB = BASE + "digital-brain/brain.db"
 
 # ── Parámetros ─────────────────────────────────────────────────────────────────
@@ -56,7 +56,7 @@ def main() -> None:
     # Dos índices:
     #   callee_to_callers[B] = [A, ...] — "quién me llama"  (dirección DOWNWARD)
     #   caller_to_callees[A] = [B, ...] — "a quién llamo"   (dirección UPWARD)
-    # La estructura de BCOPCore es leaf→seed: los SPs de dominio específico
+    # La estructura de Informix es leaf→seed: los SPs de dominio específico
     # (bajo fan_in) llaman a seeds; los seeds llaman a utilidades compartidas
     # (alto fan_in). Ambas direcciones son necesarias para propagación completa.
     callee_to_callers: dict[str, list[str]] = defaultdict(list)

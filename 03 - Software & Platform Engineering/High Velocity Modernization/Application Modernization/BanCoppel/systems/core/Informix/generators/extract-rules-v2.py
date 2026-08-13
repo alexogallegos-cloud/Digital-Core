@@ -18,8 +18,8 @@ from collections import defaultdict, Counter
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
-SRC = BASE + "source/BCOPCore/informix/"
+        "Application Modernization/BanCoppel/Informix/")
+SRC = BASE + "source/informix/"
 
 # ── Cargar vocabulario certificado ────────────────────────────────────────────
 inv = json.load(open(BASE + "knowledge-base/vocabulary-inventory.json", encoding="utf-8"))
@@ -421,9 +421,9 @@ os.makedirs(BASE + "knowledge-base/rules", exist_ok=True)
 KB_PATH = BASE + "knowledge-base/rules/business-rules-bcop.md"
 
 L = [
-    "# BCOPCore · Catálogo de Reglas de Negocio — v2",
+    "# Informix · Catálogo de Reglas de Negocio — v2",
     "",
-    "> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Extraction  ",
+    "> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Extraction  ",
     f"> **Generado:** 2026-08-02 · `extract-rules-v2.py` · {n_files_scanned} SPs escaneados  ",
     "> **Anclaje:** vocabulario certificado 787 términos · `vocabulary-inventory.json`  ",
     "> **Fuente canónica:** `business-rules-v2.json` — este MD es resumen navegable  ",
@@ -533,8 +533,8 @@ L += [
     "",
     "---",
     "",
-    "*Generado automáticamente · Specialist — Informix SPL Analysis · BCOPCore Etapa 3*  ",
-    "*Fuente primaria: `source/BCOPCore/informix/` · Vocabulario: `vocabulary-inventory.json`*",
+    "*Generado automáticamente · Specialist — Informix SPL Analysis · Informix Etapa 3*  ",
+    "*Fuente primaria: `source/informix/` · Vocabulario: `vocabulary-inventory.json`*",
 ]
 
 open(KB_PATH, "w", encoding="utf-8").write("\n".join(L))

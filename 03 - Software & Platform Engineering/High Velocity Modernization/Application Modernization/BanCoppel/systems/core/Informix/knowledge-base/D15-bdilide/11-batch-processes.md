@@ -1,6 +1,6 @@
 # D15 · LIDE/PLD (Prevención de Lavado de Dinero) — Procesos Batch
 
-> **Componente:** BCOPCore · SPE-AM-001 · BUILD/OPERATE Phase
+> **Componente:** Informix · SPE-AM-001 · BUILD/OPERATE Phase
 > **Base de datos:** bdilide
 > **Wave:** Wave 4 · Riesgo: CRÍTICO (regulatorio — PLD/CNBV/SHCP)
 > **Última actualización:** 2026-08-03
@@ -9,7 +9,7 @@
 
 ## Perfil de procesos batch de bdilide
 
-El dominio `bdilide` es predominantemente batch. De los 101 SPs, la mayoría corresponde a procesos que se ejecutan fuera del flujo transaccional en línea. Esto contrasta con otros dominios de BCOPCore que son mayoritariamente servicios transaccionales. El motor PLD funciona como un sistema de análisis diferido que procesa los movimientos del día durante la noche.
+El dominio `bdilide` es predominantemente batch. De los 101 SPs, la mayoría corresponde a procesos que se ejecutan fuera del flujo transaccional en línea. Esto contrasta con otros dominios de Informix que son mayoritariamente servicios transaccionales. El motor PLD funciona como un sistema de análisis diferido que procesa los movimientos del día durante la noche.
 
 ## Inventario de procesos batch identificados
 

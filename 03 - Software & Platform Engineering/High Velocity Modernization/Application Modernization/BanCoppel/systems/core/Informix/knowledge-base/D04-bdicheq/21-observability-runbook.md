@@ -1,6 +1,6 @@
 # D04 · bdicheq — Cheques / Cuentas — Observabilidad y Runbook
 
-> **Componente:** BCOPCore · SPE-AM-001 · OPERATE Phase
+> **Componente:** Informix · SPE-AM-001 · OPERATE Phase
 > **Base de datos:** bdicheq (Cheques / Cuentas)
 > **Wave:** 4 · Riesgo: **CRÍTICO**
 > **Última actualización:** 2026-07-31
@@ -38,7 +38,7 @@
 | SPs observados en logs | `cons_sdos2_web`, `sp_retiro_sd`, `sp_whatscoppel_consdos`, `cargo_ref` |
 
 > **Nota de fuente:** Los perfiles completos de cada SP se deben validar contra
-> `source/BCOPCore/informix/{sp_name}.sql` antes de confirmar umbrales de alarma
+> `source/informix/{sp_name}.sql` antes de confirmar umbrales de alarma
 > en producción. `ischar` (83,661 LOC, 97 callees) y `reversion` (377 callers)
 > son los SPs de mayor riesgo arquitectónico del dominio y requieren revisión
 > prioritaria de Specialist Informix SPL Analysis.
@@ -58,7 +58,7 @@ y SOBRES_DIGITALES, recibe 288 llamadas cross-DB desde bdicred y 74 desde bdispe
 Cualquier degradación de bdicheq se propaga en cascada hacia esos dominios, afectando
 el ciclo completo de crédito y los pagos SPEI en curso. El volumen de callers de
 `reversion` (377) convierte a bdicheq en el punto con mayor blast radius de reversiones
-de todo BCOPCore.
+de todo Informix.
 
 ---
 
@@ -190,7 +190,7 @@ TRIGGER:
 
 CONTEXTO:
   reversion tiene 7,312 LOC y 377 callers directos — el SP con mayor fan_in de callers
-  en todo bdicheq y uno de los más altos de BCOPCore completo. Durante quincenas
+  en todo bdicheq y uno de los más altos de Informix completo. Durante quincenas
   (días 15 y 30) o eventos de batch parcialmente fallidos, múltiples callers pueden
   disparar reversiones simultáneas. Con 7,312 LOC por ejecución, el timeout en cadena
   puede saturar el pool de Aurora bdicheq en segundos. bdicred (288 refs inbound) y
@@ -224,7 +224,7 @@ DIAGNOSTICAR:
        vista desde ambos dominios
 
   6. Fuente del SP:
-       source/BCOPCore/informix/reversion.sql
+       source/informix/reversion.sql
        Validar con Specialist Informix SPL Analysis si el SP tiene locks exclusivos
        durante su ejecución y durante cuánto tiempo los mantiene (7,312 LOC).
 
@@ -297,7 +297,7 @@ DIAGNOSTICAR:
        las tablas de cuenta que ischar también necesita leer o escribir
 
   6. Fuente del SP:
-       source/BCOPCore/informix/ischar.sql
+       source/informix/ischar.sql
        Con 83,661 LOC, localizar los bloques de BEGIN WORK / COMMIT WORK
        que contienen locks exclusivos. Validar con Specialist Informix SPL Analysis
        la duración esperada de cada lock bajo carga de pico (80–216 MB/hr).
@@ -372,7 +372,7 @@ DIAGNOSTICAR:
        hasta que bdicheq se recupere
 
   6. Fuente de los SPs afectados:
-       source/BCOPCore/informix/  — revisar los SPs de bdicheq que reciben
+       source/informix/  — revisar los SPs de bdicheq que reciben
        llamadas cross-DB desde bdispei (74 refs)
        Validar con Specialist Informix SPL Analysis si los SPs tienen lógica de
        retry o si la falla es silenciosa (sin señal a bdispei).
@@ -486,7 +486,7 @@ RTO target: < 15 min
 
 ## Análisis de causa raíz — Sobres Digitales
 
-> **Fuente**: análisis de código SPL · `source/BCOPCore/informix/bdicheq_sp_*.sql` · 2026-08-03
+> **Fuente**: análisis de código SPL · `source/informix/bdicheq_sp_*.sql` · 2026-08-03
 > **SPs analizados**: sp_retiro_sd (P95=208s) · sp_crea_sd (P95=144s) · sp_abono_sd (P95=188s) · sp_edic_sd (P95=187s) · sp_perso_sd (P95=202s) · sp_consmov_sd (P95=220s)
 
 La latencia observable de 35–220s en los SPs de Sobres Digitales no es generada por Informix. El motor de base de datos completa las transacciones de negocio (UPDATE sc_mae_sd + INSERT sc_mov_sd + UPDATE sc_maechq) en milisegundos. Las cuatro causas raíz identificadas por lectura directa del código fuente SPL:
@@ -544,7 +544,7 @@ Comparar directamente P95 del target con P95 del legacy en SPs de SD es incorrec
 *Generado por: SRE & AIOps · 2026-07-31 · [SME-PENDING] umbrales de SLO requieren
 baseline real con QA Lead. `ischar` (83,661 LOC, 97 callees) y `reversion` (377 callers)
 son los SPs de mayor riesgo arquitectónico del dominio y requieren validación prioritaria
-contra `source/BCOPCore/informix/` con Specialist Informix SPL Analysis. El RTO de
+contra `source/informix/` con Specialist Informix SPL Analysis. El RTO de
 INC-D04-03 (SPEI) es 10 min por SLA regulatorio Banxico — validar el umbral exacto
 de notificación obligatoria con Domain Expert BanCoppel.*
 

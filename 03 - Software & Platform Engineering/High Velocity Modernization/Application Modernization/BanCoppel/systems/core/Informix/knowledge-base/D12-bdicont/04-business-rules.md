@@ -1,6 +1,6 @@
 # D12 · Contabilidad — Reglas de Negocio y Fórmulas
 
-> **Componente:** BCOPCore · SPE-AM-001 · **Etapa 3 — Business Logic Extraction**
+> **Componente:** Informix · SPE-AM-001 · **Etapa 3 — Business Logic Extraction**
 > **Base de datos:** `bdicont` · IBM Informix IDS 14.10 FC10W2 / POWER-AIX
 > **Wave de migración:** Wave 4 · Riesgo: **ALTO**
 > **Última actualización:** 2026-07-04 · *generado del análisis del código (reemplaza plantilla)*

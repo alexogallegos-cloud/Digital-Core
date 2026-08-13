@@ -1,13 +1,13 @@
 # D14 · Banca Electrónica Institucional (BEI) — Riesgos del Dominio
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1 — Risk Assessment
+> **Componente:** Informix · SPE-AM-001 · Etapa 1 — Risk Assessment
 > **Base de datos:** bdibei
 > **Wave:** Wave 3 · Riesgo: CRÍTICO (batch nómina)
 > **Última actualización:** 2026-08-03
 
 ---
 **SME responsable:**
-- DT-Riesgos (risk register BCOPCore)
+- DT-Riesgos (risk register Informix)
 - Specialist — Informix SPL Analysis (análisis estático de SPs)
 - SRE & AIOps (observabilidad y mitigación operativa)
 - Industry Banking (impacto funcional bancario)

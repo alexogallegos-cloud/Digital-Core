@@ -1,6 +1,6 @@
 # D14 · Banca Electrónica Institucional (BEI) — Plan de Cutover
 
-> **Componente:** BCOPCore · SPE-AM-001 · RELEASE Phase
+> **Componente:** Informix · SPE-AM-001 · RELEASE Phase
 > **Base de datos:** bdibei
 > **Wave:** Wave 3 · Riesgo: CRÍTICO (batch nómina)
 > **Última actualización:** 2026-08-03
@@ -15,7 +15,7 @@
 - Industry Banking (impacto regulatorio)
 - Cybersecurity (validación de controles de seguridad post-cutover)
 
-> **ADVERTENCIA MÁXIMA:** El cutover del dominio D14-bdibei es el de mayor riesgo empresarial de todo el proyecto BCOPCore. Cualquier error que afecte el batch de nómina implica que empleados de empresas clientes de BanCoppel no recibirán su pago. Este plan es mandatorio — no hay shortcuts.
+> **ADVERTENCIA MÁXIMA:** El cutover del dominio D14-bdibei es el de mayor riesgo empresarial de todo el proyecto Informix. Cualquier error que afecte el batch de nómina implica que empleados de empresas clientes de BanCoppel no recibirán su pago. Este plan es mandatorio — no hay shortcuts.
 ---
 
 ## RESTRICCIÓN CRÍTICA — VENTANA DE CUTOVER

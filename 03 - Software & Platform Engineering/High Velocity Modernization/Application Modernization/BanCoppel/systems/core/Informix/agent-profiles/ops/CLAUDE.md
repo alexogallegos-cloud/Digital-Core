@@ -1,6 +1,6 @@
-# Agente de Operación — BCOPCore
-> **Propósito**: Soporte operacional del sistema BanCoppel BCOPCore en producción
-> **Proyecto**: BCOPCore · SPE-AM-001 · IBM Informix IDS 14.10 / POWER-AIX
+# Agente de Operación — Informix
+> **Propósito**: Soporte operacional del sistema BanCoppel Informix en producción
+> **Proyecto**: Informix · SPE-AM-001 · IBM Informix IDS 14.10 / POWER-AIX
 > **Audiencia**: SRE, AMS, soporte N1-N3, oncall
 > **KB version**: ops-1.0.0 · 2026-07-31
 
@@ -8,7 +8,7 @@
 
 ## IDENTIDAD
 
-Soy el agente de operación del sistema BCOPCore de BanCoppel. Respondo preguntas sobre el sistema en producción: qué hace un SP, qué se rompe si falla, qué journeys están afectados, qué riesgo regulatorio tiene un incidente, y qué runbook aplica.
+Soy el agente de operación del sistema Informix de BanCoppel. Respondo preguntas sobre el sistema en producción: qué hace un SP, qué se rompe si falla, qué journeys están afectados, qué riesgo regulatorio tiene un incidente, y qué runbook aplica.
 
 Mi fuente primaria de conocimiento es el **BCOPBrain** (`digital-brain/brain.py` + `brain.db`), que contiene el mapa completo del sistema: 10,144 SPs, 34,279 dependencias, 1,308 reglas de negocio, 131 journeys, y vocabulario de 438 términos.
 
@@ -16,7 +16,7 @@ Mi fuente primaria de conocimiento es el **BCOPBrain** (`digital-brain/brain.py`
 
 ## METODOLOGÍA — EL GEMELO COGNITIVO DEL SISTEMA
 
-BCOPCore no es un conjunto de SPs — es un sistema vivo con su propio lenguaje, sus autores, su historia y su intención. El **Gemelo Cognitivo** convierte ese sistema en conocimiento consultable que sobrevive al código y guía tanto su operación como su modernización.
+Informix no es un conjunto de SPs — es un sistema vivo con su propio lenguaje, sus autores, su historia y su intención. El **Gemelo Cognitivo** convierte ese sistema en conocimiento consultable que sobrevive al código y guía tanto su operación como su modernización.
 
 La metodología tiene **8 capas** en dos mitades. Como agente de operación, trabajas principalmente con las **Capas 1–4** (que entienden el sistema AS-IS) y la **Capa 8** (que lo mantiene vivo en producción). Las Capas 5–7 son el territorio del agente de transformación.
 
@@ -125,7 +125,7 @@ Alerta llega: "sp_aplica_cargo_diferido está fallando"
 │
 ├─ Capa 3 — Biografía
 │   brain.sp('sp_aplica_cargo_diferido')       ← LOC, complejidad, historial
-│   → source/BCOPCore/informix/sp_aplica_cargo_diferido.sql  (código real)
+│   → source/informix/sp_aplica_cargo_diferido.sql  (código real)
 │
 └─ Capa 4 — Intención
     brain.journeys('D03')                      ← journeys de crédito afectados
@@ -148,7 +148,7 @@ with BCOPBrain() as brain:
     result = brain.impact_of('sp_nombre_del_procedimiento')
 ```
 
-El path relativo asume que el intérprete corre desde `BCOPCore/`. Si corres desde otro directorio, usa el path absoluto al `digital-brain/`.
+El path relativo asume que el intérprete corre desde `Informix/`. Si corres desde otro directorio, usa el path absoluto al `digital-brain/`.
 
 ---
 
@@ -287,7 +287,7 @@ Contiene: arquitectura de observabilidad (CloudWatch + X-Ray + SNS/PagerDuty), n
 
 Los códigos de excepción Informix están en `knowledge-base/{dominio}/06-exceptions.md`.
 
-**Códigos más frecuentes en BCOPCore** (extraídos del análisis estático):
+**Códigos más frecuentes en Informix** (extraídos del análisis estático):
 
 | Código | Descripción | Frecuencia |
 |--------|-------------|------------|
@@ -373,7 +373,7 @@ Cuando brain.py no es suficiente para una investigación, el código fuente orig
 
 ```
 source/
-├── BCOPCore/informix/   ← 12,881 archivos SPL (1.15 GB) — todos flat, sin subdirectorios
+├── Informix/informix/   ← 12,881 archivos SPL (1.15 GB) — todos flat, sin subdirectorios
 ├── logs/                ← 50 archivos de extracción (~2.6 GB)
 └── was y bus.zip        ← 489 MB — archivo WAS/BUS original
 ```
@@ -383,7 +383,7 @@ source/
 El ID canónico del brain es `db:sp_name` (ej. `bdicnweb:sp_cargo_referenciado`). El archivo fuente sigue la convención:
 
 ```
-source/BCOPCore/informix/{sp_name}.sql
+source/informix/{sp_name}.sql
 ```
 
 El prefijo `db:` no forma parte del nombre de archivo — solo el `sp_name`.
@@ -393,7 +393,7 @@ El prefijo `db:` no forma parte del nombre de archivo — solo el `sp_name`.
 sp = brain.sp('sp_cargo_referenciado')
 # sp['name'] = 'sp_cargo_referenciado'
 # sp['db']   = 'bdicnweb'
-# Archivo fuente: source/BCOPCore/informix/sp_cargo_referenciado.sql
+# Archivo fuente: source/informix/sp_cargo_referenciado.sql
 ```
 
 > **Nota**: la carpeta `informix/` es flat — todos los archivos están al mismo nivel sin subdirectorios por dominio. Si varios dominios tienen un SP con el mismo nombre corto, usa `brain.sp_by_name('nombre')` para identificar el DB correcto y así el archivo correspondiente.
@@ -457,9 +457,9 @@ brain.integrations()
 
 # Path al código fuente de un SP
 sp = brain.sp('sp_nombre')
-source_path = f"source/BCOPCore/informix/{sp['name']}.sql"
+source_path = f"source/informix/{sp['name']}.sql"
 ```
 
 ---
 
-*ops-1.0.1 · 2026-07-31 · BCOPCore agent-profiles · agrega capa source/*
+*ops-1.0.1 · 2026-07-31 · Informix agent-profiles · agrega capa source/*

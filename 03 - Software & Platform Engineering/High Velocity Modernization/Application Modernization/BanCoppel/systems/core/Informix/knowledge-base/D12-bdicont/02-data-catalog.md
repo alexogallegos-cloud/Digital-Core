@@ -1,6 +1,6 @@
 # D12 · Contabilidad — Catálogo de Datos
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 1 — Static Analysis
+> **Componente:** Informix · SPE-AM-001 · Etapa 1 — Static Analysis
 > **Base de datos:** `bdicont` · IBM Informix IDS 14.10 FC10W2 / POWER-AIX
 > **Última actualización:** 2026-07-03
 
@@ -134,4 +134,4 @@ bdicont ←→ [dominio] : [entidad compartida]
 4. **Datos sensibles**: identificar campos PII/PCI-DSS antes de migrar a ambientes no-productivos
 
 ---
-*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/BCOPCore/informix/bdicont_*.sql*
+*Generado por: Specialist — Informix SPL Analysis · 2026-07-03 · Evidencia: source/informix/bdicont_*.sql*

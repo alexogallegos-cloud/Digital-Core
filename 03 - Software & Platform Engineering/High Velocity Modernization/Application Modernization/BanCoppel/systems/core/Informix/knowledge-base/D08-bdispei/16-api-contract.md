@@ -1,6 +1,6 @@
 # D08 · SPEI — Contratos de API (OpenAPI / AsyncAPI)
 
-> **Componente:** BCOPCore · SPE-AM-001 · DESIGN Phase
+> **Componente:** Informix · SPE-AM-001 · DESIGN Phase
 > **Base de datos:** `bdispei` → Target: ECS Fargate (JVM) + Lambda
 > **Última actualización:** 2026-07-03
 

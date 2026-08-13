@@ -15,7 +15,7 @@
 | Versión runbook | 1.0 |
 | Última revisión | 2026-07-31 |
 
-> **Nota de verificación:** los tres God procedures manejan saldos, transacciones y movimientos contables bajo el marco CNBV Anexo 33-36. Cualquier análisis de lógica contable debe validarse contra los fuentes en `BCOPCore/source/bdicont/` y con el SME de Contabilidad Bancaria CNBV antes de modificar o migrar estos SPs. Una falla en este dominio es un hallazgo CNBV si supera 24 horas.
+> **Nota de verificación:** los tres God procedures manejan saldos, transacciones y movimientos contables bajo el marco CNBV Anexo 33-36. Cualquier análisis de lógica contable debe validarse contra los fuentes en `Informix/source/bdicont/` y con el SME de Contabilidad Bancaria CNBV antes de modificar o migrar estos SPs. Una falla en este dominio es un hallazgo CNBV si supera 24 horas.
 
 ---
 
@@ -143,20 +143,20 @@ bancoppel.bdicont.cnbv.hallazgo_riesgo                — flag de riesgo regulat
 
 ```bash
 # Paso 1: revisar el SP y sus 84 callees para identificar el punto exacto de falla
-python BCOPCore/digital-brain/brain.py sp "sp_cont_conssaldosdiariosb4" --show-body --show-callees
+python Informix/digital-brain/brain.py sp "sp_cont_conssaldosdiariosb4" --show-body --show-callees
 
 # Paso 2: verificar si la falla está correlacionada con bdicnweb
-python BCOPCore/digital-brain/brain.py query "bdicont conssaldos bdicnweb correlation batch"
+python Informix/digital-brain/brain.py query "bdicont conssaldos bdicnweb correlation batch"
 
 # Paso 3: identificar cuántos saldos fueron procesados antes de la falla
-python BCOPCore/digital-brain/brain.py query "bdicont saldos batch progress checkpoint"
+python Informix/digital-brain/brain.py query "bdicont saldos batch progress checkpoint"
 ```
 
 **Resolución:**
 
 1. Verificar inmediatamente el estado de bdicnweb (D01): si D01 tiene una alarma activa, ese es el primer frente de resolución dado el 93.7% de dependencia.
 2. Si bdicnweb está disponible, revisar el log de errores de Informix en bdicont para identificar el callee exacto dentro de `sp_cont_conssaldosdiariosb4` que falla.
-3. Evaluar si el batch puede reanudarse desde un checkpoint o si debe ejecutarse completo; revisar en `BCOPCore/source/bdicont/` si el SP tiene manejo de checkpoint.
+3. Evaluar si el batch puede reanudarse desde un checkpoint o si debe ejecutarse completo; revisar en `Informix/source/bdicont/` si el SP tiene manejo de checkpoint.
 4. Notificar al equipo de CNBV / Regulatorio BanCoppel con timestamp de la falla y ETA de restauración para gestión de riesgo regulatorio.
 5. Una vez restaurado, confirmar que `bancoppel.bdicont.saldos.procesados` alcanza el 100% del baseline y que `bancoppel.bdicont.cnbv.hallazgo_riesgo` vuelve a 0.
 6. Registrar el incidente en el registro regulatorio del proyecto con causa raíz, duración y acciones tomadas.
@@ -179,13 +179,13 @@ python BCOPCore/digital-brain/brain.py query "bdicont saldos batch progress chec
 
 ```bash
 # Paso 1: revisar el SP y sus 63 callees
-python BCOPCore/digital-brain/brain.py sp "sp_cont_cargamovimientob3" --show-body --show-callees
+python Informix/digital-brain/brain.py sp "sp_cont_cargamovimientob3" --show-body --show-callees
 
 # Paso 2: verificar si el bloqueo es en la carga (insert) o en la validación previa
-python BCOPCore/digital-brain/brain.py query "sp_cont_cargamovimientob3 insert validation error type"
+python Informix/digital-brain/brain.py query "sp_cont_cargamovimientob3 insert validation error type"
 
 # Paso 3: correlacionar con bdisuc para ver si hay un origen específico de movimientos fallidos
-python BCOPCore/digital-brain/brain.py query "bdisuc bdicont cargamovimiento concurrent errors"
+python Informix/digital-brain/brain.py query "bdisuc bdicont cargamovimiento concurrent errors"
 ```
 
 **Resolución:**
@@ -221,13 +221,13 @@ python BCOPCore/digital-brain/brain.py query "bdisuc bdicont cargamovimiento con
 
 ```bash
 # Paso 1: confirmar que el origen del incidente es bdicnweb y no bdicont
-python BCOPCore/digital-brain/brain.py query "bdicnweb health status incidents active"
+python Informix/digital-brain/brain.py query "bdicnweb health status incidents active"
 
 # Paso 2: mapear todos los SPs de bdicont que dependen de bdicnweb para dimensionar el impacto completo
-python BCOPCore/digital-brain/brain.py edges --source bdicont --target bdicnweb --detail
+python Informix/digital-brain/brain.py edges --source bdicont --target bdicnweb --detail
 
 # Paso 3: identificar los 43 edges hacia bdinteg para evaluar si alguna función puede continuar sin bdicnweb
-python BCOPCore/digital-brain/brain.py query "bdicont bdinteg independent flows bdicnweb down"
+python Informix/digital-brain/brain.py query "bdicont bdinteg independent flows bdicnweb down"
 ```
 
 **Resolución:**
@@ -235,7 +235,7 @@ python BCOPCore/digital-brain/brain.py query "bdicont bdinteg independent flows 
 1. Confirmar con el equipo de Core Banking que el incidente está activo en bdicnweb (D01) y obtener ETA de restauración.
 2. Suspender de inmediato todos los procesos contables de bdicont para evitar errores en cadena y corrupción de registros parciales. Esta decisión debe tomarse en conjunto con el equipo de Contabilidad BanCoppel.
 3. Activar el protocolo de comunicación regulatoria: notificar al equipo CNBV con timestamp, alcance y ETA. Si la falla ocurre dentro de la ventana batch (22:00–02:00 CDMX), el riesgo de hallazgo regulatorio es inmediato.
-4. Evaluar si los 43 edges hacia bdinteg permiten mantener alguna función mínima de registro; revisar en `BCOPCore/source/bdicont/` cuáles SPs solo usan bdinteg.
+4. Evaluar si los 43 edges hacia bdinteg permiten mantener alguna función mínima de registro; revisar en `Informix/source/bdicont/` cuáles SPs solo usan bdinteg.
 5. Una vez bdicnweb restaurado, reanudar bdicont en orden: primero `sp_cont_cargamovimientob3` para registrar movimientos pendientes, luego `sp_cont_productotransaccionb5`, y finalmente `sp_cont_conssaldosdiariosb4` si el batch nocturno quedó incompleto.
 6. Ejecutar una validación de consistencia contable post-restauración antes de declarar el incidente cerrado: verificar que `bancoppel.bdicont.serie_r.reportes_generados` y `bancoppel.bdicont.saldos.procesados` reflejan valores completos.
 7. Documentar el incidente en el registro regulatorio del proyecto con cronología completa, impacto cuantificado y acciones tomadas para la eventual revisión CNBV.
@@ -283,4 +283,4 @@ bdicont es un dominio receptor de información pero también un proveedor implí
 
 ---
 
-*Generado por BCOPCore — DISCOVER Etapa 1 · BanCoppel Application Modernization · Accenture México*
+*Generado por Informix — DISCOVER Etapa 1 · BanCoppel Application Modernization · Accenture México*

@@ -1,6 +1,6 @@
-# DT-Regulatorio — Digital Twin · BCOPCore
+# DT-Regulatorio — Digital Twin · Informix
 > **Artefacto propietario**: Tabla de regulación → artículo + descripción corta; enriquece el campo `reg` de las reglas con descripciones activables en el paso G del pipeline de inferencia
-> **Proyecto**: BanCoppel BCOPCore · SPE-AM-001
+> **Proyecto**: BanCoppel Informix · SPE-AM-001
 > **Versión**: 0.1.0
 > **Vigencia**: Activo desde 2026-08-06
 
@@ -8,7 +8,7 @@
 
 ## IDENTIDAD
 
-Soy el Digital Twin responsable de mapear las **etiquetas regulatorias** del sistema BCOPCore a artículos específicos de ley y descripciones cortas en español de negocio. Mi artefacto central es una tabla de lookup que el pipeline de inferencia (`infer-rule-names.py`) consume en el paso G para nombrar las reglas que tienen anotación regulatoria pero cuya descripción no contiene `—` ni `→`.
+Soy el Digital Twin responsable de mapear las **etiquetas regulatorias** del sistema Informix a artículos específicos de ley y descripciones cortas en español de negocio. Mi artefacto central es una tabla de lookup que el pipeline de inferencia (`infer-rule-names.py`) consume en el paso G para nombrar las reglas que tienen anotación regulatoria pero cuya descripción no contiene `—` ni `→`.
 
 El contexto regulatorio es la capa que convierte un número de artículo en lenguaje de negocio: "LISR Art.54" no le dice nada a un arquitecto de migración; "Retención ISR sobre intereses — tasa 2026: 0.90%" sí.
 
@@ -18,7 +18,7 @@ El contexto regulatorio es la capa que convierte un número de artículo en leng
 
 Mi tabla de regulaciones proporciona la descripción corta estándar para cada norma, útil cuando la descripción embebida está desactualizada o falta la tasa vigente del ejercicio fiscal.
 
-### Regulaciones en scope de BCOPCore
+### Regulaciones en scope de Informix
 
 | Etiqueta | Norma completa | Descripción corta activable en paso G |
 |----------|----------------|---------------------------------------|
@@ -65,7 +65,7 @@ if reg_desc and not name:
 ## GESTIÓN DE CONOCIMIENTO (Regla 14)
 
 - **Fuente primaria**: tabla de regulaciones en este CLAUDE.md (sección IDENTIDAD) — fuente de verdad de las descripciones cortas activables
-- **Artefacto adicional**: `knowledge-base/regulatory/regulation-lookup-table.md` — tabla expandida con artículos específicos, fechas de actualización de tasas (ISR, GAT, CAT), y cross-reference con dominios BCOPCore que aplican cada norma
+- **Artefacto adicional**: `knowledge-base/regulatory/regulation-lookup-table.md` — tabla expandida con artículos específicos, fechas de actualización de tasas (ISR, GAT, CAT), y cross-reference con dominios Informix que aplican cada norma
 - **Regla de actualización**: cuando cambia una tasa legal (ISR, TIIE, umbrales PLD), actualizar la descripción corta con el año fiscal vigente
 - **Cross-reference con DT-Reglas**: las 2,443 reglas con anotación regulatoria en `business-rules-v3.json` son el inventario de aplicación; este DT provee las descripciones, DT-Reglas las aplica
 - **Restricción**: las descripciones cortas en la tabla son para el pipeline de inferencia (≤ 90 chars); las descripciones legales extensas viven en `knowledge-base/regulatory/`
@@ -96,7 +96,7 @@ if reg_desc and not name:
 | Global | Razonamiento estructurado, outputs en español | Orquestador v3.8 |
 | Por tipo (Industry Banking) | Interpretación de circulares CNBV/Banxico, tasas vigentes, umbrales regulatorios MX | Herencia Industry Banking |
 | Por tipo (Industry Banking Accounting) | CUB contable, plan de cuentas, partidas dobles, Series R | Herencia Industry Banking Accounting |
-| Propia | Tabla de lookup regulación → descripción corta, sincronización de tasas por ejercicio fiscal, cross-reference norma ↔ dominios BCOPCore | Este DT |
+| Propia | Tabla de lookup regulación → descripción corta, sincronización de tasas por ejercicio fiscal, cross-reference norma ↔ dominios Informix | Este DT |
 
 ---
 

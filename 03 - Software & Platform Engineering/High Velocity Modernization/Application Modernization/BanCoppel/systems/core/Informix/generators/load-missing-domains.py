@@ -27,7 +27,7 @@ if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 BASE       = Path(__file__).resolve().parent.parent
-SOURCE_DIR = BASE / "source" / "BCOPCore" / "informix"
+SOURCE_DIR = BASE / "source" / "Informix" / "informix"
 DB_PATH    = BASE / "digital-brain" / "brain.db"
 
 # ── 19 dominios ausentes en brain.db ──────────────────────────────────────────
@@ -228,7 +228,7 @@ def rebuild_fts(con: sqlite3.Connection):
 
 def main():
     print("=" * 60)
-    print("BCOPCore — load-missing-domains.py")
+    print("Informix — load-missing-domains.py")
     print(f"Source: {SOURCE_DIR}")
     print(f"Brain:  {DB_PATH}")
     print("=" * 60)

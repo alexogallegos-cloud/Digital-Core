@@ -367,7 +367,7 @@ def build():
         #  id            name                   type       status     tech_stack
         #  description   notes
         #  togaf_type    togaf_state            production_status  production_since
-        ("pisa",       "PISA / BCOPCore",      "legacy",  "active",
+        ("pisa",       "PISA / Informix",      "legacy",  "active",
          "IBM Informix IDS 14.10 / POWER-AIX / SPL",
          "Core bancario legado BanCoppel. 10,144 SPs, 60 TB, 8,005 reglas de negocio catalogadas.",
          "En proceso de decommission dentro del programa Unity.",
@@ -595,7 +595,7 @@ def build():
         ("U5", "Unity Final — PISA Decommission",
          "2027-12", "planned",
          json.dumps(["pisa"], ensure_ascii=False),
-         "Apagado de PISA/BCOPCore. Cierre de Atlas. Migración de datos históricos completa.",
+         "Apagado de PISA/Informix. Cierre de Atlas. Migración de datos históricos completa.",
          "Hito regulatorio: notificación CNBV mínimo 6 meses antes"),
     ]
     db.executemany(

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 sp_vocab.py — Vocabulario y composición de objetivos de negocio a partir de
-nombres de Stored Procedures Informix SPL (BanCoppel BCOPCore).
+nombres de Stored Procedures Informix SPL (BanCoppel Informix).
 
 Fuente ÚNICA de verdad del catálogo de términos. Importado por:
   - extract-journeys.py  (campo "biz" del journeys-data.json)
@@ -44,7 +44,7 @@ CAT = {
  "apoderado":   ("ENTIDAD","apoderado — representante legal de cuenta (sp_guardaapoderadosctemoral fan_in=149)","conf"),
  "rst":         ("ENTIDAD","rst — formato RST (sp_generararchivo_rst fan_in=345 — NO_VERIFICABLE)","inf"),
  "atms":        ("ENTIDAD","atms — ATM / cajero automático (sp_atms_* — bdicnweb)","conf"),
- "cnsif":       ("ENTIDAD","SIF — Sistema de Información Financiero (sp_cnsif_confirmaejecutivo fan_in=2400 — #1 SP BCOPCore; tablas si_seg_usuarios_funciones; confirmado SPE 2026-08-08)","conf"),
+ "cnsif":       ("ENTIDAD","SIF — Sistema de Información Financiero (sp_cnsif_confirmaejecutivo fan_in=2400 — #1 SP Informix; tablas si_seg_usuarios_funciones; confirmado SPE 2026-08-08)","conf"),
  "tiir":        ("ENTIDAD","Tasa de Interés Interna de Retorno (IRR del crédito — base del cálculo CAT; bdicred:sp_calculo_tiir bisección iterativa VPN=0; confirmado SME 2026-08-08)","conf"),
  "dicta": ("ENTIDAD", "subsistema de dictaminación antifraude en bdinteg (sp_dicta_*, fi≥270); gestiona veredictos de comparación biométrica en si_bitacora_comparaciones y alertas activas en si_bitacora_alerta_tmp; el analista_fraudes asigna status_alerta tras revisar la huella", "conf"),
  "colonia":     ("ENTIDAD","colonia — colonia postal para validación de domicilio (sp_consultacoloniascp fan_in=281)","conf"),

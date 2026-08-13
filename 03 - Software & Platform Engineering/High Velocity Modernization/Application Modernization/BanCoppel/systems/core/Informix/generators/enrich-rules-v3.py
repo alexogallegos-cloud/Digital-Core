@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-enrich-rules-v3.py — Layer A+ enrichment para reglas de negocio BCOPCore.
+enrich-rules-v3.py — Layer A+ enrichment para reglas de negocio Informix.
 
 Qué hace:
   1. Carga domain map completo D01-D53 desde brain.db
@@ -18,8 +18,8 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='repla
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
-SRC  = BASE + "source/BCOPCore/informix/"
+        "Application Modernization/BanCoppel/Informix/")
+SRC  = BASE + "source/informix/"
 
 # ── 1. Domain map from brain.db ───────────────────────────────────────────────
 conn = sqlite3.connect(BASE + 'digital-brain/brain.db')
@@ -509,9 +509,9 @@ has_name = sum(1 for r in rules if r.get('business_name'))
 has_expl = sum(1 for r in rules if r.get('explicacion') and len(r['explicacion']) > 10)
 has_riesgo = sum(1 for r in rules if r.get('riesgo') and r['riesgo'])
 
-md = f"""# BCOPCore · Catálogo de Reglas de Negocio — v3.0 (Layer A+)
+md = f"""# Informix · Catálogo de Reglas de Negocio — v3.0 (Layer A+)
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Enrichment Layer A+
+> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Enrichment Layer A+
 > **Generado:** 2026-08-06 · `enrich-rules-v3.py` · {len(rules):,} reglas · {has_name:,} con nombre natural · {has_expl:,} con explicación
 > **Cobertura:** D01-D53 (todos los dominios) · {len(DB_TO_DOMAIN)-2} bases de datos activas
 > **Fuente primaria:** `business-rules-v3.json` (v3.0, Layer A+)

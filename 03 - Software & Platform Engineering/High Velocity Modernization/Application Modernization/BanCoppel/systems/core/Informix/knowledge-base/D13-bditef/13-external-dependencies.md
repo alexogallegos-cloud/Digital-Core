@@ -1,6 +1,6 @@
 # D13 · Transferencias Electrónicas de Fondos (TEF) — Dependencias Externas
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Extraction
+> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Extraction
 > **Base de datos:** `bditef`
 > **Wave:** Wave 3 · Riesgo: ALTO
 > **Última actualización:** 2026-08-03
@@ -88,7 +88,7 @@ Catálogo de dependencias externas del dominio `bditef` — sistemas y servicios
 
 | Atributo | Valor |
 |----------|-------|
-| **Tipo** | Dominio hermano funcional dentro del mismo ecosistema BCOPCore |
+| **Tipo** | Dominio hermano funcional dentro del mismo ecosistema Informix |
 | **Relación** | Misma regulación Banxico. Ambos son mecanismos de transferencia interbancaria. Las devoluciones SPEI pueden llegar al dominio TEF y viceversa. |
 | **Criticidad** | ALTA — dependencia funcional de validación de fechas y calendario hábil compartido |
 | **Riesgo de migración** | Deben migrar en el mismo wave o coordinados. Una migración desincronizada puede generar inconsistencias en el calendario de días hábiles y en el enrutamiento de transferencias. |

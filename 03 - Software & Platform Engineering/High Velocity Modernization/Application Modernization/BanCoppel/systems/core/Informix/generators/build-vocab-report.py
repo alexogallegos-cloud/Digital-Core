@@ -14,7 +14,7 @@ from collections import Counter
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
+        "Application Modernization/BanCoppel/Informix/")
 INV = json.load(open(BASE + "knowledge-base/vocabulary-inventory.json", encoding="utf-8"))
 
 # fila unificada para la tabla
@@ -222,7 +222,7 @@ HTML = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>BCOPCore · Reporte de Vocabulario SPL</title>
+<title>Informix · Reporte de Vocabulario SPL</title>
 <style>
 :root{--bg:#0a1330;--bg2:#0d1a3d;--panel:#132152;--line:#26317c;--magenta:#F0D224;--blue:#3D5FCD;--txt:#EAEDF7;--muted:#9aa4c4}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -327,7 +327,7 @@ footer{font-size:9px;color:var(--muted);padding:6px 20px;flex-shrink:0;border-to
     <div class="divider"></div>
   </div>
   <div class="meta">
-    <div class="breadcrumb">BCOPCore · <span>SPE-AM-001</span> · Gemelo Cognitivo del Sistema</div>
+    <div class="breadcrumb">Informix · <span>SPE-AM-001</span> · Gemelo Cognitivo del Sistema</div>
     <h1>Reporte de Vocabulario SPL</h1>
     <div class="sub">IBM Informix IDS 14.10 · __SPS__ stored procedures analizados · Etapa 3 — Business Logic Extraction</div>
   </div>

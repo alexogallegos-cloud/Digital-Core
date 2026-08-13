@@ -1,4 +1,4 @@
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Cross-Reference KB · Generado: 2026-08-02
+> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Cross-Reference KB · Generado: 2026-08-02
 
 # SP — Reglas — Vocabulario: Mapa Central
 

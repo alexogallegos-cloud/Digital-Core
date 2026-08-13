@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-build-validation-report.py — BCOPCore Knowledge Base Integrity Validator (Capa 1)
+build-validation-report.py — Informix Knowledge Base Integrity Validator (Capa 1)
 Genera validation-report-bcop.html y retorna exit code 0 (PASS) / 1 (FAIL).
 
 Checks:
@@ -361,7 +361,7 @@ def build_html(ts: str) -> str:
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Integridad KB — BCOPCore</title>
+<title>Integridad KB — Informix</title>
 <style>
 :root{{--bg:#f5f7ff;--bg2:#eaedfa;--panel:#fff;--primary:#122FB1;
   --dark:#0a1330;--border:#d1d5f0;--text:#1e293b;--muted:#64748b;
@@ -409,7 +409,7 @@ body{{background:var(--bg);font-family:var(--font);color:var(--text);font-size:1
 <body>
 <div class="hdr">
   <div>
-    <div class="hdr-sub">BCOPCore · SPE-AM-001 · DT-Validador v1.0 · Capa 1</div>
+    <div class="hdr-sub">Informix · SPE-AM-001 · DT-Validador v1.0 · Capa 1</div>
     <h1>Reporte de Integridad — Knowledge Base</h1>
     <div class="hdr-ts">Generado: {ts}</div>
   </div>
@@ -452,7 +452,7 @@ if __name__ == "__main__":
 
     result = "FAIL" if errors else "PASS"
     print(f"\n{'='*60}")
-    print(f"  BCOPCore KB Validation — {result}")
+    print(f"  Informix KB Validation — {result}")
     print(f"  {len(errors)} errores · {len(warns)} advertencias · {len(oks)} ok")
     print(f"  Reporte: {out}")
     print(f"{'='*60}\n")

@@ -1,6 +1,6 @@
 # D14 · Banca Electrónica Institucional (BEI) — Plan de Migración de Datos
 
-> **Componente:** BCOPCore · SPE-AM-001 · BUILD → RELEASE Phase
+> **Componente:** Informix · SPE-AM-001 · BUILD → RELEASE Phase
 > **Base de datos:** bdibei
 > **Wave:** Wave 3 · Riesgo: CRÍTICO (batch nómina)
 > **Última actualización:** 2026-08-03

@@ -14,7 +14,7 @@
 | Versión runbook | 1.0 |
 | Última revisión | 2026-07-31 |
 
-> **Nota de verificación:** `fn_formaretiquetaxml` es el SP/función más grande de los dominios D07–D12 con 32,559 LOC. Su lógica de generación de XML para integración con Triad debe validarse en `BCOPCore/source/bdicobranza/` antes de cualquier cambio o análisis de refactorización. Los 43 callees internos no han sido validados exhaustivamente en análisis estático.
+> **Nota de verificación:** `fn_formaretiquetaxml` es el SP/función más grande de los dominios D07–D12 con 32,559 LOC. Su lógica de generación de XML para integración con Triad debe validarse en `Informix/source/bdicobranza/` antes de cualquier cambio o análisis de refactorización. Los 43 callees internos no han sido validados exhaustivamente en análisis estático.
 
 ---
 
@@ -129,13 +129,13 @@ bancoppel.bdicobranza.reestructura.planes_generados    — planes de pago reestr
 
 ```bash
 # Paso 1: revisar el SP y sus 43 callees internos para identificar el punto de falla
-python BCOPCore/digital-brain/brain.py sp "fn_formaretiquetaxml" --show-body --show-callees
+python Informix/digital-brain/brain.py sp "fn_formaretiquetaxml" --show-body --show-callees
 
 # Paso 2: verificar si alguno de los callees depende de cross-DB afectados
-python BCOPCore/digital-brain/brain.py query "fn_formaretiquetaxml callees crossdb dependencies"
+python Informix/digital-brain/brain.py query "fn_formaretiquetaxml callees crossdb dependencies"
 
 # Paso 3: correlacionar con estado de bdinteg y bdicred
-python BCOPCore/digital-brain/brain.py query "bdicobranza xmlgen bdicred bdinteg concurrent errors"
+python Informix/digital-brain/brain.py query "bdicobranza xmlgen bdicred bdinteg concurrent errors"
 ```
 
 **Resolución:**
@@ -154,7 +154,7 @@ python BCOPCore/digital-brain/brain.py query "bdicobranza xmlgen bdicred bdinteg
 
 **Impacto:** clientes con crédito reestructurado reciben planes de pago con fechas incorrectas. Este incidente tiene riesgo regulatorio ante CONDUSEF: una fecha de pago incorrecta entregada al cliente puede derivar en una queja formal. La tolerancia es cero; cualquier error en este SP debe tratarse como incidente de alta prioridad.
 
-> **Verificar antes de escalar:** confirmar en `BCOPCore/source/bdicobranza/` si el SP tiene validaciones de rango de fechas o si existe algún parámetro de calendario que puede haberse desactualizado (feriados bancarios, criterios de días hábiles Banxico).
+> **Verificar antes de escalar:** confirmar en `Informix/source/bdicobranza/` si el SP tiene validaciones de rango de fechas o si existe algún parámetro de calendario que puede haberse desactualizado (feriados bancarios, criterios de días hábiles Banxico).
 
 **Síntomas:**
 - `bancoppel.bdicobranza.godproc.fechapago.errors` > 0 (cero tolerancia)
@@ -165,13 +165,13 @@ python BCOPCore/digital-brain/brain.py query "bdicobranza xmlgen bdicred bdinteg
 
 ```bash
 # Paso 1: revisar la lógica de cálculo de fechas del SP
-python BCOPCore/digital-brain/brain.py sp "sp_generafechpagoreestructura" --show-body --show-callees
+python Informix/digital-brain/brain.py sp "sp_generafechpagoreestructura" --show-body --show-callees
 
 # Paso 2: verificar si el SP depende de tablas de calendario o parámetros que pueden estar desactualizados
-python BCOPCore/digital-brain/brain.py query "sp_generafechpagoreestructura calendar parameters tables"
+python Informix/digital-brain/brain.py query "sp_generafechpagoreestructura calendar parameters tables"
 
 # Paso 3: identificar cuántos registros de reestructura fueron procesados con la fecha incorrecta
-python BCOPCore/digital-brain/brain.py query "bdicobranza reestructura fecha incorrecta volumen impacto"
+python Informix/digital-brain/brain.py query "bdicobranza reestructura fecha incorrecta volumen impacto"
 ```
 
 **Resolución:**
@@ -244,20 +244,20 @@ Post-fix:
 
 ```bash
 # Paso 1: confirmar el estado de bdicred
-python BCOPCore/digital-brain/brain.py query "bdicred health status incidents"
+python Informix/digital-brain/brain.py query "bdicred health status incidents"
 
 # Paso 2: mapear cuáles SPs de bdicobranza dependen de bdicred y en qué flujos
-python BCOPCore/digital-brain/brain.py edges --source bdicobranza --target bdicred --detail
+python Informix/digital-brain/brain.py edges --source bdicobranza --target bdicred --detail
 
 # Paso 3: evaluar si hay flujos de cobranza que pueden ejecutarse sin bdicred (modo degradado)
-python BCOPCore/digital-brain/brain.py query "bdicobranza bdicred independent flows degraded mode"
+python Informix/digital-brain/brain.py query "bdicobranza bdicred independent flows degraded mode"
 ```
 
 **Resolución:**
 
 1. Confirmar con el equipo responsable de bdicred (D03) el estado y ETA de restauración.
 2. Suspender los flujos de gestión que requieren datos de bdicred para evitar errores en cascada hacia otras dependencias (bdimnsj, bdinteg).
-3. Verificar si existen flujos de cobranza que no requieren consultar el estado del crédito en tiempo real y pueden continuar operando; revisar en `BCOPCore/source/bdicobranza/`.
+3. Verificar si existen flujos de cobranza que no requieren consultar el estado del crédito en tiempo real y pueden continuar operando; revisar en `Informix/source/bdicobranza/`.
 4. Una vez bdicred restaurado, reanudar la gestión en orden de prioridad: créditos en mayor nivel de morosidad primero.
 5. Verificar que los 53 cross-DB a bdimnsj (notificaciones) también retoman normalidad, ya que la cobranza genera notificaciones a clientes que pueden haberse encolado.
 
@@ -291,7 +291,7 @@ python BCOPCore/digital-brain/brain.py query "bdicobranza bdicred independent fl
 
 ---
 
-*Generado por BCOPCore — DISCOVER Etapa 1 · BanCoppel Application Modernization · Accenture México*
+*Generado por Informix — DISCOVER Etapa 1 · BanCoppel Application Modernization · Accenture México*
 
 <!-- LOG-DATA-BEGIN -->
 ## Patrones de incidente observados — Logs 2026-04-24

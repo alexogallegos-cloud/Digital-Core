@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-build-sp-fine-mapping.py — BCOPCore SP Fine-Grained Capability Mapping v3.8
+build-sp-fine-mapping.py — Informix SP Fine-Grained Capability Mapping v3.8
 # v3.8 (2026-08-11): Round 26 — sucursal/grupo/noconciliad/msjafore/consaldo + D02→5.4.8
 #   7.1.3  +'sucursal' — D02 sp_valida_sucursal fi=124; zero regression (only NONE SP with sucursal in 7.1.3 domains)
 #   3.3.4  +'grupo' — D06 sp_obtienegrupo fi=174 (grupo crédito grupal); also D01 sp_pm_obtienegrupo fi=0

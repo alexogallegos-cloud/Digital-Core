@@ -1,5 +1,5 @@
 """
-triaje-d13-d16.py — BCOPCore Triaje Regulatorio D13-D16 v1.0
+triaje-d13-d16.py — Informix Triaje Regulatorio D13-D16 v1.0
 ==============================================================
 Añade anotaciones reg + riesgo a las 627 reglas de D13 (TEF),
 D14 (BEI), D15 (LIDE/PLD) y D16 (Tarjetas) que carecen de ellas.

@@ -15,7 +15,7 @@ import json, re, sqlite3, sys, os
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
+        "Application Modernization/BanCoppel/Informix/")
 DB        = BASE + "digital-brain/brain.db"
 AUDIT_IN  = BASE + "knowledge-base/rules/bad-names-audit3.json"
 NANO_PATH = BASE + "knowledge-base/rules/name-overrides-ai.json"

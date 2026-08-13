@@ -1,6 +1,6 @@
 # D15 · LIDE/PLD (Prevención de Lavado de Dinero) — Baseline de Performance
 
-> **Componente:** BCOPCore · SPE-AM-001 · TEST Phase
+> **Componente:** Informix · SPE-AM-001 · TEST Phase
 > **Base de datos:** bdilide
 > **Wave:** Wave 4 · Riesgo: CRÍTICO (regulatorio — PLD/CNBV/SHCP)
 > **Última actualización:** 2026-08-03

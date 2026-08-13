@@ -1,6 +1,6 @@
 # D04 · Cheques / Cuentas — Contratos de API (OpenAPI / AsyncAPI)
 
-> **Componente:** BCOPCore · SPE-AM-001 · DESIGN Phase
+> **Componente:** Informix · SPE-AM-001 · DESIGN Phase
 > **Base de datos:** `bdicheq` → Target: ECS Fargate (JVM) o Lambda SnapStart
 > **Última actualización:** 2026-07-03
 

@@ -15,7 +15,7 @@ from collections import Counter
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
+        "Application Modernization/BanCoppel/Informix/")
 INV = json.load(open(BASE + "knowledge-base/vocabulary-inventory.json", encoding="utf-8"))
 
 BIZ = re.compile(r"bancoppel|afore|banxico|condusef|western|moneygram|coppel|codi|spei|"
@@ -72,9 +72,9 @@ imp1 = sum(r["imp"] for r in tier1)
 imp2 = sum(r["imp"] for r in tier2)
 imp3 = sum(r["imp"] for r in tier3)
 
-md = f"""# BCOPCore · Lista de Validación SME — Vocabulario
+md = f"""# Informix · Lista de Validación SME — Vocabulario
 
-> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Extraction
+> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Extraction
 > **Para:** sesión HITL con Domain Expert / DBA de BanCoppel · **Generado:** 2026-07-03
 
 Términos del vocabulario **sin evidencia dura** (no confirmados por código, SME ni fuente de negocio), ordenados por **impacto** = frecuencia con que aparecen (cuántos SPs se interpretan mal si la hipótesis es incorrecta).

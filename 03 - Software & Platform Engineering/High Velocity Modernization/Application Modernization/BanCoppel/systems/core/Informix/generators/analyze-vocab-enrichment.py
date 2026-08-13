@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-analyze-vocab-enrichment.py — Análisis exhaustivo del vocabulario BCOPCore.
+analyze-vocab-enrichment.py — Análisis exhaustivo del vocabulario Informix.
 
 Genera output/vocab-enrichment-analysis.md con 5 secciones:
   1. UPGRADE_CANDIDATES — términos inf/gap con alta evidencia en el knowledge base
@@ -10,7 +10,7 @@ Genera output/vocab-enrichment-analysis.md con 5 secciones:
   4. Top 30 tokens frecuentes faltantes en vocabulario
   5. Top 20 definiciones con oportunidad de enriquecimiento
 
-SPE-AM-001 · BanCoppel BCOPCore · Etapa 3 · 2026-08-04
+SPE-AM-001 · BanCoppel Informix · Etapa 3 · 2026-08-04
 """
 
 import os, sys, re, sqlite3
@@ -33,7 +33,7 @@ cur  = conn.cursor()
 
 import io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-print("BCOPCore Vocab Enrichment Analysis - SPE-AM-001")
+print("Informix Vocab Enrichment Analysis - SPE-AM-001")
 print("=" * 55)
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -519,7 +519,7 @@ lines = []
 def w(*args):
     lines.append(" ".join(str(a) for a in args))
 
-w("# Análisis de Enriquecimiento del Vocabulario BCOPCore")
+w("# Análisis de Enriquecimiento del Vocabulario Informix")
 w()
 w("> **Proyecto**: SPE-AM-001 — BanCoppel Application Modernization  ")
 w("> **Fecha**: 2026-08-04  ")

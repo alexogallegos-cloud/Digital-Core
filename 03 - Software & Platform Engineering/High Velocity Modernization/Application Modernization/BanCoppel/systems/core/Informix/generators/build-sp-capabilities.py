@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-build-sp-capabilities.py — BCOPCore SP→Capability Mapping v1.0
+build-sp-capabilities.py — Informix SP→Capability Mapping v1.0
 
 Construye la tabla de mapping SP ↔ ETB L3 usando la cadena:
   sps.domain → domain_capabilities.domain_id → etb_l3
@@ -18,7 +18,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 
 BCOP = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore")
+        "Application Modernization/BanCoppel/Informix")
 DB      = f"{BCOP}/digital-brain/brain.db"
 OUT_JSON = f"{BCOP}/portal/data/capability-sp-mapping.json"
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-build-decoupling-cost.py — BCOPCore Decoupling Cost Generator v1.3
+build-decoupling-cost.py — Informix Decoupling Cost Generator v1.3
 Calcula el costo de desacoplamiento de Informix por SP y dominio.
 Tecnología-agnóstico: no asume destino (Unity / AWS / nativo).
 

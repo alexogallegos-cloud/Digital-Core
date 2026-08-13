@@ -14,8 +14,8 @@ from collections import Counter, defaultdict
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
-SRC = BASE + "source/BCOPCore/informix/"
+        "Application Modernization/BanCoppel/Informix/")
+SRC = BASE + "source/informix/"
 
 DOM = {"bdicnweb":("d01","Canal Digital"),"bdinteg":("d02","Integración/Auth"),
  "bdicred":("d03","Créditos"),"bdicheq":("d04","Cheques/Cuentas"),"bdisac":("d05","Saldos"),
@@ -134,7 +134,7 @@ proj_rows = "".join(f'<span class="chip">{p} <b>{c}</b></span>' for p, c in DATA
 
 HTML = f"""<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>BCOPCore · Mapa de las Almas (Gemelo Cognitivo · Capa 2)</title>
+<title>Informix · Mapa de las Almas (Gemelo Cognitivo · Capa 2)</title>
 <style>
 :root{{--bg:#0a1330;--bg2:#0d1a3d;--panel:#132152;--line:#26317c;--blue:#3D5FCD;--blued:#122FB1;--yellow:#F0D224;--txt:#EAEDF7;--muted:#9aa4c4;--muted2:#818ab0}}
 *{{box-sizing:border-box;margin:0;padding:0}}

@@ -503,7 +503,7 @@ footer{{text-align:center;padding:32px 0 10px;font-size:10px;color:var(--muted2)
 <!-- ── Intro ─────────────────────────────────────────── -->
 <div id="intro">
   <div class="breadcrumb">
-    <a href="index-bcop-v2.html">BCOPCore</a>
+    <a href="index-bcop-v2.html">Informix</a>
     <span class="sep">›</span>
     <a href="capability-model-bcop-v2.html">Capacidades ETB</a>
     <span class="sep">›</span>

@@ -1,7 +1,7 @@
 ﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-build-vocab-inventory.py — Inventario de términos del vocabulario BCOPCore.
+build-vocab-inventory.py — Inventario de términos del vocabulario Informix.
 Clasifica cada término como ATÓMICO (num) o COMPUESTO (numcte), con:
   frecuencia real en el corpus (3,761 SPs: nombres + parámetros),
   evidencia de parámetros, descomposición y NIVEL DE CONFIABILIDAD.
@@ -16,8 +16,8 @@ from sp_vocab import CAT, KEYS
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
-SRC = BASE + "source/BCOPCore/informix/"
+        "Application Modernization/BanCoppel/Informix/")
+SRC = BASE + "source/informix/"
 CG = json.load(open(BASE + "portal/data/callgraph-data.json", encoding="utf-8"))
 nodes = CG["graph"]["nodes"]
 RE_SIG = re.compile(r"CREATE\s+(?:PROCEDURE|FUNCTION)\s+[^\(]*\(([^;]*?)\)\s*RETURNING", re.I | re.S)
@@ -176,9 +176,9 @@ json.dump(out, open(BASE + "knowledge-base/vocabulary-inventory.json", "w", enco
 NIV = {"ALTA": "🟢 Alta", "MEDIA": "🟡 Media", "AMBIGUA": "🔴 Ambigua", "CANDIDATO": "⚪ Candidato"}
 CATL = {"PREFIJO": "prefijo", "ACCION": "acción", "ENTIDAD": "entidad",
         "MODIF": "modificador", "REG": "regulatorio", "AMBIGUO": "ambiguo"}
-L = ["# BCOPCore · Inventario de Términos del Vocabulario",
+L = ["# Informix · Inventario de Términos del Vocabulario",
  "",
- "> **Componente:** BCOPCore · SPE-AM-001 · Etapa 3 — Business Logic Extraction  ",
+ "> **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Extraction  ",
  "> **Corpus:** 3,761 SPs conectados (nombres + parámetros del código fuente) · **Vocabulario:** `sp_vocab.py`  ",
  "> **Generado:** 2026-07-03 por `build-vocab-inventory.py`  ",
  "",

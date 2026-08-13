@@ -1,7 +1,7 @@
 ﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-extract-dataflow.py — Scope / data-flow del vocabulario BCOPCore.
+extract-dataflow.py — Scope / data-flow del vocabulario Informix.
 v2: 10 tipos de scope.
 
   PERSISTE-BD     Aparece en INSERT/UPDATE/DELETE — el BC que escribe es el owner
@@ -35,8 +35,8 @@ import sp_vocab
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
-SRC = BASE + "source/BCOPCore/informix/"
+        "Application Modernization/BanCoppel/Informix/")
+SRC = BASE + "source/informix/"
 CG  = json.load(open(BASE + "portal/data/callgraph-data.json", encoding="utf-8"))
 
 # ── patrones de extraccion ──
@@ -265,7 +265,7 @@ def top_terms(scope_type, n=20):
                   key=lambda r: -sum(r.get("scope_counts", {}).values()))[:n]
 
 L = [
-    "# BCOPCore - Scope del Vocabulario (10 tipos)",
+    "# Informix - Scope del Vocabulario (10 tipos)",
     "",
     f"> **Corpus:** {n_sp:,} SPs analizados  ",
     f"> **Identificadores:** "
