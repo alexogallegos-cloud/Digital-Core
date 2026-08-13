@@ -20,9 +20,7 @@ from pathlib import Path
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-BASE = Path("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
-            "03 - Software & Platform Engineering/High Velocity Modernization/"
-            "Application Modernization/BanCoppel/BCOPCore")
+BASE       = Path(__file__).resolve().parent.parent
 SOURCE_DIR = BASE / "source" / "BCOPCore" / "informix"
 DB_PATH    = BASE / "digital-brain" / "brain.db"
 
