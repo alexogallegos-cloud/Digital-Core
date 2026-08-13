@@ -1,29 +1,61 @@
-# D44-bdirech - Knowledge Base Placeholder
-> **Dominio**: Rechazos
+# D44-bdirech — Conciliación Operativa / Confirmación a Sucursal
+> **Dominio**: Conciliación Operativa — Confirmación de transacciones a sucursal
 > **Base de datos Informix**: bdirech
-> **Archivos fuente**: 4 SPs en source/BCOPCore/informix/bdirech/
-> **Estado**: [PENDIENTE ANALISIS] -- carpeta creada, contenido por generar
-> **Prioridad**: BAJA
-> **Incorporado al scope**: 2026-08-03
+> **Estado**: [DISCOVER ETAPA 1 — caracterización inicial completa] · 2026-08-12
+> **Prioridad**: ALTA — 77 SPs · 5 ESB-exposed · cierre diario crítico
 
 ---
 
-## Descripcion
+## Descripción de Negocio
 
-Rechazos. Tiene 4 stored procedures en el codigo fuente de BCOPCore.
+Gestiona el proceso de **confirmación y conciliación de transacciones hacia las sucursales** BanCoppel. Los SPs coordinan el ciclo de cierre diario: confirma operaciones realizadas en sucursal, consulta confirmaciones anteriores, y registra el estado de conciliación. Tiene dependencia directa con los SPs de intercard (D16) y con el sistema de caja (D46-bdiofi).
 
-## Estado de Artefactos
+Nombre probable: **bdirech** = "Base de Datos de RECHazos" o "REConciliación CHecks". Los SPs `confalsuc` = "confirmación al sucursal".
 
-Todos los 21 archivos de knowledge base estan pendientes de generacion.
-Seguir el template de D01-bdicnweb como referencia.
+## Estadísticas (brain.db · 2026-08-12)
 
-## Proximos Pasos
+| Métrica | Valor |
+|---------|-------|
+| SPs totales | 77 |
+| Reglas extraídas | 465 |
+| SBVR formal | 0 (Layer C+ pendiente) |
+| ESB-exposed | 5 (cierre diario omnicanal) |
+| CTM batch | 0 (detectado por sp_hints, sin CTM_ENTRY aún) |
 
-1. Ejecutar scatter-gather sobre los 4 SPs con Specialist -- Informix SPL Analysis
-2. Generar los 21 archivos de KB siguiendo el template de D01-D16
-3. Actualizar knowledge-base/cross-reference/ con reglas y SPs de este dominio
-4. Registrar riesgos de equivalencia en 05-risks.md
+## SPs ESB-Exposed (Journeys candidatos)
+
+| SP | Descripción funcional | Riesgo |
+|----|----------------------|--------|
+| `spactsdoconfalsuc` | Actualiza estado de confirmación al sucursal | ESTADO — integridad del cierre; race condition en target si no hay lock |
+| `spconantconfalsuc` | Consulta confirmaciones anteriores a sucursal | — |
+| `spconconfalsuc_web` | Consulta confirmaciones a sucursal (canal web) | — |
+| `spconsultarcatestatus` | Consulta catálogo de status de conciliación | — |
+| `spgrabarconfalsuc` | Graba confirmación al sucursal | ESTADO — escritura concurrente; revisión de serialización |
+
+## Riesgos de Migración Clave
+
+| Riesgo | Descripción |
+|--------|-------------|
+| Cierre diario | Proceso crítico de negocio; ventana de cierre < 2h; SLO target debe replicar performance Informix |
+| Race condition | `spactsdoconfalsuc` + `spgrabarconfalsuc` pueden correr concurrentes; PostgreSQL SERIALIZABLE vs Informix |
+| Reconciliation gap | 465 reglas contienen lógica de reconciliación; equivalencia funcional obligatoria en parallel-run |
+| Cross-domain | Dependencias con D16-intercard (tarjetas) y D46-bdiofi (caja sucursal); mapping requerido |
+
+## Diagnóstico de Dominio
+
+- **Tipo TOGAF**: processors (orquesta el cierre transaccional)
+- **Sistema de**: record (confirmaciones son fuente de verdad para cuadre de caja)
+- **sp_archetype**: mix de orchestrator + implementation
+- **Ventana de operación**: batch nocturno + consultas web día
+
+## Próximos Pasos
+
+1. Ejecutar Layer C+ SBVR sobre 465 reglas — detectar lógica de conciliación MONEY/DIV
+2. Mapear dependencias cross-domain: D16 (intercard), D46 (caja), D10 (sucursal)
+3. Agregar SPs ESB-exposed a `journeys-data.json` como journeys D44
+4. Diseñar test de equivalencia: comparar cuadre de caja legacy vs target por N días
+5. Crear `05-risks.md` con riesgo de cierre y race condition
 
 ---
 
-*Placeholder creado 2026-08-03 - BCOPCore scope expansion D01-D49*
+*Actualizado 2026-08-12 — DISCOVER Etapa 1 · Brain-First characterization*
