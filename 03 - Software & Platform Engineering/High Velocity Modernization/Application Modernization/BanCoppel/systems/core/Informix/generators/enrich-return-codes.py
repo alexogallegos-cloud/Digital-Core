@@ -34,6 +34,12 @@ _GENERIC_RE = re.compile(
     re.I
 )
 
+# Generic patterns for EXCEPCIÓN rules that need backward-IF enrichment
+_EXCEPCION_GENERIC_RE = re.compile(
+    r'^(lanzar error|raise exception)',
+    re.I
+)
+
 # ── Source file resolution ────────────────────────────────────────────────────
 
 _src_cache: dict[str, list[str] | None] = {}
@@ -280,6 +286,85 @@ def main():
     print(f"  not found (no IF ctx)   : {not_found:>5}")
     print(f"Net enriched               : {enriched:>5}")
     print(f"Catalog codes written      : {len(catalog_out):>5}")
+
+    conn.close()
+    enrich_exceptions()
+
+
+# ── EXCEPCIÓN enrichment ──────────────────────────────────────────────────────
+
+def enrich_exceptions():
+    """
+    Enrich EXCEPCIÓN rules whose business_name is still generic ('Lanzar error*').
+    Backward-searches the triggering IF/ELIF condition and sets:
+      business_name = "EXCEPCIÓN: [condition]"
+
+    Skips rules that already have a descriptive name (e.g. 'propaga error al ejecutar...').
+    """
+    conn = sqlite3.connect(BRAIN)
+    conn.row_factory = sqlite3.Row
+
+    rows = conn.execute('''
+        SELECT id, sp, db, line, code, business_name
+        FROM rules
+        WHERE sub_tipo = "EXCEPCIÓN"
+        ORDER BY db, sp, line
+    ''').fetchall()
+
+    total   = len(rows)
+    generic = 0
+    enriched_exc = 0
+    not_found_exc = 0
+    updates: list[tuple[str, str]] = []
+
+    for row in rows:
+        rule_id = row['id']
+        biz     = row['business_name'] or ''
+
+        if not _EXCEPCION_GENERIC_RE.match(biz.strip()):
+            continue   # already has a descriptive name — skip
+
+        generic += 1
+        sp   = row['sp']
+        db   = row['db']
+        line_no = row['line']
+
+        lines = load_source(db, sp)
+        if not lines:
+            not_found_exc += 1
+            continue
+
+        idx = line_no - 1   # 0-based
+        condition = find_trigger_condition(lines, idx) if 0 <= idx < len(lines) else None
+
+        if condition:
+            new_biz = f"EXCEPCIÓN: {condition}"
+            enriched_exc += 1
+            updates.append((new_biz, rule_id))
+            def _p(s): return s.encode('ascii', 'replace').decode()
+            print(f"  EXC {rule_id}  {sp}")
+            print(f"    was: {_p(biz)}")
+            print(f"    now: {_p(new_biz)}")
+        else:
+            not_found_exc += 1
+
+    if APPLY and updates:
+        print(f"\nApplying {len(updates)} EXCEPCIÓN updates to brain.db ...")
+        for new_biz, rule_id in updates:
+            conn.execute(
+                'UPDATE rules SET business_name = ? WHERE id = ?',
+                (new_biz, rule_id)
+            )
+        conn.commit()
+        print("Done.")
+    elif updates:
+        print(f"\n[DRY-RUN] Would update {len(updates)} EXCEPCION rules. Run with --apply.")
+
+    print("\n=== EXCEPCION ENRICHMENT SUMMARY ===")
+    print(f"Total EXCEPCION rules      : {total:>5}")
+    print(f"Generic (needed enrichment): {generic:>5}")
+    print(f"  enriched via IF condition: {enriched_exc:>5}")
+    print(f"  no IF context found      : {not_found_exc:>5}")
 
     conn.close()
 
