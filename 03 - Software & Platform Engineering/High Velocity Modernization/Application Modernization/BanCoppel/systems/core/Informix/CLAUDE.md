@@ -201,7 +201,7 @@ Todo hallazgo extraído de `source/logs/` tiene dos destinos en paralelo:
 | Patrón de incidente / stuck state | `knowledge-base/D{NN}/21-observability-runbook.md` | — |
 | Riesgo de migración | `knowledge-base/migration-risk-register.md` | — |
 
-**Estado métricas de producción en brain.db (verificado 2026-08-03):** las columnas `sps.prod_calls_day` y `sps.prod_evidence_date` están presentes — 552 SPs tienen métricas de producción con evidencia ESB 2026-04-24. Gap pendiente: columnas en tabla `external_systems` (`error_codes`, `failure_rate`, `timeout_ms`) aún no existen.
+**Estado métricas de producción en brain.db (verificado 2026-08-03):** las columnas `sps.prod_calls_day` y `sps.prod_evidence_date` están presentes — 552 SPs tienen métricas de producción con evidencia ESB 2026-04-24. Gap cerrado 2026-08-12: columnas `error_codes`, `failure_rate`, `timeout_ms` añadidas a `external_systems` en `build-brain.py`; se populan desde `integrations-data.json` si el campo existe.
 
 **Regla de trazabilidad:** todo dato incorporado desde logs debe indicar fuente y fecha de evidencia — nunca mezclar datos de análisis estático con observaciones de producción en la misma celda de una tabla.
 
@@ -221,6 +221,66 @@ Todo hallazgo extraído de `source/logs/` tiene dos destinos en paralelo:
 
 ---
 
+---
+
+## PIPELINE CANÓNICO DE REBUILD — BCOPBrain
+
+Secuencia idempotente para reconstruir `digital-brain/brain.db` desde cero. Cada paso preserva los marks de los pasos anteriores.
+
+```
+# ── Paso 1: Brain base (siempre primero) ──────────────────────────────────────
+python digital-brain/build-brain.py
+# Produce: sps (12,812), edges, journeys, rules, terms, vocabulary, sp_capabilities,
+#          sp_archetype=estructural (fan_in/fan_out), batch_archetype=CTM_HINT para ~18 SPs
+#          (via mark_ctm_hints → lee CTM brain.db adjunto si existe)
+
+# ── Paso 2: Arquetipos por análisis de código fuente ──────────────────────────
+python digital-brain/classify-batch.py
+# Produce: batch_analysis (14 cols), batch_archetype=contenido (FILE_LOADER/DATA_MAINT/…)
+# PRESERVA: batch_archetype=CTM_HINT del paso 1
+# SOBREESCRIBE: batch_archetype de contenido en el resto
+
+# ── Paso 3: CTM entry points (requiere source/controlm/*.xls) ────────────────
+python generators/load-ctm-to-brain.py
+# Produce: ctm_jobs, batch_archetype=CTM_ENTRY para ~87 SPs matcheados por nombre
+# PRESERVA: batch_archetype IN (CTM_ENTRY, CTM_HINT)
+# SOBREESCRIBE: batch_archetype de contenido en SPs CTM confirmados
+
+# ── Paso 4: Enriquecimiento D17-D49 ──────────────────────────────────────────
+python generators/enrich-d17-d49.py
+# Produce: UPDATE sps.biz para SPs D17-D49 sin descripción + INSERT rules
+# No toca archetypes — siempre idempotente en cualquier orden post-paso 1
+
+# ── Paso 5: ETB fine-mapping (solo cuando cambian capacidades — ~30 min) ─────
+python generators/build-sp-fine-mapping.py
+# Produce: tabla sp_capability_map en brain.db
+# NOTA: la siguiente vez que corra build-brain.py, merge_fine_capabilities() 
+#       la incorporará automáticamente vía INSERT OR IGNORE en sp_capabilities
+
+# ── Paso 6: Output de análisis ────────────────────────────────────────────────
+python generators/build-decoupling-cost.py    # → portal/data/decoupling-cost.json
+```
+
+### Reglas de preservación de marks
+
+| Mark | Fuente | Preservado por |
+|------|--------|----------------|
+| `CTM_HINT` | `build-brain.py:mark_ctm_hints()` vía CTM brain.db | `classify-batch.py` (CASE WHEN) |
+| `CTM_ENTRY` | `load-ctm-to-brain.py` vía Excel CTM | No sobreescrito por pasos posteriores |
+| Arquetipos de contenido | `classify-batch.py` (FILE_LOADER/DATA_MAINT/…) | Se regeneran en cada corrida |
+
+### Scripts de generación de datos (pre-requisitos del paso 1)
+
+Los archivos JSON en `portal/data/` y `knowledge-base/` son **inputs** de `build-brain.py`, no outputs. Se generan con scripts separados cuando cambia el conocimiento:
+
+| JSON / KB | Script generador |
+|-----------|-----------------|
+| `portal/data/callgraph-data.json` | `generators/mine-source.py` → `generators/extract-journeys.py` → `generators/build-catalog.py` |
+| `portal/data/journeys-data.json` | `generators/extract-journeys.py` |
+| `portal/data/business-rules-v3.json` | `generators/extract-rules.py` → olas de enriquecimiento (ola-a/b/c/d-enrich.py, enrich-rules-v3.py) |
+| `knowledge-base/vocabulary-inventory.json` | `generators/build-vocab-inventory.py` |
+| `portal/data/integrations-data.json` | manual / `generators/build-sp-architecture.py` |
+
 **Component Spec:** [spec-spe-am-bcop-core.md](spec-spe-am-bcop-core.md) — especificación del componente BCOPCore siguiendo §16 DC Universal Rules.
 
-*Última actualización: 2026-08-12 · v1.9.0: **triaje regulatorio D17-D49** — `triaje-d17-d49.py` eleva cobertura reg D17-D49 de 59% → **100%** (1,216/1,216); 515 referencias nuevas (CONSAR D20/AFORE, CNBV-Serie-R D36/Repaut, Banxico-UDI D41/Corresponsalía, CNBV-LRSIC D24/Buró, CNBV-PLD D25/Sitio-Especial, 21 dominios con defaults); 485 riesgos nuevos (FX D36, UDI D41, MONEY/DIV/ROUND transversal); portal regenerado (rules-catalog-bcop.html 2,798 grupos, 8,955 reglas 100% reg D17-D49). v1.8.0: **clasificación por naturaleza (barrido total)** — `classify-rule-nature.py` añade el campo `clase` ortogonal a `tipo`, distinguiendo 6,819 reglas de NEGOCIO genuinas (76%) de 2,136 no-negocio (1,958 INFRAESTRUCTURA shell/dbaccess/AIX · 101 ENSAMBLAJE_REPORTE SQL dinámico · 77 PRESENTACION); validado contra código fuente 99.98% (2/8,955 discrepancias); portal con filtro de clase + hero "Reglas de negocio". Hallazgo: el regex FÓRMULA capturaba ensamblaje de strings (cCmd/vsql/echo/UNLOAD) como si fueran fórmulas financieras; ahora separado. v1.7.0: **análisis vocab-anchored D17-D49** — `extract-rules-d17-d49.py` reemplaza las 25,165 reglas crudas IF/THEN por 1,216 reglas de negocio genuinas (797 FÓRMULA · 389 VALIDACIÓN · 30 UMBRAL; reg 59% · riesgo 36%), misma maquinaria que D01-D16; total catálogo 8,955 reglas (7,739 D01-D16 + 1,216 D17-D49); portal 2,798 grupos; hallazgo clave: cálculos ISR/interés en D28 Inversiones con riesgo base-año 360/365, inventario de tarjetas D18 vía DBACCESS shell/AIX. triaje-d17-d49.py movido a old/ (superseded). v1.6.2: Layer C+ SBVR D13-D16 aplicado — 209 reglas nuevas clasificadas (IVA, DBACCESS, PII-tarjeta, Cross-DB ref, códigos de error, FX); SBVR formal total: 1,012 (511 D01-D12 + 501 D13-D16); cobertura D16 88%. v1.6.1: BCOPBrain referencias corregidas — sp_capabilities 74,211 links (88.7% cobertura) · CTM_ENTRY=87 · CTM_HINT=18 · SBVR formal verificado 803 reglas D01-D12. v1.6.0: D17-D49 cargados en brain.db — 12,812 SPs totales (1,421 nuevos) · 32,904 reglas · 97.6% biz · ETB L3 68.5% fine-mapped · load-missing-domains.py (INSERT-capable para 19 dominios ausentes). v1.5.0 (2026-08-10): Layer B+ `business_name` enrichment — 1,883/1,969 nombres débiles mejorados con heurísticas SPL (enrich-names-local.py); 8,005 reglas (dedup definitivo); sp_capabilities 164,931 links (pre-rebuild). v1.4.0: 8,005 extraídas (mapping BDs secundarias corregido — 5,543 labels arreglados, 7 DBs sin cobertura añadidas); SPs actualizados a 11,391. v anterior 2026-08-07: Ontología v3.9 · 3 nuevos DTs inferencia: DT-Operacional-Batch, DT-Regulatorio, DT-Catálogo-Errores; total: 14 DTs · 17 SMEs*
+*Última actualización: 2026-08-12 · v2.0.0: **pipeline canónico documentado + idempotencia corregida** — sección PIPELINE CANÓNICO DE REBUILD; `classify-batch.py` preserva CTM_HINT (CASE WHEN); `load-ctm-to-brain.py` overrides batch_archetype no-CTM (condición NOT IN); `external_systems` enriquecida con `error_codes`/`failure_rate`/`timeout_ms`; `build-sp-detail-pages.py` BASE path corregido (portal/generators/ → BCOPCore/). v1.9.0: **triaje regulatorio D17-D49** — `triaje-d17-d49.py` eleva cobertura reg D17-D49 de 59% → **100%** (1,216/1,216); 515 referencias nuevas (CONSAR D20/AFORE, CNBV-Serie-R D36/Repaut, Banxico-UDI D41/Corresponsalía, CNBV-LRSIC D24/Buró, CNBV-PLD D25/Sitio-Especial, 21 dominios con defaults); 485 riesgos nuevos (FX D36, UDI D41, MONEY/DIV/ROUND transversal); portal regenerado (rules-catalog-bcop.html 2,798 grupos, 8,955 reglas 100% reg D17-D49). v1.8.0: **clasificación por naturaleza (barrido total)** — `classify-rule-nature.py` añade el campo `clase` ortogonal a `tipo`, distinguiendo 6,819 reglas de NEGOCIO genuinas (76%) de 2,136 no-negocio (1,958 INFRAESTRUCTURA shell/dbaccess/AIX · 101 ENSAMBLAJE_REPORTE SQL dinámico · 77 PRESENTACION); validado contra código fuente 99.98% (2/8,955 discrepancias); portal con filtro de clase + hero "Reglas de negocio". Hallazgo: el regex FÓRMULA capturaba ensamblaje de strings (cCmd/vsql/echo/UNLOAD) como si fueran fórmulas financieras; ahora separado. v1.7.0: **análisis vocab-anchored D17-D49** — `extract-rules-d17-d49.py` reemplaza las 25,165 reglas crudas IF/THEN por 1,216 reglas de negocio genuinas (797 FÓRMULA · 389 VALIDACIÓN · 30 UMBRAL; reg 59% · riesgo 36%), misma maquinaria que D01-D16; total catálogo 8,955 reglas (7,739 D01-D16 + 1,216 D17-D49); portal 2,798 grupos; hallazgo clave: cálculos ISR/interés en D28 Inversiones con riesgo base-año 360/365, inventario de tarjetas D18 vía DBACCESS shell/AIX. triaje-d17-d49.py movido a old/ (superseded). v1.6.2: Layer C+ SBVR D13-D16 aplicado — 209 reglas nuevas clasificadas (IVA, DBACCESS, PII-tarjeta, Cross-DB ref, códigos de error, FX); SBVR formal total: 1,012 (511 D01-D12 + 501 D13-D16); cobertura D16 88%. v1.6.1: BCOPBrain referencias corregidas — sp_capabilities 74,211 links (88.7% cobertura) · CTM_ENTRY=87 · CTM_HINT=18 · SBVR formal verificado 803 reglas D01-D12. v1.6.0: D17-D49 cargados en brain.db — 12,812 SPs totales (1,421 nuevos) · 32,904 reglas · 97.6% biz · ETB L3 68.5% fine-mapped · load-missing-domains.py (INSERT-capable para 19 dominios ausentes). v1.5.0 (2026-08-10): Layer B+ `business_name` enrichment — 1,883/1,969 nombres débiles mejorados con heurísticas SPL (enrich-names-local.py); 8,005 reglas (dedup definitivo); sp_capabilities 164,931 links (pre-rebuild). v1.4.0: 8,005 extraídas (mapping BDs secundarias corregido — 5,543 labels arreglados, 7 DBs sin cobertura añadidas); SPs actualizados a 11,391. v anterior 2026-08-07: Ontología v3.9 · 3 nuevos DTs inferencia: DT-Operacional-Batch, DT-Regulatorio, DT-Catálogo-Errores; total: 14 DTs · 17 SMEs*

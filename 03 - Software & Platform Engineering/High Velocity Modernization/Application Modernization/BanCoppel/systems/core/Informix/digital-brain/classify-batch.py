@@ -328,8 +328,11 @@ except Exception:
 
 conn.execute('''
     UPDATE sps SET
-        batch_archetype = (SELECT b.archetype FROM batch_analysis b
-                           WHERE b.db = sps.db AND b.sp_name = sps.name),
+        batch_archetype = CASE
+            WHEN batch_archetype = 'CTM_HINT' THEN 'CTM_HINT'
+            ELSE (SELECT b.archetype FROM batch_analysis b
+                  WHERE b.db = sps.db AND b.sp_name = sps.name)
+        END,
         sp_archetype    = (SELECT b.archetype FROM batch_analysis b
                            WHERE b.db = sps.db AND b.sp_name = sps.name)
     WHERE EXISTS (

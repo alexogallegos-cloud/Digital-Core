@@ -227,7 +227,8 @@ def main():
     updated_arch = 0
     for sp_id in matched_sps:
         r = conn.execute(
-            "UPDATE sps SET batch_archetype='CTM_ENTRY' WHERE id=? AND (batch_archetype IS NULL OR batch_archetype='')",
+            "UPDATE sps SET batch_archetype='CTM_ENTRY' WHERE id=? "
+            "AND (batch_archetype IS NULL OR batch_archetype NOT IN ('CTM_ENTRY', 'CTM_HINT'))",
             (sp_id,)
         )
         updated_arch += r.rowcount
