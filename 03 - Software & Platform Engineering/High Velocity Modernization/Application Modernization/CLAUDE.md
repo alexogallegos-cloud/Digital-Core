@@ -383,6 +383,84 @@ La regla opera en tres pasos:
 
 **Indicador de cumplimiento:** en cada sesión donde se descubra una relación cross-sistema, el commit debe incluir cambios en al menos 2 archivos (`build-brain.py` del descubridor + `build-brain.py` o `CLAUDE.md` del receptor).
 
+### Regla B11 — Seed Generation (Cross-Brain Seeding)
+
+Todo `build-brain.py` genera activamente evidencia estructurada —**seeds**— para cada sistema con el que tiene relaciones conocidas. El seed es el bootstrap del brain receptor: permite que el receptor arranque con conocimiento real del emisor antes de tener su propio código fuente.
+
+**Diferencia con B8-B10:** B8 dice "un artefacto operativo prueba la existencia". B9 dice "abre la estructura inmediatamente". B10 dice "propaga lo que encuentres". B11 dice: **"al terminar tu build, emite activamente evidencia para todos tus vecinos"** — es push, no pull. Es la automatización de B10 al nivel de pipeline.
+
+**Qué genera el seed:**
+
+| Campo | Contenido |
+|-------|-----------|
+| `source_system` | Sistema emisor (ej. `informix`) |
+| `target_system` | Sistema receptor (ej. `western-union`) |
+| `relationship` | `calls \| feeds \| orchestrates \| reads \| writes \| notifies` |
+| `evidence.component_count` | Cuántos componentes del emisor tienen la relación |
+| `evidence.components` | Lista de IDs (SPs, jobs, APIs) del emisor con esa relación |
+| `evidence.volume` | Volumetría conocida (N endpoints, N jobs, N llamadas/día) |
+| `evidence.domains` | Dominios del emisor involucrados (ej. `["D09", "D10"]`) |
+| `evidence.regulation` | Regulación aplicable a la relación (heredada del emisor) |
+| `evidence.origin_artifact` | Artefacto fuente del descubrimiento (`brain.db::external_systems`, `source/ops/ctm.xls`) |
+| `generated_at` | ISO date del build |
+| `source_version` | Versión del brain emisor |
+
+**Formato canónico del seed:**
+
+```json
+{
+  "source_system": "{emisor}",
+  "source_togaf_type": "core | processors | channels | data | integration | compliance",
+  "target_system": "{receptor}",
+  "target_togaf_type": "...",
+  "generated_at": "YYYY-MM-DD",
+  "source_version": "vX.Y.Z",
+  "relationship": "feeds",
+  "evidence": {
+    "component_count": 343,
+    "components": [{"id": "...", "name": "...", "domain": "..."}],
+    "volume": 343,
+    "domains": ["D09"],
+    "regulation": ["Banxico SPEI"],
+    "origin_artifact": "digital-brain/brain.db::external_systems"
+  }
+}
+```
+
+**Estructura de salida del emisor:**
+
+```
+{sistema}/digital-brain/seeds/
+├── manifest.json            ← índice: qué sistemas sembró, cuándo, N evidencias
+└── {receptor}-seed.json     ← un archivo por sistema receptor
+```
+
+**Quién produce los seeds:**
+
+- `generators/generate-seeds.py` — script independiente que lee `brain.db` y escribe `digital-brain/seeds/`
+- Se ejecuta al final de todo `build-brain.py` run (idempotente — refleja el estado actual)
+- Cada reconstrucción del brain recalcula los seeds automáticamente
+
+**Quién consume los seeds:**
+
+- El `build-brain.py` del receptor los lee en la sección de inicialización: primero levanta lo que sabe de su propio código/config, después aplica los seeds de sistemas emisores como capa de enriquecimiento.
+- `bank-brain` indexa todos los seeds via `ATTACH` para una vista global de relaciones descubiertas por toda la flota de brains.
+- Una seed sin brain receptor activo va a `CLAUDE.md` del receptor como sección `## Seeds Recibidos` hasta que su brain se construya.
+
+**Fuentes de señal que generan seeds (no exhaustivo):**
+
+| Fuente en brain.db | Genera seeds para |
+|--------------------|-------------------|
+| `external_systems` | Cada sistema externo con `total_endpoints > 0` |
+| `cross_dependencies` | Sistemas con dependencia declarada (ambas direcciones) |
+| `ctm_jobs` | El orquestador CTM + sistemas con jobs dedicados |
+| `sps.db` con ATTACH cross-DB | DBs del mismo cliente que no son el propio |
+| `rules` con reg references | Reguladores (CNBV, Banxico, GAFI) como sistemas compliance |
+
+**Instancia de referencia:** BCOPCore Informix → `generators/generate-seeds.py` siembra 18+ sistemas: App Móvil, Banca Internet, SPEI, CoDi, Cajero/ATM, Western Union, MoneyGram, Buró de Crédito, SAT, CNBV, UIF/PLD, Nómina Coppel, PROSA, Domiciliación, IPAB, ControlM, DataStage.
+
+**Invariante:** los seeds son evidencia, no configuración. No reemplazan el código fuente del receptor ni sus propias reglas. Son el punto de partida mínimo para que el brain receptor sepa que existe y con quién se relaciona, incluso antes de ver su primer línea de código.
+
 ### Regla B7 — Capability gap como gate de decommission
 
 Antes de cualquier decommission de un sistema legacy (ej: apagar PISA/Informix), `bank-brain.capability_gap()` debe retornar **cero capabilities sin cobertura** — o bien cada L3 sin cobertura tiene un `[BREAK-GLASS]` firmado con owner del riesgo. El gap es la validación técnica de que todos los comportamientos del legacy han sido absorbidos por los sistemas target.
