@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Malla Batch — Control-M · BCOPCore</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#3D5FCD;--blued:#122FB1;--bluedd:#0d2185;--yellow:#F0D224;
+  --ink:#F4F6FF;--muted:#aab3d4;--muted2:#818ab0;
+  --glass:rgba(255,255,255,.055);--glassb:rgba(255,255,255,.10);
+  --red:#E8400A;--green:#22c55e;--teal:#14b8a6;--cyan:#06b6d4;
+  --orange:#f97316;--purple:#a855f7;--pink:#ec4899;--amber:#f59e0b
+}
+html{scroll-behavior:smooth}
+body{background:#060a1a;color:var(--ink);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Calibri,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+
+/* ─── Aurora ─── */
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(27,63,208,.65),transparent 70%);animation:f1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(13,33,133,.7),transparent 70%);animation:f2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(240,210,36,.22),transparent 70%);animation:f3 32s ease-in-out infinite}
+@keyframes f1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes f2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes f3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+
+/* ─── Grain ─── */
+.grain{position:fixed;inset:0;z-index:-1;opacity:.045;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* ─── Progress ─── */
+#prog{position:fixed;top:0;left:0;height:3px;width:0;z-index:100;background:linear-gradient(90deg,var(--yellow),#fff);box-shadow:0 0 12px rgba(240,210,36,.6)}
+
+/* ─── Nav ─── */
+nav{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;gap:14px;padding:15px 30px;
+  backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);
+  background:rgba(6,10,26,.55);border-bottom:1px solid rgba(255,255,255,.06)}
+nav img{height:21px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+nav .nt{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em}
+nav .sp{flex:1}
+nav a.back{font-size:12px;color:var(--muted);padding:6px 13px;border-radius:20px;border:1px solid rgba(255,255,255,.09);text-decoration:none;transition:.22s}
+nav a.back:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+nav a.jump{font-size:12.5px;color:var(--muted);padding:7px 13px;border-radius:20px;text-decoration:none;transition:.22s}
+nav a.jump:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+
+/* ─── Layout ─── */
+.glass{background:var(--glass);backdrop-filter:blur(22px) saturate(155%);-webkit-backdrop-filter:blur(22px) saturate(155%);
+  border:1px solid var(--glassb);border-radius:22px;box-shadow:0 12px 44px rgba(0,0,0,.36),inset 0 1px 0 rgba(255,255,255,.10)}
+.wrap{max-width:1180px;margin:0 auto;padding:0 30px}
+section{padding:72px 0;scroll-margin-top:70px}
+
+/* ─── Hero ─── */
+.hero{min-height:52vh;display:flex;flex-direction:column;justify-content:center;padding:110px 0 20px}
+.eyebrow{display:inline-flex;align-items:center;gap:9px;align-self:flex-start;padding:8px 16px;border-radius:30px;font-size:12px;
+  font-weight:600;letter-spacing:.03em;color:#dfe6ff;margin-bottom:28px;background:rgba(255,255,255,.05);border:1px solid var(--glassb);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--yellow);box-shadow:0 0 12px var(--yellow);animation:pulse 2.4s infinite}
+@keyframes pulse{50%{opacity:.4}}
+.hero h1{font-size:clamp(38px,6vw,76px);font-weight:800;line-height:1.0;letter-spacing:-.035em;max-width:24ch;
+  background:linear-gradient(176deg,#fff 34%,#9fb4ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{font-size:clamp(14px,1.6vw,18px);color:var(--muted);margin-top:18px;max-width:72ch;line-height:1.55}
+
+/* ─── Stats row ─── */
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:13px;margin-top:36px}
+.stat{padding:22px 16px;text-align:center}
+.statn{font-size:clamp(22px,2.5vw,32px);font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;
+  background:linear-gradient(180deg,#fff,#c4d0ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.statlabel{font-size:10px;color:var(--muted2);margin-top:7px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.statsub{font-size:11px;color:var(--muted2);margin-top:4px;font-weight:400}
+
+/* ─── Section headings ─── */
+.shead{margin-bottom:34px}
+.kick{font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--yellow);margin-bottom:14px}
+.shead h2{font-size:clamp(24px,3.5vw,40px);font-weight:800;letter-spacing:-.025em;line-height:1.06}
+.shead p{color:var(--muted);font-size:15px;margin-top:12px;max-width:76ch;line-height:1.55}
+
+/* ─── Domain bar chart ─── */
+.bar-chart{display:flex;flex-direction:column;gap:12px;padding:28px}
+.bar-row{display:flex;align-items:center;gap:14px}
+.bar-label{font-size:12px;font-weight:700;color:var(--muted);width:56px;text-align:right;flex-shrink:0;letter-spacing:.02em}
+.bar-track{flex:1;height:28px;background:rgba(255,255,255,.04);border-radius:6px;overflow:hidden;position:relative}
+.bar-fill{height:100%;border-radius:6px;transition:width 1s cubic-bezier(.16,1,.3,1);min-width:2px;position:relative}
+.bar-fill::after{content:attr(data-n);position:absolute;right:8px;top:50%;transform:translateY(-50%);
+  font-size:11px;font-weight:700;color:rgba(255,255,255,.85);font-variant-numeric:tabular-nums;white-space:nowrap}
+.bar-domain{font-size:11.5px;color:var(--muted2);width:180px;flex-shrink:0}
+.bar-note{margin-top:16px;font-size:12.5px;color:var(--muted2);padding:12px 18px;background:rgba(255,255,255,.035);
+  border-radius:12px;border:1px solid rgba(255,255,255,.07);line-height:1.6}
+.bar-note b{color:var(--ink)}
+
+/* ─── Tables ─── */
+.tbl-wrap{overflow-x:auto;border-radius:16px}
+.tbl-wrap-h{max-height:520px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead{position:sticky;top:0;z-index:2}
+th{background:rgba(6,10,26,.9);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  padding:11px 14px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--muted2);border-bottom:1px solid rgba(255,255,255,.08);white-space:nowrap;text-align:left}
+td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle;line-height:1.4}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.03)}
+.tr-hi td{background:rgba(61,95,205,.10)}
+.tr-hi:hover td{background:rgba(61,95,205,.16)}
+.tr-unity td{background:rgba(240,210,36,.05)}
+.tr-unity:hover td{background:rgba(240,210,36,.10)}
+.mono{font-family:'SF Mono',ui-monospace,'Fira Code',monospace;font-size:11.5px;color:#c4d0ff}
+.tag{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
+  padding:2px 8px;border-radius:10px}
+.tag-unity{background:rgba(240,210,36,.15);border:1px solid rgba(240,210,36,.35);color:var(--yellow)}
+.tag-entry{background:rgba(61,95,205,.18);border:1px solid rgba(61,95,205,.35);color:#a5b8ff}
+.tag-hint{background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);color:#86efac}
+.tag-mty{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:var(--muted2)}
+.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.num-hi{color:#a5c0ff;font-weight:700}
+
+/* ─── Search input ─── */
+.search-row{display:flex;gap:12px;align-items:center;margin-bottom:18px;flex-wrap:wrap}
+.search-input{flex:1;min-width:240px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;padding:10px 16px;color:var(--ink);font-size:13.5px;outline:none;
+  font-family:inherit;transition:.2s}
+.search-input::placeholder{color:var(--muted2)}
+.search-input:focus{border-color:rgba(61,95,205,.6);background:rgba(61,95,205,.08)}
+.filter-btn{padding:9px 16px;border-radius:12px;border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.05);color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;
+  transition:.2s;font-family:inherit}
+.filter-btn:hover{background:rgba(255,255,255,.10);color:var(--ink)}
+.filter-btn.active{background:rgba(61,95,205,.25);border-color:rgba(61,95,205,.5);color:#a5b8ff}
+.result-count{font-size:12px;color:var(--muted2)}
+
+/* ─── Unity section ─── */
+.unity-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:0}
+@media(max-width:900px){.unity-grid{grid-template-columns:1fr}}
+.usub{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--yellow);margin-bottom:14px}
+.alert-card{padding:24px;border:2px solid rgba(232,64,10,.45);border-radius:18px;background:rgba(232,64,10,.07);position:relative;overflow:hidden}
+.alert-card::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at top left,rgba(232,64,10,.12),transparent 70%);pointer-events:none}
+.alert-title{font-size:13px;font-weight:800;color:#f87171;text-transform:uppercase;letter-spacing:.09em;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.alert-title::before{content:"";width:8px;height:8px;border-radius:50%;background:#f87171;box-shadow:0 0 12px #f87171;animation:pulse 1.8s infinite;flex-shrink:0}
+.alert-body{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:12px;line-height:1.5}
+.alert-note{font-size:12.5px;color:var(--muted);line-height:1.6}
+.alert-note b{color:#fca5a5}
+.job-mini{margin-top:14px;padding:12px 16px;background:rgba(0,0,0,.3);border-radius:12px;border:1px solid rgba(255,255,255,.07)}
+.job-mini .mono{font-size:12px;display:block;margin-bottom:4px}
+.job-mini .jdesc{font-size:12.5px;color:var(--muted);margin-bottom:4px}
+.job-mini .jhost{font-size:11px;color:#f97316;font-weight:600}
+
+/* ─── Insights cards ─── */
+.insight-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+@media(max-width:900px){.insight-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.insight-grid{grid-template-columns:1fr}}
+.insight-card{padding:28px;position:relative;overflow:hidden}
+.insight-card.c-warn{border-left:3px solid var(--yellow)}
+.insight-card.c-crit{border-left:3px solid var(--red)}
+.insight-card.c-info{border-left:3px solid var(--cyan)}
+.insight-n{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px}
+.c-warn .insight-n{color:var(--yellow)}
+.c-crit .insight-n{color:#f87171}
+.c-info .insight-n{color:var(--cyan)}
+.insight-t{font-size:17px;font-weight:800;letter-spacing:-.01em;margin-bottom:10px;line-height:1.25}
+.insight-d{font-size:13px;color:var(--muted);line-height:1.6}
+.insight-d b{color:var(--ink)}
+.insight-d code{font-family:'SF Mono',ui-monospace,monospace;font-size:11.5px;color:#c4d0ff;
+  background:rgba(255,255,255,.06);padding:1px 5px;border-radius:4px}
+
+/* ─── Domain pill ─── */
+.dpill{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  padding:2px 7px;border-radius:8px;font-variant-numeric:tabular-nums}
+
+/* ─── SP archetype pill ─── */
+.apill{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.05em;
+  padding:2px 7px;border-radius:8px;text-transform:lowercase;font-family:'SF Mono',ui-monospace,monospace}
+.arch-batch-orch{background:rgba(168,85,247,.15);color:#d8b4fe;border:1px solid rgba(168,85,247,.3)}
+.arch-batch{background:rgba(61,95,205,.15);color:#a5b8ff;border:1px solid rgba(61,95,205,.3)}
+
+/* ─── Subsection divider ─── */
+.ssep{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+  margin:32px 0 18px;display:flex;align-items:center;gap:14px}
+.ssep::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,rgba(255,255,255,.12),transparent)}
+
+/* ─── Info note box ─── */
+.note-box{margin-top:14px;padding:13px 17px;font-size:12.5px;color:var(--muted);border-radius:14px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);line-height:1.6}
+.note-box b{color:#e4eaff}
+
+/* ─── Coverage summary ─── */
+.cov-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px}
+.cov-pill{padding:8px 16px;border-radius:30px;font-size:12.5px;font-weight:700;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10)}
+.cov-pill span{color:var(--yellow);font-size:15px;font-weight:800;margin-right:6px}
+
+/* ─── Reveal ─── */
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .85s cubic-bezier(.16,1,.3,1),transform .85s cubic-bezier(.16,1,.3,1)}
+.reveal.in{opacity:1;transform:none}
+
+/* ─── Footer ─── */
+footer{padding:44px 30px 60px;text-align:center;color:var(--muted2);font-size:12px;border-top:1px solid rgba(255,255,255,.06);margin-top:48px;line-height:1.7}
+footer code{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid rgba(240,210,36,.25);
+  border-radius:5px;padding:1px 6px;font-size:11px;font-family:'SF Mono',ui-monospace,monospace}
+
+/* ─── Responsive ─── */
+@media(max-width:1100px){.stats{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:680px){.stats{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){nav .nt{display:none}}
+@media(prefers-reduced-motion:reduce){.reveal{transition:none;opacity:1;transform:none}.aurora *{animation:none}}
+
+/* ─── Domain color palette ─── */
+.d-D01{color:#a5b8ff}.bg-D01{background:linear-gradient(90deg,rgba(61,95,205,.75),rgba(61,95,205,.45))}
+.d-D02{color:#fde68a}.bg-D02{background:linear-gradient(90deg,rgba(240,210,36,.8),rgba(240,210,36,.5))}
+.d-D03{color:#86efac}.bg-D03{background:linear-gradient(90deg,rgba(34,197,94,.75),rgba(34,197,94,.45))}
+.d-D04{color:#fdba74}.bg-D04{background:linear-gradient(90deg,rgba(249,115,22,.75),rgba(249,115,22,.45))}
+.d-D06{color:#d8b4fe}.bg-D06{background:linear-gradient(90deg,rgba(168,85,247,.75),rgba(168,85,247,.45))}
+.d-D10{color:#67e8f9}.bg-D10{background:linear-gradient(90deg,rgba(6,182,212,.75),rgba(6,182,212,.45))}
+.d-D11{color:#fca5a5}.bg-D11{background:linear-gradient(90deg,rgba(239,68,68,.75),rgba(239,68,68,.45))}
+.d-D12{color:#c4b5fd}.bg-D12{background:linear-gradient(90deg,rgba(139,92,246,.75),rgba(139,92,246,.45))}
+.d-D15{color:#5eead4}.bg-D15{background:linear-gradient(90deg,rgba(20,184,166,.75),rgba(20,184,166,.45))}
+.d-D16{color:#fde047}.bg-D16{background:linear-gradient(90deg,rgba(245,158,11,.75),rgba(245,158,11,.45))}
+.d-D40{color:#94a3b8}.bg-D40{background:linear-gradient(90deg,rgba(100,116,139,.75),rgba(100,116,139,.45))}
+.d-D48{color:#f9a8d4}.bg-D48{background:linear-gradient(90deg,rgba(236,72,153,.75),rgba(236,72,153,.45))}
+.d-multi{color:#aab3d4}.bg-multi{background:linear-gradient(90deg,rgba(129,138,176,.7),rgba(129,138,176,.35))}
+.d-null{color:#4b5563}.bg-null{background:linear-gradient(90deg,rgba(75,85,99,.5),rgba(75,85,99,.25))}
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<div class="grain"></div>
+<div id="prog"></div>
+
+<nav>
+  <a class="back" href="index-bcop-v2.html">&#8592; Inicio</a>
+  <img src="bancoppel-logo.png" alt="BanCoppel">
+  <span class="nt">BCOPCore · Malla Batch</span>
+  <span class="sp"></span>
+  <a class="jump" href="#dominio">Dominios</a>
+  <a class="jump" href="#flows">Flows</a>
+  <a class="jump" href="#unity">Unity</a>
+  <a class="jump" href="#entrypoints">Entry Points</a>
+  <a class="jump" href="#insights">Insights</a>
+</nav>
+
+<div class="wrap">
+
+  <!-- ─── HERO ─── -->
+  <header class="hero">
+    <div class="eyebrow reveal"><span class="dot"></span> SPE-AM-001 · BCOPCore · DISCOVER Etapa 1</div>
+    <h1 class="reveal">Malla Batch<br>Control-M</h1>
+    <p class="sub reveal">Inventario de jobs BMC Control-M · 2026-08-12</p>
+
+    <div class="stats reveal" id="kpi-row">
+      <!-- rendered by JS -->
+    </div>
+  </header>
+
+  <!-- ─── DOMAIN DISTRIBUTION ─── -->
+  <section id="dominio">
+    <div class="shead reveal">
+      <div class="kick">Distribución por Dominio</div>
+      <h2>Distribución por dominio Informix</h2>
+      <p>Cobertura de jobs Control-M sobre instancias Informix, agrupados por dominio de negocio. Los jobs multi-dominio pertenecen principalmente a <b>PRO_JOBS_001</b>, el proceso de cierre de día principal.</p>
+    </div>
+    <div class="glass reveal" id="domain-chart">
+      <!-- rendered by JS -->
+    </div>
+  </section>
+
+  <!-- ─── FLOWS TABLE ─── -->
+  <section id="flows">
+    <div class="shead reveal">
+      <div class="kick">Inventario de Flows</div>
+      <h2>Malla Batch — Flows por proceso</h2>
+      <p>65 carpetas (folders) Control-M que representan los procesos batch del core bancario. Las filas con fondo azul tienen más de 100 jobs Informix. Los folders <span class="tag tag-mty">_MTY</span> son réplicas del site Monterrey.</p>
+    </div>
+    <div class="reveal">
+      <div class="search-row">
+        <input class="search-input" id="flows-search" type="search" placeholder="Buscar por proceso o folder…" autocomplete="off">
+        <span class="result-count" id="flows-count"></span>
+      </div>
+      <div class="glass tbl-wrap tbl-wrap-h">
+        <table id="flows-table">
+          <thead>
+            <tr>
+              <th>Proceso</th>
+              <th>Folder</th>
+              <th>Dominio</th>
+              <th class="num">Jobs total</th>
+              <th class="num">OS (scripts)</th>
+              <th class="num">AFT (archivos)</th>
+              <th class="num">Informix</th>
+              <th>Tag</th>
+            </tr>
+          </thead>
+          <tbody id="flows-tbody">
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── UNITY ─── -->
+  <section id="unity">
+    <div class="shead reveal">
+      <div class="kick">Unity — Nueva Malla</div>
+      <h2>Unity: SmartVista y UTR-Transact</h2>
+      <p>La nueva malla Unity opera en paralelo con el core legacy Informix. <b>32 jobs activos</b> en producción — 16 SmartVista (D16) y 1 DataStage (UTR-UNITY_TRANSACT) más 15 réplicas MTY.</p>
+    </div>
+
+    <!-- SmartVista -->
+    <div class="ssep reveal">USV-UNITY_SMARTVISTA_001 — 16 jobs activos</div>
+    <div class="glass reveal" style="padding:24px 0">
+      <div style="padding:0 28px 18px">
+        <div class="usub">SmartVista R2/R3 · Jose Jaimes / Jose Jaimez · Armando García</div>
+        <p style="font-size:13.5px;color:var(--muted);line-height:1.55">16 jobs en producción — tarjeta de crédito Unity. <b style="color:var(--ink)">8 de los 16 jobs conectan a Informix</b> (dccsif01 / dcmsif01) — flujo de datos legacy hacia SmartVista activo en producción.</p>
+      </div>
+      <div class="tbl-wrap">
+        <table id="sv-table">
+          <thead>
+            <tr>
+              <th>Job</th>
+              <th>Tipo</th>
+              <th>Host</th>
+              <th>Descripción (60 chars)</th>
+              <th>Mem name</th>
+            </tr>
+          </thead>
+          <tbody id="sv-tbody"></tbody>
+        </table>
+      </div>
+      <div class="note-box" style="margin:16px 24px 4px">
+        <b>8 de los 16 jobs conectan a Informix</b> (dccsif01 / dcmsif01) — flujo de datos legacy hacia SmartVista activo. Los hosts dcmpld01 y dcmdat01 corresponden a servidores de DataStage/staging; los jobs AFT sin host Informix mueven archivos de conciliación.
+      </div>
+    </div>
+
+    <!-- UTR-UNITY_TRANSACT -->
+    <div class="ssep reveal" style="margin-top:36px">UTR-UNITY_TRANSACT — DataStage en malla Unity</div>
+    <div class="unity-grid reveal">
+      <div class="alert-card">
+        <div class="alert-title">Hallazgo crítico — DataStage ya opera en la malla Unity / Transact</div>
+        <div class="alert-body">SEQ_EMPRESARIAL_OPERATIVOS_J00-UTR</div>
+        <div class="job-mini">
+          <span class="mono">SEQ_EMPRESARIAL_OPERATIVOS_J00-UTR</span>
+          <div class="jdesc">Secuencia Empresarial Operativos</div>
+          <div class="jhost">host: datastage &nbsp;·&nbsp; IBM InfoSphere DataStage</div>
+        </div>
+        <div class="alert-note" style="margin-top:16px">
+          <b>UTR-UNITY_TRANSACT = Unity Transact.</b> El prefijo SEQ_ indica un DataStage Sequence (orquestador ETL). El job existe en producción, confirmando que DataStage ya es capa de integración activa en la malla Unity.
+          <br><br><b>DR-DS-002 pendiente:</b> ¿qué tablas mueve esta secuencia? ¿Es el equivalente de Atlas para Transact?
+        </div>
+      </div>
+      <div class="glass" style="padding:24px">
+        <div class="usub">PRO_DATA_WAREHOUSE_001 — 11 jobs ETL (contraste)</div>
+        <p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:16px">
+          El folder de Data Warehouse contiene 11 jobs DataStage hacia DW / Yellowbrick. Uso <b style="color:var(--ink)">BI y reporting</b>, no migración directa — distinto al UTR-UNITY_TRANSACT que opera en la malla de Transact.
+        </p>
+        <div class="tbl-wrap">
+          <table id="dw-table">
+            <thead>
+              <tr>
+                <th>Job</th>
+                <th>Host</th>
+                <th>Descripción</th>
+              </tr>
+            </thead>
+            <tbody id="dw-tbody"></tbody>
+          </table>
+        </div>
+        <div class="note-box" style="margin-top:14px">
+          <b>Yellowbrick detectado:</b> el job <code>1223_AFT_MASTER_YELLOWBRICK_CARGA_INTERMEDIA_PRO</code> confirma que BanCoppel usa <b>Yellowbrick</b> como cloud DW. Relevante para definir la arquitectura de datos target.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── SP ENTRY POINTS ─── -->
+  <section id="entrypoints">
+    <div class="shead reveal">
+      <div class="kick">Cobertura Batch Confirmada</div>
+      <h2>SP Entry Points — 105 confirmados</h2>
+      <p>Stored procedures Informix con evidencia directa de ejecución desde Control-M. <b>87 CTM_ENTRY</b>: nombre exacto del SP aparece en el job name (certeza alta). <b>18 CTM_HINT</b>: referencia encontrada en mem_name / shell script (confiables, hints con longitud mínima de 8 chars para evitar falsos positivos).</p>
+    </div>
+    <div class="reveal">
+      <div class="cov-row" id="ep-summary"></div>
+      <div class="search-row">
+        <input class="search-input" id="ep-search" type="search" placeholder="Buscar SP, dominio, DB o descripción…" autocomplete="off">
+        <button class="filter-btn active" data-filter="ALL">Todos</button>
+        <button class="filter-btn" data-filter="CTM_ENTRY">CTM_ENTRY</button>
+        <button class="filter-btn" data-filter="CTM_HINT">CTM_HINT</button>
+        <span class="result-count" id="ep-count"></span>
+      </div>
+      <div class="glass tbl-wrap tbl-wrap-h">
+        <table id="ep-table">
+          <thead>
+            <tr>
+              <th>SP Name</th>
+              <th>DB</th>
+              <th>Dominio</th>
+              <th>Archetype</th>
+              <th>Batch</th>
+              <th>Descripción de negocio</th>
+            </tr>
+          </thead>
+          <tbody id="ep-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── INSIGHTS ─── -->
+  <section id="insights">
+    <div class="shead reveal">
+      <div class="kick">Análisis</div>
+      <h2>Insights críticos</h2>
+      <p>Hallazgos clave del inventario CTM con impacto directo en la estrategia de modernización hacia Transact / SmartVista.</p>
+    </div>
+    <div class="insight-grid reveal">
+
+      <div class="insight-card glass c-crit">
+        <div class="insight-n">Insight 01 · DataStage</div>
+        <div class="insight-t">DataStage en Unity</div>
+        <div class="insight-d">
+          <b>UTR-UNITY_TRANSACT</b> está activo en producción confirma DataStage como capa ETL de migración hacia Transact. El prefijo <code>SEQ_</code> indica un orquestador de secuencia — no un job aislado. <b>DR-DS-002 pendiente:</b> identificar qué tablas mueve y si es el equivalente de Atlas para Transact.
+        </div>
+      </div>
+
+      <div class="insight-card glass c-warn">
+        <div class="insight-n">Insight 02 · Yellowbrick</div>
+        <div class="insight-t">Yellowbrick en Data Warehouse</div>
+        <div class="insight-d">
+          <b>PRO_DATA_WAREHOUSE_001</b> incluye <code>1223_AFT_MASTER_YELLOWBRICK_CARGA_INTERMEDIA</code> — BanCoppel usa <b>Yellowbrick</b> como cloud DW. Relevante para arquitectura de datos target: la capa analítica ya está en cloud antes de completar la migración del core.
+        </div>
+      </div>
+
+      <div class="insight-card glass c-info">
+        <div class="insight-n">Insight 03 · Cobertura SP</div>
+        <div class="insight-t">SP _pro en Mem Name</div>
+        <div class="insight-d">
+          Los <b>18 CTM_HINT</b> provienen de scripts shell (Mem Name) que referencian SPs directamente — son confiables. Los falsos positivos (<code>sp_pro</code>, <code>sp_mc</code>, <code>sp_cancel</code>) fueron filtrados por <b>longitud mínima de hint mayor a 8 chars</b>. Los 87 CTM_ENTRY tienen certeza máxima: nombre exacto del SP en el job name de Control-M.
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</div><!-- /wrap -->
+
+<footer>
+  <b>BCOPCore · Portal de Análisis</b> — SPE-AM-001 High Velocity Modernization<br>
+  Generado <code>2026-08-12</code> · Fuente: <code>ctm-batch-malla.json</code> · <code>batch_entry_points</code> · Gemelo Cognitivo v1.2.0
+</footer>
+
+<script>
+/* ─── Helpers ─── */
+const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+const trunc = (s, n) => s && s.length > n ? s.slice(0, n).trimEnd() + '…' : (s || '');
+const fmtn = n => n == null ? '—' : n.toLocaleString('es-MX');
+
+const DOMAIN_LABELS = {
+  D01:'D01 · CNSIF / Cuentas', D02:'D02 · Huellas / Club', D03:'D03 · Crédito',
+  D04:'D04 · Cheques', D06:'D06 · Persona Integral', D10:'D10 · ATM / Sucursales',
+  D11:'D11 · Cobranza ICS', D12:'D12 · Estados de Cuenta',
+  D15:'D15 · AML / PLD', D16:'D16 · Unity / SmartVista',
+  D40:'D40 · Data Warehouse', D48:'D48 · Riesgos de Crédito',
+  multi:'Multi-dominio'
+};
+
+const DOMAIN_SHORT = {
+  D01:'D01', D02:'D02', D03:'D03', D04:'D04', D06:'D06',
+  D10:'D10', D11:'D11', D12:'D12', D15:'D15', D16:'D16',
+  D40:'D40', D48:'D48', multi:'multi'
+};
+
+function domPill(d) {
+  if (!d) return '<span class="dpill" style="background:rgba(75,85,99,.3);color:#6b7280">—</span>';
+  const cls = d === 'multi' ? 'd-multi bg-multi' : (DOMAIN_LABELS[d] ? `d-${d} bg-${d}` : 'd-null bg-null');
+  return `<span class="dpill ${cls}" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12)">${d}</span>`;
+}
+
+/* ─── Progress bar ─── */
+const prog = document.getElementById('prog');
+window.addEventListener('scroll', () => {
+  const pct = window.scrollY / (document.body.scrollHeight - window.innerHeight);
+  prog.style.width = (pct * 100).toFixed(1) + '%';
+});
+
+/* ─── Reveal on scroll ─── */
+function initReveal() {
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); obs.unobserve(e.target); } });
+  }, {threshold: 0.08});
+  document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+}
+
+/* ─── 1. KPI row ─── */
+function renderKPIs(data) {
+  const {coverage, batch_entry_points: bep} = data;
+  const kpis = [
+    {n: fmtn(coverage.total),    l: 'Total Jobs',        sub: 'Jobs en Control-M'},
+    {n: fmtn(coverage.informix), l: 'En Informix',       sub: 'PISA / dccsif01-dcmsif01'},
+    {n: fmtn(coverage.flows),    l: 'Flows batch',       sub: 'Carpetas / procesos CTM'},
+    {n: fmtn(coverage.unity),    l: 'Unity (nueva malla)',sub: 'SmartVista R2/R3'},
+    {n: fmtn(bep.totals.total_confirmed), l: 'SP Entry Points', sub: `${bep.totals.ctm_entry} CTM_ENTRY + ${bep.totals.ctm_hint} CTM_HINT`},
+  ];
+  document.getElementById('kpi-row').innerHTML = kpis.map(k =>
+    `<div class="stat glass"><div class="statn">${k.n}</div><div class="statlabel">${k.l}</div><div class="statsub">${k.sub}</div></div>`
+  ).join('');
+}
+
+/* ─── 2. Domain chart ─── */
+function renderDomainChart(data) {
+  const rows = [...data.domain_distribution, {domain_id:'multi', n: data.domain_multi_count}];
+  rows.sort((a, b) => b.n - a.n);
+  const max = rows[0].n;
+
+  let html = '<div class="bar-chart">';
+  rows.forEach(r => {
+    const d = r.domain_id;
+    const pct = ((r.n / max) * 100).toFixed(1);
+    const cls = d === 'multi' ? 'bg-multi' : `bg-${d}`;
+    const label = DOMAIN_SHORT[d] || d;
+    const name = DOMAIN_LABELS[d] || d;
+    html += `
+      <div class="bar-row">
+        <div class="bar-label d-${d}">${label}</div>
+        <div class="bar-track">
+          <div class="bar-fill ${cls}" data-n="${fmtn(r.n)}" style="width:0" data-target="${pct}"></div>
+        </div>
+        <div class="bar-domain">${name}</div>
+      </div>`;
+  });
+  html += `</div>
+  <div class="bar-note" style="margin:0 28px 28px">
+    <b>Multi-dominio (3,042 jobs):</b> jobs sin dominio único — principalmente <b>PRO_JOBS_001</b>, el proceso de cierre de día principal de BanCoppel. Los dominios específicos suman ${fmtn(rows.filter(r=>r.domain_id!=='multi').reduce((a,r)=>a+r.n,0))} jobs con dominio confirmado.
+  </div>`;
+
+  const container = document.getElementById('domain-chart');
+  container.innerHTML = html;
+
+  // Animate bars after a brief delay
+  setTimeout(() => {
+    container.querySelectorAll('.bar-fill').forEach(bar => {
+      bar.style.width = bar.dataset.target + '%';
+    });
+  }, 300);
+}
+
+/* ─── 3. Flows table ─── */
+let allFlows = [];
+function renderFlowsTable(data) {
+  allFlows = data.flows;
+  renderFlowsRows(allFlows);
+  document.getElementById('flows-search').addEventListener('input', e => {
+    const q = e.target.value.toLowerCase().trim();
+    const filtered = q ? allFlows.filter(f =>
+      f.folder.toLowerCase().includes(q) || f.folder_name.toLowerCase().includes(q) || (f.domain_id||'').toLowerCase().includes(q)
+    ) : allFlows;
+    renderFlowsRows(filtered);
+  });
+}
+
+function renderFlowsRows(rows) {
+  const isMty = f => f.folder.endsWith('_MTY') || (f.folder_name && f.folder_name.endsWith('_MTY'));
+  const tbody = document.getElementById('flows-tbody');
+  tbody.innerHTML = rows.map(f => {
+    const mty = isMty(f);
+    const hiInf = f.informix_count > 100 && !mty;
+    const isUnity = f.unity === 1;
+    const name = mty ? `<span style="color:var(--muted2);font-size:12px">${f.folder_name}</span>` : cap(f.folder_name);
+    const rowCls = isUnity ? 'tr-unity' : (hiInf ? 'tr-hi' : '');
+    let tags = '';
+    if (isUnity) tags += '<span class="tag tag-unity">Unity</span> ';
+    if (mty) tags += '<span class="tag tag-mty">MTY</span>';
+    return `<tr class="${rowCls}">
+      <td>${name}</td>
+      <td class="mono" style="font-size:11.5px">${f.folder}</td>
+      <td>${domPill(f.domain_id)}</td>
+      <td class="num ${hiInf?'num-hi':''}">${fmtn(f.job_count)}</td>
+      <td class="num">${fmtn(f.os_count)}</td>
+      <td class="num">${fmtn(f.aft_count)}</td>
+      <td class="num ${hiInf?'num-hi':''}">${fmtn(f.informix_count)}</td>
+      <td>${tags}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('flows-count').textContent = `${rows.length} de ${allFlows.length}`;
+}
+
+/* ─── 4. Unity tables ─── */
+function renderUnity(data) {
+  // SmartVista
+  const svTbody = document.getElementById('sv-tbody');
+  const infHosts = new Set(['dccsif01','dcmsif01']);
+  svTbody.innerHTML = data.unity.smartvista_jobs.map(j => {
+    const isInf = infHosts.has(j.host);
+    // Extract description after "Descripcion:" if present
+    let desc = j.description || '';
+    const idx = desc.indexOf('Descripcion:');
+    if (idx >= 0) desc = desc.slice(idx + 12).trim();
+    desc = trunc(desc, 60);
+    return `<tr ${isInf ? 'class="tr-hi"' : ''}>
+      <td class="mono" style="font-size:11px">${j.job_name}</td>
+      <td><span class="tag tag-entry" style="font-size:9px">${j.job_type}</span></td>
+      <td style="font-size:12px;color:${isInf?'#a5c0ff':'var(--muted)'}">${j.host}</td>
+      <td style="font-size:12.5px;color:var(--muted)">${cap(desc)}</td>
+      <td class="mono" style="font-size:10.5px;color:var(--muted2)">${trunc(j.mem_name,40)||'—'}</td>
+    </tr>`;
+  }).join('');
+
+  // DW jobs
+  const dwTbody = document.getElementById('dw-tbody');
+  dwTbody.innerHTML = data.datastage.dw_jobs.map(j => {
+    let desc = j.description || '';
+    const idx = desc.indexOf('Descripcion:');
+    if (idx >= 0) desc = desc.slice(idx + 12).trim();
+    const isYB = j.job_name.includes('YELLOWBRICK');
+    return `<tr ${isYB ? 'class="tr-hi"' : ''}>
+      <td class="mono" style="font-size:10.5px">${trunc(j.job_name, 42)}</td>
+      <td style="font-size:12px;color:var(--muted)">${j.host}</td>
+      <td style="font-size:12px;color:var(--muted)">${cap(trunc(desc||j.description,55))}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ─── 5. SP Entry Points ─── */
+let allSPs = [];
+let activeFilter = 'ALL';
+
+function renderSPTable(data) {
+  // CTM_ENTRY first, then CTM_HINT
+  allSPs = [
+    ...data.batch_entry_points.sps.filter(s => s.batch_archetype === 'CTM_ENTRY'),
+    ...data.batch_entry_points.sps.filter(s => s.batch_archetype === 'CTM_HINT'),
+  ];
+
+  const {totals} = data.batch_entry_points;
+  document.getElementById('ep-summary').innerHTML = `
+    <div class="cov-pill"><span>${totals.total_confirmed}</span> Total confirmados</div>
+    <div class="cov-pill"><span>${totals.ctm_entry}</span> CTM_ENTRY — nombre exacto en job</div>
+    <div class="cov-pill"><span>${totals.ctm_hint}</span> CTM_HINT — referencia en mem_name</div>
+  `;
+
+  renderSPRows();
+
+  document.getElementById('ep-search').addEventListener('input', renderSPRows);
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      activeFilter = this.dataset.filter;
+      renderSPRows();
+    });
+  });
+}
+
+function renderSPRows() {
+  const q = (document.getElementById('ep-search').value || '').toLowerCase().trim();
+  let rows = allSPs;
+  if (activeFilter !== 'ALL') rows = rows.filter(s => s.batch_archetype === activeFilter);
+  if (q) rows = rows.filter(s =>
+    s.name.toLowerCase().includes(q) ||
+    (s.db||'').toLowerCase().includes(q) ||
+    (s.domain||'').toLowerCase().includes(q) ||
+    (s.biz||'').toLowerCase().includes(q) ||
+    (s.sp_archetype||'').toLowerCase().includes(q)
+  );
+
+  const tbody = document.getElementById('ep-tbody');
+  tbody.innerHTML = rows.map(s => {
+    const batchCls = s.batch_archetype === 'CTM_ENTRY' ? 'tag-entry' : 'tag-hint';
+    const archCls = s.sp_archetype === 'batch_orchestrator' ? 'arch-batch-orch' : 'arch-batch';
+    return `<tr>
+      <td class="mono" style="font-size:11.5px">${s.name}</td>
+      <td style="font-size:12px;color:#c4d0ff;font-family:'SF Mono',monospace">${s.db||'—'}</td>
+      <td>${domPill(s.domain)}</td>
+      <td><span class="apill ${archCls}">${s.sp_archetype||'—'}</span></td>
+      <td><span class="tag ${batchCls}">${s.batch_archetype}</span></td>
+      <td style="font-size:12.5px;color:var(--muted);max-width:320px">${cap(trunc(s.biz||'',120))}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('ep-count').textContent = `${rows.length} de ${allSPs.length}`;
+}
+
+/* ─── Main ─── */
+async function init() {
+  try {
+    const data = await fetch('data/ctm-batch-malla.json').then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    });
+    renderKPIs(data);
+    renderDomainChart(data);
+    renderFlowsTable(data);
+    renderUnity(data);
+    renderSPTable(data);
+  } catch (err) {
+    console.error('Error cargando ctm-batch-malla.json:', err);
+    document.querySelector('.hero .sub').textContent = `Error al cargar datos: ${err.message}. Verifica que el servidor esté corriendo en http://localhost:8080/portal/`;
+  }
+  initReveal();
+}
+
+init();
+</script>
+</body>
+</html>
