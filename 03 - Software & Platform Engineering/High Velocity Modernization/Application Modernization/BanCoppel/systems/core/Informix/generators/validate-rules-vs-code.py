@@ -62,8 +62,10 @@ def split_camel(name: str) -> list[str]:
 def tokenize_code(ctx: str) -> set[str]:
     """Extract meaningful identifier tokens from SPL code context."""
     tokens: set[str] = set()
+    # Normalize accents so comment text like "encontró" → "encontro" matches business_name tokens
+    ctx_norm = strip_accents(ctx)
     # Find all identifiers (sequences of letters+digits, no leading digit)
-    idents = re.findall(r'\b[a-zA-Z_][a-zA-Z0-9_]*\b', ctx)
+    idents = re.findall(r'\b[a-zA-Z_][a-zA-Z0-9_]*\b', ctx_norm)
     for ident in idents:
         # Split by underscore first
         parts = [p for p in ident.split('_') if len(p) >= 2]
@@ -79,7 +81,7 @@ def tokenize_code(ctx: str) -> set[str]:
         if whole not in _SPL_STOP:
             tokens.add(whole)
     # Also extract numeric literals (thresholds)
-    nums = re.findall(r'\b\d+(?:\.\d+)?\b', ctx)
+    nums = re.findall(r'\b\d+(?:\.\d+)?\b', ctx_norm)
     tokens.update(nums)
     return tokens
 
@@ -255,6 +257,21 @@ def score_rule(biz: str, code: str, lines: list[str], line_no: int, sp_id: str =
     }
 
 
+def load_compound_groups(conn) -> dict[str, list[tuple]]:
+    """Returns {compound_group_id: [(rule_id, sp, db, line, code), ...]}"""
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT compound_group_id, id, sp, db, line, code
+        FROM rules
+        WHERE clase = 'NEGOCIO' AND compound_group_id IS NOT NULL
+        ORDER BY compound_group_id, CAST(line AS INTEGER)
+    """)
+    groups: dict[str, list] = defaultdict(list)
+    for gid, rid, sp, db, line, code in cur.fetchall():
+        groups[gid].append((rid, sp, db, line, code))
+    return dict(groups)
+
+
 def main():
     print('BanCoppel Informix — Rules vs. Code Semantic Coherence Check')
     print('=' * 60)
@@ -262,21 +279,32 @@ def main():
     conn = sqlite3.connect(BRAIN)
     cur  = conn.cursor()
     cur.execute(
-        '''SELECT id, sp, db, line, code, business_name, tipo, COALESCE(sub_tipo, tipo)
+        '''SELECT id, sp, db, line, code, business_name, tipo,
+                  COALESCE(sub_tipo, tipo), COALESCE(compound_group_id, '')
            FROM rules WHERE clase = "NEGOCIO" ORDER BY db, sp'''
     )
     rows = cur.fetchall()
+
+    # Pre-load compound groups for merged-context scoring
+    compound_groups = load_compound_groups(conn)
+    # Map rule_id → group_id
+    rule_to_group: dict[str, str] = {}
+    for gid, members in compound_groups.items():
+        for (rid, *_) in members:
+            rule_to_group[rid] = gid
+
     conn.close()
 
     total = len(rows)
-    print(f'Rules to check: {total}')
+    print(f'Rules to check: {total}  '
+          f'(compound rules: {len(rule_to_group)}, groups: {len(compound_groups)})')
 
     by_level  = defaultdict(int)
     by_tipo   = defaultdict(lambda: defaultdict(int))
     low_rules = []
     all_scores = []
 
-    for i, (rule_id, sp_id, db, line, code, biz, tipo, sub_tipo) in enumerate(rows):
+    for i, (rule_id, sp_id, db, line, code, biz, tipo, sub_tipo, cg_id) in enumerate(rows):
         if i % 1000 == 0:
             print(f'  {i}/{total}…', flush=True)
 
@@ -290,8 +318,32 @@ def main():
                       'name_tokens': [], 'matched': [], 'code_tokens_sample': []}
         else:
             line_no = int(line) if line and str(line).isdigit() else 0
-            result  = score_rule(biz or '', code or '', lines, line_no, sp_id,
-                                 const_map=cmap)
+
+            # For compound rules: augment context with all sibling fragments
+            if rule_id in rule_to_group:
+                gid     = rule_to_group[rule_id]
+                members = compound_groups[gid]
+                # Merge all code fragments (ordered by line)
+                extra_code = ' '.join(
+                    c for (rid, sp, db2, ln, c) in members
+                    if c and rid != rule_id
+                )
+                # Merge contexts from all sibling lines
+                sibling_ctx = '\n'.join(
+                    get_context(
+                        load_lines(db2, (sp.split(':')[-1] if ':' in sp else sp)) or [],
+                        int(ln) if ln and str(ln).isdigit() else 0
+                    )
+                    for (rid, sp, db2, ln, c) in members
+                    if rid != rule_id and load_lines(db2, (sp.split(':')[-1] if ':' in sp else sp))
+                )
+                # Score using main context + sibling context appended
+                aug_lines = lines + (sibling_ctx + '\n' + extra_code).splitlines()
+                result = score_rule(biz or '', code or '', aug_lines, line_no, sp_id,
+                                    const_map=cmap)
+            else:
+                result = score_rule(biz or '', code or '', lines, line_no, sp_id,
+                                    const_map=cmap)
 
         level = result['level']
         by_level[level] += 1
@@ -301,6 +353,7 @@ def main():
         entry = {
             'id': rule_id, 'sp': sp_id, 'db': db, 'line': line,
             'tipo': tipo, 'sub_tipo': sub_tipo,
+            'compound_group': cg_id or None,
             'business_name': biz or '',
             'code_fragment': (code or '')[:100],
             'reg_ref': result.get('reg_ref', False),
