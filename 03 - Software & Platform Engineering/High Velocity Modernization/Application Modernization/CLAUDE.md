@@ -360,6 +360,15 @@ Al analizar cualquier artefacto cross-sistema — inventario de jobs de un orque
 
 **Motivación (el "pasto" de ambos lados):** cuando Control-M nos dice que tiene 208 jobs sobre servidores PLD, el sistema PLD existe en la realidad operativa de BanCoppel aunque no hayamos visto su código. No documentarlo sería perder la mitad de la dependencia. La estructura vacía + CLAUDE.md es suficiente para que el conocimiento fluya en ambas direcciones.
 
+**Herramienta canónica (automatización de B9 desde seeds):** `bank-brain/bootstrap-from-seeds.py` lee todos los `digital-brain/seeds/manifest.json` del árbol de sistemas y crea la estructura canónica completa para cada sistema descubierto que aún no tenga carpeta. Ejecutar después de cada nueva ronda de seeds.
+
+```bash
+python bank-brain/bootstrap-from-seeds.py           # crea carpetas + CLAUDE.md
+python bank-brain/bootstrap-from-seeds.py --dry-run # previsualiza sin escribir
+```
+
+El `CLAUDE.md` generado incluye: metadata TOGAF, relación con el sistema emisor del seed, regulación aplicable, y la lista de próximos pasos para activar el brain. Es el registro de existencia del sistema en el ecosistema; se actualiza manualmente cuando llegan datos reales del sistema.
+
 ### Regla B10 — Knowledge Interlock (propagación bidireccional de conocimiento verificado)
 
 **Todo conocimiento comprobado sobre un sistema, descubierto mientras se analiza otro sistema, debe ser comunicado a ambos extremos.**

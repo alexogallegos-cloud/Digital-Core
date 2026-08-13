@@ -268,7 +268,10 @@ CREATE TABLE terms (
 CREATE TABLE external_systems (
     id              TEXT PRIMARY KEY,
     category        TEXT,
-    total_endpoints INTEGER DEFAULT 0
+    total_endpoints INTEGER DEFAULT 0,
+    error_codes     TEXT,      -- JSON array de códigos de error conocidos (nullable)
+    failure_rate    REAL,      -- ratio de fallos 0.0-1.0 (nullable — requiere enriquecimiento)
+    timeout_ms      INTEGER    -- timeout P95 observado en ms (nullable)
 );
 
 CREATE TABLE journeys (
@@ -625,9 +628,17 @@ def load_integrations(conn):
     with open(BASE / 'portal' / 'data' / 'integrations-data.json') as f:
         ig = json.load(f)
 
-    rows = [(s['key'], s.get('cat', ''), s.get('total', 0)) for s in ig.get('systems', [])]
+    rows = [
+        (
+            s['key'], s.get('cat', ''), s.get('total', 0),
+            json.dumps(s['error_codes'], ensure_ascii=False) if isinstance(s.get('error_codes'), list) else s.get('error_codes'),
+            s.get('failure_rate'),
+            s.get('timeout_ms'),
+        )
+        for s in ig.get('systems', [])
+    ]
     conn.executemany(
-        'INSERT OR REPLACE INTO external_systems (id,category,total_endpoints) VALUES (?,?,?)',
+        'INSERT OR REPLACE INTO external_systems (id,category,total_endpoints,error_codes,failure_rate,timeout_ms) VALUES (?,?,?,?,?,?)',
         rows
     )
     conn.commit()

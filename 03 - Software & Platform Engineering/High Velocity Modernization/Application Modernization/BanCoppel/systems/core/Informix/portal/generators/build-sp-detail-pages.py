@@ -13,7 +13,7 @@ from datetime import date
 
 TODAY = date.today().isoformat()
 BASE = os.path.normpath(os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), '..')) + os.sep
+    os.path.dirname(os.path.abspath(__file__)), '..', '..')) + os.sep
 
 DOMAIN_INFO = {
     'd01': {'db': 'bdicnweb',      'name': 'Canal Digital Web',       'slug': 'D01-bdicnweb',      'num': 'D01'},
