@@ -40,8 +40,9 @@ El marco de análisis central de este proyecto es el **Gemelo Cognitivo del Sist
 ### BCOPBrain
 
 Base de conocimiento semántica SQLite (`digital-brain/brain.db`):
-- 11,391 SPs · 34,279 edges · 8,005 reglas (1,308 SBVR formal) · 634 términos · 166 journeys · 11 almas · 552 SPs con métricas de producción (evidencia ESB 2026-04-24)
-- sp_capabilities: 164,931 links · 11,389/11,391 SPs cubiertos (99.7%) · 61 L3 distintas
+- 12,812 SPs · 34,279 edges · 32,904 reglas (1,308 SBVR formal D01-D16) · 634 términos · 166 journeys · 11 almas · 552 SPs con métricas de producción (evidencia ESB 2026-04-24)
+- sp_capabilities: 164,931 links · 11,389/11,391 SPs D01-D16 cubiertos (99.7%) · 61 L3 distintas
+- ETB L3 fine-mapping: 8,772/12,812 SPs (68.5%) con primary_l3 · 97.6% con biz
 - ID canónico: `db:sp_name`
 - Patrón de construcción: scatter-gather — orquestador descompone en ≤10 SPs por agente, 12 DTs paralelos extraen, orquestador integra
 - Patrón validado en el Orquestador de SMEs v3.8 como caso de referencia Brain-First
@@ -148,7 +149,7 @@ Confianza en cadena (regla ontológica v3.8): la confianza del equipo es la del 
 ## ESTADO ACTUAL · DISCOVER Etapa 1
 
 - BCOPBrain construido (build-brain.py + brain.py) — 11,391 SPs · 634 términos · 166 journeys · 1,308 reglas (re-sincronizado 2026-08-10)
-- Knowledge base activa: `knowledge-base/D01/` → `knowledge-base/D16/` (16 dominios analizados) + `knowledge-base/D17/` → `knowledge-base/D49/` (33 dominios nuevos en scope — placeholders creados 2026-08-03)
+- Knowledge base activa: `knowledge-base/D01/` → `knowledge-base/D16/` (16 dominios analizados) + `knowledge-base/D17/` → `knowledge-base/D49/` (33 dominios en scope — placeholders KB creados 2026-08-03; SPs en brain.db cargados 2026-08-12: 1,421 SPs nuevos + 21,112 reglas vía `generators/load-missing-domains.py`)
 - Alcance de código fuente: **TODO** `source/BCOPCore/informix/` — 49 bases de datos descubiertas (D01-D49); excludes: `borra_dba_espera` (script DBA), `sentinel` (herramienta de monitoreo)
 - Vocabulario sincronizado — 634 términos en brain.db (Ola A + lincred/aumlincred/consutacat); 0 términos fantasma
 - SP nuevo incorporado: `bdisac:sp_obtiene_clientes_pre_aprobado_notificar` (D05 · loc=109 · FOREACH streaming · cross-DB bdicred+bdinteg); fuente renombrada a `bdisac_sp_obtiene_clientes_pre_aprobado_notificar.sql`
@@ -218,4 +219,4 @@ Todo hallazgo extraído de `source/logs/` tiene dos destinos en paralelo:
 
 **Component Spec:** [spec-spe-am-bcop-core.md](spec-spe-am-bcop-core.md) — especificación del componente BCOPCore siguiendo §16 DC Universal Rules.
 
-*Última actualización: 2026-08-10 · Reglas v1.5.0: Layer B+ `business_name` enrichment — 1,883/1,969 nombres débiles mejorados con heurísticas SPL (enrich-names-local.py); 8,005 reglas (dedup definitivo); sp_capabilities 164,931 links · 99.7% cobertura. v1.4.0: 8,005 extraídas (mapping BDs secundarias corregido — 5,543 labels arreglados, 7 DBs sin cobertura añadidas); SPs actualizados a 11,391. v anterior 2026-08-07: Ontología v3.9 · 3 nuevos DTs inferencia: DT-Operacional-Batch, DT-Regulatorio, DT-Catálogo-Errores; total: 14 DTs · 17 SMEs*
+*Última actualización: 2026-08-12 · v1.6.0: D17-D49 cargados en brain.db — 12,812 SPs totales (1,421 nuevos) · 32,904 reglas · 97.6% biz · ETB L3 68.5% fine-mapped · load-missing-domains.py (INSERT-capable para 19 dominios ausentes). v1.5.0 (2026-08-10): Layer B+ `business_name` enrichment — 1,883/1,969 nombres débiles mejorados con heurísticas SPL (enrich-names-local.py); 8,005 reglas (dedup definitivo); sp_capabilities 164,931 links · 99.7% cobertura. v1.4.0: 8,005 extraídas (mapping BDs secundarias corregido — 5,543 labels arreglados, 7 DBs sin cobertura añadidas); SPs actualizados a 11,391. v anterior 2026-08-07: Ontología v3.9 · 3 nuevos DTs inferencia: DT-Operacional-Batch, DT-Regulatorio, DT-Catálogo-Errores; total: 14 DTs · 17 SMEs*
