@@ -110,12 +110,33 @@ def is_generic_name(biz: str) -> bool:
     return bool(generic_re.match((biz or '').strip()))
 
 
-_src_cache: dict[str, list[str] | None] = {}
+# LET <var> = <numeric_or_string_literal>
+_CONST_RE = re.compile(
+    r'\bLET\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*'
+    r"(['\"][\d\.\,]+['\"]|\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+
+_src_cache:   dict[str, list[str] | None] = {}
+_const_cache: dict[str, dict[str, str]]   = {}
+
+def build_const_map(lines: list[str]) -> dict[str, str]:
+    """Scan full SP source for LET var = literal — returns {var_lower: value}."""
+    const_map: dict[str, str] = {}
+    for line in lines:
+        m = _CONST_RE.search(line)
+        if m:
+            var = m.group(1).lower()
+            val = m.group(2).strip("'\"")
+            const_map[var] = val
+    return const_map
+
 
 def load_lines(db: str, sp_name: str) -> list[str] | None:
     key = f'{db}_{sp_name}'
     if key in _src_cache:
         return _src_cache[key]
+    # const_cache is populated lazily inside load_lines so one pass reads both
     path = SRC_DIR / f'{key}.sql'
     if not path.exists():
         _src_cache[key] = None
@@ -130,7 +151,8 @@ def load_lines(db: str, sp_name: str) -> list[str] | None:
     except UnicodeDecodeError:
         text = raw.decode('latin-1', errors='replace')
     lines = text.splitlines()
-    _src_cache[key] = lines
+    _src_cache[key]   = lines
+    _const_cache[key] = build_const_map(lines)
     return lines
 
 
@@ -169,7 +191,8 @@ def is_reg_ref(biz: str) -> bool:
     return bool(reg_re.search(biz or ''))
 
 
-def score_rule(biz: str, code: str, lines: list[str], line_no: int, sp_id: str = '') -> dict:
+def score_rule(biz: str, code: str, lines: list[str], line_no: int, sp_id: str = '',
+               const_map: dict[str, str] | None = None) -> dict:
     """Compute coherence score between business_name and code context."""
     if is_generic_name(biz):
         return {'score': 0.0, 'level': 'GENERIC', 'reg_ref': False,
@@ -179,8 +202,23 @@ def score_rule(biz: str, code: str, lines: list[str], line_no: int, sp_id: str =
 
     ctx = get_context(lines, line_no)
     # Augment code tokens with SP name tokens (always valid context)
-    sp_tokens  = tokenize_sp_name(sp_id)
+    sp_tokens   = tokenize_sp_name(sp_id)
     code_tokens = normalize_nums(tokenize_code(ctx) | sp_tokens)
+
+    # Constant propagation: expand tokens for variables that are assigned
+    # a numeric/string literal anywhere in the SP  (e.g. vValIva = 0.16 → adds '16', 'iva')
+    if const_map:
+        ctx_idents = {i.lower() for i in re.findall(r'\b[a-zA-Z_][a-zA-Z0-9_]*\b', ctx)}
+        for ident in ctx_idents:
+            if ident in const_map:
+                val = const_map[ident]
+                code_tokens.add(val)
+                # also add integer form (0.16 → 16)
+                m = re.match(r'^0?\.?(\d+)', val)
+                if m:
+                    code_tokens.add(m.group(1))
+                # also tokenize variable name itself for semantic meaning
+                # (vValIva → 'val', 'iva' already handled by tokenize_code above)
     name_tokens = tokenize_name(biz)
 
     if not name_tokens:
@@ -242,15 +280,18 @@ def main():
         if i % 1000 == 0:
             print(f'  {i}/{total}…', flush=True)
 
-        sp_name = sp_id.split(':')[-1] if ':' in sp_id else sp_id
-        lines   = load_lines(db, sp_name)
+        sp_name   = sp_id.split(':')[-1] if ':' in sp_id else sp_id
+        lines     = load_lines(db, sp_name)
+        cache_key = f'{db}_{sp_name}'
+        cmap      = _const_cache.get(cache_key, {})
 
         if lines is None:
             result = {'score': 0.0, 'level': 'NO_SOURCE', 'reg_ref': False,
                       'name_tokens': [], 'matched': [], 'code_tokens_sample': []}
         else:
             line_no = int(line) if line and str(line).isdigit() else 0
-            result  = score_rule(biz or '', code or '', lines, line_no, sp_id)
+            result  = score_rule(biz or '', code or '', lines, line_no, sp_id,
+                                 const_map=cmap)
 
         level = result['level']
         by_level[level] += 1

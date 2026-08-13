@@ -18,7 +18,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='repla
 
 BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
         "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/Informix/")
+        "Application Modernization/BanCoppel/systems/core/Informix/")
 SRC  = BASE + "source/informix/"
 
 # ── 1. Domain map from brain.db ───────────────────────────────────────────────

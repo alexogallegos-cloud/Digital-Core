@@ -86,6 +86,53 @@ El tipo **declarado** (no el prefijo adivinado) es la señal:
 
 Esto requiere extraer los `DEFINE` del source (`source/informix/*.sql`) a un mapa `variable→tipo declarado` por SP. Es el siguiente build (owner DT-Reglas + DBA IBM Informix para la semántica de tipos Informix).
 
+## Propagación de constantes — LET var = literal como señal semántica
+
+**Tercera señal de descubrimiento** (complementaria al `DEFINE` de tipo y al CamelCase de nombre).
+
+Cuando un SP asigna un literal numérico o de cadena a una variable —`LET vValIva = 0.16`— ese valor es una constante de negocio embebida en el código. Descubrirla permite:
+
+1. **Identificar tasas regulatorias encubiertas.** `vValIva = 0.16` no parece nada; 0.16 es la tasa del IVA en México (LIVA Art.1). Sin la asignación, leer `TRUNC(vMontoCom * vValIva, 2)` no revela que es un cálculo fiscal — el prefijo `vVal` solo dice "variable de valor". Con la asignación, el análisis semántico puede vincular `vValIva → 0.16 → IVA 16%` y subir la coherencia de la regla.
+
+2. **Descubrir parámetros de umbral hardcodeados.** `LET vLimPLD = 10000` → UMBRAL_PLD (GAFI/UIF, $10,000 MXN). `LET vDiasVenc = 90` → umbral de cartera vencida (CUB B-5). Estos valores son la "intención regulatoria" codificada como constante y deben migrar como configuración, no como magic number.
+
+3. **Confirmar factores fiscales implícitos.** En México: `0.16` / `16/100` → IVA; `8/100` → IVA frontera (zona libre fronteriza); `1.16` → monto con IVA incluido; `0.0090` / `0.90%` → tasa ISR retención sobre intereses 2026 (LISR Art.54/135).
+
+### Patrón de detección
+
+```sql
+-- En cualquier línea del SP:
+LET <var> = <literal_numérico_o_cadena>
+
+-- Ejemplos capturados:
+LET vValIva   = 0.16       -- tasa IVA 16%
+LET vValIvaF  = 0.08       -- tasa IVA frontera 8%
+LET vLimPLD   = 10000      -- umbral PLD (GAFI)
+LET vTasaIsrT = 0.0090     -- tasa ISR 2026 (LISR 54/135)
+LET vDiasVenc = 90         -- días cartera vencida (CUB B-5)
+LET cCodRet   = '207'      -- código de error: cuenta no existe
+```
+
+### Implementación en el pipeline
+
+`generators/validate-rules-vs-code.py` implementa esto con `build_const_map(lines)`:
+
+```python
+_CONST_RE = re.compile(
+    r'\bLET\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*'
+    r"(['\"][\d\.\,]+['\"]|\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+```
+
+Escanea el SP completo, construye `{var_lower: literal}`, y en el scoring de cada regla expande el contexto: si `vValIva` aparece en las ±8 líneas y `vvaliva → '0.16'` está en el mapa, agrega `'0.16'` y `'16'` a los tokens del código antes de calcular el solapamiento con `business_name`. Esto permite que "Cálculo con umbral/factor 16" matchee correctamente con código que usa `vValIva = 0.16`.
+
+### Regla de descubrimiento
+
+> Todo `LET <var> = <literal>` que sea un valor con significado regulatorio o financiero conocido **debe declararse en el vocabulario** (`knowledge-base/vocabulary/`) y **migrar como parámetro de configuración**, no como constante embebida. El valor hardcodeado es technical debt además de riesgo regulatorio (un cambio de tasa requiere redeployment).
+
+Tasas y umbrales sujetos a cambio regulatorio frecuente en MX: IVA (16%/8%), ISR sobre intereses (varía anualmente por SAT), umbrales PLD (varía por nivel de riesgo), índices CUB (CNBV).
+
 ## Caveats — es legacy, no es 100% consistente
 
 La convención es una guía, no una ley. En 15+ años de mantenimiento hay variables sin prefijo, prefijos mal usados y colisiones (una `c` puede ser char, cursor o el arranque de "cuenta"). Por eso:

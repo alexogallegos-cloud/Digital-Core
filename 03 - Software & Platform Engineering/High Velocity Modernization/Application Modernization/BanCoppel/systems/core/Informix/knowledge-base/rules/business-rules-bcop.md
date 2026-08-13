@@ -1,7 +1,7 @@
 # Informix · Catálogo de Reglas de Negocio — v3.0 (Layer A+)
 
 > **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Enrichment Layer A+
-> **Generado:** 2026-08-06 · `enrich-rules-v3.py` · 8,005 reglas · 8,005 con nombre natural · 5,759 con explicación
+> **Generado:** 2026-08-06 · `enrich-rules-v3.py` · 7,784 reglas · 7,784 con nombre natural · 5,759 con explicación
 > **Cobertura:** D01-D53 (todos los dominios) · 49 bases de datos activas
 > **Fuente primaria:** `business-rules-v3.json` (v3.0, Layer A+)
 
@@ -9,27 +9,26 @@
 
 | Tipo | Reglas |
 |----|---:|
-| FÓRMULA | 4,597 |
-| VALIDACIÓN | 3,141 |
+| FÓRMULA | 4,596 |
+| VALIDACIÓN | 2,919 |
 | UMBRAL | 241 |
 | ESTADO | 28 |
-| CONDICIÓN | 1 |
-| **TOTAL** | **8,005** |
+| **TOTAL** | **7,784** |
 
 | Dimensión | Valor |
 |---|---|
-| Reglas con nombre natural (business_name) | 8,005 |
+| Reglas con nombre natural (business_name) | 7,784 |
 | Reglas con explicación | 5,759 |
 | Reglas con riesgo de equivalencia | 553 |
-| Dominios cubiertos | 30 |
+| Dominios cubiertos | 25 |
 
 ## Por categoría
 
 | Categoría | Reglas |
 |---|---:|
-| CALCULO_FINANCIERO | 2,499 |
+| CALCULO_FINANCIERO | 2,498 |
 | REGULATORIO | 2,443 |
-| OPERACIONAL | 1,920 |
+| OPERACIONAL | 1,697 |
 | PARAMETRIA | 455 |
 | RIESGO_CREDITO | 320 |
 | PAGOS_TRANSFERENCIAS | 172 |
@@ -97,10 +96,10 @@
 | D02 Integración y Auth | 729 |
 | D03 Créditos | 1,903 |
 | D04 Cheques / Cuentas | 1,593 |
-| D05 Saldos y Cuentas | 216 |
+| D05 Saldos y Cuentas | 211 |
 | D06 Solicitudes | 245 |
 | D07 Aclaraciones | 216 |
-| D08 SPEI | 448 |
+| D08 SPEI | 400 |
 | D09 Mensajería | 11 |
 | D10 Sucursales | 120 |
 | D11 Cobranza | 240 |
@@ -112,35 +111,30 @@
 | D23 MIS Sucursales | 24 |
 | D26 Prospectos | 11 |
 | D32 Reportes Visa/MC | 11 |
-| D34 Respaldos DBA | 142 |
 | D35 Digitalización | 8 |
 | D36 Reportería CNBV | 27 |
 | D37 Nómina BPI | 2 |
-| D40 Banca Internet | 13 |
 | D44 Conciliación Operativa | 3 |
-| D45 Premios | 8 |
 | D46 Oficinas de Cobro | 5 |
-| D47 Garantías | 7 |
 | D48 Riesgos de Crédito | 4 |
-| D49 Retiro sin Tarjeta | 1 |
 
 ## Reglas críticas — riesgo de equivalencia financiera
 
 | ID | business_name | SP | Riesgo |
 |----|---|---|---|
-| BR-V2-0006 | Cálculo con umbral/factor 365.25 | `sp_acl_validarpreguntasiniciosesion` | base 365 — verificar vs 360 |
-| BR-V2-0305 | Cálculo con umbral/factor 65536 | `sp_random` | TRUNC — Informix trunca; PostgreSQL puede redondear (divergencia centavos) |
+| BR-V2-0006 | Resultado edad — días/año (365.25) → edad exacta | `sp_acl_validarpreguntasiniciosesion` | base 365 — verificar vs 360 |
+| BR-V2-0305 | Cálculo de ivalor (factor 65536) | `sp_random` | TRUNC — Informix trunca; PostgreSQL puede redondear (divergencia centavos) |
 | BR-V2-0316 | Calcular plazo: pago ÷ 2 | `burofisicas_cnr` | ROUND — validar modo (banker's vs half-up) |
 | BR-V2-0318 | Calcular plazo: pago ÷ 2 | `burofisicas_cnr_pba` | ROUND — validar modo (banker's vs half-up) |
 | BR-V2-0343 | Calcular abono (multiplicación) | `credito_revolvente` | ROUND — validar modo (banker's vs half-up) |
-| BR-V2-0365 | Cálculo con umbral/factor 30.4 | `sp_burofisicas_cortos_cnr` | ROUND — validar modo (banker's vs half-up) |
+| BR-V2-0365 | Diasatraso — días por mes (30) | `sp_burofisicas_cortos_cnr` | ROUND — validar modo (banker's vs half-up) |
 | BR-V2-0367 | Calcular plazo: pago ÷ 2 | `sp_burofisicas_cortos_cnr` | ROUND — validar modo (banker's vs half-up) |
-| BR-V2-0506 | Cálculo con umbral/factor 04 | `arr_intacum` | base 360 (año comercial) — verificar vs 365 |
-| BR-V2-0508 | Cálculo con umbral/factor 025 | `arr_invcrec_12262009` | base 360 (año comercial) — verificar vs 365 |
-| BR-V2-0509 | Cálculo con umbral/factor 04 | `arr_pagaint` | base 360 (año comercial) — verificar vs 365 |
-| BR-V2-0521 | Cálculo con umbral/factor 360 | `arrpagoint_18082010` | base 360 (año comercial) — verificar vs 365 |
-| BR-V2-0535 | Cálculo con umbral/factor 360 | `calc_int` | base 360 (año comercial) — verificar vs 365 |
-| BR-V2-0538 | Cálculo con umbral/factor 360 | `calc_interes` | base 360 (año comercial) — verificar vs 365 |
+| BR-V2-0506 | Interés acum — tasa diaria (base año comercial) | `arr_intacum` | base 360 (año comercial) — verificar vs 365 |
+| BR-V2-0508 | Vacum saldo interés — tasa diaria (base año comercial) | `arr_invcrec_12262009` | base 360 (año comercial) — verificar vs 365 |
+| BR-V2-0509 | Vintfalta — tasa diaria (base año comercial) | `arr_pagaint` | base 360 (año comercial) — verificar vs 365 |
+| BR-V2-0521 | Monto tot — tasa diaria (base año comercial) | `arrpagoint_18082010` | base 360 (año comercial) — verificar vs 365 |
+| BR-V2-0535 | Tot interés — tasa diaria (base año comercial) | `calc_int` | base 360 (año comercial) — verificar vs 365 |
+| BR-V2-0538 | Calc interés — tasa diaria (base año comercial) | `calc_interes` | base 360 (año comercial) — verificar vs 365 |
 | BR-V2-0540 | LISR Art.54/135 | `calc_isr` | TRUNC — Informix trunca; PostgreSQL puede redondear (divergencia centavos) |
 | BR-V2-0541 | LISR Art.54/135 | `calc_isr` | TRUNC — Informix trunca; PostgreSQL puede redondear (divergencia centavos) |
 | BR-V2-0542 | LISR Art.54/135 | `calc_isr` | TRUNC — Informix trunca; PostgreSQL puede redondear (divergencia centavos) |
@@ -154,7 +148,7 @@
 | BR-V2-0591 | LTOSF Art.17 (CAT) + RECO | `cargo_comisiones_per_web` | TRUNC — Informix trunca; PostgreSQL puede redondear (divergencia centavos) |
 | BR-V2-0594 | LTOSF Art.17 (CAT) + RECO | `cargo_comisiones_web` | ROUND — validar modo (banker's vs half-up) |
 | BR-V2-0595 | LTOSF Art.17 (CAT) + RECO | `cargo_comisiones_web` | TRUNC — Informix trunca; PostgreSQL puede redondear (divergencia centavos) |
-| BR-V2-0928 | Cálculo con umbral/factor 360 | `histsbg` | base 360 (año comercial) — verificar vs 365 |
-| BR-V2-0929 | Cálculo con umbral/factor 360 | `histsbg` | base 360 (año comercial) — verificar vs 365 |
-| BR-V2-0932 | Cálculo con umbral/factor 360 | `histsbg` | base 360 (año comercial) — verificar vs 365 |
-| BR-V2-0933 | Cálculo con umbral/factor 360 | `histsbg` | base 360 (año comercial) — verificar vs 365 |
+| BR-V2-0928 | Interés sbg del día — tasa diaria (base año comercial) | `histsbg` | base 360 (año comercial) — verificar vs 365 |
+| BR-V2-0929 | Interés sbg sigmes — tasa diaria (base año comercial) | `histsbg` | base 360 (año comercial) — verificar vs 365 |
+| BR-V2-0932 | Interés sbg del día — tasa diaria (base año comercial) | `histsbg` | base 360 (año comercial) — verificar vs 365 |
+| BR-V2-0933 | Interés sbg sigmes — tasa diaria (base año comercial) | `histsbg` | base 360 (año comercial) — verificar vs 365 |
