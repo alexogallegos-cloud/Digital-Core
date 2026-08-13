@@ -95,6 +95,7 @@ for r in rules:
         "he": (r.get("human_expr", "") or "")[:280],
         "vr": r.get("vocab_refs", [])[:6],
         "bc": r.get("bc_name", "") or r.get("bc", ""),
+        "cl": r.get("clase", "NEGOCIO"),
     })
 
 # ── Group IDs — reglas con mismo business_name forman un grupo ────────────────
@@ -111,17 +112,21 @@ for r in slim_rules:
 
 # ── Stats for meta ────────────────────────────────────────────────────────────
 by_tipo = Counter(r["t"] for r in slim_rules)
+by_clase = Counter(r["cl"] for r in slim_rules)
 all_doms = sorted({r["d"] for r in slim_rules if r["d"]})
 all_regs = ["CNBV","SAT","CONDUSEF","IPAB","Banxico","TESOFE"]
 reg_counts = {reg: sum(1 for r in slim_rules if reg in r["r"]) for reg in all_regs}
 n_riesgo = sum(1 for r in slim_rules if r["k"])
+n_negocio = by_clase.get("NEGOCIO", 0)
 n_groups = len(_name_to_gi)
 
 portal_data = {
     "meta": {
         "total":     len(slim_rules),
+        "n_negocio": n_negocio,
         "n_groups":  n_groups,
         "by_tipo":   dict(by_tipo),
+        "by_clase":  dict(by_clase),
         "domains":   all_doms,
         "regs":      {k: v for k, v in reg_counts.items() if v > 0},
         "n_riesgo":  n_riesgo,
@@ -135,6 +140,17 @@ print(f"Portal data: {out_data}  ({os.path.getsize(out_data):,} bytes, {len(slim
 
 # ── Generate HTML ─────────────────────────────────────────────────────────────
 M = portal_data["meta"]
+
+# Valores derivados (pre-calculados para evitar {{}} anidado en el f-string HTML)
+_bc = M.get("by_clase", {})
+N_NEGOCIO   = M.get("n_negocio", M["total"])
+N_NONEG     = M["total"] - N_NEGOCIO
+N_FORM_NEG  = M["by_tipo"].get("FÓRMULA", 0) - _bc.get("INFRAESTRUCTURA", 0) \
+              - _bc.get("ENSAMBLAJE_REPORTE", 0) - _bc.get("PRESENTACION", 0)
+CL_NEG   = _bc.get("NEGOCIO", 0)
+CL_INFRA = _bc.get("INFRAESTRUCTURA", 0)
+CL_ENS   = _bc.get("ENSAMBLAJE_REPORTE", 0)
+CL_PRES  = _bc.get("PRESENTACION", 0)
 
 REG_COLOR = {
     "CNBV":     ("rgba(37,99,235,.15)",  "#93c5fd"),
@@ -207,6 +223,9 @@ body{{background:var(--bg);color:var(--txt);font-family:'SF Pro Display',-apple-
   background:rgba(61,95,205,.1);transition:all .15s;white-space:nowrap}}
 .pill:hover{{border-color:var(--blue);color:var(--txt)}}
 .pill.on{{border-color:var(--acc)!important;color:var(--acc);background:rgba(240,210,36,.08)!important}}
+.pill.cl-pill{{border-color:rgba(120,200,160,.35);color:#8fd4b0;background:rgba(80,180,130,.08)}}
+.pill.cl-pill:hover{{border-color:#5cc98f;color:#c7f0dd}}
+.pill.cl-pill.on{{border-color:#4dd598!important;color:#4dd598!important;background:rgba(77,213,152,.12)!important}}
 .pill .cnt{{font-size:8px;opacity:.7;margin-left:3px}}
 #dom-sel{{background:var(--panel);border:1px solid rgba(61,95,205,.45);border-radius:7px;
   color:var(--txt);padding:4px 8px;font-size:11px;outline:none;cursor:pointer}}
@@ -327,13 +346,13 @@ tr.exp .grp-arrow{{transform:rotate(90deg)}}
       <div class="hero-sub">{M["total"]:,} reglas de negocio destiladas de los stored procedures del core BanCoppel en IBM Informix IDS 14.10.<br>La lógica que gobierna cada cálculo, validación y umbral — inferida del código y hecha legible.</div>
     </div>
     <div class="hero-stats">
-      <div class="stat-block"><div class="sn" id="h-total">{M["total"]:,}</div><div class="sl">Total reglas</div></div>
+      <div class="stat-block"><div class="sn" id="h-total">{N_NEGOCIO:,}</div><div class="sl">Reglas de negocio</div></div>
       <div class="stat-block"><div class="sn">{M["n_groups"]:,}</div><div class="sl">Nombres únicos</div></div>
-      <div class="stat-block blue"><div class="sn">{M["by_tipo"].get("FÓRMULA",0):,}</div><div class="sl">Fórmulas</div></div>
+      <div class="stat-block blue"><div class="sn">{N_FORM_NEG:,}</div><div class="sl">Fórmulas</div></div>
       <div class="stat-block blue"><div class="sn">{M["by_tipo"].get("VALIDACIÓN",0):,}</div><div class="sl">Validaciones</div></div>
       <div class="stat-block blue"><div class="sn">{M["by_tipo"].get("UMBRAL",0):,}</div><div class="sl">Umbrales</div></div>
-      <div class="stat-block blue"><div class="sn">{M["by_tipo"].get("ESTADO",0):,}</div><div class="sl">Estados</div></div>
       <div class="stat-block red"><div class="sn">{M["n_riesgo"]:,}</div><div class="sl">Riesgo equiv.</div></div>
+      <div class="stat-block" style="opacity:.72"><div class="sn" style="background:linear-gradient(135deg,#9aa4bf,#c7cede);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">{N_NONEG:,}</div><div class="sl">Ensamblaje/infra</div></div>
     </div>
   </div>
 </div>
@@ -346,6 +365,12 @@ tr.exp .grp-arrow{{transform:rotate(90deg)}}
   <span class="pill" data-f="tipo" data-v="VALIDACIÓN">Validación<span class="cnt">{M["by_tipo"].get("VALIDACIÓN",0):,}</span></span>
   <span class="pill" data-f="tipo" data-v="UMBRAL">Umbral<span class="cnt">{M["by_tipo"].get("UMBRAL",0):,}</span></span>
   <span class="pill" data-f="tipo" data-v="ESTADO">Estado<span class="cnt">{M["by_tipo"].get("ESTADO",0):,}</span></span>
+  <div class="sep"></div>
+  <span class="pill cl-pill on" data-f="clase" data-v="">Toda naturaleza</span>
+  <span class="pill cl-pill" data-f="clase" data-v="NEGOCIO">Negocio<span class="cnt">{CL_NEG:,}</span></span>
+  <span class="pill cl-pill" data-f="clase" data-v="INFRAESTRUCTURA" title="Shell, dbaccess, paths AIX — plumbing, no negocio">Infra<span class="cnt">{CL_INFRA:,}</span></span>
+  <span class="pill cl-pill" data-f="clase" data-v="ENSAMBLAJE_REPORTE" title="Construcción de SQL dinámico para reportes">Ensamblaje<span class="cnt">{CL_ENS:,}</span></span>
+  <span class="pill cl-pill" data-f="clase" data-v="PRESENTACION" title="Formato de strings, padding, mensajes">Presentación<span class="cnt">{CL_PRES:,}</span></span>
   <div class="sep"></div>
   <select id="dom-sel"><option value="">Todos los dominios</option></select>
   <div class="sep"></div>
@@ -387,7 +412,7 @@ tr.exp .grp-arrow{{transform:rotate(90deg)}}
 const PAGE = 100;
 let ALL = [], filteredGroups = [], expandedGroups = new Set();
 let page = 0, openId = null;
-let fTipo='', fDom='', fReg='', fRisk=false, fQ='', sortCol='n', sortDir=1;
+let fTipo='', fClase='', fDom='', fReg='', fRisk=false, fQ='', sortCol='n', sortDir=1;
 
 const REG_COLORS = {{
   CNBV:     ['rgba(37,99,235,.15)','#93c5fd'],
@@ -527,6 +552,7 @@ function applyFilters(){{
   const q = fQ.toLowerCase().trim();
   const matched = ALL.filter(r=>{{
     if(fTipo && r.t !== fTipo) return false;
+    if(fClase && (r.cl||'NEGOCIO') !== fClase) return false;
     if(fDom  && r.d !== fDom)  return false;
     if(fReg  && !(r.r||[]).includes(fReg)) return false;
     if(fRisk && !(r.k&&r.k.length)) return false;
@@ -600,6 +626,14 @@ document.querySelectorAll('.pill[data-f="tipo"]').forEach(p=>{{
     document.querySelectorAll('.pill[data-f="tipo"]').forEach(x=>x.classList.remove('on'));
     p.classList.add('on');
     fTipo=p.dataset.v; applyFilters();
+  }});
+}});
+
+document.querySelectorAll('.pill[data-f="clase"]').forEach(p=>{{
+  p.addEventListener('click',()=>{{
+    document.querySelectorAll('.pill[data-f="clase"]').forEach(x=>x.classList.remove('on'));
+    p.classList.add('on');
+    fClase=p.dataset.v; applyFilters();
   }});
 }});
 
