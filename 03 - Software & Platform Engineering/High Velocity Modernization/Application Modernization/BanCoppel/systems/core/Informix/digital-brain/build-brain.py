@@ -827,6 +827,41 @@ def merge_fine_capabilities(conn):
     print(f'  merge fine-map +{n_after - n_before:,} overrides   total {n_after:,} links   {l3_after} L3 distintas   ({overrides} overrides)')
 
 
+def mark_ctm_hints(conn):
+    """
+    Marca batch_archetype='CTM_HINT' para SPs que aparecen en SP hints del CTM brain
+    y cumplen criterio de alta confianza: fan_in=0 + sp_archetype batch/batch_orchestrator.
+    Solo corre si el CTM brain.db existe (no bloquea el build si no está).
+    Ortogonal a CTM_ENTRY (vía nombre exacto SP_ en job).
+    """
+    ctm_path = BASE.parent.parent / "systems" / "integration" / "ControlM" / "digital-brain" / "brain.db"
+    if not ctm_path.exists():
+        print(f'  ctm_hints    [SKIP — CTM brain.db no encontrado en {ctm_path}]')
+        return
+
+    conn.execute(f"ATTACH DATABASE '{ctm_path}' AS ctm")
+
+    n = conn.execute("""
+        UPDATE sps
+        SET batch_archetype = 'CTM_HINT'
+        WHERE id IN (
+            SELECT DISTINCT s.id
+            FROM ctm.sp_hints h
+            JOIN sps s ON (
+                s.name = h.sp_name_hint
+                OR s.name = REPLACE(h.sp_name_hint, '_pro', '')
+            )
+            WHERE h.sp_name_hint LIKE 'sp_%'
+              AND s.fan_in = 0
+              AND s.sp_archetype IN ('batch', 'batch_orchestrator')
+              AND (s.batch_archetype IS NULL OR s.batch_archetype NOT IN ('CTM_ENTRY', 'CTM_HINT'))
+        )
+    """).rowcount
+    conn.commit()
+    conn.execute("DETACH DATABASE ctm")
+    print(f'  ctm_hints    {n:>6,} SPs marcados CTM_HINT (alta confianza — fan_in=0 + match en CTM sp_hints)')
+
+
 def classify_sp_archetypes(conn):
     """
     Puebla sp_archetype (patrón estructural) derivado de fan_in/fan_out.
@@ -1199,6 +1234,7 @@ def main():
     merge_fine_capabilities(conn)
     classify_sps(conn)
     classify_sp_archetypes(conn)
+    mark_ctm_hints(conn)
     load_prod_metrics(conn)
     build_sp_terms(conn)
     seed_cross_dependencies(conn)
