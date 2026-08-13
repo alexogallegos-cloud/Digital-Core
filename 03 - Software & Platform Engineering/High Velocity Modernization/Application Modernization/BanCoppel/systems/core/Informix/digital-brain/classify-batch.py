@@ -123,6 +123,11 @@ def extract_signals(sp_name, db_name):
     n_calls   = len(calls_set)
     n_cross   = sum(1 for c in calls_set if ':' in c)
 
+    # RETURN...WITH RESUME: este SP es un cursor streaming (producer).
+    # Patrón Informix-específico sin equivalente en SQL estándar — todo caller
+    # debe usar el protocolo FOREACH/RESUME y migrar cuando el producer migre.
+    has_return_resume = bool(re.search(r'\bRETURN\b[^;]+\bWITH\s+RESUME\b', code_u, re.S))
+
     inserts = len(re.findall(r'\bINSERT\b', code_u))
     updates = len(re.findall(r'\bUPDATE\b', code_u))
     deletes = len(re.findall(r'\bDELETE\b', code_u))
@@ -141,9 +146,11 @@ def extract_signals(sp_name, db_name):
     name_l = sp_name.lower()
     return dict(
         n_calls=n_calls,   n_cross=n_cross,
+        calls_set=calls_set,  # retenido para detección de consumers en segunda pasada
         inserts=inserts,   updates=updates,   deletes=deletes,
         n_writes=inserts + updates + deletes,
         n_foreach=n_foreach, n_commit=n_commit,
+        has_return_resume = has_return_resume,
         has_returning  = has_returning,
         has_contproc   = 'sx_contproc'   in write_targets or 'sd_contproc' in write_targets,
         has_hist       = bool(re.search(r'_hist\b', write_targets)),
@@ -209,16 +216,19 @@ def classify(sp_name, sig):
     return 'UNKNOWN'
 
 
-# ── 4. Procesar candidatos ─────────────────────────────────────────────────
-print('Clasificando SPs...', flush=True)
+# ── 4. Procesar candidatos — Primera pasada ────────────────────────────────
+print('Clasificando SPs (pasada 1/2)...', flush=True)
 t0 = time.time()
 rows = []
 counts = Counter()
+all_calls_map = {}  # (db, sp_name) → calls_set; para detección de consumers
 
 for i, row in enumerate(candidates):
     sig      = extract_signals(row['name'], row['db'])
     archetype = classify(row['name'], sig)
     counts[archetype] += 1
+
+    all_calls_map[(row['db'], row['name'])] = sig['calls_set'] if sig else set()
 
     rows.append((
         row['domain'],
@@ -226,13 +236,14 @@ for i, row in enumerate(candidates):
         row['name'],
         row['loc'],
         archetype,
-        sig['n_calls']   if sig else None,
-        sig['n_cross']   if sig else None,
-        sig['n_foreach'] if sig else None,
-        sig['n_writes']  if sig else None,
-        sig['n_commit']  if sig else None,
-        1 if (sig and sig['has_contproc']) else 0,
-        1 if (sig and sig['has_hist'])     else 0,
+        sig['n_calls']         if sig else None,
+        sig['n_cross']         if sig else None,
+        sig['n_foreach']       if sig else None,
+        sig['n_writes']        if sig else None,
+        sig['n_commit']        if sig else None,
+        1 if (sig and sig['has_contproc'])      else 0,
+        1 if (sig and sig['has_hist'])          else 0,
+        1 if (sig and sig['has_return_resume']) else 0,
     ))
 
     if (i + 1) % 500 == 0:
@@ -240,7 +251,24 @@ for i, row in enumerate(candidates):
         print(f'  {i+1:,} / {len(candidates):,}  ({elapsed:.1f}s)', flush=True)
 
 elapsed = time.time() - t0
-print(f'Clasificación completa: {len(rows):,} SPs en {elapsed:.1f}s', flush=True)
+print(f'Pasada 1 completa: {len(rows):,} SPs en {elapsed:.1f}s', flush=True)
+
+# ── 4b. Segunda pasada — detectar consumers de producers ──────────────────
+# Producer: índice 12 == has_return_resume
+producer_names = {r[2] for r in rows if r[12] == 1}
+print(f'Producers (RETURN...WITH RESUME): {len(producer_names):,}', flush=True)
+
+final_rows = []
+n_consumers = 0
+for r in rows:
+    db, sp_name = r[1], r[2]
+    calls = all_calls_map.get((db, sp_name), set())
+    # Un SP es consumer si llama a algún producer (compara solo la parte después de ':')
+    has_consumer = int(any(c.split(':')[-1] in producer_names for c in calls))
+    n_consumers += has_consumer
+    final_rows.append(r + (has_consumer,))
+
+print(f'Consumers (FOREACH → producer): {n_consumers:,}', flush=True)
 
 
 # ── 5. Guardar en brain.db ─────────────────────────────────────────────────
@@ -248,26 +276,28 @@ print('Escribiendo a brain.db...', flush=True)
 conn.execute('DROP TABLE IF EXISTS batch_analysis')
 conn.execute('''
     CREATE TABLE batch_analysis (
-        domain      TEXT,
-        db          TEXT,
-        sp_name     TEXT,
-        loc         INTEGER,
-        archetype   TEXT,
-        n_calls     INTEGER,
-        n_cross_db  INTEGER,
-        n_foreach   INTEGER,
-        n_writes    INTEGER,
-        n_commit    INTEGER,
-        has_contproc INTEGER,
-        has_hist    INTEGER,
+        domain              TEXT,
+        db                  TEXT,
+        sp_name             TEXT,
+        loc                 INTEGER,
+        archetype           TEXT,
+        n_calls             INTEGER,
+        n_cross_db          INTEGER,
+        n_foreach           INTEGER,
+        n_writes            INTEGER,
+        n_commit            INTEGER,
+        has_contproc        INTEGER,
+        has_hist            INTEGER,
+        has_return_resume   INTEGER,  -- 1 = producer: RETURN...WITH RESUME (streaming cursor Informix-específico)
+        has_resume_consumer INTEGER,  -- 1 = consumer: llama a un producer vía FOREACH
         PRIMARY KEY (db, sp_name)
     )
 ''')
 conn.executemany('''
-    INSERT OR REPLACE INTO batch_analysis VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-''', rows)
+    INSERT OR REPLACE INTO batch_analysis VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+''', final_rows)
 conn.commit()
-print(f'  {len(rows):,} filas insertadas', flush=True)
+print(f'  {len(final_rows):,} filas insertadas', flush=True)
 
 # ── 6. Resumen final ───────────────────────────────────────────────────────
 print()
@@ -279,7 +309,7 @@ for arch, n in sorted(counts.items(), key=lambda x: -x[1]):
 print()
 print('=== MUESTRA POR SUB-ARQUETIPO (primeros 5) ===')
 by_arch = defaultdict(list)
-for r in rows:
+for r in final_rows:
     by_arch[r[4]].append(r)
 
 for arch in sorted(by_arch.keys()):
@@ -288,7 +318,7 @@ for arch in sorted(by_arch.keys()):
     for dom, db, name, loc, _, n_calls, n_cross, n_foreach, n_writes, *_ in sample:
         print(f'  {dom:<6} {name:<50} loc={loc:>6} loops={n_foreach} calls={n_calls} writes={n_writes}')
 
-# ── 7. Propagar a sps.batch_archetype + sp_archetype ─────────────────────────
+# ── 7. Propagar a sps.batch_archetype + sp_archetype ────────────────────────
 print('Propagando arquetipos a sps...', flush=True)
 
 try:

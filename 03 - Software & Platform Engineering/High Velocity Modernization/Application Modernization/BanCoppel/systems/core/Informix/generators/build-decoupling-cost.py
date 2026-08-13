@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
 """
-build-decoupling-cost.py — BCOPCore Decoupling Cost Generator v1.1
+build-decoupling-cost.py — BCOPCore Decoupling Cost Generator v1.2
 Calcula el costo de desacoplamiento de Informix por SP y dominio.
 Tecnología-agnóstico: no asume destino (Unity / AWS / nativo).
 
-Señales de lock-in (5 señales reales de acoplamiento a Informix/AIX):
-  CTM_ENTRY/HINT  → depende de Control-M AIX — no puede salir sin reemplazar scheduler
-  n_cross_db      → accede a múltiples BDs Informix (ATTACH pattern — no existe en SQL estándar)
-  has_contproc    → ON EXCEPTION + CONTINUE PROCEDURE = manejo de errores SPL-específico
-  n_commit        → gestión de transacciones multi-paso compleja en SPL
-  infra_rules     → DBACCESS / paths AIX / shell calls (clase=INFRAESTRUCTURA en rules)
+Señales de lock-in (7 señales de acoplamiento a Informix/AIX):
+  CTM_ENTRY/HINT      → depende de Control-M AIX — no puede salir sin reemplazar scheduler
+  n_cross_db          → ATTACH multi-DB — patrón inexistente en SQL estándar
+  has_contproc        → ON EXCEPTION CONTINUE PROCEDURE — manejo de errores SPL-específico
+  n_commit            → gestión de transacciones multi-paso compleja en SPL
+  infra_rules         → DBACCESS / paths AIX / shell calls (clase=INFRAESTRUCTURA en rules)
+  has_return_resume   → RETURN...WITH RESUME — SP es cursor streaming (producer); protocolo
+                        sin equivalente directo en PostgreSQL; todos sus callers deben
+                        cambiar cuando migra.
+  has_resume_consumer → SP llama a un producer via FOREACH; acoplado al protocolo resume.
 
-NOTA: n_foreach NO se usa como señal — en SPL todo loop de cursor usa FOREACH
-(equivalente a ResultSet/ORM en Java). El lock-in real de FOREACH es WITH RESUME
-(streaming de filas al caller), señal no disponible en batch_analysis actual.
+NOTA: n_foreach genérico NO es señal — en SPL todo loop de cursor usa FOREACH
+(equivalente a ResultSet/ORM en Java). El lock-in real es WITH RESUME, ahora capturado.
 
 Portabilidad:
   sp_role=entry_point/esb_exposed  → ya tiene contrato ESB → candidato API wrapper
@@ -37,14 +40,16 @@ assert DB.exists(), f"brain.db no encontrado: {DB}"
 
 # ── Pesos del scoring ─────────────────────────────────────────────────────────
 # Diseño: suma teórica máxima ~100 → cap en 100
-W_CTM        = 35   # Control-M AIX scheduler — hard dependency (no sale sin reemplazar)
-W_CROSS_DB_H = 25   # n_cross_db >= 3 — acoplamiento horizontal profundo (ATTACH multi-DB)
-W_CROSS_DB_M = 15   # n_cross_db == 2 — acoplamiento moderado
-W_CONTPROC   = 20   # ON EXCEPTION CONTINUE PROCEDURE — patrón SPL-específico sin equiv SQL
-W_COMMIT_H   = 15   # n_commit > 5 — transacciones complejas multi-paso
-W_COMMIT_M   = 10   # n_commit 4-5
-W_INFRA_H    = 15   # >50% reglas INFRAESTRUCTURA — shell/DBACCESS dominante
-W_INFRA_M    =  8   # 25-50% reglas INFRAESTRUCTURA
+W_CTM          = 35   # Control-M AIX scheduler — hard dependency (no sale sin reemplazar)
+W_CROSS_DB_H   = 25   # n_cross_db >= 3 — acoplamiento horizontal profundo (ATTACH multi-DB)
+W_CROSS_DB_M   = 15   # n_cross_db == 2 — acoplamiento moderado
+W_CONTPROC     = 20   # ON EXCEPTION CONTINUE PROCEDURE — patrón SPL-específico sin equiv SQL
+W_COMMIT_H     = 15   # n_commit > 5 — transacciones complejas multi-paso
+W_COMMIT_M     = 10   # n_commit 4-5
+W_INFRA_H      = 15   # >50% reglas INFRAESTRUCTURA — shell/DBACCESS dominante
+W_INFRA_M      =  8   # 25-50% reglas INFRAESTRUCTURA
+W_RETURN_RESUME  = 20 # RETURN...WITH RESUME — producer de streaming; protocolo SPL sin equiv en PG
+W_RESUME_CONSUMER= 10 # Llama a un producer via FOREACH — acoplado al protocolo resume
 
 COST_LEVELS = {
     'low':      (0,  20),
@@ -70,11 +75,13 @@ def cost_level(score: int) -> str:
 
 def dominant_signal(signals: dict) -> str:
     candidates = [
-        ('CTM',       signals['ctm']        * W_CTM),
-        ('CROSS_DB',  signals['cross_db']   * W_CROSS_DB_H),
-        ('CONTPROC',  signals['contproc']   * W_CONTPROC),
-        ('COMMIT',    signals['commit']     * W_COMMIT_H),
-        ('INFRA',     signals['infra_rules'] * W_INFRA_H),
+        ('CTM',            signals['ctm']            * W_CTM),
+        ('CROSS_DB',       signals['cross_db']       * W_CROSS_DB_H),
+        ('CONTPROC',       signals['contproc']       * W_CONTPROC),
+        ('COMMIT',         signals['commit']         * W_COMMIT_H),
+        ('INFRA',          signals['infra_rules']    * W_INFRA_H),
+        ('RETURN_RESUME',  signals.get('return_resume', 0) * W_RETURN_RESUME),
+        ('RESUME_CONSUMER',signals.get('resume_consumer',0)* W_RESUME_CONSUMER),
     ]
     best = max(candidates, key=lambda x: x[1])
     return best[0] if best[1] > 0 else 'NONE'
@@ -107,17 +114,20 @@ def main():
     for r in sps_rows:
         sp_index[r['id']] = dict(r)
 
-    # ── 2. Señales de batch_analysis (FOREACH, cross_db, commit, contproc) ──
+    # ── 2. Señales de batch_analysis (cross_db, commit, contproc, resume) ──
     ba_map = {}   # (db, sp_name) → signals
     for r in cur.execute("""
-        SELECT db, sp_name, n_foreach, n_cross_db, n_commit, has_contproc
+        SELECT db, sp_name, n_foreach, n_cross_db, n_commit,
+               has_contproc, has_return_resume, has_resume_consumer
         FROM batch_analysis
     """):
         ba_map[(r['db'], r['sp_name'])] = {
-            'n_foreach':   r['n_foreach'] or 0,
-            'n_cross_db':  r['n_cross_db'] or 0,
-            'n_commit':    r['n_commit'] or 0,
-            'has_contproc': r['has_contproc'] or 0,
+            'n_foreach':         r['n_foreach']         or 0,
+            'n_cross_db':        r['n_cross_db']        or 0,
+            'n_commit':          r['n_commit']          or 0,
+            'has_contproc':      r['has_contproc']      or 0,
+            'has_return_resume': r['has_return_resume'] or 0,
+            'has_resume_consumer': r['has_resume_consumer'] or 0,
         }
 
     # ── 3. Señales de rules (INFRAESTRUCTURA ratio) ───────────────────────────
@@ -145,6 +155,8 @@ def main():
         ncd = ba.get('n_cross_db', 0)
         nco = ba.get('n_commit', 0)
         hcp = ba.get('has_contproc', 0)
+        hrr = ba.get('has_return_resume', 0)
+        hrc = ba.get('has_resume_consumer', 0)
 
         # Infra rules ratio
         rc = rule_clase.get((sp_name, db), {})
@@ -156,13 +168,15 @@ def main():
         # CTM
         is_ctm = 1 if sp['batch_archetype'] in ('CTM_ENTRY', 'CTM_HINT') else 0
 
-        # ─ Scoring — 5 señales reales de lock-in ─
+        # ─ Scoring — 7 señales de lock-in ─
         score = 0
-        score += W_CTM        if is_ctm else 0
-        score += W_CONTPROC   if hcp else 0
-        score += W_CROSS_DB_H if ncd >= 3 else (W_CROSS_DB_M if ncd == 2 else 0)
-        score += W_COMMIT_H   if nco > 5  else (W_COMMIT_M   if nco >= 4 else 0)
-        score += W_INFRA_H    if infra_ratio > 0.5 else (W_INFRA_M if infra_ratio > 0.25 else 0)
+        score += W_CTM           if is_ctm else 0
+        score += W_CONTPROC      if hcp else 0
+        score += W_CROSS_DB_H    if ncd >= 3 else (W_CROSS_DB_M if ncd == 2 else 0)
+        score += W_COMMIT_H      if nco > 5  else (W_COMMIT_M   if nco >= 4 else 0)
+        score += W_INFRA_H       if infra_ratio > 0.5 else (W_INFRA_M if infra_ratio > 0.25 else 0)
+        score += W_RETURN_RESUME   if hrr else 0
+        score += W_RESUME_CONSUMER if hrc else 0
         score = min(100, score)
 
         level = cost_level(score)
@@ -186,11 +200,13 @@ def main():
             'is_esb':     is_esb,
             'is_pure_negocio': is_pure_negocio,
             'signals': {
-                'ctm':        is_ctm,
-                'cross_db':   1 if ncd >= 2 else 0,
-                'commit':     1 if nco > 3 else 0,
-                'infra_rules': 1 if infra_ratio > 0.25 else 0,
-                'contproc':   hcp,
+                'ctm':            is_ctm,
+                'cross_db':       1 if ncd >= 2 else 0,
+                'commit':         1 if nco > 3 else 0,
+                'infra_rules':    1 if infra_ratio > 0.25 else 0,
+                'contproc':       hcp,
+                'return_resume':  hrr,
+                'resume_consumer': hrc,
             },
         })
 
@@ -199,7 +215,8 @@ def main():
         'sp_count': 0, 'score_sum': 0, 'rules_sum': 0,
         'dist': {'low': 0, 'medium': 0, 'high': 0, 'critical': 0},
         'signals': {'ctm': 0, 'cross_db': 0,
-                    'commit': 0, 'infra_rules': 0, 'contproc': 0},
+                    'commit': 0, 'infra_rules': 0, 'contproc': 0,
+                    'return_resume': 0, 'resume_consumer': 0},
         'api_candidates': 0, 'hard_blocks': 0, 'pure_negocio': 0,
     })
 
@@ -225,11 +242,13 @@ def main():
         avg = round(agg['score_sum'] / n) if n > 0 else 0
         sigs = agg['signals']
         dom_sig_scores = {
-            'ctm':        sigs['ctm'],
-            'cross_db':   sigs['cross_db'],
-            'commit':     sigs['commit'],
-            'infra_rules': sigs['infra_rules'],
-            'contproc':   sigs['contproc'],
+            'ctm':             sigs['ctm'],
+            'cross_db':        sigs['cross_db'],
+            'commit':          sigs['commit'],
+            'infra_rules':     sigs['infra_rules'],
+            'contproc':        sigs['contproc'],
+            'return_resume':   sigs['return_resume'],
+            'resume_consumer': sigs['resume_consumer'],
         }
         domains_out.append({
             'id':              dom_id,
@@ -276,14 +295,16 @@ def main():
         'api_candidates': api_candidates,
         'summary':       summary,
         'weights': {
-            'CTM_ENTRY_HINT': W_CTM,
-            'CONTPROC':       W_CONTPROC,
-            'CROSS_DB_H':     W_CROSS_DB_H,
-            'CROSS_DB_M':     W_CROSS_DB_M,
-            'COMMIT_H':       W_COMMIT_H,
-            'COMMIT_M':       W_COMMIT_M,
-            'INFRA_RULES_H':  W_INFRA_H,
-            'INFRA_RULES_M':  W_INFRA_M,
+            'CTM_ENTRY_HINT':   W_CTM,
+            'CONTPROC':         W_CONTPROC,
+            'CROSS_DB_H':       W_CROSS_DB_H,
+            'CROSS_DB_M':       W_CROSS_DB_M,
+            'COMMIT_H':         W_COMMIT_H,
+            'COMMIT_M':         W_COMMIT_M,
+            'INFRA_RULES_H':    W_INFRA_H,
+            'INFRA_RULES_M':    W_INFRA_M,
+            'RETURN_RESUME':    W_RETURN_RESUME,
+            'RESUME_CONSUMER':  W_RESUME_CONSUMER,
         },
     }
     with open(OUT, 'w', encoding='utf-8') as f:
