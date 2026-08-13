@@ -17,6 +17,7 @@ Heurísticas por dominio:
 v1.0 (2026-08-11): cobertura inicial D13-D16 (627 reglas).
 """
 
+import ast
 import json
 import re
 import sqlite3
@@ -31,13 +32,13 @@ DB    = BASE / "digital-brain" / "brain.db"
 
 # ── Utilidades ─────────────────────────────────────────────────────────────────
 
-def mk_reg(*pairs) -> str:
-    """Serializa lista de [fuente, descripción] igual que el resto de v3.json."""
-    return repr([list(p) for p in pairs])
+def mk_reg(*pairs) -> list:
+    """Retorna lista de [fuente, descripción] compatible con v3.json."""
+    return [list(p) for p in pairs]
 
 
-def mk_riesgo(*tags) -> str:
-    return repr(list(tags))
+def mk_riesgo(*tags) -> list:
+    return list(tags)
 
 
 def has_any(text: str, *tokens) -> bool:
@@ -60,10 +61,11 @@ _CNBV_TDC      = ("CNBV",     "Disposiciones Únicas de Bancos — tarjetas de c
 _VISA_MC_INV   = ("VISA/MC",  "Visa/MC Issuer Rules — card inventory management, card personalization and issuance controls")
 _VISA_MC_CANC  = ("VISA/MC",  "Visa/MC Issuer Rules — card cancellation, lost/stolen and fraud replacement procedures")
 
-_RIESGO_ROUND  = "ROUND — validar modo (banker's vs half-up)"
-_RIESGO_MONEY  = "MONEY — banker's rounding Informix; NUMERIC PostgreSQL diverge"
-_RIESGO_DIV    = "DIV — división monetaria puede perder centavos; usar DECIMAL(18,4)"
-_RIESGO_IVA    = "IVA — cálculo 16% sobre base; verificar base imponible y redondeo"
+_RIESGO_ROUND    = "ROUND — validar modo (banker's vs half-up)"
+_RIESGO_MONEY    = "MONEY — banker's rounding Informix; NUMERIC PostgreSQL diverge"
+_RIESGO_DIV      = "DIV — división monetaria puede perder centavos; usar DECIMAL(18,4)"
+_RIESGO_IVA      = "IVA — cálculo 16% sobre base; verificar base imponible y redondeo"
+_RIESGO_DBACCESS = "DBACCESS — ejecución SQL externa vía shell; paths AIX (/resplogifx/, /tmp/) muertos en target AWS/PostgreSQL"
 
 
 # ── Inferencia de reg ──────────────────────────────────────────────────────────
@@ -140,17 +142,28 @@ INFER_REG = {
 def infer_riesgo(rule: dict) -> list[str]:
     if rule.get("tipo", "") != "FÓRMULA":
         return []
-    code = (rule.get("code", "") or "").lower()
+    code     = (rule.get("code", "") or "")
+    code_low = code.lower()
+    domain   = str(rule.get("dominio", rule.get("domain", "")))
     tags: list[str] = []
 
-    if "::money" in code or re.search(r'\bmoney\b', code):
+    if "::money" in code_low or re.search(r'\bmoney\b', code_low):
         tags.append(_RIESGO_MONEY)
-    if re.search(r'\b(round|trunc)\s*\(', code):
+    if re.search(r'\b(round|trunc)\s*\(', code_low):
         tags.append(_RIESGO_ROUND)
-    if re.search(r'/\s*\(?\s*(1\s*\+|vmontotot|viva|miva|valorc)', code):
+    if re.search(r'/\s*\(?\s*(1\s*\+|vmontotot|viva|miva|valorc)', code_low):
         tags.append(_RIESGO_DIV)
-    if re.search(r'\*\s*(viva|miva|mivac|iva)', code):
+    if re.search(r'\*\s*(viva|miva|mivac|iva)', code_low):
         tags.append(_RIESGO_IVA)
+
+    # D16 — ejecución SQL externa vía shell (dbaccess + paths AIX)
+    if domain.startswith("D16") and (
+        "dbaccess" in code_low
+        or "/resplogifx/" in code
+        or "unload to" in code_low
+        or re.search(r"vsql\s*=", code_low)
+    ):
+        tags.append(_RIESGO_DBACCESS)
 
     # Evitar duplicar ROUND si ya está MONEY (MONEY implica rounding risk)
     if _RIESGO_MONEY in tags and _RIESGO_ROUND in tags:
@@ -169,6 +182,20 @@ def main():
     v3_data  = json.loads(V3.read_text(encoding="utf-8"))
     v3_rules = v3_data["rules"]
     by_id    = {r["id"]: r for r in v3_rules}
+
+    # Normalizar string-repr → lista real (artefactos de mk_reg/mk_riesgo antiguo con repr())
+    n_normalized = 0
+    for r in v3_rules:
+        for field in ("reg", "riesgo"):
+            val = r.get(field)
+            if isinstance(val, str) and val.strip().startswith("["):
+                try:
+                    r[field] = ast.literal_eval(val)
+                    n_normalized += 1
+                except (ValueError, SyntaxError):
+                    pass
+    if n_normalized:
+        print(f"  [normalize] {n_normalized} campos string-repr convertidos a lista")
 
     targets = {d: [] for d in ("D13", "D14", "D15", "D16")}
     for r in v3_rules:

@@ -20,19 +20,20 @@ import json, os, base64, io, sys
 from collections import Counter
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
-BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
-        "03 - Software & Platform Engineering/High Velocity Modernization/"
-        "Application Modernization/BanCoppel/BCOPCore/")
+BASE = str(
+    __import__("pathlib").Path(__file__).resolve().parent.parent
+) + "/"
 
 # ── Logo ──────────────────────────────────────────────────────────────────────
-with open(BASE + "bancoppel-logo.png", "rb") as _f:
+with open(BASE + "portal/bancoppel-logo.png", "rb") as _f:
     LOGO_B64 = base64.b64encode(_f.read()).decode()
 
 # ── Load v3 rules ─────────────────────────────────────────────────────────────
 v3 = json.load(open(BASE + "portal/data/business-rules-v3.json", encoding="utf-8"))
 rules = v3["rules"]
 
-RIESGO_KEYS = {"360": "360", "365": "365", "TRUNC": "TRUNC", "ROUND": "ROUND", "MONEY": "MONEY"}
+RIESGO_KEYS = {"360": "360", "365": "365", "TRUNC": "TRUNC", "ROUND": "ROUND",
+               "MONEY": "MONEY", "DIV": "DIV", "IVA": "IVA", "DBACCESS": "DBACCESS"}
 
 def reg_codes(reg_field):
     codes = []
@@ -49,9 +50,26 @@ def reg_norma(reg_field):
             return item[1]
     return ""
 
+def _normalize_riesgo(field):
+    """Normaliza riesgo a lista de strings (maneja lista real o string-repr legacy)."""
+    import ast
+    if field is None:
+        return []
+    if isinstance(field, list):
+        return field
+    s = str(field).strip()
+    if s.startswith("["):
+        try:
+            return ast.literal_eval(s)
+        except (ValueError, SyntaxError):
+            pass
+    return [s] if s else []
+
 def riesgo_tags(riesgo_field):
     tags = []
-    for rv in (riesgo_field or []):
+    for rv in _normalize_riesgo(riesgo_field):
+        if not isinstance(rv, str):
+            continue
         for k in RIESGO_KEYS:
             if k in rv and k not in tags:
                 tags.append(k)
