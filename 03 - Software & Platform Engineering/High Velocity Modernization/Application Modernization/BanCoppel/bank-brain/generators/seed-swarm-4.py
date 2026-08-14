@@ -1,4 +1,4 @@
-"""seed-swarm-4.py — Grupo 4 swarm extraccion estrategica Bank Brain BanCoppel
+﻿"""seed-swarm-4.py â€” Grupo 4 swarm extraccion estrategica Bank Brain BanCoppel
 
 Fuentes: minutas de marzo-abril 2026
   - 19.Mar.26 Juan Manuel Fernandez (manana + tarde)
@@ -12,7 +12,7 @@ Fuentes: minutas de marzo-abril 2026
 import sqlite3
 from pathlib import Path
 
-DB = Path(__file__).parent / "bank-brain.db"
+DB = Path(__file__).parent.parent / "digital-brain" / "bank-brain.db"
 
 # (id, date, topic, decision_text, driver_id_or_None, confidence)
 DECISIONS = [
@@ -103,7 +103,7 @@ DECISIONS = [
         "SW4-DEC-011",
         "2026-03-26",
         "arquitectura",
-        "Se incorpora la figura de arquitecto de solución en las celulas de desarrollo de Unity (tres arquitectos internos identificados inicialmente) para asegurar cumplimiento de estandares desde la fase de diseno.",
+        "Se incorpora la figura de arquitecto de soluciÃ³n en las celulas de desarrollo de Unity (tres arquitectos internos identificados inicialmente) para asegurar cumplimiento de estandares desde la fase de diseno.",
         "arcadio",
         "high",
     ),
@@ -320,7 +320,7 @@ POSITIONS = [
     (
         "luis-barragan",
         "arquitectura-proveedores",
-        "Identificado como coordinador natural entre el equipo de arquitectura y los proveedores, pero estuvo ausente en reuniones criticas de marzo por vacaciones. Su disponibilidad tardía es un riesgo para la definicion arquitectonica.",
+        "Identificado como coordinador natural entre el equipo de arquitectura y los proveedores, pero estuvo ausente en reuniones criticas de marzo por vacaciones. Su disponibilidad tardÃ­a es un riesgo para la definicion arquitectonica.",
         "neutral",
         "2026-03-23",
     ),
@@ -360,7 +360,7 @@ OPEN_ITEMS = [
     (
         "SW4-OI-002",
         "2026-03-23",
-        "Construir el business case integral de Unity como programa (hoy solo existen business cases por producto). La ausencia de un BC integral debilita la narrativa ante el consejo y la priorización de inversiones.",
+        "Construir el business case integral de Unity como programa (hoy solo existen business cases por producto). La ausencia de un BC integral debilita la narrativa ante el consejo y la priorizaciÃ³n de inversiones.",
         "pablo-lorenzo",
         "critical",
         '["Transact", "Apolo", "SmartVista/BPC"]',

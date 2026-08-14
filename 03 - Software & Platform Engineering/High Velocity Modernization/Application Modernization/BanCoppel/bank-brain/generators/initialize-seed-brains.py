@@ -1,17 +1,17 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
-initialize-seed-brains.py — Regla B12: Seed Brain Initialization
-Ningún brain arranca de cero si otro sistema ya tiene conocimiento sobre él.
+initialize-seed-brains.py â€” Regla B12: Seed Brain Initialization
+NingÃºn brain arranca de cero si otro sistema ya tiene conocimiento sobre Ã©l.
 
 Para cada sistema en systems/, lee los seeds que lo mencionan como receptor
-y construye un brain.db mínimo con la "otra mitad del puente":
+y construye un brain.db mÃ­nimo con la "otra mitad del puente":
   - system_info: identidad TOGAF del sistema
   - cross_dependencies: relaciones conocidas desde el emisor, invertidas
-  - signals: señales cuantitativas (endpoints, CTM jobs, error logs)
+  - signals: seÃ±ales cuantitativas (endpoints, CTM jobs, error logs)
 
-Dos ejes de evidencia (simbiosis lógica-operativa):
-  * Lógica estática:  ATTACH, cross-DB calls, SP references → estructura
-  * Operativa:        logs de error, métricas ESB, CTM runs → comportamiento
+Dos ejes de evidencia (simbiosis lÃ³gica-operativa):
+  * LÃ³gica estÃ¡tica:  ATTACH, cross-DB calls, SP references â†’ estructura
+  * Operativa:        logs de error, mÃ©tricas ESB, CTM runs â†’ comportamiento
 
 Uso:
     python bank-brain/initialize-seed-brains.py               # todos los sistemas
@@ -33,7 +33,7 @@ for arg in sys.argv[1:]:
     elif arg == "--system" and sys.argv.index(arg) + 1 < len(sys.argv):
         TARGET_SYSTEM = sys.argv[sys.argv.index(arg) + 1]
 
-CLIENT_ROOT = Path(__file__).parent.parent
+CLIENT_ROOT = Path(__file__).parent.parent.parent  # BanCoppel/
 SYSTEMS_ROOT = CLIENT_ROOT / "systems"
 TODAY = date.today().isoformat()
 
@@ -77,18 +77,18 @@ CREATE VIRTUAL TABLE IF NOT EXISTS cross_dependencies_fts
     USING fts5(id, other_system, relationship, description, content='cross_dependencies');
 """
 
-# Invierte la dirección al pasar del emisor al receptor
+# Invierte la direcciÃ³n al pasar del emisor al receptor
 def invert_direction(direction: str) -> str:
     return {"inbound": "outbound", "outbound": "inbound"}.get(direction, "unknown")
 
 # Convierte el relationship a la perspectiva del receptor
-# (la mayoría se mantiene simétrica; "orchestrates inbound" → receptor dice "orchestrates outbound")
+# (la mayorÃ­a se mantiene simÃ©trica; "orchestrates inbound" â†’ receptor dice "orchestrates outbound")
 def receptor_relationship(rel: str, direction: str) -> str:
     # direction es la del EMISOR; al invertir, describimos desde el RECEPTOR
     # Para hacer el brain del receptor human-readable
-    if direction == "inbound":   # Informix recibía → el receptor envía
+    if direction == "inbound":   # Informix recibÃ­a â†’ el receptor envÃ­a
         return rel               # mantener (calls, orchestrates, reads)
-    else:                        # Informix enviaba → el receptor recibe
+    else:                        # Informix enviaba â†’ el receptor recibe
         receive_map = {
             "feeds":       "receives-from",
             "writes":      "written-by",
@@ -122,7 +122,7 @@ def initialize_brain(system_path: Path, slug: str, seeds: list[dict]) -> bool:
             ).fetchall()}
 
             if "system_info" not in tables:
-                # brain.db con esquema de build-brain.py real → no tocar
+                # brain.db con esquema de build-brain.py real â†’ no tocar
                 conn.close()
                 return False
 
@@ -132,10 +132,10 @@ def initialize_brain(system_path: Path, slug: str, seeds: list[dict]) -> bool:
             # None = tabla existe pero no es este brain; non-seed = brain completo
             if version is None or not version[0].startswith("seed-"):
                 conn.close()
-                return False  # brain ajeno o completo — no tocar
+                return False  # brain ajeno o completo â€” no tocar
         except Exception:
             conn.close()
-            return False  # cualquier error → conservar
+            return False  # cualquier error â†’ conservar
         conn.close()
 
     if not (system_path / "digital-brain").exists():
@@ -162,7 +162,7 @@ def initialize_brain(system_path: Path, slug: str, seeds: list[dict]) -> bool:
         primary.get("target_system_display", slug),
         primary.get("target_togaf_type", "unknown"),
         primary.get("togaf_state", "discovered"),
-        primary.get("target_togaf_abb", "—"),
+        primary.get("target_togaf_abb", "â€”"),
         json.dumps(emitters),
         TODAY,
         primary.get("source_version", "unknown"),
@@ -200,7 +200,7 @@ def initialize_brain(system_path: Path, slug: str, seeds: list[dict]) -> bool:
             TODAY,
         ))
 
-        # Señal: volumen de endpoints
+        # SeÃ±al: volumen de endpoints
         if volume > 0:
             sig_type = "ctm_job" if ev.get("ctm_job_count") else "endpoint"
             conn.execute("""
@@ -212,7 +212,7 @@ def initialize_brain(system_path: Path, slug: str, seeds: list[dict]) -> bool:
                 TODAY,
             ))
 
-        # Señal: dominios involucrados (señal de cobertura funcional)
+        # SeÃ±al: dominios involucrados (seÃ±al de cobertura funcional)
         for domain in ev.get("domains", []):
             conn.execute("""
                 INSERT INTO signals (signal_type, source_system, value, metadata, seeded_at)
@@ -223,7 +223,7 @@ def initialize_brain(system_path: Path, slug: str, seeds: list[dict]) -> bool:
                 TODAY,
             ))
 
-        # Señal: regulación aplicable (señal de riesgo regulatorio)
+        # SeÃ±al: regulaciÃ³n aplicable (seÃ±al de riesgo regulatorio)
         for reg in ev.get("regulation", []):
             conn.execute("""
                 INSERT INTO signals (signal_type, source_system, value, metadata, seeded_at)
@@ -245,11 +245,11 @@ def initialize_brain(system_path: Path, slug: str, seeds: list[dict]) -> bool:
 def find_system_path(slug: str) -> Path | None:
     """Busca la carpeta del sistema en systems/ por slug (busca el CLAUDE.md)."""
     for claude_md in SYSTEMS_ROOT.rglob("CLAUDE.md"):
-        # leer primera línea del CLAUDE.md para buscar el slug
+        # leer primera lÃ­nea del CLAUDE.md para buscar el slug
         text = claude_md.read_text(encoding="utf-8", errors="replace")
         if f"target_system: {slug}" in text or f'"{slug}"' in text:
             return claude_md.parent
-        # también intentar por nombre de carpeta
+        # tambiÃ©n intentar por nombre de carpeta
         if claude_md.parent.name.lower().replace("-", "") == slug.replace("-", ""):
             return claude_md.parent
     return None
@@ -311,7 +311,7 @@ def slug_from_folder(folder_name: str) -> str:
 
 
 def main():
-    print("Initialize Seed Brains — Regla B12 AM")
+    print("Initialize Seed Brains â€” Regla B12 AM")
     print(f"Client root: {CLIENT_ROOT}")
     print()
 
@@ -328,7 +328,7 @@ def main():
         system_dir = claude_md.parent
         folder_name = system_dir.name
 
-        # Filtro por --system si se especificó
+        # Filtro por --system si se especificÃ³
         if TARGET_SYSTEM and TARGET_SYSTEM.lower() not in folder_name.lower():
             continue
 
@@ -349,13 +349,13 @@ def main():
                 system_dir / "digital-brain" / "brain.db"
             ).execute("SELECT id FROM signals"))
             initialized.append(folder_name)
-            print(f"  INIT      {folder_name:30s} {len(seeds)} seed(s) · {n_deps} deps · {n_sigs} signals")
+            print(f"  INIT      {folder_name:30s} {len(seeds)} seed(s) Â· {n_deps} deps Â· {n_sigs} signals")
         else:
             skipped_complete.append(folder_name)
-            print(f"  SKIP      {folder_name:30s} (brain completo — no tocar)")
+            print(f"  SKIP      {folder_name:30s} (brain completo â€” no tocar)")
 
     print()
-    print(f"Resumen: {len(initialized)} inicializados · {len(skipped_complete)} completos · {len(skipped_no_seeds)} sin seeds")
+    print(f"Resumen: {len(initialized)} inicializados Â· {len(skipped_complete)} completos Â· {len(skipped_no_seeds)} sin seeds")
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
-"""
-bank-brain.py — API de consulta del Federated Bank Brain BanCoppel
+﻿"""
+bank-brain.py â€” API de consulta del Federated Bank Brain BanCoppel
 Uso:
     from bank_brain import BankBrain
     bb = BankBrain()
@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Optional
 
 DB_PATH = Path(__file__).parent / "bank-brain.db"
-LEGACY_DB = Path(__file__).parent.parent / "systems/core/Informix/digital-brain/brain.db"
+LEGACY_DB = Path(__file__).parent.parent.parent / "systems/core/Informix/digital-brain/brain.db"
 
 
 class BankBrain:
@@ -26,7 +26,7 @@ class BankBrain:
                 f"ATTACH DATABASE '{str(LEGACY_DB).replace(chr(92), '/')}' AS legacy"
             )
 
-    # ── Sistemas ──────────────────────────────────────────────────────────
+    # â”€â”€ Sistemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def systems(self) -> list[dict]:
         rows = self._db.execute("SELECT * FROM systems ORDER BY type, id").fetchall()
         return [dict(r) for r in rows]
@@ -35,9 +35,9 @@ class BankBrain:
         r = self._db.execute("SELECT * FROM systems WHERE id = ?", (sys_id,)).fetchone()
         return dict(r) if r else None
 
-    # ── Migración ────────────────────────────────────────────────────────
+    # â”€â”€ MigraciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def coverage(self) -> dict:
-        """Resumen de cobertura de migración por sistema destino."""
+        """Resumen de cobertura de migraciÃ³n por sistema destino."""
         rows = self._db.execute("""
             SELECT target_sys, COUNT(*) sp_count, SUM(rule_count) rule_count
             FROM migrations
@@ -99,7 +99,7 @@ class BankBrain:
         """).fetchall()
         return [dict(r) for r in rows]
 
-    # ── Documentos ────────────────────────────────────────────────────────
+    # â”€â”€ Documentos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def documents(
         self,
         system: Optional[str] = None,
@@ -122,7 +122,7 @@ class BankBrain:
         return [dict(r) for r in rows]
 
     def search_docs(self, query: str, limit: int = 20) -> list[dict]:
-        """Busca en títulos y temas de minutas (simple substring)."""
+        """Busca en tÃ­tulos y temas de minutas (simple substring)."""
         q = f"%{query.lower()}%"
         rows = self._db.execute(
             """SELECT id, date, title, filename, systems_mentioned, word_count
@@ -133,7 +133,7 @@ class BankBrain:
         ).fetchall()
         return [dict(r) for r in rows]
 
-    # ── Interfaces ────────────────────────────────────────────────────────
+    # â”€â”€ Interfaces â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def interfaces(
         self,
         from_sys: Optional[str] = None,
@@ -151,7 +151,7 @@ class BankBrain:
         ).fetchall()
         return [dict(r) for r in rows]
 
-    # ── Releases ──────────────────────────────────────────────────────────
+    # â”€â”€ Releases â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def releases(self) -> list[dict]:
         rows = self._db.execute(
             "SELECT * FROM releases ORDER BY target_date"
@@ -164,7 +164,7 @@ class BankBrain:
         return result
 
     def release_status(self, release_id: str) -> dict:
-        """Detalle de un release: productos que salieron a producción y productos en esa wave."""
+        """Detalle de un release: productos que salieron a producciÃ³n y productos en esa wave."""
         r = self._db.execute(
             "SELECT * FROM releases WHERE id = ?", (release_id,)
         ).fetchone()
@@ -188,9 +188,9 @@ class BankBrain:
         ]
         return result
 
-    # ── Vista TOGAF de sistemas ────────────────────────────────────────────
+    # â”€â”€ Vista TOGAF de sistemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def systems_status(self) -> list[dict]:
-        """Todos los sistemas con clasificación TOGAF (togaf_type, togaf_state, production_status)."""
+        """Todos los sistemas con clasificaciÃ³n TOGAF (togaf_type, togaf_state, production_status)."""
         rows = self._db.execute(
             """SELECT id, name, togaf_type, togaf_state, production_status, production_since,
                       type, status
@@ -199,7 +199,7 @@ class BankBrain:
         return [dict(r) for r in rows]
 
     def production_systems(self) -> list[dict]:
-        """Sistemas con al menos algo en producción (production_status = live o partial)."""
+        """Sistemas con al menos algo en producciÃ³n (production_status = live o partial)."""
         rows = self._db.execute(
             """SELECT id, name, togaf_type, togaf_state, production_status, production_since
                FROM systems WHERE production_status IN ('live', 'partial')
@@ -216,9 +216,9 @@ class BankBrain:
         ).fetchall()
         return [dict(r) for r in rows]
 
-    # ── Capa estratégica ─────────────────────────────────────────────────
+    # â”€â”€ Capa estratÃ©gica â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def stakeholders(self, org: Optional[str] = None, level: Optional[str] = None) -> list[dict]:
-        """Lista actores estratégicos, opcionalmente filtrado por org o nivel."""
+        """Lista actores estratÃ©gicos, opcionalmente filtrado por org o nivel."""
         where, params = [], []
         if org:
             where.append("org = ?"); params.append(org)
@@ -232,7 +232,7 @@ class BankBrain:
         return [dict(r) for r in rows]
 
     def stakeholder_brief(self, stakeholder_id: str) -> dict:
-        """Resumen completo de un actor: perfil + decisiones + posturas + ítems abiertos."""
+        """Resumen completo de un actor: perfil + decisiones + posturas + Ã­tems abiertos."""
         sh = self._db.execute(
             "SELECT * FROM stakeholders WHERE id = ?", (stakeholder_id,)
         ).fetchone()
@@ -263,7 +263,7 @@ class BankBrain:
         driver: Optional[str] = None,
         limit: int = 50,
     ) -> list[dict]:
-        """Decisiones estratégicas, filtrable por tema o quién la impulsó."""
+        """Decisiones estratÃ©gicas, filtrable por tema o quiÃ©n la impulsÃ³."""
         where, params = [], []
         if topic:
             where.append("topic LIKE ?"); params.append(f"%{topic}%")
@@ -319,7 +319,7 @@ class BankBrain:
         status: str = "open",
         limit: int = 50,
     ) -> list[dict]:
-        """Ítems estratégicos abiertos."""
+        """Ãtems estratÃ©gicos abiertos."""
         where, params = ["status = ?"], [status]
         if owner:
             where.append("owner_id = ?"); params.append(owner)
@@ -344,9 +344,9 @@ class BankBrain:
             "open_items": self.open_items(status="open"),
         }
 
-    # ── Vendors ──────────────────────────────────────────────────────────
+    # â”€â”€ Vendors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def vendors(self) -> list[dict]:
-        """Vendors tecnológicos y sus plataformas en Unity."""
+        """Vendors tecnolÃ³gicos y sus plataformas en Unity."""
         import json as _json
         rows = self._db.execute(
             "SELECT * FROM vendors ORDER BY category, id"
@@ -358,7 +358,7 @@ class BankBrain:
             result.append(d)
         return result
 
-    # ── Productos bancarios ───────────────────────────────────────────────
+    # â”€â”€ Productos bancarios â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def products(
         self,
         platform: Optional[str] = None,
@@ -458,7 +458,7 @@ class BankBrain:
         min_rules: int = 10,
         limit: int = 50,
     ) -> list[dict]:
-        """SPs clasificados como replicate con alta carga de reglas — los más críticos."""
+        """SPs clasificados como replicate con alta carga de reglas â€” los mÃ¡s crÃ­ticos."""
         where = ["migration_fate = 'replicate'", "rule_count >= ?"]
         params: list = [min_rules]
         if target:
@@ -497,7 +497,7 @@ class BankBrain:
         return [dict(r) for r in rows]
 
     def migration_gap(self, product_id: str) -> dict:
-        """Cuántos SPs legacy quedan en scope para este producto, por dominio."""
+        """CuÃ¡ntos SPs legacy quedan en scope para este producto, por dominio."""
         prod = self._db.execute(
             "SELECT platform_id FROM products WHERE id = ?", (product_id,)
         ).fetchone()
@@ -526,14 +526,14 @@ class BankBrain:
             "by_domain": [dict(r) for r in rows],
         }
 
-    # ── ETB federado ─────────────────────────────────────────────────────
+    # â”€â”€ ETB federado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def capabilities_consolidated(self) -> list[dict]:
-        """Capacidades ETB cubiertas en algún sistema ATTACHED (COVERED o CROSS_CUTTING).
+        """Capacidades ETB cubiertas en algÃºn sistema ATTACHED (COVERED o CROSS_CUTTING).
         Cada fila incluye el sistema que la cubre y su etb_version local.
-        Permite a bank-brain responder "¿quién cubre L3-ID-X?" sin conocer el sistema de antemano.
+        Permite a bank-brain responder "Â¿quiÃ©n cubre L3-ID-X?" sin conocer el sistema de antemano.
         """
         # Construir UNION sobre todos los brains ATTACHed que tengan etb_l3
-        # Hoy solo 'legacy' (Informix); cuando Transact tenga brain.db se añade otro UNION.
+        # Hoy solo 'legacy' (Informix); cuando Transact tenga brain.db se aÃ±ade otro UNION.
         try:
             rows = self._db.execute("""
                 SELECT 'informix' AS system_id,
@@ -548,9 +548,9 @@ class BankBrain:
         return [dict(r) for r in rows]
 
     def capability_gap(self) -> list[dict]:
-        """Capacidades ETB L3 que ningún sistema cubre (NOT_COVERED en todos los brains).
-        Responde: ¿qué capacidades del modelo ETB quedan sin sistema después de la migración?
-        Es la validación de decommission de PISA: si una capability solo existe en legacy
+        """Capacidades ETB L3 que ningÃºn sistema cubre (NOT_COVERED en todos los brains).
+        Responde: Â¿quÃ© capacidades del modelo ETB quedan sin sistema despuÃ©s de la migraciÃ³n?
+        Es la validaciÃ³n de decommission de PISA: si una capability solo existe en legacy
         y no hay sistema target que la cubra, es un riesgo de cutover.
         """
         try:
@@ -565,9 +565,9 @@ class BankBrain:
         return [dict(r) for r in rows]
 
     def capability_alignment(self) -> list[dict]:
-        """Versión ETB por sistema attached — detecta desalineación cuando el catálogo evoluciona.
-        bank-brain es el custodio del modelo ETB; cuando ETB sube de versión, esta función
-        identifica qué brains todavía usan una versión anterior y necesitan rebuild.
+        """VersiÃ³n ETB por sistema attached â€” detecta desalineaciÃ³n cuando el catÃ¡logo evoluciona.
+        bank-brain es el custodio del modelo ETB; cuando ETB sube de versiÃ³n, esta funciÃ³n
+        identifica quÃ© brains todavÃ­a usan una versiÃ³n anterior y necesitan rebuild.
         """
         systems_checked = [("informix", "legacy")]
         result = []
@@ -587,7 +587,7 @@ class BankBrain:
     ) -> list[dict]:
         """Dependencias cross-sistema declaradas en bank-brain.
         direction: 'inbound' | 'outbound' (perspectiva de source_system).
-        Refleja la regla: cada cerebro declara SU LADO de la relación — banco-brain agrega la vista global.
+        Refleja la regla: cada cerebro declara SU LADO de la relaciÃ³n â€” banco-brain agrega la vista global.
         """
         try:
             where, params = [], []
@@ -605,7 +605,7 @@ class BankBrain:
         except Exception:
             return []
 
-    # ── Legacy passthrough ────────────────────────────────────────────────
+    # â”€â”€ Legacy passthrough â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def legacy_sp(self, sp_name: str, db_name: Optional[str] = None) -> Optional[dict]:
         """Consulta un SP directamente de brain.db legacy."""
         where = "name = ?"
@@ -640,7 +640,7 @@ class BankBrain:
         self.close()
 
 
-# ── CLI rápido ─────────────────────────────────────────────────────────────
+# â”€â”€ CLI rÃ¡pido â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _cli():
     bb = BankBrain()
     print("=== BankBrain CLI ===")
@@ -649,27 +649,27 @@ def _cli():
     for s in bb.systems():
         print(f"  [{s['id']:<12}] {s['name']:<35} {s['type']:<12} {s['status']}")
 
-    print("\n-- Cobertura de migración --")
+    print("\n-- Cobertura de migraciÃ³n --")
     cov = bb.coverage()
     print(f"  Total SPs : {cov['total_sps']:,}")
     print(f"  Total reglas: {cov['total_rules']:,}")
     for t in cov["by_target"]:
-        bar = "█" * int(t["sp_pct"] / 2)
+        bar = "â–ˆ" * int(t["sp_pct"] / 2)
         print(f"  {t['target']:<15}: {t['sps']:>5} SPs  {t['rules']:>6} reglas  {t['sp_pct']:>5.1f}%  {bar}")
 
-    print("\n-- Dominios → target --")
+    print("\n-- Dominios â†’ target --")
     for d in bb.domains():
         print(f"  {d['domain_id']:<4}  {d['target_sys']:<14} {d['confidence']:<8}  "
-              f"{d['sp_count']:>5} SPs  {d['domain_name'] or '—'}")
+              f"{d['sp_count']:>5} SPs  {d['domain_name'] or 'â€”'}")
 
     print("\n-- Sistemas (TOGAF) --")
     for s in bb.systems_status():
         print(f"  [{s['id']:<12}] {s['togaf_type'] or '?':<12} {s['togaf_state'] or '?':<14} "
-              f"{s['production_status'] or '?':<12} since={s['production_since'] or '—'}")
+              f"{s['production_status'] or '?':<12} since={s['production_since'] or 'â€”'}")
 
-    print("\n-- Sistemas en producción --")
+    print("\n-- Sistemas en producciÃ³n --")
     for s in bb.production_systems():
-        print(f"  [{s['id']:<12}] {s['name']:<35} {s['production_status']:<10} since={s['production_since'] or '—'}")
+        print(f"  [{s['id']:<12}] {s['name']:<35} {s['production_status']:<10} since={s['production_since'] or 'â€”'}")
 
     print("\n-- Releases BanCoppel (R-series) + Waves Accenture (U-series) --")
     for r in bb.releases():
@@ -686,7 +686,7 @@ def _cli():
     for p in rs4.get("products_in_wave", []):
         print(f"  IN WAVE  [{p['platform_id']:<12}] {p['name']}")
 
-    print("\n-- Alineación ETB por sistema --")
+    print("\n-- AlineaciÃ³n ETB por sistema --")
     for a in bb.capability_alignment():
         print(f"  {a['system_id']:<15} etb_version={a['etb_version']}")
 
@@ -701,7 +701,7 @@ def _cli():
 
     print("\n-- Gap ETB (sin sistema que cubra) --")
     gap = bb.capability_gap()
-    print(f"  {len(gap)} L3 sin cobertura en ningún sistema")
+    print(f"  {len(gap)} L3 sin cobertura en ningÃºn sistema")
 
     print("\n-- Dependencias cross-sistema --")
     deps = bb.system_dependencies()
@@ -709,9 +709,9 @@ def _cli():
         for d in deps:
             print(f"  {d['source_system']:<12} --[{d['dependency_type']}]--> {d['target_system']:<12}  {d['criticality'] or '?'}  {d['description'] or ''[:60]}")
     else:
-        print("  (tabla system_dependencies vacía — sin dependencias declaradas aún)")
+        print("  (tabla system_dependencies vacÃ­a â€” sin dependencias declaradas aÃºn)")
 
-    print("\n-- Minutas (últimas 10) --")
+    print("\n-- Minutas (Ãºltimas 10) --")
     for d in bb.documents(limit=10):
         sys_m = json.loads(d["systems_mentioned"] or "[]")
         print(f"  {d['date'] or '?':<12}  {d['filename'][:55]:<55}  {sys_m}")
@@ -719,37 +719,37 @@ def _cli():
     print("\n-- Vendors y plataformas --")
     for v in bb.vendors():
         mods = ", ".join(v["modules"][:3])
-        print(f"  [{v['id']:<10}] → {v['system_id']:<12} ({v['category']})  módulos: {mods}...")
+        print(f"  [{v['id']:<10}] â†’ {v['system_id']:<12} ({v['category']})  mÃ³dulos: {mods}...")
 
     print("\n-- Productos bancarios --")
     for p in bb.products():
         print(f"  [{p['platform_id']:<12}] {p['name']:<50} {p['status']:<12} {p['target_date'] or '?'}")
 
-    print("\n-- Gap de migración legacy por producto --")
+    print("\n-- Gap de migraciÃ³n legacy por producto --")
     for p in bb.products():
         gap = bb.migration_gap(p["id"])
-        print(f"  {p['id']:<28} → {gap['platform']:<12}: "
+        print(f"  {p['id']:<28} â†’ {gap['platform']:<12}: "
               f"{gap['total_sps']:>5} SPs  {gap['total_rules']:>6} reglas")
 
-    print("\n-- Actores estratégicos (por apariciones) --")
+    print("\n-- Actores estratÃ©gicos (por apariciones) --")
     for s in bb.stakeholders():
         if s["appearance_count"] == 0:
             continue
         print(f"  {s['name']:<30} {s['org']:<12} {s['level']:<12} {s['influence']:<16} {s['appearance_count']:>3} aparic")
 
-    print("\n-- Posturas de preocupación (concerned) --")
+    print("\n-- Posturas de preocupaciÃ³n (concerned) --")
     for p in bb.positions(sentiment="concerned", limit=10):
         name = p.get("stakeholder_name") or p["stakeholder_id"]
         print(f"  {name:<28} [{p['topic']:<14}] {p['stance'][:90]}")
 
-    print("\n-- Decisiones estratégicas recientes --")
+    print("\n-- Decisiones estratÃ©gicas recientes --")
     for d in bb.decisions(limit=8):
-        drv = d["driver_id"] or "—"
+        drv = d["driver_id"] or "â€”"
         print(f"  {d['id']} {d['date'] or '?':12} [{d['topic']:<14}] drv={drv:<20} {d['decision'][:70]}")
 
     print("\n-- Open items HIGH priority --")
     for oi in bb.open_items(priority="high", limit=10):
-        owner = oi.get("owner_name") or oi["owner_id"] or "—"
+        owner = oi.get("owner_name") or oi["owner_id"] or "â€”"
         print(f"  {oi['id']} {oi['date'] or '?':12} {owner:<28} {oi['item'][:70]}")
 
     bb.close()

@@ -1,11 +1,11 @@
-"""
-enrich-strategic.py — Swarm AI para capa estratégica del Bank Brain BanCoppel
+﻿"""
+enrich-strategic.py â€” Swarm AI para capa estratÃ©gica del Bank Brain BanCoppel
 Lee las minutas Plan Director chunk a chunk y extrae con Claude API:
-  - decisions  : decisiones estratégicas (incluyendo las implícitas)
+  - decisions  : decisiones estratÃ©gicas (incluyendo las implÃ­citas)
   - positions  : posturas de actores sobre temas clave
-  - open_items : pendientes con dueño y prioridad
+  - open_items : pendientes con dueÃ±o y prioridad
 
-Los resultados complementan (no reemplazan) la extracción heurística de
+Los resultados complementan (no reemplazan) la extracciÃ³n heurÃ­stica de
 extract-strategic.py. IDs con prefijo AI- para distinguir.
 
 Requiere:
@@ -29,28 +29,28 @@ import time
 from pathlib import Path
 from typing import Optional
 
-# ── Rutas ──────────────────────────────────────────────────────────────────
-BASE      = Path(__file__).parent.parent
-BRAIN_DB  = Path(__file__).parent / "bank-brain.db"
+# â”€â”€ Rutas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+BASE      = Path(__file__).parent.parent.parent  # BanCoppel/
+BRAIN_DB  = Path(__file__).parent.parent / "digital-brain" / "bank-brain.db"
 MINUTAS   = BASE / "systems/core/Informix/source/minutas/pd"
 
-# ── Modelos disponibles ────────────────────────────────────────────────────
+# â”€â”€ Modelos disponibles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 MODELS = {
-    "haiku":  "claude-haiku-4-5-20251001",   # default: rápido y económico
-    "sonnet": "claude-sonnet-4-6",            # mayor calidad semántica
+    "haiku":  "claude-haiku-4-5-20251001",   # default: rÃ¡pido y econÃ³mico
+    "sonnet": "claude-sonnet-4-6",            # mayor calidad semÃ¡ntica
 }
 DEFAULT_MODEL = "haiku"
 
-# ── Parámetros de chunking ─────────────────────────────────────────────────
+# â”€â”€ ParÃ¡metros de chunking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CHUNK_WORDS   = 1_400   # palabras por chunk (deja margen para prompt + respuesta)
 OVERLAP_WORDS = 150     # overlap entre chunks para no cortar contexto
 
-# ── Stakeholders conocidos (para normalización de nombres en respuestas AI) ─
+# â”€â”€ Stakeholders conocidos (para normalizaciÃ³n de nombres en respuestas AI) â”€
 NAME_ALIASES: dict[str, str] = {
     "juan manuel": "juan-manuel", "juanmanuel": "juan-manuel",
-    "daniel": "daniel-angeles", "daniel ángeles": "daniel-angeles",
+    "daniel": "daniel-angeles", "daniel Ã¡ngeles": "daniel-angeles",
     "daniel angeles": "daniel-angeles",
-    "arturo": "arturo-perez", "arturo pérez": "arturo-perez",
+    "arturo": "arturo-perez", "arturo pÃ©rez": "arturo-perez",
     "arturo perez": "arturo-perez",
     "erica": "erica-mata", "erika": "erica-mata",
     "erica mata": "erica-mata", "erika mata": "erica-mata",
@@ -67,7 +67,7 @@ NAME_ALIASES: dict[str, str] = {
     "gabriela maximiliano": "gabriela-maximiliano",
     "karina": "karina-zepeda",
     "salomon": "salomon-monroy",
-    "luis barragán": "luis-barragan", "luis barragan": "luis-barragan",
+    "luis barragÃ¡n": "luis-barragan", "luis barragan": "luis-barragan",
     "emmy": "emmy",
 }
 
@@ -77,7 +77,7 @@ VALID_TOPICS = {
     "datos", "integracion", "testing", "regulatorio", "general",
 }
 
-# ── DDL para tracking ──────────────────────────────────────────────────────
+# â”€â”€ DDL para tracking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 TRACKING_DDL = """
 CREATE TABLE IF NOT EXISTS enrichment_log (
     doc_id      INTEGER PRIMARY KEY,
@@ -92,40 +92,40 @@ CREATE TABLE IF NOT EXISTS enrichment_log (
 );
 """
 
-# ── Tool schema para extracción estructurada ───────────────────────────────
+# â”€â”€ Tool schema para extracciÃ³n estructurada â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 EXTRACT_TOOL = {
     "name": "extract_strategic_intelligence",
     "description": (
-        "Extrae inteligencia estratégica de un fragmento de minuta de reunión del "
-        "programa Unity de BanCoppel. Devuelve SOLO lo que esté explícitamente en "
-        "el texto — no inventar, no inferir."
+        "Extrae inteligencia estratÃ©gica de un fragmento de minuta de reuniÃ³n del "
+        "programa Unity de BanCoppel. Devuelve SOLO lo que estÃ© explÃ­citamente en "
+        "el texto â€” no inventar, no inferir."
     ),
     "input_schema": {
         "type": "object",
         "properties": {
             "decisions": {
                 "type": "array",
-                "description": "Decisiones tomadas en la reunión (acordadas, confirmadas, definidas)",
+                "description": "Decisiones tomadas en la reuniÃ³n (acordadas, confirmadas, definidas)",
                 "items": {
                     "type": "object",
                     "properties": {
                         "decision": {
                             "type": "string",
-                            "description": "Texto de la decisión en 1-3 oraciones"
+                            "description": "Texto de la decisiÃ³n en 1-3 oraciones"
                         },
                         "driver_name": {
                             "type": "string",
-                            "description": "Nombre del actor que impulsó la decisión (null si no se menciona)"
+                            "description": "Nombre del actor que impulsÃ³ la decisiÃ³n (null si no se menciona)"
                         },
                         "topic": {
                             "type": "string",
                             "enum": sorted(VALID_TOPICS),
-                            "description": "Sistema o área temática principal"
+                            "description": "Sistema o Ã¡rea temÃ¡tica principal"
                         },
                         "confidence": {
                             "type": "string",
                             "enum": ["high", "medium", "low"],
-                            "description": "high=decisión explícita tomada, medium=acuerdo implícito, low=propuesta"
+                            "description": "high=decisiÃ³n explÃ­cita tomada, medium=acuerdo implÃ­cito, low=propuesta"
                         }
                     },
                     "required": ["decision", "topic", "confidence"]
@@ -147,7 +147,7 @@ EXTRACT_TOOL = {
                         },
                         "stance": {
                             "type": "string",
-                            "description": "Descripción de la postura en 1-2 oraciones"
+                            "description": "DescripciÃ³n de la postura en 1-2 oraciones"
                         },
                         "sentiment": {
                             "type": "string",
@@ -165,7 +165,7 @@ EXTRACT_TOOL = {
                     "properties": {
                         "item": {
                             "type": "string",
-                            "description": "Descripción del pendiente en 1-2 oraciones"
+                            "description": "DescripciÃ³n del pendiente en 1-2 oraciones"
                         },
                         "owner_name": {
                             "type": "string",
@@ -191,26 +191,26 @@ EXTRACT_TOOL = {
 
 SYSTEM_PROMPT = """\
 Eres un analista experto en minutas del programa Unity de BanCoppel.
-Unity es la modernización del core bancario de BanCoppel:
+Unity es la modernizaciÃ³n del core bancario de BanCoppel:
   - PISA/Informix: sistema legacy (IBM Informix SPL) que se decommissiona
-  - Apolo: sistema destino para crédito, origination y cobranza
+  - Apolo: sistema destino para crÃ©dito, origination y cobranza
   - SmartVista/BPC: sistema destino para tarjetas TDC/TDD
-  - Transact (Temenos): sistema destino para cuentas, depósitos, SPEI, TEF
-  - Atlas: plataforma de migración de datos
-  - MuleSoft: middleware de integración
+  - Transact (Temenos): sistema destino para cuentas, depÃ³sitos, SPEI, TEF
+  - Atlas: plataforma de migraciÃ³n de datos
+  - MuleSoft: middleware de integraciÃ³n
   - ACN = Accenture (proveedor de servicios)
   - BCP = BanCoppel
 
-Extrae información estratégica SOLO de lo que dice el texto.
-No inventes, no alucinices, no rellenes campos con información fuera del fragmento.
-Si un campo no está en el texto, omite el elemento o deja driver_name/owner_name en null.
+Extrae informaciÃ³n estratÃ©gica SOLO de lo que dice el texto.
+No inventes, no alucinices, no rellenes campos con informaciÃ³n fuera del fragmento.
+Si un campo no estÃ¡ en el texto, omite el elemento o deja driver_name/owner_name en null.
 """
 
 
-# ── Helpers ────────────────────────────────────────────────────────────────
+# â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def normalize_name(name: Optional[str]) -> Optional[str]:
-    """Convierte nombre libre → ID de stakeholder conocido."""
+    """Convierte nombre libre â†’ ID de stakeholder conocido."""
     if not name:
         return None
     t = name.lower().strip()
@@ -288,7 +288,7 @@ def dedup_key_pos(sid: str, stance: str) -> tuple:
     return (sid, re.sub(r"\s+", " ", stance.lower().strip())[:60])
 
 
-# ── Procesamiento principal ────────────────────────────────────────────────
+# â”€â”€ Procesamiento principal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def process_doc(
     db: sqlite3.Connection,
@@ -314,7 +314,7 @@ def process_doc(
         return {"chunks": 0, "decisions": 0, "positions": 0, "open_items": 0, "error": str(e)}
 
     chunks = make_chunks(text, CHUNK_WORDS, OVERLAP_WORDS)
-    print(f"    {len(chunks)} chunks · ~{len(text.split())} palabras totales")
+    print(f"    {len(chunks)} chunks Â· ~{len(text.split())} palabras totales")
 
     doc_decisions = 0
     doc_positions = 0
@@ -330,7 +330,7 @@ def process_doc(
             time.sleep(2)
             continue
 
-        # ── Decisions ──────────────────────────────────────────────────────
+        # â”€â”€ Decisions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         for d in result.get("decisions", []):
             decision_text = (d.get("decision") or "").strip()
             if not decision_text or len(decision_text) < 15:
@@ -364,7 +364,7 @@ def process_doc(
                 )
             doc_decisions += 1
 
-        # ── Positions ──────────────────────────────────────────────────────
+        # â”€â”€ Positions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         for p in result.get("positions", []):
             sh_name = (p.get("stakeholder_name") or "").strip()
             stance  = (p.get("stance") or "").strip()
@@ -394,7 +394,7 @@ def process_doc(
                 )
             doc_positions += 1
 
-        # ── Open items ─────────────────────────────────────────────────────
+        # â”€â”€ Open items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         for oi in result.get("open_items", []):
             item_text = (oi.get("item") or "").strip()
             if not item_text or len(item_text) < 10:
@@ -424,7 +424,7 @@ def process_doc(
                 )
             doc_open_items += 1
 
-        print(f" → dec:{doc_decisions} pos:{doc_positions} oi:{doc_open_items}")
+        print(f" â†’ dec:{doc_decisions} pos:{doc_positions} oi:{doc_open_items}")
 
         if not dry_run:
             db.commit()
@@ -439,21 +439,21 @@ def process_doc(
     }
 
 
-# ── Entry point ────────────────────────────────────────────────────────────
+# â”€â”€ Entry point â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def main():
-    parser = argparse.ArgumentParser(description="Enriquecimiento AI de capa estratégica bank-brain")
+    parser = argparse.ArgumentParser(description="Enriquecimiento AI de capa estratÃ©gica bank-brain")
     parser.add_argument("--dry-run", action="store_true", help="No llama API, solo muestra chunks")
     parser.add_argument("--model", choices=["haiku", "sonnet"], default=DEFAULT_MODEL)
     parser.add_argument("--reset", action="store_true", help="Reprocesa todos los docs (borra enrichment_log)")
     parser.add_argument("--doc", type=str, default=None, help="Procesa solo este filename")
     args = parser.parse_args()
 
-    # ── API key ──────────────────────────────────────────────────────────
+    # â”€â”€ API key â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if not args.dry_run:
         api_key = os.environ.get("ANTHROPIC_API_KEY", "")
         if not api_key:
-            print("ERROR: ANTHROPIC_API_KEY no está configurada.")
+            print("ERROR: ANTHROPIC_API_KEY no estÃ¡ configurada.")
             print("  export ANTHROPIC_API_KEY=sk-ant-...")
             sys.exit(1)
         import anthropic
@@ -478,12 +478,12 @@ def main():
     if args.reset and not args.dry_run:
         db.execute("DELETE FROM enrichment_log")
         db.execute("DELETE FROM decisions  WHERE id LIKE 'AI-%'")
-        db.execute("DELETE FROM positions  WHERE quote NOT LIKE '% indicó %'")  # AI positions no tienen quote real
+        db.execute("DELETE FROM positions  WHERE quote NOT LIKE '% indicÃ³ %'")  # AI positions no tienen quote real
         db.execute("DELETE FROM open_items WHERE id LIKE 'AI-%'")
         db.commit()
         print("  Reset: enrichment_log y entradas AI- borrados")
 
-    # ── Docs a procesar ──────────────────────────────────────────────────
+    # â”€â”€ Docs a procesar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if args.doc:
         docs = db.execute(
             "SELECT id, date, filename FROM documents WHERE type='minuta' AND filename=?",
@@ -506,7 +506,7 @@ def main():
         db.close()
         return
 
-    # ── Dedup global: cargar lo que ya existe en DB ──────────────────────
+    # â”€â”€ Dedup global: cargar lo que ya existe en DB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     seen_decisions: set[str]   = set()
     seen_positions: set[tuple] = set()
     seen_open_items: set[str]  = set()
@@ -527,7 +527,7 @@ def main():
     ).fetchone()[0] or 0
     counters = {"dec": max_dec, "oi": max_oi}
 
-    # ── Procesar docs ────────────────────────────────────────────────────
+    # â”€â”€ Procesar docs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     total = {"chunks": 0, "decisions": 0, "positions": 0, "open_items": 0}
     import datetime
 
@@ -564,7 +564,7 @@ def main():
         for k in total:
             total[k] += result.get(k, 0)
 
-    # ── Resumen ──────────────────────────────────────────────────────────
+    # â”€â”€ Resumen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     print()
     print("=== RESULTADO ENRIQUECIMIENTO AI ===")
     print(f"  Chunks procesados : {total['chunks']}")

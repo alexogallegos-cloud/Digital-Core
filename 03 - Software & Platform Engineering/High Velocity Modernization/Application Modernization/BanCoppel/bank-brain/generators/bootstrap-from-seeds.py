@@ -1,11 +1,11 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
-bootstrap-from-seeds.py — Regla B9 automatizada (AM global)
-Lee todos los digital-brain/seeds/ en systems/ y crea la estructura canónica
-para cada sistema descubierto que aún no tenga carpeta.
+bootstrap-from-seeds.py â€” Regla B9 automatizada (AM global)
+Lee todos los digital-brain/seeds/ en systems/ y crea la estructura canÃ³nica
+para cada sistema descubierto que aÃºn no tenga carpeta.
 
-Regla: si el sistema existe en un seed, su estructura canónica debe existir HOY.
-El brain se llena después; la estructura es el compromiso inmediato.
+Regla: si el sistema existe en un seed, su estructura canÃ³nica debe existir HOY.
+El brain se llena despuÃ©s; la estructura es el compromiso inmediato.
 
 Uso:
     python bank-brain/bootstrap-from-seeds.py [--dry-run]
@@ -18,10 +18,10 @@ from pathlib import Path
 
 DRY_RUN = "--dry-run" in sys.argv
 
-CLIENT_ROOT = Path(__file__).parent.parent   # BanCoppel/
+CLIENT_ROOT = Path(__file__).parent.parent.parent  # BanCoppel/
 SYSTEMS_ROOT = CLIENT_ROOT / "systems"
 
-# Mapeo slug → nombre de carpeta (nombre del sistema como se conoce)
+# Mapeo slug â†’ nombre de carpeta (nombre del sistema como se conoce)
 FOLDER_NAME: dict[str, str] = {
     # channels
     "app-movil":          "AppMovil",
@@ -72,7 +72,7 @@ SYSTEM_OF: dict[str, str] = {
     "compliance":  "record",
 }
 
-# ABB canónico por slug (Banking Enterprise capability)
+# ABB canÃ³nico por slug (Banking Enterprise capability)
 ABB: dict[str, str] = {
     "app-movil":          "digital-banking-mobile",
     "banca-x-internet":   "digital-banking-web",
@@ -146,21 +146,21 @@ def make_claude_md(slug: str, seed: dict) -> str:
         "../../core/Informix/digital-brain/seeds/" + slug + "-seed.json"
     )
 
-    cross_dep_desc = ev.get("cross_dep_description") or ev.get("description", "—")
+    cross_dep_desc = ev.get("cross_dep_description") or ev.get("description", "â€”")
 
-    domains_str = ", ".join(domains) if domains else "—"
-    reg_str = ", ".join(regulation) if regulation else "—"
+    domains_str = ", ".join(domains) if domains else "â€”"
+    reg_str = ", ".join(regulation) if regulation else "â€”"
 
-    return f"""# {display} — Sistema Descubierto (Application Modernization)
+    return f"""# {display} â€” Sistema Descubierto (Application Modernization)
 # togaf_type: {togaf_type}
 # togaf_state: {togaf_state}
 # togaf_system_of: {system_of}
 # togaf_abb: {abb}
 
-> **Descubierto por:** Informix Informix seed — [{slug}-seed.json]({rel_path_to_informix_seed})
+> **Descubierto por:** Informix Informix seed â€” [{slug}-seed.json]({rel_path_to_informix_seed})
 > **Fecha descubrimiento:** {TODAY}
-> **Estado:** `[STATE: DISCOVERED]` — estructura canónica abierta por **Regla B9**. Brain pendiente.
-> **Regla B10:** este CLAUDE.md es el registro del otro lado de la relación hasta que exista un brain propio.
+> **Estado:** `[STATE: DISCOVERED]` â€” estructura canÃ³nica abierta por **Regla B9**. Brain pendiente.
+> **Regla B10:** este CLAUDE.md es el registro del otro lado de la relaciÃ³n hasta que exista un brain propio.
 
 ---
 
@@ -172,36 +172,36 @@ def make_claude_md(slug: str, seed: dict) -> str:
 | `togaf_state` | `{togaf_state}` |
 | `togaf_system_of` | `{system_of}` |
 | `togaf_abb` | `{abb}` |
-| `bian_domains` | — *(pendiente de mapeo)* |
+| `bian_domains` | â€” *(pendiente de mapeo)* |
 
 ---
 
-## Relación con Informix PISA — desde seed
+## RelaciÃ³n con Informix PISA â€” desde seed
 
 | Campo | Valor |
 |-------|-------|
-| Relación | `{relationship}` |
-| Dirección | `{direction}` (Informix es el {("emisor" if direction == "outbound" else "receptor")}) |
+| RelaciÃ³n | `{relationship}` |
+| DirecciÃ³n | `{direction}` (Informix es el {("emisor" if direction == "outbound" else "receptor")}) |
 | Volumen conocido | {volume} {"endpoints" if ev.get("volume_endpoints") else "jobs CTM"} |
 | Criticidad | `{criticality}` |
 | Dominios Informix involucrados | {domains_str} |
-| Regulación aplicable | {reg_str} |
-| Descripción | {cross_dep_desc} |
+| RegulaciÃ³n aplicable | {reg_str} |
+| DescripciÃ³n | {cross_dep_desc} |
 
 ---
 
 ## Seeds Recibidos
 
-| Emisor | Versión | Fecha | Artefacto origen |
+| Emisor | VersiÃ³n | Fecha | Artefacto origen |
 |--------|---------|-------|-----------------|
 | `informix` | `{source_version}` | {TODAY} | `{origin}` |
 
 ---
 
-## Próximos Pasos (DoR para activar brain)
+## PrÃ³ximos Pasos (DoR para activar brain)
 
-- [ ] Obtener artefactos fuente del sistema: código, config, logs, inventario
-- [ ] Mover artefactos a `source/` (readonly — no modificar originales)
+- [ ] Obtener artefactos fuente del sistema: cÃ³digo, config, logs, inventario
+- [ ] Mover artefactos a `source/` (readonly â€” no modificar originales)
 - [ ] Construir `digital-brain/build-brain.py` para este sistema
 - [ ] Validar cross-dependencies con equipo BanCoppel
 - [ ] Emitir seeds propios (Regla B11) al terminar el primer build del brain
@@ -209,12 +209,12 @@ def make_claude_md(slug: str, seed: dict) -> str:
 
 ---
 
-*Generado automáticamente por `bank-brain/bootstrap-from-seeds.py` · {TODAY} · Regla B9 AM*
+*Generado automÃ¡ticamente por `bank-brain/bootstrap-from-seeds.py` Â· {TODAY} Â· Regla B9 AM*
 """
 
 
 def collect_all_seeds() -> dict[str, dict]:
-    """Busca todos los seeds/manifest.json en el árbol de sistemas y los agrega."""
+    """Busca todos los seeds/manifest.json en el Ã¡rbol de sistemas y los agrega."""
     all_seeds: dict[str, dict] = {}
     for manifest_path in SYSTEMS_ROOT.rglob("digital-brain/seeds/manifest.json"):
         with open(manifest_path, encoding="utf-8") as f:
@@ -228,7 +228,7 @@ def collect_all_seeds() -> dict[str, dict]:
                     seed_data = json.load(f)
                 if slug not in all_seeds:
                     all_seeds[slug] = seed_data
-                # Merge multi-source seeds (enriquecer con más evidencia si hay)
+                # Merge multi-source seeds (enriquecer con mÃ¡s evidencia si hay)
     return all_seeds
 
 
@@ -262,7 +262,7 @@ def create_system(slug: str, seed: dict) -> tuple[bool, Path]:
 
 
 def main():
-    print(f"{'[DRY RUN] ' if DRY_RUN else ''}Bootstrap from seeds — Regla B9 AM")
+    print(f"{'[DRY RUN] ' if DRY_RUN else ''}Bootstrap from seeds â€” Regla B9 AM")
     print(f"Client root: {CLIENT_ROOT}")
     print(f"Systems root: {SYSTEMS_ROOT}")
     print()
@@ -290,7 +290,7 @@ def main():
             print(f"           EXISTS   {rel_path}")
 
     print()
-    print(f"Resumen: {len(created)} creados · {len(skipped)} ya existían")
+    print(f"Resumen: {len(created)} creados Â· {len(skipped)} ya existÃ­an")
     if created and not DRY_RUN:
         print()
         print("Sistemas nuevos:")

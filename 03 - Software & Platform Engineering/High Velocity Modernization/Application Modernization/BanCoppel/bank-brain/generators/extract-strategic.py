@@ -1,10 +1,10 @@
-"""
-extract-strategic.py — Capa de Inteligencia Estratégica del Bank Brain
+﻿"""
+extract-strategic.py â€” Capa de Inteligencia EstratÃ©gica del Bank Brain
 Lee las 56 minutas Plan Director y extrae:
-  - stakeholders: actores clave con rol, organización y nivel de influencia
-  - decisions:    decisiones estratégicas atribuidas y fechadas
+  - stakeholders: actores clave con rol, organizaciÃ³n y nivel de influencia
+  - decisions:    decisiones estratÃ©gicas atribuidas y fechadas
   - positions:    posturas individuales sobre temas clave
-  - open_items:   pendientes estratégicos con dueño y plazo
+  - open_items:   pendientes estratÃ©gicos con dueÃ±o y plazo
 
 Escribe directamente a bank-brain.db (no requiere API externa).
 """
@@ -13,23 +13,23 @@ import sqlite3, re, json
 from pathlib import Path
 from collections import defaultdict
 
-# ── Rutas ──────────────────────────────────────────────────────────────────
-BASE      = Path(__file__).parent.parent
-BRAIN_DB  = Path(__file__).parent / "bank-brain.db"
+# â”€â”€ Rutas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+BASE      = Path(__file__).parent.parent.parent  # BanCoppel/
+BRAIN_DB  = Path(__file__).parent.parent / "digital-brain" / "bank-brain.db"
 MINUTAS   = BASE / "systems/core/Informix/source/minutas/pd"
 
 assert BRAIN_DB.exists(), "Ejecuta build-bank-brain.py primero"
 
-# ── Stakeholders pre-seed (conocimiento previo de las minutas) ─────────────
+# â”€â”€ Stakeholders pre-seed (conocimiento previo de las minutas) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 KNOWN_STAKEHOLDERS = [
     # id,                    name,                      role,                              org,         level,      area,               influence
-    ("juan-manuel",          "Juan Manuel Fernández Islas", "IT Corporate Director FFSS", "grupo-coppel", "c-level", "IT / Financial Services (FFSS)", "sponsor"),
-    ("daniel-angeles",       "Daniel Ángeles Baltazar", "Subdirector de Infraestructura",  "bancoppel",  "director", "Infraestructura",  "decision-maker"),
-    ("arturo-perez",         "Arturo Pérez",            "Líder Legacy / PISA",             "bancoppel",  "manager",  "Tecnología Legacy","contributor"),
-    ("erica-mata",           "Erika Mata Sánchez",      "CISO & Fraud Prevention Director", "bancoppel",  "director", "Seguridad / Prevención de Fraude", "decision-maker"),
+    ("juan-manuel",          "Juan Manuel FernÃ¡ndez Islas", "IT Corporate Director FFSS", "grupo-coppel", "c-level", "IT / Financial Services (FFSS)", "sponsor"),
+    ("daniel-angeles",       "Daniel Ãngeles Baltazar", "Subdirector de Infraestructura",  "bancoppel",  "director", "Infraestructura",  "decision-maker"),
+    ("arturo-perez",         "Arturo PÃ©rez",            "LÃ­der Legacy / PISA",             "bancoppel",  "manager",  "TecnologÃ­a Legacy","contributor"),
+    ("erica-mata",           "Erika Mata SÃ¡nchez",      "CISO & Fraud Prevention Director", "bancoppel",  "director", "Seguridad / PrevenciÃ³n de Fraude", "decision-maker"),
     ("arcadio",              "Arcadio Delgado",         "Enterprise Architect FFSS",       "bancoppel",  "manager",  "Arquitectura Empresarial / FFSS", "decision-maker"),
-    ("carlos-bc",            "Carlos",                  "Ejecutivo / Steering BCP",        "bancoppel",  "c-level",  "Dirección",        "sponsor"),
-    ("brenda",               "Brenda",                  "Gestión Proveedores FS Tech",     "bancoppel",  "manager",  "Operaciones",      "contributor"),
+    ("carlos-bc",            "Carlos",                  "Ejecutivo / Steering BCP",        "bancoppel",  "c-level",  "DirecciÃ³n",        "sponsor"),
+    ("brenda",               "Brenda",                  "GestiÃ³n Proveedores FS Tech",     "bancoppel",  "manager",  "Operaciones",      "contributor"),
     ("rodrigo",              "Rodrigo",                 "Estrategia / Assessment Unity",   "bancoppel",  "manager",  "Estrategia",       "contributor"),
     ("pablo-lorenzo",        "Pablo Lorenzo Diaz",      "Consultor Senior / Global Expert ACN", "accenture", "manager",  "Delivery",         "decision-maker"),
     ("lukasz-pietrzyk",      "Lukasz Pietrzyk",         "Consultor Senior / Global Architect ACN", "accenture", "manager", "Arquitectura", "contributor"),
@@ -37,36 +37,36 @@ KNOWN_STAKEHOLDERS = [
     ("gabriela-maximiliano", "Gabriela Maximiliano",    "ACN Delivery",                    "accenture",  "manager",  "Delivery",         "contributor"),
     ("karina-zepeda",        "Karina Zepeda",           "ACN Delivery / Legacy liaison",   "accenture",  "manager",  "Delivery",         "contributor"),
     ("salomon-monroy",       "Salomon Monroy",          "ACN Delivery",                    "accenture",  "manager",  "Delivery",         "contributor"),
-    ("luis-barragan",        "Luis Alberto Barragán Mejía", "Subdirector de Tecnología de Canales", "bancoppel", "director", "Tecnología de Canales", "decision-maker"),
+    ("luis-barragan",        "Luis Alberto BarragÃ¡n MejÃ­a", "Subdirector de TecnologÃ­a de Canales", "bancoppel", "director", "TecnologÃ­a de Canales", "decision-maker"),
     ("emmy",                 "Emmy",                    "Apoyo de Negocio Unity",          "bancoppel",  "manager",  "Negocio",          "contributor"),
-    ("mercedes-espinosa",   "María Mercedes Espinosa Cortés", "Arquitecto Empresarial", "grupo-coppel", "manager", "Arquitectura Empresarial", "decision-maker"),
-    ("angelica-tolosa",     "Angélica María Tolosa Bravo",  "Executive Director",      "ey",          "director", "Advisory / Estrategia",    "decision-maker"),
-    ("miguel-bucio",        "Miguel Ángel Bucio",           "Gerente de Infraestructura", "bancoppel", "manager",  "Infraestructura",          "decision-maker"),
-    ("christian-zazueta",   "Christian Alfonso Zazueta Treviño", "Senior Manager — Data & Operational Readiness", "bancoppel", "manager", "Data / Readiness Operacional", "decision-maker"),
-    ("teresa-gonzalez",     "Teresa González Navarro", "Gerente Nacional — Alineación Estratégica y Oficina Dirección General SSFF", "grupo-coppel", "director", "Estrategia / Oficina DG / SSFF Coppel", "sponsor"),
+    ("mercedes-espinosa",   "MarÃ­a Mercedes Espinosa CortÃ©s", "Arquitecto Empresarial", "grupo-coppel", "manager", "Arquitectura Empresarial", "decision-maker"),
+    ("angelica-tolosa",     "AngÃ©lica MarÃ­a Tolosa Bravo",  "Executive Director",      "ey",          "director", "Advisory / Estrategia",    "decision-maker"),
+    ("miguel-bucio",        "Miguel Ãngel Bucio",           "Gerente de Infraestructura", "bancoppel", "manager",  "Infraestructura",          "decision-maker"),
+    ("christian-zazueta",   "Christian Alfonso Zazueta TreviÃ±o", "Senior Manager â€” Data & Operational Readiness", "bancoppel", "manager", "Data / Readiness Operacional", "decision-maker"),
+    ("teresa-gonzalez",     "Teresa GonzÃ¡lez Navarro", "Gerente Nacional â€” AlineaciÃ³n EstratÃ©gica y Oficina DirecciÃ³n General SSFF", "grupo-coppel", "director", "Estrategia / Oficina DG / SSFF Coppel", "sponsor"),
 ]
 
-# Aliases para normalización de nombres en texto libre
+# Aliases para normalizaciÃ³n de nombres en texto libre
 NAME_ALIASES: dict[str, str] = {
-    "juan manuel fernández islas": "juan-manuel",
+    "juan manuel fernÃ¡ndez islas": "juan-manuel",
     "juan manuel fernandez islas": "juan-manuel",
-    "fernández islas": "juan-manuel",
+    "fernÃ¡ndez islas": "juan-manuel",
     "fernandez islas": "juan-manuel",
     "juan manuel": "juan-manuel",
     "juanmanuel":  "juan-manuel",
     "daniel":      "daniel-angeles",
-    "daniel ángeles baltazar": "daniel-angeles",
+    "daniel Ã¡ngeles baltazar": "daniel-angeles",
     "daniel angeles baltazar": "daniel-angeles",
-    "ángeles baltazar": "daniel-angeles",
+    "Ã¡ngeles baltazar": "daniel-angeles",
     "angeles baltazar": "daniel-angeles",
-    "daniel ángeles": "daniel-angeles",
+    "daniel Ã¡ngeles": "daniel-angeles",
     "daniel angeles": "daniel-angeles",
     "arturo":      "arturo-perez",
-    "arturo pérez": "arturo-perez",
+    "arturo pÃ©rez": "arturo-perez",
     "arturo perez": "arturo-perez",
-    "erika mata sánchez": "erica-mata",
+    "erika mata sÃ¡nchez": "erica-mata",
     "erika mata sanchez": "erica-mata",
-    "mata sánchez": "erica-mata",
+    "mata sÃ¡nchez": "erica-mata",
     "mata sanchez": "erica-mata",
     "erica":       "erica-mata",
     "erika":       "erica-mata",
@@ -79,7 +79,7 @@ NAME_ALIASES: dict[str, str] = {
     "rodrigo":     "rodrigo",
     "pablo":       "pablo-lorenzo",
     "pablo lorenzo": "pablo-lorenzo",
-    "pav":         "pablo-lorenzo",   # aparece así en transcripciones
+    "pav":         "pablo-lorenzo",   # aparece asÃ­ en transcripciones
     "pavl":        "pablo-lorenzo",
     "lukasz":      "lukasz-pietrzyk",
     "alejandro gallegos": "alejandro-gallegos",
@@ -87,85 +87,85 @@ NAME_ALIASES: dict[str, str] = {
     "gabriela maximiliano": "gabriela-maximiliano",
     "karina":      "karina-zepeda",
     "salomon":     "salomon-monroy",
-    "luis alberto barragán mejía": "luis-barragan",
+    "luis alberto barragÃ¡n mejÃ­a": "luis-barragan",
     "luis alberto barragan mejia": "luis-barragan",
-    "barragán mejía": "luis-barragan",
+    "barragÃ¡n mejÃ­a": "luis-barragan",
     "barragan mejia": "luis-barragan",
-    "luis barragán": "luis-barragan",
+    "luis barragÃ¡n": "luis-barragan",
     "luis barragan": "luis-barragan",
     "emmy":        "emmy",
     "emmys":       "emmy",
-    "maría mercedes espinosa cortés": "mercedes-espinosa",
+    "marÃ­a mercedes espinosa cortÃ©s": "mercedes-espinosa",
     "maria mercedes espinosa cortes": "mercedes-espinosa",
     "mercedes espinosa": "mercedes-espinosa",
     "mercedes":    "mercedes-espinosa",
-    "espinosa cortés": "mercedes-espinosa",
+    "espinosa cortÃ©s": "mercedes-espinosa",
     "espinosa cortes": "mercedes-espinosa",
-    "angélica maría tolosa bravo": "angelica-tolosa",
+    "angÃ©lica marÃ­a tolosa bravo": "angelica-tolosa",
     "angelica maria tolosa bravo": "angelica-tolosa",
-    "angélica tolosa": "angelica-tolosa",
+    "angÃ©lica tolosa": "angelica-tolosa",
     "angelica tolosa": "angelica-tolosa",
     "tolosa bravo":    "angelica-tolosa",
-    "angélica":        "angelica-tolosa",
+    "angÃ©lica":        "angelica-tolosa",
     "angelica":        "angelica-tolosa",
-    "miguel ángel bucio": "miguel-bucio",
+    "miguel Ã¡ngel bucio": "miguel-bucio",
     "miguel angel bucio": "miguel-bucio",
     "miguel bucio":    "miguel-bucio",
     "miguel":          "miguel-bucio",
-    "christian alfonso zazueta treviño": "christian-zazueta",
+    "christian alfonso zazueta treviÃ±o": "christian-zazueta",
     "christian alfonso zazueta trevino": "christian-zazueta",
     "christian zazueta": "christian-zazueta",
-    "zazueta treviño": "christian-zazueta",
+    "zazueta treviÃ±o": "christian-zazueta",
     "zazueta trevino": "christian-zazueta",
     "christian":       "christian-zazueta",
-    "teresa gonzález navarro": "teresa-gonzalez",
+    "teresa gonzÃ¡lez navarro": "teresa-gonzalez",
     "teresa gonzalez navarro": "teresa-gonzalez",
-    "teresa gonzález":  "teresa-gonzalez",
+    "teresa gonzÃ¡lez":  "teresa-gonzalez",
     "teresa gonzalez":  "teresa-gonzalez",
     "teresa":           "teresa-gonzalez",
     "tere":             "teresa-gonzalez",
 }
 
-# ── Patrones de extracción ─────────────────────────────────────────────────
-# Frases que introducen decisiones estratégicas
+# â”€â”€ Patrones de extracciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Frases que introducen decisiones estratÃ©gicas
 DECISION_PATTERNS = [
-    r"[Ss]e acordó que (.{20,300}?)(?:\.|$)",
-    r"[Ss]e decidió que (.{20,300}?)(?:\.|$)",
-    r"[Ss]e concluyó que (.{20,300}?)(?:\.|$)",
-    r"[Ss]e confirmó que (.{20,300}?)(?:\.|$)",
-    r"[Ss]e definió que (.{20,300}?)(?:\.|$)",
-    r"[Ss]e estableció que (.{20,300}?)(?:\.|$)",
-    r"[Ss]e aprobó (.{20,300}?)(?:\.|$)",
-    r"[Qq]uedó acordado (.{20,300}?)(?:\.|$)",
-    r"[Ll]a conclusión (?:fue|es) que (.{20,300}?)(?:\.|$)",
-    r"[Ss]e resolvió que (.{20,300}?)(?:\.|$)",
+    r"[Ss]e acordÃ³ que (.{20,300}?)(?:\.|$)",
+    r"[Ss]e decidiÃ³ que (.{20,300}?)(?:\.|$)",
+    r"[Ss]e concluyÃ³ que (.{20,300}?)(?:\.|$)",
+    r"[Ss]e confirmÃ³ que (.{20,300}?)(?:\.|$)",
+    r"[Ss]e definiÃ³ que (.{20,300}?)(?:\.|$)",
+    r"[Ss]e estableciÃ³ que (.{20,300}?)(?:\.|$)",
+    r"[Ss]e aprobÃ³ (.{20,300}?)(?:\.|$)",
+    r"[Qq]uedÃ³ acordado (.{20,300}?)(?:\.|$)",
+    r"[Ll]a conclusiÃ³n (?:fue|es) que (.{20,300}?)(?:\.|$)",
+    r"[Ss]e resolviÃ³ que (.{20,300}?)(?:\.|$)",
 ]
 
-# Frases de atribución (persona + verbo + contenido)
+# Frases de atribuciÃ³n (persona + verbo + contenido)
 ATTRIBUTION_VERBS = [
-    "indicó que", "señaló que", "confirmó que", "explicó que", "comentó que",
-    "mencionó que", "destacó que", "afirmó que", "aclaró que", "subrayó que",
-    "insistió en que", "reconoció que", "advirtió que", "alertó que",
-    "propuso que", "sugirió que", "recomendó que", "concluyó que",
-    "preguntó", "respondió que", "añadió que", "agregó que",
-    "informó que", "reportó que", "planteó que", "consideró que",
+    "indicÃ³ que", "seÃ±alÃ³ que", "confirmÃ³ que", "explicÃ³ que", "comentÃ³ que",
+    "mencionÃ³ que", "destacÃ³ que", "afirmÃ³ que", "aclarÃ³ que", "subrayÃ³ que",
+    "insistiÃ³ en que", "reconociÃ³ que", "advirtiÃ³ que", "alertÃ³ que",
+    "propuso que", "sugiriÃ³ que", "recomendÃ³ que", "concluyÃ³ que",
+    "preguntÃ³", "respondiÃ³ que", "aÃ±adiÃ³ que", "agregÃ³ que",
+    "informÃ³ que", "reportÃ³ que", "planteÃ³ que", "considerÃ³ que",
 ]
 
-# Patrones de ítems abiertos / pendientes
+# Patrones de Ã­tems abiertos / pendientes
 OPEN_ITEM_PATTERNS = [
     r"[Pp]endiente[:\s]+(.{15,250}?)(?:\.|$)",
     r"[Pp]or definir[:\s]+(.{15,250}?)(?:\.|$)",
     r"[Cc]ompromiso[:\s]+(.{15,250}?)(?:\.|$)",
     r"[Aa]ction item[:\s]+(.{15,250}?)(?:\.|$)",
-    r"[Aa]cción[:\s]+(.{15,250}?)(?:\.|$)",
-    r"[Ss]e deberá (.{15,250}?)(?:\.|$)",
+    r"[Aa]cciÃ³n[:\s]+(.{15,250}?)(?:\.|$)",
+    r"[Ss]e deberÃ¡ (.{15,250}?)(?:\.|$)",
     r"[Ss]e necesita (.{15,250}?)(?:\.|$)",
     r"[Ee]s necesario (.{15,250}?)(?:\.|$)",
     r"[Ff]alta (?:por |definir )?(.{15,250}?)(?:\.|$)",
     r"[Ss]e requiere (.{15,250}?)(?:\.|$)",
 ]
 
-# Sistemas para detección de topic de decisiones y posiciones
+# Sistemas para detecciÃ³n de topic de decisiones y posiciones
 TOPIC_KEYWORDS = {
     "apolo":        r"\bapolo\b",
     "smartvista":   r"\bsmartvista\b|\bbpc\b",
@@ -176,8 +176,8 @@ TOPIC_KEYWORDS = {
     "seguridad":    r"\bseguridad\b|\bciso\b|\bosi\b",
     "gobierno":     r"\bgobierno\b|\bgovernance\b|\bsteering\b",
     "cronograma":   r"\bcronograma\b|\btimeline\b|\bplazo\b|\bfecha\b",
-    "datos":        r"\bdatos\b|\bmigraci[oó]n\b|\bdata\b",
-    "integracion":  r"\bintegraci[oó]n\b|\bapi\b|\bmulesoft\b",
+    "datos":        r"\bdatos\b|\bmigraci[oÃ³]n\b|\bdata\b",
+    "integracion":  r"\bintegraci[oÃ³]n\b|\bapi\b|\bmulesoft\b",
     "testing":      r"\btesting\b|\bpruebas\b|\bqa\b",
     "regulatorio":  r"\bcnbv\b|\bregulat\b|\bcompliance\b",
 }
@@ -185,12 +185,12 @@ TOPIC_KEYWORDS = {
 SENTIMENT_PATTERNS = {
     "concerned": [
         r"\briesgo\b", r"\bproblema\b", r"\batraso\b", r"\bretraso\b",
-        r"\bpreocupa\b", r"\bdifícil\b", r"\bcomplejo\b", r"\bincertidumbre\b",
-        r"\bfalta\b", r"\bno\s+est[aá]\b",
+        r"\bpreocupa\b", r"\bdifÃ­cil\b", r"\bcomplejo\b", r"\bincertidumbre\b",
+        r"\bfalta\b", r"\bno\s+est[aÃ¡]\b",
     ],
     "supportive": [
         r"\bacuerdo\b", r"\bcorrecto\b", r"\bexcelente\b", r"\bbien\b",
-        r"\bapoya\b", r"\bcoincidió\b", r"\bconfirm\b", r"\baprueba\b",
+        r"\bapoya\b", r"\bcoincidiÃ³\b", r"\bconfirm\b", r"\baprueba\b",
     ],
     "blocking": [
         r"\bbloqueante\b", r"\bbloquea\b", r"\bimpide\b", r"\bno puede\b",
@@ -199,7 +199,7 @@ SENTIMENT_PATTERNS = {
 }
 
 
-# ── Helpers ────────────────────────────────────────────────────────────────
+# â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def normalize_name(text: str) -> str | None:
     """Devuelve el ID del stakeholder si el texto contiene un nombre conocido."""
     t = text.lower().strip()
@@ -228,15 +228,15 @@ def extract_participants(paragraphs: list[str]) -> list[str]:
     in_section = False
     for p in paragraphs:
         pl = p.lower()
-        # Detectar cabecera de sección
+        # Detectar cabecera de secciÃ³n
         if re.search(r"participantes?\s*(bcp|acn|:)?", pl):
             in_section = True
             continue
-        # Salir de sección si llega otro encabezado
-        if in_section and re.match(r"^\d+[\.\)]\s|^minuta:|^fecha\s|^lugar\s|^sesión\s|^objetivo", pl):
+        # Salir de secciÃ³n si llega otro encabezado
+        if in_section and re.match(r"^\d+[\.\)]\s|^minuta:|^fecha\s|^lugar\s|^sesiÃ³n\s|^objetivo", pl):
             in_section = False
         if in_section and 3 < len(p) < 80:
-            # Limpiar paréntesis "(Se une más tarde)" etc.
+            # Limpiar parÃ©ntesis "(Se une mÃ¡s tarde)" etc.
             name = re.sub(r"\(.*?\)", "", p).strip()
             if name:
                 names.append(name)
@@ -244,7 +244,7 @@ def extract_participants(paragraphs: list[str]) -> list[str]:
 
 
 def extract_decisions(paragraphs: list[str], doc_id: int, date: str | None) -> list[dict]:
-    """Extrae decisiones de los párrafos."""
+    """Extrae decisiones de los pÃ¡rrafos."""
     decisions = []
     full_text = " ".join(paragraphs)
     for pat in DECISION_PATTERNS:
@@ -252,7 +252,7 @@ def extract_decisions(paragraphs: list[str], doc_id: int, date: str | None) -> l
             decision_text = m.group(1).strip()
             if len(decision_text) < 15:
                 continue
-            # Buscar quién la impulsó en el contexto circundante (±100 chars)
+            # Buscar quiÃ©n la impulsÃ³ en el contexto circundante (Â±100 chars)
             start = max(0, m.start() - 150)
             context = full_text[start: m.start()]
             driver = normalize_name(context)
@@ -262,7 +262,7 @@ def extract_decisions(paragraphs: list[str], doc_id: int, date: str | None) -> l
                 "driver_id": driver,
                 "date": date,
                 "doc_id": doc_id,
-                "confidence": "high" if "acordó" in m.group(0).lower() else "medium",
+                "confidence": "high" if "acordÃ³" in m.group(0).lower() else "medium",
             })
     return decisions
 
@@ -272,7 +272,7 @@ def extract_positions(paragraphs: list[str], doc_id: int, date: str | None) -> l
     positions = []
     for p in paragraphs:
         for verb in ATTRIBUTION_VERBS:
-            pattern = rf"(\b[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)?)\s+{re.escape(verb)}\s+(.{{15,300}}?)(?:\.|$)"
+            pattern = rf"(\b[A-ZÃÃ‰ÃÃ“ÃšÃ‘][a-zÃ¡Ã©Ã­Ã³ÃºÃ±]+(?:\s+[A-ZÃÃ‰ÃÃ“ÃšÃ‘][a-zÃ¡Ã©Ã­Ã³ÃºÃ±]+)?)\s+{re.escape(verb)}\s+(.{{15,300}}?)(?:\.|$)"
             for m in re.finditer(pattern, p):
                 person_raw = m.group(1)
                 statement = m.group(2).strip()
@@ -295,7 +295,7 @@ def extract_positions(paragraphs: list[str], doc_id: int, date: str | None) -> l
 
 
 def extract_open_items(paragraphs: list[str], doc_id: int, date: str | None) -> list[dict]:
-    """Extrae ítems abiertos / pendientes."""
+    """Extrae Ã­tems abiertos / pendientes."""
     items = []
     full_text = " ".join(paragraphs)
     for pat in OPEN_ITEM_PATTERNS:
@@ -303,7 +303,7 @@ def extract_open_items(paragraphs: list[str], doc_id: int, date: str | None) -> 
             item_text = m.group(1).strip()
             if len(item_text) < 10:
                 continue
-            # Buscar dueño en contexto
+            # Buscar dueÃ±o en contexto
             start = max(0, m.start() - 200)
             context = full_text[start: m.start() + 100]
             owner = normalize_name(context)
@@ -313,14 +313,14 @@ def extract_open_items(paragraphs: list[str], doc_id: int, date: str | None) -> 
                 "owner_id": owner,
                 "date": date,
                 "doc_id": doc_id,
-                "priority": "high" if re.search(r"\bcrítico\b|\burgente\b|\bbloqueante\b", item_text, re.I) else "medium",
+                "priority": "high" if re.search(r"\bcrÃ­tico\b|\burgente\b|\bbloqueante\b", item_text, re.I) else "medium",
                 "systems": topics,
                 "status": "open",
             })
     return items
 
 
-# ── DDL estratégico ────────────────────────────────────────────────────────
+# â”€â”€ DDL estratÃ©gico â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 STRATEGIC_DDL = """
 CREATE TABLE IF NOT EXISTS stakeholders (
     id               TEXT PRIMARY KEY,
@@ -386,14 +386,14 @@ CREATE VIEW IF NOT EXISTS client_positions AS
     JOIN stakeholders s ON s.id = p.stakeholder_id
     WHERE s.org IN ('bancoppel', 'grupo-coppel');
 
--- Posturas de proveedores (Accenture, AWS, etc.) — análisis y recomendaciones externas
+-- Posturas de proveedores (Accenture, AWS, etc.) â€” anÃ¡lisis y recomendaciones externas
 CREATE VIEW IF NOT EXISTS vendor_positions AS
     SELECT p.*, s.name AS stakeholder_name, s.org, s.level, s.role
     FROM positions p
     JOIN stakeholders s ON s.id = p.stakeholder_id
     WHERE s.org NOT IN ('bancoppel', 'grupo-coppel');
 
--- Decisiones conducidas por actores cliente (o sin atribución)
+-- Decisiones conducidas por actores cliente (o sin atribuciÃ³n)
 CREATE VIEW IF NOT EXISTS client_decisions AS
     SELECT d.*, s.name AS driver_name, s.org
     FROM decisions d
@@ -423,15 +423,15 @@ def run():
     db.execute("PRAGMA foreign_keys=ON")
     db.executescript(STRATEGIC_DDL)
     db.commit()
-    print("DDL estratégico aplicado")
+    print("DDL estratÃ©gico aplicado")
 
-    # Limpiar extracción previa (idempotente)
+    # Limpiar extracciÃ³n previa (idempotente)
     db.execute("DELETE FROM positions")
     db.execute("DELETE FROM open_items WHERE id LIKE 'OI-%'")
     db.execute("DELETE FROM decisions WHERE id LIKE 'DEC-%'")
     db.commit()
 
-    # ── Pre-seed stakeholders ─────────────────────────────────────────────
+    # â”€â”€ Pre-seed stakeholders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     db.executemany(
         """INSERT OR IGNORE INTO stakeholders
            (id, name, role, org, level, area, influence)
@@ -441,7 +441,7 @@ def run():
     db.commit()
     print(f"Stakeholders pre-seed: {len(KNOWN_STAKEHOLDERS)}")
 
-    # ── Leer documentos indexados ─────────────────────────────────────────
+    # â”€â”€ Leer documentos indexados â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     docs = db.execute(
         "SELECT id, date, filename FROM documents WHERE type = 'minuta' ORDER BY date"
     ).fetchall()
@@ -449,7 +449,7 @@ def run():
     # Contadores para IDs secuenciales
     dec_n  = 0
     oi_n   = 0
-    sh_appearances: dict[str, list[str]] = defaultdict(list)  # id → fechas
+    sh_appearances: dict[str, list[str]] = defaultdict(list)  # id â†’ fechas
 
     all_decisions: list[dict] = []
     all_positions: list[dict] = []
@@ -465,10 +465,10 @@ def run():
             doc = python_docx.Document(str(path))
             paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
         except Exception as e:
-            print(f"  ERROR: {filename} — {e}")
+            print(f"  ERROR: {filename} â€” {e}")
             continue
 
-        # 1. Participantes → stakeholder appearances
+        # 1. Participantes â†’ stakeholder appearances
         names = extract_participants(paragraphs)
         for name in names:
             sid = normalize_name(name)
@@ -477,7 +477,7 @@ def run():
             elif sid:
                 sh_appearances[sid]  # touch to register
 
-        # También detectar nombres en cualquier parte del texto
+        # TambiÃ©n detectar nombres en cualquier parte del texto
         full = " ".join(paragraphs)
         for alias, sid in NAME_ALIASES.items():
             if alias in full.lower():
@@ -496,7 +496,7 @@ def run():
         ois = extract_open_items(paragraphs, doc_id, date)
         all_open_items.extend(ois)
 
-    # ── Actualizar apariciones en stakeholders ────────────────────────────
+    # â”€â”€ Actualizar apariciones en stakeholders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     for sid, dates in sh_appearances.items():
         if not dates:
             continue
@@ -508,7 +508,7 @@ def run():
             (len(dates_sorted), dates_sorted[0], dates_sorted[-1], sid),
         )
 
-    # ── Insertar decisiones (dedup por texto) ─────────────────────────────
+    # â”€â”€ Insertar decisiones (dedup por texto) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     seen_decisions: set[str] = set()
     for d in all_decisions:
         key = d["decision"][:80]
@@ -532,7 +532,7 @@ def run():
             ),
         )
 
-    # ── Insertar posiciones ───────────────────────────────────────────────
+    # â”€â”€ Insertar posiciones â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     seen_positions: set[str] = set()
     for p in all_positions:
         key = (p["stakeholder_id"], p["stance"][:60])
@@ -550,7 +550,7 @@ def run():
             ),
         )
 
-    # ── Insertar open items (dedup) ───────────────────────────────────────
+    # â”€â”€ Insertar open items (dedup) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     seen_items: set[str] = set()
     for oi in all_open_items:
         key = oi["item"][:60]
@@ -573,9 +573,9 @@ def run():
 
     db.commit()
 
-    # ── Resumen ───────────────────────────────────────────────────────────
+    # â”€â”€ Resumen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     print()
-    print("=== CAPA ESTRATÉGICA ===")
+    print("=== CAPA ESTRATÃ‰GICA ===")
     for table in ["stakeholders", "decisions", "positions", "open_items"]:
         n, = db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()
         print(f"  {table:<15}: {n:>5}")
@@ -611,7 +611,7 @@ def run():
     print(f"  Total open: {n_open} | High priority: {n_high}")
 
     db.close()
-    print("\nCapa estratégica lista en bank-brain.db")
+    print("\nCapa estratÃ©gica lista en bank-brain.db")
 
 
 if __name__ == "__main__":
