@@ -533,6 +533,60 @@ El espacio entre `bdicred:` y `"informix"` es inconsistente. Dependiendo de la v
 
 ---
 
+### P655-R018
+
+| Campo | Valor |
+|-------|-------|
+| **ID** | P655-R018 |
+| **Categoría** | TAR |
+| **Nivel** | N3 🟠 ALTO |
+| **Dominio** | D46-bdiofi |
+| **SP afectado** | `get_numcheque` |
+| **Estado** | ABIERTO |
+| **Bloquea** | Avance a TEST (Wave D46) |
+| **SME validador** | DBA IBM Informix + Industry Banking |
+| **Fecha de detección** | 2026-08-14 |
+| **Fuente** | Lectura directa de código fuente |
+
+**Descripción**: El SP `get_numcheque` (bdiofi) tiene **IVA hardcodeado al 15%** (`let w_iva = 0.15`) y una **comisión fija de $5.2**. La tasa del IVA en México cambió al 16% el 1-ene-2010. Si el SP sigue activo en la emisión de cheques BanCoppel, los totales calculados (`w_total = importe + (importe * w_iva) + w_comision`) son incorrectos por ~0.84% del importe desde hace 15 años.
+
+**Impacto en migración**: el código destino no puede replicar estas constantes tal como están. El modernizador debe parametrizar IVA y comisión desde tabla de configuración (no hardcode), y validar con BanCoppel qué tasa y comisión aplican hoy antes de escribir el microservicio equivalente.
+
+**Mitigación**:
+1. Confirmar con BanCoppel si `get_numcheque` está activo en producción o si fue reemplazado
+2. Si activo: audit de impacto financiero histórico (desde 2010)
+3. En el target: parametrizar IVA y comisión desde tabla de configuración; prohibir hardcode de tasas fiscales
+4. Registrar como hallazgo regulatorio ante Industry Banking SME (LTOSF Art.17 — comisión debe ser registrada)
+
+---
+
+### P655-R019
+
+| Campo | Valor |
+|-------|-------|
+| **ID** | P655-R019 |
+| **Categoría** | TAR |
+| **Nivel** | N3 🟠 ALTO |
+| **Dominio** | D46-bdiofi |
+| **SP afectado** | `get_lasttransaccion` |
+| **Estado** | ABIERTO |
+| **Bloquea** | Avance a TEST (Wave D46) |
+| **SME validador** | DBA IBM Informix + Core Banking Transformation |
+| **Fecha de detección** | 2026-08-14 |
+| **Fuente** | Lectura directa de código fuente |
+
+**Descripción**: El SP `get_lasttransaccion` (bdiofi) genera el siguiente ID de transacción con `SELECT max(transaccionid) + 1 INTO w_TransaccionID FROM so_Transacciones WHERE EmpresaID = w_EmpresaID`. No usa sequence object ni row lock. Bajo carga concurrente, dos llamadas simultáneas pueden leer el mismo `MAX` y generar el **mismo `transaccionid`**, produciendo duplicados en `so_Transacciones`.
+
+**Impacto en migración**: el patrón MAX+1 es inseguro por diseño y no debe replicarse en el target. En Aurora PostgreSQL, el equivalente sería una `SEQUENCE` o `IDENTITY` column. Si el bug está activo en producción, pueden existir transacciones duplicadas en la tabla; la migración de datos debe incluir detección y resolución de duplicados antes del cutover.
+
+**Mitigación**:
+1. Consultar con DBA IBM Informix SME: ¿existe un mecanismo de serialización externo (mutex, single-thread) que proteja este SP en producción?
+2. Auditar `so_Transacciones` por `transaccionid` duplicados antes de la migración de datos
+3. En el target: reemplazar por `IDENTITY`/`SEQUENCE` en Aurora PostgreSQL; prohibir el patrón MAX+1
+4. Añadir test de concurrencia en Wave D46: 50 llamadas simultáneas deben producir 50 IDs únicos
+
+---
+
 ## Historial de cambios
 
 | Versión | Fecha | Cambio |
@@ -542,6 +596,7 @@ El espacio entre `bdicred:` y `"informix"` es inconsistente. Dependiendo de la v
 | 1.2.0 | 2026-08-01 | P655-R009 a R011 — D11-bdicobranza análisis de código fuente `bdicobranza_sp_obtener_datos_cv_web.sql` vs `bdicred_sp_consulta_saldos_general.sql`; causa raíz del 97.4% error rate: type mismatch CHAR(5)/CHAR(6); + silent exception swallowing + space en cross-DB call |
 | 1.3.0 | 2026-08-07 | P655-R012 a R017 — diagnóstico arquitectónico capa Autorizador/e-global (enero 2026 post-incidentes Nov-Dic 2025); connection leak sistémico (R012, R017), SPEI forking (R013), sin load balancing (R014), Firma Digital bottleneck (R015), SLA e-Global 8s (R016) |
 | 1.4.0 | 2026-08-07 | Actualización de estados R012-R017 — 11 mejoras ejecutadas en 2026 (enero-julio); R017 CERRADO (2.5 connection leak fix), R015 CERRADO para SPEI (3.1 firma extraída), R013/R016 MITIGADOS para producción; R012/R014 PARCIALMENTE MITIGADOS (pendiente AUT-DR-05/06/07) |
+| 1.5.0 | 2026-08-14 | P655-R018 y R019 — deuda técnica D46-bdiofi: IVA hardcodeado 15% en `get_numcheque` + patrón MAX+1 sin lock en `get_lasttransaccion`; lectura directa de código fuente |
 
 ---
 
@@ -564,7 +619,7 @@ El espacio entre `bdicred:` y `"informix"` es inconsistente. Dependiendo de la v
 |-------|-------|--------------------|--------------------|---------|
 | N5 | 5 | 2 (R001, R002) | 3 (R012 parcial, R013, R017✅) | 1 (R017) |
 | N4 | 4 | 1 (R009) | 3 (R014 parcial, R015✅SPEI, R016 mig.) | — |
-| N3 | 5 | 5 | — | — |
+| N3 | 7 | 5 | 2 (R018, R019) | — |
 | N2 | 3 | 3 | — | — |
 
 ---

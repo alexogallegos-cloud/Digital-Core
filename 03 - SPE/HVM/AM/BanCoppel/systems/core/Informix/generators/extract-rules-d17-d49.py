@@ -204,16 +204,9 @@ def asigna_categoria(sp, code, tipo, regs, dom_code):
     return CAT_DOM.get(dom_code, "OPERACIONAL")
 
 def build_bn(tipo, sp, code):
-    if tipo == "FÓRMULA":
-        var = code.split("=")[0].strip()
-        return f"Calcula {var}".strip()
-    if tipo == "UMBRAL":
-        return f"Umbral: {code[:90]}"
-    if tipo == "ESTADO":
-        return f"Estado: {code[:90]}"
-    m = re.search(r'(\d{3,})', code)
-    if m: return f"Valida: retorna código {m.group(1)}"
-    return f"Validación: {code[:80]}"
+    # ADR-SPE-AM-010: el extractor nunca genera business_name.
+    # La síntesis LLM es la única fuente del campo — se aplica post-extracción sobre todas las clases.
+    return ""
 
 # ── Candidatos: SOLO D17-D49 ──────────────────────────────────────────────────
 PRE_FILTER = ("let ","set ","raise exception","return ","if ","while ",

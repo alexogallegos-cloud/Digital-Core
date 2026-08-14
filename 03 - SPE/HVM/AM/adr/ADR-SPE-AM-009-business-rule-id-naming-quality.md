@@ -85,6 +85,40 @@ Sin estas cuatro fuentes, los names generados serán sintácticos en el mejor ca
 
 ---
 
+### D2a — Reglas de enriquecimiento para excepciones (Swarm R)
+
+#### RAISE EXCEPTION: el tercer parámetro es la condición de negocio
+
+En Informix SPL, `RAISE EXCEPTION var, 0, 'mensaje'` propaga una excepción al llamador con un mensaje literal. Ese mensaje ES la condición de negocio que dispara la excepción.
+
+**Regla**: Para toda regla con `RAISE EXCEPTION` en el campo `code`, extraer el tercer parámetro (literal entre comillas simples) y usarlo como condición en el business name:
+
+- MAL: `"Abonotransfersoc bdicnweb: Error de sistema o excepción no controlada"` (mensaje genérico)
+- BIEN: `"Abonotransfersoc bdicnweb: Error al ejecutar bdicnweb:sp_abonotransfersoc"` (mensaje extraído del RAISE)
+
+Pattern de extracción: `RAISE EXCEPTION \w+, \d+, '([^']{5,})'`
+
+**Distinción importante**: `ON EXCEPTION SET var` sin `RAISE EXCEPTION` explícito es un handler genérico — en ese caso "Error de sistema o excepción no controlada" sí es correcto porque el código no especifica la condición.
+
+Mensajes con prefijo técnico `"ERROR EN LA EJECUCION DEL SP ..."` se transforman a `"Error al ejecutar [sp_name]"`. Si el mensaje no tiene información adicional después del prefijo, mantener la descripción genérica.
+
+#### Detección de fórmulas: operadores, no solo camelCase
+
+Las variables en Informix SPL siguen convención húngara con prefijo minúsculo: `vcapital`, `vtasa`, `vplazo`, `importe`. No son camelCase pero sí son nombres de variables, no términos de negocio. Una expresión como `vcapital * vtasa * vplazo / 100` es una fórmula aunque no contenga `[a-z][A-Z]`.
+
+**Regla**: Detectar fórmulas por operadores, no solo por camelCase:
+
+| Operador | Ejemplo en SPL | Acción |
+|----------|---------------|--------|
+| `*` (multiplicación) | `vcapital * vtasa` | Eliminar de business name |
+| `÷` (división SPL) | `dcvencido ÷ dabonbase` | Eliminar de business name |
+| ` x ` (multiplicación en español) | `monto x factor / 100` | Eliminar de business name |
+| `/ N` (división por constante) | `importe / 100` | Eliminar de business name |
+
+Si la condición es 100% fórmula, usar el sujeto del business name solo: `"IVA sobre comisión de convenio"` (no `"IVA sobre comisión de convenio: importe x tasa / 100"`).
+
+---
+
 ### D3 — brain.db como única fuente de verdad para el portal de reglas
 
 Toda corrección de nombres, IDs o metadatos se aplica **primero en brain.db**, nunca directamente en el portal JSON o el HTML. El script `rebuild_from_brain.py` (o su equivalente por sistema) regenera el portal completo desde brain.db.
@@ -134,8 +168,10 @@ Si el resultado supera 50 archivos, el rename requiere un script de migración y
 ## Referencias
 
 - GemCog — Metodología de extracción BanCoppel: `Informix/knowledge_base/reglas-estadisticas.md`
-- Swarm K (CÓDIGO_RETORNO): `Informix/digital-brain/swarm_k_enrichment.py`  
+- Swarm K (CÓDIGO_RETORNO semántico): `Informix/digital-brain/swarm_k_enrichment.py`  
 - Swarm L (Grupo B IDs): `Informix/digital-brain/swarm_l_grupob.py`
+- Swarm Q (8 patrones calidad P1-P8a): `Informix/digital-brain/swarm_q_codret_semantics.py`
+- Swarm R (excepciones + P7 falsos positivos): `Informix/digital-brain/swarm_r_exception_audit.py`
 - Fix IDs legibles: `Informix/digital-brain/fix_brb_ids.py`
 - Portal rebuild canónico: `Informix/digital-brain/rebuild_from_brain.py`
 - SME Industry Banking: `SME/Industry/Industry Banking/`

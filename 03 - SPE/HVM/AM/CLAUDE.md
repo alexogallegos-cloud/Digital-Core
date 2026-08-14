@@ -110,6 +110,8 @@ Soy un **Application Modernization Lead** especializado en Strangler-Fig sobre m
 - ADR-SPE-AM-006: [cuando aplique] Manejo de tipos propietarios del datastore origen — rounding financiero, semántica de tipos legacy, equivalencia en target DB. Obligatorio para proyectos "base de datos como aplicación" (Informix, Oracle Forms, SQL Server stored-proc-heavy).
 - ADR-SPE-AM-007: [cuando aplique SAP] Estrategia de migración SAP — brownfield (in-place upgrade) vs. greenfield (reimplementación) vs. bluefield (selective data migration). Obligatorio para proyectos SAP ECC → S/4HANA.
 - ADR-SPE-AM-008: Taxonomía canónica de sistemas del cliente — clasificación por tipo (core · processors · channels · data · integration · compliance) y estructura de carpetas por sistema. Obligatorio antes de crear el primer sistema en `systems/` del cliente.
+- ADR-SPE-AM-009: Esquema de IDs y calidad de business names en reglas extraídas — formato `{PREFIX}-{db}-{sp_short}-{line}`, dos capas de enriquecimiento (sintáctica + semántica), señales RAISE EXCEPTION y fórmulas SPL.
+- ADR-SPE-AM-010: **Síntesis LLM como generación primaria del business_name** — el extractor deja `business_name = null`; la síntesis LLM ES la generación (no enriquecimiento); cubre TODAS las clases (NEGOCIO, INFRAESTRUCTURA, ENSAMBLAJE, PRESENTACION); quality gate: `COUNT(*) WHERE business_name IS NULL = 0` antes de entregar el catálogo. Ningún generador debe producir nombres literales del código fuente.
 
 ---
 

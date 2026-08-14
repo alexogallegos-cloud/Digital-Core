@@ -1,14 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-enrich-names-local.py — Enriquecimiento local de business_name sin API.
+enrich-names-local.py — DEPRECADO per ADR-SPE-AM-010 (2026-08-14)
 
-Lee weak-names-export.json, analiza el código SPL de cada regla con
-heurísticas específicas al dominio BanCoppel, y genera name-overrides-ai.json
-en el formato que enrich-names-ai.py --apply espera.
+Este script generaba business_names mediante heurísticas sin LLM, produciendo
+nombres que copian literales del código fuente (fragmentos SQL, variables SPL,
+condiciones raw). Eso viola el principio de ADR-SPE-AM-010: el extractor
+deja business_name = null, y la síntesis LLM es la única fuente del campo.
 
-Uso: python generators/enrich-names-local.py [--dry-run] [--domain D05]
+Para sintetizar business_names usa un swarm LLM sobre brain.db.
+Consulta: AM/adr/ADR-SPE-AM-010-llm-synthesis-as-generation.md
 """
+raise SystemExit(
+    "DEPRECADO: enrich-names-local.py viola ADR-SPE-AM-010. "
+    "Usa síntesis LLM (swarm) sobre brain.db en lugar de heurísticas locales."
+)
+
+# ── Código original preservado para referencia histórica ──────────────────────
+# (nunca ejecutar — solo referencia de lo que fue reemplazado)
 import re, json, sys, io, argparse
 from pathlib import Path
 from collections import defaultdict
