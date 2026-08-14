@@ -1,9 +1,0 @@
--- CO184  ·  Controlling  ·  arquetipo CUST  ·  fan-in=14
--- (generada)
--- ESQUEMA DE REFERENCIA (graph-as-data): las columnas FK = aristas salientes del grafo.
-CREATE TABLE CO184 (
-  MANDT            CLNT      ,  -- mandante (client)
-  CO184ID          CHAR(18)  ,  -- clave primaria (ALPHA, ceros a la izq.)
-  WERT             CHAR(20)  ,  -- valor de configuracion
-  DESCR            CHAR(40)     -- descripcion
-);

@@ -1,0 +1,260 @@
+$SET VERSION 00.01.02  % 14/SEP/2001                                    00000100          
+%$SET TADS                                                              00000150          
+%*************************************************************          00000170          
+% RECOMPILACION POR EL UPGRADE DEL MCP A 55                  *          00000172          
+% 20141205 15MTP001 MJGRG                                    *          00000174          
+%*************************************************************          00000176          
+BEGIN                                                                   00000200          
+                                                                        00000300          
+INTEGER ERRORES, J, TXTSZ, SEQ, RSLT, NOENVIO, TIPO02, TIPO32,          00000400          
+        TIPO11, DUPLIC, U_CONF, U_NOEN, U_DUP, U_32, NODOORIG;          00000500          
+                                                                        00000600          
+REAL T_DUMMY, A_OUTPUT;                                                 00000700          
+                                                                        00000800          
+EBCDIC ARRAY E_MSG[0:2999], E_AUX[0:100], MI_CSI[0:1];                  00000900          
+                                                                        00001000          
+BOOLEAN ENDING, TESTING;                                                00001100          
+                                                                        00001200          
+INPUTHEADER     COMSINHDR;                                              00001300          
+                                                                        00001400          
+OUTPUTHEADER    COMSOUTHDR;                                             00001500          
+                                                                        00001600          
+TRUTHSET NUMEROS ("0123456789");                                        00001700          
+                                                                        00001800          
+DEFINE  REP             =       REPLACE   #,                            00001900          
+        HDR_NODODEST    =       E_MSG[02] #,                            00002000          
+        HDR_NODOORIG    =       E_MSG[16] #,                            00002100          
+        HDR_TIPO        =       E_MSG[23] #,                            00002200          
+        HDR_TC_DEST     =       E_MSG[36] #,                            00002300          
+        HDR_TC_ORIG     =       E_MSG[42] #,                            00002400          
+%        TXT_RESULT_IBM  =       E_MSG[48] #,                           00002420          
+%        TXT_SEQ_IBM     =       E_MSG[49] #,                           00002440          
+        TXT_RESULT      =       E_MSG[83] #,                            00002500          
+        TXT_SEQ         =       E_MSG[92] #,                            00002600          
+        CRLF            =       48"0D25"  #,                            00002700          
+        D(T,S)   = DISPLAY(T CAT " S151 P007 25MTP002 " CAT S) #,       00002800          
+        CAND(X,Y)= (IF (X) THEN (Y) ELSE FALSE)#,                       00002900          
+        COR(X,Y) = (IF (X) THEN TRUE ELSE (Y)) #;                       00003000          
+                                                                        00003100          
+LIBRARY S151L009(LIBACCESS=BYTITLE),                                    00003250          
+        SHELL   (LIBACCESS=BYFUNCTION,FUNCTIONNAME="SOPORTECOMS.");     00003300          
+                                                                        00003400          
+PROCEDURE CSIID(AUX);                                                   00003500          
+    EBCDIC ARRAY AUX[0];                                                00003600          
+    LIBRARY SHELL;                                                      00003700          
+                                                                        00003800          
+INTEGER PROCEDURE SMCOMS(CMD_MSG,RESP_SCR);                             00003900          
+    EBCDIC ARRAY CMD_MSG, RESP_SCR[0];                                  00004000          
+    LIBRARY SHELL;                                                      00004100          
+                                                                        00004200          
+PROCEDURE ENVIA_L009(RSLT,SEQ);                                         00004710          
+    VALUE RSLT, SEQ;                                                    00004720          
+    INTEGER RSLT, SEQ;                                                  00004730          
+    LIBRARY S151L009;                                                   00004740          
+                                                                        00004750          
+PROCEDURE ERROR_LIGA(I,S);      VALUE I; INTEGER I; STRING S;           00004800          
+    BEGIN                                                               00004900          
+    CASE ABS(I) OF                                                      00005000          
+        BEGIN                                                           00005100          
+        1:S:=S CAT ": LIBRERIA NO ESTA EN DISK <";                      00005200          
+        2:S:=S CAT ": FAMILISIZE EXCEEDED <";                           00005300          
+        3:S:=S CAT ": ENTRY POINT EN MAS DE UNA LIBRERIA <";            00005400          
+        4:S:=S CAT ": LA LIBRERIA NO ES DE SISTEMA <";                  00005500          
+        5:S:=S CAT ": NUMERO O PARAMETROS NO CORRESPONDEN <";           00005600          
+        6:S:=S CAT ": LA LIBRERIA NO INICIO CON EXITO <";               00005700          
+        7:S:=S CAT ": LIGA CIRCULAR DE LIBRERIAS <";                    00005800          
+        8:S:=S CAT ": ENTRY POINT BY CALL NO ESPECIFICADO <";           00005900          
+        9:S:=S CAT ": BAD TASK PASSED BY A CALLING <";                  00006000          
+       10:S:=S CAT ": FEATURE USED NOT IMPLEMENTED <";                  00006100          
+       11:S:=S CAT ": TIPO INVALIDO EN LA LIBRERIA <";                  00006200          
+       12:S:=S CAT ": DEBE RECOMPILAR EL PROGRAMA <";                   00006300          
+       13:S:=S CAT ": DIRECTORIO INCOMPATIBLE, RECOMPILE <";            00006400          
+       14:S:=S CAT ": EL PROGRAMA NO PUEDE LIGAR UNA SL <";             00006500          
+       15:S:=S CAT ": LIBRERIA NO INICIADA <";                          00006600          
+       16:S:=S CAT ": PROGRAMA NO AUTORIZADO <";                        00006700          
+       17:S:=S CAT ": LIBRERIA NO VISIBLE AL PROGRAMA <";               00006800          
+    END DEL CASE;                                                       00006900          
+    D("060103 03",S CAT " ESPERO OK");                                  00007000          
+    MYSELF.STATUS := 3;                                                 00007100          
+    END ERROR_LIGA;                                                     00007200          
+                                                                        00007300          
+PROCEDURE REFRESCA;                                                     00007400          
+    BEGIN                                                               00007500          
+    EBCDIC ARRAY NOM_L[0:17];                                           00007600          
+    LABEL FIN;                                                          00007700          
+    LIBRARY CTL_VER(LIBACCESS=BYFUNCTION, FUNCTIONNAME="CTLVERS.");     00007800          
+                                                                        00007900          
+    INTEGER PROCEDURE DAME_TIT(L_ALIAS,L_TITULO);                       00008000          
+         EBCDIC ARRAY L_ALIAS, L_TITULO[0];                             00008100          
+         LIBRARY CTL_VER;                                               00008200          
+                                                                        00008300          
+    IF J:=LINKLIBRARY(CTL_VER) < 0 THEN GO TO FIN;                      00008400          
+                                                                        00008500          
+                                                                        00009100          
+    REP NOM_L BY "S151L009       ";                                     00009110          
+    IF DAME_TIT(NOM_L,E_MSG) NEQ 0 THEN GO TO FIN;                      00009120          
+                                                                        00009130          
+    REP S151L009.TITLE BY E_MSG;                                        00009140          
+    WHILE J:=LINKLIBRARY(S151L009) < 0 DO ERROR_LIGA(J,"S151L009");     00009150          
+                                                                        00009160          
+FIN:                                                                    00009200          
+    J:=DELINKLIBRARY(CTL_VER);                                          00009300          
+    END REFESCA;                                                        00009400          
+                                                                        00009500          
+PROCEDURE CAMBIA_L007;                                                  00009600          
+    BEGIN                                                               00009700          
+    J:=DELINKLIBRARY(S151L009);                                         00009850          
+    WAIT((15));                                                         00009900          
+    REFRESCA;                                                           00010000          
+    END CAMBIA_L007;                                                    00010100          
+                                                                        00010200          
+PROCEDURE INICIA;                                                       00010300          
+    BEGIN                                                               00010400          
+                                                                        00010500          
+    LIBRARY COMS_LIB(LIBACCESS=BYFUNCTION,FUNCTIONNAME="COMSSUPPORT."); 00010600          
+                                                                        00010700          
+    INTEGER PROCEDURE GET_DESIGNATOR_USING_NAME(NAME,NEMONIC,DESIGN);   00010800          
+        VALUE NEMONIC;                                                  00010900          
+        EBCDIC ARRAY NAME[0];                                           00011000          
+        INTEGER NEMONIC;                                                00011100          
+        REAL DESIGN;                                                    00011200          
+        LIBRARY COMS_LIB;                                               00011300          
+                                                                        00011400          
+    IF LINKLIBRARY(COMS_LIB) < 0 THEN MYSELF.STATUS:=-1;                00011500          
+    IF LINKLIBRARY(SHELL)    < 0 THEN MYSELF.STATUS:=-1;                00011600          
+    CSIID(E_MSG);                                                       00011700          
+    REP MI_CSI BY E_MSG FOR 2;                                          00011800          
+    MYSELF.OPTIONS:=* & 1 [VALUE(BDBASE):1]                             00011900          
+          & 1 [VALUE(FAULT) :1]                                         00012000          
+          & 1 [VALUE(DSED)  :1]                                         00012100          
+          & 1 [VALUE(ARRAYS):1];                                        00012200          
+    REP E_MSG BY "S151/LIST/P007/", MI_CSI FOR 2,                       00012300          
+        "00/R000/",TIME(15).[15:48],".";                                00012400          
+    REP MYSELF.BDNAME BY E_MSG;                                         00012500          
+    ENABLE(COMSINHDR,"ONLINE");                                         00012600          
+    REP E_MSG BY "DEFAULTSTATION",0;                                    00012700          
+    IF GET_DESIGNATOR_USING_NAME(E_MSG,1,T_DUMMY) > 0 THEN              00012800          
+         MYSELF.STATUS:=-1;                                             00012900          
+    REP E_MSG BY "OUTPUT OF LINEA",0;                                   00013000          
+    IF GET_DESIGNATOR_USING_NAME(E_MSG,3,A_OUTPUT) > 0 THEN             00013100          
+         MYSELF.STATUS:=-1;                                             00013200          
+    END INICIA;                                                         00013300          
+                                                                        00013400          
+PROCEDURE INFORMA;      % PARA IMPLEMENTAR RESPUESTAS A TERMINAL        00013500          
+    BEGIN                                                               00013600          
+    POINTER P;                                                          00013700          
+                                                                        00013800          
+    TIPO11:=*+1;                                                        00013900          
+    REP E_AUX           BY   HDR_NODODEST   FOR 2;                      00014000          
+    REP HDR_NODODEST    BY   HDR_NODOORIG   FOR 2;                      00014100          
+    REP HDR_NODOORIG    BY   E_AUX          FOR 2;                      00014200          
+    REP HDR_TIPO BY "01";                                               00014300          
+    P:=HDR_TC_DEST;                                                     00014400          
+    REP P:P BY " " FOR 20,"RECEPTOR DE MENSAJES DE TDM-CBII",CRLF,CRLF, 00014500          
+        " " FOR 8,"DESCRIPCION  NUMERO ULTIMO",CRLF,                    00014600          
+        " " FOR 8,"CONSULTAS  = ",TIPO11  FOR 6 NUMERIC,CRLF,           00014700          
+        " " FOR 8,"CONFIRMADOS= ",TIPO02  FOR 6 NUMERIC," ",            00014800          
+                                  U_CONF  FOR 6 NUMERIC,CRLF,           00014900          
+        " " FOR 8,"TIPO 32    = ",TIPO32  FOR 6 NUMERIC," ",            00015000          
+                                  U_32    FOR 6 NUMERIC,CRLF,           00015100          
+        " " FOR 8,"NO ENVIES  = ",NOENVIO FOR 6 NUMERIC," ",            00015200          
+                                  U_NOEN  FOR 6 NUMERIC,CRLF,           00015300          
+        " " FOR 8,"DUPLICADOS = ",DUPLIC  FOR 6 NUMERIC," ",            00015400          
+                                  U_DUP   FOR 6 NUMERIC,CRLF,           00015500          
+        " " FOR 8,"INVALIDOS  = ",ERRORES FOR 6 NUMERIC;                00015600          
+    TXTSZ:=OFFSET(P);                                                   00015700          
+    COMSOUTHDR.DESTCOUNT      :=1;                                      00015800          
+    COMSOUTHDR.AGENDA         :=A_OUTPUT;                               00015900          
+    COMSOUTHDR.TEXTLENGTH     :=TXTSZ;                                  00016000          
+    COMSOUTHDR.STATUSVALUE    :=0;                                      00016100          
+    COMSOUTHDR.DESTINATIONDESG:=T_DUMMY;                                00016200          
+    RSLT:=SEND(COMSOUTHDR,COMSOUTHDR.TEXTLENGTH,E_MSG);                 00016300          
+    END INFORMA;                                                        00016400          
+                                                                        00016500          
+PROCEDURE PROCESA;                                                      00016600          
+    BEGIN                                                               00016700          
+    LABEL FIN;                                                          00016800          
+                                                                        00017000          
+    TXTSZ:=COMSINHDR.TEXTLENGTH;                                        00017100          
+    NODOORIG := INTEGER(HDR_NODOORIG,2);                                00017200          
+    IF HDR_TIPO="11" OR HDR_TIPO="12" THEN    % CONSULTA                00017300          
+       INFORMA                                                          00017400          
+    ELSE                                                                00017450          
+    IF (HDR_TIPO NEQ "02" AND HDR_TIPO NEQ "32") OR                     00017500          
+       (TXTSZ<42)                                OR                     00017550          
+       (HDR_NODOORIG NEQ "21" AND HDR_NODOORIG NEQ "22" AND             00017600          
+        HDR_NODOORIG NEQ "15" AND HDR_NODOORIG NEQ "16") THEN           00017700          
+       ERRORES:=*+1                                                     00017750          
+    ELSE                                                                00017770          
+    IF TXTSZ>123 AND HDR_TIPO="02" THEN                                 00017800          
+    BEGIN                                                               00017900          
+       RSLT:=INTEGER(TXT_RESULT,1);                                     00018070          
+       IF (NOT TXT_RESULT IN NUMEROS FOR 7 ) OR                         00018071          
+          (RSLT < 1 OR RSLT > 4)             THEN                       00018072          
+          ERRORES:=*+1                                                  00018073          
+       ELSE                                                             00018074          
+       BEGIN                                                            00018075          
+          SEQ :=INTEGER(TXT_SEQ,8);                                     00018080          
+          CASE RSLT OF                                                  00018400          
+          BEGIN                                                         00018500          
+             1: TIPO02:=*+1;        U_CONF:=SEQ;                        00018600          
+             2: NOENVIO:=*+1;       U_NOEN:=SEQ;                        00018700          
+          3: 4: DUPLIC:=*+1;        U_DUP :=SEQ;                        00018800          
+          END;                                                          00018900          
+          IF TESTING THEN D("020801 01","RECIBI 02: RSLT=" CAT          00019000          
+             STRING(RSLT,*) CAT ", SEQ=" CAT STRING(SEQ,*)              00019100          
+             CAT " DE NODO " CAT STRING(NODOORIG,2));                   00019110          
+          ENVIA_L009(RSLT,SEQ);                                         00019140          
+        END                                                             00019300          
+    END                                                                 00019350          
+    ELSE                                                                00019400          
+    IF TXTSZ>77 AND HDR_TIPO="32" THEN                                  00019500          
+    BEGIN                                                               00019600          
+        IF NOT E_MSG[71] IN NUMEROS FOR 6 THEN                          00019700          
+           ERRORES:=*+1                                                 00019720          
+        ELSE                                                            00019740          
+        BEGIN                                                           00019760          
+           SEQ:=INTEGER(E_MSG[71],6);                                   00019800          
+           TIPO32:=*+1;                                                 00019900          
+           U_32  :=SEQ;                                                 00019950          
+           IF TESTING THEN                                              00020000          
+              D("020801 01","RECIBI 32: RSLT=2, SEQ="                   00020100          
+                 CAT STRING(SEQ,*));                                    00020120          
+           ENVIA_L009(2,SEQ);                                           00020140          
+        END                                                             00020300          
+    END                                                                 00020350          
+    ELSE ERRORES:=*+1;                                                  00020400          
+FIN:                                                                    00020500          
+    END PROCESA;                                                        00020600          
+                                                                        00020700          
+PROCEDURE RUTEA(I_EVENT,T_EVENT);                                       00020800          
+EVENT I_EVENT, T_EVENT;                                                 00020900          
+WHILE NOT ENDING DO                                                     00021000          
+    CASE WAIT(I_EVENT,T_EVENT,MYSELF.EXCEPTIONEVENT) OF                 00021100          
+        BEGIN                                                           00021200          
+   1:2: RSLT:=RECEIVE(COMSINHDR[DONTWAIT],E_MSG);                       00021300          
+        CASE RSLT OF                                                    00021400          
+            BEGIN                                                       00021500          
+        0:  PROCESA;                                                    00021600          
+       93:  D("060103 03","FAVOR AVISAR A SISTEMAS, ME CAUSO ABORT");   00021700          
+            WRITE(MYSELF.TASKFILE,<A132>,E_MSG);                        00021800          
+       99:  ENDING:=TRUE;                                               00021900          
+     ELSE: ;                                                            00022000          
+            END CASE RSLT;                                              00022100          
+     3: CASE MYSELF.TASKVALUE OF                                        00022200          
+            BEGIN                                                       00022300          
+         2: TESTING:=TRUE;                                              00022400          
+         3: TESTING:=FALSE;                                             00022500          
+       4:6: REP E_MSG BY "DISABLE PROGRAM S15107",48"00";               00022600          
+            IF SMCOMS(E_MSG,E_AUX) > 0 THEN ENDING:=TRUE;               00022700          
+        11: CAMBIA_L007;                                                00022800          
+      ELSE: ;                                                           00022900          
+            END CASE MYSELF;                                            00023000          
+        RESET(MYSELF.EXCEPTIONEVENT);                                   00023100          
+        END CASE WAIT;                                                  00023200          
+                                                                        00023300          
+INICIA;                                                                 00023400          
+REFRESCA;                                                               00023500          
+RUTEA(MYSELF.DCIINPUTEVENT,MYSELF.DCITASKEVENT);                        00023600          
+                                                                        00023700          
+END.                                                                    00023800          

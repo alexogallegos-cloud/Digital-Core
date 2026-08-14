@@ -1,4 +1,0 @@
-CREATE PROCEDURE "informix".sp_setseed(n INTEGER)
-DEFINE GLOBAL seed DECIMAL(10) DEFAULT 1;
- LET seed = n; 
-END PROCEDURE;

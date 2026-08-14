@@ -1,0 +1,2165 @@
+000500$SET LIST$                                                                    
+001000$SUPRESS                                                                      
+001500$SET ERRORLIST                                                                
+002000****$SET TADS                                                                 
+002500$SET LIST STACK  LINEINFO FREE                                                
+003000$ERRORLIMIT = 5                                                               
+003500*****************************************************************             
+004000*        PARA INCLUDE DE BASE DE DATOS                          *             
+004500*****************************************************************             
+005000                                                                              
+005500$SET BDB02R01 BD4B18R13 BD4B18R15 BD4B00R04 BD4B00R01 BD4B18R03               
+005700$SET BDB56R04 BDB56R06  BDB57R02  BDB00R04  BDB00R01                          
+005900$SET BD4B17R03 BD4B17R12 BD4B17R13                                            
+006000*****************************************************************             
+006500*        PARA INCLUDE MANEJO DE LIBRERIAS                       *             
+007000*****************************************************************             
+007500                                                                              
+008000$SET S000LIBLJ S100VERSIONES S006LOCSUP    HOSTNAME                           
+008500                                                                              
+009000$RESET LIST$                                                                  
+009500                                                                              
+010000*****************************************************************             
+010500 IDENTIFICATION DIVISION.                                                     
+011000*****************************************************************             
+011500 PROGRAM-ID.    P117      .                                                   
+012000 AUTHOR.        JZ88995   .                                                   
+012500 DATE-WRITTEN.  MAY/2025  .                                                   
+013000 INSTALLATION.                                                                
+013500 SECURITY.                                                                    
+014000*****************************************************************             
+014500 ENVIRONMENT DIVISION.                                                        
+015000*****************************************************************             
+015500 CONFIGURATION SECTION.                                                       
+016000 SOURCE-COMPUTER.   SERIES-A.                                                 
+016500 OBJECT-COMPUTER.   SERIES-A.                                                 
+017000 INPUT-OUTPUT  SECTION.                                                       
+017500 FILE-CONTROL.                                                                
+018000                                                                              
+018500    SELECT I01-ARCSDOS      ASSIGN TO DISK     .                              
+019000    SELECT I02-ARCSDOS      ASSIGN TO DISK     .                              
+019500    SELECT P01-REPSDOS      ASSIGN TO PRINTER  .                              
+020000    SELECT S01-ARCSDOS      ASSIGN TO SORT     .                              
+020100    SELECT I01-ARCMAKRCHECK ASSIGN TO DISK     .                              
+020200    SELECT P01-ARCMAKRCHECK ASSIGN TO PRINTER  .                              
+020300    SELECT S01-ARCMAKRCHECK ASSIGN TO SORT DISK.                              
+020500                                                                              
+021000*****************************************************************             
+021500 DATA DIVISION.                                                               
+022000*****************************************************************             
+022500 FILE SECTION.                                                                
+023000                                                                              
+023500*****************************************************************             
+024000*  LAYOUT DE ARCH TEMP                                          *             
+024500*****************************************************************             
+025000                                                                              
+025500  FD I01-ARCSDOS                                                              
+026000     BLOCK   CONTAINS   45 RECORDS                                            
+026500     RECORD  CONTAINS   120 CHARACTERS                                        
+027000     VALUE OF                                                                 
+027500            AREASIZE     IS 3000                                              
+028000            SECURITYTYPE IS PUBLIC                                            
+028500            PROTECTION   IS PROTECTED                                         
+029000            SAVEFACTOR   IS 99 .                                              
+029500  01 I01-R-ARCSDOS                             .                              
+030000     02 I01-R-TIP-REG            PIC 9(02)     .                              
+030500     02 I01-R-REGISTRO           PIC X(118)    .                              
+031000     02 I01-R-SDOS-1 REDEFINES I01-R-REGISTRO  .                              
+031500        03 I01-SDOS1-FEC-TRAN    PIC 9(08)     .                              
+032000        03 I01-SDOS1-SUC-PROM    PIC 9(04)     .                              
+032500        03 I01-SDOS1-CONTRATO    PIC 9(12)     .                              
+033000        03 I01-SDOS1-NUM-PROD    PIC 9(04)     .                              
+033500        03 I01-SDOS1-NUM-INST    PIC 9(04)     .                              
+034000        03 I01-SDOS1-NUM-MONE    PIC 9(02)     .                              
+034500        03 I01-SDOS1-STATUS      PIC 9(02)     .                              
+035000        03 I01-SDOS1-SDO-DISP    PIC 9(16)V99  .                              
+035500        03 I01-SDOS1-FECHA-ENV   PIC 9(08)     .                              
+036000        03 I01-SDOS1-HORA-ENV    PIC 9(08)     .                              
+036500        03 FILLER                PIC X(48)     .                              
+037000     02 I01-R-SDOS-2 REDEFINES I01-R-REGISTRO  .                              
+037500        03 I01-SDOS2-FEC-TRAN    PIC 9(08)     .                              
+038000        03 I01-SDOS2-SUC-PROM    PIC 9(04)     .                              
+038500        03 I01-SDOS2-CONTRATO    PIC 9(12)     .                              
+039000        03 I01-SDOS2-NUM-ERROR   PIC 9(04)     .                              
+039500        03 I01-SDOS2-DES-ERROR   PIC X(40)     .                              
+040000        03 I01-SDOS2-FECHA-ENV   PIC 9(08)     .                              
+040500        03 FILLER                PIC X(42)     .                              
+041000     02 I01-R-SDOS-3 REDEFINES I01-R-REGISTRO  .                              
+041500        03 I01-SDOS3-FEC-TRAN    PIC 9(08)     .                              
+042000        03 I01-SDOS3-SUC-PROM    PIC 9(04)     .                              
+042500        03 I01-SDOS3-CONTRATO    PIC 9(12)     .                              
+043000        03 I01-SDOS3-NUM-PROD    PIC 9(04)     .                              
+043500        03 I01-SDOS3-NUM-INST    PIC 9(04)     .                              
+044000        03 I01-SDOS3-NUM-MONE    PIC 9(02)     .                              
+044500        03 I01-SDOS3-STATUS      PIC 9(02)     .                              
+045000        03 I01-SDOS3-SDO-DISP    PIC 9(16)V99  .                              
+045500        03 FILLER                PIC X(64)     .                              
+046000                                                                              
+046500  FD I02-ARCSDOS                                                              
+047000     BLOCK  CONTAINS 120 RECORDS                                              
+047500     RECORD CONTAINS 540 CHARACTERS                                           
+048000     VALUE OF AREAS    1000                                                   
+048500     VALUE OF AREASIZE 3600                                                   
+049000            SECURITYTYPE IS PUBLIC                                            
+049500            PROTECTION   IS PROTECTED                                         
+050000            SAVEFACTOR   IS 99 .                                              
+050500  01 I02-R-ARCSDOS                                       .                    
+051000     02 I02-R-TIP-REG                      PIC 9(02)     .                    
+051500     02 I02-R-REGISTRO                     PIC X(538)    .                    
+052000     02 I02-R-SDOS-HDR     REDEFINES I02-R-REGISTRO      .                    
+052500        03 I02-HDR-FECHA-ARCH              PIC 9(08)     .                    
+053000        03 I02-HDR-SISTEMA                 PIC X(04)     .                    
+053500        03 I02-HDR-DESCRIPCION             PIC X(10)     .                    
+054000        03 FILLER                          PIC X(516)    .                    
+054500     02 I02-R-SDOS-DET     REDEFINES I02-R-REGISTRO      .                    
+055000        03 I02-DET-EST-ENVIO               PIC 9(02)     .                    
+055500        03 I02-DET-TIPO-ENVIO              PIC 9(02)     .                    
+056000        03 I02-DET-FECHA-TRANS             PIC 9(08)     .                    
+056500        03 I02-DET-SUC-PROMOTORA           PIC 9(04)     .                    
+057000        03 I02-DET-NUM-CONTRATO            PIC 9(12)     .                    
+057500        03 I02-DET-HORA-TRANS              PIC 9(08)     .                    
+058000        03 I02-DET-IMPORTE-DISPONIBLE      PIC 9(16)V99  .                    
+058500        03 I02-DET-IMPORTE-ACTUAL          PIC 9(16)V99  .                    
+059000        03 I02-DET-SDO-PROTEGIDO           PIC 9(16)V99  .                    
+059500        03 I02-DET-SALDO-PENDIENTE         PIC 9(16)V99  .                    
+060000        03 I02-DET-AUT-PENDIENTE           PIC 9(16)V99  .                    
+060500        03 I02-DET-ASIGNACIONES-OTORGADAS  PIC 9(16)V99  .                    
+061000        03 I02-DET-ASIGNACIONES-RECIBIDAS  PIC 9(16)V99  .                    
+061500        03 I02-DET-DISPONIBLE-ASIGNADO     PIC 9(16)V99  .                    
+062000        03 I02-DET-TECHO-RECIBIDO          PIC 9(16)V99  .                    
+062500        03 I02-DET-TECHO-ASIGNADO          PIC 9(16)V99  .                    
+063000        03 I02-DET-TECHO-DISPONIBLE        PIC 9(16)V99  .                    
+063500        03 I02-DET-DISPONIBLE-ACTUAL       PIC 9(16)V99  .                    
+064000        03 I02-DET-NUM-PRODUCTO            PIC 9(04)     .                    
+064500        03 I02-DET-NUM-INSTRUMENTO         PIC 9(04)     .                    
+065000        03 I02-DET-NUM-MONEDA              PIC 9(04)     .                    
+065500        03 I02-DET-NUM-CLIENTE             PIC 9(12)     .                    
+066000        03 I02-DET-IND-LINCREDIT           PIC 9(01)     .                    
+066500        03 I02-DET-STATUS                  PIC 9(01)     .                    
+067000        03 I02-DET-CTA-CONCENT             PIC 9(02)     .                    
+067500        03 I02-DET-NUM-MOVSNC              PIC 9(06)     .                    
+068000        03 I02-DET-NUM-MOVSCGO             PIC 9(06)     .                    
+068500        03 I02-DET-NUM-MOVSABO             PIC 9(06)     .                    
+069000        03 I02-DET-NUM-PASO                PIC X(04)     .                    
+069500        03 I02-DET-FECH-ENVIO              PIC 9(08)     .                    
+070000        03 I02-DET-HORA-ENVIO              PIC 9(08)     .                    
+070500        03 I02-DET-USO-FUT-01              PIC 9(02)     .                    
+071000        03 I02-DET-USO-FUT-02              PIC X(10)     .                    
+071500        03 I02-DET-USO-FUT-03              PIC X(10)     .                    
+072000        03 I02-DET-USO-FUT-04              PIC 9(02)     .                    
+072500        03 I02-DET-USO-FUT-05              PIC 9(16)V99  .                    
+073000        03 I02-DET-USO-FUT-06              PIC 9(16)V99  .                    
+073500        03 I02-DET-USO-FUT-07              PIC 9(08)     .                    
+074000        03 I02-DET-USO-FUT-08              PIC 9(08)     .                    
+074500        03 I02-DET-USO-FUT-09              PIC 9(16)V99  .                    
+075000        03 I02-DET-USO-FUT-10              PIC 9(01)     .                    
+075500        03 I02-DET-USO-FUT-11              PIC 9(06)     .                    
+076000        03 I02-DET-USO-FUT-12              PIC 9(12)     .                    
+076500        03 I02-DET-USO-FUT-13              PIC 9(12)     .                    
+077000        03 FILLER                          PIC X(95)     .                    
+077500     02 I02-R-SDOS-TRL     REDEFINES I02-R-REGISTRO      .                    
+078000        03 I02-TRL-TOT-XENVIAR             PIC 9(08)     .                    
+078500        03 I02-TRL-TOT-ENVIADOS            PIC 9(08)     .                    
+079000        03 FILLER                          PIC X(522)    .                    
+079010                                                                              
+079020  FD I01-ARCMAKRCHECK                                                         
+079030    BLOCK   CONTAINS   543 RECORDS                                            
+079040    RECORD  CONTAINS   120 CHARACTERS                                         
+079050    VALUE OF                                                                  
+079060            AREAS        IS 61                                                
+079070            AREASIZE     IS 33123                                             
+079080            SECURITYTYPE IS PUBLIC                                            
+079090            PROTECTION   IS PROTECTED                                         
+079100            SAVEFACTOR   IS 99.                                               
+079110 01 I01-R-ARCMAKRCHECK.                                                       
+079120    03 I01-R-SUC-TRANS        PIC 9(04)   .                                   
+079130    03 I01-R-EST-TRAN         PIC 9(01)   .                                   
+079140    03 I01-R-NUM-INT          PIC 9(02)   .                                   
+079150    03 I01-R-NUM-AUT          PIC 9(08)   .                                   
+079160    03 I01-R-SUC-PROMOTORA    PIC 9(04)   .                                   
+079170    03 I01-R-NUM-CONTRATO     PIC 9(16)   .                                   
+079180    03 I01-R-CLA-TRANS        PIC 9(04)   .                                   
+079190    03 I01-R-MONEDA           PIC 9(03)   .                                   
+079200    03 I01-R-IMPORTE-OPER     PIC 9(16)V99.                                   
+079210    03 I01-R-NOM-OPE          PIC 9(08)   .                                   
+079220    03 I01-R-HRA-TRAN         PIC 9(08)   .                                   
+079230    03 I01-R-NOM-CHE          PIC 9(08)   .                                   
+079240    03 I01-R-MDA              PIC 9(02)   .                                   
+079250    03 FILLER                 PIC X(34)   .                                   
+079500                                                                              
+080000*****************************************************************             
+080500* SORT                                                          *             
+081000*****************************************************************             
+081500  SD S01-ARCSDOS    .                                                         
+082000  01 S01-R-ARCSDOS  .                                                         
+082500     02 S01-TIPO-REG      PIC 9(02)  .                                        
+083000     02 S01-FEC-TRANS     PIC 9(08)  .                                        
+083500     02 FILLER            PIC X(110) .                                        
+083550                                                                              
+083600 SD S01-ARCMAKRCHECK.                                                         
+083650  01 S01-R-AARCMAKRCHECK.                                                     
+083700     02 S01-SUC-TRANS   PIC 9(04)  .                                          
+083750     02 S01-EST-TRAN    PIC 9(01)  .                                          
+083800     02 FILLER          PIC X(115) .                                          
+084000                                                                              
+084500*****************************************************************             
+085000* PRINTER                                                       *             
+085500*****************************************************************             
+086000                                                                              
+086500 FD P01-REPSDOS                                                               
+087000    RECORD CONTAINS 132 CHARACTERS .                                          
+087500 01 P01-R-REPOSDOS           PIC X(132) .                                     
+087600                                                                              
+087700 FD P01-ARCMAKRCHECK                                                          
+087800    RECORD CONTAINS 132 CHARACTERS .                                          
+087900 01 P01-R-ARCMAKRCHECK  PIC X(132) .                                          
+088000                                                                              
+088500*****************************************************************             
+089000 DATA-BASE SECTION.                                                           
+089500                                                                              
+090000 DB S500BD01CAPTACION   .                                                     
+090500    01 S500B02CONTROL   .                                                     
+090700    01 S500B56MAKERCHEK .                                                     
+090900    01 S500B57PANTASUC  .                                                     
+091000    01 S500B91REINICIO  .                                                     
+091500                                                                              
+092000 DB S500BD04TARJETAS    .                                                     
+092200    01 S500B17PCTLALERTA.                                                     
+092500    01 S500B18PENVIOSDOS.                                                     
+093000    01 S500B91PREINICIO .                                                     
+093500                                                                              
+094000*****************************************************************             
+094500 WORKING-STORAGE SECTION.                                                     
+095000                                                                              
+095500*****************************************************************             
+096000*                 AREA DE COPY´S                                *             
+096500*****************************************************************             
+097000                                                                              
+097500 COPY "S500/INC/WOR/25MTP004".                                                
+098000 COPY "S500/INC/WOR/DAS/25MTP007".                                            
+098500                                                                              
+099000*****************************************************************             
+099500*  PARAMETRO                                                    *             
+100000*****************************************************************             
+100500                                                                              
+101000 01 WS-PARAM-VALUE             PIC X(12)        .                             
+101500 01 WS-PARAM-VALUE-R REDEFINES WS-PARAM-VALUE   .                             
+102000    02 WS-PARAM-VALUE-EST      PIC 9(02)        .                             
+102500       88 WS-88-P-VAL-EST-OK   VALUE 17,18,56,99.                             
+102700       88 WS-88-P-VAL-B17      VALUE 17         .                             
+103000       88 WS-88-P-VAL-B18      VALUE 18         .                             
+103100       88 WS-88-P-VAL-B56      VALUE 56         .                             
+103200       88 WS-88-P-VAL-AMBAS    VALUE 99         .                             
+103500    02 WS-PARAM-VALUE-OPC      PIC 9(02)        .                             
+104000       88 WS-88-P-VAL-OK       VALUE 1 THRU 3   .                             
+104500       88 WS-88-P-VAL-REPS     VALUE 1,3        .                             
+105000       88 WS-88-P-VAL-DEPU     VALUE 1,2        .                             
+105500       88 WS-88-P-VAL-CONF     VALUE 2,3        .                             
+106000       88 WS-88-P-VAL-1        VALUE 1          .                             
+106500       88 WS-88-P-VAL-2        VALUE 2          .                             
+107000       88 WS-88-P-VAL-3        VALUE 3          .                             
+107500    02 WS-PARAM-VALUE-FEC      PIC 9(08)        .                             
+108000                                                                              
+108500*****************************************************************             
+109000*  VARIABLES GLOBALES                                           *             
+109500*****************************************************************             
+110000                                                                              
+110500 77 WS-NUM-P117                PIC X(04)  VALUE "P117"    .                   
+111000 77 WS-NUM-MTP                 PIC X(08)  VALUE "26MTP001".                   
+111500                                                                              
+112000 77 WS-VALIDA-VA               PIC 9(01)    .                                 
+112500    88 WS-88-SIN-ERROR         VALUE 0      .                                 
+113000    88 WS-88-ERROR             VALUE 1      .                                 
+113500                                                                              
+114000 77 WS-ERR-CODE                PIC 9(04)    .                                 
+114500 77 WS-DES-CODE                PIC X(40)    .                                 
+115000 77 WS-TERMINA                 PIC 9(01)    .                                 
+115500 77 WS-I01-FIN-ARCH            PIC 9(01)    .                                 
+116000 77 WS-TIPO-REG                PIC 9(01)    .                                 
+116500 77 WS-TIPO-REG-ANT            PIC 9(01)    .                                 
+117000 77 WS-IND-DEPU                PIC 9(02)    .                                 
+117500 77 WS-FECHA-TRANS-ANT         PIC 9(08)    .                                 
+118000                                                                              
+118500 01 WS-TOTALES.                                                               
+119000    02 WS-TOTAL-ARCHSDOS OCCURS 2  TIMES PIC 9(08).                           
+119500    02 WS-TOTAL-REG      OCCURS 3  TIMES          .                           
+120000       05 WS-TOTAL-REG-DEP     PIC 9(06)          .                           
+120500    02 WS-TOTAL-DEP      OCCURS 30 TIMES          .                           
+121000       05 WS-TOTAL-DEP-FEC     PIC 9(08)          .                           
+121500       05 WS-TOTAL-DEP-LEI     PIC 9(08)          .                           
+122000       05 WS-TOTAL-DEP-DEP     PIC 9(08)          .                           
+122500                                                                              
+123000 77 WS-ID-ARCHI                PIC X(73)    .                                 
+123500 77 WS-INTENTO-INTE            PIC 9(01)    .                                 
+124000 77 WS-ARC-ENVIADO             PIC 9(01)    .                                 
+124500 77 WS-REPS-INTE               PIC 9(01)    .                                 
+125000                                                                              
+125500 01 WS-FECHA-PROY              PIC  9(08)   .                                 
+126000 01 WS-FECHA                   PIC  9(08)   .                                 
+126500 01 WS-FECHA-R1 REDEFINES WS-FECHA          .                                 
+127000    02 WS-FECHA1-AA            PIC  9(02)   .                                 
+127500    02 WS-FECHA1-AMD           PIC  9(06)   .                                 
+128000 01 WS-FECHA-R2 REDEFINES WS-FECHA          .                                 
+128500    02 WS-FECHA2-AAAA          PIC  9(04)   .                                 
+129000    02 WS-FECHA2-MM            PIC  9(02)   .                                 
+129500    02 WS-FECHA2-DD            PIC  9(02)   .                                 
+130000 01 WS-FECHA-AAAAMMDD                       .                                 
+130500    02 WS-FECHA3-AAAA          PIC  9(04)   .                                 
+131000    02 WS-FECHA3-DIA1          PIC  X(01) VALUE "/".                          
+131500    02 WS-FECHA3-MM            PIC  9(02)   .                                 
+132000    02 WS-FECHA3-DIA2          PIC  X(01) VALUE "/".                          
+132500    02 WS-FECHA3-DD            PIC  9(02)   .                                 
+133000 01 WS-FECHA-DDMMAAAA                       .                                 
+133500    02 WS-FECHA4-DD            PIC  9(02)   .                                 
+134000    02 WS-FECHA4-DIA1          PIC  X(01) VALUE "/".                          
+134500    02 WS-FECHA4-MM            PIC  X(03)   .                                 
+135000    02 WS-FECHA4-DIA2          PIC  X(01) VALUE "/".                          
+135500    02 WS-FECHA4-AAAA          PIC  9(04)   .                                 
+136000 01 WS-HORA-HHMMSS                          .                                 
+136500    02 WS-HORA1-HH             PIC  9(02)   .                                 
+137000    02 WS-HORA1-DOS1           PIC  X(01) VALUE ":".                          
+137500    02 WS-HORA1-MM             PIC  9(02)   .                                 
+138000    02 WS-HORA1-DOS2           PIC  X(01) VALUE ":".                          
+138500    02 WS-HORA1-SS             PIC  9(02)   .                                 
+139000 01 WS-HORA-HHMMSSCC                        .                                 
+139500    02 WS-HORA2-HH             PIC  9(02)   .                                 
+140000    02 WS-HORA2-DOS1           PIC  X(01) VALUE ":".                          
+140500    02 WS-HORA2-MM             PIC  9(02)   .                                 
+141000    02 WS-HORA2-DOS2           PIC  X(01) VALUE ":".                          
+141500    02 WS-HORA2-SS             PIC  9(02)   .                                 
+142000    02 WS-HORA2-DOS3           PIC  X(01) VALUE ":".                          
+142500    02 WS-HORA2-CC             PIC  9(02)   .                                 
+143000 01 WS-HORA-MAQ                PIC  9(08)   .                                 
+143500 01 WS-HORA-MAQ-R  REDEFINES WS-HORA-MAQ    .                                 
+144000    02 WS-HORA-MAQ-HH          PIC  9(02)   .                                 
+144500    02 WS-HORA-MAQ-MM          PIC  9(02)   .                                 
+145000    02 WS-HORA-MAQ-SS          PIC  9(02)   .                                 
+145500    02 WS-HORA-MAQ-CC          PIC  9(02)   .                                 
+146000 01 WS-HORA-MAQ-ANT            PIC  9(08)   .                                 
+146500 01 WS-HORA-MAQA-R REDEFINES WS-HORA-MAQ-ANT.                                 
+147000    02 WS-HORA-MAQA-HH         PIC  9(02)   .                                 
+147500    02 WS-HORA-MAQA-MM         PIC  9(02)   .                                 
+148000    02 WS-HORA-MAQA-SS         PIC  9(02)   .                                 
+148500    02 WS-HORA-MAQA-CC         PIC  9(02)   .                                 
+149000 01 WS-HORA-DIF                PIC S9(04)   .                                 
+149500 01 WS-HORA-SEG                PIC  9(12)   .                                 
+150000 01 WS-HORA-SEG-ANT            PIC  9(12)   .                                 
+150500                                                                              
+151000 01 WS-TABLA-MESES               PIC X(36)                                    
+151500                     VALUE "ENEFEBMARABRMAYJUNJULAGOSEPOCTNOVDIC".159200      
+152000 01 WS-TABLA-MESES-R REDEFINES WS-TABLA-MESES .                   159400      
+152500    03 WKS-TB-MES                PIC X(03) OCCURS 12 TIMES .      159600      
+153000                                                                              
+153500 01 WS-N-HOJA-P01              PIC  9(04)         .                           
+154000 01 WS-O-PAG-P01               PIC  9(01)         .                           
+154500    88 WS-88-N-PAG-P01              VALUE 1       .                           
+155000 01 WS-L-PAG-P01               PIC  9(04) VALUE 59.                           
+155500 01 WS-L-PAG-TEM-P01           PIC  9(02)         .                           
+156000                                                                              
+156500 01 WS-VARIABLES-HI                           .                               
+157000    02 WS-HI-NUMHI             PIC 9(02)      .                               
+157500       88 WS-88-BAJA              VALUE 4     .                               
+158000       88 WS-88-ESTADIST          VALUE 5     .                               
+158500                                                                              
+159000 77 WS-FRAMESIZE                       PIC 9(02)   COMP .                     
+159500 77 WS-LASTRECORD                      PIC 9(12)   COMP .                     
+160000 77 WS-MAXRECSIZE                      PIC 9(12)   COMP .                     
+160500 77 WS-DISK-SIZE                       PIC 9(18)   COMP .                     
+161000 77 WS-MEMORY-SIZE                     PIC 9(18)   COMP .                     
+161500 77 WS-MEMORY-65K                      PIC 9(18)   COMP .                     
+162000 01 WS-CALC-WORD                       PIC 9(12)V99     .                     
+162500 01 WS-CALC-WORD-RED  REDEFINES WS-CALC-WORD            .                     
+163000    02 WS-WORD-ENT                     PIC 9(012)       .                     
+163500    02 WS-WORD-RES                     PIC 9(002)       .                     
+164000                                                                              
+164500 01 WS-TABLA-ERR-LIST.                                            164400      
+165000    02 FILLER  PIC X(12) VALUE "ERROR DE BD "    .                            
+165500    02 FILLER  PIC X(12) VALUE "            "    .                            
+166000    02 FILLER  PIC X(12) VALUE "            "    .                            
+166500    02 FILLER  PIC X(12) VALUE "            "    .                            
+167000    02 FILLER  PIC X(12) VALUE "            "    .                            
+167500    02 FILLER  PIC X(12) VALUE "            "    .                            
+168000    02 FILLER  PIC X(12) VALUE "            "    .                            
+168500    02 FILLER  PIC X(12) VALUE "            "    .                            
+169000    02 FILLER  PIC X(12) VALUE "            "    .                            
+169500    02 FILLER  PIC X(12) VALUE "            "    .                            
+170000    02 FILLER  PIC X(12) VALUE "            "    .                            
+170500    02 FILLER  PIC X(12) VALUE "            "    .                            
+171000    02 FILLER  PIC X(12) VALUE "            "    .                            
+171500    02 FILLER  PIC X(12) VALUE "            "    .                            
+172000    02 FILLER  PIC X(12) VALUE "            "    .                            
+172500                                                                  167400      
+173000 01 WS-TABLA-ERR-LIST-R REDEFINES WS-TABLA-ERR-LIST  .            167600      
+173500    02 WS-TB-ERR-LIST     PIC X(12) OCCURS 15 TIMES  .                        
+173510 77 WS-SUC-ANT          PIC 9(04).                                            
+173520 77 WS-I02-LASTREC      PIC S9(12).                                           
+173530 77 WS-CONT-LIN         PIC 9(02).                                            
+173540 77 WS-MAX-LIN          PIC 9(02) VALUE 58.                                   
+173550 77 WS-CONT-LEIDOS      PIC 9(08).                                            
+173560 77 WS-CONT-FINALIZADOS PIC 9(08).                                            
+173570 77 WS-CONT-PROCESO     PIC 9(08).                                            
+173580 77 WS-ACUM-IMP-TOTAL   PIC 9(20)V99.                                         
+173590 01 WS-FEC-B57 PIC 9(08).                                                     
+173600 01 WS-FEC-B57-R REDEFINES WS-FEC-B57.                                        
+173610    02 WS-FEC1-SS          PIC  9(02)   .                                     
+173620    02 WS-FEC1-AA          PIC  9(02)   .                                     
+173630    02 WS-FEC1-MM          PIC  9(02)   .                                     
+173640    02 WS-FEC1-DD          PIC  9(02)   .                                     
+173650 01 WS-HORA-B56 PIC 9(08).                                                    
+173660 01 WS-HORA-B56-R REDEFINES WS-HORA-B56.                                      
+173670    02 WS-B56-HH          PIC  9(02)   .                                      
+173680    02 WS-B56-MM          PIC  9(02)   .                                      
+173690    02 WS-B56-SS          PIC  9(02)   .                                      
+173700    02 FILLER             PIC  9(02)   .                                      
+174000                                                                              
+174500*****************************************************************             
+175000*  CARATULAS ARCHIVOS                                           *             
+175500*****************************************************************             
+176000                                                                              
+176500 01 I01-TIT-TEMP.                                                             
+177000    02 FILLER              PIC X(10) VALUE "S500/FILE/"     .                 
+177500    02 I01-TIT-TEMP-CSI    PIC 9(02)                        .                 
+178000    02 FILLER              PIC X(01) VALUE "/"              .                 
+178500    02 I01-TIT-TEMP-FEC    PIC 9(08)                        .                 
+179000    02 FILLER              PIC X(06) VALUE "/P117/"         .                 
+179500    02 I01-TIT-TEMP-NOMBRE PIC X(06)                        .                 
+180000    02 FILLER              PIC X(15) VALUE " ON CAPTACION." .                 
+180500                                                                              
+181000 01 I02-TIT-TEMP.                                                             
+181500    02 FILLER              PIC X(24) VALUE                                    
+182000                                    "S500/FILE/INTS/50004S01/".               
+182500    02 I02-TIT-TEMP-CSI    PIC 9(02)                          .               
+183000    02 FILLER              PIC X(01) VALUE "/"                .               
+183500    02 I02-TIT-TEMP-FEC    PIC 9(08)                          .               
+184000    02 FILLER              PIC X(13) VALUE "/P117/SDOSBNE"    .               
+184500    02 FILLER              PIC X(14) VALUE " ON CAPTACION."   .               
+185000                                                                              
+185500*****************************************************************             
+186000*  TITULOS LIST                                                 *             
+186500*****************************************************************             
+187000                                                                              
+187500 01 CARATULA.                                                                 
+188000    03 FILLER             PIC X(15) VALUE "S500/LIST/P117/".                  
+188500    03 CARAT-CSI          PIC 99                           .                  
+189000    03 CARAT-SUBNODO      PIC 99                           .                  
+189500    03 FILLER             PIC X     VALUE "/"              .                  
+190000    03 CARAT-CIFRA        PIC X                            .                  
+190500    03 FILLER             PIC X(4)  VALUE "000/"           .                  
+191000    03 CARAT-FECHA        PIC 9(6)                         .                  
+191500    03 FILLER             PIC X     VALUE "/"              .                  
+192000    03 CARAT-MIX          PIC 9(7)                         .                  
+192500    03 FILLER             PIC X     VALUE "/"              .                  
+193000    03 CARAT-NOMBRE       PIC X(13)                        .                  
+193500    03 FILLER             PIC X     VALUE "."              .                  
+194000                                                                              
+194500*****************************************************************             
+195000*  DETALLES LIST REPOSDOS                                       *             
+195500*****************************************************************             
+196000                                                                              
+196500 01 WS-ENC1-REPOSDOS.                                                         
+197000    03 FILLER             PIC X(06) VALUE "  S500"               .            
+197500    03 FILLER             PIC X(01) VALUE "/"                    .            
+198000    03 FILLER             PIC X(04) VALUE "P117"                 .            
+198500    03 FILLER             PIC X(01) VALUE "/"                    .            
+199000    03 WS-EN1-RT-MTP      PIC X(08)                              .            
+199500    03 FILLER             PIC X(01) VALUE "/"                    .            
+200000    03 FILLER             PIC X(07) VALUE "001SDOS"              .            
+200500    03 FILLER             PIC X(25) VALUE SPACES                 .            
+201000    03 FILLER             PIC X(20) VALUE "DEPOSITOS A LA VISTA" .            
+201500    03 FILLER             PIC X(35) VALUE SPACES                 .            
+202000    03 FILLER             PIC X(14) VALUE "FECHA MOVTOS: "       .            
+202500    03 WS-EN1-RT-FEC      PIC X(10)                              .            
+203000                                                                              
+203500 01 WS-ENC2-REPOSDOS.                                                         
+204000    03 FILLER             PIC X(17) VALUE "  FECHA PROCESO: "    .            
+204500    03 WS-EN2-RT-FEC      PIC X(10)                              .            
+205000    03 FILLER             PIC X(28) VALUE SPACES                 .            
+205500    03 FILLER             PIC X(17) VALUE "CIFRAS DE CONTROL"    .            
+206000    03 FILLER             PIC X(40) VALUE SPACES                 .            
+206500    03 FILLER             PIC X(20) VALUE                                     
+207000                              "TIPO PROCESO: DIARIO"             .            
+207500                                                                              
+208000 01 WS-ENC3-REPOSDOS.                                                         
+208500    03 FILLER             PIC X(17) VALUE "  HORA  PROCESO: "    .            
+209000    03 WS-EN3-RT-HOR      PIC X(08)                              .            
+209500    03 FILLER             PIC X(31) VALUE SPACES                 .            
+210000    03 FILLER             PIC X(15) VALUE "ENVIO DE SALDOS"      .            
+210500    03 FILLER             PIC X(47) VALUE SPACE                  .            
+211000    03 FILLER             PIC X(06) VALUE "HOJA: "               .            
+211500    03 WS-EN3-RT-HOJA     PIC 9(08)                              .            
+212000                                                                              
+212500 01 WS-ENC4-REPOSDOS.                                                         
+213000    03 WS-EN4-RT-TIT      PIC X(32)                              .            
+213500    03 FILLER             PIC X(100) VALUE SPACE                 .            
+214000                                                                              
+214500 01 WS-ENC5-REPOSDOS.                                                         
+215000    03 FILLER             PIC X(53) VALUE                                     
+215500    "  FECHA    SUC     NUMERO      NUMERO     NUMERO     "   .               
+216000    03 FILLER             PIC X(51) VALUE                                     
+216500    "NUMERO      STATUS         IMPORTE            FECHA"     .               
+217000    03 FILLER             PIC X(09) VALUE                                     
+217500    "    HORA"                                                .               
+218000                                                                              
+218500 01 WS-ENC6-REPOSDOS.                                                         
+219000    03 FILLER             PIC X(53) VALUE                                     
+219500    "  TRANS    PROM   CONTRATO    PRODUCTO  INSTRUMENTO  "   .               
+220000    03 FILLER             PIC X(51) VALUE                                     
+220500    "MONEDA   DEL CONTRATO     DISPONIBLE          ENVIO"     .               
+221000    03 FILLER             PIC X(09) VALUE                                     
+221500    "    ENVIO"                                               .               
+222000                                                                              
+222500 01 WS-ENC7-REPOSDOS.                                                         
+223000    03 FILLER             PIC X(54) VALUE                                     
+223500    "  FECHA   SUC     NUMERO            NUMERO            "    .             
+224000    03 FILLER             PIC X(39) VALUE                                     
+224500    "LEYENDA                           FECHA"                   .             
+225000                                                                              
+225500 01 WS-ENC8-REPOSDOS.                                                         
+226000    03 FILLER             PIC X(55) VALUE                                     
+226500    "  TRANS   PROM   CONTRATO           ERROR              "    .            
+227000    03 FILLER             PIC X(38) VALUE                                     
+227500    "ERROR                            ENVIO"                     .            
+228000                                                                              
+228500 01 WS-ENC9-REPOSDOS.                                                         
+229000    03 FILLER             PIC X(53) VALUE                                     
+229500    "  FECHA    SUC     NUMERO      NUMERO     NUMERO     "   .               
+230000    03 FILLER             PIC X(37) VALUE                                     
+230500    "NUMERO      STATUS           IMPORTE "                   .               
+231000                                                                              
+231500 01 WS-ENC10-REPOSDOS.                                                        
+232000    03 FILLER             PIC X(53) VALUE                                     
+232500    "  TRANS    PROM   CONTRATO    PRODUCTO  INSTRUMENTO  "   .               
+233000    03 FILLER             PIC X(39) VALUE                                     
+233500    "MONEDA   DEL CONTRATO       DISPONIBLE "                 .               
+234000                                                                              
+234500  01 WS-VACI-REPOSDOS.                                                        
+235000     03 FILLER             PIC X(132) VALUE SPACES            .               
+235500                                                                              
+236000 01 WS-DETA-REPOSDOS-1.                                                       
+236500    03 FILLER                  PIC X(02) VALUE SPACES     .                   
+237000    03 WS-DET-RT1-FEC-TRAN     PIC 9(08)                  .                   
+237500    03 FILLER                  PIC X(02) VALUE SPACES     .                   
+238000    03 WS-DET-RT1-SUC          PIC ZZZ9                   .                   
+238500    03 FILLER                  PIC X(02) VALUE SPACES     .                   
+239000    03 WS-DET-RT1-CTO          PIC ZZZZZZZZZZZ9           .                   
+239500    03 FILLER                  PIC X(02) VALUE SPACES     .                   
+240000    03 WS-DET-RT1-PROD         PIC ZZZ9                   .                   
+240500    03 FILLER                  PIC X(08) VALUE SPACES     .                   
+241000    03 WS-DET-RT1-INST         PIC ZZZ9                   .                   
+241500    03 FILLER                  PIC X(08) VALUE SPACES     .                   
+242000    03 WS-DET-RT1-MON          PIC ZZZ9                   .                   
+242500    03 FILLER                  PIC X(09) VALUE SPACES     .                   
+243000    03 WS-DET-RT1-ESTATUS      PIC 9(01)                  .                   
+243500    03 FILLER                  PIC X(06) VALUE SPACES     .                   
+244000    03 WS-DET-RT1-DISPONIBLE   PIC ZZZ,ZZZ,ZZZ,ZZZ,ZZ9.99 .                   
+244500    03 FILLER                  PIC X(02) VALUE SPACES     .                   
+245000    03 WS-DET-RT1-FEC-ENVIO    PIC 9(08)                  .                   
+245500    03 FILLER                  PIC X(02) VALUE SPACES     .                   
+246000    03 WS-DET-RT1-HOR-ENVIO    PIC 9(08)                  .                   
+246500    03 FILLER                  PIC X(13) VALUE SPACES     .                   
+247000                                                                              
+247500 01 WS-DETA-REPOSDOS-2.                                                       
+248000    03 FILLER                  PIC X(02) VALUE SPACES     .                   
+248500    03 WS-DET-RT2-FEC-TRAN     PIC 9(08)                  .                   
+249000    03 FILLER                  PIC X(02) VALUE SPACES     .                   
+249500    03 WS-DET-RT2-SUC          PIC ZZZ9                   .                   
+250000    03 FILLER                  PIC X(02) VALUE SPACES     .                   
+250500    03 WS-DET-RT2-CTO          PIC ZZZZZZZZZZZ9           .                   
+251000    03 FILLER                  PIC X(08) VALUE SPACES     .                   
+251500    03 WS-DET-RT2-COD-ERROR    PIC ZZZ9                   .                   
+252000    03 FILLER                  PIC X(06) VALUE SPACES     .                   
+252500    03 WS-DET-RT2-DES-ERROR    PIC X(40)                  .                   
+253000    03 FILLER                  PIC X(03) VALUE SPACES     .                   
+253500    03 WS-DET-RT2-FEC-ENVIO    PIC 9(08)                  .                   
+254000    03 FILLER                  PIC X(42) VALUE SPACES     .                   
+254500                                                                              
+255000 01 WS-DETA-REPOSDOS-3.                                                       
+255500    03 FILLER                  PIC X(02) VALUE SPACES     .                   
+256000    03 WS-DET-RT3-FEC-TRAN     PIC 9(08)                  .                   
+256500    03 FILLER                  PIC X(02) VALUE SPACES     .                   
+257000    03 WS-DET-RT3-SUC          PIC ZZZ9                   .                   
+257500    03 FILLER                  PIC X(02) VALUE SPACES     .                   
+258000    03 WS-DET-RT3-CTO          PIC ZZZZZZZZZZZ9           .                   
+258500    03 FILLER                  PIC X(02) VALUE SPACES     .                   
+259000    03 WS-DET-RT3-PROD         PIC ZZZ9                   .                   
+259500    03 FILLER                  PIC X(08) VALUE SPACES     .                   
+260000    03 WS-DET-RT3-INST         PIC ZZZ9                   .                   
+260500    03 FILLER                  PIC X(08) VALUE SPACES     .                   
+261000    03 WS-DET-RT3-MON          PIC ZZZ9                   .                   
+261500    03 FILLER                  PIC X(09) VALUE SPACES     .                   
+262000    03 WS-DET-RT3-ESTATUS      PIC 9(01)                  .                   
+262500    03 FILLER                  PIC X(06) VALUE SPACES     .                   
+263000    03 WS-DET-RT3-DISPONIBLE   PIC ZZZ,ZZZ,ZZZ,ZZZ,ZZ9.99 .                   
+263500    03 FILLER                  PIC X(32) VALUE SPACES     .                   
+264000                                                                              
+264500 01 WS-TOTA-REPOSDOS.                                                         
+265000    02 FILLER             PIC X(24) VALUE                                     
+265500                          "     TOTAL DE REGISTROS "       .                  
+266000    02 WS-TOT-RT-LEYENDA  PIC X(17)                        .                  
+266500    02 FILLER             PIC X(02) VALUE SPACES           .                  
+267000    02 WS-TOT-RT-TOTAL    PIC ZZZ,ZZ9                      .                  
+267500    02 FILLER             PIC X(85) VALUE SPACES           .                  
+268000                                                                              
+268500 01 WS-TOTA-DEPU-REPOSDOS.                                                    
+269000    02 FILLER             PIC X(48) VALUE                                     
+269500           "  REGISTROS A DEPURAR CON ESTATUS ENVIADO"     .                  
+270000    02 FILLER             PIC X(84) VALUE SPACES           .                  
+270500                                                                              
+271000 01 WS-TOTA-DET-REPOSDOS.                                                     
+271500    02 FILLER             PIC X(08) VALUE SPACES           .                  
+272000    02 WS-TOT-DT-LEYENDA  PIC X(34)                        .                  
+272500    02 FILLER             PIC X(01) VALUE SPACES           .                  
+273000    02 WS-TOT-DT-VALUE    PIC 9(08)                        .                  
+273500    02 FILLER             PIC X(81) VALUE SPACES           .                  
+274000                                                                              
+274500 01 WS-1X-LINEA.                                                              
+275000    02 FILLER             PIC X(02)  VALUE "1X"            .                  
+275500    02 FILLER             PIC X(130) VALUE SPACES          .                  
+276000                                                                              
+276500 01 WS-NOIN-LINEA.                                                            
+277000    02 FILLER             PIC X(29) VALUE SPACES                 .            
+277500    02 FILLER             PIC X(46) VALUE                                     
+278000                 "                           NO HUBO INFORMACION".            
+278500    02 FILLER             PIC X(57) VALUE SPACES                 .            
+279000                                                                              
+279500 01 WS-FIN-LINEA.                                                             
+280000    03 FILLER             PIC X(42) VALUE SPACES            .                 
+280500    03 FILLER             PIC X(22) VALUE                                     
+281000                                    "*** FIN DE REPORTE ***".                 
+281500    03 FILLER             PIC X(68) VALUE SPACES            .                 
+281502                                                                              
+281504******************************************************************            
+281506*  DETALLES LIST 001MAKERCHECK                                   *            
+281508******************************************************************            
+281510                                                                              
+281512 01 WS-ENC1-MAKERCHECK.                                                       
+281514    03 FILLER             PIC X(06) VALUE "  S500"               .            
+281516    03 FILLER             PIC X(01) VALUE "-"                    .            
+281518    03 FILER              PIC X(04) VALUE "P117"                 .            
+281520    03 FILLER             PIC X(01) VALUE "-"                    .            
+281522    03 FILLER             PIC X(13) VALUE "001MAKERCHECK"        .            
+281524    03 FILLER             PIC X(26) VALUE SPACES                 .            
+281526    03 FILLER             PIC X(29) VALUE                                     
+281528                                 "BANCO NACIONAL DE MEXICO S.A." .            
+281530    03 FILLER             PIC X(29) VALUE SPACES                 .            
+281532    03 FILLER             PIC X(12) VALUE "FECHA MOVS: "         .            
+281534    03 WS-EN1-MC-FEC                                             .            
+281536       04 WS-EN1-MC-AAAA  PIC 9(04)                              .            
+281538       04 FILLER          PIC X(01) VALUE "/"                    .            
+281540       04 WS-EN1-MC-MM    PIC 9(02)                              .            
+281542       04 FILLER          PIC X(01) VALUE "/"                    .            
+281544       04 WS-EN1-MC-DD    PIC 9(02)                              .            
+281546                                                                              
+281548 01 WS-ENC2-MAKERCHECK.                                                       
+281550    03 FILLER             PIC X(17) VALUE "  FECHA PROCESO: "    .            
+281552    03 WS-EN2-MC-FEC.                                                         
+281554       04 WS-EN2-MC-AAAA  PIC 9(04)                              .            
+281556       04 FILLER          PIC X(01) VALUE "/"                    .            
+281558       04 WS-EN2-MC-MM    PIC 9(02)                              .            
+281560       04 FILLER          PIC X(01) VALUE "/"                    .            
+281562       04 WS-EN2-MC-DD    PIC 9(02)                              .            
+281564    03 FILLER             PIC X(19) VALUE SPACES                 .            
+281566    03 WS-EN2-MC-LEYENDA  PIC X(38) VALUE SPACES                 .            
+281568    03 FILLER             PIC X(25) VALUE SPACES                 .            
+281570    03 FILLER             PIC X(22) VALUE                                     
+281572                              "TIPO DE PROCESO:DIARIO"           .            
+281574                                                                              
+281576 01 WS-ENC3-MAKERCHECK.                                                       
+281578    03 FILLER             PIC X(16) VALUE "  HORA PROCESO: "     .            
+281580    03 WS-EN3-MC-HORA.                                                        
+281582       04 WS-EN3-MC-HH    PIC 9(02)                     .                     
+281584       04 FILLER          PIC X(01) VALUE ":"                    .            
+281586       04 WS-EN3-MC-MN    PIC 9(02)                    .                      
+281588       04 FILLER          PIC X(01) VALUE ":"                    .            
+281590       04 WS-EN3-MC-SS    PIC 9(02)                     .                     
+281592    03 FILLER             PIC X(21) VALUE SPACES                 .            
+281594    03 WS-ENC3-MC-TIT     PIC X(40)                              .            
+281596    03 FILLER             PIC X(33) VALUE SPACES                 .            
+281598    03 FILLER             PIC X(05) VALUE "HOJA:"                .            
+281600    03 WS-EN3-MC-HOJA     PIC 9(08)                              .            
+281602                                                                              
+281604 01 WS-ENC4-MAKERCHECK.                                                       
+281606    03 WS-EN4-MC-LEYENDA  PIC X(40) VALUE SPACES.                             
+281608 01 WS-ENC5-MAKERCHECK.                                                       
+281610    03 FILLER             PIC X(38)                                           
+281612                   VALUE "  CLAVE MDA PREF/PROM  CUENTA/CONTRATO".            
+281614    03 FILLER             PIC X(28)                                           
+281616                          VALUE "   NUM.AUT           IMPORTE"   .            
+281618    03 FILLER             PIC X(25)                                           
+281620                          VALUE "         MON     MAKER   "      .            
+281622    03 FILLER             PIC X(24)                                           
+281624                          VALUE "CHECKER   NUM.INT   HORA"       .            
+281626    03 FILLER             PIC X(13) VALUE "     ESTATUS "        .            
+281628 01 WS-ENC6-MAKERCHECK.                                                       
+281630    03 FILLER             PIC X(26)                                           
+281632                          VALUE "  SIRH.MAKER NUM.PANTALLA "     .            
+281634    03 FILLER             PIC X(30)                                           
+281636                          VALUE "ESTATUS FECHA.ALTA  FECHA.BAJA" .            
+281638                                                                              
+281640 01 WS-DETA-MAKERCHECK-B57.                                                   
+281642    03 FILLER           PIC X(06) VALUE SPACES                   .            
+281644    03 WS-DT-B57-SIRH   PIC ZZZ9                                 .            
+281646    03 FILLER           PIC X(06) VALUE SPACES                   .            
+281648    03 WS-DT-B57-NUM-P  PIC ZZZZZ9                               .            
+281650    03 FILLER           PIC X(07) VALUE SPACES                   .            
+281652    03 WS-DT-B57-STATUS PIC 9(01)                                .            
+281654    03 FILLER           PIC X(04) VALUE SPACES                   .            
+281656    03 WS-DT-B57-FEC-A  PIC X(10)                                .            
+281658    03 FILLER          PIC X(02) VALUE SPACES                    .            
+281660    03 WS-DT-B57-FEC-B PIC X(10)                                 .            
+281662                                                                              
+281664 01 WS-DETA-MAKERCHECK.                                                       
+281666    03 FILLER        PIC X(02) VALUE SPACES                      .            
+281668    03 WS-DT-CLAVE   PIC ZZZ9                                    .            
+281670    03 FILLER        PIC X(03) VALUE SPACES                      .            
+281672    03 WS-DT-MDA     PIC Z9                                      .            
+281674    03 FILLER        PIC X(04) VALUE SPACES                      .            
+281676    03 WS-DT-SUCPROM PIC ZZZ9                                    .            
+281678    03 FILLER        PIC X(03) VALUE SPACES                      .            
+281680    03 WS-DT-CTO     PIC ZZZZZZZZZZZZZZZ9                        .            
+281682    03 FILLER        PIC X(02) VALUE SPACES                      .            
+281684    03 WS-DT-AUT     PIC ZZZZZZZ9                                .            
+281686    03 FILLER        PIC X(01) VALUE SPACE                       .            
+281688    03 WS-DT-IMP     PIC $Z,ZZZ,ZZZ,ZZZ,ZZZ,ZZ9.99               .            
+281690    03 FILLER        PIC X(02) VALUE SPACES                      .            
+281692    03 WS-DT-MON     PIC X(02) VALUE SPACES                      .            
+281694    03 FILLER        PIC X(02) VALUE SPACE                       .            
+281696    03 WS-DT-MAKER   PIC ZZZZZZZ9                                .            
+281698    03 FILLER        PIC X(02) VALUE SPACE                       .            
+281700    03 WS-DT-CHECKER PIC ZZZZZZZ9                                .            
+281702    03 FILLER        PIC X(05) VALUE SPACE                       .            
+281704    03 WS-DT-NUM-INT PIC  Z9                                     .            
+281706    03 FILLER        PIC X(04) VALUE SPACE                       .            
+281708    03 WS-DT-HORA    PIC X(08)                                   .            
+281710    03 FILLER        PIC X(01) VALUE SPACE                       .            
+281712    03 WS-DT-STATUS  PIC X(10)                                   .            
+281714                                                                              
+281716 01 WS-TOTALES-MAKERCHECK.                                                    
+281718    04 FILLER      PIC X(09) VALUE "  TOTALES".                               
+281720                                                                              
+281722 01 WS-TOTA-DETA-MAKERCHECK.                                                  
+281724    03 FILLER               PIC X(02).                                        
+281726    03 WS-TOT1-DT-LEYENDA   PIC X(17).                                        
+281728    03 WS-TOT1-DT-VALUE     PIC ZZ,ZZZ,ZZ9.                                   
+281730                                                                              
+281732  01 WS-TOTA-MOVS-MAKERCHECK.                                                 
+281734    03 FILLER                 PIC X(02) VALUE SPACES.                         
+281736    03 WS-TOT-DT-MV-LEYENDA   PIC X(17).                                      
+281738    03 WS-TOT-DT-MV-VALUE     PIC $ZZZ,ZZZ,ZZZ,ZZZ,ZZ9.99.                    
+282000                                                                              
+282500                                                                              
+283000*****************************************************************             
+283500 PROCEDURE DIVISION USING WS-PARAM-VALUE.                                     
+284000*****************************************************************             
+284500 DECLARATIVES.                                                                
+285000*-----------------------------------------------------------------            
+285500 000-INTERRUPCIONES-SECCION  SECTION.                                         
+286000     USE AS INTERRUPT PROCEDURE.                                              
+286500 INTERRUPT-BY-HI.                                                             
+287000*-----------------------------------------------------------------            
+287500   DISALLOW INTERRUPT.                                                        
+288000                                                                              
+288500   MOVE ATTRIBUTE TASKVALUE OF MYSELF TO WS-HI-NUMHI .                        
+289000   IF WS-88-BAJA                                                              
+289500      STRING "SE RECIBE HI 4 BAJA "                                           
+290000             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                          
+290500      PERFORM 70000050-MENSAJE                                                
+291000      MOVE 1 TO WS-TERMINA                                                    
+291500   ELSE                                                                       
+292000   IF WS-88-ESTADIST                                                          
+292500      STRING "SE RECIBE HI 5 ESTADISTICOS "                                   
+293000             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                          
+293500      PERFORM 70000050-MENSAJE                                                
+294000      PERFORM 40000006-HI-ESTADISTICOS                                        
+294500   ELSE                                                                       
+295000   IF WS-HI-NUMHI > 0                                                         
+295500      MOVE ATTRIBUTE TASKVALUE OF MYSELF TO WS-HI-NUMHI                       
+296000      STRING "NUM HI ERRONEO ", WS-HI-NUMHI                                   
+296500             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                          
+297000      PERFORM 70000050-MENSAJE .                                              
+297500                                                                              
+298000   SET MYSELF (TASKVALUE) TO ZERO .                                           
+298500                                                                              
+299000 END-INTERRUPT-BY-HI.                                                         
+299500   ALLOW INTERRUPT.                                                           
+300000 END DECLARATIVES.                                                            
+300500                                                                              
+301000*****************************************************************             
+301500 00000000-CONTROL  SECTION  01.                                               
+302000*****************************************************************             
+302500 00000000-CONTROL-PROGRAMA.                                                   
+303000*****************************************************************             
+303500                                                                              
+304000   PERFORM 10000000-INICIO     .                                              
+304500                                                                              
+305000   IF WS-88-SIN-ERROR                                                         
+305500      PERFORM 20000000-PROCESO .                                              
+306000   IF WS-88-SIN-ERROR                                                         
+306500      PERFORM 30000000-FIN     .                                              
+307000                                                                              
+307500   STOP RUN                    .                                              
+308000                                                                              
+308500*================                                                             
+309000 10000000-INICIO.                                                             
+309500*================                                                             
+310000                                                                              
+310500   MOVE 2                 TO W77-USO-LIBLJ       .                            
+311000   MOVE SPACES            TO WS-0101-TEXT-MSG    .                            
+311500   MOVE WS-NUM-P117       TO WS-0101-PASO-MSG    .                            
+312000   MOVE WS-NUM-MTP        TO WS-0101-MTP-MSG                                  
+312500                             W77-S000-MY-VERSION .                            
+313000   MOVE "S500P117"        TO W77-S000-MY-ID      .                            
+313500                                                                              
+314000********** VALIDA PARAMETRO DE ENTRADA ****                                   
+314500                                                                              
+315000   MOVE 0                 TO WS-VALIDA-VA.                                    
+315500                                                                              
+316000   IF WS-88-P-VAL-EST-OK                                                      
+316500      NEXT SENTENCE                                                           
+317000   ELSE                                                                       
+317500      STRING "ESTRUCTURA NO VALIDA = " WS-PARAM-VALUE-EST                     
+318000             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                          
+318500      PERFORM 70000050-MENSAJE                                                
+319000      MOVE 1 TO WS-VALIDA-VA.                                                 
+319500                                                                              
+320000   IF WS-88-SIN-ERROR                                                         
+320500      IF WS-88-P-VAL-OK                                                       
+321000         NEXT SENTENCE                                                        
+321500      ELSE                                                                    
+322000         STRING "OPCION NO VALIDA = " WS-PARAM-VALUE-OPC                      
+322500                DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                       
+323000         PERFORM 70000050-MENSAJE                                             
+323500         MOVE 1 TO WS-VALIDA-VA.                                              
+324000                                                                              
+324500   IF WS-88-SIN-ERROR                                                         
+325000      IF WS-88-P-VAL-1                                                        
+325500         NEXT SENTENCE                                                        
+326000      ELSE                                                                    
+326500      IF WS-88-P-VAL-CONF AND WS-PARAM-VALUE-FEC > 0                          
+327000         NEXT SENTENCE                                                        
+327500      ELSE                                                                    
+328000         STRING "FECHA ES REQUERIDA = " WS-PARAM-VALUE-FEC                    
+328500                DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                       
+329000         PERFORM 70000050-MENSAJE                                             
+329500         MOVE 1 TO WS-VALIDA-VA.                                              
+330000                                                                              
+330500****** INICIO ***********                                                     
+331000                                                                              
+331500   IF WS-88-SIN-ERROR                                                         
+332000      PERFORM 10000001-OPEN-BD                                                
+332500      PERFORM 10000002-IDENTIFICA-HOST                                        
+333000      PERFORM 10000003-VALIDA-VERSIONES                           186400      
+333500      PERFORM 10000004-TITLE-LIBRERIAS                                        
+334000      PERFORM 10000005-OBTB02-FECHA-CSI                                       
+334500      PERFORM 10000006-OPEN-LISTADOS                                          
+335000      PERFORM 10000007-OPEN-ARCH                                              
+335500      PERFORM 10000008-INICIO-PROCESO.                                        
+336000                                                                              
+336500   ATTACH 000-INTERRUPCIONES-SECCION TO ATTRIBUTE EXCEPTIONEVENT              
+337000                                     OF MYSELF .                              
+337500   ALLOW INTERRUPT.                                                           
+338000                                                                              
+338500*****************************************************************             
+339000*ABRE LA BASE DE CAPTACION                                      *             
+339500*****************************************************************             
+340000                                                                              
+340500*=================                                                            
+341000 10000001-OPEN-BD.                                                            
+341500*=================                                                            
+342000                                                                              
+342500   OPEN UPDATE S500BD01CAPTACION .                                            
+343000   OPEN UPDATE  S500BD04TARJETAS .                                            
+343500                                                                              
+344000*****************************************************************             
+344500*CALL A SOPORTECOMS PARA OBTENER CSI DE EJECUCION               *             
+345000*****************************************************************             
+345500                                                                              
+346000*=================                                                            
+346500 10000002-IDENTIFICA-HOST.                                                    
+347000*=================                                                            
+347500                                                                              
+348000   PERFORM 00000000-CHANGE-SOPCOMS .                                          
+348500   PERFORM 0000-CALL-HOSTNAME      .                                          
+349000                                                                              
+349500*****************************************************************             
+350000*SI ES UAT O PROD REVISAMOS VERSION DE P117                     *             
+350500*****************************************************************             
+351000                                                                              
+351500*=================                                                            
+352000 10000003-VALIDA-VERSIONES.                                                   
+352500*=================                                                            
+353000                                                                              
+353500   PERFORM 10000100-VERSIONES .                                               
+354000                                                                              
+354500   PERFORM 20000100-CHECAME-VERSION                                           
+355000   IF S000-CTR-CVEERROR < 0                                                   
+355500      STRING "ERROR DE VERSION "                                              
+356000             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                          
+356500      PERFORM 70000050-MENSAJE                                                
+357000      CHANGE ATTRIBUTE STATUS OF MYSELF TO -1 .                               
+357500                                                                              
+358000*****************************************************************             
+358500* OBTIENE TITLE DE VERSIONES DE LAS LIBRERIAS                   *             
+359000*****************************************************************             
+359500                                                                              
+360000*=================                                                            
+360500 10000004-TITLE-LIBRERIAS.                                                    
+361000*=================                                                            
+361500                                                                              
+362000   PERFORM 10000006-LOCSUP   .                                                
+362500                                                                              
+363000   CHANGE ATTRIBUTE LIBACCESS OF "ADMONXFERS" TO BYFUNCTION.                  
+363500                                                                              
+364000*****************************************************************             
+364500* OBTIENE FECHA DE LINEA Y CSI DE B02                           *             
+365000* PROYECTA T-2 PARA LOS REGISTROS A DEPURAR                     *             
+365500*****************************************************************             
+366000                                                                              
+366500*=================                                                            
+367000 10000005-OBTB02-FECHA-CSI.                                                   
+367500*=================                                                            
+368000                                                                              
+368500   PERFORM 90000002-B02CONTROL-FIND .                                         
+369000                                                                              
+369500   IF WS-STATUS-BASE > 0                                                      
+370000      MOVE DMSTATUS(DMCATEGORY)   TO WS-STATUS-BASE                           
+370500      STRING "ERR FIND B02CONTROL ", WS-STATUS-BASE                           
+371000             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                          
+371500      PERFORM 70000050-MENSAJE                                                
+372000      CALL SYSTEM DMTERMINATE .                                               
+372500                                                                              
+373000   MOVE B02-FECHA-LINEA     TO WS02-FECHA-LINEA  .                            
+373500   MOVE B02-NUM-CSI         TO WS02-NUM-CSI      .                            
+374000   MOVE B02-FECHA-LOTE      TO WS02-FECHA-LOTEA  .                            
+374500                                                                              
+375000   MOVE WS02-FECHA-LINEA    TO WS-S006-FECHA1   .                             
+375500   MOVE 2                   TO WS-S006-FECHA2   .                             
+376000   MOVE 15                  TO WS-S006-FUNCION  .                             
+376500   MOVE 13                  TO WS-S006-FORMATO  .                             
+377000   MOVE WS-S006-FUNCION     TO WS-MSG-N-04      .                             
+377500   PERFORM 20000006-LOCSUP                      .                             
+378000                                                                              
+378500   IF WS-88-P-VAL-CONF                                                        
+379000      MOVE WS-PARAM-VALUE-FEC  TO WS-FECHA-PROY                               
+379500   ELSE                                                                       
+380000   IF WS-S006-FUNCION = 0                                                     
+380500      MOVE WS-S006-FECHA1      TO WS-FECHA-PROY                               
+381000   ELSE                                                                       
+381500      MOVE WS-S006-FUNCION     TO WS-MSG-RS                                   
+382000      MOVE WS-S006-FORMATO     TO WS-MSG-N-02                                 
+382500      STRING "ERR CALL LOCSUP ",                                              
+383000             " FUNC-E ", WS-MSG-N-04                                          
+383500             " FMTO-E ", WS-MSG-N-02                                          
+384000             " FEC1-E ", WS-S006-FECHA1                                       
+384500             " FEC2-E ", WS-S006-FECHA2                                       
+385000             " RESULT ", WS-MSG-RS                                            
+385500      DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                                 
+386000      PERFORM 70000050-MENSAJE                                                
+386500      CALL SYSTEM DMTERMINATE .                                               
+387000                                                                              
+387500   CANCEL "LOCSUP".                                                           
+388000                                                                              
+388500*****************************************************************             
+389000* GENERA LISTADO DE MENSAJES                                    *             
+389500*****************************************************************             
+390000                                                                              
+390500*=================                                                            
+39100010000006-OPEN-LISTADOS.                                                       
+391500*=================                                                            
+392000                                                                              
+392500   MOVE WS02-FECHA-LOTEA                  TO WS-FECHA     .                   
+393000   MOVE WS02-NUM-CSI                      TO CARAT-CSI    .                   
+393500   MOVE 0                                 TO CARAT-SUBNODO.                   
+394000   MOVE "R"                               TO CARAT-CIFRA  .                   
+394500   MOVE WS-FECHA1-AMD                     TO CARAT-FECHA  .                   
+395000   MOVE ATTRIBUTE MIXNUMBER OF MYSELF     TO CARAT-MIX    .                   
+395500                                                                              
+396000                                                                              
+396500   IF WS-88-P-VAL-REPS AND WS-88-P-VAL-B18                                    
+397000      MOVE "001REPSALDOS"                        TO CARAT-NOMBRE              
+397500      SET P01-REPSDOS(USERBACKUPNAME)            TO VALUE TRUE                
+398000      CHANGE ATTRIBUTE TITLE OF P01-REPSDOS      TO CARATULA                  
+398500      OPEN OUTPUT P01-REPSDOS                             .                   
+398550                                                                              
+398600   IF WS-88-P-VAL-B56 OR WS-88-P-VAL-AMBAS                                    
+398650      MOVE "001MAKERCHECK"                       TO CARAT-NOMBRE              
+398700      SET P01-ARCMAKRCHECK(USERBACKUPNAME)       TO VALUE TRUE                
+398750      CHANGE ATTRIBUTE TITLE OF P01-ARCMAKRCHECK TO CARATULA                  
+398800      OPEN OUTPUT P01-ARCMAKRCHECK                        .                   
+399000                                                                              
+399500*****************************************************************             
+400000* GENERA ARCHIVO                                                *             
+400500*****************************************************************             
+401000                                                                              
+401500*=====================                                                        
+402000 10000007-OPEN-ARCH.                                                          
+402500*=====================                                                        
+403000                                                                              
+403500   MOVE WS02-FECHA-LOTEA                    TO I01-TIT-TEMP-FEC               
+404000                                               I02-TIT-TEMP-FEC.              
+404500   MOVE WS02-NUM-CSI                        TO I01-TIT-TEMP-CSI               
+405000                                               I02-TIT-TEMP-CSI.              
+405500                                                                              
+406000   IF WS-88-P-VAL-REPS                                                        
+406500      MOVE "TEMP01"                         TO I01-TIT-TEMP-NOMBRE            
+407000      CHANGE ATTRIBUTE TITLE OF I01-ARCSDOS TO I01-TIT-TEMP                   
+407500      OPEN OUTPUT I01-ARCSDOS                                                 
+408000                                                                              
+408500      CHANGE ATTRIBUTE TITLE OF I02-ARCSDOS TO I02-TIT-TEMP                   
+409000      OPEN OUTPUT I02-ARCSDOS                                                 
+409500                                                                              
+410000      PERFORM 20000097-GENERA-HDR-ARCHSDOS.                                   
+410050                                                                              
+410100   IF WS-88-P-VAL-B56 OR WS-88-P-VAL-AMBAS                                    
+410150      MOVE "TEMP02" TO I01-TIT-TEMP-NOMBRE                                    
+410200      CHANGE ATTRIBUTE TITLE OF I01-ARCMAKRCHECK TO I01-TIT-TEMP              
+410250      OPEN OUTPUT I01-ARCMAKRCHECK.                                           
+410500                                                                              
+411000*=====================                                                        
+411500 10000008-INICIO-PROCESO.                                                     
+412000*=====================                                                        
+412500                                                                              
+413000   MOVE 0          TO WS-VARIABLES-HI                                         
+413500                      WS-TERMINA                                              
+414000                      WS-IND-DEPU.                                            
+414500                                                                              
+415000   MOVE LOW-VALUES TO WS-TOTALES.                                             
+415500                                                                              
+416000*=====================                                                        
+416500 20000000-PROCESO.                                                            
+417000*=====================                                                        
+417500                                                                              
+418000*  IF WS-88-P-VAL-B18 OR WS-88-P-VAL-AMBAS                                    
+418500*     PERFORM 20000100-PROCESO-B18.                                           
+418700   IF WS-88-P-VAL-B56 OR WS-88-P-VAL-AMBAS                                    
+418800      PERFORM 20000100-PROCESO-B56.                                           
+418850   IF WS-88-P-VAL-B17 OR WS-88-P-VAL-AMBAS                                    
+418900      PERFORM 20000100-PROCESO-B17.                                           
+418901                                                                              
+418902*=================                                                            
+418903 20000100-PROCESO-B17.                                                        
+418904*=================                                                            
+418905                                                                              
+418906   SET S500B17PCTLALERTA             TO BEGINNING.                            
+418907                                                                              
+418908   IF WS-88-P-VAL-DEPU                                                        
+418909      PERFORM 90400017-B17ALERTAS-LN                                          
+418910   ELSE                                                                       
+418911      PERFORM 90400017-B17ALERTAS-FN.                                         
+418912                                                                              
+418913   MOVE B17P-FEC-MAQ     TO WS-FECHA-TRANS     .                              
+418914   MOVE 0                TO WS-FECHA-TRANS-ANT .                              
+418915                                                                              
+418916   IF WS-88-P-VAL-1                                                           
+418917      PERFORM 20000101-PROCESO-B17-1                                          
+418918   ELSE                                                                       
+418919   IF WS-88-P-VAL-2                                                           
+418920      PERFORM 20000102-PROCESO-B17-2 UNTIL WS-TERMINA = 1                     
+418921   ELSE                                                                       
+418922   IF WS-88-P-VAL-3                                                           
+418923      PERFORM 20000103-PROCESO-B17-3.                                         
+418924                                                                              
+418925*=================                                                            
+418926 20000101-PROCESO-B17-1.                                                      
+418927*=================                                                            
+418928                                                                              
+418929*=================                                                            
+418930 20000102-PROCESO-B17-2.                                                      
+418931*=================                                                            
+418932                                                                              
+418933   MOVE S500B17PCTLALERTA TO WS-S500B17PCTLALERTA.                            
+418934                                                                              
+418935   IF WS-DB-NOTFOUND                                                          
+418936      PERFORM 20000012-IMPRIME-MSJ-B17                                        
+418937      MOVE 1           TO WS-TERMINA                                          
+418938   ELSE                                                                       
+418939   IF WS-DB-ERROR                                                             
+418940      MOVE 1 TO WS-ERR-CODE                                                   
+418941      STRING WS-TB-ERR-LIST (WS-ERR-CODE),                                    
+418942             WS-TABDB-ERROR(WS-STATUS-BASE)                                   
+418943             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                          
+418944      PERFORM 70000050-MENSAJE                                                
+418945   ELSE                                                                       
+418946      IF WS17P-ESTATUS-ALERTA = 2 AND                                         
+418947         WS17P-FEC-MAQ = WS-FECHA-PROY                                        
+418948         PERFORM 20000011-REGISTRA-TOTAL-B17                                  
+418949         PERFORM 90400000-BEGIN-TRANSAC-NOAUD                                 
+418950         PERFORM 90400017-B17PCTLALERTA-DELETE                                
+418951         IF WS-DB-ERROR                                                       
+418952            MOVE 1 TO WS-ERR-CODE                                             
+418953            STRING WS-TB-ERR-LIST (WS-ERR-CODE),                              
+418954                   WS-TABDB-ERROR(WS-STATUS-BASE)                             
+418955                   DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                    
+418956            PERFORM 70000050-MENSAJE                                          
+418957            PERFORM 90400000-END-TRANSAC-NOAUD                                
+418958         ELSE                                                                 
+418959            ADD 1  TO WS-TOTAL-DEP-DEP (WS-IND-DEPU)                          
+418960            PERFORM 90400000-END-TRANSAC-NOAUD.                               
+418961                                                                              
+418962   PERFORM 90400017-B17ALERTAS-LN.                                            
+418963   MOVE B17P-FEC-MAQ TO WS-FECHA-TRANS.                                       
+418964                                                                              
+418965*=================                                                            
+418966 20000103-PROCESO-B17-3.                                                      
+418967*=================                                                            
+418968                                                                              
+418969*=====================                                                        
+418970 20000011-REGISTRA-TOTAL-B17.                                                 
+418971*=====================                                                        
+418972                                                                              
+418973   IF WS-FECHA-TRANS NOT = WS-FECHA-TRANS-ANT                                 
+418974      ADD 1               TO WS-IND-DEPU                                      
+418975      MOVE WS-FECHA-TRANS TO WS-TOTAL-DEP-FEC(WS-IND-DEPU)                    
+418976      MOVE WS-FECHA-TRANS TO WS-FECHA-TRANS-ANT.                              
+418977                                                                              
+418978   ADD 1 TO WS-TOTAL-DEP-LEI(WS-IND-DEPU).                                    
+418979                                                                              
+418980*=====================                                                        
+418981 20000012-IMPRIME-MSJ-B17.                                                    
+418982*=====================                                                        
+418983                                                                              
+418984   IF WS-TOTAL-DEP-DEP(1) = 0                                                 
+418985      STRING "NO EXISTEN REGISTROS PARA LA FECHA : "                          
+418986                WS-FECHA-PROY                                                 
+418987             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                          
+418988   ELSE                                                                       
+418989      STRING "REGISTROS DEPURADOS EN S500B17PCTLALERTA: "                     
+418990             WS-TOTAL-DEP-DEP(WS-IND-DEPU)                                    
+418991             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG.                         
+418992   PERFORM 70000050-MENSAJE.                                                  
+419000                                                                              
+419500*=================                                                            
+420000 20000100-PROCESO-B18.                                                        
+420500*=================                                                            
+421000                                                                              
+421500   SET S500B18PENVIOSDOS TO BEGINNING.                                        
+422000                                                                              
+422500   IF WS-88-P-VAL-DEPU                                                        
+423000      PERFORM 90400018-B18PFECHA-LN                                           
+423500   ELSE                                                                       
+424000      PERFORM 90400018-B18PFECHA-FN.                                          
+424500                                                                              
+425000   MOVE B18P-FECHA-TRANS TO WS-FECHA-TRANS     .                              
+425500   MOVE 0                TO WS-FECHA-TRANS-ANT .                              
+426000                                                                              
+426500   IF WS-88-P-VAL-1                                                           
+427000      PERFORM 20000101-PROCESO-B18-1 UNTIL WS-TERMINA = 1                     
+427500      PERFORM 20000020-GENERA-REPORTE                                         
+428000   ELSE                                                                       
+428500   IF WS-88-P-VAL-2                                                           
+429000      PERFORM 20000102-PROCESO-B18-2 UNTIL WS-TERMINA = 1                     
+429500   ELSE                                                                       
+430000   IF WS-88-P-VAL-3                                                           
+430500      PERFORM 20000103-PROCESO-B18-3 UNTIL WS-TERMINA = 1                     
+431000      PERFORM 20000020-GENERA-REPORTE .                                       
+431500                                                                              
+432000*=================                                                            
+432500 20000101-PROCESO-B18-1.                                                      
+433000*=================                                                            
+433500                                                                              
+434000   MOVE S500B18PENVIOSDOS TO WS-S500B18PENVIOSDOS.                            
+434500                                                                              
+435000   PERFORM 20000098-GENERA-DET-ARCHSDOS.                                      
+435500                                                                              
+436000   IF WS-DB-NOTFOUND                                                          
+436500      MOVE 1 TO WS-TERMINA                                                    
+437000      CLOSE I01-ARCSDOS WITH SAVE                                             
+437500   ELSE                                                                       
+438000   IF WS-DB-ERROR                                                             
+438500      MOVE SPACES TO WS-DES-CODE                                              
+439000      PERFORM 00000000-ERR-DB                                                 
+439500   ELSE                                                                       
+440000   IF WS18P-EST-ENVIO = 2 AND                                                 
+440500     (WS18P-FECHA-TRANS < WS-FECHA-PROY OR                                    
+441000      WS18P-FECHA-TRANS = WS-FECHA-PROY)                                      
+441500      PERFORM 20000011-REGISTRA-TOTAL-B18                                     
+442000      PERFORM 90400000-BEGIN-TRANSAC-NOAUD                                    
+442500      PERFORM 90400018-B18PENVIOSDOS-DELETE                                   
+443000      IF WS-DB-ERROR                                                          
+443500         MOVE SPACES TO WS-DES-CODE                                           
+444000         PERFORM 00000000-ERR-DB                                              
+444500         PERFORM 90400000-END-TRANSAC-NOAUD                                   
+445000      ELSE                                                                    
+445500         PERFORM 20000010-MUEVE-TEMP-1                                        
+446000         ADD 1  TO WS-TOTAL-DEP-DEP (WS-IND-DEPU)                             
+446500         PERFORM 90400000-END-TRANSAC-NOAUD                                   
+447000   ELSE                                                                       
+447500   IF WS18P-EST-ENVIO = 1                                                     
+448000      PERFORM 20000010-MUEVE-TEMP-3.                                          
+448500                                                                              
+449000   PERFORM 90400018-B18PFECHA-LN.                                             
+449500   MOVE B18P-FECHA-TRANS TO WS-FECHA-TRANS.                                   
+450000                                                                              
+450500*=================                                                            
+451000 20000102-PROCESO-B18-2.                                                      
+451500*=================                                                            
+452000                                                                              
+452500   MOVE S500B18PENVIOSDOS TO WS-S500B18PENVIOSDOS.                            
+453000                                                                              
+453500   PERFORM 20000098-GENERA-DET-ARCHSDOS.                                      
+454000                                                                              
+454500   IF WS-DB-NOTFOUND                                                          
+455000      IF WS-TOTAL-DEP-DEP (1) = 0                                             
+455500         STRING "NO EXISTEN REGISTROS PARA LA FECHA : "                       
+456000                WS-FECHA-PROY                                                 
+456500                DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                       
+457000         PERFORM 70000050-MENSAJE                                             
+457500         MOVE 1 TO WS-TERMINA                                                 
+458000      ELSE                                                                    
+458500         MOVE 1 TO WS-TERMINA                                                 
+459000   ELSE                                                                       
+459500   IF WS-DB-ERROR                                                             
+460000      PERFORM 00000000-ERR-DB                                                 
+460500   ELSE                                                                       
+461000   IF WS18P-EST-ENVIO   = 2 AND                                               
+461500      WS18P-FECHA-TRANS = WS-FECHA-PROY                                       
+462000      PERFORM 20000011-REGISTRA-TOTAL-B18                                     
+462500      PERFORM 90400000-BEGIN-TRANSAC-NOAUD                                    
+463000      PERFORM 90400018-B18PENVIOSDOS-DELETE                                   
+463500      IF WS-DB-ERROR                                                          
+464000         PERFORM 00000000-ERR-DB                                              
+464500         PERFORM 90400000-END-TRANSAC-NOAUD                                   
+465000      ELSE                                                                    
+465500         ADD 1  TO WS-TOTAL-DEP-DEP (WS-IND-DEPU)                             
+466000         PERFORM 90400000-END-TRANSAC-NOAUD.                                  
+466500                                                                              
+467000   PERFORM 90400018-B18PFECHA-LN.                                             
+467500   MOVE B18P-FECHA-TRANS TO WS-FECHA-TRANS.                                   
+468000                                                                              
+468500*=================                                                            
+469000 20000103-PROCESO-B18-3.                                                      
+469500*=================                                                            
+470000                                                                              
+470500   MOVE S500B18PENVIOSDOS TO WS-S500B18PENVIOSDOS.                            
+471000                                                                              
+471500   PERFORM 20000098-GENERA-DET-ARCHSDOS.                                      
+472000                                                                              
+472500   IF WS-DB-NOTFOUND                                                          
+473000      MOVE 1 TO WS-TERMINA                                                    
+473500      CLOSE I01-ARCSDOS WITH SAVE                                             
+474000   ELSE                                                                       
+474500   IF WS-DB-ERROR                                                             
+475000      PERFORM 00000000-ERR-DB                                                 
+475500   ELSE                                                                       
+476000   IF WS18P-EST-ENVIO = 2 AND                                                 
+476500      WS18P-FECHA-TRANS = WS-FECHA-PROY                                       
+477000      PERFORM 20000011-REGISTRA-TOTAL-B18                                     
+477500      PERFORM 20000010-MUEVE-TEMP-1                                           
+478000   ELSE                                                                       
+478500   IF WS18P-EST-ENVIO = 1 AND                                                 
+479000      WS18P-FECHA-TRANS = WS-FECHA-PROY                                       
+479500      PERFORM 20000010-MUEVE-TEMP-3.                                          
+480000                                                                              
+480500   PERFORM 90400018-B18PFECHA-LN.                                             
+481000   MOVE B18P-FECHA-TRANS TO WS-FECHA-TRANS.                                   
+481005                                                                              
+481010*=====================                                                        
+481015 20000100-PROCESO-B56.                                                        
+481020*=====================                                                        
+481025   MOVE 0                 TO WS-TERMINA, WS-STATUS-BASE                       
+481030   SET S500B56MAKERCHEK   TO BEGINNING.                                       
+481035   PERFORM 90000056-B56MAKERCHEK-LOCKN                                        
+481040   PERFORM 20000102-PROCESO-B56-1 UNTIL WS-TERMINA = 1.                       
+481045   CLOSE I01-ARCMAKRCHECK WITH SAVE                                           
+481050   PERFORM 20000120-GENERA-REPORTE.                                           
+481055                                                                              
+481060*=====================                                                        
+48106520000102-PROCESO-B56-1.                                                       
+481070*=====================                                                        
+481075   IF WS-DB-NOTFOUND                                                          
+481080      MOVE 1 TO WS-TERMINA                                                    
+481085   ELSE                                                                       
+481090   IF WS-DB-ERROR                                                             
+481095      PERFORM 00000000-ERR-DB                                                 
+481100   ELSE                                                                       
+481105      PERFORM 90000000-BEGIN-TRANSACTION                                      
+481110      PERFORM 90000056-B56MAKERCHEK-DELETE                                    
+481115      IF WS-DB-ERROR                                                          
+481120         PERFORM 00000000-ERR-DB                                              
+481125         PERFORM 90000000-END-TRANSACTIONNOAU                                 
+481130      ELSE                                                                    
+481135         PERFORM 20000104-MUEVE-B56-TEMP                                      
+481140         PERFORM 90000000-END-TRANSACTIONNOAU.                                
+481145   PERFORM 90000056-B56MAKERCHEK-LOCKN.                                       
+481290                                                                              
+481330*=====================                                                        
+481335 20000104-MUEVE-B56-TEMP.                                                     
+481340*=====================                                                        
+481345    MOVE B56-NUM-AUT       TO I01-R-NUM-AUT                                   
+481350    MOVE B56-SUC-PROMOTORA TO I01-R-SUC-PROMOTORA                             
+481355    MOVE B56-NUM-CONTRATO  TO I01-R-NUM-CONTRATO                              
+481360    MOVE B56-CLA-TRANS     TO I01-R-CLA-TRANS                                 
+481365    MOVE B56-MONEDA        TO I01-R-MONEDA                                    
+481370    MOVE B56-IMPORTE-OPER  TO I01-R-IMPORTE-OPER                              
+481375    MOVE B56-EST-TRAN      TO I01-R-EST-TRAN                                  
+481380    MOVE B56-SUC-TRANS     TO I01-R-SUC-TRANS                                 
+481385    MOVE B56-NOM-OPE       TO I01-R-NOM-OPE                                   
+481390    MOVE B56-HRA-TRAN      TO I01-R-HRA-TRAN                                  
+481395    MOVE B56-NOM-CHE       TO I01-R-NOM-CHE                                   
+481400    MOVE B56-MED-ACC       TO I01-R-MDA                                       
+481405    MOVE B56-USO-FUT-01    TO I01-R-NUM-INT                                   
+481410    WRITE I01-R-ARCMAKRCHECK.                                                 
+481500                                                                              
+482000*========================                                                     
+482500 20000097-GENERA-HDR-ARCHSDOS.                                                
+483000*========================                                                     
+483500                                                                              
+484000   MOVE SPACES           TO I02-R-ARCSDOS        .                            
+484500   MOVE 01               TO I02-R-TIP-REG        .                            
+485000   MOVE WS02-FECHA-LOTEA TO I02-HDR-FECHA-ARCH   .                            
+485500   MOVE "S500"           TO I02-HDR-SISTEMA      .                            
+486000   MOVE "SALDOS BNE"     TO I02-HDR-DESCRIPCION  .                            
+486500   WRITE I02-R-ARCSDOS                           .                            
+487000                                                                              
+487500*========================                                                     
+488000 20000098-GENERA-DET-ARCHSDOS.                                                
+488500*========================                                                     
+489000                                                                              
+489500   IF WS18P-FECHA-TRANS = WS02-FECHA-LOTEA                                    
+490000      ADD 1                             TO WS-TOTAL-ARCHSDOS                  
+490500                                          (I02-DET-EST-ENVIO)                 
+491000      MOVE SPACES                       TO I02-R-ARCSDOS                      
+491500      MOVE WS18P-EST-ENVIO              TO I02-DET-EST-ENVIO                  
+492000      MOVE WS18P-TIPO-ENVIO             TO I02-DET-TIPO-ENVIO                 
+492500      MOVE WS18P-FECHA-TRANS            TO I02-DET-FECHA-TRANS                
+493000      MOVE WS18P-SUC-PROMOTORA          TO I02-DET-SUC-PROMOTORA              
+493500      MOVE WS18P-NUM-CONTRATO           TO I02-DET-NUM-CONTRATO               
+494000      MOVE WS18P-HORA-TRANS             TO I02-DET-HORA-TRANS                 
+494500      MOVE WS18P-IMPORTE-DISPONIBLE     TO                                    
+495000                                   I02-DET-IMPORTE-DISPONIBLE                 
+495500      MOVE WS18P-IMPORTE-ACTUAL         TO I02-DET-IMPORTE-ACTUAL             
+496000      MOVE WS18P-SDO-PROTEGIDO          TO I02-DET-SDO-PROTEGIDO              
+496500      MOVE WS18P-SALDO-PENDIENTE        TO I02-DET-SALDO-PENDIENTE            
+497000      MOVE WS18P-AUT-PENDIENTE          TO I02-DET-AUT-PENDIENTE              
+497500      MOVE WS18P-ASIGNACIONES-OTORGADAS TO                                    
+498000                                   I02-DET-ASIGNACIONES-OTORGADAS             
+498500      MOVE WS18P-ASIGNACIONES-RECIBIDAS TO                                    
+499000                                   I02-DET-ASIGNACIONES-RECIBIDAS             
+499500      MOVE WS18P-DISPONIBLE-ASIGNADO    TO                                    
+500000                                   I02-DET-DISPONIBLE-ASIGNADO                
+500500      MOVE WS18P-TECHO-RECIBIDO         TO I02-DET-TECHO-RECIBIDO             
+501000      MOVE WS18P-TECHO-ASIGNADO         TO I02-DET-TECHO-ASIGNADO             
+501500      MOVE WS18P-TECHO-DISPONIBLE       TO                                    
+502000                                   I02-DET-TECHO-DISPONIBLE                   
+502500      MOVE WS18P-DISPONIBLE-ACTUAL      TO                                    
+503000                                   I02-DET-DISPONIBLE-ACTUAL                  
+503500      MOVE WS18P-NUM-PRODUCTO           TO I02-DET-NUM-PRODUCTO               
+504000      MOVE WS18P-NUM-INSTRUMENTO        TO I02-DET-NUM-INSTRUMENTO            
+504500      MOVE WS18P-NUM-MONEDA             TO I02-DET-NUM-MONEDA                 
+505000      MOVE WS18P-NUM-CLIENTE            TO I02-DET-NUM-CLIENTE                
+505500      MOVE WS18P-IND-LINCREDIT          TO I02-DET-IND-LINCREDIT              
+506000      MOVE WS18P-STATUS                 TO I02-DET-STATUS                     
+506500      MOVE WS18P-CTA-CONCENT            TO I02-DET-CTA-CONCENT                
+507000      MOVE WS18P-NUM-MOVSNC             TO I02-DET-NUM-MOVSNC                 
+507500      MOVE WS18P-NUM-MOVSCGO            TO I02-DET-NUM-MOVSCGO                
+508000      MOVE WS18P-NUM-MOVSABO            TO I02-DET-NUM-MOVSABO                
+508500      MOVE WS18P-NUM-PASO               TO I02-DET-NUM-PASO                   
+509000      MOVE WS18P-FECH-ENVIO             TO I02-DET-FECH-ENVIO                 
+509500      MOVE WS18P-HORA-ENVIO             TO I02-DET-HORA-ENVIO                 
+510000      MOVE WS18P-USO-FUT-01             TO I02-DET-USO-FUT-01                 
+510500      MOVE WS18P-USO-FUT-02             TO I02-DET-USO-FUT-02                 
+511000      MOVE WS18P-USO-FUT-03             TO I02-DET-USO-FUT-03                 
+511500      MOVE WS18P-USO-FUT-04             TO I02-DET-USO-FUT-04                 
+512000      MOVE WS18P-USO-FUT-05             TO I02-DET-USO-FUT-05                 
+512500      MOVE WS18P-USO-FUT-06             TO I02-DET-USO-FUT-06                 
+513000      MOVE WS18P-USO-FUT-07             TO I02-DET-USO-FUT-07                 
+513500      MOVE WS18P-USO-FUT-08             TO I02-DET-USO-FUT-08                 
+514000      MOVE WS18P-USO-FUT-09             TO I02-DET-USO-FUT-09                 
+514500      MOVE WS18P-USO-FUT-10             TO I02-DET-USO-FUT-10                 
+515000      MOVE WS18P-USO-FUT-11             TO I02-DET-USO-FUT-11                 
+515500      MOVE WS18P-USO-FUT-12             TO I02-DET-USO-FUT-12                 
+516000      MOVE WS18P-USO-FUT-13             TO I02-DET-USO-FUT-13                 
+516500      WRITE I02-R-ARCSDOS                                    .                
+517000                                                                              
+517500*========================                                                     
+518000 20000098-GENERA-TRL-ARCHSDOS.                                                
+518500*========================                                                     
+519000                                                                              
+519500   MOVE SPACES                TO I02-R-ARCSDOS        .                       
+520000   MOVE 99                    TO I02-R-TIP-REG        .                       
+520500   MOVE WS-TOTAL-ARCHSDOS (1) TO I02-TRL-TOT-XENVIAR  .                       
+521000   MOVE WS-TOTAL-ARCHSDOS (2) TO I02-TRL-TOT-ENVIADOS .                       
+521500   WRITE I02-R-ARCSDOS                                .                       
+522000                                                                              
+522500*=====================                                                        
+523000 20000010-MUEVE-TEMP-1.                                                       
+523500*=====================                                                        
+524000                                                                              
+524500   MOVE " "                      TO I01-R-ARCSDOS       .                     
+525000   MOVE 1                        TO I01-R-TIP-REG       .                     
+525500   MOVE WS18P-FECHA-TRANS        TO I01-SDOS1-FEC-TRAN  .                     
+526000   MOVE WS18P-SUC-PROMOTORA      TO I01-SDOS1-SUC-PROM  .                     
+526500   MOVE WS18P-NUM-CONTRATO       TO I01-SDOS1-CONTRATO  .                     
+527000   MOVE WS18P-NUM-PRODUCTO       TO I01-SDOS1-NUM-PROD  .                     
+527500   MOVE WS18P-NUM-INSTRUMENTO    TO I01-SDOS1-NUM-INST  .                     
+528000   MOVE WS18P-NUM-MONEDA         TO I01-SDOS1-NUM-MONE  .                     
+528500   MOVE WS18P-STATUS             TO I01-SDOS1-STATUS    .                     
+529000   MOVE WS18P-IMPORTE-DISPONIBLE TO I01-SDOS1-SDO-DISP  .                     
+529500   MOVE WS18P-FECH-ENVIO         TO I01-SDOS1-FECHA-ENV .                     
+530000   MOVE WS18P-HORA-ENVIO         TO I01-SDOS1-HORA-ENV  .                     
+530500   PERFORM 20000011-ESC-REPO.                                                 
+531000                                                                              
+531500*=====================                                                        
+532000 20000010-MUEVE-TEMP-2.                                                       
+532500*=====================                                                        
+533000                                                                              
+533500   MOVE " "                      TO I01-R-ARCSDOS       .                     
+534000   MOVE 2                        TO I01-R-TIP-REG       .                     
+534500   MOVE WS18P-FECHA-TRANS        TO I01-SDOS2-FEC-TRAN  .                     
+535000   MOVE WS18P-SUC-PROMOTORA      TO I01-SDOS2-SUC-PROM  .                     
+535500   MOVE WS18P-NUM-CONTRATO       TO I01-SDOS2-CONTRATO  .                     
+536000   MOVE WS-ERR-CODE              TO I01-SDOS2-NUM-ERROR .                     
+536500   MOVE WS-DES-CODE              TO I01-SDOS2-DES-ERROR .                     
+537000   MOVE WS18P-FECH-ENVIO         TO I01-SDOS2-FECHA-ENV .                     
+537500   PERFORM 20000011-ESC-REPO.                                                 
+538000                                                                              
+538500*=====================                                                        
+539000 20000010-MUEVE-TEMP-3.                                                       
+539500*=====================                                                        
+540000                                                                              
+540500   MOVE " "                      TO I01-R-ARCSDOS       .                     
+541000   MOVE 3                        TO I01-R-TIP-REG       .                     
+541500   MOVE WS18P-FECHA-TRANS        TO I01-SDOS3-FEC-TRAN  .                     
+542000   MOVE WS18P-SUC-PROMOTORA      TO I01-SDOS3-SUC-PROM  .                     
+542500   MOVE WS18P-NUM-CONTRATO       TO I01-SDOS3-CONTRATO  .                     
+543000   MOVE WS18P-NUM-PRODUCTO       TO I01-SDOS3-NUM-PROD  .                     
+543500   MOVE WS18P-NUM-INSTRUMENTO    TO I01-SDOS3-NUM-INST  .                     
+544000   MOVE WS18P-NUM-MONEDA         TO I01-SDOS3-NUM-MONE  .                     
+544500   MOVE WS18P-STATUS             TO I01-SDOS3-STATUS    .                     
+545000   MOVE WS18P-IMPORTE-DISPONIBLE TO I01-SDOS3-SDO-DISP  .                     
+545500   PERFORM 20000011-ESC-REPO.                                                 
+546000                                                                              
+546500*=====================                                                        
+547000 20000011-ESC-REPO.                                                           
+547500*=====================                                                        
+548000                                                                              
+548500   WRITE I01-R-ARCSDOS.                                                       
+549000                                                                              
+549500*=====================                                                        
+550000 20000011-REGISTRA-TOTAL-B18.                                                 
+550500*=====================                                                        
+551000                                                                              
+551500   IF WS-FECHA-TRANS NOT = WS-FECHA-TRANS-ANT                                 
+552000      ADD 1               TO WS-IND-DEPU                                      
+552500      MOVE WS-FECHA-TRANS TO WS-TOTAL-DEP-FEC(WS-IND-DEPU)                    
+553000      MOVE WS-FECHA-TRANS TO WS-FECHA-TRANS-ANT.                              
+553500                                                                              
+554000   ADD 1 TO WS-TOTAL-DEP-LEI(WS-IND-DEPU).                                    
+554500                                                                              
+555000*=====================                                                        
+555500 20000020-GENERA-REPORTE.                                                     
+556000*=====================                                                        
+556500                                                                              
+557000   PERFORM 50000001-ATRI-ARCSDOS   .                                          
+557500   PERFORM 50000002-CALCULA-ESPACIO.                                          
+558000   PERFORM 50000000-SORT-ARCHTEMP  .                                          
+558500   MOVE 59 TO WS-L-PAG-TEM-P01     .                                          
+559000   PERFORM 20000031-PROCESA-ARCHSDOS UNTIL WS-I01-FIN-ARCH = 1.               
+559500   PERFORM 20000023-MUEVE-TOT-REP01.                                          
+560000   PERFORM 20000025-ESC-TIT-REP01  .                                          
+560500   PERFORM 20000025-ESC-DEP-REP01                                             
+561000           VARYING WS-IND-DEPU FROM 1 BY 1                                    
+561500           UNTIL   WS-IND-DEPU > 30.                                          
+562000   PERFORM 00000000-ESC-FIN-REPORTE  .                                        
+562500                                                                              
+563000*=====================                                                        
+563500 20000021-ESC-ENC-REP01.                                                      
+564000*=====================                                                        
+564500                                                                              
+565000   MOVE WS-NUM-MTP                TO WS-EN1-RT-MTP     .                      
+565500   PERFORM 40000005-FECHA                              .                      
+566000   MOVE WS-FECHA2-DD              TO WS-FECHA3-DD      .                      
+566500   MOVE WS-FECHA2-MM              TO WS-FECHA3-MM      .                      
+567000   MOVE WS-FECHA2-AAAA            TO WS-FECHA3-AAAA    .                      
+567500   MOVE WS-FECHA-AAAAMMDD         TO WS-EN1-RT-FEC     .                      
+568000                                                                              
+568500   MOVE WS02-FECHA-LOTEA          TO WS-FECHA          .                      
+569000   MOVE WS-FECHA2-DD              TO WS-FECHA3-DD      .                      
+569500   MOVE WS-FECHA2-MM              TO WS-FECHA3-MM      .                      
+570000   MOVE WS-FECHA2-AAAA            TO WS-FECHA3-AAAA    .                      
+570500   MOVE WS-FECHA-AAAAMMDD         TO WS-EN2-RT-FEC     .                      
+571000                                                                              
+571500   PERFORM 40000001-HORA                               .                      
+572000   MOVE WS-HORA-MAQ-HH            TO WS-HORA1-HH       .                      
+572500   MOVE WS-HORA-MAQ-MM            TO WS-HORA1-MM       .                      
+573000   MOVE WS-HORA-MAQ-SS            TO WS-HORA1-SS       .                      
+573500   MOVE WS-HORA-HHMMSS            TO WS-EN3-RT-HOR     .                      
+574000   ADD 1                          TO WS-N-HOJA-P01     .                      
+574500   MOVE WS-N-HOJA-P01             TO WS-EN3-RT-HOJA    .                      
+575000                                                                              
+575500   IF WS-N-HOJA-P01 > 1                                                       
+576000      PERFORM 00000000-ESC-1X.                                                
+576500                                                                              
+577000   WRITE P01-R-REPOSDOS FROM WS-ENC1-REPOSDOS AFTER PAGE.                     
+577500   WRITE P01-R-REPOSDOS FROM WS-ENC2-REPOSDOS AFTER 1 LINE.                   
+578000   WRITE P01-R-REPOSDOS FROM WS-ENC3-REPOSDOS AFTER 1 LINE.                   
+578500                                                                              
+579000   IF WS-TIPO-REG = 1                                                         
+579500      MOVE "  REGISTROS DEPURADOS " TO WS-EN4-RT-TIT                          
+580000      WRITE P01-R-REPOSDOS FROM WS-ENC4-REPOSDOS  AFTER 2 LINE                
+580500      WRITE P01-R-REPOSDOS FROM WS-ENC5-REPOSDOS  AFTER 2 LINE                
+581000      WRITE P01-R-REPOSDOS FROM WS-ENC6-REPOSDOS  AFTER 1 LINE                
+581500   ELSE                                                                       
+582000   IF WS-TIPO-REG = 2                                                         
+582500      MOVE "  ERRORES AL DEPURAR  " TO WS-EN4-RT-TIT                          
+583000      WRITE P01-R-REPOSDOS FROM WS-ENC4-REPOSDOS  AFTER 2 LINE                
+583500      WRITE P01-R-REPOSDOS FROM WS-ENC7-REPOSDOS  AFTER 2 LINE                
+584000      WRITE P01-R-REPOSDOS FROM WS-ENC8-REPOSDOS  AFTER 1 LINE                
+584500   ELSE                                                                       
+585000   IF WS-TIPO-REG = 3                                                         
+585500      MOVE "  PENDIENTE POR ENVIAR" TO WS-EN4-RT-TIT                          
+586000      WRITE P01-R-REPOSDOS FROM WS-ENC4-REPOSDOS  AFTER 2 LINE                
+586500      WRITE P01-R-REPOSDOS FROM WS-ENC9-REPOSDOS  AFTER 2 LINE                
+587000      WRITE P01-R-REPOSDOS FROM WS-ENC10-REPOSDOS AFTER 1 LINE                
+587500   ELSE                                                                       
+588000   IF WS-TIPO-REG = 4                                                         
+588500      WRITE P01-R-REPOSDOS FROM WS-ENC9-REPOSDOS  AFTER 2 LINE                
+589000      WRITE P01-R-REPOSDOS FROM WS-ENC10-REPOSDOS AFTER 1 LINE.               
+589500                                                                              
+590000   MOVE WS-TIPO-REG TO WS-TIPO-REG-ANT .                                      
+590500   MOVE 0           TO WS-L-PAG-TEM-P01.                                      
+591000                                                                              
+591500   IF WS-TIPO-REG = 4                                                         
+592000      ADD  6        TO WS-L-PAG-TEM-P01                                       
+592500   ELSE                                                                       
+593000      ADD  8        TO WS-L-PAG-TEM-P01.                                      
+593500                                                                              
+594000*=================                                                            
+594500 20000023-MUEVE-TOT-REP01.                                                    
+595000*=================                                                            
+595500   IF WS-TIPO-REG-ANT = 1                                                     
+596000      MOVE "DEPURADOS       :" TO WS-TOT-RT-LEYENDA                           
+596500      PERFORM 20000023-ESC-TOT-REP01                                          
+597000   ELSE                                                                       
+597500   IF WS-TIPO-REG-ANT = 2                                                     
+598000      MOVE "ERROR DEPURADOS :" TO WS-TOT-RT-LEYENDA                           
+598500      PERFORM 20000023-ESC-TOT-REP01                                          
+599000   ELSE                                                                       
+599500   IF WS-TIPO-REG-ANT = 3                                                     
+600000      MOVE "PEND X ENV      :" TO WS-TOT-RT-LEYENDA                           
+600500      PERFORM 20000023-ESC-TOT-REP01.                                         
+601000                                                                              
+601500*=====================                                                        
+602000 20000023-ESC-TOT-REP01.                                                      
+602500*=====================                                                        
+603000                                                                              
+603500   MOVE WS-TOTAL-REG-DEP (WS-TIPO-REG-ANT) TO WS-TOT-RT-TOTAL.                
+604000   WRITE P01-R-REPOSDOS FROM WS-TOTA-REPOSDOS  AFTER 2.                       
+604500   ADD 2                                   TO WS-L-PAG-TEM-P01.               
+605000                                                                              
+605500*====================                                                         
+60600020000024-ESC-DET-REP01.                                                       
+606500*====================                                                         
+607000                                                                              
+607500   IF WS-TIPO-REG = 1                                                         
+608000      MOVE I01-SDOS1-FEC-TRAN   TO WS-DET-RT1-FEC-TRAN                        
+608500      MOVE I01-SDOS1-SUC-PROM   TO WS-DET-RT1-SUC                             
+609000      MOVE I01-SDOS1-CONTRATO   TO WS-DET-RT1-CTO                             
+609500      MOVE I01-SDOS1-NUM-PROD   TO WS-DET-RT1-PROD                            
+610000      MOVE I01-SDOS1-NUM-INST   TO WS-DET-RT1-INST                            
+610500      MOVE I01-SDOS1-NUM-MONE   TO WS-DET-RT1-MON                             
+611000      MOVE I01-SDOS1-STATUS     TO WS-DET-RT1-ESTATUS                         
+611500      MOVE I01-SDOS1-SDO-DISP   TO WS-DET-RT1-DISPONIBLE                      
+612000      MOVE I01-SDOS1-FECHA-ENV  TO WS-DET-RT1-FEC-ENVIO                       
+612500      MOVE I01-SDOS1-HORA-ENV   TO WS-DET-RT1-HOR-ENVIO                       
+613000      WRITE P01-R-REPOSDOS FROM WS-DETA-REPOSDOS-1 AFTER 1 LINE               
+613500   ELSE                                                                       
+614000   IF WS-TIPO-REG = 2                                                         
+614500      MOVE I01-SDOS2-FEC-TRAN   TO WS-DET-RT2-FEC-TRAN                        
+615000      MOVE I01-SDOS2-SUC-PROM   TO WS-DET-RT2-SUC                             
+615500      MOVE I01-SDOS2-CONTRATO   TO WS-DET-RT2-CTO                             
+616000      MOVE I01-SDOS2-NUM-ERROR  TO WS-DET-RT2-COD-ERROR                       
+616500      MOVE I01-SDOS2-DES-ERROR  TO WS-DET-RT2-DES-ERROR                       
+617000      MOVE I01-SDOS2-FECHA-ENV  TO WS-DET-RT2-FEC-ENVIO                       
+617500      WRITE P01-R-REPOSDOS FROM WS-DETA-REPOSDOS-2 AFTER 1 LINE               
+618000   ELSE                                                                       
+618500   IF WS-TIPO-REG = 3                                                         
+619000      MOVE I01-SDOS3-FEC-TRAN   TO WS-DET-RT3-FEC-TRAN                        
+619500      MOVE I01-SDOS3-SUC-PROM   TO WS-DET-RT3-SUC                             
+620000      MOVE I01-SDOS3-CONTRATO   TO WS-DET-RT3-CTO                             
+620500      MOVE I01-SDOS3-NUM-PROD   TO WS-DET-RT3-PROD                            
+621000      MOVE I01-SDOS3-NUM-INST   TO WS-DET-RT3-INST                            
+621500      MOVE I01-SDOS3-NUM-MONE   TO WS-DET-RT3-MON                             
+622000      MOVE I01-SDOS3-STATUS     TO WS-DET-RT3-ESTATUS                         
+622500      MOVE I01-SDOS3-SDO-DISP   TO WS-DET-RT3-DISPONIBLE                      
+623000      WRITE P01-R-REPOSDOS FROM WS-DETA-REPOSDOS-3 AFTER 1 LINE.              
+623500                                                                              
+624000   ADD 1 TO WS-TOTAL-REG-DEP (WS-TIPO-REG).                                   
+624500   ADD 1 TO WS-L-PAG-TEM-P01              .                                   
+625000                                                                              
+625500*===================                                                          
+626000 20000025-ESC-TIT-REP01.                                                      
+626500*===================                                                          
+627000                                                                              
+627500   PERFORM 20000021-ESC-ENC-REP01.                                            
+628000   WRITE P01-R-REPOSDOS FROM WS-TOTA-DEPU-REPOSDOS AFTER 3.                   
+628500   ADD  3 TO WS-L-PAG-TEM-P01.                                                
+629000   MOVE 4 TO WS-TIPO-REG.                                                     
+629500                                                                              
+630000*===================                                                          
+630500 20000025-ESC-DEP-REP01.                                                      
+631000*===================                                                          
+631500                                                                              
+632000   IF WS-TOTAL-DEP-FEC(WS-IND-DEPU) > 0                                       
+632500      MOVE "FECHA DE GENERACION              :" TO                            
+633000                                                WS-TOT-DT-LEYENDA             
+633500      MOVE WS-TOTAL-DEP-FEC (WS-IND-DEPU)       TO                            
+634000                                                WS-TOT-DT-VALUE               
+634500      WRITE P01-R-REPOSDOS FROM WS-TOTA-DET-REPOSDOS  AFTER 2                 
+635000      MOVE "TOTAL DE REG LEIDOS              :" TO                            
+635500                                                WS-TOT-DT-LEYENDA             
+636000      MOVE WS-TOTAL-DEP-LEI (WS-IND-DEPU)       TO                            
+636500                                                WS-TOT-DT-VALUE               
+637000      WRITE P01-R-REPOSDOS FROM WS-TOTA-DET-REPOSDOS  AFTER 1                 
+637500      MOVE "TOTAL DE REG DEPURADOS           :" TO                            
+638000                                                WS-TOT-DT-LEYENDA             
+638500      MOVE WS-TOTAL-DEP-DEP (WS-IND-DEPU)       TO                            
+639000                                                WS-TOT-DT-VALUE               
+639500      WRITE P01-R-REPOSDOS FROM WS-TOTA-DET-REPOSDOS  AFTER 1                 
+640000      ADD 4                                     TO                            
+640500                                                WS-L-PAG-TEM-P01              
+641000   ELSE                                                                       
+641500   IF WS-TOTAL-DEP-FEC(1)           = 0                                       
+642000      PERFORM 00000000-ESC-VACIO                                              
+642500      MOVE 31 TO WS-IND-DEPU                                                  
+643000   ELSE                                                                       
+643500   IF WS-TOTAL-DEP-FEC(WS-IND-DEPU) = 0                                       
+644000      MOVE 31 TO WS-IND-DEPU.                                                 
+644500                                                                              
+645000   IF WS-L-PAG-TEM-P01 > WS-L-PAG-P01 - 3                                     
+645500      PERFORM 20000021-ESC-ENC-REP01.                                         
+646000                                                                              
+646500*====================                                                         
+647000 20000030-LEE-ARCHSDOS.                                                       
+647500*====================                                                         
+648000                                                                              
+648500   READ I01-ARCSDOS AT END MOVE 1 TO WS-I01-FIN-ARCH.                         
+649000                                                                              
+649500*====================                                                         
+650000 20000031-PROCESA-ARCHSDOS.                                                   
+650500*====================                                                         
+651000                                                                              
+651500   PERFORM 20000030-LEE-ARCHSDOS    .                                         
+652000   MOVE I01-R-TIP-REG TO WS-TIPO-REG.                                         
+652500                                                                              
+653000   IF WS-L-PAG-TEM-P01 > WS-L-PAG-P01                                         
+653500      PERFORM 20000021-ESC-ENC-REP01                                          
+654000   ELSE                                                                       
+654500   IF WS-TIPO-REG NOT = WS-TIPO-REG-ANT                                       
+655000      PERFORM 20000023-MUEVE-TOT-REP01                                        
+655500      PERFORM 20000021-ESC-ENC-REP01.                                         
+656000                                                                              
+656500   IF WS-I01-FIN-ARCH = 0                                                     
+657000      PERFORM 20000024-ESC-DET-REP01.                                         
+657002                                                                              
+657004*========================                                                     
+657006 20000123-ESCRIBE-DET-B57.                                                    
+657008*========================                                                     
+657010   MOVE 0               TO I01-R-SUC-TRANS, WS-TERMINA                        
+657012   MOVE 70              TO WS-CONT-LIN                                        
+657014   SET  S500B57PANTASUC TO BEGINNING                                          
+657016   PERFORM 90000057-B57PANTASUC-FINDN                                         
+657018                                                                              
+657020   IF WS-DB-NOTFOUND                                                          
+657022      MOVE "         SIRH EN S500B57PANTASUC        "                         
+657024                                                TO WS-ENC3-MC-TIT             
+657026      PERFORM 20000123-ESCRIBE-ENC1                                           
+657028      MOVE "  SIN INFORMACION EN S500B57PANTASUC."                            
+657030              TO WS-EN4-MC-LEYENDA                                            
+657032      WRITE P01-R-ARCMAKRCHECK FROM WS-EN4-MC-LEYENDA                         
+657034                                    AFTER 2 LINE                              
+657036   ELSE                                                                       
+657038                                                                              
+657040     PERFORM 20000123-ESCRIBE-B57 UNTIL WS-TERMINA = 1.                       
+657042                                                                              
+657044*========================                                                     
+657046 20000123-ESCRIBE-B57.                                                        
+657048*========================                                                     
+657050   IF WS-DB-NOTFOUND                                                          
+657052      MOVE 1 TO WS-TERMINA                                                    
+657054   ELSE                                                                       
+657056   IF WS-DB-ERROR                                                             
+657058      PERFORM 00000000-ERR-DB                                                 
+657060   ELSE                                                                       
+657062       PERFORM 20000123-ESCRIBE-DET-B57-1.                                    
+657064   PERFORM 90000057-B57PANTASUC-FINDN.                                        
+657082                                                                              
+657084*========================                                                     
+657086 20000123-ESCRIBE-DET-B57-1.                                                  
+657088*========================                                                     
+657090    IF WS-CONT-LIN > WS-MAX-LIN                                               
+657092        PERFORM 20000123-ESCRIBE-ENCABEZADOS1.                                
+657094                                                                              
+657096    MOVE SPACES          TO P01-R-ARCMAKRCHECK                                
+657098    MOVE B57-SIRH-MAKER  TO WS-DT-B57-SIRH                                    
+657100    MOVE B57-NUM-PANT    TO WS-DT-B57-NUM-P                                   
+657102    MOVE B57-IND-ACTIVA  TO WS-DT-B57-STATUS                                  
+657104                                                                              
+657106    IF B57-FEC-ALTA = 0                                                       
+657108       MOVE "----/--/--" TO WS-DT-B57-FEC-A                                   
+657110    ELSE                                                                      
+657112       MOVE B57-FEC-ALTA TO WS-FEC-B57                                        
+657114       STRING WS-FEC1-SS WS-FEC1-AA"/"WS-FEC1-MM"/"WS-FEC1-DD                 
+657116       DELIMITED BY SIZE INTO WS-DT-B57-FEC-A.                                
+657118                                                                              
+657120    IF B57-FEC-BAJA = 0                                                       
+657122       MOVE "----/--/--" TO WS-DT-B57-FEC-B                                   
+657124    ELSE                                                                      
+657126       MOVE B57-FEC-BAJA TO WS-FEC-B57                                        
+657128       STRING WS-FEC1-SS WS-FEC1-AA"/"WS-FEC1-MM"/"WS-FEC1-DD                 
+657130       DELIMITED BY SIZE INTO WS-DT-B57-FEC-B.                                
+657132                                                                              
+657134    WRITE P01-R-ARCMAKRCHECK FROM                                             
+657136                              WS-DETA-MAKERCHECK-B57 AFTER 1 LINE.            
+657138                                                                              
+657140                                                                              
+657142*========================                                                     
+657144  20000120-GENERA-REPORTE.                                                    
+657146*========================                                                     
+657148   PERFORM 20000121-INCIO-REPORTE.                                            
+657150   PERFORM 20000122-PROCESO-ARCMAKRCHECK.                                     
+657152   PERFORM 20000123-FIN-REPORTE.                                              
+657154                                                                              
+657156*========================                                                     
+657158 20000121-INCIO-REPORTE.                                                      
+657160*========================                                                     
+657162   PERFORM 20000121-ATRI-ARCMAKRCHECK                                         
+657164   PERFORM 50000002-CALCULA-ESPACIO                                           
+657166   PERFORM 20000120-SORT-ARCHTEMP                                             
+657168   PERFORM 20000120-LEE-ARCTEMP                                               
+657170   MOVE I01-R-SUC-TRANS      TO WS-SUC-ANT                                    
+657172   MOVE 70                   TO WS-CONT-LIN                                   
+657174   MOVE ATTRIBUTE LASTRECORD OF                                               
+657176                               I01-ARCMAKRCHECK TO WS-I02-LASTREC.            
+657178                                                                              
+657180*========================                                                     
+657182 20000121-ATRI-ARCMAKRCHECK.                                                  
+657184*========================                                                     
+657186   OPEN INPUT I01-ARCMAKRCHECK                                                
+657188   MOVE 0  TO WS-FRAMESIZE                                                    
+657190              WS-LASTRECORD                                                   
+657192              WS-MAXRECSIZE                                                   
+657194              WS-DISK-SIZE                                                    
+657196              WS-MEMORY-SIZE                                                  
+657198              WS-MEMORY-65K                                                   
+657200              WS-CALC-WORD                                                    
+657202              WS-CALC-WORD-RED .                                              
+657204                                                                              
+657206   COMPUTE WS-FRAMESIZE =ATTRIBUTE FRAMESIZE  OF I01-ARCMAKRCHECK             
+657208   COMPUTE WS-MAXRECSIZE=ATTRIBUTE MAXRECSIZE OF I01-ARCMAKRCHECK             
+657210   COMPUTE WS-LASTRECORD=ATTRIBUTE LASTRECORD OF I01-ARCMAKRCHECK             
+657212   COMPUTE WS-LASTRECORD= WS-LASTRECORD + 1                                   
+657214   CLOSE I01-ARCMAKRCHECK WITH RELEASE                           .            
+657216                                                                              
+657218*========================                                                     
+657220 20000120-SORT-ARCHTEMP.                                                      
+657222*========================                                                     
+657224   SORT S01-ARCMAKRCHECK ON ASCENDING KEY S01-SUC-TRANS,                      
+657226                                          S01-EST-TRAN                        
+657228        USING  I01-ARCMAKRCHECK  RELEASE                                      
+657230        GIVING I01-ARCMAKRCHECK  SAVE                                         
+657232        MEMORY SIZE IS WS-MEMORY-SIZE WORDS                                   
+657234        DISK   SIZE IS WS-DISK-SIZE   WORDS                                   
+657236   OPEN INPUT I01-ARCMAKRCHECK                                                
+657238   MOVE 0 TO WS-I01-FIN-ARCH.                                                 
+657240                                                                              
+657242*========================                                                     
+657244 20000122-PROCESO-ARCMAKRCHECK.                                               
+657246*========================                                                     
+657248   IF WS-I02-LASTREC < 0                                                      
+657250      MOVE "REPORTE DE MOVIMIENTOS  S500B56MAKERCHEK" TO                      
+657252                                                   WS-ENC3-MC-TIT             
+657254      PERFORM 20000123-ESCRIBE-ENC1                                           
+657256      PERFORM 20000123-LEYENDA-SIN-INFO                                       
+657258   ELSE                                                                       
+657260      PERFORM 20000123-ESCRIBE-DET-B56 UNTIL WS-I01-FIN-ARCH=1                
+657262      PERFORM 20000123-CORTE-X-SIRH.                                          
+657264   PERFORM 20000123-ESCRIBE-DET-B57.                                          
+657266                                                                              
+657268*========================                                                     
+657270 20000123-FIN-REPORTE.                                                        
+657272*========================                                                     
+657274   IF ATTRIBUTE OPEN OF I01-ARCMAKRCHECK = VALUE TRUE                         
+657276      CLOSE I01-ARCMAKRCHECK PURGE.                                           
+657278   IF ATTRIBUTE OPEN OF P01-ARCMAKRCHECK = VALUE TRUE                         
+657280      CLOSE P01-ARCMAKRCHECK WITH SAVE.                                       
+657282                                                                              
+657284*========================                                                     
+657286 20000123-ESCRIBE-ENC1.                                                       
+657288*========================                                                     
+657290   PERFORM 40000001-HORA                                                      
+657292   MOVE WS-FECHA2-AAAA TO WS-EN2-MC-AAAA, WS-EN1-MC-AAAA                      
+657294   MOVE WS-FECHA2-MM   TO WS-EN2-MC-MM  , WS-EN1-MC-MM                        
+657296   MOVE WS-FECHA2-DD   TO WS-EN2-MC-DD  , WS-EN1-MC-DD                        
+657298   MOVE WS-HORA-MAQ-HH TO WS-EN3-MC-HH                                        
+657300   MOVE WS-HORA-MAQ-MM TO WS-EN3-MC-MN                                        
+657302   MOVE WS-HORA-MAQ-SS TO WS-EN3-MC-SS                                        
+657304   MOVE "TRANSACCIONES PROCESADAS MAKER/CHECKER"   TO                         
+657306                                                WS-EN2-MC-LEYENDA             
+657308   IF WS-EN3-MC-HOJA > 0                                                      
+657310      MOVE SPACES              TO P01-R-ARCMAKRCHECK                          
+657312      WRITE P01-R-ARCMAKRCHECK FROM WS-1X-LINEA AFTER 1 LINE.                 
+657316   ADD   1     TO WS-EN3-MC-HOJA                                              
+657318   WRITE P01-R-ARCMAKRCHECK FROM WS-ENC1-MAKERCHECK AFTER   PAGE              
+657320   WRITE P01-R-ARCMAKRCHECK FROM WS-ENC2-MAKERCHECK AFTER 1 LINE              
+657322   WRITE P01-R-ARCMAKRCHECK FROM WS-ENC3-MAKERCHECK AFTER 1 LINE              
+657324   MOVE 4 TO WS-CONT-LIN.                                                     
+657326                                                                              
+657328*========================                                                     
+657330 20000123-LEYENDA-SIN-INFO.                                                   
+657332*========================                                                     
+657334   MOVE SPACES TO P01-R-ARCMAKRCHECK                                          
+657336   MOVE "  SIN INFORMACION EN S500B56MAKERCHEK." TO                           
+657338                                                 WS-EN4-MC-LEYENDA            
+657340   WRITE P01-R-ARCMAKRCHECK FROM WS-ENC4-MAKERCHECK AFTER 2 LINE.             
+657342                                                                              
+657344*========================                                                     
+657346 20000123-ESCRIBE-ENCABEZADOS.                                                
+657348*========================                                                     
+657350   MOVE "REPORTE DE MOVIMIENTOS  S500B56MAKERCHEK" TO                         
+657352                                                   WS-ENC3-MC-TIT             
+657354   PERFORM 20000123-ESCRIBE-ENC1                                              
+657356   PERFORM 20000123-ESCRIBE-ENC2.                                             
+657358                                                                              
+657360*========================                                                     
+657362 20000123-ESCRIBE-ENCABEZADOS1.                                               
+657364*========================                                                     
+657366   MOVE "         SIRH EN S500B57PANTASUC        "                            
+657368                                                 TO WS-ENC3-MC-TIT            
+657370   PERFORM 20000123-ESCRIBE-ENC1                                              
+657372   PERFORM 20000123-ESCRIBE-ENC3.                                             
+657374                                                                              
+657376*========================                                                     
+657378 20000123-ESCRIBE-ENC2.                                                       
+657380*========================                                                     
+657382   MOVE SPACES                 TO P01-R-ARCMAKRCHECK                          
+657384   STRING  "  SIRH: #" I01-R-SUC-TRANS                                        
+657386                          DELIMITED BY SIZE INTO WS-EN4-MC-LEYENDA            
+657388   WRITE P01-R-ARCMAKRCHECK FROM WS-ENC4-MAKERCHECK AFTER 2 LINE              
+657390   WRITE P01-R-ARCMAKRCHECK FROM WS-ENC5-MAKERCHECK AFTER 2 LINE              
+657392   ADD 4 TO WS-CONT-LIN.                                                      
+657394                                                                              
+657396*========================                                                     
+657398 20000123-ESCRIBE-ENC3.                                                       
+657400*========================                                                     
+657402   WRITE P01-R-ARCMAKRCHECK FROM WS-ENC6-MAKERCHECK AFTER 2 LINE              
+657404   ADD 2 TO WS-CONT-LIN.                                                      
+657406                                                                              
+657408*========================                                                     
+657410 20000123-ESCRIBE-DET-B56.                                                    
+657412*========================                                                     
+657414   PERFORM 20000123-VALIDA-CORTE                                              
+657416   IF WS-CONT-LIN > WS-MAX-LIN                                                
+657418      PERFORM 20000123-ESCRIBE-ENCABEZADOS.                                   
+657420   PERFORM 20000123-ESCRIBE-DETALLE                                           
+657422   PERFORM 20000120-LEE-ARCTEMP.                                              
+657424                                                                              
+657426*========================                                                     
+657428 20000123-ESCRIBE-DETALLE.                                                    
+657430*========================                                                     
+657432   MOVE SPACES              TO P01-R-ARCMAKRCHECK                             
+657434   MOVE I01-R-CLA-TRANS     TO WS-DT-CLAVE                                    
+657436   MOVE I01-R-NUM-CONTRATO  TO WS-DT-CTO                                      
+657438   MOVE I01-R-SUC-PROMOTORA TO WS-DT-SUCPROM                                  
+657440   MOVE I01-R-NUM-AUT       TO WS-DT-AUT                                      
+657442   MOVE I01-R-IMPORTE-OPER  TO WS-DT-IMP                                      
+657444   MOVE I01-R-NOM-OPE       TO WS-DT-MAKER                                    
+657446   MOVE I01-R-NOM-CHE       TO WS-DT-CHECKER                                  
+657448   MOVE I01-R-NUM-INT       TO WS-DT-NUM-INT                                  
+657450   MOVE I01-R-MDA           TO WS-DT-MDA                                      
+657452   MOVE I01-R-HRA-TRAN      TO WS-HORA-B56                                    
+657454   STRING WS-B56-HH":"WS-B56-MM":"WS-B56-SS                                   
+657456                            DELIMITED BY SIZE INTO WS-DT-HORA                 
+657458                                                                              
+657460   PERFORM 20000123-CONT-STATUS-MOVS                                          
+657462   PERFORM 20000123-ASIGNA-MONEDA-MOV                                         
+657464   WRITE P01-R-ARCMAKRCHECK FROM WS-DETA-MAKERCHECK AFTER 1 LINE              
+657466   ADD 1 TO WS-CONT-LIN.                                                      
+657468                                                                              
+657470*========================                                                     
+657472 20000123-CONT-STATUS-MOVS.                                                   
+657474*========================                                                     
+657476   ADD                  1    TO WS-CONT-LEIDOS                                
+657478   IF I01-R-EST-TRAN = 2                                                      
+657480      MOVE "FINALIZADO"      TO WS-DT-STATUS                                  
+657482      ADD            1       TO WS-CONT-FINALIZADOS                           
+657484      ADD I01-R-IMPORTE-OPER TO WS-ACUM-IMP-TOTAL                             
+657486   ELSE                                                                       
+657488   IF I01-R-EST-TRAN = 1                                                      
+657490      MOVE "EN PROCESO"      TO WS-DT-STATUS                                  
+657492      ADD            1       TO WS-CONT-PROCESO.                              
+657494                                                                              
+657496*========================                                                     
+657498 20000123-ASIGNA-MONEDA-MOV.                                                  
+657500*========================                                                     
+657502   IF I01-R-MONEDA =  01                                                      
+657504      MOVE "MN" TO WS-DT-MON                                                  
+657506   ELSE                                                                       
+657508   IF I01-R-MONEDA =  05                                                      
+657510      MOVE "DL" TO WS-DT-MON                                                  
+657512   ELSE                                                                       
+657514      MOVE "--" TO WS-DT-MON.                                                 
+657516                                                                              
+657518*========================                                                     
+657520 20000123-VALIDA-CORTE.                                                       
+657522*========================                                                     
+657524   IF I01-R-SUC-TRANS NOT = WS-SUC-ANT                                        
+657526      PERFORM 20000123-ESCRIBE-CORTE                                          
+657528      MOVE I01-R-SUC-TRANS  TO WS-SUC-ANT                                     
+657530      PERFORM 20000123-ESCRIBE-ENCABEZADOS.                                   
+657532                                                                              
+657534*========================                                                     
+657536 20000123-ESCRIBE-CORTE.                                                      
+657538*========================                                                     
+657540   IF(WS-CONT-LIN + 7) > WS-MAX-LIN                                           
+657542      PERFORM 20000123-ESCRIBE-ENCABEZADOS.                                   
+657544   PERFORM 20000123-CORTE-X-SIRH.                                             
+657546                                                                              
+657548*========================                                                     
+657550 20000123-CORTE-X-SIRH.                                                       
+657552*========================                                                     
+657554   WRITE P01-R-ARCMAKRCHECK FROM                                              
+657556                                WS-TOTALES-MAKERCHECK AFTER 2 LINE            
+657558                                                                              
+657560   MOVE SPACES             TO WS-TOTA-DETA-MAKERCHECK                         
+657562   MOVE "MOVS.LEIDOS    :" TO WS-TOT1-DT-LEYENDA                              
+657564   MOVE WS-CONT-LEIDOS     TO WS-TOT1-DT-VALUE                                
+657566   WRITE P01-R-ARCMAKRCHECK FROM                                              
+657568                              WS-TOTA-DETA-MAKERCHECK AFTER 1 LINE            
+657570                                                                              
+657572   MOVE SPACES              TO WS-TOTA-DETA-MAKERCHECK                        
+657574   MOVE "MOVS.FINALIZADO:"  TO WS-TOT1-DT-LEYENDA                             
+657576   MOVE WS-CONT-FINALIZADOS TO WS-TOT1-DT-VALUE                               
+657578   WRITE P01-R-ARCMAKRCHECK FROM                                              
+657580   WS-TOTA-DETA-MAKERCHECK  AFTER 1 LINE.                                     
+657582                                                                              
+657584   MOVE SPACES             TO WS-TOTA-DETA-MAKERCHECK                         
+657586   MOVE "MOVS.EN PROCESO:" TO WS-TOT1-DT-LEYENDA                              
+657588   MOVE WS-CONT-PROCESO    TO WS-TOT1-DT-VALUE                                
+657590   WRITE P01-R-ARCMAKRCHECK FROM                                              
+657592                              WS-TOTA-DETA-MAKERCHECK AFTER 1 LINE            
+657594                                                                              
+657596   MOVE SPACES             TO WS-TOTA-DETA-MAKERCHECK                         
+657598   MOVE "IMP.MOVS.FIN   :" TO WS-TOT-DT-MV-LEYENDA                            
+657600   MOVE WS-ACUM-IMP-TOTAL  TO WS-TOT-DT-MV-VALUE                              
+657602   WRITE P01-R-ARCMAKRCHECK FROM                                              
+657604                              WS-TOTA-MOVS-MAKERCHECK AFTER 1 LINE            
+657606   ADD      7 TO WS-CONT-LIN                                                  
+657608   MOVE ZEROS TO WS-CONT-FINALIZADOS, WS-ACUM-IMP-TOTAL                       
+657610                 WS-CONT-PROCESO    , WS-CONT-LEIDOS.                         
+657612                                                                              
+657614*========================                                                     
+657616  20000120-LEE-ARCTEMP.                                                       
+657618*========================                                                     
+657620   READ I01-ARCMAKRCHECK AT END MOVE 1 TO WS-I01-FIN-ARCH.                    
+657622                                                                              
+658000*****************************************************************             
+658500* ARCHIVO SORT TEMP                                             *             
+659000*****************************************************************             
+659500                                                                              
+660000 50000000-SORT-ARCHTEMP.                                                      
+660500*========================                                                     
+661000                                                                              
+661500   SORT S01-ARCSDOS ON ASCENDING KEY S01-TIPO-REG                             
+662000                                     S01-FEC-TRANS                            
+662500        USING  I01-ARCSDOS  RELEASE                                           
+663000        GIVING I01-ARCSDOS  SAVE                                              
+663500        MEMORY SIZE IS WS-MEMORY-SIZE WORDS                                   
+664000        DISK   SIZE IS WS-DISK-SIZE   WORDS .                                 
+664500   OPEN INPUT I01-ARCSDOS    .                                                
+665000   MOVE 0 TO WS-I01-FIN-ARCH .                                                
+665500                                                                              
+666000 50000001-ATRI-ARCSDOS.                                                       
+666500*========================                                                     
+667000                                                                              
+667500   OPEN INPUT I01-ARCSDOS.                                                    
+668000                                                                              
+668500   MOVE 0  TO WS-FRAMESIZE                                                    
+669000              WS-LASTRECORD                                                   
+669500              WS-MAXRECSIZE                                                   
+670000              WS-DISK-SIZE                                                    
+670500              WS-MEMORY-SIZE                                                  
+671000              WS-MEMORY-65K                                                   
+671500              WS-CALC-WORD                                                    
+672000              WS-CALC-WORD-RED .                                              
+672500                                                                              
+673000   COMPUTE WS-FRAMESIZE  = ATTRIBUTE FRAMESIZE  OF I01-ARCSDOS .              
+673500   COMPUTE WS-MAXRECSIZE = ATTRIBUTE MAXRECSIZE OF I01-ARCSDOS .              
+674000   COMPUTE WS-LASTRECORD = ATTRIBUTE LASTRECORD OF I01-ARCSDOS .              
+674500   COMPUTE WS-LASTRECORD = WS-LASTRECORD + 1                   .              
+675000   CLOSE I01-ARCSDOS WITH RELEASE                              .              
+675500                                                                              
+676000 50000002-CALCULA-ESPACIO.                                                    
+676500*========================                                                     
+677000                                                                              
+677500   IF WS-FRAMESIZE = 8                                                        
+678000      COMPUTE WS-CALC-WORD = WS-MAXRECSIZE / 6                                
+678500      IF WS-WORD-RES > ZEROS                                                  
+679000         COMPUTE WS-MAXRECSIZE = WS-WORD-ENT + 1                              
+679500      ELSE                                                                    
+680000         COMPUTE WS-MAXRECSIZE = WS-WORD-ENT .                                
+680500                                                                              
+681000   COMPUTE WS-MEMORY-65K = 66000 * WS-MAXRECSIZE .                            
+681500                                                                              
+682000   COMPUTE WS-MEMORY-SIZE ROUNDED                                             
+682500           = (WS-MAXRECSIZE + 3) * (WS-LASTRECORD / 16) + 1500 .              
+683000                                                                              
+683500   IF WS-MEMORY-SIZE > 258435000                                              
+684000      MOVE 258435000    TO WS-MEMORY-SIZE                                     
+684500   ELSE                                                                       
+685000   IF WS-MEMORY-SIZE < 400000                                                 
+685500      MOVE WS-MEMORY-65K TO WS-MEMORY-SIZE .                                  
+686000                                                                              
+686500   COMPUTE WS-DISK-SIZE ROUNDED                                               
+687000           =  (WS-MAXRECSIZE + 3) * WS-LASTRECORD * 3.5 .                     
+687500                                                                              
+688000*=====================                                                        
+688500 00000000-ERR-DB.                                                             
+689000*=====================                                                        
+689500                                                                              
+690000   MOVE 1      TO WS-ERR-CODE                                                 
+690500   MOVE SPACES TO WS-0101-TEXT-MSG                                            
+691000   STRING WS-TB-ERR-LIST (WS-ERR-CODE),                                       
+691500          WS-TABDB-ERROR(WS-STATUS-BASE)                                      
+692000          DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                             
+692500   PERFORM 70000050-MENSAJE.                                                  
+693000                                                                              
+693500*=====================                                                        
+694000 00000000-ESC-VACIO.                                                          
+694500*=====================                                                        
+695000                                                                              
+695500   WRITE P01-R-REPOSDOS FROM WS-NOIN-LINEA  AFTER 3.                          
+696000                                                                              
+696500*=================                                                            
+697000 00000000-ESC-FIN-REPORTE.                                                    
+697500*=================                                                            
+698000                                                                              
+698500   WRITE P01-R-REPOSDOS FROM WS-FIN-LINEA  AFTER 2.                           
+699000                                                                              
+699500*=================                                                            
+700000 00000000-ESC-1X.                                                             
+700500*=================                                                            
+701000                                                                              
+701500   WRITE P01-R-REPOSDOS FROM WS-1X-LINEA   AFTER 1.                           
+702000                                                                              
+702500*=================                                                            
+703000 30000000-FIN.                                                                
+703500*=================                                                            
+704000                                                                              
+704500   PERFORM 30000001-CIERRA-BD      .                                          
+705000   PERFORM 30000002-CLOSE-ARCH     .                                          
+705500   PERFORM 30000003-CLOSE-REP01    .                                          
+706000                                                                              
+706500*=================                                                            
+707000 30000001-CIERRA-BD.                                                          
+707500*=================                                                            
+708000                                                                              
+708500   CLOSE S500BD01CAPTACION .                                                  
+709000   CLOSE S500BD04TARJETAS  .                                                  
+709500                                                                              
+710000*=====================                                                        
+710500 30000002-CLOSE-ARCH.                                                         
+711000*=====================                                                        
+711500                                                                              
+712000   IF ATTRIBUTE OPEN OF I01-ARCSDOS = VALUE TRUE                              
+712500      CLOSE I01-ARCSDOS WITH PURGE .                                          
+713000                                                                              
+713500   IF ATTRIBUTE OPEN OF I02-ARCSDOS = VALUE TRUE                              
+714000      PERFORM 20000098-GENERA-TRL-ARCHSDOS                                    
+714500      CLOSE I02-ARCSDOS WITH SAVE                                             
+715000      WAIT(05)                                                                
+715500      MOVE ZEROES               TO WS-INTENTO-INTE WS-ARC-ENVIADO             
+716000                                   WS-REPS-INTE                               
+716500      MOVE SPACES               TO WS-ID-ARCHI                                
+717000      MOVE I02-TIT-TEMP         TO WS-ID-ARCHI                                
+717500      PERFORM 30000004-ENVIA-INTELAR UNTIL WS-INTENTO-INTE > 2                
+718000                                       OR  WS-ARC-ENVIADO  = 1.               
+718500                                                                              
+719000*=====================                                                        
+719500 30000003-CLOSE-REP01.                                                        
+720000*=====================                                                        
+720500                                                                              
+721000   IF WS-88-P-VAL-REPS AND WS-88-P-VAL-B18                                    
+721500      CLOSE P01-REPSDOS WITH SAVE.                                            
+722000                                                                              
+722500*=====================                                                        
+723000 30000004-ENVIA-INTELAR.                                                      
+723500*=====================                                                        
+724000                                                                              
+724500   CALL "INTELARSND IN ADMONXFERS" USING   WS-ID-ARCHI                        
+725000                                   GIVING  WS-REPS-INTE.                      
+725500                                                                              
+726000   IF WS-REPS-INTE > ZEROS                                                    
+726500      ADD  1 TO WS-INTENTO-INTE                                               
+727000      MOVE 0 TO WS-ARC-ENVIADO                                                
+727500      WAIT(02)                                                                
+728000      STRING "ERROR: ARCHIVO " WS-ID-ARCHI                                    
+728500             " NO ENVIADO,REALIZAR ENVIO MANUAL: " WS-REPS-INTE               
+729000             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                          
+729500   ELSE                                                                       
+730000      MOVE 1 TO WS-ARC-ENVIADO                                                
+730500      STRING "SE ENVIO: " WS-ID-ARCHI                                         
+731000             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG.                         
+731500                                                                              
+732000   PERFORM 70000050-MENSAJE.                                                  
+732500                                                                              
+733000   CANCEL "ADMONXFERS".                                                       
+733500                                                                              
+734000 40000005-FECHA.                                                              
+734500*===============                                                              
+735000                                                                              
+735500   ACCEPT WS-FECHA FROM DATE YYYYMMDD .                                       
+736000                                                                              
+736500 40000001-HORA.                                                               
+737000*==============                                                               
+737500                                                                              
+738000   ACCEPT WS-HORA-MAQ FROM TIME .                                             
+738500                                                                              
+739000 40000006-HI-ESTADISTICOS.                                                    
+739500*===========================                                                  
+740000                                                                              
+740500   STRING "EJECUTA P117 PARA ESTRUCTURA: ",                                   
+741000          WS-PARAM-VALUE-EST              ,                                   
+741500          " CON OPCION : "                ,                                   
+742000          WS-PARAM-VALUE-OPC              ,                                   
+742500          " Y CON FECHA DE EJECUCION :"   ,                                   
+743000          WS-PARAM-VALUE-FEC                                                  
+743500   DELIMITED BY SIZE INTO WS-0101-TEXT-MSG .                                  
+744000   PERFORM 70000050-MENSAJE                .                                  
+744500                                                                              
+745000   PERFORM 40000006-LECTURA-HI VARYING WS-IND-DEPU                            
+745500                               FROM    1 BY 1                                 
+746000                               UNTIL   WS-IND-DEPU > 30.                      
+746500                                                                              
+747000*===========================                                                  
+747500 40000006-LECTURA-HI.                                                         
+748000*===========================                                                  
+748500                                                                              
+749000   IF WS-TOTAL-DEP-FEC (WS-IND-DEPU)  = 0                                     
+749500      MOVE 31 TO WS-IND-DEPU                                                  
+750000      STRING "NO HAY MAS INFORMACION"                                         
+750500      DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                                 
+751000      PERFORM 70000050-MENSAJE                                                
+751500   ELSE                                                                       
+752000      STRING "FECHA DE GENERACION              : ",                           
+752500             WS-TOT-DT-LEYENDA                    ,                           
+753000             WS-TOTAL-DEP-FEC (WS-IND-DEPU)                                   
+753500      DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                                 
+754000      PERFORM 70000050-MENSAJE                                                
+754500      STRING "TOTAL DE REG LEIDOS              : ",                           
+755000             WS-TOT-DT-LEYENDA                    ,                           
+755500             WS-TOTAL-DEP-LEI (WS-IND-DEPU)                                   
+756000      DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                                 
+756500      PERFORM 70000050-MENSAJE                                                
+757000      STRING "TOTAL DE REG DEPURADOS           : ",                           
+757500             WS-TOT-DT-LEYENDA                    ,                           
+758000             WS-TOTAL-DEP-DEP (WS-IND-DEPU)                                   
+758500      DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                                 
+759000      PERFORM 70000050-MENSAJE                .                               
+759500                                                                              
+760000*****************************************************************             
+760500*                 AREA DE COPY´S                                *             
+761000*****************************************************************             
+761500                                                                              
+762000   COPY "S500/INC/PRO/25MTP005".                                              
+762500                                                                              

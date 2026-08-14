@@ -1,0 +1,538 @@
+$$SET LIST                                                              00001000          
+%$SET DMSUPDATE                                                         00002000          
+$$RESET DMCONTROL                                                       00003000          
+$$SET ZIP                                                               00004000          
+$$SET ALLINFO                                                           00005000          
+%***********************************************************************00006000          
+ UPDATE;                                                                00007000          
+%INITIALIZE;                                                            00008000          
+  DEFAULTS                                                              00009000          
+  ( CHECKSUM   = TRUE                                                   00010000          
+   ,PACK       = CMEMP                                                  00011000          
+   ,REBLOCK    = TRUE                                                   00012000          
+   ,DATA SET     (BUFFERS = 0 + 2 PER RANDOM USER OR 2 PER SERIAL USER) 00013000          
+   ,SET          (BUFFERS = 2 + 1 PER RANDOM USER OR 2 PER SERIAL USER) 00014000          
+   ,ALPHA        ( INITIALVALUE IS BLANKS)                              00015000          
+   ,NUMBER       ( INITIALVALUE IS 0)                                   00016000          
+   ,BOOLEAN      ( INITIALVALUE IS FALSE)                               00017000          
+  );                                                                    00018000          
+                                                                        00019000          
+  OPTIONS                                                               00020000          
+  ( AUDIT                                                               00021000          
+   ,INDEPENDENTTRANS                                                    00021100          
+   ,REAPPLYCOMPLETED                                                    00021200          
+   ,STATISTICS                                                          00022000          
+   ,ADDRESSCHECK                                                        00023000          
+   ,KEYCOMPARE                                                          00024000          
+%  ,NO OPEN INITIALIZE                                                  00025000          
+  );                                                                    00026000          
+                                                                        00027000          
+  PARAMETERS                                                            00028000          
+  ( SYNCPOINT         = 200 TRANSACTIONS                                00029000          
+   ,CONTROLPOINT      = 2   SYNCPOINTS                                  00030000          
+   ,SYNCWAIT          = 3600 SECONDS                                    00030100          
+   ,ALLOWEDCORE       = 500000                                          00031000          
+   ,RESIDENT LIMIT    = 100000                                          00032000          
+   ,OVERLAYGOAL       = 5                                               00033000          
+  );                                                                    00034000          
+                                                                        00035000          
+  AUDIT TRAIL (                                                         00036000          
+    AREAS         =  150                                                00037000          
+   ,AREASIZE      =  100                                                00038000          
+   ,BLOCKSIZE     = 1800                                                00039000          
+   ,UPDATE-EOF    =   50                                                00040000          
+   ,CHECKSUM      = TRUE                                                00041000          
+   ,PACK          = AUDIT                                               00042000          
+   ,QUICKCOPY APPEND MAXFILESPERTAPE = 1 TO TAPESET 1 TIMES             00043000          
+    FORWARD COMPARE                                                     00044000          
+    AND REMOVE                                                          00045000          
+    JOB *DATABASE/WFL/COPYAUDIT ON PACK                                 00046000          
+              );                                                        00047000          
+                                                                        00048000          
+  CONTROL FILE (PACK = CMEMP, USERCODE = S151 );                        00049000          
+                                                                        00050000          
+  ACCESSROUTINES =*SYSTEM/ACCESSROUTINES                     ON PACK;   00051000          
+                                                                        00052000          
+  DMSUPPORT      = (S151)DMSUPPORT/S151BD99CONTROL/23MTP001  ON CMEMP;  00053000          
+                                                                        00054000          
+  RECOVERY       =*SYSTEM/DMRECOVERY                         ON PACK;   00055000          
+                                                                        00056000          
+  DATARECOVERY   =*SYSTEM/DMDATARECOVERY                     ON PACK;   00057000          
+                                                                        00058000          
+  RECONSTRUCT    = (S151)RECONSTRUCT/S151BD99CONTROL/23MTP001 ON CMEMP; 00059000          
+                                                                        00060000          
+                                                                        00061000          
+%***********************************************************************00062000          
+$PAGE                                                                   00063000          
+%***********************************************************************00064000          
+%                 D A T O S       G L O B A L E S    PREFIJO = GLOB     00065000          
+%***********************************************************************00066000          
+ B00-GLO-CSI           "CSI DONDE CORRE SISTEMA  "     NUMBER (02);     00067000          
+ B00-GLO-STAPROC       "0 = NORMAL, 1=REINICIO   "     NUMBER (02);     00068000          
+%B00-GLO-FECPROC       "FECHA PROCESO "                NUMBER (06);     00069000          
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00069001          
+ B00-GLO-FECPROC       "FECHA PROCESO "                NUMBER (08);     00069002          
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00069003          
+%B00-GLO-FECOPER       "FECHA OPERACION "              NUMBER (06);     00070000          
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00070001          
+ B00-GLO-FECOPER       "FECHA OPERACION "              NUMBER (08);     00070002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00070003CRONOS2K  
+%B00-GLO-FECULTACT     "FECHA DE ULTIMA ACTUALIZACION" NUMBER (06);     00071000CRONOS2K  
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00071001CRONOS2K  
+ B00-GLO-FECULTACT     "FECHA DE ULTIMA ACTUALIZACION" NUMBER (08);     00071002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00071003CRONOS2K  
+ B00-GLO-CONTROL1      "NUMERO DE CONTROL "            NUMBER (06);     00072000          
+ B00-GLO-DIREC         GROUP                                            00073000          
+(B00-GLO-SISTEMA       "NUMERO DE SISTEMA"             NUMBER (04);     00074000          
+ B00-GLO-STATUS        "STATUS 1=APLICADO,0=NO APLIC." NUMBER (02);     00075000          
+%B00-GLO-FEC-SIST      "FECHA DE ACT. POR SISTEMA    " NUMBER (06);     00076000CRONOS2K  
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00076001CRONOS2K  
+ B00-GLO-FEC-SIST      "FECHA DE ACT. POR SISTEMA    " NUMBER (08);     00076002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00076003CRONOS2K  
+ B00-GLO-STATSIST      "STATUS SISTEMA               " NUMBER (02);     00077000          
+     )                                                 OCCURS 20 TIMES; 00078000          
+$PAGE                                                                   00079000          
+%***********************************************************************00080000          
+ S151B01SISDIA              DATA SET        % PREFIJO B01               00081000          
+%***********************************************************************00082000          
+ (B01-SIS-SISTEMA     "NUMERO DE SISTEMA             " NUMBER (04);     00083000          
+  B01-SIS-CSI         "NUMERO DE CSI DEL SISTEMA     " NUMBER (02);     00084000          
+% B01-SIS-FECPRO      "FECHA DE PROCESO APLICACION   " NUMBER (06);     00085000CRONOS2K  
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00085001CRONOS2K  
+  B01-SIS-FECPRO      "FECHA DE PROCESO APLICACION   " NUMBER (08);     00085002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00085003CRONOS2K  
+% B01-SIS-FECCON      "FECHA DE CONSULTA             " NUMBER (06);     00086000CRONOS2K  
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00086001CRONOS2K  
+  B01-SIS-FECCON      "FECHA DE CONSULTA             " NUMBER (08);     00086002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00086003CRONOS2K  
+% B01-SIS-FECPRO151   "FECHA DE PROCESO DEL S151     " NUMBER (06);     00087000CRONOS2K  
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00087001CRONOS2K  
+  B01-SIS-FECPRO151   "FECHA DE PROCESO DEL S151     " NUMBER (08);     00087002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00087003CRONOS2K  
+  B01-SIS-STAREG      "STATUS DEL REGISTRO           " NUMBER (02);     00088000          
+  B01-SIS-NOMARCSAL   "NOMBRE DE ARCHIVO SDO DIARIO  " ALPHA  (34);     00089000          
+  B01-SIS-NOMPACSAL   "NOMBRE DEL PACK PARA ARCH SDOS" ALPHA  (17);     00090000          
+  B01-SIS-NOMARCMOV   "NOMBRE DE ARCHIVO MOV DIARIO  " ALPHA  (34);     00091000          
+  B01-SIS-NOMPACMOV   "NOMBRE DEL PACK PARA ARCH MOVS" ALPHA  (17);     00092000          
+  B01-SIS-NOMARCDES   "NOMBRE DE ARCHIVO DES DIARIO  " ALPHA  (34);     00093000          
+  B01-SIS-NOMPACDES   "NOMBRE DEL PACK PARA ARCH DESC" ALPHA  (17);     00094000          
+  B01-SIS-NOMARCERR   "NOMBRE DE ARCHIVO ERR DIARIO  " ALPHA  (34);     00095000          
+  B01-SIS-NOMPACERR   "NOMBRE DEL PACK PARA ARCH ERR." ALPHA  (17);     00096000          
+  B01-SIS-NOMBDSEM    "NOMBRE DE LA BASE SEMANAL     " ALPHA  (17);     00097000          
+  B01-SIS-STABDSEM    "STATUS BASE SEMANAL           " NUMBER (02);     00098000          
+  B01-SIS-NUMARC      "NUMERO DE ARCHIVO             " NUMBER (02);     00099000          
+  B01-SIS-3ERNIV      "PUNTEO CON TERCER NIVEL       " NUMBER (02);     00100000          
+  B01-SIS-CTL-DIA                              GROUP OCCURS 10 TIMES    00101000          
+%(B01-SIS-FECARCMOV   "FECHA DE ARCHIVO LOG          " NUMBER (06);     00102000CRONOS2K  
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00102001CRONOS2K  
+ (B01-SIS-FECARCMOV   "FECHA DE ARCHIVO LOG          " NUMBER (08);     00102002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00102003CRONOS2K  
+  B01-SIS-NIVARCMOV   "NIVEL DEL ARCHIVO DIARIO MOVTO" NUMBER (08);     00103000          
+  B01-SIS-NIVBDSEM    "NIVEL DE LA B.D. MOVTO DIARIO " NUMBER (08);     00104000          
+  B01-SIS-STAARCHLOG  "STATUS DE ARCHIVO LOG         " NUMBER (02);     00105000          
+ );                                                                     00106000          
+                                                                        00107000          
+ )                                                                      00108000          
+ , POPULATION    = 999                                                  00109000          
+ ;                                                                      00110000          
+%********************************************************************** 00111000          
+ B01SXSISDIA               SET OF S151B01SISDIA                         00112000          
+%********************************************************************** 00113000          
+ KEY IS (B01-SIS-SISTEMA,                                               00114000          
+         B01-SIS-CSI)                                                   00115000          
+ ,NO DUPLICATES                                                         00116000          
+ ,INDEX SEQUENTIAL                                                      00117000          
+ ;                                                                      00118000          
+$PAGE                                                                   00119000          
+%***********************************************************************00120000          
+ S151B02ARCINTER            DATA SET        % PREFIJO B02               00121000          
+%***********************************************************************00122000          
+ (B02-SIS-SISTEMA     "NUMERO DE SISTEMA             " NUMBER (04);     00123000          
+  B02-SIS-NOMARC028   "NOMBRE DE ARCHIVO 028 DIARIO  " ALPHA  (34);     00124000          
+  B02-SIS-NOMPAC028   "NOMBRE DEL PACK PARA ARCH S028" ALPHA  (17);     00125000          
+  B02-SIS-NOMARC250   "NOMBRE DE ARCHIVO 250 DIARIO  " ALPHA  (34);     00126000          
+  B02-SIS-NOMPAC250   "NOMBRE DEL PACK PARA ARCH S250" ALPHA  (17);     00127000          
+  B02-SIS-NOMARC030   "NOMBRE DE ARCHIVO 030 DIARIO  " ALPHA  (34);     00128000          
+  B02-SIS-NOMPAC030   "NOMBRE DEL PACK PARA ARCH S030" ALPHA  (17);     00129000          
+  B02-SIS-NOMARC015   "NOMBRE DE ARCHIVO 015 DIARIO  " ALPHA  (34);     00130000          
+  B02-SIS-NOMPAC015   "NOMBRE DEL PACK PARA ARCH S015" ALPHA  (17);     00131000          
+  B02-SIS-NOMARC050S  "NOMBRE DE ARCHIVO 050 SALDOS  " ALPHA  (34);     00132000          
+  B02-SIS-NOMPAC050S  "NOMBRE DEL PACK PARA 050 SDOS." ALPHA  (17);     00133000          
+  B02-SIS-NOMARC050M  "NOMBRE DE ARCHIVO 050 MOVTOS. " ALPHA  (34);     00134000          
+  B02-SIS-NOMPAC050M  "NOMBRE DEL PACK PARA 050 MOVS." ALPHA  (17);     00135000          
+  B02-SIS-NOMARC253   "NOMBRE DE ARCHIVO PUNTEO S253 " ALPHA  (34);     00136000          
+  B02-SIS-NOMPAC253   "NOMBRE DEL PACK PARA ARCH S253" ALPHA  (17);     00137000          
+  B02-SIS-NOMARC264   "NOMBRE DE ARCHIVO 264 DIARIO  " ALPHA  (34);     00138000          
+  B02-SIS-NOMPAC264   "NOMBRE DEL PACK PARA ARCH S264" ALPHA  (17);     00139000          
+  B02-SIS-NOMARC275S  "NOMBRE DE ARCHIVO SDOS S275   " ALPHA  (34);     00140000          
+  B02-SIS-NOMPAC275S  "NOMBRE DEL PACK PARA SDOS S275" ALPHA  (17);     00141000          
+  B02-SIS-NOMARC275M  "NOMBRE DE ARCHIVO MOVS S275   " ALPHA  (34);     00142000          
+  B02-SIS-NOMPAC275M  "NOMBRE DEL PACK PARA MOVS S275" ALPHA  (17);     00143000          
+  B02-SIS-NOMARCSIG   "NOMBRE DE ARCHIVO SIG DIARIO  " ALPHA  (34);     00144000          
+  B02-SIS-NOMPACSIG   "NOMBRE DEL PACK PARA ARCH SSIG" ALPHA  (17);     00145000          
+  B02-SIS-NOMARC750   "NOMBRE DE ARCHIVO 750 DIARIO  " ALPHA  (34);     00146000          
+  B02-SIS-NOMPAC750   "NOMBRE DEL PACK PARA ARCH S750" ALPHA  (17);     00147000          
+  B02-SIS-NOMARC136   "NOMBRE DE ARCHIVO 136 DIARIO  " ALPHA  (34);     00148000          
+  B02-SIS-NOMPAC136   "NOMBRE DEL PACK PARA 136 DIA  " ALPHA  (17);     00149000          
+                                                                        00150000          
+ )                                                                      00151000          
+ , POPULATION    = 999                                                  00152000          
+ ;                                                                      00153000          
+%********************************************************************** 00154000          
+ B02SXARCINTER             SET OF  S151B02ARCINTER                      00155000          
+%********************************************************************** 00156000          
+ KEY IS (B02-SIS-SISTEMA)                                               00157000          
+ ,NO DUPLICATES                                                         00158000          
+ ,INDEX SEQUENTIAL                                                      00159000          
+ ;                                                                      00160000          
+$PAGE                                                                   00161000          
+%***********************************************************************00162000          
+ S151B03SISMEN              DATA SET        % PREFIJO B03               00163000          
+%***********************************************************************00164000          
+                                                                        00165000          
+ (B03-SIS-SISTEMA     "NUMERO DE SISTEMA             " NUMBER  (04);    00166000          
+  B03-SIS-MODSIS      "MODO DE TRABAJO DEL SISTEMA   " NUMBER  (02);    00167000          
+  B03-SIS-RESCSI      "RESIDENCIA DEL SISTEMA        " NUMBER  (02);    00168000          
+  B03-SIS-TIPBD       "BD A UTILIZAR EJ.1=S/C/H      " NUMBER  (02);    00169000          
+  B03-SIS-NUMCICDIA   "NUM. CICLOS P/SDOS/MOVS DIARIO" NUMBER  (04);    00170000          
+  B03-SIS-NUMCICMES   "NUM. CICLOS P/SDOS/MOVS MENSUA" NUMBER  (04);    00171000          
+  B03-SIS-NOMBDSAL    "NOMBRE DE LA BASE DE SALDOS   " ALPHA   (17);    00172000          
+  B03-SIS-STABDSAL    "STATUS DE LA BASE DE SALDOS   " NUMBER  (02);    00173000          
+  B03-SIS-NOMBDMOVHI  "NOMBRE BD MOVTOS HISTORICA    " ALPHA   (17);    00174000          
+  B03-SIS-SECOKHI     "NUM. DE REGISTROS X LOG       " NUMBER  (10);    00175000          
+  B03-SIS-SECINFHI    "SEC. GRABACION MOV HIS INF    " NUMBER  (10);    00176000          
+  B03-SIS-SECERRHI    "SEC. GRABACION MOV HIS ERR    " NUMBER  (10);    00177000          
+  B03-SIS-STABDMOVHI  "STATUS DE LA BASE MOV HISTORIC" NUMBER  (02);    00178000          
+                                                                        00179000          
+  B03-SIS-CTL-MEN GROUP OCCURS 500 TIMES DEPENDING ON B03-SIS-NUMCICDIA 00180000          
+ (B03-SIS-NOMBDMOV    "NOMBRE BD ACUMULADO DE MOVTOS " ALPHA   (17);    00181000          
+  B03-SIS-NUMBDMOV    "NUMERO DE LA BASE DE DATOS    " NUMBER  (02);    00182000          
+% B03-SIS-AAMM        "ANO Y MES DE LA BASE          " NUMBER  (04);    00183000CRONOS2K  
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00183001CRONOS2K  
+  B03-SIS-AAMM        "ANO Y MES DE LA BASE          " NUMBER  (06);    00183002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00183003CRONOS2K  
+  B03-SIS-SECOK       "SECUNCIAL DE GRABACION MOV OK " NUMBER  (10);    00184000          
+  B03-SIS-SECINF      "SECUNCIAL DE GRABACION MOV INF" NUMBER  (10);    00185000          
+  B03-SIS-SECERR      "SECUNCIAL DE GRABACION MOV ERR" NUMBER  (10);    00186000          
+  B03-SIS-STABDMOV    "STATUS DE LA BASE             " NUMBER  (02);    00187000          
+ );                                                                     00188000          
+ )                                                                      00189000          
+ , POPULATION    = 999                                                  00190000          
+ ;                                                                      00191000          
+%********************************************************************** 00192000          
+ B03SXSISMEN               SET OF S151B03SISMEN                         00193000          
+%********************************************************************** 00194000          
+ KEY IS (B03-SIS-SISTEMA)                                               00195000          
+ ,NO DUPLICATES                                                         00196000          
+ ,INDEX SEQUENTIAL                                                      00197000          
+ ;                                                                      00198000          
+$PAGE                                                                   00199000          
+%***********************************************************************00200000          
+ S151B04SISTEM               DATA SET        % PREFIJO B04              00201000          
+%***********************************************************************00202000          
+ (B04-SIS-SISTEMA     "NUMERO DE SISTEMA             " NUMBER  (04);    00203000          
+  B04-SIS-PROD        "NUMERO DE PRODUCTO            " NUMBER  (04);    00204000          
+  B04-SIS-INST        "NUMERO DE INSTRUMENTO         " NUMBER  (04);    00205000          
+  B04-SIS-NOMCOR      "NOMBRE CORTO DEL SIS/PROD/INST" ALPHA   (20);    00206000          
+  B04-SIS-NOMLAR      "NOMBRE LARGO DEL SIS/PROD/INST" ALPHA   (40);    00207000          
+  B04-SIS-STATUS      "STATUS                        " NUMBER  (02);    00208000          
+ )                                                                      00209000          
+ , POPULATION    = 999                                                  00210000          
+ ;                                                                      00211000          
+%********************************************************************** 00212000          
+ B04SXNOMSIS                SET OF S151B04SISTEM                        00213000          
+%********************************************************************** 00214000          
+ KEY IS (B04-SIS-SISTEMA,                                               00215000          
+         B04-SIS-PROD,                                                  00216000          
+         B04-SIS-INST)                                                  00217000          
+                                                                        00218000          
+ ,NO DUPLICATES                                                         00219000          
+ ,INDEX SEQUENTIAL                                                      00220000          
+ ;                                                                      00221000          
+$PAGE                                                                   00222000          
+%***********************************************************************00223000          
+ S151B05PROCESOS                  DATA SET     %PREFIJO B05             00224000          
+%***********************************************************************00225000          
+ (B05-SIS-SISTEMA     "NUMERO DE SISTEMA             " NUMBER  (04);    00226000          
+% B05-SIS-FCHPRO      "FECHA DE PROCESO              " NUMBER  (06);    00227000CRONOS2K  
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00227001CRONOS2K  
+  B05-SIS-FCHPRO      "FECHA DE PROCESO              " NUMBER  (08);    00227002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00227003CRONOS2K  
+  B05-SIS-NUMPRO      "NUMERO DE PROCESO APL. ORIGEN " NUMBER  (04);    00228000          
+  B05-SIS-NOMPGM      "NOMBRE DEL PROGRAMA DEL S151  " ALPHA   (04);    00229000          
+  B05-SIS-STAPGM      "STATUS DEL PROGRAMA DEL S151  " NUMBER  (02);    00230000          
+  B05-SIS-MIX         "NUMERO DE MIX                 " NUMBER  (08);    00231000          
+% B05-SIS-FCHINI      "FECHA INICIAL DE EJECUCION    " NUMBER  (06);    00232000CRONOS2K  
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00232001CRONOS2K  
+  B05-SIS-FCHINI      "FECHA INICIAL DE EJECUCION    " NUMBER  (08);    00232002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00232003CRONOS2K  
+  B05-SIS-HORAINI     "HORA INICIAL DE EJECUCION     " NUMBER  (06);    00233000          
+% B05-SIS-FCHFIN      "FECHA FINAL   DE EJECUCION    " NUMBER  (06);    00234000CRONOS2K  
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00234001CRONOS2K  
+  B05-SIS-FCHFIN      "FECHA FINAL   DE EJECUCION    " NUMBER  (08);    00234002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00234003CRONOS2K  
+  B05-SIS-HORAFIN     "HORA FINAL   DE EJECUCION     " NUMBER  (06);    00235000          
+  B05-SIS-NUMREGINI   "NUMERO DE REGISTRO INICIAL    " NUMBER  (08);    00236000          
+  B05-SIS-NUMREGFIN   "NUMERO DE REGISTRO FINAL      " NUMBER  (08);    00237000          
+ )                                                                      00238000          
+ , POPULATION    = 5000                                                 00239000          
+ ;                                                                      00240000          
+%********************************************************************** 00241000          
+ B05SXPROCESO              SET OF S151B05PROCESOS                       00242000          
+%********************************************************************** 00243000          
+ KEY IS (B05-SIS-SISTEMA,                                               00244000          
+         B05-SIS-FCHPRO,                                                00245000          
+         B05-SIS-NUMPRO,                                                00246000          
+         B05-SIS-FCHINI,                                                00247000          
+         B05-SIS-NUMREGINI)                                             00248000          
+                                                                        00249000          
+ ,DUPLICATES LAST                                                       00250000          
+ ,INDEX SEQUENTIAL                                                      00251000          
+ ;                                                                      00252000          
+$PAGE                                                                   00253000          
+%***********************************************************************00254000          
+ S151B09CONXSIS                   DATA SET     %PREFIJO B09             00255000          
+%***********************************************************************00256000          
+ (B09-SIS-SISTEMA     "NUMERO DE SISTEMA             " NUMBER  (04);    00257000          
+  B09-SIS-PRO         "NUMERO DEL PRODUCTO           " NUMBER  (04);    00258000          
+  B09-SIS-INS         "NUMERO DE INSTRUMENTO         " NUMBER  (04);    00259000          
+  B09-SIS-NUM-REN     "NUMERO DEL RENGLON            " NUMBER  (02);    00260000          
+  B09-SIS-NOM-REN     "NOMBRE DEL RENGLON            " ALPHA   (15);    00261000          
+                                                                        00262000          
+ )                                                                      00263000          
+ , POPULATION = 999                                                     00264000          
+ ;                                                                      00265000          
+                                                                        00266000          
+%***********************************************************************00267000          
+ B09SXCONXSIS                     SET OF S151B09CONXSIS                 00268000          
+%***********************************************************************00269000          
+ KEY IS (B09-SIS-SISTEMA,                                               00270000          
+         B09-SIS-PRO,                                                   00271000          
+         B09-SIS-INS,                                                   00272000          
+         B09-SIS-NUM-REN)                                               00273000          
+ ,NO DUPLICATES                                                         00274000          
+ ,INDEX SEQUENTIAL                                                      00275000          
+ ;                                                                      00276000          
+$PAGE                                                                   00277000          
+%***********************************************************************00278000          
+ S151B10MOVPORSUC            DATA SET        % PREFIJO B10              00279000          
+%*********************************************************************  00280000          
+ (B10-MOV-SISTEMA     "SISTEMA    EJ: 0500           " NUMBER (04);     00281000          
+  B10-MOV-PRODUCTO    "PRODUCTO    EJ: 0500, 0066    " NUMBER (04);     00282000          
+  B10-MOV-INSTRUM     "INSTRUMENTO  EJ: 06           " NUMBER (02);     00283000          
+  B10-MDE-SUCURSAL    "SUCURSAL OPERADORA            " NUMBER (04);     00284000          
+  B10-MDE-CAJA        "CAJA OPERADORA                " NUMBER (02);     00285000          
+  B10-MDE-NOMINA      "NOMINA DEL OPERADOR           " NUMBER (08);     00286000          
+  B10-MOV-CVETRAN     "CLAVE DE TRANSACCION          " NUMBER (04);     00287000          
+  B10-MOV-SUBCVETR    "SUBCLAVE DE TRANSACCION       " NUMBER (04);     00288000          
+  B10-MOV-MONEDA      "MONEDA DE TRANSACCION         " NUMBER (02);     00289000          
+  B10-MOV-NUMTRAN     "NUMERO TOTAL DE TRANSACCIONES " NUMBER (08);     00290000          
+  B10-MOV-IMPORTE     "IMPORTE TOTAL DE TRANSACCIONES" NUMBER (17);     00291000          
+  B10-MOV-NUM-ANT     "NUMERO TOTAL DE TRANS. ANT.   " NUMBER (08);     00292000          
+  B10-MOV-IMP-ANT     "IMPORTE TOTAL DE TRANS. ANT.  " NUMBER (17);     00293000          
+                                                                        00294000          
+ )                                                                      00295000          
+ , POPULATION    = 8000000                                              00296000          
+ , BLOCKSIZE     = 4     RECORDS                                        00297000          
+ , REBLOCKFACTOR = 5                                                    00298000          
+ ;                                                                      00299000          
+%********************************************************************** 00300000          
+ B10SXMOVPORSUC             SET OF S151B10MOVPORSUC                     00301000          
+%********************************************************************** 00302000          
+ KEY IS (B10-MOV-SISTEMA,                                               00303000          
+         B10-MOV-PRODUCTO,                                              00304000          
+         B10-MOV-INSTRUM,                                               00305000          
+         B10-MDE-SUCURSAL,                                              00306000          
+         B10-MDE-CAJA,                                                  00307000          
+         B10-MDE-NOMINA,                                                00308000          
+         B10-MOV-CVETRAN,                                               00309000          
+         B10-MOV-SUBCVETR,                                              00310000          
+         B10-MOV-MONEDA)                                                00311000          
+ ,NO DUPLICATES                                                         00312000          
+ ,TABLESIZE = 81 ENTRIES                                                00313000          
+ ,INDEX SEQUENTIAL                                                      00314000          
+ ,MEMORY RESIDENT = COARSE                                              00315000          
+ ;                                                                      00316000          
+%*********************************************************************  00317000          
+ S151B11MOVPORCTE       DATA SET       %PREFIJO B11  MOVS. POR CLIENTE  00318000          
+%*********************************************************************  00319000          
+ (B11-CTE-NUMERO      "NUMERO DE CLIENTE     "        NUMBER  (12);     00320000          
+  B11-MOV-PRODUCTO    "NUMERO DE PRODUCTO    "        NUMBER  (04);     00321000          
+  B11-MOV-INSTRUM     "NUMERO DE INSTRUMENTO "        NUMBER  (02);     00322000          
+  B11-MOV-CVETRAN     "CLAVE DE TRANSACCION  "        NUMBER  (04);     00323000          
+  B11-MOV-SUBCVETR    "SUBCLAVE DE TRANSACC. "        NUMBER  (04);     00324000          
+  B11-TOT-NUMERO      "NUM. TOTAL DE CLAVES  "        NUMBER  (06);     00325000          
+  B11-TOT-IMPORTE     "IMPORTE TOTAL         "        NUMBER  (16);     00326000          
+ )                                                                      00327000          
+ , POPULATION = 10000000                                                00328000          
+ , BLOCKSIZE  =  7 RECORDS                                              00329000          
+ , REBLOCKFACTOR = 5                                                    00330000          
+ ;                                                                      00331000          
+%*********************************************************************  00332000          
+ B11SXMOVPORCTE             SET OF S151B11MOVPORCTE                     00333000          
+%*********************************************************************  00334000          
+ KEY IS (B11-CTE-NUMERO,                                                00335000          
+         B11-MOV-PRODUCTO,                                              00336000          
+         B11-MOV-INSTRUM,                                               00337000          
+         B11-MOV-CVETRAN,                                               00338000          
+         B11-MOV-SUBCVETR)                                              00339000          
+ ,NO DUPLICATES                                                         00340000          
+ ,TABLESIZE = 44 ENTRIES                                                00341000          
+ ,INDEX SEQUENTIAL                                                      00342000          
+ ,MEMORY RESIDENT = COARSE                                              00343000          
+ ;                                                                      00344000          
+%*********************************************************************  00345000          
+ S151B12POSICION       DATA SET       % PREFIJO B12                     00346000          
+%*********************************************************************  00347000          
+ (B12-SDO-SISTEMA     "NUMERO DE SISTEMA     "        NUMBER  (04);     00348000          
+  B12-SDO-PRODUCTO    "NUMERO DE PRODUCTO    "        NUMBER  (04);     00349000          
+  B12-SDO-MONEDA      "NUMERO DE MONEDA      "        NUMBER  (02);     00350000          
+  B12-SDO-INST        "NUMERO DE INSTRUMENTO "        NUMBER  (02);     00351000          
+  B12-SDO-CUENTA      "CUENTA CONTABLE       "        NUMBER  (12);     00352000          
+  B12-SDO-SECTOR      "NUMERO DE SECTOR      "        NUMBER  (02);     00353000          
+  B12-SDO-ANTERIOR    "SALDO ANTERIOR        "        NUMBER (S17);     00354000          
+  B12-SDO-ACTUAL      "SALDO ACTUAL          "        NUMBER (S17);     00355000          
+% B12-SDO-FECHA-ACT   "FECHA DE ACTUALIZACION"        NUMBER  (06);     00356000CRONOS2K  
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00356001CRONOS2K  
+  B12-SDO-FECHA-ACT   "FECHA DE ACTUALIZACION"        NUMBER  (08);     00356002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00356003CRONOS2K  
+  B12-SDO-DIAS-SEM     GROUP                                            00357000          
+ (B12-SDO-CARGO       "IMPORTE DE CARGOS /DIA"        NUMBER (S17);     00358000          
+  B12-SDO-ABONO       "IMPORTE DE ABONOS /DIA"        NUMBER (S17);     00359000          
+  )                                                   OCCURS 5 TIMES;   00360000          
+  B12-SDO-FILLER      "COMPLEMENTO A SEGMENTO"        NUMBER  (04);     00361000          
+ )                                                                      00362000          
+ ,POPULATION    = 9000                                                  00363000          
+ ,BLOCKSIZE     = 4                                                     00364000          
+ ,REBLOCKFACTOR = 5                                                     00365000          
+ ;                                                                      00366000          
+%*********************************************************************  00367000          
+ B12SXPOSICION         SET OF S151B12POSICION                           00368000          
+%*********************************************************************  00369000          
+ KEY IS (B12-SDO-SISTEMA,                                               00370000          
+         B12-SDO-PRODUCTO,                                              00371000          
+         B12-SDO-MONEDA,                                                00372000          
+         B12-SDO-INST,                                                  00373000          
+         B12-SDO-CUENTA,                                                00374000          
+         B12-SDO-SECTOR)                                                00375000          
+ ,NO DUPLICATES                                                         00376000          
+ ,TABLESIZE = 14                                                        00377000          
+ ,INDEX SEQUENTIAL                                                      00378000          
+ ,MEMORY RESIDENT = COARSE                                              00379000          
+ ;                                                                      00380000          
+%***********************************************************************00381000          
+ S151B13AUDITORIA      DATA SET       % PREFIJO B13                     00382000          
+%*********************************************************************  00383000          
+ (B13-AUD-TIPO-BUSQ   "TIPO DE BUSQUEDA      "        NUMBER  (01);     00384000          
+  B13-AUD-SISTEMA     "NUMERO DE SISTEMA     "        NUMBER  (04);     00385000          
+  B13-AUD-MONEDA      "MONEDA                "        NUMBER  (02);     00386000          
+  B13-AUD-IMPORTE     "IMPORTE               "        NUMBER  (14);     00387000          
+  B13-AUD-NUM-DIAS    "NO. DIAS (FEC.VAL)    "        NUMBER  (04);     00388000          
+ )                                                                      00389000          
+ ,POPULATION    = 100                                                   00390000          
+ ,BLOCKSIZE     = 4                                                     00391000          
+ ;                                                                      00392000          
+%*********************************************************************  00393000          
+ B13SXTIPOSIST         SET OF S151B13AUDITORIA                          00394000          
+%*********************************************************************  00395000          
+ KEY IS (B13-AUD-TIPO-BUSQ,                                             00396000          
+         B13-AUD-SISTEMA,                                               00397000          
+         B13-AUD-MONEDA)                                                00398000          
+ ,NO DUPLICATES                                                         00399000          
+ ,TABLESIZE = 14                                                        00400000          
+ ,INDEX SEQUENTIAL                                                      00401000          
+ ;                                                                      00402000          
+$PAGE                                                                   00403000          
+%***********************************************************************00404000          
+ S151B14ARCDIAORI           DATA SET        % PREFIJO B14               00405000          
+%***********************************************************************00406000          
+ (B14-MSG-SISTEMA     "NUMERO DE SISTEMA             " NUMBER (04);     00407000          
+  B14-MSG-CSI         "CSI DEL MENSAJE               " NUMBER (02);     00408000          
+% B14-MSG-FCH         "FECHA  DEL MENSAJE            " NUMBER (06);     00409000CRONOS2K  
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00409001CRONOS2K  
+  B14-MSG-FCH         "FECHA  DEL MENSAJE            " NUMBER (08);     00409002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00409003CRONOS2K  
+  B14-MSG-NUMARC      "NUMERO DEL ARCHIVO            " NUMBER (06);     00410000          
+  B14-MSG-NOMARC      "NOMBRE DEL ARCHIVO            " ALPHA  (34);     00411000          
+  B14-MSG-REGINI      "REGISTRO INICIAL              " NUMBER (12);     00412000          
+  B14-MSG-REGFIN      "REGISTRO FINAL                " NUMBER (12);     00413000          
+  B14-MSG-STAARC      "STATUS DEL ARCHIVO            " NUMBER (02);     00414000          
+ )                                                                      00415000          
+ , POPULATION    = 100                                                  00416000          
+ ;                                                                      00417000          
+%********************************************************************** 00418000          
+ B14SXARCDIAORI           SET OF S151B14ARCDIAORI                       00419000          
+%********************************************************************** 00420000          
+ KEY IS (B14-MSG-SISTEMA,                                               00421000          
+         B14-MSG-CSI,                                                   00422000          
+         B14-MSG-FCH,                                                   00423000          
+         B14-MSG-NUMARC)                                                00424000          
+                                                                        00425000          
+  POPULATION    = 100000                                                00426000          
+ ,NO DUPLICATES                                                         00427000          
+ ,INDEX SEQUENTIAL                                                      00428000          
+ ;                                                                      00429000          
+                                                                        00430000          
+%********************************************************************** 00431000          
+ B14BXARCDIAORI        SUBSET OF S151B14ARCDIAORI                       00432000          
+%********************************************************************** 00433000          
+ WHERE  B14-MSG-STAARC  = 1                                             00434000          
+ ,BIT VECTOR                                                            00435000          
+ ;                                                                      00436000          
+                                                                        00437000          
+$PAGE                                                                   00438000          
+%***********************************************************************00439000          
+ S151B15ARCDIADES           DATA SET        % PREFIJO B15               00440000          
+%***********************************************************************00441000          
+ (B15-MSG-SISTEMA     "NUMERO DE SISTEMA             " NUMBER (04);     00442000          
+  B15-MSG-CSI         "CSI DEL MENSAJE               " NUMBER (02);     00443000          
+% B15-MSG-FCH         "FECHA  DEL MENSAJE            " NUMBER (06);     00444000CRONOS2K  
+%INICIA CODIGO DE RENOVACION CRONOS 2000                                00444001CRONOS2K  
+  B15-MSG-FCH         "FECHA  DEL MENSAJE            " NUMBER (08);     00444002CRONOS2K  
+%TERMINA CODIGO DE RENOVACION CRONOS 2000                               00444003CRONOS2K  
+  B15-MSG-NUMARC      "NUMERO DEL ARCHIVO            " NUMBER (06);     00445000          
+  B15-MSG-NOMARC      "NOMBRE DEL ARCHIVO            " ALPHA  (34);     00446000          
+  B15-MSG-REGINI      "REGISTRO INICIAL              " NUMBER (12);     00447000          
+  B15-MSG-REGFIN      "REGISTRO FINAL                " NUMBER (12);     00448000          
+  B15-MSG-STAARC      "STATUS DEL ARCHIVO            " NUMBER (02);     00449000          
+ )                                                                      00450000          
+ , POPULATION    = 100                                                  00451000          
+ ;                                                                      00452000          
+%********************************************************************** 00453000          
+ B15SXARCDIADES           SET OF S151B15ARCDIADES                       00454000          
+%********************************************************************** 00455000          
+ KEY IS (B15-MSG-SISTEMA,                                               00456000          
+         B15-MSG-CSI,                                                   00457000          
+         B15-MSG-FCH,                                                   00458000          
+         B15-MSG-NUMARC)                                                00459000          
+                                                                        00460000          
+  POPULATION    = 100                                                   00461000          
+ ,NO DUPLICATES                                                         00462000          
+ ,INDEX SEQUENTIAL                                                      00463000          
+ ;                                                                      00464000          
+                                                                        00465000          
+%********************************************************************** 00466000          
+ B15BXARCDIADES        SUBSET OF S151B15ARCDIADES                       00467000          
+%********************************************************************** 00468000          
+ WHERE  B15-MSG-STAARC  = 1                                             00469000          
+ ,BIT VECTOR                                                            00470000          
+ ;                                                                      00471000          
+                                                                        00472000          
+$PAGE                                                                   00473000          
+%***********************************************************************00474000          
+ S151B99REINICTL          RESTART DATA SET     %PREFIJO S151B19REINICTL 00475000          
+%***********************************************************************00476000          
+  ( B99-REI-PROGRAM                                  NUMBER  (8);       00477000          
+    B99-REI-USERINFO                                 ALPHA  (176);      00478000          
+  )                                                                     00479000          
+  POPULATION=100;                                                       00480000          
+                                                                        00481000          
+%***********************************************************************00482000          
+ B99SXREINICTL                       SET OF S151B99REINICTL             00483000          
+%***********************************************************************00484000          
+     KEY IS (B99-REI-PROGRAM )                                          00485000          
+    ,DUPLICATES LAST                                                    00486000          
+    ,INDEX SEQUENTIAL                                                   00487000          
+    ;                                                                   00488000          
+S151BD99CONTROL(GUARDFILE=(S151)S151/FILE/GUARDFILE/S151BD99CONTROL     00488100          
+                 ON CMEMP);                                             00488200          

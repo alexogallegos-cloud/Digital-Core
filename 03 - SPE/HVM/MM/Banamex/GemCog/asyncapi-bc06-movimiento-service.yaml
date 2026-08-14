@@ -1,0 +1,364 @@
+asyncapi: "2.6.0"
+
+info:
+  title: "Movimiento Service"
+  version: "0.1.0-seed"
+  description: |
+    Contrato sembrado desde el Gemelo Cognitivo GemCog v2.2.
+
+    **Bounded Context**: BC-06 Procesamiento de Movimientos
+    **Sistema origen**: S151 (Unisys ClearPath MCP · COBOL + ALGOL)
+    **Wave de transpilación**: Wave 2
+    **Patrón**: Event-Driven (Kafka)
+
+    BC-06 tiene naturaleza event-driven: los movimientos contables son eventos
+    disparados por operaciones S500 via BC-04 GL-Posting-Service (Wave 0).
+    El aggregate root es `MovimientoContable` almacenado en BD10MOVDIA151.
+
+    **NO incluye**: el posteo inicial de asientos — ese es BC-04 (Wave 0, ENCAPSULATE).
+    **INCLUYE**: el procesamiento, acumulación y consulta de movimientos registrados.
+
+    **Patrón arquitectónico DISEÑO-GENERICO S151**:
+    L030 y P015 (ASINCRONO GL) son UN componente genérico instanciado 19 veces
+    (una por cada sistema que reporta al GL). En el target: factory o estrategia.
+    Requiere ADR-SPE-MM-003 antes de implementar.
+
+x-gemcog-source:
+  sistema: "S151"
+  bounded_context: "BC-06"
+  bc_name: "Procesamiento de Movimientos"
+  vocab_version: "v2.2"
+  capa: 6
+  programas_origen:
+    - "S151/P015 (ASINCRONO GL 12K LOC — DISEÑO-GENERICO x19)"
+    - "S151/L030 (mayor COBOL 19.2K LOC · BD10MOVDIA151 — DISEÑO-GENERICO x19)"
+    - "S151/L011 (Consulta BD10 ALGOL 7.2K LOC · CRONOS2K · Flag CNBV)"
+    - "S151/P810 (Carga Splunk ALGOL 4.1K LOC — programa moderno)"
+    - "S151/P122 (Carga multi-sistema 2.2K LOC)"
+  equivalencia_objetivo: "≥ 99.99%"
+  notas:
+    - "DISEÑO-GENERICO: P015 y L030 son 1 pieza x19 sistemas — requiere ADR-SPE-MM-003."
+    - "L011 tiene CRONOS2K — revisar lógica de fechas antes de cutover."
+    - "P810 es el programa más moderno de S151 (VERSION 0.25.6) — Splunk integration."
+    - "Colisión P015 resuelta: S151/P015=ASINCRONO GL ≠ S500/P015=DISPERSADOR captación."
+
+servers:
+  kafka-dev:
+    url: "kafka://kafka-dev.banamex-internal.mx:9092"
+    protocol: "kafka"
+    description: "DEV — Kafka cluster"
+    security:
+      - saslScram: []
+  kafka-stg:
+    url: "kafka://kafka-stg.banamex-internal.mx:9092"
+    protocol: "kafka"
+    description: "STG (parallel-run)"
+    security:
+      - saslScram: []
+
+defaultContentType: application/json
+
+channels:
+
+  # ── Eventos producidos por BC-06 ────────────────────────────────────────────
+
+  s151/movimientos/registrado:
+    description: |
+      Evento emitido cuando un movimiento contable es registrado en BD10MOVDIA151.
+      **Origen**: BC-04 GL-Posting-Service → BC-06 Movimiento Service.
+      El movimiento fue posteado via S151REGISTRA (L002R5) y persiste en BD10MOVDIA151.
+      **vocab**: MOVIMIENTOS → MovimientoContable
+    x-gemcog-programa: "S151/L030 (procesamiento) · L002R5 (origen via BC-04)"
+    publish:
+      operationId: "movimientoRegistrado"
+      summary: "Movimiento contable registrado en el GL"
+      tags:
+        - name: "movimientos"
+        - name: "gl"
+      message:
+        $ref: "#/components/messages/MovimientoContableRegistrado"
+
+  s151/movimientos/acumulado:
+    description: |
+      Evento emitido cuando los movimientos del día son acumulados en BD02ADSALDO
+      (parte del Proceso Diario GL — P052 ACCIVAL).
+      Downstream: actualiza SaldoContable (BC-05).
+    x-gemcog-programa: "S151/P052 ACCIVAL"
+    publish:
+      operationId: "movimientoAcumulado"
+      summary: "Movimientos del día acumulados al saldo contable"
+      message:
+        $ref: "#/components/messages/MovimientosAcumulados"
+
+  s151/gl/proceso-diario/completado:
+    description: |
+      Evento emitido al completar el Proceso Diario GL (PD).
+      **Colisión resuelta**: LOTE S151 → ProcesoDiarioGL (UL §3.4)
+      Downstream: BC-08 Reportería GL, BC-05 GL Account Service.
+    x-gemcog-programa: "S151/WFL_LOTE"
+    publish:
+      operationId: "procesoDiarioCompletado"
+      summary: "Proceso Diario GL completado exitosamente"
+      message:
+        $ref: "#/components/messages/ProcesoDiarioCompletado"
+
+  s151/movimientos/monitoreo/evento:
+    description: |
+      Evento de monitoreo operacional enviado a Splunk.
+      **Origen**: S151/P810 (programa moderno VERSION 0.25.6 · ALGOL 4.1K LOC)
+      Integra con Splunk via WFL_SPLUNK (MTP006).
+    x-gemcog-programa: "S151/P810"
+    publish:
+      operationId: "eventoMonitoreoMovimiento"
+      summary: "Evento de monitoreo de movimientos para observabilidad"
+      message:
+        $ref: "#/components/messages/EventoMonitoreo"
+
+  # ── Eventos consumidos por BC-06 ────────────────────────────────────────────
+
+  s500/captacion/cierre-batch/completado:
+    description: |
+      BC-06 consume el evento de cierre batch de captación para disparar
+      la migración de saldos (S151/P199 — Migración saldos S500).
+    x-gemcog-programa: "S151/P199 2.7K LOC"
+    subscribe:
+      operationId: "consumirCierreBatchCaptacion"
+      summary: "Consumir evento de cierre batch de captación (trigger migración saldos)"
+      message:
+        $ref: "#/components/messages/CierreBatchCaptacionCompletado"
+
+  s151/sistemas/movimiento/entrada:
+    description: |
+      BC-06 consume movimientos de los 19 sistemas externos que reportan al GL
+      (S500, C402, C600, S804, S707, S203 Tandem, Citibank, etc.).
+      **Patrón DISEÑO-GENERICO**: P015 (ASINCRONO GL) y L030 procesan 19 instancias.
+      **Requiere ADR-SPE-MM-003** antes de implementar la factory/estrategia.
+      **Origen**: S151/P122 (Carga multi-sistema 2.2K LOC) + P015 (19 instancias)
+    x-gemcog-programa: "S151/P122 + P015 (DISEÑO-GENERICO x19)"
+    subscribe:
+      operationId: "consumirMovimientoSistemaExterno"
+      summary: "Consumir movimiento contable de sistemas externos (19 sistemas)"
+      message:
+        $ref: "#/components/messages/MovimientoSistemaExterno"
+
+components:
+
+  securitySchemes:
+    saslScram:
+      type: scramSha256
+      description: "SASL/SCRAM-SHA-256 para autenticación en Kafka"
+
+  messages:
+
+    MovimientoContableRegistrado:
+      name: "MovimientoContableRegistrado"
+      title: "Movimiento Contable Registrado"
+      summary: "Un movimiento contable fue registrado en BD10MOVDIA151"
+      contentType: application/json
+      headers:
+        type: object
+        properties:
+          correlationId:
+            type: string
+            format: uuid
+            description: "ID de correlación para trazabilidad OpenTelemetry"
+          sistemaOrigen:
+            type: string
+            description: "Sistema que originó el movimiento (S500, C402, etc.)"
+          bcOrigen:
+            type: string
+            enum: ["BC-04"]
+            description: "Siempre BC-04 (GL-Posting-Service)"
+      payload:
+        $ref: "#/components/schemas/MovimientoContable"
+      x-gemcog-source:
+        sistema: "S151"
+        bounded_context: "BC-06"
+        vocab: "MOVIMIENTOS → MovimientoContable"
+        programa_origen: "S151/L002R5 (via BC-04) → S151/L030"
+
+    MovimientosAcumulados:
+      name: "MovimientosAcumulados"
+      title: "Movimientos del día acumulados"
+      contentType: application/json
+      payload:
+        type: object
+        required: ["fecha", "totalMovimientos", "totalImporte", "sistemaId"]
+        properties:
+          fecha:
+            type: string
+            format: date
+          totalMovimientos:
+            type: integer
+          totalImporte:
+            type: string
+            pattern: "^[0-9]+\\.[0-9]{4}$"
+          sistemaId:
+            type: string
+          cvetra:
+            type: string
+            description: "Clave de trayectoria del acumulado"
+      x-gemcog-programa: "S151/P052 ACCIVAL"
+
+    ProcesoDiarioCompletado:
+      name: "ProcesoDiarioCompletado"
+      title: "Proceso Diario GL completado"
+      contentType: application/json
+      payload:
+        type: object
+        required: ["fechaProceso", "duracionSegundos", "totalMovimientos", "sistemasProcesados"]
+        properties:
+          fechaProceso:
+            type: string
+            format: date
+          duracionSegundos:
+            type: integer
+          totalMovimientos:
+            type: integer
+          sistemasProcesados:
+            type: integer
+            description: "Cantidad de sistemas del DISEÑO-GENERICO procesados (máx 19)"
+          pasos:
+            type: array
+            items:
+              type: object
+              properties:
+                paso:
+                  type: string
+                  description: "P005, P130, P131, P150, P151, P158, P109, P199"
+                duracionMs:
+                  type: integer
+                estado:
+                  type: string
+                  enum: ["EXITOSO", "ERROR"]
+      x-gemcog-programa: "S151/WFL_LOTE"
+
+    EventoMonitoreo:
+      name: "EventoMonitoreo"
+      title: "Evento de monitoreo para Splunk"
+      contentType: application/json
+      payload:
+        type: object
+        required: ["timestamp", "sistema", "concepto", "totalMovimientos"]
+        properties:
+          timestamp:
+            type: string
+            format: date-time
+          sistema:
+            type: string
+          concepto:
+            type: string
+          totalMovimientos:
+            type: integer
+          importeTotal:
+            type: string
+            pattern: "^[0-9]+\\.[0-9]{4}$"
+          versionP810:
+            type: string
+            description: "Versión del programa P810 (ej. 0.25.6)"
+      x-gemcog-programa: "S151/P810 VERSION 0.25.6"
+
+    CierreBatchCaptacionCompletado:
+      name: "CierreBatchCaptacionCompletado"
+      contentType: application/json
+      payload:
+        type: object
+        required: ["fechaProceso", "cuentasProcesadas", "importeTotal"]
+        properties:
+          fechaProceso:
+            type: string
+            format: date
+          cuentasProcesadas:
+            type: integer
+          importeTotal:
+            type: string
+            pattern: "^[0-9]+\\.[0-9]{4}$"
+      description: "Emitido por BC-01; consumido por BC-06 para trigger de P199"
+
+    MovimientoSistemaExterno:
+      name: "MovimientoSistemaExterno"
+      title: "Movimiento de sistema externo para el GL"
+      contentType: application/json
+      payload:
+        type: object
+        required: ["sistemaId", "movimientoContable"]
+        properties:
+          sistemaId:
+            type: string
+            description: "ID del sistema origen (3 dígitos en DISEÑO-GENERICO)"
+            example: "500"
+          movimientoContable:
+            $ref: "#/components/schemas/MovimientoContable"
+      x-gemcog-nota: "DISEÑO-GENERICO: sistemaId determina qué instancia (de 19) procesa el movimiento. Requiere ADR-SPE-MM-003."
+
+  schemas:
+
+    MovimientoContable:
+      type: object
+      description: |
+        Movimiento contable en el libro mayor GL — aggregate root de BC-06.
+        **vocab**: MOVIMIENTOS → MovimientoContable (UL §4 BC-06)
+        Almacenado en BD10MOVDIA151 (SET MOVTOS ON CMEMP).
+      required: ["idMovimiento", "cvetra", "importe", "sistemaOrigen", "fecha"]
+      properties:
+        idMovimiento:
+          type: string
+          format: uuid
+          description: "ID generado en target (no existe en legacy — legacy usa índices DASDL)"
+        cvetra:
+          type: string
+          description: "Clave de trayectoria contable (CVETRA)"
+        importe:
+          type: string
+          pattern: "^-?[0-9]+\\.[0-9]{4}$"
+          description: "Negativo = cargo, positivo = abono. BigDecimal string."
+        sistemaOrigen:
+          type: string
+          description: "Sistema que originó el movimiento (S500, C402, C600, S804, S707, S203, CITI)"
+        cuentaGL:
+          type: string
+        fecha:
+          type: string
+          format: date
+        datosAdicionales:
+          $ref: "#/components/schemas/DatosAdicionalesMovimiento"
+        punteo:
+          $ref: "#/components/schemas/PunteoSaldo"
+        timestampRegistro:
+          type: string
+          format: date-time
+      # [GEMCOG-SOURCE: S151/BD10MOVDIA151 · L030 · vocab: MOVIMIENTOS, MOVIMIENTO]
+      # [FLAGS: CNBV] [DISEÑO-GENERICO: 1 estructura para 19 sistemas]
+
+    DatosAdicionalesMovimiento:
+      type: object
+      description: |
+        Datos adicionales del movimiento contable.
+        vocab: DATOSADIC → DatosAdicionalesMovimiento (UL §4 BC-06)
+        Correspond a DATOSADIC ON CMEMP en DASDL S151.
+      properties:
+        contrato:
+          type: string
+        sucursal:
+          type: string
+        referencia:
+          type: string
+        metadatos:
+          type: object
+          additionalProperties:
+            type: string
+      # [GEMCOG-SOURCE: S151/DATOSADIC ON CMEMP · BD10MOVDIA151]
+
+    PunteoSaldo:
+      type: object
+      description: |
+        Registro de punteo de saldo — marca movimientos contabilizados vs pendientes.
+        vocab: PUNTEO → PunteoSaldo (UL §4 BC-08)
+      properties:
+        punteado:
+          type: boolean
+          default: false
+        fechaPunteo:
+          type: string
+          format: date-time
+      # [GEMCOG-SOURCE: S151/PUNTEO ON CMEMP · BD10MOVDIA151]

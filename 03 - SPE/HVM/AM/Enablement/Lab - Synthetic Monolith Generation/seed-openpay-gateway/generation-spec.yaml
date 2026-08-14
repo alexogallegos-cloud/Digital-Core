@@ -1,0 +1,92 @@
+# Generation Spec — seed-openpay-gateway
+# Monolito Java sintetico (gateway de pagos fintech LATAM) para demo de Fase 0 - Discover.
+# Cero IP de cliente. Topologia inspirada en un monolito de procesamiento de pagos.
+# El generador (generator/generate_monolith.py) refleja estos parametros.
+
+system:
+  name: openpay-gateway
+  domain: payments                  # pagos / gateway acquirer
+  industry: fintech                 # banca | seguros | retail | fintech
+  currency: MXN
+  stack: "Java 8 / Spring MVC 4 / Apache Tomcat 8 / MySQL Aurora"
+  geographies: [MX, CO, PE, AR, ES]
+  notes: >
+    Gateway de pagos. ~525 endpoints, 119 jobs batch, ~920 tablas.
+    5 deployment components (WARs): API, Dashboard, Manager, Vault, Paynet.
+
+platform: java-spring               # java-spring | dotnet-framework
+
+# Deployment components del monolito (los 5 WARs)
+components:
+  - API          # core de pagos, autorizacion, tokenizacion (cara a comercios)
+  - Dashboard    # panel de comercios + admin interno (usuarios, RBAC, docs)
+  - Manager      # batch / finanzas / compliance (los 119 jobs)
+  - Vault        # PCI: secretos, tokenizacion, adaptadores de procesador
+  - Paynet       # rails regulados (SPEI/CoDi/DiMo/ACH)
+
+size:                               # nodos del grafo clase/paquete
+  controllers: 120                  # WEB  (525 endpoints / ~4.4 por controller)
+  jobs: 119                         # JOB  (los 119 jobs del Manager — match exacto al meta)
+  services: 300                     # SERVICE (el grueso)
+  repositories: 90                  # REPO (DAO / MyBatis / JPA)
+  utils: 12                         # UTIL (helpers estaticos = hubs)
+  dead: 22                          # cluster muerto (legacy.oldreports.*)
+  # total objetivo ~= 663 nodos
+
+topology:                           # FORMA del grafo (donde vive el dolor de RE)
+  degree_distribution: scale-free   # preferential attachment hacia utils + enablers
+  pref_exp: 1.4
+  cross_domain_leakage: 0.18        # % de aristas SERVICE->SERVICE que cruzan dominio
+  cycles: 6                         # # de SCCs no triviales a inyectar (ciclos Spring)
+  cycle_size: [3, 7]
+  dead_clusters: 1                  # isla huerfana no alcanzable
+
+domains:                            # bounded contexts de negocio
+  - payments
+  - merchants
+  - finance
+  - risk-fraud
+  - terminals
+  - compliance
+  - security
+  - infra
+  - channels
+
+# Los 9 enablers in-scope: hubs nombrados con fan-in PLANTADO igual al
+# regression_scope del fanout-graph.json (Reference Case). Cose la narrativa
+# Fase 0 (descubre hubs) -> Fase 1 (los extrae como enablers en waves).
+enablers:
+  - {id: RbacService,          domain: security, component: Dashboard, blast_radius: 74, wave: 4, pci: false}
+  - {id: ConfigService,        domain: infra,    component: Manager,   blast_radius: 68, wave: 4, pci: false}
+  - {id: NotificationService,  domain: infra,    component: API,       blast_radius: 67, wave: 3, pci: false}
+  - {id: UserService,          domain: security, component: Dashboard, blast_radius: 48, wave: 3, pci: false}
+  - {id: VaultService,         domain: security, component: Vault,     blast_radius: 38, wave: 3, pci: true}
+  - {id: TokenizationService,  domain: security, component: API,       blast_radius: 31, wave: 3, pci: true}
+  - {id: DocumentService,      domain: infra,    component: Dashboard, blast_radius: 28, wave: 2, pci: false}
+  - {id: BinManagerService,    domain: infra,    component: API,       blast_radius: 24, wave: 1, pci: false}
+  - {id: ApiKeyService,        domain: security, component: API,       blast_radius: 22, wave: 1, pci: false}
+
+dto_coupling:                       # el hairball oculto (acoplamiento por datos)
+  model_as_separate_layer: true
+  shared_dtos: 6                    # DTOs compartidos por muchos dominios (god objects)
+
+fidelity: static                    # static (default) | compilable
+
+planted_defects:
+  god_class: true                   # service con fan-out altisimo multi-dominio
+  dead_code: true
+  cyclic_dependencies: true         # ciclos Spring entre @Service
+  cross_domain_calls: true          # violacion de boundary
+  shared_dto_coupling: true         # TransactionDTO et al.
+  shared_tables: true               # tablas escritas por varios dominios
+  hardcoded_values: true            # umbrales/montos en literal
+  mixed_read_write: true            # clases que leen y escriben (anti-CQRS)
+
+business_rules:
+  count: 8
+  regulatory_refs: true             # sabor CNBV / Banxico / PCI DSS / UIF
+
+output:
+  emit_answer_key: true
+  emit_source_skeleton: true        # un .java navegable por nodo (coherente con el grafo)
+  seed: 920                         # reproducibilidad (echo a las ~920 tablas)

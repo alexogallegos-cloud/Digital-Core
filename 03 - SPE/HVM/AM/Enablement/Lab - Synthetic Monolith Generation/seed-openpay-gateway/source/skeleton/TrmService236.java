@@ -1,0 +1,32 @@
+package com.openpay.dashboard.terminals;
+
+// ================================================================
+//  SYSTEM    : openpay-gateway   (synthetic · graph-as-data)
+//  COMPONENT : Dashboard (WAR)      DOMAIN : terminals
+//  LAYER     : SERVICE              ACCESS : inquiry (read-only)
+//  FAN-IN    : 3    FAN-OUT : 7    LOC approx: 136
+//  NOTE      : generated skeleton; imports = DTO coupling, fields = graph edges.
+//              The real business logic is synthetic.
+// ================================================================
+import com.openpay.dto.AuditContext;
+import com.openpay.dto.ResponseEnvelope;
+import com.openpay.dto.TransactionDTO;
+import com.openpay.dto.TrmRequest;
+import com.openpay.dto.TrmResponse;
+
+@Service
+public class TrmService236 {
+
+    // Collaborators (match the graph call edges):
+    private final JdbcReadGateway jdbcReadGateway;
+    private final JsonUtils jsonUtils;
+    private final StringUtils stringUtils;
+    private final TrmRepository028 trmRepository028;
+    private final TrmRepository037 trmRepository037;
+    private final TrmService037 trmService037;
+    private final TrmService054 trmService054;
+
+    public ResponseEnvelope handle(AuditContext ctx) {
+        return jdbcReadGateway.query(ctx);   // inquiry only
+    }
+}

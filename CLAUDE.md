@@ -51,10 +51,10 @@ Si el `CLAUDE.md` de un offering contradice una regla universal de Digital Core,
 | # | Carpeta | Offering | Lifecycle variant | Mantra |
 |---|---------|----------|-------------------|--------|
 | 1 | `01 - TS&T/` | Technology Strategy & Transformation | Arch Lifecycle | TS&T defines direction |
-| 2 | `02 - AI Enabled Enterprise/` | AI Enabled Enterprise | MLOps | AI drives outcomes |
-| 3 | `03 - Software & Platform Engineering/` | Software & Platform Engineering | DevOps classic | Engineering builds |
-| 4 | `04 - Intelligent Infrastructure/` | Intelligent Infrastructure | GitOps + IaC | Infrastructure runs |
-| 5 | `05 - Modern Data Platform/` | Modern Data Platform | DataOps | Data enables trust |
+| 2 | `02 - AIE/` | AI Enabled Enterprise | MLOps | AI drives outcomes |
+| 3 | `03 - SPE/` | Software & Platform Engineering | DevOps classic | Engineering builds |
+| 4 | `04 - II/` | Intelligent Infrastructure | GitOps + IaC | Infrastructure runs |
+| 5 | `05 - MDP/` | Modern Data Platform | DataOps | Data enables trust |
 | 6 | `06 - Innovation/` | Innovation | PoC Lifecycle | Innovation explores |
 | 7 | `07 - AMS Reinvention/` | AMS Reinvention | AIOps + ITIL | AMS reinvents continuously |
 
@@ -76,10 +76,10 @@ Digital Core/
 │   ├── delivery-playbook-tst.md
 │   ├── quality-gates-tst.md
 │   └── adr/
-├── 02 - AI Enabled Enterprise/                     ← MLOps
-├── 03 - Software & Platform Engineering/           ← DevOps classic
-├── 04 - Intelligent Infrastructure/                ← GitOps + IaC
-├── 05 - Modern Data Platform/                      ← DataOps
+├── 02 - AIE/                     ← MLOps
+├── 03 - SPE/           ← DevOps classic
+├── 04 - II/                ← GitOps + IaC
+├── 05 - MDP/                      ← DataOps
 ├── 06 - Innovation/                                ← PoC Lifecycle
 └── 07 - AMS Reinvention/                           ← AIOps + ITIL
 ```

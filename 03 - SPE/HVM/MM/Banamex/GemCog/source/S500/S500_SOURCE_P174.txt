@@ -1,0 +1,1112 @@
+000100$SET LIST                                                                     
+000200$SET LINEINFO                                                                 
+000300$SET ERRORLIMIT = 100                                                         
+000500$SET BDB02R01 BDB03R01 BDB03R02                                               
+000600$SET BDB91                                                                    
+000700$SET S100VERSIONES S000LIBLJ FECHA2000 S006LOCSUP                             
+000800*************************************************                             
+000900                                                                              
+001000****************************************************************              
+001100*                                                              *              
+001200*    SISTEMA S500 CAPTACION.                                   *              
+001300*    SE HACE UN BARRIDO AL Data Set B03CONTRATOS               *              
+001400*    VALIDA:B03-STATUS        (0 = ACTIVO) ==> 1 OR 5          *              
+001500*                             (OTRO CASO ) ==> 9                              
+001600*           (B03-NUM-PRODUCTO  =  500  AND                     *              
+001700*            B03-NUM-INSTRUM   =    1  AND                                    
+001800*            B03-MONEDA        =    1)       OR                               
+001900*           (B03-NUM-PRODUCTO  =   66  AND                                    
+002000*            B03-MONEDA        =    1)                                        
+002100*                                                              *              
+002200*    GENERA ARCHIVO CON LOS SIGUIENTES DATOS EN MTY            *              
+002300*                                                              *              
+002400*           WS-REG-CONTRATO                9(12)    COMP.      *              
+002500*           WS-REG-SDOACTUAL              S9(12)V99 COMP.      *              
+002600*           WS-REG-SDOAPEND                9(12)V99 COMP.      *              
+002700*           WS-REG-SDODISP                S9(12)V99 COMP.      *              
+002800*           WS-REG-SUCPROM                 9(04)    COMP.      *              
+002900*                                                              *              
+003000*    WS-SDO-DISPONIBLE = WS03-SDO-ACTUAL - WS03-SDO-PENDIENTE  *              
+003100*                                                              *              
+003200*    TRANFIERE ARCHIVO VIA XRAPID  MTY a VDM                   *              
+003300*                                                              *              
+003400*    INCLUYE LOS REGISTROS DE VDM AL ARCHIVO                   *              
+003500*    SORT AL ARCHIVO POR WS-REG-CONTRATO                       *              
+003600*                                                              *              
+003700*    INCLUYE DOS HEADER, DETALLE CON DATOS ADICIONALES Y       *              
+003800*            DOS TRAILER.                                      *              
+003900****************************************************************              
+004000* I D E N T I F I C A T I O N      D I V I S I O N.                           
+004100****************************************************************              
+004200 IDENTIFICATION DIVISION.                                                     
+004300 PROGRAM-ID.     GENARCHSDOS.                                                 
+004400 AUTHOR.         Pedro de la Cruz Belmares.                                   
+004500 DATE-WRITTEN.   NOV/2011.                                                    
+004600****************************************************************              
+004700* E N V I R O N M E N T            D I V I S I O N.                           
+004800****************************************************************              
+004900 ENVIRONMENT DIVISION.                                                        
+005000 CONFIGURATION SECTION.                                                       
+005100 INPUT-OUTPUT SECTION.                                                        
+005200                                                                              
+005300****************************************************************              
+005400* F I LE      C O N T R O L.                                                  
+005500****************************************************************              
+005600 FILE-CONTROL.                                                                
+005700                                                                              
+005800     SELECT S01-SDOMTY            ASSIGN       TO DISK.                       
+005900     SELECT S01-SDOVDM            ASSIGN       TO DISK.                       
+006000     SELECT S01-SDOMTYVDM         ASSIGN       TO DISK.                       
+006100                                                                              
+006200     SELECT S31-SORT              ASSIGN       TO SORT DISK.                  
+006300                                                                              
+006400     SELECT R01-CIFRAS            ASSIGN       TO PRINTER.                    
+006500                                                                              
+006600*****************************************************************             
+006700* D A T A        D I V I S I O N.                                             
+006800*****************************************************************             
+006900 DATA DIVISION.                                                               
+007000                                                                              
+007100 FILE SECTION.                                                                
+007200****************************************************************              
+007300 FD S01-SDOMTY                                                                
+007400    BLOCK CONTAINS                900 RECORDS                                 
+007500    VALUE OF AREAS                IS 1000                                     
+007600    VALUE OF AREASIZE             IS 3600.                                    
+007700 01 REG-S01-SDOMTY                PIC X(33).                                  
+007800                                                                              
+007900*******************************************************                       
+008000 FD S01-SDOVDM                                                                
+008100    BLOCK CONTAINS                900 RECORDS                                 
+008200    VALUE OF AREAS                IS 1000                                     
+008300    VALUE OF AREASIZE             IS 3600.                                    
+008400 01 REG-S01-SDOVDM                PIC X(33).                                  
+008500                                                                              
+008600*******************************************************                       
+008700 FD S01-SDOMTYVDM                                                             
+008800    BLOCK CONTAINS                180 RECORDS                                 
+008900    VALUE OF AREAS                IS  10000                                   
+009000    VALUE OF AREASIZE             IS  3600.                                   
+009100 01 REG-S01-SDOMTYVDM             PIC X(342).                                 
+009200                                                                              
+009300*******************************************************                       
+009400 SD S31-SORT.                                                                 
+009500 01 SD-S31-SORT.                                                              
+009600    03 SD-S31-TIPO                PIC  9(02)    COMP.                         
+009700    03 SD-S31-CSI                 PIC  9(02)    COMP.                         
+009800    03 SD-S31-SUCPROM             PIC  9(04)    COMP.                         
+009900    03 SD-S31-CONTRATO            PIC  9(12)    COMP.                         
+010000    03 SD-S31-SDOACTUAL           PIC S9(12)V99 COMP.                         
+010100    03 SD-S31-SDOPEND             PIC  9(12)V99 COMP.                         
+010200    03 SD-S31-SDODISP             PIC S9(12)V99 COMP.                         
+010300    03 SD-S31-STATUS              PIC  X(01)        .                         
+010400                                                                              
+010500*******************************************************                       
+010600 FD R01-CIFRAS                                                                
+010700    VALUE OF USERBACKUPNAME       IS TRUE                                     
+010800    VALUE OF TITLE                IS WS-ETIQ-R01                              
+010900    DATA RECORD                   IS REG-R01-CIFRAS.                          
+011000 01 REG-R01-CIFRAS                PIC X(132).                                 
+011100                                                                              
+011200****************************************************************              
+011300* D A T A    B A S E    S E C T I O N.                                        
+011400**************************************************************                
+011500 DATA-BASE SECTION.                                                           
+011600 DB S500BD01CAPTACION.                                                        
+011700 01 S500B02CONTROL.                                                           
+011800 01 S500B03CONTRATOS.                                                         
+011900 01 S500B91REINICIO.                                                          
+012000                                                                              
+012100**************************************************************                
+012200**************************************************************                
+012300* W O R K I N G      S T O R A G E.                                           
+012400**************************************************************                
+012500 WORKING-STORAGE SECTION.                                                     
+012600                                                                              
+012700 01 WKS-TASKVALUE                 PIC 9(08).                                  
+012800 01 RD-WKS-TASKVALUE              REDEFINES WKS-TASKVALUE.                    
+012900    02 WKS-TASK-AAAA              PIC 9(04).                                  
+013000    02 WKS-TASK-MM                PIC 9(02).                                  
+013100    02 WKS-TASK-DD                PIC 9(02).                                  
+013200                                                                              
+013300*****************************************************************             
+013400*    AUXILIARES PARA SORT                                       *             
+013500*****************************************************************             
+013600 77  W77-TOT-REGS                 PIC S9(11) VALUE 0.                         
+013700 77  W77-TOT-REGS-MTY             PIC S9(11) VALUE 0.                         
+013800 77  W77-TOT-REGS-VDM             PIC S9(11) VALUE 0.                         
+013900 77  W77-MAXRECSIZE               PIC  9(11) VALUE 0.                         
+014000 77  W77-MAXRECSIZE-MTY           PIC  9(11) VALUE 0.                         
+014100 77  W77-MAXRECSIZE-VDM           PIC  9(11) VALUE 0.                         
+014200 77  W77-UNITS                    PIC  9(11) VALUE 0.                         
+014300 77  W77-UNITS-MTY                PIC  9(11) VALUE 0.                         
+014400 77  W77-UNITS-VDM                PIC  9(11) VALUE 0.                         
+014500 77  W77-DISK-SIZE                PIC  9(11) VALUE 0.                         
+014600 77  W77-MEMORY-SIZE              PIC  9(11) VALUE 0.                         
+014700 77  W77-MEMORY-SIZE-MTY          PIC  9(11) VALUE 0.                         
+014800 77  W77-MEMORY-SIZE-VDM          PIC  9(11) VALUE 0.                         
+014900 77  W77-DISK-SIZE-2              PIC  9(11) VALUE 0.                         
+015000 77  W77-MEMORY-SIZE-2            PIC  9(11) VALUE 0.                         
+015100                                                                              
+015200******************************************************************            
+015300* DATOS VARIABLES USO GENERAL EN EL PROGRAMA                                  
+015400******************************************************************            
+015500 01 WS-SDO-DISPONIBLE             PIC S9(12)V99.                              
+015600 01 WS-TOTALES-MTY.                                                           
+015700    03 WS-TOT-GRABADMTY           PIC  9(09).                                 
+015800    03 WS-TOT-LEIDOSMTY           PIC  9(09).                                 
+015900    03 WS-TOT-SDOACTMTY           PIC  9(14)V99.                              
+016000    03 WS-TOT-SDOPENDMTY          PIC  9(14)V99.                              
+016100    03 WS-TOT-SDODISPMTY          PIC  9(14)V99.                              
+016200                                                                              
+016300 01 WS-TOTALES-VDM.                                                           
+016400    03 WS-TOT-GRABADVDM           PIC  9(09).                                 
+016500    03 WS-TOT-LEIDOSVDM           PIC  9(09).                                 
+016600    03 WS-TOT-SDOACTVDM           PIC  9(14)V99.                              
+016700    03 WS-TOT-SDOPENDVDM          PIC  9(14)V99.                              
+016800    03 WS-TOT-SDODISPVDM          PIC  9(14)V99.                              
+016900                                                                              
+017000 77 WS-EOF-B03                    PIC  9(01).                                 
+017100 77 WS-EOF-MTY                    PIC  9(01).                                 
+017200 77 WS-EOF-SORT                   PIC  9(01).                                 
+017300 77 WS-SEQ-MTYVDM                 PIC  9(09).                                 
+017400 77 WS-HORA-LLEGADA               PIC  9(04) VALUE 0830.                      
+017500 77 CTT-CSI                       PIC  9(02).                                 
+017600                                                                              
+017700 01 WS-DET-PRIKEY                 PIC X(19).                                  
+017800 01 WS-DET-PRIKEY-R  REDEFINES    WS-DET-PRIKEY.                              
+017900    03 WS-DET-CSI                 PIC 9(02).                                  
+018000    03 WS-DET-SUCPROM             PIC 9(04).                                  
+018100    03 WS-DET-CONTRATO            PIC 9(12).                                  
+018200    03 WS-DET-FILLER              PIC X(01).                                  
+018300                                                                              
+018400 01  WS-SINO                      PIC X(02) VALUE "SI".                       
+018500******************************************************************            
+018600* CAMPOS DEL ARCHIVO GENERADO EN MTY, VDM UNISYS                              
+018700******************************************************************            
+018800 01 WS-HDR-SDOB24.                                                            
+018900    02 WS-HDR-TIPO                PIC  9(02)    COMP.                         
+019000    02 WS-HDR-SISTEMA-ORI         PIC  9(04)    COMP.                         
+019100    02 WS-HDR-FECHA-BASE          PIC  9(08)    COMP.                         
+019200    02 WS-HDR-CSI                 PIC  9(02)    COMP.                         
+019300                                                                              
+019400 01 WS-REG-SDOB24.                                                            
+019500    02 WS-REG-TIPO                PIC  9(02)    COMP.                         
+019600    02 WS-REG-CSI                 PIC  9(02)    COMP.                         
+019700    02 WS-REG-SUCPROM             PIC  9(04)    COMP.                         
+019800    02 WS-REG-CONTRATO            PIC  9(12)    COMP.                         
+019900    02 WS-REG-SDOACTUAL           PIC S9(12)V99 COMP.                         
+020000    02 WS-REG-SDOPEND             PIC  9(12)V99 COMP.                         
+020100    02 WS-REG-SDODISP             PIC S9(12)V99 COMP.                         
+020200    02 WS-REG-STATUS              PIC  X(01)        .                         
+020300                                                                              
+020400******************************************************************            
+020500* CAMPOS DEL ARCHIVO ENVIADO A TANDEM HDR1, HDR2                              
+020600******************************************************************            
+020700 01 WS-SDOB24-HDR1.                                                           
+020800    03 WS-HD1-REC-CNT                     PIC 9(09) VALUE 1.                  
+020900    03 WS-HD1-REC-TYP                     PIC X(02) VALUE "FH".               
+021000    03 WS-HD1-REF-TYP                     PIC X(01) VALUE "0".                
+021100    03 WS-HD1-APPL                        PIC X(02) VALUE "PF".               
+021200    03 WS-HD1-GRP                         PIC X(04) VALUE "S500".             
+021300    03 WS-HD1-TAPE-DAT                    PIC X(08) VALUE SPACES.             
+021400    03 WS-HD1-TAPE-TIM                    PIC 9(04) VALUE 0.                  
+021500    03 WS-HD1-LN                          PIC X(04) VALUE "INT1".             
+021600    03 WS-HD1-REL-NUM                     PIC 9(02) VALUE 60.                 
+021700    03 WS-HD1-PAR-NUM                     PIC X(02) VALUE SPACES.             
+021800    03 WS-HD1-ATM.                                                            
+021900       05 WS-HD1-ATM-LST-EXTR-DAT         PIC X(06) VALUE SPACES.             
+022100       05 WS-HD1-ATM-IMP-STRT-DAT         PIC X(08) VALUE                     
+022200                                                    "99999999".               
+022300       05 WS-HD1-ATM-IMP-STRT-TIM         PIC X(12) VALUE                     
+022400                                                   "999999999999".            
+022500    03 WS-HD1-POS.                                                            
+022600       05 WS-HD1-POS-LST-EXTR-DAT         PIC X(06) VALUE SPACES.             
+022800       05 WS-HD1-POS-IMP-STRT-DARE        PIC X(08) VALUE                     
+022900                                                    "99999999".               
+023000       05 WS-HD1-POS-IMP-STRT-TIM         PIC X(12) VALUE                     
+023100                                                   "999999999999".            
+023200    03 WS-HD1-TLR.                                                            
+023300       05 WS-HD1-TLR-LST-EXTR-DAT         PIC X(06) VALUE SPACES.             
+023400       05 WS-HD1-TLR-IMP-STRT-DAT         PIC X(08) VALUE                     
+023500                                                    "99999999".               
+023600       05 WS-HD1-TLR-IMP-STRT-TIM         PIC X(12) VALUE                     
+023700                                                   "999999999999".            
+023800    03 WS-HD1-IMP-TYP                     PIC X(01) VALUE "1".                
+023900    03 WS-HD1-CAF-EXPNT                   PIC X(01) VALUE SPACES.             
+024000    03 WS-HD1-PRE-AUTH-SUPPORT            PIC X(01) VALUE "0".                
+024100    03 WS-HD1-USER-FLD2                   PIC X(05) VALUE SPACES.             
+024200    03 WS-HD1-TB.                                                             
+024300       05 WS-HD1-TB-LST-EXTR-DAT          PIC X(06) VALUE SPACES.             
+024400       05 WS-HD1-TB-IMP-STRT-DAT          PIC X(08) VALUE                     
+024500                                                    "99999999".               
+024600       05 WS-HD1-TB-IMP-STRT-TIM          PIC X(12) VALUE                     
+024700                                                   "999999999999".            
+024800    03 WS-HD1-FILL                        PIC X(192) VALUE SPACES.            
+024900                                                                              
+025000 01 WS-SDOB24-HDR2.                                                           
+025100    03 WS-HD2-REC-CNT                     PIC 9(09) VALUE 2.                  
+025200    03 WS-HD2-REC-TYP                     PIC X(02) VALUE "BH".               
+025300    03 WS-HD2-CRD-ISS                     PIC X(04) VALUE "CMAE".             
+025400    03 WS-HD2-END-RANGE                   PIC X(28) VALUE SPACES.             
+025500    03 WS-HD2-USER-FLD                    PIC X(01) VALUE SPACES.             
+025600    03 WS-HD2-FILL                        PIC X(298) VALUE SPACES.            
+025700                                                                              
+025800******************************************************************            
+025900* CAMPOS DEL ARCHIVO ENVIADO A TANDEM DETALLE                                 
+026000******************************************************************            
+026100 01 WS-SDOSB24-DETALLE.                                                       
+026200    03 WS-DET-SEG0.                                                           
+026300       05 WS-DET-SEG0-LGTH                PIC 9(04) VALUE 300.                
+026400       05 WS-DET-SEG0-CNT                 PIC 9(09).                          
+026500       05 WS-DET-SEG0-PRIKEY.                                                 
+026600          07 WS-DET-SEG0-PRIKEY-FIID      PIC X(04) VALUE "CMAE".             
+026700          07 WS-DET-SEG0-PRIKEY-NUM       PIC X(19).                          
+026800          07 WS-DET-SEG0-PRIKEY-TYP       PIC X(02) VALUE "01".               
+026900       05 WS-DET-SEG0-ACCT-STAT           PIC X(01).                          
+027000       05 WS-DET-SEG0-REC-TYP             PIC X(01) VALUE "F".                
+027100       05 WS-DET-SEG0-AVAIL-BAL           PIC 9(18).                          
+027200       05 WS-DET-SEG0-LEDG-BAL            PIC 9(18).                          
+027300       05 WS-DET-SEG0-AMT-ON-HLD          PIC 9(18).                          
+027400       05 WS-DET-SEG0-OVRDRFT-LMT         PIC 9(10) VALUE 0.                  
+027500       05 WS-DET-SEG0-LAST-DEP-DAT        PIC 9(06) VALUE 0.                  
+027600       05 WS-DET-SEG0-LAST-DEP-AMT        PIC 9(15) VALUE 0.                  
+027700       05 WS-DET-SEG0-LAST-WDL-DAT        PIC 9(06) VALUE 0.                  
+027800       05 WS-DET-SEG0-LAST-WDL-AMT        PIC 9(15) VALUE 0.                  
+027900       05 WS-DET-SEG0-CRNCY-CDE           PIC 9(03) VALUE 484.                
+028000       05 WS-DET-SEG0-USER-FLDL           PIC X(01) VALUE SPACES.             
+028100       05 WS-DET-SEG0-USER-FLD-ACI        PIC X(50) VALUE SPACES.             
+028200       05 WS-DET-SEG0-USER-FLD-REGN       PIC X(50) VALUE SPACES.             
+028300       05 WS-DET-SEG0-USER-FLD-CUS        PIC X(50) VALUE SPACES.             
+028400    03 WS-DET-SEG2.                                                           
+028500       05 WS-DET-SEG2-SEGX-LGTH.                                              
+028600          07 WS-DET-SEG2-SEGX-LGTH-LGTH   PIC 9(04) VALUE 42.                 
+028700       05 WS-DET-SEG2-SEGX-L-S-DATA.                                          
+028800          07 WS-DET-SEG2-SEGX-L-S-DATA-ID PIC 9(04) VALUE 0.                  
+028900          07 WS-DET-SEG2-SEGX-L-S-D-B24-R PIC X(08) VALUE SPACES.             
+029000       05 WS-DET-SEG2-TTL-FLOAT           PIC 9(15) VALUE 0.                  
+029100       05 WS-DET-SEG2-DAYS-DELINQ         PIC 9(02) VALUE 0.                  
+029200       05 WS-DET-SEG2-MONTHS-ACTIVE       PIC 9(02) VALUE 0.                  
+029300       05 WS-DET-SEG2-CYCLE-1             PIC 9(02) VALUE 0.                  
+029400       05 WS-DET-SEG2-CYCLE-2             PIC 9(02) VALUE 0.                  
+029500       05 WS-DET-SEG2-CYCLE-3             PIC 9(02) VALUE 0.                  
+029600       05 WS-DET-SEG2-USER-FLD2           PIC X(01) VALUE SPACES.             
+029700                                                                              
+029800*****************************************************************             
+029900*CAMPOS DEL ARCHIVO ENVIADO A TANDEM TRL1, TRL2                               
+030000*****************************************************************             
+030100 01 WS-SDOSB24-TRL1.                                                          
+030200    03 WS-TLR1-REC-CNT                    PIC 9(09).                          
+030300    03 WS-TRL1-REC-TYP                    PIC X(02) VALUE "BT".               
+030400    03 WS-TRL1-AMT                        PIC 9(18) VALUE ZEROS.              
+030500    03 WS-TRL1-NUM-RECS                   PIC 9(09).                          
+030600    03 WS-TRL1-FILL                       PIC X(304) VALUE SPACES.            
+030700                                                                              
+030800 01 WS-SDODB24-TRL2.                                                          
+030900    03 WS-TRL2-REC-CNT                    PIC 9(09).                          
+031000    03 WS-TRL2-REC-TYP                    PIC X(02) VALUE "FT".               
+031100    03 WS-TRL2-NUM-RECS                   PIC 9(09).                          
+031200    03 WS-TRL2-NXT-FILE-IND               PIC X(01) VALUE "0".                
+031300    03 WS-TRL2-USER-FLDL                  PIC X(03) VALUE SPACES.             
+031400    03 WS-TRL2-FILL                       PIC X(318) VALUE SPACES.            
+031500                                                                              
+031600******************************************************************            
+031700* VARIABLES UTILIZADAS PARA EL MANEJO DE FECHAS Y HORA.                       
+031800******************************************************************            
+031900 01 WS-FECHA-PRO                  PIC 9(08).                                  
+032000 01 WS-FECHA-PRO-R   REDEFINES    WS-FECHA-PRO.                               
+032100    02 WS-PRO-AA                  PIC 9(04).                                  
+032200    02 WS-PRO-AA-R   REDEFINES    WS-PRO-AA.                                  
+032300       03 WS-PRO-S                PIC 9(02).                                  
+032400       03 WS-PRO-A                PIC 9(02).                                  
+032500    02 WS-PRO-MM                  PIC 99.                                     
+032600    02 WS-PRO-DD                  PIC 99.                                     
+032700                                                                              
+032800 01 WS-FECHA-MAQ                  PIC 9(08).                                  
+032900 01 WS-FECHA-MAQ-R   REDEFINES    WS-FECHA-MAQ.                               
+033000    02 WS-MAQ-AA                  PIC 9(04).                                  
+033100    02 WS-MAQ-AA-R   REDEFINES    WS-MAQ-AA.                                  
+033200       03 WS-MAQ-S                PIC 9(02).                                  
+033300       03 WS-MAQ-A                PIC 9(02).                                  
+033400    02 WS-MAQ-MM                  PIC 99.                                     
+033500    02 WS-MAQ-DD                  PIC 99.                                     
+033600                                                                              
+033610 01 WS-FECHA-6-DIG.                                                           
+033620    02 WS-FECHA-SIGLO             PIC 9(02).                                  
+033630    02 WS-FECHA-AAMMDD            PIC 9(06).                                  
+033640                                                                              
+033700 01 WS-FECHA-FILE                 PIC 9(06).                                  
+033800 01 WS-FECHA-FIL-R   REDEFINES    WS-FECHA-FILE.                              
+033900    02 WS-FIL-AA                  PIC 99.                                     
+034000    02 WS-FIL-MM                  PIC 99.                                     
+034100    02 WS-FIL-DD                  PIC 99.                                     
+034200                                                                              
+034300 01 WS-HORA-HMSC-01.                                                          
+034400    03 WS-HORA-HMSC-N             PIC 9(8).                                   
+034500    03 WS-HORA-HMSC   REDEFINES   WS-HORA-HMSC-N.                             
+034600       05 WS-HORA-HMS-N           PIC 9(6).                                   
+034700       05 WS-HORA-HMS REDEFINES   WS-HORA-HMS-N.                              
+034800          07 WS-HORA-HH-N         PIC 9(2).                                   
+034900          07 WS-HORA-MM-N         PIC 9(2).                                   
+035000          07 WS-HORA-SS-N         PIC 9(2).                                   
+035100       05 WS-HORA-HM-R REDEFINES  WS-HORA-HMS-N.                              
+035200          07 WS-HORA-HM           PIC 9(4).                                   
+035300          07 WS-HORA-SS           PIC 9(2).                                   
+035400       05 FILLER                  PIC X(2).                                   
+035500                                                                              
+035504 01 WS-HORA-HMSC-02.                                                          
+035508    03 WS-HORA-HMSC-N2             PIC 9(8).                                  
+035512    03 WS-HORA-HMSC-2 REDEFINES    WS-HORA-HMSC-N2.                           
+035516       05 WS-HORA-HMS-N2           PIC 9(6).                                  
+035520       05 WS-HORA-HMS-2 REDEFINES  WS-HORA-HMS-N2.                            
+035524          07 WS-HORA-HH-N2         PIC 9(2).                                  
+035528          07 WS-HORA-MM-N2         PIC 9(2).                                  
+035532          07 WS-HORA-SS-N2         PIC 9(2).                                  
+035536       05 FILLER                   PIC X(2).                                  
+035540                                                                              
+035544 01 WS-HORA-HMSC-03.                                                          
+035548    03 WS-HORA-HMSC-N3             PIC 9(8).                                  
+035552    03 WS-HORA-HMSC-3  REDEFINES   WS-HORA-HMSC-N3.                           
+035556       05 WS-HORA-HMS-N3           PIC 9(6).                                  
+035560       05 WS-HORA-HMS-3 REDEFINES  WS-HORA-HMS-N3.                            
+035564          07 WS-HORA-HH-N3         PIC 9(2).                                  
+035568          07 WS-HORA-MM-N3         PIC 9(2).                                  
+035572          07 WS-HORA-SS-N3         PIC 9(2).                                  
+035576       05 FILLER                   PIC X(2).                                  
+035580                                                                              
+035600****************************************************************              
+035700*    ETIQUETA DEL NOMBRE CON QUE SERA GENERADO EL ARCHIVO DE                  
+035800*    SALDOS DEL Data Set B03CONTRATOS, MTY.                                   
+035900****************************************************************              
+036000 01 WS-ETIQ-MTY.                                                              
+036100    02 FILLER                     PIC X(35) VALUE                             
+036200                            "(S500)S500/FILE/S500/04/10/SDOSB24/".            
+036300    02 WS-ETIQ-MTY-FEC            PIC 9(06) VALUE 0.                          
+036400    02 FILLER                     PIC X(14) VALUE                             
+036500                                  " ON CAPTACION ".                           
+036600    02 WS-ETIQ-MTYPUNTO           PIC X(01) VALUE ".".                        
+036700****************************************************************              
+036800*    ETIQUETA DEL NOMBRE CON QUE SERA GENERADO EL ARCHIVO DE                  
+036900*    SALDOS DEL Data Set B03CONTRATOS, VDM.                                   
+037000****************************************************************              
+037100 01 WS-ETIQ-VDM.                                                              
+037200    02 FILLER                     PIC X(35) VALUE                             
+037300                            "(S500)S500/FILE/S500/10/10/SDOSB24/".            
+037400    02 WS-ETIQ-VDM-FEC            PIC 9(06) VALUE 0.                          
+037500    02 FILLER                     PIC X(14) VALUE                             
+037600                                  " ON CAPTACION ".                           
+037700    02 WS-ETIQ-VDMPUNTO           PIC X(01) VALUE ".".                        
+037800****************************************************************              
+037900*    ETIQUETA DEL NOMBRE CON QUE SERA INTEGRADO LOS ARCHIVOS DE               
+038000*    SALDOS MTY, VDM PARA EL S036.                                            
+038100****************************************************************              
+038200 01 WS-ETIQ-S036.                                                             
+038300    02 FILLER                     PIC X(35) VALUE                             
+038400                            "(S500)S500/FILE/S036/10/10/SDOSB24/".            
+038500    02 WS-ETIQ-S036-FEC           PIC 9(06) VALUE 0.                          
+038600    02 FILLER                     PIC X(14) VALUE                             
+038700                                  " ON CAPTACION ".                           
+038800    02 WS-ETIQ-S036PUNTO          PIC X(01) VALUE ".".                        
+038900                                                                              
+039000******************************************************************            
+039100* NOMBRE DEL BACKUP DE IMPRESION DEL LISTADO.                                 
+039200******************************************************************            
+039300 01 WS-ETIQ-R01.                                                              
+039400    03 FILLER                     PIC X(15) VALUE                             
+039500                                  "S500/LIST/P174/".                          
+039600    03 WS-ETIQ-NODO               PIC 99.                                     
+039700    03 WS-ETIQ-SBNODO             PIC 99    VALUE ZEROS.                      
+039800    03 FILLER                     PIC X     VALUE "/".                        
+039900    03 WS-ETIQ-TPO                PIC X     VALUE "C".                        
+040000    03 FILLER                     PIC X(04) VALUE "000/".                     
+040100    03 WS-ETIQ-FEC                PIC 9(06).                                  
+040200    03 FILLER                     PIC X     VALUE "/".                        
+040300    03 WS-ETIQ-MIX                PIC 9(07).                                  
+040400    03 FILLER                     PIC X     VALUE "/".                        
+040500    03 WS-ETIQ-NAME               PIC X(12) VALUE                             
+040600                                  "001CIFRAS".                                
+040700    03 FILLER                     PIC X     VALUE ".".                        
+040800                                                                              
+040900                                                                              
+041000****************************************************************              
+041100*            A R E A       D E       R E P O R T E S.                         
+041200****************************************************************              
+041300                                                                              
+041400****************************************************************              
+041500*         ENCABEZADO PARA EL TITULO DE CIFRAS DE SALDOS                       
+041600****************************************************************              
+041700 01 WS-CIF-ENC1.                                                              
+041800    03 FILLER                     PIC X(24) VALUE                             
+041900                                  " S500-P174-CIFRAS-SALDOS".                 
+042000    03 FILLER                     PIC X(22) VALUE SPACES.                     
+042100    03 FILLER                     PIC X(39) VALUE                             
+042200                        "BANCO NACIONAL DE MEXICO S. A. DE C. V.".            
+042300    03 FILLER                     PIC X(32) VALUE SPACES.                     
+042400    03 FILLER                     PIC X(07) VALUE "HOJA : ".                  
+042500    03 WS-CIF-HOJAS               PIC Z(05)B.                                 
+042600    03 FILLER                     PIC X(03) VALUE " ".                        
+042700                                                                              
+042800 01 WS-CIF-ENC2.                                                              
+042900    03 FILLER                     PIC X(16) VALUE                             
+043000                                  " FECHA DEL DIA: ".                         
+043100    03 WS-CIF-DIA                 PIC 9(02).                                  
+043200    03 FILLER                     PIC X VALUE "/".                            
+043300    03 WS-CIF-MES                 PIC 9(02).                                  
+043400    03 FILLER                     PIC X VALUE "/".                            
+043500    03 WS-CIF-AAO                 PIC 9(04).                                  
+043600    03 FILLER                     PIC X(27) VALUE SPACES.                     
+043700    03 FILLER                     PIC X(26) VALUE                             
+043800                                  "ARCHIVO GENERADO DE SALDOS".               
+043900    03 FILLER                     PIC X(37) VALUE SPACES.                     
+044000    03 FILLER                     PIC X(10) VALUE "C S I:    ".               
+044100    03 WS-CIF-CSI                 PIC 9(02).                                  
+044200    03 FILLER                     PIC X(04) VALUE SPACES.                     
+044300                                                                              
+044400 01 WS-CIF-ENC3.                                                              
+044500    03 FILLER                     PIC X(16) VALUE                             
+044600                                  " FECHA PROCESO: ".                         
+044700    03 WS-CIF-DDD                 PIC 9(02).                                  
+044800    03 FILLER                     PIC X VALUE "/".                            
+044900    03 WS-CIF-MMM                 PIC 9(02).                                  
+045000    03 FILLER                     PIC X VALUE "/".                            
+045100    03 WS-CIF-SAA                 PIC 9(04).                                  
+045200    03 FILLER                     PIC X(90) VALUE " ".                        
+045300    03 FILLER                     PIC X(07) VALUE                             
+045400                                  "HORA : ".                                  
+045500    03 WS-H-HORA                  PIC Z9.                                     
+045600    03 FILLER                     PIC X VALUE ":".                            
+045700    03 WS-H-MINUTO                PIC 9(02).                                  
+045800    03 FILLER                     PIC X VALUE ":".                            
+045900    03 WS-H-SEGUNDO               PIC 9(02).                                  
+046000    03 FILLER                     PIC X VALUE " ".                            
+046100                                                                              
+046200 01 WS-CIF-GUIONES                PIC X(132) VALUE ALL "_".                   
+046300                                                                              
+046304*****************************************************************             
+046308* DETALLE PARA TIEMPOS DEL ORDENAMIENTO.                                      
+046312*****************************************************************             
+046316 01 WS-DET-TSORT.                                                             
+046320    03 FILLER                      PIC X(02) VALUE SPACES.                    
+046324    03 FILLER                      PIC X(18) VALUE                            
+046328                                   "HORA INICIO SORT: ".                      
+046332    03 WS-HS-HINI                  PIC Z9.                                    
+046336    03 FILLER                      PIC X VALUE ":".                           
+046340    03 WS-HS-MINI                  PIC 9(02).                                 
+046344    03 FILLER                      PIC X VALUE ":".                           
+046348    03 WS-HS-SINI                  PIC 9(02).                                 
+046352    03 FILLER                      PIC X(01) VALUE SPACES.                    
+046356                                                                              
+046360    03 FILLER                      PIC X(17) VALUE                            
+046364                                   "HORA FINAL SORT: ".                       
+046368    03 WS-HS-HFIN                  PIC Z9.                                    
+046372    03 FILLER                      PIC X VALUE ":".                           
+046376    03 WS-HS-MFIN                  PIC 9(02).                                 
+046380    03 FILLER                      PIC X VALUE ":".                           
+046384    03 WS-HS-SFIN                  PIC 9(02).                                 
+046388    03 FILLER                      PIC X(01) VALUE SPACES.                    
+046400*****************************************************************             
+046500* DETALLE PARA EL LISTADO DE SALDOS DEL ARCHIVO SALDOSTB.                     
+046600*****************************************************************             
+046700 01 WS-DET-CIFSDO.                                                            
+046800    03 FILLER                     PIC X(02) VALUE SPACES.                     
+046900    03 FILLER                     PIC X(09) VALUE                             
+047000                                  "TOT LEID:".                                
+047100    03 WS-LEIDOS                  PIC ZZZZZZZZ9.                              
+047200    03 FILLER                     PIC X(02) VALUE SPACES.                     
+047300    03 FILLER                     PIC X(09) VALUE                             
+047400                                  "TOT GRAB:".                                
+047500    03 WS-GRABADOS                PIC ZZZZZZZZ9.                              
+047600    03 FILLER                     PIC X(02) VALUE SPACES.                     
+047700    03 FILLER                     PIC X(12) VALUE                             
+047800                                  "TOT IMP ACT:".                             
+047900    03 WS-IMPACTUAL               PIC $+ZZZ,ZZZ,ZZZ,ZZ9.99.                   
+048000    03 FILLER                     PIC X(02) VALUE SPACES.                     
+048100    03 FILLER                     PIC X(13) VALUE                             
+048200                                  "TOT IMP DISP:".                            
+048300    03 WS-IMPDISP                 PIC $+ZZZ,ZZZ,ZZZ,ZZ9.99.                   
+048400    03 FILLER                     PIC X(02) VALUE SPACES.                     
+048500    03 FILLER                     PIC X(12) VALUE                             
+048600                                  "HORA FINAL: ".                             
+048700    03 WS-H-HFIN                  PIC Z9.                                     
+048800    03 FILLER                     PIC X VALUE ":".                            
+048900    03 WS-H-MFIN                  PIC 9(02).                                  
+049000    03 FILLER                     PIC X VALUE ":".                            
+049100    03 WS-H-SFIN                  PIC 9(02).                                  
+049200    03 FILLER                     PIC X(01) VALUE SPACES.                     
+049300                                                                              
+049400******************************************************************            
+049500* VARIABLES UTILIZADAS PARA EL MANEJO DE ERRORES Y LLAVES DE                  
+049600* ACCESO A LA BASE DE DATOS.                                                  
+049700******************************************************************            
+049800 COPY "S500/INC/WOR/25MTP002".                                                
+049900 COPY "S500/INC/WOR/DAS/25MTP005".                                            
+050000****************************************************************              
+050100 PROCEDURE DIVISION.                                                          
+050200****************************************************************              
+050300*  R U T I N A  P R I N C I P A L.                                            
+050400****************************************************************              
+050500                                                                              
+050600 00000000-INICIO SECTION.                                                     
+050700*-----------------------                                                      
+050800 00000000-PRINCIPAL.                                                          
+050900*------------------                                                           
+051000   PERFORM                        10000000-INICIO.                            
+051100   IF CTT-CSI  = 04                                                           
+051200      PERFORM                     50000000-PROCESOS-MTY                       
+051300   ELSE                                                                       
+051400      PERFORM                     70001000-PROCESOS-VDM.                      
+051500   PERFORM                        90000000-CLOSE-BASE                         
+051600   STOP RUN.                                                                  
+051700                                                                              
+051800*****************************************************************             
+051900*****************************************************************             
+052000* R U T I N A S   D E   S E L E C C I O N   D E   L I B.                      
+052100                                                                              
+052200*****************************************************************             
+052300 10000000-INICIO.                                                             
+052400*---------------                                                              
+052500     MOVE 2                       TO  W77-USO-LIBLJ                           
+052600     MOVE "P174"                  TO  WS-0101-PASO-MSG                        
+052700     MOVE "25MTP004"              TO  WS-0101-MTP-MSG                         
+052800                                      W77-S000-MY-VERSION                     
+052900     MOVE "S500P174"              TO  W77-S000-MY-ID                          
+053000     MOVE ATTRIBUTE MIXNUMBER     OF MYSELF                                   
+053100                                  TO WS-ETIQ-MIX                              
+053200     PERFORM                      10000000-LIBRERIAS                          
+053300     PERFORM                      20000000-OPEN.                              
+053400                                                                              
+053500******************************************************************            
+053600* CHANGE A LA LIBRERIA DE VERSIONES.                                          
+053700******************************************************************            
+053800 10000000-LIBRERIAS.                                                          
+053900     PERFORM                      10000100-VERSIONES.                         
+053910     PERFORM                      10000006-LOCSUP.                            
+054000                                                                              
+054100*****************************************************************             
+054200*      R U T I N A S    P A R A   A P E R T U R A   D E                       
+054300*                BASE, FECHA B02, HORA, FECHA HOY.                            
+054400*****************************************************************             
+054500 20000000-OPEN.                                                               
+054600*-------------                                                                
+054700     PERFORM                      20001000-CHECO-VER                          
+054800     PERFORM                      20002000-ABRO-BASE                          
+054900     PERFORM                      20003000-FECHA-PRO                          
+055000     PERFORM                      20004000-HORA                               
+055100     PERFORM                      20005000-FECHA-DIA.                         
+055200                                                                              
+055300******************************************************************            
+055400* VERIFICO QUE LA VERSION QUE ESTOY CORRIENDO SEA LA DE VERSIONES.            
+055500******************************************************************            
+055600 20001000-CHECO-VER.                                                          
+055700*------------------                                                           
+055800     PERFORM                      20000100-CHECAME-VERSION                    
+055900     IF S000-CTR-CVEERROR < 0                                                 
+056000        MOVE "VER. EJECUTADA DIF. A VERSIONES"                                
+056100                                  TO WS-0101-TEXT-MSG                         
+056200        PERFORM                   70000050-MENSAJE                            
+056300        CHANGE ATTRIBUTE STATUS   OF MYSELF TO -1.                            
+056400                                                                              
+056500******************************************************************            
+056600* ABRO LA BASE DE DATOS DE INQUIRY SOLO DE LECTURA.                           
+056700******************************************************************            
+056800 20002000-ABRO-BASE.                                                          
+056900*------------------                                                           
+057000     OPEN INQUIRY                 S500BD01CAPTACION                           
+057100       ON EXCEPTION                                                           
+057200          MOVE "ERROR AL ABRIR LA BASE      "                                 
+057300                                  TO WS-0101-TEXT-MSG                         
+057400          PERFORM                 70000050-MENSAJE                            
+057500          CALL SYSTEM             DMTERMINATE.                                
+057600                                                                              
+057700     SET S500B02CONTROL           TO BEGINNING.                               
+057800                                                                              
+057900******************************************************************            
+058000* ACCESO EL DATASET DE CONTROL PARA OBTENER LA FECHA DE PROCESO.              
+058100******************************************************************            
+058200 20003000-FECHA-PRO.                                                          
+058300*------------------                                                           
+058400     PERFORM                      90000002-B02CONTROL-FIND                    
+058500     IF WS-STATUS-BASE > 0                                                    
+058600       IF WS-STATUS-BASE = 1                                                  
+058700          MOVE "ERROR REG. DE CONTROL VACIO    "                              
+058800                                  TO WS-0101-TEXT-MSG                         
+058900          PERFORM                 70000050-MENSAJE                            
+059000          CALL SYSTEM             DMTERMINATE                                 
+059100       ELSE                                                                   
+059200          STRING "ERROR AL HACER FIND A B02 " ,WS-STATUS-BASE                 
+059300                 DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                      
+059400          PERFORM                 70000050-MENSAJE                            
+059500          CALL SYSTEM             DMTERMINATE.                                
+059600                                                                              
+059700     MOVE B02-NUM-CSI             TO CTT-CSI                                  
+059800     MOVE B02-FECHA-LINEA         TO WS-FECHA-PRO.                            
+059900     MOVE WS-PRO-DD               TO WS-CIF-DDD WS-FIL-DD                     
+060000     MOVE WS-PRO-MM               TO WS-CIF-MMM WS-FIL-MM                     
+060100     MOVE WS-PRO-AA               TO WS-CIF-SAA                               
+060200     MOVE WS-PRO-A                TO WS-FIL-AA                                
+060300     MOVE WS-FECHA-FILE           TO WS-ETIQ-MTY-FEC                          
+060400                                     WS-ETIQ-VDM-FEC                          
+060500                                     WS-ETIQ-S036-FEC                         
+060600                                     WS-ETIQ-FEC.                             
+060700                                                                              
+060800******************************************************************            
+060900* OBTENGO LA HORA DE LA MAQUINA PARA LA GENERACION DE REPORTES.               
+061000******************************************************************            
+061100 20004000-HORA.                                                               
+061200*-------------                                                                
+061300     ACCEPT  WS-HORA-HMSC-N       FROM TIME                                   
+061400     MOVE WS-HORA-HH-N            TO WS-H-HORA                                
+061500     MOVE WS-HORA-MM-N            TO WS-H-MINUTO                              
+061600     MOVE WS-HORA-SS-N            TO WS-H-SEGUNDO.                            
+061700                                                                              
+061800******************************************************************            
+061900* OBTENGO LA FECHA DEL LA MAQUINA PARA LA GENERACION DE REPORTES.             
+062000******************************************************************            
+062100 20005000-FECHA-DIA.                                                          
+062200*------------------                                                           
+062300     PERFORM                      90000000-DAME-FEC-MAQUINA                   
+062400                                                                              
+062500     MOVE WKS-DD-MAQ              TO WS-MAQ-DD WS-CIF-DIA                     
+062600     MOVE WKS-MM-MAQ              TO WS-MAQ-MM WS-CIF-MES                     
+062700     MOVE WKS-AAAA-MAQ            TO WS-MAQ-AA WS-CIF-AAO.                    
+062800                                                                              
+062900******************************************************************            
+063000* PROCESO PRINCIPAL MTY, LEE S500B03CONTRATOS, GENERA ARCHIVO                 
+063100******************************************************************            
+063200 50000000-PROCESOS-MTY.                                                       
+063300*---------------------                                                        
+063400     MOVE CTT-CSI                 TO WS-ETIQ-NODO                             
+063500                                     WS-CIF-CSI                               
+063600     MOVE ZEROS                   TO WS-EOF-B03                               
+063700                                     WS-TOTALES-MTY                           
+063800     PERFORM                      50001000-OPEN-ARC-MTY                       
+063900     SET S500B03CONTRATOS         TO BEGINNING                                
+064000     PERFORM                      90000003-B03CONTRATOS-FINDF                 
+064100     PERFORM                      50002000-GENERA-ARCH-MTY                    
+064200                                           UNTIL WS-EOF-B03 = 1.              
+064300                                                                              
+064400 50001000-OPEN-ARC-MTY.                                                       
+064500*---------------------                                                        
+064600     CHANGE ATTRIBUTE TITLE       OF S01-SDOMTY                               
+064700                                  TO WS-ETIQ-MTY                              
+064800     OPEN OUTPUT                  S01-SDOMTY                                  
+064900                                                                              
+065000     CHANGE ATTRIBUTE TITLE       OF R01-CIFRAS                               
+065100                                  TO WS-ETIQ-R01.                             
+065200*ESCRIBE HEADER DE CONTROL                                                    
+065300     MOVE  LOW-VALUES             TO WS-HDR-SDOB24.                           
+065400     MOVE  01                     TO WS-HDR-TIPO.                             
+065500     MOVE  0500                   TO WS-HDR-SISTEMA-ORI.                      
+065600     MOVE  WS-FECHA-PRO           TO WS-HDR-FECHA-BASE.                       
+065700     MOVE  04                     TO WS-HDR-CSI.                              
+065800                                                                              
+065900     WRITE REG-S01-SDOMTY         FROM WS-HDR-SDOB24.                         
+066000                                                                              
+066100 50002000-GENERA-ARCH-MTY.                                                    
+066200*------------------------                                                     
+066300     IF WS-STATUS-BASE  =  0                                                  
+066400        ADD  1                    TO WS-TOT-LEIDOSMTY                         
+066500        PERFORM                   50003000-VALIDA-DATOS-MTY                   
+066600     ELSE                                                                     
+066700     IF WS-STATUS-BASE > 0                                                    
+066800        IF WS-DB-NOTFOUND                                                     
+066900           MOVE 1                 TO  WS-EOF-B03                              
+067000           CLOSE S01-SDOMTY       WITH REMOVE                                 
+067100           PERFORM                50004000-IMPRIME-REPORTE                    
+067200        ELSE                                                                  
+067300           STRING "ERROR AL HACER FIND A B03 " ,WS-STATUS-BASE                
+067400                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                     
+067500           PERFORM                 70000050-MENSAJE                           
+067600           CALL SYSTEM             DMTERMINATE.                               
+067700     IF WS-EOF-B03  =  0                                                      
+067800        PERFORM                   90000003-B03CONTRATOS-FINDN.                
+067900                                                                              
+068000 50003000-VALIDA-DATOS-MTY.                                                   
+068100*-------------------------                                                    
+068200     IF (B03-NUM-PRODUCTO  =  500         AND                                 
+068300         B03-NUM-INSTRUM   =    1         AND                                 
+068400         B03-MONEDA        =    1)                OR                          
+068500        (B03-NUM-PRODUCTO  =   66         AND                                 
+068600*        B03-MONEDA        =    1         AND                                 
+068700         B03-NUM-INSTRUM   < 90)                                              
+068800*        MOVE ZEROS               TO WS-SDO-DISPONIBLE                        
+068900*        COMPUTE WS-SDO-DISPONIBLE   =   B03-SDO-ACTUAL  -                    
+069000*                                        B03-AUT-PENDIENTE                    
+069100         MOVE ZEROS               TO WS-REG-SDOB24                            
+069200         MOVE SPACES              TO WS-REG-STATUS                            
+069300         PERFORM                  50003100-VALIDA-DISP-STATUS                 
+069310         PERFORM                  50003200-CONVIERTE-MONEDA                   
+069400         MOVE 02                  TO WS-REG-TIPO                              
+069500         MOVE B03-NUM-CONTRATO    TO WS-REG-CONTRATO                          
+069600*        MOVE B03-SDO-ACTUAL      TO WS-REG-SDOACTUAL                         
+069700*        MOVE B03-SDO-PENDIENTE                                               
+069800*                                 TO WS-REG-SDOPEND                           
+069900*        MOVE WS-SDO-DISPONIBLE   TO WS-REG-SDODISP                           
+070000         MOVE B03-SUC-PROMOTORA                                               
+070100                                  TO WS-REG-SUCPROM                           
+070200         MOVE CTT-CSI             TO WS-REG-CSI                               
+070300         WRITE REG-S01-SDOMTY     FROM WS-REG-SDOB24                          
+070400         ADD 1                    TO WS-TOT-GRABADMTY                         
+070500         ADD WS-REG-SDOACTUAL     TO WS-TOT-SDOACTMTY                         
+070600         ADD WS-REG-SDOPEND       TO WS-TOT-SDOPENDMTY                        
+070700         ADD WS-REG-SDODISP       TO WS-TOT-SDODISPMTY.                       
+070800                                                                              
+070900 50003100-VALIDA-DISP-STATUS.                                                 
+071000*---------------------------                                                  
+071100     IF WS-SDO-DISPONIBLE  <  ZEROS                                           
+071200        MOVE ZEROS                TO WS-SDO-DISPONIBLE.                       
+071210     IF (B03-SDO-ACTUAL + B03-SDOPROT-BLOQ) <  ZEROS                          
+071220        MOVE ZEROS                TO B03-SDO-ACTUAL.                          
+071300     IF B03-STATUS         =  0 OR 5                                          
+071400        MOVE "1"                  TO WS-REG-STATUS                            
+071500     ELSE                                                                     
+071600        MOVE "9"                  TO WS-REG-STATUS.                           
+071605 50003200-CONVIERTE-MONEDA.                                                   
+071610*-----------------------                                                      
+071615     MOVE ZEROS               TO WS-SDO-DISPONIBLE                            
+071620                                                                              
+071625     IF  B03-NUM-PRODUCTO  =   66         AND                                 
+071630         B03-NUM-INSTRUM   =   15         AND                                 
+071635         B03-MONEDA        =    5                                             
+071640                                                                              
+071645         COMPUTE WS-REG-SDOACTUAL  =                                          
+071650          (B03-SDO-ACTUAL + B03-SDOPROT-BLOQ) * B02-TC-LINEA                  
+071655                                                                              
+071660         COMPUTE WS-REG-SDOPEND    =   B03-SDO-PENDIENTE *                    
+071665                                       B02-TC-LINEA                           
+071670                                                                              
+071675         COMPUTE WS-REG-SDODISP    =   (B03-SDO-ACTUAL  *                     
+071680                                        B02-TC-LINEA)                         
+071685                                                -                             
+071690                                        (B03-AUT-PENDIENTE *                  
+071695                                         B02-TC-LINEA)                        
+071700     ELSE                                                                     
+071705         COMPUTE WS-SDO-DISPONIBLE   =   B03-SDO-ACTUAL  -                    
+071710                                         B03-AUT-PENDIENTE -                  
+071712                                         B03-PCOBP-PENDTE                     
+071715         ADD B03-SDO-ACTUAL B03-SDOPROT-BLOQ                                  
+071716             GIVING WS-REG-SDOACTUAL                                          
+071720         MOVE    B03-SDO-PENDIENTE   TO WS-REG-SDOPEND                        
+071725         MOVE    WS-SDO-DISPONIBLE   TO WS-REG-SDODISP.                       
+071730                                                                              
+071735                                                                              
+071800 50004000-IMPRIME-REPORTE.                                                    
+071900*------------------------                                                     
+072000     ACCEPT  WS-HORA-HMSC-N       FROM TIME                                   
+072100     MOVE WS-HORA-HH-N            TO WS-H-HFIN                                
+072200     MOVE WS-HORA-MM-N            TO WS-H-MFIN                                
+072300     MOVE WS-HORA-SS-N            TO WS-H-SFIN                                
+072400     OPEN OUTPUT                  R01-CIFRAS                                  
+072500     IF CTT-CSI = 04                                                          
+072600        MOVE WS-TOT-LEIDOSMTY        TO WS-LEIDOS                             
+072700        MOVE WS-TOT-GRABADMTY        TO WS-GRABADOS                           
+072800        MOVE WS-TOT-SDOACTMTY        TO WS-IMPACTUAL                          
+072900        MOVE WS-TOT-SDODISPMTY       TO WS-IMPDISP                            
+073000     ELSE                                                                     
+073100        MOVE WS-TOT-LEIDOSVDM        TO WS-LEIDOS                             
+073200        MOVE WS-TOT-GRABADVDM        TO WS-GRABADOS                           
+073300        MOVE WS-TOT-SDOACTVDM        TO WS-IMPACTUAL                          
+073400        MOVE WS-TOT-SDODISPVDM       TO WS-IMPDISP                            
+073410        MOVE WS-HORA-HH-N2           TO WS-HS-HINI                            
+073420        MOVE WS-HORA-MM-N2           TO WS-HS-MINI                            
+073430        MOVE WS-HORA-SS-N2           TO WS-HS-SINI                            
+073440        MOVE WS-HORA-HH-N3           TO WS-HS-HFIN                            
+073450        MOVE WS-HORA-MM-N3           TO WS-HS-MFIN                            
+073460        MOVE WS-HORA-SS-N3           TO WS-HS-SFIN.                           
+073500     MOVE 1                       TO WS-CIF-HOJAS                             
+073600     MOVE SPACES                  TO REG-R01-CIFRAS                           
+073700     WRITE REG-R01-CIFRAS         AFTER CHANNEL 1                             
+073800     WRITE REG-R01-CIFRAS         FROM  WS-CIF-ENC1   BEFORE 2.               
+073900     WRITE REG-R01-CIFRAS         FROM  WS-CIF-ENC2   BEFORE 1.               
+074000     WRITE REG-R01-CIFRAS         FROM  WS-CIF-ENC3   BEFORE 1.               
+074100     WRITE REG-R01-CIFRAS         FROM  WS-CIF-GUIONES.                       
+074110     IF CTT-CSI = 10                                                          
+074120        WRITE REG-R01-CIFRAS      FROM  WS-DET-TSORT  BEFORE 2.               
+074200     WRITE REG-R01-CIFRAS         FROM  WS-DET-CIFSDO BEFORE 2.               
+074300                                                                              
+074400     CLOSE R01-CIFRAS             WITH REMOVE.                                
+074500                                                                              
+074600 70001000-PROCESOS-VDM.                                                       
+074700*---------------------                                                        
+074800     MOVE CTT-CSI                 TO WS-ETIQ-NODO                             
+074900                                     WS-CIF-CSI                               
+075000     MOVE ZEROS                   TO WS-EOF-B03                               
+075100                                     WS-TOTALES-VDM                           
+075200     PERFORM                      70002000-OPEN-ARC-VDM                       
+075300     SET S500B03CONTRATOS         TO BEGINNING                                
+075400     PERFORM                      90000003-B03CONTRATOS-FINDF                 
+075500     PERFORM                      70003000-GENERA-ARCH-VDM                    
+075600                                           UNTIL WS-EOF-B03  = 1.             
+075700     MOVE ZEROS                   TO WS-EOF-MTY                               
+075800     CHANGE ATTRIBUTE TITLE       OF S01-SDOMTY                               
+075900                                  TO WS-ETIQ-MTY                              
+076000     PERFORM                      70005000-RESIDENCIA-ARCHMTY                 
+076100                                           UNTIL WS-EOF-MTY  = 1              
+076200                                                                              
+076300     PERFORM                      70006000-VALIDA-HDR-MTY.                    
+076400                                                                              
+076500     PERFORM                      70007000-CALCULA-NUMREG.                    
+076600                                                                              
+076700     PERFORM                      50004000-IMPRIME-REPORTE.                   
+076800                                                                              
+076900 70002000-OPEN-ARC-VDM.                                                       
+077000*---------------------                                                        
+077100     CHANGE ATTRIBUTE TITLE       OF S01-SDOVDM                               
+077200                                  TO WS-ETIQ-VDM                              
+077300     OPEN OUTPUT                  S01-SDOVDM                                  
+077400                                                                              
+077500     CHANGE ATTRIBUTE TITLE       OF R01-CIFRAS                               
+077600                                  TO WS-ETIQ-R01.                             
+077700*ESCRIBE HEADER DE CONTROL                                                    
+077800     MOVE  LOW-VALUES             TO WS-HDR-SDOB24.                           
+077900     MOVE  01                     TO WS-HDR-TIPO.                             
+078000     MOVE  0500                   TO WS-HDR-SISTEMA-ORI.                      
+078100     MOVE  WS-FECHA-PRO           TO WS-HDR-FECHA-BASE.                       
+078200     MOVE  10                     TO WS-HDR-CSI.                              
+078300                                                                              
+078400     WRITE REG-S01-SDOVDM         FROM WS-HDR-SDOB24.                         
+078500                                                                              
+078600 70003000-GENERA-ARCH-VDM.                                                    
+078700*------------------------                                                     
+078800     IF WS-STATUS-BASE  =  0                                                  
+078900        ADD  1                    TO WS-TOT-LEIDOSVDM                         
+079000        PERFORM                   70004000-VALIDA-DATOS-VDM                   
+079100     ELSE                                                                     
+079200     IF WS-STATUS-BASE > 0                                                    
+079300        IF WS-DB-NOTFOUND                                                     
+079400           MOVE 1                 TO  WS-EOF-B03                              
+079500           CLOSE S01-SDOVDM       WITH REMOVE                                 
+079600        ELSE                                                                  
+079700           STRING "ERROR AL HACER FIND A B03 " ,WS-STATUS-BASE                
+079800                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                     
+079900           PERFORM                 70000050-MENSAJE                           
+080000           CALL SYSTEM             DMTERMINATE.                               
+080100     IF WS-EOF-B03  =  0                                                      
+080200        PERFORM                   90000003-B03CONTRATOS-FINDN.                
+080300                                                                              
+080400 70004000-VALIDA-DATOS-VDM.                                                   
+080500*-------------------------                                                    
+080600     IF (B03-NUM-PRODUCTO  =  500         AND                                 
+080700         B03-NUM-INSTRUM   =    1         AND                                 
+080800         B03-MONEDA        =    1)                OR                          
+080900        (B03-NUM-PRODUCTO  =   66         AND                                 
+081000*        B03-MONEDA        =    1         AND                                 
+081100         B03-NUM-INSTRUM   < 90)                                              
+081200*        MOVE ZEROS               TO WS-SDO-DISPONIBLE                        
+081300*        COMPUTE WS-SDO-DISPONIBLE   =   B03-SDO-ACTUAL  -                    
+081400*                                        B03-AUT-PENDIENTE                    
+081500         MOVE ZEROS               TO WS-REG-SDOB24                            
+081600         MOVE SPACES              TO WS-REG-STATUS                            
+081700         PERFORM                  50003100-VALIDA-DISP-STATUS                 
+081710         PERFORM                  50003200-CONVIERTE-MONEDA                   
+081800         MOVE 02                  TO WS-REG-TIPO                              
+081900         MOVE B03-NUM-CONTRATO    TO WS-REG-CONTRATO                          
+082000*        MOVE B03-SDO-ACTUAL      TO WS-REG-SDOACTUAL                         
+082100*        MOVE B03-SDO-PENDIENTE                                               
+082200*                                 TO WS-REG-SDOPEND                           
+082300*        MOVE WS-SDO-DISPONIBLE   TO WS-REG-SDODISP                           
+082400         MOVE B03-SUC-PROMOTORA                                               
+082500                                  TO WS-REG-SUCPROM                           
+082600         MOVE CTT-CSI             TO WS-REG-CSI                               
+082700         WRITE REG-S01-SDOVDM     FROM WS-REG-SDOB24                          
+082800         ADD 1                    TO WS-TOT-GRABADVDM                         
+082900         ADD WS-REG-SDOACTUAL     TO WS-TOT-SDOACTVDM                         
+083000         ADD WS-REG-SDOPEND       TO WS-TOT-SDOPENDVDM                        
+083100         ADD WS-REG-SDODISP       TO WS-TOT-SDODISPVDM.                       
+083200                                                                              
+083300 70005000-RESIDENCIA-ARCHMTY.                                                 
+083400*---------------------------                                                  
+083500     IF ATTRIBUTE RESIDENT        OF S01-SDOMTY = VALUE TRUE                  
+083600        MOVE 1                    TO WS-EOF-MTY                               
+083700     ELSE                                                                     
+083800        WAIT(300)                                                             
+083900        ACCEPT WS-HORA-HMSC-N     FROM TIME                                   
+084000        IF WS-HORA-HM  >  WS-HORA-LLEGADA                                     
+084100           MOVE "I" TO W77-TIPO-DISP                                          
+084200           MOVE SPACES           TO WS-0101-TEXT-MSG                          
+084300           STRING "ESPERANDO ARCHIVO DE MTY"                                  
+084400                  "ÍESPERO OTROS 5 MINUTOS (SI/NO)?"                          
+084500                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                     
+084600           PERFORM 70000050-MENSAJE                                           
+084700           MOVE "E" TO W77-TIPO-DISP                                          
+084800           ACCEPT WS-SINO                                                     
+084900           IF WS-SINO ="SI" OR "S" OR " SI"                                   
+085000              NEXT SENTENCE                                                   
+085100           ELSE                                                               
+085200              STOP RUN.                                                       
+085300                                                                              
+085400 70006000-VALIDA-HDR-MTY.                                                     
+085500*-----------------------                                                      
+085600                                                                              
+085700     OPEN INPUT                   S01-SDOMTY.                                 
+085800                                                                              
+085900     READ S01-SDOMTY              INTO WS-HDR-SDOB24.                         
+086000                                                                              
+086100     IF WS-HDR-TIPO          = 01               AND                           
+086200        WS-HDR-SISTEMA-ORI   = 0500             AND                           
+086300        WS-HDR-FECHA-BASE    = WS-FECHA-PRO     AND                           
+086400        WS-HDR-CSI           = 04                                             
+086500           NEXT SENTENCE                                                      
+086600     ELSE                                                                     
+086700         MOVE SPACES           TO WS-0101-TEXT-MSG                            
+086800         STRING "ARCHIVO ", WS-ETIQ-MTY                                       
+086900                " CON HEADER ERRONEO"                                         
+087000                DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                       
+087100         PERFORM 70000050-MENSAJE                                             
+087200         CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                             
+087300                                                                              
+087400     CLOSE S01-SDOMTY               WITH REMOVE.                              
+087500                                                                              
+087600 70007000-CALCULA-NUMREG.                                                     
+087700*-----------------------                                                      
+087800     PERFORM                      70008000-ACUMULA-DATOS-SORT                 
+087900     COMPUTE W77-UNITS     =  W77-UNITS-MTY       + W77-UNITS-VDM             
+088000     IF W77-MAXRECSIZE-MTY  >  ZEROS                                          
+088100        MOVE W77-MAXRECSIZE-MTY   TO W77-MAXRECSIZE                           
+088200     ELSE                                                                     
+088300     IF W77-MAXRECSIZE-VDM  >  ZEROS                                          
+088400        MOVE W77-MAXRECSIZE-VDM   TO W77-MAXRECSIZE.                          
+088500     COMPUTE W77-TOT-REGS  =  W77-TOT-REGS-MTY    +                           
+088600                              W77-TOT-REGS-VDM                                
+088700     PERFORM                      70009000-CONVIERTE-A-PALABRA                
+088800     ADD 2                        TO W77-TOT-REGS                             
+088900     COMPUTE W77-MEMORY-SIZE = ((W77-MAXRECSIZE + 3) * 2000)                  
+089000                                                     + 1500                   
+089100     COMPUTE W77-DISK-SIZE = W77-MAXRECSIZE * W77-TOT-REGS                    
+089200                                            * 2.25                            
+089300*OBTIENE HORA DE INICIO DEL SORT                                              
+089310     ACCEPT WS-HORA-HMSC-N2      FROM TIME                                    
+089320                                                                              
+089400     SORT S31-SORT  ASCENDING     KEY SD-S31-TIPO SD-S31-CSI                  
+089410                                   SD-S31-SUCPROM SD-S31-CONTRATO             
+089500          MEMORY SIZE             IS W77-MEMORY-SIZE WORDS                    
+089600          DISK   SIZE             IS W77-DISK-SIZE   WORDS                    
+089700          USING                   S01-SDOMTY, S01-SDOVDM                      
+089800          OUTPUT PROCEDURE        70010000-PROCESA-TANDEM.                    
+089900                                                                              
+090000 70008000-ACUMULA-DATOS-SORT.                                                 
+090100*---------------------------                                                  
+090200     CHANGE ATTRIBUTE TITLE       OF S01-SDOMTY                               
+090300                                  TO WS-ETIQ-MTY                              
+090400     IF ATTRIBUTE RESIDENT OF     S01-SDOMTY = VALUE TRUE                     
+090500        OPEN INPUT                S01-SDOMTY                                  
+090600        MOVE ATTRIBUTE UNITS      OF S01-SDOMTY                               
+090700                                  TO W77-UNITS-MTY                            
+090800        MOVE ATTRIBUTE MAXRECSIZE OF S01-SDOMTY                               
+090900                                  TO W77-MAXRECSIZE-MTY                       
+091000        MOVE ATTRIBUTE LASTRECORD OF S01-SDOMTY                               
+091100                                  TO W77-TOT-REGS-MTY                         
+091200        CLOSE S01-SDOMTY          WITH REMOVE.                                
+091300                                                                              
+091400     CHANGE ATTRIBUTE TITLE       OF S01-SDOVDM                               
+091500                                  TO WS-ETIQ-VDM                              
+091600     IF ATTRIBUTE RESIDENT OF     S01-SDOVDM = VALUE TRUE                     
+091700        OPEN INPUT                S01-SDOVDM                                  
+091800        MOVE ATTRIBUTE UNITS      OF S01-SDOVDM                               
+091900                                  TO W77-UNITS-VDM                            
+092000        MOVE ATTRIBUTE MAXRECSIZE OF S01-SDOVDM                               
+092100                                  TO W77-MAXRECSIZE-VDM                       
+092200        MOVE ATTRIBUTE LASTRECORD OF S01-SDOVDM                               
+092300                                  TO W77-TOT-REGS-VDM                         
+092400        CLOSE S01-SDOVDM          WITH REMOVE.                                
+092500                                                                              
+092600 70009000-CONVIERTE-A-PALABRA.                                                
+092700*----------------------------                                                 
+092800     IF W77-UNITS  NOT =  0                                                   
+092900        IF FUNCTION MOD(W77-MAXRECSIZE,6)  >  0                               
+093000           COMPUTE W77-MAXRECSIZE =                                           
+093100                    FUNCTION DIV(W77-MAXRECSIZE,6) + 1                        
+093200        ELSE                                                                  
+093300           COMPUTE W77-MAXRECSIZE =                                           
+093400                    FUNCTION DIV(W77-MAXRECSIZE,6).                           
+093500                                                                              
+093600*****************************************************************             
+093700* RUTINA QUE SE EJECUTA ANTES DE FINALIZAR EL PROGRAMA.                       
+093800*****************************************************************             
+093900 90000000-CLOSE-BASE.                                                         
+094000*-------------------                                                          
+094100     CLOSE  S500BD01CAPTACION                                                 
+094200        ON  EXCEPTION                                                         
+094300            MOVE "ERROR AL CERRAR LA BASE"                                    
+094400                                  TO WS-0101-TEXT-MSG                         
+094500            PERFORM               70000050-MENSAJE                            
+094600            CALL SYSTEM           DMTERMINATE.                                
+094700                                                                              
+094800******************************************************************            
+094900* COPY QUE CONTIENE LAS RUTINAS DE ACCESO A LA BASE.                          
+095000******************************************************************            
+095100 COPY "S500/INC/PRO/25MTP002".                                                
+095200                                                                              
+095300******************************************************************            
+095400* EJECUTA EL SORT EN VDM CON ARCHVISO DE LOS DOS CSI                          
+095500******************************************************************            
+095600 70010000-PROCESA-TANDEM          SECTION.                                    
+095700 70011000-PROCESA-TANDEM.                                                     
+095800*-----------------------                                                      
+095900     CHANGE ATTRIBUTE TITLE       OF S01-SDOMTYVDM                            
+096000                                  TO WS-ETIQ-S036                             
+096010     ACCEPT WS-HORA-HMSC-N3       FROM TIME                                   
+096100     OPEN OUTPUT                  S01-SDOMTYVDM                               
+096200     MOVE WS-FECHA-PRO            TO WS-HD1-TAPE-DAT                          
+096300     ACCEPT WS-HORA-HMSC-N        FROM TIME                                   
+096400     MOVE WS-HORA-HM              TO WS-HD1-TAPE-TIM                          
+096410     PERFORM                      70012000-HABIL-ANT.                         
+096500     WRITE REG-S01-SDOMTYVDM      FROM WS-SDOB24-HDR1                         
+096600     WRITE REG-S01-SDOMTYVDM      FROM WS-SDOB24-HDR2                         
+096700     MOVE 2                       TO WS-SEQ-MTYVDM                            
+096800     MOVE ZEROS                   TO WS-EOF-SORT                              
+096900     RETURN S31-SORT              AT END MOVE 1 TO WS-EOF-SORT.               
+097000     PERFORM                      70013000-RUTINA-FINAL                       
+097100                                         UNTIL WS-EOF-SORT = 1.               
+097200     MOVE ZEROS                   TO WS-TRL1-NUM-RECS                         
+097300                                     WS-TRL2-NUM-RECS                         
+097400     ADD  1                       TO WS-SEQ-MTYVDM                            
+097500     MOVE WS-SEQ-MTYVDM           TO WS-TLR1-REC-CNT                          
+097600     COMPUTE WS-TRL1-NUM-RECS  =  W77-TOT-REGS-MTY  +                         
+097700                                  W77-TOT-REGS-VDM                            
+097800     WRITE REG-S01-SDOMTYVDM      FROM WS-SDOSB24-TRL1                        
+097900     ADD  1                       TO WS-SEQ-MTYVDM                            
+098000     MOVE WS-SEQ-MTYVDM           TO WS-TRL2-REC-CNT                          
+098100     COMPUTE WS-TRL2-NUM-RECS  =  W77-TOT-REGS-VDM  +                         
+098200                                  W77-TOT-REGS-MTY                            
+098300     WRITE REG-S01-SDOMTYVDM      FROM WS-SDODB24-TRL2                        
+098400     CLOSE S01-SDOMTYVDM          WITH REMOVE.                                
+098500                                                                              
+098505 70012000-HABIL-ANT.                                                          
+098510*-------------------                                                          
+098515     MOVE WS-FECHA-PRO TO WS-S006-FECHA1                                      
+098520     MOVE 13   TO   WS-S006-FORMATO                                           
+098525     MOVE 15   TO   WS-S006-FUNCION                                           
+098530     MOVE 1    TO   WS-S006-FECHA2                                            
+098535     PERFORM 20000006-LOCSUP                                                  
+098540     IF WS-S006-FUNCION = 0                                                   
+098545        MOVE WS-S006-FECHA1  TO WS-FECHA-6-DIG                                
+098550        MOVE WS-FECHA-AAMMDD TO WS-HD1-ATM-LST-EXTR-DAT                       
+098555                                WS-HD1-POS-LST-EXTR-DAT.                      
+098560                                                                              
+098600 70013000-RUTINA-FINAL.                                                       
+098700*---------------------                                                        
+098800     RETURN S31-SORT              AT END MOVE 1 TO WS-EOF-SORT.               
+098900     IF WS-EOF-SORT   =  0                                                    
+099000        IF SD-S31-TIPO = 02                                                   
+099100           MOVE ZEROS                TO WS-DET-SEG0-CNT                       
+099200                                        WS-DET-SEG0-AVAIL-BAL                 
+099300                                        WS-DET-SEG0-LEDG-BAL                  
+099400                                        WS-DET-SEG0-AMT-ON-HLD                
+099500           MOVE SPACES               TO WS-DET-PRIKEY                         
+099600                                        WS-DET-SEG0-ACCT-STAT                 
+099700           ADD  1                    TO WS-SEQ-MTYVDM                         
+099800           MOVE WS-SEQ-MTYVDM        TO WS-DET-SEG0-CNT                       
+099900           MOVE SD-S31-CSI           TO WS-DET-CSI                            
+100000           MOVE SD-S31-SUCPROM       TO WS-DET-SUCPROM                        
+100100           MOVE SD-S31-CONTRATO      TO WS-DET-CONTRATO                       
+100200           MOVE SD-S31-STATUS        TO WS-DET-SEG0-ACCT-STAT                 
+100300           MOVE WS-DET-PRIKEY        TO WS-DET-SEG0-PRIKEY-NUM                
+100400           COMPUTE WS-DET-SEG0-LEDG-BAL   = SD-S31-SDOACTUAL * 100            
+100500           COMPUTE WS-DET-SEG0-AMT-ON-HLD = SD-S31-SDOPEND   * 100            
+100600           COMPUTE WS-DET-SEG0-AVAIL-BAL  = SD-S31-SDODISP   * 100            
+100700                                                                              
+100710           ADD  WS-DET-SEG0-LEDG-BAL TO WS-TRL1-AMT                           
+100720                                                                              
+100800           WRITE REG-S01-SDOMTYVDM   FROM WS-SDOSB24-DETALLE.                 
+100900                                                                              

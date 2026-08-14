@@ -1,0 +1,749 @@
+000001$SET LINEINFO OPTIMIZE LIST                                       000100      
+000002 IDENTIFICATION DIVISION.                                         000200      
+000003                                                                  000300      
+000004*=================================================================000400      
+000005*  FUNCION : EFECTUA CAMBIO EN EL DATO ESTATUS EN LA BASE DE     *000500      
+000006*            CONTROL S151BD99CONTROL, ESTRUCTURA : B04SISTEM,    *000600      
+000007*            ESTO POR MEDIO DE LLAMADO A LA LIBRERIA DE CONTROL. *000700      
+000008*                                                                *000800      
+000009*            SE PASA POR PARAMETRO EL NUMERO DE SISTEMA Y EL     *000900      
+000010*            NUMERO DE ESTATUS QUE SE DESEA CAMBIAR.             *001000      
+000011*            PARAMETROS :                                        *001100      
+000012*            WKS-PARAM-SISTEMA 9(03)                             *001200      
+000013*            WKS-PARAM-ESTATUS 9(02).                            *001300      
+000014*=================================================================001400      
+000015******************************************************************001405      
+000016**JNRB 251112 SE LIBERA NUEVA VERSION POR PROCESO DE             *001410      
+000017**RECOMPILACION                                                  *001415      
+000018*                                                                *001420      
+000019*                                                                *001425      
+000020*                                                                *001430      
+000021*                                                                *001435      
+000022*                                                                *001440      
+000023*                                                                *001445      
+000024*                                                                *001450      
+000025*                                                                *001455      
+000026*                                                                *001460      
+000027*                                                                *001465      
+000028*                                                                *001470      
+000029******************************************************************001475      
+000030                                                                  001500      
+000031 PROGRAM-ID.             CALLLIBCTL.                              001600      
+000032 ENVIRONMENT DIVISION.                                            001700      
+000033                                                                  001800      
+000034 DATA        DIVISION.                                            001900      
+000035                                                                  002000      
+000036 WORKING-STORAGE SECTION.                                         002100      
+000037                                                                  002200      
+000038*================================================================ 002300      
+000039*         COPY A LOS FORMATOS DE LLAMADO PARA LIB. DE CONTROL   = 002400      
+000040*================================================================ 002500      
+000041                                                                  002600      
+000042*INICIO  COPY PARA CPBAS                                          CPBAS 1.    
+000043* COPY "(S151)S151/FORMATO/LLAMADA/LIBCONTROL.".                  002700      
+000044*================================================================ 000100      
+000045*         ENTRY-POINT CONSISDIA :                               = 000200      
+000046*                                                                 000300      
+000047* FUNCION 1  .- CONSULTA  S151B01SISDIA                         = 000400      
+000048* FUNCION 2  .- ACTUALIZA FECHA DE CONSULTA                     = 000500      
+000049* FUNCION 3  .- ACTUALIZA FECHA DE PROCESO                      = 000600      
+000050* FUNCION 4  .- ACTUALIZA ESTATUS DE BASE SEMANAL               = 000700      
+000051* FUNCION 5  .- HABILITA FECHA.                                 = 000800      
+000052* FUNCION 6  .- ACTUALIZA FECHA.                                = 000900      
+000053* FUNCION 7  .- ACTUALIZA EL STATUS DEL ARCHIVO LOG.            = 001000      
+000054* FUNCION 8  .- ACTUALIZA EL NIVEL DE ARCHIVO DE MOVIMIENTOS.   = 001100      
+000055* FUNCION 9  .- ACTUALIZA EL NIVEL DE LA BASE DE DATOS.         = 001200      
+000056* FUNCION 10 .- ACTUALIZA EL NIVEL DE LA BASE Y ARCHIVO DE MOVS = 001300      
+000057*                                                               = 001400      
+000058*================================================================ 001500      
+000059                                                                  001600      
+000060                                                                  001700      
+000061*================================================================ 001800      
+000062* FUNCION 1.- CONSULTA DEL DATASET S151B01SISDIA                = 001900      
+000063*                                                               = 002000      
+000064* ENTRADA REQUERIDA :                                           = 002100      
+000065*                                                               = 002200      
+000066*   WKS-B01-FUNCION : FUNCION = 01.                             = 002300      
+000067*   WKS-B01-SISTEMA : SISTEMA.                                  = 002400      
+000068*   WKS-B01-CSI     : NUMERO DE CSI.                            = 002500      
+000069*================================================================ 002600      
+000070 01 WKS-S151B01SISDIA WITH LOWER-BOUNDS.                          002700      
+000071    03 WKS-B01-FUNCION             PIC 9(02).                     002800      
+000072    03 WKS-B01-SISTEMA             PIC 9(04).                     002900      
+000073    03 WKS-B01-CSI                 PIC 9(02).                     003000      
+000074    03 WKS-B01-FECPRO              PIC 9(08).                     003102      
+000075    03 WKS-B01-FECCON              PIC 9(08).                     003202      
+000076    03 WKS-B01-FECPRO151           PIC 9(08).                     003302      
+000077    03 WKS-B01-STAREG              PIC 9(02).                     003400      
+000078    03 WKS-B01-NOMARCSAL           PIC X(34).                     003500      
+000079    03 WKS-B01-NOMPACSAL           PIC X(17).                     003600      
+000080    03 WKS-B01-NOMARCMOV           PIC X(34).                     003700      
+000081    03 WKS-B01-NOMPACMOV           PIC X(17).                     003800      
+000082    03 WKS-B01-NOMARCDES           PIC X(34).                     003900      
+000083    03 WKS-B01-NOMPACDES           PIC X(17).                     004000      
+000084    03 WKS-B01-NOMARCERR           PIC X(34).                     004100      
+000085    03 WKS-B01-NOMPACERR           PIC X(17).                     004200      
+000086    03 WKS-B01-NOMBDSEM            PIC X(17).                     004300      
+000087    03 WKS-B01-STABDSEM            PIC 9(02).                     004400      
+000088    03 WKS-B01-NUMARC              PIC 9(02).                     004500      
+000089    03 WKS-B01-3ERNIV              PIC 9(02).                     004600      
+000090    03 WKS-B01-CTL-DIA     OCCURS 10 TIMES.                       004700      
+000091       05 WKS-B01-FECARCMOV        PIC 9(08).                     004802      
+000092       05 WKS-B01-NIVARCMOV        PIC 9(08).                     004900      
+000093       05 WKS-B01-NIVBDMOV         PIC 9(08).                     005000      
+000094       05 WKS-B01-STAARCLOG        PIC 9(02).                     005100      
+000095*==============================================================   005200      
+000096*                                                             =   005300      
+000097* FUNCION 2 .- ACTUALIZA LA FECHA DE CONSULTA.                =   005400      
+000098*                                                             =   005500      
+000099* CAMPOS REQUERIDOS :                                         =   005600      
+000100*                                                             =   005700      
+000101* WKS-B01F02-FUNCION : FUNCION = 2                            =   005800      
+000102* WKS-B01F02-SISTEMA : SISTEMA                                =   005900      
+000103* WKS-B01F02-CSI     : NUMERO DE CSI                          =   006000      
+000104* WKS-B01F02-FECCON  : FECHA DE CONSULTA A COLOCAR            =   006100      
+000105*==============================================================   006200      
+000106 01 WKS-CONSISDIA-F02 WITH LOWER-BOUNDS.                          006300      
+000107    03 WKS-B01F02-FUNCION          PIC 9(02).                     006400      
+000108    03 WKS-B01F02-SISTEMA          PIC 9(04).                     006500      
+000109    03 WKS-B01F02-CSI              PIC 9(02).                     006600      
+000110    03 WKS-B01F02-FECCON           PIC 9(08).                     006702      
+000111                                                                  006800      
+000112*==============================================================   006900      
+000113*                                                             =   007000      
+000114* FUNCION 3 .- ACTUALIZA LA FECHA DE PROCESO.                 =   007100      
+000115*                                                             =   007200      
+000116* CAMPOS REQUERIDOS :                                         =   007300      
+000117*                                                             =   007400      
+000118* WKS-B01F03-FUNCION : FUNCION = 3                            =   007500      
+000119* WKS-B01F03-SISTEMA : SISTEMA                                =   007600      
+000120* WKS-B01F03-CSI     : NUMERO DE CSI                          =   007700      
+000121* WKS-B01F03-FECPRO  : FECHA DE CONSULTA A COLOCAR            =   007800      
+000122*==============================================================   007900      
+000123 01 WKS-CONSISDIA-F03 WITH LOWER-BOUNDS.                          008000      
+000124    03 WKS-B01F03-FUNCION          PIC 9(02).                     008100      
+000125    03 WKS-B01F03-SISTEMA          PIC 9(04).                     008200      
+000126    03 WKS-B01F03-CSI              PIC 9(02).                     008300      
+000127    03 WKS-B01F03-FECPRO           PIC 9(08).                     008402      
+000128                                                                  008500      
+000129*==============================================================   008600      
+000130*                                                             =   008700      
+000131* FUNCION 4 .- ACTUALIZA EL STATUS DE LA BASE SEMANAL.        =   008800      
+000132*                                                             =   008900      
+000133* CAMPOS REQUERIDOS :                                         =   009000      
+000134*                                                             =   009100      
+000135* WKS-B01F04-FUNCION  : FUNCION = 4                           =   009200      
+000136* WKS-B01F04-SISTEMA  : SISTEMA                               =   009300      
+000137* WKS-B01F04-CSI      : NUMERO DE CSI                         =   009400      
+000138* WKS-B01F04-STABDSEM : ESTATUS BASE DE DATOS SEMANAL (0, 1)  =   009500      
+000139*==============================================================   009600      
+000140 01 WKS-CONSISDIA-F04 WITH LOWER-BOUNDS.                          009700      
+000141    03 WKS-B01F04-FUNCION          PIC 9(02).                     009800      
+000142    03 WKS-B01F04-SISTEMA          PIC 9(04).                     009900      
+000143    03 WKS-B01F04-CSI              PIC 9(02).                     010000      
+000144    03 WKS-B01F04-STABDSEM         PIC 9(02).                     010100      
+000145                                                                  010200      
+000146*============================================================     010300      
+000147* FUNCION 5.- CAMBIA EL ESTATUS DEL CAMPO B01-SIS-STAREG.   =     010400      
+000148*             LOS VALORES PERMITIDOS A CAMBIAR SON 0 Y 1.   =     010500      
+000149*                                                           =     010600      
+000150*  EL VALOR 0 PERMITE  QUE EL P000 PUEDE SER EJECUTADO.     =     010700      
+000151*  EL VALOR 1 NO PERMITE LA EJECUCION DEL P000.             =     010800      
+000152*                                                           =     010900      
+000153*  ENTRADA REQUERIDA.                                       =     011000      
+000154*                                                           =     011100      
+000155*  WKS-B01F05-FUNCION   : FUNCION = 5.                      =     011200      
+000156*  WKS-B01F05-SISTEMA   : SISTEMA.                          =     011300      
+000157*  WKS-B01F05-CSI       : NUMERO DE CSI.                    =     011400      
+000158*  WKS-B01F05-VALOR     : VALOR A COLOCAR ( 0, 1 ).         =     011500      
+000159*============================================================     011600      
+000160                                                                  011700      
+000161 01  WKS-CONSISDIA-F05 WITH LOWER-BOUNDS.                         011800      
+000162     03 WKS-B01F05-FUNCION                 PIC 9(02).             011900      
+000163     03 WKS-B01F05-SISTEMA                 PIC 9(04).             012000      
+000164     03 WKS-B01F05-CSI                     PIC 9(02).             012100      
+000165     03 WKS-B01F05-VALOR                   PIC 9(02).             012200      
+000166                                                                  012300      
+000167*=============================================================    012400      
+000168*                                                            =    012500      
+000169* FUNCION 6.- ACTUALIZA EN EL DATASET S151B01SISDIA EL CAMPO =    012600      
+000170*             B01-SIS-FECARMOV.                              =    012700      
+000171*                                                            =    012800      
+000172* ENTRADA REQUERIDAD :                                       =    012900      
+000173*                                                            =    013000      
+000174*  WKS-B01F06-FUNCION  : FUNCION = 06.                       =    013100      
+000175*  WKS-B01F06-SISTEMA  : SISTEMA.                            =    013200      
+000176*  WKS-B01F06-CSI      : NUMERO DE CSI.                      =    013300      
+000177*  WKS-B01F06-FECACT   : FECHA ACTUAL.                       =    013400      
+000178*  WKS-B01F06-FECNVA   : FECHA NUEVA.                        =    013500      
+000179*=============================================================    013600      
+000180                                                                  013700      
+000181 01  WKS-CONSISDIA-F06 WITH LOWER-BOUNDS.                         013800      
+000182     03 WKS-B01F06-FUNCION        PIC 9(02).                      013900      
+000183     03 WKS-B01F06-SISTEMA        PIC 9(04).                      014000      
+000184     03 WKS-B01F06-CSI            PIC 9(02).                      014100      
+000185     03 WKS-B01F06-FECACT         PIC 9(08).                      014202      
+000186     03 WKS-B01F06-FECNVA         PIC 9(08).                      014302      
+000187*================================================================ 014400      
+000188*                                                               = 014500      
+000189* FUNCION 7.- ACTUALIZA EL ESTATUS DEL ARCHIVO DE MOVIMIENTOS.  = 014600      
+000190*             ESTE CAMPO INDICA AL ASICRONO SI EL ARCHIVO ESTA  = 014700      
+000191*             O NO DISPOSIBLE PARA SU USO.                      = 014800      
+000192*             0.- INDICA ARCHIVO DE MOVS. DISPONIBLE.           = 014900      
+000193*             1.- INDICA ARCHIVO DE MOVS. NO DISPONIBLE         = 015000      
+000194*                                                               = 015100      
+000195* ENTRADA REQUERIDA :                                           = 015200      
+000196*                                                               = 015300      
+000197* WKS-B01F07-FUNCION  : FUNCION = 07.                           = 015400      
+000198* WKS-B01F07-SISTEMA  : SISTEMA.                                = 015500      
+000199* WKS-B01F07-CSI      : NUMERO DE CSI.                          = 015600      
+000200* WKS-B01F07-FECHA    : FECHA DEL ESTATUS A MOFIFICAR.          = 015700      
+000201* WKS-B01F07-ESTATUS  : VALOR A COLOCAR COMO ESTUTUS ( 0, 1 )   = 015800      
+000202*================================================================ 015900      
+000203 01 WKS-CONSISDIA-F07 WITH LOWER-BOUNDS.                          016000      
+000204    03 WKS-B01F07-FUNCION          PIC 9(02).                     016100      
+000205    03 WKS-B01F07-SISTEMA          PIC 9(04).                     016200      
+000206    03 WKS-B01F07-CSI              PIC 9(02).                     016300      
+000207    03 WKS-B01F07-FECHA            PIC 9(08).                     016402      
+000208    03 WKS-B01F07-ESTATUS          PIC 9(02).                     016500      
+000209                                                                  016600      
+000210*============================================================     016700      
+000211*                                                           =     016800      
+000212* FUNCION 8.- ACTUALIZA EL NIVEL DEL ARCHIVO DE MOVIMIENTOS.=     016900      
+000213*                                                           =     017000      
+000214* DATOS REQUERIDOS :                                        =     017100      
+000215*                                                           =     017200      
+000216* WKS-B01F08-FUNCION : FUNCION = 08.                        =     017300      
+000217* WKS-B01F08-SISTEMA : SISTEMA.                             =     017400      
+000218* WKS-B01F08-CSI     : NUMERO DE CSI.                       =     017500      
+000219* WKS-B01F08-FECHA   : FECHA DEL NIVEL A MODIFICAR.         =     017600      
+000220* WKS-B01F08-NIVEL   : VALOR A COLOCAR EN EL CAMPO DE NIVEL =     017700      
+000221*============================================================     017800      
+000222                                                                  017900      
+000223 01  WKS-CONSISDIA-F08 WITH LOWER-BOUNDS.                         018000      
+000224     03 WKS-B01F08-FUNCION         PIC 9(02).                     018100      
+000225     03 WKS-B01F08-SISTEMA         PIC 9(04).                     018200      
+000226     03 WKS-B01F08-CSI             PIC 9(02).                     018300      
+000227     03 WKS-B01F08-FECHA           PIC 9(08).                     018402      
+000228     03 WKS-B01F08-NIVEL           PIC 9(08).                     018500      
+000229                                                                  018600      
+000230*============================================================     018700      
+000231*                                                           =     018800      
+000232* FUNCION 9.- ACTUALIZA EL NIVEL DE LA BASE DE DATOS.       =     018900      
+000233*                                                           =     019000      
+000234* DATOS REQUERIDOS :                                        =     019100      
+000235*                                                           =     019200      
+000236* WKS-B01F09-FUNCION : FUNCION = 09.                        =     019300      
+000237* WKS-B01F09-SISTEMA : SISTEMA.                             =     019400      
+000238* WKS-B01F09-CSI     : NUMERO DE CSI.                       =     019500      
+000239* WKS-B01F09-FECHA   : FECHA DEL NIVEL A MODIFICAR.         =     019600      
+000240* WKS-B01F09-NIVEL   : VALOR A COLOCAR EN EL CAMPO DE NIVEL =     019700      
+000241*============================================================     019800      
+000242                                                                  019900      
+000243 01  WKS-CONSISDIA-F09 WITH LOWER-BOUNDS.                         020000      
+000244     03 WKS-B01F09-FUNCION         PIC 9(02).                     020100      
+000245     03 WKS-B01F09-SISTEMA         PIC 9(04).                     020200      
+000246     03 WKS-B01F09-CSI             PIC 9(02).                     020300      
+000247     03 WKS-B01F09-FECHA           PIC 9(08).                     020402      
+000248     03 WKS-B01F09-NIVEL           PIC 9(08).                     020500      
+000249                                                                  020600      
+000250*===============================================================  020700      
+000251*                                                              =  020800      
+000252* FUNCION 10.- ACTUALIZA LOS NIVELES DE LA BASE Y ARCHIVO DE   =  020900      
+000253*              MOVIMIENTOS.                                    =  021000      
+000254* DATOS REQUERIDOS :                                           =  021100      
+000255*                                                              =  021200      
+000256* WKS-B01F10-FUNCION : FUNCION = 10.                           =  021300      
+000257* WKS-B01F10-SISTEMA : SISTEMA.                                =  021400      
+000258* WKS-B01F10-CSI     : NUMERO DE CSI.                          =  021500      
+000259* WKS-B01F10-FECHA   : FECHA DEL NIVEL A MODIFICAR.            =  021600      
+000260* WKS-B01F10-NIVBASE : VALOR A COLOCAR EN EL NIVEL DE LA BASE  =  021700      
+000261* WKS-B01F10-NIVARCM : VALOR A COLOCAR EN EL NIVEL DEL ARCHIVO =  021800      
+000262*==============================================================   021900      
+000263                                                                  022000      
+000264 01  WKS-CONSISDIA-F10 WITH LOWER-BOUNDS.                         022100      
+000265     03 WKS-B01F10-FUNCION         PIC 9(02).                     022200      
+000266     03 WKS-B01F10-SISTEMA         PIC 9(04).                     022300      
+000267     03 WKS-B01F10-CSI             PIC 9(02).                     022400      
+000268     03 WKS-B01F10-FECHA           PIC 9(08).                     022502      
+000269     03 WKS-B01F10-NIVBASE         PIC 9(08).                     022600      
+000270     03 WKS-B01F10-NIVARCM         PIC 9(08).                     022700      
+000271*==============================================================   022800      
+000272*                                                             =   022900      
+000273* FUNCION 11.- ACTUALIZA LA FECHA DE PROCESO PARA EL 151.     =   023000      
+000274*                                                             =   023100      
+000275* CAMPOS REQUERIDOS :                                         =   023200      
+000276*                                                             =   023300      
+000277* WKS-B01F11-FUNCION   : FUNCION = 11                         =   023400      
+000278* WKS-B01F11-SISTEMA   : SISTEMA                              =   023500      
+000279* WKS-B01F11-CSI       : NUMERO DE CSI                        =   023600      
+000280* WKS-B01F11-FECPRO151 : FECHA DE CONSULTA A COLOCAR          =   023700      
+000281*==============================================================   023800      
+000282 01 WKS-CONSISDIA-F11 WITH LOWER-BOUNDS.                          023900      
+000283    03 WKS-B01F11-FUNCION          PIC 9(02).                     024000      
+000284    03 WKS-B01F11-SISTEMA          PIC 9(04).                     024100      
+000285    03 WKS-B01F11-CSI              PIC 9(02).                     024200      
+000286    03 WKS-B01F11-FECPRO151        PIC 9(08).                     024302      
+000287                                                                  024304      
+000288*=================================================================024306      
+000289*                ENTRY POINT CONSISB01                           =024308      
+000290*                                                                =024310      
+000291*  ACCESA LA INFORMACION DEL DATASET S151B01CONSISDIA            =024312      
+000292*                                                                =024314      
+000293*  FUNCIONES DISPONIBLES :                                       =024316      
+000294*                                                                =024318      
+000295*  1.- CONS. INFORMACION PARA LOS SISTEMAS DADOS DE ALTA EN B01  =024320      
+000296*                                                                =024322      
+000297*  PARAMETROS REQUERIDOS                                         =024324      
+000298*    WKS-CON-CSI       : NUMERO DE CSI.                          =024326      
+000299*    WKS-CON-SISTEMA   : NUMERO DE SISTEMA.                      =024328      
+000300*=================================================================024330      
+000301                                                                  024332      
+000302 01  WKS-B01-CONB01 WITH LOWER-BOUNDS.                            024334      
+000303     03 WKS-CON-FUNCION            PIC 9(02).                     024335      
+000304     03 WKS-CON-CSI                PIC 9(02).                     024336      
+000305     03 WKS-CON-SISTEMA            PIC 9(04).                     024338      
+000306     03 WKS-CON-DATOS OCCURS 15 TIMES.                            024340      
+000307        05 WKS-DAT-SISTEMA         PIC 9(04).                     024342      
+000308        05 WKS-DAT-FECCON          PIC 9(08).                     024344      
+000309        05 WKS-DAT-FECPRO          PIC 9(08).                     024354      
+000310        05 WKS-DAT-FEC151          PIC 9(08).                     024364      
+000311        05 WKS-DAT-STAREG          PIC 9(02).                     024374      
+000312                                                                  024400      
+000313*=================================================================024500      
+000314*                ENTRY POINT B02ARCINTER                         =024600      
+000315*                                                                =024700      
+000316*  ACCESA LA INFORMACION DEL DATASET S151B02ARCINTER             =024800      
+000317*                                                                =024900      
+000318*  FUNCIONES DISPONIBLES :                                       =025000      
+000319*                                                                =025100      
+000320*  1.- CONSULTA INFORMACION DADO UN SISTEMA.                     =025200      
+000321* 19.- ALTAS DE ARCHIVOS.                                        =025300      
+000322* 22.- BAJAS DE ARCHIVOS.                                        =025400      
+000323* 37.- CAMBIO DE ARCHIVOS.                                       =025500      
+000324*                                                                =025600      
+000325*  PARAMETROS REQUERIDOS                                         =025700      
+000326*    WKS-B02-SISTEMA   : NUMERO DE SISTEMA                       =025800      
+000327*                                                                =025900      
+000328*=================================================================026000      
+000329 01  WKS-B02ARCINTER WITH LOWER-BOUNDS.                           026100      
+000330     03 WKS-B02-FUNCION            PIC 9(02).                     026200      
+000331     03 WKS-B02-SISTEMA            PIC 9(04).                     026300      
+000332     03 WKS-B02-NOMARC028          PIC X(34).                     026400      
+000333     03 WKS-B02-NOMPAC028          PIC X(17).                     026500      
+000334     03 WKS-B02-NOMARC250          PIC X(34).                     026600      
+000335     03 WKS-B02-NOMPAC250          PIC X(17).                     026700      
+000336     03 WKS-B02-NOMARC030          PIC X(34).                     026800      
+000337     03 WKS-B02-NOMPAC030          PIC X(17).                     026900      
+000338     03 WKS-B02-NOMARC015          PIC X(34).                     027000      
+000339     03 WKS-B02-NOMPAC015          PIC X(17).                     027100      
+000340     03 WKS-B02-NOMARC050S         PIC X(34).                     027200      
+000341     03 WKS-B02-NOMPAC050S         PIC X(17).                     027300      
+000342     03 WKS-B02-NOMARC050M         PIC X(34).                     027400      
+000343     03 WKS-B02-NOMPAC050M         PIC X(17).                     027500      
+000344     03 WKS-B02-NOMARC253          PIC X(34).                     027600      
+000345     03 WKS-B02-NOMPAC253          PIC X(17).                     027700      
+000346     03 WKS-B02-NOMARC264          PIC X(34).                     027800      
+000347     03 WKS-B02-NOMPAC264          PIC X(17).                     027900      
+000348     03 WKS-B02-NOMARC275S         PIC X(34).                     028000      
+000349     03 WKS-B02-NOMPAC275S         PIC X(17).                     028100      
+000350     03 WKS-B02-NOMARC275M         PIC X(34).                     028200      
+000351     03 WKS-B02-NOMPAC275M         PIC X(17).                     028300      
+000352     03 WKS-B02-NOMARCSIG          PIC X(34).                     028400      
+000353     03 WKS-B02-NOMPACSIG          PIC X(17).                     028500      
+000354     03 WKS-B02-NOMARC750          PIC X(34).                     028600      
+000355     03 WKS-B02-NOMPAC750          PIC X(17).                     028700      
+000356     03 WKS-B02-NOMARC136          PIC X(34).                     028800      
+000357     03 WKS-B02-NOMPAC136          PIC X(17).                     028900      
+000358                                                                  029000      
+000359*=================================================================029100      
+000360*                ENTRY POINT B04SISTEMA                          =029200      
+000361*                                                                =029300      
+000362*  ACCESA LA INFORMACION DEL DATASET S151B04SISTEM               =029400      
+000363*                                                                =029500      
+000364*  FUNCIONES DISPONIBLES :                                       =029600      
+000365*                                                                =029700      
+000366*  1.- CONSULTA INFORMACION DADO UN SISTEMA, PROD. E INSTRUMENTO =029800      
+000367*  2.- CONSULTA DE INFORMACION DE UN SIST MAYOR AL PROPORCIONADO =029900      
+000368*      CON MISMO PRODUCTO E INSTRUMENTO.                         =030000      
+000369*                                                                =030100      
+000370*  PARAMETROS REQUERIDOS                                         =030200      
+000371*    WKS-B04-SISTEMA   : NUMERO DE SISTEMA                       =030300      
+000372*    WKS-B04-PRODUCTO  : NUMERO DE PRODUCTO                      =030400      
+000373*    WKS-B04-INSTRUM   : NUMERO DE INTRUMENTO                    =030500      
+000374*                                                                =030600      
+000375*=================================================================030700      
+000376 01  WKS-B04SISTEMA WITH LOWER-BOUNDS.                            030800      
+000377     03 WKS-B04-FUNCION            PIC 9(02).                     030900      
+000378     03 WKS-B04-SISTEMA            PIC 9(04).                     031000      
+000379     03 WKS-B04-PRODUCTO           PIC 9(04).                     031100      
+000380     03 WKS-B04-INSTRUM            PIC 9(04).                     031200      
+000381     03 WKS-B04-NOMCOR             PIC X(20).                     031300      
+000382     03 WKS-B04-NOMLAR             PIC X(40).                     031400      
+000383     03 WKS-B04-ESTATUS            PIC 9(02).                     031500      
+000384                                                                  031600      
+000385*================================================================ 031700      
+000386*  ENTRY POINT B05PROCESOS.-ACCESA EL DATASET S151B05PROCESOS   = 031800      
+000387*                                                               = 031900      
+000388*  FUNCION                                                      = 032000      
+000389*    1       CONSULTA SOBRE EL DATA SET DE PROCESOS.            = 032100      
+000390*   19       ALTAS.                                             = 032200      
+000391*   22       BAJAS                                              = 032300      
+000392*   37       CAMBIOS.                                           = 032400      
+000393*                                                               = 032500      
+000394*   DATOS REQUERIDOS : SISTEMA                                  = 032600      
+000395*                      FECHA DE PROCESO                         = 032700      
+000396*                      NUMERO DE PROCESO                        = 032800      
+000397*                      FECHA INICIO                             = 032900      
+000398*                      REGISTRO INICIAL                         = 033000      
+000399*================================================================ 033100      
+000400                                                                  033200      
+000401 01  WKS-B05PROCESOS    WITH LOWER-BOUNDS.                        033300      
+000402     03 WKS-B05-FUNCION            PIC 9(02).                     033400      
+000403     03 WKS-B05-SISTEMA            PIC 9(04).                     033500      
+000404     03 WKS-B05-FCHPRO             PIC 9(08).                     033602      
+000405     03 WKS-B05-NUMPRO             PIC 9(04).                     033700      
+000406     03 WKS-B05-NOMPGM             PIC X(04).                     033800      
+000407     03 WKS-B05-STAPGM             PIC 9(02).                     033900      
+000408     03 WKS-B05-MIX                PIC 9(08).                     034000      
+000409     03 WKS-B05-FCHINI             PIC 9(06).                     034102      
+000410     03 WKS-B05-HORAINI            PIC 9(06).                     034200      
+000411     03 WKS-B05-FCHFIN             PIC 9(06).                     034302      
+000412     03 WKS-B05-HORAFIN            PIC 9(06).                     034400      
+000413     03 WKS-B05-NUMREGINI          PIC 9(08).                     034500      
+000414     03 WKS-B05-NUMREGFIN          PIC 9(08).                     034600      
+000415                                                                  034700      
+000416                                                                  034800      
+000417*================================================================ 034900      
+000418*  ENTRY POINT B09CONXSIS.- ACCESA EL DATASET S151B09CONXSIS.   = 035000      
+000419*                                                               = 035100      
+000420*  FUNCION                                                      = 035200      
+000421*    1       PROPORCIONA EL NOMBRE DEL RENGLON, DADO EL SISTEMA = 035300      
+000422*            PROD., INSTRUMENTO Y NUMERO DE RENGLON.            = 035400      
+000423*                                                               = 035500      
+000424*================================================================ 035600      
+000425                                                                  035700      
+000426 01  WKS-S151B09CONXSIS WITH LOWER-BOUNDS.                        035800      
+000427     03 WKS-B09-FUNCION            PIC 9(02).                     035900      
+000428     03 WKS-B09-SISTEMA            PIC 9(04).                     036000      
+000429     03 WKS-B09-PRODUCTO           PIC 9(04).                     036100      
+000430     03 WKS-B09-INSTRUM            PIC 9(04).                     036200      
+000431     03 WKS-B09-NUMREN             PIC 9(02).                     036300      
+000432     03 WKS-B09-NOMREN             PIC X(15).                     036400      
+000433                                                                  036500      
+000434*===============================================================  036600      
+000435*                                                              =  036700      
+000436*         ENTRY-POINT CONSISMEN                                =  036800      
+000437*                                                              =  036900      
+000438*   DATOS REQUERIDOS : FUNCION                                 =  037000      
+000439*                      SISTEMA                                 =  037100      
+000440*                                                              =  037200      
+000441*   FUNCION  1 .- CONSULTA S151B03SISMEN                       =  037300      
+000442*                                                              =  037400      
+000443*===============================================================  037500      
+000444 01  WKS-S151B03SISMEN WITH LOWER-BOUNDS.                         037600      
+000445     03 WKS-B03-FUNCION            PIC 9(02).                     037700      
+000446     03 WKS-B03-SISTEMA            PIC 9(04).                     037800      
+000447     03 WKS-B03-MODSIS             PIC 9(02).                     037900      
+000448     03 WKS-B03-RESCSI             PIC 9(02).                     038000      
+000449     03 WKS-B03-TIPBD              PIC 9(02).                     038100      
+000450     03 WKS-B03-NUMCICDIA          PIC 9(04).                     038200      
+000451     03 WKS-B03-NUMCICMES          PIC 9(04).                     038300      
+000452     03 WKS-B03-NOMBDSAL           PIC X(17).                     038400      
+000453     03 WKS-B03-STABDSAL           PIC 9(02).                     038500      
+000454     03 WKS-B03-NOMBDMOVHI         PIC X(17).                     038600      
+000455     03 WKS-B03-SECOKHI            PIC 9(10).                     038700      
+000456     03 WKS-B03-SECINFHI           PIC 9(10).                     038800      
+000457     03 WKS-B03-SECERRHI           PIC 9(10).                     038900      
+000458     03 WKS-B03-STABDMOVHI         PIC 9(02).                     039000      
+000459     03 WKS-B03-CICLO OCCURS 99 TIMES.                            039100      
+000460        05 WKS-B03-NOMBDMOV        PIC X(17).                     039200      
+000461        05 WKS-B03-NUMBDMOV        PIC 9(02).                     039300      
+000462        05 WKS-B03-AAMM            PIC 9(06).                     039402      
+000463        05 WKS-B03-SECOK           PIC 9(10).                     039500      
+000464        05 WKS-B03-SECINF          PIC 9(10).                     039600      
+000465        05 WKS-B03-SECERR          PIC 9(10).                     039700      
+000466        05 WKS-B03-STABDMOV        PIC 9(02).                     039800      
+000467                                                                  039900      
+000468*=====================================================            040000      
+000469*         FUNCION 3 MODIFICA EL CAMPO MODSIS         =            040100      
+000470*=====================================================            040200      
+000471 01  WKS-S151B03SISMEN-F03  WITH LOWER-BOUNDS.                    040300      
+000472     03 WKS-B03F03-FUNCION         PIC 9(02).                     040400      
+000473     03 WKS-B03F03-SISTEMA         PIC 9(04).                     040500      
+000474     03 WKS-B03F03-MODSIS          PIC 9(02).                     040600      
+000475                                                                  040700      
+000476*=====================================================            040800      
+000477*         FUNCION 4 MODIFICA EL CAMPO RESCSI         =            040900      
+000478*=====================================================            041000      
+000479 01  WKS-S151B03SISMEN-F04  WITH LOWER-BOUNDS.                    041100      
+000480     03 WKS-B03F04-FUNCION         PIC 9(02).                     041200      
+000481     03 WKS-B03F04-SISTEMA         PIC 9(04).                     041300      
+000482     03 WKS-B03F04-RESCSI          PIC 9(02).                     041400      
+000483                                                                  041500      
+000484*=====================================================            041600      
+000485*         FUNCION 5 MODIFICA EL CAMPO TIPBD          =            041700      
+000486*=====================================================            041800      
+000487 01  WKS-S151B03SISMEN-F05  WITH LOWER-BOUNDS.                    041900      
+000488     03 WKS-B03F05-FUNCION         PIC 9(02).                     042000      
+000489     03 WKS-B03F05-SISTEMA         PIC 9(04).                     042100      
+000490     03 WKS-B03F05-TIPBD           PIC 9(02).                     042200      
+000491*=====================================================            042300      
+000492*         FUNCION 6 MODIFICA EL CAMPO NUMCICDIA      =            042400      
+000493*=====================================================            042500      
+000494 01  WKS-S151B03SISMEN-F06  WITH LOWER-BOUNDS.                    042600      
+000495     03 WKS-B03F06-FUNCION         PIC 9(02).                     042700      
+000496     03 WKS-B03F06-SISTEMA         PIC 9(04).                     042800      
+000497     03 WKS-B03F06-NUMCICDIA       PIC 9(04).                     042900      
+000498                                                                  043000      
+000499*=====================================================            043100      
+000500*         FUNCION 7 MODIFICA EL CAMPO NUMCICMES      =            043200      
+000501*=====================================================            043300      
+000502 01  WKS-S151B03SISMEN-F07  WITH LOWER-BOUNDS.                    043400      
+000503     03 WKS-B03F07-FUNCION         PIC 9(02).                     043500      
+000504     03 WKS-B03F07-SISTEMA         PIC 9(04).                     043600      
+000505     03 WKS-B03F07-NUMCICMES       PIC 9(04).                     043700      
+000506                                                                  043800      
+000507*=====================================================            043900      
+000508*         FUNCION 8 MODIFICA EL CAMPO NOMBDSAL       =            044000      
+000509*=====================================================            044100      
+000510 01  WKS-S151B03SISMEN-F08  WITH LOWER-BOUNDS.                    044200      
+000511     03 WKS-B03F08-FUNCION         PIC 9(02).                     044300      
+000512     03 WKS-B03F08-SISTEMA         PIC 9(04).                     044400      
+000513     03 WKS-B03F08-NOMBDSAL        PIC X(17).                     044500      
+000514                                                                  044600      
+000515*=====================================================            044700      
+000516*         FUNCION 9 MODIFICA EL CAMPO STABDSAL       =            044800      
+000517*=====================================================            044900      
+000518 01  WKS-S151B03SISMEN-F09  WITH LOWER-BOUNDS.                    045000      
+000519     03 WKS-B03F09-FUNCION         PIC 9(02).                     045100      
+000520     03 WKS-B03F09-SISTEMA         PIC 9(04).                     045200      
+000521     03 WKS-B03F09-STABDSAL        PIC 9(02).                     045300      
+000522                                                                  045400      
+000523*=====================================================            045500      
+000524*         FUNCION 10 MODIFICA EWL CAMPO NOMBDMOVHI   =            045600      
+000525*=====================================================            045700      
+000526 01  WKS-S151B03SISMEN-F10  WITH LOWER-BOUNDS.                    045800      
+000527     03 WKS-B03F10-FUNCION         PIC 9(02).                     045900      
+000528     03 WKS-B03F10-SISTEMA         PIC 9(04).                     046000      
+000529     03 WKS-B03F10-NOMBDMOVHI      PIC X(17).                     046100      
+000530                                                                  046200      
+000531*=====================================================            046300      
+000532*         FUNCION 11 MODIFICA EL CAMPO SECOKHI       =            046400      
+000533*=====================================================            046500      
+000534 01  WKS-S151B03SISMEN-F11  WITH LOWER-BOUNDS.                    046600      
+000535     03 WKS-B03F11-FUNCION         PIC 9(02).                     046700      
+000536     03 WKS-B03F11-SISTEMA         PIC 9(04).                     046800      
+000537     03 WKS-B03F11-SECOKHI         PIC 9(10).                     046900      
+000538                                                                  047000      
+000539*=====================================================            047100      
+000540*         FUNCION 12 MODIFICA EL CAMPO SECINFHI      =            047200      
+000541*=====================================================            047300      
+000542 01  WKS-S151B03SISMEN-F12  WITH LOWER-BOUNDS.                    047400      
+000543     03 WKS-B03F12-FUNCION         PIC 9(02).                     047500      
+000544     03 WKS-B03F12-SISTEMA         PIC 9(04).                     047600      
+000545     03 WKS-B03F12-SECINFHI        PIC 9(10).                     047700      
+000546                                                                  047800      
+000547*=====================================================            047900      
+000548*         FUNCION 13 MODIFICA EL CAMPO SECERRHI      =            048000      
+000549*=====================================================            048100      
+000550 01  WKS-S151B03SISMEN-F13  WITH LOWER-BOUNDS.                    048200      
+000551     03 WKS-B03F13-FUNCION         PIC 9(02).                     048300      
+000552     03 WKS-B03F13-SISTEMA         PIC 9(04).                     048400      
+000553     03 WKS-B03F13-SECERRHI        PIC 9(10).                     048500      
+000554                                                                  048600      
+000555*=====================================================            048700      
+000556*         FUNCION 14 MODIFICA EL CAMPO MODSIS        =            048800      
+000557*=====================================================            048900      
+000558 01  WKS-S151B03SISMEN-F14  WITH LOWER-BOUNDS.                    049000      
+000559     03 WKS-B03F14-FUNCION         PIC 9(02).                     049100      
+000560     03 WKS-B03F14-SISTEMA         PIC 9(04).                     049200      
+000561     03 WKS-B03F14-STABDMOV        PIC 9(02).                     049300      
+000562                                                                  049400      
+000563*=====================================================            049500      
+000564*         FUNCION 15 MODIFICA CICLO DE BASES         =            049600      
+000565*=====================================================            049700      
+000566 01  WKS-S151B03SISMEN-F15 WITH LOWER-BOUNDS.                     049800      
+000567     03 WKS-B03F15-FUNCION         PIC 9(02).                     049900      
+000568     03 WKS-B03F15-SISTEMA         PIC 9(04).                     050000      
+000569     03 WKS-B03F15-AAMMANT         PIC 9(06).                     050102      
+000570     03 WKS-B03F15-NOMBDMOV        PIC X(17).                     050200      
+000571     03 WKS-B03F15-NUMBDMOV        PIC 9(02).                     050300      
+000572     03 WKS-B03F15-AAMM            PIC 9(06).                     050402      
+000573     03 WKS-B03F15-SECOK           PIC 9(10).                     050500      
+000574     03 WKS-B03F15-SECINF          PIC 9(10).                     050600      
+000575     03 WKS-B03F15-SECERR          PIC 9(10).                     050700      
+000576     03 WKS-B03F15-STABDMOV        PIC 9(02).                     050800      
+000577                                                                  050900      
+000578*=====================================================            051000      
+000579*         FUNCION 16 MODIFICA EL NOMBRE DE LA BASE   =            051100      
+000580*=====================================================            051200      
+000581 01  WKS-S151B03SISMEN-F16 WITH LOWER-BOUNDS.                     051300      
+000582     03 WKS-B03F16-FUNCION         PIC 9(02).                     051400      
+000583     03 WKS-B03F16-SISTEMA         PIC 9(04).                     051500      
+000584     03 WKS-B03F16-AAMMANT         PIC 9(06).                     051602      
+000585     03 WKS-B03F16-NOMBDMOV        PIC X(17).                     051700      
+000586                                                                  051800      
+000587*=====================================================            051900      
+000588*         FUNCION 17 MODIFICA EL NUMERO DE LA BASE   =            052000      
+000589*=====================================================            052100      
+000590 01  WKS-S151B03SISMEN-F17 WITH LOWER-BOUNDS.                     052200      
+000591     03 WKS-B03F17-FUNCION         PIC 9(02).                     052300      
+000592     03 WKS-B03F17-SISTEMA         PIC 9(04).                     052400      
+000593     03 WKS-B03F17-AAMM            PIC 9(06).                     052502      
+000594     03 WKS-B03F17-NUMBDMOV        PIC 9(02).                     052600      
+000595                                                                  052700      
+000596*=====================================================            052800      
+000597*         FUNCION 18 CAMBIA AL A@O MES.              =            052900      
+000598*=====================================================            053000      
+000599 01  WKS-S151B03SISMEN-F18 WITH LOWER-BOUNDS.                     053100      
+000600     03 WKS-B03F18-FUNCION         PIC 9(02).                     053200      
+000601     03 WKS-B03F18-SISTEMA         PIC 9(04).                     053300      
+000602     03 WKS-B03F18-AAMM            PIC 9(06).                     053402      
+000603     03 WKS-B03F18-AAMMNVO         PIC 9(06).                     053502      
+000604                                                                  053600      
+000605*=====================================================            053700      
+000606*         FUNCION 19 MODIFICA EL SEC. OK DE GRAB.    =            053800      
+000607*=====================================================            053900      
+000608 01  WKS-S151B03SISMEN-F19 WITH LOWER-BOUNDS.                     054000      
+000609     03 WKS-B03F19-FUNCION         PIC 9(02).                     054100      
+000610     03 WKS-B03F19-SISTEMA         PIC 9(04).                     054200      
+000611     03 WKS-B03F19-AAMM            PIC 9(06).                     054302      
+000612     03 WKS-B03F19-SECOK           PIC 9(10).                     054400      
+000613                                                                  054500      
+000614*=====================================================            054600      
+000615*         FUNCION 20 MODIFICA EL SEC. DE INF.        =            054700      
+000616*=====================================================            054800      
+000617 01  WKS-S151B03SISMEN-F20 WITH LOWER-BOUNDS.                     054900      
+000618     03 WKS-B03F20-FUNCION         PIC 9(02).                     055000      
+000619     03 WKS-B03F20-SISTEMA         PIC 9(04).                     055100      
+000620     03 WKS-B03F20-AAMM            PIC 9(06).                     055202      
+000621     03 WKS-B03F20-SECINF          PIC 9(10).                     055300      
+000622                                                                  055400      
+000623*=====================================================            055500      
+000624*         FUNCION 21 MODIFICA EL SEC. DE ERROR       =            055600      
+000625*=====================================================            055700      
+000626 01  WKS-S151B03SISMEN-F21 WITH LOWER-BOUNDS.                     055800      
+000627     03 WKS-B03F21-FUNCION         PIC 9(02).                     055900      
+000628     03 WKS-B03F21-SISTEMA         PIC 9(04).                     056000      
+000629     03 WKS-B03F21-AAMM            PIC 9(06).                     056102      
+000630     03 WKS-B03F21-SECERR          PIC 9(10).                     056200      
+000631                                                                  056300      
+000632*=====================================================            056400      
+000633*         FUNCION 22 MODIFICA EL STATUS DE BA B.D.   =            056500      
+000634*=====================================================            056600      
+000635 01  WKS-S151B03SISMEN-F22 WITH LOWER-BOUNDS.                     056700      
+000636     03 WKS-B03F22-FUNCION         PIC 9(02).                     056800      
+000637     03 WKS-B03F22-SISTEMA         PIC 9(04).                     056900      
+000638     03 WKS-B03F22-AAMM            PIC 9(06).                     057002      
+000639     03 WKS-B03F22-STABDMOV        PIC 9(02).                     057100      
+000640                                                                  057200      
+000641 77  W77-RESULT-LIBCON             PIC S9(11) BINARY.             057300      
+000642*TERMINA COPY PARA CPBAS                                          CPBAS 1.    
+000643                                                                  002800      
+000644*================================================================ 002820      
+000645*         COPY LIBRERIA LJ                                      = 002840      
+000646*================================================================ 002860      
+000647*INICIO  COPY PARA CPBAS                                          CPBAS 1.    
+000648* COPY "(S000)S000/UTILITY/DESPLIEGA/FTE/CCW ON PACK.".           002880      
+000649**** PARAMETROS PARA LA BIBLIOTECA DE MENSAJES A OPERADOR LJ      100100      
+000650  77 CONTADOR-LJ       PIC 9(11) BINARY VALUE 0.                  100200      
+000651  01 MENSAJE-LJ.                                                  100300      
+000652     02 SISTEMA-LJ     PIC X(04).                                 100400      
+000653     02 FILLER         PIC X VALUE "/".                           100500      
+000654     02 PASO-LJ        PIC X(04).                                 100600      
+000655     02 FILLER         PIC X VALUE "/".                           100700      
+000656     02 MTP-LJ         PIC 9(03).                                 100800      
+000657     02 FILLER         PIC X VALUE ":".                           100900      
+000658     02 TIPO-LJ        PIC X.                                     101000      
+000659     02 FILLER         PIC X VALUE ">".                           101100      
+000660     02 CODIGO-LJ      PIC 9(06).                                 101200      
+000661     02 FILLER         PIC X VALUE "<".                           101300      
+000662     02 TEXTO-LJ       PIC X(250).                                101400      
+000663*TERMINA COPY PARA CPBAS                                          CPBAS 1.    
+000664*================================================================ 002900      
+000665*         VARIABLE PARA LIBRERIA SOPORTECOMS                    = 003000      
+000666*================================================================ 003100      
+000667                                                                  003200      
+000668 01  WKS-HOST.                                                    003300      
+000669     03 WKS-NUMCSI                 PIC 9(02).                     003400      
+000670     03 WKS-NOM-HOST               PIC X(10).                     003500      
+000671     03 WKS-NOM-CSI                PIC X(26).                     003600      
+000672     03 WKS-LINEA-BATCH            PIC X(05).                     003700      
+000673 01  WKS-LIBID                     PIC X(12).                     003800      
+000674 01  WKS-NOMLIB                    PIC X(72).                     003900      
+000675 77  W77-ERR-CTLVER                PIC S9(11) BINARY.             004000      
+000676 77  W77-IND                       PIC 9(04).                     004100      
+000677                                                                  004200      
+000678 01  WKS-PARAMETROS.                                              004300      
+000679     03 WKS-PARAM-SISTEMA          PIC 9(03).                     004400      
+000680     03 WKS-PARAM-ESTATUS          PIC 9(02).                     004500      
+000681                                                                  004600      
+000682*************************************************************     004700      
+000683******      INICIA PROCEDURE DIVISION.                 ******     004800      
+000684*************************************************************     004900      
+000685 PROCEDURE DIVISION USING WKS-PARAMETROS.                         005000      
+000686 000100-INICIO.                                                   005100      
+000687     MOVE "0151"                   TO SISTEMA-LJ.                 005200      
+000688     MOVE "P602"                   TO PASO-LJ                     005210      
+000689     MOVE "002"                    TO MTP-LJ.                     005220      
+000690     MOVE SPACES                   TO TEXTO-LJ.                   005230      
+000691     MOVE "I"                      TO TIPO-LJ.                    005240      
+000692     MOVE 051001                   TO CODIGO-LJ.                  005250      
+000693     PERFORM 000200-LIBRERIAS.                                    005300      
+000694     PERFORM 000300-LLAMA-LIBCTL.                                 005400      
+000695     CANCEL "LIBCTL".                                             005500      
+000696     STOP RUN.                                                    005600      
+000697                                                                  005700      
+000698 000200-LIBRERIAS.                                                005800      
+000699*=================                                                005900      
+000700     CHANGE ATTRIBUTE LIBACCESS    OF "CTLVER" TO BYFUNCTION.     006000      
+000701     CHANGE ATTRIBUTE FUNCTIONNAME OF "CTLVER" TO "CTLVERS".      006100      
+000702                                                                  006120      
+000703     CHANGE ATTRIBUTE TITLE OF "LIB-DISP" TO                      006140      
+000704            "(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK".       006160      
+000705                                                                  006180      
+000706     MOVE "S151L001CTL"            TO WKS-LIBID.                  006200      
+000707     CALL "DAME_TIT IN CTLVER" USING WKS-LIBID, WKS-NOMLIB        006300      
+000708                               GIVING W77-ERR-CTLVER.             006400      
+000709     IF W77-ERR-CTLVER = 0                                        006500      
+000710        CHANGE ATTRIBUTE TITLE OF "LIBCTL" TO WKS-NOMLIB          006600      
+000711     ELSE                                                         006700      
+000712     CHANGE ATTRIBUTE TITLE OF "LIBCTL" TO                        006800      
+000713       "(S151)S151/OBJECT/L001/CONTROL  ON CMEMP".                006900      
+000714                                                                  007000      
+000715     CANCEL "CTLVER".                                             007100      
+000716                                                                  007200      
+000717 000300-LLAMA-LIBCTL.                                             007300      
+000718*====================                                             007400      
+000719                                                                  007500      
+000720*=================================================================007600      
+000721*         SE EFECTUA CONSULTA DE VALORES ACTUALES                =007700      
+000722*=================================================================007800      
+000723                                                                  007900      
+000724     MOVE 0                        TO W77-RESULT-LIBCON.          008000      
+000725     MOVE 1                        TO WKS-B04-FUNCION.            008100      
+000726     MOVE WKS-PARAM-SISTEMA        TO WKS-B04-SISTEMA.            008200      
+000727     MOVE ZERO                     TO W77-RESULT-LIBCON.          008300      
+000728     CALL "B04SISTEM    IN LIBCTL" USING  WKS-B04SISTEMA          008400      
+000729                                   GIVING W77-RESULT-LIBCON.      008500      
+000730     IF W77-RESULT-LIBCON > 0                                     008520      
+000731        MOVE "ERROR AL CONSULTAR B04" TO TEXTO-LJ                 008540      
+000732        CALL "LJ IN LIB-DISP" USING CONTADOR-LJ                   008600      
+000733                                    MENSAJE-LJ   .                008700      
+000734                                                                  008750      
+000735*=================================================================008800      
+000736*         SE REALIZA CAMBIO DE VALOR Y SE ENVIA MODIFICACION     =008900      
+000737*=================================================================009000      
+000738                                                                  009100      
+000739     MOVE 0                        TO W77-RESULT-LIBCON.          009200      
+000740     MOVE 37                       TO WKS-B04-FUNCION.            009300      
+000741     MOVE WKS-PARAM-SISTEMA        TO WKS-B04-SISTEMA.            009400      
+000742     MOVE WKS-PARAM-ESTATUS        TO WKS-B04-ESTATUS.            009500      
+000743     CALL "MANTB04SISTEM IN LIBCTL" USING  WKS-B04SISTEMA         009600      
+000744                                    GIVING W77-RESULT-LIBCON.     009700      
+000745     IF W77-RESULT-LIBCON > 0                                     009800      
+000746        MOVE "ERROR AL ACTUALIZAR B04" TO TEXTO-LJ                010000      
+000747        CALL "LJ IN LIB-DISP" USING CONTADOR-LJ                   010100      
+000748                                    MENSAJE-LJ   .                010200      
+000749*=================================================================010300      

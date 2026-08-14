@@ -1,0 +1,1 @@
+CREATE PROCEDURE "informix".day_one_week_one(yyyy INTEGER) RETURNING DATE;    DEFINE jan1 DATE;    LET jan1 = MDY(1, 1, yyyy);    RETURN jan1 + MOD(11 - WEEKDAY(jan1), 7) - 3;END PROCEDURE;

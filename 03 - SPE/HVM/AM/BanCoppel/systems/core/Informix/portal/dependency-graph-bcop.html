@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Informix · Grafo de Dependencias — Informix</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#3D5FCD;--blued:#122FB1;--bluedd:#0d2185;--yellow:#F0D224;
+  --ink:#F4F6FF;--muted:#aab3d4;--muted2:#818ab0;
+  --glass:rgba(255,255,255,.055);--glassb:rgba(255,255,255,.10);
+  --cost-low:#4fde8a;--cost-medium:#f5c842;--cost-high:#f57f42;--cost-critical:#f55f5f;
+}
+html{scroll-behavior:smooth}
+body{background:#060a1a;color:var(--ink);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Calibri,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(27,63,208,.65),transparent 70%);animation:f1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(13,33,133,.7),transparent 70%);animation:f2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(79,222,138,.12),transparent 70%);animation:f3 32s ease-in-out infinite}
+@keyframes f1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes f2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes f3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+.grain{position:fixed;inset:0;z-index:-1;opacity:.045;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+nav{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;gap:14px;padding:15px 30px;
+  backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);
+  background:rgba(6,10,26,.55);border-bottom:1px solid rgba(255,255,255,.06)}
+nav .nt{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em}
+nav .sp{flex:1}
+nav a.back{font-size:12px;color:var(--muted);padding:6px 13px;border-radius:20px;
+  border:1px solid rgba(255,255,255,.09);text-decoration:none;transition:.22s}
+nav a.back:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+
+.glass{background:var(--glass);backdrop-filter:blur(22px) saturate(155%);-webkit-backdrop-filter:blur(22px) saturate(155%);
+  border:1px solid var(--glassb);border-radius:22px;
+  box-shadow:0 12px 44px rgba(0,0,0,.36),inset 0 1px 0 rgba(255,255,255,.10)}
+.wrap{max-width:1320px;margin:0 auto;padding:0 30px}
+section{padding:64px 0;scroll-margin-top:70px}
+
+/* Hero */
+.hero{min-height:44vh;display:flex;flex-direction:column;justify-content:center;padding:100px 0 16px}
+.eyebrow{display:inline-flex;align-items:center;gap:9px;align-self:flex-start;padding:8px 16px;border-radius:30px;
+  font-size:12px;font-weight:600;letter-spacing:.03em;color:#dfe6ff;margin-bottom:28px;
+  background:rgba(255,255,255,.05);border:1px solid var(--glassb);backdrop-filter:blur(10px)}
+.eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--yellow);
+  box-shadow:0 0 12px var(--yellow);animation:pulse 2.4s infinite}
+@keyframes pulse{50%{opacity:.4}}
+.hero h1{font-size:clamp(30px,5vw,58px);font-weight:800;line-height:1.0;letter-spacing:-.035em;
+  max-width:22ch;background:linear-gradient(176deg,#fff 34%,#9fb4ff);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{font-size:clamp(13px,1.3vw,15px);color:var(--muted);margin-top:18px;max-width:78ch;line-height:1.6}
+
+/* KPI */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-top:34px}
+.kpi{padding:22px 18px;text-align:center}
+.kpi-n{font-size:clamp(24px,2.8vw,40px);font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kpi-l{font-size:10px;color:var(--muted2);margin-top:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.4}
+.kpi.total .kpi-n{background:linear-gradient(180deg,#fff,#c4d0ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.kpi.hub   .kpi-n{background:linear-gradient(180deg,#ffd580,var(--yellow));-webkit-background-clip:text;background-clip:text;color:transparent}
+.kpi.hard  .kpi-n{background:linear-gradient(180deg,#ff8a8a,#f55f5f);-webkit-background-clip:text;background-clip:text;color:transparent}
+.kpi.api   .kpi-n{background:linear-gradient(180deg,#9ee5ff,#5fc5f5);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+/* Section headings */
+.shead{margin-bottom:32px}
+.kick{font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--yellow);margin-bottom:12px}
+.shead h2{font-size:clamp(20px,2.8vw,32px);font-weight:800;letter-spacing:-.025em;line-height:1.06}
+.shead p{color:var(--muted);font-size:14px;margin-top:12px;max-width:80ch;line-height:1.55}
+
+/* Graph layout */
+.graph-layout{display:grid;grid-template-columns:1fr 300px;gap:16px;align-items:start}
+@media(max-width:900px){.graph-layout{grid-template-columns:1fr}}
+
+/* Controls */
+.controls{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.filter-btn{padding:7px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;
+  border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:var(--muted);
+  transition:.18s;letter-spacing:.01em}
+.filter-btn:hover{background:rgba(255,255,255,.10);color:var(--ink)}
+.filter-btn.active{color:#060a1a;border-color:transparent}
+.filter-btn[data-level="all"].active{background:var(--ink);color:#060a1a}
+.filter-btn[data-level="low"].active{background:var(--cost-low)}
+.filter-btn[data-level="medium"].active{background:var(--cost-medium)}
+.filter-btn[data-level="high"].active{background:var(--cost-high)}
+.filter-btn[data-level="critical"].active{background:var(--cost-critical)}
+.ctrl-sep{height:20px;width:1px;background:rgba(255,255,255,.1);margin:0 4px}
+.search-box{flex:1;min-width:160px;max-width:280px;padding:7px 14px;
+  border-radius:20px;font-size:12.5px;background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.10);color:var(--ink);outline:none;
+  transition:.18s}
+.search-box::placeholder{color:var(--muted2)}
+.search-box:focus{border-color:var(--blue);background:rgba(61,95,205,.12)}
+
+/* Graph SVG container */
+.graph-card{position:relative;padding:0;overflow:hidden;min-height:540px;cursor:grab}
+.graph-card:active{cursor:grabbing}
+#graph-svg{width:100%;height:540px;display:block}
+.graph-hint{position:absolute;bottom:12px;left:16px;font-size:11px;color:var(--muted2);pointer-events:none}
+
+/* Info panel */
+.info-panel{padding:24px;min-height:200px}
+.info-placeholder{color:var(--muted2);font-size:13px;line-height:1.7;text-align:center;padding:30px 0}
+.info-placeholder .ip-icon{font-size:28px;margin-bottom:10px;opacity:.5}
+.domain-card h3{font-size:17px;font-weight:700;letter-spacing:-.01em;margin-bottom:4px}
+.domain-card .did{font-size:11px;color:var(--muted2);font-weight:600;letter-spacing:.05em;margin-bottom:18px}
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;
+  border-bottom:1px solid rgba(255,255,255,.06);font-size:12.5px}
+.stat-row:last-child{border-bottom:none}
+.stat-label{color:var(--muted)}
+.stat-value{font-weight:600;font-variant-numeric:tabular-nums}
+.cost-pill{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.cost-pill.low{background:rgba(79,222,138,.15);color:var(--cost-low)}
+.cost-pill.medium{background:rgba(245,200,66,.15);color:var(--cost-medium)}
+.cost-pill.high{background:rgba(245,127,66,.15);color:var(--cost-high)}
+.cost-pill.critical{background:rgba(245,95,95,.15);color:var(--cost-critical)}
+
+/* Legend */
+.legend{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:10px;font-size:11.5px}
+.legend-item{display:flex;align-items:center;gap:7px;color:var(--muted)}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+/* Tooltip */
+#tooltip{position:fixed;pointer-events:none;z-index:200;display:none;
+  background:rgba(10,14,30,.92);border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;padding:12px 15px;font-size:12px;line-height:1.6;
+  backdrop-filter:blur(20px);max-width:240px;box-shadow:0 8px 30px rgba(0,0,0,.6)}
+#tooltip .tt-title{font-size:13.5px;font-weight:700;margin-bottom:6px;color:#fff}
+#tooltip .tt-row{display:flex;justify-content:space-between;gap:16px;color:var(--muted)}
+#tooltip .tt-val{font-weight:600;color:var(--ink)}
+
+/* Domain table */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead tr{border-bottom:1px solid rgba(255,255,255,.10)}
+th{padding:12px 14px;color:var(--muted2);font-size:10.5px;text-transform:uppercase;
+  letter-spacing:.08em;font-weight:700;text-align:left;cursor:pointer;white-space:nowrap;user-select:none}
+th:hover{color:var(--ink)}
+th .sort-arrow{opacity:.4;margin-left:4px;font-size:9px}
+th.sorted .sort-arrow{opacity:1;color:var(--yellow)}
+td{padding:11px 14px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
+tr:hover td{background:rgba(255,255,255,.03)}
+.td-id{font-size:11px;font-weight:700;color:var(--muted2);font-variant-numeric:tabular-nums}
+.td-name{font-weight:500}
+.td-num{font-variant-numeric:tabular-nums;text-align:right}
+.bar-bg{height:4px;border-radius:3px;background:rgba(255,255,255,.07);margin-top:4px}
+.bar-fill{height:4px;border-radius:3px}
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<div class="grain"></div>
+
+<nav>
+  <span class="nt">Informix · Gemelo Cognitivo</span>
+  <span class="sp"></span>
+  <a class="back" href="index-bcop-v2.html">← Índice</a>
+</nav>
+
+<div id="tooltip">
+  <div class="tt-title" id="tt-title"></div>
+  <div id="tt-body"></div>
+</div>
+
+<main>
+<!-- ── HERO ──────────────────────────────────────────────────────── -->
+<section class="hero">
+<div class="wrap">
+  <div class="eyebrow"><span class="dot"></span>Gemelo Cognitivo · Capa 1 · Grafo</div>
+  <h1>Grafo de Dependencias entre Dominios</h1>
+  <p class="sub">Relaciones de llamada cross-dominio entre los 49 dominios del core Informix — inferidas del call graph de 34,279 aristas reales. Nodo = dominio · Arista = SPs que llaman entre dominios · Grosor = volumen de llamadas.</p>
+  <div class="kpi-row" id="kpi-row">
+    <div class="kpi glass total"><div class="kpi-n" id="kn-dom">—</div><div class="kpi-l">Dominios</div><div class="kpi-sub" id="ks-dom">—</div></div>
+    <div class="kpi glass hub"><div class="kpi-n" id="kn-hub">D01</div><div class="kpi-l">Hub Principal</div><div class="kpi-sub" id="ks-hub">—</div></div>
+    <div class="kpi glass hard"><div class="kpi-n" id="kn-calls">—</div><div class="kpi-l">Relaciones Cross</div><div class="kpi-sub" id="ks-calls">—</div></div>
+    <div class="kpi glass api"><div class="kpi-n" id="kn-api">—</div><div class="kpi-l">API Candidates</div><div class="kpi-sub" id="ks-api">—</div></div>
+  </div>
+</div>
+</section>
+
+<!-- ── GRAPH ─────────────────────────────────────────────────────── -->
+<section id="s-graph">
+<div class="wrap">
+  <div class="shead">
+    <div class="kick">Call Graph · Nivel Dominio</div>
+    <h2>Mapa de dependencias entre dominios</h2>
+    <p>Cada nodo es un dominio de negocio. El tamaño refleja el número de SPs. El color indica el costo promedio de desacoplamiento de Informix. Las aristas dirigidas muestran relaciones caller → callee con grosor proporcional al volumen de llamadas (escala logarítmica).</p>
+  </div>
+
+  <div class="controls">
+    <button class="filter-btn active" data-level="all">Todos</button>
+    <button class="filter-btn" data-level="low">Low</button>
+    <button class="filter-btn" data-level="medium">Medium</button>
+    <button class="filter-btn" data-level="high">High</button>
+    <button class="filter-btn" data-level="critical">Critical</button>
+    <div class="ctrl-sep"></div>
+    <input class="search-box" id="search-box" type="text" placeholder="Buscar dominio…">
+  </div>
+
+  <div class="legend" id="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--cost-low)"></div>Low decoupling</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--cost-medium)"></div>Medium</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--cost-high)"></div>High</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--cost-critical)"></div>Critical</div>
+    <div class="legend-item"><div class="legend-dot" style="width:30px;height:3px;border-radius:2px;background:rgba(180,190,240,.6)"></div>Llamadas cross-dominio</div>
+  </div>
+
+  <div class="graph-layout">
+    <div class="glass graph-card" id="graph-wrap">
+      <svg id="graph-svg"></svg>
+      <div class="graph-hint">Rueda = zoom · Clic+arrastrar = pan · Clic nodo = detalle · Arrastrar nodo = mover</div>
+    </div>
+    <div class="glass info-panel" id="info-panel">
+      <div class="info-placeholder" id="info-placeholder">
+        <div class="ip-icon">⬡</div>
+        <div>Haz clic en un dominio<br>para ver su detalle</div>
+        <br>
+        <div style="font-size:11px;color:var(--muted2);line-height:1.8">
+          Nodo grande = más SPs<br>
+          Arista gruesa = más llamadas<br>
+          Flecha = dirección caller → callee
+        </div>
+      </div>
+      <div class="domain-card" id="domain-card" style="display:none"></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ── TABLE ─────────────────────────────────────────────────────── -->
+<section id="s-table">
+<div class="wrap">
+  <div class="shead">
+    <div class="kick">Inventario · Nivel Dominio</div>
+    <h2>Todos los dominios</h2>
+    <p>Ordenable por cualquier columna. El color de la barra de costo corresponde al nivel de lock-in de Informix por dominio.</p>
+  </div>
+  <div class="glass" style="padding:0;overflow:hidden">
+    <div class="tbl-wrap">
+      <table id="domain-table">
+        <thead>
+          <tr>
+            <th data-col="id">ID <span class="sort-arrow">▲</span></th>
+            <th data-col="name">Dominio <span class="sort-arrow">▲</span></th>
+            <th data-col="sp_count" style="text-align:right">SPs <span class="sort-arrow">▲</span></th>
+            <th data-col="avg_cost" style="text-align:right">Costo Prom. <span class="sort-arrow">▲</span></th>
+            <th data-col="hard_blocks" style="text-align:right">Hard Blocks <span class="sort-arrow">▲</span></th>
+            <th data-col="api_candidates" style="text-align:right">API Cands. <span class="sort-arrow">▲</span></th>
+            <th data-col="dominant_signal">Señal Dom. <span class="sort-arrow">▲</span></th>
+          </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</section>
+</main>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+/* ── Utilidades ── */
+const $ = id => document.getElementById(id);
+const fmt = n => n == null ? '—' : Number(n).toLocaleString('es-MX');
+const COST_COLOR = { low: '#4fde8a', medium: '#f5c842', high: '#f57f42', critical: '#f55f5f' };
+
+let gData = null;
+let gActiveFilter = 'all';
+let gSelectedId = null;
+let gLinkSel, gNodeSel, gLabelSel;
+
+/* ── Tooltip ── */
+const ttEl = $('tooltip'), ttTitle = $('tt-title'), ttBody = $('tt-body');
+function showTT(d, evt) {
+  ttTitle.textContent = `${d.id} · ${d.name}`;
+  const rows = [
+    ['SPs', fmt(d.sp_count)],
+    ['Costo prom.', d.avg_cost ?? '—'],
+    ['Nivel', d.cost_level ?? '—'],
+    ['Hard blocks', fmt(d.hard_blocks)],
+    ['API candidates', fmt(d.api_candidates)],
+  ];
+  ttBody.innerHTML = rows.map(([l,v]) =>
+    `<div class="tt-row"><span>${l}</span><span class="tt-val">${v}</span></div>`
+  ).join('');
+  ttEl.style.display = 'block';
+  moveTT(evt);
+}
+function moveTT(evt) {
+  const px = evt.clientX + 14, py = evt.clientY - 10;
+  ttEl.style.left = Math.min(px, window.innerWidth - 260) + 'px';
+  ttEl.style.top = Math.min(py, window.innerHeight - 180) + 'px';
+}
+function hideTT() { ttEl.style.display = 'none'; }
+
+/* ── Info panel ── */
+function showInfo(d) {
+  gSelectedId = d.id;
+  $('info-placeholder').style.display = 'none';
+  const c = $('domain-card');
+  c.style.display = 'block';
+
+  // find degree
+  const outLinks = gData.links.filter(l => (l.source.id||l.source) === d.id);
+  const inLinks  = gData.links.filter(l => (l.target.id||l.target) === d.id);
+  const totalOut = outLinks.reduce((s,l) => s + l.weight, 0);
+  const totalIn  = inLinks.reduce((s,l) => s + l.weight, 0);
+
+  const pill = `<span class="cost-pill ${d.cost_level || 'low'}">${d.cost_level || '—'}</span>`;
+  const rows = [
+    ['SPs en dominio', `<span class="stat-value">${fmt(d.sp_count)}</span>`],
+    ['Nivel lock-in', pill],
+    ['Costo promedio', `<span class="stat-value">${d.avg_cost ?? '—'}/100</span>`],
+    ['Hard blocks', `<span class="stat-value" style="color:var(--cost-${d.cost_level||'low'})">${fmt(d.hard_blocks)}</span>`],
+    ['API candidates', `<span class="stat-value" style="color:#9ee5ff">${fmt(d.api_candidates)}</span>`],
+    ['Señal dominante', `<span class="stat-value" style="font-size:11px">${d.dominant_signal || '—'}</span>`],
+    ['Llama a (edges)', `<span class="stat-value">${outLinks.length} dominios (${fmt(totalOut)} SPs)</span>`],
+    ['Recibe de (edges)', `<span class="stat-value">${inLinks.length} dominios (${fmt(totalIn)} SPs)</span>`],
+  ];
+  c.innerHTML = `
+    <h3>${d.name}</h3>
+    <div class="did">${d.id}</div>
+    ${rows.map(([l,v]) => `<div class="stat-row"><span class="stat-label">${l}</span>${v}</div>`).join('')}
+  `;
+}
+function clearInfo() {
+  gSelectedId = null;
+  $('info-placeholder').style.display = '';
+  $('domain-card').style.display = 'none';
+}
+
+/* ── Render graph ── */
+function renderGraph(data) {
+  gData = data;
+  const wrap = $('graph-wrap');
+  const W = wrap.clientWidth || 900, H = 540;
+  const svg = d3.select('#graph-svg').attr('viewBox', `0 0 ${W} ${H}`);
+  svg.selectAll('*').remove();
+
+  const nodes = data.nodes.map(d => ({...d}));
+  const links = data.links.map(l => ({...l}));
+
+  const maxSP = d3.max(nodes, d => d.sp_count) || 1;
+  const rScale = d3.scaleSqrt().domain([1, maxSP]).range([7, 42]).clamp(true);
+  const wScale = d3.scaleLog().domain([1, data.meta.max_weight]).range([0.6, 5]).clamp(true);
+
+  /* Pre-calcular layout (CLAUDE.md: no DOM durante ticks) */
+  const sim = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).id(d => d.id)
+      .distance(d => 130 - Math.log(d.weight + 1) * 8)
+      .strength(0.5))
+    .force('charge', d3.forceManyBody().strength(-280))
+    .force('center', d3.forceCenter(W / 2, H / 2))
+    .force('collide', d3.forceCollide(d => rScale(d.sp_count) + 14))
+    .stop();
+
+  for (let i = 0; i < 500; ++i) sim.tick();
+
+  /* Mapa de adyacencia para drag eficiente */
+  const adjLinks = new Map();
+  nodes.forEach(n => adjLinks.set(n.id, []));
+  links.forEach(l => {
+    adjLinks.get(l.source.id).push(l);
+    adjLinks.get(l.target.id).push(l);
+  });
+
+  /* Clamp posiciones al viewport */
+  nodes.forEach(d => {
+    const r = rScale(d.sp_count);
+    d.x = Math.max(r + 5, Math.min(W - r - 5, d.x));
+    d.y = Math.max(r + 5, Math.min(H - r - 5, d.y));
+  });
+
+  /* Defs: marcador de flecha */
+  const defs = svg.append('defs');
+  defs.append('marker')
+    .attr('id', 'arrowhead')
+    .attr('viewBox', '0 -4 8 8')
+    .attr('refX', 7).attr('refY', 0)
+    .attr('markerWidth', 5).attr('markerHeight', 5)
+    .attr('orient', 'auto')
+    .append('path').attr('d', 'M0,-4L8,0L0,4Z')
+    .attr('fill', 'rgba(180,192,240,0.45)');
+
+  /* Grupo principal con zoom/pan */
+  const zoomBehavior = d3.zoom()
+    .scaleExtent([0.15, 6])
+    .on('zoom', e => g.attr('transform', e.transform));
+  svg.call(zoomBehavior);
+
+  const g = svg.append('g');
+
+  /* Función de endpoint ajustado al borde del nodo */
+  function endPt(src, tgt, offset) {
+    const dx = tgt.x - src.x, dy = tgt.y - src.y;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    return { x: tgt.x - (offset / len) * dx, y: tgt.y - (offset / len) * dy };
+  }
+
+  /* Aristas */
+  gLinkSel = g.append('g').attr('class', 'links').selectAll('line')
+    .data(links).join('line')
+    .attr('class', 'link-line')
+    .attr('x1', d => d.source.x)
+    .attr('y1', d => d.source.y)
+    .attr('x2', d => {
+      const ep = endPt(d.source, d.target, rScale(d.target.sp_count) + 6);
+      return ep.x;
+    })
+    .attr('y2', d => {
+      const ep = endPt(d.source, d.target, rScale(d.target.sp_count) + 6);
+      return ep.y;
+    })
+    .attr('stroke', 'rgba(180,192,240,0.35)')
+    .attr('stroke-width', d => wScale(d.weight))
+    .attr('stroke-opacity', d => 0.15 + 0.55 * (Math.log(d.weight + 1) / Math.log(data.meta.max_weight + 1)))
+    .attr('marker-end', 'url(#arrowhead)')
+    .on('mouseenter', function(evt, d) {
+      const srcName = gData.nodes.find(n => n.id === d.source.id)?.name || d.source.id;
+      const tgtName = gData.nodes.find(n => n.id === d.target.id)?.name || d.target.id;
+      ttTitle.textContent = `${d.source.id} → ${d.target.id}`;
+      ttBody.innerHTML = `
+        <div class="tt-row"><span>${srcName}</span><span class="tt-val">→</span></div>
+        <div class="tt-row"><span>${tgtName}</span><span class="tt-val"></span></div>
+        <div class="tt-row"><span>Llamadas SP</span><span class="tt-val">${fmt(d.weight)}</span></div>
+      `;
+      ttEl.style.display = 'block';
+      moveTT(evt);
+    })
+    .on('mousemove', moveTT)
+    .on('mouseleave', hideTT);
+
+  /* Nodos */
+  gNodeSel = g.append('g').attr('class', 'nodes').selectAll('g')
+    .data(nodes).join('g')
+    .attr('class', 'node-g')
+    .attr('transform', d => `translate(${d.x},${d.y})`)
+    .attr('cursor', 'pointer')
+    .on('mouseenter', function(evt, d) { showTT(d, evt); })
+    .on('mousemove', (evt) => moveTT(evt))
+    .on('mouseleave', hideTT)
+    .on('click', function(evt, d) {
+      evt.stopPropagation();
+      if (gSelectedId === d.id) { clearInfo(); applyFilter(gActiveFilter); return; }
+      showInfo(d);
+      highlightEgo(d.id);
+    })
+    .call(d3.drag()
+      .on('start', function(evt) { evt.sourceEvent.stopPropagation(); })
+      .on('drag', function(evt, d) {
+        d.x = evt.x; d.y = evt.y;
+        d3.select(this).attr('transform', `translate(${d.x},${d.y})`);
+        /* Actualizar solo aristas conectadas — sin reiniciar simulación */
+        adjLinks.get(d.id).forEach(l => {
+          const srcN = nodes.find(n => n.id === l.source.id);
+          const tgtN = nodes.find(n => n.id === l.target.id);
+          if (!srcN || !tgtN) return;
+          const ep = endPt(srcN, tgtN, rScale(tgtN.sp_count) + 6);
+          gLinkSel.filter(lk => lk === l)
+            .attr('x1', srcN.x).attr('y1', srcN.y)
+            .attr('x2', ep.x).attr('y2', ep.y);
+          gLabelSel.filter(lb => lb.id === l.source.id || lb.id === l.target.id)
+            .attr('x', n2 => n2.x).attr('y', n2 => n2.y + rScale(n2.sp_count) + 12);
+        });
+      })
+    );
+
+  /* Círculos */
+  gNodeSel.append('circle')
+    .attr('r', d => rScale(d.sp_count))
+    .attr('fill', d => COST_COLOR[d.cost_level] || '#4fde8a')
+    .attr('fill-opacity', 0.22)
+    .attr('stroke', d => COST_COLOR[d.cost_level] || '#4fde8a')
+    .attr('stroke-width', 1.8)
+    .attr('stroke-opacity', 0.85);
+
+  /* Halo para nodo hub */
+  gNodeSel.filter(d => d.id === data.meta.hub_domain)
+    .append('circle')
+    .attr('r', d => rScale(d.sp_count) + 7)
+    .attr('fill', 'none')
+    .attr('stroke', 'var(--yellow)')
+    .attr('stroke-width', 1.2)
+    .attr('stroke-opacity', 0.45)
+    .attr('stroke-dasharray', '4,3');
+
+  /* Etiquetas */
+  gLabelSel = g.append('g').attr('class', 'labels').selectAll('text')
+    .data(nodes).join('text')
+    .attr('x', d => d.x)
+    .attr('y', d => d.y + rScale(d.sp_count) + 12)
+    .attr('text-anchor', 'middle')
+    .attr('fill', 'rgba(244,246,255,0.78)')
+    .attr('font-size', d => rScale(d.sp_count) > 20 ? 11 : 9.5)
+    .attr('font-weight', 600)
+    .attr('pointer-events', 'none')
+    .text(d => d.id);
+
+  /* Etiqueta adicional de nombre para nodos grandes */
+  g.append('g').attr('class', 'name-labels').selectAll('text')
+    .data(nodes.filter(d => rScale(d.sp_count) >= 16))
+    .join('text')
+    .attr('x', d => d.x)
+    .attr('y', d => d.y + rScale(d.sp_count) + 22)
+    .attr('text-anchor', 'middle')
+    .attr('fill', 'rgba(170,179,212,0.60)')
+    .attr('font-size', 8.5)
+    .attr('pointer-events', 'none')
+    .text(d => d.name.length > 18 ? d.name.slice(0, 16) + '…' : d.name);
+
+  /* Click en fondo = deseleccionar */
+  svg.on('click', () => { clearInfo(); applyFilter(gActiveFilter); });
+}
+
+/* ── Highlight ego network ── */
+function highlightEgo(domId) {
+  if (!gNodeSel || !gLinkSel) return;
+  const neighborIds = new Set([domId]);
+  gLinkSel.each(l => {
+    const sid = l.source.id || l.source, tid = l.target.id || l.target;
+    if (sid === domId || tid === domId) { neighborIds.add(sid); neighborIds.add(tid); }
+  });
+  gNodeSel.attr('opacity', d => neighborIds.has(d.id) ? 1 : 0.12);
+  gLinkSel.attr('opacity', l => {
+    const s = l.source.id || l.source, t = l.target.id || l.target;
+    return (s === domId || t === domId) ? 1 : 0.03;
+  });
+}
+
+/* ── Filtro por cost_level ── */
+function applyFilter(level) {
+  gActiveFilter = level;
+  if (!gNodeSel) return;
+  gSelectedId = null;
+  $('info-placeholder').style.display = '';
+  $('domain-card').style.display = 'none';
+
+  if (level === 'all') {
+    gNodeSel.attr('opacity', 1);
+    gLinkSel.attr('opacity', d => 0.15 + 0.55 * (Math.log(d.weight+1) / Math.log((gData?.meta.max_weight||1)+1)));
+  } else {
+    gNodeSel.attr('opacity', d => d.cost_level === level ? 1 : 0.10);
+    gLinkSel.attr('opacity', l => {
+      const s = (l.source.id||l.source), t = (l.target.id||l.target);
+      const sn = gData.nodes.find(n => n.id === s), tn = gData.nodes.find(n => n.id === t);
+      return (sn?.cost_level === level || tn?.cost_level === level) ? 0.55 : 0.03;
+    });
+  }
+}
+
+/* ── Búsqueda ── */
+$('search-box').addEventListener('input', function() {
+  const q = this.value.trim().toLowerCase();
+  if (!gNodeSel) return;
+  if (!q) { applyFilter(gActiveFilter); return; }
+  const match = gData?.nodes.filter(n =>
+    n.id.toLowerCase().includes(q) || n.name.toLowerCase().includes(q)
+  ).map(n => n.id);
+  const matchSet = new Set(match);
+  gNodeSel.attr('opacity', d => matchSet.has(d.id) ? 1 : 0.08);
+  gLinkSel.attr('opacity', 0.03);
+  if (match.length === 1) {
+    const d = gData.nodes.find(n => n.id === match[0]);
+    if (d) { showInfo(d); highlightEgo(d.id); }
+  }
+});
+
+/* ── Tabla sortable ── */
+let sortCol = 'id', sortAsc = true;
+function buildTable(nodes) {
+  const tbody = $('table-body');
+  const sorted = [...nodes].sort((a, b) => {
+    const av = a[sortCol] ?? '', bv = b[sortCol] ?? '';
+    const cmp = typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv));
+    return sortAsc ? cmp : -cmp;
+  });
+  const maxSP = Math.max(...nodes.map(n => n.sp_count), 1);
+  const maxCost = Math.max(...nodes.map(n => n.avg_cost || 0), 1);
+  tbody.innerHTML = sorted.map(d => {
+    const c = COST_COLOR[d.cost_level] || '#4fde8a';
+    return `<tr>
+      <td class="td-id">${d.id}</td>
+      <td class="td-name">${d.name}</td>
+      <td class="td-num">${fmt(d.sp_count)}
+        <div class="bar-bg"><div class="bar-fill" style="width:${(d.sp_count/maxSP*100).toFixed(1)}%;background:rgba(180,190,255,.5)"></div></div>
+      </td>
+      <td class="td-num" style="color:${c}">${d.avg_cost ?? '—'}
+        <div class="bar-bg"><div class="bar-fill" style="width:${((d.avg_cost||0)/maxCost*100).toFixed(1)}%;background:${c}88"></div></div>
+      </td>
+      <td class="td-num" style="color:${d.hard_blocks > 0 ? c : 'inherit'}">${fmt(d.hard_blocks)}</td>
+      <td class="td-num" style="color:${d.api_candidates > 0 ? '#9ee5ff' : 'inherit'}">${fmt(d.api_candidates)}</td>
+      <td style="font-size:11px;color:var(--muted)">${d.dominant_signal || '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+document.querySelectorAll('th[data-col]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    if (sortCol === col) sortAsc = !sortAsc; else { sortCol = col; sortAsc = true; }
+    document.querySelectorAll('th[data-col]').forEach(t => t.classList.remove('sorted'));
+    th.classList.add('sorted');
+    th.querySelector('.sort-arrow').textContent = sortAsc ? '▲' : '▼';
+    if (gData) buildTable(gData.nodes);
+  });
+});
+
+/* ── Filter buttons ── */
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    applyFilter(btn.dataset.level);
+  });
+});
+
+/* ── Load data ── */
+fetch('data/dependency-graph.json')
+  .then(r => r.json())
+  .then(data => {
+    /* KPIs */
+    $('kn-dom').textContent = data.meta.total_domains;
+    $('ks-dom').textContent = data.meta.total_sp.toLocaleString('es-MX') + ' SPs totales';
+    $('kn-hub').textContent = data.meta.hub_domain;
+    const hubNode = data.nodes.find(n => n.id === data.meta.hub_domain);
+    $('ks-hub').textContent = hubNode ? hubNode.name : '';
+    $('kn-calls').textContent = data.meta.total_links;
+    $('ks-calls').textContent = 'pares de dominios con llamadas';
+    const totalApi = data.nodes.reduce((s, n) => s + (n.api_candidates || 0), 0);
+    $('kn-api').textContent = totalApi;
+    $('ks-api').textContent = 'SPs listos para API Gateway';
+
+    /* Graph + table */
+    renderGraph(data);
+    buildTable(data.nodes);
+  })
+  .catch(err => {
+    $('graph-wrap').innerHTML = `<div style="padding:40px;color:var(--cost-high);text-align:center">
+      Error cargando datos: ${err.message}<br>
+      <small style="color:var(--muted)">Ejecutar: python generators/build-dependency-graph.py</small>
+    </div>`;
+  });
+
+/* Resize: re-render el grafo si cambia el viewport */
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { if (gData) renderGraph(gData); }, 350);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,268 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fanout-graph-appmod-v1",
+  "title": "Fanout Graph — Application Modernization (Enabler-First Strangler Fig)",
+  "description": "Schema para modelar las dependencias entre componentes del monolito y los microservicios candidatos. Diseñado para el patrón Enabler-First: primero se identifican los habilitadores horizontales (capa fundacional) y luego los dominios de negocio verticales. Producido por Claude RE en Fase 0 - Discover.",
+  "version": "1.0",
+  "created": "2026-06-02",
+
+  "type": "object",
+  "required": ["meta", "nodes", "edges"],
+  "properties": {
+
+    "meta": {
+      "type": "object",
+      "description": "Metadatos del engagement y del monolito analizado",
+      "required": ["schema_version", "monolith_name", "stack", "discovery_date"],
+      "properties": {
+        "schema_version":    { "type": "string", "example": "fanout-graph-appmod-v1" },
+        "monolith_name":     { "type": "string", "description": "Nombre canónico del repositorio monolítico principal" },
+        "client_sector":     { "type": "string", "enum": ["fintech", "banking", "insurance", "retail", "healthcare", "other"] },
+        "stack":             { "type": "string", "description": "Stack tecnológico del monolito. Ej: Java 8 / Spring MVC / Apache Tomcat" },
+        "db_engine":         { "type": "string", "description": "Motor de BD principal. Ej: MySQL Aurora, PostgreSQL, Oracle" },
+        "total_tables":      { "type": "integer", "description": "Total de tablas en la BD del monolito" },
+        "total_endpoints":   { "type": "integer", "description": "Total de endpoints en el monolito principal" },
+        "total_jobs":        { "type": "integer", "description": "Total de jobs batch en el monolito" },
+        "geographies":       { "type": "array", "items": { "type": "string" }, "description": "Países/regiones donde opera. Ej: [MX, CO, PE, AR]" },
+        "peak_tps":          { "type": "number", "description": "Pico de TPS del sistema (driver de diseño de auto-scaling)" },
+        "peak_tps_location": { "type": "string", "description": "Geografía del pico de TPS" },
+        "discovery_date":    { "type": "string", "format": "date" },
+        "discovery_method":  { "type": "string", "enum": ["claude-re", "manual", "hybrid"], "default": "claude-re" },
+        "maturity":          { "type": "string", "enum": ["PROPUESTO", "VALIDADO", "BINDING"], "default": "PROPUESTO" },
+        "notes":             { "type": "string" }
+      }
+    },
+
+    "nodes": {
+      "type": "array",
+      "description": "Nodos del grafo. Tres tipos: monolith-component (los 5 componentes físicos del monolito), candidate (microservicio candidato dentro del monolito), enabler (habilitador horizontal en scope de extracción).",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "type", "layer"],
+        "properties": {
+
+          "id": {
+            "type": "string",
+            "description": "Identificador único kebab-case. Convención: {nombre}-sys para enablers, {nombre}-component para componentes físicos",
+            "examples": ["config-management-sys", "api-component", "payment-processing-candidate"]
+          },
+
+          "label": {
+            "type": "string",
+            "description": "Nombre legible para visualización"
+          },
+
+          "type": {
+            "type": "string",
+            "enum": ["monolith-component", "candidate", "enabler"],
+            "description": "monolith-component = componente físico del monolito (API, Dashboard, Manager, Vault). candidate = microservicio a extraer del dominio de negocio. enabler = habilitador horizontal en scope de este proyecto."
+          },
+
+          "layer": {
+            "type": "string",
+            "enum": ["presentation", "business", "infrastructure", "security"],
+            "description": "Capa arquitectónica. infrastructure/security = enablers horizontales. business = dominios de negocio. presentation = frontends/BFFs."
+          },
+
+          "monolith_component": {
+            "type": "string",
+            "description": "Componente físico del monolito donde vive este candidato/enabler. Ej: API, Dashboard, Manager, Vault, Paynet",
+            "examples": ["API", "Dashboard", "Manager", "Vault", "Paynet"]
+          },
+
+          "in_scope": {
+            "type": "boolean",
+            "description": "true = en scope de este proyecto/wave. false = wave futura.",
+            "default": false
+          },
+
+          "complexity": {
+            "type": "string",
+            "enum": ["S", "M", "H", "XH"],
+            "description": "Complejidad de extracción. S=Simple M=Medium H=High XH=Extreme High"
+          },
+
+          "blast_radius": {
+            "type": "integer",
+            "description": "Número de procesos de negocio que consumen este nodo (de la Matriz Componente×Proceso). Driver principal del costo de costura.",
+            "minimum": 0
+          },
+
+          "fan_out_repos": {
+            "type": "integer",
+            "description": "Número de repositorios activos cuyo nombre menciona este enabler (proxy de dispersión técnica).",
+            "minimum": 0
+          },
+
+          "extraction_wave": {
+            "type": "integer",
+            "description": "Número de wave en que debe extraerse. 1=primera (menor blast radius), mayor=último. Criterio: menor blast_radius primero, mayor al final.",
+            "minimum": 1
+          },
+
+          "extraction_sequence_note": {
+            "type": "string",
+            "description": "Razón de la posición en la secuencia. Ej: menor blast_radius, sin dependencias PCI, o alto blast_radius - extraer al final con dual-run prolongado."
+          },
+
+          "pci_in_scope": {
+            "type": "boolean",
+            "description": "true = maneja datos PCI DSS (PAN, CVV, tokens). Requiere CDE VPC + CloudHSM como prerequisito.",
+            "default": false
+          },
+
+          "regulatory": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Regulaciones que aplican a este nodo. Ej: [PCI-DSS-v4, CNBV, GDPR]",
+            "default": []
+          },
+
+          "db_ownership": {
+            "type": "object",
+            "description": "Propiedad de tablas en la BD del monolito (resultado del análisis de datos en Discovery)",
+            "properties": {
+              "owned_tables":    { "type": "integer", "description": "Tablas que le pertenecen (green - solo este nodo escribe)" },
+              "shared_read":     { "type": "integer", "description": "Tablas que lee pero no posee (amarillo)" },
+              "cross_fk":        { "type": "integer", "description": "Tablas con FK cruzados a otros dominios (rojo - requiere desacople)" },
+              "classification_maturity": { "type": "string", "enum": ["PROPUESTO", "VALIDADO", "BINDING"] }
+            }
+          },
+
+          "seam_strategy": {
+            "type": "string",
+            "enum": ["cdc-read-only", "api-acl", "direct-cut", "dual-write", "pending"],
+            "description": "Estrategia de costura para minimizar intrusión en consumidores. cdc-read-only = replica CDC, consumidores no cambian. api-acl = consumidores llaman API nueva. direct-cut = sin coexistencia (solo si fan_out_repos < 3).",
+            "default": "pending"
+          },
+
+          "target_pattern": {
+            "type": "string",
+            "enum": ["ecs-fargate-rest", "ecs-fargate-job", "lambda-event", "managed-service", "tbd"],
+            "description": "Patrón de despliegue target. managed-service = reemplazar por servicio cloud (Cognito, KMS, Secrets Manager, etc.).",
+            "default": "tbd"
+          },
+
+          "managed_service_replacement": {
+            "type": "string",
+            "description": "Si target_pattern=managed-service, especificar el servicio cloud. Ej: AWS Cognito, AWS KMS, AWS Secrets Manager",
+            "examples": ["AWS Cognito", "AWS KMS + CloudHSM", "AWS Secrets Manager"]
+          },
+
+          "bian_mapping": {
+            "type": "object",
+            "description": "Mapeo BIAN Service Landscape v14 (si aplica)",
+            "properties": {
+              "service_domain": { "type": "string", "description": "Service Domain BIAN v14" },
+              "coverage":       { "type": "string", "enum": ["alta", "media", "parcial", "coreless"] },
+              "action_terms":   { "type": "array", "items": { "type": "string" } }
+            }
+          },
+
+          "endpoints": {
+            "type": "integer",
+            "description": "Número de endpoints REST expuestos (si aplica)"
+          },
+
+          "jobs": {
+            "type": "integer",
+            "description": "Número de jobs batch (si aplica)"
+          },
+
+          "domain": {
+            "type": "string",
+            "description": "Dominio de negocio al que pertenece en la taxonomía del cliente"
+          },
+
+          "color": {
+            "type": "string",
+            "description": "Color para visualización D3. Convención: enabler=purple, in_scope=accenture-purple, pci=blue, candidate-future=gray",
+            "examples": ["#A100FF", "#6B21A8", "#175cd3", "#9aa0ad"]
+          }
+        }
+      }
+    },
+
+    "edges": {
+      "type": "array",
+      "description": "Dependencias entre nodos. Tipos: consumes (consumidor→enabler), contains (componente físico→candidato), depends-on (candidato→candidato), data-flow (flujo de datos).",
+      "items": {
+        "type": "object",
+        "required": ["source", "target", "type"],
+        "properties": {
+
+          "source": { "type": "string", "description": "ID del nodo origen" },
+          "target": { "type": "string", "description": "ID del nodo destino" },
+
+          "type": {
+            "type": "string",
+            "enum": ["consumes", "contains", "depends-on", "data-flow", "seam"],
+            "description": "consumes = consumidor invoca el enabler. contains = componente físico contiene el candidato. depends-on = dependencia técnica entre candidatos. data-flow = flujo de datos (tabla compartida). seam = costura CDC/ACL durante coexistencia."
+          },
+
+          "weight": {
+            "type": "number",
+            "description": "Peso de la dependencia. Para 'consumes': número de procesos que cruzan esta relación (blast_radius de la intersección). Para 'data-flow': número de tablas compartidas.",
+            "minimum": 0
+          },
+
+          "seam_type": {
+            "type": "string",
+            "enum": ["cdc-read-only", "api-acl", "direct-cut", "dual-write"],
+            "description": "Tipo de costura para esta dependencia específica durante la extracción"
+          },
+
+          "call_sites": {
+            "type": "integer",
+            "description": "[DATO-REQUERIDO Discovery] Número de call-sites en el código del monolito que cruzan esta dependencia. Es el driver real del costo de costura.",
+            "default": null
+          },
+
+          "discovered_by": {
+            "type": "string",
+            "enum": ["claude-re", "manual", "proxy-name-match", "menu-analysis"],
+            "description": "Cómo se descubrió esta dependencia. proxy-name-match y menu-analysis son proxies pre-Discovery; claude-re y manual son evidencia confirmada."
+          },
+
+          "confidence": {
+            "type": "string",
+            "enum": ["confirmed", "proxy", "inferred"],
+            "description": "confirmed = evidencia técnica del código. proxy = inferida de nombre de repo. inferred = inferida de análisis de menús/funcional."
+          }
+        }
+      }
+    },
+
+    "waves": {
+      "type": "array",
+      "description": "Definición de waves de extracción. Cada wave agrupa los nodos a extraer en ese período.",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "nodes"],
+        "properties": {
+          "id":         { "type": "integer" },
+          "name":       { "type": "string", "description": "Ej: Wave 1 - Enablers bajo blast radius" },
+          "quarter":    { "type": "string", "description": "Ej: 2Q-2026" },
+          "nodes":      { "type": "array", "items": { "type": "string" }, "description": "IDs de nodos a extraer en esta wave" },
+          "pci_infra_ready": { "type": "boolean", "description": "true = la infra PCI (CDE VPC + CloudHSM) debe estar lista antes de esta wave" },
+          "prerequisite_waves": { "type": "array", "items": { "type": "integer" } },
+          "rationale":  { "type": "string" }
+        }
+      }
+    },
+
+    "regression_scope": {
+      "type": "object",
+      "description": "Alcance de regresión derivado de la Matriz Componente×Proceso. Agrupa por enabler cuántos procesos hay que regresar.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "direct_processes":    { "type": "integer" },
+          "secondary_processes": { "type": "integer" },
+          "total_processes":     { "type": "integer" },
+          "priority":            { "type": "integer", "description": "Orden de prioridad de regresión (1=primero, mayor=último)" }
+        }
+      }
+    }
+  }
+}

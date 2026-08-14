@@ -1,0 +1,830 @@
+﻿<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Informix · Portal</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--blue:#3D5FCD;--blued:#122FB1;--bluedd:#0d2185;--yellow:#F0D224;
+ --ink:#F4F6FF;--muted:#aab3d4;--muted2:#818ab0;--glass:rgba(255,255,255,.055);--glassb:rgba(255,255,255,.10)}
+html{scroll-behavior:smooth}
+body{background:#060a1a;color:var(--ink);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Calibri,sans-serif;
+ -webkit-font-smoothing:antialiased;overflow-x:hidden}
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(27,63,208,.65),transparent 70%);animation:f1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(13,33,133,.7),transparent 70%);animation:f2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(240,210,36,.22),transparent 70%);animation:f3 32s ease-in-out infinite}
+@keyframes f1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes f2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes f3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+.grain{position:fixed;inset:0;z-index:-1;opacity:.045;pointer-events:none;
+ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+#prog{position:fixed;top:0;left:0;height:3px;width:0;z-index:100;background:linear-gradient(90deg,var(--yellow),#fff);box-shadow:0 0 12px rgba(240,210,36,.6)}
+nav{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;gap:14px;padding:15px 30px;
+ backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);background:rgba(6,10,26,.55);border-bottom:1px solid rgba(255,255,255,.06)}
+nav img{height:21px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+nav .nt{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em}
+nav .sp{flex:1}
+nav .v2badge{font-size:10px;font-weight:800;letter-spacing:.12em;color:#060a1a;background:var(--yellow);padding:3px 9px;border-radius:20px}
+nav a.back{font-size:12px;color:var(--muted);padding:6px 13px;border-radius:20px;border:1px solid rgba(255,255,255,.09);transition:.22s}
+nav a.back:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+.glass{background:var(--glass);backdrop-filter:blur(22px) saturate(155%);-webkit-backdrop-filter:blur(22px) saturate(155%);
+ border:1px solid var(--glassb);border-radius:22px;box-shadow:0 12px 44px rgba(0,0,0,.36),inset 0 1px 0 rgba(255,255,255,.10)}
+.wrap{max-width:1160px;margin:0 auto;padding:0 30px}
+section{padding:76px 0;scroll-margin-top:70px}
+.hero{min-height:56vh;display:flex;flex-direction:column;justify-content:center;position:relative;padding:110px 0 20px}
+.eyebrow{display:inline-flex;align-items:center;gap:9px;align-self:flex-start;padding:8px 16px;border-radius:30px;font-size:12px;
+ font-weight:600;letter-spacing:.03em;color:#dfe6ff;margin-bottom:28px;background:rgba(255,255,255,.05);border:1px solid var(--glassb);
+ backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--yellow);box-shadow:0 0 12px var(--yellow);animation:pulse 2.4s infinite}
+@keyframes pulse{50%{opacity:.4}}
+.hero h1{font-size:clamp(38px,6vw,76px);font-weight:800;line-height:1.0;letter-spacing:-.035em;max-width:20ch;
+ background:linear-gradient(176deg,#fff 34%,#9fb4ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{font-size:clamp(15px,1.7vw,19px);color:var(--muted);margin-top:22px;max-width:66ch;line-height:1.55}
+.hero .sub b{color:#e4eaff;font-weight:600}
+
+/* stats row */
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:13px;margin-top:36px}
+.stat{padding:20px 14px;text-align:center}
+.statn{font-size:clamp(22px,2.7vw,32px);font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;
+ background:linear-gradient(180deg,#fff,#c4d0ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.statl{font-size:10px;color:var(--muted2);margin-top:8px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+
+/* section headings */
+.shead{margin-bottom:36px}
+.kick{font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--yellow);margin-bottom:14px}
+.shead h2{font-size:clamp(26px,3.8vw,42px);font-weight:800;letter-spacing:-.025em;line-height:1.06}
+.shead p{color:var(--muted);font-size:15px;margin-top:14px;max-width:72ch;line-height:1.55}
+
+/* groups + cards */
+.group{margin-top:46px}
+.ghead{display:flex;align-items:baseline;gap:14px;margin-bottom:18px}
+.ghead h3{font-size:20px;font-weight:800;letter-spacing:-.02em}
+.ghead span{font-size:13px;color:var(--muted2)}
+.cardgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:960px){.cardgrid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.cardgrid{grid-template-columns:1fr}}
+.vcard{display:flex;gap:17px;padding:23px;color:inherit;transition:transform .34s cubic-bezier(.16,1,.3,1),border-color .34s,box-shadow .34s}
+.vcard:hover{transform:translateY(-6px);border-color:rgba(240,210,36,.42);box-shadow:0 22px 56px rgba(0,0,0,.5)}
+.vcard .ico{font-size:25px;width:54px;height:54px;display:flex;align-items:center;justify-content:center;border-radius:16px;flex-shrink:0;
+ background:linear-gradient(150deg,rgba(255,255,255,.13),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.11);transition:transform .34s}
+.vcard:hover .ico{transform:scale(1.09) rotate(-4deg)}
+.vcard .vt{font-size:16.5px;font-weight:800;letter-spacing:-.01em}
+.vcard .vd{font-size:13px;color:var(--muted);margin:6px 0 13px;line-height:1.55}
+.vcard .go{font-size:12px;font-weight:700;color:var(--yellow);display:inline-flex;align-items:center;gap:7px}
+.vcard .arr{transition:transform .3s}.vcard:hover .arr{transform:translateX(5px)}
+.vcard .vtag{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+ padding:2px 7px;border-radius:10px;background:rgba(240,210,36,.12);border:1px solid rgba(240,210,36,.25);color:var(--yellow);margin-bottom:8px}
+
+.reveal{opacity:0;transform:translateY(32px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1)}
+.reveal.in{opacity:1;transform:none}
+.vcard.crit{border-left:3px solid #E8400A}.vcard.crit .ico{background:rgba(232,64,10,.15);border-color:rgba(232,64,10,.3)}
+.vcard.warn{border-left:3px solid #F0D224}.vcard.warn .ico{background:rgba(240,210,36,.12);border-color:rgba(240,210,36,.3)}
+.vtag.crit{color:#E8400A;background:rgba(232,64,10,.12);border-color:rgba(232,64,10,.3)}
+.vtag.warn{color:#F0D224;background:rgba(240,210,36,.08);border-color:rgba(240,210,36,.25)}
+
+footer{padding:44px 30px 64px;text-align:center;color:var(--muted2);font-size:12px;border-top:1px solid rgba(255,255,255,.06);margin-top:50px;line-height:1.7}
+footer code{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid rgba(240,210,36,.25);border-radius:5px;padding:1px 6px;font-size:11px;font-family:'SF Mono',ui-monospace,monospace}
+@media(max-width:1100px){.stats{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:680px){.stats{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){nav .nt{display:none}}
+@media(prefers-reduced-motion:reduce){.reveal{transition:none;opacity:1;transform:none}.aurora *{animation:none}}
+
+nav a.jump{font-size:12.5px;color:var(--muted);padding:7px 13px;border-radius:20px;transition:.22s}
+nav a.jump:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+nav a.jump.risk{color:#f87171}nav a.jump.risk:hover{color:#fca5a5}
+/* ─── Metodología ─── */
+.tlwrap{display:grid;grid-template-columns:1.05fr .95fr;gap:44px;align-items:start}
+@media(max-width:860px){.tlwrap{grid-template-columns:1fr;gap:30px}}
+.tl{position:relative;padding-left:38px}
+.tl::before{content:"";position:absolute;left:6px;top:8px;bottom:8px;width:2px;background:linear-gradient(180deg,var(--yellow),var(--blue) 60%,transparent)}
+.node{position:relative;padding-bottom:24px}
+.node:last-child{padding-bottom:0}
+.node::before{content:"";position:absolute;left:-38px;top:2px;width:13px;height:13px;border-radius:50%;background:var(--yellow);border:3px solid #060a1a;box-shadow:0 0 0 2px rgba(240,210,36,.55),0 0 14px rgba(240,210,36,.5)}
+.node h4{font-size:15.5px;font-weight:700;letter-spacing:-.01em}
+.node span{font-size:12.5px;color:var(--muted2)}
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+@media(max-width:860px){.mgrid{grid-template-columns:1fr}}
+.mcard{padding:24px 26px}
+.mcard h4{font-size:12px;color:var(--yellow);text-transform:uppercase;letter-spacing:.09em;margin-bottom:10px;font-weight:700}
+.mcard p{font-size:13.5px;color:var(--muted);line-height:1.6}.mcard b{color:#fff;font-weight:600}
+.xrow{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+@media(max-width:760px){.xrow{grid-template-columns:1fr}}
+.xcard{padding:20px 24px;border-left:3px solid var(--yellow)}
+.xkick{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--yellow);margin-bottom:10px}
+.xt{font-size:16px;font-weight:800}.xt span{font-size:13px;font-weight:600;color:var(--muted)}
+.xd{font-size:12.5px;color:var(--muted);margin-top:7px;line-height:1.6}.xd b{color:#e4eaff;font-weight:600}
+.mnote{margin-top:22px;padding:16px 20px;font-size:13px;color:var(--muted);border-radius:16px;
+ background:rgba(255,255,255,.055);backdrop-filter:blur(15px) saturate(140%);-webkit-backdrop-filter:blur(15px) saturate(140%);box-shadow:0 8px 28px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.1);border:1px solid rgba(240,210,36,.16)}.mnote b{color:#e4eaff}
+.xhead{font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:28px 0 13px;display:flex;align-items:center;gap:14px}
+.xhead::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,rgba(240,210,36,.5),transparent)}
+/* ─── North Star ─── */
+.ns-core{position:relative;padding:34px 26px;text-align:center;overflow:hidden;border:1px solid rgba(240,210,36,.35) !important}
+.ns-pulse{position:absolute;inset:-2px;border-radius:22px;border:2px solid rgba(240,210,36,.4);animation:ring 3s ease-in-out infinite;pointer-events:none}
+.ns-pulse::before{content:"";position:absolute;inset:-14px;border-radius:30px;border:1px solid rgba(240,210,36,.13);animation:ring 3s ease-in-out infinite .9s}
+@keyframes ring{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:1;transform:scale(1.013)}}
+.ns-swarm{display:flex;align-items:stretch;gap:8px;padding:2px 0 8px;margin-top:12px}
+.ns-step{padding:18px 15px;min-width:126px;flex:1;display:flex;flex-direction:column;gap:5px}
+.ns-step-n{font-size:9.5px;font-weight:800;color:var(--yellow);letter-spacing:.1em}
+.ns-step-t{font-size:14px;font-weight:800;letter-spacing:-.01em}
+.ns-step-d{font-size:11.5px;color:var(--muted);line-height:1.55}
+.ns-arr{font-size:17px;color:var(--muted2);display:flex;align-items:center;flex-shrink:0}
+.ns-swarm-wrap,.ns-humans{margin-top:32px}
+.ns-hroles{display:grid;grid-template-columns:repeat(5,1fr);gap:13px;margin-top:12px}
+.ns-hrole{padding:22px 18px;display:flex;flex-direction:column;gap:7px}
+.ns-hr-ico{font-size:22px}.ns-hr-t{font-size:13px;font-weight:800;letter-spacing:-.01em}
+.ns-hr-d{font-size:12px;color:var(--muted);line-height:1.55}
+@media(max-width:1040px){.ns-hroles{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:660px){.ns-arr{display:none}.ns-swarm{flex-wrap:wrap}.ns-hroles{grid-template-columns:1fr 1fr}}
+.ns-dbox{background:rgba(8,12,38,.6);border:1px solid rgba(255,255,255,.07);border-radius:18px;overflow:hidden}
+.ns-cta-wrap{text-align:center;margin-top:32px}
+.ns-cta{display:inline-flex;align-items:center;gap:10px;padding:13px 28px;border-radius:30px;font-size:14px;font-weight:800;
+ color:#060d1f;background:var(--yellow);text-decoration:none;letter-spacing:.01em;transition:.22s;box-shadow:0 4px 20px rgba(240,210,36,.3)}
+.ns-cta:hover{background:#fff;box-shadow:0 6px 28px rgba(240,210,36,.45)}
+.ns-cta:hover .ns-cta-arr{transform:translateX(5px)}
+.ns-cta-arr{display:inline-block;transition:transform .3s}
+</style></head><body>
+<div class="aurora"><div class="blob"></div></div><div class="grain"></div>
+<div id="prog"></div>
+
+<nav>
+  <img src="../bancoppel-logo.png" alt="BanCoppel">
+  <span class="nt">Informix · Portal de Análisis</span>
+  <span class="sp"></span>
+  <a class="jump" href="#northstar">North Star</a>
+  <a class="jump" href="#metodo">Metodología</a>
+  <a class="jump" href="#vistas">Vistas</a>
+  <a class="jump" href="#capacidad">Capacidad</a>
+  <a class="jump risk" href="#riesgos">Riesgos</a>
+</nav>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow reveal"><span class="dot"></span> SPE-AM-001 · High Velocity Modernization · Fase DISCOVER</div>
+    <h1 class="reveal">Informix · Portal</h1>
+    <p class="sub reveal">Portal de segunda generación del Gemelo Cognitivo del sistema — vocabulario, almas, biografía e intención materializados en vistas interactivas con datos actualizados.</p>
+
+    <div class="stats reveal">
+      <div class="stat glass">
+        <div class="statn" data-target="19">0</div>
+        <div class="statl">Años de historia analizados</div>
+      </div>
+      <div class="stat glass">
+        <div class="statn" data-target="634">0</div>
+        <div class="statl">Términos de vocabulario</div>
+      </div>
+      <div class="stat glass">
+        <div class="statn" data-target="8005">0</div>
+        <div class="statl">Reglas extraídas</div>
+      </div>
+      <div class="stat glass">
+        <div class="statn" data-target="34279">0</div>
+        <div class="statl">Dependencias entre SPs</div>
+      </div>
+      <div class="stat glass">
+        <div class="statn" data-target="30">0</div>
+        <div class="statl">Dominios analizados</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ─── NORTH STAR ─── -->
+  <section id="northstar">
+    <div class="shead reveal">
+      <div class="kick">North Star · Modelo Operativo Destino</div>
+      <h2>De Gemelo Cognitivo<br>a Gemelo Agéntico</h2>
+      <p>El conocimiento extraído del legacy — vocabulario, journeys, reglas, grafos de dependencia — se convierte en el <b>Enterprise Brain</b>. Un enjambre de agentes especializados toma ese conocimiento y cierra el ciclo: analiza, documenta, resuelve y entrega. Los equipos humanos pasan de ejecutar tareas a gobernar la intención y operar los agentes.</p>
+    </div>
+
+    <div class="ns-dbox reveal">
+<svg viewBox="-100 0 1160 570" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg" style="display:block">
+  <defs>
+    <filter id="ns-gy" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="ns-gb" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <radialGradient id="ns-ruser" cx="38%" cy="32%" r="62%">
+      <stop offset="0%" stop-color="#92400e"/><stop offset="100%" stop-color="#3b1806"/>
+    </radialGradient>
+    <radialGradient id="ns-rorch" cx="38%" cy="32%" r="62%">
+      <stop offset="0%" stop-color="#6d28d9"/><stop offset="100%" stop-color="#1e1b4b"/>
+    </radialGradient>
+    <radialGradient id="ns-robs" cx="38%" cy="32%" r="62%">
+      <stop offset="0%" stop-color="#0d9488"/><stop offset="100%" stop-color="#032b28"/>
+    </radialGradient>
+    <radialGradient id="ns-rswarm" cx="38%" cy="32%" r="62%">
+      <stop offset="0%" stop-color="#5b21b6"/><stop offset="100%" stop-color="#1e1b4b"/>
+    </radialGradient>
+    <radialGradient id="ns-rsub-teal" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#0f766e"/><stop offset="100%" stop-color="#042f2e"/>
+    </radialGradient>
+    <radialGradient id="ns-rsub-vio" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#5b21b6"/><stop offset="100%" stop-color="#1e1b4b"/>
+    </radialGradient>
+    <radialGradient id="ns-rbg" cx="50%" cy="58%" r="55%">
+      <stop offset="0%" stop-color="#122FB1" stop-opacity=".08"/><stop offset="100%" stop-color="transparent"/>
+    </radialGradient>
+    <linearGradient id="ns-rstudio" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0e6b7e"/><stop offset="50%" stop-color="#0d5e70"/><stop offset="100%" stop-color="#0a5262"/>
+    </linearGradient>
+    <marker id="ns-ay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10z" fill="rgba(240,210,36,.75)"/>
+    </marker>
+    <marker id="ns-ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10z" fill="rgba(180,130,255,.65)"/>
+    </marker>
+    <marker id="ns-at" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10z" fill="rgba(20,184,166,.75)"/>
+    </marker>
+    <marker id="ns-av" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10z" fill="rgba(124,58,237,.7)"/>
+    </marker>
+    <marker id="ns-aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10z" fill="rgba(251,191,36,.7)"/>
+    </marker>
+    <path id="rar-l" d="M 206,349 C 270,286 345,312 388,337"/>
+    <path id="rar-r" d="M 572,337 C 615,312 690,286 754,349"/>
+    <path id="il-arc" d="M 389,340 A 91,91 0 1,1 571,340"/>
+  </defs>
+
+  <ellipse cx="480" cy="345" rx="320" ry="230" fill="url(#ns-rbg)"/>
+
+  <!-- Agent Studio -->
+  <line x1="452" y1="431" x2="378" y2="496" stroke="rgba(20,184,166,.38)" stroke-width="1.5" marker-end="url(#ns-at)"/>
+  <line x1="510" y1="431" x2="582" y2="496" stroke="rgba(20,184,166,.38)" stroke-width="1.5" marker-start="url(#ns-at)"/>
+  <rect x="276" y="496" width="408" height="44" rx="10" fill="url(#ns-rstudio)" stroke="rgba(20,184,166,.45)" stroke-width="1.2" filter="url(#ns-gb)"/>
+  <text x="480" y="523" text-anchor="middle" fill="white" font-size="15" font-weight="800" letter-spacing=".04em" font-family="system-ui,sans-serif">Agent Studio</text>
+
+  <!-- Enterprise Brain -->
+  <circle cx="480" cy="340" r="102" fill="none" stroke="rgba(240,210,36,.14)" stroke-width="1">
+    <animate attributeName="r" values="100;118;100" dur="3.2s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values=".5;0;.5" dur="3.2s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="480" cy="340" r="91" fill="rgba(61,95,205,.06)" stroke="rgba(100,140,220,.35)" stroke-width="1.5"/>
+  <text font-size="8" fill="rgba(120,155,225,.85)" font-family="system-ui,sans-serif" font-weight="700" letter-spacing=".07em">
+    <textPath href="#il-arc" startOffset="14%">INTEGRATION LAYER</textPath>
+  </text>
+  <circle cx="480" cy="340" r="76" fill="rgba(30,58,138,.22)" stroke="rgba(61,95,205,.18)" stroke-width="1"/>
+  <path d="M480,340 L480,268 A72,72 0 0,1 542,376 Z" fill="rgba(61,95,205,.48)" stroke="rgba(100,140,220,.35)" stroke-width=".8"/>
+  <path d="M480,340 L542,376 A72,72 0 0,1 418,376 Z" fill="rgba(13,148,136,.42)" stroke="rgba(20,184,166,.35)" stroke-width=".8"/>
+  <path d="M480,340 L418,376 A72,72 0 0,1 480,268 Z" fill="rgba(109,40,217,.38)" stroke="rgba(167,139,250,.3)" stroke-width=".8"/>
+  <circle cx="480" cy="340" r="32" fill="#06102a" stroke="rgba(240,210,36,.42)" stroke-width="1.2" filter="url(#ns-gb)"/>
+  <text x="524" y="309" text-anchor="middle" fill="rgba(200,220,255,.88)" font-size="7" font-family="system-ui,sans-serif">Business Logic,</text>
+  <text x="524" y="319" text-anchor="middle" fill="rgba(200,220,255,.88)" font-size="7" font-family="system-ui,sans-serif">Applications</text>
+  <text x="480" y="390" text-anchor="middle" fill="rgba(167,240,230,.88)" font-size="7" font-family="system-ui,sans-serif">Infrastructure</text>
+  <text x="436" y="314" text-anchor="middle" fill="rgba(216,180,254,.88)" font-size="7" font-family="system-ui,sans-serif">Observability</text>
+  <text x="480" y="244" text-anchor="middle" fill="#dde8ff" font-size="11" font-weight="700" font-family="system-ui,sans-serif">Enterprise Brain</text>
+  <text x="480" y="257" text-anchor="middle" fill="#dde8ff" font-size="11" font-weight="700" font-family="system-ui,sans-serif">Knowledge Graph</text>
+
+  <!-- Observability Agent -->
+  <line x1="30" y1="225" x2="148" y2="340" stroke="rgba(20,184,166,.2)" stroke-width="1"/>
+  <circle cx="18" cy="213" r="15" fill="url(#ns-rsub-teal)" stroke="rgba(20,184,166,.35)" stroke-width="1"/>
+  <text x="18" y="207" text-anchor="middle" font-size="11">&#x1F52E;</text>
+  <text x="40" y="216" fill="#5eead4" font-size="7" font-family="system-ui,sans-serif">Outcomes</text>
+  <line x1="20" y1="280" x2="148" y2="348" stroke="rgba(20,184,166,.2)" stroke-width="1"/>
+  <circle cx="10" cy="268" r="15" fill="url(#ns-rsub-teal)" stroke="rgba(20,184,166,.35)" stroke-width="1"/>
+  <text x="10" y="262" text-anchor="middle" font-size="11">&#x1F4E1;</text>
+  <text x="32" y="271" fill="#5eead4" font-size="7" font-family="system-ui,sans-serif">Systems status</text>
+  <line x1="14" y1="340" x2="148" y2="352" stroke="rgba(20,184,166,.2)" stroke-width="1"/>
+  <circle cx="4" cy="340" r="13" fill="url(#ns-rsub-teal)" stroke="rgba(20,184,166,.35)" stroke-width="1"/>
+  <text x="4" y="334" text-anchor="middle" font-size="10">&#x1F4C8;</text>
+  <text x="24" y="343" fill="#5eead4" font-size="7" font-family="system-ui,sans-serif">Service metrics</text>
+  <circle cx="148" cy="355" r="56" fill="url(#ns-robs)" stroke="rgba(20,184,166,.55)" stroke-width="1.5" filter="url(#ns-gb)"/>
+  <text x="148" y="337" text-anchor="middle" font-size="22">&#x1F441;&#xFE0F;</text>
+  <text x="148" y="357" text-anchor="middle" fill="white" font-size="9.5" font-weight="800" font-family="system-ui,sans-serif">Observability</text>
+  <text x="148" y="369" text-anchor="middle" fill="white" font-size="9.5" font-weight="800" font-family="system-ui,sans-serif">Agent</text>
+  <text x="148" y="384" text-anchor="middle" fill="rgba(167,240,230,.75)" font-size="6.5" font-family="system-ui,sans-serif">Establishes current state</text>
+  <text x="148" y="393" text-anchor="middle" fill="rgba(167,240,230,.75)" font-size="6.5" font-family="system-ui,sans-serif">based on observability</text>
+  <line x1="30" y1="415" x2="148" y2="368" stroke="rgba(20,184,166,.2)" stroke-width="1"/>
+  <circle cx="18" cy="422" r="13" fill="url(#ns-rsub-teal)" stroke="rgba(20,184,166,.35)" stroke-width="1"/>
+  <text x="18" y="416" text-anchor="middle" font-size="10">&#x1F3D7;&#xFE0F;</text>
+  <text x="38" y="425" fill="#5eead4" font-size="7" font-family="system-ui,sans-serif">Systems arch.</text>
+  <line x1="24" y1="455" x2="148" y2="380" stroke="rgba(20,184,166,.2)" stroke-width="1"/>
+  <circle cx="14" cy="462" r="13" fill="url(#ns-rsub-teal)" stroke="rgba(20,184,166,.35)" stroke-width="1"/>
+  <text x="14" y="456" text-anchor="middle" font-size="10">&#x1F916;</text>
+  <text x="34" y="465" fill="#5eead4" font-size="7" font-family="system-ui,sans-serif">Agent status</text>
+  <line x1="68" y1="475" x2="148" y2="395" stroke="rgba(20,184,166,.2)" stroke-width="1"/>
+  <circle cx="58" cy="481" r="13" fill="url(#ns-rsub-teal)" stroke="rgba(20,184,166,.35)" stroke-width="1"/>
+  <text x="58" y="475" text-anchor="middle" font-size="10">&#x2699;&#xFE0F;</text>
+  <text x="78" y="484" fill="#5eead4" font-size="7" font-family="system-ui,sans-serif">Biz. Processes</text>
+
+  <!-- Agent Swarm -->
+  <line x1="912" y1="222" x2="812" y2="340" stroke="rgba(124,58,237,.2)" stroke-width="1"/>
+  <circle cx="924" cy="212" r="15" fill="url(#ns-rsub-vio)" stroke="rgba(124,58,237,.38)" stroke-width="1"/>
+  <text x="924" y="206" text-anchor="middle" font-size="11">&#x1F4DA;</text>
+  <text x="903" y="215" fill="#c4b5fd" font-size="7" text-anchor="end" font-family="system-ui,sans-serif">Vocabulario</text>
+  <line x1="930" y1="278" x2="812" y2="348" stroke="rgba(124,58,237,.2)" stroke-width="1"/>
+  <circle cx="942" cy="267" r="15" fill="url(#ns-rsub-vio)" stroke="rgba(124,58,237,.38)" stroke-width="1"/>
+  <text x="942" y="261" text-anchor="middle" font-size="11">&#x1F52E;</text>
+  <text x="921" y="270" fill="#c4b5fd" font-size="7" text-anchor="end" font-family="system-ui,sans-serif">Almas</text>
+  <line x1="940" y1="340" x2="812" y2="352" stroke="rgba(124,58,237,.2)" stroke-width="1"/>
+  <circle cx="952" cy="340" r="14" fill="url(#ns-rsub-vio)" stroke="rgba(124,58,237,.38)" stroke-width="1"/>
+  <text x="952" y="334" text-anchor="middle" font-size="10">&#x1F5FA;</text>
+  <text x="932" y="343" fill="#c4b5fd" font-size="7" text-anchor="end" font-family="system-ui,sans-serif">Journeys</text>
+  <line x1="930" y1="400" x2="812" y2="362" stroke="rgba(124,58,237,.2)" stroke-width="1"/>
+  <circle cx="942" cy="412" r="15" fill="url(#ns-rsub-vio)" stroke="rgba(124,58,237,.38)" stroke-width="1"/>
+  <text x="942" y="406" text-anchor="middle" font-size="11">&#x2696;&#xFE0F;</text>
+  <text x="921" y="415" fill="#c4b5fd" font-size="7" text-anchor="end" font-family="system-ui,sans-serif">Reglas</text>
+  <line x1="912" y1="453" x2="812" y2="380" stroke="rgba(124,58,237,.2)" stroke-width="1"/>
+  <circle cx="922" cy="463" r="14" fill="url(#ns-rsub-vio)" stroke="rgba(124,58,237,.38)" stroke-width="1"/>
+  <text x="922" y="457" text-anchor="middle" font-size="10">&#x1F3AF;</text>
+  <text x="902" y="466" fill="#c4b5fd" font-size="7" text-anchor="end" font-family="system-ui,sans-serif">Capacidades</text>
+  <circle cx="812" cy="355" r="56" fill="url(#ns-rswarm)" stroke="rgba(124,58,237,.55)" stroke-width="1.5" filter="url(#ns-gb)"/>
+  <text x="812" y="336" text-anchor="middle" font-size="22">&#x1F41D;</text>
+  <text x="812" y="357" text-anchor="middle" fill="white" font-size="9.5" font-weight="800" font-family="system-ui,sans-serif">Agent Swarm</text>
+  <text x="812" y="372" text-anchor="middle" fill="rgba(216,180,254,.75)" font-size="6.5" font-family="system-ui,sans-serif">6 Gemelos Cognitivos</text>
+  <text x="812" y="381" text-anchor="middle" fill="rgba(216,180,254,.75)" font-size="6.5" font-family="system-ui,sans-serif">activos del sistema</text>
+  <text x="812" y="390" text-anchor="middle" fill="rgba(216,180,254,.75)" font-size="6.5" font-family="system-ui,sans-serif">Informix legacy</text>
+
+  <!-- Conexiones Brain ↔ Observability -->
+  <path d="M 388,337 C 330,305 262,298 206,352" fill="none" stroke="rgba(20,184,166,.5)" stroke-width="1.5" marker-end="url(#ns-at)"/>
+  <path d="M 206,358 C 264,312 332,322 390,343" fill="none" stroke="rgba(20,184,166,.3)" stroke-width="1" marker-end="url(#ns-at)" stroke-dasharray="4 3"/>
+  <text fill="rgba(240,210,36,.72)" font-size="7.5" font-style="italic" font-family="system-ui,sans-serif">
+    <textPath href="#rar-l" startOffset="10%">Reason, Act, Review</textPath>
+  </text>
+
+  <!-- Conexiones Brain ↔ Agent Swarm -->
+  <path d="M 572,337 C 628,305 698,298 754,352" fill="none" stroke="rgba(124,58,237,.5)" stroke-width="1.5" marker-end="url(#ns-av)"/>
+  <path d="M 754,358 C 696,322 628,318 570,343" fill="none" stroke="rgba(124,58,237,.3)" stroke-width="1" marker-end="url(#ns-av)" stroke-dasharray="4 3"/>
+  <text fill="rgba(240,210,36,.72)" font-size="7.5" font-style="italic" font-family="system-ui,sans-serif">
+    <textPath href="#rar-r" startOffset="10%">Reason, Act, Review</textPath>
+  </text>
+
+  <!-- Orchestrator -->
+  <circle cx="480" cy="135" r="68" fill="none" stroke="rgba(109,40,217,.3)" stroke-width="1.5" stroke-dasharray="7 4">
+    <animateTransform attributeName="transform" type="rotate" from="0 480 135" to="360 480 135" dur="12s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="480" cy="135" r="82" fill="none" stroke="rgba(167,139,250,.14)" stroke-width="1" stroke-dasharray="4 5">
+    <animateTransform attributeName="transform" type="rotate" from="360 480 135" to="0 480 135" dur="21s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="480" cy="135" r="48" fill="url(#ns-rorch)" stroke="rgba(109,40,217,.65)" stroke-width="1.5" filter="url(#ns-gb)"/>
+  <text x="480" y="125" text-anchor="middle" font-size="20">&#x1F3AF;</text>
+  <text x="480" y="143" text-anchor="middle" fill="white" font-size="9.5" font-weight="800" font-family="system-ui,sans-serif">Orchestrator</text>
+  <text x="480" y="155" text-anchor="middle" fill="rgba(216,180,254,.8)" font-size="8.5" font-family="system-ui,sans-serif">Agent</text>
+  <text x="558" y="58" text-anchor="middle" fill="#c4b5fd" font-size="9" font-weight="700" font-family="system-ui,sans-serif">Evolve</text>
+  <text x="390" y="135" text-anchor="end" fill="#c4b5fd" font-size="9" font-weight="700" font-family="system-ui,sans-serif">Sustain</text>
+  <text x="558" y="215" text-anchor="middle" fill="#c4b5fd" font-size="8.5" font-weight="700" font-family="system-ui,sans-serif">Predict &amp;</text>
+  <text x="558" y="225" text-anchor="middle" fill="#c4b5fd" font-size="8.5" font-weight="700" font-family="system-ui,sans-serif">Vocabulario</text>
+  <line x1="480" y1="185" x2="480" y2="249" stroke="rgba(240,210,36,.5)" stroke-width="1.5" marker-end="url(#ns-ay)"/>
+  <text x="305" y="204" fill="#6a7aa0" font-size="6.5" font-family="system-ui,sans-serif">Decomposes into desired state declaration</text>
+  <text x="305" y="213" fill="#6a7aa0" font-size="6.5" font-family="system-ui,sans-serif">Compares actual state to desired state</text>
+  <text x="305" y="222" fill="#6a7aa0" font-size="6.5" font-family="system-ui,sans-serif">Determines and triggers agents when states do not match</text>
+
+  <!-- User -->
+  <circle cx="82" cy="115" r="50" fill="url(#ns-ruser)" stroke="rgba(251,191,36,.55)" stroke-width="1.5" filter="url(#ns-gb)"/>
+  <text x="82" y="98" text-anchor="middle" font-size="22">&#x1F464;</text>
+  <text x="82" y="118" text-anchor="middle" fill="white" font-size="10" font-weight="800" font-family="system-ui,sans-serif">User</text>
+  <text x="82" y="131" text-anchor="middle" fill="rgba(253,230,138,.8)" font-size="7" font-family="system-ui,sans-serif">Raises issues not</text>
+  <text x="82" y="140" text-anchor="middle" fill="rgba(253,230,138,.8)" font-size="7" font-family="system-ui,sans-serif">in telemetry</text>
+  <circle cx="252" cy="172" r="21" fill="#0d1540" stroke="rgba(167,139,250,.35)" stroke-width="1"/>
+  <text x="252" y="166" text-anchor="middle" font-size="13">&#x1F916;</text>
+  <text x="252" y="193" text-anchor="middle" fill="#a5b4fc" font-size="6.5" font-family="system-ui,sans-serif">Service Desk</text>
+  <text x="252" y="201" text-anchor="middle" fill="#a5b4fc" font-size="6.5" font-family="system-ui,sans-serif">Conv. Agent</text>
+  <line x1="132" y1="130" x2="231" y2="162" stroke="rgba(251,191,36,.45)" stroke-width="1" marker-end="url(#ns-aa)"/>
+  <line x1="273" y1="162" x2="432" y2="143" stroke="rgba(167,139,250,.45)" stroke-width="1" marker-end="url(#ns-ab)"/>
+
+  <!-- Business Intent -->
+  <circle cx="742" cy="68" r="16" fill="#1c0d00" stroke="rgba(251,191,36,.38)" stroke-width="1"/>
+  <text x="742" y="63" text-anchor="middle" font-size="11">&#x1F4BC;</text>
+  <text x="742" y="85" text-anchor="middle" fill="#fde68a" font-size="6.5" font-family="system-ui,sans-serif">Business Demand</text>
+  <text x="742" y="94" text-anchor="middle" fill="#fde68a" font-size="6.5" font-family="system-ui,sans-serif">Agent</text>
+  <line x1="758" y1="70" x2="528" y2="113" stroke="rgba(251,191,36,.3)" stroke-width="1" stroke-dasharray="3 3" marker-end="url(#ns-aa)"/>
+  <circle cx="878" cy="112" r="50" fill="url(#ns-ruser)" stroke="rgba(251,191,36,.55)" stroke-width="1.5" filter="url(#ns-gb)"/>
+  <text x="878" y="96" text-anchor="middle" font-size="22">&#x1F4A1;</text>
+  <text x="878" y="115" text-anchor="middle" fill="white" font-size="10" font-weight="800" font-family="system-ui,sans-serif">Business</text>
+  <text x="878" y="127" text-anchor="middle" fill="white" font-size="10" font-weight="800" font-family="system-ui,sans-serif">Intent</text>
+  <text x="878" y="140" text-anchor="middle" fill="rgba(253,230,138,.8)" font-size="6.5" font-family="system-ui,sans-serif">Humans declare what</text>
+  <text x="878" y="148" text-anchor="middle" fill="rgba(253,230,138,.8)" font-size="6.5" font-family="system-ui,sans-serif">they need in biz terms</text>
+  <line x1="828" y1="114" x2="530" y2="133" stroke="rgba(251,191,36,.45)" stroke-width="1.2" marker-end="url(#ns-aa)"/>
+  <text x="878" y="178" text-anchor="middle" fill="#78716c" font-size="6.5" font-family="system-ui,sans-serif">Triggers human intervention</text>
+  <text x="878" y="187" text-anchor="middle" fill="#78716c" font-size="6.5" font-family="system-ui,sans-serif">when outside defined policy</text>
+</svg>
+    </div>
+
+    <div class="ns-swarm-wrap">
+      <div class="xhead reveal">Agent Swarm · Ciclo de trabajo autónomo</div>
+      <div class="ns-swarm">
+        <div class="ns-step glass reveal"><div class="ns-step-n">01</div><div class="ns-step-t">Vocabulario</div><div class="ns-step-d">Identifica objetivo y contexto en el Brain</div></div>
+        <div class="ns-arr reveal">→</div>
+        <div class="ns-step glass reveal"><div class="ns-step-n">02</div><div class="ns-step-t">Almas</div><div class="ns-step-d">Analiza dependencias, impacto y riesgo</div></div>
+        <div class="ns-arr reveal">→</div>
+        <div class="ns-step glass reveal"><div class="ns-step-n">03</div><div class="ns-step-t">Journeys</div><div class="ns-step-d">Consulta fuentes, regulación y equivalentes</div></div>
+        <div class="ns-arr reveal">→</div>
+        <div class="ns-step glass reveal"><div class="ns-step-n">04</div><div class="ns-step-t">Reglas</div><div class="ns-step-d">Genera specs, reglas y artefactos de entrega</div></div>
+        <div class="ns-arr reveal">→</div>
+        <div class="ns-step glass reveal"><div class="ns-step-n">05</div><div class="ns-step-t">Capacidades</div><div class="ns-step-d">Resuelve conflictos, valida equivalencia funcional</div></div>
+        <div class="ns-arr reveal">→</div>
+        <div class="ns-step glass reveal"><div class="ns-step-n">06</div><div class="ns-step-t">Riesgos</div><div class="ns-step-d">Genera código, tests y entrega el incremento</div></div>
+      </div>
+    </div>
+
+
+    <div class="mnote reveal">El <b>Gemelo Cognitivo</b> (Capas 1–4 de la metodología) es la primera piedra del North Star: sin el Knowledge Graph construido con rigor, el enjambre agéntico no tiene base semántica para operar. <b>Informix es el primer Enterprise Brain operativo</b> — 11,391 SPs · 8,005 reglas · 166 journeys · 30 dominios activos.</div>
+    <div class="ns-cta-wrap reveal">
+      <a href="capability-model-bcop-v2.html" class="ns-cta">Explorar Modelo de Capacidades <span class="ns-cta-arr">→</span></a>
+    </div>
+  </section>
+
+  <section id="metodo">
+    <div class="shead reveal">
+      <div class="kick">Metodología</div>
+      <h2>Gemelo Cognitivo del Sistema</h2>
+      <p>Un modelo vivo del conocimiento del legacy en <b>8 capas</b> — las 4 primeras <b>entienden</b> el sistema tal como es, las 4 siguientes <b>engendran el futuro</b> — más <b>2 hilos transversales</b> que las atraviesan.</p>
+    </div>
+    <div class="tlwrap">
+      <div class="tl">
+        <div class="node reveal"><h4>1 · Lenguaje</h4><span>El vocabulario del negocio fosilizado en los identificadores del código — aprender a hablar el sistema antes de entenderlo.</span></div>
+        <div class="node reveal"><h4>2 · Almas</h4><span>Quién escribió cada parte: los autores, sus dialectos de nombrado y dónde se concentra el conocimiento (bus factor).</span></div>
+        <div class="node reveal"><h4>3 · Biografía</h4><span>Cómo creció el código año por año — las vetas del árbol — y qué productos e hitos acompañaron cada etapa.</span></div>
+        <div class="node reveal"><h4>4 · Intención</h4><span>El propósito reconstruido: los journeys de negocio, las reglas y fórmulas, y las capacidades que cubre el core.</span></div>
+        <div class="node reveal"><h4>5 · Fronteras</h4><span>Los bounded contexts del sistema objetivo y la decisión 7R por capability — sin heredar el corte por base de datos.</span></div>
+        <div class="node reveal"><h4>6 · Siembra</h4><span>El gemelo se vuelve la especificación y el contexto que siembra la construcción AI-assisted del target.</span></div>
+        <div class="node reveal"><h4>7 · Equivalencia</h4><span>Golden-master y parallel-run: probar que el nuevo sistema produce los mismos resultados que el legacy.</span></div>
+        <div class="node reveal"><h4>8 · Continuidad</h4><span>El gemelo persiste en operación como documentación viva y guía el decommission del legacy, capability por capability.</span></div>
+      </div>
+      <div class="mgrid">
+        <div class="mcard glass reveal"><h4>Enfoque</h4><p>Reverse-engineering asistido: el nombre de cada SP se descompone en vocabulario para inferir su objetivo, y se <b>confirma contra el código</b> (parámetros, tablas, documentación). Estructura real + semántica inferida.</p></div>
+        <div class="mcard glass reveal"><h4>Confiabilidad honesta</h4><p>Cada término y regla declara su nivel de evidencia (código · SME · convención · inferido). No se infla la certeza: lo confirmado por código se distingue de lo que <b>requiere validación del SME</b>.</p></div>
+        <div class="mcard glass reveal"><h4>Validación iterativa</h4><p>Caza sistemática de falsos positivos de segmentación verificados en el código, con 6 SME reguladores presentes (CNBV, Banxico, CONDUSEF, SAT, TESOFE, IPAB).</p></div>
+        <div class="mcard glass reveal"><h4>Objetivo</h4><p>Insumo para la decisión <b>7R por capability</b> y la <b>equivalencia funcional</b> hacia el target — con foco en los riesgos financieros y regulatorios de la migración.</p></div>
+      </div>
+    </div>
+    <div class="xhead reveal">Dos hilos que atraviesan las 8 capas</div>
+    <div class="xrow">
+      <div class="xcard glass reveal">
+        <div class="xkick">Transversal · atraviesa las 8 capas</div>
+        <div class="xt">Calidad <span>· Quality Engineering</span></div>
+        <div class="xd">Empieza midiendo la <b>salud estructural del código AS-IS</b> contra <b>ISO/IEC 5055:2021</b> (weaknesses CWE en confiabilidad, seguridad, performance y mantenibilidad) — input de la decisión 7R y del pricing. Sigue con quality gates en CI (test automation, SAST/lint, code review) y culmina en la <b>equivalencia funcional</b> — golden-master + parallel-run ≥ 99.95% — que prueba que el nuevo sistema se comporta como el legacy.</div>
+      </div>
+      <div class="xcard glass reveal">
+        <div class="xkick">Transversal · atraviesa las 8 capas</div>
+        <div class="xt">Seguridad <span>· DevSecOps</span></div>
+        <div class="xd">Seguridad integrada de extremo a extremo (shift-left). En el sistema actual: <b>arqueología de postura</b> — autenticación, controles PLD/antilavado, datos PII, secretos hardcodeados y SQL dinámico. Hacia el target: <b>threat modeling</b> de los bounded contexts, escaneo SAST/SCA/secretos en CI y datos enmascarados en el parallel-run.</div>
+      </div>
+    </div>
+    <div class="mnote reveal">Todo con <b>una sola fuente de verdad</b> (<code>callgraph-data.json</code>): cada vista y reporte se regenera de los mismos datos — las correcciones se propagan a todo el portal automáticamente.</div>
+  </section>
+
+  <section id="vistas">
+    <div class="shead reveal">
+      <div class="kick">Vistas disponibles</div>
+      <h2>Cuatro vistas del Gemelo Cognitivo</h2>
+      <p>Organizadas por capa de análisis. Cada vista se genera directamente desde los datos del sistema — vocabulario, reglas y call graph extraídos del código SPL.</p>
+    </div>
+
+    <!-- Punto de partida -->
+    <div class="group">
+      <div class="ghead reveal">
+        <h3>Punto de partida · Modelo de negocio</h3>
+        <span>El marco de capacidades bancarias que enmarca todo el análisis — qué hace el banco, antes de ver cómo lo hace el código.</span>
+      </div>
+      <div class="cardgrid">
+        <a class="vcard glass reveal" href="capability-model-bcop-v2.html">
+          <div class="ico">🧩</div>
+          <div>
+            <div class="vtag"></div>
+            <div class="vt">Modelo de Capacidades</div>
+            <div class="vd">Modelo de capacidades bancarias de referencia (ETB v5.0) — 261 capacidades L3 con cobertura identificada en Informix. Drill-down por dominio y capacidad.</div>
+            <div class="go">Abrir la vista <span class="arr">→</span></div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Capa 1 · Lenguaje -->
+    <div class="group">
+      <div class="ghead reveal">
+        <h3>Capa 1 · Lenguaje</h3>
+        <span>El idioma del gemelo: el vocabulario del negocio fosilizado en los identificadores del código.</span>
+      </div>
+      <div class="cardgrid">
+        <a class="vcard glass reveal" href="vocabulary-catalog-bcop.html">
+          <div class="ico">📖</div>
+          <div>
+            <div class="vtag"></div>
+            <div class="vt">Reporte de Vocabulario</div>
+            <div class="vd">634 términos del dominio confirmados en brain.db — atómicos, compuestos y multipalabra — con significado, frecuencia, nivel de confianza y filtros por categoría.</div>
+            <div class="go">Abrir la vista <span class="arr">→</span></div>
+          </div>
+        </a>
+        <a class="vcard glass reveal" href="sp-inventory-bcop-v2.html">
+          <div class="ico">⚡</div>
+          <div>
+            <div class="vtag"></div>
+            <div class="vt">Inventario SP — Volumen y Latencia</div>
+            <div class="vd">690 SPs con métricas de producción: volumen (llamadas/día, llamadas/s), latencia P50/P95/P99, tasa de error y canales ESB. Filtrable por rol, dominio y stress.</div>
+            <div class="go">Abrir la vista <span class="arr">→</span></div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Capa 2 · Almas -->
+    <div class="group">
+      <div class="ghead reveal">
+        <h3>Capa 2 · Almas</h3>
+        <span>Las voces que construyeron el sistema: las generaciones de desarrolladores, el vocabulario que heredaron y la deuda que acumularon era tras era.</span>
+      </div>
+      <div class="cardgrid">
+        <a class="vcard glass reveal" href="generations-bcop-v2.html">
+          <div class="ico">👥</div>
+          <div>
+            <div class="vtag">Inline SVG</div>
+            <div class="vt">Relevo Generacional y Deuda</div>
+            <div class="vd">5 eras (2007–2026) · índice de deuda compuesto · vocabulario heredado vs. inventado · huérfano, complejidad, versionado y ambigüedad por generación de desarrolladores.</div>
+            <div class="go">Abrir la vista <span class="arr">→</span></div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Capa 3 · Biografía -->
+    <div class="group">
+      <div class="ghead reveal">
+        <h3>Capa 3 · Biografía</h3>
+        <span>La evolución en el tiempo: cómo creció el código año por año — las vetas del árbol.</span>
+      </div>
+      <div class="cardgrid">
+        <a class="vcard glass reveal" href="evolution-bcop-v2.html">
+          <div class="ico">🌳</div>
+          <div>
+            <div class="vtag">D3 Stream</div>
+            <div class="vt">Evolución del Código</div>
+            <div class="vd">Streamgraph de crecimiento año por año por dominio — 'las vetas del árbol' — con 18 hitos de Coppel, BanCoppel y regulación (2007–2025). Hover por capa y hito.</div>
+            <div class="go">Abrir la vista <span class="arr">→</span></div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Capa 4 · Intención -->
+    <div class="group">
+      <div class="ghead reveal">
+        <h3>Capa 4 · Intención</h3>
+        <span>El modelo mental reconstruido: la estructura de componentes, sus dependencias y las reglas de negocio que gobiernan cada dominio.</span>
+      </div>
+      <div class="cardgrid">
+        <a class="vcard glass reveal" href="migration-complexity-bcop.html">
+          <div class="ico">🎯</div>
+          <div>
+            <div class="vtag">Unity · Migration Fate</div>
+            <div class="vt">Migration Complexity</div>
+            <div class="vd">Matriz migration_fate × sp_archetype para los 11,391 SPs. Cuántos absorbe COTS, cuántos re-implementar en Apolo/Transact/SmartVista — desglosados por arquetipo estructural y dominio.</div>
+            <div class="go">Abrir la vista <span class="arr">→</span></div>
+          </div>
+        </a>
+        <a class="vcard glass reveal" href="decoupling-cost-bcop.html">
+          <div class="ico">🔓</div>
+          <div>
+            <div class="vtag">Lock-in · Informix/AIX</div>
+            <div class="vt">Decoupling Cost</div>
+            <div class="vd">Scoring de los 12,812 SPs por acoplamiento a Informix/AIX. Cinco señales (CTM, cross-DB, CONTPROC, commits, reglas infra) componen el índice. Identifica los 44 hard blocks y 40 API candidates.</div>
+            <div class="go">Abrir la vista <span class="arr">→</span></div>
+          </div>
+        </a>
+        <a class="vcard glass reveal" href="dependency-graph-bcop.html">
+          <div class="ico">🕸️</div>
+          <div>
+            <div class="vtag">D3 Force · Call Graph</div>
+            <div class="vt">Grafo de Dependencias</div>
+            <div class="vd">30 dominios como nodos · 70 relaciones cross-dominio · tamaño = SPs · color = costo de desacoplamiento · grosor de arista = volumen de llamadas. D01 hub con 31,862 peso acumulado. Filtro por nivel y búsqueda.</div>
+            <div class="go">Abrir la vista <span class="arr">→</span></div>
+          </div>
+        </a>
+        <a class="vcard glass reveal" href="consistency-check-bcop.html">
+          <div class="ico">✅</div>
+          <div>
+            <div class="vtag">Quality Gate · Validación</div>
+            <div class="vt">Consistency Check</div>
+            <div class="vd">98.78% de reglas NEGOCIO confirmadas contra código fuente. 97.45% de business_name informativos. Vocabulario: 374 términos definidos sobre 3,188 tokens de SPs. Cero inconsistencias de lógica detectadas.</div>
+            <div class="go">Abrir la vista <span class="arr">→</span></div>
+          </div>
+        </a>
+        <a class="vcard glass reveal" href="priority-ranking-bcop.html">
+          <div class="ico">🎯</div>
+          <div>
+            <div class="vtag">D3 Scatter · Priorización</div>
+            <div class="vt">Priority Migration Ranking</div>
+            <div class="vd">30 dominios rankeados por valor regulatorio vs. costo de desacoplamiento. 15 Quick Wins · 1 Planificar (D01) · 14 Backlog. D03 Créditos encabeza con priority=1.908. Roadmap por tier y tabla sortable.</div>
+            <div class="go">Abrir la vista <span class="arr">→</span></div>
+          </div>
+        </a>
+        <a class="vcard glass reveal" href="rules-coherence-bcop.html">
+          <div class="ico">🧠</div>
+          <div>
+            <div class="vtag">Semantic · Rules vs. Code</div>
+            <div class="vt">Rules vs. Code — Coherencia Semántica</div>
+            <div class="vd">Solapamiento token-by-token entre business_name y contexto SPL (±8 líneas). HIGH 48% · MEDIUM 34% · LOW 15% (1,044 reglas). 21 sub-tipos clasificados: CÓDIGO_RETORNO lidera con 2,148 (31.5%). Gap real en CÁLCULO_ARITMÉTICO (35% LOW) y CÁLCULO_FECHA (37% LOW).</div>
+            <div class="go">Abrir la vista <span class="arr">→</span></div>
+          </div>
+        </a>
+        <a class="vcard glass reveal" href="sp-architecture-bcop.html">
+          <div class="ico">🏗️</div>
+          <div>
+            <div class="vtag">Batch · Online</div>
+            <div class="vt">Arquetipos SPL</div>
+            <div class="vd">Taxonomía de 6,861 SPs batch (fan_in=0) y 4,530 online — 12 sub-arquetipos L1 (FILE_LOADER · REPORT_AGGREGATOR · MASS_OPERATION · CIERRE_CORTE…). Base para la decisión 7R por capability.</div>
+            <div class="go">Abrir la vista <span class="arr">→</span></div>
+          </div>
+        </a>
+        <a class="vcard glass reveal" href="component-map-bcop-v2.html">
+          <div class="ico">🗺️</div>
+          <div>
+            <div class="vtag">D3 Force</div>
+            <div class="vt">Mapa de Componentes</div>
+            <div class="vd">Grafo de dependencias interactivo — vista por dominios y drill-down por SP. 34,279 aristas, top-25 SPs por densidad por dominio. Click en nodo para ver callers, callees y reglas.</div>
+            <div class="go">Abrir la vista <span class="arr">→</span></div>
+          </div>
+        </a>
+        <a class="vcard glass reveal" href="rules-catalog-bcop.html">
+          <div class="ico">⚖️</div>
+          <div>
+            <div class="vtag"></div>
+            <div class="vt">Reglas de Negocio</div>
+            <div class="vd">1,308 reglas SBVR distribuidas en 16 dominios — validaciones, fórmulas financieras y controles regulatorios. Filtros por dominio, categoría y riesgo de equivalencia.</div>
+            <div class="go">Abrir la vista <span class="arr">→</span></div>
+          </div>
+        </a>
+        <a class="vcard glass reveal" href="flow-bcop-v2.html">
+          <div class="ico">🔀</div>
+          <div>
+            <div class="vtag">Flow Tree</div>
+            <div class="vt">Visor de Flujo de Control</div>
+            <div class="vd">Flujo de llamadas de los 166 journeys — árbol recursivo de nodos CALL / IF / FOREACH con score de complejidad. Sidebar de búsqueda y selección de journey.</div>
+            <div class="go">Abrir la vista <span class="arr">→</span></div>
+          </div>
+        </a>
+        <a class="vcard glass reveal" href="chord-bcop-v2.html">
+          <div class="ico">🔗</div>
+          <div>
+            <div class="vtag">D3 Chord</div>
+            <div class="vt">Integraciones del Core</div>
+            <div class="vd">Diagrama chord bipartito — 12 dominios × 18 sistemas externos · 5,254 conexiones. Visualiza qué dominio se apoya en qué sistema y con qué intensidad.</div>
+            <div class="go">Abrir la vista <span class="arr">→</span></div>
+          </div>
+        </a>
+        <a class="vcard glass reveal" href="journeys-bcop-v2.html">
+          <div class="ico">🗺️</div>
+          <div>
+            <div class="vtag">D3 Tree</div>
+            <div class="vt">Journeys de Negocio</div>
+            <div class="vd">166 journeys orquestadores por dominio — árbol de call graph con saltos cross-dominio, nodos regulatorios y servicios expuestos. Selección por dominio y journey con evidencia del código fuente.</div>
+            <div class="go">Abrir la vista <span class="arr">→</span></div>
+          </div>
+        </a>
+        <a class="vcard glass reveal" href="batch-malla-ctm.html">
+          <div class="ico">⚙️</div>
+          <div>
+            <div class="vtag">Control-M · Batch</div>
+            <div class="vt">Malla Batch — Control-M</div>
+            <div class="vd">5,052 jobs BMC Control-M · 65 flows por dominio · 3,859 en Informix · 32 Unity (SmartVista + DataStage/Transact) · 105 SP entry points confirmados (87 CTM_ENTRY + 18 CTM_HINT). Hallazgo: Yellowbrick cloud DW activo.</div>
+            <div class="go">Abrir la vista <span class="arr">→</span></div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+  </section>
+
+
+  <!-- ─── RIESGOS & DIAGNÓSTICOS ─── -->
+  <section id="riesgos">
+    <div class="shead reveal">
+      <div class="kick">Riesgos &amp; Diagnósticos</div>
+      <h2>Incidentes activos<br>en producción</h2>
+      <p>Hallazgos con evidencia en logs de producción (abr 2026 · jul 2026 · ago 2026). Cada diagnóstico traza el patrón de falla hasta el código SPL, las reglas de negocio involucradas y los riesgos del risk register.</p>
+    </div>
+
+    <div class="cardgrid">
+      <a class="vcard glass reveal crit" href="incidents/2026-04-24/inc-001-d05-appriza.html">
+        <div class="ico">&#x26A0;</div>
+        <div>
+          <div class="vtag crit">N3 · CRÍTICO · D05 bdisac</div>
+          <div class="vt">APPRIZA — Retries sin circuit breaker</div>
+          <div class="vd">13 reintentos en 5+ horas sin circuit breaker bloquean ~400 remesas únicas/día. <b>sp_app_confirmpayment</b> · 61,686 llamadas/día · 8.64% error rate. Riesgo regulatorio Banxico Circular 14/2017.</div>
+          <div class="go">Ver diagnóstico completo <span class="arr">→</span></div>
+        </div>
+      </a>
+      <a class="vcard glass reveal warn" href="incidents/2026-04-24/inc-002-d11-cobranza-cv.html">
+        <div class="ico">&#x26A0;</div>
+        <div>
+          <div class="vtag warn">N2 · GRAVE · D11 bdicobranza</div>
+          <div class="vt">Cobranza CV — Falla silenciosa CHAR(5)</div>
+          <div class="vd">97.37% error rate en lectura de perfil deudor (49,701 fallas/día). <b>P655-R009/R010/R011</b>: CHAR(5) trunca código error, ON EXCEPTION sin bitácora (CWE-390). La cobranza opera a ciegas.</div>
+          <div class="go">Ver diagnóstico completo <span class="arr">→</span></div>
+        </div>
+      </a>
+      <a class="vcard glass reveal warn" href="incidents/2026-04-24/inc-008-d02-aceptporta.html">
+        <div class="ico">&#x26A0;</div>
+        <div>
+          <div class="vtag warn">N2 · GRAVE · D02 bdinteg</div>
+          <div class="vt">ACEPTPORTA — SFTP Auth Failure · Portabilidad Nómina</div>
+          <div class="vd">3,244 fallos SFTP/día: credenciales expiradas de <b>sysportabnominaapp</b> bloquean 100% de inserción de imágenes de expediente digital. <b>P655-R007</b> · Riesgo CNBV portabilidad · <b>sp_inserta_reg_expediente_dig_img</b>: 3,073 intentos, 0 exitosos.</div>
+          <div class="go">Ver diagnóstico completo <span class="arr">→</span></div>
+        </div>
+      </a>
+      <a class="vcard glass reveal crit" href="incidents/inc-003-d01-defecto-prod.html">
+        <div class="ico">&#x1F6A8;</div>
+        <div>
+          <div class="vtag crit">N5 · DEFECTO-PROD · D01 bdicnweb</div>
+          <div class="vt">2 Defectos activos en producción · P655</div>
+          <div class="vd">Dos defectos DEFECTO-PROD activos en el componente P655 (bdicnweb). Causa raíz sin diagnosticar al cierre de DISCOVER. <b>Bloqueante para DESIGN</b> — requiere sesión DBA IBM Informix + Core Banking Transformation.</div>
+          <div class="go">Ver diagnóstico completo <span class="arr">→</span></div>
+        </div>
+      </a>
+      <a class="vcard glass reveal warn" href="incidents/inc-007-d02-huellas-stale.html">
+        <div class="ico">&#x26A0;</div>
+        <div>
+          <div class="vtag warn">N2 · GRAVE · D02 bdinteg</div>
+          <div class="vt">Huellas Biométricas — Tabla Stale</div>
+          <div class="vd">Tabla de huellas biométricas stale: registros desactualizados comprometen la autenticación de clientes. <b>P655-R006</b> · Riesgo operativo de validación de identidad · impacto en journeys de alta y reactivación de cuenta.</div>
+          <div class="go">Ver diagnóstico completo <span class="arr">→</span></div>
+        </div>
+      </a>
+      <a class="vcard glass reveal warn" href="incidents/inc-004-d08-esb-spei.html">
+        <div class="ico">&#x26A0;</div>
+        <div>
+          <div class="vtag warn">N3 · D08 bdispei</div>
+          <div class="vt">ESB SPEI — Códigos de error no documentados</div>
+          <div class="vd">Códigos de error retornados por el ESB en el canal SPEI sin documentación interna ni mapeo a reglas de manejo. Gap de observabilidad que impide diagnóstico rápido en incidentes de pago interbancario.</div>
+          <div class="go">Ver diagnóstico completo <span class="arr">→</span></div>
+        </div>
+      </a>
+      <a class="vcard glass reveal warn" href="incidents/inc-005-d13-esb-tef.html">
+        <div class="ico">&#x26A0;</div>
+        <div>
+          <div class="vtag warn">N3 · D13 bditef</div>
+          <div class="vt">ESB TEF — Códigos de error no documentados</div>
+          <div class="vd">Mismo patrón que D08: códigos de error ESB en el canal TEF (transferencias) sin documentación. Gap en tratamiento de excepciones de transferencias domésticas — riesgo de fallas silenciosas.</div>
+          <div class="go">Ver diagnóstico completo <span class="arr">→</span></div>
+        </div>
+      </a>
+      <a class="vcard glass reveal warn" href="incidents/inc-006-d14-esb-bei.html">
+        <div class="ico">&#x26A0;</div>
+        <div>
+          <div class="vtag warn">N3 · D14 bdibei</div>
+          <div class="vt">ESB BEI — Códigos de error no documentados</div>
+          <div class="vd">Mismo patrón en D14 (BEI - Banca Electrónica Institucional): códigos ESB sin documentación. Los tres gaps D08/D13/D14 forman un patrón sistémico — ningún canal ESB tiene su tabla de errores documentada.</div>
+          <div class="go">Ver diagnóstico completo <span class="arr">→</span></div>
+        </div>
+      </a>
+      <a class="vcard glass reveal warn" href="incidents/inc-009-was-2026-08-07.html">
+        <div class="ico">&#x26A0;</div>
+        <div>
+          <div class="vtag warn">WAS · Ago 2026</div>
+          <div class="vt">WAS Layer — ConsNumCte -674 · SpgeneraReportePpWeb -1202</div>
+          <div class="vd">Errores en la capa WAS (WebSphere Application Server) del 7-ago-2026: ConsNumCte retorna código -674 y SpgeneraReportePpWeb retorna -1202. Análisis de flujo desde ESB hasta SP Informix.</div>
+          <div class="go">Ver diagnóstico completo <span class="arr">→</span></div>
+        </div>
+      </a>
+      <a class="vcard glass reveal warn" href="incidents/2026-07-31/inc-009-bdicred-reconciliacion-tarjetas.html">
+        <div class="ico">&#x26A0;</div>
+        <div>
+          <div class="vtag warn">N3 · CRÍTICO · 31 jul 2026 · bditarjeta · bdicred</div>
+          <div class="vt">Reconciliación Tarjetas — Cascada de Bloqueos bdicred</div>
+          <div class="vd">20,039 errores -255 en bdicred (11:00–13:59 CST). <b>sp_concreing_conciliacionautomatica</b> ejecuta INSERT+UPDATE cross-DB sin COMMIT — 73 ExLocks/seg en tablas maestras <code>sd_maesdos</code>, <code>sd_maecred</code>, <code>sd_amortiza_credito</code>. Job batch que paraliza el crédito.</div>
+          <div class="go">Ver diagnóstico completo <span class="arr">→</span></div>
+        </div>
+      </a>
+      <a class="vcard glass reveal warn" href="incidents/2026-08-01/inc-010-bdicred-scoring-commit-comentado.html">
+        <div class="ico">&#x26A0;</div>
+        <div>
+          <div class="vtag warn">N3 · CRÍTICO · 1 ago 2026 · bdisolic · bdicred</div>
+          <div class="vt">Scoring Crediticio — COMMIT Comentado → Cascada bdicred</div>
+          <div class="vd">2,798 líneas en bdisolic — <code>COMMIT WORK</code> comentado en L2791. Toda operación bdicred bloqueada 21 min. 96.2% errores en bdicred. Defecto pre-existente que paralizó scoring y originación de crédito. Defecto D1 causa raíz.</div>
+          <div class="go">Ver diagnóstico completo <span class="arr">→</span></div>
+        </div>
+      </a>
+      <a class="vcard glass reveal" href="incidents/conclusion-bdicred-deuda-transaccional.html">
+        <div class="ico">&#x1F4CB;</div>
+        <div>
+          <div class="vtag">Análisis sistémico · bdicred</div>
+          <div class="vt">Conclusión — Deuda Transaccional bdicred</div>
+          <div class="vd">Análisis sistémico de la deuda transaccional en bdicred: INC-009 (reconciliación de tarjetas) + INC-010 (scoring con COMMIT comentado). Patrón de deuda acumulada, riesgo de equivalencia financiera y recomendaciones para migración.</div>
+          <div class="go">Ver análisis completo <span class="arr">→</span></div>
+        </div>
+      </a>
+    </div>
+  </section>
+</div>
+
+<footer>
+  BanCoppel · Informix · SPE-AM-001 · Portal v2 — vistas generadas desde <code>callgraph-data.json</code> · <code>business-rules-v3.json</code> · <code>vocabulary-inventory.json</code>
+</footer>
+
+<script>
+const prog=document.getElementById('prog'),doc=document.documentElement;
+addEventListener('scroll',()=>{prog.style.width=(doc.scrollTop/(doc.scrollHeight-doc.clientHeight)*100)+'%';},{passive:true});
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}}),{threshold:.12,rootMargin:'0px 0px -8% 0px'});
+document.querySelectorAll('.reveal').forEach(el=>{const sibs=[...el.parentElement.children].filter(c=>c.classList.contains('reveal'));
+ el.style.transitionDelay=(Math.min(sibs.indexOf(el),8)*70)+'ms';io.observe(el);});
+const cu=new IntersectionObserver(es=>es.forEach(e=>{if(!e.isIntersecting)return;const el=e.target,t=+el.dataset.target,d=1250,s=performance.now();
+ (function tick(now){let p=Math.min((now-s)/d,1);p=1-Math.pow(1-p,3);el.textContent=Math.round(t*p).toLocaleString('es-MX');if(p<1)requestAnimationFrame(tick);})(s);
+ cu.unobserve(el);}),{threshold:.6});
+document.querySelectorAll('[data-target]').forEach(el=>cu.observe(el));
+</script>
+</body></html>
+

@@ -1,0 +1,1782 @@
+CREATE PROCEDURE "informix".sp_genera_universo_aumlincred()
+RETURNING CHAR(6)  AS codigo_retorno,
+          CHAR(80) AS mensaje_retorno;          
+---DECLARACIONES          
+DEFINE cEmpresa             CHAR(3);
+DEFINE cNumCte              CHAR(20);
+DEFINE cNum_cred            CHAR(20);
+DEFINE cCreditoDirty        CHAR(20);
+DEFINE cCreditoClean 		CHAR(20);
+DEFINE cRiesgo              CHAR(02);
+DEFINE dMontoOtor           DECIMAL(18,2);
+DEFINE dMontoReserva        DECIMAL(18,2);
+DEFINE pNum_Vencidos        INTEGER;
+DEFINE p_FechaHoy           DATE;
+DEFINE p_PriDiaMes          DATE;
+DEFINE p_UltDiaMesAnt       DATE;
+DEFINE p_FechaMinApertCrd   DATE;
+DEFINE p_FechaAnt1m         DATE;
+DEFINE p_FechaAnt2m         DATE;
+DEFINE p_FechaAnt3m         DATE;
+DEFINE p_FechaAnt4m         DATE;
+DEFINE p_FechaAnt6m         DATE;
+DEFINE p_FechaAnt7m         DATE;
+DEFINE p_FechaAnt12m        DATE;
+DEFINE FechaAnt             DATE;
+DEFINE dFechaCob            DATE;
+DEFINE dtfechains           DATE;
+DEFINE cCodRet              CHAR(6); 
+DEFINE cCodRet2             CHAR(6); 
+DEFINE cCod_RetIB           CHAR(6);
+DEFINE cMensajeRet          CHAR(80);
+DEFINE cMensajeRet2         CHAR(80);
+DEFINE cComentario          CHAR(80);
+DEFINE iSqlErr              INTEGER;
+DEFINE iIsamErr             INTEGER;
+DEFINE cErrorInfo           CHAR(80);
+DEFINE LinUtil80            DECIMAL(18,2);
+DEFINE valorsm              DECIMAL(18,2);
+DEFINE cantidadsm           DECIMAL(18,2);
+DEFINE valorsmzonac         DECIMAL(18,2);
+DEFINE cSuc                 CHAR(4);
+DEFINE Incprev              SMALLINT;
+DEFINE Incprev6m            SMALLINT;
+DEFINE iNumIncrTope         SMALLINT;
+DEFINE utili                DECIMAL(18,2);
+DEFINE vStatus              CHAR(2);
+DEFINE vCausa               CHAR(3);
+DEFINE valorlinutilcred     DECIMAL(18,2);
+DEFINE valorreserva         DECIMAL(18,2);
+DEFINE valor_reserva        DECIMAL(18,2);
+DEFINE diasvigencia         INTEGER;
+DEFINE regvigentes          INTEGER;
+DEFINE numprod              CHAR(4);
+DEFINE cUser                CHAR(20);
+DEFINE sCommit              SMALLINT;
+DEFINE contador_commit      INTEGER;
+DEFINE sDiasMinimosAper     SMALLINT;
+DEFINE sLineaCreditoMin     SMALLINT;
+DEFINE sLineaCredito        SMALLINT;
+DEFINE sNumIncremPrevios    SMALLINT;
+DEFINE sLineaUtilizacion    SMALLINT;
+DEFINE sNumVencidos         SMALLINT;
+DEFINE sSolicitudBC         SMALLINT;
+DEFINE sMesesTrancurridos   SMALLINT;
+DEFINE cIncreAuto           CHAR(1);
+DEFINE dtFechaMesesTranscurridos DATE;
+DEFINE dtFecha_apertura     DATE;
+DEFINE porc_uso             DECIMAL(18,2);
+DEFINE int_cred_ven         DECIMAL(18,2);
+DEFINE may_porc_uso6        DECIMAL(18,2);
+DEFINE may_porc_usoProm     DECIMAL(18,2);
+DEFINE dFechaVencto         DATE;
+DEFINE dtFechaCuotaAnt      DATE;
+DEFINE vproceso				CHAR(4);
+DEFINE dLineaSugerida   DECIMAL(18,2);
+DEFINE dAum1            DECIMAL(18,2);
+DEFINE dAum2            DECIMAL(18,2);
+DEFINE dAum3            DECIMAL(18,2);
+DEFINE dAux0            DECIMAL(18,2);
+DEFINE smblinsug		DECIMAL(18,2);
+DEFINE sLineaCreditoMax	INTEGER;
+DEFINE sScore			INTEGER;
+
+DEFINE sLineaCreditoBC  SMALLINT;
+DEFINE sLineaCreditoCAC INTEGER;
+DEFINE cPregunta        CHAR(200);
+DEFINE dtFechaCuota     DATE;
+DEFINE dtFechaPago      DATE;
+DEFINE dtFechaAux       DATE;
+DEFINE sMinScoreCteDir  SMALLINT;
+DEFINE sNumDecartIncr   SMALLINT;
+DEFINE cCalifBuro  		CHAR(2);
+DEFINE cStatus_bit   	CHAR(2);
+
+DEFINE cMedioRes 		CHAR(1);
+DEFINE cEjecutivo 		CHAR(10);
+DEFINE cRespCte 		CHAR(1);
+DEFINE iNumvencidos 	INTEGER;
+DEFINE cGrupo 			CHAR(1);
+DEFINE iMesesHistoria 	INTEGER;
+DEFINE dSituacionPago 	DECIMAL(5,2);
+
+DEFINE dFechaReporteBHVR	DATE;
+DEFINE dPagado          DECIMAL(18,2);
+DEFINE dPagoMin         DECIMAL(18,2);
+DEFINE dPorcMaxUti      DECIMAL(18,2);
+DEFINE iFlagRtPagMin    INTEGER;
+DEFINE cSQL             CHAR(1000);
+DEFINE cReinicio		CHAR(01);
+DEFINE iTotalProcesados	INTEGER;
+DEFINE iTotalBitacora 	INTEGER;
+
+DEFINE dIva 			DECIMAL(5,3);
+DEFINE pFechaHoyAumlincred DATE;
+		
+---INICIALIZACIONES
+LET cEmpresa                = "001";
+LET cNumCte                 = "";
+LET cNum_cred               = "";
+LET cCreditoDirty           = "";
+LET cCreditoClean 			= "";
+LET cRiesgo                 = "";
+LET dMontoOtor              = 0;
+LET dMontoReserva           = 0;
+LET pNum_Vencidos           = 0;
+LET p_FechaHoy              = DATE(1);
+LET p_PriDiaMes             = DATE(1);
+LET p_UltDiaMesAnt          = DATE(1);
+LET p_FechaMinApertCrd      = DATE(1);
+LET dtfechains              = DATE(1);
+LET p_FechaAnt1m            = DATE(1);
+LET p_FechaAnt2m            = DATE(1);
+LET p_FechaAnt3m            = DATE(1);
+LET p_FechaAnt4m            = DATE(1);
+LET p_FechaAnt6m            = DATE(1);
+LET p_FechaAnt7m            = DATE(1);
+LET p_FechaAnt12m           = DATE(1);
+LET FechaAnt                = DATE(1);
+LET dFechaCob               = DATE(1);
+LET LinUtil80               = 0;
+--LET paramsm               = "013";
+--LET paramcantsm           = "012";
+--LET paramlinutilcred      = "019";
+--LET paramvigencia         = "011";
+--LET paramreserva          = "018";
+LET valorsm                 = 0;
+LET cantidadsm              = 0;
+LET valorlinutilcred        = 0;
+LET cSuc                    = "";
+LET Incprev                 = 0;
+LET Incprev6m               = 0;
+LET iNumIncrTope            = 0;
+LET utili                   = 0;
+LET vStatus                 = "";
+LET vCausa                  = "";
+LET valorreserva            = 0;
+LET valor_reserva           = 0;
+LET diasvigencia            = 0;
+LET regvigentes             = 0;
+LET cComentario             = "";
+LET numprod                 = "";
+LET cUser                   = USER;
+LET iSqlErr                 = 0;
+LET iIsamErr                = 0;
+LET cErrorInfo              = "";
+LET cCodRet                 = "000000";
+LET cCodRet2                = "000000";
+LET cMensajeRet             = "Se realizo la consulta correctamente";
+LET cMensajeRet2             = "Se realizo la consulta correctamente";
+LET sCommit                 = 0;
+LET contador_commit         = 0;
+LET sDiasMinimosAper        = 0;
+LET sLineaCreditoMin        = 0;
+LET sLineaCredito           = 0;
+LET sNumIncremPrevios       = 0;
+LET sLineaUtilizacion       = 0;
+LET sNumVencidos            = 0;
+LET sSolicitudBC            = 0;
+LET sMesesTrancurridos      = 0;
+LET cIncreAuto              = "";
+LET dtFechaMesesTranscurridos = DATE(1);
+LET dtFecha_apertura = DATE(1);
+LET porc_uso                = 0;
+LET int_cred_ven            = 0;
+LET may_porc_uso6           = 0;
+LET may_porc_usoProm          = 0;
+LET dFechaVencto            = DATE(1);
+LET dtFechaCuotaAnt         = DATE(1);
+LET vproceso                = '0500';
+LET dLineaSugerida  	= 0;
+LET dAum1  		 		= 0;
+LET dAum2 				= 0;
+LET dAum3               = 0;
+LET dAux0             = 0;
+LET smblinsug			= 0;
+LET sLineaCreditoBC     = 0;
+LET sLineaCreditoCAC    = 0;
+LET cPregunta           = "";
+LET sLineaCreditoMax    = 0;
+LET sScore    = 0;
+LET sMinScoreCteDir    = 0;
+LET sNumDecartIncr    = 0;
+LET dtFechaCuota        =     DATE(1);
+LET dtFechaPago         =   DATE(1);
+LET dtFechaAux         =   DATE(1);
+LET cCalifBuro         =  "";
+LET cStatus_bit  =  "";
+LET cMedioRes = "";
+LET cEjecutivo = "";
+LET cRespCte = "";
+LET iNumvencidos  = 0;
+LET cGrupo = '';
+LET iMesesHistoria = 0;
+LET dSituacionPago = 0;
+
+LET dFechaReporteBHVR =DATE(1);
+
+LET dPagado      = 0;
+LET dPagoMin     = 0;
+LET dPorcMaxUti     = 0;
+LET iFlagRtPagMin     = 0;
+LET cSQL	= "";
+LET cReinicio = '';
+LET iTotalProcesados = 0;
+LET iTotalBitacora = 0;
+LET dIva = 0;
+LET pFechaHoyAumlincred = DATE(1);
+
+
+--SET DEBUG FILE TO '/respaldos/sp_genera_universo_aumlincred.out';
+--TRACE ON;	
+
+BEGIN
+
+    ON EXCEPTION SET iSqlErr, iIsamErr, cErrorInfo
+        LET cCodRet= iSqlErr;
+        LET cMensajeRet= cErrorInfo;
+        IF (sCommit = -1) THEN
+            rollback work;
+        END IF;
+        CALL bdicobranza:"informix".sp_inserta_bitacora_cob(cEmpresa, vproceso, cCodRet, trim(cMensajeRet) || "-" || iIsamErr::CHAR, '02') Returning cCod_RetIB;
+        RETURN cCodRet, cMensajeRet;
+    END EXCEPTION;
+
+    SET ISOLATION TO DIRTY READ;
+    SET LOCK MODE TO WAIT 3;
+
+    CALL bdicobranza:"informix".sp_inserta_bitacora_cob(cEmpresa, vproceso, cCodRet, cMensajeRet, '01') Returning cCod_RetIB;
+
+
+
+    SELECT pri_dia_mes INTO p_PriDiaMes
+    FROM bdicred:"informix".sd_fechas
+    WHERE empresa = cEmpresa;
+
+	SELECT fecha_hoy 
+	INTO pFechaHoyAumlincred
+	FROM "informix".sd_fechas_aumlincred
+	WHERE empresa = cEmpresa;
+	
+--rss temporal para pruebas
+--    let p_PriDiaMes = mdy('04','01','2018');
+--rss temporal para pruebas
+----Obtencion de parametros
+    -- obtener el valor del salario minimo de la zona C
+    SELECT valor INTO valorsm
+     FROM bdicred:"informix".sd_param 
+    WHERE cod_param = '013' AND empresa   = cEmpresa;
+    -- validacion de los parametros.
+    IF NVL(valorsm,"")  = "" THEN
+        LET cCodRet     = "000001";
+        LET cMensajeRet = "Error al obtener el parÃ¡metro del valor del salario mÃ­nimo";
+        RETURN cCodRet, cMensajeRet;
+    END IF;
+
+    -- obtener el valor de la cantidad de salarios minimos zona C =1.27
+    SELECT valor INTO cantidadsm
+      FROM bdicred:"informix".sd_param 
+     WHERE cod_param = '012' AND empresa   = cEmpresa;
+    -- validacion de los parametros.
+    IF NVL(cantidadsm,"") = "" THEN
+        LET cCodRet     = "000002";
+        LET cMensajeRet = "Error al obtener el parÃ¡metro de la cantidad de salarios mÃ­nimos";
+        RETURN cCodRet, cMensajeRet;
+    END IF;
+
+    -- posteriormente multiplicarlo para obtener la cantidad a numeros reales
+    LET valorsmzonac = (valorsm * 30.42) * cantidadsm;
+
+    -- obtener el valor del procentaje de utilizacion para los crÃ©ditos
+    SELECT valor INTO valorlinutilcred
+      FROM bdicred:"informix".sd_param 
+     WHERE cod_param = '019' AND empresa   = cEmpresa;
+    -- validacion de los parametros.
+    IF NVL(valorlinutilcred,"") = "" THEN
+        LET cCodRet     = "000003";
+        LET cMensajeRet = "Error al obtener el parÃ¡metro de la cantidad de utilizaciÃ³n de la lÃ­nea de crÃ©dito";
+        RETURN cCodRet, cMensajeRet;
+    END IF;
+
+    -- obtener el valor del de la reserva
+    SELECT valor INTO valor_reserva
+      FROM bdicred:"informix".sd_param 
+     WHERE cod_param = '018' AND empresa = cEmpresa;
+    -- validacion de los parametros.
+    IF NVL(valor_reserva,"") = "" THEN
+        LET cCodRet     = "000007";
+        LET cMensajeRet = "Error al obtener el parÃ¡metro del monto de reserva";
+        RETURN cCodRet, cMensajeRet;
+    END IF;
+
+    LET valorreserva = (valor_reserva * valorsm) * 30.42;
+
+    -- obtener el valor de los dias de vigencia de los crÃ©ditos
+    SELECT valor INTO diasvigencia
+      FROM bdicred:"informix".sd_param 
+     WHERE cod_param = '011' AND empresa = cEmpresa ;
+    -- validaciÃ³n de los parametros.
+    IF NVL(diasvigencia,"") = "" THEN
+        LET cCodRet     = "000008";
+        LET cMensajeRet = "Error al obtener el parÃ¡metro de los dÃ­as de vigencia del crÃ©dito";
+        RETURN cCodRet, cMensajeRet;
+    END IF; 
+
+    -- DÃ­as mÃ­nimos de apertura de crÃ©ditos
+    SELECT valor INTO sDiasMinimosAper
+      FROM bdicred:"informix".sd_param 
+     WHERE cod_param = '021' AND empresa = cEmpresa ;
+    IF NVL(sDiasMinimosAper,"") = "" THEN
+        LET cCodRet     = "000009";
+        LET cMensajeRet = "Error al obtener los dÃ­as mÃ­nimos de apertura de crÃ©ditos";
+        RETURN cCodRet, cMensajeRet;
+    END IF;
+
+    -- LÃ­nea de crÃ©dito mÃ­nimo para incrementos de lÃ­nea
+    SELECT valor INTO sLineaCreditoMin
+      FROM bdicred:"informix".sd_param 
+     WHERE cod_param = '022' AND empresa = cEmpresa ;
+    IF NVL(sLineaCreditoMin,"") = "" THEN
+        LET cCodRet     = "000010";
+        LET cMensajeRet = "Error al obtener la lÃ­nea de crÃ©dito mÃ­nima para incrementos de lÃ­nea";
+        RETURN cCodRet, cMensajeRet;
+    END IF;
+  
+    -- Compara crÃ©d con lÃ­n crÃ©d MN para increm lÃ­nea
+    SELECT valor INTO sLineaCredito
+      FROM bdicred:"informix".sd_param 
+     WHERE cod_param = '023' AND empresa = cEmpresa ;
+    IF NVL(sLineaCredito,"") = "" THEN
+        LET cCodRet     = "000011";
+        LET cMensajeRet = "Error al obtener la lÃ­nea de crÃ©dito a comparar para incrementos de lÃ­nea";
+        RETURN cCodRet, cMensajeRet;
+    END IF;
+
+    -- NÃºmero incrementos previos para increm lÃ­nea
+    SELECT valor INTO sNumIncremPrevios
+      FROM bdicred:"informix".sd_param 
+     WHERE cod_param = '024' AND empresa = cEmpresa ;
+    IF NVL(sNumIncremPrevios,"") = "" THEN
+        LET cCodRet     = "000012";
+        LET cMensajeRet = "Error al obtener el nÃºmero incrementos previos para incrementos de lÃ­nea";
+        RETURN cCodRet, cMensajeRet;
+    END IF;
+
+    -- NÃºmero de vencidos 
+    SELECT valor INTO slineautilizacion
+      FROM bdicred:"informix".sd_param 
+     WHERE cod_param = '025' AND empresa = cEmpresa ;
+    IF NVL(slineautilizacion,"") = "" THEN
+        LET cCodRet     = "000013";
+        LET cMensajeRet = "Error al obtener el nÃºmero de vencidos para incrementos de lÃ­nea";
+        RETURN cCodRet, cMensajeRet;
+    END IF;
+
+    SELECT TRIM(valor)::integer INTO sMesesTrancurridos
+      FROM bdicred:"informix".sd_param 
+     WHERE cod_param = '001' AND empresa = cEmpresa ;
+    IF NVL(sMesesTrancurridos,"") = "" THEN
+        LET cCodRet     = "000014";
+        LET cMensajeRet = "Error al obtener el nÃºmero de meses transcurridos para incrementos automÃ¡ticos";
+        RETURN cCodRet, cMensajeRet;
+    END IF;
+-- LÃ­nea de crÃ©dito Maxima para incrementos de lÃ­nea
+    SELECT valor INTO sLineaCreditoMax
+      FROM bdicred:"informix".sd_param 
+     WHERE cod_param = '046' AND empresa = cEmpresa ; ---checar parametro
+    IF NVL(sLineaCreditoMax,"") = "" THEN
+        LET cCodRet     = "000015";
+        LET cMensajeRet = "Error al obtener la lÃ­nea de crÃ©dito maxima para incrementos de lÃ­nea";
+        RETURN cCodRet, cMensajeRet;
+    END IF;	
+	
+-- Compara lÃ­nea crÃ©dito para enviar a BC 
+SELECT valor 
+  INTO sLineaCreditoBC
+  FROM "informix".sd_param 
+ WHERE cod_param = '027'
+   AND empresa = cEmpresa ;
+
+IF NVL(sLineaCreditoBC,"") = "" THEN
+    LET cCodRet     = "000009";
+	LET cMensajeRet = "Error al obtener la lÃ­nea crÃ©dito para enviar a BC para incrementos de lÃ­nea";
+	RETURN cCodRet, cMensajeRet;
+END IF;
+
+-- Compara lÃ­nea crÃ©dito para enviar aL CAC 
+SELECT valor 
+  INTO sLineaCreditoCAC
+  FROM "informix".sd_param 
+ WHERE cod_param = '028'
+   AND empresa = cEmpresa ;
+
+IF NVL(sLineaCreditoCAC,"") = "" THEN
+    LET cCodRet     = "000010";
+	LET cMensajeRet = "Error al obtener la lÃ­nea crÃ©dito para enviar al CAC para incrementos de lÃ­nea";
+	RETURN cCodRet, cMensajeRet;
+END IF;
+	
+SELECT valor 
+  INTO iNumIncrTope
+  FROM "informix".sd_param 
+ WHERE cod_param = '047'
+   AND empresa = cEmpresa ;
+
+IF NVL(iNumIncrTope,"") = "" THEN
+    LET cCodRet     = "000017";
+	LET cMensajeRet = "Error al obtener el tope de maximo de incrementos";
+	RETURN cCodRet, cMensajeRet;
+END IF;
+	
+-- obtencion del porcentaje para calcuar la linea de clientes con su linea actual mayor o igual a 1.27 sm 
+SELECT valor 
+  INTO dAum1
+  FROM "informix".sd_param 
+ WHERE empresa = cEmpresa 
+   AND cod_param = '016';
+
+-- validacion de los parametros.
+IF NVL(dAum1,"") = "" THEN
+    LET cCodRet     = "000006";
+	LET cMensajeRet = "Error al obtener el parametro de porcentaje de incremento para salarios minimos mayores a 1.27";
+	RETURN cCodRet, cMensajeRet;
+END IF;
+
+-- obtencion del porcentaje para calcuar la linea de clientes con su linea actual mayor o igual a 1.27 sm 
+SELECT valor 
+  INTO dAum3
+  FROM "informix".sd_param 
+ WHERE empresa = cEmpresa 
+   AND cod_param = '092';
+
+-- validacion de los parametros.
+IF NVL(dAum3,"") = "" THEN
+    LET cCodRet     = "000016";
+	LET cMensajeRet = "Error al obtener el parametro de porcentaje de incremento para salarios minimos mayores a 1.27";
+	RETURN cCodRet, cMensajeRet;
+END IF;
+
+--Dic 2015 Se toma la Ãºltima base de los clientes clean procesados
+--SELECT MAX(fecha_reporte) INTO dFechaReporteBHVR FROM bdicred:"informix".sd_clientes_clean_behavior WHERE status_bit IS NULL;
+--rss
+SELECT MAX(fecha_reporte) INTO dFechaReporteBHVR FROM bdicred:"informix".sd_clientes_clean_behavior 
+ WHERE fecha_reporte >= date(1) and fecha_reporte <= today
+   AND num_credito>=''
+   AND status_bit IS NULL;
+--rss
+
+SELECT trim(valor)::SMALLINT INTO sMinScoreCteDir FROM bdicred:sd_param WHERE cod_param = 106; --Nivel de riesgo a procesar (score minimo para descartar)
+	
+SELECT valor INTO dPorcMaxUti
+FROM bdicred:"informix".sd_param 
+WHERE cod_param = '112' AND empresa   = cEmpresa;
+	
+    --LET FechaAnt = p_FechaHoy - diasvigencia UNITS DAY;
+    --LET FechaAnt = pFechaHoyAumlincred - diasvigencia UNITS DAY;
+	CALL bdicred:"informix".monthadd(pFechaHoyAumlincred,-1)  RETURNING p_FechaAnt1m; -- 30 dÃ­as
+    CALL bdicred:"informix".monthadd(pFechaHoyAumlincred,-2)  RETURNING p_FechaAnt2m; -- 60 dÃ­as
+    CALL bdicred:"informix".monthadd(pFechaHoyAumlincred,-3)  RETURNING p_FechaAnt3m; -- 90 dÃ­as
+    CALL bdicred:"informix".monthadd(pFechaHoyAumlincred,-4)  RETURNING p_FechaAnt4m; -- 120 dÃ­as
+    CALL bdicred:"informix".monthadd(pFechaHoyAumlincred,-6)  RETURNING p_FechaAnt6m; -- 180 dÃ­as
+	CALL bdicred:"informix".monthadd(pFechaHoyAumlincred,-7)  RETURNING p_FechaAnt7m; -- 210 dÃ­as
+    CALL bdicred:"informix".monthadd(pFechaHoyAumlincred,-12) RETURNING p_FechaAnt12m; -- 360 dÃ­as
+    -- obtener la fecha de los meses que se tienen q pasar para los incrementos automaticos
+    CALL bdicred:"informix".monthadd(pFechaHoyAumlincred,-sMesesTrancurridos) RETURNING dtFechaMesesTranscurridos; 
+
+
+    -- Almacena en una temporal los creditos a tratar en el foreach - creditos al corriente de pagos
+    LET p_UltDiaMesAnt =  p_PriDiaMes - 1 units day;
+	LET dtFechaCuotaAnt = MONTH(p_FechaAnt1m)||'-'||day(20)||'-'||YEAR(p_FechaAnt1m);
+    LET p_FechaMinApertCrd = pFechaHoyAumlincred - sDiasMinimosAper;
+--TRACE OFF;	
+----------Fin parametros
+/*
+		SELECT a.num_solicitud, a.numcte, b.sucursal, a.num_producto, a.ajuste_de_cuota, 
+		c.monto_otorgado,b.fecha_apertura, d.grupo,
+        d.meses_historia, d.situacion_pago		--,ctes.num_credito, ctes.score
+		FROM bdisolic:"informix".ss_solicitudes a 
+		INNER JOIN bdicred:"informix".sd_maecredcont b ON (b.fecha = p_UltDiaMesAnt AND b.empresa = a.empresa AND b.num_credito = a.num_solicitud AND b.status_cred = "AA" AND NVL(b.id_unidad_prod ,'') = ''	AND NVL(b.cod_caract ,'') = '' AND NVL(b.cod_caract_2 ,'') = '')
+		INNER JOIN bdicred:"informix".sd_maesdos c ON (c.empresa= a.empresa AND c.num_credito = a.num_solicitud AND c.monto_otorgado BETWEEN sLineaCreditoMin AND sLineaCreditoMax)
+		INNER JOIN bdisolic:ss_resum_scor_fin d ON (d.empresa = a.empresa AND d.num_solicitud = a.num_solicitud)
+		WHERE a.empresa = '001'
+		AND a.num_solicitud = b.num_credito		
+        INTO TEMP CreditosIncrLcr WITH NO LOG;
+*/
+--rss
+/*		TRUNCATE TABLE sd_incrementos_linea;
+
+		insert into sd_incrementos_linea
+		SELECT b.num_credito, b.numcte, b.sucursal, b.num_producto,
+		c.monto_otorgado,b.fecha_apertura
+		FROM bdicred:"informix".sd_maecredcont b 
+		INNER JOIN bdicred:"informix".sd_maesdos c ON (c.empresa= b.empresa AND c.num_credito = b.num_credito AND c.monto_otorgado BETWEEN sLineaCreditoMin AND sLineaCreditoMax)
+		WHERE b.empresa = '001'
+		and b.fecha = p_UltDiaMesAnt
+		AND b.num_credito >= '' 
+		and b.num_producto in ('6001','6600')
+		AND b.status_cred = "AA" 
+		AND (b.id_unidad_prod is null OR b.id_unidad_prod = '')
+		AND (b.cod_caract is null OR b.cod_caract_2 = '');
+*/
+--rss
+--        CREATE INDEX inx_cred_increm ON CreditosIncrLcr (num_credito);
+--        UPDATE STATISTICS medium FOR TABLE sd_incrementos_linea;
+
+--SE ELIMINA PARA EL NUEVO PROCESO INCREMENTO DE LINEA  RQI 21 154 INICIO
+
+SELECT valor INTO cReinicio FROM bdicred:sd_param WHERE empresa = cEmpresa AND cod_param = '054';
+
+IF NVL(cReinicio,"") = "" THEN
+    LET cCodRet     = "000019";
+	LET cMensajeRet = "Error al obtener el parametro de reinicio";
+	RETURN cCodRet, cMensajeRet;
+END IF;
+
+IF cReinicio = '0' THEN
+    CALL bdicobranza:"informix".sp_inserta_bitacora_cob(cEmpresa, vproceso, '000000', 'Trunca tabla sd_incrementos_linea', '02') Returning cCod_RetIB;
+
+	TRUNCATE TABLE bdicred:sd_incrementos_linea DROP STORAGE;
+--	TRUNCATE TABLE bdicred:sd_bitacora_aumlincred DROP STORAGE;
+--  TRUNCATE TABLE bdicred:sd_autorizacion_aumlincred DROP STORAGE;
+
+	CALL bdicobranza:"informix".sp_inserta_bitacora_cob(cEmpresa, vproceso, '000000', 'Descarga informacion a procesar', '02') Returning cCod_RetIB;
+		
+	LET cSQL = '';
+    LET cSQL = 'echo "UNLOAD TO '''|| '//respaldos/sd_incrementos_linea.unl'||''' delimiter '''||'|'||'''" > /respaldos/descarga_incrementos.sql';
+--    LET cSQL = 'echo "UNLOAD TO '''|| '/pisa/ricardo/incrementos/sd_incrementos_linea.unl'||''' delimiter '''||'|'||'''" > /pisa/ricardo/incrementos/descarga_incrementos.sql';
+
+	SYSTEM cSQL;
+
+	LET cSQL = '';
+	LET cSQL = 'echo "SELECT b.num_credito, b.numcte, b.sucursal, b.num_producto, c.monto_otorgado, b.fecha_apertura,0 '
+	|| ' FROM bdicred:sd_maecredcont b '
+    || ' INNER JOIN bdicred:"informix".sd_maesdos c ON (c.empresa= b.empresa AND c.num_credito = b.num_credito AND c.monto_otorgado BETWEEN '''||sLineaCreditoMin||''' AND '''||sLineaCreditoMax||''') '
+    || ' WHERE b.empresa = '''||'001'||''''
+    || ' AND b.fecha ='''|| p_UltDiaMesAnt ||''''
+    || ' AND b.num_credito >= '''|| '' ||''''
+	|| ' AND b.num_producto in ('''||'6001'||''','''||'6600'||''') '
+    || ' AND b.status_cred IN ('''||'AA'||''','''||'E1'||''') '
+	|| ' AND (c.monto_vencido + c.mto_venc_trasp) = 0 '
+	|| ' AND (b.id_unidad_prod is null OR b.id_unidad_prod = '''|| '' ||''') '
+    || ' AND (b.cod_caract is null OR b.cod_caract_2 = '''|| '' ||''')" >>  /respaldos/descarga_incrementos.sql';
+--    || ' AND (b.cod_caract is null OR b.cod_caract_2 = '''|| '' ||''')" >>  /pisa/ricardo/incrementos/descarga_incrementos.sql';
+	SYSTEM cSQL;
+	
+	LET cSQL = 'dbaccess bdicred /respaldos/descarga_incrementos.sql';
+--	LET cSQL = 'dbaccess bdicred /pisa/ricardo/incrementos/descarga_incrementos.sql';
+	SYSTEM cSQL;
+
+	CALL bdicobranza:"informix".sp_inserta_bitacora_cob(cEmpresa, vproceso, '000000', 'Carga informacion en la sd_incrementos_linea', '02') Returning cCod_RetIB;
+
+	LET cSQL = '';
+	LET cSQL = 'echo "FILE /respaldos/sd_incrementos_linea.unl DELIMITER '''||'|'||''' 7; INSERT INTO sd_incrementos_linea; " > /respaldos/carga_sd_incrementos_linea1.sql';
+	SYSTEM cSQL;
+	
+	LET cSQL = '';
+	LET cSQL = 'dbload -d bdicred -c /respaldos/carga_sd_incrementos_linea1.sql -l /respaldos/sd_incrementos_linea.log -n 1000 -k';
+--	LET cSQL =   'dbload -d bdicred -c /pisa/ricardo/incrementos/carga_sd_incrementos_linea.sql -l   /pisa/ricardo/incrementos/sd_incrementos_linea.log -n 1000 -k';
+	SYSTEM cSQL;
+	
+    CALL bdicobranza:"informix".sp_inserta_bitacora_cob(cEmpresa, vproceso, '000000', 'Depura sd_incrementos_linea', '02') Returning cCod_RetIB;
+	
+    -- Elimina los registros que ya tengan registro correspondiente de incremento
+--    DELETE FROM sd_incrementos_linea WHERE num_solicitud IN (select {+INDEX(bdicred:"informix".sd_bitacora_aumlincred idx_bitacora_fhinsert)} num_solicitud from bdicred:"informix".sd_bitacora_aumlincred where empresa=cEmpresa and fecha_insert = pFechaHoyAumlincred);
+--    DELETE FROM sd_incrementos_linea WHERE num_solicitud IN (select num_solicitud from bdicred:"informix".sd_bitacora_aumlincred where empresa=cEmpresa and fecha_insert = pFechaHoyAumlincred);
+    --DELETE FROM sd_incrementos_linea WHERE num_solicitud IN (select num_solicitud from bdicred:"informix".sd_bitacora_aumlincred where fecha_insert = pFechaHoyAumlincred);
+
+    -- Elimina cuentas con 12 meses de inactividad
+	BEGIN;
+    DELETE FROM sd_incrementos_linea WHERE num_solicitud IN (select num_credito from bdicred:sd_inactivos_12meses);
+	COMMIT;
+    -- Elimina los registros que ya hayan tenido una solicitud RT en los dos meses previos
+	BEGIN;
+    DELETE FROM sd_incrementos_linea WHERE num_solicitud IN (select num_solicitud from bdicred:"informix".sd_bitacora_aumlincred where empresa=cEmpresa and fecha_status BETWEEN p_FechaAnt2m AND pFechaHoyAumlincred and status = 'RT');
+	COMMIT;
+    --Elimina los registros que tengan una registro previo con status: PC,BC,CC,AC,EC            
+	BEGIN;
+    DELETE FROM sd_incrementos_linea WHERE num_solicitud IN (SELECT num_solicitud FROM bdicred:"informix".sd_bitacora_aumlincred WHERE empresa= cEmpresa AND status IN ("PC","BC","CC","AC","EC","AT","IN"));
+	COMMIT;
+	
+	--Elimina los registros que tengan un registro ingresado por sistema, campo flagporsistema            
+	BEGIN;
+    DELETE FROM sd_incrementos_linea WHERE num_solicitud IN (SELECT num_solicitud FROM bdicred:"informix".sd_bitacora_aumlincred WHERE empresa= cEmpresa AND flagporsistema = 1);
+	COMMIT;
+	--    -- Elimina los clientes que esten marcados como "dirty" en el proceso behavior. // se modifica sp: sp_calcularaumlincred
+--    DELETE FROM CreditosIncrLcr WHERE num_credito IN ( Select num_credito from bdicred:sd_clientes_dirty_behavior );
+
+    --  Se eliminan los clientes que cuentan con incrementos automaticos autorizados Y se valida que el nÃºmero de meses transcurridos de la fecha del Ãºltimo incremento
+    --   o la fecha de alta del crÃ©dito (lo Ãºltimo que haya sucedido) sea mayor al valor obtenido en la variable dtFechaMesesTranscurridos // ( Se elimina condicion**1)
+	 
+--rss pasar abajo    DELETE FROM CreditosIncrLcr WHERE ajuste_de_cuota = 'S' AND fecha_apertura >= dtFechaMesesTranscurridos;
+    -- Se eliminan los creditos de Tarjetas Garantizadas. (condicion**2)
+	BEGIN;
+    DELETE FROM sd_incrementos_linea WHERE num_solicitud IN (SELECT num_credito FROM bdicred:"informix".sd_tarjeta_garantizada WHERE empresa = cEmpresa AND garantizada = 'S');
+	COMMIT;
+	-- Se eliminan los creditos que no tienen mas de 180 dias y que su monto sea mayor al minimo 3000 RQM 09 320
+	BEGIN;
+	DELETE FROM sd_incrementos_linea WHERE  fecha_apertura >= p_FechaMinApertCrd;
+	COMMIT;
+
+	BEGIN;
+	DELETE FROM sd_incrementos_linea WHERE monto_otorgado = sLineaCreditoMax ;
+	COMMIT;
+	
+	-- Se eliminan los creditos que se originaron como grupo 6 para que no sean candidatos a ofertarles un incremento RQM 09320-1 PIQV
+	--DELETE FROM CreditosIncrLcr WHERE grupo = '6'; RQM 09 407-2
+--rss pasar abajo	DELETE FROM CreditosIncrLcr WHERE grupo in ('6','8');
+ELSE
+	LET cMensajeRet = 'Universo para Inrementos de Linea ya creado.';
+	LET cCodRet = '000100';
+    CALL bdicobranza:"informix".sp_inserta_bitacora_cob(cEmpresa, vproceso, cCodRet, cMensajeRet, '02') Returning cCod_RetIB;
+	RETURN cCodRet, cMensajeRet;
+END IF;
+
+--SE ELIMINA PARA EL NUEVO PROCESO INCREMENTO DE LINEA  RQI 21 154 FIN
+
+
+    UPDATE STATISTICS medium FOR TABLE bdicred:sd_incrementos_linea;
+    UPDATE STATISTICS MEDIUM FOR TABLE bdicred:sd_bitacora_aumlincred;
+    UPDATE STATISTICS MEDIUM FOR TABLE bdicred:sd_autorizacion_aumlincred;
+    UPDATE STATISTICS MEDIUM FOR TABLE bdicred:sd_clientes_clean_behavior;
+
+	UPDATE bdicred:sd_param SET valor = '1'	WHERE empresa = cEmpresa AND cod_param = '054';
+	
+	SELECT COUNT(*) INTO iTotalProcesados FROM bdicred:sd_incrementos_linea;
+
+	CALL bdicobranza:"informix".sp_inserta_bitacora_cob(cEmpresa, vproceso, '000000', 'TOTAL cuentas a procesar '||iTotalProcesados, '02') Returning cCod_RetIB;
+
+	 -- Elimina los creditos que no fueron considerados para el incremento de lcr (el proceso normal de incrementos los rechazo)
+	/* DELETE FROM bdicred:"informix".sd_clientes_dirty_behavior WHERE month(fecha_reporte) = month(pFechaHoyAumlincred) 
+        AND year(fecha_reporte) = year(pFechaHoyAumlincred) AND status_bit IS NULL;*/
+		
+    LET cMensajeRet            = "Se genero universo correctamente. # Registros "||iTotalProcesados;
+    CALL bdicobranza:"informix".sp_inserta_bitacora_cob(cEmpresa, vproceso, cCodRet, cMensajeRet, '03') Returning cCod_RetIB;
+
+    RETURN cCodRet, cMensajeRet;
+
+END
+END PROCEDURE
+DOCUMENT 
+'Se realiza procedimiento para generar el universo para incrementos de linea de crÃ©dito',
+'AUTOR : ',
+'FECHA : 28/SEPTIEMBRE/2018',
+'BD    : BDICRED',
+'VERSION: 1',
+'Se realiza procedimiento cambio para agregar la flag_incremento_especial',
+'AUTOR : Sergio Esteban Camacho Paez ',
+'FECHA : 4/Noviembre/2025',
+'BD    : BDICRED',
+'VERSION: 1';
+
+CREATE PROCEDURE "informix".sp_registrarrespuestacte
+(
+pEmpresa char(3),
+pNumSolicitud char(20),
+pRespCte char(3),
+pPregunta char(200),
+pSucursal char(4),
+pEjecutivo char(8),
+pMedioRes CHAR(1)
+)
+
+RETURNING char(5) as cod_ret, char(80) as mensaje;
+
+DEFINE cod_ret char(5);
+DEFINE sql_err integer;
+DEFINE vMen char(80);
+DEFINE vCont smallint;
+DEFINE vFecha date;
+DEFINE cErrorInfo char(80);
+DEFINE iIsamErr smallint;
+DEFINE cCod_Ret char(6);
+DEFINE vMenSP char(80);
+DEFINE vFechaFin date;
+DEFINE vFechaIni date;
+DEFINE vfecha_insert date;
+DEFINE vDias smallint;
+DEFINE vNombreEjec char(45);
+DEFINE cStatus char(02);
+DEFINE vLinCred    DECIMAL(18,2);
+DEFINE cNumproducto CHAR(04);
+DEFINE vIncremento DECIMAL(18,2);
+DEFINE cSucursal   CHAR(04);
+DEFINE viCteNoEsTitPV SMALLINT;
+DEFINE cexiste CHAR(1);
+
+LET cod_ret = '00000';
+LET sql_err = 0;
+LET vMen = 'El proceso se ejecuto correctamente';
+LET vCont = 0;
+LET vFecha = date(1);
+LET cErrorInfo = '';
+LET iIsamErr = 0;
+LET cCod_Ret = '000000';
+LET vMenSP = '';
+LET vFechaFin = date(1);
+LET vFechaIni = date(1);
+LET vfecha_insert = date(1);
+LET vDias = 0;
+LET vNombreEjec = '';
+LET cStatus = '';
+LET vLinCred       = 0;
+LET cNumproducto   = '';
+LET vIncremento    = 0;
+LET cSucursal      = '';
+LET viCteNoEsTitPV = 0;
+LET cexiste	  = '';
+
+BEGIN
+ON EXCEPTION SET sql_err, iIsamErr, cErrorInfo
+	IF sql_err != 0 THEN
+		LET cod_ret = sql_err;
+		LET vMen= cErrorInfo;
+		RETURN cod_ret, vMen;
+	END IF;
+END EXCEPTION;
+
+
+--SET DEBUG FILE TO "/tmp/sp_registrarRespuestaCte.out";
+--TRACE ON ;
+
+SET ISOLATION TO DIRTY READ;
+SET LOCK MODE TO WAIT 3;
+
+IF (NVL(pRespCte,'') = '' OR NVL(pNumSolicitud,'') = '' OR NVL(pEmpresa, '') = '' OR NVL(pSucursal,'') = '' OR NVL(pEjecutivo, '') = '') THEN
+LET cod_ret = '454';
+LET vMen = 'ParÃ¡metros insuficientes para llevar a cabo la consulta';
+RETURN cod_ret, vMen;
+END IF;
+
+--SELECT MAX(fecha_insert) INTO vFecha FROM bdicred:sd_prospectos_aumlincred WHERE empresa = pEmpresa and num_solicitud = pNumSolicitud;
+
+SELECT fecha_hoy INTO vFechaFin FROM bdicred:"informix".sd_fechas WHERE empresa = pEmpresa;
+
+SELECT TRIM(valor) INTO vDias FROM bdicred:"informix".sd_param WHERE empresa = pEmpresa and cod_param = '011';
+
+LET vFechaIni = vFechaFin - vDias UNITS DAY;
+
+--SELECT nombre INTO vNombreEjec FROM bdinteg:si_ejecut where ejecutivo = pEjecutivo;
+
+SELECT lincred_sugerida, num_producto, lincred_sugerida - lincred_actual,sucursal, status, fecha_insert
+INTO vLinCred,cNumproducto,vIncremento,cSucursal, cStatus, vfecha_insert
+FROM bdicred:"informix".sd_bitacora_aumlincred
+WHERE empresa = pEmpresa
+AND num_solicitud = pNumSolicitud
+-- AND numcte = numcte
+AND status IN ('AT', 'IN')
+AND fecha_status BETWEEN vFechaIni AND vFechaFin;
+
+LET vCont = DBINFO("sqlca.sqlerrd2");
+IF vCont = 0 THEN
+	LET cod_ret = '455';
+	LET vMen = 'No se encuentra el NÃºmero de Solicitud y/o fuera de vigencia';
+--               LET cod_ret = "457"; -- El cliente no a autorizado o esta fuera de la vigencia
+--               LET vMen    = "El Cliente no a autorizado y/o fuera de vigencia";
+   RETURN cod_ret, vMen;
+END IF;
+
+/*
+UPDATE bdicred:sd_prospectos_aumlincred SET resp_cte = pRespCte, mensaje = pPregunta, ejecutivo = pEjecutivo, nombre = vNombreEjec, sucursal_at =
+
+pSucursal
+WHERE empresa = pEmpresa and num_solicitud = pNumSolicitud and numcte = numcte and status = 'AT'
+ and fecha_insert between vFechaIni and vFechaFin;
+
+LET vCont = dbinfo("sqlca.sqlerrd2");
+
+IF vCont = 0 THEN
+LET cod_ret = '455';
+LET vMen = 'No se encuentra el NÃºmero de Solicitud y/o fuera de vigencia';
+RETURN cod_ret, vMen;
+END IF;
+*/
+
+IF pRespCte = 1 THEN
+LET cStatus = 'AP';
+ELIF pRespCte = 2 THEN
+IF cStatus = 'AT' THEN
+	LET cStatus = 'IN';
+ELSE
+	LET cStatus = 'RT';
+END IF;
+END IF;
+
+IF cStatus <> 'RT' THEN
+	IF (pRespCte = '3') THEN
+		IF (pMedioRes = 'P')THEN
+			SELECT cte_noestit_p INTO viCteNoEsTitPV FROM bdicred:"informix".sd_bitacora_aumlincred WHERE empresa = pEmpresa AND num_solicitud = pNumSolicitud AND status in ('AT', 'IN');
+			LET viCteNoEsTitPV = viCteNoEsTitPV + 1;
+			UPDATE bdicred:"informix".sd_bitacora_aumlincred SET cte_noestit_p = viCteNoEsTitPV, medio_res = pMedioRes WHERE empresa = pEmpresa AND num_solicitud = pNumSolicitud AND status in ('AT', 'IN') AND fecha_insert = vfecha_insert;
+		ELIF(pMedioRes = 'V')THEN
+			SELECT cte_noestit_v INTO viCteNoEsTitPV FROM bdicred:"informix".sd_bitacora_aumlincred WHERE empresa = pEmpresa AND num_solicitud = pNumSolicitud AND status in ('AT', 'IN');
+			LET viCteNoEsTitPV = viCteNoEsTitPV + 1;
+			UPDATE bdicred:"informix".sd_bitacora_aumlincred SET cte_noestit_v = viCteNoEsTitPV, medio_res = pMedioRes WHERE empresa = pEmpresa AND num_solicitud = pNumSolicitud AND status in ('AT', 'IN') AND fecha_insert = vfecha_insert;
+		END IF;
+	END IF;
+
+	UPDATE bdicred:"informix".sd_bitacora_aumlincred 
+	SET status = cStatus, resp_cte = pRespCte, mensaje = pPregunta, ejecutivo = pEjecutivo, sucursal_at = pSucursal, fecha_status = today, hora_status = current, medio_res = pMedioRes
+	WHERE empresa = pEmpresa AND num_solicitud = pNumSolicitud AND status in ('AT', 'IN') AND fecha_insert = vfecha_insert;
+	--AND fecha_status BETWEEN vFechaIni AND vFechaFin;
+
+	IF pRespCte <> '3' THEN
+
+	INSERT INTO bdicred:"informix".sd_autorizacion_aumlincred (empresa,num_solicitud,status,causa_status,user_insert,fecha_status, fecha_insert,revision_cac)
+	VALUES (pempresa, pNumSolicitud, cStatus, '', pEjecutivo, today, vfecha_insert,0);
+
+	END IF;
+
+ELSE
+	IF (pRespCte = '3') THEN
+		IF (pMedioRes = 'P')THEN
+			SELECT cte_noestit_p INTO viCteNoEsTitPV FROM bdicred:"informix".sd_bitacora_aumlincred WHERE empresa = pEmpresa AND num_solicitud = pNumSolicitud AND status in ('AT', 'IN');
+			LET viCteNoEsTitPV = viCteNoEsTitPV + 1;
+			UPDATE bdicred:"informix".sd_bitacora_aumlincred SET cte_noestit_p = viCteNoEsTitPV, medio_res = pMedioRes WHERE empresa = pEmpresa AND num_solicitud = pNumSolicitud AND status in ('AT', 'IN') AND fecha_insert = vfecha_insert;
+		ELIF(pMedioRes = 'V')THEN
+			SELECT cte_noestit_v INTO viCteNoEsTitPV FROM bdicred:"informix".sd_bitacora_aumlincred WHERE empresa = pEmpresa AND num_solicitud = pNumSolicitud AND status in ('AT', 'IN');
+			LET viCteNoEsTitPV = viCteNoEsTitPV + 1;
+			UPDATE bdicred:"informix".sd_bitacora_aumlincred SET cte_noestit_v = viCteNoEsTitPV, medio_res = pMedioRes WHERE empresa = pEmpresa AND num_solicitud = pNumSolicitud AND status in ('AT', 'IN') AND fecha_insert = vfecha_insert;
+		END IF;
+	END IF;
+
+	UPDATE bdicred:"informix".sd_bitacora_aumlincred 
+	SET status = cStatus, resp_cte = pRespCte, mensaje = pPregunta, ejecutivo = pEjecutivo, sucursal_at = pSucursal, causa_status  = 'RPC', fecha_status = today, hora_status = current, medio_res = pMedioRes
+	WHERE empresa = pEmpresa AND num_solicitud = pNumSolicitud AND status in ('AT', 'IN') AND fecha_insert = vfecha_insert;
+   -- AND fecha_status BETWEEN vFechaIni AND vFechaFin;
+
+	INSERT INTO bdicred:"informix".sd_autorizacion_aumlincred (empresa,num_solicitud,status,causa_status,user_insert,fecha_status,fecha_insert,revision_cac)
+	VALUES (pempresa, pNumSolicitud, cStatus, 'RPC', pEjecutivo, today,vfecha_insert, 0);
+
+END IF;
+
+IF pRespCte = '1' THEN
+/*
+UPDATE bdicred:sd_maesdos
+  SET monto_otorgado = vLinCred,
+	  fecha_ult_mov = vFechaFin
+WHERE num_credito = pNumSolicitud
+  AND empresa = pEmpresa;
+
+LET vCont = DBINFO("sqlca.sqlerrd2");
+IF vCont = 0 THEN
+	LET cod_ret = "458"; -- No existe el Cliente en la sd_maesdos
+	LET vMen    = "No existe el Cliente en la sd_maesdos";
+	RETURN cod_ret, vMen;
+END IF;
+
+EXECUTE PROCEDURE bdicred:GENMOV( pEmpresa, pNumSolicitud
+								 , cNumproducto , 1
+								 ,'008' , vFechaFin
+								 , vIncremento , 'Act LineaCredito'
+								 , cSucursal, '01'
+								 , '0000'
+								 ) INTO cod_ret, vMen;
+*/
+EXECUTE PROCEDURE "informix".sp_grabarincrementolincred(pEmpresa, pNumSolicitud) INTO cCod_Ret, vMenSP;
+
+IF  (cCod_Ret <> '00000') THEN
+	LET cod_ret = cCod_Ret; --'456';
+	LET vMen = vMenSP;
+	RETURN cod_ret, vMen;
+END IF;
+	--Validacion incremento especial
+	SELECT count(*)
+	INTO cexiste
+	FROM bdicred:"informix".sd_bitacora_aumlincred A 
+	INNER JOIN bdicred:"informix".sd_bitacora_incremento_especial B ON A.num_solicitud = B.num_credito
+	WHERE A.num_solicitud = pNumSolicitud AND A.flag_incremento_especial = "1" AND B.linea_actual = vLinCred; --checar where 
+	
+	IF cexiste = '1' THEN
+		UPDATE bdicred:"informix".sd_bitacora_incremento_especial
+		SET validacion = "1", validacion_sucursal = "1"
+		WHERE num_credito = pNumSolicitud AND validacion = "0" AND linea_actual = vLinCred; -- checar la tabla el campo validacion venga en 0 por defecto
+	END IF;
+/*
+EXECUTE  PROCEDURE "informix".sp_actualizarestatusaumlincred (pEmpresa, pNumSolicitud, USER, 'AP', '', '') INTO cCod_Ret, vMenSP;
+
+IF (cCod_Ret <> '000000') THEN 
+	LET cod_ret = cCod_Ret; --'457';
+	LET vMEn = vMenSP;
+	RETURN cod_ret, vMen;
+END IF;
+*/
+END IF;
+
+RETURN cod_ret, vMen;
+END;
+
+END PROCEDURE
+
+DOCUMENT
+'Registra la respuesta del cliente y si esta es afirmativa manda a llamar los sps para grabar el incremento de la lÃ­nea de crÃ©dito y actualizar el status',
+'AUTOR : Nubia Janeth Montoya Medina ',
+'FECHA : 07/JULIO/2010',
+'BD    : bdicred',
+'Se modifica para actualizar campos agregados a tabla sd_bitacora_aumlincred',
+'MODIFICO : Rochin Rocha Edgar Ivan',
+'FECHA : 05/JULIO/2011',
+'BD    : BDICRED',
+'VERSION:20110705.1530';
+
+CREATE PROCEDURE "informix".sp_incremento_linea_tc_especial()
+RETURNING
+    CHAR(5) AS cCodRet;
+
+DEFINE cCodRet          	 CHAR(5);  
+DEFINE iSqlErr          	 INTEGER;  
+DEFINE dfecha_hoy      		 DATE;  
+DEFINE cnum_credito  		 CHAR(20);
+DEFINE cnumcte 				 CHAR(20);
+DEFINE dlinea_anterior  	 DECIMAL(18,2);
+DEFINE dnueva_lc 			 DECIMAL(18,2);
+DEFINE dincremento			 DECIMAL(18,2);
+DEFINE cvalidacion			 CHAR(1);
+DEFINE cvalidacion_sucursal  CHAR(1);
+DEFINE cvalidacion_sms 	 	 CHAR(1);
+DEFINE dmonto_otorgado		 DECIMAL(18,2);
+DEFINE csucursal 			 CHAR(4);
+DEFINE cnum_producto 		 CHAR(4);
+DEFINE cfecha_apertura		 DATE;
+DEFINE cexiste				 CHAR(1);
+
+
+
+LET cCodRet            		 = "00000";
+LET iSqlErr            		 = 0;
+LET dfecha_hoy          	 = DATE(1);
+LET cnum_credito 			 = "";
+LET cnumcte 				 = "";
+LET dlinea_anterior 		 = 0;
+LET dnueva_lc				 = 0; 
+LET dincremento 			 = 0;
+LET cvalidacion 			 = 0;
+LET cvalidacion_sucursal 	 = 0;
+LET cvalidacion_sms 		 = 0;
+LET dmonto_otorgado		 	 = 0;
+LET csucursal 			 	 = "";
+LET cnum_producto 		 	 = "";
+LET cfecha_apertura		 	 = DATE(1);
+LET cexiste					 = '';
+
+
+
+-- **********************************************************************
+-- *                        CONTROL DE ERRORES
+-- **********************************************************************
+
+BEGIN
+    ON EXCEPTION SET iSqlErr
+        IF iSqlErr != 0 THEN
+            LET cCodRet= iSqlErr;
+            RETURN cCodRet;
+        END IF;
+    END EXCEPTION;
+
+-- **********************************************************************
+-- *                        PROGRAMA PRINCIPAL
+-- **********************************************************************	
+	
+	SET ISOLATION TO DIRTY READ;
+    SET LOCK MODE TO WAIT 3;
+	
+
+	SELECT fecha_hoy
+    INTO dfecha_hoy
+    FROM bdicred:"informix".sd_fechas
+    WHERE empresa = "001";
+	
+	FOREACH WITH HOLD
+	SELECT numcte, num_credito, nueva_lc
+	INTO cnumcte, cnum_credito, dnueva_lc
+	FROM bdicred:"informix".sd_cred_incremento_especial
+	
+	IF NVL(cnum_credito, "") = "" OR NVL(dnueva_lc, 0) = 0 THEN
+		CONTINUE FOREACH;
+	END IF;
+	
+	SELECT A.monto_otorgado, B.sucursal, B.num_producto, B.fecha_apertura
+	INTO dmonto_otorgado, csucursal, cnum_producto, cfecha_apertura
+	FROM bdicred:"informix".sd_maesdos A
+	INNER JOIN bdicred:"informix".sd_maecred B ON A.num_credito = B.num_credito
+	WHERE A.num_credito = cnum_credito;
+	
+	LET dincremento = dnueva_lc - dmonto_otorgado;
+	
+	INSERT INTO bdicred:"informix".sd_bitacora_incremento_especial(num_credito, linea_anterior, linea_actual, incremento, validacion, validacion_sms, validacion_sucursal, fecha_proceso )
+	VALUES(cnum_credito, dmonto_otorgado, dnueva_lc, dincremento, cvalidacion, cvalidacion_sms, cvalidacion_sucursal, dfecha_hoy);
+	
+	IF NVL(dmonto_otorgado, 0) = 0 THEN 
+		CONTINUE FOREACH;
+	END IF;
+	
+	IF dmonto_otorgado >= dnueva_lc THEN
+		UPDATE bdicred:"informix".sd_bitacora_incremento_especial 
+		SET validacion = "2"
+		WHERE num_credito = cnum_credito;
+		CONTINUE FOREACH;
+	END IF;
+	
+	SELECT count(*)
+	INTO cexiste
+	FROM bdicred:"informix".sd_incrementos_linea
+	WHERE num_solicitud = cnum_credito;
+	
+	IF cexiste = '1' THEN
+	
+		UPDATE bdicred:"informix".sd_incrementos_linea 
+		SET flag_incremento_especial = "1" 
+		WHERE num_solicitud = cnum_credito;
+	
+	ELIF cexiste = '0' THEN
+					
+		INSERT INTO bdicred:"informix".sd_incrementos_linea(num_solicitud, numcte, sucursal, num_producto, monto_otorgado, fecha_apertura, flag_incremento_especial)
+		VALUES(cnum_credito, cnumcte, csucursal, cnum_producto, dmonto_otorgado, cfecha_apertura, "1" );
+	
+	END IF;
+								
+		
+	END FOREACH;
+
+RETURN cCodRet;
+END
+END PROCEDURE
+DOCUMENT
+'DESCRIPCION: Se validan los candidatos a incremento especial y se insertan y actualizan en las bitacoras',
+'AUTOR: MAFL',
+'FECHA: Septiembre de 2025',
+'BASE DE DATOS: bdicred';
+
+CREATE PROCEDURE "informix".sp_genera_carteraenlinea_tab(pEmpresa char(3), pServicio char(1)) 
+
+RETURNING  CHAR(6) AS Cod_Ret,  CHAR(80) AS Mens_Ret;
+
+-- Creador por: MAHR. Abril 2012. Se crea la informacion de la Cartera en linea dentro de la tabla sd_sdos_cartera_linea, a fin de que los 
+--             diversos procesos que explotan la misma informacion la obtengan de dicha tabla, optimizando los tiempos de consulta.
+-- Servicios: 1.- Tarjeta de Credito, 2.- Prestamo Personal y Reestructura 3.- AMBOS.
+
+-- Se modifica el proceso para agregar campos solicitados en el RQM 09 463 - Agosto 2017. ADLM.
+--Declaracion de variables
+-- V.2 JAHJ Septiembre 2023  
+DEFINE sql_err          INTEGER;
+DEFINE isam_err         INTEGER;
+DEFINE error_info       CHAR(80);
+DEFINE cEmpresa         CHAR(3);
+DEFINE cProceso         CHAR(4);
+DEFINE cCod_ret         CHAR(6);
+DEFINE cCod_retBit      CHAR(6);
+DEFINE cMensajeRet      CHAR(125);  
+DEFINE cruta            CHAR(100);
+DEFINE cSQL             CHAR(8204);
+DEFINE cSQL1            CHAR(6204);
+DEFINE cSQL2            CHAR(6204);
+DEFINE vcliente         CHAR(20);
+DEFINE vcredito         CHAR(20);
+DEFINE vtarjeta         CHAR(20);
+DEFINE vcta_eje         CHAR(20);
+DEFINE vproducto        CHAR(4);
+DEFINE vstatuscred      CHAR(2);
+DEFINE vsucursal        CHAR(4);
+DEFINE vcat             CHAR(6);
+DEFINE dFecha_hoy       DATE;
+DEFINE dFecha_max       DATE;
+DEFINE dFecha_min       DATE;
+DEFINE dFecha_ayer      DATE;
+DEFINE dFecha_today 	DATE;
+DEFINE vfechaultpago	DATE;
+DEFINE vfch_apertura    DATE;
+DEFINE vproxfchpago     DATE;
+DEFINE cfechavencto, cfechavencto1, cfechavencto2, cfechavencto3, cfechavencto4, cfechavencto5 DATE;
+DEFINE cfecha_habil1, cfecha_habil2, cfecha_habil3, cfecha_habil4, cfecha_habil5 DATE;
+DEFINE vtasainteres     DECIMAL(9,6);
+DEFINE ctasamora        DECIMAL(9,6);
+DEFINE vmontootorgado,  vsdo_intereses, vmensualidad_act	 DECIMAL(18,2);
+DEFINE vsdo_capital,   vmonto_vencido, vmtovenctrasp, vcaptrasnovenci, vsdocapinsoluto	DECIMAL(18,2);
+DEFINE montofinanciado,vsdomoratorio,  vinteresiva,   vmoras,          pagounamora    	DECIMAL(18,2);
+DEFINE cSaldovencido1, cSaldovencido2, cSaldovencido3,cSaldovencido4,  cSaldovencido5   MONEY(18,2);
+DEFINE cSaldovencido6, cInteresmoratorio1, cInteresmoratorio2, cInteresmoratorio3       MONEY(18,2);
+DEFINE cInteresmoratorio4, cInteresmoratorio5, cInteresmoratorio6, cInteresV            MONEY(18,2);
+DEFINE mIvaSucursal     MONEY(5,3);
+DEFINE sAbonosVdos      INTEGER;
+DEFINE sDiasTrans       INTEGER;
+DEFINE sDiaCorte        SMALLINT;
+DEFINE vgrupo			CHAR(1);
+DEFINE vantiguedad		INTEGER;
+DEFINE vbcscore			DECIMAL(5,2);
+DEFINE vscoreprop		DECIMAL(5,2);
+DEFINE vficoscore		DECIMAL(5,2);
+DEFINE vbhscore			DECIMAL(5,2);
+DEFINE vnovencidos1		INTEGER;
+DEFINE vnovencidos2		INTEGER;
+DEFINE vnovencidos3		INTEGER;
+DEFINE vnovencidos4		INTEGER;
+DEFINE vnovencidos5		INTEGER;
+DEFINE vnovencidos6		INTEGER;
+DEFINE vcelular			CHAR(13);
+DEFINE vivatrasp		DECIMAL(18,2);
+DEFINE vretenido        DECIMAL(18,2);
+DEFINE cAct                     INTEGER;
+DEFINE cAtr                     INTEGER;
+
+DEFINE v_fecha_vencido  DATE;
+DEFINE v_num_vencidos   INTEGER;
+DEFINE dPagosVdos       INTEGER;
+DEFINE v_dias_vencido   INTEGER;
+DEFINE dUltDisp_atm     DATE;
+DEFINE dUltDisp_pos     DATE;
+DEFINE dUltDisp_vnt     DATE;
+DEFINE dUltima_Disposicion DATE;
+DEFINE v_ejecutivo CHAR(8);
+DEFINE v_cuenta_bloque  integer;
+
+--SET DEBUG FILE TO "/ifxsif01/PEDRO/carteralinea/sp_genera_carteraenlinea_tab.out";
+--TRACE ON;
+
+--Inicializacion de variables
+LET sql_err         = 0;
+LET isam_err        = 0;
+LET error_info      = "";
+LET cEmpresa        = "";
+LET cProceso        = '0024';
+LET cCod_Ret        = '000000';
+LET cCod_retBit     = '000000';
+LET cMensajeRet     = 'PROCESO EXITOSO';
+LET cSQL            = '';
+LET cSQL1           = '';
+LET cSQL2           = '';
+LET cruta           = '';
+LET	vcliente        = '';
+LET	vcredito        = '';
+LET	vtarjeta        = '';
+LET	vcta_eje        = '';
+LET	vproducto       = '';
+LET	vstatuscred     = '';
+LET	vsucursal       = '';
+LET	vcat            = '';
+LET	vsdo_capital    = 0;    LET vmonto_vencido	= 0;    LET vmtovenctrasp  = 0;     LET vcaptrasnovenci    = 0; LET vsdocapinsoluto     = 0; 
+LET pagounamora     = 0;    LET montofinanciado = 0;    LET vsdomoratorio  = 0;     LET vinteresiva        = 0; LET vmoras              = 0; 
+LET vmontootorgado  = 0;    LET vtasainteres    = 0;    LET ctasamora      = 0;     LET cSaldovencido1     = 0; LET cSaldovencido2      = 0; 
+LET cSaldovencido3  = 0;    LET cSaldovencido4  = 0;    LET cSaldovencido5 = 0;     LET cSaldovencido6     = 0; LET cInteresmoratorio1  = 0; 
+LET cInteresmoratorio2 = 0; LET cInteresmoratorio3 = 0; LET cInteresmoratorio4 = 0; LET cInteresmoratorio5 = 0; LET cInteresmoratorio6  = 0; 
+LET mIvaSucursal       = 0; LET sAbonosVdos     = 0;    LET sDiasTrans     = 0;     LET vsdo_intereses     = 0; LET vmensualidad_act   = 0;
+LET sDiaCorte          = 0; 
+LET vgrupo			= "";
+LET vantiguedad		= 0;
+LET vbcscore		= 0;
+LET vscoreprop		= 0;
+LET vficoscore		= 0;
+LET vbhscore		= 0;
+LET vnovencidos1	= 0;
+LET vnovencidos2	= 0;
+LET vnovencidos3	= 0;
+LET vnovencidos4	= 0;
+LET vnovencidos5	= 0;
+LET vnovencidos6	= 0;
+LET vcelular		="";
+LET vivatrasp		= 0;
+LET vretenido       = 0;
+LET dFecha_hoy      = date(1);
+LET dFecha_max      = date(1);
+LET dFecha_min      = date(1);
+LET dFecha_ayer		= date(1);
+LET dFecha_today	= date(1);
+LET cAct                        = 0;
+LET cAtr                        = 0;
+
+LET v_fecha_vencido  = DATE(1);
+LET v_num_vencidos   =0;
+LET dPagosVdos       =0;
+LET v_dias_vencido   =0; 
+LET dUltDisp_atm  = DATE(1);
+LET dUltDisp_pos  = DATE(1);
+LET dUltDisp_vnt  = DATE(1);
+LET dUltima_Disposicion = DATE(1);
+LET v_ejecutivo ="";
+LET v_cuenta_bloque = 0;
+
+BEGIN
+
+    ON EXCEPTION SET sql_err, isam_err, error_info
+        LET cCod_ret = sql_err;
+        LET cMensajeRet = error_info;        
+            -- Validamos si ya se encuentra creada la tabla
+					
+		DROP TABLE IF EXISTS "informix".creditossl_tab2;	
+			
+--       IF EXISTS( SELECT tabname FROM sysmaster:systabnames WHERE tabname = 'creditossl_tab2' ) THEN
+--          DROP TABLE creditossl_tab2;
+--		 END IF;
+        CALL bdicobranza:"informix".sp_inserta_bitacora_cob(pEmpresa, cProceso, cCod_ret, cMensajeRet || ' Error en cart_tab', '02') RETURNING cCod_retBit;
+        RETURN cCod_ret,cMensajeRet;
+    END EXCEPTION;
+
+    CALL bdicobranza:"informix".sp_inserta_bitacora_cob(pEmpresa, cProceso, cCod_ret, 'INICIA sp_genera_carteraenlinea_tab ', '02') RETURNING cCod_retBit;       
+
+    --Directiva para lectura de tablas bloqueadas.
+    SET ISOLATION TO DIRTY READ;
+    SET LOCK MODE TO WAIT 3;
+
+    -- Obtener la fecha del dia de hoy
+    SELECT fecha_hoy, fecha_ant INTO dFecha_hoy, dFecha_ayer FROM bdicred:"informix".sd_fechas WHERE empresa = pEmpresa; 
+--  LET dFecha_hoy = mdy('08','01','2023');     --  <--    ***********************  comentar esta linea 
+--	LET dFecha_ayer = mdy('07','31','2023');  --  <--    ***********************  comentar esta linea 
+	IF dFecha_hoy IS NULL THEN
+        LET dFecha_hoy = Today;
+		LET dFecha_ayer = today - 1;
+    END IF
+      
+	--Validacion de la empresa
+    SELECT empresa INTO cEmpresa FROM bdinteg:"informix".si_empresas WHERE empresa = pEmpresa;
+    IF NVL (cEmpresa, '') = '' OR cEmpresa IS NULL THEN
+        LET pEmpresa = '001';
+		LET dFecha_ayer = today - 1;
+    END IF;
+
+    IF pServicio NOT IN ('1','2','3') THEN
+        LET cCod_Ret=  '102002';
+        SELECT descripcion INTO cMensajeRet
+            FROM bdicobranza:"informix".cb_errores
+            WHERE origen = 3 AND codigo_error = cCod_Ret;
+        IF cMensajeRet IS NULL THEN
+            LET cMensajeRet = "";
+        END IF;
+        CALL bdicobranza:"informix".sp_inserta_bitacora_cob(pEmpresa, cProceso, cCod_ret, 'Servicio proporcionado incorrecto a sp_genera_carteraenlinea_tab', '02') RETURNING cCod_retBit;
+        RETURN cCod_Ret,cMensajeRet;
+    END IF;
+
+	--Obtener ruta del archivo
+    SELECT TRIM(valor_alfabetico) INTO cruta
+        FROM bdicobranza:"informix".cb_param_campania
+        WHERE empresa = pEmpresa AND tipo_campania = 1
+        AND grupo_parametro = 'ARCHIVOS'AND num_parametro = 34;  
+    IF NVL (cruta,'') = '' THEN     --Valida que exista la carpeta
+        LET cCod_Ret= '104005';
+        SELECT descripcion INTO cMensajeRet
+            FROM bdicobranza:"informix".cb_errores WHERE origen = 3 AND codigo_error = cCod_Ret;
+        IF cMensajeRet IS NULL THEN
+            LET cMensajeRet = "";
+        END IF;
+        CALL bdicobranza:"informix".sp_inserta_bitacora_cob(pEmpresa, cProceso, cCod_ret, 'Ruta incorrecta - sp_genera_carteraenlinea_tab', '02') RETURNING cCod_retBit;
+        RETURN cCod_Ret,cMensajeRet;
+    END IF;
+	
+--	LET cruta='/ifxsif01/90260202/marco/';							--  <--    ***********************  comentar esta linea 
+	
+	-- Validamos si ya se encuentra creada la tabla.
+	
+	DROP TABLE  IF EXISTS creditossl_tab2;
+	
+
+    -- Elimina la informacion almacenada, generada el dia anterior. -- Se modifica para que no borre lo que ya existe si ya existe informacion procesada del dia.
+     --Delete from bdicred:"informix".sd_sdos_cartera_linea;
+	SELECT max(fecha), min(fecha) INTO dFecha_max, dFecha_min FROM bdicred:sd_sdos_cartera_linea;
+	LET dFecha_today = today;
+
+	IF dFecha_max = dFecha_min AND dFecha_max = dFecha_ayer AND dFecha_max = (dFecha_today - 1)
+			THEN
+		LET pServicio = '2';										-- Si ya existe informacion no elimine tabla y solo ejecute prestamo.
+		LET dFecha_hoy = dFecha_ayer;
+	ELSE
+		TRUNCATE bdicred:"informix".sd_sdos_cartera_linea;   		-- Elimine si es un nuevo dia. 
+	END IF;
+	
+
+	
+    -- | Cliente | Credito | Tarjeta | Cuenta eje | Producto | sdo_capital | monto_vencido | mto_venc_trasp | cap_tras_no_venci | sdo_cap_insoluto | 
+    -- | monto financiado | Int moratorio | interes_iva | No moras | status_cred | fecha_ult_pago | pago una mora | Sucursal | Fecha_apertura |  
+    -- | monto_otorgado | tasa_interes | prox_fecha_pago | Cat | saldovencido1 |saldovencido2 |saldovencido3 | saldovencido4 | saldovencido5 |
+    -- | saldovencido6 | interesmoratorio1 | interesmoratorio2 | interesmoratorio3 | interesmoratorio4 | interesmoratorio5 | interesmoratorio6 |
+
+    IF pServicio = '1' OR pServicio = '3' THEN      -- Obtiene informacion de Cartera de Tarjeta de Credito
+
+	    CALL bdicobranza:"informix".sp_inserta_bitacora_cob(pEmpresa, cProceso, cCod_ret, 'Paso 1: Obtiene info TDC', '02') RETURNING cCod_retBit;  
+
+
+        --LET cSQL1 = ' echo " SET ISOLATION TO DIRTY READ; UNLOAD TO ' || TRIM(cruta) || TRIM(cnomarchivo) || ' DELIMITER ' || ''''|| cdelimitador || ''''||'';
+
+
+        LET cSQL1 = ' echo " SET ISOLATION TO DIRTY READ; UNLOAD TO ' || TRIM(cruta) || 'creditos_tab2.txt' 
+                || ' select  {+INDEX(sd_maecred maesta)} a.empresa, a.numcte, a.num_credito , a.sucursal, a.status_cred, a.num_producto,'
+                || ' a.fecha_apertura, a.tasa_interes, a.tasa_moratorios, (select max(b.fecha) from sd_maesdoshist b) fecha_his, a.ejecutivo '
+                || ' from bdicred:sd_maecred a, bdicred:sd_maesdos d'
+				--IFRS || ' where a.empresa = ''001'' '
+				|| ' where a.num_credito = d.num_credito'
+                || ' and (a.status_cred in (''BT'',''BA'',''E1'',''E2'',''E3'') and (d.monto_vencido + d.mto_venc_trasp) > 0 );  '
+                --|| ' create temp table bdicred:creditossl_tab2 ' 
+                || ' create table bdicred:creditossl_tab2 '
+                || '(empresa 		char(3), '
+                || ' numcte 		char(20), '
+                || ' num_credito 	char(20), '
+                || ' sucursal 		char(4), '
+                || ' status_cred 	char(2), '
+                || ' num_producto 	char(4), '
+                || ' fecha_apertura date, '
+                || ' tasa_interes   decimal(9,6), '
+                || ' tasa_moratorios decimal(9,6), '
+		        || ' fecha_his 		date, '
+		        || ' ejecutivo 		char(8) '
+                --|| ') with no log; ' 
+                || '); '  
+                || ' load from '|| TRIM(cruta) ||'creditos_tab2.txt insert into creditossl_tab2;  '
+                || ' create unique index inx_creditossl_tab2 on creditossl_tab2(numcte,sucursal,num_credito);'
+                || ' update statistics medium for table creditossl_tab2 resolution 1.6; ' ;
+                /*||' SELECT {+INDEX(creditoss1 inx_creditoss1), +INDEX(bdinteg:si_direcciones_actual idx_diract_ctetpo)} a.*, numerociudad '
+                ||' FROM creditossl a,  bdinteg:si_direcciones_actual d '
+                || ' WHERE d.numcte = a.numcte '
+                || ' AND d.tipo_dir = ''1'' '
+                || ' into temp CreditoCiudad with no log; '*/
+                --|| ' unload to '|| TRIM(cruta) || TRIM(cnomarchivo) ;
+
+
+
+        LET cSQL2 = '">' || TRIM(cRuta) || 'Ejecuta_cart_linea_creatabla.sql';
+        LET cSQL = trim(cSQL1) || cSQL2;
+        SYSTEM cSQL;
+
+        LET cSQL='chmod 777 '|| TRIM(cRuta)|| 'Ejecuta_cart_linea_creatabla.sql';
+        SYSTEM cSQL;
+
+        LET cSQL = 'dbaccess bdicred ' || TRIM(cRuta) || 'Ejecuta_cart_linea_creatabla.sql';
+        SYSTEM cSQL;
+
+        --Borra el archivo de control.
+        LET cSQL = '' ;
+        LET cSQL = 'rm ' || TRIM(cruta) || 'creditos_tab2.txt ' || TRIM(cruta) || 'Ejecuta_cart_linea_creatabla.sql';
+        SYSTEM cSQL;
+
+
+		CALL bdicobranza:"informix".sp_inserta_bitacora_cob(pEmpresa, cProceso, cCod_ret, 'Paso 3: Inicia Foreach Obtener info REVS monto,saldos,etc', '02') RETURNING cCod_retBit;  
+
+		SET ISOLATION TO DIRTY READ;
+		SET LOCK MODE TO WAIT 3;
+        FOREACH                 
+            SELECT a.numcte, a.num_credito, nvl(c.num_tarjeta,'0'), 0 Cuenta_eje, a.num_producto, b.sdo_capital, b.monto_vencido, 
+                b.mto_venc_trasp, b.cap_tras_no_venci, b.sdo_cap_insoluto, b.monto_financiado, 
+                round((b.sdo_moratorio + b.sdo_contab_mora) * (1+ s.iva),2) moratorio, nvl((select sum(interes_debe - interes_pagado) + 
+                sum(iva_debe - iva_pagado) from bdicred:sd_amortiza_credito where a.empresa = empresa and a.num_credito = num_credito 
+                and capital_status in ('2','7','6')),0) interes_iva, b.mto_fin_ven_trasp::integer mora_actual, a.status_cred, d.fecha_ult_pago, 
+                nvl((select capital_debe - capital_pagado from bdicred:sd_amortiza_credito where a.empresa = empresa 
+                and a.num_credito = num_credito and fecha_cuota = (select min(fecha_cuota) from bdicred:sd_amortiza_credito 
+                where a.empresa = empresa and a.num_credito = num_credito and capital_status in ('2','7','6'))) + 
+                round((b.sdo_moratorio + b.sdo_contab_mora) * (1+ s.iva),2) + (select sum(interes_debe - interes_pagado) + 
+                sum(iva_debe - iva_pagado) from bdicred:sd_amortiza_credito where a.empresa = empresa and a.num_credito = num_credito 
+                and capital_status in ('2','7','6')),0) pago_una_mora, a.sucursal, a.fecha_apertura, b.monto_otorgado, a.tasa_interes, 
+                d.prox_fecha_pago, nvl((SELECT trim(valor) FROM bdicred:sd_param WHERE a.empresa = empresa and cod_param= '034'),'0') cat,
+                1 + s.iva, a.tasa_moratorios, d.fecha_vencto, round(NVL(b.sdo_intereses,0) * (1 + s.iva),2),
+                (b.monto_financiado - b.monto_vencido - b.mto_venc_trasp) mensualidad_actual, d.dia_corte, 
+				(select resum.grupo from bdisolic:ss_resum_scor_fin resum where a.num_credito=resum.num_solicitud) grupo,
+				trunc((dfecha_hoy - a.fecha_apertura)/30) antiguedad, 
+				nvl(scr1.evaluacion,0), nvl(scr2.evaluacion,0), nvl(scr3.evaluacion,0), nvl(scr4.evaluacion,0),    --  ***************    cambio jahj Julio 2023
+				nvl(mahis1.mto_fin_ven_trasp,0), nvl(mahis2.mto_fin_ven_trasp,0), nvl(mahis3.mto_fin_ven_trasp,0), --  ***************    cambio jahj Julio 2023
+				nvl(mahis4.mto_fin_ven_trasp,0), nvl(mahis5.mto_fin_ven_trasp,0), nvl(mahis6.mto_fin_ven_trasp,0), --  ***************    cambio jahj Julio 2023
+				cel.telefono, 0.00, CASE WHEN nvl(b.sdo_retenido,0) > 0 then nvl(b.sdo_retenido,0) else 0.00 end sdo_retenido,	b.act, 
+				a.ejecutivo --  ***************    cambio jahj Julio 2023
+                INTO
+                vcliente, vcredito, vtarjeta, vcta_eje, vproducto, vsdo_capital, vmonto_vencido, vmtovenctrasp, vcaptrasnovenci, 
+                vsdocapinsoluto, montofinanciado, vsdomoratorio, vinteresiva, vmoras, vstatuscred, vfechaultpago, pagounamora, vsucursal, 
+                vfch_apertura, vmontootorgado, vtasainteres, vproxfchpago, vcat, mIvaSucursal, ctasamora, cfechavencto, vsdo_intereses,
+                vmensualidad_act, sDiaCorte, vgrupo, vantiguedad, 
+				vbcscore, vscoreprop, vficoscore, vbhscore,        									 --  ***************    cambio jahj Julio 2023
+				vnovencidos1, vnovencidos2, vnovencidos3, vnovencidos4, vnovencidos5, vnovencidos6,      --  ***************    cambio jahj Julio 2023
+				vcelular, vivatrasp, vretenido, cAct, 
+				v_ejecutivo --  ***************    cambio jahj Julio 2023
+            	from bdicred:creditossl_tab2 a       -- sd_maecred a   --  ***************    cambio jahj Julio 2023
+                join bdicred:sd_maesdos b on (a.empresa = b.empresa and a.num_credito = b.num_credito) 
+    			join bdicred:sd_maecredanexo d on (a.empresa = d.empresa and a.num_credito = d.num_credito) 
+        		left outer join bdicred:sd_tarjeta c on (a.empresa = c.empresa and a.num_credito = c.num_credito and c.tipo_tarjeta = 'T' 
+                                and secuencia = (select max(secuencia) from bdicred:sd_tarjeta where a.empresa = empresa 
+                                and a.num_credito = num_credito and tipo_tarjeta = 'T')) 
+				join bdinteg:si_sucursales s on ( s.empresa = a.empresa and s.sucursal = a.sucursal)
+				
+				left outer join bdisolic:ss_resumen_scoring scr1 on (a.num_credito=scr1.num_solicitud and scr1.seccion=1)
+				left outer join bdisolic:ss_resumen_scoring scr2 on (a.num_credito=scr2.num_solicitud and scr2.seccion=2)
+				left outer join bdisolic:ss_resumen_scoring scr3 on (a.num_credito=scr3.num_solicitud and scr3.seccion=3)
+				left outer join bdisolic:ss_resumen_scoring scr4 on (a.num_credito=scr4.num_solicitud and scr4.seccion=4) 
+				left outer join bdicred:sd_maesdoshist mahis1 on(a.num_credito=mahis1.num_credito and mahis1.fecha=add_months(a.fecha_his,-1)) --***** cambio jahj Julio 2023
+				left outer join bdicred:sd_maesdoshist mahis2 on(a.num_credito=mahis2.num_credito and mahis2.fecha=add_months(a.fecha_his,-2)) --***** cambio jahj Julio 2023
+				left outer join bdicred:sd_maesdoshist mahis3 on(a.num_credito=mahis3.num_credito and mahis3.fecha=add_months(a.fecha_his,-3)) --***** cambio jahj Julio 2023
+				left outer join bdicred:sd_maesdoshist mahis4 on(a.num_credito=mahis4.num_credito and mahis4.fecha=add_months(a.fecha_his,-4)) --***** cambio jahj Julio 2023
+				left outer join bdicred:sd_maesdoshist mahis5 on(a.num_credito=mahis5.num_credito and mahis5.fecha=add_months(a.fecha_his,-5)) --***** cambio jahj Julio 2023
+				left outer join bdicred:sd_maesdoshist mahis6 on(a.num_credito=mahis6.num_credito and mahis6.fecha=add_months(a.fecha_his,-6)) --***** cambio jahj Julio 2023
+				left outer join bdinteg:si_telefonos_actual cel on(a.numcte=cel.numcte and cel.secuencia=(select max(secuencia) 
+																											from bdinteg:si_telefonos_actual
+																											where a.numcte=numcte and tipo_tel=2 and status_tel='A'))
+														
+            IF NOT EXISTS (SELECT fecha, num_credito FROM bdicred:"informix".sd_sdos_cartera_linea 
+                                                                      WHERE fecha = dFecha_hoy AND num_credito = vcredito) THEN
+
+                -- Obtiene las fechas de meses de vencimiento
+                IF cfechavencto IS NULL THEN LET cfechavencto = date(1); END IF;
+                EXECUTE PROCEDURE bdicred:"informix".sp_mes_siguiente(cfechavencto, 1 , sDiaCorte) INTO cCod_Ret, cfechavencto1, sDiasTrans;
+                EXECUTE PROCEDURE bdicred:"informix".sp_mes_siguiente(cfechavencto, 2 , sDiaCorte) INTO cCod_Ret, cfechavencto2, sDiasTrans;
+                EXECUTE PROCEDURE bdicred:"informix".sp_mes_siguiente(cfechavencto, 3 , sDiaCorte) INTO cCod_Ret, cfechavencto3, sDiasTrans;
+                EXECUTE PROCEDURE bdicred:"informix".sp_mes_siguiente(cfechavencto, 4 , sDiaCorte) INTO cCod_Ret, cfechavencto4, sDiasTrans;
+                EXECUTE PROCEDURE bdicred:"informix".sp_mes_siguiente(cfechavencto, 5 , sDiaCorte) INTO cCod_Ret, cfechavencto5, sDiasTrans;
+
+                -- Valida que las fechas sean fechas habiles, si no obtiene la fecha habil correcta.
+                EXECUTE PROCEDURE bdicred:"informix".sp_valfechabil(cfechavencto1,'+') INTO cCod_Ret, cfecha_habil1;
+                EXECUTE PROCEDURE bdicred:"informix".sp_valfechabil(cfechavencto2,'+') INTO cCod_Ret, cfecha_habil2;
+                EXECUTE PROCEDURE bdicred:"informix".sp_valfechabil(cfechavencto3,'+') INTO cCod_Ret, cfecha_habil3;
+                EXECUTE PROCEDURE bdicred:"informix".sp_valfechabil(cfechavencto4,'+') INTO cCod_Ret, cfecha_habil4;
+                EXECUTE PROCEDURE bdicred:"informix".sp_valfechabil(cfechavencto5,'+') INTO cCod_Ret, cfecha_habil5;
+                IF cfechavencto1 <> cfecha_habil1 THEN LET cfechavencto1 = cfecha_habil1; END IF;
+                IF cfechavencto2 <> cfecha_habil2 THEN LET cfechavencto2 = cfecha_habil2; END IF;
+                IF cfechavencto3 <> cfecha_habil3 THEN LET cfechavencto3 = cfecha_habil3; END IF;
+                IF cfechavencto4 <> cfecha_habil4 THEN LET cfechavencto4 = cfecha_habil4; END IF;
+                IF cfechavencto5 <> cfecha_habil5 THEN LET cfechavencto5 = cfecha_habil5; END IF;
+
+                SELECT
+                    sum(case when fecha_cuota = cfechavencto then nvl((capital_debe-capital_pagado),0) + NVL((interes_debe-interes_pagado+iva_debe-iva_pagado),0) else 0 end),
+                    sum(case when fecha_cuota = cfechavencto then NVL(((mora_provi_ordi+mora_provi_cope+mora_sdo_ordi-mora_sdo_ordi_pag+mora_sdo_cope-mora_sdo_cope_pag)*mIvaSucursal),0) + nvl(((capital_debe-capital_pagado) * ctasamora / 36000) * 17.25,0)  else 0 end),
+                    sum(case when fecha_cuota = cfechavencto1 then nvl((capital_debe-capital_pagado),0) + NVL((interes_debe-interes_pagado+iva_debe-iva_pagado),0) else 0 end),
+                    sum(case when fecha_cuota = cfechavencto1 then NVL(((mora_provi_ordi+mora_provi_cope+mora_sdo_ordi-mora_sdo_ordi_pag+mora_sdo_cope-mora_sdo_cope_pag)*mIvaSucursal),0) + nvl(((capital_debe-capital_pagado) * ctasamora / 36000) * 17.25,0)  else 0 end),
+                    sum(case when fecha_cuota = cfechavencto2 then nvl((capital_debe-capital_pagado),0) + NVL((interes_debe-interes_pagado+iva_debe-iva_pagado),0) else 0 end),
+                    sum(case when fecha_cuota = cfechavencto2 then NVL(((mora_provi_ordi+mora_provi_cope+mora_sdo_ordi-mora_sdo_ordi_pag+mora_sdo_cope-mora_sdo_cope_pag)*mIvaSucursal),0) + nvl(((capital_debe-capital_pagado) * ctasamora / 36000) * 17.25,0)  else 0 end),
+                    sum(case when fecha_cuota = cfechavencto3 then nvl((capital_debe-capital_pagado),0) + NVL((interes_debe-interes_pagado+iva_debe-iva_pagado),0) else 0 end),
+                    sum(case when fecha_cuota = cfechavencto3 then NVL(((mora_provi_ordi+mora_provi_cope+mora_sdo_ordi-mora_sdo_ordi_pag+mora_sdo_cope-mora_sdo_cope_pag)*mIvaSucursal),0) + nvl(((capital_debe-capital_pagado) * ctasamora / 36000) * 17.25,0)  else 0 end),
+                    sum(case when fecha_cuota = cfechavencto4 then nvl((capital_debe-capital_pagado),0) + NVL((interes_debe-interes_pagado+iva_debe-iva_pagado),0) else 0 end),
+                    sum(case when fecha_cuota = cfechavencto4 then NVL(((mora_provi_ordi+mora_provi_cope+mora_sdo_ordi-mora_sdo_ordi_pag+mora_sdo_cope-mora_sdo_cope_pag)*mIvaSucursal),0) + nvl(((capital_debe-capital_pagado) * ctasamora / 36000) * 17.25,0)  else 0 end),
+                    sum(case when fecha_cuota >= cfechavencto5 then nvl((capital_debe-capital_pagado),0) + NVL((interes_debe-interes_pagado+iva_debe-iva_pagado),0) else 0 end),
+                    sum(case when fecha_cuota >= cfechavencto5 then NVL(((mora_provi_ordi+mora_provi_cope+mora_sdo_ordi-mora_sdo_ordi_pag+mora_sdo_cope-mora_sdo_cope_pag)*mIvaSucursal),0) + nvl(((capital_debe-capital_pagado) * ctasamora / 36000) * 17.25,0)  else 0 end),
+                    sum(NVL((interes_debe-interes_pagado+iva_debe-iva_pagado),0)), count(*)
+                    INTO
+                    cSaldovencido1, cInteresmoratorio1, cSaldovencido2, cInteresmoratorio2,cSaldovencido3, cInteresmoratorio3, cSaldovencido4, 
+                    cInteresmoratorio4, cSaldovencido5, cInteresmoratorio5, cSaldovencido6, cInteresmoratorio6, cInteresV, sAbonosVdos
+                    from bdicred:sd_amortiza_credito
+                    where empresa = pEmpresa and num_credito = vcredito and fecha_cuota >= cfechavencto and capital_status in ('2','7','6');
+                    
+                    --NUEVOS CAMPOS ADENDUM RQM 04 127
+              
+                    SELECT num_vencidos, dias_atraso, nvl(atm_disp_fecha_h,''), nvl(pos_disp_fecha_h,''), nvl(vnt_disp_fecha_h,'') --fecha_vencido, 
+                    INTO  v_num_vencidos, v_dias_vencido, dUltDisp_atm, dUltDisp_pos, dUltDisp_vnt  --v_fecha_vencido,
+                    FROM sd_indicador_cred
+                    WHERE num_credito=vcredito;
+					
+--  				***************    cambio jahj Julio 2023	 se toma la consulta en la parte de arriba		
+--					select fecha_vencto
+--					into v_fecha_vencido
+--					from bdicred:sd_maecredanexo
+--					where num_credito=vcredito;
+                    
+					Let v_fecha_vencido = cfechavencto;       --  ***************    cambio jahj Julio 2023
+					
+					
+					if dUltDisp_atm is null then let dUltDisp_atm = ''; end if;
+					if dUltDisp_pos is null then let dUltDisp_pos = ''; end if;
+					if dUltDisp_vnt is null then let dUltDisp_vnt = ''; end if;
+					
+					IF vproducto='7800' THEN
+						SELECT MAX(fecha_mov) INTO dUltima_Disposicion
+						FROM SD_MOVHIS
+						where num_credito=vcredito AND codigo_fun='002' AND codigo_ref=111;
+					ELSE
+						IF (dUltDisp_atm > dUltDisp_pos) THEN
+							IF (dUltDisp_atm >= dUltDisp_vnt) THEN
+							   LET dUltima_Disposicion = dUltDisp_atm;
+							ELSE
+							   LET dUltima_Disposicion = dUltDisp_vnt;
+							END IF;
+						ELIF (dUltDisp_atm = dUltDisp_pos) THEN    
+							IF (dUltDisp_pos >= dUltDisp_vnt) THEN
+								LET dUltima_Disposicion = dUltDisp_pos;
+							ELSE
+								LET dUltima_Disposicion = dUltDisp_vnt;
+							END IF;
+						END IF;
+					END IF;
+
+--  				***************    cambio jahj Julio 2023				la consulta se coloca arriba en el txt	
+--					SELECT ejecutivo INTO v_ejecutivo
+--					FROM sd_maecred
+--					WHERE num_credito=vcredito;
+				
+
+                INSERT INTO bdicred:"informix".sd_sdos_cartera_linea 
+                    (fecha,numcte,num_credito,num_tarjeta,num_cta,num_producto,sdo_capital,monto_vencido,mto_venc_trasp,cap_tras_no_venci,
+                    sdo_cap_insoluto,monto_financiado,moratorio,interes_iva,mto_fin_ven_trasp,status_cred,fecha_ult_pago,pago_una_mora,
+                    sucursal,fecha_apertura,monto_otorgado,tasa_interes,prox_fecha_pago,cat, saldovencido1, saldovencido2, saldovencido3, 
+                    saldovencido4, saldovencido5, saldovencido6, interesmoratorio1, interesmoratorio2, interesmoratorio3, interesmoratorio4, 
+                    interesmoratorio5, interesmoratorio6, sdo_intereses, mensualidad_actual, grupo, antiguedad, bcscore, scoreprop, ficoscore,
+					bhscore, novencidos1, novencidos2, novencidos3, novencidos4, novencidos5, novencidos6, celular, iva_int_trasp,sdo_retenido,
+					dias_vencido, atr, act, fecha_vencido, fecha_ult_dispo, ejecutivo)
+                    VALUES(dFecha_hoy, vcliente, vcredito, vtarjeta, vcta_eje, vproducto, vsdo_capital, vmonto_vencido, vmtovenctrasp, 
+                    vcaptrasnovenci, vsdocapinsoluto, montofinanciado, vsdomoratorio, vinteresiva, vmoras, vstatuscred, vfechaultpago, 
+                    pagounamora, vsucursal, vfch_apertura, vmontootorgado, vtasainteres, vproxfchpago, vcat, cSaldovencido1, cSaldovencido2, 
+                    cSaldovencido3, cSaldovencido4, cSaldovencido5, cSaldovencido6, cInteresmoratorio1, cInteresmoratorio2, cInteresmoratorio3,  
+                    cInteresmoratorio4, cInteresmoratorio5, cInteresmoratorio6, vsdo_intereses, vmensualidad_act, vgrupo, vantiguedad, vbcscore,
+					vscoreprop, vficoscore, vbhscore, vnovencidos1, vnovencidos2, vnovencidos3, vnovencidos4, vnovencidos5, vnovencidos6, vcelular,
+					vivatrasp,vretenido, v_dias_vencido, 0, cAct, v_fecha_vencido, dUltima_Disposicion,v_ejecutivo );
+				
+				LET v_cuenta_bloque = v_cuenta_bloque+1;
+				
+				IF v_cuenta_bloque = 30000 THEN 
+				   CALL bdicobranza:"informix".sp_inserta_bitacora_cob(pEmpresa, cProceso, cCod_ret, '  Cuenta bloque REVS', '02') RETURNING cCod_retBit;   
+				   LET v_cuenta_bloque = 0;
+				END IF;
+            END IF;
+
+        END FOREACH;    
+
+		CALL bdicobranza:"informix".sp_inserta_bitacora_cob(pEmpresa, cProceso, cCod_ret, 'Paso 3: Termina Foreach Obtener info REVS monto,saldos,etc', '02') RETURNING cCod_retBit;  
+		
+    END IF;
+
+    LET v_cuenta_bloque = 0;
+ 	
+    -- | Cliente | Credito | Tarjeta | Cuenta eje | Producto | sdo_capital | monto_vencido | mto_venc_trasp | cap_tras_no_venci | sdo_cap_insoluto | 
+    -- | monto financiado | Int moratorio | interes_iva | No moras | status_cred | fecha_ult_pago | pago una mora | Sucursal | Fecha_apertura |  
+    -- | monto_otorgado | tasa_interes | prox_fecha_pago | Cat | saldovencido1 |saldovencido2 |saldovencido3 | saldovencido4 | saldovencido5 |
+    -- | saldovencido6 | interesmoratorio1 | interesmoratorio2 | interesmoratorio3 | interesmoratorio4 | interesmoratorio5 | interesmoratorio6 |
+
+	-- ********************************************************************************************************************
+	-- ********************************************************************************************************************
+	-- ********************************************************************************************************************
+
+    IF pServicio = '2' OR pServicio = '3' THEN      -- Obtiene informacion de Cartera de Prestamo Personal y Reestructura
+		--AAME RQM 10 393 20150624 Se solicita contemplar los dos nuevos productos de prestamo personal (7600,7700)
+        --AAME RQM 10 1177 Se agregan nuevos prestamos 9100,9300 y Reestructura 8600
+		
+		CALL bdicobranza:"informix".sp_inserta_bitacora_cob(pEmpresa, cProceso, cCod_ret, 'Paso 4: Obtiene info PLAZO', '02') RETURNING cCod_retBit;  
+		
+		DROP TABLE IF EXISTS tmp_creditos_crd;
+
+        LET cSQL1 = ' echo " SET ISOLATION TO DIRTY READ; UNLOAD TO ' || TRIM(cruta) || 'tmp_creditos_crd.txt' 
+                || ' SELECT  a.empresa, a.num_credito,a.numcte, a.num_producto, a.status_cred ,a.sucursal,a.fecha_apertura,a.tasa_interes,a.tasa_moratorios,a.credito_externo,a.ejecutivo '
+                || ' FROM bdicred:sd_maecredcrd a, bdicred:sd_maesdoscrd b'
+				|| ' WHERE a.num_credito = b.num_credito'
+                || ' and a.status_cred in (''BT'',''BA'',''VP'',''E1'',''E2'',''E3'') AND a.num_producto IN (''6011'',''6300'',''6400'',''6800'',''7600'',''7700'',''8600'',''9100'',''9300'') '
+				|| ' and (b.monto_vencido + b.mto_venc_trasp) > 0 ; '
+				|| ' create table bdicred:tmp_creditos_crd('
+				|| ' empresa char(3), '
+				|| ' num_credito char(20), '
+				|| ' numcte char(20), '
+				|| ' num_producto char(4), '
+				|| ' status_cred char(2), '
+				|| ' sucursal char(4), ' 
+				|| ' fecha_apertura date, '
+				|| ' tasa_interes   decimal(9,6), '
+				|| ' tasa_moratorios decimal(9,6), '
+				|| ' credito_externo char(20), '
+				|| ' ejecutivo char(8) '
+                || '); '  
+                || ' load from '|| TRIM(cruta) ||'tmp_creditos_crd.txt insert into tmp_creditos_crd;  '
+                || ' create unique index inx_creditossl_crd on tmp_creditos_crd(numcte,sucursal,num_credito);'
+                || ' update statistics medium for table tmp_creditos_crd resolution 1.6; ' ;
+               
+			  
+        LET cSQL2 = '">' || TRIM(cRuta) || 'Ejecuta_cart_linea_creatabla_crd.sql';
+        LET cSQL = trim(cSQL1) || cSQL2;
+        SYSTEM cSQL;
+
+        LET cSQL='chmod 777 '|| TRIM(cRuta)|| 'Ejecuta_cart_linea_creatabla_crd.sql';
+        SYSTEM cSQL;
+
+        LET cSQL = 'dbaccess bdicred ' || TRIM(cRuta) || 'Ejecuta_cart_linea_creatabla_crd.sql';
+        SYSTEM cSQL;
+
+        --Borra el archivo de control.
+        LET cSQL = '' ;
+        LET cSQL = 'rm ' || TRIM(cruta) || 'tmp_creditos_crd.txt ' || TRIM(cruta) || 'Ejecuta_cart_linea_creatabla_crd.sql';
+        SYSTEM cSQL;
+
+
+		--  ******************************************************    cambio jahj Julio 2023
+		SET ISOLATION TO DIRTY READ;
+		SET LOCK MODE TO WAIT 3;		
+
+		CALL bdicobranza:"informix".sp_inserta_bitacora_cob(pEmpresa, cProceso, cCod_ret, 'Paso 5: Inicia Foreach Obtener info PLAZO monto,saldos,etc', '02') RETURNING cCod_retBit;  
+        FOREACH with hold 
+            SELECT a.numcte, a.num_credito, 0 num_tarjeta, (SELECT num_cta FROM bdicred:sd_ctascarg WHERE a.num_credito = num_credito 
+                AND naturaleza= 'A') Cta_eje, a.num_producto, b.sdo_capital, b.monto_vencido, b.mto_venc_trasp, b.cap_tras_no_venci, 
+                b.sdo_cap_insoluto, b.monto_financiado, round((b.sdo_moratorio + b.sdo_contab_mora) * (1 + s.iva),2) moratorio,
+                (b.int_tra_no_exig + b.mto_venc_int + b.sdo_no_exig + b.mto_finan_vdo) interes_iva,
+                b.mto_fin_ven_trasp::integer mora_actual, 
+				(case when (a.status_cred = 'VP' and b.mto_fin_ven_trasp = 1 and nvl(b.atr,0) = 0) then 'BA'
+				      when (a.status_cred = 'VP' and b.mto_fin_ven_trasp > 1 and nvl(b.atr,0) = 0) then 'BT' 
+				      when (a.status_cred = 'VP' and nvl(b.atr,0) = 1) then 'E1'  
+					  when (a.status_cred = 'VP' and nvl(b.atr,0) in (2,3)) then 'E2'  
+					  when (a.status_cred = 'VP' and nvl(b.atr,0) > 3) then 'E3'  
+					  when (a.status_cred <> 'VP') then a.status_cred end) Status_Cred, 
+                d.fecha_ult_pago, (SELECT (capital_debe - capital_pagado) + (interes_debe - interes_pagado) + (iva_debe - iva_pagado) +
+                ((( mora_provi_ordi + mora_provi_cope) + ( mora_sdo_ordi - mora_sdo_ordi_pag) + ( mora_sdo_cope - mora_sdo_cope_pag)) * (1+ s.iva)) 
+                FROM bdicred:sd_amortiza_creditocrd amort 
+				WHERE a.empresa = amort.empresa AND a.num_credito = amort.num_credito AND amort.fecha_cuota = (SELECT min (fecha_cuota) FROM bdicred:sd_amortiza_creditocrd WHERE amort.empresa = empresa 
+                AND amort.num_credito = num_credito AND capital_status IN ('2','7','6'))) Pago_una_mora, a.sucursal, a.fecha_apertura, b.monto_otorgado, 
+                a.tasa_interes, d.prox_fecha_pago, (SELECT cat.cat FROM bdicred:sd_tasa_cat cat WHERE a.empresa = cat.empresa 
+                AND a.tasa_interes = cat.tasa AND a.num_producto = cat.producto) cat, 1 + s.iva, a.tasa_moratorios, --d.fecha_vencto,
+                (Select min(fecha_cuota) from bdicred:sd_amortiza_creditocrd WHERE a.empresa = empresa and a.num_credito = num_credito 
+                 and capital_status in ('2','7','6')) fecha_vencto, round(NVL(b.sdo_intereses,0) * (1+ s.iva),2),
+                nvl((SELECT (nvl(capital_debe,0) - nvl(capital_pagado,0)) + (nvl(interes_debe,0) - nvl(interes_pagado,0)) +
+                (nvl(iva_debe,0) - nvl(iva_pagado,0)) FROM bdicred:sd_amortiza_creditocrd WHERE a.empresa = empresa
+                AND a.num_credito = num_credito AND capital_status = 1 ),0) Mensualidad_Actual, d.dia_corte,
+				(select resum.grupo from bdisolic:ss_resum_scor_fin resum where a.num_credito=resum.num_solicitud) grupo,
+				trunc((dfecha_hoy - a.fecha_apertura)/30) antiguedad, 
+
+				case when a.num_producto <> '6011' then nvl(scr1.evaluacion,0) else nvl(sRe1.evaluacion,0) end, 
+				case when a.num_producto <> '6011' then nvl(scr2.evaluacion,0) else nvl(sRe2.evaluacion,0) end, 
+				case when a.num_producto <> '6011' then nvl(scr3.evaluacion,0) else nvl(sRe3.evaluacion,0) end, 
+				case when a.num_producto <> '6011' then nvl(scr4.evaluacion,0) else nvl(sRe4.evaluacion,0) end,	
+
+				nvl(mhre1.mto_fin_ven_trasp,0), nvl(mhre2.mto_fin_ven_trasp,0), nvl(mhre3.mto_fin_ven_trasp,0), nvl(mhre4.mto_fin_ven_trasp,0),
+				nvl(mhre5.mto_fin_ven_trasp,0), nvl(mhre6.mto_fin_ven_trasp,0),
+
+				cel.telefono, nvl((SELECT (nvl(interes_debe,0) - nvl(interes_pagado,0)) + (nvl(iva_debe,0) - nvl(iva_pagado,0)) FROM bdicred:sd_amortiza_creditocrd 
+				WHERE a.empresa = empresa AND a.num_credito = num_credito AND capital_status = 1 ),0) iva_int_trasp,
+				CASE WHEN nvl(b.sdo_retenido,0) > 0 then nvl(b.sdo_retenido,0) else 0.00 end sdo_retenido, 
+				b.atr, 
+				d.fecha_vencto  --  ***************    cambio jahj Julio 2023
+                INTO
+                vcliente, vcredito, vtarjeta, vcta_eje, vproducto, vsdo_capital, vmonto_vencido, vmtovenctrasp, vcaptrasnovenci, vsdocapinsoluto, 
+                montofinanciado, vsdomoratorio, vinteresiva, vmoras, vstatuscred, vfechaultpago, pagounamora, vsucursal, vfch_apertura, 
+                vmontootorgado, vtasainteres, vproxfchpago, vcat, mIvaSucursal, ctasamora, cfechavencto, vsdo_intereses, vmensualidad_act, sDiaCorte,
+				vgrupo, vantiguedad, 
+				vbcscore, vscoreprop, vficoscore, vbhscore,   --  ***************    cambio jahj Julio 2023
+				vnovencidos1, vnovencidos2, vnovencidos3, vnovencidos4, vnovencidos5, vnovencidos6,   --  ***************    cambio jahj Julio 2023
+				vcelular, vivatrasp,vretenido, cAtr, 
+				v_fecha_vencido   --  ***************    cambio jahj Julio 2023  De acuerdo a la lectura solo es para bajarlo al foreach
+                FROM tmp_creditos_crd a
+                JOIN bdicred:sd_maesdoscrd b ON (a.empresa = b.empresa AND a.num_credito = b.num_credito)
+                JOIN bdicred:sd_maecredanexocrd d ON (a.empresa = d.empresa AND a.num_credito = d.num_credito)
+                JOIN bdinteg:si_sucursales s ON (s.empresa = a.empresa AND s.sucursal = a.sucursal)
+
+				left outer join bdisolic:ss_resumen_scoring scr1 on (a.num_credito=scr1.num_solicitud and scr1.seccion=1)
+				left outer join bdisolic:ss_resumen_scoring scr2 on (a.num_credito=scr2.num_solicitud and scr2.seccion=2)
+				left outer join bdisolic:ss_resumen_scoring scr3 on (a.num_credito=scr3.num_solicitud and scr3.seccion=3)
+				left outer join bdisolic:ss_resumen_scoring scr4 on (a.num_credito=scr4.num_solicitud and scr4.seccion=4) 
+				left outer join bdisolic:ss_resumen_scoring sRe1 on (a.credito_externo=sRe1.num_solicitud and sRe1.seccion=1)
+				left outer join bdisolic:ss_resumen_scoring sRe2 on (a.credito_externo=sRe2.num_solicitud and sRe2.seccion=2)
+				left outer join bdisolic:ss_resumen_scoring sRe3 on (a.credito_externo=sRe3.num_solicitud and sRe3.seccion=3)
+				left outer join bdisolic:ss_resumen_scoring sRe4 on (a.credito_externo=sRe4.num_solicitud and sRe4.seccion=4) 
+				left outer join bdicred:sd_maesdoshistcrd mhre1 on(a.num_credito=mhre1.num_credito and mhre1.fecha=add_months((select max(b.fecha) from bdicred:sd_maesdoshistcrd b where b.num_credito=a.num_credito),-1)) 
+				left outer join bdicred:sd_maesdoshistcrd mhre2 on(a.num_credito=mhre2.num_credito and mhre2.fecha=add_months((select max(b.fecha) from bdicred:sd_maesdoshistcrd b where b.num_credito=a.num_credito),-2))
+				left outer join bdicred:sd_maesdoshistcrd mhre3 on(a.num_credito=mhre3.num_credito and mhre3.fecha=add_months((select max(b.fecha) from bdicred:sd_maesdoshistcrd b where b.num_credito=a.num_credito),-3))
+				left outer join bdicred:sd_maesdoshistcrd mhre4 on(a.num_credito=mhre4.num_credito and mhre4.fecha=add_months((select max(b.fecha) from bdicred:sd_maesdoshistcrd b where b.num_credito=a.num_credito),-4))
+				left outer join bdicred:sd_maesdoshistcrd mhre5 on(a.num_credito=mhre5.num_credito and mhre5.fecha=add_months((select max(b.fecha) from bdicred:sd_maesdoshistcrd b where b.num_credito=a.num_credito),-5))
+				left outer join bdicred:sd_maesdoshistcrd mhre6 on(a.num_credito=mhre6.num_credito and mhre6.fecha=add_months((select max(b.fecha) from bdicred:sd_maesdoshistcrd b where b.num_credito=a.num_credito),-6))
+
+				left outer join bdinteg:si_telefonos_actual cel on(a.numcte=cel.numcte and cel.secuencia=(select max(secuencia) 
+								from bdinteg:si_telefonos_actual where a.numcte=numcte and tipo_tel=2 and status_tel='A'))
+--              WHERE (b.monto_vencido + b.mto_venc_trasp) > 0
+--				b.monto_vencido + b.mto_venc_trasp > 0
+--              ORDER BY a.num_producto ASC
+
+            IF NOT EXISTS (SELECT fecha, num_credito FROM bdicred:"informix".sd_sdos_cartera_linea 
+                                                                      WHERE fecha = dFecha_hoy AND num_credito = vcredito) THEN
+
+                -- Obtiene las fechas de meses de vencimiento
+                IF cfechavencto IS NULL THEN LET cfechavencto = date(1); END IF;
+                EXECUTE PROCEDURE bdicred:"informix".sp_mes_siguiente(cfechavencto, 1 , sDiaCorte) INTO cCod_Ret, cfechavencto1, sDiasTrans;
+                EXECUTE PROCEDURE bdicred:"informix".sp_mes_siguiente(cfechavencto, 2 , sDiaCorte) INTO cCod_Ret, cfechavencto2, sDiasTrans;
+                EXECUTE PROCEDURE bdicred:"informix".sp_mes_siguiente(cfechavencto, 3 , sDiaCorte) INTO cCod_Ret, cfechavencto3, sDiasTrans;
+                EXECUTE PROCEDURE bdicred:"informix".sp_mes_siguiente(cfechavencto, 4 , sDiaCorte) INTO cCod_Ret, cfechavencto4, sDiasTrans;
+                EXECUTE PROCEDURE bdicred:"informix".sp_mes_siguiente(cfechavencto, 5 , sDiaCorte) INTO cCod_Ret, cfechavencto5, sDiasTrans;
+
+                -- Valida que las fechas sean fechas habiles, si no obtiene la fecha habil correcta.
+                EXECUTE PROCEDURE bdicred:"informix".sp_valfechabil(cfechavencto1,'+') INTO cCod_Ret, cfecha_habil1;
+                EXECUTE PROCEDURE bdicred:"informix".sp_valfechabil(cfechavencto2,'+') INTO cCod_Ret, cfecha_habil2;
+                EXECUTE PROCEDURE bdicred:"informix".sp_valfechabil(cfechavencto3,'+') INTO cCod_Ret, cfecha_habil3;
+                EXECUTE PROCEDURE bdicred:"informix".sp_valfechabil(cfechavencto4,'+') INTO cCod_Ret, cfecha_habil4;
+                EXECUTE PROCEDURE bdicred:"informix".sp_valfechabil(cfechavencto5,'+') INTO cCod_Ret, cfecha_habil5;
+                IF cfechavencto1 != cfecha_habil1 THEN LET cfechavencto1 = cfecha_habil1; END IF;
+                IF cfechavencto2 != cfecha_habil2 THEN LET cfechavencto2 = cfecha_habil2; END IF;
+                IF cfechavencto3 != cfecha_habil3 THEN LET cfechavencto3 = cfecha_habil3; END IF;
+                IF cfechavencto4 != cfecha_habil4 THEN LET cfechavencto4 = cfecha_habil4; END IF;
+                IF cfechavencto5 != cfecha_habil5 THEN LET cfechavencto5 = cfecha_habil5; END IF;
+
+
+                SELECT
+                    sum(case when fecha_cuota = cfechavencto then nvl((capital_debe-capital_pagado),0) + NVL((interes_debe-interes_pagado+iva_debe-iva_pagado),0) else 0 end),
+                    sum(case when fecha_cuota = cfechavencto then NVL(((mora_provi_ordi+mora_provi_cope+mora_sdo_ordi-mora_sdo_ordi_pag+mora_sdo_cope-mora_sdo_cope_pag)*mIvaSucursal),0) + nvl(((capital_debe-capital_pagado) * ctasamora / 36000) * 17.25,0)  else 0 end),
+                    sum(case when fecha_cuota = cfechavencto1 then nvl((capital_debe-capital_pagado),0) + NVL((interes_debe-interes_pagado+iva_debe-iva_pagado),0) else 0 end),
+                    sum(case when fecha_cuota = cfechavencto1 then NVL(((mora_provi_ordi+mora_provi_cope+mora_sdo_ordi-mora_sdo_ordi_pag+mora_sdo_cope-mora_sdo_cope_pag)*mIvaSucursal),0) + nvl(((capital_debe-capital_pagado) * ctasamora / 36000) * 17.25,0)  else 0 end),
+                    sum(case when fecha_cuota = cfechavencto2 then nvl((capital_debe-capital_pagado),0) + NVL((interes_debe-interes_pagado+iva_debe-iva_pagado),0) else 0 end),
+                    sum(case when fecha_cuota = cfechavencto2 then NVL(((mora_provi_ordi+mora_provi_cope+mora_sdo_ordi-mora_sdo_ordi_pag+mora_sdo_cope-mora_sdo_cope_pag)*mIvaSucursal),0) + nvl(((capital_debe-capital_pagado) * ctasamora / 36000) * 17.25,0)  else 0 end),
+                    sum(case when fecha_cuota = cfechavencto3 then nvl((capital_debe-capital_pagado),0) + NVL((interes_debe-interes_pagado+iva_debe-iva_pagado),0) else 0 end),
+                    sum(case when fecha_cuota = cfechavencto3 then NVL(((mora_provi_ordi+mora_provi_cope+mora_sdo_ordi-mora_sdo_ordi_pag+mora_sdo_cope-mora_sdo_cope_pag)*mIvaSucursal),0) + nvl(((capital_debe-capital_pagado) * ctasamora / 36000) * 17.25,0)  else 0 end),
+                    sum(case when fecha_cuota = cfechavencto4 then nvl((capital_debe-capital_pagado),0) + NVL((interes_debe-interes_pagado+iva_debe-iva_pagado),0) else 0 end),
+                    sum(case when fecha_cuota = cfechavencto4 then NVL(((mora_provi_ordi+mora_provi_cope+mora_sdo_ordi-mora_sdo_ordi_pag+mora_sdo_cope-mora_sdo_cope_pag)*mIvaSucursal),0) + nvl(((capital_debe-capital_pagado) * ctasamora / 36000) * 17.25,0)  else 0 end),
+                    sum(case when fecha_cuota >= cfechavencto5 then nvl((capital_debe-capital_pagado),0) + NVL((interes_debe-interes_pagado+iva_debe-iva_pagado),0) else 0 end),
+                    sum(case when fecha_cuota >= cfechavencto5 then NVL(((mora_provi_ordi+mora_provi_cope+mora_sdo_ordi-mora_sdo_ordi_pag+mora_sdo_cope-mora_sdo_cope_pag)*mIvaSucursal),0) + nvl(((capital_debe-capital_pagado) * ctasamora / 36000) * 17.25,0)  else 0 end),
+                    sum(NVL((interes_debe-interes_pagado+iva_debe-iva_pagado),0)), count(*)
+                    INTO
+                    cSaldovencido1, cInteresmoratorio1, cSaldovencido2, cInteresmoratorio2,cSaldovencido3, cInteresmoratorio3, cSaldovencido4, 
+                    cInteresmoratorio4, cSaldovencido5, cInteresmoratorio5, cSaldovencido6, cInteresmoratorio6, cInteresV, sAbonosVdos
+                    from bdicred:sd_amortiza_creditocrd b
+                    where empresa = pEmpresa and num_credito = vcredito and fecha_cuota >= cfechavencto and capital_status in ('1','2','7','6');
+                                        
+                    SELECT  num_vencidos_ch, dias_atraso  --fecha_vencido,
+                    INTO  v_num_vencidos, v_dias_vencido  --v_fecha_vencido,
+                    FROM sd_indicador_cred_crd
+                    WHERE num_credito=vcredito;
+					
+--  				***************    cambio jahj Julio 2023 recuperamos el dato en la consulta principal
+--					select fecha_vencto
+--					into v_fecha_vencido
+--					from bdicred:sd_maecredanexocrd 
+--					where num_credito=vcredito;
+					
+					
+				IF vproducto='6800' THEN
+					SELECT MAX(fecha_insert) INTO dUltima_Disposicion
+					FROM sd_maecredcrd_flex
+					where num_credito=vcredito;
+				ELSE
+					SELECT fecha_apertura INTO dUltima_Disposicion
+					FROM sd_maecredcrd WHERE num_credito=vcredito;
+				END IF;
+
+--  				***************    cambio jahj Julio 2023 recuperamos el dato en la consulta principal
+--					SELECT ejecutivo INTO v_ejecutivo
+--					FROM sd_maecredcrd
+--					WHERE num_credito=vcredito;
+
+
+
+                INSERT INTO bdicred:"informix".sd_sdos_cartera_linea 
+                    (fecha,numcte,num_credito,num_tarjeta,num_cta,num_producto,sdo_capital,monto_vencido,mto_venc_trasp,cap_tras_no_venci,
+                    sdo_cap_insoluto,monto_financiado,moratorio,interes_iva,mto_fin_ven_trasp,status_cred,fecha_ult_pago,pago_una_mora,
+                    sucursal,fecha_apertura,monto_otorgado,tasa_interes,prox_fecha_pago,cat,saldovencido1, saldovencido2, saldovencido3, 
+                    saldovencido4, saldovencido5, saldovencido6, interesmoratorio1, interesmoratorio2, interesmoratorio3, interesmoratorio4, 
+                    interesmoratorio5, interesmoratorio6, sdo_intereses, mensualidad_actual, grupo, antiguedad, bcscore, scoreprop, ficoscore,
+					bhscore, novencidos1, novencidos2, novencidos3, novencidos4, novencidos5, novencidos6, celular, iva_int_trasp, sdo_retenido,
+					dias_vencido, atr, act, fecha_vencido, fecha_ult_dispo, ejecutivo)
+                    VALUES(dFecha_hoy, vcliente, vcredito, vtarjeta, vcta_eje, vproducto, vsdo_capital, vmonto_vencido, vmtovenctrasp, 
+                    vcaptrasnovenci, vsdocapinsoluto, montofinanciado, vsdomoratorio, vinteresiva, vmoras, vstatuscred, vfechaultpago, 
+                    pagounamora, vsucursal, vfch_apertura, vmontootorgado, vtasainteres, vproxfchpago, vcat, cSaldovencido1, cSaldovencido2, 
+                    cSaldovencido3, cSaldovencido4, cSaldovencido5, cSaldovencido6, cInteresmoratorio1, cInteresmoratorio2, cInteresmoratorio3,  
+                    cInteresmoratorio4, cInteresmoratorio5, cInteresmoratorio6, vsdo_intereses, vmensualidad_act, vgrupo, vantiguedad, vbcscore,
+					vscoreprop, vficoscore, vbhscore, vnovencidos1, vnovencidos2, vnovencidos3, vnovencidos4, vnovencidos5, vnovencidos6, vcelular,
+					vivatrasp, vretenido, v_dias_vencido, cAtr, 0, v_fecha_vencido, dUltima_Disposicion,v_ejecutivo);
+
+					
+				LET v_cuenta_bloque = v_cuenta_bloque+1;
+				
+				IF v_cuenta_bloque = 30000 THEN 
+				   CALL bdicobranza:"informix".sp_inserta_bitacora_cob(pEmpresa, cProceso, cCod_ret, '  Cuenta bloque PLAZO', '02') RETURNING cCod_retBit;   
+				   LET v_cuenta_bloque = 0;
+				END IF;	
+					
+            END IF;
+			
+        END FOREACH;     
+
+
+		CALL bdicobranza:"informix".sp_inserta_bitacora_cob(pEmpresa, cProceso, cCod_ret, 'Paso 5: Termina Foreach Obtener info PLAZO monto,saldos,etc', '02') RETURNING cCod_retBit;  
+		
+    END IF;          
+
+
+    IF pServicio = '2' OR pServicio = '3' THEN
+        DROP TABLE bdicred:tmp_creditos_crd;
+    END IF;
+
+    IF pServicio = '1' OR pServicio = '3' THEN
+        DROP TABLE bdicred:creditossl_tab2;
+    END IF;
+    LET cCod_Ret = '000000';
+    LET cMensajeRet = 'PROCESO CONCLUIDO';
+    
+    CALL bdicobranza:"informix".sp_inserta_bitacora_cob(pEmpresa, cProceso, cCod_ret, 'FINALIZA sp_genera_carteraenlinea_tab', '02') RETURNING cCod_retBit;       
+    RETURN cCod_ret,cMensajeRet;
+
+END;
+END PROCEDURE;

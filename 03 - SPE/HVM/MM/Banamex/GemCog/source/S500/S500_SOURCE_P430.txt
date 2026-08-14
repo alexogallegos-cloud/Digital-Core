@@ -1,0 +1,1035 @@
+000010$SET LIST                                                                     
+000510$SET ERRORLIST                                                                
+001010$SET ERRORLIMIT = 100                                                         
+001510$SET LINEINFO                                                                 
+003010$SET BDB02R01                                                                 
+003510$SET BDB91                                                                    
+004010$SET S006LOCSUP                                                               
+004015$SET S000LIBLJ                                                                
+004020$SET S100VERSIONES                                                            
+004030$SET FECHA2000                                                                
+004510****************************************************************              
+005010*                                                                             
+005510* SISTEMA: S500 CAPTACION                                                     
+006010* CODIGO DE BATCH P430.                                                       
+006510* VERSION     : FEB/2006 CUENTA MAX 2DA. ETAPA.                               
+007010*                                                                             
+007510****************************************************************              
+008010* I D E N T I F I C A T I O N        D I V I S I O N.                         
+008510****************************************************************              
+009010 IDENTIFICATION DIVISION.                                                     
+009510 PROGRAM-ID.      S500P430.                                                   
+010010                                                                              
+010510*****************************************************************             
+011010* E N V I R O N M E N T              D I V I S I O N.                         
+011510*****************************************************************             
+012010 ENVIRONMENT DIVISION.                                                        
+012510 CONFIGURATION SECTION.                                                       
+013010 INPUT-OUTPUT SECTION.                                                        
+013510                                                                              
+014010******************************************************************            
+014510* F I L E     C O N T R O L.                                                  
+015010******************************************************************            
+015510 FILE-CONTROL.                                                                
+016010                                                                              
+016510******************************************************************            
+017010* CINTAS QUE CONTENDRAN LA FUSION DE LOS ARCHIVOS X/GERENCIAL DE              
+017510* AMBOS CSIS.                                                                 
+018010******************************************************************            
+018510     SELECT GERENCIAL-TAPE     ASSIGN TO DISK.                                
+019510                                                                              
+020010******************************************************************            
+020510* ARCHIVO UTILIZADO PARA LEER EL ARCHIVO GERENCIAL DE MTY.                    
+021010******************************************************************            
+021510     SELECT GERENCIAL-MTY      ASSIGN TO DISK.                                
+022010                                                                              
+022510******************************************************************            
+023010* ARCHIVO UTILIZADO PARA LEER EL ARCHIVO GERENCIAL DE VDM.                    
+023510******************************************************************            
+024010     SELECT GERENCIAL-VDM      ASSIGN TO DISK.                                
+024510                                                                              
+025010******************************************************************            
+025510* ARCHIVO DE IMPRESION DE LA INFORMACION DE LOS ARCHIVOS APLICADOS            
+026010******************************************************************            
+026510     SELECT IMPRESION-CSI      ASSIGN TO PRINTER.                             
+027010                                                                              
+027510******************************************************************            
+028010* D A T A       D I V I S I O N.                                              
+028510******************************************************************            
+029010 DATA DIVISION.                                                               
+029510                                                                              
+030010******************************************************************            
+030510* F I L E       S E C T I O N.                                                
+031010******************************************************************            
+031510 FILE SECTION.                                                                
+032010                                                                              
+032510******************************************************************            
+033010* DECLARACION DEL ARCHIVO FILE/X/GERENCIAL.                                   
+033510******************************************************************            
+034010 FD  GERENCIAL-MTY                                                            
+034510     BLOCK CONTAINS 30 RECORDS                                                
+035010     LABEL RECORD IS STANDARD                                                 
+035510     VALUE OF TITLE TIT-ARCH-MTY                                              
+036010     VALUE OF SAVEFACTOR IS 1                                                 
+036510     DATA RECORD IS REG-GER.                                                  
+037010                                                                              
+037510 01  REG-GER      PIC X(60).                                                  
+038010                                                                              
+038510******************************************************************            
+039010* DECLARACION DEL ARCHIVO FILE/X/GERENCIAL/VDM.                               
+039510******************************************************************            
+040010 FD  GERENCIAL-VDM                                                            
+040510     BLOCK CONTAINS 30 RECORDS                                                
+041010     LABEL RECORD IS STANDARD                                                 
+041510     VALUE OF TITLE TIT-ARCH-VDM                                              
+042010     VALUE OF SAVEFACTOR IS 1                                                 
+042510     DATA RECORD IS REG-GER.                                                  
+043010                                                                              
+043510 01  REG-GER1     PIC X(60).                                                  
+044010******************************************************************            
+044510* DECLARACION DEL ARCHIVO DE IMPRESION.                                       
+045010******************************************************************            
+045510 FD  IMPRESION-CSI.                                                           
+046010 01  LINEA-CSI    PIC X(132).                                                 
+046510                                                                              
+047010******************************************************************            
+047510* DECLARACION DE LA CINTA ORIGINAL.                                           
+048010******************************************************************            
+048510 FD  GERENCIAL-TAPE                                                           
+049010     BLOCK CONTAINS 100 RECORDS                                               
+049510     VALUE OF TITLE TIT-ARCH-FUS                                              
+050010     DATA RECORD IS REG-GER-TAPE.                                             
+050510 01  REG-GER-TAPE        PIC X(90).                                           
+051010                                                                              
+056010******************************************************************            
+056510* D A T A   B A S E    S E C T I O N.                                         
+057010******************************************************************            
+057510 DATA-BASE SECTION.                                                           
+058010 DB S500BD01CAPTACION.                                                        
+058510 01 S500B02CONTROL.                                                           
+059010 01 S500B91REINICIO.                                                          
+059510                                                                              
+060010******************************************************************            
+060510* W O R K I N G     S T O R A G E    S E C T I O N.                           
+061010******************************************************************            
+061020*                                                                             
+061030* LA VARIABLE WS-FECHACREA1 Y WS-FECHACREA2 ESTAN DECLARADAS EN               
+061040* 5 POSICIONES YA QUE LA FECHA DE CREACION SE DA AADDD, DONDE AA              
+061050* ES EL ANO Y DDD ES EL NUMERO DE DIAS TRANSCURRIDOE EN EL ANO.               
+061060* POSTERIORMENTE SE PASAN A CALENDAR PARA CONERTIRLO EN UNA FECHA             
+061070* EN EL FORMATO AAMMDD.                                                       
+061080******************************************************************            
+061510 WORKING-STORAGE SECTION.                                                     
+062010 77  WS-HOJA1              PIC 99.                                            
+062510 77  WS-VAL-FEC            PIC 9(08).                                         
+063010 77  WS-TIPO               PIC X(03).                                         
+063510 77  WS-CTES-SI            PIC 9(08).                                         
+064010 77  WS-CTES-NO            PIC 9(08).                                         
+064510 77  IM-CTES-SI            PIC 9(12)V99.                                      
+065010 77  IM-CTES-NO            PIC 9(12)V99.                                      
+065510 77  WS-TEM-DIAS           PIC 9 COMP.                                        
+066010 77  WS-CSI                PIC 9(02) BINARY VALUE ZEROS.                      
+066510 77  WS-FECHA              PIC 9     BINARY VALUE ZEROS.                      
+067010 77  WS-FIN-GERE           PIC 9     BINARY VALUE ZEROS.                      
+067510 77  WS-GRA-GERE           PIC X(2)  VALUE "SI".                              
+068010 77  WS-HORAS-SESE         PIC 9(11) BINARY VALUE ZEROS.                      
+068510 77  WS-IND                PIC 9(2)  BINARY VALUE ZEROS.                      
+069010 77  WS-IND-COAR           PIC 9(2)  BINARY VALUE ZEROS.                      
+069510 77  WS-NUM-GERE           PIC 9(7)  BINARY VALUE ZEROS.                      
+070010 77  WS-NUM-GERE-TOT       PIC 9(7)  BINARY VALUE ZEROS.                      
+070510 77  WS-RESPALDO           PIC 9     BINARY VALUE ZEROS.                      
+071010 77  WS-GER-SDO-PROM       PIC S9(19)V99 BINARY VALUE ZEROS.                  
+071510 77  WS-GER-SDO-PROM-TOT   PIC S9(19)V99 BINARY VALUE ZEROS.                  
+072010 77  WS-TIEMPO-CREA        PIC 9(13).                                         
+072510 77  WS-DIA-1              PIC 9 COMP.                                        
+073010 77  WS-DIA-2              PIC 9 COMP.                                        
+073510 77  WS-BAND-MENS          PIC 9 COMP VALUE 0.                                
+074010 77  WS-BAND-SEM           PIC 9 COMP VALUE 0.                                
+074510 77  WS-MENSUAL            PIC 9      VALUE 0.                                
+075010 77  WS-SEMANAL            PIC 9      VALUE 0.                                
+075510 77  WS-FUNCION            PIC S9(11) BINARY.                                 
+076010 77  WS-FORMATO            PIC S9(11) BINARY.                                 
+076510 77  WS-TIEMPO-1           PIC 9(12) COMP.                                    
+077010 77  WS-1VEZ               PIC 9      VALUE 0.                                
+077510 77  WS-2VEZ               PIC 9      VALUE 0.                                
+078010 77  WS-3VEZ               PIC 9      VALUE 0.                                
+078510 77  WS-4VEZ               PIC 9      VALUE 0.                                
+079010 77  WS-5VEZ               PIC 9      VALUE 0.                                
+079510 77  WS-6VEZ               PIC 9      VALUE 0.                                
+080010 77  WS-7VEZ               PIC 9      VALUE 0.                                
+080510 77  WS-8VEZ               PIC 9      VALUE 0.                                
+081010                                                                              
+081510*****************************************************************             
+082010* VARIABLES UTILIZADAS P/EL MANEJO DE ERRORES Y CAMPOS DE LA BASE             
+082510*****************************************************************             
+083010 COPY "S500/INC/WOR/25MTP002".                                                
+083510                                                                              
+085140******************************************************************            
+085510 01 WS-FEC-BLOQUEO                   PIC 9(08).                               
+086010 01 WS-FECVAL-AMD                    PIC 9(08).                               
+086510 01 WS-FECVAL-AMD-R REDEFINES WS-FECVAL-AMD.                                  
+087010    02 WS-FEC-VAL-AA                 PIC 9(04).                               
+087510    02 WS-FEC-VAL-MM                 PIC 99.                                  
+088010    02 WS-FEC-VAL-DD                 PIC 99.                                  
+088510                                                                              
+089010 01 WS-FECHA-DIA-DMA                 PIC 9(08).                               
+089510 01 WS-FECHA-DIA-DMA-R REDEFINES WS-FECHA-DIA-DMA.                            
+090010    02 WS-DIA-DD                     PIC 99.                                  
+090510    02 WS-DIA-MM                     PIC 99.                                  
+091010    02 WS-DIA-AA                     PIC 9(04).                               
+091510                                                                              
+092010 01 WS-FECHA-DIA-MDA                 PIC 9(08).                               
+092510 01 WS-FECHA-DIA-MDA-R REDEFINES WS-FECHA-DIA-MDA.                            
+093010    02 WS-DIA-MM1                    PIC 99.                                  
+093510    02 WS-DIA-DD1                    PIC 99.                                  
+094010    02 WS-DIA-AA1                    PIC 9(04).                               
+094510                                                                              
+095010 01 WS-FECHA-DIA-AMD                 PIC 9(08).                               
+095510 01 WS-FECHA-DIA-AMD-R REDEFINES WS-FECHA-DIA-AMD.                            
+096010    02 WS-DIA-AA2                    PIC 9(04).                               
+096510    02 WS-DIA-MM2                    PIC 99.                                  
+097010    02 WS-DIA-DD2                    PIC 99.                                  
+097510                                                                              
+098010 01 WS-FECHA-PRO                     PIC 9(08).                               
+098510 01 WS-FECHA-PRO-R REDEFINES WS-FECHA-PRO.                                    
+099010    02 WS-PRO-AA                     PIC 9(04).                               
+099510    02 WS-PRO-MM                     PIC 99.                                  
+100010    02 WS-PRO-DD                     PIC 99.                                  
+100510                                                                              
+101010 01 WS-INVEN-PRO-AMD                  PIC 9(08).                              
+101510 01 WS-INVEN-PRO-AMD-R REDEFINES WS-INVEN-PRO-AMD.                            
+102010    02 WS-INV-PRO-AA                  PIC 9(04).                              
+102510    02 WS-INV-PRO-MM                  PIC 99.                                 
+103010    02 WS-INV-PRO-DD                  PIC 99.                                 
+103510                                                                              
+104010 01 WS-FEC-CALCULADA-AMD             PIC 9(08).                               
+104510 01 WS-FEC-CAL-AMD REDEFINES WS-FEC-CALCULADA-AMD.                            
+105010    02 WS-CALCULADA-AA                PIC 9(04).                              
+105510    02 WS-CALCULADA-MM                PIC 99.                                 
+106010    02 WS-CALCULADA-DD                PIC 99.                                 
+106510                                                                              
+107010 01 WS-FEC-CALCULADA-AMD1            PIC 9(08).                               
+107510 01 WS-FEC-CAL-AMD1 REDEFINES WS-FEC-CALCULADA-AMD1.                          
+108010    02 WS-CALCULADA-AA1               PIC 9(04).                              
+108510    02 WS-CALCULADA-MM1               PIC 99.                                 
+109010    02 WS-CALCULADA-DD1               PIC 99.                                 
+109510                                                                              
+110010 01 WS-FECHA-PRO-DMA                 PIC 9(08).                               
+110510 01 WS-FECHA-PRO-DMA-R REDEFINES WS-FECHA-PRO-DMA.                            
+111010    02 WS-PRO-DD1                    PIC 99.                                  
+111510    02 WS-PRO-MM1                    PIC 99.                                  
+112010    02 WS-PRO-AA1                    PIC 9(04).                               
+112510                                                                              
+113010 01 WS-FEC-PUENTE-AMD              PIC 9(08).                                 
+113510 01 WS-FEC-PUEN-AMD REDEFINES WS-FEC-PUENTE-AMD.                              
+114010    02 WS-PUENTE-AA                PIC 9(04).                                 
+114510    02 WS-PUENTE-MM                PIC 99.                                    
+115010    02 WS-PUENTE-DD                PIC 99.                                    
+115020                                                                              
+116010 01 WS-HORA-HMSC-01.                                                          
+116510    03 WS-HORA-HMSC-N           PIC 9(8).                                     
+117010    03 WS-HORA-HMSC REDEFINES   WS-HORA-HMSC-N.                               
+117510       05 WS-HORA-HMS-N         PIC 9(6).                                     
+118010       05 WS-HORA-HMS REDEFINES WS-HORA-HMS-N.                                
+118510          07 WS-HORA-HH-N       PIC 9(2).                                     
+119010          07 WS-HORA-MM-N       PIC 9(2).                                     
+119510          07 WS-HORA-SS-N       PIC 9(2).                                     
+120010       05 FILLER                   PIC X(2).                                  
+120510                                                                              
+121010**************************************************************                
+121510*  CAMPOS UTILIZADOS EN LA GENERACION DE CARATULAS.                           
+122010**************************************************************                
+122510 01 WS-CARATULA.                                                              
+123010   03 FILLER           PIC X(15) VALUE "S500/LIST/P430/".                     
+123510   03 WS-CARAT-CI      PIC 99.                                                
+124010   03 WS-CARAT-SUBNODO PIC 99.                                                
+124510   03 FILLER           PIC X(06) VALUE "/C000/".                              
+125010   03 WS-CARAT-FECHA   PIC 9(06).                                             
+125510   03 FILLER           PIC X     VALUE "/".                                   
+126010   03 WS-CARAT-MIX     PIC 9(07).                                             
+126510   03 FILLER           PIC X(04) VALUE "/001".                                
+127010   03 FILLER           PIC X(14) VALUE "CTROLARCHIVOS.".                      
+127510                                                                              
+128010**************************************************************                
+128510* TITULO PARA SOLICITAR EL ARCHIVO DE MTY.                                    
+129010***************************************************************               
+129510 01  TIT-ARCH-MTY.                                                            
+130010     02  FILLER     PIC X(29) VALUE                                           
+130510                    "S500/FILE/X/GERENCIA/MTY/COR/".                          
+131010     02  FECHA-GER  PIC 9(6).                                                 
+131510     02  FILLER     PIC X     VALUE ".".                                      
+132010                                                                              
+132510**************************************************************                
+133010* TITULO PARA SOLICITAREL ARCHIVO DE VALLE.                                   
+133510***************************************************************               
+134010 01  TIT-ARCH-VDM.                                                            
+134510     02  FILLER     PIC X(29) VALUE                                           
+135010                    "S500/FILE/X/GERENCIA/VDM/COR/".                          
+135510     02  FECHA-GER1 PIC 9(6).                                                 
+136010     02  FILLER     PIC X     VALUE ".".                                      
+136015                                                                              
+136020**************************************************************                
+136025* TITULO PARA EL ARCHIVO FUSIONADO DE AHOPRROS.                               
+136030***************************************************************               
+136035 01  TIT-ARCH-FUS.                                                            
+136040     02  FILLER     PIC X(27) VALUE                                           
+136045                    "S500/FILE/INTS/50003S02/10/".                            
+136050     02  FECHA-GER2 PIC 9(8).                                                 
+136053     02  FILLER     PIC X(09) VALUE                                           
+136055                     "/AHOSDOS.".                                             
+136060                                                                              
+136510******************************************************************            
+137010 01 ESPACIOS       PIC X(132) VALUE SPACES.                                   
+137510                                                                              
+140510******************************************************************            
+141010*    DESCRIPCION DEL REGISTRO DE ARCHIVO DE ENTRADA.                          
+141510******************************************************************            
+142010 01  REG-GERENCIAL.                                                           
+142510     02 GER-TIPO-REG              PIC 9(01).                                  
+143010     02 GER-CONTROL.                                                          
+143510        03 GER-NUM-SISTEMA        PIC X(04).                                  
+144010        03 GER-NOM-SISTEMA        PIC X(19).                                  
+144510        03 GER-FEC-PROCESO        PIC 9(08)       COMP.                       
+145010        03 GER-FEC-OPE            PIC 9(08)       COMP.                       
+145510        03 FILLER                 PIC X(28).                                  
+146010                                                                              
+146510******************************************************************            
+147010*    DESCRIPCION DEL REGISTRO DE DETALLE SEMANAL.                             
+147510******************************************************************            
+148010     02 GER-INFORMACION REDEFINES GER-CONTROL.                                
+148510        03 GER-NUM-CTA            PIC 9(12)       COMP.                       
+149010        03 GER-NUM-CTE            PIC 9(12)       COMP.                       
+149510        03 GER-FEC-ULMOV          PIC 9(08)       COMP.                       
+150010        03 GER-MONEDA             PIC 9(02)       COMP.                       
+150510        03 GER-PERSONA            PIC 9(02)       COMP.                       
+151010        03 GER-SDO-ACTUAL         PIC 9(12)V99    COMP.                       
+151510        03 GER-SDO-PROM           PIC 9(12)V99    COMP.                       
+152010        03 GER-TASA               PIC 9(03)V9(03) COMP.                       
+152510        03 GER-SUC                PIC 9(04)       COMP.                       
+152520        03 FILLER                 PIC X(22).                                  
+153010                                                                              
+153510******************************************************************            
+154010*    DESCRIPCION DEL REGISTRO ADICIONAL CUANDO EL PROCESO SEA                 
+154510*    MENSUAL                                                                  
+155010******************************************************************            
+155510     02 GER-MOVIMIENTOS REDEFINES GER-CONTROL.                                
+156010         03 GER-MOV-CONTRATO  PIC 9(12) COMP.                                 
+156510         03 GER-MOV-FECHA     PIC 9(08) COMP.                                 
+157010         03 GER-MOV-FECVAL    PIC 9(08) COMP.                                 
+157510         03 GER-MOV-SUCTRANS  PIC 9(04) COMP.                                 
+158010         03 GER-MOV-SUCPROM   PIC 9(04) COMP.                                 
+158510         03 GER-MOV-CVETRAN   PIC 9(04) COMP.                                 
+159010         03 GER-MOV-IMPORTE   PIC 9(12)V99 COMP.                              
+159510         03 GER-MOV-MONEDA    PIC 9(02) COMP.                                 
+160010         03 GER-MOV-INTCAN    PIC 9(12)V99 COMP.                              
+160510         03 GER-MOV-TIPDEP    PIC 9(02) COMP.                                 
+161010         03 FILLER            PIC X(23).                                      
+161510                                                                              
+162010*****************************************************************             
+162510*    DESCRIPCION DEL REGISTRO DE CONTROL TRAILLER.                            
+163010*****************************************************************             
+163510     02 GER-TRAILLER REDEFINES GER-CONTROL.                                   
+164010        03 GER-NUM-REG            PIC 9(10)       COMP.                       
+164510        03 GER-IMPO-PROM          PIC 9(16)V99    COMP.                       
+165010        03 FILLER                 PIC 9(45).                                  
+165510                                                                              
+166010*****************************************************************             
+166510*    DESCRIPCION DE LA CINTA DE SALIDA. ES IGUAL                              
+167010*                     AL DE ENTRADA PERO DISPLAY.                             
+167510*****************************************************************             
+168010 01  D-REG-GERENCIAL.                                                         
+168510     02 D-GER-TIPO-REG              PIC 9(01).                                
+169010     02 D-GER-CONTROL.                                                        
+169510        03 D-GER-NUM-SISTEMA        PIC X(04).                                
+170010        03 D-GER-NOM-SISTEMA        PIC X(20).                                
+170510        03 D-GER-FEC-PROCESO        PIC 9(08).                                
+171010        03 D-GER-FEC-OPE            PIC 9(08).                                
+171510        03 FILLER                   PIC X(49).                                
+172010     02 D-GER-INFORMACION REDEFINES D-GER-CONTROL.                            
+172510        03 D-GER-NUM-CTA            PIC 9(12).                                
+173010        03 D-GER-NUM-CTE            PIC 9(12).                                
+173510        03 D-GER-FEC-ULMOV          PIC 9(08).                                
+174010        03 D-GER-MONEDA             PIC 9(02).                                
+174510        03 D-GER-PERSONA            PIC 9(02).                                
+175010        03 D-GER-SDO-ACTUAL         PIC 9(12)V99.                             
+175510        03 D-GER-SDO-PROM           PIC 9(12)V99.                             
+176010        03 D-GER-TASA               PIC 9(03)V9(03).                          
+176510        03 D-GER-SUC                PIC 9(04).                                
+176520        03 FILLER                   PIC X(15).                                
+177010     02 D-GER-MOVIMIENTOS REDEFINES D-GER-CONTROL.                            
+177510        03 D-GER-MOV-CONTRATO       PIC 9(12).                                
+178010        03 D-GER-MOV-FECHA          PIC 9(08).                                
+178510        03 D-GER-MOV-FECVAL         PIC 9(08).                                
+179010        03 D-GER-MOV-SUCTRANS       PIC 9(04).                                
+179510        03 D-GER-MOV-SUCPROM        PIC 9(04).                                
+180010        03 D-GER-MOV-CVETRAN        PIC 9(04).                                
+180510        03 D-GER-MOV-IMPORTE        PIC 9(12)V99.                             
+181010        03 D-GER-MOV-MONEDA         PIC 9(02).                                
+181510        03 D-GER-MOV-INTCAN         PIC 9(12)V99.                             
+182010        03 D-GER-MOV-TIPDEP         PIC 9(02).                                
+182510        03 FILLER                   PIC X(17).                                
+183010     02 D-GER-TRAILLER REDEFINES D-GER-CONTROL.                               
+183510        03 D-GER-NUM-REG            PIC 9(10).                                
+184010        03 D-GER-IMPO-PROM          PIC 9(16)V99.                             
+184510        03 D-GER-NUME-CTESI         PIC 9(08).                                
+185010        03 D-GER-IMPO-CTESI         PIC 9(12)V99.                             
+185510        03 D-GER-NUME-CTENO         PIC 9(08).                                
+186010        03 D-GER-IMPO-CTENO         PIC 9(12)V99.                             
+186020        03 FILLER                   PIC X(17).                                
+186510                                                                              
+187010****************************************************************              
+187510*          A R E A       D E       E N C A B E Z A D O S.                     
+188010****************************************************************              
+188510                                                                              
+189010****************************************************************              
+189510*              ENCABEZADO PARA EL TITULO DE CTAMAESTRA.                       
+190010****************************************************************              
+190510 01  WS-ENCABEZADOMTY.                                                        
+191010   02 FILLER       PIC X(51)  VALUE SPACES.                                   
+191510   02 FILLER       PIC X(29)  VALUE                                           
+192010        "A H O R R O S         M T Y .".                                      
+192510                                                                              
+193010****************************************************************              
+193510*              ENCABEZADO PARA EL TITULO DE CTAMAESTRA.                       
+194010****************************************************************              
+194510 01  WS-ENCABEZADOVDM.                                                        
+195010   02 FILLER       PIC X(51)  VALUE SPACES.                                   
+195510   02 FILLER       PIC X(29)  VALUE                                           
+196010        "A H O R R O S         V D M. ".                                      
+196510                                                                              
+197010****************************************************************              
+197510*              ENCABEZADO INICIAL DE LOS REPORTES.                            
+198010****************************************************************              
+198510 01  WS-ENCABEZADO.                                                           
+199010   02 FILLER       PIC X(51)  VALUE SPACES.                                   
+199510   02 FILLER       PIC X(29)  VALUE                                           
+200010        "BANCO NACIONAL DE MEXICO S.A.".                                      
+200510                                                                              
+201010****************************************************************              
+201510*            SEGUNDO ENCABEZADO INICIAL DE LOS REPORTES.                      
+202010****************************************************************              
+202510 01  WS-ENCABEZADO1.                                                          
+203010     05 FILLER                             PIC X(56)                          
+203510        VALUE SPACES.                                                         
+204010     05 FILLER                             PIC X(20)                          
+204510        VALUE "DEPOSITOS A LA VISTA".                                         
+205010                                                                              
+205510****************************************************************              
+206010*  TERCER ENCABEZADO PARA EL REPORTE DEL ARCHIVO GERENCIAL                    
+206510****************************************************************              
+207010 01  WS-03-GEREN.                                                             
+207510     05 FILLER                        PIC X(18)                               
+208010        VALUE "S500-P430-GEREN   ".                                           
+208510     05 FILLER                        PIC X(86) VALUE SPACES.                 
+209010     05 FILLER                        PIC X(08)                               
+209510        VALUE "  FECHA ".                                                     
+210010     05 WS-GEREN-DIA                  PIC 99.                                 
+210510     05 FILLER                        PIC X VALUE "/".                        
+211010     05 WS-GEREN-MES                  PIC 9(02).                              
+211510     05 FILLER                        PIC X VALUE "/".                        
+212010     05 WS-GEREN-ANO                  PIC 9(04).                              
+212510                                                                              
+213010****************************************************************              
+213510* CUARTO  ENCABEZADO PARA EL REPORTE DEL ARCHIVO GERENCIAL                    
+214010****************************************************************              
+214510 01  WS-04-GEREN.                                                             
+215010     05 FILLER                          PIC X(10) VALUE                       
+215510        "PROCESO   ".                                                         
+216010     05 WS-GEREN-DIA1                   PIC 9(02).                            
+216510     05 FILLER                          PIC X VALUE "/".                      
+217010     05 WS-GEREN-MES1                   PIC 9(02).                            
+217510     05 FILLER                          PIC X VALUE "/".                      
+218010     05 WS-GEREN-ANO1                   PIC 9(04).                            
+218510     05 FILLER                          PIC X(30) VALUE SPACES.               
+219010     05 FILLER                          PIC X(31) VALUE                       
+219510           "SDOS. DE LOS ARCH. GERENCIALES.".                                 
+220010     05 FILLER                          PIC X(36) VALUE SPACES.               
+220510     05 FILLER                          PIC X(05) VALUE "HOJA ".              
+221010     05 WS-GEREN-HOJA                   PIC ZZ9.                              
+221510                                                                              
+222010****************************************************************              
+222510* ENCABEZADO PARA LA HORA DE TODOS LOS REPORTES.                              
+223010****************************************************************              
+223510 01 WS-ENCA-HORA .                                                            
+224010    05 FILLER                          PIC X(8) VALUE                         
+224510        "HORA :  ".                                                           
+225010    05 WS-H-HORA                       PIC Z9.                                
+225510    05 FILLER                          PIC X VALUE ":".                       
+226010    05 WS-H-MINUTO                     PIC 9(02).                             
+226510    05 FILLER                          PIC X VALUE ":".                       
+227010    05 WS-H-SEGUNDO                    PIC 9(02).                             
+227510                                                                              
+228010****************************************************************              
+228510* DETALLE DE LOS ENCABEZADOS DE LOS LISTADOS.                                 
+229010****************************************************************              
+229510 01 WS-ENC-GEREN.                                                             
+230010     03 FILLER       PIC X(20) VALUE "  VERSION ARCHIVO   ".                  
+230510     03 FILLER       PIC X(20) VALUE "  NUM. DE CLIENTES  ".                  
+231010     03 FILLER       PIC X(20) VALUE "  IMPORTE TOTAL     ".                  
+231510                                                                              
+232010*****************************************************************             
+232510* DETALLE PARA EL LISTADO DE SALDOS DEL ARCHIVO GERENCIAL.                    
+233010*****************************************************************             
+233510 01 WS-DET-GEREN.                                                             
+234010    03 FILLER              PIC X(07) VALUE SPACES.                            
+234510    03 WS-VERSION          PIC 9(08).                                         
+235010    03 FILLER              PIC X(12) VALUE SPACES.                            
+235510    03 WS-NUMCTES          PIC ZZZ,ZZZ,ZZZ.                                   
+236010    03 FILLER              PIC X(09) VALUE SPACES.                            
+236510    03 WS-IMPTOT           PIC ZZ,ZZZ,ZZZ,ZZZ,ZZ9.99.                         
+237010                                                                              
+237510******************************************************************            
+238010* TITULO PARA LOS CTOS. DADOS DE ALTA EN CLIENTES.                            
+238510******************************************************************            
+239010 01 TIT-CTES-SI.                                                              
+239510   02 FILLER PIC X(10) VALUE SPACES.                                          
+240010   02 FILLER PIC X(32) VALUE "CONTRATOS INTEGRADOS EN CLIENTES".              
+240510   02 CTE-SI PIC ZZ,ZZZ,ZZ9.                                                  
+241010   02 FILLER PIC X(02) VALUE SPACES.                                          
+241510   02 FILLER PIC X(08) VALUE "IMPORTE ".                                      
+242010   02 IMP-SI PIC ZZZ,ZZZ,ZZZ,ZZ9.99.                                          
+242510                                                                              
+243010******************************************************************            
+243510* TITULO PARA LOS CTOS. SIN DARSE DE ALTA EN CLIENTES.                        
+244010******************************************************************            
+244510 01 TIT-CTES-NO.                                                              
+245010   02 FILLER PIC X(10) VALUE SPACES.                                          
+245510   02 FILLER PIC X(32) VALUE "CONTRATOS FALTANTES  EN CLIENTES".              
+246010   02 CTE-NO PIC ZZ,ZZZ,ZZ9.                                                  
+246510   02 FILLER PIC X(02) VALUE SPACES.                                          
+247010   02 FILLER PIC X(08) VALUE "IMPORTE ".                                      
+247510   02 IMP-NO PIC ZZZ,ZZZ,ZZZ,ZZ9.99.                                          
+248010                                                                              
+248510*********************************************************                     
+253010* P R O C E D U R E     D I V I S I O N.                                      
+253510******************************************************************            
+254010 PROCEDURE DIVISION.                                                          
+254510********************                                                          
+255010                                                                              
+255510******************************************************************            
+256010******************************************************************            
+256510* R U T I N A          P R I N C I P A L.                                     
+257010******************************************************************            
+257510******************************************************************            
+258010 00000000-INICIO SECTION.                                                     
+258510 00000000-PRINCIPAL.                                                          
+258520                                                                              
+258530     MOVE ATTRIBUTE TASKVALUE OF MYSELF TO WS-VAL-FEC.                        
+258540     MOVE 2             TO W77-USO-LIBLJ.                                     
+258550     MOVE "P430"        TO WS-0101-PASO-MSG B91-IDPROG.                       
+258560     MOVE "25MTP005"    TO WS-0101-MTP-MSG  W77-S000-MY-VERSION.              
+258570     MOVE "S500P430"    TO W77-S000-MY-ID.                                    
+258580                                                                              
+259010     PERFORM 10000000-LIBRERIAS THRU 10000000-EXIT.                           
+259510     PERFORM 20000000-OPEN      THRU 20000000-EXIT.                           
+260010     PERFORM 50000000-PROCESOS  THRU 50000000-EXIT.                           
+260510     PERFORM 70000000-CIERRO    THRU 70000000-EXIT.                           
+261010     STOP RUN.                                                                
+261510                                                                              
+262010                                                                              
+262510                                                                              
+263010                                                                              
+263510                                                                              
+264010******************************************************************            
+264510******************************************************************            
+265010*         R U T I N A S  D E   S E L E C C I O N   D E                        
+265510*    L I B R E R I A S   Q U E   S E R A N   U T I L I Z A D A S              
+266010*                  P O R   E L   P R O G R A M A.                             
+266510******************************************************************            
+267010******************************************************************            
+267510                                                                              
+268010 10000000-LIBRERIAS.                                                          
+268510                                                                              
+268520******************************************************************            
+268530* CHANGE A LA LIBRERIA DE VERSIONES.                                          
+268540******************************************************************            
+268550     PERFORM 10000100-VERSIONES.                                              
+268560                                                                              
+269010******************************************************************            
+269510* CHANGE A LA LIBRARIA DE FECHAS LOCSUP PARA LA PROYECCION DE FEC.            
+270010******************************************************************            
+270510     PERFORM 10000006-LOCSUP.                                                 
+271010 10000000-EXIT.                                                               
+271510    EXIT.                                                                     
+272010                                                                              
+272510                                                                              
+273010                                                                              
+273510                                                                              
+274010                                                                              
+274510******************************************************************            
+275010******************************************************************            
+275510*                             O P E N.                                        
+276010*  R U T I N A S   P A R A   A P E R T U R A   D E   B A S E   Y              
+276510*                            A R C H I V O S.                                 
+277010******************************************************************            
+277510******************************************************************            
+278010                                                                              
+278510 20000000-OPEN.                                                               
+279010                                                                              
+280040     PERFORM 20000050-CHECO-VER    THRU 20000050-EXIT.                        
+280510     PERFORM 20001000-ABRO-BASE    THRU 20001000-EXIT.                        
+281010     PERFORM 20002000-FECHA-PRO    THRU 20002000-EXIT.                        
+281510     PERFORM 20003000-FECHA-DIA    THRU 20003000-EXIT.                        
+282010     PERFORM 20004000-HORA         THRU 20004000-EXIT.                        
+282510     PERFORM 20005000-ABRO-ARC     THRU 20005000-EXIT.                        
+283010 20000000-EXIT.                                                               
+283510    EXIT.                                                                     
+284010                                                                              
+284020******************************************************************            
+284030* VERIFICO QUE LA VERSION QUE ESTOY CORRIENDO SEA LA DE VERSIONES.            
+284040******************************************************************            
+284050 20000050-CHECO-VER.                                                          
+284060     PERFORM 20000100-CHECAME-VERSION.                                        
+284070     IF S000-CTR-CVEERROR < 0                                                 
+284100        MOVE "VER. EJECUTADA DIF. A VERSIONES" TO WS-0101-TEXT-MSG            
+284110        PERFORM 70000050-MENSAJE                                              
+284120        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                              
+284130 20000050-EXIT.                                                               
+284140    EXIT.                                                                     
+284150                                                                              
+284510******************************************************************            
+285010* ABRO LA BASE DE DATOS DE INQUIRY YA QUE SOLO SERA CONSULTADA.               
+285510******************************************************************            
+286010 20001000-ABRO-BASE.                                                          
+286510     OPEN INQUIRY S500BD01CAPTACION                                           
+287010     ON EXCEPTION                                                             
+288510        MOVE "ERROR AL ABRIR LA BASE      " TO WS-0101-TEXT-MSG               
+289010        PERFORM 70000050-MENSAJE                                              
+289510        CALL SYSTEM DMTERMINATE.                                              
+290010                                                                              
+290510    SET S500B02CONTROL        TO BEGINNING.                                   
+291010 20001000-EXIT.                                                               
+291510    EXIT.                                                                     
+292010                                                                              
+292510******************************************************************            
+293010* ACCESO EL DATASET DE CONTROL PARA OBTENER LA FECHA DE PROCESO.              
+293510******************************************************************            
+294010 20002000-FECHA-PRO.                                                          
+294510  PERFORM 90000002-B02CONTROL-FIND                                            
+295010  IF WS-STATUS-BASE > 0                                                       
+295510    IF WS-STATUS-BASE = 1                                                     
+297010       MOVE "ERROR REG. DE CONTROL VACIO    " TO WS-0101-TEXT-MSG             
+297510       PERFORM 70000050-MENSAJE                                               
+298010       CALL SYSTEM DMTERMINATE                                                
+298510    ELSE                                                                      
+300510       STRING "ERROR AL HACER FIND A B02 " ,     WS-STATUS-BASE               
+301010       DELIMITED BY SIZE INTO                    WS-0101-TEXT-MSG             
+301510       PERFORM 70000050-MENSAJE                                               
+302010       CALL SYSTEM DMTERMINATE.                                               
+302510                                                                              
+303010     PERFORM 20002100-PROY-FEC  THRU  20002100-EXIT                           
+303510     IF WS-MENSUAL = 1                                                        
+304010        NEXT SENTENCE                                                         
+304510     ELSE                                                                     
+306010       MOVE "HOY NO ES MENSUAL            "   TO WS-0101-TEXT-MSG             
+306510       PERFORM 70000050-MENSAJE                                               
+307010       CALL SYSTEM DMTERMINATE.                                               
+307510                                                                              
+308010     MOVE LOW-VALUES                TO    D-REG-GERENCIAL.                    
+308510     MOVE WS-FECHA-PRO              TO    FECHA-GER FECHA-GER1                
+308515                                          FECHA-GER2                          
+308520                                          WS-CARAT-FECHA.                     
+308530     MOVE WS-PRO-DD                 TO    WS-PRO-DD1                          
+308540     MOVE WS-PRO-MM                 TO    WS-PRO-MM1                          
+308550     MOVE WS-PRO-AA                 TO    WS-PRO-AA1                          
+309010     MOVE WS-FECHA-PRO-DMA          TO    D-GER-FEC-PROCESO.                  
+310010                                                                              
+310510     MOVE WS-PRO-DD                 TO    WS-GEREN-DIA1                       
+311010     MOVE WS-PRO-MM                 TO    WS-GEREN-MES1                       
+311510     MOVE WS-PRO-AA                 TO    WS-GEREN-ANO1.                      
+312010                                                                              
+312510     MOVE "S500"                    TO    D-GER-NUM-SISTEMA.                  
+313010     MOVE "SISTEMA CAPTACION"       TO    D-GER-NOM-SISTEMA.                  
+313510     MOVE 1                         TO    D-GER-TIPO-REG.                     
+314010     MOVE B02-NUM-CSI               TO    WS-CARAT-CI.                        
+314510     MOVE 0                         TO    WS-CARAT-SUBNODO.                   
+315010 20002000-EXIT.                                                               
+315510    EXIT.                                                                     
+316010                                                                              
+316510******************************************************************            
+317010* VERIFICO SI LA FECHA FUE PASADA POR LA BASE O POR VALUE.                    
+317510* SI FUE POR VALUE, CALCULO LA FECHA DE VALUE UN DIA MAS PARA VER             
+318010* SI SE TRATA DE UN FIN DE MES O NO.                                          
+318510******************************************************************            
+319010 20002100-PROY-FEC.                                                           
+319510    IF WS-VAL-FEC > 0                                                         
+320010       MOVE WS-VAL-FEC              TO    WS-S006-FECHA1                      
+320510       MOVE 1                       TO    WS-S006-FECHA2                      
+321010       MOVE 13                      TO    WS-S006-FORMATO                     
+321510       MOVE 13                      TO    WS-S006-FUNCION                     
+322010       PERFORM 40000000-CALL-FECPRO THRU  40000000-EXIT                       
+322510       MOVE WS-S006-FECHA1          TO    WS-FEC-CALCULADA-AMD1               
+323010    ELSE                                                                      
+323510       MOVE B02-FECHA-LINEA         TO    WS-FEC-CALCULADA-AMD.               
+324010    PERFORM 20002110-DIAPRO     THRU 20002110-EXIT.                           
+325010 20002100-EXIT.                                                               
+325510    EXIT.                                                                     
+326010                                                                              
+326510******************************************************************            
+327010* PROYECTO LA FECHA LINEA UN DIA HACIA ATRAS PARA OBTENER LA                  
+327510* FECHA DE PROCESO, PUES AL CORRER ESTE PASO LAS FECHAS YA FUERON             
+328010* PROYECTADAS AL SIGUIENTE DIA.                                               
+328510******************************************************************            
+329010 20002110-DIAPRO.                                                             
+329510       MOVE B02-FECHA-LINEA      TO    WS-S006-FECHA1                         
+330010       MOVE 1                    TO    WS-S006-FECHA2                         
+330510       MOVE 12                   TO    WS-S006-FORMATO                        
+331010       MOVE 15                   TO    WS-S006-FUNCION                        
+331510       PERFORM 40000000-CALL-FECPRO    THRU  40000000-EXIT.                   
+332010                                                                              
+332510       IF WS-VAL-FEC > 0                                                      
+333010          MOVE WS-VAL-FEC        TO    WS-FECHA-PRO                           
+333510          IF WS-PRO-MM NOT = WS-CALCULADA-MM1                                 
+334010             MOVE 1                 TO    WS-MENSUAL.                         
+334510                                                                              
+335010       IF WS-VAL-FEC = 0                                                      
+335510          MOVE WS-S006-FECHA1    TO    WS-FECHA-PRO                           
+336010          IF WS-PRO-MM NOT = WS-CALCULADA-MM                                  
+336510             MOVE 1                 TO    WS-MENSUAL.                         
+337010 20002110-EXIT.                                                               
+337510    EXIT.                                                                     
+338010                                                                              
+355510******************************************************************            
+356010* OBTENGO LA FECHA DEL DIA.                                                   
+356510******************************************************************            
+357010 20003000-FECHA-DIA.                                                          
+357510        PERFORM 90000000-DAME-FEC-MAQUINA.                                    
+358010        MOVE WKS-DD-MAQ           TO    WS-DIA-DD.                            
+358510        MOVE WKS-MM-MAQ           TO    WS-DIA-MM.                            
+359010        MOVE WKS-AAAA-MAQ         TO    WS-DIA-AA.                            
+359510                                                                              
+360010        MOVE WS-FECHA-DIA-DMA     TO    D-GER-FEC-OPE.                        
+360050                                                                              
+360510        MOVE WKS-DD-MAQ           TO    WS-GEREN-DIA                          
+361010        MOVE WKS-MM-MAQ           TO    WS-GEREN-MES                          
+361510        MOVE WKS-AAAA-MAQ         TO    WS-GEREN-ANO.                         
+362010 20003000-EXIT.                                                               
+362510    EXIT.                                                                     
+363010                                                                              
+363510******************************************************************            
+364010* OBTENGO LA HORA DE LA MAQUINA PARA LA GENERACION DE REPORTES.               
+364510******************************************************************            
+365010 20004000-HORA.                                                               
+365510        ACCEPT  WS-HORA-HMSC-N    FROM TIME.                                  
+366010        MOVE WS-HORA-HH-N     TO  WS-H-HORA                                   
+366510        MOVE WS-HORA-MM-N     TO  WS-H-MINUTO                                 
+367010        MOVE WS-HORA-SS-N     TO  WS-H-SEGUNDO.                               
+367510 20004000-EXIT.                                                               
+368010    EXIT.                                                                     
+368510                                                                              
+369010******************************************************************            
+369510* ABRO ARCHIVO Y REPORTES.                                                    
+370010******************************************************************            
+370510 20005000-ABRO-ARC.                                                           
+371010     OPEN INPUT GERENCIAL-MTY.                                                
+371510     OPEN INPUT GERENCIAL-VDM                                                 
+371570                                                                              
+372010     OPEN OUTPUT GERENCIAL-TAPE.                                              
+373010                                                                              
+373510     MOVE ATTRIBUTE MIXNUMBER OF MYSELF TO WS-CARAT-MIX.                      
+374010     SET IMPRESION-CSI(USERBACKUPNAME) TO VALUE TRUE                          
+374510     CHANGE ATTRIBUTE TITLE OF IMPRESION-CSI TO WS-CARATULA                   
+375010     OPEN OUTPUT IMPRESION-CSI.                                               
+375510 20005000-EXIT.                                                               
+376010    EXIT.                                                                     
+376510                                                                              
+377010                                                                              
+377510                                                                              
+378010                                                                              
+378510                                                                              
+379010******************************************************************            
+379510******************************************************************            
+380010*                                                                             
+380510* R U T I N A S    D E   L L A M A D O S   A   L I B R E R I A S.             
+381010*                                                                             
+381510******************************************************************            
+382010******************************************************************            
+382510                                                                              
+383010******************************************************************            
+383510* REALIZO EL LLAMADO A LAS LIBRERIA DE FECHAS PARA OBTENER LA FEC.            
+384010* DE PROCESO RESTANDOLE UN DIA A LA FECHA QUE YA HABIA SIDO PROY.             
+384510******************************************************************            
+385010 40000000-CALL-FECPRO.                                                        
+385510     PERFORM 20000006-LOCSUP.                                                 
+386010     IF WS-S006-FUNCION > 0                                                   
+386510        MOVE WS-S006-FUNCION                TO WS-MSG-RS                      
+388010        STRING "ERROR AL ACCESAR LOCSUP",   WS-MSG-RS                         
+388510        DELIMITED BY SIZE INTO              WS-0101-TEXT-MSG                  
+389010        PERFORM 70000050-MENSAJE                                              
+389510        CALL SYSTEM DMTERMINATE.                                              
+390010 40000000-EXIT.                                                               
+390510     EXIT.                                                                    
+391010                                                                              
+391510                                                                              
+392010                                                                              
+392510                                                                              
+393010                                                                              
+393510                                                                              
+394010                                                                              
+394510                                                                              
+395010******************************************************************            
+395510******************************************************************            
+396010*                                                                             
+396510* E J E C U C I O N   D E   P R O C E S O   P R I N C I P A L.                
+397010*                                                                             
+397510******************************************************************            
+398010******************************************************************            
+398510 50000000-PROCESOS.                                                           
+399010   PERFORM 50001000-REPORTE THRU 50001000-EXIT.                               
+399510   PERFORM 50002000-LEOMTY  THRU 50002000-EXIT UNTIL WS-1VEZ = 1.             
+400010   PERFORM 50003000-LEOVDM  THRU 50003000-EXIT UNTIL WS-2VEZ = 1.             
+400510   PERFORM 50005000-FINAL   THRU 50005000-EXIT.                               
+401010 50000000-EXIT.                                                               
+401510    EXIT.                                                                     
+402010                                                                              
+402510******************************************************************            
+403010* IMPRIMO LOS ENCABEZADOS DEL REPORTE DE CIFRAS DEL ARCHIVO.                  
+403510******************************************************************            
+404010 50001000-REPORTE.                                                            
+404510     MOVE SPACES TO LINEA-CSI.                                                
+405010     WRITE LINEA-CSI              AFTER CHANNEL 1.                            
+405510     WRITE LINEA-CSI              FROM  WS-ENCABEZADO    BEFORE 3.            
+406010     WRITE LINEA-CSI              FROM  WS-ENCABEZADO1   BEFORE 3.            
+406510     WRITE LINEA-CSI              FROM  WS-03-GEREN      BEFORE 2.            
+407010     ADD 1                        TO    WS-HOJA1                              
+407510     MOVE  WS-HOJA1               TO    WS-GEREN-HOJA                         
+408010     WRITE LINEA-CSI              FROM  WS-04-GEREN      BEFORE 2.            
+408510     WRITE LINEA-CSI              FROM  WS-ENCA-HORA     BEFORE 2.            
+409010     WRITE LINEA-CSI              FROM  WS-ENCABEZADOMTY BEFORE 2.            
+409510     WRITE LINEA-CSI              FROM  WS-ENC-GEREN     BEFORE 2.            
+410010                                                                              
+410510     WRITE REG-GER-TAPE           FROM  D-REG-GERENCIAL.                      
+411510     MOVE LOW-VALUES              TO    D-REG-GERENCIAL.                      
+412010 50001000-EXIT.                                                               
+412510    EXIT.                                                                     
+413010                                                                              
+413510******************************************************************            
+414010* LEO EL ARCHIVO DE  MONTERREY.                                               
+414510******************************************************************            
+415010 50002000-LEOMTY.                                                             
+415510     READ GERENCIAL-MTY  INTO REG-GERENCIAL AT END                            
+416010          MOVE 1 TO WS-1VEZ.                                                  
+416510                                                                              
+417010     IF WS-1VEZ = 0                                                           
+417510        PERFORM 50004000-CHECO-ARC    THRU 50004000-EXIT.                     
+418010 50002000-EXIT.                                                               
+418510    EXIT.                                                                     
+419010                                                                              
+419510******************************************************************            
+420010* LEO EL ARCHIVO DE VALLE DE MEXICO.                                          
+420510******************************************************************            
+421010 50003000-LEOVDM.                                                             
+421510     READ GERENCIAL-VDM  INTO REG-GERENCIAL   AT END                          
+422010          MOVE 1 TO WS-2VEZ.                                                  
+422510                                                                              
+423010     IF WS-2VEZ = 0                                                           
+423510        PERFORM 50004000-CHECO-ARC    THRU 50004000-EXIT.                     
+424010 50003000-EXIT.                                                               
+424510    EXIT.                                                                     
+425010                                                                              
+425510****************************************************************              
+426010* VERIFICO LOS ARCHIVOS LEIDOS.                                               
+426510****************************************************************              
+427010 50004000-CHECO-ARC.                                                          
+427510     IF GER-TIPO-REG = 1                                                      
+428010        PERFORM 50004100-HEADER     THRU 50004100-EXIT.                       
+428510                                                                              
+430010     IF (GER-TIPO-REG = 2) OR (GER-TIPO-REG = 3)                              
+430510        PERFORM 50004300-DETALLE    THRU 50004300-EXIT .                      
+432510                                                                              
+433010     IF GER-TIPO-REG = 4                                                      
+433510        PERFORM 50004500-TRAILER    THRU 50004500-EXIT.                       
+434010 50004000-EXIT.                                                               
+434510    EXIT.                                                                     
+435010                                                                              
+435510****************************************************************              
+436010* VALIDO EL HEADER DE EL ARCHIVO DE MTY.                                      
+436510****************************************************************              
+437010 50004100-HEADER.                                                             
+437510      IF WS-4VEZ = 0                                                          
+438010         MOVE "MTY"                           TO WS-TIPO                      
+438510         MOVE 1                               TO WS-4VEZ                      
+439010      ELSE                                                                    
+439510         MOVE "VDM"                           TO WS-TIPO.                     
+440010                                                                              
+440510      IF GER-FEC-OPE = WS-FECHA-PRO                                           
+441010         NEXT SENTENCE                                                        
+441510      ELSE                                                                    
+443010         STRING "FEC EXT DIF FEC INT ARC.    ",  WS-TIPO                      
+443510         DELIMITED BY SIZE INTO                  WS-0101-TEXT-MSG             
+444010         PERFORM 70000050-MENSAJE                                             
+444510         CALL SYSTEM DMTERMINATE.                                             
+445010                                                                              
+445510      MOVE 0  TO WS-GER-SDO-PROM WS-NUM-GERE.                                 
+446010 50004100-EXIT.                                                               
+446510    EXIT.                                                                     
+447010                                                                              
+447510******************************************************************            
+448010* VERIFICO EL DETALLE DE LOS ARCHIVOS LEIDOS.                                 
+448510* EL TIPO DE REG = 2 ES MOV.  3 = SALDO.                                      
+449010******************************************************************            
+449510 50004300-DETALLE.                                                            
+450010     ADD 1 TO WS-NUM-GERE                                                     
+450510              WS-NUM-GERE-TOT.                                                
+451010                                                                              
+451510     IF GER-TIPO-REG = 2                                                      
+452010        IF GER-NUM-CTE = 0                                                    
+452510            ADD 1                   TO  WS-CTES-NO                            
+453010            ADD GER-SDO-ACTUAL      TO  WS-GER-SDO-PROM                       
+453510                                        WS-GER-SDO-PROM-TOT                   
+454010                                        IM-CTES-NO                            
+454510        ELSE                                                                  
+455010            ADD 1                   TO  WS-CTES-SI                            
+455510            ADD GER-SDO-ACTUAL      TO  WS-GER-SDO-PROM                       
+456010                                        WS-GER-SDO-PROM-TOT                   
+456510                                        IM-CTES-SI                            
+457010     ELSE                                                                     
+457510            ADD GER-MOV-IMPORTE     TO  WS-GER-SDO-PROM                       
+458010                                        WS-GER-SDO-PROM-TOT.                  
+458510                                                                              
+459010     IF GER-TIPO-REG = 2                                                      
+459510        MOVE      GER-TIPO-REG      TO      D-GER-TIPO-REG                    
+460010        MOVE      GER-NUM-CTA       TO      D-GER-NUM-CTA                     
+460510        MOVE      GER-NUM-CTE       TO      D-GER-NUM-CTE                     
+461010        MOVE      GER-FEC-ULMOV     TO      D-GER-FEC-ULMOV                   
+461510        MOVE      GER-SUC           TO      D-GER-SUC                         
+462010        MOVE      GER-MONEDA        TO      D-GER-MONEDA                      
+462510        MOVE      GER-PERSONA       TO      D-GER-PERSONA                     
+463010        MOVE      GER-SDO-ACTUAL    TO      D-GER-SDO-ACTUAL                  
+463510        MOVE      GER-SDO-PROM      TO      D-GER-SDO-PROM                    
+464010        MOVE      GER-TASA          TO      D-GER-TASA                        
+464510     ELSE                                                                     
+465010     IF GER-TIPO-REG = 3                                                      
+465510        MOVE      GER-TIPO-REG      TO      D-GER-TIPO-REG                    
+466010        MOVE      GER-MOV-CONTRATO  TO      D-GER-MOV-CONTRATO                
+466510        MOVE      GER-MOV-FECHA     TO      D-GER-MOV-FECHA                   
+467010        MOVE      GER-MOV-FECVAL    TO      D-GER-MOV-FECVAL                  
+467510        MOVE      GER-MOV-SUCTRANS  TO      D-GER-MOV-SUCTRANS                
+468010        MOVE      GER-MOV-SUCPROM   TO      D-GER-MOV-SUCPROM                 
+468510        PERFORM 50004310-CONCVE     THRU    50004310-EXIT                     
+469010        MOVE      GER-MOV-CVETRAN   TO      D-GER-MOV-CVETRAN                 
+469510        MOVE      GER-MOV-IMPORTE   TO      D-GER-MOV-IMPORTE                 
+470010        MOVE      GER-MOV-MONEDA    TO      D-GER-MOV-MONEDA                  
+470510        MOVE      GER-MOV-INTCAN    TO      D-GER-MOV-INTCAN                  
+471010        MOVE      GER-MOV-TIPDEP    TO      D-GER-MOV-TIPDEP.                 
+471510                                                                              
+472010     WRITE REG-GER-TAPE     FROM  D-REG-GERENCIAL.                            
+473010     MOVE  LOW-VALUES       TO    D-REG-GERENCIAL.                            
+473510 50004300-EXIT.                                                               
+474010    EXIT.                                                                     
+474510                                                                              
+475010******************************************************************            
+475510* CONVIERTO LA CLAVE ANTERIOR DEL ARCHIVO AL LA CVE ACTUAL.                   
+476010******************************************************************            
+476510 50004310-CONCVE.                                                             
+477010    IF GER-MOV-CVETRAN  = 181                                                 
+477510       MOVE 1022                    TO GER-MOV-CVETRAN                        
+478010    ELSE                                                                      
+478510      IF GER-MOV-CVETRAN  = 280 OR 281 OR 282 OR 283                          
+479010         MOVE 3000                  TO GER-MOV-CVETRAN                        
+479510      ELSE                                                                    
+480010         IF GER-MOV-CVETRAN  = 381                                            
+480510            MOVE 2093               TO GER-MOV-CVETRAN                        
+481010         ELSE                                                                 
+481510            IF GER-MOV-CVETRAN  = 602                                         
+482010               MOVE 1               TO GER-MOV-CVETRAN                        
+482510            ELSE                                                              
+483010               IF GER-MOV-CVETRAN  = 603                                      
+483510                  MOVE 2            TO GER-MOV-CVETRAN                        
+484010               ELSE                                                           
+484510                  NEXT SENTENCE.                                              
+485010 50004310-EXIT.                                                               
+485510    EXIT.                                                                     
+486010                                                                              
+486510******************************************************************            
+487010* VERIFICO LOS TOTALES DEL TRAILER VS LOS ACUMULADOS DE LOS ARC.              
+487510******************************************************************            
+488010 50004500-TRAILER.                                                            
+489010     IF WS-5VEZ = 0                                                           
+489510         MOVE "MTY"                           TO WS-TIPO                      
+490010         MOVE 1                               TO WS-5VEZ                      
+490510      ELSE                                                                    
+491010         MOVE "VDM"                           TO WS-TIPO.                     
+491510                                                                              
+492010     IF (WS-NUM-GERE     = GER-NUM-REG) AND                                   
+492510        (WS-GER-SDO-PROM = GER-IMPO-PROM)                                     
+493010        NEXT SENTENCE                                                         
+493510     ELSE                                                                     
+495010        STRING "TRAILER DIF. A TOTAL ARCH.  ",  WS-TIPO                       
+495510        DELIMITED BY SIZE INTO                  WS-0101-TEXT-MSG              
+496010        PERFORM 70000050-MENSAJE                                              
+496510        CALL SYSTEM DMTERMINATE.                                              
+497010                                                                              
+497510     MOVE WS-NUM-GERE              TO  WS-NUMCTES.                            
+498510     MOVE WS-GER-SDO-PROM          TO  WS-IMPTOT.                             
+498520     MOVE WS-FECHA-PRO             TO  WS-VERSION.                            
+499510                                                                              
+500010     IF WS-3VEZ = 0                                                           
+501010        WRITE LINEA-CSI   FROM     WS-DET-GEREN     BEFORE 4                  
+501510        MOVE 1                     TO WS-3VEZ                                 
+502010     ELSE                                                                     
+503010        WRITE LINEA-CSI   FROM     WS-ENCABEZADOVDM BEFORE 2                  
+503510        WRITE LINEA-CSI   FROM     WS-ENC-GEREN     BEFORE 2                  
+504010        WRITE LINEA-CSI   FROM     WS-DET-GEREN     BEFORE 6.                 
+504510 50004500-EXIT.                                                               
+505010    EXIT.                                                                     
+505510                                                                              
+506010******************************************************************            
+506510* GENERA EL TRAILER DE LA CINTA,QUE CONTIENE LOS 2 ARCHIVOS.                  
+507010******************************************************************            
+507510 50005000-FINAL.                                                              
+508010     MOVE 4                   TO  D-GER-TIPO-REG.                             
+508510     MOVE WS-NUM-GERE-TOT     TO  D-GER-NUM-REG.                              
+509010     MOVE WS-GER-SDO-PROM-TOT TO  D-GER-IMPO-PROM.                            
+509510     MOVE WS-CTES-SI          TO  D-GER-NUME-CTESI.                           
+510010     MOVE IM-CTES-SI          TO  D-GER-IMPO-CTESI.                           
+510510     MOVE WS-CTES-NO          TO  D-GER-NUME-CTENO.                           
+511010     MOVE IM-CTES-NO          TO  D-GER-IMPO-CTENO.                           
+511510                                                                              
+512010     WRITE REG-GER-TAPE     FROM  D-REG-GERENCIAL.                            
+513010                                                                              
+513510     MOVE WS-CTES-SI    TO CTE-SI                                             
+514010     MOVE IM-CTES-SI    TO IMP-SI                                             
+514510     WRITE LINEA-CSI FROM TIT-CTES-SI BEFORE 4.                               
+515010     MOVE WS-CTES-NO    TO CTE-NO                                             
+515510     MOVE IM-CTES-NO    TO IMP-NO                                             
+516010     WRITE LINEA-CSI FROM TIT-CTES-NO BEFORE 2.                               
+516510 50005000-EXIT.                                                               
+517010    EXIT.                                                                     
+517510                                                                              
+518010                                                                              
+518510                                                                              
+519010                                                                              
+519510                                                                              
+520010******************************************************************            
+520510******************************************************************            
+521010* R U T I N A      F I N A L.                                                 
+521510******************************************************************            
+522010******************************************************************            
+522510                                                                              
+523010******************************************************************            
+523510* CIERRO BASE Y ARCHIVOS.                                                     
+524010******************************************************************            
+524510 70000000-CIERRO.                                                             
+525010     CLOSE GERENCIAL-TAPE              WITH SAVE.                             
+526010     CLOSE IMPRESION-CSI               WITH SAVE.                             
+526510     CLOSE GERENCIAL-MTY               WITH SAVE.                             
+527010     CLOSE GERENCIAL-VDM               WITH SAVE.                             
+527510                                                                              
+528010     CLOSE S500BD01CAPTACION                                                  
+528510     ON EXCEPTION                                                             
+530010        MOVE "ERROR AL CERRAR LA BASE" TO WS-0101-TEXT-MSG                    
+530510        PERFORM 70000050-MENSAJE                                              
+531010        CALL SYSTEM DMTERMINATE.                                              
+531510 70000000-EXIT.                                                               
+532010    EXIT.                                                                     
+532510                                                                              
+533010******************************************************************            
+533510* R U T I N A S    P A R A   E L   D E S P L I E G U E  D E  M S G            
+534010******************************************************************            
+534510                                                                              
+535010                                                                              
+535510******************************************************************            
+536010* COPY QUE CONTIENE LAS RUTINAS DE ACCESO A LA BASE Y MANEJO DE MS            
+536510******************************************************************            
+537010 COPY "S500/INC/PRO/25MTP002".                                                

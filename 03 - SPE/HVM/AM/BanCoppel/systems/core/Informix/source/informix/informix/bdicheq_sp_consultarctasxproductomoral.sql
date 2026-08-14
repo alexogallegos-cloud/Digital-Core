@@ -1,0 +1,320 @@
+CREATE PROCEDURE "informix".sp_consultarctasxproductomoral(pNumcte CHAR(20), pProd CHAR(4))
+	RETURNING
+		CHAR(6) 	AS COD_RET,
+		CHAR(20)   	AS CUENTA_MORAL;
+					
+		---DECLARACIONES
+		DEFINE iSqlErr					INTEGER;    
+		DEFINE iNRows					INTEGER;    
+		DEFINE cCodRet         			CHAR(6);				
+		DEFINE cCuentaMoral         	CHAR(20);							
+			
+		---INICIALIZACIONES
+		LET iSqlErr						= 0;    
+		LET iNRows						= 0;    
+		LET cCodRet         			= '000000';				
+		LET cCuentaMoral         		= '';				
+					
+	BEGIN
+		
+		ON EXCEPTION SET iSqlErr
+		   IF iSqlErr != 0 THEN
+			  LET cCodRet = iSqlErr;
+			  RETURN cCodRet,TRIM(NVL(cCuentaMoral,''));
+		   END IF;
+		END EXCEPTION;
+
+		SET ISOLATION TO DIRTY READ;
+		SET LOCK MODE TO WAIT 3;
+		
+		--SET DEBUG FILE TO '/home/sysifx/SPsPAYAN/sp_consultarctasxproductomoral.out';
+		--TRACE ON;
+		
+		IF TRIM(NVL(pNumcte,'')) = '' THEN
+			LET cCodRet = '000001';			RETURN cCodRet, TRIM(NVL(cCuentaMoral,''));
+		END IF;
+		
+		FOREACH
+			--SE OBTIENE LAS CUENTAS CON PRODUCTOS PARA PERSONA MORAL.					
+			SELECT a.cuenta
+			INTO cCuentaMoral
+			FROM bdicheq:"informix".sc_maechq a INNER JOIN bdicheq:"informix".sc_prodctemoral b ON (a.producto = b.producto)
+			WHERE a.num_cte = pNumcte
+			AND a.status_cta <> '2'
+			AND a.producto = CASE WHEN pProd = "" THEN a.producto  ELSE pProd END
+			
+			--SE RETORNA INFORMACION.
+			RETURN cCodRet, TRIM(NVL(cCuentaMoral,'')) WITH RESUME;
+		END FOREACH
+		
+		--SE VALIDA QUE REGRESE INFORMACION EL PROCEDIMIENTO.
+		LET iNRows = dbinfo("sqlca.sqlerrd2");				
+		
+		IF iNRows = 0 THEN
+			LET cCodRet = "000002";			RETURN cCodRet, TRIM(NVL(cCuentaMoral,''));
+		END IF;	
+		
+	END;
+	
+END PROCEDURE
+DOCUMENT
+'DESCRIPCION: Procedimiento que obtiene las cuentas de productos pertenecientes a personas morales', 
+'AUTOR: Guadalupe Payan ',
+'FECHA: Octubre 2011',
+'VERSION: 20111003.1522',
+'BD: bdicheq';
+
+CREATE PROCEDURE "informix".sp_integra_suspenso_pba(pempresa CHAR(3),psistema CHAR(2),pfecha DATE)
+    RETURNING CHAR(5);
+
+    DEFINE GLOBAL vgcodigo_mn           CHAR(2)     DEFAULT ' ';
+    DEFINE GLOBAL vg_sistema            CHAR(2)     DEFAULT ' ';
+    DEFINE GLOBAL vgtransacc_t1         CHAR(4)     DEFAULT ' ';
+    DEFINE GLOBAL vgtransacc_t2         CHAR(4)     DEFAULT ' ';
+    DEFINE GLOBAL vgcta_iva             CHAR(20)    DEFAULT ' ';
+    DEFINE GLOBAL vgcta_itr             CHAR(20)    DEFAULT ' ';
+    DEFINE GLOBAL vgtransacc_corresp    CHAR(4)     DEFAULT ' ';
+    
+    DEFINE vcodret          CHAR(5);
+    DEFINE vsqlerr          INTEGER;
+	DEFINE vfecha_valida    DATE;
+
+	DEFINE vidsc_suspenso   INTEGER; 
+    DEFINE vsecuencia       INTEGER;
+    DEFINE vsucursal 		CHAR(4);
+    DEFINE vsuccta 			CHAR(4);
+	DEFINE vcancelad 		CHAR(1);
+    DEFINE vccmayor 		CHAR(10);
+    DEFINE vccsub 			CHAR(10);
+    DEFINE vccsubsub 		CHAR(10);
+    DEFINE vccssubsub 		CHAR(10);
+    DEFINE vccsssubsub 		CHAR(10);
+    DEFINE vsector 			CHAR(10);
+    DEFINE vauxiliar 		CHAR(9);
+    DEFINE vproducto 		CHAR(4);
+    DEFINE vtransacc 		CHAR(4);
+	DEFINE vsectorca 		CHAR(2);
+	
+    DEFINE vtot_cargo 		MONEY(14,2);
+    DEFINE vtot_abono 		MONEY(14,2);
+	DEFINE vmonto_tot       MONEY(14,2);
+    DEFINE vmoneda 			CHAR(2);
+    DEFINE vdescripcion 	CHAR(30);
+	
+    DEFINE vc_ccmayor        CHAR(4);
+    DEFINE vc_ccsub          CHAR(2);
+    DEFINE vc_ccsubsub       CHAR(2);
+    DEFINE vc_ccsssub        CHAR(2);
+    DEFINE vc_ccssssub       CHAR(2);
+    DEFINE vc_sector         CHAR(2);
+    DEFINE va_ccmayor        CHAR(4);
+    DEFINE va_ccsub          CHAR(2);
+    DEFINE va_ccsubsub       CHAR(2);
+    DEFINE va_ccsssub        CHAR(2);
+    DEFINE va_ccssssub       CHAR(2);
+    DEFINE va_sector         CHAR(2);
+	
+    DEFINE vpsucursal 		 CHAR(4);
+    DEFINE vpsuccta 		 CHAR(4);
+	
+	DEFINE vpccmayor         CHAR(4);
+    DEFINE vpccsub           CHAR(2);
+    DEFINE vpccsubsub        CHAR(2);
+    DEFINE vpccssubsub       CHAR(2);
+    DEFINE vpccsssubsub      CHAR(2);
+    DEFINE vpsector          CHAR(2);
+	
+	DEFINE vpauxiliar 		  CHAR(9);
+	DEFINE vptot_cargo 		  MONEY(14,2);
+    DEFINE vptot_abono 		  MONEY(14,2);
+    DEFINE vpmoneda 		  CHAR(2);
+    DEFINE vpdescripcion 	  CHAR(30);
+	DEFINE vpciudad           CHAR(3);
+	DEFINE vusuario 		  CHAR(8);
+	DEFINE vfecha_hoy         DATE;
+	DEFINE vpsecuencia        INTEGER;
+	DEFINE vaplicapasecap     BOOLEAN;
+	DEFINE vmca_aplic 	      CHAR(1);
+	
+	BEGIN 
+	
+	ON EXCEPTION SET vsqlerr
+        IF vsqlerr <> 0 THEN
+            LET vcodret = vsqlerr;
+            RETURN vcodret ;
+        END IF;
+    END EXCEPTION;
+
+	--set debug file to "sp_integra_suspenso.out";
+    --trace on;
+
+    LET vcodret  = '000';
+	LET vfecha_valida = NULL;
+
+	LET vidsc_suspenso = 0;
+	LET vproducto = '';
+	LET vtransacc = '';
+	LET vsectorca = '';
+	LET vsecuencia = '';
+	
+	LET vc_ccmayor        = ' ';
+    LET vc_ccsub          = ' ';
+    LET vc_ccsubsub       = ' ';
+    LET vc_ccsssub        = ' ';
+    LET vc_ccssssub       = ' ';
+    LET vc_sector         = ' ';
+    LET va_ccmayor        = ' ';
+    LET va_ccsub          = ' ';
+    LET va_ccsubsub       = ' ';
+    LET va_ccsssub        = ' ';
+    LET va_ccssssub       = ' ';
+    LET va_sector         = ' ';
+
+	LET vusuario 		  = ' ';
+	LET vpsucursal 	      = ' ';
+	LET vpsuccta 	      = ' ';
+
+	LET vpccmayor         = ' ';
+	LET vpccsub           = ' ';
+	LET vpccsubsub        = ' ';
+	LET vpccssubsub       = ' ';
+	LET vpccsssubsub      = ' ';
+	LET vpsector          = ' ';
+	LET vpauxiliar 	      = ' ';
+	LET vptot_cargo 	  = 0;
+	LET vptot_abono 	  = 0;
+	LET vmonto_tot        = 0;
+	LET vpmoneda 	      = ' ';
+	LET vpdescripcion     = ' ';
+	LET vpciudad          = ' ';
+	LET vpsecuencia       = 0;
+	
+	LET vaplicapasecap    = 'f';
+	LET vmca_aplic        = "0";
+	
+    SET ISOLATION TO DIRTY READ;
+	SET LOCK MODE TO WAIT 3;
+
+	-- // Extrae parametros globales	
+	CALL pasechq_globalvar (pempresa) RETURNING vcodret; 
+
+	
+	IF psistema='01' THEN
+
+		IF EXISTS( SELECT COUNT(fecha_valida) FROM bdicheq:sc_suspenso WHERE fecha_captura_fin = pfecha ) THEN
+			UPDATE bdicheq:sc_suspenso 
+			   SET fecha_captura_fin = null
+			 WHERE fecha_captura_fin = pfecha;
+		END IF
+		
+		SELECT MIN(fecha_valida) INTO vfecha_valida FROM bdicheq:sc_suspenso WHERE fecha_captura_fin IS NULL;
+		
+		IF vfecha_valida IS NULL THEN
+			
+			RETURN vcodret;
+			
+		ELSE
+		
+			UPDATE bdicheq:sc_suspenso 
+			   SET (usuario_sus, control_poliza_sus,fecha_captura_sus) = 
+		           ((SELECT usuario,control_poliza,fecha_captura 
+				       FROM bdicont:co_poliza 
+					  WHERE empresa = pempresa
+					    AND usuario='chqinfor'
+						AND control_poliza > 0 
+						AND fecha_captura = pfecha
+						AND moneda IS NOT NULL))
+			 WHERE fecha_valida = pfecha;
+			 
+		END IF
+		
+		TRUNCATE bdicheq:sc_contab;
+        TRUNCATE bdicheq:aux_auditerr;
+	
+		FOREACH
+			SELECT idsc_suspenso,secuencia,sucursal,succta,cancelad,ccmayor,ccsub,ccsubsub,ccssubsub,ccsssubsub,sector,auxiliar,producto,transacc,sectorca,tot_cargo,tot_abono,moneda,descripcion
+			  INTO vidsc_suspenso,vsecuencia,vsucursal,vsuccta,vcancelad,vccmayor,vccsub,vccsubsub,vccssubsub,vccsssubsub,vsector,vauxiliar,vproducto,vtransacc,vsectorca,vtot_cargo,vtot_abono,vmoneda,vdescripcion
+			  FROM bdicheq:sc_suspenso
+			 WHERE fecha_valida = vfecha_valida
+			 ORDER BY idsc_suspenso ASC
+
+				SELECT c_ccmayor, c_ccsub, c_ccsubsub, c_ccsssub, c_ccssssub, c_sector,
+					   a_ccmayor, a_ccsub, a_ccsubsub, a_ccsssub, a_ccssssub, a_sector
+				  INTO vc_ccmayor, vc_ccsub, vc_ccsubsub, vc_ccsssub, vc_ccssssub, vc_sector,
+					   va_ccmayor, va_ccsub, va_ccsubsub, va_ccsssub, va_ccssssub, va_sector
+				  FROM bdinteg:si_prodtran
+				 WHERE empresa = pempresa 
+				   AND producto = vproducto 
+				   AND sistema = psistema 
+				   AND transaccion = vtransacc 
+				   AND secuencia = vsecuencia;
+				   
+					IF (vc_ccmayor =' '  OR vc_ccmayor IS NULL) AND (va_ccmayor = ' ' OR va_ccmayor IS NULL) THEN
+						CONTINUE FOREACH;
+					END IF
+					
+					IF vtot_cargo <> 0 THEN -- cancelacion de poliza suspenso
+
+						INSERT INTO bdicheq:sc_contab VALUES (pempresa, vsecuencia, vsucursal, vsuccta, vccmayor,vccsub,vccsubsub,
+															  vccssubsub,vccsssubsub,vsector,vauxiliar,0,vtot_cargo,
+															  vmoneda,vdescripcion) ; 
+															  
+															  
+					ELSE
+
+						INSERT INTO bdicheq:sc_contab VALUES (pempresa, vsecuencia, vsucursal, vsuccta, vccmayor,vccsub,vccsubsub,
+															  vccssubsub,vccsssubsub,vsector,vauxiliar,vtot_abono,0,
+														      vmoneda,vdescripcion) ; 
+					END IF
+
+					LET vaplicapasecap = 't';
+					
+					IF vtot_cargo <> 0 THEN
+						LET vmonto_tot = vtot_cargo;
+
+						CALL extrae_cont(pempresa,vsecuencia,vmonto_tot,vsucursal,vproducto,vmoneda,vtransacc,vsectorca,vcancelad,vsuccta,vdescripcion) 
+						RETURNING vcodret;
+						
+						IF vcodret <> "000" THEN 
+							RETURN vcodret;
+						END IF
+						
+					END IF
+
+		END FOREACH
+
+		IF vaplicapasecap = 't' THEN
+		
+		    CALL auditor(pempresa) RETURNING vcodret;
+		
+			IF vcodret = "000" THEN 
+		
+				LET vusuario = "ctassuca";
+			    CALL pasecont(pempresa,pfecha,vfecha_valida,vusuario) RETURNING vcodret;
+				
+				IF vcodret = "000" THEN 
+				
+					UPDATE bdicheq:sc_suspenso 
+					   SET (usuario_fin, control_poliza_fin, fecha_captura_fin) = 
+		                   ((SELECT usuario,control_poliza,fecha_captura 
+							   FROM bdicont:co_poliza 
+							  WHERE empresa = pempresa
+					            AND usuario='ctassuca'
+						        AND control_poliza > 0 
+						        AND fecha_captura = pfecha
+						        AND moneda IS NOT NULL))
+			        WHERE fecha_valida = vfecha_valida;
+
+				END IF
+			
+			END IF
+
+			END IF
+		
+	END IF
+	
+    RETURN vcodret;
+
+    END;
+
+END PROCEDURE;

@@ -11,10 +11,10 @@ Ecosistema de **Component Delivery Agents** de Accenture México (Technology, Di
 | # | Carpeta | Offering | Lifecycle variant |
 |---|---------|----------|-------------------|
 | 1 | `01 - TS&T/` | Technology Strategy & Transformation | Arch Lifecycle |
-| 2 | `02 - AI Enabled Enterprise/` | AI Enabled Enterprise | MLOps |
-| 3 | `03 - Software & Platform Engineering/` | Software & Platform Engineering | DevOps classic |
-| 4 | `04 - Intelligent Infrastructure/` | Intelligent Infrastructure | GitOps + IaC |
-| 5 | `05 - Modern Data Platform/` | Modern Data Platform | DataOps |
+| 2 | `02 - AIE/` | AI Enabled Enterprise | MLOps |
+| 3 | `03 - SPE/` | Software & Platform Engineering | DevOps classic |
+| 4 | `04 - II/` | Intelligent Infrastructure | GitOps + IaC |
+| 5 | `05 - MDP/` | Modern Data Platform | DataOps |
 | 6 | `06 - Innovation/` | Innovation | PoC Lifecycle |
 | 7 | `07 - AMS Reinvention/` | AMS Reinvention | AIOps + ITIL |
 

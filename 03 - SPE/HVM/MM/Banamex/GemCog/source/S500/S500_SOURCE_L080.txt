@@ -1,0 +1,1671 @@
+$SET LIST ERRORLIST LINEINFO OPTIMIZE  XREF  ERRORLIMIT = 5             00001000          
+$SET PAGE                                                               00002000          
+$SET XREF                                                               00003000          
+$SET LIST   ERRORLIST                                                   00004000          
+$SET STACK  LINEINFO  OPTIMIZE  ERRORLIMIT = 3                          00005000          
+%$SET TADS                                                              00006000          
+%***********************************************************************00007000          
+%    RESULT :                                                          %00008000          
+%      0 = OK                                                          %00009000          
+%      1 = NÚMERO DE PASO NO VÁLIDO                                    %00010000          
+%      2 = NÚMERO DE MIX NO VÁLIDO                                     %00011000          
+%      3 = NÚMERO DE MIX NO ACTIVA                                     %00012000          
+%      4 = NO HAY NÚMERO DE COPIA DISPONIBLE                           %00013000          
+%      5 = PASO NO SE ENCUENTRA EN ACTIVOS                             %00014000          
+%      6 = COPIAS ACTIVAS MAYOR A ASINGADAS                            %00015000          
+%      7 = ALGUNA DE LAS COPIAS NO HA CONFIRMADO CAMBIO DE PROCESO     %00016000          
+%      8 = AUN NO COMIENZA PROCESO BATCH                               %00017000          
+%      9 = NÚMERO DE COPIA NO VALIDO (FUERA DE RANGO)                  %00018000          
+%     10 = OCURRIO UN ERROR EN EL PROCESO BATCH                        %00019000          
+%     11 = LA COPIA CONFIRMO PREVIAMENTE LA BAJA                       %00020000          
+%     12 = ALGUNA COPIA NO HA CONFIRMADO LA BAJA                       %00021000          
+%     13 = FUNCION NO VÁLIDA                                           %00022000          
+%     14 = ERROR DE BASE DE DATOS                                      %00023000          
+%     15 = AUN NO COMIENZA PROCESO DE BAJA                             %00024000          
+%     16 = HI NO VÁLIDO                                                %00025000          
+%     17 = ERROR ESCRITURA BITACORA                                    %00026000          
+%     18 = ARCHIVO BITACORA NO DISPONIBLE                              %00027000          
+%***********************************************************************00028000          
+                                                                        00029000          
+$SET SHARING = SHAREDBYALL                                              00030000          
+BEGIN                                                                   00031000          
+                                                                        00032000          
+%********************************************************************** 00033000          
+% VARIABLES GLOBALES                                                    00034000          
+%********************************************************************** 00035000          
+                                                                        00036000          
+  INTEGER I_B02_FECHA_LINEA                                             00037000          
+         ,I_B07_FECHA_LINEA                                             00038000          
+         ,I_B02_FECHA_LOTE                                              00039000          
+         ,I_CSI_EJEC                                                    00040000          
+         ,I_PUNT_BITACORA                                               00041000          
+         ,I_CONLJ                                                       00042000          
+         ,I_NUM_REG_BIT                                                 00043000          
+         ;                                                              00044000          
+                                                                        00045000          
+  BOOLEAN B_DISPLAYS                                                    00046000          
+         ,B_INIBATCHP080                                                00047000          
+         ,B_INIBATCHP080_OK                                             00048000          
+         ,B_INIBATCHP080_ALL                                            00049000          
+         ,B_BAJA_P080                                                   00050000          
+         ,B_BITACORA_LISTO                                              00051000          
+         ,B_OPEN_MON_P080                                               00052000          
+         ;                                                              00053000          
+                                                                        00054000          
+  EVENT E_ESPERA_INIBATCHP080                                           00055000          
+       ,E_INIBATCHP080                                                  00056000          
+       ,E_AVISO_P080                                                    00057000          
+       ,E_FIN_HIP080                                                    00058000          
+       ;                                                                00059000          
+                                                                        00060000          
+  INTERLOCK LK_ESB_P080                                                 00061000          
+           ,LK_VERIFICA_COPIAS                                          00062000          
+           ,LK_ASIGNA_NCOPIA                                            00063000          
+           ,LK_AVI_ABP080                                               00064000          
+           ,LK_BITACORA                                                 00065000          
+           ;                                                            00066000          
+                                                                        00067000          
+  TASK T_HI_P080                                                        00068000          
+      ;                                                                 00069000          
+                                                                        00070000          
+  VALUE ARRAY  ERRORDMSII(3(0)                                          00071000          
+                       ,"NOT FOUND         "                            00072000          
+                       ,"DUPLICATES        "                            00073000          
+                       ,"DEADLOCK          "                            00074000          
+                       ,"DATAERROR         "                            00075000          
+                       ,"NOT LOCKED        "                            00076000          
+                       ,"KEYCHANGED        "                            00077000          
+                       ,"SYSTEMERROR       "                            00078000          
+                       ,"READONLY          "                            00079000          
+                       ,"IOERROR           "                            00080000          
+                       ,"LIMITERROR        "                            00081000          
+                       ,"OPEN ERROR        "                            00082000          
+                       ,"CLOSE ERROR       "                            00083000          
+                       ,"NORECORD          "                            00084000          
+                       ,"INUSE             "                            00085000          
+                       ,"AUDIT ERROR       "                            00086000          
+                       ,"ABORT             "                            00087000          
+                       ,"SECURITY ERROR    "                            00088000          
+                       ,"VERSION ERROR     "                            00089000          
+                       ,"FATAL ERROR       "                            00090000          
+                       ,"INTEGRITY ERROR   "                            00091000          
+                       ,"PARAMETER ERROR   ");                          00092000          
+                                                                        00093000          
+%*********************************************************************  00094000          
+% LIBRERIAS                                                             00095000          
+%*********************************************************************  00096000          
+                                                                        00097000          
+  LIBRARY LIBLJ(TITLE="(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK."); 00098000          
+          PROCEDURE LJ(CONTADOR,MENSAJE);                               00099000          
+          INTEGER   CONTADOR;                                           00100000          
+          EBCDIC    ARRAY MENSAJE[0];                                   00101000          
+          LIBRARY   LIBLJ;                                              00102000          
+                                                                        00103000          
+  LIBRARY CTLVER(LIBACCESS    = BYFUNCTION,                             00104000          
+                 FUNCTIONNAME = "CTLVERS");                             00105000          
+          INTEGER PROCEDURE DAME_TIT(ID,TITULO);                        00106000          
+          EBCDIC  ARRAY ID,TITULO[0];                                   00107000          
+          LIBRARY CTLVER;                                               00108000          
+                                                                        00109000          
+                                                                        00110000          
+%*********************************************************************  00111000          
+% DEFINE                                                                00112000          
+%*********************************************************************  00113000          
+                                                                        00114000          
+  DEFINE                                                                00115000          
+                                                                        00116000          
+     DF_BD01 = S500BD01CAPTACION #                                      00117000          
+    ,DF_BD07 = S500BD07ATRIBUCTA #                                      00118000          
+                                                                        00119000          
+    ,DF_S500BD01 =                                                      00120000          
+           DATABASE S500BD01CAPTACION                                   00121000          
+          (TITLE="(S500)S500BD01CAPTACION ON CAPTACION")                00122000          
+          :S500B02CONTROL,S500B00CTRLPASO #                             00123000          
+                                                                        00124000          
+    ,DF_S500BD07 =                                                      00125000          
+           DATABASE S500BD07ATRIBUCTA                                   00126000          
+          (TITLE="(S500)S500BD07ATRIBUCTA ON CAPTACION")                00127000          
+          :S500B01CONTRATOS,S500B02CONTROL,S500B91REINICIO #            00128000          
+                                                                        00129000          
+    ,DF_NUMCOPIAS_P080 = 2 #                                            00130000          
+    ,DF_IND_P080       = 0 #                                            00131000          
+    ,DF_NUMCOPIAS_MAX  = 10#                                            00132000          
+                                                                        00133000          
+    ,DF_SISTEMA  = "S500" #                                             00134000          
+    ,DF_MTP      = "002"  #                                             00135000          
+    ,DF_MAX_BIT  = 150    #                                             00136000          
+                                                                        00137000          
+    ,DF_LIMPIA_BIT = REPLACE EA_BITACORA BY " " FOR SIZE(EA_BITACORA); #00138000          
+                                                                        00139000          
+    ,DF_HDRMSG (X) = DF_SISTEMA,"/L080/",DF_MTP,":",X #                 00140000          
+    ,DF_DISPLAY(X) =                                                    00141000          
+     BEGIN                                                              00142000          
+       REPLACE EA_MSGLJ BY " " FOR SIZE(EA_MSGLJ);                      00143000          
+       REPLACE EA_MSGLJ BY DF_HDRMSG("E>050110<")                       00144000          
+                          ," "                                          00145000          
+                          ,X                                            00146000          
+                          ;                                             00147000          
+       LJ(I_CONLJ,EA_MSGLJ);                                            00148000          
+     END#                                                               00149000          
+                                                                        00150000          
+    ,DF_ERRORDB(X) =                                                    00151000          
+     BEGIN                                                              00152000          
+       REPLACE EA_MSGLJ BY " " FOR SIZE(EA_MSGLJ);                      00153000          
+       REPLACE EA_MSGLJ BY                                              00154000          
+              DF_HDRMSG("I>041001<")                                    00155000          
+             ,"ERROR DMSII BASE: "                                      00156000          
+             ,X                                                         00157000          
+             , " ,ERROR: "                                              00158000          
+             ,POINTER(ERRORDMSII[R_DMERR.DMERROR*3]) FOR 18             00159000          
+             ,"-> "                                                     00160000          
+             ,R_DMERR.DMERRORTYPE FOR 2 DIGITS                          00161000          
+             ,R_DMERR.DMSTRUCTURE FOR 2 DIGITS                          00162000          
+             ," ,LINEA: "                                               00163000          
+             ,LINENUMBER FOR 8 DIGITS                                   00164000          
+             ;                                                          00165000          
+       LJ(I_CONLJ,EA_MSGLJ);                                            00166000          
+     END#                                                               00167000          
+                                                                        00168000          
+    ,DF_ERRORDB_DS(X) =                                                 00169000          
+     IF BOOLEAN(R_DMERR) THEN                                           00170000          
+     BEGIN                                                              00171000          
+       DF_ERRORDB(X);                                                   00172000          
+       MYSELF.STATUS:= -1;                                              00173000          
+     END#                                                               00174000          
+                                                                        00175000          
+    ,DF_ERRORDB_RSLT(X) =                                               00176000          
+     BEGIN                                                              00177000          
+       DF_ERRORDB(X);                                                   00178000          
+       I_RESULT:= 14;                                                   00179000          
+     END#                                                               00180000          
+                                                                        00181000          
+    ,DF_ERRORDB_DISP(X) =                                               00182000          
+     IF BOOLEAN(R_DMERR) THEN                                           00183000          
+        DF_ERRORDB(X)#                                                  00184000          
+                                                                        00185000          
+    ;                                                                   00186000          
+                                                                        00187000          
+%*********************************************************************  00188000          
+% ENTRY POINT                                                           00189000          
+%*********************************************************************  00190000          
+                                                                        00191000          
+% ENTRADA S500L080INICIOXPGM                                            00192000          
+%*********************************************************************  00193000          
+                                                                        00194000          
+  DEFINE                                                                00195000          
+                                                                        00196000          
+     IDF_I_INI_PASO        = INTEGER(ENTRADA[ 0], 2)  #                 00197000          
+    ,IDF_I_INI_MIX         = INTEGER(ENTRADA[ 2], 6)  #                 00198000          
+                                                                        00199000          
+% SALIDA S500L080INICIOXPGM                                             00200000          
+%*********************************************************************  00201000          
+                                                                        00202000          
+    , DF_O_INI_COPIA        =         SALIDA [ 0]      #                00203000          
+    , DF_O_INI_FECLINEA     =         SALIDA [ 2]      #                00204000          
+    ,IDF_O_INI_COPIA        = INTEGER(SALIDA [ 0], 2)  #                00205000          
+    ,IDF_O_INI_FECLINEA     = INTEGER(SALIDA [ 2], 8)  #                00206000          
+    ;                                                                   00207000          
+                                                                        00208000          
+% ENTRADA S500L080ESBATCHP080                                           00209000          
+%*********************************************************************  00210000          
+                                                                        00211000          
+  DEFINE                                                                00212000          
+                                                                        00213000          
+     IDF_I_ESB_PASO        = INTEGER(ENTRADA[ 0], 2)  #                 00214000          
+    ,IDF_I_ESB_COPIA       = INTEGER(ENTRADA[ 2], 2)  #                 00215000          
+    ,IDF_I_ESB_MIX         = INTEGER(ENTRADA[ 4], 6)  #                 00216000          
+                                                                        00217000          
+% SALIDA S500L080ESBATCHP080                                            00218000          
+%*********************************************************************  00219000          
+                                                                        00220000          
+    ,DF_O_ESB_FECLINEA     =         SALIDA [0]       #                 00221000          
+    ;                                                                   00222000          
+                                                                        00223000          
+% ENTRADA S500L080AVIBAJAP080                                           00224000          
+%*********************************************************************  00225000          
+                                                                        00226000          
+  DEFINE                                                                00227000          
+                                                                        00228000          
+    IDF_I_ABP80_PASO       = INTEGER(ENTRADA[ 0], 2)  #                 00229000          
+   ,IDF_I_ABP80_COPIA      = INTEGER(ENTRADA[ 2], 2)  #                 00230000          
+   ,IDF_I_ABP80_MIX        = INTEGER(ENTRADA[ 4], 6)  #                 00231000          
+   ;                                                                    00232000          
+                                                                        00233000          
+% ENTRADA S500L080PROCHI                                                00234000          
+%*********************************************************************  00235000          
+                                                                        00236000          
+  DEFINE                                                                00237000          
+                                                                        00238000          
+    IDF_I_PHI_FUNCION      = INTEGER(ENTRADA[ 0], 2)  #                 00239000          
+   ;                                                                    00240000          
+                                                                        00241000          
+% ENTRADA S500L080CONFIRMHI                                             00242000          
+%*********************************************************************  00243000          
+                                                                        00244000          
+  DEFINE                                                                00245000          
+                                                                        00246000          
+    IDF_I_CHI_PASO         = INTEGER(ENTRADA[ 0], 2)  #                 00247000          
+   ,IDF_I_CHI_COPIA        = INTEGER(ENTRADA[ 2], 2)  #                 00248000          
+   ,IDF_I_CHI_FUNC         = INTEGER(ENTRADA[ 4], 2)  #                 00249000          
+   ,IDF_I_CHI_MIX          = INTEGER(ENTRADA[ 6], 6)  #                 00250000          
+   ;                                                                    00251000          
+                                                                        00252000          
+% LAYOUT BITACORA                                                       00253000          
+%*********************************************************************  00254000          
+                                                                        00255000          
+  DEFINE                                                                00256000          
+                                                                        00257000          
+    DF_L_BIT_ID           =   EA_BITACORA[0 ]      #                    00258000          
+   ,DF_L_BIT_SEC          =   EA_BITACORA[2 ]      #                    00259000          
+   ,DF_L_BIT_FECHA        =   EA_BITACORA[12]      #                    00260000          
+   ,DF_L_BIT_HORA         =   EA_BITACORA[20]      #                    00261000          
+   ,DF_L_BIT_CSI          =   EA_BITACORA[28]      #                    00262000          
+   ,DF_L_SPACE            =   EA_BITACORA[30]      #                    00263000          
+   ,DF_L_DATOS            =   EA_BITACORA[31]      #                    00264000          
+                                                                        00265000          
+   ,IDF_L_TIP_REG         =  INTEGER(ENTRADA[0], 2)  #                  00266000          
+   , DF_L_DAT_ENT         =          ENTRADA[2]      #                  00267000          
+   ;                                                                    00268000          
+                                                                        00269000          
+%*********************************************************************  00270000          
+% ARRAY GLOBALES                                                        00271000          
+%*********************************************************************  00272000          
+                                                                        00273000          
+  BOOLEAN ARRAY  BA_COP_INIBATCH[0:3,1:DF_NUMCOPIAS_MAX]                00274000          
+                ,BA_COP_AVISBAJA[0:3,1:DF_NUMCOPIAS_MAX]                00275000          
+                ;                                                       00276000          
+                                                                        00277000          
+  INTEGER ARRAY  IA_NUM_COPIAS[0:3]                                     00278000          
+                ,IA_MIXES_XPGM[0:3,1:DF_NUMCOPIAS_MAX]                  00279000          
+                ;                                                       00280000          
+                                                                        00281000          
+  EBCDIC  ARRAY  EA_BITACORA[0:899]                                     00282000          
+                ,EA_MY_HOST [0:99 ]                                     00283000          
+                ;                                                       00284000          
+                                                                        00285000          
+%***********************************************************************00286000          
+% FILE                                                                  00287000          
+%***********************************************************************00288000          
+                                                                        00289000          
+  FILE                                                                  00290000          
+                                                                        00291000          
+    F_BITACORA(KIND=PACK,MAXRECSIZE=150,BLOCKSIZE=5400,                 00292000          
+               AREAS=1000,AREASIZE=1000,SECURITYUSE=3,                  00293000          
+               SECURITYTYPE=1,BUFFERS = 1,UNITS=WORDS,                  00294000          
+               PROTECTION=PROTECTED,SAVEFACTOR=99)                      00295000          
+   ;                                                                    00296000          
+                                                                        00297000          
+%*********************************************************************  00298000          
+% PROCEDURE GLOBALES                                                    00299000          
+%*********************************************************************  00300000          
+                                                                        00301000          
+  PROCEDURE CALL_SYSTEM_WFL(I_ENVIO);                                   00302000          
+  INTEGER I_ENVIO;                                                      00303000          
+  BEGIN                                                                 00304000          
+                                                                        00305000          
+    EBCDIC       ARRAY EA_WFLJOB    [0:199]                             00306000          
+                      ,EA_S500JBATCH[0: 71]                             00307000          
+                      ,EA_MSGLJ     [0:499]                             00308000          
+                      ;                                                 00309000          
+    EBCDIC VALUE ARRAY ID_WFLLOTE ("S500JBATCH  ");                     00310000          
+                                                                        00311000          
+    POINTER P_WFL;                                                      00312000          
+                                                                        00313000          
+    IF DAME_TIT (ID_WFLLOTE,EA_S500JBATCH) < 0 THEN                     00314000          
+       DF_DISPLAY("ERROR AL OBTENER S500JBATCH")                        00315000          
+    ELSE                                                                00316000          
+    BEGIN                                                               00317000          
+      P_WFL := EA_WFLJOB;                                               00318000          
+      IF EA_MY_HOST = "ACYPBETA" OR EA_MY_HOST = "CACYPBET" THEN        00319000          
+         REPLACE P_WFL:P_WFL  BY "ACCESSCODE = 90834844/GEML1234;";     00320000          
+      REPLACE P_WFL:P_WFL     BY "START "                               00321000          
+                                ,EA_S500JBATCH FOR 41                   00322000          
+                                ,"("                                    00323000          
+                                ,""";                                   00324000          
+      IF I_ENVIO = 1 THEN                                               00325000          
+         REPLACE P_WFL:P_WFL  BY "ENVIAMONIP080 "                       00326000          
+      ELSE                                                              00327000          
+      IF I_ENVIO = 2 THEN                                               00328000          
+         REPLACE P_WFL:P_WFL  BY "ENVIAPROBP080 "                       00329000          
+      ELSE                                                              00330000          
+         REPLACE P_WFL:P_WFL  BY "ENVIABITAP080 ";                      00331000          
+      REPLACE P_WFL:P_WFL  BY I_B07_FECHA_LINEA FOR 8 DIGITS            00332000          
+                             ,"""                                       00333000          
+                             ,");"                                      00334000          
+                             ,"END JOB";                                00335000          
+      WAIT((3));                                                        00335200          
+      ZIP WITH EA_WFLJOB;                                               00335400          
+      WAIT((1));                                                        00335600          
+    END;                                                                00336000          
+                                                                        00338000          
+  END OF CALL_SYSTEM_WFL;                                               00339000          
+                                                                        00340000          
+  INTEGER PROCEDURE OBTIENE_HORA_MAQ;                                   00341000          
+  BEGIN                                                                 00342000          
+                                                                        00343000          
+    DEFINE                                                              00344000          
+      DF_HORA_DIV =  (I_TIME DIV 1000000)#;                             00345000          
+                                                                        00346000          
+    INTEGER I_TIME, I_HORAS, I_MINUTOS, I_SEGUNDOS, I_CENTSEGUNDOS;     00347000          
+                                                                        00348000          
+    I_TIME         :=  TIME(11)*2.4;                                    00349000          
+    I_HORAS        :=  DF_HORA_DIV DIV 3600;                            00350000          
+    I_MINUTOS      := (DF_HORA_DIV DIV 60) - (I_HORAS  *   60);         00351000          
+    I_SEGUNDOS     :=  DF_HORA_DIV         - (I_HORAS  * 3600)          00352000          
+                                           - (I_MINUTOS*   60);         00353000          
+    I_CENTSEGUNDOS   := (I_TIME MOD 1000000) DIV 10000;                 00354000          
+    OBTIENE_HORA_MAQ :=  I_HORAS         * 1000000   +                  00355000          
+                         I_MINUTOS       * 10000     +                  00356000          
+                         I_SEGUNDOS      * 100       +                  00357000          
+                         I_CENTSEGUNDOS;                                00358000          
+                                                                        00359000          
+  END OF OBTIENE_HORA_MAQ;                                              00360000          
+                                                                        00361000          
+  INTEGER PROCEDURE OBTIENE_FECHA_MAQ;                                  00362000          
+  BEGIN                                                                 00363000          
+                                                                        00364000          
+    REAL R_B02_FECHA_MAQUI;                                             00365000          
+                                                                        00366000          
+    R_B02_FECHA_MAQUI := TIME(7);                                       00367000          
+    OBTIENE_FECHA_MAQ := R_B02_FECHA_MAQUI.[47:12] * 10000 +            00368000          
+                         R_B02_FECHA_MAQUI.[35:6 ] * 100   +            00369000          
+                         R_B02_FECHA_MAQUI.[29:6 ];                     00370000          
+                                                                        00371000          
+  END OF OBTIENE_FECHA_MAQ;                                             00372000          
+                                                                        00373000          
+  PROCEDURE OBTIENE_CSI_COMS;                                           00374000          
+  BEGIN                                                                 00375000          
+                                                                        00376000          
+    EBCDIC ARRAY ENT [0:36];                                            00377000          
+                                                                        00378000          
+    LIBRARY SOPORTE(LIBACCESS=BYFUNCTION,                               00379000          
+                    FUNCTIONNAME="SOPORTECOMS");                        00380000          
+    PROCEDURE CSIID(ENTRADA);                                           00381000          
+    EBCDIC ARRAY ENTRADA[0];                                            00382000          
+    LIBRARY SOPORTE;                                                    00383000          
+                                                                        00384000          
+    CSIID(ENT);                                                         00385000          
+    I_CSI_EJEC := INTEGER(ENT,2);                                       00386000          
+    IF I_CSI_EJEC = 32 THEN                                             00387000          
+       I_CSI_EJEC := 4;                                                 00388000          
+                                                                        00389000          
+    DELINKLIBRARY(SOPORTE);                                             00390000          
+                                                                        00391000          
+  END OF OBTIENE_CSI_COMS;                                              00392000          
+                                                                        00393000          
+  PROCEDURE ABRE_GENE_BITACORA;                                         00394000          
+  BEGIN                                                                 00395000          
+                                                                        00396000          
+    EBCDIC ARRAY EA_TITLE [0:69]                                        00397000          
+                ,EA_MSGLJ[0:499];                                       00398000          
+    INTEGER I_TIP_REG;                                                  00399000          
+                                                                        00400000          
+    DEFINE                                                              00401000          
+                                                                        00402000          
+    DF_TITLE =                                                          00403000          
+      REPLACE EA_TITLE BY " " FOR SIZE(EA_TITLE );                      00404000          
+      REPLACE EA_TITLE BY "(S500)S500/FILE/INTS/50024S01/"              00405000          
+                         ,I_CSI_EJEC            FOR 2 DIGITS            00406000          
+                         ,"/"                                           00407000          
+                         ,I_B07_FECHA_LINEA     FOR 8 DIGITS            00408000          
+                         ,"/BITCAMNM"                                   00409000          
+                         ," ON CAPTACION.";                             00410000          
+      #;                                                                00411000          
+                                                                        00412000          
+    OBTIENE_CSI_COMS;                                                   00413000          
+    DF_TITLE;                                                           00414000          
+    B_BITACORA_LISTO := FALSE;                                          00415000          
+    I_NUM_REG_BIT := 0;                                                 00416000          
+                                                                        00417000          
+    IF F_BITACORA.OPEN THEN                                             00418000          
+    BEGIN                                                               00419000          
+      READ (F_BITACORA[0],DF_MAX_BIT,EA_BITACORA);                      00420000          
+      CLOSE(F_BITACORA,LOCK);                                           00421000          
+    END;                                                                00422000          
+                                                                        00423000          
+    REPLACE F_BITACORA.TITLE BY EA_TITLE;                               00424000          
+    IF F_BITACORA.RESIDENT THEN                                         00425000          
+    BEGIN                                                               00426000          
+      F_BITACORA.MYUSE := 3;                                            00427000          
+      OPEN (F_BITACORA);                                                00428000          
+      I_PUNT_BITACORA  := F_BITACORA.LASTRECORD;                        00429000          
+      IF I_PUNT_BITACORA < 999999 THEN                                  00430000          
+      BEGIN                                                             00431000          
+        READ(F_BITACORA[0],DF_MAX_BIT,EA_BITACORA);                     00432000          
+        IF I_TIP_REG := INTEGER(EA_BITACORA,2) NEQ 01 THEN              00433000          
+        BEGIN                                                           00434000          
+          REPLACE EA_BITACORA[0] BY " " FOR SIZE(EA_BITACORA);          00435000          
+          REPLACE EA_BITACORA[0] BY 010500            FOR 6 DIGITS      00436000          
+                                   ,I_B07_FECHA_LINEA FOR 8 DIGITS      00437000          
+                                   ,I_CSI_EJEC        FOR 2 DIGITS;     00438000          
+          WRITE(F_BITACORA[0],DF_MAX_BIT,EA_BITACORA);                  00439000          
+          CLOSE(F_BITACORA,LOCK);                                       00440000          
+          OPEN(F_BITACORA);                                             00441000          
+        END;                                                            00442000          
+        IF I_PUNT_BITACORA = 0 THEN                                     00443000          
+           I_PUNT_BITACORA := 1                                         00444000          
+        ELSE                                                            00445000          
+        BEGIN                                                           00446000          
+          READ(F_BITACORA[I_PUNT_BITACORA],DF_MAX_BIT,EA_BITACORA);     00447000          
+          IF I_TIP_REG := INTEGER(EA_BITACORA,2) = 10 THEN              00448000          
+             I_NUM_REG_BIT := INTEGER(EA_BITACORA[2],8)                 00449000          
+          ELSE                                                          00450000          
+          BEGIN                                                         00451000          
+            I_NUM_REG_BIT := I_PUNT_BITACORA;                           00452000          
+            I_PUNT_BITACORA := * + 1;                                   00453000          
+          END;                                                          00454000          
+        END;                                                            00455000          
+      END                                                               00456000          
+      ELSE                                                              00457000          
+      BEGIN                                                             00458000          
+        CLOSE (F_BITACORA) ;                                            00459000          
+        DF_DISPLAY (">L080< ARCHIVO BITACORA LLENO");                   00460000          
+      END;                                                              00461000          
+    END                                                                 00462000          
+    ELSE                                                                00463000          
+    BEGIN                                                               00464000          
+      F_BITACORA.MYUSE := 2;                                            00465000          
+      REPLACE EA_BITACORA BY " " FOR SIZE(EA_BITACORA);                 00466000          
+      REPLACE EA_BITACORA BY 010500            FOR 6 DIGITS             00467000          
+                            ,I_B07_FECHA_LINEA FOR 8 DIGITS             00468000          
+                            ,I_CSI_EJEC        FOR 2 DIGITS;            00469000          
+      WRITE(F_BITACORA[0],DF_MAX_BIT,EA_BITACORA);                      00470000          
+      CLOSE(F_BITACORA,LOCK);                                           00471000          
+      F_BITACORA.MYUSE := 3;                                            00472000          
+      OPEN(F_BITACORA);                                                 00473000          
+      I_PUNT_BITACORA := 1;                                             00474000          
+    END;                                                                00475000          
+    IF F_BITACORA.OPEN THEN                                             00476000          
+       B_BITACORA_LISTO := TRUE;                                        00477000          
+                                                                        00478000          
+  END OF ABRE_GENE_BITACORA;                                            00479000          
+                                                                        00480000          
+  PROCEDURE ESCRIBE_TRAILER_BITACORA;                                   00481000          
+  BEGIN                                                                 00482000          
+                                                                        00483000          
+    REPLACE EA_BITACORA[0] BY " " FOR SIZE(EA_BITACORA);                00484000          
+    REPLACE EA_BITACORA[0] BY 10            FOR 2 DIGITS                00485000          
+                             ,I_NUM_REG_BIT FOR 8 DIGITS;               00486000          
+    WRITE(F_BITACORA[I_PUNT_BITACORA],DF_MAX_BIT,EA_BITACORA);          00487000          
+    CLOSE(F_BITACORA,LOCK);                                             00488000          
+    CALL_SYSTEM_WFL(3);                                                 00489000          
+                                                                        00490000          
+  END OF ESCRIBE_TRAILER_BITACORA;                                      00491000          
+                                                                        00492000          
+  PROCEDURE ENVIO_HI (I_IND,I_HI);                                      00493000          
+  INTEGER I_IND,I_HI;                                                   00494000          
+  BEGIN                                                                 00495000          
+                                                                        00496000          
+    REAL   ARRAY SCR1,SCR2[0:200];                                      00497000          
+    EBCDIC ARRAY EA_RSPO  [0:99 ];                                      00498000          
+    EBCDIC ARRAY EA_MSGLJ [0:499];                                      00499000          
+    POINTER P_EA_RSPO;                                                  00500000          
+    INTEGER I_IND1;                                                     00501000          
+                                                                        00502000          
+    REPLACE EA_RSPO BY " " FOR SIZE(EA_RSPO);                           00503000          
+    P_EA_RSPO := EA_RSPO;                                               00504000          
+    FOR I_IND1 := 1 STEP 1 UNTIL IA_NUM_COPIAS[I_IND]  DO               00505000          
+        IF IA_MIXES_XPGM[I_IND,I_IND1] > 0  THEN                        00506000          
+           REPLACE P_EA_RSPO:P_EA_RSPO BY                               00507000          
+                   IA_MIXES_XPGM[I_IND,I_IND1] FOR 4 DIGITS ," " ;      00508000          
+                                                                        00509000          
+    IF OFFSET(P_EA_RSPO) > 0 THEN                                       00510000          
+    BEGIN                                                               00511000          
+      REPLACE P_EA_RSPO:P_EA_RSPO BY "HI " !! STRING(I_HI,4);           00512000          
+      IF B_DISPLAYS THEN                                                00513000          
+      BEGIN                                                             00514000          
+        DF_DISPLAY(">L080< HI A LAS MEZCLAS : ");                       00515000          
+        DF_DISPLAY(EA_RSPO FOR SIZE(EA_RSPO));                          00516000          
+      END;                                                              00517000          
+      REPLACE POINTER(SCR1) BY 48"00" FOR (SIZE(SCR1)*6);               00518000          
+      REPLACE POINTER(SCR1) BY EA_RSPO FOR                              00519000          
+                      (IF SIZE(SCR1)*6 > SIZE (EA_RSPO) THEN            00520000          
+                          SIZE(EA_RSPO)                                 00521000          
+                       ELSE                                             00522000          
+                          (SIZE(SCR1)*6-1));                            00523000          
+      DCKEYIN(POINTER(SCR1),SCR2);                                      00524000          
+    END;                                                                00525000          
+                                                                        00526000          
+  END OF ENVIO_HI;                                                      00527000          
+                                                                        00528000          
+  PROCEDURE HISP080;                                                    00529000          
+  BEGIN                                                                 00530000          
+                                                                        00531000          
+    INTEGER I_HI, I_RESULT, I_DF_IND1;                                  00532000          
+    EBCDIC  ARRAY EA_MSGLJ [0:499];                                     00533000          
+                                                                        00534000          
+%*********************************************************************  00535000          
+% HISP080  OUTER  BLOCK                                                 00536000          
+%*********************************************************************  00537000          
+                                                                        00538000          
+    IF B_DISPLAYS THEN                                                  00539000          
+       DF_DISPLAY("INICIA HISP080");                                    00540000          
+                                                                        00541000          
+    DO                                                                  00542000          
+    BEGIN                                                               00543000          
+      I_HI := WAIT(E_FIN_HIP080,MYSELF.EXCEPTIONEVENT);                 00544000          
+      IF I_HI = 2 THEN                                                  00545000          
+      BEGIN                                                             00546000          
+        CASE MYSELF.TASKVALUE OF                                        00547000          
+        BEGIN                                                           00548000          
+          1 : DF_DISPLAY (">P081< ABRE O CIERRA ARCHIVO MONITOR P080"); 00549000          
+              IF B_OPEN_MON_P080 THEN                                   00550000          
+                 B_OPEN_MON_P080 := FALSE                               00551000          
+              ELSE                                                      00552000          
+                 B_OPEN_MON_P080 := TRUE;                               00553000          
+          2 : DF_DISPLAY (">P081< ABRE O CIERRA ARCHIVO PROBLEM P080"); 00554000          
+          3 : DF_DISPLAY (">P081< HABI/DESHAB PROCESAMIENTO DE ARCHS"); 00555000          
+          4 :                                                           00556000          
+          5 : DF_DISPLAY (">P081< LIGUE/DESLIGUE L081");                00557000          
+          7 : DF_DISPLAY (">P081< ESTADISTICOS P080");                  00558000          
+          8 : DF_DISPLAY (">P081< HABILITAR SEGURIDAD ADMWIN");         00559000          
+          9 : DF_DISPLAY (">P081< DESHABILITAR SEGURIDAD ADMWIN");      00560000          
+         20 : DF_DISPLAY (">P081< HABILITA DISPLAYS P080");             00561000          
+         25 : IF B_BITACORA_LISTO THEN                                  00562000          
+                 DF_DISPLAY (">P081< CIERRO/ABRO BITACORA")             00563000          
+              ELSE                                                      00564000          
+                 DF_DISPLAY (">P081< ARCHIVO BITACORA NO DISPONIBLE");  00565000          
+         26 : IF B_DISPLAYS THEN                                        00566000          
+              BEGIN                                                     00567000          
+                DF_DISPLAY (">P081< APAGO DISPLAYS");                   00568000          
+                B_DISPLAYS := FALSE;                                    00569000          
+              END                                                       00570000          
+              ELSE                                                      00571000          
+              BEGIN                                                     00572000          
+                DF_DISPLAY (">P081< ENCIENDO DISPLAYS");                00573000          
+                B_DISPLAYS := TRUE;                                     00574000          
+              END;                                                      00575000          
+        191 : DF_DISPLAY (">P081< ABRE O CIERRA ARCHIVO MONITOR L081"); 00576000          
+        192 : DF_DISPLAY (">P081< ABRE O CIERRA ARCHIVO PROBLEM L081"); 00577000          
+        193 : DF_DISPLAY (">P081< ESTADISTICOS L081");                  00578000          
+        195 : DF_DISPLAY (">P081< HAB/DESHA CALL S016 L081");           00579000          
+        196 : DF_DISPLAY (">P081< ENCIENDO/APAGO DISPLAYS L081");       00580000          
+          ELSE : IF MYSELF.TASKVALUE > 50  AND                          00581000          
+                    MYSELF.TASKVALUE < 190 AND                          00582000          
+                    MYSELF.TASKVALUE > 199 THEN                         00583000          
+                    I_RESULT := 16;                                     00584000          
+        END;                                                            00585000          
+                                                                        00586000          
+        IF I_RESULT = 0 THEN                                            00587000          
+        BEGIN                                                           00588000          
+          IF MYSELF.TASKVALUE LEQ 25 OR MYSELF.TASKVALUE GEQ 190 THEN   00589000          
+          BEGIN                                                         00590000          
+            DF_DISPLAY(" ENVIO HI P080 : "!!STRING(MYSELF.TASKVALUE,*));00591000          
+            ENVIO_HI(DF_IND_P080,MYSELF.TASKVALUE + 4000);              00592000          
+          END;                                                          00593000          
+          IF (MYSELF.TASKVALUE = 1  AND NOT B_OPEN_MON_P080 ) OR        00594000          
+              MYSELF.TASKVALUE = 2                            THEN      00595000          
+              CALL_SYSTEM_WFL(MYSELF.TASKVALUE)                         00598000          
+          ELSE                                                          00600000          
+          IF MYSELF.TASKVALUE = 25 AND B_BITACORA_LISTO THEN            00601000          
+          BEGIN                                                         00602000          
+            LOCK(LK_BITACORA);                                          00603000          
+            ESCRIBE_TRAILER_BITACORA;                                   00605000          
+            IF I_PUNT_BITACORA < 999999 THEN                            00606000          
+               OPEN (F_BITACORA)                                        00607000          
+            ELSE                                                        00608000          
+            BEGIN                                                       00609000          
+              B_BITACORA_LISTO := FALSE;                                00610000          
+              DF_DISPLAY (">P081< ARCHIVO BITACORA LLENO");             00611000          
+            END;                                                        00612000          
+            UNLOCK(LK_BITACORA);                                        00613000          
+          END;                                                          00614000          
+        END                                                             00615000          
+        ELSE                                                            00616000          
+          DF_DISPLAY(">P081< HI NO IMPLEMENTADO PARA P080");            00617000          
+                                                                        00618000          
+        RESET(MYSELF.EXCEPTIONEVENT);                                   00619000          
+        MYSELF.TASKVALUE:= 0;                                           00620000          
+        I_RESULT := 0;                                                  00621000          
+      END;                                                              00622000          
+   END                                                                  00623000          
+   UNTIL HAPPENED(E_FIN_HIP080);                                        00624000          
+                                                                        00625000          
+   IF B_DISPLAYS THEN                                                   00626000          
+      DF_DISPLAY("TERMINA HISP080");                                    00627000          
+                                                                        00628000          
+  END OF HISP080;                                                       00629000          
+                                                                        00630000          
+  INTEGER PROCEDURE GETMIXNO(A_MIX_I,A_MIX_O);                          00631000          
+  REAL    ARRAY A_MIX_I [*] ,A_MIX_O [*];                               00632000          
+  BEGIN                                                                 00633000          
+                                                                        00634000          
+    ARRAY SCR1,SCR2[0:1919];                                            00635000          
+    POINTER P_SCR2,P_SCR2_2;                                            00636000          
+    INTEGER I_IND,I_IND2   ;                                            00637000          
+                                                                        00638000          
+    REPLACE POINTER(SCR1) BY 48"00" FOR (SIZE(SCR1)*6);                 00639000          
+    REPLACE POINTER(SCR1) BY "J NAME =", POINTER (A_MIX_I) FOR 22,      00640000          
+                             "= USER S500";                             00641000          
+    DCKEYIN(POINTER(SCR1),SCR2);                                        00642000          
+    P_SCR2  := POINTER(SCR2);                                           00643000          
+    P_SCR2_2:= POINTER(SCR2);                                           00644000          
+    I_IND := 1;                                                         00645000          
+    WHILE I_IND2 := * + 1 LEQ (SIZE(SCR2)*6 - 22) DO                    00646000          
+    BEGIN                                                               00647000          
+      IF P_SCR2 = POINTER(A_MIX_I) FOR 22 THEN                          00648000          
+      BEGIN                                                             00649000          
+        P_SCR2_2 := P_SCR2;                                             00650000          
+        P_SCR2_2 := * - 8;                                              00651000          
+        IF P_SCR2_2 - 2 = " ..(" FOR 4 THEN                             00652000          
+           P_SCR2_2 := * - 2;                                           00653000          
+        WHILE P_SCR2_2 = " " DO                                         00654000          
+              P_SCR2_2 := * - 1;                                        00655000          
+        A_MIX_O[I_IND] := INTEGER((P_SCR2_2 - 8),5);                    00656000          
+        IF I_IND = DF_NUMCOPIAS_MAX THEN                                00657000          
+           I_IND2 := (SIZE(SCR2)*6 - 22) + 1                            00658000          
+        ELSE                                                            00659000          
+           I_IND := * + 1;                                              00660000          
+      END;                                                              00661000          
+      P_SCR2 := * + 1;                                                  00662000          
+    END;                                                                00663000          
+    GETMIXNO := I_IND - 1;                                              00664000          
+                                                                        00665000          
+  END OF GETMIXNO;                                                      00666000          
+                                                                        00667000          
+%*********************************************************************  00668000          
+% E N T R Y   P O I N T S                                               00669000          
+%*********************************************************************  00670000          
+                                                                        00671000          
+  INTEGER PROCEDURE VALIDA_IN_MIX(I_IND);                               00672000          
+  INTEGER I_IND;                                                        00673000          
+  BEGIN                                                                 00674000          
+                                                                        00675000          
+    REAL    ARRAY RE_NOMBRE_PRG [0:5];                                  00676000          
+    REAL    ARRAY A_MIX_SPO     [1:DF_NUMCOPIAS_MAX];                   00677000          
+    BOOLEAN ARRAY BA_MIXOK      [1:DF_NUMCOPIAS_MAX];                   00678000          
+    EBCDIC  ARRAY EA_MSGLJ      [0:499];                                00679000          
+    INTEGER I_INDCOP1, I_INDCOP2, I_NCOPIAS, I_NMIXES;                  00680000          
+                                                                        00681000          
+    CASE I_IND OF                                                       00682000          
+    BEGIN                                                               00683000          
+       0   : REPLACE RE_NOMBRE_PRG BY "(S500)S500/OBJECT/P080";         00684000          
+       ELSE: ;                                                          00685000          
+    END;                                                                00686000          
+                                                                        00687000          
+    I_NCOPIAS := IA_NUM_COPIAS[I_IND];                                  00688000          
+    I_NMIXES  := GETMIXNO(RE_NOMBRE_PRG,A_MIX_SPO);                     00689000          
+                                                                        00690000          
+    IF B_DISPLAYS THEN                                                  00691000          
+    BEGIN                                                               00692000          
+      DF_DISPLAY(">L080< NUMERO DE MEZCLAS ACTIVAS "                    00693000          
+                         !!STRING(I_NMIXES, 2)!!" DEL PROGRAMA : ");    00694000          
+      DF_DISPLAY (POINTER(RE_NOMBRE_PRG) FOR (6 * SIZE(RE_NOMBRE_PRG)));00695000          
+      FOR I_INDCOP2 := 1 STEP 1 UNTIL I_NMIXES DO                       00696000          
+          DF_DISPLAY(">L080< A_MIX_SPO["!!STRING(I_INDCOP2,1)           00697000          
+                        !!"] = " !!STRING(A_MIX_SPO[I_INDCOP2],*));     00698000          
+    END;                                                                00699000          
+                                                                        00700000          
+    IF I_NMIXES LEQ I_NCOPIAS THEN                                      00701000          
+    BEGIN                                                               00702000          
+      FOR I_INDCOP1 := 1 STEP 1 UNTIL I_NCOPIAS DO                      00703000          
+      BEGIN                                                             00704000          
+        IF B_DISPLAYS THEN                                              00705000          
+           DF_DISPLAY(">L080< MEZCLA "!!STRING(I_INDCOP1,1)!!           00706000          
+                ": "!!STRING(IA_MIXES_XPGM[I_IND,I_INDCOP1],*));        00707000          
+        FOR I_INDCOP2 := 1 STEP 1 UNTIL I_NCOPIAS DO                    00708000          
+        BEGIN                                                           00709000          
+          IF IA_MIXES_XPGM[I_IND,I_INDCOP1] = A_MIX_SPO[I_INDCOP2] THEN 00710000          
+          BEGIN                                                         00711000          
+            BA_MIXOK[I_INDCOP1] := TRUE;                                00712000          
+            I_INDCOP2 := I_NCOPIAS;                                     00713000          
+            DF_DISPLAY (">L080< ENCONTRE MEZCLA")                       00714000          
+          END;                                                          00715000          
+        END;                                                            00716000          
+      END;                                                              00717000          
+                                                                        00718000          
+      FOR I_INDCOP1 := 1 STEP 1 UNTIL I_NCOPIAS DO                      00719000          
+      IF NOT BA_MIXOK[I_INDCOP1] THEN                                   00720000          
+      BEGIN                                                             00721000          
+        VALIDA_IN_MIX := 5;                                             00722000          
+        I_INDCOP1 := I_NMIXES;                                          00723000          
+      END;                                                              00724000          
+    END                                                                 00725000          
+    ELSE                                                                00726000          
+      VALIDA_IN_MIX := 6;                                               00727000          
+                                                                        00728000          
+  END OF VALIDA_IN_MIX;                                                 00729000          
+                                                                        00730000          
+  INTEGER PROCEDURE VALIDA_PMC(I_PASO, I_MIX, I_COPIA);                 00731000          
+  INTEGER I_PASO, I_MIX, I_COPIA;                                       00732000          
+  BEGIN                                                                 00733000          
+                                                                        00734000          
+    EBCDIC ARRAY EA_MSGLJ[0:499];                                       00735000          
+                                                                        00736000          
+    IF B_DISPLAYS THEN                                                  00737000          
+       DF_DISPLAY(">L080< VALIDA_PMC"!! " PASO  : "!!STRING(I_PASO ,*)!!00738000          
+                                        " MIX   : "!!STRING(I_MIX  ,*)!!00739000          
+                                        " COPIA : "!!STRING(I_COPIA,*));00740000          
+                                                                        00741000          
+    IF I_PASO = 80 THEN                                                 00742000          
+       IF I_COPIA < 1 OR I_COPIA > IA_NUM_COPIAS[DF_IND_P080] THEN      00743000          
+          VALIDA_PMC:= 9                                                00744000          
+       ELSE                                                             00745000          
+       IF I_MIX > 0 THEN                                                00746000          
+          IF IA_MIXES_XPGM[DF_IND_P080,I_COPIA] NEQ I_MIX THEN          00747000          
+             VALIDA_PMC:= 5                                             00748000          
+          ELSE                                                          00749000          
+             VALIDA_PMC:= 0                                             00750000          
+       ELSE                                                             00751000          
+          VALIDA_PMC := 2                                               00752000          
+    ELSE                                                                00753000          
+      VALIDA_PMC:= 1;                                                   00754000          
+                                                                        00755000          
+  END OF VALIDA_PMC;                                                    00756000          
+                                                                        00757000          
+  INTEGER PROCEDURE S500L080INICIOXPGM(ENTRADA,SALIDA);                 00758000          
+  EBCDIC ARRAY ENTRADA,SALIDA[*];                                       00759000          
+  BEGIN                                                                 00760000          
+                                                                        00761000          
+    INTEGER I_INDCOP1, I_INDCOP2, I_RESULT, I_MYMIX, I_IND_PGM,         00762000          
+            I_NCOPIAS, I_NMIXES;                                        00763000          
+    BOOLEAN B_MIXOK;                                                    00764000          
+    REAL    ARRAY RE_NOMBRE_PRG[0:5]            ;                       00765000          
+    REAL    ARRAY A_MIX_SPO[1:DF_NUMCOPIAS_MAX] ;                       00766000          
+    EBCDIC  ARRAY EA_MSGLJ[0:499]               ;                       00767000          
+                                                                        00768000          
+    INTEGER PROCEDURE VALIDA_CMIND;                                     00769000          
+    BEGIN                                                               00770000          
+                                                                        00771000          
+      IF B_DISPLAYS THEN                                                00772000          
+         DF_DISPLAY("INICIA VALIDA_CMIND S500L080INICIOXPGM");          00773000          
+                                                                        00774000          
+      IF IDF_I_INI_PASO = 80  THEN                                      00775000          
+      BEGIN                                                             00776000          
+        IF I_MYMIX := IDF_I_INI_MIX = 0 THEN                            00777000          
+           I_RESULT := 2                                                00778000          
+        ELSE                                                            00779000          
+        BEGIN                                                           00780000          
+          CASE IDF_I_INI_PASO OF                                        00781000          
+          BEGIN                                                         00782000          
+            80   : I_IND_PGM := DF_IND_P080;                            00783000          
+            ELSE : ;                                                    00784000          
+          END;                                                          00785000          
+        END;                                                            00786000          
+      END                                                               00787000          
+      ELSE                                                              00788000          
+        I_RESULT := 1;                                                  00789000          
+                                                                        00790000          
+      VALIDA_CMIND := I_RESULT;                                         00791000          
+                                                                        00792000          
+      IF B_DISPLAYS THEN                                                00793000          
+         DF_DISPLAY("TERMINA VALIDA_CMIND S500L080INICIOXPGM");         00794000          
+                                                                        00795000          
+    END OF VALIDA_CMIND;                                                00796000          
+                                                                        00797000          
+    INTEGER PROCEDURE VERIFICA_COPIAS;                                  00798000          
+    BEGIN                                                               00799000          
+                                                                        00800000          
+      IF B_DISPLAYS THEN                                                00801000          
+         DF_DISPLAY("INICIA VERIFICA_COPIAS S500L080INICIOXPGM");       00802000          
+                                                                        00803000          
+      CASE IDF_I_INI_PASO OF                                            00804000          
+      BEGIN                                                             00805000          
+        80 : REPLACE POINTER(RE_NOMBRE_PRG) BY "(S500)S500/OBJECT/P080";00806000          
+        ELSE : ;                                                        00807000          
+      END;                                                              00808000          
+                                                                        00809000          
+      I_NMIXES  := GETMIXNO(RE_NOMBRE_PRG,A_MIX_SPO);                   00810000          
+      I_NCOPIAS := IA_NUM_COPIAS[I_IND_PGM];                            00811000          
+                                                                        00812000          
+      IF B_DISPLAYS THEN                                                00813000          
+      BEGIN                                                             00814000          
+        DF_DISPLAY(">L080< NUMERO DE MEZCLAS ACTIVAS "                  00815000          
+                     !!STRING(I_NMIXES, 2)!!" DEL PROGRAMA : ");        00816000          
+        DF_DISPLAY (POINTER(RE_NOMBRE_PRG)                              00817000          
+                    FOR (6 * SIZE(RE_NOMBRE_PRG)));                     00818000          
+        FOR I_INDCOP2 := 1 STEP 1 UNTIL I_NMIXES DO                     00819000          
+            DF_DISPLAY(">L080< A_MIX_SPO["!!STRING(I_INDCOP2,1)         00820000          
+                          !!"] = " !!STRING(A_MIX_SPO[I_INDCOP2],5));   00821000          
+      END;                                                              00822000          
+                                                                        00823000          
+      IF I_NMIXES LEQ I_NCOPIAS THEN                                    00824000          
+      BEGIN                                                             00825000          
+        FOR I_INDCOP1 := 1 STEP 1 UNTIL I_NCOPIAS DO                    00826000          
+        BEGIN                                                           00827000          
+          B_MIXOK:= FALSE;                                              00828000          
+          FOR I_INDCOP2 := 1 STEP 1 UNTIL I_NCOPIAS DO                  00829000          
+              IF IA_MIXES_XPGM[I_IND_PGM,I_INDCOP1] =                   00830000          
+                 A_MIX_SPO    [I_INDCOP2]         THEN                  00831000          
+              BEGIN                                                     00832000          
+                B_MIXOK := TRUE;                                        00833000          
+                I_INDCOP2 := I_NCOPIAS;                                 00834000          
+              END;                                                      00835000          
+          IF B_MIXOK THEN                                               00836000          
+          ELSE                                                          00837000          
+            IA_MIXES_XPGM[I_IND_PGM,I_INDCOP1] := 0;                    00838000          
+        END;                                                            00839000          
+                                                                        00840000          
+        B_MIXOK := FALSE;                                               00841000          
+        FOR I_INDCOP1 := 1 STEP 1 UNTIL I_NCOPIAS DO                    00842000          
+            IF A_MIX_SPO[I_INDCOP1] = I_MYMIX THEN                      00843000          
+            BEGIN                                                       00844000          
+              B_MIXOK   := TRUE;                                        00845000          
+              I_INDCOP1 := I_NCOPIAS;                                   00846000          
+            END;                                                        00847000          
+                                                                        00848000          
+        IF B_MIXOK THEN                                                 00849000          
+        ELSE                                                            00850000          
+           I_RESULT := 3;                                               00851000          
+      END                                                               00852000          
+      ELSE                                                              00853000          
+        I_RESULT := 4;                                                  00854000          
+                                                                        00855000          
+      UNLOCK(LK_VERIFICA_COPIAS);                                       00856000          
+      VERIFICA_COPIAS := I_RESULT;                                      00857000          
+                                                                        00858000          
+      IF B_DISPLAYS THEN                                                00859000          
+         DF_DISPLAY("TERMINA VERIFICA_COPIAS S500L080INICIOXPGM");      00860000          
+                                                                        00861000          
+    END OF VERIFICA_COPIAS;                                             00862000          
+                                                                        00863000          
+    INTEGER PROCEDURE ASIGNA_NCOPIA;                                    00864000          
+    BEGIN                                                               00865000          
+                                                                        00866000          
+      IF B_DISPLAYS THEN                                                00867000          
+        DF_DISPLAY("INICIA ASIGNA_NCOPIA S500L080INICIOXPGM");          00868000          
+                                                                        00869000          
+      B_MIXOK:= FALSE;                                                  00870000          
+      FOR I_INDCOP1 := 1 STEP 1 UNTIL I_NCOPIAS DO                      00871000          
+          IF IA_MIXES_XPGM[I_IND_PGM,I_INDCOP1] = I_MYMIX THEN          00872000          
+          BEGIN                                                         00873000          
+            REPLACE DF_O_INI_COPIA BY I_INDCOP1 FOR 2 DIGITS;           00874000          
+            B_MIXOK  := TRUE;                                           00875000          
+            I_INDCOP1:= I_NCOPIAS;                                      00876000          
+          END;                                                          00877000          
+                                                                        00878000          
+      IF B_MIXOK THEN                                                   00879000          
+      ELSE                                                              00880000          
+      BEGIN                                                             00881000          
+        FOR I_INDCOP1 := 1 STEP 1 UNTIL I_NCOPIAS DO                    00882000          
+            IF IA_MIXES_XPGM[I_IND_PGM,I_INDCOP1] = 0 THEN              00883000          
+            BEGIN                                                       00884000          
+              IA_MIXES_XPGM[I_IND_PGM,I_INDCOP1] := I_MYMIX;            00885000          
+              REPLACE DF_O_INI_COPIA BY I_INDCOP1 FOR 2 DIGITS;         00886000          
+              I_INDCOP1 := I_NCOPIAS;                                   00887000          
+            END;                                                        00888000          
+      END;                                                              00889000          
+                                                                        00890000          
+      UNLOCK(LK_ASIGNA_NCOPIA);                                         00891000          
+      ASIGNA_NCOPIA := I_RESULT;                                        00892000          
+                                                                        00893000          
+      IF B_DISPLAYS THEN                                                00894000          
+         DF_DISPLAY("TERMINA ASIGNA_NCOPIA S500L080INICIOXPGM");        00895000          
+                                                                        00896000          
+    END OF ASIGNA_NCOPIA;                                               00897000          
+                                                                        00898000          
+%*********************************************************************  00899000          
+% S500L080INICIOXPGM  OUTER  BLOCK                                      00900000          
+%*********************************************************************  00901000          
+                                                                        00902000          
+    IF B_DISPLAYS THEN                                                  00903000          
+    BEGIN                                                               00904000          
+      DF_DISPLAY("INICIA S500L080INICIOXPGM");                          00905000          
+      DF_DISPLAY(">L080< PASO : "!!STRING(IDF_I_INI_PASO,2));           00906000          
+      DF_DISPLAY(">L080< MIX  : "!!STRING(IDF_I_INI_MIX,6));            00907000          
+    END;                                                                00908000          
+                                                                        00909000          
+    IF VALIDA_CMIND = 0 THEN                                            00910000          
+    BEGIN                                                               00911000          
+      LOCK(LK_VERIFICA_COPIAS);                                         00912000          
+      IF VERIFICA_COPIAS = 0 THEN                                       00913000          
+      BEGIN                                                             00914000          
+        LOCK(LK_ASIGNA_NCOPIA);                                         00915000          
+        IF ASIGNA_NCOPIA = 0 THEN                                       00916000          
+           REPLACE DF_O_INI_FECLINEA BY I_B07_FECHA_LINEA FOR 8 DIGITS; 00917000          
+      END;                                                              00918000          
+    END;                                                                00919000          
+                                                                        00920000          
+    S500L080INICIOXPGM := I_RESULT;                                     00921000          
+                                                                        00922000          
+    IF B_DISPLAYS THEN                                                  00923000          
+    BEGIN                                                               00924000          
+      DF_DISPLAY(">L080< COPIA  : "!!STRING(IDF_O_INI_COPIA   ,2));     00925000          
+      DF_DISPLAY(">L080< FECHA  : "!!STRING(IDF_O_INI_FECLINEA,8));     00926000          
+      DF_DISPLAY(">L080< RESULT : "!!STRING(I_RESULT          ,2));     00927000          
+      DF_DISPLAY("TERMINA S500L080INICIOXPGM");                         00928000          
+    END;                                                                00929000          
+    I_CONLJ:=0;                                                         00929100          
+                                                                        00930000          
+  END OF S500L080INICIOXPGM;                                            00931000          
+                                                                        00932000          
+  INTEGER PROCEDURE S500L080INIBATCHP080;                               00933000          
+  BEGIN                                                                 00934000          
+                                                                        00935000          
+    DF_S500BD07;                                                        00936000          
+    DF_S500BD01;                                                        00937000          
+                                                                        00938000          
+    INTEGER I_RESULT, I_B00_TIPO_PROCESO;                               00939000          
+    REAL R_DMERR;                                                       00940000          
+    EBCDIC ARRAY EA_MSGLJ[0:499];                                       00941000          
+    BOOLEAN BD01_ABIERTA, BD07_ABIERTA;                                 00942000          
+                                                                        00943000          
+    PROCEDURE ENVIO_ARCHIVOS;                                           00944000          
+    BEGIN                                                               00945000          
+                                                                        00946000          
+      DF_DISPLAY("INICIA ENVIO_ARCHIVOS S500L080INIBATCHP080");         00947000          
+      IF F_BITACORA.OPEN THEN                                           00948000          
+         ESCRIBE_TRAILER_BITACORA;                                      00949000          
+      CALL_SYSTEM_WFL(1);                                               00950000          
+      CALL_SYSTEM_WFL(2);                                               00951000          
+      I_B07_FECHA_LINEA := I_B02_FECHA_LINEA;                           00952000          
+      ABRE_GENE_BITACORA;                                               00953000          
+                                                                        00954000          
+      DF_DISPLAY("TERMINA ENVIO_ARCHIVOS S500L080INIBATCHP080");        00955000          
+                                                                        00956000          
+    END OF ENVIO_ARCHIVOS;                                              00957000          
+                                                                        00958000          
+    INTEGER PROCEDURE ACTUALIZA_BD07;                                   00959000          
+    BEGIN                                                               00960000          
+                                                                        00961000          
+      DF_DISPLAY("INICIA ACTUALIZA_BD07 S500L080INIBATCHP080");         00962000          
+                                                                        00963000          
+      OPEN UPDATE DF_BD07 : R_DMERR;                                    00964000          
+      IF BOOLEAN(R_DMERR) THEN                                          00965000          
+        DF_ERRORDB_RSLT("S500BD07ATRIBUCTA")                            00966000          
+      ELSE                                                              00967000          
+      BEGIN                                                             00968000          
+        BD07_ABIERTA := TRUE;                                           00969000          
+        OPEN INQUIRY DF_BD01 : R_DMERR;                                 00970000          
+        IF BOOLEAN(R_DMERR) THEN                                        00971000          
+           DF_ERRORDB_RSLT("S500BD01CAPTACION")                         00972000          
+        ELSE                                                            00973000          
+           BD01_ABIERTA := TRUE;                                        00974000          
+      END;                                                              00975000          
+                                                                        00976000          
+      IF I_RESULT = 0 THEN                                              00977000          
+      BEGIN                                                             00978000          
+        FIND FIRST S500B02CONTROL OF DF_BD01 : R_DMERR;                 00979000          
+        IF BOOLEAN(R_DMERR) THEN                                        00980000          
+           DF_ERRORDB_RSLT("S500BD01CAPTACION")                         00981000          
+        ELSE                                                            00982000          
+        BEGIN                                                           00983000          
+          GET S500B02CONTROL OF DF_BD01(                                00984000          
+                                   I_B02_FECHA_LINEA := B02-FECHA-LINEA 00985000          
+                                  ,I_B02_FECHA_LOTE  := B02-FECHA-LOTE  00986000          
+                                       );                               00987000          
+                                                                        00988000          
+          FIND B02SXTIPREG AT B02-NUM-TIPREG = 1 : R_DMERR;             00989000          
+          IF R_DMERR.DMERROR = NOTFOUND THEN                            00990000          
+          BEGIN                                                         00991000          
+            BEGINTRANSACTION NOAUDIT S500B91REINICIO : R_DMERR;         00992000          
+            CREATE S500B02CONTROL OF DF_BD07 : R_DMERR;                 00993000          
+            IF BOOLEAN(R_DMERR) THEN                                    00994000          
+              DF_ERRORDB_RSLT("S500BD07ATRIBUCTA")                      00995000          
+            ELSE                                                        00996000          
+            BEGIN                                                       00997000          
+              OBTIENE_CSI_COMS;                                         00998000          
+              PUT S500B02CONTROL OF DF_BD07 (                           00999000          
+                                    B02-NUM-TIPREG  := 1                01000000          
+                                   ,B02-NUM-CSI     := I_CSI_EJEC       01001000          
+                                   ,B02-FECHA-LINEA := I_B02_FECHA_LINEA01002000          
+                                   ,B02-FECHA-LOTE  := I_B02_FECHA_LOTE 01003000          
+                                            );                          01004000          
+              STORE S500B02CONTROL OF DF_BD07 : R_DMERR;                01005000          
+              IF BOOLEAN(R_DMERR) THEN                                  01006000          
+                 DF_ERRORDB_RSLT("S500BD07ATRIBUCTA");                  01007000          
+            END;                                                        01008000          
+            ENDTRANSACTION AUDIT S500B91REINICIO : R_DMERR;             01009000          
+          END                                                           01010000          
+          ELSE                                                          01011000          
+          IF BOOLEAN(R_DMERR) THEN                                      01012000          
+            DF_ERRORDB_RSLT("S500BD07ATRIBUCTA")                        01013000          
+          ELSE                                                          01014000          
+          BEGIN                                                         01015000          
+            BEGINTRANSACTION NOAUDIT S500B91REINICIO : R_DMERR;         01016000          
+            LOCK B02SXTIPREG AT B02-NUM-TIPREG = 1 : R_DMERR;           01017000          
+            IF BOOLEAN(R_DMERR) THEN                                    01018000          
+              DF_ERRORDB_RSLT("S500BD07ATRIBUCTA")                      01019000          
+            ELSE                                                        01020000          
+            BEGIN                                                       01021000          
+              PUT S500B02CONTROL OF DF_BD07 (                           01022000          
+                                    B02-FECHA-LINEA := I_B02_FECHA_LINEA01023000          
+                                   ,B02-FECHA-LOTE  := I_B02_FECHA_LOTE 01024000          
+                                             );                         01025000          
+              STORE S500B02CONTROL OF DF_BD07 : R_DMERR;                01026000          
+              IF BOOLEAN(R_DMERR) THEN                                  01027000          
+                 DF_ERRORDB_RSLT("S500BD07ATRIBUCTA");                  01028000          
+            END;                                                        01029000          
+            ENDTRANSACTION AUDIT S500B91REINICIO SYNC : R_DMERR;        01030000          
+          END;                                                          01031000          
+        END;                                                            01032000          
+      END;                                                              01033000          
+                                                                        01034000          
+      ACTUALIZA_BD07 := I_RESULT;                                       01035000          
+                                                                        01036000          
+      DF_DISPLAY("TERMINA ACTUALIZA_BD07 S500L080INIBATCHP080");        01037000          
+                                                                        01038000          
+    END OF ACTUALIZA_BD07;                                              01039000          
+                                                                        01040000          
+    INTEGER PROCEDURE VALIDA_INIBATCH;                                  01041000          
+    BEGIN                                                               01042000          
+                                                                        01043000          
+      INTEGER I_IND_EVENTO,I_IND, I_NCOPIAS;                            01044000          
+      BOOLEAN B_INIBATCHP0080_ALL_COP;                                  01045000          
+                                                                        01046000          
+      DF_DISPLAY("INICIA VALIDA_INIBATCH S500L080INIBATCHP080");        01047000          
+                                                                        01048000          
+      B_INIBATCHP080    := TRUE ;                                       01049000          
+      B_INIBATCHP080_OK := FALSE;                                       01050000          
+      I_NCOPIAS := IA_NUM_COPIAS[DF_IND_P080];                          01051000          
+      RESET(E_ESPERA_INIBATCHP080);                                     01052000          
+                                                                        01053000          
+      ENVIO_HI(DF_IND_P080,4030);                                       01054000          
+                                                                        01055000          
+      IF B_DISPLAYS THEN                                                01056000          
+      BEGIN                                                             01057000          
+        DF_DISPLAY(">L080< INIBAT80 ENTRO CICLO DE ESPERA INIBAT80,  ");01058000          
+        DF_DISPLAY(">L080< INIBAT80 2 MINUTOS O TODAS LAS COPIAS EN  ");01059000          
+        DF_DISPLAY(">L080< INIBAT80 ESPERA DE INIBAT80               ");01060000          
+      END;                                                              01061000          
+                                                                        01062000          
+      DO                                                                01063000          
+      BEGIN                                                             01064000          
+        CASE WAITANDRESET((10),E_INIBATCHP080) OF                       01065000          
+        BEGIN                                                           01066000          
+        1 : BEGIN                                                       01067000          
+              I_IND_EVENTO := * + 1;                                    01068000          
+              IF I_IND_EVENTO = 12 THEN                                 01069000          
+                 I_RESULT := 7;                                         01070000          
+            END;                                                        01071000          
+        2 : BEGIN                                                       01072000          
+              B_INIBATCHP080_ALL := TRUE;                               01073000          
+              FOR I_IND := 1 STEP 1 UNTIL I_NCOPIAS DO                  01074000          
+                  IF NOT BA_COP_INIBATCH[DF_IND_P080,I_IND] THEN        01075000          
+                  BEGIN                                                 01076000          
+                    B_INIBATCHP080_ALL := FALSE;                        01077000          
+                    I_IND := I_NCOPIAS;                                 01078000          
+                  END;                                                  01079000          
+            END;                                                        01080000          
+        END;                                                            01081000          
+      END                                                               01082000          
+      UNTIL B_INIBATCHP080_ALL OR I_RESULT > 0;                         01083000          
+                                                                        01084000          
+      IF B_DISPLAYS THEN                                                01085000          
+         DF_DISPLAY(">L080< INIBAT20 SALGO CICLO DE ESPERA INIBAT20");  01086000          
+                                                                        01087000          
+      FOR I_IND := 1 STEP 1 UNTIL I_NCOPIAS DO                          01088000          
+          BA_COP_INIBATCH[DF_IND_P080,I_IND]:= FALSE;                   01089000          
+                                                                        01090000          
+      VALIDA_INIBATCH := I_RESULT;                                      01091000          
+                                                                        01092000          
+      DF_DISPLAY("TERMINA VALIDA_INIBATCH S500L080INIBATCHP080");       01093000          
+                                                                        01094000          
+    END OF VALIDA_INIBATCH;                                             01095000          
+                                                                        01096000          
+    PROCEDURE TERMINAINIBATCHP080;                                      01097000          
+    BEGIN                                                               01098000          
+                                                                        01099000          
+      DF_DISPLAY("INICIA TERMINAINIBATCHP080 S500L080INIBATCHP080");    01100000          
+                                                                        01101000          
+      B_INIBATCHP080 := FALSE;                                          01102000          
+      IF I_RESULT = 0 THEN                                              01103000          
+         ENVIO_ARCHIVOS;                                                01104000          
+      CAUSE(E_ESPERA_INIBATCHP080);                                     01105000          
+                                                                        01106000          
+      IF BD01_ABIERTA THEN                                              01107000          
+      BEGIN                                                             01108000          
+        CLOSE DF_BD01 : R_DMERR;                                        01109000          
+        DF_ERRORDB_DISP("S500BD01CAPTACION");                           01110000          
+      END;                                                              01111000          
+      IF BD07_ABIERTA THEN                                              01112000          
+      BEGIN                                                             01113000          
+        CLOSE DF_BD07 : R_DMERR;                                        01114000          
+        DF_ERRORDB_DISP("S500BD07ATRIBUCTA");                           01115000          
+      END;                                                              01116000          
+      I_CONLJ:=0;                                                       01116100          
+                                                                        01117000          
+      DF_DISPLAY("TERMINA TERMINAINIBATCHP080 S500L080INIBATCHP080");   01118000          
+                                                                        01119000          
+    END OF TERMINAINIBATCHP080;                                         01120000          
+                                                                        01121000          
+%*********************************************************************  01122000          
+% S500L080INIBATCHP080  OUTER  BLOCK                                    01123000          
+%*********************************************************************  01124000          
+                                                                        01125000          
+    DF_DISPLAY("INICIA S500L080INIBATCHP080");                          01126000          
+                                                                        01127000          
+    I_RESULT := VALIDA_IN_MIX(0);                                       01128000          
+    IF I_RESULT = 0 THEN                                                01129000          
+      IF ACTUALIZA_BD07 = 0 THEN                                        01130000          
+         IF VALIDA_INIBATCH = 0 THEN                                    01131000          
+            B_INIBATCHP080_OK := TRUE;                                  01132000          
+                                                                        01133000          
+    TERMINAINIBATCHP080;                                                01134000          
+    S500L080INIBATCHP080 := I_RESULT;                                   01135000          
+                                                                        01136000          
+    IF B_DISPLAYS THEN                                                  01137000          
+       DF_DISPLAY(">L080< RESULT "!!STRING(I_RESULT,2));                01138000          
+    DF_DISPLAY("TERMINA S500L080INIBATCHP080");                         01139000          
+                                                                        01140000          
+  END OF S500L080INIBATCHP080;                                          01141000          
+                                                                        01142000          
+  INTEGER PROCEDURE S500L080ESBATCHP080 (ENTRADA, SALIDA);              01143000          
+  EBCDIC ARRAY ENTRADA, SALIDA [*];                                     01144000          
+  BEGIN                                                                 01145000          
+                                                                        01146000          
+    INTEGER I_RESULT;                                                   01147000          
+    EBCDIC ARRAY EA_MSGLJ[0:499];                                       01148000          
+                                                                        01149000          
+    PROCEDURE ESPERA_BATCH;                                             01150000          
+    BEGIN                                                               01151000          
+                                                                        01152000          
+      DF_DISPLAY("INICIA ESPERA_BATCH S500L080ESBATCHP080");            01153000          
+                                                                        01154000          
+      BA_COP_INIBATCH[DF_IND_P080,IDF_I_ESB_COPIA]:= TRUE;              01155000          
+      IF HAPPENED(E_INIBATCHP080) THEN                                  01156000          
+      ELSE                                                              01157000          
+         CAUSE(E_INIBATCHP080);                                         01158000          
+                                                                        01159000          
+      UNLOCK(LK_ESB_P080);                                              01160000          
+                                                                        01161000          
+      IF B_DISPLAYS THEN                                                01162000          
+         DF_DISPLAY(">L080< LA COPIA "!!STRING(IDF_I_ESB_COPIA,2)!!     01163000          
+                               " ESPERA EN S500L080ESBATCHP080");       01164000          
+      WAIT (E_ESPERA_INIBATCHP080);                                     01165000          
+      IF B_DISPLAYS THEN                                                01166000          
+         DF_DISPLAY(">L080< LA COPIA "!!STRING(IDF_I_ESB_COPIA,2)!!     01167000          
+                               " LIBERA EN S500L080ESBATCHP080");       01168000          
+                                                                        01169000          
+      IF B_INIBATCHP080_OK THEN                                         01170000          
+         REPLACE DF_O_ESB_FECLINEA BY I_B07_FECHA_LINEA FOR 8 DIGITS    01171000          
+      ELSE                                                              01172000          
+         I_RESULT := 10;                                                01173000          
+                                                                        01174000          
+      DF_DISPLAY("TERMINA ESPERA_BATCH S500L080ESBATCHP080");           01175000          
+                                                                        01176000          
+    END OF ESPERA_BATCH;                                                01177000          
+                                                                        01178000          
+%*********************************************************************  01179000          
+% S500L080ESBATCHP080  OUTER  BLOCK                                     01180000          
+%*********************************************************************  01181000          
+                                                                        01182000          
+    IF B_DISPLAYS THEN                                                  01183000          
+    BEGIN                                                               01184000          
+       DF_DISPLAY("INICIA S500L080ESBATCHP080");                        01185000          
+       DF_DISPLAY(">L080< PASO  : "!!STRING(IDF_I_ESB_PASO ,2));        01186000          
+       DF_DISPLAY(">L080< MIX   : "!!STRING(IDF_I_ESB_MIX  ,6));        01187000          
+       DF_DISPLAY(">L080< COPIA : "!!STRING(IDF_I_ESB_COPIA,2));        01188000          
+    END;                                                                01189000          
+                                                                        01190000          
+    LOCK(LK_ESB_P080);                                                  01191000          
+                                                                        01192000          
+    IF B_INIBATCHP080 THEN                                              01193000          
+       IF I_RESULT := VALIDA_PMC(IDF_I_ESB_PASO                         01194000          
+                                ,IDF_I_ESB_MIX                          01195000          
+                                ,IDF_I_ESB_COPIA) = 0 THEN              01196000          
+          ESPERA_BATCH                                                  01197000          
+       ELSE                                                             01198000          
+          UNLOCK(LK_ESB_P080)                                           01199000          
+    ELSE                                                                01200000          
+    BEGIN                                                               01201000          
+      I_RESULT := 8;                                                    01202000          
+      UNLOCK(LK_ESB_P080);                                              01203000          
+    END;                                                                01204000          
+                                                                        01205000          
+    S500L080ESBATCHP080 := I_RESULT;                                    01206000          
+                                                                        01207000          
+    IF B_DISPLAYS THEN                                                  01208000          
+    BEGIN                                                               01209000          
+      DF_DISPLAY(">L080< FECHA  : "!!STRING(I_B07_FECHA_LINEA,8));      01210000          
+      DF_DISPLAY(">L080< RESULT : "!!STRING(I_RESULT,2));               01211000          
+    END;                                                                01212000          
+    DF_DISPLAY("TERMINA S500L080ESBATCHP080");                          01213000          
+                                                                        01214000          
+  END OF S500L080ESBATCHP080;                                           01215000          
+                                                                        01216000          
+  INTEGER PROCEDURE S500L080AVIBAJAP080(ENTRADA);                       01217000          
+  EBCDIC ARRAY ENTRADA [*];                                             01218000          
+  BEGIN                                                                 01219000          
+                                                                        01220000          
+    INTEGER I_RESULT;                                                   01221000          
+    INTEGER ARRAY IA_HI   [0:1  ];                                      01222000          
+    EBCDIC  ARRAY EA_MSGLJ[0:499];                                      01223000          
+                                                                        01224000          
+    PROCEDURE AVISO_BAJAP080;                                           01225000          
+    BEGIN                                                               01226000          
+                                                                        01227000          
+      INTEGER I_IND,I_WAIT_TIMES,I_HI,I_NCOPIAS;                        01228000          
+      BOOLEAN B_CONF_ALL_P080;                                          01229000          
+      EBCDIC ARRAY EA_RSPO[0:49];                                       01230000          
+      POINTER P_EA_RSPO;                                                01231000          
+                                                                        01232000          
+      IF B_DISPLAYS THEN                                                01233000          
+         DF_DISPLAY("INICIA AVISO_BAJAP080 S500L080AVIBAJAP080");       01234000          
+                                                                        01235000          
+      IA_HI[0] := 4038;                                                 01236000          
+      IA_HI[1] := 4040;                                                 01237000          
+      I_NCOPIAS := IA_NUM_COPIAS[DF_IND_P080];                          01238000          
+      DO                                                                01239000          
+      BEGIN                                                             01240000          
+        ENVIO_HI(DF_IND_P080,IA_HI[I_HI]);                              01241000          
+        I_HI := * + 1;                                                  01242000          
+        I_WAIT_TIMES := 0;                                              01243000          
+        DO                                                              01244000          
+        BEGIN                                                           01245000          
+          I_RESULT := 0;                                                01246000          
+          WAITANDRESET((5),E_AVISO_P080);                               01247000          
+          I_WAIT_TIMES := * + 1;                                        01248000          
+          B_CONF_ALL_P080 := TRUE;                                      01249000          
+          FOR I_IND := 1 STEP 1 UNTIL I_NCOPIAS DO                      01250000          
+              IF BA_COP_AVISBAJA[DF_IND_P080,I_IND] THEN                01251000          
+              ELSE                                                      01252000          
+              BEGIN                                                     01253000          
+                B_CONF_ALL_P080 := FALSE;                               01254000          
+                I_IND := I_NCOPIAS ;                                    01255000          
+              END;                                                      01256000          
+           IF NOT B_CONF_ALL_P080 AND (I_WAIT_TIMES * 5) > 119 THEN     01257000          
+              I_RESULT := 12;                                           01258000          
+        END UNTIL B_CONF_ALL_P080 OR I_RESULT > 0;                      01259000          
+      END UNTIL B_CONF_ALL_P080 OR I_HI > 1;                            01260000          
+                                                                        01261000          
+      FOR I_IND := 1 STEP 1 UNTIL I_NCOPIAS DO                          01262000          
+          BA_COP_AVISBAJA[DF_IND_P080,I_IND] := FALSE;                  01263000          
+      B_BAJA_P080 := FALSE;                                             01264000          
+                                                                        01265000          
+      IF B_DISPLAYS THEN                                                01266000          
+         DF_DISPLAY("TERMINA AVISO_BAJAP080 S500L080AVIBAJAP080");      01267000          
+                                                                        01268000          
+    END OF AVISO_BAJAP080;                                              01269000          
+                                                                        01270000          
+    PROCEDURE VALIDA_BAJA_P080;                                         01271000          
+    BEGIN                                                               01272000          
+                                                                        01273000          
+      IF B_DISPLAYS THEN                                                01274000          
+         DF_DISPLAY("INICIA VALIDA_BAJA_P080 S500L080AVIBAJAP080");     01275000          
+                                                                        01276000          
+      IF B_BAJA_P080 THEN                                               01277000          
+      BEGIN                                                             01278000          
+        IF BA_COP_AVISBAJA[DF_IND_P080,IDF_I_ABP80_COPIA] THEN          01279000          
+           I_RESULT := 11                                               01280000          
+        ELSE                                                            01281000          
+           BA_COP_AVISBAJA[DF_IND_P080,IDF_I_ABP80_COPIA] := TRUE;      01282000          
+        IF HAPPENED(E_AVISO_P080) THEN                                  01283000          
+        ELSE                                                            01284000          
+           CAUSE(E_AVISO_P080);                                         01285000          
+        UNLOCK(LK_AVI_ABP080) ;                                         01286000          
+      END                                                               01287000          
+      ELSE                                                              01288000          
+      BEGIN                                                             01289000          
+        B_BAJA_P080 := TRUE;                                            01290000          
+        BA_COP_AVISBAJA[DF_IND_P080,IDF_I_ABP80_COPIA] := TRUE;         01291000          
+        UNLOCK(LK_AVI_ABP080);                                          01292000          
+        AVISO_BAJAP080;                                                 01293000          
+      END;                                                              01294000          
+                                                                        01295000          
+      IF B_DISPLAYS THEN                                                01296000          
+         DF_DISPLAY("TERMINA VALIDA_BAJA_P080 S500L080AVIBAJAP080");    01297000          
+                                                                        01298000          
+    END OF VALIDA_BAJA_P080;                                            01299000          
+                                                                        01300000          
+%*********************************************************************  01301000          
+% S500L080AVIBAJAP080  OUTER  BLOCK                                     01302000          
+%*********************************************************************  01303000          
+                                                                        01304000          
+    LOCK(LK_AVI_ABP080);                                                01305000          
+                                                                        01306000          
+    IF B_DISPLAYS THEN                                                  01307000          
+    BEGIN                                                               01308000          
+      DF_DISPLAY("INICIA S500L080AVIBAJAP080");                         01309000          
+      DF_DISPLAY(">L080< PASO : "  !!STRING(IDF_I_ABP80_PASO ,2));      01310000          
+      DF_DISPLAY(">L080< MIX  : "  !!STRING(IDF_I_ABP80_MIX  ,6));      01311000          
+      DF_DISPLAY(">L080< COPIA: "  !!STRING(IDF_I_ABP80_COPIA,2));      01312000          
+    END;                                                                01313000          
+                                                                        01314000          
+    IF I_RESULT := VALIDA_PMC(IDF_I_ABP80_PASO                          01315000          
+                             ,IDF_I_ABP80_MIX                           01316000          
+                             ,IDF_I_ABP80_COPIA) = 0 THEN               01317000          
+       VALIDA_BAJA_P080                                                 01318000          
+    ELSE                                                                01319000          
+       UNLOCK(LK_AVI_ABP080);                                           01320000          
+                                                                        01321000          
+    S500L080AVIBAJAP080 := I_RESULT;                                    01322000          
+                                                                        01323000          
+    IF B_DISPLAYS THEN                                                  01324000          
+    BEGIN                                                               01325000          
+      DF_DISPLAY(">L080< RESULT "!!STRING(I_RESULT,2));                 01326000          
+      DF_DISPLAY("TERMINA S500L080AVIBAJAP080");                        01327000          
+    END;                                                                01328000          
+                                                                        01329000          
+  END OF S500L080AVIBAJAP080;                                           01330000          
+                                                                        01331000          
+  INTEGER PROCEDURE S500L080BITACORA(ENTRADA);                          01332000          
+  EBCDIC ARRAY ENTRADA[*];                                              01333000          
+  BEGIN                                                                 01334000          
+                                                                        01335000          
+    INTEGER I_RESULT;                                                   01336000          
+    EBCDIC ARRAY EA_MSGLJ[0:499];                                       01337000          
+                                                                        01338000          
+    PROCEDURE QUITA_NULO(EA_ENT_SAL);                                   01339000          
+    EBCDIC ARRAY EA_ENT_SAL[*];                                         01340000          
+    BEGIN                                                               01341000          
+                                                                        01342000          
+      INTEGER I_POINTER;                                                01343000          
+      BOOLEAN B_SIGUIENTE;                                              01344000          
+                                                                        01345000          
+      I_POINTER := 0;                                                   01346000          
+      B_SIGUIENTE := TRUE;                                              01347000          
+                                                                        01348000          
+      WHILE B_SIGUIENTE DO                                              01349000          
+      BEGIN                                                             01350000          
+        IF EA_ENT_SAL[I_POINTER] = 48"00" THEN                          01351000          
+           REPLACE EA_ENT_SAL[I_POINTER] BY " " FOR 1;                  01352000          
+        I_POINTER := * + 1;                                             01353000          
+        IF I_POINTER GEQ SIZE(EA_ENT_SAL) THEN                          01354000          
+           B_SIGUIENTE := FALSE;                                        01355000          
+      END;                                                              01356000          
+                                                                        01357000          
+    END;                                                                01358000          
+                                                                        01359000          
+    PROCEDURE ESCRIBE_BITACORA;                                         01360000          
+    BEGIN                                                               01361000          
+                                                                        01362000          
+      QUITA_NULO(ENTRADA);                                              01363000          
+      REPLACE DF_L_BIT_ID    BY  IDF_L_TIP_REG     FOR 2  DIGITS      ; 01364000          
+      REPLACE DF_L_BIT_SEC   BY  I_PUNT_BITACORA   FOR 10 DIGITS      ; 01365000          
+      REPLACE DF_L_BIT_FECHA BY  OBTIENE_FECHA_MAQ FOR 8  DIGITS      ; 01366000          
+      REPLACE DF_L_BIT_HORA  BY  OBTIENE_HORA_MAQ  FOR 8  DIGITS      ; 01367000          
+      REPLACE DF_L_BIT_CSI   BY  I_CSI_EJEC        FOR 2  DIGITS      ; 01368000          
+      REPLACE DF_L_SPACE     BY  " "               FOR 1              ; 01369000          
+      REPLACE DF_L_DATOS     BY  DF_L_DAT_ENT      FOR SIZE(ENTRADA)-2; 01370000          
+      IF WRITE(F_BITACORA[I_PUNT_BITACORA]                              01371000          
+              ,DF_MAX_BIT                                               01372000          
+              ,EA_BITACORA) THEN                                        01373000          
+         I_RESULT := 17                                                 01374000          
+      ELSE                                                              01375000          
+      BEGIN                                                             01376000          
+        I_PUNT_BITACORA := * + 1;                                       01377000          
+        I_NUM_REG_BIT := * + 1;                                         01378000          
+      END;                                                              01379000          
+      IF I_PUNT_BITACORA = 999999 THEN                                  01380000          
+      BEGIN                                                             01381000          
+        ESCRIBE_TRAILER_BITACORA;                                       01382000          
+        B_BITACORA_LISTO := FALSE;                                      01383000          
+        DF_DISPLAY (">L080< ARCHIVO BITACORA LLENO");                   01384000          
+      END;                                                              01385000          
+                                                                        01386000          
+    END OF ESCRIBE_BITACORA;                                            01387000          
+                                                                        01388000          
+%*********************************************************************  01389000          
+% S500L080BITACORA  OUTER  BLOCK                                        01390000          
+%*********************************************************************  01391000          
+                                                                        01392000          
+    LOCK(LK_BITACORA);                                                  01393000          
+                                                                        01394000          
+    IF B_DISPLAYS THEN                                                  01395000          
+       DF_DISPLAY("INICIA S500L080BITACORA");                           01396000          
+                                                                        01397000          
+    IF NOT B_BITACORA_LISTO AND I_PUNT_BITACORA < 999999 THEN           01398000          
+       ABRE_GENE_BITACORA;                                              01399000          
+    IF B_BITACORA_LISTO THEN                                            01400000          
+       ESCRIBE_BITACORA                                                 01401000          
+    ELSE                                                                01402000          
+      I_RESULT := 18;                                                   01403000          
+                                                                        01404000          
+    S500L080BITACORA := I_RESULT;                                       01405000          
+                                                                        01406000          
+    IF B_DISPLAYS THEN                                                  01407000          
+    BEGIN                                                               01408000          
+      DF_DISPLAY(">L080< RESULT "!!STRING(I_RESULT,2));                 01409000          
+      DF_DISPLAY("TERMINA S500L080BITACORA");                           01410000          
+    END;                                                                01411000          
+                                                                        01412000          
+    UNLOCK(LK_BITACORA);                                                01413000          
+                                                                        01414000          
+  END OF S500L080BITACORA;                                              01415000          
+                                                                        01416000          
+  INTEGER PROCEDURE S500L080CONFIRMHI(ENTRADA);                         01417000          
+  EBCDIC ARRAY ENTRADA[*];                                              01418000          
+  BEGIN                                                                 01419000          
+                                                                        01420000          
+    INTEGER I_RESULT;                                                   01421000          
+    EBCDIC ARRAY EA_MSGLJ[0:499];                                       01422000          
+                                                                        01423000          
+    PROCEDURE PROCESA_CONFIRMA;                                         01424000          
+    BEGIN                                                               01425000          
+                                                                        01426000          
+      IF B_DISPLAYS THEN                                                01427000          
+         DF_DISPLAY("INICIA PROCESA_CONFIRMA S500L080CONFIRMHI");       01428000          
+                                                                        01429000          
+      CASE IDF_I_CHI_FUNC OF                                            01430000          
+      BEGIN                                                             01431000          
+        1    : IF NOT B_BAJA_P080 THEN                                  01432000          
+                  I_RESULT := 15;                                       01433000          
+        2    : IF NOT B_INIBATCHP080  THEN                              01434000          
+                  I_RESULT := 8;                                        01435000          
+        ELSE : I_RESULT := 13;                                          01436000          
+      END;                                                              01437000          
+                                                                        01438000          
+      IF B_DISPLAYS THEN                                                01439000          
+         DF_DISPLAY("TERMINA PROCESA_CONFIRMA S500L080CONFIRMHI");      01440000          
+                                                                        01441000          
+    END OF PROCESA_CONFIRMA;                                            01442000          
+                                                                        01443000          
+%*********************************************************************  01444000          
+% S500L080CONFIRMHI  OUTER  BLOCK                                       01445000          
+%*********************************************************************  01446000          
+                                                                        01447000          
+    IF B_DISPLAYS THEN                                                  01448000          
+    BEGIN                                                               01449000          
+      DF_DISPLAY("INICIA S500L080CONFIRMHI");                           01450000          
+      DF_DISPLAY(">L080< PASO : "!!STRING(IDF_I_CHI_PASO ,2));          01451000          
+      DF_DISPLAY(">L080< MIX  : "!!STRING(IDF_I_CHI_MIX  ,6));          01452000          
+      DF_DISPLAY(">L080< FUNCI: "!!STRING(IDF_I_CHI_FUNC ,2));          01453000          
+      DF_DISPLAY(">L080< COPIA: "!!STRING(IDF_I_CHI_COPIA,2));          01454000          
+    END;                                                                01455000          
+                                                                        01456000          
+    IF I_RESULT := VALIDA_PMC(IDF_I_CHI_PASO                            01457000          
+                             ,IDF_I_CHI_MIX                             01458000          
+                             ,IDF_I_CHI_COPIA) = 0 THEN                 01459000          
+       PROCESA_CONFIRMA;                                                01460000          
+                                                                        01461000          
+    S500L080CONFIRMHI := I_RESULT;                                      01462000          
+                                                                        01463000          
+    IF B_DISPLAYS THEN                                                  01464000          
+    BEGIN                                                               01465000          
+      DF_DISPLAY(">L080< RESULT "!!STRING(I_RESULT,2));                 01466000          
+      DF_DISPLAY("TERMINA S500L080CONFIRMHI");                          01467000          
+    END;                                                                01468000          
+                                                                        01469000          
+  END OF S500L080CONFIRMHI;                                             01470000          
+                                                                        01471000          
+  INTEGER PROCEDURE S500L080PROCHI(ENTRADA);                            01472000          
+  EBCDIC ARRAY ENTRADA[*];                                              01473000          
+  BEGIN                                                                 01474000          
+                                                                        01475000          
+    INTEGER I_RESULT;                                                   01476000          
+    EBCDIC ARRAY EA_MSGLJ[0:499];                                       01477000          
+                                                                        01478000          
+    PROCEDURE PROCESA_FUNCION;                                          01479000          
+    BEGIN                                                               01480000          
+                                                                        01481000          
+      IF B_DISPLAYS THEN                                                01482000          
+         DF_DISPLAY("INICIA PROCESA_FUNCION S500L080PROCHI");           01483000          
+                                                                        01484000          
+      CASE IDF_I_PHI_FUNCION OF                                         01485000          
+      BEGIN                                                             01486000          
+        1    : IF T_HI_P080.STATUS LEQ 0 THEN                           01487000          
+                  PROCESS HISP080 [T_HI_P080];                          01488000          
+        ELSE : I_RESULT := 13;                                          01489000          
+      END;                                                              01490000          
+                                                                        01491000          
+      IF B_DISPLAYS THEN                                                01492000          
+         DF_DISPLAY("TERMINA PROCESA_FUNCION S500L080PROCHI");          01493000          
+                                                                        01494000          
+    END OF PROCESA_FUNCION;                                             01495000          
+                                                                        01496000          
+%*********************************************************************  01497000          
+% S500L080PROCHI  OUTER  BLOCK                                          01498000          
+%*********************************************************************  01499000          
+                                                                        01500000          
+    IF B_DISPLAYS THEN                                                  01501000          
+    BEGIN                                                               01502000          
+      DF_DISPLAY("INICIA S500L080PROCHI");                              01503000          
+      DF_DISPLAY(">L080< FUNCION : "!!STRING(IDF_I_PHI_FUNCION,2));     01504000          
+    END;                                                                01505000          
+                                                                        01506000          
+    PROCESA_FUNCION;                                                    01507000          
+    S500L080PROCHI := I_RESULT;                                         01508000          
+                                                                        01509000          
+    IF B_DISPLAYS THEN                                                  01510000          
+    BEGIN                                                               01511000          
+      DF_DISPLAY(">L080< RESULT "!!STRING(I_RESULT,2));                 01512000          
+      DF_DISPLAY("TERMINA S500L080PROCHI");                             01513000          
+    END;                                                                01514000          
+                                                                        01515000          
+  END OF S500L080PROCHI;                                                01516000          
+                                                                        01517000          
+  PROCEDURE LEVANTA;                                                    01518000          
+  BEGIN                                                                 01519000          
+                                                                        01520000          
+    DF_S500BD01;                                                        01521000          
+    DF_S500BD07;                                                        01522000          
+                                                                        01523000          
+    EBCDIC ARRAY EA_MSGLJ[0:499];                                       01524000          
+    REAL R_DMERR;                                                       01525000          
+                                                                        01526000          
+    PROCEDURE ACT_CREA_CONTROL;                                         01527000          
+    BEGIN                                                               01528000          
+                                                                        01529000          
+      OPEN UPDATE DF_BD07 : R_DMERR;                                    01530000          
+      DF_ERRORDB_DS("S500BD07ATRIBUCTA");                               01531000          
+                                                                        01532000          
+      OPEN INQUIRY DF_BD01 : R_DMERR;                                   01533000          
+      DF_ERRORDB_DS("S500BD01CAPTACION");                               01534000          
+                                                                        01535000          
+      FIND FIRST S500B02CONTROL OF DF_BD01 : R_DMERR;                   01536000          
+      DF_ERRORDB_DS("S500BD01CAPTACION");                               01537000          
+                                                                        01538000          
+      GET S500B02CONTROL OF DF_BD01(                                    01539000          
+                                  I_B02_FECHA_LINEA := B02-FECHA-LINEA  01540000          
+                                 ,I_B02_FECHA_LOTE  := B02-FECHA-LOTE   01541000          
+                                   );                                   01542000          
+      FIND B02SXTIPREG AT B02-NUM-TIPREG = 1 : R_DMERR;                 01543000          
+      IF R_DMERR.DMERROR = NOTFOUND THEN                                01544000          
+      BEGIN                                                             01545000          
+        BEGINTRANSACTION NOAUDIT S500B91REINICIO : R_DMERR;             01546000          
+        CREATE S500B02CONTROL OF DF_BD07 : R_DMERR;                     01547000          
+        DF_ERRORDB_DISP("S500BD07ATRIBUCTA")                            01548000          
+        ELSE                                                            01549000          
+        BEGIN                                                           01550000          
+          OBTIENE_CSI_COMS;                                             01551000          
+          PUT S500B02CONTROL OF DF_BD07 (                               01552000          
+                                    B02-NUM-TIPREG  := 1                01553000          
+                                   ,B02-NUM-CSI     := I_CSI_EJEC       01554000          
+                                   ,B02-FECHA-LINEA := I_B02_FECHA_LINEA01555000          
+                                   ,B02-FECHA-LOTE  := I_B02_FECHA_LOTE 01556000          
+                                        );                              01557000          
+          STORE S500B02CONTROL OF DF_BD07 : R_DMERR;                    01558000          
+          DF_ERRORDB_DISP("S500BD07ATRIBUCTA");                         01559000          
+        END;                                                            01560000          
+        ENDTRANSACTION AUDIT S500B91REINICIO : R_DMERR;                 01561000          
+      END                                                               01562000          
+      ELSE                                                              01563000          
+      DF_ERRORDB_DISP("S500BD07ATRIBUCTA")                              01564000          
+      ELSE                                                              01565000          
+      BEGIN                                                             01566000          
+        GET S500B02CONTROL OF DF_BD07(                                  01567000          
+                                  I_B07_FECHA_LINEA := B02-FECHA-LINEA  01568000          
+                                     );                                 01569000          
+        IF I_B07_FECHA_LINEA NEQ I_B02_FECHA_LINEA THEN                 01570000          
+        BEGIN                                                           01571000          
+          BEGINTRANSACTION NOAUDIT S500B91REINICIO : R_DMERR;           01572000          
+          LOCK B02SXTIPREG AT B02-NUM-TIPREG = 1 : R_DMERR;             01573000          
+          DF_ERRORDB_DISP("S500BD07ATRIBUCTA")                          01574000          
+          ELSE                                                          01575000          
+          BEGIN                                                         01576000          
+            PUT S500B02CONTROL OF DF_BD07 (                             01577000          
+                                    B02-FECHA-LINEA := I_B02_FECHA_LINEA01578000          
+                                   ,B02-FECHA-LOTE  := I_B02_FECHA_LOTE 01579000          
+                                          );                            01580000          
+            STORE S500B02CONTROL OF DF_BD07 : R_DMERR;                  01581000          
+            DF_ERRORDB_DISP("S500BD07ATRIBUCTA");                       01582000          
+          END;                                                          01583000          
+          ENDTRANSACTION AUDIT S500B91REINICIO SYNC : R_DMERR;          01584000          
+        END;                                                            01585000          
+      END;                                                              01586000          
+      I_B07_FECHA_LINEA := I_B02_FECHA_LINEA;                           01587000          
+      CLOSE DF_BD01 : R_DMERR;                                          01588000          
+      DF_ERRORDB_DISP("S500BD01CAPTACION");                             01589000          
+      CLOSE DF_BD07 : R_DMERR;                                          01590000          
+      DF_ERRORDB_DISP("S500BD07ATRIBUCTA");                             01591000          
+                                                                        01592000          
+    END OF ACT_CREA_CONTROL;                                            01593000          
+                                                                        01594000          
+    PROCEDURE INICIA_HIS_P080;                                          01595000          
+    BEGIN                                                               01596000          
+                                                                        01597000          
+      EBCDIC ARRAY EA_SCR [0:44];                                       01598000          
+                                                                        01599000          
+      REPLACE EA_SCR BY "(S500)S500/OBJECT/P081/EJECUTAHIP080/25MTP"    01600000          
+                     ,DF_MTP                                            01601000          
+                     ,"."                                               01602000          
+                     ;                                                  01603000          
+      REPLACE T_HI_P080.NAME BY EA_SCR;                                 01604000          
+      PROCESS HISP080 [T_HI_P080];                                      01605000          
+                                                                        01606000          
+    END;                                                                01607000          
+                                                                        01608000          
+%*********************************************************************  01609000          
+% LEVANTA  OUTER  BLOCK                                                 01610000          
+%*********************************************************************  01611000          
+                                                                        01612000          
+    ACT_CREA_CONTROL;                                                   01613000          
+    ABRE_GENE_BITACORA;                                                 01614000          
+    INICIA_HIS_P080;                                                    01615000          
+                                                                        01616000          
+    IA_NUM_COPIAS[DF_IND_P080] := DF_NUMCOPIAS_P080;                    01617000          
+    IA_NUM_COPIAS[1          ] := 0;                                    01618000          
+    IA_NUM_COPIAS[2          ] := 0;                                    01619000          
+    IA_NUM_COPIAS[3          ] := 0;                                    01620000          
+    REPLACE EA_MY_HOST BY MYSELF.HOSTNAME;                              01621000          
+                                                                        01621002          
+    IF EA_MY_HOST = "ACYPBETA" OR EA_MY_HOST = "CACYPBET" OR            01621004          
+       EA_MY_HOST = "VDMBETA"  OR EA_MY_HOST = "CVDMBET" THEN           01621006          
+    BEGIN                                                               01621008          
+      REPLACE EA_MSGLJ BY " " FOR SIZE(EA_MSGLJ);                       01621010          
+      REPLACE EA_MSGLJ BY DF_HDRMSG("E>050110<")                        01621012          
+                      ," "                                              01621014          
+                      , EA_MY_HOST FOR 10                               01621016          
+                      ;                                                 01621018          
+      LJ(I_CONLJ,EA_MSGLJ);                                             01621020          
+    END;                                                                01621022          
+                                                                        01621040          
+                                                                        01622000          
+  END OF LEVANTA;                                                       01623000          
+                                                                        01624000          
+  PROCEDURE BAJA;                                                       01625000          
+  BEGIN                                                                 01626000          
+                                                                        01627000          
+%*********************************************************************  01628000          
+% BAJA  OUTER  BLOCK                                                    01629000          
+%*********************************************************************  01630000          
+                                                                        01631000          
+    CAUSE(E_FIN_HIP080);                                                01632000          
+    WHILE T_HI_P080.STATUS GEQ 1 DO                                     01633000          
+          WAIT((1));                                                    01634000          
+    IF F_BITACORA.OPEN THEN                                             01635000          
+       ESCRIBE_TRAILER_BITACORA;                                        01636000          
+    CALL_SYSTEM_WFL(1);                                                 01637000          
+    CALL_SYSTEM_WFL(2);                                                 01638000          
+                                                                        01639000          
+  END OF BAJA;                                                          01640000          
+                                                                        01641000          
+%*********************************************************************  01642000          
+% L I B R A R Y  O U T E R  B L O C K                                   01643000          
+%*********************************************************************  01644000          
+                                                                        01645000          
+  EXPORT  S500L080INICIOXPGM                                            01646000          
+         ,S500L080INIBATCHP080                                          01647000          
+         ,S500L080ESBATCHP080                                           01648000          
+         ,S500L080AVIBAJAP080                                           01649000          
+         ,S500L080BITACORA                                              01650000          
+         ,S500L080CONFIRMHI                                             01651000          
+         ,S500L080PROCHI                                                01652000          
+         ;                                                              01653000          
+                                                                        01654000          
+  LEVANTA;                                                              01655000          
+  FREEZE(TEMPORARY);                                                    01656000          
+  BAJA;                                                                 01657000          
+                                                                        01658000          
+END.                                                                    01659000          

@@ -1,0 +1,1098 @@
+
+100100$SET LIST$                                                                    
+100200$SUPRESS                                                                      
+100400$SET ERRORLIST                                                                
+100500$SET LIST STACK  LINEINFO FREE                                                
+100600$ERRORLIMIT = 6                                                               
+100700****$SET TADS (FREQUENCY)                                                     
+100800*                                                                             
+100900*----------------------------------------------------------------             
+101000*        PARA INCLUDE MANEJO DE LIBRERIAS                       -             
+101100*----------------------------------------------------------------             
+101200$SET S100VERSIONES S000LIBLJ S080CATALOGOS   S080IVA                          
+101250$SET S080L100 S080L700 S080DATOS S080TARIFAS                                  
+101270$SET S016L422 S016L422R01                                                     
+101300*----------------------------------------------------------------             
+101400*        PARA MANEJO DE INCLUDE  BASE DE DATOS                  -             
+101500*----------------------------------------------------------------             
+101600$SET BDB03R12 BDB06R11 BDB00R22 BDB00R23                                      
+101700$SET BDB39R02 BDB39R04 BDB37R04 BDB37R02 BDB39R09 BDB02R01                    
+101750$SET BDB00R01 BDB00R02 BDB00R04 SYSTEMLIBCOMSXATMI                            
+101800*----------------------------------------------------------------             
+101900*        PARA MANEJO DEL MONITOREO DEL PROGRAMA                 -             
+102000*----------------------------------------------------------------             
+102100$SET LIBMAPLI                                                                 
+102200*----------------------------------------------------------------             
+102300*                                                                             
+102400 IDENTIFICATION DIVISION.                                                     
+102500 PROGRAM-ID.     P310-CARGA.                                                  
+102600 ENVIRONMENT DIVISION.                                                        
+102700 CONFIGURATION  SECTION.                                                      
+102800 INPUT-OUTPUT  SECTION.                                                       
+102900 FILE-CONTROL.                                                                
+102920      SELECT ARCHSMTY ASSIGN TO DISK.                                         
+102940      SELECT ARCHIMTY ASSIGN TO DISK                                          
+102980             ORGANIZATION IS INDEXED                                          
+103000             ACCESS MODE  IS DYNAMIC                                          
+103020             RECORD KEY   IS IND-NUM-CTO.                                     
+103060      SELECT ARCHISAT ASSIGN TO DISK.                                         
+103200*                                                                             
+103300 DATA DIVISION.                                                               
+103400 FILE SECTION.                                                                
+103420 FD  ARCHSMTY                                                                 
+103460     BLOCK  CONTAINS   90 RECORDS                                             
+103480     RECORD CONTAINS  180 CHARACTERS                                          
+103500     VALUE OF TITLE    IS WS-ETIQ-ARCHSMTY.                                   
+103520 01  REG-ARCHSMTY         PIC X(180).                                         
+103802*                                                                             
+103804 FD  ARCHIMTY                                                                 
+103808     BLOCK  CONTAINS   90 RECORDS                                             
+103810     RECORD CONTAINS  180 CHARACTERS                                          
+103812     VALUE OF TITLE    IS WS-ETIQ-ARCHIMTY                                    
+103813     VALUE OF PROTECTION IS 2.                                                
+103814 01  REG-ARCHIMTY.                                                            
+103816     05 IND-NUM-CTO       PIC 9(12).                                          
+103824     05 IND-CON-COM       PIC 9(06).                                          
+103826     05 IND-DIA-CIC       PIC 9(02).                                          
+103828     05 IND-PRO-CIC       PIC 9(12)V99.                                       
+103830     05 IND-TIP-PER       PIC 9(02).                                          
+103832     05 IND-NOM-CTE       PIC X(36).                                          
+103834     05 IND-STA-CTO       PIC 9(02).                                          
+103836     05 IND-TAS-ANT       PIC 9(03)V9999.                                     
+103838     05 IND-INT-CAP       PIC 9(12)V99.                                       
+103840     05 IND-IMP-RET       PIC 9(12)V99.                                       
+103842     05 IND-TAS-BTA       PIC 9(03)V9999.                                     
+103862     05 IND-CVE-COBRO     PIC 9(02).                                          
+103882     05 IND-IMP-COM-CAP   PIC 9(06)V99.                                       
+103892     05 FILLER            PIC X(54).                                          
+103893*                                                                             
+104000 FD  ARCHISAT                                                                 
+104010     VALUE OF TITLE IS WS-ETIQ-ARCHISAT.                                      
+104020 01  SAT-REGISTRO         PIC X(150).                                         
+104030                                                                              
+106000*-------------------------------------                                        
+106200 DATA-BASE SECTION.                                                           
+106300 DB  S500BD01CAPTACION.                                                       
+106400 01  S500B03CONTRATOS.                                                        
+106500 01  S500B06HISTORICO.                                                        
+106800 01  S500B00CTRLPASO.                                                         
+106850 01  S500B02CONTROL.                                                          
+106900 01  S500B37GRUPOCPE.                                                         
+107000 01  S500B38SUBGPOS.                                                          
+107100 01  S500B39CTASCPE.                                                          
+107200 01  S500B91REINICIO.                                                         
+107300*                                                                             
+107400 WORKING-STORAGE SECTION.                                                     
+107405 77 W77-RS-XATMI    PIC 9(12)-.                                               
+107410 77 W77-ES-PRUEBA   PIC 9(02)      COMP   VALUE 0.                            
+107420 77 WS-CSI-ALFA     PIC X(03).                                                
+107440 77 WS-OBSERVO      PIC X(07).                                                
+107460 77 W77-NUM-REG     PIC 9(04).                                                
+107500 77 W77-MY-PASO     PIC  9(04).                                               
+107600 77 W77-EOF-B39     PIC  9(01).                                               
+107620 77 WB-RESIDE-CPESEC PIC 9(01).                                               
+107640    88 RESIDE-CPESEC VA  1.                                                   
+107740 77 WB-FIN-CPESEC   PIC  9(01).                                               
+107840    88 FIN-CPESEC   VA   1.                                                   
+107940 77 WS-REGS-CPESEC  PIC  9(07).                                               
+107990 77 WS-REGS-CPESEC-02 PIC 9(7).                                               
+108040 77 WS-LASTRECORDS  PIC  9(07).                                               
+108060 77 WB-EXISTE-CTO   PIC  9(01).                                               
+108080    88 EXISTE-CTO   VA   1.                                                   
+108100 77 WB-PRIM-VEZ     PIC  9(01).                                               
+108200    88 PRIM-VEZ     VA   0.                                                   
+108220 77 WS-RESUL        PIC 9(08).                                                
+108240 77 WS-RESIDUO      PIC 9(08).                                                
+108300*                                                                             
+108850 77 WS-CTAS-X-GPO  PIC 9(03).                                                 
+108870 77 WS-CHQS-GIR-XGPO PIC 9(7).                                                
+108900 77 WS-GPO-ANT     PIC 9(10).                                                 
+109020 77 WS-GPO-NVO     PIC 9(10).                                                 
+109100 77 WS-SORT-ESPACIO PIC 9(12).                                                
+109200 77 WS-AREA-ESPACIO PIC 9(12).                                                
+109300 77 WS-LASTRECORD   PIC 9(10).                                                
+109400 77 WB-PRIMER-MODIF PIC 9(01).                                                
+109500    88 PRIMER-MODIF VALUE  0.                                                 
+109800 77 WT-G-REND-PAG-500  PIC 9(12)V99.                                          
+109900 77 WT-G-PROM-CICLO    PIC 9(12)V99.                                          
+109950 77 W77-DONDE-ESTOY    PIC 9(05) VALUE 0.                                     
+110000 77 W77-REG-LEI-B39    PIC 9(05) VALUE 0.                                     
+110050 77 W77-NO-REG-MTY     PIC 9(05) VALUE 0.                                     
+110100 77 W77-SI-REG-MTY     PIC 9(05) VALUE 0.                                     
+110150 77 W77-NO-REG-VDM     PIC 9(05) VALUE 0.                                     
+110200 77 W77-SI-REG-VDM     PIC 9(05) VALUE 0.                                     
+110250 77 W77-HI-NUMHI       PIC 9(04) VALUE 0.                                     
+110300 77 W77-B39-CONTRATO   PIC 9(12) VALUE 0.                                     
+110400 77 WS-CTO-DISP      PIC 9(12) VALUE 0.                                       
+110500 77 WS-REINTENTOS      PIC 9(03) VALUE 0.                                     
+110550 77 WS-CAP-IMP-ISR     PIC 9(10)V9(06)   COMP.                                
+110600*                                                                             
+110900************************************                                          
+111000* CAMPOS UTILIZADOS PARA LA MAPLI.                                            
+111100************************************                                          
+111200 77 WS-NUM-ACT01  PIC 9(02).                                                  
+111300 77 WS-NUM-ACT02  PIC 9(02).                                                  
+111400 77 WS-NUM-ACT03  PIC 9(02).                                                  
+111420 01 WKS-RESULT-L020-A.                                                        
+111440    05 WKS-RESULT-L020 PIC -9(5).                                             
+111442*                                                                             
+111444 01  WS-ETIQ-ARCHSMTY.                                                        
+111449     05 FILLER                 PIC X(15) VALUE                                
+111454                               "S500/FILE/S500/".                             
+111459     05 WS-CPS-CSIO            PIC 99.                                        
+111464     05 FILLER                 PIC X(1) VALUE "/".                            
+111469     05 WS-CPS-CSID            PIC 99.                                        
+111474     05 FILLER                 PIC X(08) VALUE "/CPESEC/".                    
+111479     05 WS-ETIQ-FECHA-ARCHS    PIC 9(6).                                      
+111484     05 FILLER                 PIC X VALUE ".".                               
+111489*                                                                             
+111494 01  WS-ETIQ-ARCHIMTY.                                                        
+111499     05 FILLER                 PIC X(15) VALUE                                
+111504                               "S500/FILE/S500/".                             
+111509     05 WS-CPI-CSIO            PIC 99.                                        
+111514     05 FILLER                 PIC X(1) VALUE "/".                            
+111519     05 WS-CPI-CSID            PIC 99.                                        
+111524     05 FILLER                 PIC X(08) VALUE "/CPEIND/".                    
+111529     05 WS-ETIQ-FECHA-ARCHI    PIC 9(6).                                      
+111534     05 FILLER                 PIC X VALUE ".".                               
+111539*                                                                             
+111564 01  WKS-CPESEC-REG.                                                          
+111584     05 SEC-TIP-REG       PIC 9(02).                                          
+111614     05 SEC-TIP-HEADER.                                                       
+111714        10 SEC-NOM-ARC.                                                       
+111764           15 SEC-PREF    PIC X(15).                                          
+111814           15 SEC-DIAG-1  PIC X(01).                                          
+111864           15 SEC-ORIG    PIC 9(02).                                          
+111914           15 SEC-DIAG-2  PIC X(01).                                          
+111964           15 SEC-DEST    PIC 9(02).                                          
+112014           15 SEC-DIAG-3  PIC X(01).                                          
+112064           15 SEC-NOMB    PIC X(06).                                          
+112114           15 SEC-DIAG-4  PIC X(01).                                          
+112164           15 SEC-AAMMDD  PIC 9(06).                                          
+112214        10 FILLER         PIC X(143).                                         
+112264     05 SEC-TIP-DETALLE   REDEFINES                                           
+112314        SEC-TIP-HEADER.                                                       
+112318        10 SEC-NUM-CTO    PIC 9(12).                                          
+112320        10 SEC-CON-COM    PIC 9(06).                                          
+112322        10 SEC-DIA-CIC    PIC 9(02).                                          
+112324        10 SEC-PRO-CIC    PIC 9(12)V99.                                       
+112326        10 SEC-TIP-PER    PIC 9(02).                                          
+112328        10 SEC-NOM-CTE    PIC X(36).                                          
+112330        10 SEC-STA-CTO    PIC 9(02).                                          
+112332        10 SEC-TAS-ANT    PIC 9(03)V9999.                                     
+112334        10 SEC-INT-CAP    PIC 9(12)V99.                                       
+112336        10 SEC-IMP-RET    PIC 9(12)V99.                                       
+112337        10 SEC-TAS-BTA    PIC 9(03)V9999.                                     
+112338        10 SEC-CVE-COBRO  PIC 9(02).                                          
+112339        10 SEC-IMP-COM-CAP PIC 9(06)V99.                                      
+112340        10 FILLER         PIC X(52).                                          
+112341*                                                                             
+112342     05 SEC-TIP-TRAILER   REDEFINES                                           
+112344        SEC-TIP-HEADER.                                                       
+112348        10 SEC-REG-DET    PIC 9(07).                                          
+112349        10 FILLER         PIC X(171).                                         
+112350*                                                                             
+112400*   Nombre de archivo para constancias del SAT                                
+112402 01 WS-ETIQ-ARCHISAT.                                                         
+112404    02 FILLER              PIC X(24) VALUE                                    
+112406       "S500/FILE/A01/SALDOSCPE/".                                            
+112409    02 WS-ETIQ-FECHA-SAT   PIC X(08).                                         
+112410    02 FILLER              PIC X VALUE ".".                                   
+112420* Descripcion del archivo para el SAT                                         
+112422*   HEADER                                                                    
+112424 01 SAT-HEADER.                                                               
+112426    02 SAT-TIPOREGH        PIC 9(01).                                         
+112428    02 SAT-IDSISTEMA       PIC X(04).                                         
+112429    02 SAT-FECHAH          PIC 9(06).                                         
+112430    02 FILLER              PIC X(139).                                        
+112432*   DETALLE                                                                   
+112434 01 SAT-DETALLE.                                                              
+112436    02 SAT-TIPOREG         PIC 9(01).                                         
+112438    02 SAT-AREA            PIC 9(01).                                         
+112440    02 SAT-DIV             PIC 9(01).                                         
+112442    02 SAT-SDIV            PIC 9(01).                                         
+112444    02 SAT-EJE             PIC 9(02).                                         
+112446    02 SAT-SGPO            PIC 9(02).                                         
+112448    02 SAT-GPO             PIC 9(03).                                         
+112450    02 FILLER              PIC X(01) VALUE ",".                               
+112452    02 SAT-CTE             PIC 9(04).                                         
+112454    02 FILLER              PIC X(01) VALUE ",".                               
+112456    02 SAT-SUC             PIC 9(04).                                         
+112458    02 FILLER              PIC X(01) VALUE ",".                               
+112460    02 SAT-CTA             PIC 9(08).                                         
+112462    02 FILLER              PIC X(01) VALUE ",".                               
+112464    02 SAT-SDOPRO          PIC 9(16)V99.                                      
+112466    02 FILLER              PIC X(01) VALUE ",".                               
+112468    02 SAT-TASANETA        PIC 9(02)V999.                                     
+112470    02 FILLER              PIC X(01) VALUE ",".                               
+112472    02 SAT-PRODNET         PIC 9(12)V99.                                      
+112474    02 FILLER              PIC X(01) VALUE ",".                               
+112476    02 SAT-OPCION          PIC 9(02).                                         
+112478    02 FILLER              PIC X(01) VALUE ",".                               
+112480    02 SAT-RAN             PIC 9(04).                                         
+112482    02 FILLER              PIC X(01) VALUE ",".                               
+112484    02 SAT-FECHA           PIC 9(06).                                         
+112486    02 FILLER              PIC X(06).                                         
+112488*   TRAILER                                                                   
+112490 01 SAT-TRAILER.                                                              
+112492    02 SAT-TIPOREGT        PIC 9(01).                                         
+112494    02 SAT-NUMRGPO         PIC 9(06).                                         
+112495    02 FILLER              PIC 9(143).                                        
+112496                                                                              
+112498 01 WS-GRUPO-10            PIC 9(10).                                         
+112500 01 WS-GRUPO-10-RED REDEFINES WS-GRUPO-10.                                    
+112502    02 WS-AREA             PIC 9(01).                                         
+112504    02 WS-DIV              PIC 9(01).                                         
+112506    02 WS-SDIV             PIC 9(01).                                         
+112508    02 WS-EJE              PIC 9(02).                                         
+112510    02 WS-SGPO             PIC 9(02).                                         
+112512    02 WS-GPO              PIC 9(03).                                         
+112520                                                                              
+112522 01 WS-NUM-MDA-12          PIC 9(12).                                         
+112524 01 WS-NUM-MDA-12-RED REDEFINES WS-NUM-MDA-12.                                
+112526    02 WS-MDA-SUC          PIC 9(04).                                         
+112528    02 WS-MDA-CTA          PIC 9(08).                                         
+112530                                                                              
+112540 01  WS-FECHA-PROCE.                                                          
+112542     02  WS-FEC-PROCE-AA               PIC 9(004).                            
+112544     02  WS-FEC-PROCE-MM               PIC 9(002).                            
+112546     02  WS-FEC-PROCE-DD               PIC 9(002).                            
+112548 01  WS-FECHA-PROCER REDEFINES WS-FECHA-PROCE                                 
+112550                                       PIC 9(08).                             
+112552 01  WS-FECHA-PROC   REDEFINES WS-FECHA-PROCE.                                
+112554     02  WS-FECHA-PROC-AAAAMM          PIC 9(06).                             
+112556     02  WS-FECHA-PROC-DD              PIC 9(02).                             
+112558                                                                              
+112560 01  WS-TOT-CTAS                       PIC 9(06).                             
+112652*                                                                             
+112654 01  WS-MESES.                                                                
+112656     02  FILLER     PIC X(22) VALUE "ENE ENERO           31".                 
+112658     02  FILLER     PIC X(22) VALUE "FEB FEBRERO         28".                 
+112660     02  FILLER     PIC X(22) VALUE "MAR MARZO           31".                 
+112662     02  FILLER     PIC X(22) VALUE "ABR ABRIL           30".                 
+112664     02  FILLER     PIC X(22) VALUE "MAY MAYO            31".                 
+112666     02  FILLER     PIC X(22) VALUE "JUN JUNIO           30".                 
+112668     02  FILLER     PIC X(22) VALUE "JUL JULIO           31".                 
+112670     02  FILLER     PIC X(22) VALUE "AGO AGOSTO          31".                 
+112672     02  FILLER     PIC X(22) VALUE "SEP SEPTIEMBRE      30".                 
+112674     02  FILLER     PIC X(22) VALUE "OCT OCTUBRE         31".                 
+112676     02  FILLER     PIC X(22) VALUE "NOV NOVIEMBRE       30".                 
+112678     02  FILLER     PIC X(22) VALUE "DIC DICIEMBRE       31".                 
+112680                                                                              
+112682 01  WS-TABLA-MESES REDEFINES WS-MESES.                                       
+112684     02 WS-TABLA-MES OCCURS 12 TIMES.                                         
+112686        03 WS-TBL-MES                PIC X(03).                               
+112688        03 FILLER                    PIC X(01).                               
+112690        03 WS-MES-LARGO              PIC X(15).                               
+112692        03 FILLER                    PIC X(01).                               
+112742        03 WS-NUM-DIAS               PIC 9(02).                               
+112752*INI-STEFANINI CPE 2022R09M MTDP-2467.                                        
+112762 77  WS-ISR-0-9991-259                PIC 99V9999 COMP.                       
+112772*FIN-STEFANINI CPE 2022R09M MTDP-2467.                                        
+112792*                                                                             
+112840 COPY "S500/INC/MAPLI/WOR/15MTP001".                                          
+112860*                                                                             
+112880 COPY "S500/INC/WOR/25MTP002".                                                
+112900*                                                                             
+117600******************************************************************            
+117700 PROCEDURE DIVISION.                                                          
+117702 DECLARATIVES.                                                                
+117704 INTERRUPT-SECCION        SECTION  00.                                        
+117706     USE AS INTERRUPT PROCEDURE.                                              
+117708 INTERRUPT-BY-HI.                                                             
+117710     DISALLOW  INTERRUPT.                                                     
+117712     MOVE "I" TO W77-TIPO-DISP.                                               
+117714     MOVE ATTRIBUTE TASKVALUE OF MYSELF TO W77-HI-NUMHI                       
+117716     MOVE SPACES TO WS-0101-TEXT-MSG                                          
+117718     IF W77-HI-NUMHI = 10                                                     
+117720        IF W77-DONDE-ESTOY = 0                                                
+117722           STRING "NO HE INICIADO"                                            
+117724                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                     
+117726           PERFORM 70000050-MENSAJE                                           
+117728        ELSE                                                                  
+117730        IF W77-DONDE-ESTOY = 1                                                
+117732           STRING "VALIDA Y GENERA ARCH INDEX MTY"                            
+117734                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                     
+117736           PERFORM 70000050-MENSAJE                                           
+117738        ELSE                                                                  
+117740        IF W77-DONDE-ESTOY = 2                                                
+117742           STRING "PROCESANDO, LEIDOS B39 ", W77-REG-LEI-B39,                 
+117744                  ", EN VDM:", W77-SI-REG-VDM,                                
+117746                  ", NO EN VDM ", W77-NO-REG-VDM,                             
+117748                  ", EN MTY:", W77-SI-REG-MTY,                                
+117750                  ", NO EN MTY ", W77-NO-REG-MTY                              
+117752                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                     
+117754           PERFORM 70000050-MENSAJE                                           
+117756        ELSE                                                                  
+117758           STRING "TERMINANDO, LEIDOS B39 ", W77-REG-LEI-B39,                 
+117760                  ", EN VDM:", W77-SI-REG-VDM,                                
+117762                  ", NO EN VDM ", W77-NO-REG-VDM,                             
+117764                  ", EN MTY:", W77-SI-REG-MTY,                                
+117766                  ", NO EN MTY ", W77-NO-REG-MTY                              
+117768                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                     
+117770           PERFORM 70000050-MENSAJE                                           
+117772     ELSE                                                                     
+117774        STRING "NUM HI ERRONEO ", W77-HI-NUMHI                                
+117776               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+117778        PERFORM 70000050-MENSAJE.                                             
+117780                                                                              
+117782     SET MYSELF (TASKVALUE)  TO ZERO.                                         
+117784     MOVE "E" TO W77-TIPO-DISP.                                               
+117786 END-INTERRUPT-BY-HI.                                                         
+117788     ALLOW INTERRUPT.                                                         
+117790 END DECLARATIVES.                                                            
+117792                                                                              
+117794*-------------------------------                                              
+117796 000-CONTROL-SECCION SECTION 01.                                              
+117800*-------------------------------                                              
+117900 000-CONTROL.                                                                 
+118000*------------                                                                 
+118100     PERFORM 100-INICIA                                                       
+118150     IF B02-NUM-CSI = 10                                                      
+118170        PERFORM 180-GENERA-ARCHIVO-SAT                                        
+118200        PERFORM 200-ACTUALIZA-CUENTAS                                         
+118250        MOVE 3 TO W77-DONDE-ESTOY                                             
+118300        PERFORM 300-TERMINA.                                                  
+118310     DISALLOW  INTERRUPT.                                                     
+118320     MOVE "E" TO W77-TIPO-DISP.                                               
+118330     STRING "LEIDOS B39 ", W77-REG-LEI-B39,                                   
+118340            ", EN VDM:", W77-SI-REG-VDM,                                      
+118350            ", NO EN VDM ", W77-NO-REG-VDM,                                   
+118360            ", EN MTY:", W77-SI-REG-MTY,                                      
+118370            ", NO EN MTY ", W77-NO-REG-MTY                                    
+118380            DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                           
+118390     PERFORM 70000050-MENSAJE                                                 
+118400     STOP RUN.                                                                
+118500*                                                                             
+118600 100-INICIA.                                                                  
+118700*-----------                                                                  
+118705     MOVE ATTRIBUTE HOSTNAME OF MYSELF TO WKS-NAME-HOST.                      
+118710     MOVE "E"  TO W77-TIPO-DISP                                               
+118715     MOVE 11   TO WS-STATUS-BASE                                              
+118720     PERFORM 140-BASE-DE-DATOS UNTIL WS-DB-NOTERROR                           
+118740     PERFORM 152-VALIDA-B02CONTROL                                            
+118750     ATTACH INTERRUPT-SECCION TO ATTRIBUTE EXCEPTIONEVENT                     
+118760            OF MYSELF.                                                        
+118770     ALLOW INTERRUPT.                                                         
+118790     IF B02-NUM-CSI = 10                                                      
+118800        PERFORM 110-VALIDA-VERSION                                            
+118900        PERFORM 120-MOVES-ACTIV-MAPLI                                         
+119000        PERFORM 1000038-S038L035                                              
+119010        PERFORM 10000016-L422                                                 
+119012        MOVE 1 TO W77-DONDE-ESTOY                                             
+119013        PERFORM 154-VALIDA-RESIDE-CPESEC UNTIL RESIDE-CPESEC                  
+119014        PERFORM 154-GENERA-CPEIND                                             
+119016        MOVE 2 TO W77-DONDE-ESTOY                                             
+119020        PERFORM 125-VALIDA-S080BD01CON                                        
+119050        PERFORM 10000080-S080IVA                                              
+119100        PERFORM 99900010-INI-PGM-MAPLI                                        
+119300        PERFORM 135-INICIA-ACT01                                              
+119320        PERFORM 140-CARGA-FACTOR-ISR                                          
+119370*INI-STEFANINI CPE 2022R09M MTDP-2467.                                        
+119420        PERFORM 150-CARGA-FACTOR-ISR-EXTR                                     
+119470*FIN-STEFANINI CPE 2022R09M MTDP-2467.                                        
+119540        PERFORM 154-CARGA-DATOS-S080                                          
+119600        PERFORM 155-TERMINA-ACT01                                             
+119700        PERFORM 160-INICIA-ACT02                                              
+119800*       PERFORM 170-B39SXGPOSBGMDA-LOCKN                                      
+119820     ELSE                                                                     
+119840        PERFORM 305-CIERRA-BASE.                                              
+119900*                                                                             
+120000 110-VALIDA-VERSION.                                                          
+120100*-------------------                                                          
+120200     MOVE 2          TO W77-USO-LIBLJ.                                        
+120300     MOVE 051010     TO WS-0101-CODI-MSG.                                     
+120400     MOVE 02         TO WS-0101-TIPO-MSG.                                     
+120500     MOVE "S500P310" TO W77-S000-MY-ID.                                       
+120600     MOVE       310  TO W77-MY-PASO.                                          
+120700     MOVE     "P310" TO WS-0101-PASO-MSG.                                     
+120800     MOVE "25MTP004" TO WS-0101-MTP-MSG W77-S000-MY-VERSION.                  
+120900*                                                                             
+121000     PERFORM  10000100-VERSIONES.                                             
+121100     PERFORM  20000100-CHECAME-VERSION.                                       
+121200     IF S000-CTR-CVEERROR < 0                                                 
+121300        STRING "ERROR DE VERSION "                                            
+121400               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+121500        PERFORM 70000050-MENSAJE                                              
+121510        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                              
+121515*                                                                             
+121800 120-MOVES-ACTIV-MAPLI.                                                       
+121900*----------------------                                                       
+122000     MOVE ZEROS     TO WKS-TB-NUMACT-LIBS.                                    
+122100     MOVE 20        TO WKS-NUMACT-LIB(20).                                    
+122200     MOVE 21        TO WKS-NUMACT-LIB(21).                                    
+122300     MOVE 22        TO WKS-NUMACT-LIB(22).                                    
+122302*                                                                             
+122304 125-VALIDA-S080BD01CON.                                                      
+122306*-----------------------                                                      
+122308     MOVE ZEROS          TO S000-CTR-CVEERROR.                                
+122310     MOVE "S080BD01CON"  TO S000-CTR-LIBID.                                   
+122312                                                                              
+122314     PERFORM 20000100-DAME-TIT-VERS.                                          
+122316                                                                              
+122318     IF S000-CTR-CVEERROR = 0                                                 
+122320          CHANGE ATTRIBUTE TITLE OF "S080BD01CON"                             
+122322                     TO S000-CTR-NOMLIB                                       
+122324     ELSE                                                                     
+122326        MOVE S000-CTR-CVEERROR TO WS-MSG-N-02                                 
+122328        STRING  "ERROR EN CALL CTLVERS S080BD01CON ",                         
+122330                " RESULT=", WS-MSG-N-02                                       
+122332                DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                       
+122334        PERFORM 70000050-MENSAJE.                                             
+122336                                                                              
+122338     MOVE 1 TO WKS-88-S080BD01CON.                                            
+122340*                                                                             
+122342 140-CARGA-FACTOR-ISR.                                                        
+122344*-------------------                                                          
+122346** CARGA VALOR DE FACTOR DE AJUSTE ISR TARIFA 254 CAT. 9991 **                
+122348     MOVE ALL @00@               TO WS-S080-0201-ENTRADA                      
+122350                                    WS-S080-0201-SALIDA.                      
+122352     MOVE 0                      TO WS-ISR-0-9991-254.                        
+122354                                                                              
+122356     MOVE 310                    TO WS-S080-0201-PASO.                        
+122358     MOVE B02-FECHA-LINEA        TO WS-S080-0201-FECHVIG.                     
+122360     MOVE 254                    TO WS-S080-0201-CVTARIF.                     
+122362     MOVE 9991                   TO WS-S080-0201-PRODUCTO.                    
+122364     MOVE 1                      TO WS-S080-0201-INSTRUM.                     
+122366     MOVE 0                      TO WS-S080-0201-MONEDA                       
+122368                                    WS-S080-0201-HORAVIG                      
+122370                                    WS-S080-0201-IMPMIN                       
+122372                                    WS-S080-0201-NIVEL                        
+122374                                    WS-S080-0201-FECHCTRL                     
+122376                                    WS-S080-0201-HORACTRL.                    
+122378     MOVE 1                      TO WS-S080-0201-NUMREGS.                     
+122380                                                                              
+122382     PERFORM 20000080-L700-TARIFAS.                                           
+122384                                                                              
+122386     IF WS-S080-0201-RESULT = 0 OR 1                                          
+122388        COMPUTE WS-CAP-IMP-ISR = WS-S080-ENT-CAMPO-01 (01) /                  
+122390                          (10 ** WS-S080-DEC-CAMPO-01 (01))                   
+122392        MOVE WS-CAP-IMP-ISR TO WS-ISR-0-9991-254.                             
+122394                                                                              
+122396     MOVE WS-ISR-0-9991-254      TO WS-ISR-0-NVO                              
+122398                                    WS-ISR-0.                                 
+122400*                                                                             
+122402 154-CARGA-DATOS-S080.                                                        
+122404*---------------------                                                        
+122406     MOVE 310                   TO WKS-S080-NUMPASO.                          
+122408     MOVE ZERO                  TO WKS-S080-NUMSUC.                           
+122410     MOVE B02-FECHA-LOTE        TO WKS-S080-FECHA.                            
+122414     PERFORM 40000080-CARGA-DATOS-S080.                                       
+122416                                                                              
+122418     IF WKS-S080-RS-CARGA = 0 OR 1                                            
+122420        NEXT SENTENCE                                                         
+122434     ELSE                                                                     
+122436        MOVE WKS-S080-RS-CARGA       TO WS-MSG-RS                             
+122438        MOVE WKS-S080-NUMSUC         TO WS-MSG-N-04                           
+122440        STRING " ERROR CARGA S080 RS=", WS-MSG-RS                             
+122442               "  ULTIMA SUC/CARGADA=", WS-MSG-N-04                           
+122452                 DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                      
+122482        PERFORM 70000050-MENSAJE                                              
+122492        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                              
+122497*                                                                             
+122502*INI-STEFANINI CPE 2022R09M MTDP-2467.                                        
+122507 150-CARGA-FACTOR-ISR-EXTR.                                                   
+122512*-------------------                                                          
+122517** CARGA VALOR DE FACTOR DE AJUSTE ISR TARIFA 259 CAT. 9991 **                
+122522     MOVE ALL @00@               TO WS-S080-0201-ENTRADA                      
+122527                                    WS-S080-0201-SALIDA.                      
+122532     MOVE 0                      TO WS-ISR-0-9991-259.                        
+122537                                                                              
+122542     MOVE 310                    TO WS-S080-0201-PASO.                        
+122547     MOVE B02-FECHA-LINEA        TO WS-S080-0201-FECHVIG.                     
+122552     MOVE 259                    TO WS-S080-0201-CVTARIF.                     
+122557     MOVE 9991                   TO WS-S080-0201-PRODUCTO.                    
+122562     MOVE 1                      TO WS-S080-0201-INSTRUM.                     
+122567     MOVE 0                      TO WS-S080-0201-MONEDA                       
+122572                                    WS-S080-0201-HORAVIG                      
+122577                                    WS-S080-0201-IMPMIN                       
+122582                                    WS-S080-0201-NIVEL                        
+122587                                    WS-S080-0201-FECHCTRL                     
+122592                                    WS-S080-0201-HORACTRL.                    
+122597     MOVE 1                      TO WS-S080-0201-NUMREGS.                     
+122602                                                                              
+122607     PERFORM 20000080-L700-TARIFAS.                                           
+122612                                                                              
+122617     IF WS-S080-0201-RESULT = 0 OR 1                                          
+122622        COMPUTE WS-CAP-IMP-ISR = WS-S080-ENT-CAMPO-01 (01) /                  
+122627                          (10 ** WS-S080-DEC-CAMPO-01 (01))                   
+122632        MOVE WS-CAP-IMP-ISR TO WS-ISR-0-9991-259.                             
+122637                                                                              
+122642     COMPUTE WS-ISR-0-9991-259 = WS-ISR-0-9991-259 / 100.                     
+122647                                                                              
+122652     MOVE WS-ISR-0-9991-259      TO WS-ISR-EXTR-0-NVO                         
+122657                                    WS-ISR-EXTR-0.                            
+122662*FIN-STEFANINI CPE 2022R09M MTDP-2467.                                        
+122667*                                                                             
+122672 99900010-INI-PGM-MAPLI.                                                      
+122677*-----------------------                                                      
+122700     MOVE 1               TO W77-ID-NUM-COPIA-MAPLI                           
+122800     MOVE 1               TO W77-ID-TPODSP-INFO-MAPLI                         
+122900     MOVE 0               TO W77-ID-ESINI-GRUPO-MAPLI                         
+123000     MOVE 06              TO W77-ID-NUM-GRUPO-MAPLI                           
+123100     MOVE "BATCH DIARIO"  TO W77-ID-NOMB-LIB                                  
+123200     PERFORM 70000950-INI-PGM-MAPLI.                                          
+123300*                                                                             
+124300 135-INICIA-ACT01.                                                            
+124400*-----------------                                                            
+124500     MOVE 1                     TO W77-ID-NUMREG-PROC                         
+124600     MOVE 1                     TO W77-ID-ACTXX-MAPLI                         
+124700                                   WS-NUM-ACT01                               
+124800     MOVE "OPEN Y CTRL BASE  "  TO W77-ID-NOMB-LIB                            
+124900     MOVE "PROCESO UNICA VEZ"   TO W77-ID-TXTA-LIB                            
+125000     PERFORM 70000910-INIACT-MAPLI.                                           
+125100*                                                                             
+125200 140-BASE-DE-DATOS.                                                           
+125300*------------------                                                           
+125350     MOVE 0 TO WS-STATUS-BASE                                                 
+125400     OPEN UPDATE S500BD01CAPTACION                                            
+125500       ON EXCEPTION                                                           
+125520          IF DMSTATUS(OPENERROR)                                              
+125540             IF DMSTATUS(DMERRORTYPE) = 39                                    
+125550                MOVE DMSTATUS(DMERRORTYPE) TO WS-STATUS-BASE                  
+125560                WAIT (60)                                                     
+125580             ELSE                                                             
+125600                MOVE DMSTATUS(DMERRORTYPE) TO WS-STATUS-BASE                  
+125700                STRING "ERROR AL OPEN DE LA BD; ST BASE: "                    
+125800                        WS-STATUS-BASE                                        
+125900                        DELIMITED BY SIZE INTO WS-0101-TEXT-MSG               
+126000                PERFORM 70000050-MENSAJE                                      
+126100                CALL SYSTEM DMTERMINATE                                       
+126200          ELSE                                                                
+126300             MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE                      
+126400             STRING "ERROR AL OPEN DE LA BD; ST BASE: "                       
+126500                     WS-STATUS-BASE                                           
+126600                     DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                  
+126700             PERFORM 70000050-MENSAJE                                         
+126800             CALL SYSTEM DMTERMINATE.                                         
+133205*                                                                             
+133210 152-VALIDA-B02CONTROL.                                                       
+133215*----------------------                                                       
+133220     PERFORM  90000002-B02CONTROL-FIND.                                       
+133225     IF WS-STATUS-BASE > 0                                                    
+133230        STRING "ERR LOCK B02CONTROL ", WS-STATUS-BASE                         
+133235               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+133240        PERFORM 70000050-MENSAJE                                              
+133242        CALL SYSTEM DMTERMINATE.                                              
+133243     MOVE B02-FECHA-LINEA TO  WS-FECHA-PROCER                                 
+133244     IF WS-FEC-PROCE-MM = 01                                                  
+133245        MOVE  12 TO WS-FEC-PROCE-MM                                           
+133246        MOVE WS-NUM-DIAS (WS-FEC-PROCE-MM) TO WS-FEC-PROCE-DD                 
+133247        COMPUTE WS-FEC-PROCE-AA = WS-FEC-PROCE-AA - 1                         
+133248     ELSE                                                                     
+133249        COMPUTE WS-FEC-PROCE-MM = WS-FEC-PROCE-MM - 1                         
+133250        MOVE WS-NUM-DIAS (WS-FEC-PROCE-MM) TO WS-FEC-PROCE-DD                 
+133251        PERFORM 155-BISIESTO.                                                 
+133252     MOVE WS-FECHA-PROCER TO WS-ETIQ-FECHA-ARCHS                              
+133253                             WS-ETIQ-FECHA-ARCHI                              
+133254                             WS-ETIQ-FECHA-SAT                                
+133255     MOVE 04              TO WS-CPS-CSIO                                      
+133256     MOVE B02-NUM-CSI     TO WS-CPS-CSID                                      
+133257                             WS-CPI-CSIO  WS-CPI-CSID.                        
+133260 154-VALIDA-RESIDE-CPESEC.                                                    
+133261     SET ARCHSMTY (TITLE) TO WS-ETIQ-ARCHSMTY                                 
+133262     IF ATTRIBUTE RESIDENT OF ARCHSMTY = VALUE TRUE                           
+133267        OPEN INPUT ARCHSMTY                                                   
+133269            OUTPUT ARCHIMTY                                                   
+133277        MOVE 1 TO WB-RESIDE-CPESEC                                            
+133282     ELSE                                                                     
+133287        WAIT (40).                                                            
+133288*                                                                             
+133289 154-GENERA-CPEIND.                                                           
+133290*------------------                                                           
+133291     MOVE ATTRIBUTE LASTRECORD OF ARCHSMTY TO WS-LASTRECORDS                  
+133292     COMPUTE  WS-LASTRECORDS = WS-LASTRECORDS + 1                             
+133294     PERFORM 154-20-GRABA-CPEIND UNTIL FIN-CPESEC                             
+133295     CLOSE ARCHIMTY SAVE                                                      
+133296     OPEN  I-O ARCHIMTY.                                                      
+133297 154-20-GRABA-CPEIND.                                                         
+133298     READ ARCHSMTY INTO WKS-CPESEC-REG                                        
+133299          AT END MOVE 1 TO WB-FIN-CPESEC                                      
+133300                 IF WS-REGS-CPESEC = 0                                        
+133301                    STRING "ARCHIVO VACIO ", WS-ETIQ-ARCHSMTY                 
+133302                          DELIMITED BY SIZE INTO WS-0101-TEXT-MSG             
+133303                    PERFORM 70000050-MENSAJE                                  
+133304                    CALL SYSTEM DMTERMINATE.                                  
+133308     IF NOT FIN-CPESEC                                                        
+133309        ADD 1 TO WS-REGS-CPESEC                                               
+133310        IF WS-REGS-CPESEC = 1                                                 
+133312           IF SEC-TIP-REG = 01                                                
+133314              PERFORM 154-10-VALIDA-HEADER                                    
+133318           ELSE                                                               
+133320              STRING "NO TIENE REG 01 HEADER ", SEC-TIP-REG                   
+133322                     DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                  
+133324              PERFORM 70000050-MENSAJE                                        
+133326              CALL SYSTEM DMTERMINATE                                         
+133328        ELSE                                                                  
+133330        IF WS-REGS-CPESEC = WS-LASTRECORDS                                    
+133332           IF SEC-TIP-REG = 99                                                
+133334              PERFORM 154-20-VALIDA-TRAILER                                   
+133338           ELSE                                                               
+133339              STRING "NO TIENE REG 99 TRAILER ", SEC-TIP-REG                  
+133340                     DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                  
+133341              PERFORM 70000050-MENSAJE                                        
+133342              CALL SYSTEM DMTERMINATE                                         
+133343           ELSE                                                               
+133344              PERFORM 154-30-GRABA-CPEIND.                                    
+133345*                                                                             
+133346 154-10-VALIDA-HEADER.                                                        
+133347     IF WS-ETIQ-ARCHSMTY NOT = SEC-NOM-ARC                                    
+133348        STRING "EL NOMB-ARCH EN HEADER ", SEC-NOM-ARC,                        
+133349               " DIFIERE AL EXTERNO ", WS-ETIQ-ARCHSMTY                       
+133350               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+133351        PERFORM 70000050-MENSAJE                                              
+133352        CALL SYSTEM DMTERMINATE.                                              
+133353*                                                                             
+133354 154-20-VALIDA-TRAILER.                                                       
+133356     IF SEC-REG-DET NOT = WS-REGS-CPESEC-02                                   
+133358        STRING "ERROR EN TRAILER EN NO. DE REGS ", SEC-REG-DET                
+133360               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+133362        PERFORM 70000050-MENSAJE                                              
+133364        CALL SYSTEM DMTERMINATE.                                              
+133366*                                                                             
+133368 154-30-GRABA-CPEIND.                                                         
+133370     IF SEC-TIP-REG = 02                                                      
+133372        MOVE SEC-NUM-CTO          TO IND-NUM-CTO                              
+133374        MOVE SEC-CON-COM          TO IND-CON-COM                              
+133376        MOVE SEC-DIA-CIC          TO IND-DIA-CIC                              
+133378        MOVE SEC-PRO-CIC          TO IND-PRO-CIC                              
+133380        MOVE SEC-TIP-PER          TO IND-TIP-PER                              
+133382        MOVE SEC-NOM-CTE          TO IND-NOM-CTE                              
+133384        MOVE SEC-STA-CTO          TO IND-STA-CTO                              
+133386        MOVE SEC-TAS-ANT          TO IND-TAS-ANT                              
+133388        MOVE SEC-INT-CAP          TO IND-INT-CAP                              
+133390        MOVE SEC-IMP-RET          TO IND-IMP-RET                              
+133391        MOVE SEC-TAS-BTA          TO IND-TAS-BTA                              
+133392        MOVE SEC-CVE-COBRO        TO IND-CVE-COBRO                            
+133393        MOVE SEC-IMP-COM-CAP      TO IND-IMP-COM-CAP                          
+133394        ADD 1 TO WS-REGS-CPESEC-02                                            
+133395        WRITE REG-ARCHIMTY                                                    
+133396              INVALID KEY                                                     
+133406              STRING "ERROR EN GRABAR EN ARCH CPEIND ",                       
+133416                      IND-NUM-CTO                                             
+133426                      DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                 
+133436              PERFORM 70000050-MENSAJE                                        
+133446              CALL SYSTEM DMTERMINATE                                         
+133451     ELSE                                                                     
+133456        STRING "ERROR; TIPREG DET INVALIDO ", SEC-TIP-REG                     
+133461               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+133466        PERFORM 70000050-MENSAJE.                                             
+133471***     CALL SYSTEM DMTERMINATE.                                              
+133481*                                                                             
+133490 155-TERMINA-ACT01.                                                           
+133500*------------------                                                           
+133600     MOVE WS-NUM-ACT01       TO W77-ID-ACTXX-MAPLI                            
+133700     MOVE " "                TO W77-ID-TXTA-LIB                               
+133800     PERFORM 70000950-ACT-REGPROC                                             
+133900                                                                              
+134000     MOVE WS-NUM-ACT01       TO W77-ID-ACTXX-MAPLI                            
+134100     PERFORM 70000910-FIN-ACTI-MAPLI.                                         
+134200*                                                                             
+134210 155-BISIESTO.                                                                
+134220*-------------                                                                
+134230     DIVIDE     WS-FEC-PROCE-AA  BY   4                                       
+134240     GIVING     WS-RESUL                                                      
+134250     REMAINDER  WS-RESIDUO                                                    
+134260     IF WS-RESIDUO = 0                                                        
+134270        IF WS-FEC-PROCE-MM = 02                                               
+134280           ADD 1 TO WS-FEC-PROCE-DD.                                          
+134290*                                                                             
+134300 160-INICIA-ACT02.                                                            
+134400*-----------------                                                            
+134500     MOVE 1                     TO W77-ID-NUMREG-PROC                         
+134600     MOVE 2                     TO W77-ID-ACTXX-MAPLI                         
+134700                                   WS-NUM-ACT02                               
+134800     MOVE "ACT. CTAS Y GPOS   " TO W77-ID-NOMB-LIB                            
+134900     MOVE "PROC ANTES RENDIMS " TO W77-ID-TXTA-LIB                            
+135000     PERFORM 70000910-INIACT-MAPLI.                                           
+135100*                                                                             
+135200 170-B39SXGPOSBGMDA-LOCKN.                                                    
+135300*------------------------                                                     
+135400     PERFORM 90000039-B39SXGPOSBGMDA-LOCKN                                    
+135500     IF WS-STATUS-BASE > 0                                                    
+135600        IF WS-DB-NOTFOUND                                                     
+135700           MOVE  1  TO  W77-EOF-B39                                           
+135800        ELSE                                                                  
+135900           STRING "ERR LOCK S500B39SXGPOSBGMDA ", WS-STATUS-BASE              
+136000                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                     
+136100           PERFORM 70000050-MENSAJE                                           
+136200           CALL SYSTEM DMTERMINATE                                            
+136202     ELSE                                                                     
+136204        ADD 1 TO W77-REG-LEI-B39.                                             
+136205*                                                                             
+136210 175-B39SXGPOSBGMDA-LOCKFG.                                                   
+136215*--------------------------                                                   
+136220     PERFORM 90000039-B39SXGPOSBGMDA-LOCKFG                                   
+136225     IF WS-STATUS-BASE > 0                                                    
+136230        IF WS-DB-NOTFOUND                                                     
+136235           MOVE  1  TO  W77-EOF-B39                                           
+136240        ELSE                                                                  
+136245           STRING "ERR LOCKFIRST B39SXGPOSBGMDA ", WS-STATUS-BASE             
+136250                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                     
+136255           PERFORM 70000050-MENSAJE                                           
+136260           CALL SYSTEM DMTERMINATE.                                           
+136300*                                                                             
+136310 180-GENERA-ARCHIVO-SAT.                                                      
+136312*-----------------------                                                      
+136314*   Generamos archivo para constancias del SAT (mes anterior)                 
+136316    OPEN OUTPUT ARCHISAT.                                                     
+136318    PERFORM 182-GRABA-HEADER-SAT.                                             
+136320    SET B39SXGPOSBGMDA TO BEGINNING.                                          
+136322    PERFORM 170-B39SXGPOSBGMDA-LOCKN.                                         
+136324    MOVE 0  TO W77-EOF-B39 W77-REG-LEI-B39.                                   
+136326    PERFORM 185-GENERA-ARCHIVO-SAT UNTIL W77-EOF-B39 = 1.                     
+136328    PERFORM 187-GRABA-TRAILER-SAT.                                            
+136330    CLOSE ARCHISAT WITH LOCK.                                                 
+136352*                                                                             
+136354 182-GRABA-HEADER-SAT.                                                        
+136356    MOVE 1                 TO SAT-TIPOREGH.                                   
+136358    MOVE "S152"            TO SAT-IDSISTEMA.                                  
+136360    MOVE WS-FECHA-PROCER   TO SAT-FECHAH.                                     
+136362    WRITE SAT-REGISTRO   FROM SAT-HEADER.                                     
+136364*                                                                             
+136400 185-GENERA-ARCHIVO-SAT.                                                      
+136402*-----------------------                                                      
+136410    MOVE 2                 TO SAT-TIPOREG.                                    
+136412    MOVE B39-GRUPO         TO WS-GRUPO-10.                                    
+136414    MOVE WS-AREA           TO SAT-AREA.                                       
+136416    MOVE WS-DIV            TO SAT-DIV.                                        
+136418    MOVE WS-SDIV           TO SAT-SDIV.                                       
+136420    MOVE WS-EJE            TO SAT-EJE.                                        
+136422    MOVE WS-SGPO           TO SAT-SGPO.                                       
+136424    MOVE WS-GPO            TO SAT-GPO.                                        
+136426    MOVE B39-SUB-GPO       TO SAT-CTE.                                        
+136428    MOVE B39-NUM-MDA       TO WS-NUM-MDA-12.                                  
+136430    MOVE WS-MDA-SUC        TO SAT-SUC.                                        
+136432    MOVE WS-MDA-CTA        TO SAT-CTA.                                        
+136434    MOVE B39-SDO-PROMEDIO  TO SAT-SDOPRO.                                     
+136436    MOVE B39-TASA-NTA-152  TO SAT-TASANETA.                                   
+136438    MOVE B39-REND-PAG-152  TO SAT-PRODNET.                                    
+136440    MOVE B39-GRUPO         TO WS-GRUPO.                                       
+136442    PERFORM 245-OBTEN-GPO.                                                    
+136444    MOVE B37-OPCION        TO SAT-OPCION.                                     
+136446    MOVE B37-RANGO         TO SAT-RAN.                                        
+136448    MOVE WS-FECHA-PROC-AAAAMM TO SAT-FECHA.                                   
+136450    WRITE SAT-REGISTRO FROM SAT-DETALLE.                                      
+136452                                                                              
+136460    ADD  1  TO WS-TOT-CTAS.                                                   
+136462                                                                              
+136468    IF W77-EOF-B39 = 0                                                        
+136470       PERFORM 170-B39SXGPOSBGMDA-LOCKN.                                      
+136480*                                                                             
+136482 187-GRABA-TRAILER-SAT.                                                       
+136484    MOVE 9                 TO SAT-TIPOREGT.                                   
+136486    MOVE WS-TOT-CTAS       TO SAT-NUMRGPO.                                    
+136488    WRITE SAT-REGISTRO   FROM SAT-TRAILER.                                    
+136490*                                                                             
+136500 200-ACTUALIZA-CUENTAS.                                                       
+136510*   Ahora entramos al proceso de actualizacion de cuentas                     
+136520    MOVE 0  TO W77-EOF-B39 W77-REG-LEI-B39.                                   
+136525    SET B39SXGPOSBGMDA TO BEGINNING.                                          
+136530    PERFORM 170-B39SXGPOSBGMDA-LOCKN.                                         
+136540    PERFORM 210-ACTUALIZA-CUENTAS  UNTIL W77-EOF-B39 = 1.                     
+136550                                                                              
+136600 210-ACTUALIZA-CUENTAS.                                                       
+136610*----------------------                                                       
+136700     IF PRIM-VEZ                                                              
+136800        MOVE 1 TO WB-PRIM-VEZ                                                 
+136900        MOVE B39-GRUPO TO WS-GPO-ANT                                          
+137000                          WS-GRUPO                                            
+137100        PERFORM 245-OBTEN-GPO.                                                
+137150                                                                              
+137200     IF (B39-GRUPO NOT = WS-GPO-ANT) OR                                       
+137210        (W77-EOF-B39   = 1)                                                   
+137220        MOVE B39-GRUPO        TO WS-GPO-NVO                                   
+137400        MOVE WS-GPO-ANT       TO WS-GRUPO                                     
+137500        PERFORM 245-OBTEN-GPO                                                 
+137520        IF WS-CTAS-X-GPO > 0                                                  
+137600           PERFORM 250-ACTUALIZA-B37-GPO                                      
+137855           IF W77-EOF-B39 = 0                                                 
+137860              MOVE WS-GPO-NVO TO WS-GRUPO                                     
+137870              PERFORM 175-B39SXGPOSBGMDA-LOCKFG                               
+137900              MOVE B39-GRUPO  TO WS-GPO-ANT                                   
+137902                                 WS-GRUPO                                     
+137904              PERFORM 245-OBTEN-GPO                                           
+137906           ELSE                                                               
+137908              NEXT SENTENCE                                                   
+137910        ELSE                                                                  
+137942           IF W77-EOF-B39 = 0                                                 
+137943              MOVE ZEROS      TO WT-G-REND-PAG-500                            
+137944                                 WT-G-PROM-CICLO                              
+137945              MOVE WS-GPO-NVO TO WS-GRUPO                                     
+137950              PERFORM 175-B39SXGPOSBGMDA-LOCKFG                               
+137960              MOVE B39-GRUPO  TO WS-GPO-ANT                                   
+138010                                 WS-GRUPO                                     
+138060              PERFORM 245-OBTEN-GPO.                                          
+138100*                                                                             
+138150     IF W77-EOF-B39 = 0                                                       
+138160        MOVE B39-CONTRATO TO W77-B39-CONTRATO                                 
+138200        IF B39-NUM-CSI = 04                                                   
+138205           MOVE B39-CONTRATO TO IND-NUM-CTO                                   
+138210           PERFORM 230-OBTEN-CONTRATO                                         
+138220           IF EXISTE-CTO                                                      
+138235              ADD 1 TO W77-SI-REG-MTY                                         
+138240              PERFORM 230-ACTUALIZA-B39-MTY                                   
+138242           ELSE                                                               
+138243              PERFORM 232-MODIFSTAT-B39-MTY                                   
+138244              ADD 1 TO W77-NO-REG-MTY                                         
+138900        ELSE                                                                  
+138910        IF B39-NUM-CSI = 10                                                   
+138920           PERFORM 210-OBTEN-B03                                              
+138940           IF WS-STATUS-BASE = 0                                              
+138942*INI-STEFANINI CPE 2022R09M MTDP-2466.                                        
+138944            IF B03-NUM-PRODUCTO = 1 AND B03-NUM-INSTRUM = 3                   
+138946*FIN-STEFANINI CPE 2022R09M MTDP-2466.                                        
+138948** No se incluyen ctos dentro de art.61 ***                                   
+138950              IF B03-STA-BENEF = 3 OR 8                                       
+138952                 PERFORM 232-MODIFSTAT-B39-VDM                                
+138954                 ADD 1 TO W77-NO-REG-VDM                                      
+138956              ELSE                                                            
+138960                 PERFORM 220-OBTEN-B06                                        
+138980                 IF WS-STATUS-BASE = 0                                        
+138990                    ADD 1 TO W77-SI-REG-VDM                                   
+139000                    PERFORM 230-ACTUALIZA-B39-VDM                             
+139050                 ELSE                                                         
+139070                    PERFORM 232-MODIFSTAT-B39-VDM                             
+139100                    ADD 1 TO W77-NO-REG-VDM                                   
+139105*INI-STEFANINI CPE 2022R09M MTDP-2466.                                        
+139110            ELSE                                                              
+139115               PERFORM 232-MODIFSTAT-B39-VDM                                  
+139120               ADD 1 TO W77-NO-REG-VDM                                        
+139125*FIN-STEFANINI CPE 2022R09M MTDP-2466.                                        
+139150           ELSE                                                               
+139170              PERFORM 232-MODIFSTAT-B39-VDM                                   
+139200              ADD 1 TO W77-NO-REG-VDM.                                        
+139260                                                                              
+139300    IF W77-EOF-B39 = 0                                                        
+139400       PERFORM 170-B39SXGPOSBGMDA-LOCKN.                                      
+139500*                                                                             
+139510 230-OBTEN-CONTRATO.                                                          
+139520*-------------------                                                          
+139530     MOVE 1 TO WB-EXISTE-CTO                                                  
+139540     READ ARCHIMTY INVALID KEY                                                
+139550          MOVE 0 TO WB-EXISTE-CTO.                                            
+139560*                                                                             
+139600 210-OBTEN-B03.                                                               
+139700*--------------                                                               
+139800     MOVE B39-CONTRATO TO WS-NUM-CONTRATO                                     
+139900     PERFORM 90000003-B03SXCTO-LOCK.                                          
+140600*                                                                             
+140700 220-OBTEN-B06.                                                               
+140800*--------------                                                               
+140900     PERFORM 90000006-B06SXCTO-LOCK.                                          
+141600*                                                                             
+141700 230-ACTUALIZA-B39-VDM.                                                       
+141702*----------------------                                                       
+141802     IF B03-TIPO-PERSONA = 11 OR 12 OR 15                                     
+141902        MOVE WS-ISR-EXTR-0      TO B39-TASA-ISR-500                           
+142002     ELSE                                                                     
+142102        MOVE WS-ISR-0           TO B39-TASA-ISR-500.                          
+142202                                                                              
+142300     MOVE B06-CONT-COMIS(50)    TO B39-CHQS-GIRADO                            
+142400     ADD  B06-CONT-COMIS(50)    TO WS-CHQS-GIR-XGPO                           
+142500     MOVE B06-DIAS-CICLO        TO B39-DIAS-CICLO                             
+142700     MOVE B06-PROM-CICLO(12)    TO B39-SDO-PROMEDIO                           
+142900     ADD  B06-PROM-CICLO(12)    TO WT-G-PROM-CICLO                            
+143200     MOVE B03-TIPO-PERSONA      TO B39-TPO-PERS                               
+143400     MOVE B03-NOMBRE            TO B39-NOMBRE                                 
+143600     MOVE B03-STATUS            TO B39-STATUS                                 
+143620     PERFORM 240-L422-COMXCTA                                                 
+143650     IF B37-OPCION = 1 OR 2 OR 5                                              
+143700        MOVE B03-TASA-ANTERIOR  TO B39-TASA-NTA-500                           
+143900        MOVE B03-INTS-CAPIT     TO B39-REND-PAG-500                           
+144100        ADD  B03-INTS-CAPIT     TO WT-G-REND-PAG-500                          
+144300        MOVE B03-IMPUESTO-RET   TO B39-ISR-RET-500                            
+144500        MOVE B06-TASA-BRUTA     TO B39-TASA-BRT-500                           
+144610     ELSE                                                                     
+144620        MOVE ZEROS              TO B39-TASA-NTA-500                           
+144640                                   B39-REND-PAG-500                           
+144680                                   B39-ISR-RET-500                            
+144692                                   B39-TASA-BRT-500.                          
+144693     PERFORM 235-STORE-B39.                                                   
+144713*                                                                             
+144733 232-MODIFSTAT-B39-VDM.                                                       
+144753*---------------------                                                        
+144773     MOVE 4 TO B39-STATUS                                                     
+144793     PERFORM 235-STORE-B39.                                                   
+144803*                                                                             
+144804 230-ACTUALIZA-B39-MTY.                                                       
+144806*----------------------                                                       
+144811     IF IND-TIP-PER = 11 OR 12 OR 15                                          
+144816        MOVE WS-ISR-EXTR-0        TO B39-TASA-ISR-500                         
+144821     ELSE                                                                     
+144826        MOVE WS-ISR-0             TO B39-TASA-ISR-500.                        
+144831                                                                              
+144832     MOVE IND-CON-COM             TO B39-CHQS-GIRADO                          
+144833     ADD  IND-CON-COM             TO WS-CHQS-GIR-XGPO                         
+144834     MOVE IND-DIA-CIC             TO B39-DIAS-CICLO                           
+144836     MOVE IND-PRO-CIC             TO B39-SDO-PROMEDIO                         
+144838     ADD  IND-PRO-CIC             TO WT-G-PROM-CICLO                          
+144840     MOVE IND-TIP-PER             TO B39-TPO-PERS                             
+144842     MOVE IND-NOM-CTE             TO B39-NOMBRE                               
+144843     MOVE IND-STA-CTO             TO B39-STATUS                               
+144844     MOVE IND-CVE-COBRO           TO B39-USO-FUT-01                           
+144845     MOVE IND-IMP-COM-CAP         TO B39-TARI-CHQGIR                          
+144846     IF B37-OPCION = 1 OR 2 OR 5                                              
+144848        MOVE IND-TAS-ANT          TO B39-TASA-NTA-500                         
+144850        MOVE IND-INT-CAP          TO B39-REND-PAG-500                         
+144852        ADD  IND-INT-CAP          TO WT-G-REND-PAG-500                        
+144854        MOVE IND-IMP-RET          TO B39-ISR-RET-500                          
+144856        MOVE IND-TAS-BTA          TO B39-TASA-BRT-500                         
+144858     ELSE                                                                     
+144860        MOVE ZEROS                TO B39-TASA-NTA-500                         
+144862                                     B39-REND-PAG-500                         
+144864                                     B39-ISR-RET-500                          
+144866                                     B39-TASA-BRT-500.                        
+144870     PERFORM 235-STORE-B39.                                                   
+144880*                                                                             
+144900 232-MODIFSTAT-B39-MTY.                                                       
+144920*---------------------                                                        
+144940     MOVE 4 TO B39-STATUS                                                     
+144960     PERFORM 235-STORE-B39.                                                   
+144980*                                                                             
+145100 235-STORE-B39.                                                               
+145200*--------------                                                               
+145210     MOVE B39-SUCPROM TO WKS-S080-NUMSUC                                      
+145220     PERFORM 42000080-DATOS-S080                                              
+145230     IF WKS-S080-TPO-IVA = 1                                                  
+145240        MOVE WS-IVA-FRONT TO B39-CVE-IVA                                      
+145250     ELSE                                                                     
+145260        MOVE WS-IVA-GRAL  TO B39-CVE-IVA.                                     
+145270                                                                              
+145300     PERFORM 90000000-BEGIN-TRANSACTION                                       
+145400     IF WS-STATUS-BASE > 0                                                    
+145500        STRING "ERR BEGIN TRANSACTION ", WS-STATUS-BASE                       
+145600               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+145700        PERFORM 70000050-MENSAJE                                              
+145800        CALL SYSTEM DMTERMINATE.                                              
+145900*                                                                             
+145920     IF B39-STATUS = 0 OR 1                                                   
+145950        ADD 1 TO WS-CTAS-X-GPO.                                               
+146000     PERFORM  90000039-B39CTASCPE-STORE                                       
+146100     IF WS-STATUS-BASE > 0                                                    
+146200        STRING "ERR STORE S500B39CTASCPE ", WS-STATUS-BASE                    
+146300               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+146400        PERFORM 70000050-MENSAJE                                              
+146500        CALL SYSTEM DMTERMINATE.                                              
+146600*                                                                             
+146700     PERFORM  90000000-END-TRANSACTIONNOAU                                    
+146800     IF WS-STATUS-BASE > 0                                                    
+146900        STRING "ERR END TRANSACTION ", WS-STATUS-BASE                         
+147000               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+147100        PERFORM 70000050-MENSAJE                                              
+147200        CALL SYSTEM DMTERMINATE.                                              
+147202*                                                                             
+147302 240-L422-COMXCTA.                                                            
+147402*----------------                                                             
+147502     MOVE LOW-VALUES         TO WS-S016-0101-CTR-SALIDA.                      
+147602     MOVE 500                TO WS-S016-0101-CTR-NUMSIST-I                    
+147702     MOVE 310                TO WS-S016-0101-CTR-NUMPASO-I                    
+147802     MOVE 1                  TO WS-S016-0101-CTA-NUMPROD-I                    
+147902     MOVE 3                  TO WS-S016-0101-CTA-CVEINST-I                    
+148002     MOVE B03-NUM-CONTRATO   TO WS-S016-0101-CTO-NUM-I                        
+148102     PERFORM                 20000016-L422-COMXCTA                            
+148202     IF WS-S016-0101-RESULT-ORIG NOT = 0                                      
+148302        MOVE 2               TO B39-USO-FUT-01                                
+148402        MOVE 100             TO B39-TARI-CHQGIR                               
+148502     ELSE                                                                     
+148602        MOVE WS-S016-0101-CVECOBRO(04) TO B39-USO-FUT-01                      
+148702        MOVE WS-S016-0101-COBCOM  (04) TO B39-TARI-CHQGIR.                    
+148802*                                                                             
+149000 245-OBTEN-GPO.                                                               
+149100*--------------                                                               
+149200     PERFORM 90000037-B37SXGPO-LOCK                                           
+149300     IF WS-STATUS-BASE > 0                                                    
+149400        STRING "ERR LOCK TRANSACTION B37 ", WS-STATUS-BASE                    
+149500               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+149600        PERFORM 70000050-MENSAJE                                              
+149700        CALL SYSTEM DMTERMINATE.                                              
+149800*                                                                             
+149900 250-ACTUALIZA-B37-GPO.                                                       
+150000*----------------------                                                       
+150020     MOVE WT-G-PROM-CICLO    TO B37-SDO-PROMEDIO                              
+150040     MOVE WT-G-REND-PAG-500  TO B37-RENDIMIENTOS                              
+150050     MOVE WS-CHQS-GIR-XGPO   TO B37-CHQS-GIRADOS                              
+150060     MOVE ZEROS              TO B39-TASA-NTA-500                              
+150080                                B39-REND-PAG-500                              
+150100                                B39-ISR-RET-500                               
+150120                                B39-TASA-BRT-500                              
+150140                                WT-G-REND-PAG-500                             
+150160                                WT-G-PROM-CICLO                               
+150180                                WS-CTAS-X-GPO                                 
+150190                                WS-CHQS-GIR-XGPO                              
+150200                                                                              
+150500     PERFORM 90000000-BEGIN-TRANSACTION                                       
+150600     IF WS-STATUS-BASE > 0                                                    
+150700        STRING "ERR BEGIN TRANSACTION B37 ", WS-STATUS-BASE                   
+150800               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+150900        PERFORM 70000050-MENSAJE                                              
+151000        CALL SYSTEM DMTERMINATE.                                              
+151100                                                                              
+151200     PERFORM 90000037-B37GRUPOCPE-STORE                                       
+151300     IF WS-STATUS-BASE > 0                                                    
+151400        STRING "ERR STORE S500B37GRUPOCPE ", WS-STATUS-BASE                   
+151500               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+151600        PERFORM 70000050-MENSAJE                                              
+151700        CALL SYSTEM DMTERMINATE.                                              
+151800                                                                              
+151900     PERFORM 90000000-END-TRANSACTIONNOAU                                     
+152000     IF WS-STATUS-BASE > 0                                                    
+152100        STRING "ERR END TRANSACTION B37 ", WS-STATUS-BASE                     
+152200               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+152300        PERFORM 70000050-MENSAJE                                              
+152400        CALL SYSTEM DMTERMINATE.                                              
+152500*                                                                             
+153200 300-TERMINA.                                                                 
+153300*------------                                                                 
+153320***  ACTUALIZA EL ULTIMO GRUPO DE LAS ULTIMAS CTAS QUE MODIFICO               
+153340     PERFORM 200-ACTUALIZA-CUENTAS                                            
+153390                                                                              
+153400     PERFORM 310-TERMINA-ACT02                                                
+153500     PERFORM 320-INICIA-ACT03                                                 
+153700     PERFORM 330-TERMINA-ACT03                                                
+153800     PERFORM 305-CIERRA-BASE.                                                 
+153840*                                                                             
+153860 305-CIERRA-BASE.                                                             
+153880*----------------                                                             
+153885     CLOSE ARCHIMTY SAVE.                                                     
+153890                                                                              
+153900     CLOSE S500BD01CAPTACION                                                  
+154000        ON EXCEPTION                                                          
+154100           MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE                        
+154200           STRING "ERROR AL CLOSE DE LA BD; ST BASE: "                        
+154300                   WS-STATUS-BASE                                             
+154400                   DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                    
+154500           PERFORM 70000050-MENSAJE                                           
+154600           CALL SYSTEM DMTERMINATE.                                           
+155700*                                                                             
+155800 310-TERMINA-ACT02.                                                           
+155900*------------------                                                           
+156000     MOVE WS-NUM-ACT02       TO W77-ID-ACTXX-MAPLI                            
+156100     MOVE " "                TO W77-ID-TXTA-LIB                               
+156200     PERFORM 70000950-ACT-REGPROC                                             
+156300                                                                              
+156400     MOVE WS-NUM-ACT02       TO W77-ID-ACTXX-MAPLI                            
+156500     PERFORM 70000910-FIN-ACTI-MAPLI.                                         
+156600*                                                                             
+156700 320-INICIA-ACT03.                                                            
+156800*-----------------                                                            
+156900     MOVE 1                     TO W77-ID-NUMREG-PROC                         
+157000     MOVE 3                     TO W77-ID-ACTXX-MAPLI                         
+157100                                   WS-NUM-ACT02                               
+157200     MOVE "ACT. CTRL Y CLOSE  " TO W77-ID-NOMB-LIB                            
+157300     MOVE "PROC DE UNICA VEZ  " TO W77-ID-TXTA-LIB                            
+157400     PERFORM 70000910-INIACT-MAPLI.                                           
+157500*                                                                             
+157600 330-TERMINA-ACT03.                                                           
+157700*------------------                                                           
+157800     MOVE WS-NUM-ACT03       TO W77-ID-ACTXX-MAPLI                            
+157900     MOVE " "                TO W77-ID-TXTA-LIB                               
+158000     PERFORM 70000950-ACT-REGPROC                                             
+158100                                                                              
+158200     MOVE WS-NUM-ACT03       TO W77-ID-ACTXX-MAPLI                            
+158300     PERFORM 70000910-FIN-ACTI-MAPLI.                                         
+158302*                                                                             
+158500 COPY "S500/INC/PRO/25MTP002".                                                
+158600*                                                                             
+158700 COPY "S500/INC/MAPLI/PRO/15MTP001".                                          
+158800*                                                                             

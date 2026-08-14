@@ -1,0 +1,443 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BCOPCore BanCoppel · Journeys de Negocio · Etapa 3 Business Logic Extraction</title>
+<style>
+:root{
+  --bg:#0a1330;--bg2:#0d1a3d;--panel:#132152;--line:#26317c;
+  --magenta:#F0D224;--blue:#3D5FCD;--txt:#EAEDF7;--muted:#9aa4c4;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{display:flex;height:100vh;background:var(--bg);color:var(--txt);
+  font-family:'Inter',system-ui,sans-serif;overflow:hidden}
+
+/* ── SIDEBAR (dominios) ───────────────────────────────────── */
+#sidebar{width:222px;min-width:222px;height:100vh;background:var(--bg2);
+  border-right:1px solid var(--line);overflow-y:auto;padding:10px;
+  display:flex;flex-direction:column;gap:8px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+#sidebar::-webkit-scrollbar{width:4px}
+#sidebar::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.panel-title{font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);
+  text-transform:uppercase;margin-bottom:3px}
+.panel-box{background:var(--panel);border-radius:6px;padding:8px 10px}
+#scope-banner{background:linear-gradient(135deg,#122FB1,#0d2185);
+  border:1px solid #26317c;border-bottom:3px solid var(--magenta);border-radius:8px;padding:11px 12px}
+#scope-banner img.logo{height:20px;margin-bottom:9px;display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.55))}
+#scope-banner h2{font-size:13px;font-weight:800;letter-spacing:.02em}
+#scope-banner .sub{font-size:9px;color:var(--muted);margin-top:2px}
+#scope-banner .warn{font-size:9px;color:#93c5fd;margin-top:5px;
+  background:rgba(30,58,138,.4);border-radius:3px;padding:3px 5px}
+
+#dom-nav{display:flex;flex-direction:column;gap:2px}
+.dom-btn{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:4px;cursor:pointer;
+  border:1px solid transparent;background:var(--panel);transition:background .15s,border-color .15s;
+  font-size:9px;color:var(--txt);text-align:left;width:100%}
+.dom-btn:hover{background:#1a2a5c;border-color:var(--line)}
+.dom-btn.active{background:#1a2a5c;border-color:var(--magenta)}
+.dom-swatch{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.dom-name{font-weight:700;font-size:9px;white-space:nowrap}
+.dom-cnt{font-size:8px;color:var(--muted);margin-left:auto;flex-shrink:0}
+.dom-badge{font-size:7px;font-weight:700;padding:1px 4px;border-radius:2px;flex-shrink:0;background:#7c2d12;color:#fca5a5}
+.leg-row{display:flex;align-items:center;gap:6px;margin:3px 0;font-size:9px;color:var(--muted)}
+.leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.meta-row{display:flex;justify-content:space-between;font-size:9px;margin:2px 0;color:var(--muted)}
+.meta-row b{color:var(--txt)}
+
+/* ── JOURNEY LIST ─────────────────────────────────────────── */
+#jlist{width:290px;min-width:290px;height:100vh;background:#0d1a3d;
+  border-right:1px solid var(--line);overflow-y:auto;padding:12px 10px;
+  display:flex;flex-direction:column;gap:8px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+#jlist::-webkit-scrollbar{width:5px}
+#jlist::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+#jlist-head{font-size:13px;font-weight:800}
+#jlist-head .dsub{font-size:9px;color:var(--muted);font-weight:400;margin-top:2px}
+.jl-section{font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--muted);
+  text-transform:uppercase;margin:6px 0 2px}
+.jcard{background:var(--panel);border-radius:6px;padding:8px 10px;cursor:pointer;
+  border:1px solid transparent;border-left:3px solid #444;transition:background .15s,border-color .15s}
+.jcard:hover{background:#1a2a5c}
+.jcard.active{background:#1c2f6b;border-color:var(--magenta);border-left-color:var(--magenta)}
+.jcard .jobj{font-size:11.5px;font-weight:700;color:#EAEDF7;line-height:1.25}
+.jcard .jsp{font-family:'Cascadia Code','Consolas',monospace;font-size:9px;
+  color:#7a7a98;margin-top:2px;word-break:break-all}
+.jcard .jbiz{font-size:10px;color:#bcd0ff;margin-top:2px}
+.jbiz .est{font-size:8px;font-style:italic}
+.jbiz .est.conf{color:#86efac}.jbiz .est.partial{color:#9ab0d0}.jbiz .est.gap{color:#fdba74}
+.jcard .jmeta{font-size:8px;color:var(--muted);margin-top:4px;display:flex;gap:8px;flex-wrap:wrap}
+.jcard .jmeta b{color:#9ab0d0}
+.jbadge{display:inline-block;font-size:7px;font-weight:700;padding:1px 5px;border-radius:3px;margin-top:4px}
+.jbadge.reg{background:#7c2d12;color:#fdba74}
+.jbadge.exp{background:#1e3a5f;color:#93c5fd}
+
+/* ── CANVAS ───────────────────────────────────────────────── */
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#jhead{padding:12px 18px;border-bottom:1px solid var(--line);background:var(--bg2);flex-shrink:0}
+#jhead .jh-sp{font-family:'Inter',system-ui,sans-serif;font-size:16px;font-weight:800;color:#fff}
+#jhead .jh-biz{font-size:11px;color:var(--muted);margin-top:2px}
+#jhead .jh-biz .jh-tech{font-family:'Cascadia Code','Consolas',monospace;color:#bcd0ff;font-weight:600}
+#jhead .jh-meta{font-size:10px;color:var(--muted);margin-top:6px;display:flex;gap:16px;flex-wrap:wrap}
+#jhead .jh-meta b{color:#9ab0d0}
+#jhead .jh-trig{font-size:10px;color:var(--muted);margin-top:5px}
+#jhead .jh-trig .tg{display:inline-block;background:var(--panel);border-radius:3px;
+  padding:1px 6px;margin:0 3px 3px 0;font-size:9px;color:#c8c8e8}
+#jhead .jh-src{margin-top:7px;border-top:1px solid var(--line);padding-top:6px}
+.jh-src .src-lbl{font-size:8px;font-weight:700;letter-spacing:.08em;color:#6a6a80;text-transform:uppercase}
+.jh-src .src-doc{font-size:10px;color:#a7f3d0;font-style:italic;margin:2px 0 4px;line-height:1.4}
+.jh-src .chip{display:inline-block;border-radius:3px;padding:1px 6px;margin:0 3px 3px 0;font-size:9px;
+  font-family:'Cascadia Code','Consolas',monospace}
+.jh-src .chip.par{background:#1e2a3f;color:#93c5fd}
+.jh-src .chip.tbl{background:#16234f;color:#bcd0ff}
+.jh-src .chip.xdb{background:#3a1f2a;color:#fca5a5}
+.jh-src .nosrc{font-size:9px;color:#6a6a80;font-style:italic}
+#svg-wrap{flex:1;position:relative;overflow:hidden}
+#svg{width:100%;height:100%}
+#empty{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;color:var(--muted);font-size:12px;gap:8px;text-align:center;padding:40px}
+#empty .big{font-size:15px;color:#bcd0ff;font-weight:700}
+#load-status{font-size:9px;border-radius:4px;padding:5px 8px;line-height:1.4}
+#load-status.ok{background:rgba(5,46,22,.5);color:#86efac;border:1px solid #14532d}
+#load-status.err{background:rgba(69,26,26,.5);color:#fca5a5;border:1px solid #7f1d1d}
+#load-status.wait{background:rgba(30,58,138,.4);color:#93c5fd;border:1px solid #1e3a8a}
+#load-status code{background:rgba(0,0,0,.35);padding:0 3px;border-radius:2px;color:#c8c8e8}
+
+/* ── TREE ─────────────────────────────────────────────────── */
+.tlink{fill:none;stroke:#2c3a72;stroke-width:1.4}
+.tlink.cross{stroke:#3D5FCD;stroke-dasharray:4 3;stroke-opacity:.7}
+.tnode circle{stroke-width:1.6}
+.tnode text{font-family:'Inter',system-ui,sans-serif;fill:var(--txt);
+  dominant-baseline:middle;font-size:10.5px}
+.tnode text.root{font-weight:700;fill:#fff}
+.tnode .sub{fill:#7a7a98;font-size:8px;font-family:'Cascadia Code','Consolas',monospace}
+.tnode.reg circle{stroke:#F0D224 !important;stroke-width:2.4}
+.badge-cross{fill:#3D5FCD;font-size:8px;font-weight:700;font-family:'Inter',sans-serif}
+.badge-reg{fill:#fdba74;font-size:8px;font-weight:700;font-family:'Inter',sans-serif}
+
+#tip{position:fixed;background:rgba(22,22,44,.98);border:1px solid var(--line);border-radius:6px;
+  padding:8px 11px;font-size:10px;color:var(--txt);pointer-events:none;max-width:260px;z-index:9999;
+  display:none;box-shadow:0 4px 20px rgba(0,0,0,.7)}
+#tip .tt{font-family:'Cascadia Code','Consolas',monospace;font-weight:700;font-size:11px;margin-bottom:3px;word-break:break-all}
+#tip .tr{color:var(--muted);margin:1px 0}#tip .tr span{color:var(--txt)}
+</style>
+</head>
+<body>
+
+<!-- ── SIDEBAR ── -->
+<div id="sidebar">
+  <div id="scope-banner">
+    <img class="logo" src="../bancoppel-logo.png" alt="BanCoppel">
+    <h2>Journeys de Negocio</h2>
+    <div class="sub">BCOPCore · SPE-AM-001 · Informix SPL</div>
+    <div class="sub">Etapa 3 — Business Logic Extraction</div>
+    <div class="warn">⚑ Hipótesis del call graph · HITL pendiente SME</div>
+  </div>
+  <div id="load-status" class="wait">Cargando journeys…</div>
+  <div>
+    <div class="panel-title">Dominios — click para ver journeys</div>
+    <div id="dom-nav"></div>
+  </div>
+  <div class="panel-box">
+    <div class="panel-title">Tipo de paso</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#F0D224"></div>Entry point (inicio del journey)</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#5a9a6a"></div>SP interno del dominio</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#3D5FCD"></div>Salto cross-dominio [→Dxx]</div>
+    <div class="leg-row"><div class="leg-dot" style="background:#132152;box-shadow:0 0 0 2px #F0D224"></div>Paso regulatorio</div>
+    <div class="leg-row" style="margin-top:5px;font-size:8px;font-style:italic;color:#6a6a80">
+      Cadena reconstruida del call graph (profundidad 3). El nombre de negocio es inferido y requiere validación SME.
+    </div>
+  </div>
+  <div class="panel-box">
+    <div class="panel-title">Cobertura</div>
+    <div class="meta-row">Journeys orquestadores<b id="m-orch">—</b></div>
+    <div class="meta-row">Servicios expuestos<b id="m-exp">—</b></div>
+    <div class="meta-row">Dominios<b>12</b></div>
+    <div class="meta-row">Evidencia<b style="color:#86efac">call graph real</b></div>
+  </div>
+</div>
+
+<!-- ── JOURNEY LIST ── -->
+<div id="jlist">
+  <div id="jlist-head">Selecciona un dominio<div class="dsub">← elige a la izquierda</div></div>
+  <div id="jlist-body"></div>
+</div>
+
+<!-- ── CANVAS ── -->
+<div id="main">
+  <div id="jhead" style="display:none">
+    <div class="jh-sp" id="jh-sp">—</div>
+    <div class="jh-biz" id="jh-biz"></div>
+    <div class="jh-meta" id="jh-meta"></div>
+    <div class="jh-trig" id="jh-trig"></div>
+    <div class="jh-src" id="jh-src"></div>
+  </div>
+  <div id="svg-wrap">
+    <svg id="svg"></svg>
+    <div id="empty">
+      <div class="big">Journeys de negocio por dominio</div>
+      <div>Cada journey es una cadena de stored procedures reconstruida desde el call graph.<br>
+      Selecciona un dominio y luego un journey para ver su flujo de llamadas.</div>
+    </div>
+  </div>
+</div>
+
+<div id="tip"></div>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+const JFILE='../portal/data/journeys-data.json';
+// db → {dom,color,name} para etiquetar saltos cross-dominio
+const DOM_META={
+ d01:{db:'bdicnweb',name:'Canal Digital Web',color:'#1E6868',reg:[]},
+ d02:{db:'bdinteg',name:'Integración y Auth',color:'#2A507A',reg:['CNBV']},
+ d03:{db:'bdicred',name:'Créditos',color:'#7A4018',reg:['CNBV','SAT','CONDUSEF']},
+ d04:{db:'bdicheq',name:'Cheques / Cuentas',color:'#8B3535',reg:['CNBV','TESOFE','IPAB','CONDUSEF']},
+ d05:{db:'bdisac',name:'Saldos y Cuentas',color:'#6B6B18',reg:['CNBV','IPAB','SAT']},
+ d06:{db:'bdisolic',name:'Solicitudes',color:'#2E6B48',reg:['CNBV','CONDUSEF']},
+ d07:{db:'bdiaclaracion',name:'Aclaraciones',color:'#803060',reg:['CONDUSEF','CNBV']},
+ d08:{db:'bdispei',name:'SPEI',color:'#7A2020',reg:['Banxico']},
+ d09:{db:'bdimnsj',name:'Mensajería',color:'#1A7A4A',reg:['CNBV','CONDUSEF']},
+ d10:{db:'bdisuc',name:'Sucursales',color:'#485055',reg:['CNBV']},
+ d11:{db:'bdicobranza',name:'Cobranza',color:'#503280',reg:['CNBV','CONDUSEF']},
+ d12:{db:'bdicont',name:'Contabilidad',color:'#3D5A24',reg:['SAT','IPAB','CNBV']},
+};
+const DB2DOM={}; Object.entries(DOM_META).forEach(([k,v])=>DB2DOM[v.db]=k);
+const dbLabel=db=>{const d=DB2DOM[db];return d?d.toUpperCase():db;};
+const dbColor=db=>{const d=DB2DOM[db];return d?DOM_META[d].color:'#556';};
+
+let DATA=null, curDom=null, curJourney=null;
+
+// ── SVG ──
+const svgEl=document.getElementById('svg');
+const svg=d3.select('#svg');
+const g=svg.append('g');
+const zoom=d3.zoom().scaleExtent([.2,3]).on('zoom',e=>g.attr('transform',e.transform));
+svg.call(zoom);
+
+// ── SIDEBAR nav ──
+function buildNav(){
+  const nav=document.getElementById('dom-nav');
+  nav.innerHTML='';
+  Object.entries(DOM_META).forEach(([dom,m])=>{
+    const dd=DATA?DATA[dom]:null;
+    const cnt=dd?(dd.journeys.length+ (dd.exposed?dd.exposed.length:0)):0;
+    const regBadge=m.reg.length>=3?`<span class="dom-badge">${m.reg.length}-REG</span>`:'';
+    const b=document.createElement('button');
+    b.className='dom-btn'; b.dataset.dom=dom;
+    b.innerHTML=`<div class="dom-swatch" style="background:${m.color}"></div>
+      <span class="dom-name">${dom.toUpperCase()} ${m.name}</span>${regBadge}
+      <span class="dom-cnt">${cnt}</span>`;
+    b.onclick=()=>selectDomain(dom);
+    nav.appendChild(b);
+  });
+}
+
+// ── DOMAIN → journey list ──
+function selectDomain(dom){
+  curDom=dom;
+  document.querySelectorAll('.dom-btn').forEach(b=>b.classList.toggle('active',b.dataset.dom===dom));
+  const m=DOM_META[dom], dd=DATA[dom];
+  document.getElementById('jlist-head').innerHTML=
+    `${dom.toUpperCase()} · ${m.name}
+     <div class="dsub">${dd.sp_count.toLocaleString('es-MX')} SPs · ${dd.journeys.length} journeys · ${(dd.exposed||[]).length} servicios expuestos
+     ${m.reg.length?'· <span style="color:#fdba74">'+m.reg.join(' · ')+'</span>':''}</div>`;
+  const body=document.getElementById('jlist-body');
+  body.innerHTML='';
+
+  if(dd.journeys.length){
+    body.insertAdjacentHTML('beforeend','<div class="jl-section">Journeys orquestadores</div>');
+    dd.journeys.forEach((j,i)=>body.appendChild(jcard(j,i,false)));
+  }
+  if(dd.exposed && dd.exposed.length){
+    body.insertAdjacentHTML('beforeend','<div class="jl-section">Servicios expuestos (endpoints)</div>');
+    dd.exposed.forEach((j,i)=>body.appendChild(jcard(j,i,true)));
+  }
+  if(!dd.journeys.length && !(dd.exposed||[]).length)
+    body.innerHTML='<div style="font-size:10px;color:var(--muted);padding:10px">Sin journeys reconstruibles en el call graph (dominio sink o sin orquestadores).</div>';
+
+  // auto-selecciona el primer journey
+  const first=dd.journeys[0]||(dd.exposed||[])[0];
+  if(first) selectJourney(first, dd.journeys[0]?false:true);
+}
+
+function jcard(j,i,exposed){
+  const c=document.createElement('div');
+  c.className='jcard';
+  c.style.borderLeftColor=DOM_META[curDom].color;
+  c.dataset.id=j.id; c.dataset.exp=exposed?'1':'0';
+  const est=j.biz_estado||'partial';
+  const estTxt={conf:'✓ compuesto',partial:'◔ parcial',gap:'🔶 revisar SME'}[est]||'';
+  const objetivo=(j.biz && j.biz!==j.sp)?j.biz:j.sp;   // objetivo de negocio como título
+  const estChip=(j.biz && j.biz!==j.sp)?` <span class="est ${est}">${estTxt}</span>`:'';
+  const meta=exposed
+    ? `<div class="jmeta"><span>callers ext <b>${j.ext_callers}</b></span><span>LOC <b>${j.loc}</b></span></div>`
+    : `<div class="jmeta"><span>fan_out <b>${j.fan_out}</b></span><span>callers ext <b>${j.ext_callers}</b></span><span>LOC <b>${j.loc}</b></span></div>`;
+  c.innerHTML=`<div class="jobj">${objetivo}${estChip}</div><div class="jsp">${j.sp}</div>${meta}
+    ${j.reg?'<span class="jbadge reg">REGULATORIO</span> ':''}
+    ${exposed?'<span class="jbadge exp">ENDPOINT</span>':''}`;
+  c.onclick=()=>selectJourney(j,exposed);
+  return c;
+}
+
+// ── JOURNEY → tree ──
+function selectJourney(j,exposed){
+  curJourney=j;
+  document.querySelectorAll('.jcard').forEach(c=>
+    c.classList.toggle('active', c.dataset.id===j.id && c.dataset.exp===(exposed?'1':'0')));
+  document.getElementById('empty').style.display='none';
+  document.getElementById('jhead').style.display='block';
+
+  const m=DOM_META[curDom];
+  const est=j.biz_estado||'partial';
+  const estTxt={conf:'objetivo compuesto (alta confianza)',partial:'inferido — revisar tokens',gap:'ambiguo — requiere SME/DBA'}[est];
+  const estCol={conf:'#86efac',partial:'#9ab0d0',gap:'#fdba74'}[est];
+  const tieneObj=j.biz && j.biz!==j.sp;
+  // título = objetivo de negocio · subtítulo = nombre técnico + confianza
+  document.getElementById('jh-sp').textContent=tieneObj?j.biz:j.sp;
+  document.getElementById('jh-biz').innerHTML=(tieneObj
+      ? `<span class="jh-tech">${j.sp}</span> <span style="color:${estCol};font-style:italic">· ${estTxt}</span>`
+      : `<span class="jh-tech">${j.sp}</span> <span style="color:#6a6a80;font-style:italic">· nombre de negocio pendiente de SME</span>`)
+    + (j.reg?' · <span style="color:#fdba74">REGULATORIO</span>':'');
+  document.getElementById('jh-meta').innerHTML=
+    `<span>Dominio: <b>${curDom.toUpperCase()} ${m.name}</b></span>`
+    +(exposed?'<span>Tipo: <b>Servicio expuesto (endpoint)</b></span>':`<span>fan_out: <b>${j.fan_out}</b></span>`)
+    +`<span>callers externos: <b>${j.ext_callers}</b></span><span>LOC: <b>${j.loc}</b></span>`
+    +(m.reg.length?`<span>Agentes reg.: <b style="color:#fdba74">${m.reg.join(' · ')}</b></span>`:'');
+  const tb=(j.triggered_by||[]).map(t=>t.dom==='app'
+    ? `<span class="tg">App / Batch / Canal (invocación directa)</span>`
+    : `<span class="tg">${t.dom.toUpperCase()} (${t.n})</span>`).join('');
+  document.getElementById('jh-trig').innerHTML='Disparado por: '+ (tb||'—');
+
+  // evidencia del código fuente
+  const src=j.src, se=document.getElementById('jh-src');
+  if(src){
+    const doc=(src.doc&&src.doc.length)
+      ? `<div class="src-doc">📄 ${src.doc.slice(0,3).map(d=>d.replace(/</g,'&lt;')).join(' · ')}</div>` : '';
+    const par=(src.params&&src.params.length)
+      ? `<div class="src-lbl">Parámetros (contrato API target)</div>`
+        +src.params.slice(0,14).map(p=>`<span class="chip par">${p}</span>`).join('') : '';
+    const xdb=(src.xdb&&src.xdb.length)
+      ? `<div class="src-lbl" style="margin-top:4px">Dependencias cross-DB (reales del código)</div>`
+        +src.xdb.map(x=>`<span class="chip xdb">${(DB2DOM[x]||x).toUpperCase()} · ${x}</span>`).join('') : '';
+    se.innerHTML=(doc||par||xdb)
+      ? `<div class="src-lbl">Evidencia del código fuente</div>${doc}${par}${xdb}`
+      : '<div class="nosrc">Sin evidencia extraíble del código.</div>';
+  } else {
+    se.innerHTML='<div class="nosrc">Archivo fuente no encontrado en source/.</div>';
+  }
+
+  drawTree(j,exposed);
+}
+
+function drawTree(j,exposed){
+  g.selectAll('*').remove();
+  const rootData={name:j.sp, biz:j.biz, root:true, reg:j.reg, db:DOM_META[curDom].db,
+                  children:(exposed?[]:(j.steps||[]))};
+  const root=d3.hierarchy(rootData);
+  const nNodes=root.descendants().length;
+
+  if(nNodes<=1){
+    g.append('text').attr('x',60).attr('y',60).attr('fill','#9aa4c4').style('font-size','12px')
+      .text('Servicio expuesto sin cadena interna — es un endpoint (sink) llamado por otros dominios.');
+    g.append('text').attr('x',60).attr('y',84).attr('fill','#6a6a80').style('font-size','10px')
+      .text('Su journey vive en los dominios que lo invocan (ver "Disparado por").');
+    drawSingle(j);
+    svg.transition().duration(300).call(zoom.transform,d3.zoomIdentity.translate(20,20));
+    return;
+  }
+
+  const vgap=32, hgap=300;
+  const tree=d3.tree().nodeSize([vgap,hgap]);
+  tree(root);
+  // extent
+  let minX=Infinity,maxX=-Infinity;
+  root.each(d=>{minX=Math.min(minX,d.x);maxX=Math.max(maxX,d.x);});
+  const offX=40-minX, offY=40;
+
+  // links
+  g.selectAll('.tlink').data(root.links()).join('path')
+    .attr('class',d=>'tlink'+(d.target.data.cross?' cross':''))
+    .attr('d',d3.linkHorizontal().x(d=>d.y+offY).y(d=>d.x+offX));
+
+  // nodes
+  const node=g.selectAll('.tnode').data(root.descendants()).join('g')
+    .attr('class',d=>'tnode'+(d.data.reg?' reg':''))
+    .attr('transform',d=>`translate(${d.y+offY},${d.x+offX})`)
+    .on('mouseover',(e,d)=>showTip(e,d))
+    .on('mouseout',()=>document.getElementById('tip').style.display='none');
+  node.append('circle')
+    .attr('r',d=>d.data.root?8:5.5)
+    .attr('fill',d=>d.data.root?'#F0D224':(d.data.cross?dbColor(d.data.db):'#5a9a6a'))
+    .attr('stroke',d=>d.data.reg?'#F0D224':'rgba(255,255,255,.25)');
+  const trunc=(s,n)=>(s&&s.length>n)?s.slice(0,n-1)+'…':(s||'');
+  // línea 1: objetivo de negocio (compuesto del vocabulario)
+  node.append('text').attr('x',11).attr('y',-2)
+    .attr('class',d=>d.data.root?'root':'')
+    .text(d=>trunc(d.data.biz||d.data.name, 40));
+  // línea 2: nombre técnico del SP + relación (trazabilidad)
+  node.append('text').attr('class','sub').attr('x',11).attr('y',8)
+    .text(d=>{
+      let s=trunc(d.data.name,30);
+      if(d.data.root) s+='  · entry point';
+      else if(d.data.cross) s+='  → '+dbLabel(d.data.db);
+      if(d.data.reg && d.data.reg_by) s+=' · '+d.data.reg_by;
+      else if(d.data.reg) s+=' · reg';
+      return s;
+    });
+
+  // fit view
+  const bb=g.node().getBBox();
+  const sw=svgEl.clientWidth, sh=svgEl.clientHeight;
+  const scale=Math.min(1, .92/Math.max(bb.width/sw, bb.height/sh));
+  const tx=(sw-bb.width*scale)/2 - bb.x*scale;
+  const ty=(sh-bb.height*scale)/2 - bb.y*scale;
+  svg.transition().duration(400).call(zoom.transform,
+    d3.zoomIdentity.translate(tx,ty).scale(scale));
+}
+
+function drawSingle(j){
+  const node=g.append('g').attr('class','tnode reg').attr('transform','translate(140,160)');
+  node.append('circle').attr('r',10).attr('fill','#F0D224').attr('stroke','#fff');
+  node.append('text').attr('x',15).attr('y',-1).text(j.sp);
+  node.append('text').attr('class','sub').attr('x',15).attr('y',10)
+    .text(`endpoint · ${j.ext_callers} callers externos · ${j.loc} LOC`);
+}
+
+function showTip(e,d){
+  const t=document.getElementById('tip');
+  t.innerHTML=`${d.data.biz?`<div style="font-size:11px;color:#bcd0ff;font-weight:600;margin-bottom:3px">${d.data.biz}</div>`:''}
+    <div class="tt">${d.data.name}</div>
+    <div class="tr">${d.data.root?'Entry point del journey':(d.data.cross?'Salto cross-dominio → '+dbLabel(d.data.db):'SP interno del dominio')}</div>
+    ${d.data.loc!==undefined?`<div class="tr">LOC: <span>${d.data.loc}</span></div>`:''}
+    ${d.data.reg?`<div class="tr" style="color:#fdba74">⚠ Paso regulatorio${d.data.reg_by?' · '+d.data.reg_by:''}</div>`:''}
+    ${d.children||d._children?`<div class="tr">Llama a: <span>${(d.children||[]).length} SP(s)</span></div>`:'<div class="tr">Hoja (sink / sin más llamadas en el grafo)</div>'}`;
+  t.style.display='block';
+  t.style.left=Math.min(e.clientX+14,window.innerWidth-270)+'px';
+  t.style.top=Math.max(e.clientY-10,0)+'px';
+}
+
+// ── BOOT ──
+buildNav();
+(async function(){
+  const st=document.getElementById('load-status');
+  try{
+    const res=await fetch(JFILE);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    DATA=await res.json();
+    let orch=0,exp=0;
+    Object.values(DATA).forEach(d=>{orch+=d.journeys.length;exp+=(d.exposed||[]).length;});
+    document.getElementById('m-orch').textContent=orch;
+    document.getElementById('m-exp').textContent=exp;
+    st.className='ok'; st.innerHTML=`✓ ${orch} journeys + ${exp} servicios cargados`;
+    buildNav();
+    selectDomain('d04');   // arranca en Cheques (journeys más ricos)
+  }catch(err){
+    st.className='err';
+    st.innerHTML=`✗ No se pudo cargar <code>${JFILE}</code> (${err.message}).<br>
+      Requiere servidor local:<br><code>python -m http.server 8080</code><br>
+      → <code>http://localhost:8080/journeys-bcop.html</code>`;
+  }
+})();
+</script>
+</body>
+</html>

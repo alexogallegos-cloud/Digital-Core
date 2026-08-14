@@ -1,0 +1,427 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>T-ORC-002 · Auto-flush REFS151-ANT — Banamex GemCog</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+:root{--bg:#071c23;--bg2:#0a2530;--panel:#0e2e3a;--line:#1a4555;--txt:#F0F8FA;--muted:#7fb8c8;
+  --on:#C1272D;--on-sh:rgba(232,52,74,.45);--on2:#6CC5D8;--on2-sh:rgba(108,197,216,.35);
+  --on3:#1E8FA0;--acc:#6CC5D8;--head1:#081825;--head2:#0D2C3A;--hbar:#C1272D}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:'Inter',system-ui,sans-serif;min-height:100vh}
+header{background:linear-gradient(135deg,var(--head1),var(--head2));border-bottom:2px solid var(--hbar);padding:12px 28px;position:sticky;top:0;z-index:10}
+.breadcrumb{font-size:10px;color:var(--muted);display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap}
+.breadcrumb a{color:var(--acc);text-decoration:none}.breadcrumb a:hover{text-decoration:underline}
+.breadcrumb .sep{opacity:.4}
+header h1{font-size:18px;font-weight:800;line-height:1.25}
+header .meta{font-size:10px;color:var(--muted);margin-top:4px;display:flex;gap:14px;flex-wrap:wrap}
+header .meta b{color:var(--acc)}
+.badge{display:inline-block;background:var(--on);color:#fff;border-radius:4px;padding:2px 8px;font-size:9px;font-weight:800;letter-spacing:.05em;margin-right:4px}
+.badge.s151{background:var(--on2);color:#071c23}
+.badge.ambos{background:var(--on3)}
+.badge.type{background:rgba(255,255,255,.1);color:var(--muted)}
+main{max-width:1100px;margin:0 auto;padding:24px 28px;display:flex;flex-direction:column;gap:28px}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.card-head{padding:14px 20px;background:rgba(0,0,0,.2);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.card-head h2{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--acc);text-transform:uppercase}
+.card-body{padding:20px}
+/* Flow visual */
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:4px 0}
+.step{background:rgba(193,39,45,.14);border:1px solid var(--on);color:var(--txt);border-radius:7px;padding:6px 14px;font-size:11.5px;font-weight:600}
+.step.teal{background:rgba(108,197,216,.12);border-color:var(--on2);color:var(--on2)}
+.step.branch{background:rgba(30,143,160,.12);border-color:var(--on3);color:var(--on3)}
+.arr{color:var(--acc);font-weight:800;font-size:14px}
+/* Rule block */
+.rule-block{background:var(--panel);border-radius:8px;border-left:4px solid var(--on);padding:16px 18px;margin-bottom:14px}
+.rule-block.s151{border-left-color:var(--on2)}
+.rule-block.amber{border-left-color:#f0c080}
+.rule-id{font-size:13px;font-weight:800;color:var(--txt);margin-bottom:8px}
+.rule-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.rule-tag{background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:4px;padding:2px 8px;font-size:9px;color:var(--muted);font-weight:600}
+.rule-desc{font-size:12px;color:#a0c8d8;line-height:1.6;margin-bottom:12px}
+.rule-code{background:#040f14;border:1px solid var(--line);border-radius:6px;padding:12px 16px;font-family:'Cascadia Code','Consolas',monospace;font-size:11px;color:#7fe0b0;white-space:pre-wrap;margin-bottom:10px}
+.rule-exc{font-size:11px;color:var(--muted);line-height:1.5;padding:8px 12px;background:rgba(255,200,0,.05);border-left:2px solid #c8a000;border-radius:0 4px 4px 0}
+.rule-exc b{color:#f0c080}
+/* Vocab */
+.vocab-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.vocab-item{background:var(--panel);border-radius:7px;padding:12px 14px;border-left:3px solid var(--muted)}
+.vocab-item .vterm{font-family:'Cascadia Code','Consolas',monospace;font-size:11px;font-weight:700;color:var(--acc);margin-bottom:4px}
+.vocab-item .vpic{font-size:9px;color:var(--muted);font-family:monospace;margin-bottom:4px}
+.vocab-item .vdesc{font-size:11px;color:#a0c8d8;line-height:1.5}
+/* Mermaid */
+.mermaid-wrap{background:#040f14;border-radius:8px;padding:20px;overflow-x:auto}
+.mermaid{min-width:500px}
+.mermaid-wrap.flow-pad{padding:16px 20px}
+/* Slot diagram */
+.ctx-intro{font-size:12px;color:#a0c8d8;line-height:1.7;margin-bottom:16px}
+.slot-label{font-size:10px;color:var(--muted);margin-top:20px;margin-bottom:8px;font-weight:700;letter-spacing:.06em}
+.slot-diagram{display:flex;gap:0;margin:16px 0;align-items:stretch}
+.slot{flex:1;border:1px solid var(--line);padding:10px 8px;text-align:center;font-size:10px;font-family:monospace;position:relative}
+.slot:first-child{border-radius:6px 0 0 6px}
+.slot:last-child{border-radius:0 6px 6px 0}
+.slot.filled{background:rgba(30,143,160,.15);border-color:var(--on3)}
+.slot.overflow{background:rgba(193,39,45,.15);border-color:var(--on);animation:pulse 1.5s infinite}
+.slot.empty{background:rgba(0,0,0,.2);border-color:var(--line);opacity:.5}
+.slot-n{font-size:8px;color:var(--muted);margin-bottom:4px}
+.slot-val{font-size:11px;font-weight:700;color:var(--txt)}
+.slot-desc{font-size:9px;color:var(--muted)}
+.slot-overflow-desc{font-size:9px;color:#ff6b6b}
+@keyframes pulse{0%,100%{border-color:var(--on)}50%{border-color:#ff6b6b;outline:1px solid rgba(193,39,45,.4)}}
+.slot-arrow{display:flex;align-items:center;padding:0 6px;color:var(--acc);font-size:18px;font-weight:800}
+/* Chain box */
+.chain-box{background:var(--panel);border-radius:8px;padding:16px;border:1px dashed var(--on2);margin-top:16px}
+.chain-box h4{font-size:11px;font-weight:800;color:var(--on2);margin-bottom:10px}
+.chain-row{display:flex;gap:12px;align-items:center;font-size:11px;margin-bottom:8px}
+.chain-msg{background:#040f14;border:1px solid var(--line);border-radius:6px;padding:8px 12px;font-family:monospace;font-size:10px;flex:1}
+.chain-link{color:var(--on2);font-size:16px;font-weight:800}
+.chain-detail{font-size:10px;color:var(--muted);min-width:140px}
+.hl-s151{color:var(--on2)}
+.warn-banner{background:rgba(193,39,45,.1);border:1px solid rgba(193,39,45,.3);border-radius:8px;padding:12px 16px;font-size:11px;color:#f08080;line-height:1.6}
+.warn-banner b{color:#ff6b6b}
+.mb-16{margin-bottom:16px}
+footer{font-size:9px;color:var(--muted);padding:16px 28px;border-top:1px solid var(--line);line-height:1.6;margin-top:8px}
+/* Tooltip */
+#mmtip{display:none;position:fixed;z-index:999;max-width:280px;background:rgba(8,24,37,.96);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:0 8px 32px rgba(0,0,0,.6);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);pointer-events:none}
+.mtt-title{font-size:12px;font-weight:800;color:var(--txt);margin-bottom:5px}
+.mtt-rule{font-size:9px;font-weight:700;color:var(--acc);letter-spacing:.08em;margin-bottom:6px;font-family:'Cascadia Code','Consolas',monospace}
+.mtt-range{font-size:11px;font-weight:700;color:#f0c080;margin-bottom:6px;font-family:monospace}
+.mtt-body{font-size:11px;color:#a0c8d8;line-height:1.55}
+.mtt-warn{font-size:10px;color:#f0c080;margin-top:6px;padding:4px 8px;background:rgba(240,192,0,.07);border-left:2px solid #c8a000;border-radius:0 4px 4px 0}
+.mtt-sub{font-size:9px;color:var(--muted);letter-spacing:.05em;margin-bottom:5px;font-family:'Cascadia Code','Consolas',monospace}
+.breadcrumb-current{color:var(--txt);font-weight:700}
+.mmtip-sep{border:none;border-top:1px solid var(--line);margin:6px 0}
+.rule-tag-critico{background:rgba(193,39,45,.2);color:#ff6b6b;font-size:9px}
+</style>
+</head><body>
+<header>
+  <div class="breadcrumb">
+    <a href="../modelo-capacidades.html">Modelo de Capacidades</a><span class="sep">/</span>
+    <span>6.7.2 Operational Reconciliation</span><span class="sep">/</span>
+    <span>6.7.2.1 · Registro S151 online</span><span class="sep">/</span>
+    <b class="breadcrumb-current">T-ORC-002</b>
+  </div>
+  <h1>T-ORC-002 &middot; Auto-flush por overflow — Encadenamiento REFS151-ANT</h1>
+  <div class="meta">
+    <span><span class="badge ambos">S500+S151</span> S500_INC_PRO_CAN — CARGAMOV1-IMP rama ELSE</span>
+    <span><b>Tipo:</b> contable (caso de volumen)</span>
+    <span><b>Caso:</b> Movimiento S500 con más de 5 CVETRANs</span>
+    <span><b>Regla:</b> RN-S500-157</span>
+    <span><b>Confianza:</b> Alta</span>
+  </div>
+</header>
+
+<main>
+
+<!-- CONTEXTO -->
+<div class="card">
+  <div class="card-head"><h2>Contexto — por qué existe el auto-flush</h2></div>
+  <div class="card-body">
+    <p class="ctx-intro">
+      El mensaje <code>WKS-S151-0101-MOVIMIENTOS</code> solo tiene 5 slots para CVETRANs (slots 1..5). Un movimiento bancario puede generar más: cargo principal + comisión + IVA + retención ISR + penalización = 5 CVETRANs. Si hay un sexto, el loop de CARGAMOV1-IMP detecta el overflow y dispara el mecanismo de auto-flush antes de continuar.
+    </p>
+    <div class="warn-banner">
+      <b>Riesgo crítico de migración (RN-S500-157).</b> Si el target no implementa el campo REFS151-ANT y el mecanismo de encadenamiento, los asientos GL de mensajes con overflow quedan huérfanos en S151 — no pueden asociarse al mismo movimiento S500. Esta discrepancia es auditable por CNBV.
+    </div>
+    <p class="slot-label">ESTADO DE SLOTS AL DETECTAR OVERFLOW (ejemplo: 6 CVETRANs)</p>
+    <div class="slot-diagram">
+      <div class="slot filled"><div class="slot-n">Slot 1</div><div class="slot-val">2000</div><div class="slot-desc">CARGO</div></div>
+      <div class="slot filled"><div class="slot-n">Slot 2</div><div class="slot-val">1082</div><div class="slot-desc">Comisión</div></div>
+      <div class="slot filled"><div class="slot-n">Slot 3</div><div class="slot-val">1084</div><div class="slot-desc">IVA comisión</div></div>
+      <div class="slot filled"><div class="slot-n">Slot 4</div><div class="slot-val">1065</div><div class="slot-desc">Retención ISR</div></div>
+      <div class="slot filled"><div class="slot-n">Slot 5</div><div class="slot-val">1090</div><div class="slot-desc">Penalización</div></div>
+      <div class="slot-arrow">→</div>
+      <div class="slot overflow"><div class="slot-n">CVETRAN 6</div><div class="slot-val">overflow</div><div class="slot-overflow-desc">auto-flush!</div></div>
+    </div>
+    <div class="chain-box">
+      <h4>Encadenamiento de asientos GL (REFS151-ANT)</h4>
+      <div class="chain-row">
+        <div class="chain-msg">Mensaje A<br>Slots 1-5 (CVETRANs 1..5)<br>REFS151-ANT = vacío</div>
+        <div class="chain-link">→</div>
+        <div class="chain-detail">CALL CARGAMOV1<br>S151 retorna <b class="hl-s151">REFS151</b><br>copiar a REFS151-ANT</div>
+      </div>
+      <div class="chain-row">
+        <div class="chain-msg">Mensaje B<br>Slots 1-N (CVETRANs 6..M)<br>REFS151-ANT = <b class="hl-s151">REFS151 del Mensaje A</b></div>
+        <div class="chain-link">→</div>
+        <div class="chain-detail">CALL CARGAMOV1<br>S151 asocia B con A<br>mismo movimiento</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FLUJO VISUAL -->
+<div class="card">
+  <div class="card-head"><h2>Flujo de tarea (L5) — auto-flush por overflow</h2></div>
+  <div class="card-body">
+    <div class="mermaid-wrap flow-pad">
+      <div class="mermaid">
+flowchart TD
+    A([Movimiento S500\ncon N CVETRANs\ndonde N > 5]) --> B[CARGAMOV1-IMP\nVARYING WS-S151-IND\nFROM 1 BY 1]
+    B --> C{IND ≤ 5?}
+    C -->|Sí| D[Llenar slot IND\nCVETRANn / IMPORTEn]
+    D --> E[IND = IND + 1]
+    E --> C
+    C -->|No — overflow| F[T-ORC-010\nAuto-flush parcial\nCALL CARGAMOV1\nslots 1-5]
+    F --> G{STATUS = 0?}
+    G -->|Sí| H[S151 retorna REFS151\ncopiar a REFS151-ANT]
+    G -->|No| I[T-ORC-013\nGRABA-RECHAZOS\nabortar encadenamiento]
+    H --> J[CARGAMOV1-LIMPIA\nlimpiar slots 1-5\nslot1 = CVETRANn actual]
+    J --> K[IND = 2\ncontinuar con\nCVETRANs restantes]
+    K --> C
+    E2[Loop completo\ntodos los CVETRANs\ncargados] --> L[T-ORC-011\nCALL CARGAMOV1 final\nREFS151-ANT popolado]
+    C -->|IND > NUM-CVETS| E2
+    L --> M([S151 asocia\nMensaje B con A\nmismo movimiento S500])
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DIAGRAMA DE SECUENCIA -->
+<div class="card">
+  <div class="card-head"><h2>Diagrama de secuencia — overflow de 7 CVETRANs (2 mensajes encadenados)</h2></div>
+  <div class="card-body">
+    <div class="mermaid-wrap">
+      <div class="mermaid">
+sequenceDiagram
+    participant PGM as Programa S500
+    participant IMP as CARGAMOV1-IMP
+    participant CALL as CARGAMOV1-CALL
+    participant S151 as REGISTRAS500
+
+    Note over PGM: Movimiento con 7 CVETRANs
+
+    PGM->>IMP: PERFORM CARGAMOV1-IMP (NUM-CVETS=7)
+
+    IMP->>IMP: IND=1 → slot1 = CVETRAN1
+    IMP->>IMP: IND=2 → slot2 = CVETRAN2
+    IMP->>IMP: IND=3 → slot3 = CVETRAN3
+    IMP->>IMP: IND=4 → slot4 = CVETRAN4
+    IMP->>IMP: IND=5 → slot5 = CVETRAN5
+    Note over IMP: Slots 1-5 llenos
+
+    IMP->>IMP: IND=6 → rama ELSE (overflow detectado)
+    IMP->>CALL: PERFORM CARGAMOV1-CALL (auto-flush, Mensaje A)
+    CALL->>S151: CALL CARGAMOV1 IN REGISTRAS500 (slots 1-5)
+    S151-->>CALL: STATUS=0, REFS151_A
+
+    CALL->>IMP: REFS151_A → REFS151-ANT (encadenar)
+    IMP->>IMP: CARGAMOV1-LIMPIA (limpia slots 1-5)
+    IMP->>IMP: slot1 = CVETRAN6 (el que causó overflow)
+    IMP->>IMP: IND=7 → slot2 = CVETRAN7
+    Note over IMP: IND > NUM-CVETS → fin loop
+
+    IMP-->>PGM: slots cargados (2 CVETRANs en slots 1-2)
+
+    PGM->>CALL: PERFORM CARGAMOV1-CALL (envío final, Mensaje B)
+    Note over CALL: REFS151-ANT = REFS151_A (popolado)
+    CALL->>S151: CALL CARGAMOV1 IN REGISTRAS500 (slots 1-2, REFS151-ANT=REFS151_A)
+    S151-->>CALL: STATUS=0, REFS151_B
+    Note over S151: S151 asocia Mensaje B con Mensaje A<br/>mismo movimiento S500
+
+    CALL-->>PGM: CARGAMOV1-LIMPIA (SALDO-FIN→SALDO-INI)
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- REGLA CENTRAL -->
+<div class="card">
+  <div class="card-head"><h2>Reglas de negocio</h2></div>
+  <div class="card-body">
+    <div class="rule-block">
+      <div class="rule-id">RN-S500-157 — Auto-flush al overflow: CALL parcial y encadenamiento REFS151-ANT</div>
+      <div class="rule-meta">
+        <span class="rule-tag">S500_INC_PRO_CAN.txt — CARGAMOV1-IMP rama ELSE</span>
+        <span class="rule-tag">líneas 4237–4252</span>
+        <span class="rule-tag rule-tag-critico">🔴 CRÍTICO</span>
+      </div>
+      <div class="rule-desc">Cuando el loop de CARGAMOV1-IMP intenta llenar el slot 6 (o cualquier slot N > 5), la rama ELSE del EVALUATE detecta el overflow. En ese momento: (1) se llama CARGAMOV1-CALL con los slots 1-5 ya llenos, (2) S151 retorna el identificador del asiento (REFS151), (3) ese REFS151 se copia a REFS151-ANT del mensaje, (4) los slots se limpian y el CVETRAN que causó el overflow ocupa el slot 1 del siguiente mensaje.</div>
+      <div class="rule-code">* Rama ELSE del loop CARGAMOV1-IMP (líneas 4237-4252)
+ELSE
+    PERFORM 20000151-CARGAMOV1-CALL    *> flush parcial slots 1-5
+    MOVE WS-S151-REFS151
+      TO WS-S151-REFS151-ANT           *> encadenar con siguiente mensaje
+    PERFORM 20000151-CARGAMOV1-LIMPIA  *> limpiar slots 1-5
+    MOVE WS-CVE-CVETRAN(WS-S151-IND)
+      TO WS-S151-CVETRAN1              *> CVETRAN que no cupó → slot 1
+    MOVE WS-IMP-IMPORTE(WS-S151-IND)
+      TO WS-S151-IMPORTE1
+    MOVE 1 TO WS-S151-SWCONT          *> indicador: hay mensaje encadenado
+END-EVALUATE</div>
+      <div class="rule-exc"><b>Impacto migración:</b> REFS151-ANT es la clave de integridad referencial entre dos asientos GL del mismo movimiento de negocio. El target debe implementar este campo como Foreign Key en el GL. Sin él, la conciliación S500↔S151 fallará para todos los movimientos con más de 5 CVETRANs.</div>
+    </div>
+  </div>
+</div>
+
+<!-- VOCABULARIO -->
+<div class="card">
+  <div class="card-head"><h2>Vocabulario controlado — Capa 1</h2></div>
+  <div class="card-body">
+    <div class="vocab-grid">
+      <div class="vocab-item">
+        <div class="vterm">REFS151</div>
+        <div class="vpic">Referencia de asiento S151</div>
+        <div class="vdesc">Identificador que S151 retorna al completar un CALL CARGAMOV1 exitoso. Identifica de forma única el asiento GL creado. En flujos de overflow, este valor se copia a REFS151-ANT del siguiente mensaje para crear el encadenamiento.</div>
+      </div>
+      <div class="vocab-item">
+        <div class="vterm">REFS151-ANT</div>
+        <div class="vpic">Referencia de asiento anterior</div>
+        <div class="vdesc">Campo del mensaje CARGAMOV1 que apunta al asiento GL previo del mismo movimiento S500 (generado en el auto-flush). Cuando S151 recibe un mensaje con REFS151-ANT poblado, sabe que es la continuación de un mensaje anterior y los asocia como un solo movimiento de negocio.</div>
+      </div>
+      <div class="vocab-item">
+        <div class="vterm">WS-S151-IND</div>
+        <div class="vpic">PIC 9(02) — índice del loop</div>
+        <div class="vdesc">Índice del loop VARYING en CARGAMOV1-IMP. Recorre desde 1 hasta WS-NUM-CVETS (máx 30). Cuando WS-S151-IND excede 5, se detecta el overflow y se dispara el auto-flush. El valor que causó el overflow pasa al slot 1 del siguiente mensaje.</div>
+      </div>
+      <div class="vocab-item">
+        <div class="vterm">WS-S151-SWCONT</div>
+        <div class="vpic">PIC 9(01) — indicador de encadenamiento</div>
+        <div class="vdesc">Flag que se activa (=1) cuando se completa un auto-flush y el mensaje actual es continuación de uno anterior. Indica que REFS151-ANT está poblado y que el CALL final debe incluirlo para que S151 pueda asociar los asientos.</div>
+      </div>
+      <div class="vocab-item">
+        <div class="vterm">WS-NUM-CVETS</div>
+        <div class="vpic">PIC 9(02) — número de CVETRANs</div>
+        <div class="vdesc">Número total de CVETRANs que el programa llamador ha cargado para este movimiento. El loop CARGAMOV1-IMP itera hasta este número (máximo 30). Define si habrá overflow (> 5) y cuántos mensajes CARGAMOV1 se generarán.</div>
+      </div>
+      <div class="vocab-item">
+        <div class="vterm">CARGAMOV1-LIMPIA</div>
+        <div class="vpic">Párrafo de limpieza de slots</div>
+        <div class="vdesc">Párrafo COBOL 20000151-CARGAMOV1-LIMPIA. Reinicia los slots CVETRANn/IMPORTEn (1..5) a cero, mueve SALDO-FIN → SALDO-INI para el siguiente ciclo, y resetea WS-S151-IND a 1. Se llama en auto-flush y al final del ciclo completo.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ESCENARIO DE FALLO -->
+<div class="card">
+  <div class="card-head"><h2>Escenario de fallo — target sin REFS151-ANT</h2></div>
+  <div class="card-body">
+    <div class="rule-block amber">
+      <div class="rule-id">¿Qué pasa si el target no implementa REFS151-ANT?</div>
+      <div class="rule-desc">Sin el campo de encadenamiento, el motor GL del target trata los dos mensajes como dos movimientos independientes no relacionados. Ambos asientos GL quedan creados pero "huérfanos" — sin vínculo al mismo movimiento S500.</div>
+      <div class="rule-code">Resultado en S151 target (sin REFS151-ANT):
+  Asiento GL-A: CVETRAN1..5 ← sin referencia al movimiento S500 original
+  Asiento GL-B: CVETRAN6..7 ← sin referencia al movimiento S500 original
+
+Resultado esperado (con REFS151-ANT):
+  Asiento GL-A: CVETRAN1..5, movimiento_s500_id = TXN-001234
+  Asiento GL-B: CVETRAN6..7, movimiento_s500_id = TXN-001234, anterior = GL-A
+
+Impacto en conciliación CNBV:
+  → El punteo P112 no puede asociar los dos asientos GL con el movimiento S500
+  → El reporte Serie B muestra el movimiento como "no conciliado"
+  → Brecha contable detectable en auditoría CNBV (Circular 2019/01)</div>
+      <div class="rule-exc"><b>Acción requerida en target:</b> Implementar un campo de FK en la tabla de asientos GL que referencie el asiento anterior del mismo movimiento S500. El encadenamiento debe validarse en el proceso de conciliación P112 como assertion de integridad antes de cada cierre contable.</div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<footer>
+  Banamex GemCog · Capa 3 Capacidades · T-ORC-002 · Capacidad 6.7.2 Operational Reconciliation · S500_INC_PRO_CAN CARGAMOV1-IMP<br>
+  Regla: RN-S500-157 · Contexto: T-ORC-001 (ciclo completo) · Cross-ref: cap-rec.md (punteo P112)<br>
+  Regulación: CNBV · Estado validación: pendiente HITL
+</footer>
+
+<div id="mmtip"></div>
+<script>
+mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{primaryColor:'#0e2e3a',primaryTextColor:'#F0F8FA',primaryBorderColor:'#1E8FA0',lineColor:'#6CC5D8',background:'#071c23',mainBkg:'#0e2e3a',nodeBorder:'#1a4555'}});
+
+const mmtip=document.getElementById('mmtip');
+const MINFO={
+  OVERFLOW:{title:'Overflow — > 5 slots llenos',rule:'RN-S500-157',body:'El loop CARGAMOV1-IMP detecta que el índice WS-S151-IND excede 5. Entra a la rama ELSE del EVALUATE y dispara el auto-flush parcial con los 5 slots llenos.',warn:'Si el target no detecta esta condición, los CVETRANs 6+ quedan sin registrar en GL — brecha contable inmediata.'},
+  FLUSH:{title:'Auto-flush parcial — T-ORC-010',rule:'RN-S500-157',body:'CALL CARGAMOV1 con los primeros 5 slots. S151 retorna REFS151 identificando el asiento GL-A. Ese REFS151 se copia a REFS151-ANT para que el siguiente mensaje (GL-B) se encadene.'},
+  REFS:{title:'REFS151 → REFS151-ANT',rule:'RN-S500-157',body:'Operación de encadenamiento: el identificador de asiento devuelto por S151 (REFS151) se copia al campo REFS151-ANT del mensaje siguiente. Sin esta copia, los asientos quedan huérfanos.',warn:'Riesgo CRÍTICO: sin REFS151-ANT el punteo P112 no puede asociar los dos asientos GL al mismo movimiento S500.'},
+  LIMPIA:{title:'CARGAMOV1-LIMPIA',body:'Reinicia los slots 1-5 a cero y prepara el mensaje para el siguiente ciclo. El CVETRAN que causó el overflow se mueve al slot 1 del nuevo mensaje.'},
+  FINAL:{title:'CALL CARGAMOV1 final — Mensaje B',rule:'RN-S500-157',body:'El segundo CALL incluye REFS151-ANT populado con el REFS151 del Mensaje A. S151 asocia ambos asientos como pertenecientes al mismo movimiento de negocio S500.'},
+};
+
+function bindMermaidHovers(){
+  const nodes=document.querySelectorAll('.mermaid-wrap svg .node');
+  if(!nodes.length){setTimeout(bindMermaidHovers,300);return;}
+  nodes.forEach(node=>{
+    const txt=node.textContent.trim().toUpperCase();
+    let info=null;
+    if(txt.includes('OVERFLOW')||txt.includes('> 5'))info=MINFO.OVERFLOW;
+    else if(txt.includes('AUTO-FLUSH')||txt.includes('ORC-010'))info=MINFO.FLUSH;
+    else if(txt.includes('REFS151-ANT')||txt.includes('ENCADENAR'))info=MINFO.REFS;
+    else if(txt.includes('LIMPIA')||txt.includes('LIMPIAR'))info=MINFO.LIMPIA;
+    else if(txt.includes('CALL CARGAMOV1 FINAL')||txt.includes('ORC-011')||txt.includes('POPOLADO'))info=MINFO.FINAL;
+    if(!info)return;
+    node.style.cursor='help';
+    node.addEventListener('mousemove',e=>{
+      mmtip.innerHTML=
+        `<div class="mtt-title">${info.title}</div>`+
+        (info.rule?`<div class="mtt-rule">${info.rule}</div>`:'')+
+        (info.range?`<div class="mtt-range">${info.range}</div>`:'')+
+        `<div class="mtt-body">${info.body}</div>`+
+        (info.warn?`<div class="mtt-warn">⚠ ${info.warn}</div>`:'');
+      mmtip.style.display='block';
+      mmtip.style.left=Math.min(e.clientX+14,innerWidth-295)+'px';
+      mmtip.style.top=(e.clientY+12)+'px';
+    });
+    node.addEventListener('mouseleave',()=>{mmtip.style.display='none';});
+  });
+}
+window.addEventListener('load',()=>setTimeout(bindMermaidHovers,400));
+
+const VOCAB_EXTRA={
+  'REFS151':{title:'REFS151 — referencia de asiento GL',rule:'RN-S500-157',body:'Identificador que S151 retorna al completar un CALL exitoso. Identifica el asiento GL creado. En flujos de overflow se copia a REFS151-ANT para encadenar con el siguiente mensaje.'},
+  'REFS151-ANT':{title:'REFS151-ANT — referencia de asiento anterior',rule:'RN-S500-157',body:'Campo del mensaje CARGAMOV1 que apunta al asiento GL previo del mismo movimiento (generado en auto-flush). Sin este campo, los asientos quedan huérfanos en S151.',warn:'Si el target no implementa este campo, los movimientos con >5 CVETRANs generan asientos no conciliables — observable por CNBV.'},
+  'WS-S151-IND':{title:'WS-S151-IND — índice del loop',body:'Índice VARYING que recorre los CVETRANs del movimiento. Cuando supera 5, detecta overflow. El valor que causó el overflow pasa al slot 1 del siguiente mensaje.'},
+  'SWCONT':{title:'WS-S151-SWCONT — indicador de encadenamiento',body:'Flag que se activa (=1) cuando hay un mensaje encadenado en curso. Indica que REFS151-ANT está poblado y el CALL final debe incluirlo.'},
+  'auto-flush':{title:'Auto-flush parcial (T-ORC-010)',rule:'RN-S500-157',body:'Mecanismo que envía el mensaje parcial (slots 1-5) a S151 cuando se detecta overflow en el slot 6, antes de continuar acumulando CVETRANs en un nuevo mensaje encadenado.'},
+  'NUM-CVETS':{title:'WS-NUM-CVETS — número de CVETRANs',body:'Número total de CVETRANs del movimiento. El loop itera hasta este número (máximo 30). Si supera 5 habrá overflow y múltiples mensajes CARGAMOV1 para el mismo movimiento.'},
+  'STATUS=0':{title:'STATUS = 0 — asiento GL exitoso',body:'Código de retorno de REGISTRAS500 indicando éxito. Solo en este caso se copia REFS151 a REFS151-ANT para continuar el encadenamiento. Si STATUS > 0, el encadenamiento se aborta y el movimiento queda en estado de rechazo.'},
+  'GL-A':{title:'Mensaje A — primer mensaje del movimiento',body:'Primer CALL CARGAMOV1 del movimiento, con CVETRANs 1..5. Genera el asiento GL-A en S151. El REFS151 que S151 retorna identifica este asiento y se propaga al Mensaje B como REFS151-ANT.'},
+  'GL-B':{title:'Mensaje B — mensaje encadenado',body:'Segundo (o N-ésimo) CALL CARGAMOV1 del movimiento, con los CVETRANs restantes. Lleva REFS151-ANT populado apuntando al asiento GL-A. S151 los asocia como un mismo movimiento de negocio.'},
+};
+
+function buildVocab(){
+  const v={};
+  document.querySelectorAll('.vocab-item').forEach(item=>{
+    const term=item.querySelector('.vterm')?.textContent.trim();
+    const sub=item.querySelector('.vpic')?.textContent.trim();
+    const body=item.querySelector('.vdesc')?.textContent.trim();
+    if(term&&body)v[term]={title:term,sub,body};
+  });
+  return Object.assign(v,VOCAB_EXTRA);
+}
+
+function bindVocabHovers(attempt){
+  attempt=attempt||0;
+  const svgs=document.querySelectorAll('.mermaid-wrap svg');
+  if(svgs.length<2&&attempt<20){setTimeout(()=>bindVocabHovers(attempt+1),300);return;}
+  const vocab=buildVocab();
+  const keys=Object.keys(vocab).sort((a,b)=>b.length-a.length);
+  const SELECTORS='text,tspan,foreignObject span,foreignObject div,foreignObject p,.label,.messageText span';
+  svgs.forEach(svg=>{
+    svg.querySelectorAll(SELECTORS).forEach(el=>{
+      const txt=el.textContent.trim();
+      if(!txt||txt.length<2)return;
+      if(el.children.length&&el.tagName!=='tspan')return;
+      const matches=[];
+      for(const k of keys){if(txt.includes(k))matches.push(vocab[k]);}
+      if(!matches.length)return;
+      if(el._vb)return;
+      el._vb=true;
+      el.style.cursor='help';
+      const renderTip=info=>
+        `<div class="mtt-title">${info.title}</div>`+
+        (info.rule?`<div class="mtt-rule">${info.rule}</div>`:'')+
+        (info.sub?`<div class="mtt-sub">${info.sub}</div>`:'')+
+        `<div class="mtt-body">${info.body}</div>`+
+        (info.warn?`<div class="mtt-warn">⚠ ${info.warn}</div>`:'');
+      const show=e=>{
+        mmtip.innerHTML=matches.map((m,i)=>(i>0?'<hr class="mmtip-sep">':'')+renderTip(m)).join('');
+        mmtip.style.display='block';
+        mmtip.style.left=Math.min(e.clientX+14,innerWidth-295)+'px';
+        mmtip.style.top=(e.clientY+12)+'px';
+      };
+      el.addEventListener('mousemove',show);
+      el.addEventListener('mouseleave',()=>{mmtip.style.display='none';});
+    });
+  });
+}
+window.addEventListener('load',()=>setTimeout(bindVocabHovers,500));
+</script>
+</body></html>

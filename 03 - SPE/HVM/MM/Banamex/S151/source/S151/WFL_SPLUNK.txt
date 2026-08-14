@@ -1,0 +1,98 @@
+BEGIN JOB S151/WFL/SPLUNK/25MTP006(STRING PARAM1,                                 00001000
+                                   STRING PARAM2 OPTIONAL DEFAULT = "NADA");      00002000
+ FAMILY DISK=CMEMP OTHERWISE DISK;                                                00003000
+ STRING                                                                           00004000
+  MYID,MYFAMDIR,MYFAMLOGS,PASO810;                                                00005000
+ TASK                                                                             00006000
+  T1;                                                                             00007000
+ %                                                                                00008000
+ SUBROUTINE TASKCOMM(STRING PROG, STRING CMD);                                    00009000
+  BEGIN                                                                           00010000
+  TASK                                                                            00011000
+   TT;                                                                            00012000
+  STRING                                                                          00013000
+   MIUSER;                                                                        00014000
+  MIUSER:=MYSELF(USERCODE);                                                       00015000
+  RUN (S288)S288/OBJECT/P804/TCMD/01MTP002 ON SPLUNK                              00016000
+      (MIUSER,PROG,CMD)[TT];                                                      00017000
+  WAIT(5);                                                                        00018000
+  END;                                                                            00019000
+  %                                                                               00020000
+ SUBROUTINE REMFILES(STRING DIR, STRING FAM);                                     00021000
+  BEGIN                                                                           00022000
+  TASK                                                                            00023000
+   TT;                                                                            00024000
+%   DISPLAY(DIR);DISPLAY (FAM);                                                   00025000
+  RUN (S288)S288/OBJECT/P805/REMF/01MTP002 ON SPLUNK                              00026000
+      (DIR,FAM,0)[TT];                                                            00027000
+  END;                                                                            00028000
+ %                                                                                00029000
+ % INICIO                                                                         00030000
+ %                                                                                00031000
+ ON RESTART,GO INICIO;                                                            00032000
+ INICIO:                                                                          00033000
+ MYID:="S151SPLUNK: ";                                                            00034000
+ PASO810:="S151/OBJECT/P810/STSTOTALES/25MTP006";                                 00035000
+ MYFAMDIR:="CMEMP";                                                               00036000
+ MYFAMLOGS:="LOGS";                                                               00037000
+ CASE PARAM1 OF                                                                   00038000
+  BEGIN                                                                           00039000
+  ("INICIA"):                                                                     00040000
+   CASE PARAM2 OF                                                                 00041000
+    BEGIN                                                                         00042000
+    ("P810"):                                                                     00043000
+     BEGIN                                                                        00044000
+     ON TASKFAULT,GO REINP810;                                                    00045000
+     TASKCOMM("%"&TAKE(PASO810,(LENGTH(PASO810)-9))&"%","HI 4");                  00046000
+     REINP810:                                                                    00047000
+     INITIALIZE(T1);                                                              00048000
+     RUN #PASO810[T1];                                                            00049000
+     TASKSTRING="COMPANY=BANAMEX;USER=S151;PACK=CMEMP;BASE_DIR=S151_FILE;";       00049500
+     WAIT(T1 IS COMPLETED);                                                       00050000
+     END;                                                                         00051000
+    ("ALL"):                                                                      00052000
+     BEGIN                                                                        00053000
+     TASKCOMM("%"&TAKE(PASO810,(LENGTH(PASO810)-9))&"%","HI 4");                  00054000
+     INITIALIZE(T1);                                                              00055000
+     RUN #PASO810[T1];                                                            00056000
+     TASKSTRING="COMPANY=BANAMEX;USER=S151;PACK=CMEMP;BASE_DIR=S151_FILE;";       00056500
+     END;                                                                         00057000
+    ELSE:                                                                         00058000
+     BEGIN                                                                        00059000
+     DISPLAY MYID & "PASO O GRUPO INVALIDO: " & PARAM2 & " !";                    00060000
+     DISPLAY MYID & "SOLO ACEPTO: P810 U ALL";                                    00061000
+     END;                                                                         00062000
+    END;                                                                          00063000
+  ("TERMINA"):                                                                    00064000
+   CASE PARAM2 OF                                                                 00065000
+    BEGIN                                                                         00066000
+    ("P810"):                                                                     00067000
+     BEGIN                                                                        00068000
+     TASKCOMM("%"&TAKE(PASO810,(LENGTH(PASO810)-9))&"%","HI 4");                  00069000
+     END;                                                                         00070000
+    ("ALL"):                                                                      00071000
+     BEGIN                                                                        00072000
+     TASKCOMM("%"&TAKE(PASO810,(LENGTH(PASO810)-9))&"%","HI 4");                  00073000
+     END;                                                                         00074000
+    ELSE:                                                                         00075000
+     BEGIN                                                                        00076000
+     DISPLAY MYID & "PASO O GRUPO INVALIDO: " & PARAM2 & " !";                    00077000
+     DISPLAY MYID & "SOLO ACEPTO: P810 U ALL";                                    00078000
+     END;                                                                         00079000
+    END;                                                                          00080000
+   ("DEPURA"):                                                                    00081000
+    BEGIN                                                                         00082000
+    REMFILES("(S151)S151/FILE/STSTOTALES/CTL",MYFAMDIR);                          00083000
+    REMFILES("(S151)S151/FILE/STSTOTALES/LOG",MYFAMDIR);                          00084000
+    REMFILES("(S151)S151/FILE/STSTOTALES/LOG",MYFAMLOGS);                         00085000
+    REMFILES("(S151)S151/FILE/STSTOTALES/CON",MYFAMDIR);                          00086000
+    END;                                                                          00087000
+  ELSE:                                                                           00088000
+   BEGIN                                                                          00089000
+   DISPLAY MYID & "OPCION INVALIDA: " & PARAM1 & " !";                            00090000
+   DISPLAY MYID & "SOLO ACEPTO: INICIA, TERMINA O DEPURA";                        00091000
+   END;                                                                           00092000
+  END;                                                                            00093000
+                                                                                  00094000
+ END JOB;                                                                         00095000
+                                                                                  00096000

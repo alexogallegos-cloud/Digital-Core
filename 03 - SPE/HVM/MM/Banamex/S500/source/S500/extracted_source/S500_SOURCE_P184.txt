@@ -1,0 +1,391 @@
+
+100010$SET LIST$                                                                    
+100020$SUPRESS                                                                      
+100040$SET ERRORLIST                                                                
+100050$SET LIST STACK  LINEINFO FREE                                                
+100060$ERRORLIMIT = 6                                                               
+100070***$SET TADS (FREQUENCY)                                                      
+100080*                                                                             
+100100*****************************************************************             
+100120*        PARA INCLUDE MANEJO DE LIBRERIAS                       *             
+100140*****************************************************************             
+100160$SET S006LOCSUP S100VERSIONES S000LIBLJ                                       
+100180*                                                                             
+100200*****************************************************************             
+100220*        PARA MANEJO DE INCLUDE  BASE DE DATOS                  *             
+100240*****************************************************************             
+100260$SET BDB02R01 BDB37R03 BDB39R03 BDB39R05 BDB39R12                             
+100280*                                                                             
+100400 IDENTIFICATION DIVISION.                                                     
+100500 PROGRAM-ID.    P184-INVCPE.                                                  
+100600 ENVIRONMENT DIVISION.                                                        
+100700 CONFIGURATION  SECTION.                                                      
+100800 INPUT-OUTPUT  SECTION.                                                       
+100900 FILE-CONTROL.                                                                
+101000     SELECT IMPRESORA  ASSIGN TO  PRINTER.                                    
+101100*                                                                             
+101200 DATA DIVISION.                                                               
+101300 FILE SECTION.                                                                
+101400 FD  IMPRESORA  REPORT IS  INVENTACPE.                                        
+101500*                                                                             
+101600 DATA-BASE SECTION.                                                           
+101700 DB  S500BD01CAPTACION.                                                       
+101800 01  S500B02CONTROL.                                                          
+101900 01  S500B37GRUPOCPE.                                                         
+102100 01  S500B39CTASCPE.                                                          
+102200*                                                                             
+102300 WORKING-STORAGE SECTION.                                                     
+102400*                                                                             
+103800 77  WB-FIN-B37-GRUPOS            PIC 9(01).                                  
+103900     88 FIN-B37-GRUPOS  VALUE 1.                                              
+104000 77  WB-FIN-B39-CTAS              PIC 9(01).                                  
+104100     88 FIN-B39-CTAS    VALUE 1.                                              
+104310 77  W77-MY-PASO                  PIC 9(04).                                  
+104320 77  WS-TOTGPO                    PIC 9(06).                                  
+104360 77  WS-TOTCTA                    PIC 9(06).                                  
+104400*                                                                             
+105100 01  WKS-MDA-PAG                  PIC 9(12).                                  
+105200 01  WKS-MDA-PAG-R  REDEFINES                                                 
+105300     WKS-MDA-PAG.                                                             
+105400     05 WKS-MDA-SUCU              PIC 9(04).                                  
+105500     05 WKS-MDA-CUEN              PIC 9(08).                                  
+105502*                                                                             
+105700******************************************************************            
+105800*       AREA PARA FORMAR EL NOMBRE EXTERNO DE ARCHIVOS           *            
+105900******************************************************************            
+106000 01 WS-ETI-REP.                                                               
+106100    02 FILLER                     PIC  X(10) VALUE "S500/LIST/".              
+106200    02 FILLER                     PIC  X(05) VALUE "P184/".                   
+106300    02 IMPREP-NODO                PIC  99    VALUE 10.                        
+106400    02 IMPREP-SUBNODO             PIC  99    VALUE 0.                         
+106500    02 FILLER                     PIC  X     VALUE "/".                       
+106600    02 IMPREP-TR                  PIC  X.                                     
+106700    02 FILLER                     PIC  X(04) VALUE "000/".                    
+106800    02 IMPREP-FECHA               PIC  9(06).                                 
+106900    02 FILLER                     PIC  X     VALUE "/".                       
+107000    02 IMPREP-MIX                 PIC  9(07).                                 
+107100    02 IMPREP-LEY                 PIC  X(15).                                 
+107200    02 FILLER                     PIC  X     VALUE ".".                       
+107300*                                                                             
+107400 01  WT-MESES.                                                                
+107500     05 FILLER                    PIC X(3) VALUE "ENE".                       
+107600     05 FILLER                    PIC X(3) VALUE "FEB".                       
+107700     05 FILLER                    PIC X(3) VALUE "MAR".                       
+107800     05 FILLER                    PIC X(3) VALUE "ABR".                       
+107900     05 FILLER                    PIC X(3) VALUE "MAY".                       
+108000     05 FILLER                    PIC X(3) VALUE "JUN".                       
+108100     05 FILLER                    PIC X(3) VALUE "JUL".                       
+108200     05 FILLER                    PIC X(3) VALUE "AGO".                       
+108300     05 FILLER                    PIC X(3) VALUE "SEP".                       
+108400     05 FILLER                    PIC X(3) VALUE "OCT".                       
+108500     05 FILLER                    PIC X(3) VALUE "NOV".                       
+108600     05 FILLER                    PIC X(3) VALUE "DIC".                       
+108700 01  WT-MESES-R  REDEFINES                                                    
+108800     WT-MESES.                                                                
+108900     05  WT-MES  OCCURS 12 TIMES  PIC X(3).                                   
+109000*                                                                             
+109100 01 WKS-FECHA-MAQUINA             PIC X(10) TYPE IS NUMERIC-DATE.             
+109200 01 R-WKS-FECHA-MAQUINA           REDEFINES WKS-FECHA-MAQUINA.                
+109300    02 WKS-FECMQ-MES              PIC 9(02).                                  
+109400    02 FILLER                     PIC X.                                      
+109500    02 WKS-FECMQ-DIA              PIC 9(02).                                  
+109600    02 FILLER                     PIC X.                                      
+109700    02 WKS-FECMQ-ANIO             PIC 9(04).                                  
+109800*                                                                             
+109900 01  WKS-TIME-MAQ                 PIC 9(08).                                  
+110000 01  WKS-RD-TIME-MAQ              REDEFINES  WKS-TIME-MAQ.                    
+110100     05 WKS-HMS-MAQ               PIC 9(06).                                  
+110200     05 WKS-DSS-MAQ               PIC 9(02).                                  
+110300 01  RD-WKS-TIME-MAQ              REDEFINES  WKS-TIME-MAQ.                    
+110400     05 WKS-HR-MAQ-HH             PIC 9(02).                                  
+110500     05 WKS-HR-MAQ-MM             PIC 9(02).                                  
+110600     05 WKS-HR-MAQ-SS             PIC 9(02).                                  
+110700     05 WKS-HR-MAQ-DD             PIC 9(02).                                  
+110800*                                                                             
+110900 01  WKS-FECPROC-EDIT.                                                        
+111000     05 WKS-DD-FPRC-EDIT          PIC 99.                                     
+111100     05 FILLER                    PIC X       VALUE "/".                      
+111200     05 WKS-MM-FPRC-EDIT          PIC X(03).                                  
+111300     05 FILLER                    PIC X       VALUE "/".                      
+111400     05 WKS-AAAA-FPRC-EDIT        PIC 9(04).                                  
+111500*                                                                             
+111600 01  WKS-FECHA-PROC               PIC 9(8).                                   
+111700 01  WKS-FECHA-PROC-R  REDEFINES                                              
+111800     WKS-FECHA-PROC.                                                          
+111900     05 WKS-FEC-AA-PROC           PIC 9999.                                   
+112000     05 WKS-FEC-MM-PROC           PIC 99.                                     
+112100     05 WKS-FEC-DD-PROC           PIC 99.                                     
+112200*                                                                             
+112300 01  WKS-FECMAQ-EDIT.                                                         
+112400     05 WKS-DD-FMAQ-EDIT          PIC 99.                                     
+112500     05 FILLER                    PIC X       VALUE "/".                      
+112600     05 WKS-MM-FMAQ-EDIT          PIC X(03).                                  
+112700     05 FILLER                    PIC X       VALUE "/".                      
+112800     05 WKS-AAAA-FMAQ-EDIT        PIC 9(04).                                  
+112820*                                                                             
+112840 COPY "S500/INC/WOR/25MTP002".                                                
+112850*                                                                             
+118800****************************************************************              
+118900***  DEFINICION DEL REPORTE DE LA INTEGRACION DEL S152 AL S500 *              
+119000****************************************************************              
+119100*                                                                             
+119200 REPORT SECTION.                                                              
+119300*==============                                                               
+119400 RD  INVENTACPE CONTROLS  ARE  FINAL                                          
+119500     PAGE LIMIT      58                                                       
+119600     HEADING          1                                                       
+119700     FIRST DETAIL    11                                                       
+119800     LAST DETAIL     56                                                       
+119900     FOOTING         58.                                                      
+120000*                                                                             
+120100***  LINEAS DE ENCABEZADOS  ***                                               
+120200*                                                                             
+120300 01  WLI-ENCAB TYPE PH.                                                       
+120400     05  LINE NUMBER 1.                                                       
+120500         10  COLUMN 001 PIC X(33) VALUE                                       
+120600            "S500/P184/25MTP004/001INVENTACPE ".                              
+120700         10  COLUMN 058 PIC X(14) VALUE "INVENTARIO CPE".                     
+120800         10  COLUMN 108 PIC X(13) VALUE "FECHA SALDOS:".                      
+120900         10  COLUMN 122 PIC X(11) SOURCE WKS-FECPROC-EDIT.                    
+121000     05  LINE NUMBER 2.                                                       
+121100         10  COLUMN 001 PIC X(14) VALUE "FECHA PROCESO:".                     
+121200         10  COLUMN 016 PIC X(11) SOURCE WKS-FECMAQ-EDIT.                     
+121300         10  COLUMN 052 PIC X(26) VALUE                                       
+121400            "CUENTA PRODUCTIVA ESPECIAL".                                     
+121500         10  COLUMN 112 PIC X(21) VALUE "TIPO PROCESO: MENSUAL".              
+121600     05  LINE NUMBER 3.                                                       
+121700         10  COLUMN 001 PIC X(14) VALUE "HORA  PROCESO:".                     
+121800         10  COLUMN 016 PIC 9(02) SOURCE WKS-HR-MAQ-HH.                       
+121900         10  COLUMN 018 PIC X(01) VALUE ":".                                  
+122000         10  COLUMN 019 PIC 9(02) SOURCE WKS-HR-MAQ-MM.                       
+122100         10  COLUMN 021 PIC X(01) VALUE ":".                                  
+122200         10  COLUMN 022 PIC 9(02) SOURCE WKS-HR-MAQ-SS.                       
+122300         10  COLUMN 044 PIC X(45) VALUE                                       
+122400            "INFORMACION BASICA DE LAS ESTRUCTURAS DE B.D.".                  
+122500         10  COLUMN 118 PIC X(09) VALUE "HOJA NUM:".                          
+122600         10  COLUMN 128 PIC Z(05) SOURCE PAGE-COUNTER.                        
+122700     05  LINE NUMBER 4.                                                       
+122800         10  COLUMN 001 PIC X(04) VALUE "3084".                               
+122900         10  COLUMN 057 PIC X(15) VALUE "MONEDA NACIONAL".                    
+123000     05  LINE NUMBER 5.                                                       
+123100         10  COLUMN 001 PIC X(13) VALUE "PYCP JARDINES".                      
+123200         10  COLUMN 058 PIC X(13) VALUE "C.S.I. MEXICO".                      
+123300     05  LINE NUMBER 6.                                                       
+123400         10  COLUMN 001 PIC X(132) VALUE ALL "-".                             
+123500     05  LINE NUMBER 7.                                                       
+123600         10  COLUMN 004 PIC X(18) VALUE "     GRUPO  NOMBRE".                 
+123700         10  COLUMN 058 PIC X(09) VALUE "POBLACION".                          
+123800         10  COLUMN 091 PIC X(21) VALUE "CODPOS  REPRESENTANTE".              
+123900     05  LINE NUMBER 8.                                                       
+124100         10  COLUMN 001 PIC X(24) VALUE                                       
+124150            "PREF/CHEQUERA  DOMICILIO".                                       
+124200         10  COLUMN 058 PIC X(39) VALUE                                       
+124300            "PER   OPC-RGO  CSI  ST  SUCP   CONTRATO".                        
+124400         10  COLUMN 101 PIC X(29) VALUE                                       
+124500            "FECH-VIG  FECH-ACT     SUBGPO".                                  
+124600     05  LINE NUMBER 9.                                                       
+124700         10  COLUMN 001 PIC X(132) VALUE ALL "-".                             
+124800*                                                                             
+124900 01  WLI-DETGPO TYPE DE.                                                      
+124920     05  LINE PLUS 1.                                                         
+124940         10  COLUMN 001 PIC X(01)  VALUE " ".                                 
+125000     05  LINE PLUS 1.                                                         
+125200         10  COLUMN 004 PIC 9(10)  SOURCE B37-GRUPO.                          
+125300         10  COLUMN 016 PIC X(40)  SOURCE B37-NOMBRE.                         
+125400         10  COLUMN 058 PIC X(40)  SOURCE B37-CIUDAD.                         
+125500         10  COLUMN 092 PIC 9(05)  SOURCE B37-COD-POSTAL.                     
+125600         10  COLUMN 099 PIC X(34)  SOURCE B37-REPRES.                         
+125700     05  LINE PLUS 1.                                                         
+125750         10  COLUMN 001 PIC 9(04)  SOURCE WKS-MDA-SUCU.                       
+125800         10  COLUMN 005 PIC X(01)  VALUE "/".                                 
+125850         10  COLUMN 006 PIC 9(08)  SOURCE WKS-MDA-CUEN.                       
+125870         10  COLUMN 016 PIC X(40)  SOURCE B37-DOMICILIO.                      
+125900         10  COLUMN 059 PIC 9(02)  SOURCE B37-TPO-PERS.                       
+126000         10  COLUMN 065 PIC 9(02)  SOURCE B37-OPCION.                         
+126050         10  COLUMN 067 PIC X(01)  VALUE "-".                                 
+126100         10  COLUMN 068 PIC 9(02)  SOURCE B37-RANGO.                          
+126200         10  COLUMN 074 PIC 9(02)  SOURCE B37-CSI-CTO-PAGO.                   
+126300***      10  COLUMN 078 PIC 9(02)  SOURCE B37-STATUS.                         
+126350         10  COLUMN 078 PIC X(02)  VALUE SPACES.                              
+126400         10  COLUMN 082 PIC 9(04)  SOURCE B37-SUC-CTO-PAGO.                   
+126450         10  COLUMN 086 PIC 9(04)  VALUE "-".                                 
+126500         10  COLUMN 087 PIC 9(12)  SOURCE B37-CTO-PAGO.                       
+126600         10  COLUMN 102 PIC 9(06)  SOURCE B37-FECH-VIG.                       
+126700         10  COLUMN 112 PIC 9(06)  SOURCE B37-FECH-ULACT.                     
+126750     05  LINE PLUS 1.                                                         
+126800         10  COLUMN 001 PIC X(01)  VALUE " ".                                 
+126900*                                                                             
+127600 01  WLI-DETCTA TYPE DE.                                                      
+127700     05  LINE PLUS 1.                                                         
+127750         10  COLUMN 001 PIC 9(04)  SOURCE WKS-MDA-SUCU.                       
+127800         10  COLUMN 005 PIC X(01)  VALUE "/".                                 
+127850         10  COLUMN 006 PIC 9(08)  SOURCE WKS-MDA-CUEN.                       
+127900         10  COLUMN 016 PIC X(40)  SOURCE B39-NOMBRE.                         
+127950         10  COLUMN 059 PIC 9(02)  SOURCE B39-TPO-PERS.                       
+128100         10  COLUMN 068 PIC 9(02)  SOURCE B39-RGO-PAGADO.                     
+128110         10  COLUMN 074 PIC 9(02)  SOURCE B39-NUM-CSI.                        
+128120         10  COLUMN 078 PIC Z(01)9 SOURCE B39-STATUS.                         
+128130         10  COLUMN 082 PIC 9(04)  SOURCE B39-SUCPROM.                        
+128140         10  COLUMN 086 PIC X(01)  VALUE "-".                                 
+128150         10  COLUMN 087 PIC 9(12)  SOURCE B39-CONTRATO.                       
+128170         10  COLUMN 126 PIC Z(03)9  SOURCE B39-SUB-GPO.                       
+128200*                                                                             
+128300 01  WLI-TOTALES TYPE CF FINAL.                                               
+128400     05  LINE PLUS 3.                                                         
+128500         10  COLUMN 001 PIC X(29)  VALUE                                      
+128600            "TOTAL DE REGISTROS DE: GRUPOS".                                  
+128900         10  COLUMN 032 PIC Z(05)  SOURCE WS-TOTGPO.                          
+129100         10  COLUMN 042 PIC X(07)  VALUE "CUENTAS".                           
+129200         10  COLUMN 051 PIC Z(05)  SOURCE WS-TOTCTA.                          
+130300*                                                                             
+130400******************************************************************            
+130500 PROCEDURE DIVISION.                                                          
+130600*-------------------                                                          
+130700 000-CONTROLA.                                                                
+130800*-------------                                                                
+130900    PERFORM 100-INICIA                                                        
+130950    IF B02-NUM-CSI = 10                                                       
+131000       PERFORM 200-REPORTA-GRUPOS UNTIL FIN-B37-GRUPOS                        
+131100       PERFORM 300-TERMINA                                                    
+131120    ELSE                                                                      
+131140       PERFORM 310-CIERRA-BASE.                                               
+131200    STOP RUN.                                                                 
+131300*                                                                             
+131400 100-INICIA.                                                                  
+131500*-----------                                                                  
+131600     PERFORM 100-10-VALIDA-VERSION                                            
+131650     PERFORM 10000006-LOCSUP                                                  
+131700     PERFORM 100-30-OBTEN-FECHORA-MAQ                                         
+131800     PERFORM 100-40-ABRE-BASE                                                 
+131900     PERFORM 100-50-OBTEN-FECHA-PROC                                          
+131950     IF B02-NUM-CSI = 10                                                      
+132000        PERFORM 100-60-INICIALIZA-VARIAB                                      
+132100        PERFORM 100-70-ABRE-ARCHIVOS                                          
+132200        PERFORM 90000037-B37SXGPO-FINDN.                                      
+132300*                                                                             
+132400 100-10-VALIDA-VERSION.                                                       
+132500*----------------------                                                       
+132510     MOVE 2             TO W77-USO-LIBLJ.                                     
+132520     MOVE 051010        TO WS-0101-CODI-MSG.                                  
+132530     MOVE 02            TO WS-0101-TIPO-MSG.                                  
+132540     MOVE "S500P184"    TO W77-S000-MY-ID.                                    
+132550     MOVE 184           TO W77-MY-PASO.                                       
+132560     MOVE "P184"        TO WS-0101-PASO-MSG.                                  
+132570     MOVE "25MTP004"    TO WS-0101-MTP-MSG W77-S000-MY-VERSION.               
+132580                                                                              
+132680     PERFORM  10000100-VERSIONES.                                             
+132780     PERFORM  20000100-CHECAME-VERSION.                                       
+132880     IF S000-CTR-CVEERROR < 0                                                 
+132980        STRING "ERROR DE VERSION "                                            
+133080               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+133180        PERFORM 70000050-MENSAJE                                              
+133280        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                              
+133380*                                                                             
+135000 100-30-OBTEN-FECHORA-MAQ.                                                    
+135100*-------------------------                                                    
+135200     ACCEPT WKS-TIME-MAQ       FROM TIME.                                     
+135300     ACCEPT WKS-FECHA-MAQUINA  FROM DATE.                                     
+135400     MOVE   WKS-FECMQ-DIA      TO WKS-DD-FMAQ-EDIT                            
+135500     MOVE   WKS-FECMQ-ANIO     TO WKS-AAAA-FMAQ-EDIT                          
+135600     MOVE   WT-MES (WKS-FECMQ-MES)                                            
+135700                               TO WKS-MM-FMAQ-EDIT.                           
+135800*                                                                             
+135900 100-40-ABRE-BASE.                                                            
+136000*-----------------                                                            
+136100     OPEN INQUIRY S500BD01CAPTACION                                           
+136200       ON EXCEPTION                                                           
+136300          MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE                         
+136400          STRING "ERROR AL OPEN DE LA BD; ST BASE: "                          
+136500                  WS-STATUS-BASE                                              
+136600                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                     
+136700          PERFORM 70000050-MENSAJE                                            
+136800          CALL SYSTEM DMTERMINATE.                                            
+136900*                                                                             
+137000 100-50-OBTEN-FECHA-PROC.                                                     
+137100*------------------------                                                     
+137200     PERFORM  90000002-B02CONTROL-FIND.                                       
+137300     IF WS-STATUS-BASE > 0                                                    
+137400        STRING "ERR FIND B00CTRLPASO ", WS-STATUS-BASE                        
+137500               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+137600        PERFORM 70000050-MENSAJE                                              
+137700        CALL SYSTEM DMTERMINATE.                                              
+138000                                                                              
+138005     MOVE 15               TO  WS-S006-FUNCION                                
+138010     MOVE B02-FECHA-LINEA  TO  WS-S006-FECHA1                                 
+138015     MOVE 1                TO  WS-S006-FECHA2                                 
+138020     MOVE 12               TO  WS-S006-FORMATO                                
+138025     PERFORM  20000006-LOCSUP.                                                
+138027     IF WS-S006-FUNCION > 0                                                   
+138030        MOVE   "ERROR FUNCION 15 LOCSUP"                                      
+138035                                    TO WS-0101-TEXT-MSG                       
+138040        PERFORM 70000050-MENSAJE                                              
+138045        CALL SYSTEM DMTERMINATE.                                              
+138050*                                                                             
+138100     MOVE WS-S006-FECHA1  TO WKS-FECHA-PROC                                   
+138200     MOVE WKS-FEC-AA-PROC TO WKS-AAAA-FPRC-EDIT                               
+138300     MOVE WKS-FEC-DD-PROC TO WKS-DD-FPRC-EDIT                                 
+138400     MOVE WT-MES(WKS-FEC-MM-PROC)                                             
+138500                          TO WKS-MM-FPRC-EDIT.                                
+138600*                                                                             
+138700 100-60-INICIALIZA-VARIAB.                                                    
+138800*-------------------------                                                    
+138900     MOVE WKS-FECHA-PROC                 TO IMPREP-FECHA                      
+139100     MOVE ATTRIBUTE MIXNUMBER OF MYSELF  TO IMPREP-MIX                        
+139200     MOVE "R"                            TO IMPREP-TR                         
+139300     MOVE "/001INVENTACPE "              TO IMPREP-LEY                        
+139400     SET IMPRESORA(USERBACKUPNAME)       TO VALUE TRUE                        
+139500     CHANGE ATTRIBUTE TITLE OF IMPRESORA TO WS-ETI-REP.                       
+139600*                                                                             
+139700 100-70-ABRE-ARCHIVOS.                                                        
+139800*---------------------                                                        
+139900     OPEN OUTPUT IMPRESORA                                                    
+140000     INITIATE INVENTACPE.                                                     
+140100*                                                                             
+141600 200-REPORTA-GRUPOS.                                                          
+141700*-------------------                                                          
+141750     MOVE  B37-MDA-PAGO  TO  WKS-MDA-PAG                                      
+141800     GENERATE  WLI-DETGPO                                                     
+141900     ADD 1 TO WS-TOTGPO                                                       
+145000     MOVE B37-GRUPO      TO WS-GRUPO                                          
+145150     PERFORM  200-10-15-FINDFG-B39-CTAS                                       
+145200     PERFORM  200-10-20-REPORTA-CUENTAS UNTIL FIN-B39-CTAS                    
+145400     PERFORM  90000037-B37SXGPO-FINDN                                         
+145450     IF WS-DB-NOTFOUND                                                        
+145500        MOVE 1 TO WB-FIN-B37-GRUPOS.                                          
+145600*                                                                             
+145700 200-10-15-FINDFG-B39-CTAS.                                                   
+145800*-------------------------                                                    
+145850     MOVE 0 TO WB-FIN-B39-CTAS                                                
+145900     PERFORM  90000039-B39SXGPOSBGMDA-FINDFG                                  
+146000     IF WS-DB-NOTFOUND                                                        
+146100        MOVE 1 TO WB-FIN-B39-CTAS.                                            
+146200*                                                                             
+147300 200-10-20-REPORTA-CUENTAS.                                                   
+147400*--------------------------                                                   
+147450     MOVE  B39-NUM-MDA  TO  WKS-MDA-PAG                                       
+147470     IF B39-STATUS = 0 OR 1                                                   
+147500        GENERATE  WLI-DETCTA                                                  
+147600        ADD 1 TO WS-TOTCTA.                                                   
+147800     PERFORM  90000039-B39SXGPOSBGMDA-FINDN                                   
+147820     IF WS-DB-NOTFOUND                                                        
+147830     OR B39-GRUPO NOT = WS-GRUPO                                              
+147840        MOVE 1 TO WB-FIN-B39-CTAS.                                            
+147900*                                                                             
+148000 300-TERMINA.                                                                 
+148100*------------                                                                 
+148200     TERMINATE  INVENTACPE                                                    
+148220     CLOSE IMPRESORA SAVE                                                     
+148240     PERFORM 310-CIERRA-BASE.                                                 
+148300*                                                                             
+148350 310-CIERRA-BASE.                                                             
+148400      CLOSE S500BD01CAPTACION                                                 
+148500        ON EXCEPTION                                                          
+148600           MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE                        
+148700           STRING "ERROR AL CLOSE DE LA BD; ST BASE: "                        
+148800                   WS-STATUS-BASE                                             
+148900                   DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                    
+149000           PERFORM 70000050-MENSAJE                                           
+149100           CALL SYSTEM DMTERMINATE.                                           
+149200*                                                                             
+149500 COPY "S500/INC/PRO/25MTP002".                                                
+149600*                                                                             

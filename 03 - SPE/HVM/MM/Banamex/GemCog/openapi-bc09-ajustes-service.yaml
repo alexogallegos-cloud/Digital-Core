@@ -1,0 +1,439 @@
+openapi: "3.1.0"
+
+info:
+  title: "Ajustes GL Service"
+  version: "0.1.0-seed"
+  summary: "API de ajustes contables GL — modernización S151 Banamex"
+  description: |
+    Contrato sembrado desde el Gemelo Cognitivo GemCog v2.2.
+
+    **Bounded Context**: BC-09 Ajustes GL
+    **Sistema origen**: S151 (Unisys ClearPath MCP · COBOL)
+    **Wave de transpilación**: Wave 2
+
+    Gestiona los asientos de ajuste contable del libro mayor:
+    correcciones manuales o automáticas para cuadrar el GL cuando
+    hay diferencias entre sistemas.
+
+    **Operación regulatoria CNBV**: todos los ajustes quedan en bitácora.
+    P117 (DIFERENCIAS) es el detector; el ajuste resultante tiene flag CNBV.
+
+x-gemcog-source:
+  sistema: "S151"
+  bounded_context: "BC-09"
+  bc_name: "Ajustes GL"
+  vocab_version: "v2.2"
+  capa: 6
+  programas_origen:
+    - "S151/P117 (DIFERENCIAS · detección diferencias contables · Flag CNBV)"
+    - "S151/P115 (COMPENREG 7K LOC · compensación/registro · Flag CNBV)"
+  equivalencia_objetivo: "≥ 99.99%"
+
+servers:
+  - url: "http://localhost:8089"
+    description: "Local dev"
+  - url: "https://api-dev.banamex-internal.mx/gl/ajustes/v0"
+    description: "DEV"
+
+tags:
+  - name: "ajustes"
+    description: "Ajustes contables del libro mayor"
+  - name: "diferencias"
+    description: "Diferencias contables detectadas entre sistemas"
+
+paths:
+
+  /ajustes-contables:
+    get:
+      operationId: "listarAjustes"
+      summary: "Listar ajustes contables"
+      tags: ["ajustes"]
+      description: |
+        Lista los ajustes contables registrados.
+        **vocab**: AJUSTES → AjusteContable (UL §4 BC-09)
+      x-regulatory-flags: ["CNBV"]
+      parameters:
+        - name: "fecha"
+          in: "query"
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: "estado"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/EstadoAjuste"
+        - name: "page"
+          in: "query"
+          schema:
+            type: integer
+            default: 0
+        - name: "size"
+          in: "query"
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        "200":
+          description: "Lista de ajustes"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginaAjustes"
+
+    post:
+      operationId: "registrarAjuste"
+      summary: "Registrar ajuste contable"
+      tags: ["ajustes"]
+      description: |
+        Registra un ajuste contable en el GL.
+        ⚠ Operación regulatoria CNBV — requiere autorización y queda en bitácora.
+        **Origen**: S151/P115 (COMPENREG 7K LOC · Flag CNBV)
+      x-regulatory-flags: ["CNBV"]
+      security:
+        - BearerAuth: ["gl:ajustes:write"]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AjusteContableRequest"
+      responses:
+        "201":
+          description: "Ajuste registrado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AjusteContable"
+        "400":
+          $ref: "#/components/responses/ErrorValidacion"
+        "403":
+          description: "Scope insuficiente para registrar ajustes contables"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /ajustes-contables/{idAjuste}:
+    get:
+      operationId: "consultarAjuste"
+      summary: "Consultar un ajuste contable"
+      tags: ["ajustes"]
+      x-regulatory-flags: ["CNBV"]
+      parameters:
+        - name: "idAjuste"
+          in: "path"
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: "Datos del ajuste"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AjusteContable"
+        "404":
+          $ref: "#/components/responses/NoEncontrado"
+
+    patch:
+      operationId: "autorizarAjuste"
+      summary: "Autorizar o rechazar un ajuste contable"
+      tags: ["ajustes"]
+      description: |
+        Actualiza el estado de un ajuste (AUTORIZADO / RECHAZADO).
+        Operación del flujo de autorización CNBV.
+      x-regulatory-flags: ["CNBV"]
+      security:
+        - BearerAuth: ["gl:ajustes:authorize"]
+      parameters:
+        - name: "idAjuste"
+          in: "path"
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AutorizacionAjusteRequest"
+      responses:
+        "200":
+          description: "Ajuste autorizado/rechazado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AjusteContable"
+        "404":
+          $ref: "#/components/responses/NoEncontrado"
+        "409":
+          description: "Ajuste ya fue procesado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Diferencias contables ───────────────────────────────────────────────────
+
+  /diferencias-contables:
+    get:
+      operationId: "listarDiferencias"
+      summary: "Listar diferencias contables detectadas"
+      tags: ["diferencias"]
+      description: |
+        Devuelve las diferencias contables detectadas por P117 (DIFERENCIAS).
+        Cada diferencia puede derivar en un AjusteContable.
+        **Origen**: S151/P117 · Flag CNBV
+      x-regulatory-flags: ["CNBV"]
+      parameters:
+        - name: "fecha"
+          in: "query"
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: "resuelta"
+          in: "query"
+          required: false
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: "Diferencias contables"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  diferencias:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DiferenciaContable"
+                  totalDiferencias:
+                    type: integer
+                  importeTotalDiferencia:
+                    type: string
+                    pattern: "^-?[0-9]+\\.[0-9]{4}$"
+
+  # ── Reproceso forzado GL (FORZA S151) ───────────────────────────────────────
+
+  /ajustes-contables/reproceso:
+    post:
+      operationId: "forzarReprocesoAjustes"
+      summary: "Forzar reproceso del proceso de ajustes GL"
+      tags: ["ajustes"]
+      description: |
+        Ejecuta el proceso de ajustes ya corrido, saltando validaciones de doble ejecución.
+        **Colisión resuelta**: FORZA S151 → ReprocesoForzadoGL ≠ ReprocesoForzadoCaptacion (BC-02). UL §3.5.
+        ⚠ Requiere autorización especial y queda en bitácora de auditoría CNBV.
+      x-regulatory-flags: ["CNBV"]
+      security:
+        - BearerAuth: ["gl:ajustes:reproceso"]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReprocesoForzadoAjustesRequest"
+      responses:
+        "202":
+          description: "Reproceso forzado iniciado"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idReproceso:
+                    type: string
+                    format: uuid
+                  estado:
+                    type: string
+                    enum: ["INICIADO"]
+
+components:
+
+  responses:
+    ErrorValidacion:
+      description: "Error de validación"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NoEncontrado:
+      description: "Recurso no encontrado"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+
+    EstadoAjuste:
+      type: string
+      enum: ["PENDIENTE_AUTORIZACION", "AUTORIZADO", "RECHAZADO", "APLICADO", "REVERTIDO"]
+
+    TipoAjuste:
+      type: string
+      enum: ["MANUAL", "AUTOMATICO_DIFERENCIA", "COMPENSACION", "REPROCESO"]
+
+    AjusteContable:
+      type: object
+      description: |
+        Ajuste contable del libro mayor GL.
+        **vocab**: AJUSTES → AjusteContable (UL §4 BC-09)
+      required: ["idAjuste", "tipo", "importe", "cvetra", "estado", "fechaRegistro"]
+      properties:
+        idAjuste:
+          type: string
+          format: uuid
+        tipo:
+          $ref: "#/components/schemas/TipoAjuste"
+        importe:
+          type: string
+          pattern: "^-?[0-9]+\\.[0-9]{4}$"
+          description: "Negativo = cargo GL, positivo = abono GL. BigDecimal string."
+        cvetra:
+          type: string
+          description: "Clave de trayectoria del ajuste"
+        cuentaGL:
+          type: string
+        sistemaOrigen:
+          type: string
+          description: "Sistema que originó la diferencia"
+        estado:
+          $ref: "#/components/schemas/EstadoAjuste"
+        justificacion:
+          type: string
+          description: "Justificación obligatoria para CNBV"
+        idDiferenciaOrigen:
+          type: string
+          format: uuid
+          description: "ID de la DiferenciaContable que originó este ajuste (si aplica)"
+        fechaRegistro:
+          type: string
+          format: date-time
+        fechaAutorizacion:
+          type: string
+          format: date-time
+        autorizadoPor:
+          type: string
+      # [GEMCOG-SOURCE: S151/P115 COMPENREG 7K LOC · P117 DIFERENCIAS · vocab: AJUSTES]
+      # [FLAGS: CNBV]
+
+    AjusteContableRequest:
+      type: object
+      required: ["tipo", "importe", "cvetra", "justificacion"]
+      properties:
+        tipo:
+          $ref: "#/components/schemas/TipoAjuste"
+        importe:
+          type: string
+          pattern: "^-?[0-9]+\\.[0-9]{4}$"
+        cvetra:
+          type: string
+        cuentaGL:
+          type: string
+        sistemaOrigen:
+          type: string
+        justificacion:
+          type: string
+          minLength: 20
+          description: "Justificación obligatoria (mínimo 20 chars) para bitácora CNBV"
+        idDiferenciaOrigen:
+          type: string
+          format: uuid
+
+    AutorizacionAjusteRequest:
+      type: object
+      required: ["decision", "comentario"]
+      properties:
+        decision:
+          type: string
+          enum: ["AUTORIZADO", "RECHAZADO"]
+        comentario:
+          type: string
+          minLength: 10
+
+    DiferenciaContable:
+      type: object
+      description: |
+        Diferencia contable detectada entre registros del GL.
+        **Origen**: S151/P117 DIFERENCIAS · Flag CNBV
+      required: ["idDiferencia", "importe", "sistemaOrigen", "cuentaGL", "fechaDeteccion"]
+      properties:
+        idDiferencia:
+          type: string
+          format: uuid
+        importe:
+          type: string
+          pattern: "^-?[0-9]+\\.[0-9]{4}$"
+        sistemaOrigen:
+          type: string
+        cuentaGL:
+          type: string
+        cvetra:
+          type: string
+        fechaDeteccion:
+          type: string
+          format: date-time
+        resuelta:
+          type: boolean
+          default: false
+        idAjusteResolucion:
+          type: string
+          format: uuid
+          description: "ID del AjusteContable que resolvió esta diferencia"
+      # [GEMCOG-SOURCE: S151/P117 DIFERENCIAS · vocab: AJUSTES]
+
+    ReprocesoForzadoAjustesRequest:
+      type: object
+      required: ["fechaProceso", "motivoReproceso"]
+      properties:
+        fechaProceso:
+          type: string
+          format: date
+        motivoReproceso:
+          type: string
+          minLength: 20
+        idAutorizacion:
+          type: string
+      # [GEMCOG-SOURCE: S151/FORZA · vocab: FORZA (colisión resuelta UL §3.5)]
+
+    PaginaAjustes:
+      type: object
+      properties:
+        contenido:
+          type: array
+          items:
+            $ref: "#/components/schemas/AjusteContable"
+        paginaActual:
+          type: integer
+        totalPaginas:
+          type: integer
+        totalElementos:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      required: ["codigo", "mensaje", "timestamp"]
+      properties:
+        codigo:
+          type: string
+        mensaje:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string

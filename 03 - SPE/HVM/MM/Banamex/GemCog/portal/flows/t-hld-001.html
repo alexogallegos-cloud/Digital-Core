@@ -1,0 +1,513 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>T-HLD-001 — Servidor de Saldos P050 / Distribuidor P052 [GemCog]</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+:root{--bg:#071c23;--bg2:#0a2530;--panel:#0e2e3a;--line:#1a4555;--txt:#F0F8FA;--muted:#7fb8c8;
+  --on:#C1272D;--on-sh:rgba(232,52,74,.45);--on2:#6CC5D8;--on2-sh:rgba(108,197,216,.35);
+  --on3:#1E8FA0;--acc:#6CC5D8;--head1:#081825;--head2:#0D2C3A;--hbar:#C1272D}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:'Inter',system-ui,sans-serif;min-height:100vh}
+header{background:linear-gradient(135deg,var(--head1),var(--head2));border-bottom:2px solid var(--hbar);padding:12px 28px;position:sticky;top:0;z-index:10}
+.breadcrumb{font-size:10px;color:var(--muted);display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap}
+.breadcrumb a{color:var(--acc);text-decoration:none}.breadcrumb a:hover{text-decoration:underline}
+.breadcrumb .sep{opacity:.4}
+header h1{font-size:18px;font-weight:800;line-height:1.25}
+header .meta{font-size:10px;color:var(--muted);margin-top:4px;display:flex;gap:14px;flex-wrap:wrap}
+header .meta b{color:var(--acc)}
+.badge{display:inline-block;background:var(--on);color:#fff;border-radius:4px;padding:2px 8px;font-size:9px;font-weight:800;letter-spacing:.05em;margin-right:4px}
+.badge.s151{background:var(--on2);color:#071c23}
+.badge.ambos{background:var(--on3)}
+.badge.type{background:rgba(255,255,255,.1);color:var(--muted)}
+main{max-width:1100px;margin:0 auto;padding:24px 28px;display:flex;flex-direction:column;gap:28px}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.card-head{padding:14px 20px;background:rgba(0,0,0,.2);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.card-head h2{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--acc);text-transform:uppercase}
+.card-body{padding:20px}
+/* Flow visual */
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:4px 0}
+.step{background:rgba(193,39,45,.14);border:1px solid var(--on);color:var(--txt);border-radius:7px;padding:6px 14px;font-size:11.5px;font-weight:600}
+.step.teal{background:rgba(108,197,216,.12);border-color:var(--on2);color:var(--on2)}
+.step.branch{background:rgba(30,143,160,.12);border-color:var(--on3);color:var(--on3)}
+.arr{color:var(--acc);font-weight:800;font-size:14px}
+/* Rule block */
+.rule-block{background:var(--panel);border-radius:8px;border-left:4px solid var(--on);padding:16px 18px;margin-bottom:14px}
+.rule-block.s151{border-left-color:var(--on2)}
+.rule-block.amber{border-left-color:#f0c080}
+.rule-id{font-size:13px;font-weight:800;color:var(--txt);margin-bottom:8px}
+.rule-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.rule-tag{background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:4px;padding:2px 8px;font-size:9px;color:var(--muted);font-weight:600}
+.rule-tag-critico{background:rgba(193,39,45,.2);color:#ff6b6b;font-size:9px}
+.rule-desc{font-size:12px;color:#a0c8d8;line-height:1.6;margin-bottom:12px}
+.rule-code{background:#040f14;border:1px solid var(--line);border-radius:6px;padding:12px 16px;font-family:'Cascadia Code','Consolas',monospace;font-size:11px;color:#7fe0b0;white-space:pre-wrap;margin-bottom:10px}
+.rule-exc{font-size:11px;color:var(--muted);line-height:1.5;padding:8px 12px;background:rgba(255,200,0,.05);border-left:2px solid #c8a000;border-radius:0 4px 4px 0}
+.rule-exc b{color:#f0c080}
+.mb-16{margin-bottom:16px}
+/* Vocab */
+.vocab-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.vocab-item{background:var(--panel);border-radius:7px;padding:12px 14px;border-left:3px solid var(--muted)}
+.vocab-item .vterm{font-family:'Cascadia Code','Consolas',monospace;font-size:11px;font-weight:700;color:var(--acc);margin-bottom:4px}
+.vocab-item .vpic{font-size:9px;color:var(--muted);font-family:monospace;margin-bottom:4px}
+.vocab-item .vdesc{font-size:11px;color:#a0c8d8;line-height:1.5}
+/* Mermaid */
+.mermaid-wrap{background:#040f14;border-radius:8px;padding:20px;overflow-x:auto}
+.mermaid-wrap.flow-pad{padding:16px 20px}
+.mermaid{min-width:500px}
+/* Risk table */
+.risk-table{width:100%;border-collapse:collapse;font-size:11px}
+.risk-table th{background:rgba(0,0,0,.3);color:var(--acc);text-transform:uppercase;font-size:9px;letter-spacing:.06em;padding:8px 10px;text-align:left;border-bottom:1px solid var(--line)}
+.risk-table td{padding:8px 10px;border-bottom:1px solid rgba(26,69,85,.5);color:#a0c8d8;vertical-align:top;line-height:1.5}
+.risk-table tr:last-child td{border-bottom:none}
+.risk-table td:first-child{font-family:monospace;font-size:10px;color:var(--txt);white-space:nowrap}
+.sev-critico{color:#ff6b6b;font-weight:800}
+.sev-alto{color:#f0c080;font-weight:700}
+.sev-medio{color:#a0c8d8;font-weight:600}
+.sev-bajo{color:var(--muted)}
+footer{font-size:9px;color:var(--muted);padding:16px 28px;border-top:1px solid var(--line);line-height:1.6;margin-top:8px}
+/* Tooltip */
+#mmtip{display:none;position:fixed;z-index:999;max-width:280px;background:rgba(8,24,37,.96);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:0 8px 32px rgba(0,0,0,.6);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);pointer-events:none}
+.mtt-title{font-size:12px;font-weight:800;color:var(--txt);margin-bottom:5px}
+.mtt-rule{font-size:9px;font-weight:700;color:var(--acc);letter-spacing:.08em;margin-bottom:6px;font-family:'Cascadia Code','Consolas',monospace}
+.mtt-range{font-size:11px;font-weight:700;color:#f0c080;margin-bottom:6px;font-family:monospace}
+.mtt-body{font-size:11px;color:#a0c8d8;line-height:1.55}
+.mtt-warn{font-size:10px;color:#f0c080;margin-top:6px;padding:4px 8px;background:rgba(240,192,0,.07);border-left:2px solid #c8a000;border-radius:0 4px 4px 0}
+.mtt-sub{font-size:9px;color:var(--muted);letter-spacing:.05em;margin-bottom:5px;font-family:'Cascadia Code','Consolas',monospace}
+.breadcrumb-current{color:var(--txt);font-weight:700}
+.mmtip-sep{border:none;border-top:1px solid var(--line);margin:6px 0}
+</style>
+</head><body>
+<header>
+  <div class="breadcrumb">
+    <a href="../modelo-capacidades.html">Modelo de Capacidades</a><span class="sep">/</span>
+    <span>Dominio 4 &middot; Common Customer View</span><span class="sep">/</span>
+    <span>4.1.2 Holdings</span><span class="sep">/</span>
+    <b class="breadcrumb-current">T-HLD-001</b>
+  </div>
+  <h1>T-HLD-001 &middot; Servidor de Saldos Consolidados P050 + Distribuidor P052</h1>
+  <div class="meta">
+    <span><span class="badge s151">S151</span> P050 ADSALDOS &middot; P052 ACCIVAL &middot; 22 tareas &middot; BIAN 4.1.2 Holdings</span>
+    <span><b>Sistema:</b> S151 GL &mdash; Unisys ClearPath MCP / DMSII</span>
+    <span><b>P050:</b> Servidor COMS permanente &mdash; 15,722 LOC</span>
+    <span><b>P052:</b> Distribuidor batch S500 &mdash; 13,708 LOC</span>
+    <span><b>Regla ancla:</b> RN-S151-292 (TC=10 fallback)</span>
+  </div>
+</header>
+
+<main>
+
+<!-- FLUJO DE TAREA -->
+<div class="card">
+  <div class="card-head"><h2>Flujo de tarea (L5) — P050 COMS server + P052 distribuidor batch</h2></div>
+  <div class="card-body">
+    <div class="mermaid-wrap flow-pad">
+      <div class="mermaid">
+flowchart LR
+    INIT[T-HLD-001\nInit P050 LIB-L006\nCTLVERS] --> CALDAY[T-HLD-002\nVerificar día hábil\nTHECALENDAR FUN=18]
+    CALDAY --> DAEMON([T-HLD-003\nDispatcher COMS\n93 funciones])
+    DAEMON --> MSG[Recibir WKS-HI]
+    MSG --> FUNC{Función WKS-HI}
+    FUNC -->|Saldos globales| GLOBAL[T-HLD-004\nSaldos globales\nB01SXCSI]
+    GLOBAL --> SECCOR[T-HLD-008/009\nVentana SECORE\n08:00-14:05]
+    SECCOR --> SECORE([Generar cápsula SECORE])
+    SECORE --> DAEMON
+    FUNC -->|Saldo cliente| CLIENT[T-HLD-006\nSaldo cliente\nL422 Entry 84]
+    CLIENT --> NAME[T-HLD-007\nNombre cliente\nL422 OPCION=2]
+    NAME --> DAEMON
+    FUNC -->|Delete balance| DEL[T-HLD-011\nDELETE BD02\nLIB-L006 FUN=06]
+    DEL --> DAEMON
+    P052([Inicio batch P052]) --> TC[T-HLD-012\nTC S080\nfallback TC=10]
+    TC --> FRAUD[T-HLD-022\nChequear TABLA-FRAUD]
+    FRAUD --> ROUTE{Destino P052}
+    ROUTE --> CENTRAL[T-HLD-013\nCentralización]
+    ROUTE --> DORM[T-HLD-014\nDormancia FUN=2]
+    DORM --> SECORE2[T-HLD-016\nSECORE P052]
+    SECORE2 --> CONLI[T-HLD-017\nCONLI CNBV R10]
+    CONLI --> TESO[T-HLD-018\nTesorería S408/S403]
+    TESO --> PG[T-HLD-020\nPagos Interbancarios]
+    PG --> BALCON[T-HLD-021\nS274/BALCON]
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DIAGRAMA DE SECUENCIA -->
+<div class="card">
+  <div class="card-head"><h2>Diagrama de secuencia</h2></div>
+  <div class="card-body">
+    <div class="mermaid-wrap">
+      <pre class="mermaid">
+sequenceDiagram
+  participant TC as Terminal_Canal
+  participant P050 as P050-ADSALDOS
+  participant BD02 as BD02-ADSALDO
+  participant L422 as S016-L422
+  participant SH as SECORE-Hub
+
+  TC->>P050: Mensaje COMS con WKS-HI
+
+  P050->>P050: T-HLD-003 240-MANEJA-MSG eval WKS-HI 93 ramas EVALUATE
+
+  alt Saldos globales T-HLD-004
+    P050->>BD02: Buscar indice B01SXCSI en BD02ADSALDO
+    BD02-->>P050: Registro saldo div1000 si MONEDA=1 MXN
+    Note over P050: T-HLD-005 Acumular B01-GLO-ACTUAL hasta 20 posiciones
+  end
+
+  alt Saldo cliente T-HLD-006 y 007
+    P050->>L422: T-HLD-006 Entry 84 indice B01SXCTE — 4 opciones
+    L422-->>P050: Saldo R422-84-CTR-ERROR=0 OK o FATAL
+    P050->>L422: T-HLD-007 OPCION=2 nombre del cliente
+    L422-->>P050: Nombre o SPACES si error — falla silenciosa
+    Note over P050: Error nombre — proceso CONTINUA con nombre en blanco
+  end
+
+  alt Ventana SECORE 08:00-14:05 T-HLD-008 y 009
+    P050->>P050: Verificar NATURALEZA=2 AND ORIGEN=1 o 2
+    P050->>P050: T-HLD-010 Excluir 32 sucursales MEX
+    P050->>SH: T-HLD-009 Generar capsula SECORE abono calificado
+    SH-->>P050: Confirmacion recepcion capsula
+  end
+
+  P050-->>TC: Respuesta COMS saldo nombre confirmacion
+      </pre>
+    </div>
+  </div>
+</div>
+
+<!-- REGLAS DE NEGOCIO -->
+<div class="card">
+  <div class="card-head"><h2>Reglas de negocio</h2></div>
+  <div class="card-body">
+
+    <!-- RN-S151-292 CRÍTICO red -->
+    <div class="rule-block mb-16">
+      <div class="rule-id">RN-S151-292 — TC=10 fallback en P052: tipo de cambio efectivo USD/MXN = 1.0</div>
+      <div class="rule-meta">
+        <span class="rule-tag">COBOL_P052.txt</span>
+        <span class="rule-tag">T-HLD-012</span>
+        <span class="rule-tag rule-tag-critico">🔴 CRÍTICO</span>
+        <span class="rule-tag">L700_RAF_TAR · S080</span>
+      </div>
+      <div class="rule-desc">
+        P052 obtiene el tipo de cambio USD/MXN consultando L700_RAF_TAR desde S080. Si la consulta falla o retorna cero, P052 asigna TC=10 como fallback. Este valor produce un tipo de cambio efectivo de 1.0 porque el sistema multiplica el importe en USD por TC y luego divide por 10 internamente. Todas las transacciones USD procesadas en un día de falla de S080 quedan con error contable grave. La conversión se realiza con MULTIPLY sin ROUNDED, lo que añade truncación (no redondeo) al error.
+      </div>
+      <div class="rule-code">* T-HLD-012 — Consulta TC USD/MXN en L700_RAF_TAR (S080)
+CALL L700_RAF_TAR USING W77-TC-PARAMS
+IF L700-TC = 0 OR L700-RETURN-CODE NOT = 0
+    MOVE 10 TO W77-TCAMBIO-VTA       *> FALLBACK PELIGROSO
+    *>              TC efectivo = 1.0 (divide/multiplica ×10)
+END-IF
+*> Conversión posterior SIN ROUNDED — truncación en lugar de redondeo
+MULTIPLY W77-IMPORTE-USD BY W77-TCAMBIO-VTA GIVING W77-IMPORTE-MXN</div>
+      <div class="rule-exc">
+        <b>Impacto migración:</b> Eliminar el fallback silencioso. El sistema moderno debe fallar explícitamente con alerta P1 si S080 no responde — nunca asumir un TC por defecto. Implementar circuit breaker hacia S080 con alerta operativa. Cambiar MULTIPLY sin ROUNDED por operación con redondeo bancario (ROUNDED MODE NEAREST-EVEN) conforme a la norma CNBV de tratamiento de fracciones.
+      </div>
+    </div>
+
+    <!-- RN-S151-291 CRÍTICO red -->
+    <div class="rule-block mb-16">
+      <div class="rule-id">RN-S151-291 — Eliminación irreversible de saldo BD02ADSALDO sin audit trail</div>
+      <div class="rule-meta">
+        <span class="rule-tag">COBOL_P050.txt</span>
+        <span class="rule-tag">T-HLD-011</span>
+        <span class="rule-tag rule-tag-critico">🔴 CRÍTICO</span>
+        <span class="rule-tag">LIB-L006 FUN=06 · BD02ADSALDO</span>
+      </div>
+      <div class="rule-desc">
+        Cuando P050 recibe un mensaje COMS con WKS-HI=500, invoca LIB-L006 FUNCION=06 que elimina el registro correspondiente de BD02ADSALDO de forma irreversible. El código AS-IS no genera ningún registro de auditoría previo a la eliminación. No existe mecanismo de recuperación dentro del programa. Esta ruta de código es un vector de fraude interno: un actor con acceso a la interfaz COMS puede eliminar saldos de tesorería sin dejar rastro auditable.
+      </div>
+      <div class="rule-code">* T-HLD-011 — Disparado cuando WKS-HI = 500
+* No hay WRITE de audit record antes de invocar la eliminación
+CALL LIB-L006 USING FUNCION = 06
+                     BD02-KEY = WKS-CLAVE-SALDO
+*> Operación irreversible — BD02ADSALDO record eliminado
+*> Sin log de auditoría previo en el código fuente AS-IS</div>
+      <div class="rule-exc">
+        <b>Impacto migración:</b> En el sistema moderno, cualquier eliminación de saldo debe: (1) escribir registro de auditoría inmutable antes de la operación, (2) requerir autorización dual para WKS-HI=500, (3) implementar soft delete con retención mínima de 7 años conforme a Ley IC. Registrar en el sistema de observabilidad como evento de seguridad nivel P2 o superior.
+      </div>
+    </div>
+
+    <!-- RN-S151-283 amber -->
+    <div class="rule-block amber mb-16">
+      <div class="rule-id">RN-S151-283 — Dispatcher COMS P050: evaluación secuencial de 93 ramas EVALUATE</div>
+      <div class="rule-meta">
+        <span class="rule-tag">COBOL_P050.txt</span>
+        <span class="rule-tag">T-HLD-003</span>
+        <span class="rule-tag">240-MANEJA-MSG</span>
+        <span class="rule-tag">modernización</span>
+      </div>
+      <div class="rule-desc">
+        El párrafo 240-MANEJA-MSG de P050 despacha cada mensaje COMS evaluando WKS-HI de forma secuencial sobre 93 ramas EVALUATE. La complejidad es O(n) por mensaje: en el peor caso el dispatcher recorre las 93 comparaciones antes de encontrar la rama. No hay índice ni tabla de salto. En modernización, este dispatcher debe convertirse en un router REST/gRPC documentado con OpenAPI. Las 93 funciones deben tener contrato de API individual, y se requiere un mínimo de 93 casos de prueba de equivalencia funcional para validar la migración.
+      </div>
+      <div class="rule-code">* 240-MANEJA-MSG — Dispatcher P050 (93 ramas secuenciales)
+EVALUATE WKS-HI
+    WHEN 001  PERFORM 001-CONSULTA-SALDO-GLOBAL
+    WHEN 002  PERFORM 002-CONSULTA-SALDO-CLIENTE
+    WHEN 003  PERFORM 003-ACTUALIZA-SALDO
+    *>        ... 90 ramas adicionales ...
+    WHEN 093  PERFORM 093-GENERA-REPORTE
+    WHEN OTHER PERFORM 000-030-IMPRIME-MENSAJE
+END-EVALUATE</div>
+      <div class="rule-exc">
+        <b>Impacto migración:</b> Reemplazar el EVALUATE secuencial por un router de microservicio con dispatch table (O(1)). Documentar las 93 funciones en un contrato OpenAPI 3.1 con schema de request/response para cada WKS-HI. La suite de pruebas de equivalencia debe cubrir los 93 casos con datos reales de producción anonimizados y validar bit-a-bit las respuestas COMS.
+      </div>
+    </div>
+
+    <!-- RN-S151-288 s151 teal -->
+    <div class="rule-block s151">
+      <div class="rule-id">RN-S151-288 — Ventana SECORE hardcoded 08:00-14:05 en P050</div>
+      <div class="rule-meta">
+        <span class="rule-tag">COBOL_P050.txt</span>
+        <span class="rule-tag">T-HLD-008/009</span>
+        <span class="rule-tag">Banxico MRA 032 08-MAY-2002</span>
+        <span class="rule-tag">NATURALEZA=2</span>
+      </div>
+      <div class="rule-desc">
+        P050 genera cápsulas SECORE exclusivamente para abonos (NATURALEZA=2, conforme a Banxico MRA 032 del 08-MAY-2002) y solo dentro de la ventana horaria 08:00:00:00-14:05:00:00 hardcoded en el código fuente. El umbral de dormancia se obtiene de S080 ID=802 LLAVE2=98; si S080 no responde, el fallback es 180 días (Ley IC Art. 61). La exclusión de las 32 sucursales de concentración MEX se aplica antes de generar la cápsula (T-HLD-010). Un cambio regulatorio en el horario SECORE de Banxico requiere recompilación y redespliegue de P050.
+      </div>
+      <div class="rule-code">* T-HLD-008 — Control de ventana SECORE (hardcoded)
+IF WKS-HORA >= 080000 AND WKS-HORA <= 140500
+    *> Dentro de ventana: evaluar calificación
+    IF WKS-NATURALEZA = 2 AND (WKS-ORIGEN = 1 OR WKS-ORIGEN = 2)
+        PERFORM 009-GENERA-CAPSULA-SECORE
+    END-IF
+END-IF
+*> Banxico MRA 032 08-MAY-2002: solo NATURALEZA=2 (abonos) califican
+*> Umbral dormancia: S080 ID=802 LLAVE2=98 (fallback 180 días — Ley IC Art. 61)</div>
+      <div class="rule-exc">
+        <b>Impacto migración:</b> Externalizar la ventana horaria SECORE a configuración gestionada (feature flag o tabla de parámetros en S080 modernizado). Cualquier ajuste regulatorio de Banxico debe aplicarse en caliente sin recompilación. Implementar alerta operativa cuando la ventana esté por cerrar y haya cápsulas pendientes de envío. Mantener el filtro NATURALEZA=2 como invariante de negocio en el sistema destino.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- VOCABULARIO -->
+<div class="card">
+  <div class="card-head"><h2>Vocabulario</h2></div>
+  <div class="card-body">
+    <div class="vocab-grid">
+      <div class="vocab-item">
+        <div class="vterm">BD02ADSALDO</div>
+        <div class="vpic">DMSII BD02 · ~500K registros en B03SDOCTE</div>
+        <div class="vdesc">Base de datos DMSII de saldos de tesorería gestionada exclusivamente por P050 (ADSALDOS). Contiene aproximadamente 500,000 registros en el dataset B03SDOCTE. Es la fuente única de verdad de saldos consolidados en S151. Los saldos MXN se almacenan multiplicados por 1,000 para conservar precisión decimal — P050 aplica la escala ÷1000 en las respuestas COMS (MONEDA=1). LIB-L006 es la única vía de acceso.</div>
+      </div>
+      <div class="vocab-item">
+        <div class="vterm">LIB-L006</div>
+        <div class="vpic">Librería propietaria Unisys MCP · acceso DMSII BD02</div>
+        <div class="vdesc">Librería propietaria de Unisys ClearPath MCP que encapsula todo el acceso a BD02ADSALDO. FUNCION=10 inicializa el contexto al arranque de P050. FUNCION=06 elimina registros de forma irreversible (T-HLD-011). No existe equivalente directo en plataformas modernas (cloud, Linux, Windows). Toda la lógica de acceso DMSII debe reimplementarse desde cero en la migración — riesgo crítico de equivalencia.</div>
+      </div>
+      <div class="vocab-item">
+        <div class="vterm">WKS-HI</div>
+        <div class="vpic">PIC 9(03) · identificador de función COMS</div>
+        <div class="vdesc">Campo de trabajo de tres dígitos que identifica la función solicitada al servidor P050 en cada mensaje COMS. El párrafo 240-MANEJA-MSG evalúa WKS-HI secuencialmente sobre 93 ramas EVALUATE para enrutar al procedimiento correspondiente. En modernización, cada valor de WKS-HI se convierte en un endpoint REST/gRPC individual con contrato OpenAPI. El valor 500 dispara la eliminación irreversible de un saldo (T-HLD-011).</div>
+      </div>
+      <div class="vocab-item">
+        <div class="vterm">L422</div>
+        <div class="vpic">Entry point S016 · gestión de clientes</div>
+        <div class="vdesc">Biblioteca del sistema S016 de gestión de clientes. P050 la invoca con Entry 84 (índice B01SXCTE) para obtener saldos del cliente con 4 opciones de búsqueda. OPCION=2 retorna el nombre del cliente. Un error en R422-84-CTR-ERROR es FATAL y termina la atención del mensaje. Un error en R422-XX-CTR-ERROR durante la consulta de nombre es no-fatal: el proceso continúa con el nombre en SPACES — anti-patrón de falla silenciosa documentado.</div>
+      </div>
+      <div class="vocab-item">
+        <div class="vterm">SECORE</div>
+        <div class="vpic">Hub Banxico · liquidación créditos tiempo real</div>
+        <div class="vdesc">Sistema de Entregas Contra Recepción de Banxico para liquidación de créditos en tiempo real. P050 genera cápsulas SECORE exclusivamente para abonos (NATURALEZA=2, conforme a MRA 032 08-MAY-2002) dentro de la ventana 08:00:00:00-14:05:00:00. Las 32 sucursales de concentración MEX (WKS-SUCS-EXCLUIDAS) quedan excluidas. P052 también genera cápsulas SECORE en la ruta de distribución (T-HLD-016), con exclusión de CVETRAN=3002 y 4001.</div>
+      </div>
+      <div class="vocab-item">
+        <div class="vterm">TABLA-FRAUD</div>
+        <div class="vpic">PIC 9(01) OCCURS 5000 COMP · array detección fraude</div>
+        <div class="vdesc">Array binario de 5,000 entradas de tipo COMP cargado en memoria al inicio de P052. El CVETRAN de cada movimiento actúa como índice directo. Si WKS-TABLA-FRAUD(CVETRAN)=1, P052 escribe el movimiento en el archivo A10-FRAUD-ARCHIVO (MAXRECSIZE=211 caracteres). Módulo MARL-FRAUDES 2020: primera implementación de detección de fraude en P052. El array no se recarga en caliente — requiere reinicio de P052 para incorporar nuevos CVETRANs marcados.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RIESGOS DE MIGRACIÓN -->
+<div class="card">
+  <div class="card-head"><h2>Hallazgos de migración — P050 ADSALDOS + P052 ACCIVAL</h2></div>
+  <div class="card-body">
+    <table class="risk-table">
+      <thead>
+        <tr>
+          <th>Tarea</th>
+          <th>Hallazgo</th>
+          <th>Severidad</th>
+          <th>Acción requerida</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>T-HLD-012</td>
+          <td>TC=10 fallback cuando S080 falla: produce tipo de cambio efectivo USD/MXN = 1.0. Todas las transacciones USD del día se contabilizan con error masivo. Conversión sin ROUNDED añade truncación sistemática.</td>
+          <td class="sev-critico">🔴 CRÍTICO</td>
+          <td>Eliminar fallback silencioso. Implementar fallo explícito con alerta P1 cuando S080 no responde. Circuit breaker con política de retry limitado. Migrar a ROUNDED MODE NEAREST-EVEN para la conversión.</td>
+        </tr>
+        <tr>
+          <td>T-HLD-011</td>
+          <td>LIB-L006 FUN=06 elimina registros de BD02ADSALDO de forma irreversible sin registro de auditoría previo. WKS-HI=500 dispara la eliminación de manera incondicional — vector de fraude interno documentado.</td>
+          <td class="sev-critico">🔴 CRÍTICO</td>
+          <td>Implementar audit trail inmutable antes de cualquier eliminación. Requerir autorización dual para la función equivalente a WKS-HI=500. Soft delete con retención de 7 años conforme a Ley IC. Registrar como evento de seguridad P2.</td>
+        </tr>
+        <tr>
+          <td>T-HLD-001/003</td>
+          <td>LIB-L006 es una librería propietaria Unisys ClearPath MCP sin equivalente directo en plataformas modernas. Toda la lógica de acceso a BD02ADSALDO (FUNCION=10/06 y demás) debe reimplementarse desde cero. Riesgo de equivalencia funcional alta.</td>
+          <td class="sev-critico">🔴 CRÍTICO</td>
+          <td>Mapear todas las funciones de LIB-L006 usadas en P050 y P052. Diseñar una capa de abstracción de saldos como servicio independiente con API documentada. Validar equivalencia registro-a-registro contra BD02ADSALDO antes del cutover.</td>
+        </tr>
+        <tr>
+          <td>T-HLD-003</td>
+          <td>240-MANEJA-MSG evalúa WKS-HI secuencialmente sobre 93 ramas EVALUATE — complejidad O(n) por mensaje COMS. En modernización se convierte en router REST/gRPC con 93 endpoints. Mínimo 93 casos de prueba de equivalencia funcional obligatorios.</td>
+          <td class="sev-alto">🟡 ALTO</td>
+          <td>Documentar contrato OpenAPI 3.1 para cada una de las 93 funciones. Implementar dispatch table O(1) en el microservicio destino. Suite de equivalencia con datos de producción anonimizados validando respuesta bit-a-bit para cada WKS-HI.</td>
+        </tr>
+        <tr>
+          <td>T-HLD-008/010</td>
+          <td>Ventana SECORE 08:00-14:05 hardcoded en P050 y 32 sucursales de concentración MEX hardcoded en WKS-SUCS-EXCLUIDAS. Cualquier cambio regulatorio de Banxico en horario SECORE o expansión de red bancaria requiere recompilación de P050.</td>
+          <td class="sev-medio">🟡 MEDIO</td>
+          <td>Externalizar ventana horaria SECORE y lista de sucursales excluidas a tabla de configuración gestionable en caliente. Feature flags o tabla de parámetros en S080 modernizado. Alerta operativa cuando la lista de sucursales excluidas difiera del parámetro regulatorio vigente.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+</main>
+
+<footer>
+  Banamex GemCog &middot; Capa 3 Capacidades &middot; T-HLD-001 &middot; BIAN 4.1.2 Holdings &middot; P050 ADSALDOS + P052 ACCIVAL<br>
+  Reglas: RN-S151-281 &middot; RN-S151-282 &middot; RN-S151-283 &middot; RN-S151-284 &middot; RN-S151-286 &middot; RN-S151-287 &middot; RN-S151-288 &middot; RN-S151-291 &middot; RN-S151-292 &middot; RN-S151-300<br>
+  Programas: P050 (15,722 LOC) &middot; P052 (13,708 LOC) &middot; Tareas: T-HLD-001..022 &middot; Sistema: S151 GL Unisys ClearPath MCP / DMSII<br>
+  Regulación: CNBV &middot; Banxico MRA 032 08-MAY-2002 &middot; Ley IC Art. 61 &middot; Estado validación: pendiente HITL
+</footer>
+
+<div id="mmtip"></div>
+<script>
+mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{primaryColor:'#0e2e3a',primaryTextColor:'#F0F8FA',primaryBorderColor:'#6CC5D8',lineColor:'#6CC5D8',background:'#071c23',mainBkg:'#0e2e3a',nodeBorder:'#1a4555'}});
+
+const MINFO={
+  INIT:{title:'T-HLD-001 — Init P050 ADSALDOS',rule:'RN-S151-281',body:'LIB-L006 FUNCION=10 inicializa el contexto de saldos al arranque de P050. 8 sistemas financieros hardcoded: CHEQUES, CTA MAESTRA, INVERSIONES, LINEAS, TRANSF FONDOS, CARTERA, AHORROS, HIPOTECARIOS. Override especial: CSI=32→nodo=12. P050 corre como tarea COMS permanente (no batch).'},
+  CALDAY:{title:'T-HLD-002 — Verificar Día Hábil',rule:'RN-S151-282',body:'THECALENDAR FUN=18 retorna 0 si es día hábil — convención invertida respecto a lo esperado (0=hábil, no-0=inhábil). Si el día es inhábil, FUN=13 avanza al siguiente hábil con delta "00000001". La corrección de FECCON < FECHA-MAQUINA solo se aplica para CSI=4 (Monterrey) y CSI=10 (MEX/VDM).'},
+  DAEMON:{title:'T-HLD-003 — Dispatcher COMS 93 Funciones',rule:'RN-S151-283',body:'240-MANEJA-MSG evalúa WKS-HI secuencialmente sobre 93 ramas EVALUATE. Cada mensaje COMS recibido de una Terminal_Canal es enrutado al procedimiento correspondiente. En modernización: router REST/gRPC con contrato OpenAPI 3.1 y 93 endpoints documentados.',warn:'Evaluación secuencial O(n): 93 comparaciones en el peor caso por mensaje. Implementar dispatch table O(1) en arquitectura destino.'},
+  GLOBAL:{title:'T-HLD-004 — Saldos Globales B01SXCSI',rule:'RN-S151-284',body:'UNSTRING por FS y "@" parsea el mensaje COMS entrante. Búsqueda por índice B01SXCSI en BD02ADSALDO. Si MONEDA=1 (MXN), aplica escala ÷1000 al saldo retornado — los saldos se almacenan ×1000 en BD02 para mantener precisión decimal sin usar tipos de punto flotante.'},
+  SECCOR:{title:'T-HLD-008 — Ventana SECORE 08:00-14:05',rule:'RN-S151-288',body:'Ventana horaria hardcoded 08:00:00:00-14:05:00:00. Umbral de dormancia obtenido de S080 ID=802 LLAVE2=98; fallback 180 días (Ley IC Art. 61) si S080 falla. Solo abonos NATURALEZA=2 (Banxico MRA 032 08-MAY-2002) y ORIGEN=1/2 califican. Las 32 sucursales MEX hardcoded (T-HLD-010) quedan excluidas.',warn:'Ventana SECORE hardcoded — cambio regulatorio de horario Banxico requiere recompilación y redespliegue de P050.'},
+  CLIENT:{title:'T-HLD-006 — Saldo Cliente L422',rule:'RN-S151-286',body:'L422 Entry 84 con índice B01SXCTE. 4 opciones de búsqueda disponibles: por CTE-NUM, por clave, por contrato, y búsqueda combinada. Un error en R422-84-CTR-ERROR es FATAL — P050 termina la atención del mensaje sin respuesta al canal.',warn:'L422 es la librería propietaria del sistema S016 — dependencia cross-sistema crítica. Toda la lógica de búsqueda de clientes debe reimplementarse en la migración con acceso a la base de clientes modernizada.'},
+  NAME:{title:'T-HLD-007 — Nombre Cliente L422',rule:'RN-S151-287',body:'L422 OPCION=2 retorna el nombre del cliente. Si R422-XX-CTR-ERROR ≠ 0 → SPACES al campo de nombre y el proceso CONTINÚA. A diferencia de T-HLD-006, el error en la consulta de nombre es NO-FATAL: una respuesta COMS puede llegar al canal con nombre en blanco sin que ningún log registre el fallo.',warn:'Anti-patrón de falla silenciosa: nombre en blanco en respuesta COMS es difícil de detectar en producción. El operador del canal no recibe indicación del error.'},
+  DEL:{title:'T-HLD-011 — Eliminar Saldo BD02',rule:'RN-S151-291',body:'LIB-L006 FUNCION=06 elimina el registro correspondiente de BD02ADSALDO. La operación es irreversible. El código AS-IS no genera ningún registro de auditoría previo. WKS-HI=500 dispara la eliminación de forma incondicional tras la evaluación del EVALUATE en 240-MANEJA-MSG.',warn:'Eliminación irreversible sin audit trail previo — vector de fraude interno. Un actor con acceso COMS puede eliminar saldos de tesorería sin dejar rastro.'},
+  TC:{title:'T-HLD-012 — TC USD/MXN Fallback TC=10',rule:'RN-S151-292',body:'L700_RAF_TAR consulta S080 para obtener el tipo de cambio USD/MXN del día. Si la consulta falla o retorna 0 → TC=10. Este valor produce un TC efectivo de 1.0 porque el sistema multiplica el importe USD por TC y después divide internamente por 10. Conversión con MULTIPLY sin ROUNDED — truncación sistemática en lugar de redondeo bancario.',warn:'TC=10 fallback CRÍTICO: TC efectivo = 1.0 → todas las transacciones USD del día con error contable grave. Un día de falla de S080 genera pérdida contable masiva no detectada hasta el cuadre CNBV.'},
+  FRAUD:{title:'T-HLD-022 — MARL-FRAUDES 2020',rule:'RN-S151-300',body:'WKS-TABLA-FRAUD es un array COMP de 5,000 entradas cargado en memoria al inicio de P052. CVETRAN actúa como índice directo. Si WKS-TABLA-FRAUD(CVETRAN)=1 → P052 escribe el movimiento en A10-FRAUD-ARCHIVO (MAXRECSIZE=211 chars). Módulo añadido en 2020. El array no se recarga en caliente — nuevos CVETRANs sospechosos requieren reinicio de P052 para ser detectados.'},
+  CENTRAL:{title:'T-HLD-013 — Centralización P052',rule:'RN-S151-293',body:'P052 enruta al flujo de centralización cuando: importes USD < $5.01 (hardcoded), montos fuera del rango 1.01×TC a 9,999.99×TC, o CVETRANs privilegiados 618/619/708/720 (que además bypasean las reglas de dormancia y rango de importe).'},
+  DORM:{title:'T-HLD-014 — Cálculo de Dormancia',rule:'RN-S151-294',body:'THECALENDAR FUN=2 calcula días calendario transcurridos desde FEC-ULT-MOV (no días hábiles). Si FEC-ULT-MOV=0 → P052 usa W77-NUMDIAS directamente — una cuenta sin historial de movimientos califica inmediatamente para dormancia. Umbral configurado en IMPORTEP052 (A08-IMPORTES).',warn:'FUN=2 cuenta días calendario, no hábiles. Puede diferir del criterio regulatorio CNBV si la norma de dormancia se interpreta en días hábiles.'},
+  SECORE2:{title:'T-HLD-016 — SECORE desde P052',rule:'RN-S151-296',body:'P052 genera cápsulas SECORE en la ruta de distribución excluyendo CVETRAN=3002 y 4001. Mapping de referencia alternativo para CVETRANs 2226/2227/2228 y el rango 1133-1138, que usan una referencia de identificación diferente al estándar.'},
+  CONLI:{title:'T-HLD-017 — CONLI Portabilidad CNBV R10',rule:'RN-S151-297',body:'Portabilidad de nómina CNBV R10 — cumplimiento obligatorio. Calificación con AND de 5 criterios: FUNCION=1, STATUS=1, PRODUCTO=1, INSTRUMENTO=30, ORIGEN=1/3. Excluye cajeros virtuales por prefijo de sucursal. Layout de registro: 160+12+8+4 caracteres.'},
+  TESO:{title:'T-HLD-018 — Archivos Tesorería S408/S403',rule:'RN-S151-298',body:'S408 recibe PRODUCTO="1303" (MXN/USD) o "1203" (UDI) con tipos de movimiento 02/03/04. S403 solo recibe CVETRAN=2005/2011 provenientes de SUC=519/870 con CAJA=62. Los demás CVETRANs y sucursales no generan registro en S403.'},
+  PG:{title:'T-HLD-020 — Pagos Interbancarios PG',rule:'RN-S151-299',body:'CVETRAN=2227 OR 1134 OR 1137 con MONEDA=5 (USD) es obligatorio para generar el registro PG. Los mismos CVETRANs en MXN NO generan PG — la distinción es estricta por moneda. Un error de codificación de moneda produce omisión silenciosa en el archivo de pagos interbancarios.',warn:'MONEDA=5 requerida — mismo CVETRAN en MXN no genera PG. Error de moneda = omisión silenciosa en archivo PG.'},
+  BALCON:{title:'T-HLD-021 — S274/BALCON Portabilidad',rule:'RN-S151-301',body:'Hasta 4 cortes diarios desde catálogo B05 vía HI-15/16/17/19. Clasificación TIPC: TIP-CTA-TRASP=1→TIPC=40 (CLABE), TIP-CTA-TRASP=3→TIPC=3 (tarjeta). BALCON: flag=10 AND ORIGEN=1/3.'}
+};
+
+const mmtip=document.getElementById('mmtip');
+function bindMermaidHovers(){
+  const nodes=document.querySelectorAll('.mermaid-wrap svg .node');
+  if(!nodes.length){setTimeout(bindMermaidHovers,300);return;}
+  nodes.forEach(node=>{
+    const txt=node.textContent.trim().toUpperCase();
+    let info=null;
+    if(txt.includes('INIT P050'))info=MINFO.INIT;
+    else if(txt.includes('THECALENDAR FUN=18'))info=MINFO.CALDAY;
+    else if(txt.includes('DISPATCHER COMS'))info=MINFO.DAEMON;
+    else if(txt.includes('B01SXCSI'))info=MINFO.GLOBAL;
+    else if(txt.includes('VENTANA SECORE'))info=MINFO.SECCOR;
+    else if(txt.includes('L422 ENTRY 84'))info=MINFO.CLIENT;
+    else if(txt.includes('OPCION=2'))info=MINFO.NAME;
+    else if(txt.includes('DELETE BD02'))info=MINFO.DEL;
+    else if(txt.includes('FALLBACK TC=10'))info=MINFO.TC;
+    else if(txt.includes('TABLA-FRAUD'))info=MINFO.FRAUD;
+    else if(txt.includes('CENTRALIZACIÓN'))info=MINFO.CENTRAL;
+    else if(txt.includes('DORMANCIA FUN=2'))info=MINFO.DORM;
+    else if(txt.includes('SECORE P052'))info=MINFO.SECORE2;
+    else if(txt.includes('CONLI CNBV R10'))info=MINFO.CONLI;
+    else if(txt.includes('S408/S403'))info=MINFO.TESO;
+    else if(txt.includes('PAGOS INTERBANCARIOS'))info=MINFO.PG;
+    else if(txt.includes('S274/BALCON'))info=MINFO.BALCON;
+    if(!info)return;
+    node.style.cursor='help';
+    node.addEventListener('mousemove',e=>{
+      mmtip.innerHTML=
+        `<div class="mtt-title">${info.title}</div>`+
+        (info.rule?`<div class="mtt-rule">${info.rule}</div>`:'')+
+        (info.range?`<div class="mtt-range">${info.range}</div>`:'')+
+        `<div class="mtt-body">${info.body}</div>`+
+        (info.warn?`<div class="mtt-warn">&#9888; ${info.warn}</div>`:'');
+      mmtip.style.display='block';
+      mmtip.style.left=Math.min(e.clientX+14,innerWidth-295)+'px';
+      mmtip.style.top=(e.clientY+12)+'px';
+    });
+    node.addEventListener('mouseleave',()=>{mmtip.style.display='none';});
+  });
+}
+window.addEventListener('load',()=>setTimeout(bindMermaidHovers,400));
+
+const VOCAB_EXTRA={
+  'P050':{title:'P050 ADSALDOS — Servidor de Saldos',body:'Servidor permanente COMS de Banamex en Unisys ClearPath MCP. 15,722 LOC. Fuente única de verdad de saldos consolidados en S151 — gestiona BD02ADSALDO vía LIB-L006. Atiende regiones MEX (CSI=10/VDM), MON (CSI=4), GDL (CSI=6), ALF (CSI=33), GAM (CSI=35). P050 no calcula intereses ni comisiones — recibe datos precalculados de S087/S403/S404.'},
+  'P052':{title:'P052 ACCIVAL — Distribuidor batch S500',body:'Distribuidor batch de Banamex en Unisys ClearPath MCP. 13,708 LOC. Distribuye movimientos precalculados de S500 en un solo paso batch a múltiples sistemas destino: Tesorería (S408/S403), SECORE, CONLI (CNBV R10), BALCON, Factoring (S440), Pagos Interbancarios (PG) y Fraude (MARL-FRAUDES 2020).'},
+  'ADSALDOS':{title:'BD02ADSALDO — Base de saldos DMSII',body:'Base de datos DMSII de saldos de tesorería. ~500K registros en dataset B03SDOCTE. Acceso exclusivo vía LIB-L006 desde P050.'},
+  'ACCIVAL':{title:'P052 ACCIVAL — Distribuidor',body:'Distribuidor batch de movimientos S500 a múltiples sistemas. Aplica tipo de cambio S080, reglas de dormancia, umbrales configurables e identifica fraude.'},
+  'CVETRAN':{title:'CVETRAN — Clave de Transacción',body:'Clave que identifica el tipo de transacción bancaria. En P052 actúa como índice en TABLA-FRAUD (5,000 entradas). CVETRANs privilegiados 618/619/708/720 bypasean dormancia y rango de importe. CVETRAN=3002 y 4001 excluidos de SECORE P052.'},
+  'NATURALEZA':{title:'NATURALEZA — Tipo de movimiento SECORE',body:'NATURALEZA=2 identifica abonos (créditos) — única naturaleza que califica para generación de cápsula SECORE conforme a Banxico MRA 032 08-MAY-2002. NATURALEZA=1 son cargos y no generan cápsula.'},
+  'IMPORTEP052':{title:'IMPORTEP052 — Tabla de umbrales P052',body:'Tabla de configuración A08-IMPORTES leída al inicio de P052. Contiene el umbral de importe ATM (W77-IMPORTE-EFECTIVO) para CVETRAN=1001 y el umbral de dormancia. Permite ajustar límites sin recompilar — a diferencia de los valores hardcoded del código.'},
+  'THECALENDAR':{title:'THECALENDAR — Servicio de calendario',body:'Función del sistema ClearPath MCP para cálculos de calendario. FUN=18: determina si una fecha es día hábil (0=hábil — convención invertida). FUN=13: avanza al siguiente día hábil con un delta. FUN=2: calcula días calendario transcurridos entre dos fechas (P052 dormancia).'},
+  'L700_RAF_TAR':{title:'L700_RAF_TAR — Consulta tipo de cambio',body:'Entry point para obtener el tipo de cambio USD/MXN vigente desde S080. Si retorna 0 o error, P052 usa TC=10 como fallback — produciendo TC efectivo 1.0. Vector de error contable crítico documentado en RN-S151-292.',warn:'Fallo de L700_RAF_TAR → TC=10 → TC efectivo 1.0 → error contable en TODAS las transacciones USD del día.'},
+  'SECORE_Hub':{title:'SECORE Hub — Banxico',body:'Endpoint del sistema SECORE de Banxico para recepción de cápsulas de liquidación. P050 genera cápsulas durante la ventana 08:00-14:05. P052 también genera cápsulas en la ruta de distribución (excluyendo CVETRAN=3002/4001).'},
+  'S080':{title:'S080 — Parámetros del sistema',body:'Sistema de parámetros de Banamex. P050 lo consulta para el umbral de dormancia SECORE (ID=802 LLAVE2=98). P052 lo consulta para el tipo de cambio USD/MXN vía L700_RAF_TAR. Fallo de S080 activa fallbacks peligrosos en ambos programas.'},
+  'CSI':{title:'CSI — Código de Sucursal/Institución',body:'Identificador de región en S151. P050 atiende: CSI=10 (MEX/VDM), CSI=4 (MON), CSI=6 (GDL), CSI=33 (ALF), CSI=35 (GAM). Override hardcoded: CSI=32→nodo=12. La corrección de FECCON solo aplica para CSI=4 y CSI=10.'},
+  'CONLI':{title:'CONLI — Portabilidad CNBV R10',body:'Archivo de portabilidad de nómina exigido por CNBV Resolución 10. P052 genera registros CONLI cuando el movimiento cumple AND de 5 criterios: FUNCION=1, STATUS=1, PRODUCTO=1, INSTRUMENTO=30, ORIGEN=1/3. Layout 160+12+8+4 caracteres.'},
+  'BALCON':{title:'BALCON — Archivo de portabilidad',body:'Archivo de balance y concentración. P052 genera registros BALCON cuando flag=10 AND ORIGEN=1/3. Hasta 4 cortes diarios determinados por catálogo B05 vía parámetros HI-15/16/17/19.'}
+};
+
+function buildVocab(){
+  const v={};
+  document.querySelectorAll('.vocab-item').forEach(item=>{
+    const term=item.querySelector('.vterm')?.textContent.trim();
+    const sub=item.querySelector('.vpic')?.textContent.trim();
+    const body=item.querySelector('.vdesc')?.textContent.trim();
+    if(term&&body)v[term]={title:term,sub,body};
+  });
+  return Object.assign(v,VOCAB_EXTRA);
+}
+
+function bindVocabHovers(attempt){
+  attempt=attempt||0;
+  const svgs=document.querySelectorAll('.mermaid-wrap svg');
+  if(svgs.length<2&&attempt<20){setTimeout(()=>bindVocabHovers(attempt+1),300);return;}
+  const vocab=buildVocab();
+  const keys=Object.keys(vocab).sort((a,b)=>b.length-a.length);
+  const SELECTORS='text,tspan,foreignObject span,foreignObject div,foreignObject p,.label,.messageText span';
+  svgs.forEach(svg=>{
+    svg.querySelectorAll(SELECTORS).forEach(el=>{
+      const txt=el.textContent.trim();
+      if(!txt||txt.length<2)return;
+      if(el.children.length&&el.tagName!=='tspan')return;
+      const matches=[];
+      for(const k of keys){if(txt.includes(k))matches.push(vocab[k]);}
+      if(!matches.length)return;
+      if(el._vb)return;
+      el._vb=true;
+      el.style.cursor='help';
+      const renderTip=info=>
+        `<div class="mtt-title">${info.title}</div>`+
+        (info.rule?`<div class="mtt-rule">${info.rule}</div>`:'')+
+        (info.sub?`<div class="mtt-sub">${info.sub}</div>`:'')+
+        `<div class="mtt-body">${info.body}</div>`+
+        (info.warn?`<div class="mtt-warn">&#9888; ${info.warn}</div>`:'');
+      const show=e=>{
+        mmtip.innerHTML=matches.map((m,i)=>(i>0?'<hr class="mmtip-sep">':'')+renderTip(m)).join('');
+        mmtip.style.display='block';
+        mmtip.style.left=Math.min(e.clientX+14,innerWidth-295)+'px';
+        mmtip.style.top=(e.clientY+12)+'px';
+      };
+      el.addEventListener('mousemove',show);
+      el.addEventListener('mouseleave',()=>{mmtip.style.display='none';});
+    });
+  });
+}
+window.addEventListener('load',()=>setTimeout(bindVocabHovers,500));
+</script>
+</body></html>

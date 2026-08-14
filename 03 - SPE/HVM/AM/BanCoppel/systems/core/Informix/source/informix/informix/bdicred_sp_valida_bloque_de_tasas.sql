@@ -1,0 +1,71 @@
+CREATE PROCEDURE "informix".sp_valida_bloque_de_tasas(P_EMPRESA          VARCHAR(3),
+       P_FECHA_HOY        DATE,
+       P_PROX_FECHA       DATE,
+       P_EJECUTIVO        VARCHAR(8)
+      ) RETURNING VARCHAR(10), VARCHAR(80);
+      
+DEFINE P_COD_RET       VARCHAR(10);
+DEFINE VP_ERROR        INTEGER;
+DEFINE P_MENSAJE       VARCHAR(80);
+DEFINE V_ERROR         VARCHAR(6);
+DEFINE V_MENSAJE       VARCHAR(80);
+DEFINE V_E_CONTPROC    INTEGER;
+DEFINE V_FECHA_PROX_REV DATE;
+
+DEFINE  SQL_ERR          INTEGER;
+DEFINE  ISAM_ERR         INTEGER;
+DEFINE  ERROR_INFO       VARCHAR(80);
+
+BEGIN
+
+      LET P_COD_RET = '00000';
+      LET P_MENSAJE = 'PROCESO _EXITOSO';
+      LET V_ERROR   = '00000';
+      LET V_E_CONTPROC = 0;
+
+      FOREACH V_REG FOR (SELECT DISTINCT FECHA_PROX_REV
+                    INTO   V_FECHA_PROX_REV
+                    FROM   SD_REVTASA
+                    WHERE  FECHA_PROX_REV BETWEEN P_FECHA_HOY AND (P_PROX_FECHA-1))
+
+         EXECUTE PROCEDURE SP_VALIDA_TASAS_DEL_DIA (P_EMPRESA, V_FECHA_PROX_REV, P_EJECUTIVO
+                                                   )INTO P_COD_RET, P_MENSAJE;
+
+         LET VP_ERROR = P_COD_RET;
+         IF VP_ERROR <> 0 THEN
+            LET V_ERROR   = P_COD_RET;
+            LET V_MENSAJE = P_MENSAJE;
+            RETURN P_COD_RET, P_MENSAJE;
+         END IF;
+
+      END FOREACH;
+
+--    LET P_COD_RET = V_ERROR;
+--    LET P_MENSAJE = V_MENSAJE;
+
+      LET VP_ERROR = P_COD_RET;
+      IF VP_ERROR = 0 THEN
+         --VERIFICA QUE SE HAYA INSERTADO EL REGISTRO CORRESPONDIENTE AL CONTROL DE
+         --PROCESOS SD_CONTPROC, ESTO ES CUANDO NO HAY REVISION DE TASAS
+         BEGIN
+         ON EXCEPTION
+             LET P_COD_RET = '-1';
+             LET P_MENSAJE = 'REGISTRO INVALIDA EN SD_CONTPROC, NO SE PUDE INSERTAR';
+             RETURN P_COD_RET, P_MENSAJE;
+         END EXCEPTION;
+            SELECT COUNT(*)
+            INTO   V_E_CONTPROC
+            FROM   SD_CONTPROC
+            WHERE  EMPRESA = P_EMPRESA
+            AND    FECHA   = P_FECHA_HOY
+            AND    PROCESO = 'valid tasa';
+
+            IF V_E_CONTPROC = 0 THEN
+                INSERT INTO SD_CONTPROC
+                VALUES(P_EMPRESA,'valid tasa',P_FECHA_HOY,'F',P_EJECUTIVO,current,current,'00000','OPERACIÓN EXITOSA');
+            END IF;
+         END;
+      END IF;
+      RETURN P_COD_RET, P_MENSAJE;
+END;
+END PROCEDURE;

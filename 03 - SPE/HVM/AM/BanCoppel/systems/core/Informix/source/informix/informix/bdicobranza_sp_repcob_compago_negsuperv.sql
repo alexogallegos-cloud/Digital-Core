@@ -1,0 +1,2588 @@
+CREATE PROCEDURE "informix".sp_repcob_compago_negsuperv()
+	RETURNING
+		CHAR(6)  AS COD_RET,
+		CHAR(80) AS MENSAJE_RET;
+		
+		-- DECLARACIONES
+		DEFINE iSqlErr					        INTEGER;
+		DEFINE iIsamErr					        INTEGER;
+    DEFINE cTabla, cTurno_Mat, cTurno_Vesp	      CHAR(1);
+    DEFINE cDiaIni      			      CHAR(2);
+    DEFINE v_empresa                CHAR(3);
+	  DEFINE cProceso                 CHAR(4);				
+		DEFINE cCodRet,vvcCod_ret       CHAR(6);
+		DEFINE cFechEnc2				        CHAR(10);
+		DEFINE cSupervisor              CHAR(20);
+		DEFINE cMensajeRet, cNombreArchivo, cRuta, cSupervisor_Mat, cNombre_Mat, cSupervisor_Vesp, cNombre_Vesp				      CHAR(80);
+    DEFINE cMensajeRet2             CHAR(200); 		
+		DEFINE cConsulta		  		      CHAR(2200);
+		DEFINE cSql           			    CHAR(1024);
+		 
+  
+		DEFINE dtFechaHoy, dtFecha, dtFechaCorteIniHis, dtFechaCorteFinHis, dtFechEnc, dtFechMesAnt_Fin		    DATE;						
+		DEFINE iDiasTrab, iNegociacionTot, iNegociacionTotMat, iNegociacionTotVes, iNegociacion, iCantSupervMat, iCantSupervVes, iNegociacion_Mat	  		      INTEGER;
+		DEFINE dMontoNegTot, dMontoNegTotMat, dMontoNegTotVes, dMontoneg_Mat, dMontoneg_Vesp			      DECIMAL(18,2);
+		DEFINE iNegociacion_Vesp, iCanSuperTot		    INTEGER;				
+
+		DEFINE dePorNegoc, dePor_Mat, dePromNegDrio_Mat, dePor_Vesp, dePromNegDrio_Vesp, dPromNegSupMat, dPromNegSupMat2, dPromNegSupVesp        	DECIMAL(14,2);
+		DEFINE dePromNegDrio, dPromNegSupVesp2, dPromNegSupTot, dPromNegSupTot2            DECIMAL(14,2);    
+		
+		-- INICIALIZACIONES
+		LET iSqlErr            		= 0;   LET iIsamErr           		= 0;   LET iDiasTrab			        = 0;    LET iNegociacionTot     	= 0;
+		LET iNegociacionTotMat    = 0;   LET iNegociacionTotVes    = 0;    LET iNegociacion			    = 0;      LET iCantSupervMat        = 0; 
+		LET iCantSupervVes        = 0;   LET iNegociacion_Mat		  = 0;     LET iNegociacion_Vesp		  = 0;    LET iCanSuperTot          = 0; 
+    LET cCodRet            		= "000000";
+		LET cMensajeRet				    = "Proceso exitoso";
+		LET cTabla		 			      = "N";
+		LET cNombreArchivo 			  = "";   LET cConsulta	 			      = "";   LET cSql		 			        = "";
+		LET cRuta		 			        = "";		LET dtFechaHoy          	= "";		LET dtFecha		          	= "";						
+		LET dtFechaCorteIniHis    = "";   LET dtFechaCorteFinHis    = "";		LET cDiaIni               = "";
+    LET cSupervisor           = "";   LET cSupervisor_Mat			  = "";   LET cNombre_Mat				    = "";
+    LET cTurno_Vesp				    = "";   LET cSupervisor_Vesp		  = "";   LET cNombre_Vesp      		= "";
+ 		LET dtFechEnc				      = "";   LET cFechEnc2				      = "";	
+		LET dMontoNegTot	 		    = 0.00;   LET dMontoNegTotMat 		  = 0.00;   LET dMontoNegTotVes 		  = 0.00;	
+		LET dePorNegoc            = 0.00;   LET dePromNegDrio         = 0.00;		LET cTurno_Mat				    = "";
+		LET dMontoneg_Mat         = 0.00;		LET dePor_Mat             = 0.00;		LET dePromNegDrio_Mat 		= 0.00;		
+		LET dMontoneg_Vesp        = 0.00;   LET dePor_Vesp            = 0.00;		LET dePromNegDrio_Vesp 		= 0.00;		
+		LET dPromNegSupMat        = 0.00;		LET dPromNegSupMat2       = 0.00;		LET dPromNegSupVesp       = 0.00;
+		LET dPromNegSupVesp2      = 0.00;		LET dPromNegSupTot        = 0.00;		LET dPromNegSupTot2       = 0.00;
+		LET v_empresa = '001';              LET cMensajeRet2 = '';
+	  LET cProceso = '0080';
+    LET vvcCod_ret = '';
+    LET dtFechMesAnt_Fin = date(1);
+    		
+	BEGIN 
+		ON EXCEPTION SET iSqlErr, iIsamErr, cMensajeRet
+			IF iSqlErr != 0 THEN
+				LET cCodRet = iSqlErr;	
+				LET cMensajeRet = cMensajeRet;
+				 
+				--SE BORRAN LAS TABLAS TEMPORALES SI EXISTEN.									 						
+	 			IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_compagconvsem_mat" AND dbsname= "bdicobranza" AND partnum >1048577) THEN					
+					DROP TABLE tmp_compagconvsem_mat;
+				END IF; 
+				
+		 		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_compagconvsemm" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+					DROP TABLE tmp_compagconvsemm;
+				END IF;
+				
+				IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_compagconvsem_vesp" AND dbsname= "bdicobranza" AND partnum >1048577) THEN					
+					DROP TABLE tmp_compagconvsem_vesp;
+				END IF; 
+				
+		 		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_compagconvsemv" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+					DROP TABLE tmp_compagconvsemv;
+				END IF;
+						
+ 				IF cTabla = "S" THEN
+					DROP TABLE bdicobranza:"informix".TMP_ENCABEZADOS_CONSEMB;
+				END IF; 
+				
+				CALL bdicobranza:"informix".sp_inserta_bitacora_cob(v_empresa, cProceso, cCodRet, cMensajeRet, '02')
+            RETURNING vvcCod_ret;
+				
+				RETURN cCodRet, cMensajeRet;
+			
+			END IF;
+		END EXCEPTION;
+		
+		SET ISOLATION TO DIRTY READ;
+		SET LOCK MODE TO WAIT 3;
+		
+		--SET DEBUG FILE TO "/respaldosbd/hectorb/sp_repcob_compago_negsuperv.out";
+		--TRACE ON;	
+		
+		--SE BORRAN LAS TABLAS TEMPORALES SI EXISTEN.									 						
+		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_compagconvsem_mat" AND dbsname= "bdicobranza" AND partnum >1048577) THEN					
+			DROP TABLE tmp_compagconvsem_mat;
+		END IF; 
+		
+ 		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_compagconvsemm" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+			DROP TABLE tmp_compagconvsemm;
+		END IF;
+		
+		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_compagconvsem_vesp" AND dbsname= "bdicobranza" AND partnum >1048577) THEN					
+			DROP TABLE tmp_compagconvsem_vesp;
+		END IF; 
+		
+ 		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_compagconvsemv" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+			DROP TABLE tmp_compagconvsemv;
+		END IF;
+		
+    IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "TMP_ENCABEZADOS_CONSEMB" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+			DROP TABLE TMP_ENCABEZADOS_CONSEMB;
+		END IF;
+		
+		CALL bdicobranza:"informix".sp_inserta_bitacora_cob(v_empresa, cProceso, cCodRet, cMensajeRet, '01') RETURNING vvcCod_ret;
+		
+		--SE OBTIENE LA FECHA DE HOY.
+		SELECT fecha_hoy
+		INTO dtFechaHoy
+		FROM bdicred:"informix".sd_fechas
+    WHERE empresa = v_empresa;
+		
+		--LET dtFechaHoy = mdy('01','22','2012');   --- TEST MACF
+		--LET dtFechaHoy = mdy('01','02','2012');
+    --LET dtFechaHoy = mdy('12','02','2011');   --- TEST MACF   ok
+		
+		--IF DAY(dtFechaHoy) = 1 THEN 			
+			--LET cCodRet = '000002';
+			--LET cMensajeRet = "No es posible generar el archivo los dias primero de cada mes";
+			--RETURN cCodRet, cMensajeRet;
+		--END IF
+     
+     
+		--SE VALIDA LA FECHA DE HOY PARA DETERMINAR LA FECHA INICIAL Y LA FINAL DEL CORTE.							
+		IF DAY(dtFechaHoy) = 1 THEN
+		   LET dtFechaCorteFinHis = MDY(MONTH(dtFechaHoy),DAY(dtFechaHoy),YEAR(dtFechaHoy)) - 1 UNITS DAY;
+		   LET dtFechaCorteIniHis = MDY(MONTH(dtFechaCorteFinHis),1,YEAR(dtFechaCorteFinHis));
+		ELIF DAY(dtFechaHoy) = 2 THEN
+		   LET dtFechaCorteIniHis = MDY(MONTH(dtFechaHoy),1,YEAR(dtFechaHoy));
+		   LET dtFechaCorteFinHis = MDY(MONTH(dtFechaHoy),1,YEAR(dtFechaHoy));
+    ELSE
+       LET dtFechaCorteIniHis = MDY(MONTH(dtFechaHoy),1,YEAR(dtFechaHoy));
+       LET dtFechaCorteFinHis = MDY(MONTH(dtFechaHoy),DAY(dtFechaHoy),YEAR(dtFechaHoy)) - 1 UNITS DAY;
+		END IF;
+    
+    --LET cMensajeRet2 =  'dtFechaHoy = ' || to_char(dtFechaHoy) || ' - dtFechaCorteIniHis= ' || to_char(dtFechaCorteIniHis) || ' - dtFechaCorteFinHis= ' || to_char(dtFechaCorteFinHis);
+    
+		
+		--SE CALCULA LA FECHA DEL ENCABEZADO DEL ARCHIVO.
+		LET dtFechEnc = MDY(MONTH(dtFechaHoy),DAY(dtFechaHoy),YEAR(dtFechaHoy)) - 1 UNITS DAY;
+		LET cFechEnc2 =  LPAD(DAY(dtFechEnc),2,0)||"/"||LPAD(MONTH(dtFechEnc),2,0)||"/"||YEAR(dtFechEnc);
+		
+		--SE OBTIENE LA FECHA DEL DIA ANTERIOR	
+		LET dtFecha = dtFechaHoy - 1 UNITS DAY;
+
+		LET cDiaIni = DAY(dtFecha);
+		
+		--SE OBTINE EL TOTAL DE DIAS TRABAJADOS
+		LET iDiasTrab = cDiaIni::INTEGER;
+		
+    			
+		-- SE CREA LA TEMPORAL PARA INSERTAR LOS ENCABEZADOS QUE LLEVARA EL REPORTE.
+		CREATE TABLE bdicobranza:"informix".TMP_ENCABEZADOS_CONSEMB(
+																		TURNO 				CHAR(10),
+																		SUPERVISOR 			CHAR(80),
+																		NOMBRE				CHAR(80),
+																		NEGOCIACIONES 		CHAR(80),
+																		MONTONEG		 	CHAR(80),
+																		PORCENTAJE			CHAR(80),
+																		PROMNEGDIA			CHAR(80)
+																	);		
+		
+		LET cTabla = "S";
+				
+ 		--SE AGREGA ENCABEZADO AL REPORTE PARA EL ARCHIVO EXCEL.
+		INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOS_CONSEMB (TURNO,SUPERVISOR,NOMBRE,NEGOCIACIONES,MONTONEG,PORCENTAJE,PROMNEGDIA)
+		VALUES("","","Compromisos de pago/convenios sembrados al: "||cFechEnc2,"","","","");
+		
+		--GENERACION DE TABLA TEMPORAL CON INFORMACION DE LOS CONVENIOS DEL TURNO MATUTINO
+		SELECT NVL(cteje.numgrupo, "") AS Turno, NVL(cmp.efectuo_compac, "") AS Supervisor, NVL(TRIM(dts.nombre), " ")||" "||NVL(TRIM(dts.apellidopaterno), " ")||" "||NVL(TRIM(dts.apellidomaterno), " ") AS Nombre, COUNT(cmp.efectuo_compac) AS Negociaciones,SUM(cmp.importe) AS MontoNeg, CAST(0.00 AS DECIMAL(14,2)) AS Porc, CAST(0.00 AS DECIMAL(14,2)) AS PromNegDia
+		FROM bdicobranza:"informix".cb_compac cmp
+			 LEFT OUTER JOIN bdicobranza:"informix".cb_cat_datosgenerales dts on (dts.numempleado = cmp.efectuo_compac)
+			 LEFT OUTER JOIN bdicobranza:"informix".cb_catejecutivos cteje on (cteje.numempleado = cmp.efectuo_compac )
+		WHERE cmp.origen = 3				 
+			AND SUBSTR(cteje.numgrupo,1,1) = "M"
+			AND cmp.fecha_compac >= dtFechaCorteIniHis
+			AND cmp.fecha_compac <= dtFechaCorteFinHis
+		GROUP BY 1,2,3
+			UNION ALL
+		SELECT NVL(cteje.numgrupo, "") AS Turno, NVL(cmphis.efectuo_compac, "") AS Supervisor, NVL(TRIM(dts.nombre), " ")||" "||NVL(TRIM(dts.apellidopaterno), " ")||" "||NVL(TRIM(dts.apellidomaterno), " ") AS Nombre, COUNT(cmphis.efectuo_compac) AS Negociaciones,SUM(cmphis.importe) AS MontoNeg, CAST(0.00 AS DECIMAL(14,2)) AS Porc, CAST(0.00 AS DECIMAL(14,2)) AS PromNegDia
+		FROM bdicobranza:"informix".cb_compac_his cmphis
+			 LEFT OUTER JOIN bdicobranza:"informix".cb_cat_datosgenerales dts on (dts.numempleado = cmphis.efectuo_compac)
+			 LEFT OUTER JOIN bdicobranza:"informix".cb_catejecutivos cteje on (cteje.numempleado = cmphis.efectuo_compac)
+		WHERE cmphis.origen = 3				
+			AND SUBSTR(cteje.numgrupo,1,1) = "M"
+			AND cmphis.fecha_compac >= dtFechaCorteIniHis
+			AND cmphis.fecha_compac <= dtFechaCorteFinHis
+		GROUP BY 1,2,3
+		INTO TEMP tmp_compagconvsemm WITH NO LOG;
+			
+		SELECT turno, supervisor, nombre, SUM(negociaciones) AS negociaciones, SUM(montoneg) AS montoneg,sum(porc) AS porc, sum(promnegdia) AS promnegdia
+		FROM tmp_compagconvsemm
+		GROUP BY 1,2,3
+		INTO TEMP tmp_compagconvsem_mat;
+		
+		--SE OBTIENEN LOS TOTALIZADOS DE TODAS LAS COLUMNAS DEL TURNO MATUTINO.
+		SELECT COUNT(supervisor),SUM(Negociaciones),SUM(MontoNeg)
+		INTO iCantSupervMat, iNegociacionTotMaT, dMontoNegTotMat
+		FROM tmp_compagconvsem_mat;
+		
+		
+		IF iNegociacionTotMaT = 0 OR iDiasTrab = 0 OR iCantSupervMat = 0  THEN
+			LET cCodRet = "000001";
+			LET cMensajeRet = "Error de datos, NO es posible realizar una division entre Cero";
+			--SE BORRAN LAS TABLAS TEMPORALES SI EXISTEN.
+			IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_compagconvsem_mat" AND dbsname= "bdicobranza" AND partnum >1048577) THEN					
+				DROP TABLE tmp_compagconvsem_mat;
+			END IF; 
+			
+			IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_compagconvsemm" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+				DROP TABLE tmp_compagconvsemm;
+			END IF;
+			
+			IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_compagconvsem_vesp" AND dbsname= "bdicobranza" AND partnum >1048577) THEN					
+				DROP TABLE tmp_compagconvsem_vesp;
+			END IF; 
+			
+			IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_compagconvsemv" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+				DROP TABLE tmp_compagconvsemv;
+			END IF;
+					
+			IF cTabla = "S" THEN
+				DROP TABLE bdicobranza:"informix".TMP_ENCABEZADOS_CONSEMB;
+			END IF; 				
+			
+			CALL bdicobranza:"informix".sp_inserta_bitacora_cob(v_empresa, cProceso, cCodRet, cMensajeRet, '02')
+            RETURNING vvcCod_ret;
+			
+			LET cCodRet = "000000";
+			LET cMensajeRet = "Proceso exitoso";
+			
+			RETURN cCodRet, cMensajeRet;
+		END IF;
+				
+		--SE OBTIENE EL PORCENTAJE Y EL PROMEDIO DE NEGOCIOACIONES DIARIAS DEL TURNO MATUTINO
+		FOREACH
+			SELECT Supervisor, Negociaciones
+			INTO cSupervisor, iNegociacion
+			FROM tmp_compagconvsem_mat
+			 	
+				LET dePorNegoc = CAST((iNegociacion/iNegociacionTotMaT) * 100 AS DECIMAL(14,2)) ;
+				LET dePromNegDrio = CAST((iNegociacion/iDiasTrab)* 100 AS DECIMAL(14,2));
+			
+			UPDATE tmp_compagconvsem_mat
+			SET Porc = NVL(dePorNegoc,0),
+				PromNegDia = NVL(dePromNegDrio,0)
+			WHERE Supervisor = cSupervisor;						
+		END FOREACH
+		
+		INSERT INTO tmp_compagconvsem_mat (turno, supervisor, nombre, negociaciones, montoneg, porc, promnegdia)
+		VALUES("", "", "Total", iNegociacionTotMaT,dMontoNegTotMat,"", ""  );
+					
+		--GENERACION DE TABLA TEMPORAL CON INFORMACION DE LOS CONVENIOS DEL TURNO VESPERTINO
+		SELECT NVL(cteje.numgrupo, "") AS Turno, NVL(cmp.efectuo_compac, "") AS Supervisor, NVL(TRIM(dts.nombre), " ")||" "||NVL(TRIM(dts.apellidopaterno), " ")||" "||NVL(TRIM(dts.apellidomaterno), " ") AS Nombre, COUNT(cmp.efectuo_compac) AS Negociaciones,SUM(cmp.importe) AS MontoNeg, CAST(0.00 AS DECIMAL(14,2)) AS Porc, CAST(0.00 AS DECIMAL(14,2)) AS PromNegDia
+		FROM bdicobranza:"informix".cb_compac cmp
+			 LEFT OUTER JOIN bdicobranza:"informix".cb_cat_datosgenerales dts on (dts.numempleado = cmp.efectuo_compac)
+			 LEFT OUTER JOIN bdicobranza:"informix".cb_catejecutivos cteje on (cteje.numempleado = cmp.efectuo_compac)
+		WHERE cmp.origen = 3						
+			AND SUBSTR(cteje.numgrupo,1,1) = "V"
+		AND cmp.fecha_compac >= dtFechaCorteIniHis
+		AND cmp.fecha_compac <= dtFechaCorteFinHis
+		GROUP BY 1,2,3		
+			UNION ALL		
+		SELECT NVL(cteje.numgrupo, "") AS Turno, NVL(cmphis.efectuo_compac, "") AS Supervisor, NVL(TRIM(dts.nombre), " ")||" "||NVL(TRIM(dts.apellidopaterno), " ")||" "||NVL(TRIM(dts.apellidomaterno), " ") AS Nombre, COUNT(cmphis.efectuo_compac) AS Negociaciones,SUM(cmphis.importe) AS MontoNeg, CAST(0.00 AS DECIMAL(14,2)) AS Porc, CAST(0.00 AS DECIMAL(14,2)) AS PromNegDia
+		FROM bdicobranza:"informix".cb_compac_his cmphis
+			 LEFT OUTER JOIN bdicobranza:"informix".cb_cat_datosgenerales dts on (dts.numempleado = cmphis.efectuo_compac)
+			 LEFT OUTER JOIN bdicobranza:"informix".cb_catejecutivos cteje on (cteje.numempleado = cmphis.efectuo_compac)
+		WHERE cmphis.origen = 3				
+			AND SUBSTR(cteje.numgrupo,1,1) = "V"
+		AND cmphis.fecha_compac >= dtFechaCorteIniHis
+		AND cmphis.fecha_compac <= dtFechaCorteFinHis
+		GROUP BY 1,2,3
+		INTO TEMP tmp_compagconvsemv WITH NO LOG;
+		
+		SELECT turno, supervisor, nombre, SUM(negociaciones) AS negociaciones, SUM(montoneg) AS montoneg,sum(porc) AS porc, sum(promnegdia) AS promnegdia
+		FROM tmp_compagconvsemv
+		GROUP BY 1,2,3
+		INTO TEMP tmp_compagconvsem_vesp;
+		
+		--SE OBTIENEN LOS TOTALIZADOS DE TODAS LAS COLUMNAS DEL TURNO VESPERTINO.
+		SELECT COUNT(supervisor), SUM(Negociaciones),SUM(MontoNeg)
+		INTO iCantSupervVes, iNegociacionTotVes, dMontoNegTotVes
+		FROM tmp_compagconvsem_vesp;
+				
+		IF iNegociacionTotVes = 0 OR iCantSupervVes = 0 THEN
+			LET cCodRet = "000001";
+			LET cMensajeRet2 = "Error de datos, NO es posible realizar una division entre Cero (iNegociacionTotVes, iCantSupervVes)";
+			--SE BORRAN LAS TABLAS TEMPORALES SI EXISTEN.
+			IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_compagconvsem_mat" AND dbsname= "bdicobranza" AND partnum >1048577) THEN					
+				DROP TABLE tmp_compagconvsem_mat;
+			END IF; 
+			
+			IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_compagconvsemm" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+				DROP TABLE tmp_compagconvsemm;
+			END IF;
+			
+			IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_compagconvsem_vesp" AND dbsname= "bdicobranza" AND partnum >1048577) THEN					
+				DROP TABLE tmp_compagconvsem_vesp;
+			END IF; 
+			
+			IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_compagconvsemv" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+				DROP TABLE tmp_compagconvsemv;
+			END IF;
+					
+			IF cTabla = "S" THEN
+				DROP TABLE bdicobranza:"informix".TMP_ENCABEZADOS_CONSEMB;
+			END IF; 				
+			
+			CALL bdicobranza:"informix".sp_inserta_bitacora_cob(v_empresa, cProceso, cCodRet, cMensajeRet2, '02')
+            RETURNING vvcCod_ret;
+			
+			LET cCodRet = "000000";
+			LET cMensajeRet = "Proceso exitoso";
+			
+			RETURN cCodRet, cMensajeRet;
+		END IF;
+				
+		--SE OBTIENEN LOS TOTALIZADOS DE TODAS LAS COLUMNAS DE AMBOS TURNOS.
+		LET iNegociacionTot = (NVL(iNegociacionTotMaT,0) + NVL(iNegociacionTotVes,0));
+		LET dMontoNegTot = (NVL(dMontoNegTotMat,0.00) + NVL(dMontoNegTotVes,0.00));
+
+		--INICIALIZACION DE VARIABLES
+		LET iNegociacion = 0;
+		LET dePorNegoc = 0.00;
+		LET dePromNegDrio = 0.00;
+		
+		--SE OBTIENE EL PORCENTAJE Y EL PROMEDIO DE NEGOCIOACIONES DIARIAS DEL TURNO VESPERTINO
+		FOREACH
+			SELECT Supervisor, Negociaciones
+			INTO cSupervisor, iNegociacion
+			FROM tmp_compagconvsem_vesp
+						 	
+			LET dePorNegoc = CAST((NVL(iNegociacion,0)/NVL(iNegociacionTotVes,0)) * 100 AS DECIMAL(14,2));
+			LET dePromNegDrio = CAST((NVL(iNegociacion,0)/NVL(iDiasTrab,0))* 100 AS DECIMAL(14,2));
+			
+			UPDATE tmp_compagconvsem_vesp
+				SET Porc = NVL(dePorNegoc,0),
+					PromNegDia = NVL(dePromNegDrio,0)
+			WHERE Supervisor = cSupervisor;						
+		END FOREACH
+	
+		INSERT INTO tmp_compagconvsem_vesp (turno, supervisor, nombre, negociaciones, montoneg, porc, promnegdia)
+		VALUES("", "", "Total", iNegociacionTotVes,dMontoNegTotVes,"", ""  );	
+	
+		INSERT INTO tmp_compagconvsem_vesp (turno, supervisor, nombre, negociaciones, montoneg, porc, promnegdia)
+		VALUES("", "Total", "", iNegociacionTot,dMontoNegTot,"", ""  );
+
+		--LET dPromNegSupMat = ((NVL(iNegociacionTotMaT,0)/NVL(iCantSupervMat,0)) * 100);    --- MODIF. MACF		
+		LET dPromNegSupMat = (NVL(iNegociacionTotMaT,0)/NVL(iCantSupervMat,0));              --- MODIF. MACF    
+		LET dPromNegSupMat2 = NVL(iNegociacionTotMaT,0)/NVL(iDiasTrab,0);
+		
+		INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOS_CONSEMB (TURNO,SUPERVISOR,NOMBRE,NEGOCIACIONES,MONTONEG,PORCENTAJE,PROMNEGDIA)
+		VALUES("","Promedio","de negociaciones por Supervisor Matutino","",NVL(dPromNegSupMat,0.00),"Diarias",NVL(dPromNegSupMat2,0.00));		
+
+		--LET dPromNegSupVesp = ((NVL(iNegociacionTotVes,0)/NVL(iCantSupervVes,0)) * 100);		--- MODIF. MACF
+		LET dPromNegSupVesp = (NVL(iNegociacionTotVes,0)/NVL(iCantSupervVes,0));              --- MODIF. MACF
+		LET dPromNegSupVesp2 = NVL(iNegociacionTotVes,0)/NVL(iDiasTrab,0);
+		
+		INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOS_CONSEMB (TURNO,SUPERVISOR,NOMBRE,NEGOCIACIONES,MONTONEG,PORCENTAJE,PROMNEGDIA)
+		VALUES("","Promedio","de negociaciones por Supervisor Vespertino","",NVL(dPromNegSupVesp,0.00),"Diarias",NVL(dPromNegSupVesp2,0.00));		
+		
+		LET iCanSuperTot =  (NVL(iCantSupervMat,0) + NVL(iCantSupervVes,0));
+		
+		--LET dPromNegSupTot = ((NVL(iNegociacionTot,0)/NVL(iCanSuperTot,0)) * 100);        --- MODIF. MACF
+    LET dPromNegSupTot = (NVL(iNegociacionTot,0)/NVL(iCanSuperTot,0));		              --- MODIF. MACF
+		LET dPromNegSupTot2 = NVL(iNegociacionTot,0)/NVL(iDiasTrab,0);
+		
+		INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOS_CONSEMB (TURNO,SUPERVISOR,NOMBRE,NEGOCIACIONES,MONTONEG,PORCENTAJE,PROMNEGDIA)
+		VALUES("","Promedio","de negociaciones General","",NVL(dPromNegSupTot,0.00),"Diarias",NVL(dPromNegSupTot2,0.00));	
+		
+		INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOS_CONSEMB (TURNO,SUPERVISOR,NOMBRE,NEGOCIACIONES,MONTONEG,PORCENTAJE,PROMNEGDIA)
+		VALUES("Turno","Supervisor","Nombre","Negociaciones","Monto Negociado","%","Promedio Negoc. Diarias");		
+		
+		FOREACH 		
+			SELECT turno, supervisor, nombre, negociaciones, montoneg, porc, promnegdia
+			INTO cTurno_Mat, cSupervisor_Mat, cNombre_Mat, iNegociacion_Mat, dMontoneg_Mat, dePor_Mat, dePromNegDrio_Mat 
+			FROM tmp_compagconvsem_mat
+		
+			--SE INSERTA INFORMACION DEL TURNO MATUTINO
+			INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOS_CONSEMB (TURNO,SUPERVISOR,NOMBRE,NEGOCIACIONES,MONTONEG,PORCENTAJE,PROMNEGDIA)
+			VALUES(cTurno_Mat::CHAR(80), cSupervisor_Mat::CHAR(80), cNombre_Mat::CHAR(80), iNegociacion_Mat::CHAR(80), '$'||dMontoneg_Mat::CHAR(80), NVL(dePor_Mat, "")::CHAR(80), NVL(dePromNegDrio_Mat, "")::CHAR(80));				
+		END FOREACH
+		
+		FOREACH 
+		
+			SELECT turno, supervisor, nombre, negociaciones, montoneg, porc, promnegdia
+			INTO cTurno_Vesp, cSupervisor_Vesp, cNombre_Vesp, iNegociacion_Vesp, dMontoneg_Vesp, dePor_Vesp, dePromNegDrio_Vesp 
+			FROM tmp_compagconvsem_vesp
+		
+			--SE INSERTA INFORMACION DEL TURNO VESPERTINO
+			INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOS_CONSEMB (TURNO,SUPERVISOR,NOMBRE,NEGOCIACIONES,MONTONEG,PORCENTAJE,PROMNEGDIA)
+			VALUES(cTurno_Vesp::CHAR(80), cSupervisor_Vesp::CHAR(80), cNombre_Vesp::CHAR(80), iNegociacion_Vesp::CHAR(80),'$'||dMontoneg_Vesp::CHAR(80), NVL(dePor_Vesp, "")::CHAR(80), NVL(dePromNegDrio_Vesp,"")::CHAR(80));		
+		
+		END FOREACH
+		
+ 		--SE BORRAN LAS TABLAS TEMPORALES SI EXISTEN.
+		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_compagconvsem_mat" AND dbsname= "bdicobranza" AND partnum >1048577) THEN					
+			DROP TABLE tmp_compagconvsem_mat;
+		END IF; 
+		
+		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_compagconvsemm" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+			DROP TABLE tmp_compagconvsemm;
+		END IF;
+		
+		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_compagconvsem_vesp" AND dbsname= "bdicobranza" AND partnum >1048577) THEN					
+			DROP TABLE tmp_compagconvsem_vesp;
+		END IF; 
+		
+		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_compagconvsemv" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+			DROP TABLE tmp_compagconvsemv;
+		END IF;
+
+   		--SE OBTIENE EL NOMBRE DEL ARCHIVO.
+		SELECT valor 
+		INTO cNombreArchivo
+		FROM bdicobranza:"informix".cb_param 
+		WHERE cod_param = 82;
+		
+		--SE OBTINE LA RUTA DONDE SE GENERARA EL ARCHIVO.
+		SELECT valor_alfabetico
+		INTO cRuta
+		FROM bdicobranza:"informix".cb_param_campania
+		WHERE tipo_campania = 11
+			AND grupo_parametro = "RUTAS" 
+			AND num_parametro = 1;
+			 
+		LET cNombreArchivo = TRIM(cNombreArchivo)||YEAR(dtFechaHoy)||LPAD(MONTH(dtFechaHoy),2,0)||LPAD(DAY(dtFechaHoy),2,0);
+		LET cConsulta = "SELECT TURNO,SUPERVISOR,NOMBRE,NEGOCIACIONES,MONTONEG,PORCENTAJE,PROMNEGDIA FROM bdicobranza:'informix'.TMP_ENCABEZADOS_CONSEMB";		
+		LET cSql = '';
+		LET cSql = 'echo "UNLOAD TO ' ||TRIM(cRuta)||TRIM(cNombreArchivo)||'.xls'|| ' DELIMITER '|| '''	'''||' '||TRIM(cConsulta)||'" > '|| TRIM(cRuta) ||'query1.sql';
+		SYSTEM TRIM(cSql);
+		
+		LET cSql = '';
+		LET cSql = "dbaccess bdicobranza " ||TRIM(cRuta)||'query1.sql';
+		SYSTEM cSql;
+		
+		LET cSql = '';
+		LET cSQL = "rm " ||TRIM(cRuta)||'query1.sql';		
+		SYSTEM cSql; 
+		
+		IF cTabla = "S" THEN
+			DROP TABLE bdicobranza:"informix".TMP_ENCABEZADOS_CONSEMB;
+		END IF;
+		
+		LET cMensajeRet = TRIM(cNombreArchivo)||'.xls';	
+ 		
+ 		CALL bdicobranza:"informix".sp_inserta_bitacora_cob(v_empresa, cProceso, cCodRet, cMensajeRet, '03') RETURNING vvcCod_ret;
+ 		
+		RETURN cCodRet, cMensajeRet;
+		
+	END;
+END PROCEDURE
+DOCUMENT
+'DESCRIPCION: Proceso para obtener el Promedio de negociaciones por Supervisor por turno.', 
+'AUTOR: Hector Bojorquez',
+'FECHA: Noviembre 2012',
+'BD    : BDICOBRANZA',
+'VERSION: 20121122.1236';
+
+CREATE PROCEDURE "informix".sp_repcob_crtven_dtsreg()
+	RETURNING
+		CHAR(6)  AS COD_RET,
+		CHAR(80) AS MENSAJE_RET;
+		
+		-- DECLARACIONES
+		DEFINE iSqlErr					INTEGER;
+		DEFINE iIsamErr					INTEGER;
+		DEFINE cCodRet, vvcCod_ret	CHAR(6);
+		DEFINE cMensajeRet				CHAR(80);		
+		DEFINE sMaxMora 				SMALLINT;
+		DEFINE sCiclo	 				SMALLINT;		
+		DEFINE cNombreArchivo		CHAR(80); 
+		DEFINE cConsulta		  		CHAR(2200);
+		DEFINE cSql           			CHAR(1024);
+		DEFINE cTabla		      		CHAR(1); 
+		DEFINE cRuta		      		CHAR(80);   
+		DEFINE iCtesTelValElec			INTEGER;
+		DEFINE iCtesTelValSinElec		INTEGER;
+		DEFINE iCtesTelInvElec			INTEGER;
+		DEFINE iCtesSinDats				INTEGER;
+		DEFINE sMora					SMALLINT;		
+		DEFINE iBandera					INTEGER;		
+		DEFINE dtFechaHoy 				DATE;		
+		DEFINE dtFechaCorteIniCte		DATE;
+		DEFINE dtFechaCorteFinCte		DATE;		
+		DEFINE iCtesTelValElecTot  		INTEGER;
+		DEFINE iCtesTelValSinElecTot	INTEGER;
+		DEFINE iCtesTelInvElecTot		INTEGER;
+		DEFINE iCtesSinDatsTot			INTEGER;			
+		DEFINE v_empresa            CHAR(3);
+		DEFINE cProceso             CHAR(4);
+		DEFINE dtFechaMax       DATE;
+		
+		-- INICIALIZACIONES
+		LET iSqlErr            		= 0;
+		LET iIsamErr           		= 0;
+		LET cCodRet            		= "000000";
+		LET cMensajeRet				= "Proceso exitoso";
+		LET sMaxMora 				= 0;
+		LET sCiclo	 				= 0;
+		LET cNombreArchivo 			= "";
+		LET cConsulta	 			= "";
+		LET cSql		 			= "";
+		LET cTabla		 			= "N";
+		LET cRuta		 			= "";
+		LET iCtesTelValElec		 	= 0;
+		LET iCtesTelValSinElec		= 0;
+		LET iCtesTelInvElec	 		= 0;
+		LET iCtesSinDats	 		= 0;
+		LET sMora		 			= 0;		
+		LET iBandera		 		= 0;		
+		LET dtFechaHoy          	= "";		
+		LET dtFechaCorteIniCte     	= "";
+		LET dtFechaCorteFinCte     	= "";
+		LET iCtesTelValElecTot      = 0;
+		LET iCtesTelValSinElecTot	= 0;
+		LET iCtesTelInvElecTot		= 0;
+		LET iCtesSinDatsTot			= 0;			
+		LET v_empresa = '001';
+		LET cProceso = '0070';
+    LET vvcCod_ret = '';
+    LET dtFechaMax = date(1);
+     
+	BEGIN 
+		ON EXCEPTION SET iSqlErr, iIsamErr, cMensajeRet
+			IF iSqlErr != 0 THEN
+				LET cCodRet = iSqlErr;	
+				LET cMensajeRet = cMensajeRet;
+				
+				--SE BORRAN LAS TABLAS TEMPORALES SI EXISTEN.
+				IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmora" AND dbsname= "bdicobranza"  AND partnum >1048577) THEN					
+					DROP TABLE tmp_totalesmora;
+				END IF;
+				
+				IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmora2" AND dbsname= "bdicobranza"  AND partnum >1048577) THEN
+					DROP TABLE tmp_totalesmora2;
+				END IF;
+				
+				IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmora3" AND dbsname= "bdicobranza"  AND partnum >1048577) THEN
+					DROP TABLE tmp_totalesmora3;
+				END IF;
+				
+				IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmora4" AND dbsname= "bdicobranza"  AND partnum >1048577) THEN
+					DROP TABLE tmp_totalesmora4;
+				END IF;
+				
+				IF cTabla = "S" THEN
+					DROP TABLE bdicobranza:"informix".TMP_ENCABEZADOSEXCELNEC1;
+				END IF;
+				
+				CALL bdicobranza:"informix".sp_inserta_bitacora_cob(v_empresa, cProceso, cCodRet, cMensajeRet, '02')
+        RETURNING vvcCod_ret;
+				
+				RETURN cCodRet, cMensajeRet;
+			
+			END IF;
+		END EXCEPTION;
+		
+	  CALL bdicobranza:"informix".sp_inserta_bitacora_cob(v_empresa, cProceso, cCodRet, cMensajeRet, '01') RETURNING vvcCod_ret;
+		
+		SET ISOLATION TO DIRTY READ;
+		SET LOCK MODE TO WAIT 3;
+		
+		-- SET DEBUG FILE TO "/respaldosbd/Guadalupe/sp_repcob_crtven_dtsreg.out";
+		-- TRACE ON;
+		
+		SELECT max(fecha_insert) INTO dtFechaMax 
+      FROM bdicobranza:"informix".cb_cat_directorio_cte
+     WHERE tipo_cobranza = 'A';
+
+		
+		--SE BORRAN LAS TABLAS TEMPORALES SI EXISTEN.
+		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmora" AND dbsname= "bdicobranza"  AND partnum >1048577) THEN					
+			DROP TABLE tmp_totalesmora;
+		END IF;
+		
+		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmora2" AND dbsname= "bdicobranza"  AND partnum >1048577) THEN
+			DROP TABLE tmp_totalesmora2;
+		END IF;
+		
+		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmora3" AND dbsname= "bdicobranza"  AND partnum >1048577) THEN
+			DROP TABLE tmp_totalesmora3;
+		END IF;
+		
+		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmora4" AND dbsname= "bdicobranza"  AND partnum >1048577) THEN
+			DROP TABLE tmp_totalesmora4;
+		END IF;
+		
+		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "TMP_ENCABEZADOSEXCELNEC1" AND dbsname= "bdicobranza"  AND partnum >1048577) THEN
+			DROP TABLE bdicobranza:"informix".TMP_ENCABEZADOSEXCELNEC1;
+		END IF;
+		
+		--SE OBTIENE LA FECHA DE HOY.
+		SELECT fecha_hoy
+		INTO dtFechaHoy
+		FROM bdicred:"informix".sd_fechas
+    WHERE empresa = v_empresa ;
+
+    --LET dtFechaHoy = mdy('11','22','2012');    ----TEST MACF
+				
+		--SE OBTIENE LA MAXIMA MORA.							
+		SELECT Total
+		INTO sMaxMora
+		FROM TABLE(MULTISET(
+							SELECT LIMIT 1 MAX(NVL(pago_venc,0)) AS Total							
+							FROM bdicobranza:"informix".cb_cat_directorio_cte 
+							--WHERE fecha_insert >= dtFechaCorteIniCte AND fecha_insert <= dtFechaCorteFinCte
+              WHERE fecha_insert = dtFechaMax		
+								AND pago_venc > 0  
+							GROUP BY numcte
+							ORDER BY 1 DESC
+							));
+				
+		--SE VALIDA SI EXISTEN MORAS.
+		IF NVL(sMaxMora,0) = 0 THEN 
+			LET cCodRet = '000001';
+			LET cMensajeRet = 'Por el momento no existen moras';
+			--SE BORRAN LAS TABLAS TEMPORALES SI EXISTEN.
+			IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmora" AND dbsname= "bdicobranza"  AND partnum >1048577) THEN					
+				DROP TABLE tmp_totalesmora;
+			END IF;
+			
+			IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmora2" AND dbsname= "bdicobranza"  AND partnum >1048577) THEN
+				DROP TABLE tmp_totalesmora2;
+			END IF;
+			
+			IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmora3" AND dbsname= "bdicobranza"  AND partnum >1048577) THEN
+				DROP TABLE tmp_totalesmora3;
+			END IF;
+			
+			IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmora4" AND dbsname= "bdicobranza"  AND partnum >1048577) THEN
+				DROP TABLE tmp_totalesmora4;
+			END IF;
+			
+      -- Si no existen moras lo registra en la bitácora pero termina normal.
+			CALL bdicobranza:"informix".sp_inserta_bitacora_cob(v_empresa, cProceso, cCodRet, cMensajeRet, '02')
+        RETURNING vvcCod_ret;
+			LET cCodRet = "000000";
+			LET cMensajeRet	= "Proceso exitoso";
+			
+			RETURN cCodRet, cMensajeRet;
+		END IF;
+		
+		--SE OBTIENE EL TOTAL DE MORAS POR CLIENTE.
+		SELECT MAX(NVL(pago_venc,0)) AS total, NVL(numcte,'') AS numcte		
+		FROM bdicobranza:"informix".cb_cat_directorio_cte 
+		--WHERE fecha_insert >= dtFechaCorteIniCte AND fecha_insert <= dtFechaCorteFinCte
+		WHERE fecha_insert = dtFechaMax 
+			AND pago_venc > 0			
+		GROUP BY numcte
+		ORDER BY total ASC
+		INTO TEMP tmp_totalesmora WITH NO LOG;	
+		
+		FOR sCiclo = 1 TO sMaxMora				
+			IF iBandera = 0 THEN 				
+				--SE OBTIENE EL TOTALIZADO POR MORA Y SE CREA LA TEMPORAL PARA GUARDAR LA INFORMACION.			
+				SELECT sCiclo AS mora,
+					NVL(CASE WHEN NVL(b.tipo_tel,0) IN (1,2,3) AND NVL(b.cofetel,'') = 'V' AND NVL(c.status_correo,'') = 'A' THEN  1 END,0) AS CtesTelValElecTmp,
+					NVL(CASE WHEN NVL(b.tipo_tel,0) IN (1,2,3) AND NVL(b.cofetel,'') = 'V' AND (NVL(c.status_correo,'') = 'C' OR NVL(c.status_correo,'') = '') THEN  1 END,0) AS CtesTelValSinElecTmp,
+					NVL(CASE WHEN ((NVL(b.tipo_tel,0) IN (1,2,3) AND NVL(b.cofetel,'') = 'F') OR (NVL(b.status_tel,'') = '' AND NVL(b.cofetel,'') = '') )  AND NVL(c.status_correo,'') = 'A' THEN  1 END,0) AS CtesTelInvElecTmp,
+					NVL(CASE WHEN ((NVL(b.tipo_tel,0) IN (1,2,3) AND NVL(b.cofetel,'') = 'F' AND (NVL(c.status_correo,'') = 'C' OR NVL(c.status_correo,'') = '')) OR  (NVL(b.status_tel,'') = '' AND NVL(b.cofetel,'') = '' AND NVL(c.status_correo,'') = '')) THEN  1 END,0) AS CtesSinDatsTmp,
+					NVL(a.numcte,'') AS numcte
+				FROM tmp_totalesmora a
+					LEFT OUTER JOIN bdinteg:"informix".si_telefonos_actual b ON(b.numcte = a.numcte)
+					LEFT OUTER JOIN bdinteg:"informix".si_correos c ON(c.numcte = a.numcte AND c.secuencia =  (SELECT MAX(secuencia) FROM bdinteg:"informix".si_correos WHERE numcte = a.numcte))
+				WHERE a.total = sCiclo
+				GROUP BY a.numcte,2,3,4,5 
+				INTO TEMP tmp_totalesmora2 WITH NO LOG;	
+				
+				--SE VALIDA QUE EL CONTEO SEA UNO POR CLIENTE Y POR COLUMNA.				
+				SELECT mora1 AS mora11,CASE WHEN ColVal1 > 0 THEN 1 ELSE 0 END AS ColVal11,
+					   CASE WHEN ColVal1 = 0 AND ColVal2 = 1 THEN 1 ELSE 0 END AS ColVal22,
+					   CASE WHEN ColVal1 = 0 AND ColVal2 = 0 AND ColVal3 = 1 THEN 1 ELSE 0 END AS ColVal33,
+					   CASE WHEN ColVal1 = 0 AND ColVal2 = 0 AND ColVal3 = 0 AND ColVal4 = 1 THEN 1 ELSE 0 END AS ColVal44,
+					   numcte1 AS numcte11 
+				FROM TABLE(MULTISET(SELECT sCiclo AS mora1,CASE WHEN SUM(CtesTelValElecTmp) > 0 THEN 1 ELSE 0 END AS ColVal1,
+									   CASE WHEN SUM(CtesTelValSinElecTmp) > 0 THEN 1 ELSE 0 END AS ColVal2,
+									   CASE WHEN SUM(CtesTelInvElecTmp) > 0 THEN 1 ELSE 0 END AS ColVal3,
+									   CASE WHEN SUM(CtesSinDatsTmp) > 0 THEN 1 ELSE 0 END AS ColVal4,
+									   numcte AS numcte1
+									FROM tmp_totalesmora2 
+									WHERE mora = sCiclo										
+									GROUP BY numcte 
+						  ))
+				INTO TEMP tmp_totalesmora3 WITH NO LOG;	
+				
+				LET iBandera = 1;						
+			ELSE
+				--SE OBTIENE EL TOTALIZADO POR MORA.
+				INSERT INTO tmp_totalesmora2			
+				SELECT sCiclo AS mora,
+					NVL(CASE WHEN NVL(b.tipo_tel,0) IN (1,2,3) AND NVL(b.cofetel,'') = 'V' AND NVL(c.status_correo,'') = 'A' THEN  1 END,0) AS CtesTelValElecTmp,
+					NVL(CASE WHEN NVL(b.tipo_tel,0) IN (1,2,3) AND NVL(b.cofetel,'') = 'V' AND (NVL(c.status_correo,'') = 'C' OR NVL(c.status_correo,'') = '') THEN  1 END,0) AS CtesTelValSinElecTmp,
+					NVL(CASE WHEN ((NVL(b.tipo_tel,0) IN (1,2,3) AND NVL(b.cofetel,'') = 'F') OR (NVL(b.status_tel,'') = '' AND NVL(b.cofetel,'') = '') )  AND NVL(c.status_correo,'') = 'A' THEN  1 END,0) AS CtesTelInvElecTmp,
+					NVL(CASE WHEN ((NVL(b.tipo_tel,0) IN (1,2,3) AND NVL(b.cofetel,'') = 'F' AND (NVL(c.status_correo,'') = 'C' OR NVL(c.status_correo,'') = '')) OR  (NVL(b.status_tel,'') = '' AND NVL(b.cofetel,'') = '' AND NVL(c.status_correo,'') = '')) THEN  1 END,0) AS CtesSinDatsTmp,
+					NVL(a.numcte,'') AS numcte
+				FROM tmp_totalesmora a
+					LEFT OUTER JOIN bdinteg:"informix".si_telefonos_actual b ON(b.numcte = a.numcte)
+					LEFT OUTER JOIN bdinteg:"informix".si_correos c ON(c.numcte = a.numcte AND c.secuencia =  (SELECT MAX(secuencia) FROM bdinteg:"informix".si_correos WHERE numcte = a.numcte))
+				WHERE a.total = sCiclo
+				GROUP BY a.numcte,2,3,4,5 ;
+
+				--SE VALIDA QUE EL CONTEO SEA UNO POR CLIENTE Y POR COLUMNA.				
+				INSERT INTO tmp_totalesmora3			
+				SELECT mora1 AS mora11,CASE WHEN ColVal1 > 0 THEN 1 ELSE 0 END AS ColVal11,
+					   CASE WHEN ColVal1 = 0 AND ColVal2 = 1 THEN 1 ELSE 0 END AS ColVal22,
+					   CASE WHEN ColVal1 = 0 AND ColVal2 = 0 AND ColVal3 = 1 THEN 1 ELSE 0 END AS ColVal33,
+					   CASE WHEN ColVal1 = 0 AND ColVal2 = 0 AND ColVal3 = 0 AND ColVal4 = 1 THEN 1 ELSE 0 END AS ColVal44,
+					   numcte1 AS numcte11 
+				FROM TABLE(MULTISET(SELECT sCiclo AS mora1,CASE WHEN SUM(CtesTelValElecTmp) > 0 THEN 1 ELSE 0 END AS ColVal1,
+									   CASE WHEN SUM(CtesTelValSinElecTmp) > 0 THEN 1 ELSE 0 END AS ColVal2,
+									   CASE WHEN SUM(CtesTelInvElecTmp) > 0 THEN 1 ELSE 0 END AS ColVal3,
+									   CASE WHEN SUM(CtesSinDatsTmp) > 0 THEN 1 ELSE 0 END AS ColVal4,
+									   numcte AS numcte1
+									FROM tmp_totalesmora2 
+									WHERE mora = sCiclo										
+									GROUP BY numcte 
+						  ));				
+			END IF  
+		END FOR	
+		
+		--SE INICIALIZA BANDERA PARA REUTILIZARLA EN EL SEGUNDO CICLO.
+		LET iBandera = 0;
+		--SE TOTALIZA POR MORA DEACUERDO A CADA FILTRO.
+		FOR sCiclo = 1 TO sMaxMora		
+			IF iBandera = 0 THEN 									
+				SELECT sCiclo AS MoraFin,NVL(SUM(ColVal11),0) AS ColVal1Fin,NVL(SUM(ColVal22),0) AS ColVal2Fin,NVL(SUM(ColVal33),0) AS ColVal3Fin ,NVL(SUM(ColVal44),0) AS ColVal4Fin
+				FROM tmp_totalesmora3 
+				WHERE mora11 = sCiclo														
+				INTO TEMP tmp_totalesmora4 WITH NO LOG;					
+				LET iBandera = 1;						
+			ELSE 
+				INSERT INTO tmp_totalesmora4
+				SELECT sCiclo AS MoraFin,NVL(SUM(ColVal11),0) AS ColVal1Fin,NVL(SUM(ColVal22),0) AS ColVal2Fin,NVL(SUM(ColVal33),0) AS ColVal3Fin ,NVL(SUM(ColVal44),0) AS ColVal4Fin
+				FROM tmp_totalesmora3 
+				WHERE mora11 = sCiclo;														
+			END IF 
+				
+		END FOR 
+								
+		-- SE CREA LA TEMPORAL PARA INSERTAR LOS ENCABEZADOS QUE LLEVARA EL REPORTE.
+		CREATE TABLE bdicobranza:"informix".TMP_ENCABEZADOSEXCELNEC1(
+																		Mora 				CHAR(10),
+																		CtesTelValElec 		CHAR(80),
+																		CtesTelValSinElec	CHAR(80),
+																		CtesTelInvElec 		CHAR(80),
+																		CtesSinDats 		CHAR(80)
+																	);		
+		
+		LET cTabla = "S";
+				
+		--SE AGREGA ENCABEZADO AL REPORTE PARA EL ARCHIVO EXCEL.
+		INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOSEXCELNEC1 (Mora,CtesTelValElec,CtesTelValSinElec,CtesTelInvElec,CtesSinDats)
+		VALUES("Mora","Clientes con al menos un telefono valido COFETEL y correo electronico","Clientes con al menos un telefono valido COFETEL sin correo electronico","Clientes sin telefonos validos COFETEL con correo electronico","Clientes sin datos o telefonos invalidos" );		
+		
+		-- SE ELIMINAN LOS REGISTROS DONDE TODOS LOS TOTALES POR MORA SEAN CEROS YA QUE ESA INFORMACION NO SERA UTIL EN EL ARCHIVO.					 
+		DELETE tmp_totalesmora4
+		WHERE ColVal1Fin = 0 
+			  AND ColVal2Fin = 0 
+			  AND ColVal3Fin = 0
+			  AND ColVal4Fin = 0;
+		
+		-- BARRER LA INFORMACION FINAL PARA INSERTARLA EN LA TABLA FINAL.
+		FOREACH 
+			
+			SELECT MoraFin,ColVal1Fin,ColVal2Fin,ColVal3Fin ,ColVal4Fin
+			INTO sMora,iCtesTelValElec,iCtesTelValSinElec,iCtesTelInvElec,iCtesSinDats
+			FROM tmp_totalesmora4
+			ORDER BY MoraFin ASC
+			
+			INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOSEXCELNEC1 (Mora,CtesTelValElec,CtesTelValSinElec,CtesTelInvElec,CtesSinDats)
+			VALUES(sMora,iCtesTelValElec,iCtesTelValSinElec,iCtesTelInvElec,iCtesSinDats);					
+			
+		END FOREACH
+		
+		--SE OBTIENEN LOS TOTALIZADOS DE TODAS LAS COLUMNAS.
+		SELECT SUM(ColVal1Fin),SUM(ColVal2Fin),SUM(ColVal3Fin),SUM(ColVal4Fin)
+		INTO iCtesTelValElecTot,iCtesTelValSinElecTot,iCtesTelInvElecTot,iCtesSinDatsTot
+		FROM tmp_totalesmora4;		
+		
+		--SE INSERTAN LOS TOTALES DE CADA COLUMNA EN LA TABLA DE ENCABEZADOS.
+		INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOSEXCELNEC1 (Mora,CtesTelValElec,CtesTelValSinElec,CtesTelInvElec,CtesSinDats)
+		VALUES("Total",iCtesTelValElecTot,iCtesTelValSinElecTot,iCtesTelInvElecTot,iCtesSinDatsTot);		
+		
+		--SE BORRAN LAS TABLAS TEMPORALES SI EXISTEN.
+		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmora" AND dbsname= "bdicobranza"  AND partnum >1048577) THEN					
+			DROP TABLE tmp_totalesmora;
+		END IF;
+		
+		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmora2" AND dbsname= "bdicobranza"  AND partnum >1048577) THEN
+			DROP TABLE tmp_totalesmora2;
+		END IF;
+		
+		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmora3" AND dbsname= "bdicobranza"  AND partnum >1048577) THEN
+			DROP TABLE tmp_totalesmora3;
+		END IF;
+		
+		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmora4" AND dbsname= "bdicobranza"  AND partnum >1048577) THEN
+			DROP TABLE tmp_totalesmora4;
+		END IF;
+		
+		--SE OBTIENE EL NOMBRE DEL ARCHIVO.
+		SELECT valor 
+		INTO cNombreArchivo
+		FROM bdicobranza:"informix".cb_param 
+		WHERE cod_param = 70;
+		
+		--SE OBTIENE LA RUTA DONDE SE GENERARA EL ARCHIVO.
+		SELECT valor_alfabetico
+		INTO cRuta
+		FROM bdicobranza:"informix".cb_param_campania
+		WHERE tipo_campania = 11
+			AND grupo_parametro = "RUTAS" 
+			AND num_parametro = 1;
+			 
+		LET cNombreArchivo = TRIM(cNombreArchivo)||YEAR(dtFechaHoy)||LPAD(MONTH(dtFechaHoy),2,0)||LPAD(DAY(dtFechaHoy),2,0);
+		LET cConsulta = "SELECT Mora,CtesTelValElec,CtesTelValSinElec,CtesTelInvElec,CtesSinDats FROM bdicobranza:'informix'.TMP_ENCABEZADOSEXCELNEC1";		
+		LET cSql = '';
+		LET cSql = 'echo "UNLOAD TO ' ||TRIM(cRuta)||TRIM(cNombreArchivo)||'.xls'|| ' DELIMITER '|| '''	'''||' '||TRIM(cConsulta)||'" > '|| TRIM(cRuta) ||'query1.sql';
+		SYSTEM TRIM(cSql);
+		
+		LET cSql = '';
+		LET cSql = "dbaccess bdicobranza " ||TRIM(cRuta)||'query1.sql';
+		SYSTEM cSql;
+		
+		LET cSql = '';
+		LET cSQL = "rm " ||TRIM(cRuta)||'query1.sql';		
+		SYSTEM cSql; 
+		
+		IF cTabla = "S" THEN
+			DROP TABLE bdicobranza:"informix".TMP_ENCABEZADOSEXCELNEC1;
+		END IF;
+		
+		LET cMensajeRet = TRIM(cNombreArchivo)||'.xls';	
+		
+		CALL bdicobranza:"informix".sp_inserta_bitacora_cob(v_empresa, cProceso, cCodRet, cMensajeRet, '03') RETURNING vvcCod_ret;
+		
+		RETURN cCodRet, cMensajeRet;
+		
+	END;
+END PROCEDURE
+DOCUMENT
+'DESCRIPCION: Proceso para obtener el detalle de cartera vencida vs. datos registrados.', 
+'AUTOR: Guadalupe Payan',
+'FECHA: Octubre 2012',
+'BD    : BDICOBRANZA',
+'VERSION: 20121026.1126';
+
+CREATE PROCEDURE "informix".sp_repcob_telvalcftl()
+	RETURNING
+		CHAR(6) 		AS COD_RET,
+		CHAR(80)		AS MENSAJE_RET;		
+		
+		-- DECLARACIONES
+		DEFINE iSqlErr						INTEGER;
+		DEFINE iIsamErr						INTEGER;
+		DEFINE cCodRet,vvcCod_ret	CHAR(6);
+		DEFINE cMensajeRet					CHAR(80);		
+		DEFINE sMaxMora 					SMALLINT;
+		DEFINE sCiclo	 					SMALLINT;		
+		DEFINE cNombreArchivo	  			CHAR(80); 
+		DEFINE cConsulta		  			CHAR(2200);
+		DEFINE cSql           				CHAR(1024);
+		DEFINE cTabla		      			CHAR(1); 
+		DEFINE cRuta		      			CHAR(80);   
+		DEFINE iCtesTelCelCasVal			INTEGER;
+		DEFINE iCtesTelCelValTelCasInv		INTEGER;
+		DEFINE iCtesTelCasValCelInv			INTEGER;
+		DEFINE iCtesTelsInvs				INTEGER;
+		DEFINE sMora						SMALLINT;		
+		DEFINE iBandera						INTEGER;		
+		DEFINE dtFechaHoy 					DATE;		
+		DEFINE dtFechaCorteIniCte			DATE;
+		DEFINE dtFechaCorteFinCte			DATE;		
+		DEFINE iCtesTelCelCasValTot			INTEGER;
+		DEFINE iCtesTelCelValTelCasInvTot	INTEGER;
+		DEFINE iCtesTelCasValCelInvTot		INTEGER;
+		DEFINE iCtesTelsInvsTot				INTEGER;
+		DEFINE v_empresa            CHAR(3);
+		DEFINE cProceso             CHAR(4);
+		DEFINE dtFechaMax       DATE;
+				
+		-- INICIALIZACIONES
+		LET iSqlErr            	 		= 0;
+		LET iIsamErr           			= 0;
+		LET cCodRet            			= "000000";
+		LET cMensajeRet					= "Proceso exitoso";
+		LET sMaxMora 					= 0;
+		LET sCiclo	 					= 0;
+		LET cNombreArchivo 				= "";
+		LET cConsulta	 				= "";
+		LET cSql		 				= "";
+		LET cTabla		 				= "N";
+		LET cRuta		 				= "";
+		LET iCtesTelCelCasVal			= 0;
+		LET iCtesTelCelValTelCasInv		= 0;
+		LET iCtesTelCasValCelInv		= 0;
+		LET iCtesTelsInvs	 			= 0;
+		LET sMora		 				= 0;		
+		LET iBandera		 			= 0;		
+		LET dtFechaHoy          		= "";		
+		LET dtFechaCorteIniCte     		= "";
+		LET dtFechaCorteFinCte     		= "";		
+		LET iCtesTelCelCasValTot		= 0;
+		LET iCtesTelCelValTelCasInvTot	= 0;
+		LET iCtesTelCasValCelInvTot		= 0;
+		LET iCtesTelsInvsTot 			= 0;			
+	  LET v_empresa = '001';
+		LET cProceso = '0071';
+    LET vvcCod_ret = '';
+    LET dtFechaMax = date(1);
+    
+	BEGIN 
+		ON EXCEPTION SET iSqlErr, iIsamErr, cMensajeRet
+			IF iSqlErr != 0 THEN
+				LET cCodRet = iSqlErr;	
+				LET cMensajeRet = cMensajeRet;
+								
+				--SE BORRAN LAS TABLAS TEMPORALES SI EXISTEN.
+				IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmoratel" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+					DROP  TABLE tmp_totalesmoratel;
+				END IF;
+				
+				IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_tipotel" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+					DROP  TABLE tmp_tipotel;
+				END IF;
+				
+				IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmoratel2" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+					DROP  TABLE tmp_totalesmoratel2;
+				END IF;
+				
+				IF cTabla = "S" THEN
+					DROP TABLE bdicobranza:"informix".TMP_ENCABEZADOSEXCELNEC2;
+				END IF;
+			
+      CALL bdicobranza:"informix".sp_inserta_bitacora_cob(v_empresa, cProceso, cCodRet, cMensajeRet, '02')
+        RETURNING vvcCod_ret;
+      	
+			RETURN cCodRet, cMensajeRet;
+			
+		   END IF;
+		END EXCEPTION;
+		
+		SET ISOLATION TO DIRTY READ;
+		SET LOCK MODE TO WAIT 3;
+		
+    CALL bdicobranza:"informix".sp_inserta_bitacora_cob(v_empresa, cProceso, cCodRet, cMensajeRet, '01') RETURNING vvcCod_ret;
+		-- SET DEBUG FILE TO "/respaldosbd/Guadalupe/sp_repcob_telvalcftl.out";
+		-- TRACE ON;
+		
+		--INICIALMENTE SE BORRAN LAS TABLAS TEMPORALES SI EXISTEN.
+		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmoratel" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+			DROP TABLE tmp_totalesmoratel;
+		END IF;
+		
+		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_tipotel" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+			DROP TABLE tmp_tipotel;
+		END IF;
+		
+		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmoratel2" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+			DROP TABLE tmp_totalesmoratel2;
+		END IF;
+		
+		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "TMP_ENCABEZADOSEXCELNEC2" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+			DROP TABLE bdicobranza:"informix".TMP_ENCABEZADOSEXCELNEC2;
+		END IF;
+
+		
+		--DETERMINACION DE FECHA CORTE:
+		SELECT fecha_hoy
+		INTO dtFechaHoy
+		FROM bdicred:"informix".sd_fechas
+		WHERE empresa = v_empresa ;
+		
+		--LET dtFechaHoy = mdy('11','22','2012');    ----TEST MACF
+		
+		SELECT max(fecha_insert) INTO dtFechaMax 
+      FROM bdicobranza:"informix".cb_cat_directorio_cte
+     WHERE tipo_cobranza = 'A';
+		
+				
+		--SE OBTIENE LA MAXIMA MORA.	
+		SELECT total
+		INTO sMaxMora
+		FROM TABLE(MULTISET(
+							SELECT LIMIT 1 MAX(NVL(pago_venc,0)) AS total							
+							FROM bdicobranza:"informix".cb_cat_directorio_cte 
+							--WHERE fecha_insert >= dtFechaCorteIniCte AND fecha_insert <= dtFechaCorteFinCte
+              WHERE fecha_insert = dtFechaMax		
+								AND pago_venc > 0
+                and tipo_cobranza = 'A' --MACF  
+							GROUP BY numcte
+							ORDER BY 1 DESC
+							));
+		
+		--SE VALIDA SI EXISTEN MORAS.
+		IF NVL(sMaxMora,0) = 0 THEN 
+			LET cCodRet = '000001';
+			LET cMensajeRet = 'Por el momento no existen moras';
+			--SE BORRAN LAS TABLAS TEMPORALES SI EXISTEN.
+			IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmoratel" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+				DROP TABLE tmp_totalesmoratel;
+			END IF;
+			
+			IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_tipotel" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+				DROP TABLE tmp_tipotel;
+			END IF;
+			
+			IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmoratel2" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+				DROP TABLE tmp_totalesmoratel2;
+			END IF;
+			
+			-- Si no existen moras lo registra en la bitácora pero termina normal.
+			CALL bdicobranza:"informix".sp_inserta_bitacora_cob(v_empresa, cProceso, cCodRet, cMensajeRet, '02')
+        RETURNING vvcCod_ret;
+		
+			LET cCodRet = "000000";
+		  LET cMensajeRet	= "Proceso exitoso";
+			
+			RETURN cCodRet, cMensajeRet;
+		END IF;
+		
+		--SE OBTIENE EL TOTAL DE MORAS POR CLIENTE.
+		SELECT MAX(NVL(pago_venc,0)) AS total, NVL(numcte,'') AS numcte		
+		FROM bdicobranza:"informix".cb_cat_directorio_cte 
+		--WHERE fecha_insert >= dtFechaCorteIniCte AND fecha_insert <= dtFechaCorteFinCte
+		WHERE fecha_insert = dtFechaMax
+			AND pago_venc > 0
+      and tipo_cobranza = 'A'			
+		GROUP BY numcte
+		ORDER BY total ASC
+		INTO TEMP tmp_totalesmoratel WITH NO LOG;	
+		
+		--SE OBTIENE EL TIPO DE TELEFONO YA VALIDADO POR CLIENTE.															
+		/*SELECT a.numcte AS numerocte,
+			MAX(CASE WHEN NVL(b.tipo_tel,0) = 1 AND NVL(b.status_tel,'') = 'A' AND NVL(b.cofetel,'') = 'V' THEN 1 ELSE 0 END) AS telefonocasa,
+			MAX(CASE WHEN NVL(b.tipo_tel,0) = 2 AND NVL(b.status_tel,'') = 'A' AND NVL(b.cofetel,'') = 'V' THEN 1 ELSE 0 END) AS telefonocelular
+		FROM bdicobranza:"informix".cb_cat_directorio_cte a 
+		LEFT OUTER JOIN bdinteg:"informix".si_telefonos_actual b ON (b.numcte = a.numcte)
+		WHERE  a.fecha_insert >= dtFechaCorteIniCte AND a.fecha_insert <= dtFechaCorteFinCte
+		AND a.pago_venc > 0	
+		and a.tipo_cobranza = 'A'   --MACF
+		GROUP BY 1
+		INTO TEMP tmp_tipotel WITH NO LOG;			
+		*/
+		
+		SELECT a.numcte AS numerocte,
+			MAX(CASE WHEN NVL(b.cofetel,'') = 'V' THEN 1 ELSE 0 END) AS telefonocasa,
+			MAX(CASE WHEN NVL(c.cofetel,'') = 'V' THEN 1 ELSE 0 END) AS telefonocelular
+		FROM bdicobranza:"informix".cb_cat_directorio_cte a 
+                                              		LEFT OUTER JOIN bdinteg:"informix".si_telefonos_actual b ON (b.numcte = a.numcte)
+                                              		LEFT OUTER JOIN bdinteg:"informix".si_telefonos_actual c ON (c.numcte = a.numcte)
+		--WHERE  a.fecha_insert >= dtFechaCorteIniCte AND a.fecha_insert <= dtFechaCorteFinCte
+		WHERE  a.fecha_insert = dtFechaMax
+		AND a.pago_venc > 0	
+		and a.tipo_cobranza = 'A'   --MACF
+		and b.tipo_tel = 1 and b.status_tel = 'A' 
+		and c.tipo_tel = 2 and c.status_tel = 'A'
+		GROUP BY 1
+		INTO TEMP tmp_tipotel WITH NO LOG;
+		
+		FOR sCiclo = 1 TO sMaxMora				
+			IF iBandera = 0 THEN 	
+				--SE OBTIENE EL TOTALIZADO POR MORA Y SE CREA LA TEMPORAL PARA GUARDAR LA INFORMACION.
+				SELECT sCiclo AS MoraTmp,
+					NVL(SUM(CASE WHEN a2.telefonocasa = 1 AND a2.telefonocelular = 1  THEN 1 ELSE 0 END),0) AS CtesTelCelCasValTmp,
+					NVL(SUM(CASE WHEN a2.telefonocasa = 0 AND a2.telefonocelular = 1  THEN 1 ELSE 0 END),0) AS CtesTelCelValTelCasInvTmp,
+					NVL(SUM(CASE WHEN a2.telefonocasa = 1 AND a2.telefonocelular = 0  THEN 1 ELSE 0 END),0) AS CtesTelCasValCelInvTmp,
+					NVL(SUM(CASE WHEN a2.telefonocasa = 0 AND a2.telefonocelular = 0  THEN 1 ELSE 0 END),0) AS CtesTelsInvsTmp
+				FROM tmp_totalesmoratel a,
+					 tmp_tipotel a2					 					 
+				WHERE a2.numerocte = a.numcte														
+					AND a.total = sCiclo				
+				INTO TEMP tmp_totalesmoratel2 WITH NO LOG;					
+				LET iBandera = 1;				
+			ELSE
+				--SE OBTIENE EL TOTALIZADO POR MORA.
+				INSERT INTO tmp_totalesmoratel2		
+				SELECT sCiclo AS MoraTmp,
+					NVL(SUM(CASE WHEN a2.telefonocasa = 1 AND a2.telefonocelular = 1  THEN 1 ELSE 0 END),0) AS CtesTelCelCasValTmp,
+					NVL(SUM(CASE WHEN a2.telefonocasa = 0 AND a2.telefonocelular = 1  THEN 1 ELSE 0 END),0) AS CtesTelCelValTelCasInvTmp,
+					NVL(SUM(CASE WHEN a2.telefonocasa = 1 AND a2.telefonocelular = 0  THEN 1 ELSE 0 END),0) AS CtesTelCasValCelInvTmp,
+					NVL(SUM(CASE WHEN a2.telefonocasa = 0 AND a2.telefonocelular = 0  THEN 1 ELSE 0 END),0) AS CtesTelsInvsTmp
+				FROM tmp_totalesmoratel a,
+					 tmp_tipotel a2					 					 
+				WHERE a2.numerocte = a.numcte														
+					AND a.total = sCiclo;				
+			END IF  
+		END FOR	
+		
+		--SE CREA LA TEMPORAL PARA INSERTAR LOS ENCABEZADOS QUE LLEVARA EL REPORTE.
+		CREATE TABLE bdicobranza:"informix".TMP_ENCABEZADOSEXCELNEC2(
+																		Mora 					CHAR(10),
+																		CtesTelCelCasVal		CHAR(80),
+																		CtesTelCelValTelCasInv 	CHAR(80),
+																		CtesTelCasValCelInv 	CHAR(80),
+																		CtesTelsInvs 			CHAR(80)
+																	);		
+		
+		LET cTabla = "S";
+
+		--SE AGREGA ENCABEZADO AL REPORTE PARA EL ARCHIVO EXCEL.
+		INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOSEXCELNEC2 (Mora,CtesTelCelCasVal,CtesTelCelValTelCasInv,CtesTelCasValCelInv,CtesTelsInvs)
+		VALUES("Mora","Clientes con telefono celular y telefono de casa validos COFETEL","Clientes con telefono celular valido y telefono de casa invalido COFETEL","Clientes con telefono casa valido y telefono celular invalido COFETEL","Clientes sin datos o telefonos invalidos" );						
+		
+		--SE ELIMINAN LOS REGISTROS DONDE TODOS LOS TOTALES POR MORA SEAN CEROS YA QUE ESA INFORMACION NO SERA UTIL EN EL ARCHIVO.		
+		DELETE tmp_totalesmoratel2
+		WHERE CtesTelCelCasValTmp 			= 0
+			AND CtesTelCelValTelCasInvTmp 	= 0
+			AND CtesTelCasValCelInvTmp 		= 0
+			AND CtesTelsInvsTmp				= 0;
+				
+		FOREACH 
+			--BARRE LA INFORMACION FINAL PARA INSERTARLA EN LA TABLA FINAL.
+			SELECT MoraTmp,CtesTelCelCasValTmp,CtesTelCelValTelCasInvTmp,CtesTelCasValCelInvTmp,CtesTelsInvsTmp
+			INTO sMora,iCtesTelCelCasVal,iCtesTelCelValTelCasInv,iCtesTelCasValCelInv,iCtesTelsInvs
+			FROM tmp_totalesmoratel2
+			ORDER BY MoraTmp ASC
+			--SE INSERTA EN LA TABLA FINAL.
+			INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOSEXCELNEC2 (Mora,CtesTelCelCasVal,CtesTelCelValTelCasInv,CtesTelCasValCelInv,CtesTelsInvs)
+			VALUES(sMora,iCtesTelCelCasVal,iCtesTelCelValTelCasInv,iCtesTelCasValCelInv,iCtesTelsInvs);					
+		END FOREACH;
+		
+		--SE OBTIENEN LOS TOTALIZADOS DE TODAS LAS COLUMNAS.
+		SELECT SUM(CtesTelCelCasValTmp),SUM(CtesTelCelValTelCasInvTmp),SUM(CtesTelCasValCelInvTmp),SUM(CtesTelsInvsTmp)
+		INTO iCtesTelCelCasValTot,iCtesTelCelValTelCasInvTot,iCtesTelCasValCelInvTot,iCtesTelsInvsTot
+		FROM tmp_totalesmoratel2;
+				
+		--SE INSERTAN LOS TOTALES DE CADA COLUMNA EN LA TABLA DE ENCABEZADOS.
+		INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOSEXCELNEC2 (Mora,CtesTelCelCasVal,CtesTelCelValTelCasInv,CtesTelCasValCelInv,CtesTelsInvs)
+		VALUES("Total",iCtesTelCelCasValTot,iCtesTelCelValTelCasInvTot,iCtesTelCasValCelInvTot,iCtesTelsInvsTot);	
+		
+		--SE BORRAN LAS TABLAS TEMPORALES SI EXISTEN.
+		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmoratel" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+			DROP TABLE tmp_totalesmoratel;
+		END IF;
+		
+		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_tipotel" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+			DROP TABLE tmp_tipotel;
+		END IF;
+		
+		IF EXISTS (SELECT tabname  FROM sysmaster:systabnames WHERE tabname = "tmp_totalesmoratel2" AND dbsname= "bdicobranza" AND partnum >1048577) THEN
+			DROP TABLE tmp_totalesmoratel2;
+		END IF;
+		--SE OBTIENE EL NOMBRE DEL ARCHIVO.
+		SELECT valor 
+		INTO cNombreArchivo
+		FROM bdicobranza:"informix".cb_param 
+		WHERE cod_param = 71;
+		
+		--SE OBTINE LA RUTA DONDE SE GENERARA EL ARCHIVO.
+		SELECT valor_alfabetico
+		INTO cRuta
+		FROM bdicobranza:"informix".cb_param_campania
+		WHERE tipo_campania = 11
+			AND grupo_parametro = "RUTAS" 
+			AND num_parametro = 1;
+			 
+		LET cNombreArchivo = TRIM(cNombreArchivo)||YEAR(dtFechaHoy)||LPAD(MONTH(dtFechaHoy),2,0)||LPAD(DAY(dtFechaHoy),2,0);
+		LET cConsulta = "SELECT Mora,CtesTelCelCasVal,CtesTelCelValTelCasInv,CtesTelCasValCelInv,CtesTelsInvs FROM bdicobranza:'informix'.TMP_ENCABEZADOSEXCELNEC2";		
+		LET cSql = '';
+		LET cSql = 'echo "UNLOAD TO ' ||TRIM(cRuta)||TRIM(cNombreArchivo)||'.xls'|| ' DELIMITER '|| '''	'''||' '||TRIM(cConsulta)||'" > '|| TRIM(cRuta) ||'query1.sql';
+		SYSTEM TRIM(cSql);
+		
+		LET cSql = '';
+		LET cSql = "dbaccess bdicobranza " ||TRIM(cRuta)||'query1.sql';
+		SYSTEM cSql;
+		
+		LET cSql = '';
+		LET cSQL = "rm " ||TRIM(cRuta)||'query1.sql';		
+		SYSTEM cSql; 
+		
+		IF cTabla = "S" THEN
+			DROP TABLE bdicobranza:"informix".TMP_ENCABEZADOSEXCELNEC2;
+		END IF;
+		
+		LET cMensajeRet = TRIM(cNombreArchivo)||'.xls';
+    
+    CALL bdicobranza:"informix".sp_inserta_bitacora_cob(v_empresa, cProceso, cCodRet, cMensajeRet, '03') RETURNING vvcCod_ret;			
+		
+		RETURN cCodRet, cMensajeRet;
+		
+	END;
+END PROCEDURE
+DOCUMENT
+'DESCRIPCION: Proceso para obtener el detalle de teléfonos validos por COFETEL de la cartera vencida.', 
+'AUTOR: Guadalupe Payan',
+'FECHA: Octubre 2012',
+'BD    : BDICOBRANZA',
+'VERSION: 20121031.1053';
+
+CREATE PROCEDURE "informix".sp_formulario_liquidez(pProcAll char(1), 
+                                                   pProcPF  char(1), 
+                                                   pProcPM  char(1),
+                                                   pProcColocRev   char(1), 
+                                                   pProcColocNoRev char(1) )
+  
+RETURNING char(6), char(80);
+DEFINE vCodUdi, vClase, v_status_cred, v_totalero       CHAR(2);
+DEFINE v_empresa                                        CHAR(3);
+DEFINE cproceso                                         CHAR(4);
+DEFINE scod_ret                                         char(5);
+DEFINE cCod_ret, vvcCod_ret                             CHAR(6);
+DEFINE cfecha_dia, cfecha_dia_ant                       CHAR(8);
+DEFINE cfecha_corte, cFechaAnt                          CHAR(10);
+DEFINE vnumcte, vcuenta, vnum_credito, vnum_credito_2   CHAR(20);
+DEFINE vcuenta_tdc, vcuenta_pp                          CHAR(20);
+DEFINE cArch_captacion_pf1, cArch_captacion_pf2         CHAR(50);
+DEFINE cArch_captacion_pf3, cArch_captacion_pm          CHAR(50);
+DEFINE cArch_colocacion_rev, cArch_colocacion_norev     CHAR(50);
+DEFINE error_info, cMensaje 			                      CHAR(80);
+DEFINE cRuta                                            CHAR(100);
+DEFINE cConsulta, cSql		  	                          CHAR(1000);   
+DEFINE cSql_1        		                                CHAR(300);
+
+DEFINE vnum_ctasvista, vnum_ctasplazo                   INTEGER; 
+DEFINE vnum_ctasvista_inv, vnum_ctasTDC, vcomienza      INTEGER;
+DEFINE vnum_ctasPP, vnum_productos, i, iRegistros       INTEGER; 
+DEFINE vUDIS_MAXIMO, sql_err, isam_err, iParamRuta      INTEGER;
+DEFINE iArch_captacion_pf1, iArch_captacion_pf2         INTEGER;   
+DEFINE iArch_captacion_pf3, iArch_captacion_pm          INTEGER;
+DEFINE iArch_colocacion_rev, iArch_colocacion_norev     INTEGER;
+
+DEFINE vTpCambioUdi                                     DECIMAL(14,6);
+DEFINE vsaldo_ctasplazo, vsaldo_ctasvista               DECIMAL(18,2); 
+DEFINE vsaldo_total, vpagominimo                        DECIMAL(18,2);
+DEFINE vpago_nogenerar_int, vpago_exigible_mensual      DECIMAL(18,2);
+DEFINE vpagoprincipal, vpagoaccesorios                  DECIMAL(18,2); 
+DEFINE vsaldo_ctasvista_inv, dPendMesAnteEIntMora       DECIMAL(18,2);
+DEFINE v_sdo_cap_insoluto, v_monto_financiado, v_monto_vencido, v_mto_venc_trasp  DECIMAL(18,2); 
+DEFINE v_sdo_moratorio, v_int_vencido,  v_iva_int_vencido, v_iva_moratorio  DECIMAL(18,2);  
+DEFINE v_iva                                               DECIMAL(5,3);
+
+
+DEFINE dtFechaHoy, dtFechaIniMes, dfecha_corte 	        DATE;
+DEFINE dfecha_corte_12, dfecha_ant, dFecha_apertura, dFecha_compra     DATE;
+DEFINE v_comportamiento                                 SMALLINT;
+
+LET dtFechaHoy	= DATE(1);          LET dfecha_corte = DATE(1);       LET dfecha_ant = DATE(1);         LET dtFechaIniMes = DATE(1);
+LET dFecha_apertura = DATE(1);      LET dFecha_compra = DATE(1);
+LET vUDIS_MAXIMO = 400000;          LET iParamRuta   = 20;            LET iArch_captacion_pf1  = 51;    LET iArch_captacion_pf2  = 60; 
+LET iArch_captacion_pf3 = 61;       LET iArch_captacion_pm   = 52;    LET iArch_colocacion_rev = 53;    LET iArch_colocacion_norev=54;  
+LET vcomienza = -1;                 LET v_comportamiento = 0;
+LET sql_err = 0;                    LET isam_err     = 0;             LET vnum_productos = 0;           LET vpagominimo  = 0.0; 
+LET vpago_exigible_mensual = 0.00;  LET vpagoaccesorios = 0.00;       LET i = 0;                        LET dPendMesAnteEIntMora = 0;
+LET vnum_ctasplazo = 0;             LET vnum_ctasTDC = 0;             LET vnum_ctasPP = 0;              LET iRegistros = 0;            
+LET vnum_ctasvista_inv = 0;         LET vsaldo_ctasvista_inv = 0;     LET vsaldo_ctasplazo = 0;         LET vnum_ctasvista = 0; 
+LET vsaldo_ctasvista = 0;
+LET cCod_ret     = '000000';        LET v_empresa     = '001';        LET cMensaje= 'PROCESO EXITOSO';  LET error_info   = '';
+LET vcuenta_tdc = '';               LET vcuenta_pp = '';              LET cproceso    = '0120';         LET vnumcte = '';
+LET vnum_credito = '';              LET vnum_credito_2 = '';          LET cArch_captacion_pf1 = '';     LET cArch_captacion_pf2 = '';
+LET cArch_captacion_pf3 = '';       LET cArch_captacion_pm = '';      LET cArch_colocacion_rev = '';    LET cArch_colocacion_norev = '';  
+LET cfecha_dia = '';                LET cConsulta = "";               LET cSql = "";                    LET vvcCod_ret = '';
+LET cfecha_dia_ant = '';            LET cRuta = '';                   LET cFechaAnt = '';               LET vCodUdi = '';
+LET vClase = '';                    LET scod_ret = '';                LET vTpCambioUdi = 0;             LET cSql_1 = '';
+LET cfecha_corte = '';              LET v_status_cred = '';           LET v_totalero = '';   
+LET v_sdo_cap_insoluto = 0;         LET v_monto_financiado = 0;       LET v_monto_vencido = 0;          LET v_mto_venc_trasp = 0; 
+LET v_sdo_moratorio = 0;            LET v_int_vencido = 0;            LET v_iva_int_vencido = 0;        LET v_iva = 0;  
+LET v_iva_moratorio = 0;
+
+
+  --SET DEBUG FILE TO '/informix/macf/sp_formulario_liquidez.trc';
+  --TRACE ON;
+
+ BEGIN
+        
+        ON EXCEPTION SET sql_err, isam_err, error_info
+          LET cCod_ret = sql_err;
+          LET cMensaje = error_info || 'numcte: ' || nvl(vnumcte,'') || ' - num_credito: ' || nvl(vnum_credito,'') ;
+          CALL bdicobranza:"informix".sp_inserta_bitacora_cob(v_empresa, cProceso, cCod_ret, cMensaje, '02')
+          RETURNING vvcCod_ret;
+          RETURN cCod_ret, cMensaje;
+    END EXCEPTION;
+      
+    IF pProcAll = '' AND pProcPF = '' AND pProcPM = '' AND pProcColocRev = '' AND pProcColocNoRev = '' THEN
+       LET cMensaje = 'Debe informar al menos un parámetro de ejecución.';
+       LET cCod_ret = '000100';
+       RETURN cCod_ret, cMensaje; 
+    END IF; 
+   
+    CALL bdicobranza:"informix".sp_inserta_bitacora_cob(v_empresa, cProceso, cCod_ret, cMensaje, '01') RETURNING vvcCod_ret;
+    SET ISOLATION TO dirty READ;
+
+    SELECT NVL(fecha_hoy ,today) INTO dtFechaHoy
+      FROM bdicred:"informix".sd_fechas
+     WHERE empresa = '001';	
+    
+    --LET dtFechaHoy = mdy('04','02','2013'); --  TEST
+
+    LET dfecha_ant = mdy(month(dtFechaHoy),1,year(dtFechaHoy)) - 1 units day;
+
+    --Obtener Fecha dia seccionada para crear nombres de archivos
+    SELECT NVL(pri_dia_mes ,today) INTO dtFechaIniMes
+      FROM bdicred:"informix".sd_fechas
+     WHERE empresa = '001'; 
+   
+    LET cfecha_dia = year(dtFechaIniMes) || lpad(month(dtFechaIniMes),2,0) || lpad(day(dtFechaIniMes),2,0);
+    
+    --Obtiene nombres de archivos
+    SELECT valor  INTO cRuta
+      FROM bdicobranza:cb_param
+     WHERE empresa = v_empresa
+       AND cod_param = iParamRuta;
+    
+
+    SELECT valor  INTO cArch_captacion_pf1
+      FROM bdicobranza:cb_param  WHERE empresa = v_empresa
+       AND cod_param = iArch_captacion_pf1;
+
+    SELECT valor  INTO cArch_captacion_pf2
+      FROM bdicobranza:cb_param  WHERE empresa = v_empresa
+       AND cod_param = iArch_captacion_pf2;
+
+    SELECT valor  INTO cArch_captacion_pf3
+      FROM bdicobranza:cb_param  WHERE empresa = v_empresa
+       AND cod_param = iArch_captacion_pf3;
+
+    SELECT valor  INTO cArch_captacion_pm
+      FROM bdicobranza:cb_param  WHERE empresa = v_empresa
+       AND cod_param = iArch_captacion_pm;
+
+    SELECT valor  INTO cArch_colocacion_rev
+      FROM bdicobranza:cb_param  WHERE empresa = v_empresa
+       AND cod_param = iArch_colocacion_rev;
+       
+    SELECT valor  INTO cArch_colocacion_norev
+      FROM bdicobranza:cb_param  WHERE empresa = v_empresa
+       AND cod_param = iArch_colocacion_norev;
+
+    LET cArch_captacion_pf1 = trim(SUBSTR(cArch_captacion_pf1,1,LENGTH(cArch_captacion_pf1)) || cfecha_dia || '.txt');
+    LET cArch_captacion_pf2 = trim(SUBSTR(cArch_captacion_pf2,1,LENGTH(cArch_captacion_pf2)) || cfecha_dia || '.txt');
+    LET cArch_captacion_pf3 = trim(SUBSTR(cArch_captacion_pf3,1,LENGTH(cArch_captacion_pf3)) || cfecha_dia || '.txt');
+    LET cArch_captacion_pm = trim(SUBSTR(cArch_captacion_pm,1,LENGTH(cArch_captacion_pm)) || cfecha_dia || '.txt');
+    LET cArch_colocacion_rev = trim(SUBSTR(cArch_colocacion_rev,1,LENGTH(cArch_colocacion_rev)) || cfecha_dia || '.txt');
+    LET cArch_colocacion_norev = trim(SUBSTR(cArch_colocacion_norev,1,LENGTH(cArch_colocacion_norev)) || cfecha_dia || '.txt');
+    
+   -------------------------------------------- CAPTACION PERSONA FÍSICA ------------------------------------------------------------------
+    IF pProcAll = 'S' OR pProcPF = 'S' THEN
+
+       --- PROTEGIDO? Obtener el valor de la UDI
+       SELECT TRIM(valor) INTO vCodUdi
+         FROM bdinteg:"informix".si_param
+        WHERE empresa = v_empresa
+          AND cod_param = 16;
+
+       SELECT TRIM(valor) INTO vClase
+         FROM bdicred:"informix".sd_param
+        WHERE empresa = v_empresa
+          AND cod_param = "336";
+ 
+       EXECUTE PROCEDURE bdinteg:"informix".valor_divisa_pesos(v_empresa, dfecha_ant, vCodUdi,vClase,'0') INTO scod_ret,vTpCambioUdi;
+
+       IF nvl(vTpCambioUdi,0) <= 0 THEN
+          LET cCod_ret = '000100';
+          LET cMensaje = 'VALOR DE LA UDI EN CERO.';
+          RETURN cCod_ret, cMensaje;   
+       END IF;
+
+       -- Cuentas de TDC
+       select numcte, count(*) cantidad
+         from bdicred:sd_maecredcont
+        where empresa = '001'
+          and fecha = dfecha_ant
+        group by numcte
+         into temp creditosTDC with no log;
+                   
+       create unique index inx_creditosTDC on creditosTDC(numcte);
+       update statistics medium for table creditosTDC;
+
+       -- Cuentas de PP
+        select numcte, count(*) cantidad
+          from bdicred:sd_maecredcontcrd
+         where empresa = '001'
+           and fecha = dfecha_ant
+           and num_credito not matches '6100*'
+         group by numcte
+          into temp creditosPP with no log;
+                   
+        create unique index inx_creditosPP on creditosPP(numcte);
+        update statistics medium for table creditosPP;
+
+        -- Cuentas vista_inv
+        select num_cte, capvig28,capvig29,capvig30,capvig31
+             from bdicheq:sc_maechq a,
+                  bdicheq:sc_sdodiarioc b
+            where a.cuenta = b.cuenta
+              and a.fecha_proceso >= dfecha_ant
+              and b.aniomes = lpad(year(dfecha_ant),4,0) || lpad(month(dfecha_ant),2,0)
+              and a.producto = '1100'  -- Inversión creciente
+             into temp cuentasInv with no log;      
+    
+         create index inx_cuentasInv on cuentasInv(num_cte);
+         update statistics medium for table cuentasInv;
+
+         select  num_cte, nvl(sum(
+                case when day(dfecha_ant) = 30 then (case when capvig30 > 0 then 1 else 0 end)
+                     when day(dfecha_ant) = 31 then (case when capvig31 > 0 then 1 else 0 end)
+                     when day(dfecha_ant) = 29 then (case when capvig29 > 0 then 1 else 0 end)
+                     when day(dfecha_ant) = 28 then (case when capvig28 > 0 then 1 else 0 end)
+                     else 0
+                 end),0) cuentas, 
+                nvl(sum(
+                case when day(dfecha_ant) = 30 then (case when capvig30 > 0 then capvig30 else 0 end)
+                     when day(dfecha_ant) = 31 then (case when capvig31 > 0 then capvig31 else 0 end)
+                     when day(dfecha_ant) = 29 then (case when capvig29 > 0 then capvig29 else 0 end)
+                     when day(dfecha_ant) = 28 then (case when capvig28 > 0 then capvig28 else 0 end)
+                     else 0
+                 end),0) sumas
+         from cuentasInv
+         group by num_cte
+         into temp cuentasInv_res with no log;      
+    
+        create unique index inx_cuentasInv_res on cuentasInv_res(num_cte);
+        update statistics medium for table cuentasInv_res;
+
+       
+       SYSTEM 'echo "numcte|#Productos|#Cuentas_Vista|#Cuentas_Plazo|Saldo_Ctas_Vista|Saldo_Ctas_Plazo|Saldo_Total|Tarj_Cred|Prest_Pers|Transacc|Protegido"' || '> ' || SUBSTR(cRuta,1,LENGTH(cRuta)) || trim(cArch_captacion_pf1);
+             
+       FOREACH WITH HOLD
+
+            select num_cte, nvl(count(*),0), nvl(sum(
+                        case when day(dfecha_ant) = 30 then (case when capvig30 > 0 then capvig30 else 0 end)
+                             when day(dfecha_ant) = 31 then (case when capvig31 > 0 then capvig31 else 0 end)
+                             when day(dfecha_ant) = 29 then (case when capvig29 > 0 then capvig29 else 0 end)
+                             when day(dfecha_ant) = 28 then (case when capvig28 > 0 then capvig28 else 0 end)
+                             else 0
+                         end),0)
+              into vnumcte, vnum_ctasvista, vsaldo_ctasvista
+            from bdicheq:sc_maechq a,
+                 bdicheq:sc_sdodiarioc b
+            where a.cuenta = b.cuenta
+              and a.fecha_proceso >= dfecha_ant
+              and b.aniomes = lpad(year(dfecha_ant),4,0) || lpad(month(dfecha_ant),2,0)
+              and a.producto <> '1100'  
+            group by num_cte
+
+              IF vnum_ctasvista is null then LET vnum_ctasvista = 0; END IF;    
+              IF vsaldo_ctasvista is null then LET vsaldo_ctasvista = 0; END IF;
+              
+            -- agregar cuentas vista de inversion creciente
+               select nvl(cuentas,0), nvl(sumas,0)
+                 into vnum_ctasvista_inv, vsaldo_ctasvista_inv
+                 from cuentasInv_res    
+                where num_cte = vnumcte;
+  
+               IF vnum_ctasvista_inv is null then LET vnum_ctasvista_inv = 0; END IF;
+               IF vsaldo_ctasvista_inv is null then LET vsaldo_ctasvista_inv = 0; END IF;
+
+               LET vnum_ctasvista = vnum_ctasvista + vnum_ctasvista_inv;
+               LET vsaldo_ctasvista = vsaldo_ctasvista + vsaldo_ctasvista_inv;
+
+            -- cuentas plazo
+               SELECT nvl(count(*),0), nvl(sum(capital),0)
+                 into vnum_ctasplazo, vsaldo_ctasplazo
+                 FROM bdinvers:sv_maeinv s
+                WHERE num_cte = vnumcte
+                  AND fecha_venc >= dfecha_ant;
+                
+                IF vnum_ctasplazo is null then LET vnum_ctasplazo = 0; END IF;
+                IF vsaldo_ctasplazo is null then LET vsaldo_ctasplazo = 0; END IF;
+                
+            -- Cuentas de TDC
+               select nvl(cantidad,0)
+                 into vnum_ctasTDC
+                from creditosTDC
+                where numcte = vnumcte;
+  
+                IF vnum_ctasTDC is null then LET vnum_ctasTDC = 0; END IF;
+    
+            -- Cuentas de PP
+               select nvl(cantidad,0)
+                 into vnum_ctasPP
+                from creditosPP
+                where numcte = vnumcte;
+                
+                IF vnum_ctasPP is null then LET vnum_ctasPP = 0; END IF;
+                 
+                LET vnum_productos = vnum_ctasvista+vnum_ctasplazo+vnum_ctasTDC+vnum_ctasPP;
+
+            UPDATE "informix".cb_formulario_liquidez 
+               SET num_prods= vnum_productos, 
+                   num_ctasvista= vnum_ctasvista, 
+                   num_ctasplazo= vnum_ctasplazo, 
+                   saldo_ctasvista= vsaldo_ctasvista,
+                   saldo_ctasplazo= vsaldo_ctasplazo, 
+                   saldo_total= vsaldo_ctasvista+vsaldo_ctasplazo,
+                   tarjeta_credito=  vnum_ctasTDC, 
+                   prestamo_personal= vnum_ctasPP,  --transaccional='', protegido='', status_cta='',
+                   fecha_insert = dfecha_ant
+             WHERE numcte = vnumcte;
+
+            LET iRegistros = dbinfo("sqlca.sqlerrd2");
+          
+            IF iRegistros = 0 THEN
+                INSERT INTO "informix".cb_formulario_liquidez(numcte, num_prods, num_ctasvista, num_ctasplazo, saldo_ctasvista, saldo_ctasplazo, saldo_total, tarjeta_credito, prestamo_personal, fecha_insert) 
+                VALUES(vnumcte, vnum_productos, vnum_ctasvista, vnum_ctasplazo, vsaldo_ctasvista, vsaldo_ctasplazo, vsaldo_ctasvista+vsaldo_ctasplazo, vnum_ctasTDC, vnum_ctasPP, dfecha_ant);
+            END IF;
+
+       END FOREACH;
+          
+      --LET cFechaAnt = lpad(month(dfecha_ant),2,0) || '/' || lpad(day(dfecha_ant),2,0) || '/' || year(dfecha_ant);
+      
+      ---- AGREGAR DATOS A ARCHIVO liq_captacion_pf_1_aaaammdd.txt        
+             LET cConsulta = 'SELECT {+INDEX(bdicobranza:cb_formulario_liquidez idx_cb_formulario_liquidez)} ' || 
+                             'trim(numcte), nvl(num_prods,0), nvl(num_ctasvista,0), nvl(num_ctasplazo,0), nvl(saldo_ctasvista,0), nvl(saldo_ctasplazo,0),' ||
+                             'nvl(saldo_total,0),' ||
+                             'CASE WHEN tarjeta_credito > 0 THEN ' || '''SI''' || ' ELSE ' || '''NO''' || ' END, CASE WHEN prestamo_personal > 0 THEN ' || '''SI''' || ' ELSE ' || '''N0''' || ' END,' ||
+                             'CASE WHEN nvl(num_prods,0) >= 2 THEN ' || '''SI''' || ' WHEN nvl(num_prods,0) = 1 AND tarjeta_credito > 0 AND prestamo_personal <= 0  THEN ' || '''SI''' || 
+                                  ' WHEN nvl(num_prods,0) = 1 AND tarjeta_credito <= 0 AND prestamo_personal >= 0  THEN ' || '''SI''' || ' ELSE ' || ''' ''' || ' END,' ||
+                             'CASE WHEN nvl(saldo_total,0) > (' || vUDIS_MAXIMO || ' * ' ||  vTpCambioUdi || ' ) THEN ' || '''N0''' || ' ELSE ' || '''SI''' || ' END ' || 
+                             'FROM bdicobranza:cb_formulario_liquidez WHERE numcte >= ' || '''000001001'''; 
+
+             LET cSql = 'echo "UNLOAD TO ' ||TRIM(cRuta)||TRIM(cArch_captacion_pf1)|| ' DELIMITER '|| '''|'''||' '|| SUBSTR(cConsulta,1,LENGTH(cConsulta))  ||'" > '|| TRIM(cRuta) ||'query1.sql';
+                          
+              SYSTEM TRIM(cSql);
+             --system SUBSTR(cSql,1,LENGTH(cSql));
+                                      
+             LET cSql = '';
+    		     LET cSql = "dbaccess bdicobranza " ||TRIM(cRuta)||'query1.sql';
+    		     --SYSTEM trim(cSql);
+    		     system SUBSTR(cSql,1,LENGTH(cSql));
+    		     LET cSql = '';
+
+    END IF; 
+    -------------------------------------------- CAPTACION PERSONA FÍSICA ------------------------------------------------------------------FIN
+
+    
+    --------------------------------------------- CAPTACION PERSONA MORAL ------------------------------------------------------------------
+    IF pProcAll = 'S' OR pProcPM = 'S' THEN           
+        ---- INICIAR CALCULO PARA AEGURADOS Y NO ASEGURADOS POR EL IPAB
+        --- ASEGURADOS POR EL IPAB
+        SYSTEM 'echo "numcte|#Cuenta|Monto_Saldo|Asegurado_IPAB"' || '> ' || SUBSTR(cRuta,1,LENGTH(cRuta)) || cArch_captacion_pm; 
+         FOREACH
+            SELECT m.num_cte, m.cuenta, sum(m.sdo_actual) INTO vnumcte, vcuenta, vsaldo_total
+              FROM bdicheq:sc_maechq m, bdinteg:si_ctepm p
+             WHERE m.num_cte = p.numcte
+               AND m.status_cta <> 2
+               AND m.num_cte NOT IN (
+                                     SELECT numcte FROM bdinteg:si_excluidosipab
+               )
+             GROUP BY m.num_cte, m.cuenta
+             
+             --Llenar archivo, agregarle la columna al archivo "Asegurado IPAB" y ponerle "S"
+             LET cSql = 'echo "' || trim(vnumcte) || '|' || trim(vcuenta) || '|' || vsaldo_total || '|S' || '">> ' || SUBSTR(cRuta,1,LENGTH(cRuta)) || cArch_captacion_pm;
+             System SUBSTR(cSql,1,LENGTH(cSql)); 
+                                 
+        END FOREACH;
+           
+           --- NO ASEGURADOS POR EL IPAB
+        FOREACH   
+            SELECT m.num_cte, m.cuenta, sum(m.sdo_actual) INTO vnumcte, vcuenta, vsaldo_total
+              FROM bdicheq:sc_maechq m, bdinteg:si_ctepm p
+             WHERE m.num_cte = p.numcte
+               AND m.status_cta <> 2
+               AND m.num_cte in (
+                                 SELECT numcte FROM bdinteg:si_excluidosipab
+             )
+             GROUP BY m.num_cte, m.cuenta
+                
+             --Llenar archivo, agregarle la columna al archivo "Asegurado IPAB" y ponerle "N"
+             LET cSql = 'echo "' || trim(vnumcte) || '|' || trim(vcuenta) || '|' || vsaldo_total || '|N' || '">> ' || SUBSTR(cRuta,1,LENGTH(cRuta)) || cArch_captacion_pm;
+             System SUBSTR(cSql,1,LENGTH(cSql)); 
+ 
+        END FOREACH;    
+    END IF;
+    ------------------------------------------------------  FIN  ------------------------------------------------------------------------------------
+    --------------------------------------------- CAPTACION PERSONA MORAL ---------------------------------------------------------------------------
+
+    --- Obtener fecha de corte mes anterior    
+    LET dFecha_corte = mdy(month(dfecha_ant),20,year(dfecha_ant));
+    --LET dFecha_corte = mdy('03','20','2012');     --- TEST MACF
+    
+    -- INSERT INTO bdicobranza:cb_bitacora (num_proceso,fecha_ejecucion,cod_ret,mensaje) values(cproceso,today,'000000','cfecha_corte: ' || cfecha_corte);   --- PRUEBA MACF    
+
+    ------------------------------------------ C O L O C A C I O N     N O      R E V O L V E N T E S  ( liq_colocacion_norevolv_aaaammdd.txt )
+        
+    IF pProcAll = 'S' OR pProcColocNoRev = 'S' THEN     -- COLOCACION NO REV (INI)
+        LET cSql = '';
+        LET cSql = 'echo "numcte|Pago_Exigible_Mensual|Pago_Principal|Pago_Accesorios"' || '> ' || substr(cRuta,1,length(cRuta)) || cArch_colocacion_norev;
+        SYSTEM substr(cSql,1,length(cSql));
+                
+        SET ISOLATION TO DIRTY READ;     
+        FOREACH
+              SELECT m.numcte, 
+                     sum(a.capital_mto_cuota) as pago_exigible_mens,  
+                     sum(a.capital_debe) as pago_principal,  
+                     sum(a.interes_debe + a.iva_debe + a.mora_sdo_ordi +  a.mora_sdo_cope) as PagoAccesorios
+                INTO vnumcte, vpago_exigible_mensual, vpagoprincipal, vpagoaccesorios
+                FROM bdicred:sd_amortiza_creditocrd a, bdicred:sd_maecredcrd m
+               WHERE a.empresa = v_empresa
+                 AND a.num_credito = m.num_credito
+                 --AND a.fecha_cuota = cfecha_corte   Para que tome todo pq cada producto tiene diferente fecha
+                 group by m.numcte
+       
+               LET cSql = 'echo "' || trim(vnumcte) || '|' || vpago_exigible_mensual || '|' || vpagoprincipal || '|' || vpagoaccesorios || '">> ' || SUBSTR(cRuta,1,LENGTH(cRuta)) || cArch_colocacion_norev;
+               System SUBSTR(cSql,1,LENGTH(cSql)); 
+      
+        END FOREACH;
+ 
+    END IF; -- COLOCACION NO REV (FIN)
+
+
+    -----------------------------------------   C O L O C A C I O N  ** R E V O L V E N T E S  -------------------------------------------------------------------
+
+    IF pProcAll = 'S' OR pProcColocRev = 'S' THEN   -- COLOCACION REV (INI)
+   
+        SELECT iva into v_iva FROM bdinteg:si_sucursales WHERE sucursal = '0318';
+   
+        --SYSTEM 'echo "numcte|pago_minimo|Pago_para_NoGenerarInts|Totalero"' || '> ' || SUBSTR(cRuta,1,LENGTH(cRuta)) || SUBSTR(cArch_colocacion_rev,1,LENGTH(cArch_colocacion_rev));
+        
+        TRUNCATE bdicobranza:cb_coloca_revolventes; 
+
+        INSERT INTO "informix".cb_coloca_revolventes (numcte,pago_minimo,pago_no_generar_int,totalero)
+         VALUES('NUMCTE','PAGO MINIMO','PAGO PARA NO GEBERAR INTS','TOTALERO');
+        
+
+         SELECT numcte, num_credito, status_cred  
+          FROM bdicred:sd_maecredcont
+         WHERE empresa = v_empresa
+           and fecha = dfecha_ant
+          INTO temp temp_revolventes WITH NO log;
+      
+         CREATE INDEX idx_temp_revolventes ON temp_revolventes(numcte);
+         UPDATE statistics medium FOR TABLE temp_revolventes;
+ 
+         SET LOCK MODE TO WAIT 3;     
+         FOREACH WITH HOLD
+ 
+               SELECT numcte, num_credito, status_cred 
+                 INTO vnumcte, vnum_credito, v_status_cred  
+                 FROM temp_revolventes
+
+                LET v_totalero = 'NO';
+
+                SELECT nvl(sdo_cap_insoluto,0),
+                       nvl(monto_financiado,0), -- capital pago minimo 
+                       nvl(monto_vencido,0), -- Vencido transitorio
+                       nvl(mto_venc_trasp,0), -- Vencido exigible
+                       nvl((sdo_moratorio+sdo_contab_mora),0), -- Moratorio
+                       --NVL((int_tra_no_exig - sdo_acum_mes_int),0), -- INTERES VENCIDO
+                     case when (case when NVL(sdo_int_anticip,0) > 0 then (int_tra_no_exig - sdo_acum_mes_int) else int_tra_no_exig end) > 0 
+                          then (case when NVL(sdo_int_anticip,0) > 0 then (int_tra_no_exig - sdo_acum_mes_int) else int_tra_no_exig end) 
+                     else 0 
+                     end, -- + -- INTERES VENCIDO
+                     NVL(mto_venc_int,0) -- IVA VENCIDO
+                  INTO v_sdo_cap_insoluto,
+                       v_monto_financiado,
+                       v_monto_vencido,
+                       v_mto_venc_trasp,
+                       v_sdo_moratorio,
+                       v_int_vencido,
+                       v_iva_int_vencido
+                FROM bdicred:sd_maesdoshist 
+                WHERE empresa = v_empresa
+                  AND fecha = dFecha_corte 
+                  AND num_credito = vnum_credito;
+       
+      
+                IF (v_monto_vencido + v_mto_venc_trasp) = 0 THEN
+                    SELECT f_primer_compra, DECODE(comportamiento, 0, 'NO', 1, 'SI', 2, 'NO', 3, 'N0') 
+                      INTO dFecha_compra, v_totalero 
+                      FROM bdicred:sd_indicador_cred
+                     WHERE empresa = v_empresa 
+                       AND num_credito = vnum_credito;
+
+                    IF ( NVL(dFecha_compra,'') = '' OR  dFecha_compra = mdy('01','01','1900') ) THEN
+                        LET v_totalero = 'NO';
+                    END IF;
+                END IF;
+
+                IF ((v_monto_vencido + v_mto_venc_trasp) = 0) THEN
+                    let vpagominimo = v_monto_financiado;
+                    let dPendMesAnteEIntMora = v_sdo_cap_insoluto;
+                ELIF (v_monto_vencido > 0 ) THEN
+                    LET v_iva_moratorio = round((nvl(v_sdo_moratorio,0) * v_iva),2);
+
+                    LET vpagominimo = (v_monto_financiado + v_sdo_moratorio) + v_iva_moratorio;  -- IVA DE SUCURSAL  
+
+                    LET dPendMesAnteEIntMora = v_sdo_cap_insoluto + v_sdo_moratorio + v_iva_moratorio; 
+                ELSE
+                    if (v_int_vencido <= 0 ) then
+                        let v_int_vencido = 0;
+                        let v_iva_int_vencido = 0;
+                    end if;
+
+                    LET vpagominimo = v_monto_financiado + v_int_vencido + v_iva_int_vencido + v_sdo_moratorio + v_iva_moratorio ; 
+                    LET dPendMesAnteEIntMora = v_sdo_cap_insoluto + v_int_vencido + v_iva_int_vencido + v_sdo_moratorio + v_iva_moratorio; 
+                END IF;
+                   
+                IF vpagominimo is null or vpagominimo < 0 THEN LET vpagominimo = 0; END IF;
+                IF dPendMesAnteEIntMora is null or dPendMesAnteEIntMora < 0 THEN LET dPendMesAnteEIntMora = 0; END IF;
+                   
+                LET vpago_nogenerar_int = vpagominimo + dPendMesAnteEIntMora;
+                
+                BEGIN WORK;
+                      INSERT INTO bdicobranza:cb_coloca_revolventes(numcte,pago_minimo,pago_no_generar_int, totalero)
+                               VALUES(vnumcte, vpagominimo, vpago_nogenerar_int, v_totalero);
+                COMMIT WORK;
+        END FOREACH;
+        
+      --- CREAR ARCHIVO
+        LET cConsulta = '';
+        LET cConsulta = "SELECT numcte, pago_minimo, pago_no_generar_int, totalero FROM bdicobranza:cb_coloca_revolventes;";
+       -- LET cConsulta = "SELECT numcte, num_credito FROM temp_nototaleros;";   -- Para prueba pero en el unload no dejo de marcar -668
+
+       LET cSql_1 = '';
+       --LET cSql_1 = 'echo "UNLOAD TO ' || SUBSTR(cRuta,1,LENGTH(cRuta)) || SUBSTR(cArch_colocacion_rev,1,LENGTH(cArch_colocacion_rev)) || '  '|| SUBSTR(cConsulta,1,LENGTH(cConsulta)) ||'" > '|| SUBSTR(cRuta,1,LENGTH(cRuta)) ||'query9.sql';
+       LET cSql_1 = 'echo "UNLOAD TO ' || SUBSTR(cRuta,1,LENGTH(cRuta)) || SUBSTR(cArch_colocacion_rev,1,LENGTH(cArch_colocacion_rev)) || ' DELIMITER '|| '''|'''||' '|| SUBSTR(cConsulta,1,LENGTH(cConsulta)) ||'" > '|| SUBSTR(cRuta,1,LENGTH(cRuta)) ||'query9.sql';
+
+       system substr(cSql_1,1,length(cSql_1));
+
+       LET cSql_1 = '';
+       LET cSql_1 = "dbaccess bdicobranza " ||SUBSTR(cRuta,1,LENGTH(cRuta)) ||'query9.sql';
+       system substr(cSql_1,1,length(cSql_1));
+       LET cSql_1 = '';
+             
+    END IF; -- COLOCACION REV (FIN)
+    -----------------------------------------   C O L O C A C I O N     R E V O L V E N T E S  --------------------------------------------------------------------------
+
+      CALL bdicobranza:"informix".sp_inserta_bitacora_cob(v_empresa, cProceso, cCod_ret, cMensaje, '03')
+      RETURNING vvcCod_ret;
+
+      RETURN cCod_ret, cMensaje;
+ END
+
+END PROCEDURE
+DOCUMENT 
+'DESCRIPCION: SP Que genera archivos planos con información de Captación y Colocación los primeros días del mes. ',
+'AUTOR: Marco A. Campos. 2012/08/16',
+'BD: BDICOBRANZA',
+'Ver. que ya tenga cargados los datos en cb_formulario_liquidez',
+'2012/11/13 Modifica dividir creación de archivos personas físicas.';
+
+CREATE PROCEDURE "informix".sp_repcob_cdadcampcat()
+	RETURNING
+		CHAR(6) 		AS COD_RET,
+		CHAR(80)		AS MENSAJE_RET;		
+			
+		---DECLARACIONES
+		DEFINE iSqlErr, iIsamErr				                INTEGER;
+		DEFINE cTabla		      	                        CHAR(1);
+		DEFINE v_empresa                                CHAR(3);
+    DEFINE cProceso                                 CHAR(4);
+    DEFINE cfin					                            CHAR(5); 
+    DEFINE cCodRet,vvcCod_ret, cCod_RESULT          CHAR(6);
+    DEFINE vnumempleado                             CHAR(8);
+		DEFINE cMensajeRet, cNombreArchivo, cRuta, cDescrip, cCalfLlamad, cJerarquia			CHAR(80);
+    DEFINE cHora, cHoraAsign, cHoraReal, cHora2, cHoraAsign2, cHoraReal2				      CHAR(80);						
+		DEFINE cConsulta		  	                        CHAR(2200);
+		DEFINE cSql           		                      CHAR(1024);
+		DEFINE sTipoFechaCorte, sTipLog, sJerarquia, sTipolog		                          SMALLINT;
+		DEFINE cContador, cContador2, cContador3, iCont, iTipLogTot, iTotxDia             INTEGER;
+		DEFINE log_1, log_2, log_3, log_4, log_5, log_6, log_7, log_8, log_9				      INTEGER;
+		DEFINE iTot1, iTot2, iTot3, iTot4, iTot5, iTot6, iTot7, iTot8, iTot9				      INTEGER;
+		DEFINE iTotReg1_1, iTotReg1_2, iTotReg1_3, iTotReg1_4, iTotReg1_5			            INTEGER;
+		DEFINE iTotReg1_6, iTotReg1_7, iTotReg1_8, iTotReg1_9 		                        INTEGER;
+		DEFINE iTotReg2_1, iTotReg2_2, iTotReg2_3, iTotReg2_4, iTotReg2_5			            INTEGER;
+		DEFINE iTotReg2_6, iTotReg2_7, iTotReg2_8, iTotReg2_9, iTotReg2                   INTEGER;
+		DEFINE iTotReg3, cTotReg, cTotReg3, cTotReg4, cTotReg5, iTotReg4, iTotReg5				INTEGER;
+		DEFINE iRegTotxCamp, iTotRegProcXCamp, iRegTotxCamp2, iTotRegProcXCamp2			      INTEGER;
+		DEFINE iNumsEmpl, iTotGen,	iTotReg, iCamActivas, iRegistros                      INTEGER;
+		DEFINE iExito, iNoExito, iExitoTot1, iExitoTot2, iExitoTot, iTipo, iTotAvance		  INTEGER;
+    DEFINE dProm				                                                              DECIMAL(14,2);
+		DEFINE dtFechaHoy, dtFechaDiaAnt, dtFechaMax, dtFechaMaxCart	                    DATE;
+		DEFINE iConlog				                                                            SMALLINT;
+	
+		---INICIALIZACIONES
+		LET iIsamErr         = 0;   LET iSqlErr          	= 0;
+		LET sTipoFechaCorte  = 0;   LET cContador			    = 0;   LET cContador2			    = 0;  LET cContador3			= 0;	
+		LET iCont				     = 0; 	LET sJerarquia		    = 0;   LET sTipolog			      = 0;  LET iTipLogTot			= 0;
+		LET log_1				     = 0; 	LET log_2				      = 0;   LET log_3				      = 0; 	LET log_4				    = 0; 	LET log_5				= 0;
+		LET log_6				     = 0; 	LET log_7				      = 0; 	 LET log_8				      = 0; 	LET log_9				    = 0; 	LET iTot1				= 0;
+		LET iTot2				     = 0; 	LET iTot3				      = 0; 	 LET iTot4				      = 0; 	LET iTot5				    = 0; 	LET iTot6				= 0;
+		LET iTot7				     = 0; 	LET iTot8				      = 0; 	 LET iTot9				      = 0; 	LET iRegTotxCamp		= 0;  LET iTotxDia		= 0; 
+		LET iRegTotxCamp2	   = 0; 	LET iTotRegProcXCamp	= 0; 	 LET iTotRegProcXCamp2	= 0; 	LET iTotReg				  = 0;  LET iTotGen	    = 0;
+		LET iCamActivas		   = 0;		LET dProm				      = 0.0; 
+		LET iTotReg1_1			 = 0; 	LET iTotReg1_2			  = 0; 	 LET iTotReg1_3			    = 0; 	LET iTotReg1_4			= 0;	LET iTotReg1_5	= 0; 	
+    LET iTotReg1_6			 = 0; 	LET iTotReg1_7			  = 0; 	 LET iTotReg1_8			    = 0;	LET iTotReg1_9			= 0; 	LET iTotReg2_1  = 0; 	 
+    LET iTotReg2_2			 = 0; 	LET iTotReg2_3			  = 0; 	 LET iTotReg2_4			    = 0; 	LET iTotReg2_5		  = 0; 	LET iTotReg2_6	= 0; 	
+    LET iTotReg2_7			 = 0;		LET iTotReg2_8			  = 0; 	 LET iTotReg2_9			    = 0; 	LET iTotReg2	      = 0;
+		
+		LET iTotReg3			   = 0;		LET iNumsEmpl			    = 0;   LET iExito				      = 0; 	LET iNoExito			  = 0;  LET iExitoTot1	= 0; 	
+    LET iExitoTot2			 = 0; 	LET iExitoTot			    = 0;   LET iTotReg4			      = 0;  LET iTotReg5			  = 0;  LET iTipo			  = 0;
+		LET iTotAvance			 = 0;   LET iConlog				    = 0;   LET iRegistros         = 0;  		
+		 	
+		LET v_empresa        = '001';   LET cProceso    = '0076';  LET cTabla		 		= "N";     LET cCodRet        = "000000";    
+		LET cMensajeRet			 = "PROCESO EXITOSO";                  LET dtFechaMax   = date(1); LET dtFechaMaxCart = date(1);
+    
+    LET cNombreArchivo 	 = "";      LET cConsulta	 		= "";    LET cSql		 		  = "";      LET cRuta		 		  = "";
+    LET cHora				     = "";	    LET cHoraAsign	  = "";    LET cHoraReal		= ""; 	   LET cHora2				  = "";
+    LET cHoraAsign2			 = "";	    LET cHoraReal2	  = "";    LET cfin				  = "";      LET cTotReg			  = "";
+    LET cTotReg3			   = "";      LET cTotReg4		  = "";  	 LET cTotReg5			= "";      LET dtFechaDiaAnt  = "";
+    LET vnumempleado     = '';      LET vvcCod_ret    = '';    LET dtFechaHoy   = "";      LET cCod_RESULT		= ""; 
+		LET cCalfLlamad			 = "";		  LET cJerarquia	  = "";
+
+    
+			BEGIN 
+				ON EXCEPTION SET iSqlErr, iIsamErr, cMensajeRet
+					IF iSqlErr != 0 THEN
+						LET cCodRet = iSqlErr;	
+						LET cMensajeRet = cMensajeRet;			  				
+						--SE BORRA LA TABLA TEMPORAL EN CASO DE QUE EL PROCEDIMIENTO CAIGA EN UN CASO DE ERROR
+						IF cTabla ="S" THEN
+							DROP TABLE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA;
+						END IF;
+					
+            CALL bdicobranza:"informix".sp_inserta_bitacora_cob(v_empresa, cProceso, cCodRet, cMensajeRet, '02')
+            RETURNING vvcCod_ret;
+          			
+					  RETURN cCodRet, cMensajeRet;
+						
+				  END IF;
+				END EXCEPTION;
+
+				SET ISOLATION TO DIRTY READ;
+				SET LOCK MODE TO WAIT 3;
+		
+		--SET DEBUG FILE TO "/respaldosbd/josue/sp_repcob_cdadcampcat.out";
+		--SET DEBUG FILE TO "/informix/macf/sp_repcob_cdadcampcat.trc";
+		--TRACE ON; 
+		
+		CALL bdicobranza:"informix".sp_inserta_bitacora_cob(v_empresa, cProceso, cCodRet, cMensajeRet, '01') RETURNING vvcCod_ret;
+		
+		 IF EXISTS(SELECT tabname FROM sysmaster:systabnames WHERE tabname = 'TMP_ENCABEZADOSEXCELCAMPCATXDIA'  AND dbsname = 'bdicobranza' AND partnum >1048577) THEN
+        DROP TABLE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA;
+    END IF;
+		
+		SELECT max(fecha_insert) INTO dtFechaMax 
+      FROM bdicobranza:"informix".cb_cat_directorio_cte
+     WHERE tipo_cobranza = 'A';
+		
+		SELECT max(date(fechacartera)) INTO dtFechaMaxCart
+		  FROM bdicobranza:"informix".cb_cat_movimientos
+		 WHERE tipocobranza = 'A';
+		
+		--SE OBTIENE LA FECHA DE HOY.
+		SELECT fecha_hoy
+		INTO dtFechaHoy
+		FROM bdicred:"informix".sd_fechas
+    WHERE empresa = v_empresa;
+		 
+		--LET dtFechaHoy = mdy('01','31','2013');   --- TEST MACF  mdy('12','13','2012') 214 
+		
+		LET dtFechaDiaAnt = dtFechaHoy - 1 UNITS DAY;
+	
+		--SE CREA LA TABLA TEMPORAL PARA INSERTAR LOS DATOS QUE LLEVARÁ EL REPORTE.		
+		CREATE TABLE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA(					
+																		Cod_RESULT 	CHAR(80),
+																		Cal_llam 	CHAR(80),
+																		Tipo_log_1	CHAR(80),
+																		Tipo_log_2  CHAR(80),
+																		Tipo_log_3  CHAR(80),
+																		Tipo_log_4  CHAR(80),
+																		Tipo_log_5  CHAR(80),
+																		Tipo_log_6  CHAR(80),
+																		Tipo_log_7  CHAR(80),
+																		Tipo_log_8  CHAR(80),
+																		Tipo_log_9	CHAR(80),
+																		Total		CHAR(80),
+																		Camp_CAT_act CHAR(80),
+																		Promedio    CHAR(80)
+																	);			
+		LET cTabla="S";			
+		
+		--SE AGREGA ENCABEZADO "TITULO Y FECHA DEL REPORTE"
+		INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA (Cod_RESULT,Cal_llam,Tipo_log_1,Tipo_log_2,Tipo_log_3,Tipo_log_4,Tipo_log_5,Tipo_log_6,Tipo_log_7,Tipo_log_8,Tipo_log_9,Total,Camp_CAT_act,Promedio)
+		--VALUES("","","","Calidad de Campañas CAT del Día","","","","","","",""||dtFechaHoy,"","","");
+		VALUES("","","","Calidad de Campañas CAT del Día","","","","","","",""||day(dtFechaDiaAnt)||"/" ||month(dtFechaDiaAnt)|| "/" ||year(dtFechaDiaAnt),"","","");   --by MACF
+		
+		--SE AGREGA ENCABEZADO DE CADA COLUMNA PARA TABLA DEL REPORTE EN ARCHIVO EXCEL.
+		INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA (Cod_RESULT,Cal_llam,Tipo_log_1,Tipo_log_2,Tipo_log_3,Tipo_log_4,Tipo_log_5,Tipo_log_6,Tipo_log_7,Tipo_log_8,Tipo_log_9,Total,Camp_CAT_act,Promedio)
+		VALUES("Cod RESULT","CALIFICACIÓN LLAMADA","","","","","","","","","","Total","Campañas CAT Activas","Promedio");	
+		
+		--SE BUSCA EL NOMBRE DE CADA CAMPAÑA ACTIVA SI LO ENCUENTRA LO AGREGA Y SI NO AGREGA "VALOR TIPO-LOGICA" Y EL NÚMERO DE CADA COLUMNA DE LA TABLA POR TIPO_LOGICA
+		FOREACH		
+			SELECT valor_numerico,descripcion
+				INTO sTipLog,cDescrip
+				FROM bdicobranza:"informix".cb_param_campania
+				WHERE grupo_parametro = 'LOGICA'
+			
+			IF sTipLog = 1 THEN 
+				IF NVL(cDescrip,'') <> '' THEN
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_1 = TRIM(cDescrip) WHERE Cod_RESULT = "Cod RESULT";
+				ELSE 
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_1 = "Valor Tipo_logica 1" WHERE Cod_RESULT = "Cod RESULT";
+				END IF;
+			ELIF sTipLog = 2 THEN 
+				IF NVL(cDescrip,'') <> '' THEN
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_2 = TRIM(cDescrip)WHERE Cod_RESULT = "Cod RESULT";
+				ELSE 
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_2 = "Valor Tipo_logica 2" WHERE Cod_RESULT = "Cod RESULT";
+				END IF;
+			ELIF sTipLog = 3 THEN 
+				IF NVL(cDescrip,'') <> '' THEN
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_3 = TRIM(cDescrip) WHERE Cod_RESULT = "Cod RESULT";
+				ELSE 
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_3 = "Valor Tipo_logica 3" WHERE Cod_RESULT = "Cod RESULT";
+				END IF;
+			ELIF sTipLog = 4 THEN 
+				IF NVL(cDescrip,'') <> '' THEN
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_4 = TRIM(cDescrip) WHERE Cod_RESULT = "Cod RESULT";
+				ELSE 
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_4 = "Valor Tipo_logica 4" WHERE Cod_RESULT = "Cod RESULT";
+				END IF;				
+			ELIF sTipLog = 5 THEN 
+				IF NVL(cDescrip,'') <> '' THEN
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_5 = TRIM(cDescrip) WHERE Cod_RESULT = "Cod RESULT";
+				ELSE 
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_5 = "Valor Tipo_logica 5" WHERE Cod_RESULT = "Cod RESULT";
+				END IF;				
+			ELIF sTipLog = 6 THEN 
+				IF NVL(cDescrip,'') <> '' THEN
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_6 = TRIM(cDescrip) WHERE Cod_RESULT = "Cod RESULT";
+				ELSE 
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_6 = "Valor Tipo_logica 6" WHERE Cod_RESULT = "Cod RESULT";
+				END IF;				
+			ELIF sTipLog = 7 THEN 
+				IF NVL(cDescrip,'') <> '' THEN
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_7 = TRIM(cDescrip) WHERE Cod_RESULT = "Cod RESULT";
+				ELSE 
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_7 = "Valor Tipo_logica 7" WHERE Cod_RESULT = "Cod RESULT";
+				END IF;				
+			ELIF sTipLog = 8 THEN 
+				IF NVL(cDescrip,'') <> '' THEN
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_8 = TRIM(cDescrip) WHERE Cod_RESULT = "Cod RESULT";
+				ELSE 
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_8 = "Valor Tipo_logica 8" WHERE Cod_RESULT = "Cod RESULT";
+				END IF;					
+			ELIF sTipLog = 9 THEN 	
+				IF NVL(cDescrip,'') <> '' THEN
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_9 = TRIM(cDescrip) WHERE Cod_RESULT = "Cod RESULT";     
+				ELSE 
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_9 = "Valor Tipo_logica 9" WHERE Cod_RESULT = "Cod RESULT";
+				END IF;
+			END IF; 
+			LET cContador = cContador + 1;
+				
+		END FOREACH;
+			
+		LET cContador2 = 9 - cContador; 
+		LET cContador3 = cContador2;
+		
+		FOR iCont = cContador2 to 9 
+		
+		    IF cContador2 = 1 THEN				
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_1 = "Valor Tipo_logica"||cContador3 WHERE Cod_RESULT = "Cod RESULT";
+			ELIF cContador2 = 2 THEN			
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_2 = "Valor Tipo_logica"||cContador3 WHERE Cod_RESULT = "Cod RESULT";
+			ELIF cContador2 = 3 THEN			
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_3 = "Valor Tipo_logica"||cContador3 WHERE Cod_RESULT = "Cod RESULT";				
+			ELIF cContador2 = 4 THEN			
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_4 = "Valor Tipo_logica"||cContador3 WHERE Cod_RESULT = "Cod RESULT";				
+			ELIF cContador2 = 5 THEN			
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_5 = "Valor Tipo_logica"||cContador3 WHERE Cod_RESULT = "Cod RESULT";				
+			ELIF cContador2 = 6 THEN			
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_6 = "Valor Tipo_logica"||cContador3 WHERE Cod_RESULT = "Cod RESULT";				
+			ELIF cContador2 = 7 THEN			
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_7 = "Valor Tipo_logica"||cContador3 WHERE Cod_RESULT = "Cod RESULT";				
+			ELIF cContador2 = 8 THEN			
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_8 = "Valor Tipo_logica"||cContador3 WHERE Cod_RESULT = "Cod RESULT";				
+			ELIF cContador2 = 9 THEN			
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_9 = "Valor Tipo_logica"||cContador3 WHERE Cod_RESULT = "Cod RESULT";			
+			END IF;
+			
+			LET cContador2 = cContador2 + 1;	
+			LET cContador3 = cContador3 + 1;			
+		END FOR
+					
+		-- SE CONSULTA LA DESCRIPCION Y CÓDIGO DE LOS RESULTADOS QUE SE PUEDA OBTENER EN CADA LLAMADA
+		FOREACH 					
+			SELECT id_jerarquia, descripcion 
+				INTO cCod_RESULT, cCalfLlamad
+			FROM bdicobranza:"informix".cb_cat_tipo_resultado 
+			ORDER BY id_jerarquia
+			-- SE INSERTA LA INFORMACION DE CADA REGISTRO EN DICHA TABLA
+			INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA (Cod_RESULT,Cal_llam,Tipo_log_1,Tipo_log_2,Tipo_log_3,Tipo_log_4,Tipo_log_5,Tipo_log_6,Tipo_log_7,Tipo_log_8,Tipo_log_9,Total,Camp_CAT_act,Promedio)
+			VALUES(cCod_RESULT,cCalfLlamad,"0","0","0","0","0","0","0","0","0","","","");
+			
+		END FOREACH;
+				
+		-- SE CONSULTAN LOS TOTALES DE CADA REGISTRO POR TIPO DE LÓGICA
+		FOREACH 
+			SELECT  CodResult, TipLogica,NVL(TipLogTot,0)
+			  INTO sJerarquia,sTipolog,iTipLogTot 
+			  FROM TABLE(MULTISET(SELECT b.id_jerarquia AS CodResult,
+									                 a.tipologica AS TipLogica,
+            						     COUNT(a.tipologica) AS TipLogTot 
+            								  FROM bdicobranza: "informix".cb_cat_movimientos a,
+            										   bdicobranza: "informix".cb_cat_tipo_resultado b,
+            										   bdicobranza: "informix".cb_param_campania c
+            								 WHERE a.finllamada = b.codigo_resultado 
+            								   AND a.tipocobranza = "A"
+            								   AND a.cvemovimiento = "L"
+            								   AND a.tipomovimiento = 1
+            								   AND a.tipologica = c.valor_numerico      --- by MACF
+            								   AND c.grupo_parametro = 'LOGICA'         --- by MACF
+            								   AND a.fechacartera::DATE = dtFechaMaxCart
+            								   AND a.horainicio::DATE = dtFechaDiaAnt   --- by MACF
+            								GROUP BY 1,2
+            								ORDER BY 1,2 ASC
+						))
+						
+			--SE ACTUALIZA LOS TOTALIZADOS POR CADA TIPO DE LÓGICA.
+			IF sTipolog = 1 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_1 = NVL(iTipLogTot,0) WHERE Cod_RESULT = sJerarquia:: CHAR(80);
+			ELIF sTipolog = 2 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_2 = NVL(iTipLogTot,0) WHERE Cod_RESULT = sJerarquia:: CHAR(80);
+			ELIF sTipolog = 3 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_3 = NVL(iTipLogTot,0) WHERE Cod_RESULT = sJerarquia:: CHAR(80);
+			ELIF sTipolog = 4 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_4 = NVL(iTipLogTot,0) WHERE Cod_RESULT = sJerarquia:: CHAR(80);
+			ELIF sTipolog = 5 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_5 = NVL(iTipLogTot,0) WHERE Cod_RESULT = sJerarquia:: CHAR(80);
+			ELIF sTipolog = 6 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_6 = NVL(iTipLogTot,0) WHERE Cod_RESULT = sJerarquia:: CHAR(80);
+			ELIF sTipolog = 7 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_7 = NVL(iTipLogTot,0) WHERE Cod_RESULT = sJerarquia:: CHAR(80);
+			ELIF sTipolog = 8 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_8 = NVL(iTipLogTot,0) WHERE Cod_RESULT = sJerarquia:: CHAR(80);
+			ELIF sTipolog = 9 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_9 = NVL(iTipLogTot,0) WHERE Cod_RESULT = sJerarquia:: CHAR(80);
+			END IF 
+		END FOREACH;
+		
+		LET iCont = 0;
+		
+		-- OBTENEMOS EL TOTAL DE LOS REGISTROS PARA OBTENER EL NÚMERO DE RENGLON EN DONDE SE INSERTARÁ LOS REGITROS DE LOS RESULTADOS DE LAS CAMPAÑAS
+			SELECT  COUNT(Cod_RESULT) INTO iTotReg 
+			FROM bdicobranza: "informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA; 			
+			LET iTotReg = iTotReg - 1;
+			
+			--SE INSERTAN LOS REGITROS DONDE SE ACTUALIZARÁN LOS RESULTADOS DE LAS CAMPAÑAS
+			INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA (Cod_RESULT,Cal_llam,Tipo_log_1,Tipo_log_2,Tipo_log_3,Tipo_log_4,Tipo_log_5,Tipo_log_6,Tipo_log_7,Tipo_log_8,Tipo_log_9,Total,Camp_CAT_act,Promedio)
+			VALUES("","TOTAL GENERAL","","","","","","","","","","","","");
+			
+			INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA (Cod_RESULT,Cal_llam,Tipo_log_1,Tipo_log_2,Tipo_log_3,Tipo_log_4,Tipo_log_5,Tipo_log_6,Tipo_log_7,Tipo_log_8,Tipo_log_9,Total,Camp_CAT_act,Promedio)
+			VALUES("","REGISTROS TOTALES POR CAMPAÑA","","","","","","","","","","","","");
+			
+			INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA (Cod_RESULT,Cal_llam,Tipo_log_1,Tipo_log_2,Tipo_log_3,Tipo_log_4,Tipo_log_5,Tipo_log_6,Tipo_log_7,Tipo_log_8,Tipo_log_9,Total,Camp_CAT_act,Promedio)
+			VALUES("","REGISTROS PROCESADOS POR CAMPAÑA","","","","","","","","","","","","");
+			
+			INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA (Cod_RESULT,Cal_llam,Tipo_log_1,Tipo_log_2,Tipo_log_3,Tipo_log_4,Tipo_log_5,Tipo_log_6,Tipo_log_7,Tipo_log_8,Tipo_log_9,Total,Camp_CAT_act,Promedio)
+			VALUES("","TOTAL REGISTROS PENDIENTES","","","","","","","","","","","","");
+			
+			INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA (Cod_RESULT,Cal_llam,Tipo_log_1,Tipo_log_2,Tipo_log_3,Tipo_log_4,Tipo_log_5,Tipo_log_6,Tipo_log_7,Tipo_log_8,Tipo_log_9,Total,Camp_CAT_act,Promedio)
+			VALUES("","HORA DE ASIGNACIÓN DE CAMPAÑA","","","","","","","","","","","","");
+			
+			INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA (Cod_RESULT,Cal_llam,Tipo_log_1,Tipo_log_2,Tipo_log_3,Tipo_log_4,Tipo_log_5,Tipo_log_6,Tipo_log_7,Tipo_log_8,Tipo_log_9,Total,Camp_CAT_act,Promedio)
+			VALUES("","HORA DE PAUSA/TERMINO DE CAMPAÑA","","","","","","","","","","","","");
+			
+			INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA (Cod_RESULT,Cal_llam,Tipo_log_1,Tipo_log_2,Tipo_log_3,Tipo_log_4,Tipo_log_5,Tipo_log_6,Tipo_log_7,Tipo_log_8,Tipo_log_9,Total,Camp_CAT_act,Promedio)
+			VALUES("","SUPERVISORES ASIGNADOS","","","","","","","","","","","","");
+			
+			INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA (Cod_RESULT,Cal_llam,Tipo_log_1,Tipo_log_2,Tipo_log_3,Tipo_log_4,Tipo_log_5,Tipo_log_6,Tipo_log_7,Tipo_log_8,Tipo_log_9,Total,Camp_CAT_act,Promedio)
+			VALUES("","AVANCE EN ETAPA TREN DE GESTIÓN","","","","","","","","","","","","");
+			
+			INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA (Cod_RESULT,Cal_llam,Tipo_log_1,Tipo_log_2,Tipo_log_3,Tipo_log_4,Tipo_log_5,Tipo_log_6,Tipo_log_7,Tipo_log_8,Tipo_log_9,Total,Camp_CAT_act,Promedio)
+			VALUES("","LlAMADAS EXITOSAS POR CAMPAÑA","","","","","","","","","","","","");
+			
+			INSERT INTO bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA (Cod_RESULT,Cal_llam,Tipo_log_1,Tipo_log_2,Tipo_log_3,Tipo_log_4,Tipo_log_5,Tipo_log_6,Tipo_log_7,Tipo_log_8,Tipo_log_9,Total,Camp_CAT_act,Promedio)
+			VALUES("","LlAMADAS NO EXITOSAS POR CAMPAÑA","","","","","","","","","","","","");
+						
+			LET iTotReg = iTotReg - 2;
+			
+		  -- SE OBTIENE EL TOTAL DE CADA TIPO DE LÓGICA Y EL TOTAL POR CADA TIPO DE RESULTADO
+			FOR iCont = 0  TO iTotReg
+				LET iCamActivas = 0;
+			
+				SELECT NVL(Tipo_log_1:: INTEGER,0), NVL(Tipo_log_2:: INTEGER,0),NVL(Tipo_log_3:: INTEGER,0),
+				       NVL(Tipo_log_4:: INTEGER,0), NVL(Tipo_log_5:: INTEGER,0),NVL(Tipo_log_6:: INTEGER,0),
+				       NVL(Tipo_log_7:: INTEGER,0), NVL(Tipo_log_8:: INTEGER,0),NVL(Tipo_log_9:: INTEGER,0)				
+					INTO log_1,log_2,log_3,log_4,log_5,log_6,log_7,log_8,log_9	
+					
+				FROM bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA
+				WHERE Cod_RESULT = iCont:: CHAR(80);
+				
+				LET iTotxDia = log_1 + log_2 + log_3 + log_4 + log_5 + log_6 + log_7 + log_8 + log_9;
+				LET iTotGen = iTotGen + iTotxDia;
+				LET iTot1 = iTot1 + NVL(log_1,0);
+				LET iTot2 = iTot2 + NVL(log_2,0);
+				LET iTot3 = iTot3 + NVL(log_3,0);
+				LET iTot4 = iTot4 + NVL(log_4,0);
+				LET iTot5 = iTot5 + NVL(log_5,0);
+				LET iTot6 = iTot6 + NVL(log_6,0);
+				LET iTot7 = iTot7 + NVL(log_7,0);
+				LET iTot8 = iTot8 + NVL(log_8,0);
+				LET iTot9 = iTot9 + NVL(log_9,0);
+				
+				-- SE OBTIENE EL TOTAL DE CAMPAÑAS ACTIVAS POR CADA TIPO DE LÓGICA
+				IF log_1 <> 0 THEN
+					LET iCamActivas = iCamActivas + 1;
+				END IF;				
+				IF log_2 <> 0 THEN
+					LET iCamActivas = iCamActivas + 1;
+				END IF;				
+				IF log_3 <> 0 THEN
+					LET iCamActivas = iCamActivas + 1;
+				END IF;				
+				IF log_4 <> 0 THEN
+					LET iCamActivas = iCamActivas + 1;
+				END IF;				
+				IF log_5 <> 0 THEN
+					LET iCamActivas = iCamActivas + 1;
+				END IF;				
+				IF log_6 <> 0 THEN
+					LET iCamActivas = iCamActivas + 1;
+				END IF;				
+				IF log_7 <> 0 THEN
+					LET iCamActivas = iCamActivas + 1;
+				END IF;				
+				IF log_8 <> 0 THEN
+					LET iCamActivas = iCamActivas + 1;
+				END IF;				
+				IF log_9 <> 0 THEN
+					LET iCamActivas = iCamActivas + 1;
+				END IF;
+				
+				-- SE INSERTA EL TOTAL Y PROMEDIO DE CADA LÓGICA Y CADA TIPO DE RESULTADO
+				IF iCamActivas <> 0 THEN
+					LET dProm = iTotxDia / iCamActivas;
+					LET dProm = ROUND(dProm);
+				ELSE
+					LET iTotxDia = 0;
+					LET dProm = 0;
+				END IF;
+				--SE ACTUALIZA EL TOTAL Y PROMEDIO DE CADA LÓGICA Y CADA TIPO DE RESULTADO
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA 
+					SET Total = NVL(iTotxDia,0), Camp_CAT_act = NVL(iCamActivas,0), Promedio = NVL(dProm,0)
+				WHERE Cod_RESULT = iCont:: CHAR(80);
+								
+			END FOR
+			
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA 
+					SET Tipo_log_1 = NVL(iTot1,0),Tipo_log_2 = NVL(iTot2,0),Tipo_log_3 = NVL(iTot3,0),Tipo_log_4 = NVL(iTot4,0),Tipo_log_5 = NVL(iTot5,0),Tipo_log_6 = NVL(iTot6,0),Tipo_log_7 = NVL(iTot7,0),Tipo_log_8 = NVL(iTot8,0),Tipo_log_9 = NVL(iTot9,0),Total = NVL(iTotGen,0)
+				WHERE Cal_llam = "TOTAL GENERAL";
+		
+		LET iCont = 1;
+		LET iTotReg = iTotReg + 2;
+		
+		-- SE OBTIENEN LOS REGISTROS TOTALES POR CAMPAÑA POR CADA TIPO DE LÓGICA
+		FOR  iCont = 1  TO 9
+			SELECT  COUNT(tipo_logica)
+				INTO iRegTotxCamp
+			FROM bdicobranza:"informix".cb_cat_directorio_cte 
+			WHERE tipo_cobranza = "A"              --- by MACF
+      AND tipo_logica = iCont
+			AND fecha_insert = dtFechaMax; 
+			
+			--SE ACTUALIZAN LOS REGISTROS TOTALES POR CAMPAÑA POR CADA TIPO DE LÓGICA
+			IF iCont = 1 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_1 = NVL(iRegTotxCamp,0) WHERE Cal_llam = "REGISTROS TOTALES POR CAMPAÑA";
+				LET iTotReg1_1 = iTotReg1_1 + iRegTotxCamp;
+			END IF;
+			IF iCont = 2 THEN		
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_2 = NVL(iRegTotxCamp,0) WHERE Cal_llam = "REGISTROS TOTALES POR CAMPAÑA";
+				LET iTotReg1_2 = iTotReg1_2 + iRegTotxCamp;
+			END IF;
+			IF iCont = 3 THEN		
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_3 = NVL(iRegTotxCamp,0)	WHERE Cal_llam = "REGISTROS TOTALES POR CAMPAÑA";
+				LET iTotReg1_3 = iTotReg1_3 + iRegTotxCamp;
+			END IF;
+			IF iCont = 4 THEN		
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_4 = NVL(iRegTotxCamp,0)	WHERE Cal_llam = "REGISTROS TOTALES POR CAMPAÑA";
+				LET iTotReg1_4 = iTotReg1_4 + iRegTotxCamp;
+			END IF;
+			IF iCont = 5 THEN		
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_5 = NVL(iRegTotxCamp,0)	WHERE Cal_llam = "REGISTROS TOTALES POR CAMPAÑA";
+				LET iTotReg1_5 = iTotReg1_5 + iRegTotxCamp;
+			END IF;
+			IF iCont = 6 THEN		
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_6 = NVL(iRegTotxCamp,0)	WHERE Cal_llam = "REGISTROS TOTALES POR CAMPAÑA";
+				LET iTotReg1_6 = iTotReg1_6 + iRegTotxCamp;
+			END IF;
+			IF iCont = 7 THEN		
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_7 = NVL(iRegTotxCamp,0)	WHERE Cal_llam = "REGISTROS TOTALES POR CAMPAÑA";
+				LET iTotReg1_7 = iTotReg1_7 + iRegTotxCamp;
+			END IF;
+			IF iCont = 8 THEN		
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_8 = NVL(iRegTotxCamp,0)	WHERE Cal_llam = "REGISTROS TOTALES POR CAMPAÑA";
+				LET iTotReg1_8 = iTotReg1_8 + iRegTotxCamp;
+			END IF;
+			IF iCont = 9 THEN		
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_9 = NVL(iRegTotxCamp,0) WHERE Cal_llam = "REGISTROS TOTALES POR CAMPAÑA";
+				LET iTotReg1_9 = NVL(iTotReg1_9,0) + NVL(iRegTotxCamp,0);
+			END IF;
+			LET iRegTotxCamp2 = NVL(iRegTotxCamp2,0) + NVL(iRegTotxCamp,0);
+		END FOR
+		
+		UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Total = NVL(iRegTotxCamp2,0)	WHERE Cal_llam = "REGISTROS TOTALES POR CAMPAÑA";
+		
+		
+		LET iTotReg = iTotReg + 1;
+		
+		--SE OBTIENEN LOS REGISTROS PROCESADOS POR CAMPAÑA POR CADA TIPO DE LÓGICA
+		FOREACH
+				SELECT COUNT(tipologica),tipologica
+					INTO  iTotRegProcXCamp,iConlog
+				FROM bdicobranza:"informix".cb_cat_movimientos
+				WHERE horainicio::DATE = dtFechaDiaAnt
+        AND fechacartera::DATE = dtFechaMaxCart 
+				AND tipocobranza = 'A'
+				AND cvemovimiento = 'L'
+				AND tipomovimiento = 1
+				GROUP BY tipologica
+				ORDER BY tipologica ASC
+				
+				--SE ACTUALIZAN LOS REGISTROS PROCESADOS POR CAMPAÑA POR CADA TIPO DE LÓGICA
+				IF iConlog = 1 THEN
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_1 = NVL(iTotRegProcXCamp,0)	WHERE Cal_llam = "REGISTROS PROCESADOS POR CAMPAÑA";
+					LET iTotReg2_1 =  NVL(iTotReg1_1,0) - NVL(iTotRegProcXCamp,0);
+				END IF;
+				IF iConlog = 2 THEN		
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_2 = NVL(iTotRegProcXCamp,0) WHERE Cal_llam = "REGISTROS PROCESADOS POR CAMPAÑA";
+					LET iTotReg2_2 = NVL(iTotReg1_2,0) - NVL(iTotRegProcXCamp,0);
+				END IF;
+				IF iConlog = 3 THEN		
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_3 = NVL(iTotRegProcXCamp,0)	WHERE Cal_llam = "REGISTROS PROCESADOS POR CAMPAÑA";
+					LET iTotReg2_3 = NVL(iTotReg1_3,0) - NVL(iTotRegProcXCamp,0);
+				END IF;
+				IF iConlog = 4 THEN		
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_4 = NVL(iTotRegProcXCamp,0)	WHERE Cal_llam = "REGISTROS PROCESADOS POR CAMPAÑA";
+					LET iTotReg2_4 = NVL(iTotReg1_4,0) - NVL(iTotRegProcXCamp,0);
+				END IF;
+				IF iConlog = 5 THEN		
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_5 = NVL(iTotRegProcXCamp,0)	WHERE Cal_llam = "REGISTROS PROCESADOS POR CAMPAÑA";
+					LET iTotReg2_5 = NVL(iTotReg1_5,0) - NVL(iTotRegProcXCamp,0);
+				END IF;
+				IF iConlog = 6 THEN		
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_6 = NVL(iTotRegProcXCamp,0)	WHERE Cal_llam = "REGISTROS PROCESADOS POR CAMPAÑA";
+					LET iTotReg2_6 = NVL(iTotReg1_6,0) - NVL(iTotRegProcXCamp,0);
+				END IF;
+				IF iConlog = 7 THEN		
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_7 = NVL(iTotRegProcXCamp,0)	WHERE Cal_llam = "REGISTROS PROCESADOS POR CAMPAÑA";
+					LET iTotReg2_7 = NVL(iTotReg1_7,0) - NVL(iTotRegProcXCamp,0);
+				END IF;
+				IF iConlog = 8 THEN		
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_8 = NVL(iTotRegProcXCamp,0)	WHERE Cal_llam = "REGISTROS PROCESADOS POR CAMPAÑA";
+					LET iTotReg2_8 = NVL(iTotReg1_8,0) - NVL(iTotRegProcXCamp,0);
+				END IF;
+				IF iConlog = 9 THEN		
+					UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_9 = NVL(iTotRegProcXCamp,0) WHERE Cal_llam = "REGISTROS PROCESADOS POR CAMPAÑA";
+					LET iTotReg2_9 = NVL(iTotReg1_9,0) - NVL(iTotRegProcXCamp,0);				
+				END IF;
+				--SE OBTIENE EL TOTAL DE REGISTROS PROCESADOS POR CAMPAÑA
+				LET iTotRegProcXCamp2 = NVL(iTotRegProcXCamp2,0) + NVL(iTotRegProcXCamp,0);	
+			END FOREACH
+		
+				LET iTotReg2 = iTotReg2_1 + iTotReg2_2 + iTotReg2_3	+ iTotReg2_4 + iTotReg2_5 + iTotReg2_6 + iTotReg2_7 + iTotReg2_8 + iTotReg2_9;
+				
+				--SE ACTUALIZA EL TOTAL  DE REGISTROS PROCESADOS POR CAMPAÑA
+		UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Total = NVL(iTotRegProcXCamp2,0)	WHERE Cal_llam = "REGISTROS PROCESADOS POR CAMPAÑA";
+		
+		LET iTotReg = iTotReg + 1;	
+		
+		--SE ACTUALIZAN LOS TOTALIZADOS DE TOTAL REGISTROS PENDIENTES DE CADA TIPO DE LÓGICA
+		UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_1 = NVL(iTotReg2_1,0),Tipo_log_2 = NVL(iTotReg2_2,0),Tipo_log_3 = NVL(iTotReg2_3,0),Tipo_log_4 = NVL(iTotReg2_4,0),Tipo_log_5 = NVL(iTotReg2_5,0),Tipo_log_6 = NVL(iTotReg2_6,0),Tipo_log_7 = NVL(iTotReg2_7,0),Tipo_log_8 = NVL(iTotReg2_8,0),Tipo_log_9 = NVL(iTotReg2_9,0),Total = NVL(iTotReg2,0) WHERE Cal_llam = "TOTAL REGISTROS PENDIENTES";		
+		LET iCont = 1;
+		LET iTotReg = iTotReg + 1;
+		
+		-- SE OBTIENE LA HORA DE INICIO Y FIN DE CADA CAMPAÑA
+		FOR  iCont = 1  TO 9
+			SELECT SUBSTR(MIN(horainicio),12,2), SUBSTR(MAX(horafin),12,2)
+				INTO cHora, cfin
+			FROM bdicobranza:"informix".cb_cat_movimientos
+			WHERE fechacartera::DATE = dtFechaMaxCart
+			AND horainicio::DATE = dtFechaDiaAnt
+			AND  tipologica = iCont;
+			
+		-- SE VALIDA LA HORA PARA SABER SI ES "AM" Ó "PM"
+			LET cHoraReal = SUBSTR(cHora, 1,2);
+			
+			IF trim(cHoraReal) = "00" THEN
+				  LET cHoraAsign = "12AM";
+			ELSE
+				IF cHoraReal:: INTEGER >= 12 THEN					
+					LET cHoraReal = cHoraReal:: INTEGER - 12;
+					LET cHoraAsign = TRIM(cHoraReal)||"PM";								
+				ELSE
+					LET cHoraAsign = TRIM(cHoraReal)||"AM";
+				END IF;	
+			END IF;	
+			
+			LET cHoraReal2 = SUBSTR(cfin, 1,2);
+				
+			IF trim(cHoraReal2) = "00" THEN
+				  LET cHoraAsign2 = "12AM";
+			ELSE	
+				IF cHoraReal2:: INTEGER >= 12 THEN				
+					LET cHoraReal2 = cHoraReal2:: INTEGER - 12;
+					LET cHoraAsign2 = TRIM(cHoraReal2)||"PM";								
+				ELSE
+					LET cHoraAsign2 = TRIM(cHoraReal2)||"AM";
+				END IF;
+			END IF;	
+			
+			LET iTotReg3 = iTotReg + 1;
+			LET cTotReg  =  iTotReg:: CHAR(80);
+			LET cTotReg3 = iTotReg3:: CHAR(80);
+			
+			-- SE ACTUALIZA LA HORA DE INICIO Y FIN DE CADA CAMPAÑA EN LA TABLA TEMPORAL
+			IF iCont = 1 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_1 = NVL(cHoraAsign,"00")	WHERE Cal_llam = "HORA DE ASIGNACIÓN DE CAMPAÑA";				
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_1 = NVL(cHoraAsign2,"00")	WHERE Cal_llam = "HORA DE PAUSA/TERMINO DE CAMPAÑA";				
+			END IF;
+			IF iCont = 2 THEN		
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_2 = NVL(cHoraAsign,"00") WHERE Cal_llam = "HORA DE ASIGNACIÓN DE CAMPAÑA";				
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_2 = NVL(cHoraAsign2,"00")	WHERE Cal_llam = "HORA DE PAUSA/TERMINO DE CAMPAÑA";
+			END IF;
+			IF iCont = 3 THEN		
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_3 = NVL(cHoraAsign,"00")	WHERE Cal_llam = "HORA DE ASIGNACIÓN DE CAMPAÑA";
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_3 = NVL(cHoraAsign2,"00")	WHERE Cal_llam = "HORA DE PAUSA/TERMINO DE CAMPAÑA";
+			END IF;
+			IF iCont = 4 THEN		
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_4 = NVL(cHoraAsign,"00")	WHERE Cal_llam = "HORA DE ASIGNACIÓN DE CAMPAÑA";
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_4 = NVL(cHoraAsign2,"00")	WHERE Cal_llam = "HORA DE PAUSA/TERMINO DE CAMPAÑA";
+			END IF;
+			IF iCont = 5 THEN		
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_5 = NVL(cHoraAsign,"00")	WHERE Cal_llam = "HORA DE ASIGNACIÓN DE CAMPAÑA";
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_5 = NVL(cHoraAsign2,"00")	WHERE Cal_llam = "HORA DE PAUSA/TERMINO DE CAMPAÑA";
+			END IF;
+			IF iCont = 6 THEN		
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_6 = NVL(cHoraAsign,"00")	WHERE Cal_llam = "HORA DE ASIGNACIÓN DE CAMPAÑA";
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_6 = NVL(cHoraAsign2,"00")WHERE Cal_llam = "HORA DE PAUSA/TERMINO DE CAMPAÑA";
+			END IF;
+			IF iCont = 7 THEN		
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_7 = NVL(cHoraAsign,"00")	WHERE Cal_llam = "HORA DE ASIGNACIÓN DE CAMPAÑA";
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_7 = NVL(cHoraAsign2,"00")WHERE Cal_llam = "HORA DE PAUSA/TERMINO DE CAMPAÑA";
+			END IF;
+			IF iCont = 8 THEN		
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_8 = NVL(cHoraAsign,"00")	WHERE Cal_llam = "HORA DE ASIGNACIÓN DE CAMPAÑA";
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_8 = NVL(cHoraAsign2,"00")WHERE Cal_llam = "HORA DE PAUSA/TERMINO DE CAMPAÑA";	
+			END IF;
+			IF iCont = 9 THEN		
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_9 = NVL(cHoraAsign,"00") WHERE Cal_llam = "HORA DE ASIGNACIÓN DE CAMPAÑA";
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_9 = NVL(cHoraAsign2,"00") WHERE Cal_llam = "HORA DE PAUSA/TERMINO DE CAMPAÑA";
+			END IF;
+			LET cHora     = "";
+			LET cHoraReal = "";
+			LET cHora2     = "";
+			LET cHoraReal2 = "";
+		END FOR
+		
+		LET iCont = 1;
+		LET iTotReg3 = iTotReg3 + 1;
+		LET cTotReg3 = iTotReg3:: CHAR(80);
+		
+		-- SE OBTIENE EL NÚMERO DE "SUPERVISORES ASIGNADOS"  POR CADA CAMPAÑA
+      
+		FOR  iCont = 1  TO 9
+		   LET iNumsEmpl = 0; 
+		   FOREACH
+    			    --SELECT COUNT(numempleado)
+    			 SELECT  numempleado
+    				INTO vnumempleado
+    	 		 FROM bdicobranza:"informix".cb_cat_movimientos
+    	 		 WHERE fechacartera::DATE = dtFechaMaxCart
+    	 		 AND  horainicio::DATE = dtFechaDiaAnt        --- by MACF y 3 sigs. filtros
+    	 		 AND  cvemovimiento = 'L'
+    	 		 AND  tipomovimiento = 1
+           AND  tipocobranza = 'A'    
+    			 AND  tipologica = iCont
+    			 GROUP BY numempleado
+    			 
+			     --LET iNumsEmpl = iNumsEmpl +1;
+			     
+			     LET iRegistros=dbinfo("sqlca.sqlerrd2");
+			     LET iNumsEmpl = iNumsEmpl + iRegistros;
+       END FOREACH
+       			 
+			 -- SE ACTUALIZA EL NÚMERO DE "SUPERVISORES ASIGNADOS"  POR CADA CAMPAÑA EN LA TABLA TEMPORAL
+			 IF iCont = 1 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_1 = iNumsEmpl WHERE Cal_llam = "SUPERVISORES ASIGNADOS";								
+			END IF;	
+			IF iCont = 2 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_2 = iNumsEmpl WHERE Cal_llam = "SUPERVISORES ASIGNADOS";								
+			END IF;	
+			IF iCont = 3 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_3 = iNumsEmpl WHERE Cal_llam = "SUPERVISORES ASIGNADOS";								
+			END IF;	
+			IF iCont = 4 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_4 = iNumsEmpl WHERE Cal_llam = "SUPERVISORES ASIGNADOS";								
+			END IF;	
+			IF iCont = 5 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_5 = iNumsEmpl WHERE Cal_llam = "SUPERVISORES ASIGNADOS";								
+			END IF;	
+			IF iCont = 6 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_6 = iNumsEmpl WHERE Cal_llam = "SUPERVISORES ASIGNADOS";								
+			END IF;	
+			IF iCont = 7 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_7 = iNumsEmpl WHERE Cal_llam = "SUPERVISORES ASIGNADOS";								
+			END IF;	
+			IF iCont = 8 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_8 = iNumsEmpl WHERE Cal_llam = "SUPERVISORES ASIGNADOS";								
+			END IF;	
+			IF iCont = 9 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_9 = iNumsEmpl WHERE Cal_llam = "SUPERVISORES ASIGNADOS";								
+			END IF;
+		END FOR
+		 
+		LET iCont = 1;
+		LET iTotReg3 = iTotReg3 + 1;
+		LET iTotReg4 = iTotReg3 + 1;
+		LET iTotReg5 = iTotReg4 + 1;
+		
+		LET cTotReg3 = iTotReg3:: CHAR(80);
+		
+		LET cTotReg4 = iTotReg4:: CHAR(10);
+		
+		LET cTotReg5 = iTotReg5:: CHAR(10);
+		
+		-- SE OBTIENE EL TOTAL DE LLAMADAS EXITOSAS O NO EXITOSAS DE CADA TIPO DE LÓGICA
+		FOREACH
+			SELECT SUM(CASE WHEN finllamada IN(1,2,3,4,5,6,7,10,14,15) THEN 1 ELSE 0 END),
+				   --SUM(CASE WHEN finllamada IN(8,9,11,12,13,16) THEN 1 ELSE 0 END),tipologica 
+				   SUM(CASE WHEN finllamada IN(8,9,11,12,13,16,17,18) THEN 1 ELSE 0 END),tipologica   -- by MACF
+			INTO iExito,iNoExito, iTipo
+			FROM bdicobranza:"informix".cb_cat_movimientos
+			WHERE fechacartera::DATE = dtFechaMaxCart
+	 		 AND  horainicio::DATE = dtFechaDiaAnt       --- by MACF y 3 sigs. filtros
+	 		 AND  cvemovimiento = 'L'
+       AND  tipocobranza = 'A'  
+			GROUP BY tipologica
+			ORDER BY tipologica
+			
+			-- SE OBTIENE "AVANCE EN ETAPA TREN DE GESTIÓN" DE CADA TIPO LÓGICA O CAMPAÑA
+			LET iExitoTot1 = iExitoTot1 + iExito;
+			LET iExitoTot2 = iExitoTot2 + iNoExito;
+			LET iExitoTot = iExito + iNoExito;
+			LET iTotAvance = iExitoTot2 + iExitoTot1;
+			
+			-- SE ACTUALIZAN EL TOTAL DE LLAMADAS EXITOSAS,NO EXITOSAS Y AVANCE EN ETAPA TREN DE GESTIÓN DE CADA CAMPAÑA
+			IF iTipo = 1 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_1 = NVL(iExitoTot,0), Total = NVL(iTotAvance,0) 	WHERE Cal_llam = "AVANCE EN ETAPA TREN DE GESTIÓN";								
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_1 =  NVL(iExito,0),	 Total = NVL(iExitoTot1,0)  WHERE Cal_llam = "LlAMADAS EXITOSAS POR CAMPAÑA";
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_1 = NVL(iNoExito,0),  Total = NVL(iExitoTot2,0)  WHERE Cal_llam = "LlAMADAS NO EXITOSAS POR CAMPAÑA";								
+			END IF;	
+			IF iTipo = 2 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_2 = NVL(iExitoTot,0), Total = NVL(iTotAvance,0) 	WHERE Cal_llam = "AVANCE EN ETAPA TREN DE GESTIÓN";								
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_2 =  NVL(iExito,0),	 Total = NVL(iExitoTot1,0)  WHERE Cal_llam = "LlAMADAS EXITOSAS POR CAMPAÑA";
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_2 = NVL(iNoExito,0),  Total = NVL(iExitoTot2,0)  WHERE Cal_llam = "LlAMADAS NO EXITOSAS POR CAMPAÑA";
+			END IF;	
+			IF iTipo = 3 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_3 = NVL(iExitoTot,0), Total = NVL(iTotAvance,0) 	WHERE Cal_llam = "AVANCE EN ETAPA TREN DE GESTIÓN";								
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_3 =  NVL(iExito,0),	 Total = NVL(iExitoTot1,0)  WHERE Cal_llam = "LlAMADAS EXITOSAS POR CAMPAÑA";
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_3 = NVL(iNoExito,0),  Total = NVL(iExitoTot2,0)  WHERE Cal_llam = "LlAMADAS NO EXITOSAS POR CAMPAÑA";
+			END IF;	
+			IF iTipo = 4 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_4 = NVL(iExitoTot,0), Total = NVL(iTotAvance,0) 	WHERE Cal_llam = "AVANCE EN ETAPA TREN DE GESTIÓN";								
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_4 =  NVL(iExito,0),	 Total = NVL(iExitoTot1,0)  WHERE Cal_llam = "LlAMADAS EXITOSAS POR CAMPAÑA";
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_4 = NVL(iNoExito,0),  Total = NVL(iExitoTot2,0)  WHERE Cal_llam = "LlAMADAS NO EXITOSAS POR CAMPAÑA";
+			END IF;	
+			IF iTipo = 5 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_5 = NVL(iExitoTot,0), Total = NVL(iTotAvance,0) 	WHERE Cal_llam = "AVANCE EN ETAPA TREN DE GESTIÓN";								
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_5 =  NVL(iExito,0),	 Total = NVL(iExitoTot1,0)  WHERE Cal_llam = "LlAMADAS EXITOSAS POR CAMPAÑA";
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_5 = NVL(iNoExito,0),  Total = NVL(iExitoTot2,0)  WHERE Cal_llam = "LlAMADAS NO EXITOSAS POR CAMPAÑA";
+			END IF;	
+			IF iTipo = 6 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_6 = NVL(iExitoTot,0), Total = NVL(iTotAvance,0) 	WHERE Cal_llam = "AVANCE EN ETAPA TREN DE GESTIÓN";								
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_6 =  NVL(iExito,0),	 Total = NVL(iExitoTot1,0)  WHERE Cal_llam = "LlAMADAS EXITOSAS POR CAMPAÑA";
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_6 = NVL(iNoExito,0),  Total = NVL(iExitoTot2,0)  WHERE Cal_llam = "LlAMADAS NO EXITOSAS POR CAMPAÑA";
+			END IF;	
+			IF iTipo = 7 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_7 = NVL(iExitoTot,0), Total = NVL(iTotAvance,0) 	WHERE Cal_llam = "AVANCE EN ETAPA TREN DE GESTIÓN";								
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_7 =  NVL(iExito,0),	 Total = NVL(iExitoTot1,0)  WHERE Cal_llam = "LlAMADAS EXITOSAS POR CAMPAÑA";
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_7 = NVL(iNoExito,0),  Total = NVL(iExitoTot2,0)  WHERE Cal_llam = "LlAMADAS NO EXITOSAS POR CAMPAÑA";
+			END IF;	
+			IF iTipo = 8 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_8 = NVL(iExitoTot,0), Total = NVL(iTotAvance,0) 	WHERE Cal_llam = "AVANCE EN ETAPA TREN DE GESTIÓN";								
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_8 =  NVL(iExito,0),	 Total = NVL(iExitoTot1,0)  WHERE Cal_llam = "LlAMADAS EXITOSAS POR CAMPAÑA";
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_8 = NVL(iNoExito,0),  Total = NVL(iExitoTot2,0)  WHERE Cal_llam = "LlAMADAS NO EXITOSAS POR CAMPAÑA";
+			END IF;	
+			IF iTipo = 9 THEN
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_9 = NVL(iExitoTot,0), Total = NVL(iTotAvance,0) 	WHERE Cal_llam = "AVANCE EN ETAPA TREN DE GESTIÓN";								
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_9 =  NVL(iExito,0),	 Total = NVL(iExitoTot1,0)  WHERE Cal_llam = "LlAMADAS EXITOSAS POR CAMPAÑA";
+				UPDATE bdicobranza:"informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA SET Tipo_log_9 = NVL(iNoExito,0),  Total = NVL(iExitoTot2,0)  WHERE Cal_llam = "LlAMADAS NO EXITOSAS POR CAMPAÑA";
+			END IF;
+		END FOREACH;
+		
+		--SE OBTIENE EL NOMBRE DEL ARCHIVO.		
+		SELECT valor 
+		INTO cNombreArchivo
+		FROM bdicobranza:"informix".cb_param 
+		WHERE cod_param = 78;
+
+		--SE OBTINE LA RUTA DONDE SE GENERARA EL ARCHIVO.
+		SELECT valor_alfabetico
+		INTO cRuta
+		FROM bdicobranza:"informix".cb_param_campania
+		WHERE tipo_campania = 11
+			AND grupo_parametro = "RUTAS" 
+			AND num_parametro = 1;
+		
+		-- SE CREA EL ARCHIVO EXCEL EN LA RUTA OBTENIDA
+		--LET cNombreArchivo = TRIM(cNombreArchivo)||YEAR(dtFechaHoy)||MONTH(dtFechaHoy)||DAY(dtFechaHoy);
+		LET cNombreArchivo = TRIM(cNombreArchivo)||YEAR(dtFechaHoy)||LPAD(MONTH(dtFechaHoy),2,0)||LPAD(DAY(dtFechaHoy),2,0);
+		LET cConsulta = "SELECT Cod_RESULT,Cal_llam,Tipo_log_1,Tipo_log_2,Tipo_log_3,Tipo_log_4,Tipo_log_5,Tipo_log_6,Tipo_log_7,Tipo_log_8,Tipo_log_9,Total,Camp_CAT_act,Promedio FROM bdicobranza: 'informix'.TMP_ENCABEZADOSEXCELCAMPCATXDIA";		
+		LET cSql = '';
+		LET cSql = 'echo "UNLOAD TO ' ||TRIM(cRuta)||TRIM(cNombreArchivo)||'.xls'|| ' DELIMITER '|| '''	'''||' '||TRIM(cConsulta)||'" > '|| TRIM(cRuta) ||'query1.sql';
+		SYSTEM TRIM(cSql);
+		
+		LET cSql = '';
+		LET cSql = "dbaccess bdicobranza " ||TRIM(cRuta)||'query1.sql';
+		SYSTEM cSql;
+		LET cSql = '';
+		LET cSQL = "rm " ||TRIM(cRuta)||'query1.sql';		
+		SYSTEM cSql; 
+		
+		-- SE BORRA LA TABLA TEMPORAL DESPÚES DE VACIAR LOS DATOS EN EL ARCHIVO EXCEL
+		IF cTabla = "S" THEN
+			DROP TABLE bdicobranza: "informix".TMP_ENCABEZADOSEXCELCAMPCATXDIA;
+		END IF;
+		LET cMensajeRet = TRIM(cNombreArchivo)||'.xls';					
+		
+    CALL bdicobranza:"informix".sp_inserta_bitacora_cob(v_empresa, cProceso, cCodRet, cMensajeRet, '03') RETURNING vvcCod_ret;
+    		
+		RETURN cCodRet, cMensajeRet;
+		
+	END;
+END PROCEDURE
+DOCUMENT
+'DESCRIPCION: Proceso para obtener la Calidad de Campañas CAT del día.', 
+'AUTOR: Josué R. Zazueta',
+'FECHA: Noviembre 2012',
+'BD    : BDICOBRANZA',
+'VERSION: 20121122.1527';
+
+create procedure "informix".sp_latinia_contador(pcampania char(10),pcontador integer)
+returning VARCHAR(6);
+
+DEFINE cCod_ret  	smallint;
+DEFINE cMensaje  	char (100);
+DEFINE SQL_ERR         INTEGER;
+DEFINE ISAM_ERR        INTEGER;
+DEFINE ERROR_INFO      VARCHAR(80);
+DEFINE P_COD_RET      	VARCHAR(6);
+DEFINE P_MENSAJE       	VARCHAR(80);
+define vmaxfecha 		date;
+define vfecha			date;
+
+	let P_COD_RET = '000000';
+	let cCod_ret = '';
+    let cMensaje = '';
+	let SQL_ERR            = 0;
+	let ISAM_ERR           = 0;
+	let ERROR_INFO         = '';
+	let P_MENSAJE          = '';
+	let vmaxfecha = date(1);
+	let vfecha = date(1);
+
+
+BEGIN 
+  
+    ON exception SET SQL_ERR, ISAM_ERR, ERROR_INFO
+        LET P_COD_RET = SQL_ERR;
+        LET P_MENSAJE = ERROR_INFO;
+     RETURN P_COD_RET;
+     END exception;
+-- SET DEBUG FILE TO 'compac.out';
+-- TRACE ON;
+		
+	select fecha_hoy into vfecha from bdicred:sd_fechas where empresa = '001';
+		
+		if exists (select fecha_insert from  bdicred:sd_totalcte_campania where month(fecha_insert) = month(vfecha)
+						and year(fecha_insert) = year(vfecha)	and tipocampania = pcampania) then
+		
+			update bdicred:sd_totalcte_campania  set total = total + pcontador 
+				where month(fecha_insert) = month(vfecha) and year(fecha_insert) = year(vfecha)
+				and tipocampania = pcampania ;
+		else
+			insert into bdicred:sd_totalcte_campania (empresa,fecha_insert,tipocampania,total)  
+			values('001',today,pcampania,pcontador);
+		end if;
+	
+	
+end
+RETURN P_COD_RET;
+END PROCEDURE;

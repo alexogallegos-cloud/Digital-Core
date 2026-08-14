@@ -1,0 +1,114 @@
+$ SET LINEINFO                                                          00000100          
+$ INSTALLATION 1                                                        00000200          
+$ SHARING = PRIVATE                                                     00000300          
+%$ SET TADS                                                             00000350          
+BEGIN                                                                   00000400          
+                                                                        00000500          
+DEFINE                                                                  00000600          
+   CAND (A, B) = (IF (A) THEN (B) ELSE FALSE)#,                         00000700          
+   COR  (A, B) = (IF (A) THEN TRUE ELSE (B)) #;                         00000800          
+                                                                        00000900          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00001000          
+%                       REMUEVE_ARCHIVOS                               %00001100          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00001200          
+INTEGER PROCEDURE REMUEVE_ARCHIVOS (DIR, FECHA);                        00001300          
+   EBCDIC ARRAY DIR [0];                                                00001400          
+   INTEGER FECHA;                                                       00001600          
+                                                                        00001700          
+   BEGIN                                                                00001800          
+   ARRAY   GSA, A_STANDARD [0:255], ARCHIVO [0:49];                     00001900          
+   BOOLEAN B_DESPLIEGA, B_REMUEVE, BGS;                                 00002300          
+   EBCDIC ARRAY EA [0] = GSA[*];                                        00002700          
+   FILE  F (KIND = DISK, DEPENDENTSPECS, FILEUSE = IO,                  00002900          
+            NEWFILE = FALSE);                                           00003000          
+   INTEGER ACC_DATE, I, J, NODOS;                                       00003100          
+   LABEL   XIT;                                                         00003500          
+   POINTER P, P_STD;                                                    00003700          
+   REAL    ANOW, TYPE;                                                  00004000          
+   DEFINE                                                               00004300          
+      ADBV = 15 #, % AccessDate bit                                     00004400          
+      ACCESSDATE_BIT = [ADBV:01] #,                                     00004500          
+      LINKF    = [32:17] #, % Points to the file name or subpart        00004600          
+      LEVELF   = [03:04] #, % Indicates the level pointed by  LINKF     00004700          
+      SUBTYPEF = [15:08] #,                                             00004800          
+      TYPEF    = [07:08] #,                                             00004900          
+      % ---- File Status Word                                           00005000          
+      SUBVALUE2F = [38:02] #, % 0 Reserved                              00005100          
+                              % 1 This entry is a file                  00005200          
+                              % 2 This entry is a directory             00005300          
+                              % 3 This entry is a file and directory    00005400          
+      SUBVALUE3F = [36:01] #; % 1 = The file is in use                  00005500          
+                                                                        00005600          
+   B_REMUEVE:= NOT MYSELF.SW1;                                          00005700          
+   B_DESPLIEGA:= MYSELF.SW2;                                            00005800          
+   B_REMUEVE  := TRUE;                                                  00005820          
+   B_DESPLIEGA:= TRUE;                                                  00005850          
+   P_STD:= POINTER(A_STANDARD);                                         00005900          
+   SCAN P:= DIR FOR I:84 UNTIL= ".";                                    00006000          
+   IF COR(I = 0, DISPLAYTOSTANDARD(P, P_STD)) THEN                      00006100          
+      BEGIN                                                             00006200          
+      IF B_DESPLIEGA THEN   ;                                           00006300          
+%        DISPLAY("Directorio erroneo");                                 00006400          
+      REMUEVE_ARCHIVOS:= -2;                                            00006500          
+      GO TO XIT;                                                        00006600          
+      END;                                                              00006700          
+                                                                        00006800          
+   REPLACE POINTER(GSA[50]) BY DIR UNTIL= ".", ".";                     00007100          
+   TYPE:= 3 & 1 SUBTYPEF & 7 [41:03] & 1 [45:01]; % Directory call      00007200          
+   DO                                                                   00007300          
+   BEGIN                                                                00007400          
+      GSA[0]:= 50;                                                      00007500          
+      IF BGS:= GETSTATUS(TYPE, 0, 0 & 1 ACCESSDATE_BIT, GSA) THEN       00007600          
+         BEGIN                                                          00007700          
+         IF B_DESPLIEGA THEN   ;                                        00007800          
+%           DISPLAY("Error en GetStatus");                              00007900          
+         REMUEVE_ARCHIVOS:= -1;                                         00008000          
+         GO TO XIT;                                                     00008100          
+         END;                                                           00008200          
+                                                                        00008300          
+      I:= 1;                                                            00008400          
+      WHILE (I:= * + 1) LSS GSA[0] DO                                   00008500          
+      BEGIN                                                             00008600          
+         ANOW:= IF GSA[I].LEVELF NEQ 0 THEN                             00008700          
+                   GSA[I]                                               00008800          
+                ELSE                                                    00008900          
+                   GSA[GSA[I].LINKF + 1];                               00009000          
+         REPLACE P:= POINTER(ARCHIVO) BY EA[ANOW.LINKF + 2]             00009200          
+                                      FOR REAL(EA[ANOW.LINKF], 2),      00009300          
+                                      ".",                              00009320          
+                                      48"00";                           00009340          
+         DISPLAYTOSTANDARD(P, P_STD);                                   00010200          
+         ACC_DATE  := 1900000 + GSA[GSA[I].LINKF + ADBV + 1];           00010570          
+         IF ACC_DATE < FECHA THEN                                       00010600          
+            IF NOT BOOLEAN(GSA[GSA[I].LINKF + 1].SUBVALUE3F) THEN       00010700          
+            BEGIN                                                       00010800          
+               IF B_REMUEVE THEN                                        00011100          
+               BEGIN                                                    00011200          
+                  REPLACE F.TITLE BY P;                                 00011300          
+                  OPEN(F);                                              00011400          
+                  REPLACE P := POINTER(ARCHIVO)                         00011420          
+                       BY "RESPALDO/"                ,                  00011430          
+                          EA[ANOW.LINKF + 2]                            00011440          
+                          FOR REAL(EA[ANOW.LINKF], 2),                  00011442          
+                          ".",                                          00011444          
+                          48"00";                                       00011446          
+                  REPLACE F.TITLE BY P;                                 00011448          
+                  CLOSE(F, LOCK);                                       00011460          
+                  F(KIND = DISK, DEPENDENTSPECS, FILEUSE = IO,          00011900          
+                    NEWFILE = FALSE);                                   00012000          
+               END;                                                     00012100          
+            END;                                                        00012200          
+      END; % ENDWHILE                                                   00012400          
+      TYPE:= * & (4)[15:08];                                            00012500          
+      END % ENDWHILE                                                    00012600          
+   UNTIL NOT (BOOLEAN(GSA[0].[47:1]));                                  00012700          
+XIT:                                                                    00012800          
+   END REMUEVE_ARCHIVOS;                                                00012900          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00013000          
+%                       OUTER BLOCK                                    %00013100          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%00013200          
+EXPORT                                                                  00013300          
+   REMUEVE_ARCHIVOS;                                                    00013400          
+FREEZE(TEMPORARY);                                                      00013500          
+                                                                        00013600          
+END.                                                                    00013700          

@@ -5,7 +5,7 @@ Las landing pages (DC root, MM hub) se escriben aparte. Re-ejecutable."""
 import os, re, base64, html, shutil, pathlib, subprocess, sys
 
 ROOT = pathlib.Path(__file__).resolve().parent                      # .../Digital Core/site
-SRC  = pathlib.Path(r"c:\Users\alejandro.gallegos\OneDrive - Accenture\Documents\Digital Core\03 - Software & Platform Engineering\High Velocity Modernization\Mainframe Modernization\Fase 1 - Discover\Specialist - Reverse Engineering")
+SRC  = pathlib.Path(r"c:\Users\alejandro.gallegos\OneDrive - Accenture\Documents\Digital Core\03 - SPE\HVM\MM\Fase 1 - Discover\Specialist - Reverse Engineering")
 RE   = ROOT / "03-software-platform-engineering" / "high-velocity-modernization" / "mainframe-modernization" / "reverse-engineering"
 GRAPHS = RE / "graphs"
 GRAPHS.mkdir(parents=True, exist_ok=True)

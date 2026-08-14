@@ -1,0 +1,137 @@
+# =============================================================================
+# Portal Empresas Nomina · Scotiabank Mexico · SPE-ANCE-001
+# Orquestacion del mock end-to-end: SQL Server 2022 + 3 servicios Java + frontend.
+# Solo para DEV/mock. Secretos via .env (ver .env.example).
+#
+#   docker compose up --build
+#
+# URLs:
+#   Frontend        http://localhost:4200
+#   Nomina API      http://localhost:8080  (Swagger: /swagger-ui.html)
+#   Core Banking    http://localhost:8081
+#   SPEI Adapter    http://localhost:8082
+#   SQL Server      localhost:1433  (sa / MSSQL_SA_PASSWORD)
+# =============================================================================
+
+services:
+
+  # --- Persistencia · SQL Server 2022 (SPE-ANCE-005) -------------------------
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+      MSSQL_PID: Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  # --- Crea la base de datos 'nomina' (una sola vez) -------------------------
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+    volumes:
+      - ./db-init:/init:ro
+    entrypoint: >
+      /bin/bash -c "/opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -i /init/init.sql"
+    restart: "no"
+
+  # --- Migraciones Flyway (schema + indices + seed mock) ---------------------
+  flyway:
+    image: flyway/flyway:10-alpine
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    command: >
+      -url=jdbc:sqlserver://sqlserver:1433;databaseName=nomina;encrypt=true;trustServerCertificate=true
+      -user=sa
+      -password=${MSSQL_SA_PASSWORD}
+      -connectRetries=30
+      -baselineOnMigrate=true
+      migrate
+    volumes:
+      - ./database/src/main/resources/db/migration:/flyway/sql:ro
+    restart: "no"
+
+  # --- Core Banking Adapter (stub) · SPE-ANCE-003 ----------------------------
+  core-banking-adapter:
+    build:
+      context: ./core-banking-adapter
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q UP || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  # --- SPEI Adapter (stub) · SPE-ANCE-006 ------------------------------------
+  spei-adapter:
+    build:
+      context: ./spei-adapter
+    ports:
+      - "8082:8082"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health | grep -q UP || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  # --- Nomina API · SPE-ANCE-002 (ruta critica) ------------------------------
+  nomina-api:
+    build:
+      context: ./nomina-api
+    depends_on:
+      flyway:
+        condition: service_completed_successfully
+      core-banking-adapter:
+        condition: service_started
+      spei-adapter:
+        condition: service_started
+    environment:
+      # Datasource (mock: conecta como sa; en prod usuario de app con permisos minimos)
+      DB_URL: "jdbc:sqlserver://sqlserver:1433;databaseName=nomina;encrypt=true;trustServerCertificate=true"
+      DB_USER: "sa"
+      DB_PASSWORD: ${MSSQL_SA_PASSWORD}
+      # Las migraciones ya las aplico el servicio flyway; nomina-api solo valida el schema (JPA validate)
+      SPRING_FLYWAY_ENABLED: "false"
+      # IAM propio del mock (ADR-ANCE-004)
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+      AUTH_JWT_TTL: "3600"
+      # Adaptadores externos (stubs)
+      CORE_BANKING_URL: "http://core-banking-adapter:8081"
+      SPEI_URL: "http://spei-adapter:8082"
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  # --- Frontend · SPE-ANCE-001 (Angular 20 -> Nginx) -------------------------
+  frontend:
+    build:
+      context: ./frontend
+    depends_on:
+      nomina-api:
+        condition: service_started
+    ports:
+      - "4200:80"
+
+volumes:
+  mssql-data:

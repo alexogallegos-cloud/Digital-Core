@@ -1,0 +1,86 @@
+000100$SET OPTIMIZE                                                                 
+000200*$SET TADS                                                                    
+000300 IDENTIFICATION DIVISION.                                                     
+000400                                                                              
+000500 ENVIRONMENT DIVISION.                                                        
+000600 INPUT-OUTPUT SECTION.                                                        
+000700 FILE-CONTROL.                                                                
+000800     SELECT A04-WFLS      ASSIGN       TO DISK                                
+000900                          ORGANIZATION IS SEQUENTIAL.                         
+001000                                                                              
+001100 DATA DIVISION.                                                               
+001200 FILE SECTION.                                                                
+001300 FD A04-WFLS                                                                  
+001400    VALUE OF DEPENDENTSPECS  TRUE                                             
+001500    VALUE OF TITLE            IS WKS-TIT-ARC.                                 
+001600 01 R01-REG-WFL.                                                              
+001700    03 WKS-WFL-OPCION         PIC X(05).                                      
+001800    03 WKS-WFL-NOMBRE         PIC X(34).                                      
+001900    03 WKS-WFL-STATUS         PIC X(01).                                      
+002000    03 WKS-WFL-PARAM          PIC X(20).                                      
+002100                                                                              
+002200                                                                              
+002300 WORKING-STORAGE SECTION.                                                     
+002400 77  W77-EOF                       PIC 9(01) VALUE ZERO.                      
+002500 01  WKS-PARAMETRO                 PIC X(05).                                 
+002600                                                                              
+002700 01  WKS-TIT-ARC.                                                             
+002800     02 FILLER PIC X(23) VALUE "S151/FILE/EJECUCIONWFL/".                     
+002900     02 WKS-NFILE PIC 9(02) VALUE 00.                                         
+003000     02 FILLER PIC X(01) VALUE ".".                                           
+003100*                                                                             
+003200 01 WKS-START-WFL.                                                            
+003300    02 FILLER      PIC X(13) VALUE "START (S151)".                            
+003400    02 WKS-NOM-WFL PIC X(34).                                                 
+003500    02 FILLER      PIC X(09) VALUE " ON CMEMP".                               
+003600                                                                              
+003700 01 WKS-START-WFL2.                                                           
+003800    02 FILLER       PIC X(13) VALUE "START (S151)".                           
+003900    02 WKS-NOM-WFL2 PIC X(34).                                                
+004000    02 FILLER       PIC X(10) VALUE " ON CMEMP(".                             
+004100    02 FILLER       PIC X(01) VALUE QUOTES.                                   
+004200    02 WKS-PAR-WFL2 PIC X(20).                                                
+004300    02 FILLER       PIC X(01) VALUE QUOTES.                                   
+004400    02 FILLER       PIC X(10) VALUE ")".                                      
+004500                                                                              
+004600  PROCEDURE DIVISION USING WKS-PARAMETRO.                                     
+004700  00-0000-CONTROL.                                                            
+004800*=================                                                            
+004900     PERFORM 00-0050-BUSCA-FILE UNTIL WKS-NFILE = 99.                         
+005000     STOP RUN.                                                                
+005100                                                                              
+005200                                                                              
+005300  00-0050-BUSCA-FILE.                                                         
+005400*=====================                                                        
+005500     ADD 1 TO WKS-NFILE                                                       
+005600     CHANGE ATTRIBUTE TITLE       OF A04-WFLS                                 
+005700                                  TO WKS-TIT-ARC.                             
+005800     IF ATTRIBUTE RESIDENT        OF A04-WFLS = 0                             
+005900        EXIT PERFORM                                                          
+006000     ELSE                                                                     
+006100        OPEN I-O A04-WFLS.                                                    
+006200     MOVE ZERO TO W77-EOF.                                                    
+006300     READ A04-WFLS                AT END MOVE 1 TO W77-EOF.                   
+006400     PERFORM 00-0100-LEEARCHIVO   UNTIL W77-EOF = 1.                          
+006500     CLOSE A04-WFLS WITH SAVE.                                                
+006600                                                                              
+006700  00-0100-LEEARCHIVO.                                                         
+006800*=====================                                                        
+006900*     DISPLAY R01-REG-WFL.                                                    
+007000     IF WKS-WFL-OPCION = WKS-PARAMETRO AND WKS-WFL-STATUS = 0                 
+007100        IF WKS-WFL-PARAM = SPACES                                             
+007200           MOVE WKS-WFL-NOMBRE TO WKS-NOM-WFL                                 
+007300           CALL SYSTEM WFL USING WKS-START-WFL                                
+007400           MOVE 1 TO WKS-WFL-STATUS                                           
+007500           WRITE R01-REG-WFL                                                  
+007600           MOVE 1 TO W77-EOF                                                  
+007700        ELSE                                                                  
+007800           MOVE WKS-WFL-NOMBRE TO WKS-NOM-WFL2                                
+007900           MOVE WKS-WFL-PARAM  TO WKS-PAR-WFL2                                
+008000           CALL SYSTEM WFL USING WKS-START-WFL2                               
+008050*          DISPLAY WKS-START-WFL2                                             
+008100           MOVE 1 TO WKS-WFL-STATUS                                           
+008200           WRITE R01-REG-WFL                                                  
+008300           MOVE 1 TO W77-EOF                                                  
+008400     ELSE                                                                     
+008500        READ A04-WFLS                AT END MOVE 1 TO W77-EOF.                

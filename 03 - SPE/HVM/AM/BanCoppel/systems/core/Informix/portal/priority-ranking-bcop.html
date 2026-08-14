@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BCOPCore · Priority Migration Ranking — Informix</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#3D5FCD;--blued:#122FB1;--yellow:#F0D224;
+  --ink:#F4F6FF;--muted:#aab3d4;--muted2:#818ab0;
+  --glass:rgba(255,255,255,.055);--glassb:rgba(255,255,255,.10);
+  --t1:#4fde8a;--t2:#f5c842;--t3:#aab3d4;--t4:#f55f5f;
+}
+html{scroll-behavior:smooth}
+body{background:#060a1a;color:var(--ink);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Calibri,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(27,63,208,.65),transparent 70%);animation:f1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(13,33,133,.7),transparent 70%);animation:f2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(79,222,138,.12),transparent 70%);animation:f3 32s ease-in-out infinite}
+@keyframes f1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes f2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes f3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+.grain{position:fixed;inset:0;z-index:-1;opacity:.045;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+nav{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;gap:14px;padding:15px 30px;
+  backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);
+  background:rgba(6,10,26,.55);border-bottom:1px solid rgba(255,255,255,.06)}
+nav .nt{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em}
+nav .sp{flex:1}
+nav a.back{font-size:12px;color:var(--muted);padding:6px 13px;border-radius:20px;
+  border:1px solid rgba(255,255,255,.09);text-decoration:none;transition:.22s}
+nav a.back:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+.glass{background:var(--glass);backdrop-filter:blur(22px) saturate(155%);-webkit-backdrop-filter:blur(22px) saturate(155%);
+  border:1px solid var(--glassb);border-radius:22px;
+  box-shadow:0 12px 44px rgba(0,0,0,.36),inset 0 1px 0 rgba(255,255,255,.10)}
+.wrap{max-width:1320px;margin:0 auto;padding:0 30px}
+section{padding:64px 0;scroll-margin-top:70px}
+.hero{min-height:42vh;display:flex;flex-direction:column;justify-content:center;padding:100px 0 14px}
+.eyebrow{display:inline-flex;align-items:center;gap:9px;align-self:flex-start;padding:8px 16px;border-radius:30px;
+  font-size:12px;font-weight:600;letter-spacing:.03em;color:#dfe6ff;margin-bottom:26px;
+  background:rgba(255,255,255,.05);border:1px solid var(--glassb)}
+.eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--yellow);box-shadow:0 0 12px var(--yellow);animation:pulse 2.4s infinite}
+@keyframes pulse{50%{opacity:.4}}
+.hero h1{font-size:clamp(28px,5vw,56px);font-weight:800;line-height:1.0;letter-spacing:-.035em;
+  max-width:22ch;background:linear-gradient(176deg,#fff 34%,#9fb4ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{font-size:clamp(12px,1.3vw,14.5px);color:var(--muted);margin-top:16px;max-width:80ch;line-height:1.65}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-top:32px}
+.kpi{padding:20px 16px;text-align:center}
+.kpi-n{font-size:clamp(22px,2.6vw,38px);font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kpi-l{font-size:10px;color:var(--muted2);margin-top:9px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.4}
+.kpi.t1 .kpi-n{background:linear-gradient(180deg,#9effc4,var(--t1));-webkit-background-clip:text;background-clip:text;color:transparent}
+.kpi.t2 .kpi-n{background:linear-gradient(180deg,#fff5aa,var(--t2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.kpi.bg .kpi-n{background:linear-gradient(180deg,#fff,#c4d0ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.kpi.sp .kpi-n{background:linear-gradient(180deg,#9ee5ff,#5fc5f5);-webkit-background-clip:text;background-clip:text;color:transparent}
+.shead{margin-bottom:30px}
+.kick{font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--yellow);margin-bottom:12px}
+.shead h2{font-size:clamp(20px,2.8vw,32px);font-weight:800;letter-spacing:-.025em;line-height:1.06}
+.shead p{color:var(--muted);font-size:14px;margin-top:12px;max-width:80ch;line-height:1.55}
+
+/* ── Scatter ── */
+.scatter-wrap{display:grid;grid-template-columns:1fr 290px;gap:16px;align-items:start}
+@media(max-width:900px){.scatter-wrap{grid-template-columns:1fr}}
+.scatter-card{position:relative;padding:0;overflow:hidden;min-height:500px;cursor:crosshair}
+#scatter-svg{width:100%;height:500px;display:block}
+.scatter-hint{position:absolute;bottom:10px;left:16px;font-size:10.5px;color:var(--muted2);pointer-events:none}
+.legend-panel{padding:22px}
+.legend-title{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2);margin-bottom:16px}
+.leg-item{display:flex;align-items:center;gap:9px;font-size:12px;margin-bottom:10px;color:var(--muted)}
+.leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.leg-line{height:2px;flex-shrink:0;border-radius:1px}
+.info-panel-box{margin-top:20px;padding-top:18px;border-top:1px solid rgba(255,255,255,.07)}
+.info-box-placeholder{color:var(--muted2);font-size:12px;line-height:1.7;text-align:center;padding:16px 0}
+.dom-info h4{font-size:15px;font-weight:700;margin-bottom:3px}
+.dom-info .di-sub{font-size:10.5px;color:var(--muted2);font-weight:600;letter-spacing:.05em;margin-bottom:14px}
+.di-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.055);font-size:12px}
+.di-row:last-child{border-bottom:none}
+.di-lbl{color:var(--muted)}
+.di-val{font-weight:600;font-variant-numeric:tabular-nums}
+.tier-pill{display:inline-block;padding:3px 9px;border-radius:10px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.tier-pill.t1{background:rgba(79,222,138,.15);color:var(--t1)}
+.tier-pill.t2{background:rgba(245,200,66,.15);color:var(--t2)}
+.tier-pill.t3{background:rgba(170,179,212,.12);color:var(--t3)}
+.tier-pill.t4{background:rgba(245,95,95,.15);color:var(--t4)}
+
+/* ── Roadmap ── */
+.roadmap-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+@media(max-width:700px){.roadmap-grid{grid-template-columns:1fr}}
+.tier-block{padding:22px}
+.tier-header{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.tier-num{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:800;flex-shrink:0}
+.tier-header h3{font-size:15px;font-weight:700;letter-spacing:-.01em}
+.tier-header .tier-meta{font-size:11px;color:var(--muted2);margin-top:2px}
+.domain-chip{display:flex;align-items:center;gap:10px;padding:9px 12px;
+  border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);
+  margin-bottom:7px;cursor:pointer;transition:.18s}
+.domain-chip:hover{background:rgba(255,255,255,.08)}
+.chip-id{font-size:11px;font-weight:700;color:var(--muted2);width:32px;flex-shrink:0;letter-spacing:.02em}
+.chip-name{font-size:12.5px;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip-badge{font-size:10px;padding:2px 7px;border-radius:8px;font-weight:700;flex-shrink:0}
+.chip-target{font-size:10px;color:var(--muted2);flex-shrink:0}
+.chip-sp{font-size:10.5px;color:var(--muted2);flex-shrink:0;font-variant-numeric:tabular-nums}
+
+/* ── Table ── */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead tr{border-bottom:1px solid rgba(255,255,255,.10)}
+th{padding:11px 13px;color:var(--muted2);font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;
+  text-align:left;cursor:pointer;white-space:nowrap;user-select:none}
+th:hover{color:var(--ink)}
+th.sorted{color:var(--yellow)}
+td{padding:10px 13px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
+tr:hover td{background:rgba(255,255,255,.025)}
+.td-rank{font-size:11px;color:var(--muted2);font-weight:700;text-align:right;width:32px}
+.bar-bg{height:3px;border-radius:3px;background:rgba(255,255,255,.07);margin-top:3px}
+.bar-fill{height:3px;border-radius:3px}
+.score-cell{font-weight:700;font-variant-numeric:tabular-nums}
+.reg-refs{display:flex;flex-wrap:wrap;gap:4px}
+.ref-tag{font-size:9.5px;padding:2px 6px;border-radius:6px;background:rgba(180,190,255,.09);
+  color:var(--muted);border:1px solid rgba(180,190,255,.12);white-space:nowrap}
+
+/* Tooltip */
+#tt{position:fixed;pointer-events:none;z-index:200;display:none;
+  background:rgba(8,12,28,.94);border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;padding:12px 15px;font-size:12px;line-height:1.6;
+  backdrop-filter:blur(20px);max-width:240px;box-shadow:0 8px 30px rgba(0,0,0,.7)}
+#tt .tt-title{font-size:13px;font-weight:700;margin-bottom:6px}
+#tt .tt-row{display:flex;justify-content:space-between;gap:16px;color:var(--muted)}
+#tt .tt-val{font-weight:600;color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<div class="grain"></div>
+<nav>
+  <span class="nt">BCOPCore · Migración</span>
+  <span class="sp"></span>
+  <a class="back" href="index-bcop-v2.html">← Índice</a>
+</nav>
+<div id="tt"><div class="tt-title" id="tt-title"></div><div id="tt-body"></div></div>
+
+<main>
+<!-- HERO -->
+<section class="hero">
+<div class="wrap">
+  <div class="eyebrow"><span class="dot"></span>Gemelo Cognitivo · DISCOVER · Priorización</div>
+  <h1>Priority Migration Ranking</h1>
+  <p class="sub">Orden de migración de los 30 dominios Informix — scored por valor regulatorio + impacto de negocio vs. costo de desacoplamiento. Cuadrante superior-izquierdo = migrar primero.</p>
+  <div class="kpi-row">
+    <div class="kpi glass t1"><div class="kpi-n" id="kn-t1">—</div><div class="kpi-l">Quick Wins</div><div class="kpi-sub" id="ks-t1">—</div></div>
+    <div class="kpi glass t2"><div class="kpi-n" id="kn-t2">—</div><div class="kpi-l">Planificar</div><div class="kpi-sub" id="ks-t2">—</div></div>
+    <div class="kpi glass bg"><div class="kpi-n" id="kn-t3">—</div><div class="kpi-l">Backlog</div><div class="kpi-sub" id="ks-t3">—</div></div>
+    <div class="kpi glass sp"><div class="kpi-n" id="kn-sp">—</div><div class="kpi-l">SPs a replicar</div><div class="kpi-sub" id="ks-sp">—</div></div>
+  </div>
+</div>
+</section>
+
+<!-- SCATTER -->
+<section id="s-scatter">
+<div class="wrap">
+  <div class="shead">
+    <div class="kick">Matriz de Prioridad</div>
+    <h2>Valor vs. Esfuerzo por dominio</h2>
+    <p>Eje X = costo de desacoplamiento de Informix (esfuerzo). Eje Y = score de valor (cobertura regulatoria + impacto de negocio). Tamaño de burbuja = SPs en dominio. Color = sistema target de migración.</p>
+  </div>
+  <div class="scatter-wrap">
+    <div class="glass scatter-card" id="scatter-wrap">
+      <svg id="scatter-svg"></svg>
+      <div class="scatter-hint">Clic en burbuja para ver detalle</div>
+    </div>
+    <div class="glass legend-panel">
+      <div class="legend-title">Sistema Target</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#4fde8a"></div>Apolo (créditos)</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#5fc5f5"></div>Transact (cuentas/pagos)</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#f5c842"></div>SmartVista (tarjetas)</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#c084fc"></div>Cross-cutting</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#f57f42"></div>Multi-target</div>
+      <div style="margin-top:16px;margin-bottom:12px">
+        <div class="legend-title">Cuadrantes</div>
+        <div class="leg-item"><div class="leg-line" style="width:16px;background:var(--t1)"></div>Quick Win ↖</div>
+        <div class="leg-item"><div class="leg-line" style="width:16px;background:var(--t2)"></div>Planificar ↗</div>
+        <div class="leg-item"><div class="leg-line" style="width:16px;background:var(--t3)"></div>Backlog ↙</div>
+      </div>
+      <div class="info-panel-box">
+        <div id="info-placeholder" class="info-box-placeholder">Clic en un dominio<br>para ver su detalle</div>
+        <div id="dom-info" class="dom-info" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ROADMAP -->
+<section id="s-roadmap">
+<div class="wrap">
+  <div class="shead">
+    <div class="kick">Roadmap de Migración</div>
+    <h2>Dominios por tier de prioridad</h2>
+    <p>Clasificación basada en la matriz valor/esfuerzo. Cada dominio incluye su sistema target y el número de SPs a migrar.</p>
+  </div>
+  <div class="roadmap-grid" id="roadmap-grid"></div>
+</div>
+</section>
+
+<!-- TABLE -->
+<section id="s-table">
+<div class="wrap">
+  <div class="shead">
+    <div class="kick">Tabla Completa</div>
+    <h2>Ranking detallado — todos los dominios</h2>
+    <p>Ordenable por cualquier columna. Priority Score = valor / (0.25 + esfuerzo). Fórmula tecnología-agnóstica.</p>
+  </div>
+  <div class="glass" style="padding:0;overflow:hidden">
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th data-col="rank">#</th>
+          <th data-col="id">ID</th>
+          <th data-col="name">Dominio</th>
+          <th data-col="tier">Tier</th>
+          <th data-col="target">Target</th>
+          <th data-col="sp_in_target" style="text-align:right">SPs</th>
+          <th data-col="value_score" style="text-align:right">Valor</th>
+          <th data-col="effort_score" style="text-align:right">Esfuerzo</th>
+          <th data-col="priority_score" style="text-align:right">Priority</th>
+          <th data-col="reg_pct" style="text-align:right">Reg %</th>
+          <th data-col="hard_blocks" style="text-align:right">Hard</th>
+          <th>Refs Regulatorias</th>
+        </tr></thead>
+        <tbody id="tbl-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</section>
+</main>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const fmt = n => n == null ? '—' : Number(n).toLocaleString('es-MX');
+const pct = n => n == null ? '—' : (n * 100).toFixed(0) + '%';
+const TIER_COLOR = { 1:'#4fde8a', 2:'#f5c842', 3:'#aab3d4', 4:'#f55f5f' };
+const TIER_LABEL = { 1:'Quick Win', 2:'Planificar', 3:'Backlog', 4:'Diferir' };
+const TARGET_COLOR = {
+  apolo:'#4fde8a', transact:'#5fc5f5', smartvista:'#f5c842',
+  cross:'#c084fc', multi:'#f57f42', unknown:'#888'
+};
+
+let gData = null;
+let gSelected = null;
+
+/* Tooltip */
+const ttEl = $('tt'), ttTitle = $('tt-title'), ttBody = $('tt-body');
+function showTT(d, evt) {
+  ttTitle.textContent = `${d.id} · ${d.name}`;
+  ttBody.innerHTML = [
+    ['Tier', `<span style="color:${TIER_COLOR[d.tier]}">${TIER_LABEL[d.tier]}</span>`],
+    ['Priority', d.priority_score.toFixed(3)],
+    ['Valor', d.value_score.toFixed(3)],
+    ['Esfuerzo', d.effort_score.toFixed(3)],
+    ['Target', d.target],
+    ['SPs', fmt(d.sp_in_target)],
+    ['Reg %', pct(d.reg_pct)],
+  ].map(([l,v]) => `<div class="tt-row"><span>${l}</span><span class="tt-val">${v}</span></div>`).join('');
+  ttEl.style.display = 'block'; moveTT(evt);
+}
+function moveTT(evt) {
+  const px = evt.clientX + 14, py = evt.clientY - 10;
+  ttEl.style.left = Math.min(px, window.innerWidth - 260) + 'px';
+  ttEl.style.top = Math.min(py, window.innerHeight - 200) + 'px';
+}
+function hideTT() { ttEl.style.display = 'none'; }
+
+/* Info panel */
+function showInfo(d) {
+  gSelected = d.id;
+  $('info-placeholder').style.display = 'none';
+  const c = $('dom-info');
+  c.style.display = 'block';
+  const refsHtml = d.reg_refs.length
+    ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:2px">${d.reg_refs.map(r => `<span class="ref-tag">${r}</span>`).join('')}</div>`
+    : '—';
+  c.innerHTML = `
+    <h4>${d.name}</h4>
+    <div class="di-sub">${d.id} · ${d.target.toUpperCase()}</div>
+    ${[
+      ['Tier', `<span class="tier-pill t${d.tier}">${TIER_LABEL[d.tier]}</span>`],
+      ['Priority score', `<span class="di-val" style="color:${TIER_COLOR[d.tier]}">${d.priority_score.toFixed(3)}</span>`],
+      ['Valor', `<span class="di-val">${d.value_score.toFixed(3)}</span>`],
+      ['Esfuerzo', `<span class="di-val">${d.effort_score.toFixed(3)} (cost ${d.avg_cost})</span>`],
+      ['SPs en target', `<span class="di-val">${fmt(d.sp_in_target)}</span>`],
+      ['Reglas', `<span class="di-val">${fmt(d.rule_count)} (${pct(d.reg_pct)} reg)</span>`],
+      ['Hard blocks', `<span class="di-val">${fmt(d.hard_blocks)}</span>`],
+      ['API candidates', `<span class="di-val">${fmt(d.api_candidates)}</span>`],
+      ['Refs reg.', refsHtml],
+    ].map(([l,v]) => `<div class="di-row"><span class="di-lbl">${l}</span>${v}</div>`).join('')}
+    <div style="font-size:11px;color:var(--muted);margin-top:12px;line-height:1.55">${d.action}</div>
+  `;
+}
+
+/* Scatter */
+function renderScatter(data) {
+  const wrap = $('scatter-wrap');
+  const PAD = { t: 40, r: 20, b: 50, l: 55 };
+  const W = wrap.clientWidth || 900, H = 500;
+  const PW = W - PAD.l - PAD.r, PH = H - PAD.t - PAD.b;
+
+  const svg = d3.select('#scatter-svg').attr('viewBox', `0 0 ${W} ${H}`);
+  svg.selectAll('*').remove();
+
+  const xScale = d3.scaleLinear().domain([0, 1]).range([0, PW]);
+  const yScale = d3.scaleLinear().domain([0, 1]).range([PH, 0]);
+  const maxSP = d3.max(data.domains, d => d.sp_in_target) || 1;
+  const rScale = d3.scaleSqrt().domain([0, maxSP]).range([4, 28]);
+
+  const g = svg.append('g').attr('transform', `translate(${PAD.l},${PAD.t})`);
+
+  /* Cuadrantes */
+  const vm = data.meta.value_midpoint, em = data.meta.effort_midpoint;
+  const qDefs = [
+    { x:0, y:0, w:xScale(em), h:yScale(vm), color:'rgba(79,222,138,.04)', label:'Quick Win ↖', lx: xScale(em/2), ly: 16 },
+    { x:xScale(em), y:0, w:PW-xScale(em), h:yScale(vm), color:'rgba(245,200,66,.04)', label:'Planificar ↗', lx: xScale(em)+(PW-xScale(em))/2, ly: 16 },
+    { x:0, y:yScale(vm), w:xScale(em), h:PH-yScale(vm), color:'rgba(170,179,212,.025)', label:'Backlog ↙', lx: xScale(em/2), ly: yScale(vm)+22 },
+    { x:xScale(em), y:yScale(vm), w:PW-xScale(em), h:PH-yScale(vm), color:'rgba(245,95,95,.03)', label:'Diferir ↘', lx: xScale(em)+(PW-xScale(em))/2, ly: yScale(vm)+22 },
+  ];
+  qDefs.forEach(q => {
+    g.append('rect').attr('x',q.x).attr('y',q.y).attr('width',q.w).attr('height',q.h)
+      .attr('fill', q.color);
+    g.append('text').attr('x',q.lx).attr('y',q.ly).attr('text-anchor','middle')
+      .attr('font-size',10.5).attr('fill','rgba(170,179,212,0.4)').attr('font-weight',600)
+      .text(q.label);
+  });
+
+  /* Divisores */
+  g.append('line').attr('x1',xScale(em)).attr('x2',xScale(em)).attr('y1',0).attr('y2',PH)
+    .attr('stroke','rgba(255,255,255,.12)').attr('stroke-dasharray','4,3').attr('stroke-width',1);
+  g.append('line').attr('x1',0).attr('x2',PW).attr('y1',yScale(vm)).attr('y2',yScale(vm))
+    .attr('stroke','rgba(255,255,255,.12)').attr('stroke-dasharray','4,3').attr('stroke-width',1);
+
+  /* Ejes */
+  const xAxis = d3.axisBottom(xScale).ticks(5).tickFormat(d => d === 0 ? 'Fácil' : d === 1 ? 'Difícil' : `${(d*100).toFixed(0)}`);
+  const yAxis = d3.axisLeft(yScale).ticks(5).tickFormat(d => d === 0 ? 'Bajo' : d === 1 ? 'Alto' : d.toFixed(1));
+  g.append('g').attr('transform', `translate(0,${PH})`).call(xAxis)
+    .selectAll('text,line,path').attr('stroke','rgba(180,190,220,.3)').attr('fill','rgba(180,190,220,.4)').attr('font-size',10);
+  g.append('g').call(yAxis)
+    .selectAll('text,line,path').attr('stroke','rgba(180,190,220,.3)').attr('fill','rgba(180,190,220,.4)').attr('font-size',10);
+
+  /* Etiquetas de eje */
+  g.append('text').attr('x',PW/2).attr('y',PH+40).attr('text-anchor','middle')
+    .attr('fill','rgba(180,190,220,.5)').attr('font-size',11)
+    .text('Esfuerzo (costo de desacoplamiento Informix →)');
+  g.append('text').attr('transform','rotate(-90)').attr('x',-PH/2).attr('y',-44)
+    .attr('text-anchor','middle').attr('fill','rgba(180,190,220,.5)').attr('font-size',11)
+    .text('↑ Valor (regulatorio + impacto negocio)');
+
+  /* Burbujas */
+  const bubbles = g.selectAll('g.bubble')
+    .data(data.domains)
+    .join('g').attr('class','bubble')
+    .attr('transform', d => `translate(${xScale(d.effort_score)},${yScale(d.value_score)})`)
+    .attr('cursor','pointer')
+    .on('mouseenter', (evt, d) => showTT(d, evt))
+    .on('mousemove', moveTT)
+    .on('mouseleave', hideTT)
+    .on('click', (evt, d) => { evt.stopPropagation(); showInfo(d); highlightBubble(d.id); });
+
+  bubbles.append('circle')
+    .attr('r', d => rScale(d.sp_in_target))
+    .attr('fill', d => TARGET_COLOR[d.target] || '#888')
+    .attr('fill-opacity', 0.20)
+    .attr('stroke', d => TARGET_COLOR[d.target] || '#888')
+    .attr('stroke-width', 1.8)
+    .attr('stroke-opacity', 0.80);
+
+  /* Halo para Tier 1 */
+  bubbles.filter(d => d.tier === 1)
+    .append('circle')
+    .attr('r', d => rScale(d.sp_in_target) + 5)
+    .attr('fill','none')
+    .attr('stroke','rgba(79,222,138,.3)')
+    .attr('stroke-width', 1)
+    .attr('stroke-dasharray','3,2');
+
+  bubbles.append('text')
+    .attr('text-anchor','middle')
+    .attr('dy', d => rScale(d.sp_in_target) + 11)
+    .attr('fill','rgba(244,246,255,.75)')
+    .attr('font-size', 9.5).attr('font-weight',600)
+    .attr('pointer-events','none')
+    .text(d => d.id);
+
+  svg.on('click', () => { gSelected = null; $('info-placeholder').style.display=''; $('dom-info').style.display='none'; bubbles.attr('opacity',1); });
+}
+
+function highlightBubble(id) {
+  d3.selectAll('g.bubble').attr('opacity', d => d.id === id ? 1 : 0.25);
+}
+
+/* Roadmap */
+function buildRoadmap(data) {
+  const grid = $('roadmap-grid');
+  [1,2,3,4].forEach(t => {
+    const tier = data.tiers[String(t)];
+    const domains = data.domains.filter(d => d.tier === t);
+    if (!domains.length) return;
+    const div = document.createElement('div');
+    div.className = 'tier-block glass';
+    div.innerHTML = `
+      <div class="tier-header">
+        <div class="tier-num" style="background:${tier.color}22;color:${tier.color}">T${t}</div>
+        <div>
+          <h3>${tier.label}</h3>
+          <div class="tier-meta">${tier.count} dominios · ${fmt(tier.sp)} SPs</div>
+        </div>
+      </div>
+      ${domains.map(d => `
+        <div class="domain-chip" onclick="scrollToRow('${d.id}')">
+          <span class="chip-id">${d.id}</span>
+          <span class="chip-name">${d.name}</span>
+          <span class="chip-badge" style="background:${TARGET_COLOR[d.target]}22;color:${TARGET_COLOR[d.target]}">${d.target}</span>
+          <span class="chip-sp">${fmt(d.sp_in_target)} SP</span>
+        </div>`).join('')}
+    `;
+    grid.appendChild(div);
+  });
+}
+
+/* Tabla */
+let sortCol = 'rank', sortAsc = true;
+function buildTable(data) {
+  const tbody = $('tbl-body');
+  const maxPri = Math.max(...data.domains.map(d => d.priority_score), 1);
+  const sorted = [...data.domains].sort((a,b) => {
+    const av = a[sortCol] ?? '', bv = b[sortCol] ?? '';
+    const cmp = typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv));
+    return sortAsc ? cmp : -cmp;
+  });
+  tbody.innerHTML = sorted.map(d => `
+    <tr id="row-${d.id}">
+      <td class="td-rank">${d.rank}</td>
+      <td style="font-size:11px;font-weight:700;color:var(--muted2)">${d.id}</td>
+      <td>${d.name}</td>
+      <td><span class="tier-pill t${d.tier}">${TIER_LABEL[d.tier]}</span></td>
+      <td style="font-size:11px;color:${TARGET_COLOR[d.target]}">${d.target}</td>
+      <td class="score-cell" style="text-align:right">${fmt(d.sp_in_target)}</td>
+      <td style="text-align:right">
+        <span class="score-cell" style="color:${TIER_COLOR[d.tier]}">${d.value_score.toFixed(3)}</span>
+        <div class="bar-bg"><div class="bar-fill" style="width:${(d.value_score/.8*100).toFixed(0)}%;background:${TIER_COLOR[d.tier]}88"></div></div>
+      </td>
+      <td style="text-align:right">
+        <span class="score-cell" style="color:${d.effort_score>0.5?'#f57f42':'#aab3d4'}">${d.effort_score.toFixed(2)}</span>
+        <div class="bar-bg"><div class="bar-fill" style="width:${(d.effort_score*100).toFixed(0)}%;background:rgba(245,127,66,.5)"></div></div>
+      </td>
+      <td style="text-align:right">
+        <span class="score-cell" style="color:${TIER_COLOR[d.tier]}">${d.priority_score.toFixed(3)}</span>
+        <div class="bar-bg"><div class="bar-fill" style="width:${(d.priority_score/maxPri*100).toFixed(0)}%;background:${TIER_COLOR[d.tier]}77"></div></div>
+      </td>
+      <td style="text-align:right">${pct(d.reg_pct)}</td>
+      <td style="text-align:right;color:${d.hard_blocks>0?'#f57f42':'inherit'}">${fmt(d.hard_blocks)}</td>
+      <td><div class="reg-refs">${d.reg_refs.slice(0,3).map(r => `<span class="ref-tag">${r}</span>`).join('')}</div></td>
+    </tr>`).join('');
+}
+
+function scrollToRow(id) {
+  const row = document.getElementById(`row-${id}`);
+  if (row) { row.scrollIntoView({behavior:'smooth',block:'center'}); row.style.background='rgba(79,222,138,.1)'; setTimeout(()=>row.style.background='',1800); }
+}
+
+document.querySelectorAll('th[data-col]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    if (sortCol === col) sortAsc = !sortAsc; else { sortCol = col; sortAsc = true; }
+    document.querySelectorAll('th[data-col]').forEach(t => t.classList.remove('sorted'));
+    th.classList.add('sorted');
+    if (gData) buildTable(gData);
+  });
+});
+
+/* Load */
+fetch('data/priority-ranking.json')
+  .then(r => r.json())
+  .then(data => {
+    gData = data;
+    const t = data.tiers;
+    $('kn-t1').textContent = t['1'].count;
+    $('ks-t1').textContent = fmt(t['1'].sp) + ' SPs a migrar';
+    $('kn-t2').textContent = t['2'].count;
+    $('ks-t2').textContent = 'lock-in alto, valor alto';
+    $('kn-t3').textContent = t['3'].count;
+    $('ks-t3').textContent = 'menor impacto, Wave 2';
+    const totalRep = Object.values(t).reduce((s,x) => s+x.sp, 0);
+    $('kn-sp').textContent = fmt(totalRep);
+    $('ks-sp').textContent = 'total en todos los tiers';
+    renderScatter(data);
+    buildRoadmap(data);
+    buildTable(data);
+  })
+  .catch(e => {
+    $('scatter-wrap').innerHTML = `<div style="padding:40px;color:#f57f42;text-align:center">
+      Error: ${e.message}<br><small style="color:var(--muted)">python generators/build-priority-ranking.py</small></div>`;
+  });
+
+let resizeT;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeT);
+  resizeT = setTimeout(() => { if (gData) renderScatter(gData); }, 350);
+});
+</script>
+</body>
+</html>

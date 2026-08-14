@@ -1,0 +1,1014 @@
+#!/usr/bin/env python3
+"""
+build-sp-architecture.py
+Genera portal/sp-architecture-bcop.html — Taxonomía de SP Types + Mapa de Interacciones SPL.
+
+Fuentes:
+  - digital-brain/brain.db  → conteos fan-based (sección Capas + Force Graph)
+  - SPL_DEFAULTS             → conteos SPL (fallback; actualizar cuando ola-c-tipos.py reclasifique)
+"""
+import sqlite3
+from pathlib import Path
+
+ROOT = Path(__file__).parent.parent
+DB   = ROOT / "digital-brain" / "brain.db"
+OUT  = ROOT / "portal" / "sp-architecture-bcop.html"
+
+# Estáticos — derivados de journeys o análisis puntual, no de fan_in/fan_out
+ESB_EXPOSED  = 538
+ENTRY_POINTS = 98
+CROSS_DOMAIN = 44
+SHARED_SVC   = 34
+
+# Conteos SPL: última clasificación válida (ola-c-tipos.py sobre 11 391 SPs)
+# Si brain.db tiene datos en sp_archetype, se usan esos; si no, estos defaults.
+SPL_DEFAULTS = {
+    "FILE_LOADER":       3162,
+    "DATA_MAINT":        2034,
+    "REPORT_AGGREGATOR": 1480,
+    "MASS_OPERATION":    753,
+    "ORCHESTRATOR":      780,
+    "ACCOUNTING_JOB":    178,
+    "CIERRE_CORTE":      35,
+    "PURGE_JOB":         292,
+    "CONCILIACION":      53,
+    "SINGLE_CALL":       748,
+    "CURSOR_SP":         958,
+    "QUERY_SP":          901,
+}
+
+
+def main():
+    conn = sqlite3.connect(str(DB))
+
+    total = conn.execute("SELECT COUNT(*) FROM sps").fetchone()[0]
+
+    fan = dict(conn.execute("""
+        SELECT
+            CASE
+                WHEN fan_out > 50                          THEN 'super_orq'
+                WHEN fan_in = 0  AND fan_out > 5           THEN 'batch_orq'
+                WHEN fan_in > 0  AND fan_out >= 6
+                     AND fan_out <= 50                     THEN 'orchestrator'
+                WHEN fan_in > 0  AND fan_out >= 1
+                     AND fan_out <= 5                      THEN 'implementation'
+                WHEN fan_in > 0  AND fan_out = 0           THEN 'leaf'
+                ELSE 'batch'
+            END AS cat,
+            COUNT(*) AS n
+        FROM sps GROUP BY cat
+    """).fetchall())
+
+    db_spl = dict(conn.execute(
+        "SELECT sp_archetype, COUNT(*) FROM sps "
+        "WHERE sp_archetype IS NOT NULL GROUP BY sp_archetype"
+    ).fetchall())
+    conn.close()
+
+    def g(k):
+        return fan.get(k, 0)
+
+    def s(k):
+        return db_spl.get(k) if db_spl else SPL_DEFAULTS.get(k, 0)
+
+    batch_offline = g("batch_orq") + g("batch")
+    batch_pct     = round(g("batch") / total * 100) if total else 0
+
+    repl = {
+        "__TOTAL_RAW__":       str(total),
+        "__TOTAL__":           f"{total:,}",
+        "__SUPER_ORQ__":       str(g("super_orq")),
+        "__BATCH_ORQ__":       str(g("batch_orq")),
+        "__ORCHESTRATOR__":    str(g("orchestrator")),
+        "__IMPLEMENTATION__":  str(g("implementation")),
+        "__LEAF__":            str(g("leaf")),
+        "__BATCH__":           str(g("batch")),
+        "__BATCH_OFFLINE__":   f"{batch_offline:,}",
+        "__BATCH_PCT__":       str(batch_pct),
+        "__N_FILE_LOADER__":   str(s("FILE_LOADER")),
+        "__N_DATA_MAINT__":    str(s("DATA_MAINT")),
+        "__N_REPORT_AGG__":    str(s("REPORT_AGGREGATOR")),
+        "__N_MASS_OP__":       str(s("MASS_OPERATION")),
+        "__N_ORCH_SPL__":      str(s("ORCHESTRATOR")),
+        "__N_ACCT_JOB__":      str(s("ACCOUNTING_JOB")),
+        "__N_CIERRE__":        str(s("CIERRE_CORTE")),
+        "__N_PURGE__":         str(s("PURGE_JOB")),
+        "__N_CONCIL__":        str(s("CONCILIACION")),
+        "__N_SINGLE__":        str(s("SINGLE_CALL")),
+        "__N_CURSOR__":        str(s("CURSOR_SP")),
+        "__N_QUERY__":         str(s("QUERY_SP")),
+    }
+
+    html = HTML_TEMPLATE
+    for k, v in repl.items():
+        html = html.replace(k, v)
+
+    OUT.write_text(html, encoding="utf-8")
+    src = "brain.db" if db_spl else "defaults"
+    print(f"Escrito: {OUT}")
+    print(f"  Total SPs     : {total:,}")
+    print(f"  super_orq     : {g('super_orq'):,}")
+    print(f"  batch_orq     : {g('batch_orq'):,}")
+    print(f"  orchestrator  : {g('orchestrator'):,}")
+    print(f"  implementation: {g('implementation'):,}")
+    print(f"  leaf          : {g('leaf'):,}")
+    print(f"  batch         : {g('batch'):,}")
+    print(f"  batch_offline : {batch_offline:,}")
+    print(f"  SPL source    : {src}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+HTML_TEMPLATE = r"""<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Informix · Arquetipos SPL</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--blue:#3D5FCD;--blued:#122FB1;--bluedd:#0d2185;--yellow:#F0D224;
+ --ink:#F4F6FF;--muted:#aab3d4;--muted2:#818ab0;--glass:rgba(255,255,255,.055);--glassb:rgba(255,255,255,.10);
+ --c-frontera:#122FB1;--c-orq-s:#e85d04;--c-orq:#2196F3;--c-impl:#29b6f6;--c-leaf:#81d4fa;
+ --c-prim:#F0D224;--c-shared:#ffd54f;--c-batch:#546e7a;--c-batch-orq:#78909c}
+html{scroll-behavior:smooth}
+body{background:#060a1a;color:var(--ink);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none}
+.aurora::before{content:"";position:absolute;width:62vw;height:62vw;left:-12vw;top:-16vw;border-radius:50%;filter:blur(90px);background:radial-gradient(circle,rgba(27,63,208,.65),transparent 70%);animation:f1 24s ease-in-out infinite}
+.aurora::after{content:"";position:absolute;width:56vw;height:56vw;right:-14vw;top:6vw;border-radius:50%;filter:blur(90px);background:radial-gradient(circle,rgba(13,33,133,.7),transparent 70%);animation:f2 28s ease-in-out infinite}
+.aurora .blob{position:absolute;width:40vw;height:40vw;left:34vw;bottom:-14vw;border-radius:50%;filter:blur(90px);background:radial-gradient(circle,rgba(240,210,36,.22),transparent 70%);animation:f3 32s ease-in-out infinite}
+@keyframes f1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes f2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes f3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+.grain{position:fixed;inset:0;z-index:-1;opacity:.045;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.hero-bar{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;gap:18px;
+ padding:14px 32px;backdrop-filter:blur(20px) saturate(150%);-webkit-backdrop-filter:blur(20px) saturate(150%);
+ background:rgba(6,10,26,.6);border-bottom:1px solid rgba(255,255,255,.06)}
+.hero-bar img{height:34px;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))}
+.hero-bar .hb-sep{width:1px;height:28px;background:rgba(255,255,255,.15);flex-shrink:0}
+.hero-bar .crumb{font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.35)}
+.hero-bar .crumb em{color:var(--yellow);font-style:normal}
+.hero-bar .hb-sp{flex:1}
+.hero-bar a.back{font-size:12px;color:var(--muted);padding:6px 13px;border-radius:20px;
+ border:1px solid rgba(255,255,255,.09);text-decoration:none;transition:.22s}
+.hero-bar a.back:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+.hero-body{display:flex;align-items:flex-end;gap:48px;flex-wrap:wrap;margin-top:36px}
+.hero-title{flex:1;min-width:260px}
+.hero-label{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--yellow);margin-bottom:12px}
+.hero-h1{font-size:clamp(30px,5vw,56px);font-weight:900;letter-spacing:-.035em;line-height:1.0;
+ background:linear-gradient(176deg,#fff 34%,#9fb4ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero-sub{margin-top:14px;font-size:13px;color:var(--muted);line-height:1.6;max-width:56ch}
+.hero-stats{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding-bottom:4px}
+.stat-block{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:16px 22px;min-width:100px}
+.stat-block .sn{font-size:30px;font-weight:900;letter-spacing:-.03em;font-variant-numeric:tabular-nums;
+ background:linear-gradient(135deg,var(--yellow),#f6e27a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1}
+.stat-block.blue .sn{background:linear-gradient(135deg,#93c5fd,#6f8ce6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.stat-block .sl{font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted2);margin-top:5px}
+.glass{background:var(--glass);backdrop-filter:blur(22px) saturate(155%);-webkit-backdrop-filter:blur(22px) saturate(155%);border:1px solid var(--glassb);border-radius:22px;box-shadow:0 12px 44px rgba(0,0,0,.36),inset 0 1px 0 rgba(255,255,255,.10)}
+.wrap{max-width:1200px;margin:0 auto;padding:0 30px}
+section{padding:72px 0;scroll-margin-top:70px}
+.hero{padding:80px 0 32px}
+.shead{margin-bottom:36px}
+.kick{font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--yellow);margin-bottom:12px}
+.shead h2{font-size:clamp(24px,3.4vw,40px);font-weight:800;letter-spacing:-.025em;line-height:1.06}
+.shead p{color:var(--muted);font-size:14px;margin-top:12px;max-width:72ch;line-height:1.55}
+#graph-container{position:relative;width:100%;min-height:620px;padding:0}
+#force-svg{width:100%;height:620px;display:block;cursor:grab}
+#force-svg:active{cursor:grabbing}
+.graph-hint{text-align:center;font-size:11px;color:var(--muted2);margin-top:12px}
+#tooltip{position:fixed;z-index:100;pointer-events:none;opacity:0;transition:opacity .18s;
+ background:rgba(6,10,26,.96);border:1px solid var(--glassb);border-radius:14px;padding:16px 20px;max-width:280px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+#tooltip h4{font-size:14px;font-weight:800;margin-bottom:6px}
+#tooltip .tc{font-size:12px;color:var(--muted);line-height:1.5}
+#tooltip .tn{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:8px 0 4px}
+#tooltip .te{font-size:11px;color:var(--muted2);margin-top:6px;font-style:italic}
+.arch-wrap{display:grid;grid-template-columns:1fr 380px;gap:24px;align-items:start}
+@media(max-width:900px){.arch-wrap{grid-template-columns:1fr}}
+#arch-svg{width:100%;height:auto;overflow:visible}
+.arch-right{display:flex;flex-direction:column;gap:0;max-height:730px;overflow-y:auto;
+ scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.15) transparent;padding-right:4px}
+.arch-right::-webkit-scrollbar{width:4px}
+.arch-right::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:4px}
+.ctx-layer-hdr{font-size:9px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;
+ color:var(--muted2);padding:14px 4px 7px;border-top:1px solid rgba(255,255,255,.07)}
+.ctx-layer-hdr:first-child{border-top:none;padding-top:0}
+.ctx-card{padding:13px 15px;border-radius:12px;border:1px solid rgba(255,255,255,.07);
+ background:rgba(255,255,255,.03);margin-bottom:8px;border-left-width:3px;transition:.2s}
+.ctx-card:hover{background:rgba(255,255,255,.065);transform:translateX(2px)}
+.ctx-head{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+.ctx-ico{font-size:9px;font-weight:800;letter-spacing:.08em;font-family:monospace;
+ padding:3px 7px;border-radius:6px;border:1px solid currentColor;opacity:.85;flex-shrink:0;line-height:1.4}
+.ctx-name{font-size:12px;font-weight:800;flex:1;letter-spacing:-.01em}
+.ctx-count-line{font-size:10.5px;font-weight:700;font-variant-numeric:tabular-nums;color:#c4d0ff;margin-bottom:5px}
+.ctx-count-line span{font-size:9.5px;color:var(--muted2);font-weight:400;margin-left:4px}
+.ctx-desc{font-size:11px;color:var(--muted);line-height:1.48;margin-bottom:6px}
+.ctx-fan{font-size:9.5px;color:var(--muted2);font-family:monospace;margin-bottom:6px}
+.ctx-impl{font-size:10.5px;color:rgba(240,210,36,.75);font-weight:500;margin-top:6px;
+ padding:5px 9px;border-radius:6px;background:rgba(240,210,36,.05);border:1px solid rgba(240,210,36,.15);line-height:1.45}
+.ctx-impl-label{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+ color:rgba(240,210,36,.6);display:block;margin-bottom:3px}
+.ctx-badges{display:flex;gap:5px;margin-top:7px;flex-wrap:wrap;align-items:center}
+.arc-soul{font-size:9px;font-weight:700;color:#F0D224;letter-spacing:.05em;background:rgba(240,210,36,.1);padding:1px 6px;border-radius:8px;border:1px solid rgba(240,210,36,.25)}
+.badge-risk{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:2px 8px;border-radius:8px}
+.badge-soul{font-size:9px;font-weight:700;color:#F0D224;background:rgba(240,210,36,.1);border:1px solid rgba(240,210,36,.25);padding:2px 8px;border-radius:8px}
+.risk-critico{color:#ff6b6b;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.25)}
+.risk-alto{color:#ffa94d;background:rgba(255,169,77,.1);border:1px solid rgba(255,169,77,.25)}
+.risk-medio{color:#74c0fc;background:rgba(116,192,252,.1);border:1px solid rgba(116,192,252,.25)}
+.risk-bajo{color:var(--muted2);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
+/* === SPL diagram === */
+.spl-wrap{overflow-x:auto;padding:8px;border-radius:22px}
+.spl-inner{min-width:1400px}
+#spl-svg{display:block;width:100%;height:auto}
+.dimmed{opacity:.09!important;transition:opacity .2s}
+#tt-spl{position:fixed;background:rgba(6,10,26,.97);border:1px solid rgba(255,255,255,.12);
+ border-radius:14px;padding:14px 16px;max-width:380px;min-width:260px;
+ pointer-events:none;opacity:0;transition:opacity .15s;z-index:9999;
+ box-shadow:0 20px 60px rgba(0,0,0,.75);color:#f4f6ff;
+ font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;font-size:12px}
+#tt-spl.show{opacity:1}
+.tth{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.tth-name{font-size:14px;font-weight:700;color:#f4f6ff}
+.spl-badge{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px}
+.b-alta{background:rgba(63,185,80,.12);color:#3fb950;border:1px solid rgba(63,185,80,.3)}
+.b-media{background:rgba(210,153,34,.12);color:#d29922;border:1px solid rgba(210,153,34,.3)}
+.b-ambig{background:rgba(188,140,255,.12);color:#bc8cff;border:1px solid rgba(188,140,255,.3)}
+.ttcount{font-size:11px;color:#aab3d4;margin-bottom:8px}
+.ttdesc{font-size:11px;color:#e0e6ff;line-height:1.55;margin-bottom:8px}
+.ttambig{font-size:10px;color:#bc8cff;background:rgba(188,140,255,.07);
+ border-left:2px solid #bc8cff;padding:5px 8px;border-radius:0 4px 4px 0;margin-bottom:8px}
+.ttsec{font-size:9px;color:#818ab0;text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin:8px 0 4px}
+.ttaws{font-size:10px;color:#3fb950;margin-bottom:2px}
+.l2row{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
+.l2name{font-size:10px;color:#c9d1d9}
+.l2n{font-size:9px;color:#818ab0}
+.l2bg{height:4px;background:rgba(255,255,255,.07);border-radius:2px;margin-bottom:5px}
+.l2bar{height:4px;background:#388bfd;border-radius:2px}
+.spitem{font-size:10px;color:#79c0ff;margin-bottom:3px}
+.spitem span{color:#818ab0}
+.tt-hint{font-size:9px;color:#484f58;margin-top:10px;text-align:center}
+footer{text-align:center;padding:40px 0;font-size:11px;color:var(--muted2);border-top:1px solid rgba(255,255,255,.06)}
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<div class="grain"></div>
+
+<div id="tooltip">
+  <h4 id="tt-name"></h4>
+  <div class="tc" id="tt-layer"></div>
+  <div class="tn" id="tt-count"></div>
+  <div class="tc" id="tt-desc"></div>
+  <div class="te" id="tt-ex"></div>
+</div>
+<div id="tt-spl"></div>
+
+<div class="hero-bar">
+  <img src="bancoppel-logo.png" alt="BanCoppel">
+  <div class="hb-sep"></div>
+  <span class="crumb">BCOPCORE &nbsp;·&nbsp; SPE-AM-001 &nbsp;·&nbsp; GEMELO COGNITIVO &nbsp;·&nbsp; <em>ARQUETIPOS SPL</em></span>
+  <span class="hb-sp"></span>
+  <a href="index-bcop-v2.html" class="back">← Portal</a>
+</div>
+
+<section class="hero wrap">
+  <div class="hero-body">
+    <div class="hero-title">
+      <div class="hero-label">Arquetipos SPL</div>
+      <h1 class="hero-h1">Taxonomía de<br>Stored Procedures</h1>
+      <p class="hero-sub">__TOTAL__ SPs clasificados en arquetipos arquitecturales y de comportamiento, derivados del análisis de fan_in, fan_out y patrones de código sobre IBM Informix IDS 14.10 en 49 bases de datos.</p>
+    </div>
+    <div class="hero-stats">
+      <div class="stat-block">
+        <div class="sn">__TOTAL__</div>
+        <div class="sl">SPs totales</div>
+      </div>
+      <div class="stat-block blue">
+        <div class="sn">636</div>
+        <div class="sl">Frontera ESB</div>
+      </div>
+      <div class="stat-block blue">
+        <div class="sn">__SUPER_ORQ__</div>
+        <div class="sl">Super-orquestadores</div>
+      </div>
+      <div class="stat-block">
+        <div class="sn">__BATCH_OFFLINE__</div>
+        <div class="sl">Batch offline</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ CAPAS ARQUITECTURALES ═══ -->
+<section id="arch" class="wrap">
+  <div class="shead">
+    <p class="kick">Flujo de Llamadas</p>
+    <h2>Capas Arquitecturales</h2>
+    <p>El core bancario Informix organiza sus __TOTAL__ SPs en cuatro capas transaccionales (Frontera → Orquestación → Implementación → Core) más una capa offline de procesos batch. El panel derecho describe cada arquetipo con su criterio de clasificación e implicación de migración.</p>
+  </div>
+  <div class="arch-wrap">
+    <div class="glass" style="padding:24px;overflow:hidden">
+      <svg id="arch-svg" viewBox="0 0 560 680"></svg>
+    </div>
+    <div class="arch-right" id="arch-stats"></div>
+  </div>
+</section>
+
+<!-- ═══ FORCE GRAPH ═══ -->
+<section id="graph" class="wrap">
+  <div class="shead">
+    <p class="kick">Visualización Interactiva</p>
+    <h2>Mapa de Arquetipos</h2>
+    <p>Cada nodo representa un arquetipo arquitectural. El tamaño es proporcional al número de SPs y las líneas indican el flujo de llamadas entre arquetipos. El punto dorado sobre un nodo señala que contiene Almas del sistema. Se puede arrastrar para explorar.</p>
+  </div>
+  <div class="glass" style="padding:8px 8px 4px;overflow:hidden;border-radius:22px">
+    <svg id="force-svg"></svg>
+  </div>
+  <p class="graph-hint">Tamaño proporcional a la raíz cuadrada del número de SPs. Posición pre-calculada. Los nodos en naranja y amarillo corresponden a los arquetipos de mayor riesgo en migración.</p>
+</section>
+
+<!-- ═══ INTERACCIONES SPL ═══ -->
+<section id="spl" class="wrap">
+  <div class="shead">
+    <p class="kick">Arquetipos de Comportamiento</p>
+    <h2>Mapa de Interacciones SPL</h2>
+    <p>12 sub-arquetipos derivados del análisis estático del código SPL: zona de ejecución (ingesta, procesamiento, cierre, lectura online), driver de disparo (scheduler AIX, ESB, sistemas externos) y flujo de datos hacia outputs regulatorios y contables.</p>
+  </div>
+  <div class="glass spl-wrap">
+    <div class="spl-inner">
+      <svg id="spl-svg" viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+  </div>
+  <p class="graph-hint">Click en un arquetipo para destacar sus conexiones · Click en el fondo para restablecer.</p>
+</section>
+
+<footer>Informix · Gemelo Cognitivo del Sistema · SPE-AM-001 · Accenture México · 2026</footer>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   CONSTANTES GLOBALES — inyectadas por el generador
+═══════════════════════════════════════════════════════ */
+const TOTAL = __TOTAL_RAW__;
+
+/* ═══════════════════════════════════════════════════════
+   ARQUETIPOS FAN-BASED (secciones #arch + #graph)
+═══════════════════════════════════════════════════════ */
+const ARCHETYPES = [
+  {id:'esb_exposed',   label:'ESB Exposed',        short:'ESB',    count:538,   souls:0, color:'#1a40d4',
+   layer:'FRONTERA', risk:'CRÍTICO', icon:'🔌',
+   desc:'Interfaz pública del core bancario — SPs expuestos al middleware ESB. Primer punto de contacto entre los canales digitales y el core Informix.',
+   ex:['sp_web_*', 'sp_sac_*', 'sp_bccc_detsolicitudeslincred'],
+   fanIn:'externo', fanOut:'→ orquestadores'},
+
+  {id:'entry_point',   label:'Entry Points',        short:'ENTRY',  count:98,    souls:0, color:'#2a5ae8',
+   layer:'FRONTERA', risk:'ALTO', icon:'🚪',
+   desc:'Puntos de entrada de transacciones bancarias. Inician los flujos de negocio y delegan a los orquestadores internos.',
+   ex:['sp_*_inicio_transaccion', 'sp_*_apertura'],
+   fanIn:'frontera', fanOut:'→ super-orq'},
+
+  {id:'super_orchestrator', label:'Super-Orquestadores', short:'S-ORQ', count:__SUPER_ORQ__, souls:0, color:'#e85d04',
+   layer:'ORQUESTACIÓN', risk:'CRÍTICO', icon:'🔄',
+   desc:'Coordinadores de flujos complejos con más de 50 SPs dependientes. Alta complejidad ciclomática y mayor riesgo en migración. Incluye sp_atms_* con 84 llamadas cross-DB.',
+   ex:['sp_atms_* (×84 cross-DB)', 'sp_operacion_*', 'sp_proceso_lote_*'],
+   fanIn:'frontera + batch', fanOut:'> 50 SPs'},
+
+  {id:'batch_orchestrator', label:'Batch Orquestadores', short:'B-ORQ', count:__BATCH_ORQ__, souls:0, color:'#78909c',
+   layer:'BATCH', risk:'MEDIO', icon:'⏱',
+   desc:'Procesos batch con orquestación compleja. No tienen callers SP-to-SP (fan_in=0) — son iniciados por el scheduler AIX. Pueden llamar a más de 5 SPs downstream.',
+   ex:['sp_cierre_*', 'sp_concilia_*', 'sp_descarga_*'],
+   fanIn:'scheduler (fan_in=0)', fanOut:'> 5 SPs'},
+
+  {id:'orchestrator',  label:'Orquestadores',       short:'ORQ',    count:__ORCHESTRATOR__,   souls:3, color:'#2196F3',
+   layer:'ORQUESTACIÓN', risk:'ALTO', icon:'🎯',
+   desc:'Coordinadores internos de flujos de negocio con 6-50 SPs dependientes. Tienen callers conocidos (fan_in > 0). Contienen 3 Almas del sistema.',
+   ex:['sp_*_proceso', 'sp_*_transaccion_det', 'sp_*_valida_autori'],
+   fanIn:'> 0 SPs', fanOut:'6–50 SPs'},
+
+  {id:'implementation', label:'Implementación',     short:'IMPL',   count:__IMPLEMENTATION__,   souls:3, color:'#29b6f6',
+   layer:'IMPLEMENTACIÓN', risk:'MEDIO', icon:'⚙️',
+   desc:'SPs de lógica de negocio con 1-5 dependencias y callers conocidos. Encapsulan reglas de negocio específicas. Contienen 3 Almas.',
+   ex:['sp_*_detalle', 'sp_*_calcula_interes', 'sp_*_aplica_cargo'],
+   fanIn:'> 0 SPs', fanOut:'1–5 SPs'},
+
+  {id:'leaf',          label:'Leaf (Hojas)',         short:'LEAF',   count:__LEAF__,   souls:0, color:'#81d4fa',
+   layer:'IMPLEMENTACIÓN', risk:'BAJO', icon:'🌿',
+   desc:'SPs atómicos — tienen callers pero no llaman a otros SPs. Implementan operaciones de negocio indivisibles (read, write, validate). Candidatos a tests de equivalencia directos.',
+   ex:['sp_altamodificacion_piezas_bym (×373 callers)', 'sp_sac_guardamensajeerror (×321)', 'sp_obtieneencabezadomasivo (×314)'],
+   fanIn:'> 0 SPs', fanOut:'0 SPs'},
+
+  {id:'cross_domain_primitive', label:'Primitivas Cross-Domain', short:'PRIM', count:44, souls:5, color:'#F0D224',
+   layer:'CORE', risk:'CRÍTICO', icon:'⭐',
+   desc:'Operaciones fundamentales compartidas entre múltiples dominios. Mayor riesgo de migración por dependencia transversal. Incluye cargo_ref (×425 callers, 24.8K calls/día) y sp_cnsif_confirmaejecutivo (×2,284 callers).',
+   ex:['cargo_ref ×425  →  24,802 calls/día', 'abono_ref ×410  →  7,280 calls/día', 'sp_cnsif_confirmaejecutivo ×2,284 (security gate)', 'califica_scoring2_cjunk (motor crediticio)', 'sp_consulta_saldos_general'],
+   fanIn:'multi-dominio', fanOut:'atómica'},
+
+  {id:'shared_service', label:'Servicios Compartidos', short:'SVC', count:34, souls:6, color:'#ffd54f',
+   layer:'CORE', risk:'MEDIO', icon:'🔧',
+   desc:'Infraestructura funcional transversal — utilerías y servicios de soporte del core. Mayor cantidad de Almas del sistema (6). sp_obtenerfechahoy recibe 161K llamadas/día.',
+   ex:['sp_obtenerfechahoy  →  161,000 calls/día', 'sp_registra_evento ×1,398 callers', 'sp_bitacorawstae (70% error rate)', 'sp_sac_guardamensajeerror'],
+   fanIn:'multi-dominio', fanOut:'utilerías'},
+
+  {id:'batch',         label:'Batch Standalone',    short:'BATCH',  count:__BATCH__, souls:2, color:'#546e7a',
+   layer:'BATCH', risk:'BAJO', icon:'📦',
+   desc:'Procesos offline — sin callers SP-to-SP (fan_in=0) y con bajo fan_out (≤5). Ejecutados por el scheduler AIX o iniciados directamente por la capa de aplicación Java. Representan el __BATCH_PCT__% del total de SPs.',
+   ex:['sp_cierre_diario_*', 'sp_descarga_buro_*', 'sp_envio_*'],
+   fanIn:'scheduler / app (fan_in=0)', fanOut:'0–5 SPs'},
+];
+
+/* ═══════════════════════════════════════════════════════
+   FORCE GRAPH (pre-computed, no tick handler)
+═══════════════════════════════════════════════════════ */
+(function buildForceGraph() {
+  const el = document.getElementById('force-svg');
+  const W  = el.clientWidth || 1100;
+  const H  = 620;
+  el.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  el.style.height = H + 'px';
+  const svg = d3.select('#force-svg');
+  const r   = d => Math.sqrt(d.count) * 1.8 + 18;
+  const nodes = ARCHETYPES.map(d => ({...d}));
+  const linkDefs = [
+    {s:'esb_exposed',   t:'super_orchestrator'},
+    {s:'esb_exposed',   t:'orchestrator'},
+    {s:'entry_point',   t:'super_orchestrator'},
+    {s:'entry_point',   t:'orchestrator'},
+    {s:'super_orchestrator', t:'orchestrator'},
+    {s:'super_orchestrator', t:'implementation'},
+    {s:'super_orchestrator', t:'cross_domain_primitive'},
+    {s:'orchestrator',  t:'implementation'},
+    {s:'orchestrator',  t:'leaf'},
+    {s:'orchestrator',  t:'cross_domain_primitive'},
+    {s:'implementation',t:'leaf'},
+    {s:'implementation',t:'cross_domain_primitive'},
+    {s:'implementation',t:'shared_service'},
+    {s:'batch_orchestrator', t:'super_orchestrator'},
+    {s:'batch_orchestrator', t:'orchestrator'},
+    {s:'batch',         t:'orchestrator'},
+    {s:'batch',         t:'implementation'},
+    {s:'cross_domain_primitive', t:'shared_service'},
+  ];
+  const idMap = {};
+  nodes.forEach(n => idMap[n.id] = n);
+  const links = linkDefs.filter(l => idMap[l.s] && idMap[l.t]).map(l => ({source:idMap[l.s], target:idMap[l.t]}));
+
+  const sim = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).id(d => d.id).distance(d => (r(d.source)+r(d.target))*1.5+30).strength(0.4))
+    .force('charge', d3.forceManyBody().strength(d => -r(d)*22))
+    .force('center', d3.forceCenter(W/2, H/2))
+    .force('collision', d3.forceCollide(d => r(d)+12).strength(0.85))
+    .force('x', d3.forceX(d => {
+      if (d.layer==='BATCH') return W*0.18;
+      if (d.layer==='CORE')  return W*0.75;
+      return W*0.5;
+    }).strength(0.12))
+    .force('y', d3.forceY(d => {
+      const ly = {FRONTERA:H*0.2, ORQUESTACIÓN:H*0.42, IMPLEMENTACIÓN:H*0.65, CORE:H*0.82, BATCH:H*0.45};
+      return ly[d.layer] ?? H/2;
+    }).strength(0.18))
+    .stop();
+  for (let i=0; i<500; ++i) sim.tick();
+  nodes.forEach(n => { const rd=r(n); n.x=Math.max(rd+4,Math.min(W-rd-4,n.x)); n.y=Math.max(rd+4,Math.min(H-rd-4,n.y)); });
+
+  const defs = svg.append('defs');
+  defs.append('marker').attr('id','arrow').attr('viewBox','0 -5 10 10')
+    .attr('refX',10).attr('refY',0).attr('markerWidth',6).attr('markerHeight',6).attr('orient','auto')
+    .append('path').attr('d','M0,-5L10,0L0,5').attr('fill','rgba(255,255,255,.25)');
+  const glow = defs.append('filter').attr('id','glow').attr('x','-30%').attr('y','-30%').attr('width','160%').attr('height','160%');
+  glow.append('feGaussianBlur').attr('stdDeviation','6').attr('result','blur');
+  const mg = glow.append('feMerge');
+  mg.append('feMergeNode').attr('in','blur');
+  mg.append('feMergeNode').attr('in','SourceGraphic');
+
+  const linkG = svg.append('g');
+  const linkSel = linkG.selectAll('line').data(links).join('line')
+    .attr('x1',d=>d.source.x).attr('y1',d=>d.source.y)
+    .attr('x2',d=>d.target.x).attr('y2',d=>d.target.y)
+    .attr('stroke','rgba(255,255,255,.14)').attr('stroke-width',1.2).attr('marker-end','url(#arrow)');
+
+  const nodeG = svg.append('g');
+  const nodeSel = nodeG.selectAll('g').data(nodes).join('g')
+    .attr('transform',d=>`translate(${d.x},${d.y})`).style('cursor','pointer');
+  nodeSel.append('circle').attr('r',d=>r(d)).attr('fill',d=>d.color+'22').attr('stroke',d=>d.color).attr('stroke-width',2.2);
+  nodeSel.filter(d=>d.risk==='CRÍTICO').append('circle')
+    .attr('r',d=>r(d)+5).attr('fill','none').attr('stroke',d=>d.color)
+    .attr('stroke-width',1).attr('stroke-opacity',.35).attr('filter','url(#glow)');
+  nodeSel.append('text').attr('text-anchor','middle').attr('dy','-.1em')
+    .attr('fill','#fff').attr('font-weight','800').attr('font-size',d=>Math.max(10,Math.min(16,r(d)*.42)))
+    .text(d=>d.count.toLocaleString());
+  nodeSel.filter(d=>d.souls>0).append('circle')
+    .attr('cx',d=>r(d)*.55).attr('cy',d=>-r(d)*.55).attr('r',5)
+    .attr('fill','#F0D224').attr('stroke','#060a1a').attr('stroke-width',1.5);
+  nodeSel.filter(d=>d.souls>0).append('text')
+    .attr('x',d=>r(d)*.55).attr('y',d=>-r(d)*.55+4).attr('text-anchor','middle')
+    .attr('fill','#060a1a').attr('font-size','7').attr('font-weight','900').text(d=>d.souls);
+  nodeSel.each(function(d) {
+    const words=d.label.split(' '), lines=[];
+    let cur='';
+    words.forEach(w=>{const t=cur?cur+' '+w:w; if(t.length>14&&cur){lines.push(cur);cur=w;}else cur=t;});
+    if(cur) lines.push(cur);
+    const txt=d3.select(this).append('text').attr('text-anchor','middle')
+      .attr('fill','rgba(255,255,255,.78)').attr('font-size','10').attr('font-weight','700');
+    lines.forEach((l,i)=>txt.append('tspan').attr('x',0).attr('dy',i===0?r(d)+14:12).text(l));
+  });
+
+  const tt=document.getElementById('tooltip');
+  nodeSel
+    .on('mouseenter',function(event,d){
+      d3.select(this).select('circle').transition().duration(180).attr('fill',d.color+'44').attr('stroke-width',3);
+      document.getElementById('tt-name').textContent=d.label;
+      document.getElementById('tt-layer').textContent=d.layer+'  —  '+d.count.toLocaleString()+' SPs ('+( d.count/TOTAL*100).toFixed(1)+'%)';
+      const tc=document.getElementById('tt-count');
+      tc.textContent=d.souls>0?d.souls+' alma'+(d.souls>1?'s':''):'';
+      tc.style.color=d.souls>0?'#F0D224':'transparent';
+      document.getElementById('tt-desc').textContent=d.desc.slice(0,120)+(d.desc.length>120?'…':'');
+      document.getElementById('tt-ex').textContent=d.ex.slice(0,2).join(', ');
+      document.getElementById('tt-name').style.color=d.color;
+      tt.style.opacity=1;
+    })
+    .on('mousemove',function(event){
+      const x=event.clientX+16,y=event.clientY-20;
+      tt.style.left=Math.min(x,window.innerWidth-300)+'px';
+      tt.style.top=Math.max(10,y)+'px';
+    })
+    .on('mouseleave',function(event,d){
+      d3.select(this).select('circle').transition().duration(180).attr('fill',d.color+'22').attr('stroke-width',2.2);
+      tt.style.opacity=0;
+    });
+
+  const connLinks={};
+  nodes.forEach(n=>connLinks[n.id]=[]);
+  links.forEach(l=>{connLinks[l.source.id].push(l);connLinks[l.target.id].push(l);});
+  nodeSel.call(d3.drag().on('drag',function(event,d){
+    d.x=event.x; d.y=event.y;
+    d3.select(this).attr('transform',`translate(${d.x},${d.y})`);
+    connLinks[d.id].forEach(l=>linkSel.filter(ll=>ll===l)
+      .attr('x1',l.source.x).attr('y1',l.source.y).attr('x2',l.target.x).attr('y2',l.target.y));
+  }));
+})();
+
+/* ═══════════════════════════════════════════════════════
+   ARCH DIAGRAM — static SVG positions
+═══════════════════════════════════════════════════════ */
+(function buildArchDiagram() {
+  const svg=d3.select('#arch-svg');
+  const W=560, H=680;
+  const onlineLayers=[
+    {y:10,h:100,color:'#122FB1',label:'CAPA DE FRONTERA',sublabel:'Canal → ESB → Entry Point',
+     items:[{label:'ESB Exposed',count:538,color:'#1a40d4',x:10},{label:'Entry Points',count:98,color:'#2a5ae8',x:195}]},
+    {y:140,h:100,color:'#e85d04',label:'CAPA DE ORQUESTACIÓN',sublabel:'Coordinadores de flujo',
+     items:[{label:'Super-Orquestadores',count:__SUPER_ORQ__,color:'#e85d04',x:10},{label:'Orquestadores',count:__ORCHESTRATOR__,color:'#2196F3',x:205}]},
+    {y:270,h:100,color:'#29b6f6',label:'CAPA DE IMPLEMENTACIÓN',sublabel:'Lógica de negocio',
+     items:[{label:'Implementación',count:__IMPLEMENTATION__,color:'#29b6f6',x:10},{label:'Leaf (Hojas)',count:__LEAF__,color:'#81d4fa',x:195}]},
+    {y:400,h:110,color:'#F0D224',label:'CAPA FUNCIONAL CORE',sublabel:'★ Primitivas y servicios transversales',
+     items:[{label:'★ Primitivas Cross-Domain',count:44,color:'#F0D224',x:10},{label:'★ Servicios Compartidos',count:34,color:'#ffd54f',x:215}]},
+  ];
+  const batchBox={x:370,y:10,w:178,h:500,color:'#546e7a',
+    items:[
+      {label:'Batch Orquestadores',count:__BATCH_ORQ__,color:'#78909c',y:30,h:100},
+      {label:'Batch Standalone',count:__BATCH__,color:'#546e7a',y:150,h:330},
+    ]};
+
+  onlineLayers.forEach((layer,li)=>{
+    const g=svg.append('g').attr('transform',`translate(0,${layer.y})`);
+    g.append('rect').attr('x',10).attr('y',0).attr('width',348).attr('height',layer.h).attr('rx',12)
+      .attr('fill',layer.color+'15').attr('stroke',layer.color+'40').attr('stroke-width',1.2);
+    g.append('text').attr('x',22).attr('y',18).attr('fill',layer.color).attr('font-size','9').attr('font-weight','800').attr('letter-spacing','0.12em').text(layer.label);
+    g.append('text').attr('x',22).attr('y',30).attr('fill','rgba(255,255,255,.4)').attr('font-size','8.5').text(layer.sublabel);
+    layer.items.forEach(item=>{
+      const boxW=item.x>180?148:180;
+      const sg=g.append('g').attr('transform',`translate(${item.x+10},40)`);
+      sg.append('rect').attr('width',boxW).attr('height',layer.h-48).attr('rx',8).attr('fill',item.color+'25').attr('stroke',item.color+'70').attr('stroke-width',1.2);
+      sg.append('text').attr('x',10).attr('y',18).attr('fill',item.color).attr('font-size','10').attr('font-weight','700').text(item.label);
+      sg.append('text').attr('x',10).attr('y',34).attr('fill','#fff').attr('font-size','18').attr('font-weight','800').attr('font-variant-numeric','tabular-nums').text(item.count.toLocaleString());
+      sg.append('text').attr('x',10).attr('y',48).attr('fill','rgba(255,255,255,.4)').attr('font-size','8.5').text((item.count/TOTAL*100).toFixed(1)+'%');
+    });
+    if(li<onlineLayers.length-1){
+      const ay=layer.y+layer.h+2;
+      svg.append('line').attr('x1',184).attr('y1',ay).attr('x2',184).attr('y2',ay+22)
+        .attr('stroke','rgba(255,255,255,.3)').attr('stroke-width',1.5).attr('marker-end','url(#arch-arrow)');
+    }
+  });
+
+  const bg=svg.append('g').attr('transform',`translate(${batchBox.x},${batchBox.y})`);
+  bg.append('rect').attr('width',batchBox.w).attr('height',batchBox.h).attr('rx',12).attr('fill','#546e7a22').attr('stroke','#546e7a55').attr('stroke-width',1.2);
+  bg.append('text').attr('x',12).attr('y',18).attr('fill','#78909c').attr('font-size','9').attr('font-weight','800').attr('letter-spacing','0.12em').text('PROCESOS BATCH');
+  bg.append('text').attr('x',12).attr('y',28).attr('fill','rgba(255,255,255,.35)').attr('font-size','8').text('fan_in = 0 · scheduler / app');
+  batchBox.items.forEach(item=>{
+    const sg=bg.append('g').attr('transform',`translate(10,${item.y})`);
+    sg.append('rect').attr('width',batchBox.w-20).attr('height',item.h).attr('rx',8).attr('fill',item.color+'25').attr('stroke',item.color+'60').attr('stroke-width',1);
+    sg.append('text').attr('x',10).attr('y',18).attr('fill',item.color).attr('font-size','9.5').attr('font-weight','700').text(item.label);
+    sg.append('text').attr('x',10).attr('y',38).attr('fill','#fff').attr('font-size','20').attr('font-weight','800').text(item.count.toLocaleString());
+    sg.append('text').attr('x',10).attr('y',54).attr('fill','rgba(255,255,255,.4)').attr('font-size','8.5').text((item.count/TOTAL*100).toFixed(1)+'% del total');
+    if(item.label.includes('Standalone')){
+      sg.append('text').attr('x',10).attr('y',72).attr('fill','rgba(255,255,255,.3)').attr('font-size','8').text('Ejecutados por scheduler AIX');
+      sg.append('text').attr('x',10).attr('y',84).attr('fill','rgba(255,255,255,.3)').attr('font-size','8').text('o llamados directo desde app');
+    }
+  });
+
+  svg.append('defs').append('marker').attr('id','arch-arrow').attr('viewBox','0 -5 10 10')
+    .attr('refX',10).attr('refY',0).attr('markerWidth',6).attr('markerHeight',6).attr('orient','auto')
+    .append('path').attr('d','M0,-5L10,0L0,5').attr('fill','rgba(255,255,255,.4)');
+  svg.append('defs').append('marker').attr('id','dash-arrow').attr('viewBox','0 -5 10 10')
+    .attr('refX',10).attr('refY',0).attr('markerWidth',5).attr('markerHeight',5).attr('orient','auto')
+    .append('path').attr('d','M0,-5L10,0L0,5').attr('fill','rgba(120,144,156,.7)');
+  svg.append('path').attr('d','M370,105 C340,105 340,185 358,185').attr('fill','none')
+    .attr('stroke','rgba(120,144,156,.5)').attr('stroke-width',1.5).attr('stroke-dasharray','5,3').attr('marker-end','url(#dash-arrow)');
+  svg.append('text').attr('x',416).attr('y',525).attr('fill','rgba(255,255,255,.25)').attr('font-size','8').attr('text-anchor','middle').text('scheduler AIX / app Java');
+  svg.append('text').attr('x',184).attr('y',640).attr('fill','rgba(255,255,255,.25)').attr('font-size','8.5').attr('text-anchor','middle').text('Canales externos → Middleware / Java App');
+})();
+
+/* ═══════════════════════════════════════════════════════
+   RIGHT PANEL — contexto por arquetipo
+═══════════════════════════════════════════════════════ */
+(function buildContextPanel() {
+  const container=document.getElementById('arch-stats');
+  const riskClass={CRÍTICO:'risk-critico',ALTO:'risk-alto',MEDIO:'risk-medio',BAJO:'risk-bajo'};
+  const MIGRATION={
+    esb_exposed:'El contrato API debe mantenerse íntegro. Cualquier cambio de firma rompe los consumers downstream.',
+    entry_point:'Requiere parallel-run completo: mismo input debe producir el mismo estado transaccional en ambos sistemas.',
+    super_orchestrator:'Cobertura de equivalencia compleja: los más de 50 SPs dependientes deben pasar golden master en conjunto.',
+    batch_orchestrator:'La migración del scheduler AIX es obligatoria. Existen dependencias de timing y ventanas nocturnas que deben mapearse antes del cutover.',
+    orchestrator:'Equivalencia funcional estándar. Se requiere un caso de prueba por cada flujo de negocio coordinado.',
+    implementation:'Tests unitarios directos. Principal riesgo: conversión de tipos MONEY Informix a NUMERIC en PostgreSQL.',
+    leaf:'Los más sencillos de migrar. Tienen input y output directos sin dependencias de otros SPs.',
+    cross_domain_primitive:'Riesgo máximo de migración: un fallo afecta simultáneamente múltiples dominios. Plan de rollback obligatorio antes del cutover.',
+    shared_service:'Alta frecuencia de uso (161 mil llamadas al día). La equivalencia de rendimiento es tan crítica como la equivalencia funcional.',
+    batch:'Se requiere inventario de jobs y dependencias entre procesos antes de migrar el scheduler a AWS Batch o Step Functions.',
+  };
+  const LAYER_ORDER=['FRONTERA','ORQUESTACIÓN','IMPLEMENTACIÓN','CORE','BATCH'];
+  const LAYER_LABELS={FRONTERA:'Capa de Frontera',ORQUESTACIÓN:'Capa de Orquestación',IMPLEMENTACIÓN:'Capa de Implementación',CORE:'Core Funcional',BATCH:'Procesos Offline'};
+  LAYER_ORDER.forEach(lid=>{
+    const group=ARCHETYPES.filter(d=>d.layer===lid);
+    if(!group.length) return;
+    const hdr=document.createElement('div');
+    hdr.className='ctx-layer-hdr';hdr.textContent=LAYER_LABELS[lid];container.appendChild(hdr);
+    group.forEach(d=>{
+      const pct=(d.count/TOTAL*100).toFixed(1);
+      const card=document.createElement('div');
+      card.className='ctx-card';card.style.borderLeftColor=d.color;
+      card.innerHTML=`
+        <div class="ctx-head">
+          <span class="ctx-ico" style="color:${d.color}">${d.short}</span>
+          <span class="ctx-name" style="color:${d.color}">${d.label}</span>
+          ${d.souls>0?`<span class="arc-soul">${d.souls} alma${d.souls>1?'s':''}</span>`:''}
+        </div>
+        <div class="ctx-count-line">${d.count.toLocaleString()} SPs<span>${pct}% del total</span></div>
+        <div class="ctx-fan">fan_in: ${d.fanIn} &emsp; fan_out: ${d.fanOut}</div>
+        <div class="ctx-desc">${d.desc}</div>
+        <div class="ctx-impl"><span class="ctx-impl-label">Implicación de migración</span>${MIGRATION[d.id]}</div>
+        <div class="ctx-badges"><span class="badge-risk ${riskClass[d.risk]}">${d.risk}</span></div>`;
+      container.appendChild(card);
+    });
+  });
+})();
+
+/* ═══════════════════════════════════════════════════════
+   SPL DIAGRAM — Mapa de Interacciones Batch
+═══════════════════════════════════════════════════════ */
+(function buildSPLDiagram() {
+  'use strict';
+
+  const SPL_ARCHETYPES = [
+    {id:'FILE_LOADER',    n:__N_FILE_LOADER__,  conf:'ALTA',  r:72, zone:'ingesta',
+     cx:630,cy:193,
+     desc:'Usa LOAD FROM filename (ETL nativo Informix desde filesystem AIX). Incluye cargas de corresponsales, catálogos de tasas y archivos regulatorios Banxico/CoDi.',
+     aws:'AWS Glue + S3 + EventBridge Scheduler',
+     l2:[{l2:'FL_OPERATIONAL',n:1579},{l2:'FL_ACCOUNTS',n:238},{l2:'FL_CREDIT',n:234},{l2:'FL_CATALOG',n:142},{l2:'FL_RECONCILIATION',n:44},{l2:'FL_REGULATORY',n:25},{l2:'FL_PAYROLL',n:18},{l2:'FL_CORRESPONDENT',n:17}],
+     top:[{sp:'sp_activardesactivarproductos',loc:25759},{sp:'sp_asigna_aut_solicitud_mc',loc:11436},{sp:'sp_aumcred_validarinfocrediticiaofi',loc:8274}]},
+    {id:'DATA_MAINT',     n:__N_DATA_MAINT__,   conf:'MEDIA', r:60, zone:'ingesta', ambig:true,
+     cx:818,cy:208,
+     desc:'Actualiza o inserta filas en tablas sin calls externos. Loops moderados. Puede ser batch o ser llamado por el sistema online — requiere validación contra el scheduler AIX.',
+     aws:'Lambda + EventBridge Scheduler · idempotente',
+     l2:[],top:[{sp:'sp_actinfosolicitudmc',loc:341},{sp:'sp_catalogocoloniacp',loc:286},{sp:'sp_consdetallefacturacionos_totales',loc:207}]},
+    {id:'MASS_OPERATION',  n:__N_MASS_OP__,     conf:'ALTA',  r:40, zone:'processing',
+     cx:592,cy:403,
+     desc:'FOREACH masivo ≥10 iteraciones con cross-DB calls. Opera sobre cuentas, créditos, bloqueos masivos. Alta señal batch por volumen y cross-database.',
+     aws:'AWS Step Functions · equivalencia exacta MONEY · DLQ',
+     l2:[{l2:'MO_OTHER',n:401},{l2:'MO_PAYMENT',n:29},{l2:'MO_UPDATE',n:18},{l2:'MO_BLOCK_CANCEL',n:16},{l2:'MO_NOTIFICATION',n:8},{l2:'MO_ASSIGNMENT',n:5}],
+     top:[{sp:'sp_cargo_ref_masivo',loc:14742},{sp:'sp_asigna_aut_solicitud_mc',loc:11436},{sp:'sp_asignasolanalistaaumlincred',loc:11034}]},
+    {id:'REPORT_AGGREGATOR', n:__N_REPORT_AGG__, conf:'MEDIA', r:52, zone:'processing',
+     cx:762,cy:403,
+     desc:'FOREACH masivo sobre tablas operativas → escribe reportes agregados. Sin calls externos. Corre al cierre del día. Segundo sub-arquetipo por volumen.',
+     aws:'AWS Glue + S3 + QuickSight',
+     l2:[{l2:'RA_OPERATIONAL',n:726},{l2:'RA_CREDIT',n:50},{l2:'RA_AUDIT',n:34},{l2:'RA_BRANCH',n:29},{l2:'RA_COLLECTION',n:19},{l2:'RA_REGULATORY',n:10}],
+     top:[{sp:'sp_ope_gc_altamodificacionsucursaleswuovvg',loc:11924},{sp:'sp_actualizacionctepmsnom',loc:11417},{sp:'sp_consultabitacoratasascomipmtc',loc:10987}]},
+    {id:'ORCHESTRATOR',   n:__N_ORCH_SPL__,     conf:'MEDIA', r:40, zone:'processing', ambig:true,
+     cx:928,cy:438,
+     desc:'Llama ≥2 SPs distintos en su cuerpo. Puede ser batch u online. Requiere validación contra scheduler AIX antes de clasificar definitivamente.',
+     aws:'AWS Step Functions o Lambda orquestadora',
+     l2:[],top:[{sp:'sp_adminitasas_cargarchivo',loc:5927},{sp:'sp_cap_consdepositoctatransfer',loc:476},{sp:'sp_actualizadatosclientecli',loc:134}]},
+    {id:'ACCOUNTING_JOB', n:__N_ACCT_JOB__,     conf:'ALTA',  r:28, zone:'processing',
+     cx:1062,cy:355,
+     desc:'Escribe a sx_contproc / sd_contproc + recibe parámetro pEmpresa. Genera asientos contables del cierre diario. DEBE correr después de CIERRE_CORTE — ambos escriben a sx_contproc.',
+     aws:'AWS Step Functions secuencial · ventana exclusiva sobre sx_contproc',
+     l2:[],top:[{sp:'sp_actualiza_reserva_cierre',loc:843},{sp:'sp_adn_cobroautomatico',loc:637},{sp:'sp_adn_cart_activa',loc:336}]},
+    {id:'CIERRE_CORTE',   n:__N_CIERRE__,        conf:'ALTA',  r:22, zone:'processing',
+     cx:1062,cy:475,
+     desc:'Cierre o corte de período. Escribe entradas contables de fin de día a sx_contproc. COMPARTE la tabla con ACCOUNTING_JOB — colisión si corren en paralelo.',
+     aws:'AWS Step Functions · ventana exclusiva nocturna · secuencial ANTES de ACCOUNTING_JOB',
+     l2:[],top:[{sp:'sp_cre_consultafechacorteproducto',loc:1378},{sp:'sp_actualiza_reserva_corte',loc:493},{sp:'sp_actparamcierre',loc:295}]},
+    {id:'PURGE_JOB',      n:__N_PURGE__,         conf:'ALTA',  r:32, zone:'closure',
+     cx:616,cy:580,
+     desc:'DELETE + INSERT a tabla _hist. Purga y archiva datos históricos aged. DEBE correr después de REPORT_AGGREGATOR — para no borrar registros antes de agregarlos.',
+     aws:'AWS Lambda paginada + DLQ · backup pre-purge en S3 Glacier',
+     l2:[],top:[{sp:'sp_atms_actualizaeliminacionfaltsobr',loc:39349},{sp:'sp_atms_conseliminacionfaltsobr',loc:38044},{sp:'sp_cc_eliminasuc',loc:7966}]},
+    {id:'CONCILIACION',   n:__N_CONCIL__,        conf:'MEDIA', r:24, zone:'closure',
+     cx:802,cy:580,
+     desc:'Conciliación standalone. Verifica cuadre entre tablas operativas. Lee múltiples tablas, escribe una sola fila de resultado de cuadre.',
+     aws:'AWS Glue + S3 · comparador de checksums · alerta SNS si descuadre',
+     l2:[],top:[{sp:'sp_catbitacoraconciliacion',loc:4379},{sp:'sp_consconciliacionadminccl',loc:3504},{sp:'sp_consmonarchconciliacion',loc:2952}]},
+    {id:'SINGLE_CALL',    n:__N_SINGLE__,        conf:'MEDIA', r:40, zone:'closure', ambig:true,
+     cx:962,cy:570,
+     desc:'Delega a exactamente 1 SP. Posible wrapper batch sobre SP online. Requiere validación de scheduler para confirmar si es batch o wrapper en línea.',
+     aws:'AWS Lambda thin wrapper',
+     l2:[],top:[{sp:'sp_consbloqctacre',loc:1734},{sp:'sp_catalogociudad',loc:1714},{sp:'sp_catalogocalle',loc:1584}]},
+    {id:'CURSOR_SP',      n:__N_CURSOR__,        conf:'ALTA',  r:38, zone:'lectura',
+     cx:650,cy:706,
+     desc:'Loop de lectura puro (FOREACH sin DML ni calls externos). Retorna conjuntos de filas al caller vía RETURNING+FOREACH. Típico de SPs que alimentan servicios de consulta y reportes en línea desde el ESB.',
+     aws:'Lambda paginada · ElastiCache para hot-path · DynamoDB Query API',
+     l2:[],top:[]},
+    {id:'QUERY_SP',       n:__N_QUERY__,         conf:'ALTA',  r:36, zone:'lectura',
+     cx:850,cy:706,
+     desc:'Consulta puntual sin loop ni DML. Calcula y devuelve un valor escalar o fila vía RETURNING sin iteración ni escritura. Backbone de los servicios de consulta en el canal online y digital.',
+     aws:'Lambda liviana · ElastiCache hot queries · DAX sobre DynamoDB',
+     l2:[],top:[]},
+  ];
+
+  const ACTORS=[
+    {id:'scheduler', label:'Scheduler AIX',    sub:'cron / UC4 / Control-M',            x:90, y:190, color:'#bc8cff', w:128, h:42},
+    {id:'external',  label:'Sistemas Externos', sub:'corresponsales · Banxico · CoDi',   x:90, y:393, color:'#94a3b8', w:128, h:42},
+    {id:'esb',       label:'Online ESB',        sub:'journeys en línea',                 x:90, y:562, color:'#58a6ff', w:128, h:42},
+  ];
+  const STORES=[
+    {id:'aix_fs',      label:'AIX Filesystem',   sub:'',              x:360,y:268,color:'#8b5cf6',rw:62,rh:12,cylH:44},
+    {id:'tablas_op',   label:'Tablas Operativas', sub:'D01–D16',       x:422,y:490,color:'#58a6ff',rw:72,rh:14,cylH:56},
+    {id:'sx_contproc', label:'sx_contproc',       sub:'bus contable D02',x:1242,y:408,color:'#f97316',rw:64,rh:12,cylH:46,critical:true},
+    {id:'hist_tables', label:'_hist Tables',      sub:'archivado hist.',x:1242,y:578,color:'#6e7681',rw:60,rh:10,cylH:38},
+    {id:'report_tables',label:'Report Tables',   sub:'reportes gestión',x:1230,y:540,color:'#38bdf8',rw:62,rh:10,cylH:38},
+    {id:'d02',         label:'D02 Integración',  sub:'bd-integ',      x:1418,y:408,color:'#f97316',rw:60,rh:10,cylH:38},
+  ];
+  const EDGES=[
+    {id:'e1', src:'external',          tgt:'aix_fs',           type:'data',    label:'deposita archivos'},
+    {id:'e2', src:'aix_fs',            tgt:'FILE_LOADER',      type:'data',    label:'LOAD FROM filename'},
+    {id:'e3', src:'FILE_LOADER',       tgt:'tablas_op',        type:'data',    label:'INSERT INTO',    curve:'back'},
+    {id:'e4', src:'esb',               tgt:'tablas_op',        type:'data',    label:'escribe durante el día'},
+    {id:'e5', src:'tablas_op',         tgt:'REPORT_AGGREGATOR',type:'data',    noLabel:true},
+    {id:'e6', src:'tablas_op',         tgt:'MASS_OPERATION',   type:'data',    noLabel:true},
+    {id:'e7', src:'tablas_op',         tgt:'ACCOUNTING_JOB',   type:'data',    noLabel:true, dim:true},
+    {id:'e8', src:'tablas_op',         tgt:'PURGE_JOB',        type:'data',    noLabel:true, dim:true},
+    {id:'e9', src:'tablas_op',         tgt:'CIERRE_CORTE',     type:'data',    noLabel:true, dim:true},
+    {id:'e10',src:'ACCOUNTING_JOB',    tgt:'sx_contproc',      type:'data',    label:'INSERT asiento'},
+    {id:'e11',src:'CIERRE_CORTE',      tgt:'sx_contproc',      type:'data',    label:'INSERT cierre'},
+    {id:'e12',src:'MASS_OPERATION',    tgt:'sx_contproc',      type:'data',    label:'MO_PAYMENT',    curve:'above'},
+    {id:'e13',src:'PURGE_JOB',         tgt:'hist_tables',      type:'data',    label:'INSERT archivado'},
+    {id:'e14',src:'REPORT_AGGREGATOR', tgt:'report_tables',    type:'data',    label:'escribe reportes'},
+    {id:'e15',src:'CONCILIACION',      tgt:'report_tables',    type:'data',    noLabel:true},
+    {id:'e16',src:'sx_contproc',       tgt:'d02',              type:'data',    label:'alimenta D02'},
+    {id:'t1', src:'scheduler',tgt:'FILE_LOADER',      type:'trigger'},
+    {id:'t2', src:'scheduler',tgt:'DATA_MAINT',       type:'trigger'},
+    {id:'t3', src:'scheduler',tgt:'MASS_OPERATION',   type:'trigger'},
+    {id:'t4', src:'scheduler',tgt:'REPORT_AGGREGATOR',type:'trigger'},
+    {id:'t5', src:'scheduler',tgt:'ORCHESTRATOR',     type:'trigger'},
+    {id:'t6', src:'scheduler',tgt:'ACCOUNTING_JOB',   type:'trigger'},
+    {id:'t7', src:'scheduler',tgt:'CIERRE_CORTE',     type:'trigger'},
+    {id:'t8', src:'scheduler',tgt:'PURGE_JOB',        type:'trigger'},
+    {id:'t9', src:'scheduler',tgt:'CONCILIACION',     type:'trigger'},
+    {id:'t10',src:'scheduler',tgt:'SINGLE_CALL',      type:'trigger'},
+    {id:'e17',src:'esb',      tgt:'CURSOR_SP',        type:'data',  label:'FOREACH streaming'},
+    {id:'e18',src:'esb',      tgt:'QUERY_SP',         type:'data',  label:'RETURNING puntual'},
+    {id:'s1', src:'CIERRE_CORTE',      tgt:'ACCOUNTING_JOB',   type:'sequential',label:'SECUENCIAL',curve:'loop-r'},
+    {id:'s2', src:'REPORT_AGGREGATOR', tgt:'PURGE_JOB',        type:'sequential',label:'SECUENCIAL',curve:'left'},
+  ];
+  const TIMELINE=[
+    {period:['Madrugada','0 – 6 h'], xPct:0,     wPct:0.25,  fill:'#1a0f2e', items:['PURGE_JOB','CONCILIACION']},
+    {period:['Mañana','6 – 9 h'],   xPct:0.25,  wPct:0.125, fill:'#0d1f28', items:['FILE_LOADER']},
+    {period:['Día','9 – 18 h'],     xPct:0.375, wPct:0.375, fill:'#0d1a20', items:['MASS_OPERATION','DATA_MAINT','ORCHESTRATOR','Online ESB']},
+    {period:['Cierre EOD','18 – 22 h'],xPct:0.75,wPct:0.167, fill:'#111a0d', items:['REPORT_AGGREGATOR','→ CIERRE_CORTE','→ ACCOUNTING_JOB']},
+    {period:['Noche','22 – 24 h'],  xPct:0.917, wPct:0.083, fill:'#1a0f0d', items:['PURGE_JOB (residual)']},
+  ];
+
+  const archMap  = Object.fromEntries(SPL_ARCHETYPES.map(a=>[a.id,a]));
+  const actorMap = Object.fromEntries(ACTORS.map(a=>[a.id,a]));
+  const storeMap = Object.fromEntries(STORES.map(s=>[s.id,s]));
+
+  function getNode(id){
+    const a=archMap[id];
+    if(a) return{x:a.cx,y:a.cy,kind:'circle',r:a.r};
+    const ac=actorMap[id];
+    if(ac) return{x:ac.x,y:ac.y,kind:'rect',hw:ac.w/2,hh:ac.h/2};
+    const s=storeMap[id];
+    if(s) return{x:s.x,y:s.y,kind:'rect',hw:s.rw,hh:s.cylH/2};
+    return null;
+  }
+  function boundaryPt(node,dx,dy){
+    const dist=Math.sqrt(dx*dx+dy*dy)||1, nx=dx/dist, ny=dy/dist;
+    if(node.kind==='circle') return{x:node.x+nx*node.r,y:node.y+ny*node.r};
+    const{hw,hh}=node;
+    const t=(Math.abs(nx)<1e-9)?hh/Math.abs(ny):(Math.abs(ny)<1e-9)?hw/Math.abs(nx):Math.min(hw/Math.abs(nx),hh/Math.abs(ny));
+    return{x:node.x+nx*t,y:node.y+ny*t};
+  }
+  function edgePts(srcId,tgtId){
+    const s=getNode(srcId),t=getNode(tgtId);
+    if(!s||!t) return null;
+    const dx=t.x-s.x,dy=t.y-s.y;
+    return{x1:boundaryPt(s,dx,dy).x,y1:boundaryPt(s,dx,dy).y,x2:boundaryPt(t,-dx,-dy).x,y2:boundaryPt(t,-dx,-dy).y,sx:s.x,sy:s.y,tx:t.x,ty:t.y};
+  }
+  function buildPath(edge){
+    const p=edgePts(edge.src,edge.tgt);
+    if(!p) return'';
+    const{x1,y1,x2,y2}=p;
+    if(edge.curve==='back'){const cy1=y1+110,cy2=y2+70;return`M${x1} ${y1} C${x1} ${cy1} ${x2} ${cy2} ${x2} ${y2}`;}
+    if(edge.curve==='above'){const mx=(x1+x2)/2,ay=Math.min(y1,y2)-85;return`M${x1} ${y1} C${mx} ${ay} ${mx} ${ay} ${x2} ${y2}`;}
+    if(edge.curve==='loop-r'){return`M${x1} ${y1} C${x1+68} ${y1-25} ${x2+68} ${y2+25} ${x2} ${y2}`;}
+    if(edge.curve==='left'){const mx=(x1+x2)/2-50,my=(y1+y2)/2;return`M${x1} ${y1} Q${mx} ${my} ${x2} ${y2}`;}
+    if(edge.type==='trigger'){const sn=getNode('scheduler'),exitX=sn.x+sn.hw+60;return`M${x1} ${y1} C${exitX} ${y1} ${x2-80} ${y2} ${x2} ${y2}`;}
+    return`M${x1} ${y1} L${x2} ${y2}`;
+  }
+
+  const svg  = d3.select('#spl-svg');
+  const defs = svg.append('defs');
+  const flt  = defs.append('filter').attr('id','spl-glow-orange').attr('x','-40%').attr('y','-40%').attr('width','180%').attr('height','180%');
+  flt.append('feGaussianBlur').attr('stdDeviation','5').attr('result','blur');
+  const mg=flt.append('feMerge');mg.append('feMergeNode').attr('in','blur');mg.append('feMergeNode').attr('in','SourceGraphic');
+
+  function defMarker(id,color,size,h){
+    defs.append('marker').attr('id',id).attr('markerWidth',size||8).attr('markerHeight',h||6)
+      .attr('refX',(size||8)-1).attr('refY',(h||6)/2).attr('orient','auto')
+      .append('polygon').attr('points',`0 0,${size||8} ${(h||6)/2},0 ${h||6}`).attr('fill',color);
+  }
+  defMarker('spl-m-data','#58a6ff',8,6);
+  defMarker('spl-m-trig','#bc8cff',7,5);
+  defMarker('spl-m-seq','#f85149',9,7);
+
+  const CONF_COLOR={'ALTA':'#3fb950','MEDIA':'#d29922'};
+  const subzones=[
+    {label:'INGESTA',       x:510,y:82, w:630,h:208,color:'#3fb950'},
+    {label:'PROCESAMIENTO', x:510,y:302,w:630,h:208,color:'#d29922'},
+    {label:'CIERRE',        x:510,y:522,w:630,h:134,color:'#58a6ff'},
+    {label:'LECTURA ONLINE',x:510,y:664,w:630,h:86, color:'#a78bfa'},
+  ];
+  const ZONE_BANDS=[
+    {x:0,   w:192, color:'#bc8cff'},
+    {x:192, w:318, color:'#8b5cf6'},
+    {x:510, w:640, color:'#d29922'},
+    {x:1150,w:450, color:'#f97316'},
+  ];
+  const ZY=68, ZH=684;
+  const zonesG=svg.append('g');
+  ZONE_BANDS.forEach(z=>zonesG.append('rect').attr('x',z.x).attr('y',ZY).attr('width',z.w).attr('height',ZH).attr('fill',z.color).attr('fill-opacity',.025).attr('stroke','none'));
+  [192,510,1150].forEach(xd=>zonesG.append('line').attr('x1',xd).attr('y1',ZY).attr('x2',xd).attr('y2',ZY+ZH).attr('stroke','#21262d').attr('stroke-width',1.5).attr('stroke-opacity',.9));
+  subzones.forEach((z,i)=>{
+    zonesG.append('rect').attr('x',z.x).attr('y',z.y).attr('width',z.w).attr('height',z.h).attr('rx',10).attr('fill',z.color).attr('fill-opacity',.04).attr('stroke',z.color).attr('stroke-opacity',.5).attr('stroke-width',1.5).attr('stroke-dasharray','8,4');
+    zonesG.append('rect').attr('x',z.x+1).attr('y',z.y+1).attr('width',z.w-2).attr('height',17).attr('rx',8).attr('fill',z.color).attr('fill-opacity',.18);
+    zonesG.append('text').attr('x',z.x+10).attr('y',z.y+12).attr('text-anchor','start').attr('fill',z.color).attr('fill-opacity',.95).attr('font-size',9).attr('font-weight',700).attr('letter-spacing','0.1em').text(`3.${i+1}  ${z.label}`);
+  });
+
+  const edgesG=svg.append('g');
+  EDGES.forEach(edge=>{
+    const pathD=buildPath(edge);
+    const g=edgesG.append('g').attr('class',`edge eid-${edge.id} elink-${edge.src} elink-${edge.tgt}`);
+    let stroke,dash,sw,marker,baseOp;
+    if(edge.type==='data'){stroke='#58a6ff';dash=null;sw=1.5;marker='url(#spl-m-data)';baseOp=edge.dim?.3:.72;}
+    else if(edge.type==='trigger'){stroke='#bc8cff';dash='5,3';sw=1;marker='url(#spl-m-trig)';baseOp=.25;}
+    else{stroke='#f85149';dash=null;sw=2.5;marker='url(#spl-m-seq)';baseOp=.92;}
+    g.append('path').attr('d',pathD).attr('stroke',stroke).attr('stroke-width',sw).attr('stroke-dasharray',dash).attr('stroke-opacity',baseOp).attr('fill','none').attr('marker-end',marker);
+    if(!edge.noLabel&&edge.label&&edge.type!=='trigger'){
+      const p=edgePts(edge.src,edge.tgt);
+      if(p){
+        const isSeq=edge.type==='sequential';
+        let lx=(p.x1+p.x2)/2,ly=(p.y1+p.y2)/2;
+        if(edge.id==='e3'){lx+=30;ly+=60;}
+        if(edge.id==='e12') ly-=75;
+        if(edge.id==='s1'){lx+=52;ly-=5;}
+        if(isSeq&&edge.id!=='s1') lx-=45;
+        g.append('text').attr('x',lx).attr('y',ly+(isSeq?-10:-7)).attr('text-anchor','middle').attr('fill',isSeq?'#f85149':'#6e7681').attr('font-size',isSeq?10:8).attr('font-weight',isSeq?700:400).attr('pointer-events','none').text(edge.label);
+      }
+    }
+  });
+
+  function drawCylinder(parent,s){
+    const{x,y,rw,rh,cylH,color,critical}=s;
+    const bodyH=cylH-2*rh, topCY=y-cylH/2+rh, botCY=y+cylH/2-rh;
+    parent.append('rect').attr('x',x-rw).attr('y',topCY).attr('width',rw*2).attr('height',bodyH).attr('fill',color).attr('fill-opacity',.10).attr('stroke','none');
+    [[x-rw,topCY,x-rw,botCY],[x+rw,topCY,x+rw,botCY]].forEach(([x1,y1,x2,y2])=>parent.append('line').attr('x1',x1).attr('y1',y1).attr('x2',x2).attr('y2',y2).attr('stroke',color).attr('stroke-width',1.5).attr('stroke-opacity',.85));
+    parent.append('ellipse').attr('cx',x).attr('cy',botCY).attr('rx',rw).attr('ry',rh).attr('fill',color).attr('fill-opacity',.10).attr('stroke',color).attr('stroke-width',1.5).attr('stroke-opacity',.6);
+    parent.append('ellipse').attr('cx',x).attr('cy',topCY).attr('rx',rw).attr('ry',rh).attr('fill',color).attr('fill-opacity',.32).attr('stroke',color).attr('stroke-width',1.8).attr('stroke-opacity',1);
+    if(critical) parent.append('text').attr('x',x).attr('y',y-cylH/2-7).attr('text-anchor','middle').attr('fill','#f97316').attr('font-size',8).attr('font-weight',700).text('⚠ COMPARTIDO');
+    const midY=topCY+bodyH/2+2;
+    parent.append('text').attr('x',x).attr('y',midY).attr('text-anchor','middle').attr('dominant-baseline','middle').attr('fill','#e6edf3').attr('font-size',10).attr('font-weight',700).attr('pointer-events','none').text(s.label);
+    if(s.sub) parent.append('text').attr('x',x).attr('y',midY+13).attr('text-anchor','middle').attr('fill','#6e7681').attr('font-size',8).attr('pointer-events','none').text(s.sub);
+  }
+  const storesG=svg.append('g');
+  STORES.forEach(s=>{const g=storesG.append('g').attr('class',`store sid-${s.id}`);drawCylinder(g,s);});
+
+  const actorsG=svg.append('g');
+  ACTORS.forEach(a=>{
+    const g=actorsG.append('g').attr('class',`actor aid-${a.id}`);
+    const hw=a.w/2,hh=a.h/2;
+    g.append('rect').attr('x',a.x-hw).attr('y',a.y-hh).attr('width',a.w).attr('height',a.h).attr('fill',a.color).attr('fill-opacity',.12).attr('stroke',a.color).attr('stroke-width',1.5).attr('rx',5);
+    g.append('text').attr('x',a.x).attr('y',a.y-5).attr('text-anchor','middle').attr('dominant-baseline','middle').attr('fill','#e6edf3').attr('font-size',10).attr('font-weight',700).attr('pointer-events','none').text(a.label);
+    if(a.sub) g.append('text').attr('x',a.x).attr('y',a.y+9).attr('text-anchor','middle').attr('fill','#6e7681').attr('font-size',8).attr('pointer-events','none').text(a.sub);
+  });
+
+  const archG=svg.append('g');
+  SPL_ARCHETYPES.forEach(arch=>{
+    const color=CONF_COLOR[arch.conf];
+    const g=archG.append('g').attr('class',`archetype aid-${arch.id}`).attr('cursor','pointer');
+    g.append('circle').attr('cx',arch.cx).attr('cy',arch.cy).attr('r',arch.r).attr('fill',color).attr('fill-opacity',arch.ambig?.07:.17).attr('stroke','none');
+    g.append('circle').attr('cx',arch.cx).attr('cy',arch.cy).attr('r',arch.r).attr('fill','none').attr('stroke',color).attr('stroke-width',arch.ambig?1.5:2.2).attr('stroke-dasharray',arch.ambig?'6,3':null).attr('stroke-opacity',.9);
+    if(arch.id==='ACCOUNTING_JOB'||arch.id==='CIERRE_CORTE'){
+      g.append('circle').attr('cx',arch.cx).attr('cy',arch.cy).attr('r',arch.r+4).attr('fill','none').attr('stroke','#f97316').attr('stroke-width',1).attr('stroke-opacity',.25).attr('stroke-dasharray','3,3');
+    }
+    const words=arch.id.split('_'), lineH=13, startY=arch.cy-((words.length-1)*lineH)/2-8;
+    words.forEach((w,i)=>g.append('text').attr('x',arch.cx).attr('y',startY+i*lineH).attr('text-anchor','middle').attr('fill',color).attr('font-size',arch.r>55?11:arch.r>40?10:9).attr('font-weight',700).attr('pointer-events','none').text(w));
+    g.append('text').attr('x',arch.cx).attr('y',startY+words.length*lineH+1).attr('text-anchor','middle').attr('fill','#8b949e').attr('font-size',9).attr('pointer-events','none').text('n='+arch.n.toLocaleString('es-MX'));
+    if(arch.ambig) g.append('text').attr('x',arch.cx).attr('y',arch.cy+arch.r-8).attr('text-anchor','middle').attr('fill','#bc8cff').attr('font-size',8).attr('pointer-events','none').text('~ambig');
+    g.on('mouseenter',ev=>showTT(ev,arch)).on('mousemove',ev=>moveTT(ev)).on('mouseleave',()=>hideTT()).on('click',ev=>{ev.stopPropagation();toggleHL(arch.id);});
+  });
+
+  // Title text inside SVG
+  svg.append('text').attr('x',16).attr('y',32).attr('fill','#e6edf3').attr('font-size',18).attr('font-weight',700).text('Informix — Arquetipos Batch: Mapa de Interacciones');
+  svg.append('text').attr('x',16).attr('y',50).attr('fill','#8b949e').attr('font-size',11).text('__TOTAL__ SPs · 12 sub-arquetipos · IBM Informix IDS 14.10 / POWER-AIX → AWS');
+  svg.append('text').attr('x',16).attr('y',65).attr('fill','#3d444d').attr('font-size',9).text('Universo completo D01-D49 · CURSOR_SP y QUERY_SP = lectura online · 17 SPs NO_SOURCE (sin archivo fuente en el dump)');
+
+  // Zone headers
+  [{n:'1',label:'ACTORES EXTERNOS',cx:96,color:'#bc8cff'},{n:'2',label:'FUENTES DE DATOS',cx:351,color:'#a78bfa'},{n:'3',label:'ARQUETIPOS SPL',cx:810,color:'#d29922'},{n:'4',label:'OUTPUTS',cx:1375,color:'#f97316'}].forEach(h=>{
+    const bw=h.n==='3'?154:h.n==='2'?142:h.n==='1'?140:90;
+    svg.append('rect').attr('x',h.cx-bw/2).attr('y',69).attr('width',bw).attr('height',17).attr('rx',4).attr('fill',h.color).attr('fill-opacity',.22).attr('stroke',h.color).attr('stroke-opacity',.5).attr('stroke-width',.8);
+    svg.append('text').attr('x',h.cx-bw/2+7).attr('y',81).attr('text-anchor','start').attr('fill',h.color).attr('fill-opacity',1).attr('font-size',8).attr('font-weight',700).attr('letter-spacing','0.15em').text(`ZONA ${h.n}`);
+    svg.append('text').attr('x',h.cx-bw/2+43).attr('y',81).attr('fill',h.color).attr('fill-opacity',.5).attr('font-size',8).text('·');
+    svg.append('text').attr('x',h.cx-bw/2+52).attr('y',81).attr('text-anchor','start').attr('fill','#c9d1d9').attr('fill-opacity',.85).attr('font-size',8).attr('font-weight',600).attr('letter-spacing','0.06em').text(h.label);
+  });
+  svg.append('text').attr('x',800).attr('y',754).attr('text-anchor','middle').attr('fill','#3d444d').attr('font-size',9).text('Click en un arquetipo para destacar sus conexiones · Click en el fondo para restablecer');
+
+  // Timeline
+  const TLY=763,TLH=98,TLX=16,TLW=1568;
+  const tlG=svg.append('g');
+  tlG.append('rect').attr('x',TLX).attr('y',TLY).attr('width',TLW).attr('height',TLH).attr('rx',8).attr('fill','#161b22').attr('stroke','#21262d').attr('stroke-width',1);
+  tlG.append('text').attr('x',TLX+10).attr('y',TLY+14).attr('fill','#6e7681').attr('font-size',9).attr('font-weight',700).attr('letter-spacing','.08em').text('SECUENCIA DE EJECUCIÓN DIARIA');
+  const CX=TLX+10,CW=TLW-20,CY=TLY+20,CH=TLH-28;
+  TIMELINE.forEach(seg=>{
+    const sx=CX+seg.xPct*CW, sw=seg.wPct*CW;
+    tlG.append('rect').attr('x',sx).attr('y',CY).attr('width',sw-2).attr('height',CH).attr('rx',4).attr('fill',seg.fill).attr('fill-opacity',.85);
+    tlG.append('text').attr('x',sx+sw/2).attr('y',CY+12).attr('text-anchor','middle').attr('fill','#8b949e').attr('font-size',9).attr('font-weight',700).text(seg.period[0]);
+    tlG.append('text').attr('x',sx+sw/2).attr('y',CY+23).attr('text-anchor','middle').attr('fill','#6e7681').attr('font-size',8).text(seg.period[1]);
+    seg.items.forEach((name,k)=>{
+      const arch=archMap[name],chipColor=arch?CONF_COLOR[arch.conf]:'#58a6ff';
+      tlG.append('text').attr('x',sx+8).attr('y',CY+35+k*13).attr('fill',chipColor).attr('font-size',8).attr('font-weight',arch?600:400).text(name.startsWith('→')?name:'▸ '+name);
+    });
+  });
+
+  // Legend
+  const LGX=1370,LGY=TLY+4,LGW=214,LGH=TLH-6;
+  const lgG=svg.append('g');
+  lgG.append('rect').attr('x',LGX-8).attr('y',LGY-18).attr('width',LGW).attr('height',LGH).attr('rx',6).attr('fill','#161b22').attr('stroke','#21262d').attr('stroke-width',1);
+  lgG.append('text').attr('x',LGX).attr('y',LGY-5).attr('fill','#6e7681').attr('font-size',9).attr('font-weight',700).attr('letter-spacing','.08em').text('LEYENDA');
+  [{k:'circ-solid',color:'#3fb950',label:'Alta confianza batch'},{k:'circ-solid',color:'#d29922',label:'Media confianza batch'},{k:'circ-dash',color:'#d29922',label:'Ambiguo (batch u online)'},{k:'line',color:'#58a6ff',label:'Flujo de datos'},{k:'line-dash',color:'#bc8cff',label:'Trigger Scheduler AIX'},{k:'line-seq',color:'#f85149',label:'Dependencia secuencial crítica'},{k:'cyl',color:'#f97316',label:'sx_contproc (tabla compartida)'},{k:'cyl',color:'#8b5cf6',label:'Recurso AIX Filesystem'}].forEach((item,i)=>{
+    const iy=LGY+i*12,ix=LGX;
+    if(item.k==='circ-solid') lgG.append('circle').attr('cx',ix+5).attr('cy',iy+1).attr('r',5).attr('fill',item.color).attr('fill-opacity',.22).attr('stroke',item.color).attr('stroke-width',1.5);
+    else if(item.k==='circ-dash') lgG.append('circle').attr('cx',ix+5).attr('cy',iy+1).attr('r',5).attr('fill',item.color).attr('fill-opacity',.08).attr('stroke',item.color).attr('stroke-width',1.5).attr('stroke-dasharray','4,2');
+    else if(item.k==='line') lgG.append('line').attr('x1',ix).attr('y1',iy+1).attr('x2',ix+14).attr('y2',iy+1).attr('stroke',item.color).attr('stroke-width',1.5).attr('marker-end','url(#spl-m-data)');
+    else if(item.k==='line-dash') lgG.append('line').attr('x1',ix).attr('y1',iy+1).attr('x2',ix+14).attr('y2',iy+1).attr('stroke',item.color).attr('stroke-width',1).attr('stroke-dasharray','4,2').attr('marker-end','url(#spl-m-trig)');
+    else if(item.k==='line-seq') lgG.append('line').attr('x1',ix).attr('y1',iy+1).attr('x2',ix+14).attr('y2',iy+1).attr('stroke',item.color).attr('stroke-width',2).attr('marker-end','url(#spl-m-seq)');
+    else if(item.k==='cyl') lgG.append('rect').attr('x',ix).attr('y',iy-3).attr('width',12).attr('height',9).attr('fill',item.color).attr('fill-opacity',.2).attr('stroke',item.color).attr('stroke-width',1.2).attr('rx',1);
+    lgG.append('text').attr('x',ix+18).attr('y',iy+5).attr('fill','#c9d1d9').attr('font-size',9).text(item.label);
+  });
+
+  // Tooltip logic
+  const ttEl=document.getElementById('tt-spl');
+  function showTT(ev,arch){
+    const color=CONF_COLOR[arch.conf];
+    const maxL2=arch.l2.length?Math.max(...arch.l2.map(l=>l.n)):1;
+    const l2html=arch.l2.length?`<div class="ttsec">Breakdown L2</div>${arch.l2.map(l=>`<div class="l2row"><span class="l2name">${l.l2}</span><span class="l2n">${l.n.toLocaleString('es-MX')}</span></div><div class="l2bg"><div class="l2bar" style="width:${Math.round(l.n/maxL2*100)}%"></div></div>`).join('')}`:'';
+    const sphtml=arch.top.length?`<div class="ttsec">Top SPs por LOC</div>${arch.top.map(t=>`<div class="spitem">↳ ${t.sp}<br><span>&nbsp;&nbsp;${t.loc.toLocaleString('es-MX')} LOC</span></div>`).join('')}`:'';
+    const ambigHtml=arch.ambig?`<div class="ttambig">Ambiguo — validar presencia en scheduler AIX antes de clasificar definitivamente como batch.</div>`:'';
+    ttEl.innerHTML=`<div class="tth"><span class="tth-name" style="color:${color}">${arch.id}</span><span class="spl-badge ${arch.conf==='ALTA'?'b-alta':'b-media'}">${arch.conf}</span>${arch.ambig?'<span class="spl-badge b-ambig">~AMBIG</span>':''}</div><div class="ttcount">${arch.n.toLocaleString('es-MX')} SPs · radio ${arch.r}px</div><div class="ttdesc">${arch.desc}</div>${ambigHtml}<div class="ttsec">Target AWS</div><div class="ttaws">${arch.aws}</div>${l2html}${sphtml}<div class="tt-hint">Click para destacar conexiones</div>`;
+    ttEl.classList.add('show');
+    moveTT(ev);
+  }
+  function moveTT(ev){
+    const tw=ttEl.offsetWidth||380,th=ttEl.offsetHeight||200,vw=window.innerWidth,vh=window.innerHeight;
+    let lx=ev.clientX+18,ly=ev.clientY-30;
+    if(lx+tw>vw-8) lx=ev.clientX-tw-18;
+    if(ly+th>vh-8) ly=vh-th-8;
+    if(ly<8) ly=8;
+    ttEl.style.left=lx+'px';ttEl.style.top=ly+'px';
+  }
+  function hideTT(){ttEl.classList.remove('show');}
+
+  // Highlight interaction
+  let activeHL=null;
+  function toggleHL(id){
+    if(activeHL===id){resetHL();return;}
+    activeHL=id;
+    const connEdges=new Set(),connNodes=new Set([id]);
+    EDGES.forEach(e=>{if(e.src===id||e.tgt===id){connEdges.add(e.id);connNodes.add(e.src);connNodes.add(e.tgt);}});
+    d3.selectAll('.archetype,.store,.actor,.edge').classed('dimmed',true);
+    connNodes.forEach(nid=>d3.selectAll(`.aid-${nid},.sid-${nid}`).classed('dimmed',false));
+    connEdges.forEach(eid=>d3.selectAll(`.eid-${eid}`).classed('dimmed',false));
+  }
+  function resetHL(){activeHL=null;d3.selectAll('.archetype,.store,.actor,.edge').classed('dimmed',false);}
+  svg.on('click',resetHL);
+})();
+</script>
+</body></html>
+"""
+
+if __name__ == "__main__":
+    main()

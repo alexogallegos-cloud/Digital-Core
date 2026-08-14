@@ -9,11 +9,11 @@ import os, re, base64, html, shutil, pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent
 DCROOT = pathlib.Path(r"c:\Users\alejandro.gallegos\OneDrive - Accenture\Documents\Digital Core")
-DM = DCROOT / "05 - Modern Data Platform" / "AI-ready Data" / "Data Migration"
+DM = DCROOT / "05 - MDP" / "AI-ready Data" / "Data Migration"
 F1 = DM / "Fase 1 - Discover & Source Profiling"
 F2 = DM / "Fase 2 - Target Design & Data Contracts"
 SCALE = DM / "Enablement" / "Training - Reference Data Lab" / "seed-sap-banking-ecc-scale-graph"
-LOGO_PNG = DCROOT / "03 - Software & Platform Engineering" / "High Velocity Modernization" / "Mainframe Modernization" / "Fase 1 - Discover" / "Specialist - Reverse Engineering" / "graph-viz" / "vendor" / "Accenture_logo_white_letters.png"
+LOGO_PNG = DCROOT / "03 - SPE" / "HVM" / "MM" / "Fase 1 - Discover" / "Specialist - Reverse Engineering" / "graph-viz" / "vendor" / "Accenture_logo_white_letters.png"
 
 DST = ROOT / "05-modern-data-platform" / "ai-ready-data" / "data-migration"
 DST.mkdir(parents=True, exist_ok=True)

@@ -1,0 +1,1203 @@
+$SET LIST                                                               00000100          
+%$SET DMSUPDATE                                                         00000200          
+$RESET DMCONTROL                                                        00000300          
+$SET ZIP                                                                00000400          
+$SET ALLINFO                                                            00000500          
+%**********************************************************************%00000600          
+%                     (S151BD10MOVDIA151)                              %00000700          
+%    DESCRIPCION DE DATOS PARA ADMINISTRACION DE MOVIMIENTOS DIARIOS   %00000800          
+%                                                                      %00000900          
+%                      * MOVIMIENTOS                                   %00001000          
+%                      * TOTALES                                       %00001100          
+%                                                                      %00001200          
+%                                                                      %00001300          
+%**********************************************************************%00001400          
+%                       MODIFICACIONES                                 %00001500          
+%                                                                      %00001600          
+%**********************************************************************%00001700          
+%   ESTA SECCION CUBRE LOS DEFAULTS GLOBALES, OPCIONES Y PARAMETROS, Y  00001800          
+%   LOS ATRIBUTOS DEL AUDIT TRAIL.                                      00001900          
+%                                                                       00002000          
+%***********************************************************************00002100          
+ UPDATE;                                                                00002200          
+%INITIALIZE;                                                            00002300          
+  DEFAULTS                                                              00002400          
+  ( CHECKSUM   = TRUE                                                   00002500          
+   ,PACK       = CMEMP                                                  00002600          
+   ,REBLOCK    = TRUE                                                   00002700          
+   ,DATA SET   (BUFFERS = 0 + 2 PER RANDOM USER OR 2 PER SERIAL USER)   00002800          
+   ,SET  (BUFFERS = 100 + 100 PER RANDOM USER OR 100 PER SERIAL USER)   00002900          
+   ,ALPHA      ( INITIALVALUE IS BLANKS)                                00003000          
+   ,NUMBER     ( INITIALVALUE IS 0)                                     00003100          
+   ,BOOLEAN    ( INITIALVALUE IS FALSE)                                 00003200          
+  );                                                                    00003300          
+                                                                        00003400          
+  OPTIONS                                                               00003500          
+  ( AUDIT                                                               00003600          
+   ,STATISTICS                                                          00003700          
+   ,ADDRESSCHECK                                                        00003800          
+   ,KEYCOMPARE                                                          00003900          
+   ,INDEPENDENTTRANS                                                    00003950          
+%%%,NO OPEN INITIALIZE                                                  00004000          
+  );                                                                    00004100          
+                                                                        00004200          
+  PARAMETERS                                                            00004300          
+  ( SYNCPOINT         = 4095   TRANSACTIONS                             00004400          
+   ,CONTROLPOINT      = 2      SYNCPOINTS                               00004500          
+   ,ALLOWEDCORE       = 5000000                                         00004600          
+   ,RESIDENT LIMIT    = 1000000                                         00004700          
+   ,OVERLAYGOAL       = .5                                              00004800          
+  );                                                                    00004900          
+                                                                        00005000          
+  AUDIT TRAIL                                                           00005100          
+  ( AREAS      = 100                                                    00005200          
+   ,AREASIZE   = 150 BLOCKS                                             00005300          
+   ,BLOCKSIZE  =  1800 WORDS                                            00005400          
+   ,KIND       = PACK                                                   00005500          
+   ,PACKNAME   = AUDIT                                                  00005600          
+   ,QUICKCOPY APPEND MAXFILESPERTAPE = 1 TO TAPESET                     00005700          
+        1 TIMES                                                         00005800          
+        FORWARD COMPARE                                                 00005900          
+        AND REMOVE                                                      00006000          
+    JOB *DATABASE/WFL/COPYAUDIT ON PACK                                 00006100          
+   ,UPDATE EOF = 100 BLOCKS                                             00006200          
+   ,CHECKSUM                                                            00006300          
+  );                                                                    00006400          
+                                                                        00006500          
+ CONTROL FILE (PACK = CMEMP, USERCODE = S151 );                         00006600          
+                                                                        00006700          
+  ACCESSROUTINES = *SYSTEM/ACCESSROUTINES                      ON PACK ;00006800          
+                                                                        00006900          
+  DMSUPPORT      = (S151)DMSUPPORT/S151BD10MOVDIA151/24MTP002  ON CMEMP;00007000          
+                                                                        00007100          
+  RECOVERY       = *SYSTEM/DMRECOVERY                          ON PACK ;00007200          
+                                                                        00007300          
+  DATARECOVERY   = *SYSTEM/DMDATARECOVERY                      ON PACK ;00007400          
+                                                                        00007500          
+  RECONSTRUCT = (S151)RECONSTRUCT/S151BD10MOVDIA151/24MTP002   ON CMEMP;00007600          
+                                                                        00007700          
+                                                                        00007800          
+$ PAGE                                                                  00007900          
+%**********************************************************************%00008000          
+%                                                                       00008100          
+% S151BD10MOVDIA151 : DATOS GLOBALES CON FECHAS DE PROCESOS, CONTROL DE 00008200          
+%                   APLICACIONES.                                       00008300          
+%                                                                       00008400          
+% S151B01MOVTOS : INFORMACION DE LOS MOVIMIENTOS REALIZADOS POR LOS     00008500          
+%                 SISTEMAS PARA CONSULTA.                               00008600          
+%                                                                       00008700          
+% S151B02TOTALES: CONTIENE LOS TOTALES A NIVEL CAJA, SUCURSAL Y CSI DE  00008800          
+%                 LOS MOVIMIENTOS OPERADOS POR LOS SISTEMAS.            00008900          
+%                                                                       00009000          
+% DESCRIP       :                                                       00009100          
+%                                                                       00009200          
+%                                                                       00009300          
+% REINICIO      : CONTIENE LA INFORMACION REQUERIDA PARA RECUPERACION DE00009400          
+%                 LA BASE EN CASO DE ABORT DE UN PROCESO O CAIDA DE MAQ 00009500          
+%                                                                       00009600          
+%***********************************************************************00009700          
+$PAGE                                                                   00009800          
+%***********************************************************************00009900          
+%  S151BD10MOVDIA151   D A T O S    G L O B A L E S   PREFIJO = B00     00010000          
+%***********************************************************************00010100          
+  B00-GLOB-CSI        "CSI DONDE CORRE SISTEMA  "    NUMBER (02);       00010200          
+  B00-GLOB-STA-PROC   "0 = NORMAL, 1=REINICIO   "    NUMBER (02);       00010300          
+  B00-GLOB-FEC-PROC   "FECHA PROCESO            "    NUMBER (08);       00010400          
+  B00-GLOB-STATUS     "STAUS 0=ACTIVO,1= TERMINA"    NUMBER (02);       00010500          
+  B00-GLOB-DATOS      "DATOS ADICIONALES        "    GROUP              00010600          
+ (B00-GLOB-NIV-BASE   "NIVEL DE LA BASE         "    NUMBER (08);       00010700          
+  B00-GLOB-NIV-LOG    "NIVEL DEL ARCHIVO MOVTOS "    NUMBER (08);       00010800          
+  B00-GLOB-NIV-BOR    "NIVEL DE BORRADO         "    NUMBER (08);       00010900          
+  B00-GLOB-NIV-BORA   "NIVEL DE BORRADO AUT     "    NUMBER (08);       00011000          
+ )                                                   OCCURS 5 TIMES;    00011100          
+$PAGE                                                                   00011200          
+%                                                                       00011300          
+%***********************************************************************00011400          
+%   DATA SETS PARA EL DIA LUNES DE LA SEMANA 1                          00011500          
+%***********************************************************************00011600          
+%                                                                       00011700          
+%***********************************************************************00011800          
+ S151B01MOVTOS    DIRECT     DATA SET        % PREFIJO B01              00011900          
+%*********************************************************************  00012000          
+ (B01-MOV-PRD         "CLAVE DE PRODUCTO        "     NUMBER (04);      00012100          
+  B01-MOV-INS         "CLAVE DE INSTRUMENTO     "     NUMBER (02);      00012200          
+  B01-MOV-NUMCTO      "CUENTA/CONTRATO          "     GROUP             00012300          
+  (B01-MOV-CTO        "NUMERO DE CUENTA/CONTRATO"     NUMBER (20);      00012400          
+  );                                                                    00012500          
+  B01-MOV-SUCPRO      "SUCURSAL PROMOTORA        "    NUMBER (04);      00012600          
+  B01-MOV-CVETRA      "CLAVE DE TRANSACCION      "    NUMBER (06);      00012700          
+  B01-MOV-TIPMOV      "TIPO DE MOVIMIENTO        "    NUMBER (02);      00012750          
+  B01-MOV-IMP         "IMPORTE                   "    NUMBER (16,2);    00012800          
+  B01-MOV-INDLEY      "INDICADOR DE LEYENDA      "    NUMBER (02);      00012900          
+  B01-MOV-CVETRORG    "CLAVE DE TRANSACCION ORIGE"    NUMBER (04);      00013000          
+  B01-MOV-FECOPER     "FECHA DE OPERACION        "    NUMBER (08);      00013100          
+  B01-MOV-HORAOPER    "HORA DE OPERACION         "    NUMBER (06);      00013200          
+  B01-MOV-FECCONT     "FECHA CONTABLE            "    NUMBER (08);      00013300          
+  B01-MOV-MONEDA      "NUMERO DE MONEDA          "    NUMBER (04);      00013400          
+  B01-MOV-REFNUM      "NUM CTA ORIGEN/DOCUMETO   "    NUMBER (18);      00013500          
+  B01-MOV-AUTS151     "AUTORIZACION DEL S151     "    NUMBER (08);      00013600          
+  B01-MOV-AUTAPL      "AUTORIZACION APLICACION   "    NUMBER (08);      00013700          
+  B01-MOV-AUT3ER      "AUTORIZACION 3ER NIVEL    "    NUMBER (08);      00013800          
+  B01-MOV-SUCINI      "SUCURSAL INICIATIVA       "    NUMBER (04);      00013900          
+  B01-MOV-CAJINI      "CAJA INICIATIVA          "     NUMBER (04);      00014000          
+  B01-MOV-MDE         "TIPO DE MEDIO DE ENTREGA  "    NUMBER (02);      00014100          
+  B01-MOV-MDA         "CLAVE DEL MEDIO DE ACCESO "    NUMBER (04);      00014200          
+  B01-MOV-NUMMDA      GROUP                                             00014300          
+ (B01-MOV-SUCMDA      "SUCURSAL  MEDIO DE ACCESO "    NUMBER (04);      00014400          
+  B01-MOV-CTAMDA      "CONTRATO  MEDIO DE ACCESO "    NUMBER (16);      00014500          
+ );                                                                     00014600          
+  B01-MOV-PROCESO     "NUMERO DE PROCESO         "    NUMBER (02);      00014700          
+  B01-MOV-INDIMP      "INDICADOR DE MAS IMPORTES "    NUMBER (02);      00014800          
+  B01-MOV-DATADIC     "NUM. REG. PARA DATOS ADIC "    NUMBER (08);      00014900          
+  B01-MOV-STA         "STATUS DEL REGISTRO       "    NUMBER (02);      00015000          
+  B01-MOV-BANCOS      "NUMERO DE BCOS ORI/DES    "    NUMBER (10);      00015100          
+  B01-MOV-ORIGEN      "ORIGEN DEL MOVIMIENTO     "    NUMBER (02);      00015200          
+  B01-MOV-NIO         "NUMERO DE OPERACION NIO   "    ALPHA  (16);      00015202          
+  B01-MOV-CECOBAN     "NUMERO DE REF DE CECOBAN  "    NUMBER (08);      00015203          
+  B01-MOV-NOMOPE      "NOMINA DEL OPERADOR       "    NUMBER (10);      00015204          
+  B01-MOV-SISORI      "SISTEMA ORIGEN            "    NUMBER (04);      00015206          
+  B01-MOV-ENVCTD      "INDICADOR ENVIO CITIDIRET "    NUMBER (02);      00015208          
+  B01-MOV-LEYENDA     "LEYENDA DE MOVIMIENTOS"        ALPHA (40);       00015210          
+  B01-MOV-SDO-FINAL   "SALDO FINAL"                   NUMBER (S15,2);   00015260          
+  B01-MOV-NOMORD      "NOMBRE DEL ORDENANTE"          ALPHA (30);       00015280          
+  B01-MOV-BCOEMI      "BANCO EMISOR"                  ALPHA (20);       00015290          
+ )                                                                      00015300          
+ , REBLOCKFACTOR = 33                                                   00015400          
+ , POPULATION = 52500000                                                00015500          
+ ;                                                                      00015600          
+%********************************************************************** 00015700          
+ B01SXAUTS151         ACCESS TO    S151B01MOVTOS                        00015800          
+%********************************************************************** 00015900          
+                                                                        00016000          
+ KEY IS  B01-MOV-AUTS151                                                00016100          
+ ;                                                                      00016200          
+%********************************************************************** 00016300          
+ B01BXMOVCAJ             SUBSET OF S151B01MOVTOS                        00016400          
+%********************************************************************** 00016500          
+                                                                        00016600          
+ WHERE B01-MOV-PROCESO < 15 AND B01-MOV-SUCINI > 0                      00016700          
+                                                                        00016800          
+ KEY IS (B01-MOV-SUCINI,                                                00016900          
+         B01-MOV-CAJINI,                                                00017000          
+         B01-MOV-AUTS151)                                               00017100          
+ ,BUFFERS = 2500 + 100 PER RANDOM USER OR 100 PER SERIAL USER           00017200          
+% ,TABLESIZE = 126 ENTRIES                                              00017300          
+ ,DUPLICATES                                                            00017400          
+ ,INDEX SEQUENTIAL                                                      00017500          
+ ,LOADFACTOR      = 80                                                  00017600          
+ ;                                                                      00017700          
+%********************************************************************** 00017800          
+ B01BXMOVCTO             SUBSET OF S151B01MOVTOS                        00017900          
+%********************************************************************** 00018000          
+                                                                        00018100          
+ WHERE B01-MOV-PROCESO < 15                                             00018200          
+                                                                        00018300          
+ KEY IS (B01-MOV-NUMCTO,                                                00018400          
+         B01-MOV-AUTS151)                                               00018500          
+    ,BUFFERS = 2500 + 100 PER RANDOM USER OR 100 PER SERIAL USER        00018600          
+%    ,TABLESIZE = 125 ENTRIES                                           00018700          
+    ,DUPLICATES                                                         00018800          
+    ,INDEX SEQUENTIAL                                                   00018900          
+    ,LOADFACTOR      = 80                                               00019000          
+    ;                                                                   00019100          
+%********************************************************************** 00019200          
+ B01BXMDA                SUBSET OF S151B01MOVTOS                        00019300          
+%********************************************************************** 00019400          
+                                                                        00019500          
+ WHERE B01-MOV-PROCESO < 15 AND B01-MOV-MDA > 0                         00019600          
+                                                                        00019700          
+ KEY IS (B01-MOV-MDA,                                                   00019800          
+         B01-MOV-NUMMDA,                                                00019900          
+         B01-MOV-AUTS151)                                               00020000          
+    ,BUFFERS = 2500 + 100 PER RANDOM USER OR 100 PER SERIAL USER        00020100          
+%    ,TABLESIZE = 125 ENTRIES                                           00020200          
+    ,DUPLICATES                                                         00020300          
+    ,INDEX SEQUENTIAL                                                   00020400          
+    ,LOADFACTOR      = 80                                               00020500          
+    ;                                                                   00020600          
+%********************************************************************** 00020700          
+ B01BXCAJ859             SUBSET OF S151B01MOVTOS                        00020800          
+%********************************************************************** 00020900          
+                                                                        00021000          
+ WHERE B01-MOV-PROCESO < 15 AND ( B01-MOV-SUCINI = 859 OR               00021100          
+                                  B01-MOV-SUCINI = 100 OR               00021120          
+                                  B01-MOV-SUCINI = 342 OR               00021140          
+                                  B01-MOV-SUCINI = 110 OR               00021160          
+                                  B01-MOV-SUCINI = 511 OR               00021180          
+                                  B01-MOV-SUCINI = 870 )                00021200          
+ KEY IS (B01-MOV-SUCINI,                                                00021300          
+         B01-MOV-CAJINI,                                                00021400          
+         B01-MOV-AUTAPL)                                                00021500          
+ ,BUFFERS = 2500 + 100 PER RANDOM USER OR 100 PER SERIAL USER           00021600          
+% ,TABLESIZE = 126 ENTRIES                                              00021700          
+ ,DUPLICATES                                                            00021800          
+ ,INDEX SEQUENTIAL                                                      00021900          
+ ,LOADFACTOR      = 80                                                  00022000          
+ ;                                                                      00022100          
+$PAGE                                                                   00022200          
+%***********************************************************************00022300          
+ S151B02IMPADI               DATA SET        % PREFIJO B02              00022400          
+%*********************************************************************  00022500          
+ (B02-MOV-AUTS151     "AUTORIZACION DEL S151     "    NUMBER (08);      00022600          
+  B02-MOV-STA         "STATUS DEL REGISTRO       "    NUMBER (02);      00022700          
+  B02-MOV-IMPCVE      "IMPORTES Y CLAVES         "    GROUP             00022800          
+  (B02-MOV-CVETRA     "CLAVE DE TRANSACCION      "    NUMBER (06);      00022900          
+   B02-IND-LEY        "INDICADOR DE LEYENDA      "    NUMBER (02);      00023000          
+   B02-MOV-IMP        "IMPORTE                   "    NUMBER (16,2);    00023100          
+  )                                                   OCCURS 4 TIMES;   00023200          
+ )                                                                      00023300          
+ , POPULATION = 6000000                                                 00023400          
+ ;                                                                      00023500          
+%********************************************************************** 00023600          
+ B02SXIMPADI                SET OF S151B02IMPADI                        00023700          
+%********************************************************************** 00023800          
+ KEY IS (B02-MOV-AUTS151)                                               00023900          
+ ,NO DUPLICATES                                                         00024000          
+ ,INDEX SEQUENTIAL                                                      00024100          
+ ,MEMORY RESIDENT = COARSE                                              00024200          
+ ;                                                                      00024300          
+$PAGE                                                                   00024400          
+%***********************************************************************00024500          
+ S151B03CSISUCCAJ          DATA SET        % PREFIJO B03                00024600          
+%*********************************************************************  00024700          
+ (B03-MOV-SUCINI      "SUCURSAL INICIATIVA      "     NUMBER (04);      00024800          
+  B03-MOV-CAJINI      "CAJA INICIATIVA          "     NUMBER (08);      00024900          
+  B03-MOV-MONEDA      "NUMERO DE MONEDA         "     NUMBER (04);      00025000          
+  B03-MOV-MDE         "CLAVE MEDIO DE ENTREGA   "     NUMBER (02);      00025100          
+  B03-MOV-VER028      "SI LA SUCURSAL CHECO OK  "     NUMBER (02);      00025200          
+  B03-MOV-BANCOS      "NUMERO DE BANCO TRANSMISOR"    NUMBER (10);      00025300          
+  B03-MOV-SECREN      "SECUENCIAL DE RENGLON    "     NUMBER (02);      00025400          
+  B03-MOV-DATOS         GROUP                                           00025500          
+  (B03-NUM-CR         "NUMERO DE CARGOS         "     NUMBER (07);      00025600          
+   B03-IMP-CR         "IMPORTE DE CARGOS        "     NUMBER (18,2);    00025700          
+   B03-NUM-AB         "NUMERO DE ABONOS         "     NUMBER (07);      00025800          
+   B03-IMP-AB         "IMPORTE DE ABONOS        "     NUMBER (18,2);    00025900          
+  )                                                   OCCURS 10 TIMES;  00026000          
+ )                                                                      00026100          
+ , POPULATION = 80000                                                   00026200          
+ ;                                                                      00026300          
+%********************************************************************** 00026400          
+ B03SXCSISUCCAJ               SET OF S151B03CSISUCCAJ                   00026500          
+%********************************************************************** 00026600          
+ KEY IS  (B03-MOV-SUCINI,                                               00026700          
+          B03-MOV-CAJINI,                                               00026800          
+          B03-MOV-MONEDA,                                               00026900          
+          B03-MOV-BANCOS,                                               00027000          
+          B03-MOV-MDE,                                                  00027100          
+          B03-MOV-SECREN)                                               00027200          
+ ,INDEX SEQUENTIAL                                                      00027300          
+ ,LOADFACTOR      = 75                                                  00027400          
+ ;                                                                      00027500          
+$PAGE                                                                   00027600          
+%***********************************************************************00027700          
+ S151B04CSISUCCAJ          DATA SET        % PREFIJO B04                00027800          
+%*********************************************************************  00027900          
+ (B04-MOV-SUCINI      "SUCURSAL INICIATIVA      "     NUMBER (04);      00028000          
+  B04-MOV-CAJINI      "CAJA INICIATIVA          "     NUMBER (08);      00028100          
+  B04-MOV-MONEDA      "NUMERO DE MONEDA         "     NUMBER (04);      00028200          
+  B04-MOV-MDA         "CLAVE MEDIO DE ENTREGA   "     NUMBER (04);      00028300          
+  B04-MOV-BANCOS      "NUMERO DE BANCO TRANSMISOR"    NUMBER (10);      00028400          
+  B04-MOV-SECREN      "SECUENCIAL DE RENGLON    "     NUMBER (02);      00028500          
+  B04-MOV-DATOS         GROUP                                           00028600          
+  (B04-NUM-CR         "NUMERO DE CARGOS         "     NUMBER (07);      00028700          
+   B04-IMP-CR         "IMPORTE DE CARGOS        "     NUMBER (18,2);    00028800          
+   B04-NUM-AB         "NUMERO DE ABONOS         "     NUMBER (07);      00028900          
+   B04-IMP-AB         "IMPORTE DE ABONOS        "     NUMBER (18,2);    00029000          
+  )                                                   OCCURS 10 TIMES;  00029100          
+ )                                                                      00029200          
+ , POPULATION = 80000                                                   00029300          
+ ;                                                                      00029400          
+%********************************************************************** 00029500          
+ B04SXCSISUCCAJ               SET OF S151B04CSISUCCAJ                   00029600          
+%********************************************************************** 00029700          
+ KEY IS  (B04-MOV-SUCINI,                                               00029800          
+          B04-MOV-CAJINI,                                               00029900          
+          B04-MOV-MONEDA,                                               00030000          
+          B04-MOV-BANCOS,                                               00030100          
+          B04-MOV-MDA,                                                  00030200          
+          B04-MOV-SECREN)                                               00030300          
+ ,INDEX SEQUENTIAL                                                      00030400          
+ ,LOADFACTOR      = 75                                                  00030500          
+ ;                                                                      00030600          
+$PAGE                                                                   00030700          
+%                                                                       00030800          
+%***********************************************************************00030900          
+%   DATA SETS PARA EL DIA MARTES DE LA SEMANA 1                         00031000          
+%***********************************************************************00031100          
+%                                                                       00031200          
+%***********************************************************************00031300          
+ S151B11MOVTOS    DIRECT     DATA SET        % PREFIJO B11              00031400          
+%*********************************************************************  00031500          
+ (B11-MOV-PRD         "CLAVE DE PRODUCTO        "     NUMBER (04);      00031600          
+  B11-MOV-INS         "CLAVE DE INSTRUMENTO     "     NUMBER (02);      00031700          
+  B11-MOV-NUMCTO      "CUENTA/CONTRATO          "     GROUP             00031800          
+  (B11-MOV-CTO        "NUMERO DE CUENTA/CONTRATO"     NUMBER (20);      00031900          
+  );                                                                    00032000          
+  B11-MOV-SUCPRO      "SUCURSAL PROMOTORA        "    NUMBER (04);      00032100          
+  B11-MOV-CVETRA      "CLAVE DE TRANSACCION      "    NUMBER (06);      00032200          
+  B11-MOV-TIPMOV      "TIPO DE MOVIMIENTO        "    NUMBER (02);      00032250          
+  B11-MOV-IMP         "IMPORTE                   "    NUMBER (16,2);    00032300          
+  B11-MOV-INDLEY      "INDICADOR DE LEYENDA      "    NUMBER (02);      00032400          
+  B11-MOV-CVETRORG    "CLAVE DE TRANSACCION ORIGE"    NUMBER (04);      00032500          
+  B11-MOV-FECOPER     "FECHA DE OPERACION        "    NUMBER (08);      00032600          
+  B11-MOV-HORAOPER    "HORA DE OPERACION         "    NUMBER (06);      00032700          
+  B11-MOV-FECCONT     "FECHA CONTABLE            "    NUMBER (08);      00032800          
+  B11-MOV-MONEDA      "NUMERO DE MONEDA          "    NUMBER (04);      00032900          
+  B11-MOV-REFNUM      "NUM CTA ORIGEN/DOCUMETO   "    NUMBER (18);      00033000          
+  B11-MOV-AUTS151     "AUTORIZACION DEL S151     "    NUMBER (08);      00033100          
+  B11-MOV-AUTAPL      "AUTORIZACION APLICACION   "    NUMBER (08);      00033200          
+  B11-MOV-AUT3ER      "AUTORIZACION 3ER NIVEL    "    NUMBER (08);      00033300          
+  B11-MOV-SUCINI      "SUCURSAL INICIATIVA       "    NUMBER (04);      00033400          
+  B11-MOV-CAJINI      "CAJA INICIATIVA          "     NUMBER (04);      00033500          
+  B11-MOV-MDE         "TIPO DE MEDIO DE ENTREGA  "    NUMBER (02);      00033600          
+  B11-MOV-MDA         "CLAVE DEL MEDIO DE ACCESO "    NUMBER (04);      00033700          
+  B11-MOV-NUMMDA      GROUP                                             00033800          
+ (B11-MOV-SUCMDA      "SUCURSAL  MEDIO DE ACCESO "    NUMBER (04);      00033900          
+  B11-MOV-CTAMDA      "CONTRATO  MEDIO DE ACCESO "    NUMBER (16);      00034000          
+ );                                                                     00034100          
+  B11-MOV-PROCESO     "NUMERO DE PROCESO         "    NUMBER (02);      00034200          
+  B11-MOV-INDIMP      "INDICADOR DE MAS IMPORTES "    NUMBER (02);      00034300          
+  B11-MOV-DATADIC     "NUM. REG. PARA DATOS ADIC "    NUMBER (08);      00034400          
+  B11-MOV-STA         "STATUS DEL REGISTRO       "    NUMBER (02);      00034500          
+  B11-MOV-BANCOS      "BCOS ORI/DES DEL MOVTO    "    NUMBER (10);      00034600          
+  B11-MOV-ORIGEN      "ORIGEN DEL MOVIMIENTO     "    NUMBER (02);      00034700          
+  B11-MOV-NIO         "NUMERO DE OPERACION NIO   "    ALPHA  (16);      00034702          
+  B11-MOV-CECOBAN     "NUMERO DE REF DE CECOBAN  "    NUMBER (08);      00034703          
+  B11-MOV-NOMOPE      "NOMINA DEL OPERADOR       "    NUMBER (10);      00034704          
+  B11-MOV-SISORI      "SISTEMA ORIGEN            "    NUMBER (04);      00034709          
+  B11-MOV-ENVCTD      "INDICADOR ENVIO CITIDIRET "    NUMBER (02);      00034710          
+  B11-MOV-LEYENDA     "LEYENDA DE MOVIMIENTOS"        ALPHA (40);       00034730          
+  B11-MOV-SDO-FINAL   "SALDO FINAL"                   NUMBER (S15,2);   00034750          
+  B11-MOV-NOMORD      "NOMBRE DEL ORDENANTE"          ALPHA (30);       00034770          
+  B11-MOV-BCOEMI      "BANCO EMISOR"                  ALPHA (20);       00034780          
+  )                                                                     00034800          
+ , POPULATION = 52500000                                                00034900          
+ ;                                                                      00035000          
+%********************************************************************** 00035100          
+ B11SXAUTS151         ACCESS TO    S151B11MOVTOS                        00035200          
+%********************************************************************** 00035300          
+ KEY IS  B11-MOV-AUTS151                                                00035400          
+ ;                                                                      00035500          
+%********************************************************************** 00035600          
+ B11BXMOVCAJ             SUBSET OF S151B11MOVTOS                        00035700          
+%********************************************************************** 00035800          
+                                                                        00035900          
+ WHERE B11-MOV-PROCESO < 15 AND B11-MOV-SUCINI > 0                      00036000          
+                                                                        00036100          
+ KEY IS (B11-MOV-SUCINI,                                                00036200          
+         B11-MOV-CAJINI,                                                00036300          
+         B11-MOV-AUTS151)                                               00036400          
+ ,BUFFERS = 2500 + 100 PER RANDOM USER OR 100 PER SERIAL USER           00036500          
+% ,TABLESIZE = 126 ENTRIES                                              00036600          
+ ,DUPLICATES                                                            00036700          
+ ,INDEX SEQUENTIAL                                                      00036800          
+ ,LOADFACTOR      = 80                                                  00036900          
+ ;                                                                      00037000          
+%********************************************************************** 00037100          
+ B11BXMOVCTO             SUBSET OF S151B11MOVTOS                        00037200          
+%********************************************************************** 00037300          
+                                                                        00037400          
+ WHERE B11-MOV-PROCESO < 15                                             00037500          
+                                                                        00037600          
+ KEY IS (B11-MOV-NUMCTO,                                                00037700          
+         B11-MOV-AUTS151)                                               00037800          
+    ,BUFFERS = 2500 + 100 PER RANDOM USER OR 100 PER SERIAL USER        00037900          
+%    ,TABLESIZE = 125 ENTRIES                                           00038000          
+    ,DUPLICATES                                                         00038100          
+    ,INDEX SEQUENTIAL                                                   00038200          
+    , LOADFACTOR     = 80                                               00038300          
+    ;                                                                   00038400          
+%********************************************************************** 00038500          
+ B11BXMDA                SUBSET OF S151B11MOVTOS                        00038600          
+%********************************************************************** 00038700          
+                                                                        00038800          
+ WHERE B11-MOV-PROCESO < 15 AND B11-MOV-MDA > 0                         00038900          
+                                                                        00039000          
+ KEY IS (B11-MOV-MDA,                                                   00039100          
+         B11-MOV-NUMMDA,                                                00039200          
+         B11-MOV-AUTS151)                                               00039300          
+    ,BUFFERS = 2500 + 100 PER RANDOM USER OR 100 PER SERIAL USER        00039400          
+%    ,TABLESIZE = 125 ENTRIES                                           00039500          
+    ,DUPLICATES                                                         00039600          
+    ,INDEX SEQUENTIAL                                                   00039700          
+    ,LOADFACTOR      = 80                                               00039800          
+    ;                                                                   00039900          
+%********************************************************************** 00040000          
+ B11BXCAJ859             SUBSET OF S151B11MOVTOS                        00040100          
+%********************************************************************** 00040200          
+                                                                        00040300          
+ WHERE B11-MOV-PROCESO < 15 AND ( B11-MOV-SUCINI = 859 OR               00040400          
+                                  B11-MOV-SUCINI = 100 OR               00040410          
+                                  B11-MOV-SUCINI = 342 OR               00040420          
+                                  B11-MOV-SUCINI = 110 OR               00040430          
+                                  B11-MOV-SUCINI = 511 OR               00040440          
+                                  B11-MOV-SUCINI = 870 )                00040450          
+                                                                        00040500          
+ KEY IS (B11-MOV-SUCINI,                                                00040600          
+         B11-MOV-CAJINI,                                                00040700          
+         B11-MOV-AUTAPL)                                                00040800          
+ ,BUFFERS = 2500 + 100 PER RANDOM USER OR 100 PER SERIAL USER           00040900          
+% ,TABLESIZE = 126 ENTRIES                                              00041000          
+ ,DUPLICATES                                                            00041100          
+ ,INDEX SEQUENTIAL                                                      00041200          
+ ,LOADFACTOR      = 80                                                  00041300          
+ ;                                                                      00041400          
+$PAGE                                                                   00041500          
+%***********************************************************************00041600          
+ S151B12IMPADI               DATA SET        % PREFIJO B12              00041700          
+%*********************************************************************  00041800          
+ (B12-MOV-AUTS151     "AUTORIZACION DEL S151     "    NUMBER (08);      00041900          
+  B12-MOV-STA         "STATUS DEL REGISTRO       "    NUMBER (02);      00042000          
+  B12-MOV-IMPCVE      "IMPORTES Y CLAVES         "    GROUP             00042100          
+  (B12-MOV-CVETRA     "CLAVE DE TRANSACCION      "    NUMBER (06);      00042200          
+   B12-IND-LEY        "INDICADOR DE LEYENDA      "    NUMBER (02);      00042300          
+   B12-MOV-IMP        "IMPORTE                   "    NUMBER (16,2);    00042400          
+  )                                                   OCCURS 4 TIMES;   00042500          
+ )                                                                      00042600          
+ , POPULATION = 6000000                                                 00042700          
+ ;                                                                      00042800          
+%********************************************************************** 00042900          
+ B12SXIMPADI                SET OF S151B12IMPADI                        00043000          
+%********************************************************************** 00043100          
+ KEY IS (B12-MOV-AUTS151)                                               00043200          
+ ,NO DUPLICATES                                                         00043300          
+ ,INDEX SEQUENTIAL                                                      00043400          
+ ,MEMORY RESIDENT = COARSE                                              00043500          
+ ;                                                                      00043600          
+$PAGE                                                                   00043700          
+%***********************************************************************00043800          
+ S151B13CSISUCCAJ          DATA SET        % PREFIJO B13                00043900          
+%*********************************************************************  00044000          
+ (B13-MOV-SUCINI      "SUCURSAL INICIATIVA      "     NUMBER (04);      00044100          
+  B13-MOV-CAJINI      "CAJA INICIATIVA          "     NUMBER (08);      00044200          
+  B13-MOV-MONEDA      "NUMERO DE MONEDA         "     NUMBER (04);      00044300          
+  B13-MOV-MDE         "CLAVE MEDIO DE ENTREGA   "     NUMBER (02);      00044400          
+  B13-MOV-VER028      "SI LA SUCURSAL CHECO OK  "     NUMBER (02);      00044500          
+  B13-MOV-BANCOS      "BCOS ORI/DES DEL MOVTO.  "     NUMBER (10);      00044600          
+  B13-MOV-SECREN      "SECUENCIAL DE RENGLON    "     NUMBER (02);      00044700          
+  B13-MOV-DATOS         GROUP                                           00044800          
+  (B13-NUM-CR         "NUMERO DE CARGOS         "     NUMBER (07);      00044900          
+   B13-IMP-CR         "IMPORTE DE CARGOS        "     NUMBER (18,2);    00045000          
+   B13-NUM-AB         "NUMERO DE ABONOS         "     NUMBER (07);      00045100          
+   B13-IMP-AB         "IMPORTE DE ABONOS        "     NUMBER (18,2);    00045200          
+  )                                                   OCCURS 10 TIMES;  00045300          
+ )                                                                      00045400          
+ , POPULATION = 80000                                                   00045500          
+ ;                                                                      00045600          
+%********************************************************************** 00045700          
+ B13SXCSISUCCAJ               SET OF S151B13CSISUCCAJ                   00045800          
+%********************************************************************** 00045900          
+ KEY IS  (B13-MOV-SUCINI,                                               00046000          
+          B13-MOV-CAJINI,                                               00046100          
+          B13-MOV-MONEDA,                                               00046200          
+          B13-MOV-BANCOS,                                               00046300          
+          B13-MOV-MDE,                                                  00046400          
+          B13-MOV-SECREN)                                               00046500          
+ ,INDEX SEQUENTIAL                                                      00046600          
+ ,LOADFACTOR      = 75                                                  00046700          
+ ;                                                                      00046800          
+$PAGE                                                                   00046900          
+%***********************************************************************00047000          
+ S151B14CSISUCCAJ          DATA SET        % PREFIJO B14                00047100          
+%*********************************************************************  00047200          
+ (B14-MOV-SUCINI      "SUCURSAL INICIATIVA      "     NUMBER (04);      00047300          
+  B14-MOV-CAJINI      "CAJA INICIATIVA          "     NUMBER (08);      00047400          
+  B14-MOV-MONEDA      "NUMERO DE MONEDA         "     NUMBER (04);      00047500          
+  B14-MOV-MDA         "CLAVE MEDIO DE ENTREGA   "     NUMBER (04);      00047600          
+  B14-MOV-BANCOS      "BCOS ORI/DES             "     NUMBER (10);      00047700          
+  B14-MOV-SECREN      "SECUENCIAL DE RENGLON    "     NUMBER (02);      00047800          
+  B14-MOV-DATOS         GROUP                                           00047900          
+  (B14-NUM-CR         "NUMERO DE CARGOS         "     NUMBER (07);      00048000          
+   B14-IMP-CR         "IMPORTE DE CARGOS        "     NUMBER (18,2);    00048100          
+   B14-NUM-AB         "NUMERO DE ABONOS         "     NUMBER (07);      00048200          
+   B14-IMP-AB         "IMPORTE DE ABONOS        "     NUMBER (18,2);    00048300          
+  )                                                   OCCURS 10 TIMES;  00048400          
+ )                                                                      00048500          
+ , POPULATION = 80000                                                   00048600          
+ ;                                                                      00048700          
+%********************************************************************** 00048800          
+ B14SXCSISUCCAJ               SET OF S151B14CSISUCCAJ                   00048900          
+%********************************************************************** 00049000          
+ KEY IS  (B14-MOV-SUCINI,                                               00049100          
+          B14-MOV-CAJINI,                                               00049200          
+          B14-MOV-MONEDA,                                               00049300          
+          B14-MOV-BANCOS,                                               00049400          
+          B14-MOV-MDA,                                                  00049500          
+          B14-MOV-SECREN)                                               00049600          
+ ,INDEX SEQUENTIAL                                                      00049700          
+ ,LOADFACTOR      = 75                                                  00049800          
+ ;                                                                      00049900          
+$PAGE                                                                   00050000          
+%                                                                       00050100          
+%***********************************************************************00050200          
+%   DATA SETS PARA EL DIA MIERCOLES  DE LA SEMANA 1                     00050300          
+%***********************************************************************00050400          
+%                                                                       00050500          
+%***********************************************************************00050600          
+ S151B21MOVTOS    DIRECT     DATA SET        % PREFIJO B21              00050700          
+%*********************************************************************  00050800          
+ (B21-MOV-PRD         "CLAVE DE PRODUCTO        "     NUMBER (04);      00050900          
+  B21-MOV-INS         "CLAVE DE INSTRUMENTO     "     NUMBER (02);      00051000          
+  B21-MOV-NUMCTO      "CUENTA/CONTRATO          "     GROUP             00051100          
+  (B21-MOV-CTO        "NUMERO DE CUENTA/CONTRATO"     NUMBER (20);      00051200          
+  );                                                                    00051300          
+  B21-MOV-SUCPRO      "SUCURSAL PROMOTORA        "    NUMBER (04);      00051400          
+  B21-MOV-CVETRA      "CLAVE DE TRANSACCION      "    NUMBER (06);      00051500          
+  B21-MOV-TIPMOV      "TIPO DE MOVIMIENTO        "    NUMBER (02);      00051550          
+  B21-MOV-IMP         "IMPORTE                   "    NUMBER (16,2);    00051600          
+  B21-MOV-INDLEY      "INDICADOR DE LEYENDA      "    NUMBER (02);      00051700          
+  B21-MOV-CVETRORG    "CLAVE DE TRANSACCION ORIGE"    NUMBER (04);      00051800          
+  B21-MOV-FECOPER     "FECHA DE OPERACION        "    NUMBER (08);      00051900          
+  B21-MOV-HORAOPER    "HORA DE OPERACION         "    NUMBER (06);      00052000          
+  B21-MOV-FECCONT     "FECHA CONTABLE            "    NUMBER (08);      00052100          
+  B21-MOV-MONEDA      "NUMERO DE MONEDA          "    NUMBER (04);      00052200          
+  B21-MOV-REFNUM      "NUM CTA ORIGEN/DOCUMETO   "    NUMBER (18);      00052300          
+  B21-MOV-AUTS151     "AUTORIZACION DEL S151     "    NUMBER (08);      00052400          
+  B21-MOV-AUTAPL      "AUTORIZACION APLICACION   "    NUMBER (08);      00052500          
+  B21-MOV-AUT3R       "AUTORIZACION 3ER NIVEL    "    NUMBER (08);      00052600          
+  B21-MOV-SUCINI      "SUCURSAL INICIATIVA       "    NUMBER (04);      00052700          
+  B21-MOV-CAJINI      "CAJA INICIATIVA          "     NUMBER (04);      00052800          
+  B21-MOV-MDE         "TIPO DE MEDIO DE ENTREGA  "    NUMBER (02);      00052900          
+  B21-MOV-MDA         "CLAVE DEL MEDIO DE ACCESO "    NUMBER (04);      00053000          
+  B21-MOV-NUMMDA      GROUP                                             00053100          
+ (B21-MOV-SUCMDA      "SUCURSAL  MEDIO DE ACCESO "    NUMBER (04);      00053200          
+  B21-MOV-CTAMDA      "CONTRATO  MEDIO DE ACCESO "    NUMBER (16);      00053300          
+ );                                                                     00053400          
+  B21-MOV-PROCESO     "NUMERO DE PROCESO         "    NUMBER (02);      00053500          
+  B21-MOV-INDIMP      "INDICADOR DE MAS IMPORTES "    NUMBER (02);      00053600          
+  B21-MOV-DATADIC     "NUM. REG. PARA DATOS ADIC "    NUMBER (08);      00053700          
+  B21-MOV-STA         "STATUS DEL REGISTRO       "    NUMBER (02);      00053800          
+  B21-MOV-BANCOS      "BCOS ORI/DES              "    NUMBER (10);      00053900          
+  B21-MOV-ORIGEN      "ORIGEN DEL MOVIMIENTO     "    NUMBER (02);      00054000          
+  B21-MOV-NIO         "NUMERO DE OPERACION NIO   "    ALPHA  (16);      00054002          
+  B21-MOV-CECOBAN     "NUMERO DE REF DE CECOBAN  "    NUMBER (08);      00054003          
+  B21-MOV-NOMOPE      "NOMINA DEL OPERADOR       "    NUMBER (10);      00054004          
+  B21-MOV-SISORI      "SISTEMA ORIGEN            "    NUMBER (04);      00054009          
+  B21-MOV-ENVCTD      "INDICADOR ENVIO CITIDIRET "    NUMBER (02);      00054010          
+  B21-MOV-LEYENDA     "LEYENDA DE MOVIMIENTOS"        ALPHA (40);       00054030          
+  B21-MOV-SDO-FINAL   "SALDO FINAL"                   NUMBER (S15,2);   00054050          
+  B21-MOV-NOMORD      "NOMBRE DEL ORDENANTE"          ALPHA (30);       00054070          
+  B21-MOV-BCOEMI      "BANCO EMISOR"                  ALPHA (20);       00054080          
+ )                                                                      00054100          
+ , POPULATION = 52500000                                                00054200          
+ ;                                                                      00054300          
+%********************************************************************** 00054400          
+ B21SXAUTS151         ACCESS TO    S151B21MOVTOS                        00054500          
+%********************************************************************** 00054600          
+ KEY IS  B21-MOV-AUTS151                                                00054700          
+ ;                                                                      00054800          
+%********************************************************************** 00054900          
+ B21BXMOVCAJ             SUBSET OF S151B21MOVTOS                        00055000          
+%********************************************************************** 00055100          
+                                                                        00055200          
+ WHERE B21-MOV-PROCESO < 15 AND B21-MOV-SUCINI > 0                      00055300          
+                                                                        00055400          
+ KEY IS (B21-MOV-SUCINI,                                                00055500          
+         B21-MOV-CAJINI,                                                00055600          
+         B21-MOV-AUTS151)                                               00055700          
+ ,BUFFERS = 2500 + 100 PER RANDOM USER OR 100 PER SERIAL USER           00055800          
+% ,TABLESIZE = 126 ENTRIES                                              00055900          
+ ,DUPLICATES                                                            00056000          
+ ,INDEX SEQUENTIAL                                                      00056100          
+ ,LOADFACTOR      = 80                                                  00056200          
+ ;                                                                      00056300          
+%********************************************************************** 00056400          
+ B21BXMOVCTO             SUBSET OF S151B21MOVTOS                        00056500          
+%********************************************************************** 00056600          
+                                                                        00056700          
+ WHERE B21-MOV-PROCESO < 15                                             00056800          
+                                                                        00056900          
+ KEY IS (B21-MOV-NUMCTO,                                                00057000          
+         B21-MOV-AUTS151)                                               00057100          
+    ,BUFFERS = 2500 + 100 PER RANDOM USER OR 100 PER SERIAL USER        00057200          
+%    ,TABLESIZE = 125 ENTRIES                                           00057300          
+    ,DUPLICATES                                                         00057400          
+    ,INDEX SEQUENTIAL                                                   00057500          
+    ,LOADFACTOR      = 80                                               00057600          
+    ;                                                                   00057700          
+%********************************************************************** 00057800          
+ B21BXMDA                SUBSET OF S151B21MOVTOS                        00057900          
+%********************************************************************** 00058000          
+                                                                        00058100          
+ WHERE B21-MOV-PROCESO < 15 AND B21-MOV-MDA > 0                         00058200          
+                                                                        00058300          
+ KEY IS (B21-MOV-MDA,                                                   00058400          
+         B21-MOV-NUMMDA,                                                00058500          
+         B21-MOV-AUTS151)                                               00058600          
+    ,BUFFERS = 2500 + 100 PER RANDOM USER OR 100 PER SERIAL USER        00058700          
+%    ,TABLESIZE = 125 ENTRIES                                           00058800          
+    ,DUPLICATES                                                         00058900          
+    ,INDEX SEQUENTIAL                                                   00059000          
+    ,LOADFACTOR      = 80                                               00059100          
+    ;                                                                   00059200          
+%********************************************************************** 00059300          
+ B21BXCAJ859             SUBSET OF S151B21MOVTOS                        00059400          
+%********************************************************************** 00059500          
+                                                                        00059600          
+ WHERE B21-MOV-PROCESO < 15 AND ( B21-MOV-SUCINI = 859 OR               00059700          
+                                  B21-MOV-SUCINI = 100 OR               00059710          
+                                  B21-MOV-SUCINI = 342 OR               00059720          
+                                  B21-MOV-SUCINI = 110 OR               00059730          
+                                  B21-MOV-SUCINI = 511 OR               00059740          
+                                  B21-MOV-SUCINI = 870 )                00059750          
+                                                                        00059800          
+ KEY IS (B21-MOV-SUCINI,                                                00059900          
+         B21-MOV-CAJINI,                                                00060000          
+         B21-MOV-AUTAPL)                                                00060100          
+ ,BUFFERS = 2500 + 100 PER RANDOM USER OR 100 PER SERIAL USER           00060200          
+% ,TABLESIZE = 126 ENTRIES                                              00060300          
+ ,DUPLICATES                                                            00060400          
+ ,INDEX SEQUENTIAL                                                      00060500          
+ ,LOADFACTOR      = 80                                                  00060600          
+ ;                                                                      00060700          
+$PAGE                                                                   00060800          
+%***********************************************************************00060900          
+ S151B22IMPADI               DATA SET        % PREFIJO B22              00061000          
+%*********************************************************************  00061100          
+ (B22-MOV-AUTS151     "AUTORIZACION DEL S151     "    NUMBER (08);      00061200          
+  B22-MOV-STA         "STATUS DEL REGISTRO       "    NUMBER (02);      00061300          
+  B22-MOV-IMPCVE      "IMPORTES Y CLAVES         "    GROUP             00061400          
+  (B22-MOV-CVETRA     "CLAVE DE TRANSACCION      "    NUMBER (06);      00061500          
+   B22-IND-LEY        "INDICADOR DE LEYENDA      "    NUMBER (02);      00061600          
+   B22-MOV-IMP        "IMPORTE                   "    NUMBER (16,2);    00061700          
+  )                                                   OCCURS 4 TIMES;   00061800          
+ )                                                                      00061900          
+ , POPULATION = 6000000                                                 00062000          
+ ;                                                                      00062100          
+%********************************************************************** 00062200          
+ B22SXIMPADI                SET OF S151B22IMPADI                        00062300          
+%********************************************************************** 00062400          
+ KEY IS (B22-MOV-AUTS151)                                               00062500          
+ ,NO DUPLICATES                                                         00062600          
+ ,INDEX SEQUENTIAL                                                      00062700          
+ ,MEMORY RESIDENT = COARSE                                              00062800          
+ ;                                                                      00062900          
+$PAGE                                                                   00063000          
+%***********************************************************************00063100          
+ S151B23CSISUCCAJ          DATA SET        % PREFIJO B23                00063200          
+%*********************************************************************  00063300          
+ (B23-MOV-SUCINI      "SUCURSAL INICIATIVA      "     NUMBER (04);      00063400          
+  B23-MOV-CAJINI      "CAJA INICIATIVA          "     NUMBER (08);      00063500          
+  B23-MOV-MONEDA      "NUMERO DE MONEDA         "     NUMBER (04);      00063600          
+  B23-MOV-MDE         "CLAVE MEDIO DE ENTREGA   "     NUMBER (02);      00063700          
+  B23-MOV-BANCOS      "BCOS ORI/DES             "     NUMBER (10);      00063800          
+  B23-MOV-VER028      "SI LA SUCURSAL CHECO OK  "     NUMBER (02);      00063900          
+  B23-MOV-SECREN      "SECUENCIAL DE RENGLON    "     NUMBER (02);      00064000          
+  B23-MOV-DATOS         GROUP                                           00064100          
+  (B23-NUM-CR         "NUMERO DE CARGOS         "     NUMBER (07);      00064200          
+   B23-IMP-CR         "IMPORTE DE CARGOS        "     NUMBER (18,2);    00064300          
+   B23-NUM-AB         "NUMERO DE ABONOS         "     NUMBER (07);      00064400          
+   B23-IMP-AB         "IMPORTE DE ABONOS        "     NUMBER (18,2);    00064500          
+  )                                                   OCCURS 10 TIMES;  00064600          
+ )                                                                      00064700          
+ , POPULATION = 80000                                                   00064800          
+ ;                                                                      00064900          
+%********************************************************************** 00065000          
+ B23SXCSISUCCAJ               SET OF S151B23CSISUCCAJ                   00065100          
+%********************************************************************** 00065200          
+ KEY IS  (B23-MOV-SUCINI,                                               00065300          
+          B23-MOV-CAJINI,                                               00065400          
+          B23-MOV-MONEDA,                                               00065500          
+          B23-MOV-BANCOS,                                               00065600          
+          B23-MOV-MDE,                                                  00065700          
+          B23-MOV-SECREN)                                               00065800          
+ ,INDEX SEQUENTIAL                                                      00065900          
+ ,LOADFACTOR      = 75                                                  00066000          
+ ;                                                                      00066100          
+$PAGE                                                                   00066200          
+%***********************************************************************00066300          
+ S151B24CSISUCCAJ          DATA SET        % PREFIJO B24                00066400          
+%*********************************************************************  00066500          
+ (B24-MOV-SUCINI      "SUCURSAL INICIATIVA      "     NUMBER (04);      00066600          
+  B24-MOV-CAJINI      "CAJA INICIATIVA          "     NUMBER (08);      00066700          
+  B24-MOV-MONEDA      "NUMERO DE MONEDA         "     NUMBER (04);      00066800          
+  B24-MOV-MDA         "CLAVE MEDIO DE ENTREGA   "     NUMBER (04);      00066900          
+  B24-MOV-BANCOS      "BCOS ORI/DES             "     NUMBER (10);      00067000          
+  B24-MOV-SECREN      "SECUENCIAL DE RENGLON    "     NUMBER (02);      00067100          
+  B24-MOV-DATOS         GROUP                                           00067200          
+  (B24-NUM-CR         "NUMERO DE CARGOS         "     NUMBER (07);      00067300          
+   B24-IMP-CR         "IMPORTE DE CARGOS        "     NUMBER (18,2);    00067400          
+   B24-NUM-AB         "NUMERO DE ABONOS         "     NUMBER (07);      00067500          
+   B24-IMP-AB         "IMPORTE DE ABONOS        "     NUMBER (18,2);    00067600          
+  )                                                   OCCURS 10 TIMES;  00067700          
+ )                                                                      00067800          
+ , POPULATION = 80000                                                   00067900          
+ ;                                                                      00068000          
+%********************************************************************** 00068100          
+ B24SXCSISUCCAJ               SET OF S151B24CSISUCCAJ                   00068200          
+%********************************************************************** 00068300          
+ KEY IS  (B24-MOV-SUCINI,                                               00068400          
+          B24-MOV-CAJINI,                                               00068500          
+          B24-MOV-MONEDA,                                               00068600          
+          B24-MOV-BANCOS,                                               00068700          
+          B24-MOV-MDA,                                                  00068800          
+          B24-MOV-SECREN)                                               00068900          
+ ,INDEX SEQUENTIAL                                                      00069000          
+ ,LOADFACTOR      = 75                                                  00069100          
+ ;                                                                      00069200          
+$PAGE                                                                   00069300          
+%                                                                       00069400          
+%***********************************************************************00069500          
+%   DATA SETS PARA EL DIA JUEVES  DE LA SEMANA 1                        00069600          
+%***********************************************************************00069700          
+%                                                                       00069800          
+%***********************************************************************00069900          
+ S151B31MOVTOS    DIRECT     DATA SET        % PREFIJO B31              00070000          
+%*********************************************************************  00070100          
+ (B31-MOV-PRD         "CLAVE DE PRODUCTO        "     NUMBER (04);      00070200          
+  B31-MOV-INS         "CLAVE DE INSTRUMENTO     "     NUMBER (02);      00070300          
+  B31-MOV-NUMCTO      "CUENTA/CONTRATO          "     GROUP             00070400          
+  (B31-MOV-CTO        "NUMERO DE CUENTA/CONTRATO"     NUMBER (20);      00070500          
+  );                                                                    00070600          
+  B31-MOV-SUCPRO      "SUCURSAL PROMOTORA        "    NUMBER (04);      00070700          
+  B31-MOV-CVETRA      "CLAVE DE TRANSACCION      "    NUMBER (06);      00070800          
+  B31-MOV-TIPMOV      "TIPO DE MOVIMIENTO        "    NUMBER (02);      00070850          
+  B31-MOV-IMP         "IMPORTE                   "    NUMBER (16,2);    00070900          
+  B31-MOV-INDLEY      "INDICADOR DE LEYENDA      "    NUMBER (02);      00071000          
+  B31-MOV-CVETRORG    "CLAVE DE TRANSACCION ORIGE"    NUMBER (04);      00071100          
+  B31-MOV-FECOPER     "FECHA DE OPERACION        "    NUMBER (08);      00071200          
+  B31-MOV-HORAOPER    "HORA DE OPERACION         "    NUMBER (06);      00071300          
+  B31-MOV-FECCONT     "FECHA CONTABLE            "    NUMBER (08);      00071400          
+  B31-MOV-MONEDA      "NUMERO DE MONEDA          "    NUMBER (04);      00071500          
+  B31-MOV-REFNUM      "NUM CTA ORIGEN/DOCUMETO   "    NUMBER (18);      00071600          
+  B31-MOV-AUTS151     "AUTORIZACION DEL S151     "    NUMBER (08);      00071700          
+  B31-MOV-AUTAPL      "AUTORIZACION APLICACION   "    NUMBER (08);      00071800          
+  B31-MOV-AUT3ER      "AUTORIZACION 3ER NIVEL    "    NUMBER (08);      00071900          
+  B31-MOV-SUCINI      "SUCURSAL INICIATIVA       "    NUMBER (04);      00072000          
+  B31-MOV-CAJINI      "CAJA INICIATIVA          "     NUMBER (04);      00072100          
+  B31-MOV-MDE         "TIPO DE MEDIO DE ENTREGA  "    NUMBER (02);      00072200          
+  B31-MOV-MDA         "CLAVE DEL MEDIO DE ACCESO "    NUMBER (04);      00072300          
+  B31-MOV-NUMMDA      GROUP                                             00072400          
+ (B31-MOV-SUCMDA      "SUCURSAL  MEDIO DE ACCESO "    NUMBER (04);      00072500          
+  B31-MOV-CTAMDA      "CONTRATO  MEDIO DE ACCESO "    NUMBER (16);      00072600          
+ );                                                                     00072700          
+  B31-MOV-PROCESO     "NUMERO DE PROCESO         "    NUMBER (02);      00072800          
+  B31-MOV-INDIMP      "INDICADOR DE MAS IMPORTES "    NUMBER (02);      00072900          
+  B31-MOV-DATADIC     "NUM. REG. PARA DATOS ADIC "    NUMBER (08);      00073000          
+  B31-MOV-STA         "STATUS DEL REGISTRO       "    NUMBER (02);      00073100          
+  B31-MOV-BANCOS      "BCOS ORI/DES              "    NUMBER (10);      00073200          
+  B31-MOV-ORIGEN      "ORIGEN DEL MOVIMIENTO     "    NUMBER (02);      00073300          
+  B31-MOV-NIO         "NUMERO DE OPERACION NIO   "    ALPHA  (16);      00073302          
+  B31-MOV-CECOBAN     "NUMERO DE REF DE CECOBAN  "    NUMBER (08);      00073303          
+  B31-MOV-NOMOPE      "NOMINA DEL OPERADOR       "    NUMBER (10);      00073304          
+  B31-MOV-SISORI      "SISTEMA ORIGEN            "    NUMBER (04);      00073309          
+  B31-MOV-ENVCTD      "INDICADOR ENVIO CITIDIRET "    NUMBER (02);      00073310          
+  B31-MOV-LEYENDA     "LEYENDA DE MOVIMIENTOS"        ALPHA (40);       00073330          
+  B31-MOV-SDO-FINAL   "SALDO FINAL"                   NUMBER (S15,2);   00073350          
+  B31-MOV-NOMORD      "NOMBRE DEL ORDENANTE"          ALPHA (30);       00073370          
+  B31-MOV-BCOEMI      "BANCO EMISOR"                  ALPHA (20);       00073380          
+ )                                                                      00073400          
+ , POPULATION = 52500000                                                00073500          
+ ;                                                                      00073600          
+%********************************************************************** 00073700          
+ B31SXAUTS151         ACCESS TO    S151B31MOVTOS                        00073800          
+%********************************************************************** 00073900          
+ KEY IS  B31-MOV-AUTS151                                                00074000          
+ ;                                                                      00074100          
+%********************************************************************** 00074200          
+ B31BXMOVCAJ             SUBSET OF S151B31MOVTOS                        00074300          
+%********************************************************************** 00074400          
+                                                                        00074500          
+ WHERE B31-MOV-PROCESO < 15 AND B31-MOV-SUCINI > 0                      00074600          
+                                                                        00074700          
+ KEY IS (B31-MOV-SUCINI,                                                00074800          
+         B31-MOV-CAJINI,                                                00074900          
+         B31-MOV-AUTS151)                                               00075000          
+ ,BUFFERS = 2500 + 100 PER RANDOM USER OR 100 PER SERIAL USER           00075100          
+% ,TABLESIZE = 126 ENTRIES                                              00075200          
+ ,DUPLICATES                                                            00075300          
+ ,INDEX SEQUENTIAL                                                      00075400          
+ ,LOADFACTOR      = 80                                                  00075500          
+ ;                                                                      00075600          
+%********************************************************************** 00075700          
+ B31BXMOVCTO             SUBSET OF S151B31MOVTOS                        00075800          
+%********************************************************************** 00075900          
+                                                                        00076000          
+ WHERE B31-MOV-PROCESO < 15                                             00076100          
+                                                                        00076200          
+ KEY IS (B31-MOV-NUMCTO,                                                00076300          
+         B31-MOV-AUTS151)                                               00076400          
+    ,BUFFERS = 2500 + 100 PER RANDOM USER OR 100 PER SERIAL USER        00076500          
+%    ,TABLESIZE = 125 ENTRIES                                           00076600          
+    ,DUPLICATES                                                         00076700          
+    ,INDEX SEQUENTIAL                                                   00076800          
+    ,LOADFACTOR      = 80                                               00076900          
+    ;                                                                   00077000          
+%********************************************************************** 00077100          
+ B31BXMDA                SUBSET OF S151B31MOVTOS                        00077200          
+%********************************************************************** 00077300          
+                                                                        00077400          
+ WHERE B31-MOV-PROCESO < 15 AND B31-MOV-MDA > 0                         00077500          
+                                                                        00077600          
+ KEY IS (B31-MOV-MDA,                                                   00077700          
+         B31-MOV-NUMMDA,                                                00077800          
+         B31-MOV-AUTS151)                                               00077900          
+    ,BUFFERS = 2500 + 100 PER RANDOM USER OR 100 PER SERIAL USER        00078000          
+%    ,TABLESIZE = 125 ENTRIES                                           00078100          
+    ,DUPLICATES                                                         00078200          
+    ,INDEX SEQUENTIAL                                                   00078300          
+    ,LOADFACTOR      = 80                                               00078400          
+    ;                                                                   00078500          
+%********************************************************************** 00078600          
+ B31BXCAJ859             SUBSET OF S151B31MOVTOS                        00078700          
+%********************************************************************** 00078800          
+                                                                        00078900          
+ WHERE B31-MOV-PROCESO < 15 AND ( B31-MOV-SUCINI = 859 OR               00079000          
+                                  B31-MOV-SUCINI = 100 OR               00079020          
+                                  B31-MOV-SUCINI = 342 OR               00079040          
+                                  B31-MOV-SUCINI = 110 OR               00079060          
+                                  B31-MOV-SUCINI = 511 OR               00079080          
+                                  B31-MOV-SUCINI = 870 )                00079100          
+ KEY IS (B31-MOV-SUCINI,                                                00079200          
+         B31-MOV-CAJINI,                                                00079300          
+         B31-MOV-AUTAPL)                                                00079400          
+ ,BUFFERS = 2500 + 100 PER RANDOM USER OR 100 PER SERIAL USER           00079500          
+% ,TABLESIZE = 126 ENTRIES                                              00079600          
+ ,DUPLICATES                                                            00079700          
+ ,INDEX SEQUENTIAL                                                      00079800          
+ ,LOADFACTOR      = 80                                                  00079900          
+ ;                                                                      00080000          
+$PAGE                                                                   00080100          
+%***********************************************************************00080200          
+ S151B32IMPADI               DATA SET        % PREFIJO B32              00080300          
+%*********************************************************************  00080400          
+ (B32-MOV-AUTS151     "AUTORIZACION DEL S151     "    NUMBER (08);      00080500          
+  B32-MOV-STA         "STATUS DEL REGISTRO       "    NUMBER (02);      00080600          
+  B32-MOV-IMPCVE      "IMPORTES Y CLAVES         "    GROUP             00080700          
+  (B32-MOV-CVETRA     "CLAVE DE TRANSACCION      "    NUMBER (06);      00080800          
+   B32-IND-LEY        "INDICADOR DE LEYENDA      "    NUMBER (02);      00080900          
+   B32-MOV-IMP        "IMPORTE                   "    NUMBER (16,2);    00081000          
+  )                                                   OCCURS 4 TIMES;   00081100          
+ )                                                                      00081200          
+ , POPULATION = 6000000                                                 00081300          
+ ;                                                                      00081400          
+%********************************************************************** 00081500          
+ B32SXIMPADI                SET OF S151B32IMPADI                        00081600          
+%********************************************************************** 00081700          
+ KEY IS (B32-MOV-AUTS151)                                               00081800          
+ ,NO DUPLICATES                                                         00081900          
+ ,INDEX SEQUENTIAL                                                      00082000          
+ ,MEMORY RESIDENT = COARSE                                              00082100          
+ ;                                                                      00082200          
+$PAGE                                                                   00082300          
+%***********************************************************************00082400          
+ S151B33CSISUCCAJ          DATA SET        % PREFIJO B33                00082500          
+%*********************************************************************  00082600          
+ (B33-MOV-SUCINI      "SUCURSAL INICIATIVA      "     NUMBER (04);      00082700          
+  B33-MOV-CAJINI      "CAJA INICIATIVA          "     NUMBER (08);      00082800          
+  B33-MOV-MONEDA      "NUMERO DE MONEDA         "     NUMBER (04);      00082900          
+  B33-MOV-VER028      "SI LA SUCURSAL CHECO OK  "     NUMBER (02);      00083000          
+  B33-MOV-BANCOS      "BCOS ORI/DES             "     NUMBER (10);      00083100          
+  B33-MOV-MDE         "CLAVE MEDIO DE ENTREGA   "     NUMBER (02);      00083200          
+  B33-MOV-SECREN      "SECUENCIAL DE RENGLON    "     NUMBER (02);      00083300          
+  B33-MOV-DATOS         GROUP                                           00083400          
+  (B33-NUM-CR         "NUMERO DE CARGOS         "     NUMBER (07);      00083500          
+   B33-IMP-CR         "IMPORTE DE CARGOS        "     NUMBER (18,2);    00083600          
+   B33-NUM-AB         "NUMERO DE ABONOS         "     NUMBER (07);      00083700          
+   B33-IMP-AB         "IMPORTE DE ABONOS        "     NUMBER (18,2);    00083800          
+  )                                                   OCCURS 10 TIMES;  00083900          
+ )                                                                      00084000          
+ , POPULATION = 80000                                                   00084100          
+ ;                                                                      00084200          
+%********************************************************************** 00084300          
+ B33SXCSISUCCAJ               SET OF S151B33CSISUCCAJ                   00084400          
+%********************************************************************** 00084500          
+ KEY IS  (B33-MOV-SUCINI,                                               00084600          
+          B33-MOV-CAJINI,                                               00084700          
+          B33-MOV-MONEDA,                                               00084800          
+          B33-MOV-BANCOS,                                               00084900          
+          B33-MOV-MDE,                                                  00085000          
+          B33-MOV-SECREN)                                               00085100          
+ ,INDEX SEQUENTIAL                                                      00085200          
+ ,LOADFACTOR      = 75                                                  00085300          
+ ;                                                                      00085400          
+$PAGE                                                                   00085500          
+%***********************************************************************00085600          
+ S151B34CSISUCCAJ          DATA SET        % PREFIJO B34                00085700          
+%*********************************************************************  00085800          
+ (B34-MOV-SUCINI      "SUCURSAL INICIATIVA      "     NUMBER (04);      00085900          
+  B34-MOV-CAJINI      "CAJA INICIATIVA          "     NUMBER (08);      00086000          
+  B34-MOV-MONEDA      "NUMERO DE MONEDA         "     NUMBER (04);      00086100          
+  B34-MOV-MDA         "CLAVE MEDIO DE ENTREGA   "     NUMBER (04);      00086200          
+  B34-MOV-BANCOS      "BCOS ORI/DES             "     NUMBER (10);      00086300          
+  B34-MOV-SECREN      "SECUENCIAL DE RENGLON    "     NUMBER (02);      00086400          
+  B34-MOV-DATOS         GROUP                                           00086500          
+  (B34-NUM-CR         "NUMERO DE CARGOS         "     NUMBER (07);      00086600          
+   B34-IMP-CR         "IMPORTE DE CARGOS        "     NUMBER (18,2);    00086700          
+   B34-NUM-AB         "NUMERO DE ABONOS         "     NUMBER (07);      00086800          
+   B34-IMP-AB         "IMPORTE DE ABONOS        "     NUMBER (18,2);    00086900          
+  )                                                   OCCURS 10 TIMES;  00087000          
+ )                                                                      00087100          
+ , POPULATION = 80000                                                   00087200          
+ ;                                                                      00087300          
+%********************************************************************** 00087400          
+ B34SXCSISUCCAJ               SET OF S151B34CSISUCCAJ                   00087500          
+%********************************************************************** 00087600          
+ KEY IS  (B34-MOV-SUCINI,                                               00087700          
+          B34-MOV-CAJINI,                                               00087800          
+          B34-MOV-MONEDA,                                               00087900          
+          B34-MOV-BANCOS,                                               00088000          
+          B34-MOV-MDA,                                                  00088100          
+          B34-MOV-SECREN)                                               00088200          
+ ,INDEX SEQUENTIAL                                                      00088300          
+ ,LOADFACTOR      = 75                                                  00088400          
+ ;                                                                      00088500          
+$PAGE                                                                   00088600          
+%                                                                       00088700          
+%***********************************************************************00088800          
+%   DATA SETS PARA EL DIA VIERNES DE LA SEMANA 1                        00088900          
+%***********************************************************************00089000          
+%                                                                       00089100          
+%***********************************************************************00089200          
+ S151B41MOVTOS    DIRECT     DATA SET        % PREFIJO B41              00089300          
+%*********************************************************************  00089400          
+ (B41-MOV-PRD         "CLAVE DE PRODUCTO        "     NUMBER (04);      00089500          
+  B41-MOV-INS         "CLAVE DE INSTRUMENTO     "     NUMBER (02);      00089600          
+  B41-MOV-NUMCTO      "CUENTA/CONTRATO          "     GROUP             00089700          
+  (B41-MOV-CTO        "NUMERO DE CUENTA/CONTRATO"     NUMBER (20);      00089800          
+  );                                                                    00089900          
+  B41-MOV-SUCPRO      "SUCURSAL PROMOTORA        "    NUMBER (04);      00090000          
+  B41-MOV-CVETRA      "CLAVE DE TRANSACCION      "    NUMBER (06);      00090100          
+  B41-MOV-TIPMOV      "TIPO DE MOVIMIENTO        "    NUMBER (02);      00090150          
+  B41-MOV-IMP         "IMPORTE                   "    NUMBER (16,2);    00090200          
+  B41-MOV-INDLEY      "INDICADOR DE LEYENDA      "    NUMBER (02);      00090300          
+  B41-MOV-CVETRORG    "CLAVE DE TRANSACCION ORIGE"    NUMBER (04);      00090400          
+  B41-MOV-FECOPER     "FECHA DE OPERACION        "    NUMBER (08);      00090500          
+  B41-MOV-HORAOPER    "HORA DE OPERACION         "    NUMBER (06);      00090600          
+  B41-MOV-FECCONT     "FECHA CONTABLE            "    NUMBER (08);      00090700          
+  B41-MOV-MONEDA      "NUMERO DE MONEDA          "    NUMBER (04);      00090800          
+  B41-MOV-REFNUM      "NUM CTA ORIGEN/DOCUMETO   "    NUMBER (18);      00090900          
+  B41-MOV-AUTS151     "AUTORIZACION DEL S151     "    NUMBER (08);      00091000          
+  B41-MOV-AUTAPL      "AUTORIZACION APLICACION   "    NUMBER (08);      00091100          
+  B41-MOV-AUT3ER      "AUTORIZACION 3ER NIVEL    "    NUMBER (08);      00091200          
+  B41-MOV-SUCINI      "SUCURSAL INICIATIVA       "    NUMBER (04);      00091300          
+  B41-MOV-CAJINI      "CAJA INICIATIVA          "     NUMBER (04);      00091400          
+  B41-MOV-MDE         "TIPO DE MEDIO DE ENTREGA  "    NUMBER (02);      00091500          
+  B41-MOV-MDA         "CLAVE DEL MEDIO DE ACCESO "    NUMBER (04);      00091600          
+  B41-MOV-NUMMDA      GROUP                                             00091700          
+ (B41-MOV-SUCMDA      "SUCURSAL  MEDIO DE ACCESO "    NUMBER (04);      00091800          
+  B41-MOV-CTAMDA      "CONTRATO  MEDIO DE ACCESO "    NUMBER (16);      00091900          
+ );                                                                     00092000          
+  B41-MOV-PROCESO     "NUMERO DE PROCESO         "    NUMBER (02);      00092100          
+  B41-MOV-INDIMP      "INDICADOR DE MAS IMPORTES "    NUMBER (02);      00092200          
+  B41-MOV-DATADIC     "NUM. REG. PARA DATOS ADIC "    NUMBER (08);      00092300          
+  B41-MOV-STA         "STATUS DEL REGISTRO       "    NUMBER (02);      00092400          
+  B41-MOV-BANCOS      "BCOS ORI/DES              "    NUMBER (10);      00092500          
+  B41-MOV-ORIGEN      "ORIGEN DEL MOVIMIENTO     "    NUMBER (02);      00092600          
+  B41-MOV-NIO         "NUMERO DE OPERACION NIO   "    ALPHA  (16);      00092602          
+  B41-MOV-CECOBAN     "NUMERO DE REF DE CECOBAN  "    NUMBER (08);      00092603          
+  B41-MOV-NOMOPE      "NOMINA DEL OPERADOR       "    NUMBER (10);      00092604          
+  B41-MOV-SISORI      "SISTEMA ORIGEN            "    NUMBER (04);      00092609          
+  B41-MOV-ENVCTD      "INDICADOR ENVIO CITIDIRET "    NUMBER (02);      00092610          
+  B41-MOV-LEYENDA     "LEYENDA DE MOVIMIENTOS"        ALPHA (40);       00092630          
+  B41-MOV-SDO-FINAL   "SALDO FINAL"                   NUMBER (S15,2);   00092650          
+  B41-MOV-NOMORD      "NOMBRE DEL ORDENANTE"          ALPHA (30);       00092670          
+  B41-MOV-BCOEMI      "BANCO EMISOR"                  ALPHA (20);       00092680          
+                                                                        00092700          
+ )                                                                      00092800          
+ , POPULATION = 52500000                                                00092900          
+ ;                                                                      00093000          
+%********************************************************************** 00093100          
+ B41SXAUTS151         ACCESS TO    S151B41MOVTOS                        00093200          
+%********************************************************************** 00093300          
+ KEY IS  B41-MOV-AUTS151                                                00093400          
+ ;                                                                      00093500          
+%********************************************************************** 00093600          
+ B41BXMOVCAJ             SUBSET OF S151B41MOVTOS                        00093700          
+%********************************************************************** 00093800          
+                                                                        00093900          
+ WHERE B41-MOV-PROCESO < 15 AND B41-MOV-SUCINI > 0                      00094000          
+                                                                        00094100          
+ KEY IS (B41-MOV-SUCINI,                                                00094200          
+         B41-MOV-CAJINI,                                                00094300          
+         B41-MOV-AUTS151)                                               00094400          
+ ,BUFFERS = 2500 + 100 PER RANDOM USER OR 100 PER SERIAL USER           00094500          
+% ,TABLESIZE = 126 ENTRIES                                              00094600          
+ ,DUPLICATES                                                            00094700          
+ ,INDEX SEQUENTIAL                                                      00094800          
+ ,LOADFACTOR      = 80                                                  00094900          
+ ;                                                                      00095000          
+%********************************************************************** 00095100          
+ B41BXMOVCTO             SUBSET OF S151B41MOVTOS                        00095200          
+%********************************************************************** 00095300          
+                                                                        00095400          
+ WHERE B41-MOV-PROCESO < 15                                             00095500          
+                                                                        00095600          
+ KEY IS (B41-MOV-NUMCTO,                                                00095700          
+         B41-MOV-AUTS151)                                               00095800          
+    ,BUFFERS = 2500 + 100 PER RANDOM USER OR 100 PER SERIAL USER        00095900          
+%    ,TABLESIZE = 125 ENTRIES                                           00096000          
+    ,DUPLICATES                                                         00096100          
+    ,INDEX SEQUENTIAL                                                   00096200          
+    ,LOADFACTOR      = 80                                               00096300          
+    ;                                                                   00096400          
+%********************************************************************** 00096500          
+ B41BXMDA                SUBSET OF S151B41MOVTOS                        00096600          
+%********************************************************************** 00096700          
+                                                                        00096800          
+ WHERE B41-MOV-PROCESO < 15 AND B41-MOV-MDA > 0                         00096900          
+                                                                        00097000          
+ KEY IS (B41-MOV-MDA,                                                   00097100          
+         B41-MOV-NUMMDA,                                                00097200          
+         B41-MOV-AUTS151)                                               00097300          
+    ,BUFFERS = 2500 + 100 PER RANDOM USER OR 100 PER SERIAL USER        00097400          
+%    ,TABLESIZE = 125 ENTRIES                                           00097500          
+    ,DUPLICATES                                                         00097600          
+    ,INDEX SEQUENTIAL                                                   00097700          
+    ,LOADFACTOR      = 80                                               00097800          
+    ;                                                                   00097900          
+%********************************************************************** 00098000          
+ B41BXCAJ859             SUBSET OF S151B41MOVTOS                        00098100          
+%********************************************************************** 00098200          
+                                                                        00098300          
+ WHERE B41-MOV-PROCESO < 15 AND ( B41-MOV-SUCINI = 859 OR               00098400          
+                                  B41-MOV-SUCINI = 100 OR               00098410          
+                                  B41-MOV-SUCINI = 342 OR               00098420          
+                                  B41-MOV-SUCINI = 110 OR               00098430          
+                                  B41-MOV-SUCINI = 511 OR               00098440          
+                                  B41-MOV-SUCINI = 870 )                00098450          
+                                                                        00098500          
+ KEY IS (B41-MOV-SUCINI,                                                00098600          
+         B41-MOV-CAJINI,                                                00098700          
+         B41-MOV-AUTAPL)                                                00098800          
+ ,BUFFERS = 2500 + 100 PER RANDOM USER OR 100 PER SERIAL USER           00098900          
+% ,TABLESIZE = 126 ENTRIES                                              00099000          
+ ,DUPLICATES                                                            00099100          
+ ,INDEX SEQUENTIAL                                                      00099200          
+ ,LOADFACTOR      = 80                                                  00099300          
+ ;                                                                      00099400          
+$PAGE                                                                   00099500          
+%***********************************************************************00099600          
+ S151B42IMPADI               DATA SET        % PREFIJO B42              00099700          
+%*********************************************************************  00099800          
+ (B42-MOV-AUTS151     "AUTORIZACION DEL S151     "    NUMBER (08);      00099900          
+  B42-MOV-STA         "STATUS DEL REGISTRO       "    NUMBER (02);      00100000          
+  B42-MOV-IMPCVE      "IMPORTES Y CLAVES         "    GROUP             00100100          
+  (B42-MOV-CVETRA     "CLAVE DE TRANSACCION      "    NUMBER (06);      00100200          
+   B42-IND-LEY        "INDICADOR DE LEYENDA      "    NUMBER (02);      00100300          
+   B42-MOV-IMP        "IMPORTE                   "    NUMBER (16,2);    00100400          
+  )                                                   OCCURS 4 TIMES;   00100500          
+ )                                                                      00100600          
+ , POPULATION = 6000000                                                 00100700          
+ ;                                                                      00100800          
+%********************************************************************** 00100900          
+ B42SXIMPADI                SET OF S151B42IMPADI                        00101000          
+%********************************************************************** 00101100          
+ KEY IS (B42-MOV-AUTS151)                                               00101200          
+ ,NO DUPLICATES                                                         00101300          
+ ,INDEX SEQUENTIAL                                                      00101400          
+ ,MEMORY RESIDENT = COARSE                                              00101500          
+ ;                                                                      00101600          
+$PAGE                                                                   00101700          
+%***********************************************************************00101800          
+ S151B43CSISUCCAJ          DATA SET        % PREFIJO B43                00101900          
+%*********************************************************************  00102000          
+ (B43-MOV-SUCINI      "SUCURSAL INICIATIVA      "     NUMBER (04);      00102100          
+  B43-MOV-CAJINI      "CAJA INICIATIVA          "     NUMBER (08);      00102200          
+  B43-MOV-MONEDA      "NUMERO DE MONEDA         "     NUMBER (04);      00102300          
+  B43-MOV-MDE         "CLAVE MEDIO DE ENTREGA   "     NUMBER (02);      00102400          
+  B43-MOV-VER028      "SI LA SUCURSAL CHECO OK  "     NUMBER (02);      00102500          
+  B43-MOV-BANCOS      "BCOS ORI/DES             "     NUMBER (10);      00102600          
+  B43-MOV-SECREN      "SECUENCIAL DE RENGLON    "     NUMBER (02);      00102700          
+  B43-MOV-DATOS         GROUP                                           00102800          
+  (B43-NUM-CR         "NUMERO DE CARGOS         "     NUMBER (07);      00102900          
+   B43-IMP-CR         "IMPORTE DE CARGOS        "     NUMBER (18,2);    00103000          
+   B43-NUM-AB         "NUMERO DE ABONOS         "     NUMBER (07);      00103100          
+   B43-IMP-AB         "IMPORTE DE ABONOS        "     NUMBER (18,2);    00103200          
+  )                                                   OCCURS 10 TIMES;  00103300          
+ )                                                                      00103400          
+ , POPULATION = 80000                                                   00103500          
+ ;                                                                      00103600          
+%********************************************************************** 00103700          
+ B43SXCSISUCCAJ               SET OF S151B43CSISUCCAJ                   00103800          
+%********************************************************************** 00103900          
+ KEY IS  (B43-MOV-SUCINI,                                               00104000          
+          B43-MOV-CAJINI,                                               00104100          
+          B43-MOV-MONEDA,                                               00104200          
+          B43-MOV-BANCOS,                                               00104300          
+          B43-MOV-MDE,                                                  00104400          
+          B43-MOV-SECREN)                                               00104500          
+ ,INDEX SEQUENTIAL                                                      00104600          
+ ,LOADFACTOR      = 75                                                  00104700          
+ ;                                                                      00104800          
+$PAGE                                                                   00104900          
+%***********************************************************************00105000          
+ S151B44CSISUCCAJ          DATA SET        % PREFIJO B44                00105100          
+%*********************************************************************  00105200          
+ (B44-MOV-SUCINI      "SUCURSAL INICIATIVA      "     NUMBER (04);      00105300          
+  B44-MOV-CAJINI      "CAJA INICIATIVA          "     NUMBER (08);      00105400          
+  B44-MOV-MONEDA      "NUMERO DE MONEDA         "     NUMBER (04);      00105500          
+  B44-MOV-MDA         "CLAVE MEDIO DE ENTREGA   "     NUMBER (04);      00105600          
+  B44-MOV-BANCOS      "BCOS ORI/DES             "     NUMBER (10);      00105700          
+  B44-MOV-SECREN      "SECUENCIAL DE RENGLON    "     NUMBER (02);      00105800          
+  B44-MOV-DATOS         GROUP                                           00105900          
+  (B44-NUM-CR         "NUMERO DE CARGOS         "     NUMBER (07);      00106000          
+   B44-IMP-CR         "IMPORTE DE CARGOS        "     NUMBER (18,2);    00106100          
+   B44-NUM-AB         "NUMERO DE ABONOS         "     NUMBER (07);      00106200          
+   B44-IMP-AB         "IMPORTE DE ABONOS        "     NUMBER (18,2);    00106300          
+  )                                                   OCCURS 10 TIMES;  00106400          
+ )                                                                      00106500          
+ , POPULATION = 80000                                                   00106600          
+ ;                                                                      00106700          
+%********************************************************************** 00106800          
+ B44SXCSISUCCAJ               SET OF S151B44CSISUCCAJ                   00106900          
+%********************************************************************** 00107000          
+ KEY IS  (B44-MOV-SUCINI,                                               00107100          
+          B44-MOV-CAJINI,                                               00107200          
+          B44-MOV-MONEDA,                                               00107300          
+          B44-MOV-BANCOS,                                               00107400          
+          B44-MOV-MDA,                                                  00107500          
+          B44-MOV-SECREN)                                               00107600          
+ ,INDEX SEQUENTIAL                                                      00107700          
+ ,LOADFACTOR      = 75                                                  00107800          
+ ;                                                                      00107900          
+$PAGE                                                                   00108000          
+%***********************************************************************00108100          
+ S151B50TOTXCVE            DATA SET        % PREFIJO B50                00108200          
+%*********************************************************************  00108300          
+ (B50-MOV-FEC         "FECHA DE PROCESO         "     NUMBER (08);      00108400          
+  B50-MOV-PROCESO     "NUMERO DE PROCESO        "     NUMBER (04);      00108500          
+  B50-MOV-PRD         "CLAVE DE PRODUCTO        "     NUMBER (04);      00108600          
+  B50-MOV-INS         "CLAVE DE INSTRUMENTO     "     NUMBER (02);      00108700          
+  B50-MOV-MONEDA      "NUMERO DE MONEDA         "     NUMBER (04);      00108800          
+  B50-MOV-BANCOS      "NUMERO DE BANCO TRANSMISOR"    NUMBER (10);      00108900          
+  B50-MOV-TIPMOV      "TIPO DE MOVIMIENTO       "     NUMBER (02);      00109000          
+  B50-MOV-CVETRA      "CLAVE DE TRANSACCION     "     NUMBER (06);      00109100          
+  B50-MOV-ESQCON      "ESQUEMA CONTABLE         "     NUMBER (04);      00109200          
+  B50-MOV-NUMMOV      "NUMERO DE MOVIMIENTOS    "     NUMBER (08);      00109300          
+  B50-MOV-IMPMOV      "IMPORTE DE MOVIMIENTOS   "     NUMBER (18,2);    00109400          
+ )                                                                      00109500          
+ , POPULATION = 80000                                                   00109600          
+ ;                                                                      00109700          
+%********************************************************************** 00109800          
+ B50SXTOTXCVE                 SET OF S151B50TOTXCVE                     00109900          
+%********************************************************************** 00110000          
+ KEY IS  (B50-MOV-FEC,                                                  00110100          
+          B50-MOV-PROCESO,                                              00110200          
+          B50-MOV-BANCOS,                                               00110300          
+          B50-MOV-PRD,                                                  00110400          
+          B50-MOV-INS,                                                  00110500          
+          B50-MOV-MONEDA,                                               00110600          
+          B50-MOV-TIPMOV,                                               00110700          
+          B50-MOV-CVETRA,                                               00110800          
+          B50-MOV-ESQCON)                                               00110900          
+ ,INDEX SEQUENTIAL                                                      00111000          
+ ,MEMORY RESIDENT = COARSE                                              00111100          
+ ;                                                                      00111200          
+$PAGE                                                                   00111300          
+%*********************************************************************  00111400          
+ S151B99REINICIO               RESTART DATA SET   %PREFIJO B99          00111500          
+%***********************************************************************00111600          
+  (B99-REI-PGM                          ALPHA  (18);                    00111700          
+   B99-REI-USER-INFO                    ALPHA  (162);                   00111800          
+  )                                                                     00111900          
+  POPULATION=100;                                                       00112000          
+%***********************************************************************00112100          
+ B99SXREINICIO                  SET OF S151B99REINICIO                  00112200          
+%***********************************************************************00112300          
+     KEY IS (B99-REI-PGM)                                               00112400          
+    ,DUPLICATES LAST                                                    00112500          
+    ,INDEX SEQUENTIAL                                                   00112600          
+    ;                                                                   00112700          
+S151BD10MOVDIA151(GUARDFILE=(S151)S151/FILE/GUARDFILE/S151BD10MOVDIA151 00112800          
+                 ON CMEMP);                                             00112900          

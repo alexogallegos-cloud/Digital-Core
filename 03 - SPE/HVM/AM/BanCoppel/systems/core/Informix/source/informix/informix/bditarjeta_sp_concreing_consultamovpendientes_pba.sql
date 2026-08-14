@@ -1,0 +1,2654 @@
+CREATE PROCEDURE "informix".sp_concreing_consultamovpendientes_pba ( psCve_usuario CHAR(10), psFecha DATE )
+	RETURNING CHAR (5) AS Retorno, 
+	INTEGER AS Consecutivo,
+	CHAR(23) AS NombreArchivo,
+	CHAR(3) AS ArchivoOrigen,
+	CHAR(1) AS Integridad,
+	CHAR(20) AS IntegridadError,
+	CHAR(16) AS NumTarjeta,
+	CHAR(6) AS Secuencia,
+	CHAR(9) AS IdComercio325,
+	CHAR(30) AS NomComercio325,
+	CHAR(23) AS Referencia23_325,
+	CHAR(13) AS Monto ,
+	CHAR(15) as Rfc325,
+	CHAR(3) AS Divisa325,
+	MONEY(14,2) AS MontoCashBack ,
+	CHAR(1) AS Conciliacion ,
+	INTEGER AS TipoConciliacion,
+	CHAR(15) AS SecuenciaExtendida,
+	MONEY(16,2) AS MontoIntercard,
+	CHAR(1) AS MovConciliado ,
+	CHAR(1) AS MovReversado ,
+	CHAR(1) AS Aplicacion ,
+	CHAR(16) AS FolioAplica ,
+	CHAR(5) AS CodigoRetorno,
+	CHAR(15) AS TipoTransaccion325,
+	CHAR(13) AS Monto325,
+	CHAR(1) AS BanderaProceso;
+	
+	/*
+	*****************************************************************************************************
+	-- DESCRIPCION:  CONSULTA DE MOVIMIENTOS PENDIENTES  ------------------------------------------------
+	-- AUTOR : Ing. Alfonso Cruz  -----------------------------------------------------------------------
+	-- FECHA : 24/10/2011  ------------------------------------------------------------------------------
+	-- BD: bditarjeta  ----------------------------------------------------------------------------------
+	-- SISTEMA : Reingenieria de la conciliacion automatica  --------------------------------------------
+	-----------------------------------------------------------------------------------------------------
+	*****************************************************************************************************
+	*/
+
+	/*VARIABLES DE ERRORES*/
+	DEFINE vsErrorIntegridad CHAR(20);
+	DEFINE vsErrorActividad	CHAR(250);
+	DEFINE vsRetBitacora CHAR(5);
+	
+	DEFINE vsActividad VARCHAR(150);
+	DEFINE viElemento INTEGER;
+
+	DEFINE viCodigo INTEGER;
+	DEFINE vssqlerr CHAR(5) ;
+	DEFINE isam_err INT ;
+	DEFINE error_info CHAR(70) ;
+	DEFINE viErrores INTEGER;
+	
+	DEFINE viConsecutivo INTEGER;
+	DEFINE vsNombreArchivo CHAR(23);
+	DEFINE vsArchivoOrigen CHAR(3);
+	DEFINE vsIntegridad CHAR(1);
+	DEFINE vsIntegridadError CHAR(20);
+	DEFINE vsNumTarjeta CHAR(16);
+	DEFINE vsSecuencia CHAR(6);
+	DEFINE vsIdComercio325 CHAR(9);
+	DEFINE vsNomComercio325 CHAR(30);
+	DEFINE vsReferencia23_325 CHAR(23);
+	DEFINE vsMonto CHAR(13);
+	DEFINE vsRfc325 CHAR(15);
+	DEFINE vsDivisa325 CHAR(3);
+	DEFINE vmMontoCashBack MONEY(14,2);
+	DEFINE vsConciliacion CHAR(1);
+	DEFINE viTipoConciliacion INTEGER;
+	DEFINE vsSecuenciaExtendida CHAR(15);
+	DEFINE vmMontoIntercard MONEY(16,2);
+	DEFINE vsMovConciliado CHAR(1);
+	DEFINE vsMovReversado CHAR(1);
+	DEFINE vsAplicacion CHAR(1);
+	DEFINE vsFolioAplica CHAR(16);
+	DEFINE vsCodigoRetorno CHAR(5);
+	
+	DEFINE vsTipotransaccion325 CHAR(15);
+	DEFINE vsMonto325 CHAR(13);
+	DEFINE vsBanderaProceso CHAR(1);
+	/* INICIALIZACION DE VARIABLES */
+
+	LET vsIntegridad = '';
+	LET vsErrorIntegridad = '';
+	LET vsErrorActividad = '';
+	
+	LET  vsRetBitacora = '';
+	
+	LET vsActividad = '';
+	LET viElemento = 40;
+	
+	LET viCodigo = 0;
+	LET vssqlerr = '00000';
+	LET isam_err = 0 ;
+	LET error_info = '' ;
+	LET viErrores = 0;
+	
+	LET viConsecutivo = 0;
+	LET vsNombreArchivo ='';
+	LET vsArchivoOrigen ='';
+	LET vsIntegridad ='';
+	LET vsIntegridadError ='';
+	LET vsNumTarjeta ='';
+	LET vsSecuencia ='';
+	LET vsIdComercio325 = "";
+	LET vsNomComercio325 = "";
+	LET vsReferencia23_325 = "";
+	LET vsMonto ='';
+	LET vsRfc325 ='';
+	LET vsDivisa325 ='';
+	LET vmMontoCashBack =0.0;
+	LET vsConciliacion ='';
+	LET viTipoConciliacion =0;
+	LET vsSecuenciaExtendida ='';
+	LET vmMontoIntercard =0.0;
+	LET vsMovConciliado ='';
+	LET vsMovReversado ='';
+	LET vsAplicacion ='';
+	LET vsFolioAplica ='';
+	LET vsCodigoRetorno = '';
+	LET vsBanderaProceso = '';
+	
+	LET vsTipotransaccion325 = '';
+	LET vsMonto325 = '';
+	
+	BEGIN
+
+	ON EXCEPTION SET viCodigo,isam_err,error_info   --cacha el error en caso de que exista y regresa un valor predeterminado
+		LET vssqlerr = viCodigo;
+		LET vsActividad = 'ERROR ' || NVL(vssqlerr,'') ||' ISAM '|| NVL(isam_err,0) ||' INFORMIX '||TRIM(NVL(error_info,'')) || ' EN sp_concreing_consultamovpendientes';
+		EXECUTE PROCEDURE bditarjeta:"informix".sp_concreing_guardabitacora(viElemento,vsActividad,psCve_usuario) INTO vsRetBitacora;
+			
+
+		RETURN NVL(vssqlerr,''), 
+			NVL(viConsecutivo,0),
+			NVL(vsNombreArchivo,''),
+			NVL(vsArchivoOrigen,''),
+			NVL(vsIntegridad,''),
+			NVL(vsIntegridadError,''),
+			NVL(vsNumTarjeta,''),
+			NVL(vsSecuencia,''),
+			NVL(vsIdComercio325,''),
+			NVL(vsNomComercio325,''),
+			NVL(vsReferencia23_325,''),
+			NVL(vsMonto,''),
+			nvl(vsRfc325,''),
+			nvl(vsDivisa325,''),
+			NVL(vmMontoCashBack,0.0),
+			NVL(vsConciliacion,''),
+			NVL(viTipoConciliacion,0),
+			NVL(vsSecuenciaExtendida,''),
+			NVL(vmMontoIntercard,''),
+			NVL(vsMovConciliado,''),
+			NVL(vsMovReversado,''),
+			NVL(vsAplicacion,''),
+			NVL(vsFolioAplica,''),
+			NVL(vsCodigoRetorno,''),
+			NVL(vsTipotransaccion325,''),
+			NVL(vsMonto325,''),
+			NVL(vsBanderaProceso,'');
+
+	END EXCEPTION;
+
+	--SET DEBUG FILE TO '/home/sysifx/soporte/concreing/TraceCONSULTAMOVPENDIENTES.sql';
+	--SET DEBUG FILE TO '/informix/HomeInformix/rrm/movpen.txt';
+	--TRACE ON;
+
+	--REINGENIERIA-CONCILIACION-AUTOMATICA---------
+	--2011/10/24-ING-ALFONSO-CRUZ------------------
+
+		SET LOCK MODE TO WAIT 3;
+		SET ISOLATION TO DIRTY READ ;
+
+		--CONSULTA QUE SE TRAE LOS REGISTROS PENDIENTES
+	IF psCve_usuario not in ( 
+							'93616902', -- Evelio Chaparro García 
+							'92580981', -- Jose Armando Ongay Miramontes
+							'92933122', -- Deisy Denise Sotelo Pérez
+							'93176953',	-- Jose Antonio de la Paz Nieto                     
+							'94621713', -- Oscar Daniel Romero Hernandez             
+							'95116613'  -- Lizbeth Trinidad Sepulveda                        
+							) THEN  	-- Usuarios con capacidad de modificar registros a su criterio 
+		-- Se mantienen registros de todos los archivos 
+		FOREACH 
+			SELECT consecutivo, nombrearchivo, archivo_origen, 
+				integridad, 
+				integridad_error, numtarjeta, secuencia325, idcomercio325, 
+				REPLACE (REPLACE (nomcomercio325,"'", " "),'"' , ' '), 
+				referencia23_325,
+				monto325, rfc325, divisa325, montosurcharge325, conciliacion, tipo_conciliacion,
+				secuencia_extendida, montointercard, movconciliado, movreversado, aplicacion, folio_mov,
+				cod_retorno, tipotransaccion325, monto325, bandera_proceso 
+				INTO viConsecutivo, 
+				 vsNombreArchivo, vsArchivoOrigen, vsIntegridad, vsIntegridadError, vsNumTarjeta, vsSecuencia,
+				 vsIdComercio325, vsNomComercio325, 
+				 vsReferencia23_325, vsMonto, vsRfc325, vsDivisa325, vmMontoCashBack,
+				 vsConciliacion, viTipoConciliacion, vsSecuenciaExtendida, vmMontoIntercard, vsMovConciliado, vsMovReversado,
+				 vsAplicacion, vsFolioAplica, vsCodigoRetorno, vsTipotransaccion325, vsMonto325, vsBanderaProceso
+				FROM bditarjeta:td_movimientos_conciliacion	
+				WHERE (integridad='F' OR conciliacion = 'F'	OR aplicacion =  'F') 
+					   and nombrearchivo in (SELECT nombrearchivo 
+											 FROM bditarjeta:td_archivos_conciliacion  
+											 WHERE fecha_archivo = psFecha)
+			
+			IF ((vsSecuencia IS NULL)OR(TRIM(vsSecuencia) ='' ) ) THEN
+				LET viErrores = viErrores + 1;
+			END IF;
+				
+		RETURN NVL(vssqlerr,''), 
+			NVL(viConsecutivo,0),
+			NVL(vsNombreArchivo,''),
+			NVL(vsArchivoOrigen,''),
+			NVL(vsIntegridad,''),
+			NVL(vsIntegridadError,''),
+			NVL(vsNumTarjeta,''),
+			NVL(vsSecuencia,''),
+			NVL(vsIdComercio325,''),
+			NVL(vsNomComercio325,''),
+			NVL(vsReferencia23_325,''),
+			NVL(vsMonto,''),
+			nvl(vsRfc325,''),
+			nvl(vsDivisa325,''),
+			NVL(vmMontoCashBack,0.0),
+			NVL(vsConciliacion,''),
+			NVL(viTipoConciliacion,0),
+			NVL(vsSecuenciaExtendida,''),
+			NVL(vmMontoIntercard,''),
+			NVL(vsMovConciliado,''),
+			NVL(vsMovReversado,''),
+			NVL(vsAplicacion,''),
+			NVL(vsFolioAplica,''),
+			NVL(vsCodigoRetorno,''),
+			NVL(vsTipotransaccion325,''),
+			NVL(vsMonto325,''),
+			NVL(vsBanderaProceso,'')
+			WITH RESUME;
+			
+		END FOREACH;
+	ELSE
+		FOREACH 
+			SELECT consecutivo, nombrearchivo, archivo_origen, 
+				REPLACE (REPLACE (integridad,'P', 'F'),'V', 'F'), -- Cambia para poder reprocesar los registros con aplicacion en P
+				integridad_error, numtarjeta, secuencia325, idcomercio325, 
+				REPLACE (REPLACE (nomcomercio325,"'", " "),'"' , ' '), 
+				referencia23_325,
+				monto325, rfc325, divisa325, montosurcharge325, conciliacion, tipo_conciliacion,
+				secuencia_extendida, montointercard, movconciliado, movreversado, aplicacion, folio_mov,
+				cod_retorno, tipotransaccion325, monto325, bandera_proceso 
+				INTO viConsecutivo, 
+				 vsNombreArchivo, vsArchivoOrigen, vsIntegridad, vsIntegridadError, vsNumTarjeta, vsSecuencia,
+				 vsIdComercio325, vsNomComercio325, 
+				 vsReferencia23_325, vsMonto, vsRfc325, vsDivisa325, vmMontoCashBack,
+				 vsConciliacion, viTipoConciliacion, vsSecuenciaExtendida, vmMontoIntercard, vsMovConciliado, vsMovReversado,
+				 vsAplicacion, vsFolioAplica, vsCodigoRetorno, vsTipotransaccion325, vsMonto325, vsBanderaProceso
+				FROM bditarjeta:td_movimientos_conciliacion	
+				WHERE (integridad='F' OR conciliacion = 'F'	OR aplicacion <> 'V') -- Se mostrar los registros hasta que estos sean reprocesados por el cron 3
+					   and nombrearchivo in (SELECT nombrearchivo 
+											 FROM bditarjeta:td_archivos_conciliacion  
+											 WHERE fecha_archivo = psFecha)
+					   and archivo_origen in ('VNC', 'VND', 'VID', 'VIC')
+			
+			IF ((vsSecuencia IS NULL)OR(TRIM(vsSecuencia) ='' ) ) THEN
+				LET viErrores = viErrores + 1;
+			END IF;
+				
+		RETURN NVL(vssqlerr,''), 
+			NVL(viConsecutivo,0),
+			NVL(vsNombreArchivo,''),
+			NVL(vsArchivoOrigen,''),
+			NVL(vsIntegridad,''),
+			NVL(vsIntegridadError,''),
+			NVL(vsNumTarjeta,''),
+			NVL(vsSecuencia,''),
+			NVL(vsIdComercio325,''),
+			NVL(vsNomComercio325,''),
+			NVL(vsReferencia23_325,''),
+			NVL(vsMonto,''),
+			nvl(vsRfc325,''),
+			nvl(vsDivisa325,''),
+			NVL(vmMontoCashBack,0.0),
+			NVL(vsConciliacion,''),
+			NVL(viTipoConciliacion,0),
+			NVL(vsSecuenciaExtendida,''),
+			NVL(vmMontoIntercard,''),
+			NVL(vsMovConciliado,''),
+			NVL(vsMovReversado,''),
+			NVL(vsAplicacion,''),
+			NVL(vsFolioAplica,''),
+			NVL(vsCodigoRetorno,''),
+			NVL(vsTipotransaccion325,''),
+			NVL(vsMonto325,''),
+			NVL(vsBanderaProceso,'')
+			WITH RESUME;
+			
+		END FOREACH;
+	END IF;
+	
+	END
+
+END PROCEDURE
+DOCUMENT
+'AUTOR: Ing. Alfonso Cruz',
+'Proyecto: Reingenieria de la Conciliacion Automatica',
+'Solicito: Jose Luis Puebla',
+'Descripcion: CONSULTA MOVIMIENTOS PENDIENTES.',
+'Fecha: 2011/10/24',
+'Version: 20111024.1712',
+'BD: bditarjeta',
+'',
+'AUTOR: Ing. Alfonso Cruz',
+'Proyecto: Reingenieria de la Conciliacion Automatica',
+'Solicito: Jose Luis Puebla',
+'Descripcion: SE AGREGA CAMPO BANDERA PROCESO.',
+'Fecha: 2011/11/24',
+'Version: 20111124.1712',
+'BD: bditarjeta',
+'',
+'MODIFICACION: Hector Juan Casanova Edeza',
+'Proyecto: Reingenieria Conciliacion',
+'Solicito: Jose Luis Puebla',
+'Descripcion: SE CAMBIA EL ELEMENTO DE IDENTIFICACION DEL SISTEMA DE 8 A 40.',
+'Fecha: 2012/08/03',
+'Version: 20120803.1555',
+'BD: BdiTarjeta',
+'',
+'MODIFICACION: Hector Juan Casanova Edeza',
+'Proyecto: Reingenieria Conciliacion',
+'Solicito: Jose Luis Puebla',
+'Descripcion: SE MODIFICA LA EXTRACCION DE DATOS PARA OMITIR CARACTERES ESPECIALES EN EL NOMRE DEL COMERCIO.',
+'Fecha: 2012/10/23',
+'Version: 20121023.1036',
+'BD: BdiTarjeta',
+'',
+'MODIFICACION: Ricardo Reséndiz Martinez',
+'Proyecto: Reingenieria Conciliacion',
+'Solicito: Luis Antonio Gomez ',
+'Descripcion: Se agrega IF para tener consulta de usuario especial y resto de los usuarios de sistema.',
+'Fecha: 2012/11/08',
+'Version: 20121108',
+'BD: BdiTarjeta',
+'',
+'MODIFICACION: Ricardo Reséndiz Martinez',
+'Proyecto: Perfiles para modificacion de devoluciones no aplicadas',
+'Solicito: Evelio Chaparro Garcia ',
+'Descripcion: Se agregaron usuarios especificos para que pueda modificar devoluciones no aplicadas por regla de negocio ',
+'Fecha: 2013/02/20',
+'Version: 20130220.2030',
+'BD: BdiTarjeta';
+
+CREATE PROCEDURE "informix".sp_conarchivoresumen_con(
+													cNombreArchivo varchar(23),
+													cNumEmpl varchar(9)
+													)
+RETURNING VARCHAR(6) as Cod_ret,VARCHAR(80) as Men_ret,
+    char(23) as nombrearchivo,
+    char(3) as archivo_origen,
+	integer as registros_archivo,
+	money(16,2) as monto_archivo,
+	integer as registro_aplicados_arch,
+	INTEGER as NumCargos_Arch,
+	INTEGER as NumAbonos_Arch,
+	integer as cargo_aplicados,
+	money(16,2) as monto_cargos_apli,
+	integer as numero_abonos_apli,
+	money(16,2) as monto_abonos_apli,
+    integer as mov_err_aplica,
+    integer as conciliado_intercard,
+    integer as pago_inter_dep_mg,
+    integer as conc_montomenor,
+    integer as conc_montomayor,
+    integer as mov_pre_conc,
+    integer as no_conc,
+    integer as forzado,
+    integer as no_conc_err,
+    integer as no_conc_rec,
+    integer as no_conc_dev,
+    integer as solo_carga,
+	integer as monto_cashback;
+
+
+	DEFINE  SQL_ERR          INTEGER;
+	DEFINE  ISAM_ERR         INTEGER;
+	DEFINE  ERROR_INFO       VARCHAR(80);
+	DEFINE  P_COD_RET        VARCHAR(6);
+	DEFINE  P_COD_RET2        VARCHAR(6);
+	DEFINE  P_MENSAJE        VARCHAR(80);
+	DEFINE vNombrearchivo char(23);
+    DEFINE vArchivo_origen char(3);
+	DEFINE vRegistros_archivo INTEGER;
+	DEFINE vMonto_archivo money(16,2);
+	DEFINE vRegistro_aplicados INTEGER;
+	DEFINE vNumCargos_Arch INTEGER;
+	DEFINE NumAbonos_Arch INTEGER;
+	DEFINE vCargo_aplicados INTEGER;
+	DEFINE vMonto_cargos_apli money(16,2);
+	DEFINE vNumero_abonos_apli INTEGER;
+	DEFINE vMonto_abonos_apli money(16,2);
+	DEFINE vMov_err_aplica INTEGER;
+	DEFINE vConciliado_intercard INTEGER;
+	DEFINE vPago_inter INTEGER;
+	DEFINE vConc_montomenor INTEGER;
+	DEFINE vConc_montomayor INTEGER;
+	DEFINE vMov_pre_conc INTEGER;
+	DEFINE vNo_conc INTEGER;
+	DEFINE vForzado INTEGER;
+	DEFINE vNo_conc_err INTEGER;
+	DEFINE vNo_conc_rec INTEGER;
+	DEFINE vNo_conc_dev INTEGER;
+	DEFINE vSolo_carga INTEGER;
+	DEFINE vMov_cash_back INTEGER;
+
+
+	LET vNombrearchivo = '';
+    LET vArchivo_origen = '';
+	LET vRegistros_archivo = 0;
+	LET vMonto_archivo = 0;
+	LET vRegistro_aplicados = 0;
+	LET vNumCargos_Arch = 0;
+	LET NumAbonos_Arch = 0;
+	LET vCargo_aplicados = 0;
+	LET vMonto_cargos_apli = 0;
+	LET vNumero_abonos_apli = 0;
+	LET vMonto_abonos_apli = 0;
+	LET vMov_err_aplica = 0;
+	LET vConciliado_intercard = 0;
+	LET vPago_inter = 0;
+	LET vConc_montomenor = 0;
+	LET vConc_montomayor = 0;
+	LET vMov_pre_conc = 0;
+	LET vNo_conc = 0;
+	LET vForzado = 0;
+	LET vNo_conc_err = 0;
+	LET vNo_conc_rec = 0;
+	LET vNo_conc_dev = 0;
+	LET vSolo_carga = 0;
+	LET vMov_cash_back = 0;
+
+	--SET DEBUG FILE TO "/tmp/manuel/ejemplo_resumen.out";
+	--TRACE ON;
+
+BEGIN
+   ON EXCEPTION SET SQL_ERR, ISAM_ERR, ERROR_INFO
+      LET P_COD_RET    = SQL_ERR;
+      LET P_MENSAJE  = ERROR_INFO;
+
+	 EXECUTE PROCEDURE bditarjeta:"informix".sp_concreing_guardabitacora('9','Error en sp_conarchivoresumen_con ' || SQL_ERR || ' ' || P_MENSAJE,cNumEmpl) INTO P_COD_RET2;
+
+     RETURN P_COD_RET,P_MENSAJE, vNombrearchivo,vArchivo_origen,vRegistros_archivo,vMonto_archivo,vRegistro_aplicados,vNumCargos_Arch,NumAbonos_Arch,vCargo_aplicados,
+	 vMonto_cargos_apli,vNumero_abonos_apli,vMonto_abonos_apli,vMov_err_aplica,vConciliado_intercard,vPago_inter,vConc_montomenor,vConc_montomayor,vMov_pre_conc,vNo_conc,vForzado,
+	 vNo_conc_err,vNo_conc_rec,vNo_conc_dev,vSolo_carga,vMov_cash_back;
+
+   END EXCEPTION;
+
+--************************************************************
+-- Creado por Manuel Osuna Valencia
+-- fecha : 19/10/2011
+-- Funcion: Consulta de Totalizados por Archivo de Consiliacion
+--
+--************************************************************
+
+   LET P_COD_RET = '00000';
+   LET P_COD_RET2 = '00000';
+   LET P_MENSAJE = 'PROCESO EXITOSO';
+
+   	SET ISOLATION TO DIRTY READ;
+	SET LOCK MODE TO WAIT 3;
+
+	
+	
+	
+    
+	select arch.nombrearchivo,
+	arch.archivo_origen,
+	sum(decode(nvl(mov.nombrearchivo,''),'',0,1))  as registros_archivo,
+	sum(nvl(mov.monto325::money(16,9), 0.0)) as monto_archivo,
+	sum(case when mov.aplicacion = 'V' then 1 else 0 end) as registro_aplicados,
+	--sum(case when mov.aplicacion = 'V' then nvl(mov.monto325::money(16,9),0.0)  else 0.0 end) as monto_aplicado,
+	--sum(case when mov.tipotransaccion325 = '01' or  mov.tipotransaccion325 = '02' then 1 else 0 end) as numero_cargo,
+	SUM(CASE WHEN (mov.tipotransaccion325 IN ('01','02')) THEN 1 ELSE 0 END ) AS NumCargos_Arch,
+	SUM(CASE WHEN (mov.tipotransaccion325 IN ('20','21')) THEN 1 ELSE 0 END ) AS NumAbonos_Arch,
+	sum(case when (mov.tipotransaccion325 = '01' or  mov.tipotransaccion325 = '02') and mov.aplicacion = 'V'  then 1 else 0 end) as cargo_aplicados,
+	sum(case when (mov.tipotransaccion325 = '01' or  mov.tipotransaccion325 = '02') and mov.aplicacion = 'V'  then mov.monto325::money(16,9) else 0 end) as monto_cargos_apli,
+	sum(case when mov.tipotransaccion325 = '20' or  mov.tipotransaccion325 = '21' then 1 else 0 end) as numero_abonos_apli,
+	sum(case when (mov.tipotransaccion325 = '20' or  mov.tipotransaccion325 = '21') and mov.aplicacion = 'V'  then mov.monto325::money(16,9) else 0 end) as monto_abonos_apli,
+	sum(case when mov.aplicacion = 'F' then 1 else 0 end) as mov_err_aplica,
+	sum(case when mov.conciliacion = 'V' then 1 else 0 end) as conciliado_intercard,
+	SUM(CASE WHEN mov.tipotransaccion325 = '20' THEN 1 ELSE 0 END) AS pago_inter_dep_mg,
+	sum(case when mov.tipo_conciliacion in ('2','3','4') then 1 else 0 end) as conc_montomenor,
+	sum(case when mov.tipo_conciliacion = '5' then 1 else 0 end) as conc_montomayor,
+	sum(case when (mov.montocashback325 > 0) then 1 else 0 end) as monto_cashback,
+	sum(case when mov.tipo_conciliacion = '6' then 1 else 0 end) as mov_pre_conc,
+	sum(case when mov.tipo_conciliacion = '7' then 1 else 0 end) as no_conc,
+	sum(case when mov.tipo_conciliacion = '8' then 1 else 0 end) as forzado,
+	sum(case when mov.integridad = 'F' then 1 else 0 end) as no_conc_err,
+	sum(case when mov.tipo_conciliacion = '9' then 1 else 0 end) as no_conc_rec,
+	sum(case when (mov.tipotransaccion325 = '21' ) then 1 else 0 end) as no_conc_dev,
+	sum(case when mov.tipo_conciliacion = '0' then 1 else 0 end) as solo_carga
+    INTO vNombrearchivo,vArchivo_origen,vRegistros_archivo,vMonto_archivo,
+	vRegistro_aplicados,vNumCargos_Arch,NumAbonos_Arch,vCargo_aplicados,
+	vMonto_cargos_apli,vNumero_abonos_apli,vMonto_abonos_apli,vMov_err_aplica,vConciliado_intercard,
+	vPago_inter,vConc_montomenor,vConc_montomayor,vMov_cash_back,vMov_pre_conc,vNo_conc,vForzado,
+	vNo_conc_err,vNo_conc_rec,vNo_conc_dev,vSolo_carga
+	from bditarjeta:"informix".td_Archivos_Conciliacion AS arch left join  bditarjeta:"informix".td_movimientos_conciliacion AS mov
+    on arch.nombrearchivo = mov.nombrearchivo
+	where arch.nombrearchivo = cNombreArchivo
+    group by 1,2;
+	
+	
+    RETURN P_COD_RET,P_MENSAJE, vNombrearchivo,vArchivo_origen,vRegistros_archivo,
+	decode (vMonto_archivo, 0, vMonto_archivo, (vMonto_archivo/100)), vRegistro_aplicados,
+	vNumCargos_Arch, NumAbonos_Arch,vCargo_aplicados,
+	decode (vMonto_cargos_apli, 0, vMonto_cargos_apli, (vMonto_cargos_apli/100)), vNumero_abonos_apli,
+	decode (vMonto_abonos_apli, 0, vMonto_abonos_apli, (vMonto_abonos_apli/100)),
+	vMov_err_aplica,vConciliado_intercard,vPago_inter,vConc_montomenor,vConc_montomayor,vMov_cash_back,
+	vMov_pre_conc,vNo_conc,vForzado,vNo_conc_err,vNo_conc_rec,vNo_conc_dev,vSolo_carga;
+
+
+END;
+END PROCEDURE
+DOCUMENT
+'AUTOR: Manuel Osuna Valencia',
+'Proyecto: Reingenieria Conciliacion',
+'Solicito: Jose Luis Puebla',
+'Descripcion: Consulta de Totalizados por Archivo de Consiliacion.',
+'Fecha: 2011/10/19',
+'Version: 20111010.1125',
+'BD: BdiTarjeta',
+'',
+'MODIFICACION: Hector Juan Casanova Edeza',
+'Proyecto: Reingenieria Conciliacion',
+'Solicito: Jose Luis Puebla',
+'Descripcion: SE MODIFICA LA LOGICA DE LA CONSILTA PARA CONSIDERAR EL CASO CUANDO NO EXISTAN REGISTROSN EN LA TABLA DE MOVIMIENTOS_CONCILIACION.',
+'Fecha: 2012/04/17',
+'Version: 20120417.0900',
+'BD: BdiTarjeta',
+'',
+'MODIFICACION: Hector Juan Casanova Edeza',
+'Proyecto: Reingenieria Conciliacion',
+'Solicito: Jose Luis Puebla',
+'Descripcion: SE MODIFICA LA LOGICA DE LA CONSILTA PARA CALCULAR TOTALES DE REGISTROS DE CARGOS Y ABONOS CONTENIDOS EN EL ARCHIVO.',
+'Fecha: 2012/10/01',
+'Version: 20121001.1441',
+'BD: BdiTarjeta',
+'',
+'MODIFICACION: Juan Fco. Ponce Damian',
+'Proyecto: Reingenieria Conciliacion',
+'Solicito: Luis Antonio Gomez',
+'Descripcion: Se integra un nuevo campo al proceso de estracción, para retornar el numero de transacciones con Cash Back.',
+'Fecha: 2013/08/21',
+'Version: 20130821.1441',
+'BD: BdiTarjeta',
+'',
+'MODIFICACION: Gómez Pérez Ilse Jazmín',
+'Proyecto: Reingenieria Conciliacion',
+'Solicito: Luis Antonio Gomez',
+'Descripcion: Se modifica para mostrar los datos de manera correcta.',
+'Fecha: 2013/09/05',
+'Version: 20130821.1441',
+'BD: BdiTarjeta';
+
+CREATE PROCEDURE "informix".sp_concreing_compvalidaintegridad ( 
+psCve_usuario CHAR(10),
+psArchivo_origen CHAR (3), 
+psIntegridad CHAR(1),
+psConsecutivo INTEGER, 
+psNumTarjeta CHAR(16),
+psTipotransaccion325 CHAR(15), 
+pmMonto325 CHAR(13), 
+psIdcomercio325 CHAR(9), 
+psNomcomercio325 CHAR(30),
+psReferencia23_325 CHAR(23), 
+psSecuencia325 CHAR(6), 
+psDivisa325 CHAR(3), 
+psRfc325 CHAR(16) 
+)
+
+	RETURNING CHAR (5) AS Retorno, CHAR (1) AS Integridad, CHAR(250) AS ErrorActividad, CHAR(20) AS IntegridadError;
+
+	/*
+	*****************************************************************************************************
+	-----------------------------------------------------------------------------------------------------
+	-- DESCRIPCION:  COMPLEMENTA LA INTEGRIDAD DE LOS CAMPOS NECESARIOS PARA LA CONCILIACION  -----------
+	-- AUTOR : Ing. Alfonso Cruz  -----------------------------------------------------------------------
+	-- FECHA : 28/09/2011  ------------------------------------------------------------------------------
+	-- BD: bditarjeta  ----------------------------------------------------------------------------------
+	-- SISTEMA : Reingenieria de la conciliacion automatica / Complemento de Integridad  -----------------
+	*****************************************************************************************************
+	*/
+
+	/*VARIABLES DE ERRORES*/
+	DEFINE vsRetBitacora CHAR(5);
+	
+	DEFINE vsRetorno VARCHAR(5);
+	DEFINE vsIntegridad	CHAR(1);
+	DEFINE vsErrorActividad	CHAR(250);
+	DEFINE vsIntegridadError CHAR(20);
+	DEFINE viElemento INTEGER;
+	DEFINE vsActividad VARCHAR(150);
+
+
+	DEFINE viCodigo INTEGER;
+	DEFINE isam_err INTEGER ;
+	DEFINE error_info CHAR(70) ;
+	
+	DEFINE vssqlerr CHAR(5) ;
+	DEFINE vsFlagError CHAR (1) ;
+
+	DEFINE vsSistema CHAR(1);
+	DEFINE vsBinCredito VARCHAR (6);
+	DEFINE vsBinDebito VARCHAR (6);
+	
+	DEFINE vsMontoCashBack325 Char(13);
+	
+	
+	/* INICIALIZACION DE VARIABLES */
+	LET vsRetBitacora = '';
+	
+	LET vsSistema = '';
+	LET vsBinCredito ='';
+	LET vsBinDebito = '';
+	
+	LET vsRetorno = '00000';
+	LET vsIntegridad = '';
+	LET vsErrorActividad = '';
+	LET vsIntegridadError = '';
+	LET viElemento = 40;
+	LET vsActividad = '';
+	
+	LET viCodigo = 0;
+	LET isam_err =0;
+	LET error_info = '';
+	LET vssqlerr = '00000';
+	LET vsFlagError = '' ;
+	
+	LET vsMontoCashBack325 = '';
+
+
+	BEGIN
+
+	ON EXCEPTION SET viCodigo,isam_err,error_info   --cacha el error en caso de que exista y regresa un valor predeterminado
+
+			LET vssqlerr = viCodigo;
+			LET vsFlagError = 'F';
+			
+			LET vsActividad = 'ERROR ' || vssqlerr ||' ISAM '|| isam_err ||' INFORMIX '||error_info || ' EN sp_concreing_consultaCompConciliacion';
+			EXECUTE PROCEDURE bditarjeta:"informix".sp_concreing_guardabitacora(viElemento,vsActividad,psCve_usuario) INTO vsRetBitacora;
+
+			RETURN NVL(vssqlerr,''), 
+			NVL(vsFlagError,''), 
+			NVL(vsErrorActividad,''), 
+			NVL(vsIntegridadError,'');
+
+	END EXCEPTION;
+
+	--SET DEBUG FILE TO '/home/sysifx/soporte/TraceCompMovINTEGRIDAD.sql';
+	--TRACE ON;
+
+	-----------------------------------------------------
+	--------REINGENIERIA-CONCILIACION-AUTOMATICA---------
+	--------2011/10/24-ING-ALFONSO-CRUZ------------------
+	-----------------------------------------------------
+
+		SET LOCK MODE TO WAIT 3;
+		SET ISOLATION TO DIRTY READ ;
+
+		-- LECTURA DEL CAMPO SISTEMA
+		SELECT FIRST 1 sistema
+		INTO vsSistema
+		FROM bditarjeta:"informix".td_archivo_origen
+		WHERE archivo_origen = psArchivo_origen;
+			
+		-- OBTENER BINES
+		SET LOCK MODE TO WAIT 3;
+		SET ISOLATION TO DIRTY READ ;
+		--OBTIENE EL BIN DE CREDITO
+		SELECT FIRST 1  Bin INTO vsBinCredito FROM Intercard:"informix".Bines WHERE CreditoDebito = 'C';
+
+		SET LOCK MODE TO WAIT 3;
+		SET ISOLATION TO DIRTY READ ;
+		--OBTIENE EL BIN DE DEBITO
+		SELECT FIRST 1  Bin INTO vsBinDebito FROM Intercard:"informix".Bines WHERE CreditoDebito = 'D';
+		-- RECUPERA el valor del monto cashback del registro en cuestion
+		
+		SET LOCK MODE TO WAIT 3;
+		SET ISOLATION TO DIRTY READ ;
+		select montocashback325 into vsMontoCashBack325 from Bditarjeta:"informix".td_movimientos_conciliacion
+			where 	archivo_origen = psArchivo_origen  and
+					consecutivo = psConsecutivo;
+		
+		
+		--REGISTRO EN BITACORA DE ACTIVIDAD
+		LET vsActividad = 'EJECUCION DE sp_concreing_CompValidaIntegridad PARA EL CONSECUTIVO ' || psConsecutivo ;
+		EXECUTE PROCEDURE bditarjeta:"informix".sp_concreing_guardabitacora(viElemento, vsActividad, psCve_usuario) INTO vsRetBitacora;
+		
+		EXECUTE PROCEDURE bditarjeta:"informix".sp_concreing_validaintegridad (
+		psArchivo_origen, --archivo_origen
+		psConsecutivo, --Consecutivo
+		psNumTarjeta,--numtarjeta
+		psTipotransaccion325, --Tipotransaccion325 
+		pmMonto325, --monto325
+		vsMontoCashBack325, --montocashback325
+		psIdcomercio325, --idcomercio
+		psNomcomercio325,  --nombre del comercio
+		psReferencia23_325, --referencia de la transaccion
+		psSecuencia325,  --secuencia325
+		psDivisa325, --divisa325 
+		psRfc325,---- RFC
+		vsBinDebito, -- BINE DEBIDO
+		vsBinCredito, --BINE CREDITO
+		vsSistema  --SISTEMA
+		)INTO vsRetorno, vsIntegridad, vsErrorActividad, viElemento;
+		
+		LET vssqlerr = vsRetorno;
+		LET vsFlagError = vsIntegridad;
+		
+		/*ACTUALIZAR VARIABLES DE RETORNO*/
+		SET LOCK MODE TO WAIT 3;
+		SET ISOLATION TO DIRTY READ;
+		
+		SELECT FIRST 1 integridad_error 
+		INTO vsIntegridadError
+		FROM bditarjeta:"informix".td_movimientos_conciliacion
+		WHERE consecutivo = psConsecutivo;
+		
+		IF ( vsIntegridad == 'V' ) THEN
+			
+			/*ACTUALIZANDO LOS VALORES DE INTEGRIDAD DEL REGISTRO*/
+			UPDATE bditarjeta:"informix".td_movimientos_conciliacion
+			SET integridad=psIntegridad,
+			integridad_error='',
+			secuencia325=psSecuencia325,
+			numtarjeta=psNumTarjeta,
+			IdComercio325 = psIdcomercio325,
+			NomComercio325 = psNomcomercio325,
+			Referencia23_325 = psReferencia23_325,
+			rfc325 = psRfc325,
+			divisa325 = psDivisa325,
+			aplicacion = 'P',
+			tipo_conciliacion = 0,      -- Se agrega para volver aplicar clasificacion a los movimientos
+			desc_conciliacion = '',     -- Se agrega para volver aplicar descripcion de conciliacion 
+			conciliacion = 'P',         -- Se agrega para reversar la bandera de conciliacion
+			finalizado = 'F',
+			cod_retorno = ''
+			WHERE consecutivo = psConsecutivo;
+			
+			--ACTUALIZA EL ESTATUS DE TRABAJO DEL ARCHIVO PARA SER REPROCESADO
+			UPDATE BdiTarjeta:"informix".Td_Archivos_Conciliacion
+			SET Proceso = 'P'
+			WHERE nombrearchivo IN (SELECT nombrearchivo FROM bditarjeta:"informix".td_movimientos_conciliacion WHERE consecutivo = psConsecutivo);
+			
+			
+		END IF;
+		
+		IF(vsRetorno != '00000')THEN
+			LET vsActividad = 'ERROR DE sp_concreing_CompValidaIntegridad PARA EL CONSECUTIVO ' || psConsecutivo ;
+		ELSE --OK	
+			LET vsActividad = 'SE COMPLEMENTA LA INTEGRIDAD DEL REGISTRO CON CONSECUTIVO ' || psConsecutivo;
+		END IF;
+		
+		EXECUTE PROCEDURE bditarjeta:"informix".sp_concreing_guardabitacora(viElemento, vsActividad, psCve_usuario) INTO vsRetBitacora;
+		
+		RETURN NVL(vssqlerr,''), NVL(vsFlagError,''), NVL(vsErrorActividad,''), NVL(vsIntegridadError,'');
+
+	END
+
+END PROCEDURE
+DOCUMENT
+'AUTOR: Ing. Alfonso Cruz',
+'Proyecto: Reingenieria de la Conciliacion Automatica',
+'Solicito: Jose Luis Puebla',
+'Descripcion: COMPLEMENTA LA INTEGRIDAD DE LOS CAMPOS NECESARIOS PARA LA CONCILIACION.',
+'Fecha: 2011/10/24',
+'Version: 20111024.1714',
+'BD: bditarjeta',
+'',
+'MODIFICACION: Hector Juan Casanova Edeza',
+'Proyecto: Reingenieria Conciliacion',
+'Solicito: Jose Luis Puebla',
+'Descripcion: SE CAMBIA EL STATUS DE finalizado = "F", ANTERIORMENTE P.',
+'Fecha: 2012/08/01',
+'Version: 20120801.1647',
+'BD: BdiTarjeta',
+'',
+'MODIFICACION: Hector Juan Casanova Edeza',
+'Proyecto: Reingenieria Conciliacion',
+'Solicito: Jose Luis Puebla',
+'Descripcion: SE ACTUALIZA EL ESTATUS DE TRABAJO DEL ARCHIVO PARA SER REPROCESADO.',
+'Fecha: 2012/08/13',
+'Version: 20120813.1723',
+'BD: BdiTarjeta',
+'',
+'MODIFICACION: Ricardo Reséndiz Martínez',
+'Proyecto: Reingenieria Conciliacion',
+'Solicito: Luis Antonio Gomez',
+'Descripcion: SE AGREGA AL UPDATE TIPO DE CONCILIACION Y DESCRIPCION Y BANDERA DE CONCILIACION',
+'Fecha: 2012/11/28',
+'Version: 20121128.1400',
+'BD: BdiTarjeta',
+'',
+'MODIFICACION: Ricardo Reséndiz Martínez',
+'Proyecto: Integración de transaccion CashBack',
+'Solicito: Luis Antonio Gomez',
+'Descripcion: SE INTEGRA RECUPERACION DE MONTO CASH BACK EN LA TRANSACCION Y SE MODIFICA LLAMADO AL SP_CONCREING_VALIDAINTEGRIDAD POR CAMBIO',
+'Fecha: 2012/11/28',
+'Version: 20121128.1400',
+'BD: BdiTarjeta';
+
+CREATE PROCEDURE "informix".sp_esnumerico ( psCadena CHAR (20))
+
+RETURNING CHAR (1) AS Numerico ;
+
+--****************************************************************************************************
+-- DESCRIPCION:  SP CLONADO QUE VERIFICA QUE LA CADENA DE ENTRADA SOLAMENTE CONTENGA NUMEROS
+-- AUTOR : Casanova Edeza Hector Juan // CLONADOR Ricardo Resendiz
+-- FECHA : 11/11/2013
+-- BD: bditarjeta
+-- SISTEMA : Sorteo SAT
+-- MODIFICADO : SIN MODIFICACIONES
+--***************************************************************************************************
+
+/*  DEFINICION DE VARIABLES */
+DEFINE vsRespuesta CHAR (1) ;
+
+DEFINE visqlerr INTEGER ;
+/* INICIALIZACION DE VARIABLES */
+
+LET vsRespuesta = 'F' ;
+
+LET visqlerr = 0;
+
+BEGIN
+
+	ON EXCEPTION SET visqlerr   --cacha el error en caso de que exista y regresa un valor predeterminado
+
+		IF visqlerr = -1213 THEN
+			LET vsRespuesta = 'F' ;
+		ELSE
+			LET vsRespuesta = ' ' ;
+		END IF;
+
+		RETURN vsRespuesta ;
+
+	END EXCEPTION;
+
+	IF (psCadena >= 0) THEN
+		LET vsRespuesta = 'V';
+	ELSE
+		LET vsRespuesta = 'F';
+	END IF  ;
+
+	RETURN vsRespuesta ;
+
+END
+
+END PROCEDURE
+DOCUMENT
+'AUTOR: Casanova Edeza Hector Juan // CLONADOR Ricardo Resendiz',
+'Proyecto: Sorteo SAT',
+'Solicito: Luis Antonio Gomez',
+'Descripcion: VERIFICA QUE LA CADENA DE ENTRADA SOLAMENTE CONTENGA NUMEROS.',
+'Fecha: 2013/11/11',
+'Version: 20131111.1830',
+'BD: bditarjeta';
+
+CREATE PROCEDURE "informix".sp_sorteo_sat2 (
+		pdfecha date
+		)
+
+RETURNING 
+			VARCHAR (5) AS CodRet, 
+			VARCHAR(250) AS Mensaje_Respuesta;
+
+--Definición de Variables de Error
+DEFINE vicodigo 			integer;
+DEFINE vsCodRet 			VARCHAR(5);
+DEFINE vsMensaje_Respuesta 	VARCHAR(250);
+
+
+--Definición de datos centrales
+
+DEFINE vdfechahoyinte		date;
+
+
+
+-- Para retorno de Principal de Credito
+DEFINE 	g_Remanente		money;
+DEFINE  g_IntMoraCob   	money;
+DEFINE  g_IntVencCob	money;
+DEFINE  g_CapVencCob    money;
+DEFINE  g_IntVigCob		money;
+DEFINE  g_CapVigCob		money;
+DEFINE  g_Impuesto		money;
+DEFINE  g_Comision		money;
+DEFINE	g_Seguro		money;
+
+-- Para generacion de archivo
+
+DEFINE 	vsql			char (1150);
+DEFINE  vsfecencabezado   char(10);
+DEFINE  vicontador 		integer;
+DEFINE  vscontador		char(10);
+DEFINE  viincremento	integer;
+DEFINE  vicontador2		integer;
+
+
+BEGIN
+	ON EXCEPTION SET viCodigo   --cacha el error en caso de que exista y regresa un valor predeterminado
+
+				RETURN 	vsCodRet, 
+						vsMensaje_Respuesta;
+
+	END EXCEPTION;
+
+--SET DEBUG FILE TO '/informix/HomeInformix/rrm/sp_sorteo_sat2.out';
+--TRACE ON;
+
+-- Inicialización de variables
+LET 	vicodigo = 0;
+LET		vsCodRet = '00000';
+LET		vsMensaje_Respuesta = 'PROCESO TERMINADO SATISFACTORIAMENTE';
+
+
+
+-- Inicializacion de variables de retorno de credito
+LET  g_Remanente 	= 0.00;
+LET  g_IntMoraCob 	= 0.00;
+LET  g_IntVencCob 	= 0.00;
+LET  g_CapVencCob  	= 0.00;
+LET  g_IntVigCob	= 0.00;
+LET  g_CapVigCob 	= 0.00;
+LET  g_Impuesto		= 0.00;
+LET  g_Comision 	= 0.00;
+LET	 g_Seguro  		= 0.00;
+
+-- Para generacion de archivo
+
+LET 	vsql	= '';
+LET     vsfecencabezado = '';
+LET 	vicontador = 0;
+LET 	vscontador = '';
+LET  	viincremento = 0;
+LET		vicontador2 = 0;
+
+	SET LOCK MODE TO WAIT 3;
+	SET ISOLATION TO DIRTY READ;
+	Select fecha_hoy into vdfechahoyinte from Bdinteg:"informix".si_fechas;
+
+	if vdfechahoyinte = pdfecha then 
+			
+			EXECUTE PROCEDURE Bdicred:"informix".principal(	'001','600045117634',1,	3753.00 ,	'informix',	'9290',	'i111818031038624',	'7860')
+				into vsCodRet, g_Remanente, g_IntMoraCob, g_IntVencCob, g_CapVencCob, g_IntVigCob, g_CapVigCob, g_Impuesto, g_Comision, g_Seguro;
+			
+			if vsCodRet = '000' then 
+				update bditarjeta:"informix".tb_sorteo_sat
+					set codigodevolucion = '0',
+						observacion = 'Movimiento aplica',
+						retcentral = vsCodRet,
+						validaciones = 'V'
+				where consecutivo = 234149;
+			else 
+				update bditarjeta:"informix".tb_sorteo_sat
+					set codigodevolucion = '1',
+						observacion = 'NO APLICADO POR CREDITO',
+						retcentral = vsCodRet
+				where consecutivo = 234149;
+			end if;
+	
+	else
+	
+		let vsCodRet = '00001';
+		LET  vsMensaje_Respuesta = 'Fechas diferentes en integral';
+		
+		RETURN 	vsCodRet, 
+			NVL(vsMensaje_Respuesta,'');
+		
+	end if; 
+	
+			
+	 			
+	let vsfecencabezado = day(vdfechahoyinte)||'/'||month(vdfechahoyinte)||'/'||year(vdfechahoyinte);
+				
+	set isolation to dirty read;
+	select count(*) into vicontador from Bditarjeta:tb_sorteo_sat;
+		
+	let vscontador = vicontador::char(10);
+		
+	LET viincremento = Length(vscontador);
+		
+	For vicontador2 = viincremento  TO 9 STEP 1
+			LET vscontador = '0'||vscontador;
+	end for;
+
+	
+	
+	
+	-- Primera linea del archivo
+	let vsql = 'echo "00|1|SAT           |FECHA|'||vsfecencabezado||'|" >> /resplogifx/Bancoppel_SAT1.txt';
+	system vsql;
+	let vsql = '';
+	let vsql = '';
+	system vsql;
+	--   #########################################  Todas las no premiadas ####################################################################
+	-- Para generar comando de descarga de datos			
+	let vsql = '';
+	let vsql = 	'echo "SET ISOLATION TO DIRTY READ; UNLOAD TO /resplogifx/SAT_BuenFin.unl '||
+				'select  tporeg,banemisor,day(fchtransacintercard)||month(fchtransacintercard)||SUBSTR(year(fchtransacintercard),3,2), numtarjeta,'||
+				'montoarchivo,secuenciaarchivo,numrefarchivo,montopremio,ordenabono,codigodevolucion from bditarjeta:"informix".tb_sorteo_sat where validaciones =''"'||'F'||'"'';"> /resplogifx/SAT_BuenFin.sql';
+			
+	system vsql;
+	-- Ejecución del comando anterior
+	let vsql = '';
+	let vsql = '';
+	system vsql;
+	let vsql= "dbaccess bditarjeta /resplogifx/SAT_BuenFin.sql";
+	system vsql;
+	-- Borrando sentencia de ejecucion
+	let vsql = '';
+	let vsql ='rm /resplogifx/SAT_BuenFin.sql';
+	system vsql;
+	let vsql = '';
+	-- Agragando descarga a archivo final 
+	let vsql = 'cat /resplogifx/SAT_BuenFin.unl >> /resplogifx/Bancoppel_SAT1.txt';
+	system vsql;
+	let vsql = '';
+	let vsql = '';
+	system vsql;
+	-- Se le agrega espacido 
+	let vsql = '';
+	let vsql ='rm /resplogifx/SAT_BuenFin.unl';
+	system vsql;
+	let vsql = '';
+	
+	--   #########################################  Todas las premiadas excluyendo especial  ####################################################################
+	-- Para generar comando de descarga de datos			
+	let vsql = '';
+	let vsql = 	'echo "SET ISOLATION TO DIRTY READ; UNLOAD TO /resplogifx/SAT_BuenFin.unl '||
+				'select  tporeg,banemisor,day(fchtransacintercard)||month(fchtransacintercard)||SUBSTR(year(fchtransacintercard),3,2), numtarjeta,'||
+				'montoarchivo,secuenciaarchivo,numrefarchivo,montoarchivo,ordenabono,codigodevolucion from bditarjeta:"informix".tb_sorteo_sat where validaciones = ''"'||'V'||'"'' and numtarjeta <> ''"'||'4268070225475773'||'"'';"> /resplogifx/SAT_BuenFin.sql';
+			
+	system vsql;
+	-- Ejecución del comando anterior
+	let vsql = '';
+	let vsql = '';
+	system vsql;
+	let vsql= "dbaccess bditarjeta /resplogifx/SAT_BuenFin.sql";
+	system vsql;
+	-- Borrando sentencia de ejecucion
+	let vsql = '';
+	let vsql ='rm /resplogifx/SAT_BuenFin.sql';
+	system vsql;
+	let vsql = '';
+	-- Agragando descarga a archivo final 
+	let vsql = 'cat /resplogifx/SAT_BuenFin.unl >> /resplogifx/Bancoppel_SAT1.txt';
+	system vsql;
+	let vsql = '';
+	let vsql = '';
+	system vsql;
+	-- Se le agrega espacido 
+	let vsql = '';
+	let vsql ='rm /resplogifx/SAT_BuenFin.unl';
+	system vsql;
+	let vsql = '';
+
+		--   #########################################  Todas las premiadas excluyendo especial  ####################################################################
+	-- Para generar comando de descarga de datos			
+	let vsql = '';
+	let vsql = 	'echo "SET ISOLATION TO DIRTY READ; UNLOAD TO /resplogifx/SAT_BuenFin.unl '||
+				'select  tporeg,banemisor,day(fchtransacintercard)||month(fchtransacintercard)||SUBSTR(year(fchtransacintercard),3,2), numtarjeta,'||
+				'montoarchivo,secuenciaarchivo,numrefarchivo,montoarchivo,ordenabono,codigodevolucion from bditarjeta:"informix".tb_sorteo_sat where validaciones = ''"'||'P'||'"'';"> /resplogifx/SAT_BuenFin.sql';
+			
+	system vsql;
+	-- Ejecución del comando anterior
+	let vsql = '';
+	let vsql = '';
+	system vsql;
+	let vsql= "dbaccess bditarjeta /resplogifx/SAT_BuenFin.sql";
+	system vsql;
+	-- Borrando sentencia de ejecucion
+	let vsql = '';
+	let vsql ='rm /resplogifx/SAT_BuenFin.sql';
+	system vsql;
+	let vsql = '';
+	-- Agragando descarga a archivo final 
+	let vsql = 'cat /resplogifx/SAT_BuenFin.unl >> /resplogifx/Bancoppel_SAT1.txt';
+	system vsql;
+	let vsql = '';
+	let vsql = '';
+	system vsql;
+	-- Se le agrega espacido 
+	let vsql = '';
+	let vsql ='rm /resplogifx/SAT_BuenFin.unl';
+	system vsql;
+	let vsql = '';
+	
+	--   #########################################  Todas las premiadas incluyendo especial  ####################################################################
+	-- Para generar comando de descarga de datos			
+	let vsql = '';
+	let vsql = 	'echo "SET ISOLATION TO DIRTY READ; UNLOAD TO /resplogifx/SAT_BuenFin.unl '||
+				'select  tporeg,banemisor,day(fchtransacintercard)||month(fchtransacintercard)||SUBSTR(year(fchtransacintercard),3,2), numtarjeta,'||
+				'montoarchivo,secuenciaarchivo,numrefarchivo,montopremio,ordenabono,codigodevolucion from bditarjeta:"informix".tb_sorteo_sat where validaciones = ''"'||'V'||'"'' and numtarjeta = ''"'||'4268070225475773'||'"'';"> /resplogifx/SAT_BuenFin.sql';
+			
+	system vsql;
+	-- Ejecución del comando anterior
+	let vsql = '';
+	let vsql = '';
+	system vsql;
+	let vsql= "dbaccess bditarjeta /resplogifx/SAT_BuenFin.sql";
+	system vsql;
+	-- Borrando sentencia de ejecucion
+	let vsql = '';
+	let vsql ='rm /resplogifx/SAT_BuenFin.sql';
+	system vsql;
+	let vsql = '';
+	-- Agragando descarga a archivo final 
+	let vsql = 'cat /resplogifx/SAT_BuenFin.unl >> /resplogifx/Bancoppel_SAT1.txt';
+	system vsql;
+	let vsql = '';
+	let vsql = '';
+	system vsql;
+	-- Se le agrega espacido 
+	let vsql = '';
+	let vsql ='rm /resplogifx/SAT_BuenFin.unl';
+	system vsql;
+	let vsql = '';
+	
+	
+	-- Agregando pie de archivo
+	let vsql = 'echo "99|'||vscontador||'|" >> /resplogifx/Bancoppel_SAT1.txt';
+	system vsql;
+		
+	LET  vsMensaje_Respuesta = 'Proceso completo se genero archivo Bancoppel_SAT1.txt';
+
+	
+	RETURN 	vsCodRet, 
+			NVL(vsMensaje_Respuesta,'');
+
+
+END
+END PROCEDURE
+DOCUMENT
+'AUTOR: Ricardo Resendiz Martinez',
+'Proyecto: Sorteo de SAT del Buen Fin',
+'Solicito: Luis Antonio Gomez Santiago',
+'Descripcion: Complemento de descarga por transacciones probables por el estatus de la tarjeta para ser incluidas en archivo y aplicacion de transaccion devuelta',
+'Fecha: 2013/12/18',
+'Version: 20131218.1400',
+'BD: bditarjeta';
+
+CREATE PROCEDURE "informix".sp_sorteo_sat3 (
+		pdfecha date
+		)
+
+RETURNING 
+			VARCHAR (5) AS CodRet, 
+			VARCHAR(250) AS Mensaje_Respuesta;
+
+--Definición de Variables de Error
+DEFINE vicodigo 			integer;
+DEFINE vsCodRet 			VARCHAR(5);
+DEFINE vsMensaje_Respuesta 	VARCHAR(250);
+
+--Definición de bandera de ciclo
+DEFINE vsFlagEnTransaccion 	varchar(1);
+DEFINE viContadorRegistros 	integer;
+
+--Definición de datos centrales
+
+DEFINE vdfechahoyinte		date;
+DEFINE vsnumtarjeta			char(16);
+DEFINE viconsecutivo		integer;
+DEFINE vsnumcliente			char(13);
+DEFINE vsmunicipiozona  	char(27);
+DEFINE vsnombreciudad		char(30);
+DEFINE vsnomedo				char(30);
+DEFINE vspoblacion 			char(30);
+
+
+-- Para generacion de archivo
+
+DEFINE 	vsql			char (1150);
+DEFINE  vsfecencabezado   char(10);
+DEFINE  vicontador 		integer;
+DEFINE  vscontador		char(10);
+DEFINE  viincremento	integer;
+DEFINE  vicontador2		integer;
+
+
+BEGIN
+	ON EXCEPTION SET viCodigo   --cacha el error en caso de que exista y regresa un valor predeterminado
+
+				RETURN 	vsCodRet, 
+						vsMensaje_Respuesta;
+
+	END EXCEPTION;
+
+--SET DEBUG FILE TO '/informix/HomeInformix/rrm/sp_sorteo_sat2.out';
+--TRACE ON;
+
+-- Inicialización de variables
+LET 	vicodigo = 0;
+LET		vsCodRet = '00000';
+LET		vsMensaje_Respuesta = 'PROCESO TERMINADO SATISFACTORIAMENTE';
+
+-- Inicializacion de variables de ciclo
+LET vsFlagEnTransaccion = 'F';
+LET viContadorRegistros = 0;
+
+-- Datos del proceso 
+LET vsnumtarjeta = '';
+LET viconsecutivo = 0;
+let vsnumcliente = '';
+let vsmunicipiozona = '';
+let vsnombreciudad = '';
+let vsnomedo = '';
+let vspoblacion = '';
+
+-- Para generacion de archivo
+
+
+LET 	vsql	= '';
+LET     vsfecencabezado = '';
+LET 	vicontador = 0;
+LET 	vscontador = '';
+LET  	viincremento = 0;
+LET		vicontador2 = 0;
+
+	SET LOCK MODE TO WAIT 3;
+	SET ISOLATION TO DIRTY READ;
+	Select fecha_hoy into vdfechahoyinte from Bdinteg:"informix".si_fechas;
+
+	if vdfechahoyinte = pdfecha then 
+		FOREACH WITH HOLD
+				select consecutivo, numtarjeta into viconsecutivo, vsnumtarjeta from Bditarjeta:tb_sorteo_sat 
+					where codigodevolucion = '0'
+		
+				IF (vsFlagEnTransaccion = 'F') THEN 
+						BEGIN WORK;
+						LET vsFlagEnTransaccion = 'V';
+				END IF;
+		
+				select numcliente into vsnumcliente from Intercard:"informix".tarjeta
+					where numtarjeta = vsnumtarjeta;
+
+				set isolation to dirty read;
+				SELECT zona.municipiozona, cd.nombreciudad, edo.nombre into vsmunicipiozona, vsnombreciudad, vsnomedo
+					FROM 	bdinteg:"informix".si_direcciones_actual dir
+							LEFT OUTER JOIN bdinteg:"informix".si_catcalles calle ON ( calle.numerocalle = dir.numerocalle )
+							LEFT OUTER JOIN bdinteg:"informix".si_catzonas zona ON ( zona.numerociudad = dir.numerociudad AND zona.numerocolonia = dir.numerocolonia )
+							LEFT OUTER JOIN bdinteg:"informix".si_catciudades cd ON ( cd.numerociudad = dir.numerociudad )
+							LEFT OUTER JOIN bdinteg:"informix".si_estados edo ON ( edo.estado = dir.estado )
+					WHERE 
+							dir.numcte = vsnumcliente AND 
+							dir.tipo_dir = '1'; -- EL TIPO DE DIRECCION PUEDES SER 1, 2 ó 3
+					
+				Let vspoblacion = TRIM(NVL(vsmunicipiozona,'')) || ' ' ||TRIM (NVL(vsnombreciudad,''));
+
+				-- registros a 30 posiciones
+					let vicontador2 = 0;
+					let viincremento = length (vsnomedo);
+					if viincremento < 30 then
+						For vicontador2 = viincremento  TO 29 STEP 1
+							LET vsnomedo = ' '||vsnomedo;
+						end for;
+					end if;
+				
+				-- Registro a 30 posiciones 
+					let vicontador2 = 0;
+					let viincremento = length (vspoblacion);
+					if viincremento < 30 then
+						For vicontador2 = viincremento  TO 29 STEP 1
+							LET vspoblacion = ' '||vspoblacion;
+						end for;
+					end if;
+				
+
+				update Bditarjeta:"informix".tb_sorteo_sat
+						set 	estado = vsnomedo,
+								poblacion = vspoblacion
+					where consecutivo = viconsecutivo;
+
+				LET viContadorRegistros = viContadorRegistros + 1;
+
+				--TERMINA EL BLOQUE DE REGISTROS POR TRANSACCION
+				IF (viContadorRegistros = 1000) THEN --VERIFICA SI ALCANSO EL MAXIMO DE TRANSACCIONES POR BLOQUE
+						COMMIT WORK;
+						LET vsFlagEnTransaccion = 'F';
+						LET viContadorRegistros = 0;
+						CONTINUE FOREACH;
+				END IF;
+		END FOREACH;
+
+		IF ((viContadorRegistros > 0) OR (vsFlagEnTransaccion = 'V')) THEN --VERIFICA SI EXISTE UN BLOQUE DE TRANSACCION PENDIENTE
+				COMMIT WORK;
+				LET vsFlagEnTransaccion = 'F';
+		END IF;
+
+		LET  vsMensaje_Respuesta = 'Etapa 1 Completa';
+
+	else
+
+		let vsCodRet = '00001';
+		LET  vsMensaje_Respuesta = 'Fechas diferentes en integral';
+		
+		RETURN 	vsCodRet, 
+			NVL(vsMensaje_Respuesta,'');
+		
+	end if; 
+	
+			
+	 			
+	let vsfecencabezado = day(vdfechahoyinte)||'/'||month(vdfechahoyinte)||'/'||year(vdfechahoyinte);
+				
+	set isolation to dirty read;
+	select count(*) into vicontador from Bditarjeta:tb_sorteo_sat
+		where codigodevolucion = '0';
+		
+	let vicontador2 = 0;
+	let vscontador = vicontador::char(10);
+		
+	LET viincremento = Length(vscontador);
+		
+	For vicontador2 = viincremento  TO 9 STEP 1
+			LET vscontador = '0'||vscontador;
+	end for;
+
+	
+	-- Primera linea del archivo
+	let vsql = 'echo "00|1|SAT           |FECHA|'||vsfecencabezado||'|" >> /resplogifx/Bancoppel_SAT2.txt';
+	system vsql;
+	let vsql = '';
+	let vsql = '';
+	system vsql;
+	
+	--   #########################################  Todas las premiadas excluyendo especial  ####################################################################
+	-- Para generar comando de descarga de datos			
+	let vsql = '';
+	let vsql = 	'echo "SET ISOLATION TO DIRTY READ; UNLOAD TO /resplogifx/SAT_BuenFin.unl '||
+				'select  tporeg,banemisor,day(fchtransacintercard)||month(fchtransacintercard)||SUBSTR(year(fchtransacintercard),3,2), numtarjeta,'||
+				'montoarchivo,secuenciaarchivo,numrefarchivo,montoarchivo,ordenabono,codigodevolucion,estado,poblacion from bditarjeta:"informix".tb_sorteo_sat where validaciones = ''"'||'V'||'"'' and numtarjeta <> ''"'||'4268070225475773'||'"'';"> /resplogifx/SAT_BuenFin.sql';
+			
+	system vsql;
+	-- Ejecución del comando anterior
+	let vsql = '';
+	let vsql = '';
+	system vsql;
+	let vsql= "dbaccess bditarjeta /resplogifx/SAT_BuenFin.sql";
+	system vsql;
+	-- Borrando sentencia de ejecucion
+	let vsql = '';
+	let vsql ='rm /resplogifx/SAT_BuenFin.sql';
+	system vsql;
+	let vsql = '';
+	-- Agragando descarga a archivo final 
+	let vsql = 'cat /resplogifx/SAT_BuenFin.unl >> /resplogifx/Bancoppel_SAT2.txt';
+	system vsql;
+	let vsql = '';
+	let vsql = '';
+	system vsql;
+	-- Se le agrega espacido 
+	let vsql = '';
+	let vsql ='rm /resplogifx/SAT_BuenFin.unl';
+	system vsql;
+	let vsql = '';
+
+		--   #########################################   premiadas  probables por estatus de tarjeta  ####################################################################
+	-- Para generar comando de descarga de datos			
+	let vsql = '';
+	let vsql = 	'echo "SET ISOLATION TO DIRTY READ; UNLOAD TO /resplogifx/SAT_BuenFin.unl '||
+				'select  tporeg,banemisor,day(fchtransacintercard)||month(fchtransacintercard)||SUBSTR(year(fchtransacintercard),3,2), numtarjeta,'||
+				'montoarchivo,secuenciaarchivo,numrefarchivo,montoarchivo,ordenabono,codigodevolucion,estado,poblacion from bditarjeta:"informix".tb_sorteo_sat where validaciones = ''"'||'P'||'"'';"> /resplogifx/SAT_BuenFin.sql';
+			
+	system vsql;
+	-- Ejecución del comando anterior
+	let vsql = '';
+	let vsql = '';
+	system vsql;
+	let vsql= "dbaccess bditarjeta /resplogifx/SAT_BuenFin.sql";
+	system vsql;
+	-- Borrando sentencia de ejecucion
+	let vsql = '';
+	let vsql ='rm /resplogifx/SAT_BuenFin.sql';
+	system vsql;
+	let vsql = '';
+	-- Agragando descarga a archivo final 
+	let vsql = 'cat /resplogifx/SAT_BuenFin.unl >> /resplogifx/Bancoppel_SAT2.txt';
+	system vsql;
+	let vsql = '';
+	let vsql = '';
+	system vsql;
+	-- Se le agrega espacido 
+	let vsql = '';
+	let vsql ='rm /resplogifx/SAT_BuenFin.unl';
+	system vsql;
+	let vsql = '';
+	
+	--   #########################################  Todas las premiadas  especiales  ####################################################################
+	-- Para generar comando de descarga de datos			
+	let vsql = '';
+	let vsql = 	'echo "SET ISOLATION TO DIRTY READ; UNLOAD TO /resplogifx/SAT_BuenFin.unl '||
+				'select  tporeg,banemisor,day(fchtransacintercard)||month(fchtransacintercard)||SUBSTR(year(fchtransacintercard),3,2), numtarjeta,'||
+				'montoarchivo,secuenciaarchivo,numrefarchivo,montopremio,ordenabono,codigodevolucion,estado,poblacion from bditarjeta:"informix".tb_sorteo_sat where validaciones = ''"'||'V'||'"'' and numtarjeta = ''"'||'4268070225475773'||'"'';"> /resplogifx/SAT_BuenFin.sql';
+			
+	system vsql;
+	-- Ejecución del comando anterior
+	let vsql = '';
+	let vsql = '';
+	system vsql;
+	let vsql= "dbaccess bditarjeta /resplogifx/SAT_BuenFin.sql";
+	system vsql;
+	-- Borrando sentencia de ejecucion
+	let vsql = '';
+	let vsql ='rm /resplogifx/SAT_BuenFin.sql';
+	system vsql;
+	let vsql = '';
+	-- Agragando descarga a archivo final 
+	let vsql = 'cat /resplogifx/SAT_BuenFin.unl >> /resplogifx/Bancoppel_SAT2.txt';
+	system vsql;
+	let vsql = '';
+	let vsql = '';
+	system vsql;
+	-- Se le agrega espacido 
+	let vsql = '';
+	let vsql ='rm /resplogifx/SAT_BuenFin.unl';
+	system vsql;
+	let vsql = '';
+	
+	
+	-- Agregando pie de archivo
+	let vsql = 'echo "99|'||vscontador||'|" >> /resplogifx/Bancoppel_SAT2.txt';
+	system vsql;
+		
+	LET  vsMensaje_Respuesta = 'Proceso completo se genero archivo Bancoppel_SAT2.txt';
+
+	
+	RETURN 	vsCodRet, 
+			NVL(vsMensaje_Respuesta,'');
+
+
+END
+END PROCEDURE
+DOCUMENT
+'AUTOR: Ricardo Resendiz Martinez',
+'Proyecto: Sorteo de SAT del Buen Fin',
+'Solicito: Luis Antonio Gomez Santiago',
+'Descripcion: Complemento de complemento de informacion con estado y municio de la transacciones premidas',
+'Fecha: 2013/12/23',
+'Version: 20131218.1800',
+'BD: bditarjeta';
+
+CREATE PROCEDURE "informix".sp_concreing_consdevolucion( piTipoArchivo INTEGER, psFechaConsulta VARCHAR(10), psNombreArchivo VARCHAR(21))
+RETURNING 	VARCHAR(5)  AS CodRet, 
+			VARCHAR(48) AS TipoArchivo, 
+			VARCHAR(23) AS NombreArchivo,
+			DATE		AS FechaCarga,
+			INTEGER 	AS DevRecibidas, 
+			INTEGER 	AS DevAplicadas,
+			INTEGER 	AS DevAplicadasForzadas, 
+			INTEGER 	AS DevConciliadasSA, 
+			INTEGER 	AS DevErrorIntegridad, 
+			INTEGER 	AS DevFaltantes,
+			VARCHAR(16) AS NumTarjeta,
+			VARCHAR(5)  AS TipoOperacion,
+			VARCHAR(61) AS Motivo,
+			VARCHAR(30) AS NomComercio,
+			VARCHAR(40) AS Referencia,
+			MONEY		AS Monto,
+			MONEY		AS montocashbackarchivo;
+
+--****************************************************************************************************
+-- DESCRIPCION: OBTENCION DE DEVOLUCIONES POS
+-- AUTOR : Arturo Méndez Cárdenas
+-- FECHA : 12/ABRIL/2012
+-- BD: bditarjeta
+-- SISTEMA : DevolucionesPOS
+--***************************************************************************************************
+
+/*  DEFINICION DE VARIABLES */
+
+--CONTROL GENERAL
+DEFINE cCodret CHAR(5);
+DEFINE cTipoarchivo CHAR(48);
+DEFINE cNombrearchivo CHAR(23);
+DEFINE cFechacarga DATE;
+DEFINE iDevrecibidas INTEGER;
+DEFINE iDevaplicadas INTEGER;
+DEFINE iDevaplicadasforzadas INTEGER;
+DEFINE iDevconciliadassa INTEGER;
+DEFINE iDeverrorintegridad INTEGER;
+DEFINE iDevfaltantes INTEGER;
+DEFINE iEncontrado INTEGER;
+DEFINE cArchivoOrigenAnt CHAR(23);
+DEFINE cArchivoOrigen CHAR(3);
+
+-- Variables de Detalle
+DEFINE cNumTarjeta CHAR(16);
+DEFINE cTipoOperacion CHAR(5);
+DEFINE cMotivo CHAR(61);
+DEFINE cNomcomercio CHAR(30);
+DEFINE cReferencia CHAR(40);
+DEFINE mMonto325 MONEY;
+DEFINE mMontocashbackarchivo MONEY;
+
+/* INICIALIZACION DE VARIABLES */
+--CONTROL GENERAL
+LET cCodret = '00000';
+LET cTipoArchivo = '';
+LET cNombrearchivo = '';
+LET cFechacarga = CURRENT::DATE;
+LET iDevrecibidas = 0;
+LET iDevaplicadas = 0;
+LET iDevaplicadasforzadas = 0;
+LET iDevconciliadasSA = 0;
+LET iDevErrorIntegridad = 0;
+LET iDevFaltantes = 0;
+LET iEncontrado = 0;
+LET cArchivoOrigenAnt = '';
+LET cArchivoOrigen = '';
+
+-- Variables de Detalle
+LET cNumTarjeta = '';
+LET cTipoOperacion = '';
+LET cMotivo = '';
+LET cNomcomercio = '';
+LET cReferencia = '';
+LET mMonto325 = 0.0;
+LET mMontocashbackarchivo = 0.0;
+
+BEGIN
+	
+ON EXCEPTION SET iDevrecibidas 
+   IF iDevrecibidas != 0 THEN
+      LET cCodret = iDevrecibidas;      
+      RETURN cCodret,cTipoArchivo, cNombrearchivo,cFechacarga,iDevrecibidas,iDevaplicadas,iDevaplicadasforzadas,iDevconciliadasSA,iDevErrorIntegridad,iDevFaltantes,
+				cNumTarjeta,cTipoOperacion,cMotivo,cNomcomercio,cReferencia,mMonto325,mMontocashbackarchivo;
+   END IF;
+END EXCEPTION;
+
+--SET DEBUG FILE TO '/home/sysifx/ilse/cashBack/sp_concreing_pba.txt';
+--TRACE ON;
+
+	SET ISOLATION TO DIRTY READ;
+	SET LOCK MODE TO WAIT 3;
+	
+	IF piTipoArchivo = 1 THEN -- Todos los tipos de archivos
+	
+		FOREACH WITH HOLD
+			SELECT distinct(nomarchivo),fecha,archivoorigen INTO cNombrearchivo,cFechacarga,cArchivoOrigen 
+			FROM bditarjeta:"informix".td_devolucionespos 
+			WHERE archivoorigen IN('VIC','VNC','VID','VND','MCD','MCC') AND fecha = psFechaConsulta 
+			
+			LET iEncontrado = 0;
+				
+			-- Archivos con devoluciones pendientes(Crédito o Débito).
+			IF EXISTS( SELECT nomarchivo FROM bditarjeta:"informix".td_devolucionespos WHERE nomarchivo = cNombreArchivo 
+						AND fecha = psFechaConsulta AND archivoorigen = cArchivoOrigen 
+						AND ((encontrado = 'V' AND estado IN('P','A','F') AND aplicado IN('F','E')) OR 
+							 (encontrado = 'F' AND estado = 'P' AND aplicado IN('E','F'))) ) THEN	-- (tipo_conciliación 0,10,12 y 15)
+			
+				IF(iEncontrado = 0 OR cArchivoOrigen <> cArchivoOrigenAnt) THEN
+					IF cArchivoOrigen IN('VIC','VNC','MCC') THEN
+						IF iEncontrado = 0 THEN					
+							LET cTipoArchivo = 'Archivo de crédito con devoluciones pendientes';
+							LET iEncontrado= 1;
+							LET cArchivoOrigenAnt = cArchivoOrigen;
+						END IF;
+					ELIF cArchivoOrigen IN('VID','VND','MCD') THEN
+						IF iEncontrado = 0 THEN
+							LET cTipoArchivo = 'Archivo de débito con devoluciones pendientes';
+							LET iEncontrado = 1;
+							LET cArchivoOrigenAnt = cArchivoOrigen;
+						END IF;
+					END IF;
+						
+					-- Total Devoluciones Recibidas.
+					SELECT COUNT(nomarchivo) INTO iDevrecibidas FROM bditarjeta:"informix".td_devolucionespos 
+					WHERE nomarchivo = cNombreArchivo AND fecha = psFechaConsulta;
+					
+					-- Total Devoluciones Aplicadas (tipo_conciliacion = 14).
+					SELECT COUNT(nomarchivo) INTO iDevaplicadas FROM bditarjeta:"informix".td_devolucionespos 
+					WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'V' AND estado = 'A' AND aplicado = 'V';
+					
+					-- Total Devoluciones Aplicadas Forzadas (tipo_conciliacion = 11).
+					SELECT COUNT(nomarchivo) INTO iDevaplicadasforzadas FROM bditarjeta:"informix".td_devolucionespos 
+					WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'V' AND estado = 'F' AND aplicado = 'V';
+					
+					-- Total Devoluciones Conciliadas sin Aplicar (tipo_conciliacion 10 y 15).
+					SELECT COUNT(nomarchivo) INTO iDevconciliadasSA FROM bditarjeta:"informix".td_devolucionespos 
+					WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'V' AND estado IN('P','A','F') AND aplicado IN('F','E');
+					
+					-- Total Devoluciones con Error de Integridad (tipo_conciliacion 0 y 12).
+					SELECT COUNT(nomarchivo) INTO iDevErrorIntegridad FROM bditarjeta:"informix".td_devolucionespos 
+					WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'F' AND estado = 'P' AND aplicado IN('E','F');
+					
+					-- Total Devoluciones Faltantes.
+					SELECT FIRST 1 iDevrecibidas - ( iDevaplicadas + iDevaplicadasforzadas ) INTO iDevFaltantes 
+					FROM bditarjeta:"informix".td_devolucionespos;
+					
+					IF iDevrecibidas > 0 THEN
+						LET cCodRet = '00001';
+					END IF;
+					RETURN cCodret,cTipoArchivo,cNombrearchivo,cFechacarga,iDevrecibidas,iDevaplicadas,iDevaplicadasforzadas,iDevconciliadasSA,iDevErrorIntegridad,iDevFaltantes,
+							cNumTarjeta,cTipoOperacion,cMotivo,cNomcomercio,cReferencia,mMonto325,mMontocashbackarchivo WITH RESUME;
+				END IF;
+			ELSE	-- Archivos sin devoluciones(Crédito o Débito).
+				IF cArchivoOrigen IN('VIC','VNC','MCC') THEN
+					LET cTipoArchivo = 'Archivo de crédito sin devoluciones pendientes';
+				ELIF cArchivoOrigen IN('VID','VND','MCD') THEN
+					LET cTipoArchivo = 'Archivo de débito sin devoluciones pendientes';
+				END IF;
+					
+				-- Total Devoluciones Recibidas.
+				SELECT COUNT(nomarchivo) INTO iDevrecibidas FROM bditarjeta:"informix".td_devolucionespos 
+				WHERE nomarchivo = cNombreArchivo AND fecha = psFechaConsulta;
+				
+				-- Total Devoluciones Aplicadas (tipo_conciliacion = 14).
+				SELECT COUNT(nomarchivo) INTO iDevaplicadas FROM bditarjeta:"informix".td_devolucionespos 
+				WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'V' AND estado = 'A' AND aplicado = 'V';
+				
+				-- Total Devoluciones Aplicadas Forzadas (tipo_conciliacion = 11).
+				SELECT COUNT(nomarchivo) INTO iDevaplicadasforzadas FROM bditarjeta:"informix".td_devolucionespos 
+				WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'V' AND estado = 'F' AND aplicado = 'V';
+				
+				-- Total Devoluciones Conciliadas sin Aplicar (tipo_conciliacion 10 y 15).
+				SELECT COUNT(nomarchivo) INTO iDevconciliadasSA FROM bditarjeta:"informix".td_devolucionespos 
+				WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'V' AND estado IN('P','A','F') AND aplicado IN('F','E');
+				
+				-- Total Devoluciones con Error de Integridad (tipo_conciliacion 0 y 12).
+				SELECT COUNT(nomarchivo) INTO iDevErrorIntegridad FROM bditarjeta:"informix".td_devolucionespos 
+				WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'F' AND estado = 'P' AND aplicado IN('E','F');
+				
+				-- Total Devoluciones Faltantes.
+				SELECT FIRST 1 iDevrecibidas - ( iDevaplicadas + iDevaplicadasforzadas ) INTO iDevFaltantes 
+				FROM bditarjeta:"informix".td_devolucionespos;
+				
+				IF iDevrecibidas > 0 THEN
+					LET cCodRet = '00001';
+				END IF;
+				RETURN cCodret,cTipoArchivo,cNombrearchivo,cFechacarga,iDevrecibidas,iDevaplicadas,iDevaplicadasforzadas,iDevconciliadasSA,iDevErrorIntegridad,iDevFaltantes,
+						cNumTarjeta,cTipoOperacion,cMotivo,cNomcomercio,cReferencia,mMonto325,mMontocashbackarchivo WITH RESUME;
+			END IF;
+		END FOREACH;
+		
+		LET cNombrearchivo = '';
+		LET cFechacarga = '';
+		LET cArchivoOrigen = '';
+		
+		FOREACH WITH HOLD -- Se regresa valores en 0 para casos donde no existen devoluciones dentro de archivos.
+			SELECT distinct(nombrearchivo),fecha_archivo,archivo_origen INTO cNombrearchivo,cFechacarga,cArchivoOrigen 
+			FROM bditarjeta:"informix".td_archivos_conciliacion WHERE fecha_archivo = psFechaConsulta 
+			AND fecha_hora_fin_proceso > '1900-01-01 00:00:00.0' AND archivo_origen IN('VIC','VNC','VID','VND') 
+			AND nombrearchivo NOT IN (select nomarchivo	from bditarjeta:"informix".td_devolucionespos where fecha = psFechaConsulta)			
+						
+			IF( cArchivoOrigen = 'VIC' OR cArchivoOrigen = 'VNC' OR cArchivoOrigen = 'MCC') THEN
+				LET cTipoArchivo = 'Archivo de crédito sin devoluciones';
+				LET iDevrecibidas = 0;
+				LET iDevaplicadas = 0;
+				LET iDevaplicadasforzadas = 0;
+				LET iDevconciliadasSA = 0;
+				LET iDevErrorIntegridad = 0;
+				LET iDevFaltantes = 0;
+				LET cCodRet = '00001';
+				
+				RETURN cCodret,cTipoArchivo,cNombrearchivo,cFechacarga,iDevrecibidas,iDevaplicadas,iDevaplicadasforzadas,iDevconciliadasSA,iDevErrorIntegridad,iDevFaltantes,
+						cNumTarjeta,cTipoOperacion,cMotivo,cNomcomercio,cReferencia,mMonto325,mMontocashbackarchivo WITH RESUME;
+				
+			ELIF( cArchivoOrigen = 'VID' OR cArchivoOrigen = 'VND' OR cArchivoOrigen = 'MCD') THEN
+				LET cTipoArchivo = 'Archivo de débito sin devoluciones';
+				LET iDevrecibidas = 0;
+				LET iDevaplicadas = 0;
+				LET iDevaplicadasforzadas = 0;
+				LET iDevconciliadasSA = 0;
+				LET iDevErrorIntegridad = 0;
+				LET iDevFaltantes = 0;
+				LET cCodRet = '00001';
+				
+				RETURN cCodret,cTipoArchivo,cNombrearchivo,cFechacarga,iDevrecibidas,iDevaplicadas,iDevaplicadasforzadas,iDevconciliadasSA,iDevErrorIntegridad,iDevFaltantes,
+						cNumTarjeta,cTipoOperacion,cMotivo,cNomcomercio,cReferencia,mMonto325,mMontocashbackarchivo WITH RESUME;
+			END IF;
+		END FOREACH;
+	
+	ELIF piTipoArchivo = 2 THEN -- Archivos de crédito con devoluciones pendientes
+		
+		FOREACH WITH HOLD
+			SELECT distinct(nomarchivo),fecha INTO cNombrearchivo,cFechacarga 
+			FROM bditarjeta:"informix".td_devolucionespos 
+			WHERE archivoorigen IN('VIC','VNC','MCC') AND fecha = psFechaConsulta 
+			AND ((encontrado = 'V' AND estado IN('P','A','F') AND aplicado IN('F','E')) OR 
+				 (encontrado = 'F' AND estado = 'P' AND aplicado IN('E','F'))) -- (tipo_conciliación 0,10,12 y 15)
+						
+			LET cTipoArchivo = 'Archivo de crédito con devoluciones pendientes';
+			
+			-- Total Devoluciones Recibidas.
+			SELECT COUNT(nomarchivo) INTO iDevrecibidas FROM bditarjeta:"informix".td_devolucionespos 
+			WHERE nomarchivo = cNombreArchivo AND fecha = psFechaConsulta;
+			
+			-- Total Devoluciones Aplicadas (tipo_conciliacion = 14).
+			SELECT COUNT(nomarchivo) INTO iDevaplicadas FROM bditarjeta:"informix".td_devolucionespos 
+			WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'V' AND estado = 'A' AND aplicado = 'V';
+			
+			-- Total Devoluciones Aplicadas Forzadas (tipo_conciliacion = 11).
+			SELECT COUNT(nomarchivo) INTO iDevaplicadasforzadas FROM bditarjeta:"informix".td_devolucionespos 
+			WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'V' AND estado = 'F' AND aplicado = 'V';
+			
+			-- Total Devoluciones Conciliadas sin Aplicar (tipo_conciliacion 10 y 15).
+			SELECT COUNT(nomarchivo) INTO iDevconciliadasSA FROM bditarjeta:"informix".td_devolucionespos 
+			WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'V' AND estado IN('P','A','F') AND aplicado IN('F','E');
+			
+			-- Total Devoluciones con Error de Integridad (tipo_conciliacion 0 y 12).
+			SELECT COUNT(nomarchivo) INTO iDevErrorIntegridad FROM bditarjeta:"informix".td_devolucionespos 
+			WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'F' AND estado = 'P' AND aplicado IN('E','F');
+			
+			-- Total Devoluciones Faltantes.
+			SELECT FIRST 1 iDevrecibidas - ( iDevaplicadas + iDevaplicadasforzadas ) INTO iDevFaltantes 
+			FROM bditarjeta:"informix".td_devolucionespos;
+									
+			IF iDevrecibidas > 0 THEN
+				LET cCodRet = '00001';
+			END IF;
+			RETURN cCodret,cTipoArchivo,cNombrearchivo,cFechacarga,iDevrecibidas,iDevaplicadas,iDevaplicadasforzadas,iDevconciliadasSA,iDevErrorIntegridad,iDevFaltantes,
+					cNumTarjeta,cTipoOperacion,cMotivo,cNomcomercio,cReferencia,mMonto325,mMontocashbackarchivo WITH RESUME;
+		END FOREACH;
+		
+	ELIF piTipoArchivo = 3 THEN -- Archivos de crédito sin devoluciones pendientes
+				
+		IF NOT EXISTS( SELECT nomarchivo FROM bditarjeta:"informix".td_devolucionespos 
+						WHERE archivoorigen IN('VIC','VNC','MCC') AND fecha = psFechaConsulta 
+						AND ((encontrado = 'V' AND estado IN('P','A','F') AND aplicado IN('F','E')) OR 
+							(encontrado = 'F' AND estado = 'P' AND aplicado IN('E','F'))) ) THEN
+		
+			FOREACH WITH HOLD
+				SELECT distinct(nomarchivo),fecha INTO cNombrearchivo,cFechacarga 
+				FROM bditarjeta:"informix".td_devolucionespos 
+				WHERE archivoorigen IN('VIC','VNC','MCC') AND fecha = psFechaConsulta 
+				AND((encontrado = 'V' AND estado = 'F' AND aplicado = 'V') OR 
+					(encontrado = 'V' AND estado = 'A' AND aplicado = 'V')) -- (tipo_conciliacion 11 y 14)
+					
+				LET cTipoArchivo = 'Archivo de crédito sin devoluciones pendientes';
+				
+				-- Total Devoluciones Recibidas.
+				SELECT COUNT(nomarchivo) INTO iDevrecibidas FROM bditarjeta:"informix".td_devolucionespos 
+				WHERE nomarchivo = cNombreArchivo AND fecha = psFechaConsulta;
+				
+				-- Total Devoluciones Aplicadas (tipo_conciliacion = 14).
+				SELECT COUNT(nomarchivo) INTO iDevaplicadas FROM bditarjeta:"informix".td_devolucionespos 
+				WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'V' AND estado = 'A' AND aplicado = 'V';
+				
+				-- Total Devoluciones Aplicadas Forzadas (tipo_conciliacion = 11).
+				SELECT COUNT(nomarchivo) INTO iDevaplicadasforzadas FROM bditarjeta:"informix".td_devolucionespos 
+				WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'V' AND estado = 'F' AND aplicado = 'V';
+				
+				-- Total Devoluciones Conciliadas sin Aplicar (tipo_conciliacion 10 y 15).
+				SELECT COUNT(nomarchivo) INTO iDevconciliadasSA FROM bditarjeta:"informix".td_devolucionespos 
+				WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'V' AND estado IN('P','A','F') AND aplicado IN('F','E');
+				
+				-- Total Devoluciones con Error de Integridad (tipo_conciliacion 0 y 12).
+				SELECT COUNT(nomarchivo) INTO iDevErrorIntegridad FROM bditarjeta:"informix".td_devolucionespos 
+				WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'F' AND estado = 'P' AND aplicado IN('E','F');
+				
+				-- Total Devoluciones Faltantes.
+				SELECT FIRST 1 iDevrecibidas - ( iDevaplicadas + iDevaplicadasforzadas ) INTO iDevFaltantes 
+				FROM bditarjeta:"informix".td_devolucionespos;
+				
+				IF iDevrecibidas > 0 THEN
+					LET cCodRet = '00001';
+				END IF;
+				
+				RETURN cCodret,cTipoArchivo,cNombrearchivo,cFechacarga,iDevrecibidas,iDevaplicadas,iDevaplicadasforzadas,iDevconciliadasSA,iDevErrorIntegridad,iDevFaltantes,
+						cNumTarjeta,cTipoOperacion,cMotivo,cNomcomercio,cReferencia,mMonto325,mMontocashbackarchivo WITH RESUME;
+			END FOREACH;
+		END IF;
+	
+	ELIF piTipoArchivo = 4 THEN -- Archivos de débito con devoluciones pendientes
+	
+		FOREACH WITH HOLD
+			SELECT distinct(nomarchivo),fecha INTO cNombrearchivo,cFechacarga 
+			FROM bditarjeta:"informix".td_devolucionespos 
+			WHERE archivoorigen IN('VID','VND','MCD') AND fecha = psFechaConsulta 
+			AND ((encontrado = 'V' AND estado IN('P','A','F') AND aplicado IN('F','E')) OR 
+				 (encontrado = 'F' AND estado = 'P' AND aplicado IN('E','F'))) -- (tipo_conciliación 0,10,12 y 15)
+			
+			LET cTipoArchivo = 'Archivo de débito con devoluciones pendientes';
+			
+			-- Total Devoluciones Recibidas.
+			SELECT COUNT(nomarchivo) INTO iDevrecibidas FROM bditarjeta:"informix".td_devolucionespos 
+			WHERE nomarchivo = cNombreArchivo AND fecha = psFechaConsulta;
+			
+			-- Total Devoluciones Aplicadas (tipo_conciliacion = 14).
+			SELECT COUNT(nomarchivo) INTO iDevaplicadas FROM bditarjeta:"informix".td_devolucionespos 
+			WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'V' AND estado = 'A' AND aplicado = 'V';
+			
+			-- Total Devoluciones Aplicadas Forzadas (tipo_conciliacion = 11).
+			SELECT COUNT(nomarchivo) INTO iDevaplicadasforzadas FROM bditarjeta:"informix".td_devolucionespos 
+			WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'V' AND estado = 'F' AND aplicado = 'V';
+			
+			-- Total Devoluciones Conciliadas sin Aplicar (tipo_conciliacion 10 y 15).
+			SELECT COUNT(nomarchivo) INTO iDevconciliadasSA FROM bditarjeta:"informix".td_devolucionespos 
+			WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'V' AND estado IN('P','A','F') AND aplicado IN('F','E');
+			
+			-- Total Devoluciones con Error de Integridad (tipo_conciliacion 0 y 12).
+			SELECT COUNT(nomarchivo) INTO iDevErrorIntegridad FROM bditarjeta:"informix".td_devolucionespos 
+			WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'F' AND estado = 'P' AND aplicado IN('E','F');
+			
+			-- Total Devoluciones Faltantes.
+			SELECT FIRST 1 iDevrecibidas - ( iDevaplicadas + iDevaplicadasforzadas ) INTO iDevFaltantes 
+			FROM bditarjeta:"informix".td_devolucionespos;
+					
+			IF iDevrecibidas > 0 THEN
+				LET cCodRet = '00001';
+			END IF;
+			RETURN cCodret,cTipoArchivo,cNombrearchivo,cFechacarga,iDevrecibidas,iDevaplicadas,iDevaplicadasforzadas,iDevconciliadasSA,iDevErrorIntegridad,iDevFaltantes,
+					cNumTarjeta,cTipoOperacion,cMotivo,cNomcomercio,cReferencia,mMonto325,mMontocashbackarchivo WITH RESUME;
+		END FOREACH;
+	
+	ELIF piTipoArchivo = 5 THEN -- Archivos de débito sin devoluciones pendientes
+				
+		IF NOT EXISTS( SELECT nomarchivo FROM bditarjeta:"informix".td_devolucionespos 
+						WHERE archivoorigen IN('VID','VND','MCD') AND fecha = psFechaConsulta 
+						AND ((encontrado = 'V' AND estado IN('P','A','F') AND aplicado IN('F','E')) OR 
+							(encontrado = 'F' AND estado = 'P' AND aplicado IN('E','F'))) ) THEN
+		
+			FOREACH WITH HOLD
+				SELECT distinct(nomarchivo),fecha INTO cNombrearchivo,cFechacarga 
+				FROM bditarjeta:"informix".td_devolucionespos 
+				WHERE archivoorigen IN('VID','VND','MCD') AND fecha = psFechaConsulta 
+				AND((encontrado = 'V' AND estado = 'F' AND aplicado = 'V') OR 
+					(encontrado = 'V' AND estado = 'A' AND aplicado = 'V')) -- (tipo_conciliacion 11 y 14)
+							
+				LET cTipoArchivo = 'Archivo de débito sin devoluciones pendientes';
+				
+				-- Total Devoluciones Recibidas.
+				SELECT COUNT(nomarchivo) INTO iDevrecibidas FROM bditarjeta:"informix".td_devolucionespos 
+				WHERE nomarchivo = cNombreArchivo AND fecha = psFechaConsulta;
+				
+				-- Total Devoluciones Aplicadas (tipo_conciliacion = 14).
+				SELECT COUNT(nomarchivo) INTO iDevaplicadas FROM bditarjeta:"informix".td_devolucionespos 
+				WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'V' AND estado = 'A' AND aplicado = 'V';
+				
+				-- Total Devoluciones Aplicadas Forzadas (tipo_conciliacion = 11).
+				SELECT COUNT(nomarchivo) INTO iDevaplicadasforzadas FROM bditarjeta:"informix".td_devolucionespos 
+				WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'V' AND estado = 'F' AND aplicado = 'V';
+				
+				-- Total Devoluciones Conciliadas sin Aplicar (tipo_conciliacion 10 y 15).
+				SELECT COUNT(nomarchivo) INTO iDevconciliadasSA FROM bditarjeta:"informix".td_devolucionespos 
+				WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'V' AND estado IN('P','A','F') AND aplicado IN('F','E');
+				
+				-- Total Devoluciones con Error de Integridad (tipo_conciliacion 0 y 12).
+				SELECT COUNT(nomarchivo) INTO iDevErrorIntegridad FROM bditarjeta:"informix".td_devolucionespos 
+				WHERE nomarchivo = cNombrearchivo AND fecha = psFechaConsulta AND encontrado = 'F' AND estado = 'P' AND aplicado IN('E','F');
+				
+				-- Total Devoluciones Faltantes.
+				SELECT FIRST 1 iDevrecibidas - ( iDevaplicadas + iDevaplicadasforzadas ) INTO iDevFaltantes 
+				FROM bditarjeta:"informix".td_devolucionespos;
+				
+				IF iDevrecibidas > 0 THEN
+					LET cCodRet = '00001';
+				END IF;
+				RETURN cCodret,cTipoArchivo,cNombrearchivo,cFechacarga,iDevrecibidas,iDevaplicadas,iDevaplicadasforzadas,iDevconciliadasSA,iDevErrorIntegridad,iDevFaltantes,
+						cNumTarjeta,cTipoOperacion,cMotivo,cNomcomercio,cReferencia,mMonto325,mMontocashbackarchivo WITH RESUME;
+			END FOREACH;
+		END IF;
+	
+	ELIF piTipoArchivo = 6 THEN -- Datos Detalle
+	
+		FOREACH WITH HOLD		
+			SELECT numtarjeta,fecha,nomcomercio,referencia,montoarchivo,motivo,montocashbackarchivo
+			INTO cNumTarjeta,cFechacarga,cNomcomercio,cReferencia,mMonto325,cMotivo,mMontocashbackarchivo
+			FROM bditarjeta:"informix".td_devolucionespos 
+			WHERE nomarchivo = psNombreArchivo AND fecha = psFechaConsulta
+			
+			LET cTipoOperacion = 'ABONO'; -- Valor por Default.
+			LET cCodret = '00001';
+					
+			RETURN cCodret,cTipoArchivo,cNombrearchivo,cFechacarga,iDevrecibidas,iDevaplicadas,iDevaplicadasforzadas,iDevconciliadasSA,iDevErrorIntegridad,iDevFaltantes,
+					cNumTarjeta,cTipoOperacion,cMotivo,cNomcomercio,cReferencia,mMonto325,mMontocashbackarchivo WITH RESUME;
+			END FOREACH;
+	END IF;
+	
+END
+END PROCEDURE
+DOCUMENT
+'AUTOR: Arturo Méndez Cárdenas',
+'Proyecto: ReingenieriaConciliacionAutomatica',
+'Solicito: Jose Luis Puebla',
+'Fecha: 2012/04/12',
+'Version: 20120412.1605',
+'BD: BdiTarjeta',
+'',
+'MODIFICACION: Arturo Méndez Cárdenas',
+'Proyecto: ReingenieriaConciliacionAutomatica',
+'Solicito: Jose Luis Puebla',
+'Fecha: 2012/05/23',
+'Version: 20120523.1542',
+'BD: BdiTarjeta',
+'',
+'MODIFICACION: Arturo Méndez Cárdenas',
+'Proyecto: ReingenieriaConciliacionAutomatica',
+'Solicito: Jose Luis Puebla',
+'Cambio: Se modifica para obtener archivos sin devoluciones',
+'Fecha: 2012/06/22',
+'Version: 20120622.0845',
+'BD: BdiTarjeta',
+'',
+'MODIFICACION: Gómez Pérez Ilse Jazmín',
+'Proyecto: Reingenieria Conciliacion',
+'Solicito: Luis Antonio Gomez',
+'Cambio: Se integra un nuevo campo al proceso de estracción, para retornar el monto de transacciones Cash Back.',
+'Fecha: 2013/08/27',
+'Version: 20130821.1441',
+'BD: BdiTarjeta',
+'',
+'MODIFICACION: Ricardo Reséndiz Martinez',
+'Proyecto: Conciliacion MasterCard',
+'Solicito: Luis Antonio Gomez',
+'Cambio: Se integra archivos MCD y MCC para el procesos de clasificacion de ',
+'Fecha: 2014/04/04',
+'Version: 20140404.1322',
+'BD: BdiTarjeta';
+
+CREATE PROCEDURE "informix".sp_sorteo_sat_pba (
+		pdfecha date
+		)
+
+RETURNING 
+			VARCHAR (5) AS CodRet, 
+			VARCHAR(250) AS Mensaje_Respuesta;
+
+--Definición de Variables de Error
+DEFINE vicodigo 			integer;
+DEFINE vsCodRet 			VARCHAR(5);
+DEFINE vsMensaje_Respuesta 	VARCHAR(250);
+
+--Definición de Variables de Error para central
+DEFINE vsCodRet2 			VARCHAR(5);
+DEFINE vsPbandera		 	VARCHAR(1);
+
+
+
+--Definición de Variables de datos archivo
+DEFINE viconsecutivo		integer;
+DEFINE vsperiodo			varchar(4);
+DEFINE vstporeg				varchar(2);
+DEFINE vsemisor				varchar(4);
+DEFINE vsfecha				varchar(6);
+DEFINE vstarjeta			varchar(16);
+DEFINE vsmonto				varchar(12);
+DEFINE vmmonto			money;
+DEFINE vssecuencia			varchar(6);
+DEFINE vssecuencia2		varchar(7);
+DEFINE vsreferencia			varchar(12);
+DEFINE vsmontopremio		varchar(12);
+DEFINE vmmontopremio	money;
+DEFINE vsbin				varchar(6);
+DEFINE vsproducto			Varchar(1);
+
+
+	
+--Definicion de variables de validaciones
+DEFINE vsesreferencia			varchar(1);
+DEFINE vsesmonto			varchar(1);
+DEFINE vsessecuencia		varchar(1);
+DEFINE vsesmontopremio		varchar(1);
+
+
+--Definicion variables recuperadas de Intercard
+DEFINE vssecintercard		varchar(7);
+DEFINE vssecextendidainter	varchar(15);
+DEFINE vmmontointercard		money;
+DEFINE vdFechatransaccion 	DATETIME YEAR TO FRACTION(5);
+DEFINE vsrefintercard		varchar(12);
+DEFINE vsstatustarjeta		varchar(3);
+DEFINE vsnumerocuenta		varchar(13);
+DEFINE vsreferencia23_325 	varchar(23);
+
+DEFINE vsfoliosuc    		varchar(16);
+
+DEFINE vsencontrado 		Char(1);
+
+--Definición de datos centrales
+DEFINE vsretcentral			varchar(5);
+DEFINE vsordenabono			varchar(16);
+DEFINE vscoddevolucion		varchar(1);
+
+DEFINE vdfechahoyinte		date;
+
+
+--Definicion de variable de validacion
+DEFINE vsvalidacion			varchar(1);
+DEFINE vsErrorIntegridad	varchar(20);
+DEFINE vsobservacion		varchar(40);
+
+--Definición de bandera de ciclo
+DEFINE vsFlagEnTransaccion 	varchar(1);
+DEFINE viContadorRegistros 	integer;
+
+--Para las transacciones a ser utilizadas
+DEFINE vstranaplica		 	varchar(4);
+
+-- Para retorno de Principal de Credito
+DEFINE 	g_Remanente		money;
+DEFINE  g_IntMoraCob   	money;
+DEFINE  g_IntVencCob	money;
+DEFINE  g_CapVencCob    money;
+DEFINE  g_IntVigCob		money;
+DEFINE  g_CapVigCob		money;
+DEFINE  g_Impuesto		money;
+DEFINE  g_Comision		money;
+DEFINE	g_Seguro		money;
+
+-- Para generacion de archivo
+
+DEFINE 	vsql			char (1150);
+DEFINE  vsfecencabezado   char(10);
+DEFINE  vicontador 		integer;
+DEFINE  vscontador		char(10);
+DEFINE  viincremento	integer;
+DEFINE  vicontador2		integer;
+
+
+BEGIN
+	ON EXCEPTION SET viCodigo   --cacha el error en caso de que exista y regresa un valor predeterminado
+
+				RETURN 	vsCodRet, 
+						vsMensaje_Respuesta;
+
+	END EXCEPTION;
+
+SET DEBUG FILE TO '/resplogifx/sp_sorteo_sat.out';
+TRACE ON;
+
+-- Inicialización de variables
+LET 	vicodigo = 0;
+LET		vsCodRet = '00000';
+LET		vsMensaje_Respuesta = 'PROCESO TERMINADO SATISFACTORIAMENTE';
+
+--Definición de Variables de Error para central
+LET vsCodRet2 = '';
+LET vsPbandera = '';
+
+--Inicialización de Variables de datos archivo
+LET 	viconsecutivo = 0;
+LET 	vsperiodo = '';
+LET 	vstporeg = '';
+LET 	vsemisor = '';
+LET 	vsfecha = '';
+LET 	vstarjeta = '';
+LET 	vsmonto = '';
+LET 	vmmonto	= 0;
+LET vssecuencia	= '';
+LET vssecuencia2 = '';
+LET vsreferencia = '';
+LET vsmontopremio = '';
+LET vmmontopremio = 0;
+LET vsbin = '';
+LET vsproducto = '';
+	
+--Inicilaizacion de variables de validacion
+
+LET vsesreferencia	= '';
+LET vsesmonto = '';
+LET vsessecuencia = '';
+LET vsesmontopremio = '';
+
+
+--Inicializacion variables recuperadas de Intercard
+LET vssecintercard = '';
+LET vssecextendidainter = '';
+LET vmmontointercard = 0;
+LET vdFechatransaccion 	= CAST('1900-01-01 12:00:00' AS DATETIME YEAR TO FRACTION(5));
+LET vsrefintercard = '';
+LET vsstatustarjeta = '';
+LET vsnumerocuenta = '';
+LET vsreferencia23_325 = '';
+
+LET vsfoliosuc = '';
+
+LET vsencontrado = '';
+--Inicialización de datos centrales
+LET vsretcentral = '';
+LET vsordenabono = '';
+LET vscoddevolucion = '';
+
+
+--Inicialización de variable de validacion
+LET vsvalidacion = '';
+LET vsErrorIntegridad = '';
+LET vsobservacion = '';
+
+LET vsFlagEnTransaccion = 'F';
+LET viContadorRegistros = 0;
+
+--Para las transacciones a ser utilizadas
+LET vstranaplica  = '';
+
+-- Inicializacion de variables de retorno de credito
+LET  g_Remanente 	= 0.00;
+LET  g_IntMoraCob 	= 0.00;
+LET  g_IntVencCob 	= 0.00;
+LET  g_CapVencCob  	= 0.00;
+LET  g_IntVigCob	= 0.00;
+LET  g_CapVigCob 	= 0.00;
+LET  g_Impuesto		= 0.00;
+LET  g_Comision 	= 0.00;
+LET	 g_Seguro  		= 0.00;
+
+-- Para generacion de archivo
+
+LET 	vsql	= '';
+LET     vsfecencabezado = '';
+LET 	vicontador = 0;
+LET 	vscontador = '';
+LET  	viincremento = 0;
+LET		vicontador2 = 0;
+
+	SET LOCK MODE TO WAIT 3;
+	SET ISOLATION TO DIRTY READ;
+	Select fecha_hoy into vdfechahoyinte from Bdinteg:"informix".si_fechas;
+	
+	if pdfecha = vdfechahoyinte then
+			FOREACH WITH HOLD
+				Select consecutivo, periodofiscal, tporeg, banemisor, fechatransaccion, numtarjeta, montoarchivo, secuenciaarchivo, numrefarchivo, montopremio
+						into viconsecutivo, vsperiodo, vstporeg, vsemisor, vsfecha, vstarjeta, vsmonto, vssecuencia, vsreferencia, vsmontopremio 
+						from Bditarjeta:"informix".tb_sorteo_sat
+							where validaciones = 'V' and 
+									periodofiscal = '2014' -- Actualizar periodo para ejecucion 
+						
+				IF (vsFlagEnTransaccion = 'F') THEN 
+					BEGIN WORK;
+					LET vsFlagEnTransaccion = 'V';
+				END IF;
+						
+			--		EXECUTE PROCEDURE Bditarjeta:"informix".sp_valida_sorteosat (viconsecutivo,vstarjeta,vsmonto,vssecuencia,vsreferencia,vsmontopremio)
+			--			into vsCodRet, vsMensaje_Respuesta, vsvalidacion;
+						
+			--			if vsCodRet <> '00000' and vsvalidacion = 'F' then
+			--				RETURN 		vsCodRet, 
+			--								NVL(vsMensaje_Respuesta,'');
+			--			else					
+								
+				LET vstranaplica = (CASE 	
+										WHEN TRIM(SUBSTR(vstarjeta, 1,6)) in (select bin from Intercard:"informix".bines where creditodebito = 'D')	THEN '0326'
+										WHEN TRIM(SUBSTR(vstarjeta, 1,6)) in (select bin from Intercard:"informix".bines where creditodebito = 'C') THEN '7860'
+									END);
+								
+				EXECUTE PROCEDURE "informix".sp_busmovint_sat (vstarjeta, vssecuencia) 
+						into vsCodRet, vssecintercard, vssecextendidainter, vmmontointercard, vdFechatransaccion, vsrefintercard,vsnumerocuenta ,vsstatustarjeta, vsreferencia23_325; 	
+								let  vsfoliosuc	= 'i'||vssecextendidainter;
+									
+				if vsCodRet = '00000' then 
+						update Bditarjeta:"informix".tb_sorteo_sat
+								set
+									secuenciaintercard = vssecintercard,
+									secextendidainter = vssecextendidainter,
+									montointercard = vmmontointercard,
+									fchtransacintercard = vdFechatransaccion,
+									numrefintercard = vsrefintercard,
+									numcuenta = vsnumerocuenta,
+									estatustarjeta = vsstatustarjeta,
+									referencia23_325 = vsreferencia23_325,
+									ordenabono = LPAD (vsfoliosuc,23,' '),
+									tranaplica = vstranaplica
+								where
+									consecutivo = viconsecutivo;
+											
+						EXECUTE PROCEDURE "informix".sp_busmovdev_sat ( vstarjeta, vssecuencia )
+								into vsCodRet, vsencontrado;
+										
+						if (vsCodRet = '00001'  and vsencontrado = 'V') then 
+							update Bditarjeta:"informix".tb_sorteo_sat
+								set
+									validaciones = 'F',
+									observacion = 'Movimiento fue devuelto'
+								where
+									consecutivo = viconsecutivo;
+							LET vsvalidacion = 'F';
+											
+						elif (vsCodRet = '00000'  and vsencontrado = 'F') then
+							update Bditarjeta:"informix".tb_sorteo_sat
+								set
+									validaciones = 'V',
+									observacion = 'Movimiento aplica'
+								where
+									consecutivo = viconsecutivo;
+							LET vsvalidacion = 'V';
+						end if;
+										
+										/*    ###### Se comenta para quitar validaciones de los montos 11/12/2014 RRM
+										if vmmontointercard <> ((vsmontopremio::MONEY)/100) then
+											update Bditarjeta:"informix".tb_sorteo_sat
+												set
+													validaciones = 'F',
+													observacion = 'Transaccion con montos diferentes'
+												where
+											consecutivo = viconsecutivo;
+									
+											LET vsvalidacion = 'F';
+										end if;*/
+
+						if  ((vsmontopremio::MONEY)/100) > 10000 then
+							update Bditarjeta:"informix".tb_sorteo_sat
+								set
+									validaciones = 'F',
+									observacion = 'Monto premio mayor a $10,000.00'
+								where
+									consecutivo = viconsecutivo;
+											LET vsvalidacion = 'F';
+						end if;
+										
+						if  ((vsmontopremio::MONEY)/100) = 0 then
+							update Bditarjeta:"informix".tb_sorteo_sat
+								set
+									validaciones = 'F',
+									observacion = 'Monto premio deber ser mayor $0.01'
+								where
+									consecutivo = viconsecutivo;
+									LET vsvalidacion = 'F';
+						end if;
+										
+										
+						if vsstatustarjeta <> 'ACT' then
+							update Bditarjeta:"informix".tb_sorteo_sat
+								set
+									validaciones = 'P',
+									observacion = 'Tarjeta tiene estatus <> Activo'
+								where
+									consecutivo = viconsecutivo;
+									LET vsvalidacion = 'P';		
+						end if;
+										
+						if vsvalidacion in ('P','V') then 
+						-- Se agrega proceso para la recuperacion de la direccción del Cliente premiado 
+							EXECUTE PROCEDURE "informix".sp_busEdoPob_sat ( vstarjeta, viconsecutivo )
+									into vsCodRet, vsencontrado;	
+						end if;
+				else
+					update Bditarjeta:"informix".tb_sorteo_sat
+						set
+							secuenciaintercard = 	'000000',
+							secextendidainter = 	'000000000000000',
+							montointercard = 		0.0,
+							fchtransacintercard = 	CAST('1900-10-10 12:00:00' AS DATETIME YEAR TO FRACTION(5)),
+							numrefintercard = '0000000000000',
+							numcuenta = '00000000000',
+							estatustarjeta = 'NOE',
+							ordenabono = '00000000000000000000000',
+							tranaplica = '0000',
+							validaciones = 'F',
+							observacion = 'Transaccion no encontrada',
+							referencia23_325 = '00000000000000000000000'
+						where
+							consecutivo = viconsecutivo;
+							LET vsvalidacion = 'F';
+				end if;
+								
+				COMMIT WORK;   
+				BEGIN WORK;
+								
+				if (TRIM(SUBSTR(vstarjeta, 1,6)) in (select bin from Intercard:"informix".bines where creditodebito = 'D')
+					and	vsvalidacion in ('P','V')) then
+
+					execute procedure Bdicheq:"informix".abono_ref(
+																	'001',						-- empresa
+																	'9290',						-- sucursal
+																	'informix', 				-- usuario
+																	vstranaplica,				-- transaccion aplica
+																	'0000', 					-- trasaccion sucursal
+																	vsfoliosuc, 				-- Folio suc
+																	vsnumerocuenta, 			-- numero de cuenta
+																	'0', 						-- numero de documento
+																	((vsmontopremio::MONEY)/100),		-- monto total
+																	((vsmontopremio::MONEY)/100),		-- monto firme
+																	0,							-- monto sbc
+																	0,							-- monto remesa
+																	0,							-- Dias retenido
+																	'01',						-- divisa
+																	'Premio Hacienda Buen Fin',	-- Referencia
+																	' ',						-- numero de tarjeta
+																	' ' 						-- usuario autoriza
+																	)
+						into vsCodRet;
+											
+					if 	vsCodRet = '000'	then
+						update Bditarjeta:"informix".tb_sorteo_sat
+							set
+								retcentral = vsCodRet,
+								codigodevolucion = '0'
+							where
+								consecutivo = viconsecutivo;
+					else
+						update Bditarjeta:"informix".tb_sorteo_sat
+							set
+								retcentral = vsCodRet,
+								codigodevolucion = '1'
+							where
+								consecutivo = viconsecutivo;
+					end if;
+									
+				elif (TRIM(SUBSTR(vstarjeta, 1,6)) in (select bin from Intercard:"informix".bines where creditodebito = 'C')
+						and vsvalidacion in ('P','V'))  then
+					EXECUTE PROCEDURE Bdicred:"informix".principal(
+																	'001',							-- Empresa
+																	vsnumerocuenta,					-- Numero de credito
+																	1,								-- Tipo de pago
+																	((vsmontopremio::MONEY)/100),	-- Monto
+																	'informix',						-- Usuario
+																	'9290',							-- Sucursal
+																	vsfoliosuc,						-- Folio_suc
+																	vstranaplica					-- Transaccion aplica
+																	)
+					into vsCodRet, g_Remanente, g_IntMoraCob, g_IntVencCob, g_CapVencCob, g_IntVigCob, g_CapVigCob, g_Impuesto, g_Comision, g_Seguro;
+									
+					if 	vsCodRet = '000'	then
+						update Bditarjeta:"informix".tb_sorteo_sat
+							set
+								retcentral = vsCodRet,
+								codigodevolucion = '0'
+							where
+								consecutivo = viconsecutivo;
+					else
+						update Bditarjeta:"informix".tb_sorteo_sat
+							set
+								retcentral = vsCodRet,
+								codigodevolucion = '1'
+							where
+								consecutivo = viconsecutivo;
+					end if;
+								
+				elif (TRIM(SUBSTR(vstarjeta, 1,6)) in (select bin from Intercard:"informix".bines where creditodebito = 'D') 
+					and vsvalidacion in ('F'))  then
+						
+					update Bditarjeta:"informix".tb_sorteo_sat
+						set
+							retcentral = 'NP',
+							codigodevolucion = '1'
+						where
+							consecutivo = viconsecutivo;
+												
+				elif (TRIM(SUBSTR(vstarjeta, 1,6)) in (select bin from Intercard:"informix".bines where creditodebito = 'C') 
+					and vsvalidacion in ('F'))  then
+					
+					update Bditarjeta:"informix".tb_sorteo_sat
+						set
+							retcentral = 'NP',
+							codigodevolucion = '1'
+						where
+							consecutivo = viconsecutivo;
+									
+				end if;
+								
+	--		end if;
+
+				LET viContadorRegistros = viContadorRegistros + 1;
+
+				--TERMINA EL BLOQUE DE REGISTROS POR TRANSACCION
+				IF (viContadorRegistros = 1000) THEN --VERIFICA SI ALCANSO EL MAXIMO DE TRANSACCIONES POR BLOQUE
+					COMMIT WORK;
+					--BEGIN WORK;
+					LET vsFlagEnTransaccion = 'F';
+					LET viContadorRegistros = 0;
+					CONTINUE FOREACH;
+				END IF;
+			END FOREACH;
+					
+			IF ((viContadorRegistros > 0) OR (vsFlagEnTransaccion = 'V')) THEN --VERIFICA SI EXISTE UN BLOQUE DE TRANSACCION PENDIENTE
+				COMMIT WORK;
+				LET vsFlagEnTransaccion = 'F';
+			END IF;
+				
+			LET  vsMensaje_Respuesta = 'Etapa 1 Completa';
+		--end if;
+	else
+			LET	vsCodRet = '00001';
+			LET	vsMensaje_Respuesta = 'Existe discrepancia en Fechas integral con ejecucion de proceso';
+	end if;
+
+				
+	let vsfecencabezado = day(vdfechahoyinte)||'/'||month(vdfechahoyinte)||'/'||year(vdfechahoyinte);
+				
+	set isolation to dirty read;
+	select count(*) into vicontador from Bditarjeta:tb_sorteo_sat
+		where periodofiscal = '2014';  -- Actualizar periodo para ejecucion
+		
+	let vscontador = vicontador::char(10);
+		
+	LET viincremento = Length(vscontador);
+		
+	For vicontador2 = viincremento  TO 9 STEP 1
+			LET vscontador = '0'||vscontador;
+	end for;
+	
+	
+			
+				
+	-- Primera linea del archivo
+	let vsql = 'echo "00|1|SAT           |FECHA|'||vsfecencabezado||'|" >> /resplogifx/EntregaSAT2014.txt';
+	system vsql;
+	let vsql = '';
+	let vsql = '';
+	system vsql;
+	-- Para generar comando de descarga de datos -- Actualizar periodo para ejecucion
+	let vsql = '';
+	let vsql = 	'echo "SET ISOLATION TO DIRTY READ; UNLOAD TO /resplogifx/SAT_BuenFin.unl '||
+				'select  tporeg,banemisor,day(fchtransacintercard)||month(fchtransacintercard)||year(fchtransacintercard), numtarjeta,'||
+				'montoarchivo,secuenciaarchivo,numrefarchivo,montopremio,ordenabono,codigodevolucion,codpostal,estado,poblacion from bditarjeta:"informix".tb_sorteo_sat where periodofiscal = ''"'||'2014'||'"'';">/resplogifx/SAT_BuenFin.sql';
+			
+	system vsql;
+	-- Ejecución del comando anterior
+	let vsql = '';
+	let vsql = '';
+	system vsql;
+	let vsql= "dbaccess bditarjeta /resplogifx/SAT_BuenFin.sql";
+	system vsql;
+	-- Borrando sentencia de ejecucion
+	let vsql = '';
+	let vsql ='rm /resplogifx/SAT_BuenFin.sql';
+	system vsql;
+	let vsql = '';
+	-- Agragando descarga a archivo final 
+	let vsql = 'cat /resplogifx/SAT_BuenFin.unl >> /resplogifx/EntregaSAT2014.txt';
+	system vsql;
+	let vsql = '';
+	let vsql = '';
+	system vsql;
+	-- Se le agrega espacido 
+	let vsql = '';
+	let vsql ='rm /resplogifx/SAT_BuenFin.unl';
+	system vsql;
+	let vsql = '';
+	-- Agregando pie de archivo
+	let vsql = 'echo "99|'||vscontador||'|" >> /resplogifx/EntregaSAT2014.txt';
+	system vsql;
+	
+	LET	vsCodRet = '00000';
+	LET  vsMensaje_Respuesta = 'Proceso completo se genero archivo EntregaSAT2014.txt';
+
+	
+	RETURN 	vsCodRet, 
+			NVL(vsMensaje_Respuesta,'');
+
+END 
+
+END PROCEDURE
+DOCUMENT
+'AUTOR: Ricardo Resendiz Martinez',
+'Proyecto: Sorteo de SAT del Buen Fin',
+'Solicito: Luis Antonio Gomez Santiago',
+'Descripcion: Proceso principal de proceso sorteo SAT',
+'Fecha: 2013/11/20',
+'Version: 20131112.1600',
+'BD: bditarjeta',
+'',
+'AUTOR: Ricardo Resendiz Martinez',
+'Proyecto: Sorteo de SAT del Buen Fin',
+'Solicito: Luis Antonio Gomez Santiago',
+'Descripcion: Proceso principal de proceso sorteo SAT con generacion de archivo de entrega al SAT',
+'Fecha: 2013/11/26',
+'Version: 20131126.1030',
+'BD: bditarjeta',
+'',
+'AUTOR: Ricardo Resendiz Martinez',
+'Proyecto: Sorteo de SAT del Buen Fin',
+'Solicito: Luis Antonio Gomez Santiago',
+'Descripcion: Se optimizo el proceso para busqueda optimizar forma de determinar la transaccion a ser aplicada',
+'Fecha: 2013/11/26',
+'Version: 20131126.1130',
+'BD: bditarjeta',
+'',
+'AUTOR: Ricardo Resendiz Martinez',
+'Proyecto: Sorteo de SAT del Buen Fin',
+'Solicito: Luis Antonio Gomez Santiago',
+'Descripcion: Se agrego spl el cual pemitira validar que el movimiento no se haya devuelto',
+'Fecha: 2013/11/29',
+'Version: 20131129.1820',
+'BD: bditarjeta',
+'',
+'AUTOR: Ricardo Resendiz Martinez',
+'Proyecto: Sorteo de SAT del Buen Fin',
+'Solicito: Luis Antonio Gomez Santiago',
+'Descripcion: Se agrego validaciones de monto premio',
+'Fecha: 2013/12/02',
+'Version: 20131202.1730',
+'BD: bditarjeta',
+'',
+'Modifica: Ricardo Resendiz Martinez',
+'Proyecto: Sorteo de SAT del Buen Fin',
+'Solicito: Luis Antonio Gomez Santiago',
+'Descripcion: Se agrega al proceso SPL el cual se encargara de recuperar los datos de estado y poblacion',
+'Fecha: 2013/12/02',
+'Version: 20131202.1730',
+'BD: bditarjeta';
+
+CREATE PROCEDURE "informix".sp_reporte_tarjetas_pba()
+RETURNING 	CHAR (06) as cod_ret,
+			CHAR (80) AS mensaje;
+			
+--variables de retorno
+	DEFINE cod_ret CHAR(06);
+	DEFINE mensaje CHAR(80);
+	
+ --variables de control de errores
+	DEFINE  SQL_ERR			INTEGER;
+	DEFINE  ISAM_ERR		INTEGER;
+	DEFINE  ERROR_INFO		VARCHAR(80);			
+	DEFINE	vpaso			INTEGER;	
+	
+--variables de proceso
+
+	DEFINE vcont 			INTEGER;
+	DEFINE vmax				datetime year to fraction(3)  ;
+	
+	
+	--variables para datos
+	                                                          
+	DEFINE vbin              	char(6)                       ;
+	DEFINE vcodstatustarjeta 	varchar(3)                    ;
+	DEFINE vcodstatusasignada	varchar(3)                    ;
+	DEFINE vtipo             	char(1)                       ;
+	DEFINE vfechaexp         	varchar(4)                    ;
+	DEFINE vproducto         	char(1)                       ;
+	DEFINE vmarca            	char(1)                       ;
+	DEFINE vtitular          	char(1)                       ;
+	DEFINE vcantidad         	INTEGER                       ;
+	DEFINE vfecha_ejecucion  	date                          ;
+	DEFINE vfecha_exp			char(04)					  ;
+	DEFINE vfecha_exp_min		char(04)					  ;
+	DEFINE vfecha_exp_max		char(04)					  ;
+	
+--SET DEBUG FILE TO "/informix/frg/Rpts_Productos/sp_reporte_tarjetas.out";
+--TRACE ON;
+	
+BEGIN
+	ON EXCEPTION SET SQL_ERR, ISAM_ERR, ERROR_INFO
+      LET cod_ret    = SQL_ERR;
+      LET mensaje  = SQL_ERR || ' ' || ISAM_ERR ||' en paso '|| vpaso ||' '|| ERROR_INFO ;
+      RETURN cod_ret, mensaje;
+	END EXCEPTION;
+
+	let cod_ret = '00000';
+	let mensaje = 'PROCESO EXITOSO';
+	
+	let vcont  = 0;
+	
+	set isolation to dirty read;
+	
+	SELECT {+INDEX(intercard:tarjeta idx_tarjeta2)} min(fechaexp),max(fechaexp)
+	INTO vfecha_exp_min, vfecha_exp_max
+	FROM intercard:tarjeta;	
+	 
+	let vpaso = 1;
+	let vfecha_exp = lpad(substr( year(date(current)) ,3,2) ,2,'0' ) || lpad(month(date(current)),2,'0') ; 
+	SELECT {+INDEX(reporte_tarjetas idx_reporte_tarjetas)} MAX(fecha_ejecucion) INTO vmax FROM reporte_tarjetas;
+	
+	
+	IF vmax IS NOT NULL THEN
+		
+	 LET vfecha_exp_min = vfecha_exp;
+	
+	END IF
+	
+		foreach cursor1 WITH HOLD 
+		
+		for
+		
+				select distinct (b.bin),
+
+					   t.codstatustarjeta,
+
+					   t.codstatusasignada,
+
+					  (CASE WHEN tipotar.chip = 'F' THEN 'B'
+
+							WHEN tipotar.chip = 'V' THEN 'C'
+
+							END) as tipo,          
+
+					   t.fechaexp,
+
+					   b.creditodebito as producto,      
+
+					  (CASE WHEN SUBSTR(b.bin,1,1) = 4 THEN 'V'
+
+							WHEN SUBSTR(b.bin,1,1) = 5 THEN 'M' END) as marca,
+
+					  (CASE WHEN t.titular = 'T' THEN 'T'
+
+							WHEN t.titular = 'A' THEN 'A'
+
+							ELSE 'N' END) as titular,      
+
+					   count(*) as cantidad,
+
+					   date(current) as fecha_ejecucion
+					   	INTO 	vbin              
+							   , vcodstatustarjeta 
+							   , vcodstatusasignada
+							   , vtipo             
+							   , vfechaexp         
+							   , vproducto         							     
+							   , vmarca            
+							   , vtitular          
+							   , vcantidad 
+							   , vfecha_ejecucion
+					   
+							from intercard:bines as b, intercard:tarjeta as t, intercard:tipotarjeta as tipotar, intercard:lote as lt
+
+							where b.bin = SUBSTR(t.numtarjeta,1,6)
+
+							and t.fechaexp BETWEEN vfecha_exp_min AND vfecha_exp_max 
+
+							  and tipotar.clave_tipotarjeta=lt.clave_tipotarjeta   
+
+							  and t.numerolote=lt.numerolote
+
+						group by 1,2,3,4,5,6,7,8
+
+						order by 1,2,3,4,5,6,7,8
+						
+						
+				     let vmarca = vmarca;
+					 
+				if vcont= 0 THEN
+					
+					BEGIN WORK;
+					
+				end IF
+		
+				let vpaso = 3;
+				INSERT INTO reporte_tarjetas (bin, codstatustarjeta, codstatusasignada, tipo, fechaexp, producto, marca, titular, cantidad, fecha_ejecucion)
+				VALUES( vbin, vcodstatustarjeta, vcodstatusasignada, vtipo, vfechaexp, vproducto, vmarca, vtitular, vcantidad, vfecha_ejecucion);
+
+				let vcont = vcont + 1;      
+		
+				if vcont= 1000 THEN
+					
+					let vcont=0;            
+					COMMIT WORK;
+					
+					
+				end IF		
+				
+		
+			end foreach;
+
+			if vcont <> 0 THEN
+					
+					COMMIT WORK;
+					
+			end IF			
+		
+	
+	
+	  RETURN cod_ret, mensaje;	
+END
+END PROCEDURE;

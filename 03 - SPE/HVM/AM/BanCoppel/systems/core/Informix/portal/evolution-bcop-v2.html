@@ -1,0 +1,289 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Informix · Evolución del Código v2 — "las vetas del árbol"</title>
+<style>
+:root{
+  --blue:#3D5FCD;--blued:#122FB1;--yellow:#F0D224;
+  --ink:#F4F6FF;--muted:#aab3d4;--muted2:#818ab0;
+  --glass:rgba(255,255,255,.055);--glassb:rgba(255,255,255,.10);
+  --line:rgba(255,255,255,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:#060a1a;color:var(--ink);
+  font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Calibri,sans-serif;
+  -webkit-font-smoothing:antialiased;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── Aurora ── */
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(27,63,208,.65),transparent 70%);animation:f1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(13,33,133,.7),transparent 70%);animation:f2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(240,210,36,.22),transparent 70%);animation:f3 32s ease-in-out infinite}
+@keyframes f1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes f2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes f3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+.grain{position:fixed;inset:0;z-index:-1;opacity:.045;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* ── Nav ── */
+nav{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;gap:14px;padding:13px 24px;
+  backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);
+  background:rgba(6,10,26,.55);border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0}
+nav img{height:20px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+nav .nt{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em}
+nav .sp{flex:1}
+nav .v2badge{font-size:10px;font-weight:800;letter-spacing:.12em;color:#060a1a;background:var(--yellow);padding:3px 9px;border-radius:20px}
+nav a.back{font-size:12px;color:var(--muted);padding:6px 13px;border-radius:20px;border:1px solid rgba(255,255,255,.09);transition:.22s;text-decoration:none}
+nav a.back:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+
+/* ── Tiles ── */
+#tiles{padding:8px 20px 6px;flex-shrink:0;display:flex;flex-wrap:wrap;gap:9px}
+.tile{
+  background:var(--glass);
+  backdrop-filter:blur(22px) saturate(155%);-webkit-backdrop-filter:blur(22px) saturate(155%);
+  border:1px solid var(--glassb);border-radius:14px;
+  box-shadow:0 8px 28px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.10);
+  padding:8px 16px;border-left:3px solid var(--yellow)
+}
+.tile .n{font-size:18px;font-weight:800;letter-spacing:-.02em;
+  background:linear-gradient(180deg,#fff,#c4d0ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.tile .l{font-size:8px;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;margin-top:3px;font-weight:600}
+
+/* ── Status ── */
+#ls{font-size:9px;color:var(--muted);padding:2px 22px 4px;flex-shrink:0}
+#ls.err{color:#fca5a5}
+
+/* ── Main layout ── */
+#top{display:flex;flex:1;overflow:hidden;min-height:0}
+#stagewrap{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+#stage{flex:1;position:relative}
+#svg{width:100%;height:100%}
+
+/* ── Sidebar ── */
+#side{
+  width:280px;min-width:280px;
+  background:rgba(255,255,255,.038);
+  backdrop-filter:blur(22px) saturate(155%);-webkit-backdrop-filter:blur(22px) saturate(155%);
+  border-left:1px solid rgba(255,255,255,.09);
+  overflow-y:auto;padding:12px;
+  scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.12) transparent
+}
+#side::-webkit-scrollbar{width:4px}
+#side::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:2px}
+
+.pt{font-size:9px;font-weight:700;letter-spacing:.12em;color:var(--muted2);text-transform:uppercase;margin:10px 0 5px;display:flex;align-items:center;gap:8px}
+.pt::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,rgba(255,255,255,.12),transparent)}
+
+.leg{display:flex;flex-wrap:wrap;gap:3px 8px}
+.lg{display:flex;align-items:center;gap:5px;font-size:9px;color:var(--muted);cursor:pointer;padding:2px 5px;border-radius:5px;transition:background .15s,color .15s}
+.lg:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+.lg.off{opacity:.3}
+.lg i{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+
+.prod{
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:10px;padding:8px 11px;margin-bottom:5px
+}
+.prod .py{font-size:13px;font-weight:800;color:var(--yellow)}
+.prod .pl{font-size:11px;font-weight:700;color:#F4F6FF}
+.prod .pm{font-size:9px;color:var(--muted);margin-top:2px}
+.spark{display:flex;align-items:flex-end;gap:1px;height:16px;margin-top:4px}
+.spark i{width:5px;background:#3D5FCD;border-radius:1px 1px 0 0;min-height:1px;opacity:.85}
+
+/* ── D3 axis ── */
+.axis text{fill:var(--muted);font-size:10px;font-family:'SF Pro Display','Inter',sans-serif}
+.axis line,.axis path{stroke:rgba(255,255,255,.12)}
+.layer{opacity:.85;transition:opacity .15s}.layer:hover{opacity:1}
+.layer.dim{opacity:.10}
+.mile{stroke:var(--yellow);stroke-width:1;stroke-dasharray:3 3;opacity:.45}
+.mile-dot{fill:var(--yellow)}
+.mile-yr{fill:rgba(240,210,36,.8);font-size:9px;font-weight:700;font-family:'SF Pro Display','Inter',sans-serif}
+.mile-hit{fill:transparent}
+.mgrp{cursor:pointer}
+.mgrp:hover .mile-dot{fill:#fff}
+.mgrp:hover .mile-yr{fill:var(--yellow)}
+
+/* ── Tooltip ── */
+#tip{
+  position:fixed;
+  background:rgba(6,10,26,.96);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border:1px solid rgba(240,210,36,.35);
+  border-radius:12px;padding:10px 14px;
+  font-size:11px;pointer-events:none;display:none;z-index:99;
+  max-width:240px;box-shadow:0 8px 32px rgba(0,0,0,.7);
+  font-family:'SF Pro Display','Inter',sans-serif
+}
+#tip .ty{font-weight:800;font-size:13px;margin-bottom:5px}
+#tip .tr{font-size:10px;color:var(--muted);margin:1px 0;display:flex;justify-content:space-between;gap:10px}
+#tip .tr b{color:var(--ink)}
+#tip .mtx{font-size:11px;color:var(--ink);line-height:1.45;font-weight:500}
+
+/* ── Footer ── */
+footer{
+  font-size:9px;color:var(--muted2);padding:6px 22px;flex-shrink:0;
+  border-top:1px solid rgba(255,255,255,.06);
+  background:rgba(6,10,26,.4)
+}
+
+/* ── Hero Strip ── */
+.hstrip{display:flex;align-items:center;gap:16px;padding:8px 26px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06);margin-top:48px}
+.hstrip-capa{display:inline-flex;align-items:center;gap:7px;padding:4px 12px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.06em;color:#dfe6ff;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09)}
+.hstrip-capa .dot{width:6px;height:6px;border-radius:50%;background:#F0D224;box-shadow:0 0 8px #F0D224;animation:pulse 2.4s infinite;flex-shrink:0}
+@keyframes pulse{50%{opacity:.4}}
+.hstrip-title{font-size:14px;font-weight:800;letter-spacing:-.01em;background:linear-gradient(135deg,#fff 40%,#9fb4ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hstrip-sp{flex:1}
+.hstrip-tiles{display:flex;gap:8px}
+.hstrip-tile{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:5px 14px;text-align:center}
+.hstrip-tile .n{font-size:15px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;background:linear-gradient(180deg,#fff,#c4d0ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hstrip-tile .l{font-size:8px;color:#818ab0;text-transform:uppercase;letter-spacing:.06em;margin-top:2px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<div class="grain"></div>
+
+<nav>
+  <img src="../bancoppel-logo.png" alt="BanCoppel">
+  <span class="nt">Informix · Evolución del Código</span>
+  <span class="v2badge">v2</span>
+  <span class="sp"></span>
+  <a class="back" href="index-bcop-v2.html">← Portal v2</a>
+</nav>
+
+<div class="hstrip">
+  <div class="hstrip-capa"><span class="dot"></span> Capa 3 · Biografía</div>
+  <div class="hstrip-title">Evolución del Código</div>
+  <div class="hstrip-sp"></div>
+  <div class="hstrip-tiles" id="tiles">
+  </div>
+</div>
+<div id="ls">Cargando…</div>
+
+<div id="top">
+  <div id="stagewrap"><div id="stage"><svg id="svg"></svg></div></div>
+  <div id="side">
+    <div class="pt">Dominios — clic para aislar</div>
+    <div class="leg" id="leg"></div>
+    <div class="pt" style="margin-top:14px">Productos bancarios — primera aparición</div>
+    <div id="prods"></div>
+  </div>
+</div>
+
+<footer>Cada franja = un dominio · grosor = SPs creados ese año · Fuente: fechas en comentarios (~11% de cobertura) — muestra la <b>forma</b> del crecimiento, no el censo exacto.</footer>
+<div id="tip"></div>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+const FILE='data/evolution-data.json';
+let DATA=null, off=new Set();
+const svg=d3.select('#svg'), g=svg.append('g');
+const tip=document.getElementById('tip');
+const RAMP=['#3D5FCD','#496AD1','#5574D4','#617FD8','#6D8ADC','#7994E0','#869FE3','#92A9E7','#9EB4EB','#AABFEF','#B6C9F2','#C2D4F6'];
+function colorOf(d,i){return RAMP[i%12];}
+function buildLeg(){
+  const doms=Object.entries(DATA.domains);
+  document.getElementById('leg').innerHTML=doms.map(([d,m],i)=>
+    `<div class="lg" data-d="${d}"><i style="background:${colorOf(d,i)}"></i>${d.toUpperCase()} ${m.name}</div>`).join('');
+  document.querySelectorAll('.lg').forEach(el=>el.onclick=()=>{
+    const d=el.dataset.d; if(off.has(d)){off.delete(d);el.classList.remove('off');}else{off.add(d);el.classList.add('off');} draw();
+  });
+}
+
+(async function(){
+ const ls=document.getElementById('ls');
+ try{
+   const r=await fetch(FILE); if(!r.ok) throw new Error('HTTP '+r.status);
+   DATA=await r.json();
+   ls.style.display='none'; boot();
+ }catch(e){ ls.className='err'; ls.textContent='✗ No se pudo cargar '+FILE+' ('+e.message+'). Requiere python -m http.server 8081'; }
+})();
+
+function boot(){
+ const doms=Object.entries(DATA.domains);
+ const total=DATA.meta.n_dated;
+ const peak=DATA.stream.reduce((a,b)=>{const s=doms.reduce((x,[d])=>x+(b[d]||0),0);return s>a.v?{y:b.year,v:s}:a;},{y:0,v:0});
+ document.getElementById('tiles').innerHTML=[
+   ['SPs fechados',total],['Rango',DATA.years[0]+'–'+DATA.years[DATA.years.length-1]],
+   ['Pico',peak.y+' ('+peak.v+')'],['Productos',DATA.products.length]
+ ].map(([l,n])=>`<div class="tile"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+
+ buildLeg();
+
+ document.getElementById('prods').innerHTML=DATA.products.map(p=>{
+   const vals=DATA.years.map(y=>p.by_year[y]||0); const mx=Math.max(...vals,1);
+   const spark=vals.map(v=>`<i style="height:${Math.max(1,16*v/mx)}px"></i>`).join('');
+   return `<div class="prod"><div style="display:flex;justify-content:space-between;align-items:baseline">
+     <span class="pl">${p.label}</span><span class="py">${p.first}</span></div>
+     <div class="pm">${p.total} SPs · primera aparición ${p.first}</div>
+     <div class="spark">${spark}</div></div>`;
+ }).join('');
+
+ window.addEventListener('resize',draw); draw();
+}
+
+function draw(){
+ const doms=Object.entries(DATA.domains).filter(([d])=>!off.has(d));
+ const W=document.getElementById('stage').clientWidth, H=document.getElementById('stage').clientHeight;
+ const m={t:30,r:20,b:28,l:20};
+ svg.attr('viewBox',`0 0 ${W} ${H}`); g.selectAll('*').remove();
+ const keys=doms.map(d=>d[0]);
+ const stack=d3.stack().keys(keys).offset(d3.stackOffsetSilhouette);
+ const series=stack(DATA.stream);
+ const x=d3.scaleLinear().domain(d3.extent(DATA.years)).range([m.l,W-m.r]);
+ const y0=d3.min(series,s=>d3.min(s,d=>d[0])), y1=d3.max(series,s=>d3.max(s,d=>d[1]));
+ const y=d3.scaleLinear().domain([y0,y1]).range([H-m.b,m.t]);
+ const area=d3.area().x(d=>x(d.data.year)).y0(d=>y(d[0])).y1(d=>y(d[1])).curve(d3.curveBasis);
+ const cmap=Object.fromEntries(Object.keys(DATA.domains).map((d,i)=>[d,colorOf(d,i)]));
+
+ DATA.milestones.forEach(ms=>{
+   if(ms.year<DATA.years[0]||ms.year>DATA.years[DATA.years.length-1])return;
+   g.append('line').attr('class','mile').attr('x1',x(ms.year)).attr('x2',x(ms.year)).attr('y1',m.t).attr('y2',H-m.b);
+ });
+
+ g.selectAll('.layer').data(series).join('path').attr('class','layer')
+   .attr('d',area).attr('fill',s=>cmap[s.key])
+   .on('mousemove',(e,s)=>{
+     const yr=Math.round(x.invert(e.offsetX));
+     const row=DATA.stream.find(r=>r.year===yr)||{};
+     const dm=DATA.domains[s.key]||{name:s.key};
+     const col=colorOf(s.key,Object.keys(DATA.domains).indexOf(s.key));
+     const vAqui=row[s.key]||0;
+     const items=Object.entries(DATA.domains).map(([d,mm])=>[d,mm.name,row[d]||0]).filter(z=>z[2]).sort((a,b)=>b[2]-a[2]);
+     tip.innerHTML=`<div class="ty" style="color:${col}">${s.key.toUpperCase()} · ${dm.name}</div>`
+       +`<div class="tr" style="border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:5px;margin-bottom:5px"><span>SPs creados en ${yr}</span><b style="color:${col}">${vAqui}</b></div>`
+       +`<div style="font-size:9px;color:#818ab0;margin-bottom:3px">todo el año ${yr}:</div>`
+       +(items.length?items.map(([d,n,v])=>`<div class="tr" ${d===s.key?`style="color:${col};font-weight:700"`:''}><span>${d.toUpperCase()} ${n}</span><b>${v}</b></div>`).join(''):'<div class="tr">sin datos con fecha</div>');
+     tip.style.display='block'; tip.style.left=Math.min(e.clientX+14,innerWidth-260)+'px'; tip.style.top=Math.max(e.clientY-10,10)+'px';
+     d3.selectAll('.layer').classed('dim',x=>x.key!==s.key);
+   })
+   .on('mouseleave',()=>{tip.style.display='none';d3.selectAll('.layer').classed('dim',false);});
+
+ DATA.milestones.forEach(ms=>{
+   if(ms.year<DATA.years[0]||ms.year>DATA.years[DATA.years.length-1])return;
+   const mx=x(ms.year);
+   const grp=g.append('g').attr('class','mgrp');
+   grp.append('path').attr('class','mile-dot').attr('d','M0,-5L5,0L0,5L-5,0Z').attr('transform',`translate(${mx},${m.t-8})`);
+   grp.append('text').attr('class','mile-yr').attr('x',mx+3).attr('y',m.t+4)
+     .attr('transform',`rotate(90 ${mx+3} ${m.t+4})`).text(ms.year);
+   grp.append('rect').attr('class','mile-hit').attr('x',mx-8).attr('y',m.t-16).attr('width',16).attr('height',66);
+   grp.on('mouseenter mousemove',e=>{
+       tip.innerHTML=`<div class="ty" style="color:var(--yellow)">◆ ${ms.year}</div><div class="mtx">${ms.label}</div>`;
+       tip.style.display='block';
+       tip.style.left=Math.min(e.clientX+14,innerWidth-260)+'px';
+       tip.style.top=Math.max(e.clientY-10,10)+'px';
+     })
+     .on('mouseleave',()=>{tip.style.display='none';});
+ });
+
+ const ax=g.append('g').attr('class','axis').attr('transform',`translate(0,${H-m.b})`)
+   .call(d3.axisBottom(x).tickFormat(d3.format('d')).ticks(10).tickSizeOuter(0));
+}
+</script>
+</body>
+</html>

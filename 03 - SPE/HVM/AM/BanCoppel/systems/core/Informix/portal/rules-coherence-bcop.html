@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Informix · Rules vs. Code — Coherencia Semántica</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#3D5FCD;--blued:#122FB1;--yellow:#F0D224;
+  --ink:#F4F6FF;--muted:#aab3d4;--muted2:#818ab0;
+  --glass:rgba(255,255,255,.055);--glassb:rgba(255,255,255,.10);
+  --ok:#4fde8a;--med:#f5c842;--low:#f55f5f;--gen:#a78bfa;--reg:#60a5fa;
+  --cmp:#fb923c;--rep:#e879f9;
+}
+html{scroll-behavior:smooth}
+body{background:#060a1a;color:var(--ink);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Calibri,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(27,63,208,.65),transparent 70%);animation:f1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(13,33,133,.7),transparent 70%);animation:f2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(79,222,138,.10),transparent 70%);animation:f3 32s ease-in-out infinite}
+@keyframes f1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes f2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes f3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+.grain{position:fixed;inset:0;z-index:-1;opacity:.045;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+nav{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;gap:14px;padding:15px 30px;
+  backdrop-filter:blur(18px) saturate(150%);background:rgba(6,10,26,.55);border-bottom:1px solid rgba(255,255,255,.06)}
+nav .nt{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em}
+nav .sp{flex:1}
+nav a.back{font-size:12px;color:var(--muted);padding:6px 13px;border-radius:20px;
+  border:1px solid rgba(255,255,255,.09);text-decoration:none;transition:.22s}
+nav a.back:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+.glass{background:var(--glass);backdrop-filter:blur(22px) saturate(155%);border:1px solid var(--glassb);border-radius:22px;
+  box-shadow:0 12px 44px rgba(0,0,0,.36),inset 0 1px 0 rgba(255,255,255,.10)}
+.wrap{max-width:1400px;margin:0 auto;padding:0 30px}
+section{padding:52px 0;scroll-margin-top:70px}
+.hero{min-height:36vh;display:flex;flex-direction:column;justify-content:center;padding:94px 0 6px}
+.eyebrow{display:inline-flex;align-items:center;gap:9px;align-self:flex-start;padding:8px 16px;border-radius:30px;
+  font-size:12px;font-weight:600;letter-spacing:.03em;color:#dfe6ff;margin-bottom:24px;
+  background:rgba(255,255,255,.05);border:1px solid var(--glassb)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 12px var(--ok);animation:pulse 2.4s infinite}
+@keyframes pulse{50%{opacity:.4}}
+.hero h1{font-size:clamp(26px,4.5vw,50px);font-weight:800;line-height:1.05;letter-spacing:-.035em;
+  max-width:26ch;background:linear-gradient(176deg,#fff 34%,#9fb4ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{font-size:13px;color:var(--muted);margin-top:14px;max-width:90ch;line-height:1.7}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:24px}
+.kpi-row2{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}
+.kpi{padding:18px 14px;text-align:center;border-radius:18px}
+.kpi .kv{font-size:clamp(22px,3vw,36px);font-weight:800;letter-spacing:-.03em}
+.kpi .kl{font-size:10.5px;font-weight:600;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-top:4px}
+.kpi .ksub{font-size:10.5px;color:var(--muted2);margin-top:5px}
+.sh{display:flex;align-items:baseline;gap:12px;margin-bottom:18px}
+.sh h2{font-size:clamp(18px,2.2vw,22px);font-weight:700;letter-spacing:-.02em}
+.sh .shsub{font-size:12px;color:var(--muted2)}
+/* Signals */
+.sig-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:20px}
+.sig-card{padding:16px 18px;border-radius:16px}
+.sig-num{font-size:28px;font-weight:800;letter-spacing:-.03em;margin-bottom:4px}
+.sig-title{font-size:11px;font-weight:700;color:var(--ink);letter-spacing:.03em;text-transform:uppercase;margin-bottom:7px}
+.sig-body{font-size:11.5px;color:var(--muted);line-height:1.55}
+.sig-ex{font-size:10px;font-family:'SF Mono',Consolas,monospace;color:var(--muted2);margin-top:9px;
+  background:rgba(255,255,255,.04);padding:7px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.06);line-height:1.6}
+/* Subtipo grid */
+.st-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(285px,1fr));gap:9px;margin-bottom:22px}
+.st-card{padding:13px 16px;border-radius:15px;position:relative;overflow:hidden}
+.st-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px}
+.st-card.ok::before{background:var(--ok)}
+.st-card.med::before{background:var(--med)}
+.st-card.low::before{background:var(--low)}
+.st-name{font-size:11px;font-weight:700;color:var(--ink);letter-spacing:.02em;margin-bottom:7px;font-family:'SF Mono',Consolas,monospace}
+.st-bar-wrap{height:5px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden;margin-bottom:6px}
+.st-bar-inner{display:flex;height:100%}
+.st-bar-h{background:var(--ok);opacity:.8}
+.st-bar-m{background:var(--med);opacity:.8}
+.st-bar-l{background:var(--low);opacity:.8}
+.st-stats{display:flex;gap:9px;font-size:10px}
+.st-stats span{display:flex;align-items:center;gap:3px}
+.dot-ok{width:5px;height:5px;border-radius:50%;background:var(--ok)}
+.dot-med{width:5px;height:5px;border-radius:50%;background:var(--med)}
+.dot-low{width:5px;height:5px;border-radius:50%;background:var(--low)}
+.dot-gen{width:5px;height:5px;border-radius:50%;background:var(--gen)}
+.st-low-pct{font-size:10px;font-weight:700;margin-left:auto}
+/* Insight */
+.insight{padding:16px 20px;border-radius:14px;border-left:3px solid var(--yellow);
+  background:rgba(240,210,36,.05);margin-top:18px}
+.insight .ih{font-size:10.5px;font-weight:700;color:var(--yellow);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
+.insight p{font-size:12.5px;color:var(--muted);line-height:1.65}
+.insight p+p{margin-top:8px}
+/* Filter + table */
+.filter-row{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+.filter-row label{font-size:10.5px;color:var(--muted);font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+.filter-btn{padding:5px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.1);
+  background:rgba(255,255,255,.04);color:var(--muted);font-size:10.5px;cursor:pointer;transition:.2s}
+.filter-btn.active{background:rgba(79,222,138,.15);color:var(--ok);border-color:rgba(79,222,138,.3)}
+.tbl-wrap{overflow-x:auto;border-radius:16px;max-height:530px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:11.5px}
+th{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;
+  padding:9px 11px;border-bottom:1px solid rgba(255,255,255,.07);text-align:left;
+  position:sticky;top:0;background:rgba(6,10,26,.9);backdrop-filter:blur(8px)}
+td{padding:8px 11px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top;line-height:1.4}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.mono{font-family:'SF Mono',Consolas,monospace;font-size:10.5px;color:#9fb4ff}
+.pill{display:inline-flex;align-items:center;padding:2px 7px;border-radius:12px;font-size:9.5px;font-weight:700;letter-spacing:.04em;white-space:nowrap}
+.pill.low{background:rgba(245,85,95,.12);color:var(--low)}
+.pill.reg{background:rgba(96,165,250,.12);color:var(--reg)}
+.pill.cmp{background:rgba(251,146,60,.12);color:var(--cmp)}
+#loading{text-align:center;padding:80px;color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<div class="grain"></div>
+
+<nav>
+  <span class="nt">Informix Digital Brain</span>
+  <span class="sp"></span>
+  <a class="back" href="index-bcop-v2.html">← Portal</a>
+</nav>
+
+<div id="loading">Cargando análisis de coherencia…</div>
+<div id="main" style="display:none">
+<div class="wrap">
+
+<!-- HERO -->
+<div class="hero">
+  <div class="eyebrow"><span class="dot"></span>Semantic Coherence · Metodología 11 señales</div>
+  <h1>Rules vs. Code</h1>
+  <p class="sub">Solapamiento token-by-token entre <code>business_name</code> y ±8 líneas de contexto SPL.
+  Propagación de constantes · contexto unificado para reglas compuestas · normalización de acentos ·
+  extracción de condición IF para CÓDIGO_RETORNO · swarm de expertos CNBV+GAT y LTOSF+CAT ·
+  swarm 4 agentes DT MEDIUM: 755 programático + 148 bdicheq + 221 multi-dominio + 189 bdicred/bdicont = 1,313 enrichments ·
+  21 sub-tipos derivados empíricamente.</p>
+
+  <div class="kpi-row">
+    <div class="kpi glass" style="border-top:2px solid var(--ok)">
+      <div class="kv" style="color:var(--ok)" id="k-high">–%</div>
+      <div class="kl">HIGH coherence</div><div class="ksub" id="k-high-n">–</div>
+    </div>
+    <div class="kpi glass" style="border-top:2px solid var(--med)">
+      <div class="kv" style="color:var(--med)" id="k-med">–%</div>
+      <div class="kl">MEDIUM coherence</div><div class="ksub" id="k-med-n">–</div>
+    </div>
+    <div class="kpi glass" style="border-top:2px solid var(--low)">
+      <div class="kv" style="color:var(--low)" id="k-low">–%</div>
+      <div class="kl">LOW coherence</div><div class="ksub" id="k-low-n">–</div>
+    </div>
+    <div class="kpi glass" style="border-top:2px solid var(--gen)">
+      <div class="kv" style="color:var(--gen)" id="k-gen">–%</div>
+      <div class="kl">GENÉRICO</div><div class="ksub">sin enriquecer</div>
+    </div>
+  </div>
+
+  <div class="kpi-row2">
+    <div class="kpi glass" style="border-top:2px solid var(--cmp)">
+      <div class="kv" style="color:var(--cmp)">270</div>
+      <div class="kl">Grupos compuestos</div>
+      <div class="ksub">706 fragmentos · misma regla en un SP</div>
+    </div>
+    <div class="kpi glass" style="border-top:2px solid var(--rep)">
+      <div class="kv" style="color:var(--rep)">875</div>
+      <div class="kl">Réplicas cross-SP</div>
+      <div class="ksub">2,560 instancias redundantes · 42%</div>
+    </div>
+    <div class="kpi glass" style="border-top:2px solid var(--yellow)">
+      <div class="kv" style="color:var(--yellow)">3,507</div>
+      <div class="kl">Reglas únicas reales</div>
+      <div class="ksub">de 6,067 totales en el brain</div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 1 — METODOLOGÍA 11 SEÑALES + S12-S15 EMERGENTES -->
+<section id="s-method">
+  <div class="sh"><h2>Metodología de identificación</h2><span class="shsub">del fragmento SPL a la intención de negocio · 11 señales implementadas · S12-S15 emergentes</span></div>
+  <div class="sig-grid">
+
+    <div class="sig-card glass">
+      <div class="sig-num" style="color:var(--ok)">S1</div>
+      <div class="sig-title">Código de retorno = firma de capacidad</div>
+      <div class="sig-body">El código asignado declara qué puede fallar y por lo tanto qué sabe hacer el SP. Mismo código en múltiples SPs = capacidad transversal candidata a consolidación.</div>
+      <div class="sig-ex">LET cCodRet = '101' → Optional&lt;T&gt;<br>LET cCodRet = '1001' → 447× → GlobalExceptionHandler<br>LET cCodRet = '207' → EntityNotFoundException</div>
+    </div>
+
+    <div class="sig-card glass">
+      <div class="sig-num" style="color:var(--ok)">S2</div>
+      <div class="sig-title">Mensaje del código revela flujo previo</div>
+      <div class="sig-body">"No se encontró información" implica un SELECT/FOREACH anterior que puede retornar cero filas. El mensaje es la pista del flujo, no un simple label.</div>
+      <div class="sig-ex">cCodRet='101' + "no se encontró"<br>→ hay FOREACH SELECT previo<br>→ mapear a Optional&lt;T&gt;, no excepción</div>
+    </div>
+
+    <div class="sig-card glass">
+      <div class="sig-num" style="color:var(--cmp)">S3</div>
+      <div class="sig-title">Regla compuesta — mismo SP</div>
+      <div class="sig-body">N sentencias LET con variables compartidas = una sola regla con sub-pasos. Unidad atómica de migración: mover uno sin los demás rompe el cálculo.</div>
+      <div class="sig-ex">vInteres = vInteres * (DAY(vFecha)-1)<br>vProvision = vInteres * DAY(vAlta)<br>vInteres = vInteres * ((…)-1)  ← un grupo CG</div>
+    </div>
+
+    <div class="sig-card glass">
+      <div class="sig-num" style="color:var(--rep)">S4</div>
+      <div class="sig-title">Regla replicada — cross-SP</div>
+      <div class="sig-body">Mismo business_name + mismo código en múltiples SPs = copy-paste de capacidad. 42% del inventario son réplicas. Las reglas únicas son 3,507, no 6,067.</div>
+      <div class="sig-ex">875 grupos cross-SP detectados<br>cCodRet='1001' → 447 SPs → 1 handler<br>Índice: 6,067 / 3,507 = 1.73×</div>
+    </div>
+
+    <div class="sig-card glass">
+      <div class="sig-num" style="color:var(--yellow)">S5</div>
+      <div class="sig-title">Constante literal = config pendiente</div>
+      <div class="sig-body">LET var = 0.16 (IVA MX), 10000 (umbral PLD), 0.0090 (ISR 2026). Toda constante regulatoria hardcodeada debe migrar como parámetro externalizado.</div>
+      <div class="sig-ex">LET vValIva = 0.16 → tax.iva.rate<br>LET vLimPLD = 10000 → compliance.pld.threshold<br>LET vDiasVenc = 90 → credit.past_due.days</div>
+    </div>
+
+    <div class="sig-card glass">
+      <div class="sig-num" style="color:var(--reg)">S6</div>
+      <div class="sig-title">Comentario inline = semántica principal</div>
+      <div class="sig-body">El desarrollador puso el significado en el comentario, no en el nombre de variable. El scorer normaliza acentos del contexto para hacer match.</div>
+      <div class="sig-ex">LET cCodRet = '101'; -- No se encontró información<br>strip_accents(ctx): "encontro" + "informacion"<br>→ match con business_name tokens</div>
+    </div>
+
+    <div class="sig-card glass">
+      <div class="sig-num" style="color:var(--ok)">S7</div>
+      <div class="sig-title">Condición IF como semántica de retorno y excepción</div>
+      <div class="sig-body">Para <code>LET vCodRet = 'X'</code> y <code>RAISE EXCEPTION</code> genéricos, buscar hacia arriba el IF/ELIF que los dispara. La condición es la semántica real — no el efecto sino la causa. 1,302 reglas enriquecidas.</div>
+      <div class="sig-ex">IF cCodRet != "00000" THEN<br>&nbsp;&nbsp;RAISE EXCEPTION cCodRet, 0<br>→ "EXCEPCIÓN: cCodRet != '00000'" — resultado diferente de éxito<br><br>IF (vestado = 'P') THEN<br>&nbsp;&nbsp;LET vcodret = '600'<br>→ "[600] vestado = 'P'" — cheque pagado</div>
+    </div>
+
+    <div class="sig-card glass">
+      <div class="sig-num" style="color:var(--cmp)">S8</div>
+      <div class="sig-title">Swarm de expertos dominio</div>
+      <div class="sig-body">Fórmulas financieras con label genérico se envían a agentes expertos por dominio. <strong>Regla de oro:</strong> solo se agregan tokens que existen en el código SPL — tokens de metadatos en español que no están en el código reducen el score de coherencia. Swarm LOW: 769 enriquecidas. Swarm MEDIUM: 4 agentes · 1,313 enrichments.</div>
+      <div class="sig-ex">CNBV+GAT: TIR, sobretasa, interés diario, GAT<br>bdicheq: GAT, ISR, saldo promedio, tipo cambio (148)<br>bdinvers+bdinteg: ISR IPAB, provisión diaria, AML (221)<br>bdicred+bdicont: PMT, PI CNBV B-5, ratio SIC (189)<br>LOW: 738 → 40 → 0 (−100%)</div>
+    </div>
+
+    <div class="sig-card glass">
+      <div class="sig-num" style="color:var(--low)">S9</div>
+      <div class="sig-title">Inversión de signo × -1 — doble semántica</div>
+      <div class="sig-body">El <code>× -1</code> tiene dos usos: <strong>polaridad contable</strong> (saldo debe→haber, bdicheq) y <strong>valor absoluto en aritmética de fechas</strong> (días transcurridos negativos cuando la fecha de pago ya pasó). En migración: transformer de presentación vs. <code>Math.abs()</code> + lógica de ciclo.</div>
+      <div class="sig-ex">vsdo_ret × -1 → inversión debe/haber (bdicheq)<br>iDiastranscurridos × -1 → fecha pago anterior a hoy<br>&nbsp;&nbsp;→ sp_obtienefechapago: próximo ciclo pago crédito</div>
+    </div>
+
+    <div class="sig-card glass">
+      <div class="sig-num" style="color:var(--med)">S10</div>
+      <div class="sig-title">Bloque comentado /* */ — falso positivo del brain-builder</div>
+      <div class="sig-body">El brain-builder captura líneas dentro de bloques <code>/* ... */</code> como reglas de negocio. Síntoma diagnóstico: la línea de código termina con <code>*/</code>. Son código muerto — candidatas a reclasificar como <code>clase = INACTIVO</code> y excluir del inventario de migración.</div>
+      <div class="sig-ex">BR-V2-6771: cTimEdoCiv = dtFechSol - cEdoCiv::INTEGER units MONTH;*/<br>→ código alternativo comentado (DSB, 01/10/2013)<br>→ NO es regla activa de negocio</div>
+    </div>
+
+    <div class="sig-card glass">
+      <div class="sig-num" style="color:var(--gen)">S11</div>
+      <div class="sig-title">Algoritmo dígito verificador — Luhn mod-10</div>
+      <div class="sig-body">Patrón <code>digito × peso</code> dentro de <code>FOR</code>, seguido de <code>MOD(suma, 10)</code>. Implementa Luhn (BTS, sp_validabts) y CLABE/CCC (sp_validadv). No son reglas de negocio — son validaciones de integridad de dato replicadas. En migración: un único <code>DigitVerifier.validate()</code> reemplaza los tres SPs.</div>
+      <div class="sig-ex">iAux = iValorDigito × iNoPeso (peso 2 par / 1 impar)<br>IF iAux > 9: suma dígitos del resultado<br>MOD(iSuma, 10) → dígito esperado vs. capturado (BTS / CLABE CCC)</div>
+    </div>
+
+  </div>
+
+  <div class="sh" style="margin-top:32px"><h2 style="font-size:16px;opacity:.75">Señales emergentes del swarm</h2><span class="shsub">observadas en el enriquecimiento MEDIUM · candidatos a implementación</span></div>
+  <div class="sig-grid" style="grid-template-columns:repeat(4,1fr)">
+
+    <div class="sig-card glass" style="border-left:3px solid rgba(251,146,60,.35)">
+      <div class="sig-num" style="color:var(--cmp);font-size:20px">S12</div>
+      <div class="sig-title">Fórmula canónica compartida cross-SP</div>
+      <div class="sig-body">La misma fórmula normalizada (≥3 vars, ≥3 SPs) es una capacidad modelada como copy-paste. <code>detect-shared-formulas.py</code> identifica 59 clusters en 391 reglas. En migración: cada cluster = 1 servicio compartido a extraer.</div>
+      <div class="sig-ex">PI logística CNBV B-5: 8 SPs bdicred<br>ISR retención base 360: 12 SPs<br>Anualidad PMT: 7 SPs bdicred<br>Redondeo bancario Coppel: 15 SPs bdinteg</div>
+    </div>
+
+    <div class="sig-card glass" style="border-left:3px solid rgba(251,146,60,.35)">
+      <div class="sig-num" style="color:var(--cmp);font-size:20px">S13</div>
+      <div class="sig-title">Centavos÷100 en archivos de medios de pago</div>
+      <div class="sig-body"><code>::MONEY / 100</code> en bditarjeta: archivos INTERCARD y MasterCard almacenan montos en centavos (INTEGER). La conversión no es aritmética — es de unidad. En migración: el adapter declara la unidad canónica en su boundary.</div>
+      <div class="sig-ex">vmMonto325 = REPLACE(psMonto325,'.','')<br>&nbsp;&nbsp;&nbsp;&nbsp;::MONEY / 100<br>→ 12 SPs bditarjeta · MasterCard + INTERCARD</div>
+    </div>
+
+    <div class="sig-card glass" style="border-left:3px solid rgba(251,146,60,.35)">
+      <div class="sig-num" style="color:var(--cmp);font-size:20px">S14</div>
+      <div class="sig-title">Función logística PI — CNBV CUB B-5</div>
+      <div class="sig-body">Los coeficientes literales <code>2.1859 / 0.7864 / 0.3978</code> son el modelo regulatorio de Probabilidad de Incumplimiento para cartera de consumo. No aritmética genérica — modelo CNBV. 8 SPs bdicred. Ya enriquecido por swarm Agent 1.</div>
+      <div class="sig-ex">dPI = 1/(1 + EXP(2.1859<br>&nbsp;&nbsp;− 0.7864 × iACT − 0.3978 × iHIST ...))<br>→ gencartconsumo · sp_calculo_reserva_corte</div>
+    </div>
+
+    <div class="sig-card glass" style="border-left:3px solid rgba(251,146,60,.35)">
+      <div class="sig-num" style="color:var(--cmp);font-size:20px">S15</div>
+      <div class="sig-title">Acumulador saldo ponderado × días</div>
+      <div class="sig-body">El patrón <code>acum_sdo += sdo_actual × pdias</code> dentro de FOREACH construye el saldo promedio ponderado por días — base del cálculo de intereses y GAT. 7 SPs en bdicheq (cierre_diario, cierre_mensual). Ya enriquecido por swarm Agent 2.</div>
+      <div class="sig-ex">vgacum_sdo_pos += vgsdo_actual × pdias<br>vsdo_prom = vgacum_sdo_pos / vgdia_sdo_pos<br>→ cierre_diario · cierre_mensual (bdicheq)</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- SECTION 2 — SUBTIPO BREAKDOWN -->
+<section id="s-tipo">
+  <div class="sh"><h2>Coherencia por sub-tipo</h2><span class="shsub">21 categorías · HIGH verde · MEDIUM amarillo · LOW rojo</span></div>
+  <div class="st-grid" id="st-grid"></div>
+  <div class="insight">
+    <div class="ih">Hallazgo principal</div>
+    <p><strong>CÓDIGO_RETORNO: 95% HIGH, 0% LOW</strong> — la extracción de condición IF (S7) resolvió el gap completo. Cada código de retorno lleva la condición que lo dispara: '600' → vestado='P' (cheque pagado), '110' → parámetros nulos, '1001' → excepción sistema.</p>
+    <p><strong>EXCEPCIÓN: 95% HIGH, 2% LOW</strong> — S7 extendido: los 15 RAISE EXCEPTION genéricos ("Lanzar error: código") ahora llevan la condición IF que los dispara. Patrón dominante: cCodRetSp &lt; 0 (propagación error sub-SP). Excepción notable: "p_fecha_tc IS NULL OR p_empresa IS NULL" (validación parámetros obligatorios).</p>
+    <p><strong>CÁLCULO_ARITMÉTICO: 84% HIGH, 0% LOW</strong> — S8 (swarm CNBV+GAT, LTOSF+CAT) cerró los LOW. Swarm MEDIUM 4 agentes elevó HIGH de 79% a 84%: Agent 1 (bdicred+bdicont) — cuota francesa PMT, CNBV B-5 PI, ratio SIC, reserva pesos 30.42; Agent 2 (bdicheq) — GAT, ISR, saldo promedio, tipo de cambio; Agent 3 (bdinvers+bdinteg+23 dominios) — provisión diaria pagaré, ISR IPAB, scoring AML PLD, escala cifras CNBV; Agent 4 (programático) — 755 automáticas + 54 manuales CNBV/GAT/ISR/CAT. Total: 1,313 enrichments.</p>
+    <p><strong>CÁLCULO_INVERSIÓN: 0% LOW</strong> — señal S9 (inversión de signo × -1): dos patrones identificados: polaridad contable debe/haber (sdo_ret × -1, bdicheq) y valor absoluto en aritmética de fechas (días transcurridos < 0 → negado para ciclo pago crédito, sp_obtienefechapago_creditos).</p>
+    <p><strong>Señales emergentes (S12-S15, observación metodológica)</strong> — detect-shared-formulas.py identificó 59 fórmulas compartidas cross-SP en 391 reglas: función logística PI CNBV B-5 (8 SPs, bdicred), ISR base 360 con retención (12 SPs), fórmula anualidad PMT (7 SPs), redondeo bancario entero para Coppel (15 SPs), acumulador saldo×días (7 SPs). En migración: cada cluster es candidato de extracción a servicio compartido. Señal: tokens de metadatos no deben agregarse a business_name — solo tokens que existen en código SPL.</p>
+  </div>
+</section>
+
+<!-- SECTION 3 — LOW RULES TABLE -->
+<section id="s-low">
+  <div class="sh"><h2>Reglas con coherencia baja</h2><span class="shsub" id="low-count-label">–</span></div>
+  <div class="filter-row">
+    <label>Filtrar:</label>
+    <button class="filter-btn active" onclick="filterTable(this,'all')">Todos</button>
+    <button class="filter-btn" onclick="filterTable(this,'no-reg')">Sin REG</button>
+    <button class="filter-btn" onclick="filterTable(this,'compound')">Compuestas</button>
+  </div>
+  <div class="glass tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>ID</th><th>SP</th><th>sub_tipo</th><th>score</th>
+        <th>business_name</th><th>Fragmento código</th><th>Tokens no matcheados</th>
+      </tr></thead>
+      <tbody id="low-tbody"></tbody>
+    </table>
+  </div>
+</section>
+
+</div></div>
+
+<script>
+let _allRows = [];
+let _curFilter = 'all';
+
+function filterTable(btn, f) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _curFilter = f;
+  renderTable();
+}
+
+function renderTable() {
+  let rows = _allRows;
+  if (_curFilter === 'no-reg')   rows = rows.filter(r => !r.reg_ref);
+  if (_curFilter === 'compound') rows = rows.filter(r => r.compound_group);
+  const tbody = document.getElementById('low-tbody');
+  tbody.innerHTML = '';
+  rows.forEach(r => {
+    const unmatched = (r.name_tokens||[]).filter(t => !(r.matched||[]).includes(t));
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="mono">${r.id}</td>
+      <td class="mono" style="font-size:10px;max-width:160px;word-break:break-all">${r.sp}</td>
+      <td class="mono" style="font-size:10px">${r.sub_tipo||r.tipo}</td>
+      <td style="white-space:nowrap">
+        <span class="pill low">${r.score.toFixed(2)}</span>
+        ${r.reg_ref     ? '<span class="pill reg" style="margin-left:3px">REG</span>' : ''}
+        ${r.compound_group ? '<span class="pill cmp" style="margin-left:3px">CMP</span>' : ''}
+      </td>
+      <td style="max-width:180px;color:var(--muted2);font-size:11px">${(r.business_name||'').substring(0,65)}</td>
+      <td class="mono" style="max-width:220px;word-break:break-all;font-size:9.5px;color:#818ab0">${(r.code_fragment||'').substring(0,75)}</td>
+      <td style="font-size:10px;color:var(--low)">${unmatched.slice(0,5).join(', ')}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+fetch('data/rules-coherence.json')
+  .then(r => r.json())
+  .then(data => {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('main').style.display = 'block';
+
+    const lvl = data.by_level, tot = data.total;
+    const pct = n => (n / tot * 100).toFixed(1) + '%';
+
+    document.getElementById('k-high').textContent  = pct(lvl.HIGH  || 0);
+    document.getElementById('k-high-n').textContent = (lvl.HIGH||0).toLocaleString('es-MX') + ' reglas';
+    document.getElementById('k-med').textContent   = pct(lvl.MEDIUM || 0);
+    document.getElementById('k-med-n').textContent  = (lvl.MEDIUM||0).toLocaleString('es-MX') + ' reglas';
+    document.getElementById('k-low').textContent   = pct(lvl.LOW   || 0);
+    document.getElementById('k-low-n').textContent  = (lvl.LOW||0).toLocaleString('es-MX') + ' reglas';
+    document.getElementById('k-gen').textContent   = pct(lvl.GENERIC || 0);
+
+    // Sub-tipo grid
+    const grid = document.getElementById('st-grid');
+    Object.entries(data.by_tipo)
+      .map(([st, lvls]) => {
+        const h=lvls.HIGH||0, m=lvls.MEDIUM||0, l=lvls.LOW||0, g=lvls.GENERIC||0, t=h+m+l+g;
+        return {st,h,m,l,g,t, lowPct: t ? l/t : 0};
+      })
+      .sort((a,b) => b.t - a.t)
+      .forEach(({st,h,m,l,g,t,lowPct}) => {
+        const cls = lowPct <= 0.05 ? 'ok' : lowPct <= 0.20 ? 'med' : 'low';
+        const card = document.createElement('div');
+        card.className = 'st-card glass ' + cls;
+        card.innerHTML = `
+          <div class="st-name">${st}</div>
+          <div class="st-bar-wrap"><div class="st-bar-inner">
+            <div class="st-bar-h" style="width:${t ? h/t*100 : 0}%"></div>
+            <div class="st-bar-m" style="width:${t ? m/t*100 : 0}%"></div>
+            <div class="st-bar-l" style="width:${t ? l/t*100 : 0}%"></div>
+          </div></div>
+          <div class="st-stats">
+            <span><div class="dot-ok"></div>${h}</span>
+            <span><div class="dot-med"></div>${m}</span>
+            <span><div class="dot-low"></div>${l}</span>
+            ${g > 0 ? `<span><div class="dot-gen"></div>${g}</span>` : ''}
+            <span class="st-low-pct" style="color:${lowPct>0.25?'var(--low)':lowPct>0.1?'var(--med)':'var(--muted2)'}">
+              ${(lowPct*100).toFixed(0)}% low
+            </span>
+          </div>`;
+        grid.appendChild(card);
+      });
+
+    // Low rules table
+    _allRows = data.low_rules || [];
+    const cmpCount = _allRows.filter(r => r.compound_group).length;
+    const regCount = _allRows.filter(r => r.reg_ref).length;
+    document.getElementById('low-count-label').textContent =
+      `${_allRows.length} candidatos · ${regCount} REG (esperados) · ${cmpCount} compuestas`;
+    renderTable();
+  })
+  .catch(e => { document.getElementById('loading').textContent = 'Error: ' + e.message; });
+</script>
+</body>
+</html>

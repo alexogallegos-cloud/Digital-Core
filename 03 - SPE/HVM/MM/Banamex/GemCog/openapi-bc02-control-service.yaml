@@ -1,0 +1,393 @@
+openapi: "3.1.0"
+
+info:
+  title: "Control Service"
+  version: "0.1.0-seed"
+  summary: "API de control operacional — modernización S500 Banamex"
+  description: |
+    Contrato sembrado desde el Gemelo Cognitivo GemCog v2.2.
+
+    **Bounded Context**: BC-02 Control Operacional
+    **Sistema origen**: S500 (Unisys ClearPath MCP · COBOL)
+    **Wave de transpilación**: Wave 1
+
+    Gestiona el ciclo de vida de los módulos activos (MAPLI), la validación de
+    versiones (CTLVER), el proceso especial Teletón (TELETON), y los reprocesamientos
+    batch de captación (FORZA). No incluye el control GL — ese es BC-05.
+
+x-gemcog-source:
+  sistema: "S500"
+  bounded_context: "BC-02"
+  bc_name: "Control Operacional"
+  vocab_version: "v2.2"
+  capa: 6
+  programas_origen:
+    - "S500/L035 (MAPLI COBOL 5.4K LOC)"
+    - "S500/P045 (Teletón ONLINE 6.8K LOC)"
+    - "S500/CTLVER (control versiones)"
+  equivalencia_objetivo: "≥ 99.99%"
+
+servers:
+  - url: "http://localhost:8082"
+    description: "Local dev"
+  - url: "https://api-dev.banamex-internal.mx/control/v0"
+    description: "DEV"
+
+tags:
+  - name: "modulos"
+    description: "Registro de módulos activos del sistema (MAPLI)"
+  - name: "versiones"
+    description: "Validación de compatibilidad de versiones (CTLVER)"
+  - name: "teleton"
+    description: "Proceso especial de donaciones Teletón"
+
+paths:
+
+  # ── Módulos activos (MAPLI) ─────────────────────────────────────────────────
+
+  /modulos-activos:
+    get:
+      operationId: "listarModulosActivos"
+      summary: "Listar módulos disponibles en línea"
+      tags: ["modulos"]
+      description: |
+        Devuelve qué módulos de negocio están activos en el sistema online.
+        **Origen**: S500/L035 (MAPLI COBOL 5.4K LOC) · BD05MAPLI
+        **vocab**: MAPLI → RegistroModuloActivo (UL §4 BC-02)
+      responses:
+        "200":
+          description: "Lista de módulos activos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListaModulosActivos"
+
+    post:
+      operationId: "activarModulo"
+      summary: "Activar un módulo del sistema"
+      tags: ["modulos"]
+      description: |
+        Activa o desactiva un módulo de negocio sin reiniciar el servidor.
+        **Origen**: S500/L035 (MAPLI) · BD05MAPLI
+        Operación privilegiada — requiere scope `ops:modulos:write`.
+      security:
+        - BearerAuth: ["ops:modulos:write"]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivacionModuloRequest"
+      responses:
+        "200":
+          description: "Estado del módulo actualizado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModuloActivo"
+        "400":
+          $ref: "#/components/responses/ErrorValidacion"
+        "404":
+          $ref: "#/components/responses/NoEncontrado"
+
+  /modulos-activos/{idModulo}:
+    get:
+      operationId: "consultarModulo"
+      summary: "Consultar estado de un módulo"
+      tags: ["modulos"]
+      parameters:
+        - name: "idModulo"
+          in: "path"
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Estado del módulo"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModuloActivo"
+        "404":
+          $ref: "#/components/responses/NoEncontrado"
+
+  # ── Validación de versiones (CTLVER) ────────────────────────────────────────
+
+  /validacion-version:
+    post:
+      operationId: "validarVersion"
+      summary: "Validar compatibilidad de versión de librería"
+      tags: ["versiones"]
+      description: |
+        Valida que la librería cargada sea compatible con la versión del sistema.
+        **Origen**: S500/CTLVER (módulo de control de versiones)
+        Punto de fallo crítico en el legacy — replicar exactamente la lógica.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidacionVersionRequest"
+      responses:
+        "200":
+          description: "Resultado de validación"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResultadoValidacionVersion"
+        "409":
+          description: "Versión incompatible — bloquear ejecución"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Donaciones Teletón ──────────────────────────────────────────────────────
+
+  /donaciones-teleton:
+    post:
+      operationId: "registrarDonacion"
+      summary: "Registrar donación de campaña Teletón"
+      tags: ["teleton"]
+      description: |
+        Registra una donación de la campaña Teletón.
+        **Origen**: S500/P045 (6.8K LOC ONLINE) · BD06TELETON
+        Sucursales especiales: 0519, 1037, 1905, 4899.
+        **vocab**: TELETON → ProcesoDonacionTeleton (UL §4 BC-02)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DonacionTetelonRequest"
+      responses:
+        "201":
+          description: "Donación registrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DonacionTeleton"
+        "400":
+          $ref: "#/components/responses/ErrorValidacion"
+        "422":
+          description: "Sucursal no habilitada para Teletón"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /donaciones-teleton/{idDonacion}:
+    get:
+      operationId: "consultarDonacion"
+      summary: "Consultar una donación Teletón"
+      tags: ["teleton"]
+      parameters:
+        - name: "idDonacion"
+          in: "path"
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: "Datos de la donación"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DonacionTeleton"
+        "404":
+          $ref: "#/components/responses/NoEncontrado"
+
+  /donaciones-teleton/resumen:
+    get:
+      operationId: "consultarResumenTeleton"
+      summary: "Resumen de donaciones por campaña"
+      tags: ["teleton"]
+      parameters:
+        - name: "anio"
+          in: "query"
+          required: false
+          schema:
+            type: integer
+            minimum: 2000
+      responses:
+        "200":
+          description: "Resumen de la campaña"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumenTeleton"
+
+components:
+
+  responses:
+    ErrorValidacion:
+      description: "Error de validación de entrada"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NoEncontrado:
+      description: "Recurso no encontrado"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+
+    ModuloActivo:
+      type: object
+      description: |
+        Registro de módulo activo del sistema (MAPLI).
+        **vocab**: MAPLI → RegistroModuloActivo (UL §4 BC-02)
+      required: ["idModulo", "nombre", "activo"]
+      properties:
+        idModulo:
+          type: string
+        nombre:
+          type: string
+        activo:
+          type: boolean
+        version:
+          type: string
+        ultimaActivacion:
+          type: string
+          format: date-time
+      # [GEMCOG-SOURCE: S500/L035 · BD05MAPLI · vocab: MAPLI]
+
+    ListaModulosActivos:
+      type: object
+      properties:
+        modulos:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModuloActivo"
+        totalActivos:
+          type: integer
+        totalInactivos:
+          type: integer
+
+    ActivacionModuloRequest:
+      type: object
+      required: ["idModulo", "activo"]
+      properties:
+        idModulo:
+          type: string
+        activo:
+          type: boolean
+        motivoCambio:
+          type: string
+
+    ValidacionVersionRequest:
+      type: object
+      required: ["idLibreria", "versionLibreria", "versionSistema"]
+      properties:
+        idLibreria:
+          type: string
+          description: "Identificador de la librería (ej. L010, L035)"
+        versionLibreria:
+          type: string
+          description: "Versión de la librería cargada (ej. 25MTP002)"
+        versionSistema:
+          type: string
+          description: "Versión actual del sistema (ej. 25MTP003)"
+      # [GEMCOG-SOURCE: S500/CTLVER · vocab: CTLVER]
+
+    ResultadoValidacionVersion:
+      type: object
+      required: ["compatible", "idLibreria", "versionLibreria", "versionSistema"]
+      properties:
+        compatible:
+          type: boolean
+        idLibreria:
+          type: string
+        versionLibreria:
+          type: string
+        versionSistema:
+          type: string
+        mensajeError:
+          type: string
+
+    DonacionTetelonRequest:
+      type: object
+      required: ["importe", "sucursal", "numeroCuenta"]
+      properties:
+        importe:
+          type: string
+          pattern: "^[0-9]+\\.[0-9]{4}$"
+          description: "Importe de la donación (BigDecimal string)"
+        sucursal:
+          type: string
+          enum: ["0519", "1037", "1905", "4899"]
+          description: "Solo sucursales habilitadas para Teletón"
+        numeroCuenta:
+          type: string
+          pattern: "^[0-9]{13}$"
+        referencia:
+          type: string
+          maxLength: 40
+      # [GEMCOG-SOURCE: S500/P045 ONLINE · BD06TELETON · vocab: TELETON]
+
+    DonacionTeleton:
+      type: object
+      required: ["idDonacion", "importe", "sucursal", "numeroCuenta", "timestamp"]
+      properties:
+        idDonacion:
+          type: string
+          format: uuid
+        importe:
+          type: string
+          pattern: "^[0-9]+\\.[0-9]{4}$"
+        sucursal:
+          type: string
+        numeroCuenta:
+          type: string
+          pattern: "^[0-9]{13}$"
+        timestamp:
+          type: string
+          format: date-time
+        referencia:
+          type: string
+
+    ResumenTeleton:
+      type: object
+      properties:
+        anio:
+          type: integer
+        totalDonaciones:
+          type: integer
+        importeTotal:
+          type: string
+          pattern: "^[0-9]+\\.[0-9]{4}$"
+        porSucursal:
+          type: array
+          items:
+            type: object
+            properties:
+              sucursal:
+                type: string
+              cantidad:
+                type: integer
+              importe:
+                type: string
+
+    ErrorResponse:
+      type: object
+      required: ["codigo", "mensaje", "timestamp"]
+      properties:
+        codigo:
+          type: string
+        mensaje:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string

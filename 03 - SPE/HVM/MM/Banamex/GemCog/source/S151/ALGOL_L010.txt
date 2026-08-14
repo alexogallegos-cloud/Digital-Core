@@ -1,0 +1,573 @@
+$SET ERRORLIMIT = 10                                                    00001000          
+$SET LIST OPTIMIZE                                                      00002000          
+$SET SHARING = SHAREDBYALL                                              00003000          
+$SET OPTIMIZE                                                           00004000          
+%$SET TARGET ALL                                                        00005000          
+$SET LIST                                                               00006000          
+%**********************************************************             00006010          
+% RECOMPILACION POR EL UPGRADE DEL MCP A 55               *             00006012          
+% 201412005 15MTP001 MJGRG                                *             00006014          
+%**********************************************************             00006200          
+ BEGIN                                                                  00007000          
+ FILE                                                                   00008000          
+    % NOMBRE GENERICO : (S151)S151/FILE/BITAP010/AAMMDD                 00009000          
+    BITA_P010(KIND=PACK,MAXRECSIZE = 210,BLOCKSIZE  = 30,               00010000          
+              AREAS =300,AREASIZE = 1200,SECURITYUSE=3 ,                00011000          
+              BUFFERS = 1,SECURITYTYPE=0,MYUSE = 2,                     00012000          
+              UNITS=WORDS,PROTECTION=PROTECTED,SAVEFACTOR=99);          00013000          
+   LIBRARY                                                              00014000          
+    LIBLJ (TITLE="(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK.");      00015000          
+          PROCEDURE LJ(CONTADOR,MENSAJE);                               00016000          
+          INTEGER   CONTADOR;                                           00017000          
+          EBCDIC    ARRAY MENSAJE[0];                                   00018000          
+          LIBRARY   LIBLJ;                                              00019000          
+                                                                        00020000          
+  LIBRARY CONTROL;                                                      00021000          
+          INTEGER PROCEDURE CONSISDIA(DATOS);                           00022000          
+          EBCDIC    ARRAY DATOS[*];                                     00023000          
+          LIBRARY   CONTROL;                                            00024000          
+          INTEGER PROCEDURE B05PROCESOS(DATOS);                         00025000          
+          EBCDIC    ARRAY DATOS[*];                                     00026000          
+          LIBRARY   CONTROL;                                            00027000          
+                                                                        00028000          
+  LIBRARY SOPORTE(LIBACCESS=BYFUNCTION,FUNCTIONNAME="SOPORTECOMS.");    00029000          
+          PROCEDURE CSIID(EBC);                                         00030000          
+          EBCDIC ARRAY EBC[0];                                          00031000          
+          LIBRARY SOPORTE;                                              00032000          
+                                                                        00033000          
+  LIBRARY CTLVERS(LIBACCESS=BYFUNCTION,FUNCTIONNAME="CTLVERS.");        00034000          
+          INTEGER PROCEDURE DAME_TIT(IDENT,TITULO);                     00035000          
+                  EBCDIC ARRAY IDENT, TITULO[0];                        00036000          
+          LIBRARY CTLVERS;                                              00037000          
+                                                                        00038000          
+  LIBRARY S080L710;                                                     00039000          
+          INTEGER PROCEDURE L710_CONSUL_DETALLE(STMA,PRG,PAR_E,PAR_S);  00040000          
+          INTEGER       STMA, PRG;                                      00041000          
+          EBCDIC ARRAY  PAR_E, PAR_S[0];                                00042000          
+          LIBRARY S080L710;                                             00043000          
+                                                                        00044000          
+%*************************************************************          00045000          
+%*************************************************************          00046000          
+% D E F I N I C I O N                                                   00047000          
+%*************************************************************          00048000          
+%*************************************************************          00049000          
+ DEFINE                                                                 00050000          
+    SIST_LIB = 151#,                                                    00051000          
+    TIPOMSG = MSGLJ[14]#,                                               00052000          
+    CODMSG  = MSGLJ[16]#,                                               00053000          
+    TXTMSG  = MSGLJ[23]#,                                               00054000          
+%-----------------------------------------------------------------------00055000          
+%   PARAMETRO DE CONSULTA POR SISTEMA A LIBRERIA DE CONTROL             00056000          
+%-----------------------------------------------------------------------00057000          
+    ISISDFUNCI (A) = INTEGER(A[0]       , 02)   #,                      00058000          
+     SISDFUNCI (A) =         A[0]               #,                      00059000          
+    ISISDSISTEM(A) = INTEGER(A[2]       , 04)   #,                      00060000          
+     SISDSISTEM(A) =         A[2]               #, % 04                 00061000          
+    ISISDNUMCSI(A) = INTEGER(A[6]       , 02)   #,                      00062000          
+     SISDNUMCSI(A) =         A[6]               #, % 02                 00063000          
+    ISISDFECPRO(A) = INTEGER(A[08]      , 08)   #,                      00064000          
+     SISDFECPRO(A) =         A[08]              #, % 08                 00065000          
+    ISISDFECCON(A) = INTEGER(A[16]      , 08)   #,                      00066000          
+     SISDFECCON(A) =         A[16]              #, % 08                 00067000          
+    ISISDFEC151(A) = INTEGER(A[24]      , 08)   #,                      00068000          
+     SISDFEC151(A) =         A[24]              #, % 08                 00069000          
+    ISISDSTAREG(A) = INTEGER(A[32]      , 02)   #,                      00070000          
+     SISDSTAREG(A) =         A[32]              #, % 02                 00071000          
+     SISDNOMSDO(A) =         A[34]              #, % 34                 00072000          
+     SISDPKSDOS(A) =         A[68]              #, % 17                 00073000          
+     SISDNOMMOV(A) =         A[85]              #, % 34                 00074000          
+     SISDPKMOVS(A) =         A[119]             #, % 17                 00075000          
+     SISDNOMDES(A) =         A[136]             #, % 34                 00076000          
+     SISDPKDESS(A) =         A[170]             #, % 17                 00077000          
+     SISDNOMERR(A) =         A[187]             #, % 34                 00078000          
+     SISDPKERRS(A) =         A[221]             #, % 17                 00079000          
+     SISDNOMBDM(A) =         A[238]             #, % 17                 00080000          
+     SISDSTABDM(A) =         A[255]             #, % 02                 00081000          
+     SISDNUMARC(A) =         A[257]             #, % 02                 00082000          
+     SISDTERNIV(A) =         A[259]             #, % 02                 00083000          
+    ISISDFECARM(A,N)=INTEGER(A[261+ 26*N] ,08)  #, % 08                 00084000          
+     SISDFECARM(A,N)=        A[261+ 26*N]       #, % 08                 00085000          
+                                                                        00086000          
+    ISISDFECARM6(A,N)=INTEGER(A[263+ 26*N] ,06) #, % 06                 00087000          
+     SISDFECARM6(A,N)=        A[263+ 26*N]      #, % 06                 00088000          
+                                                                        00089000          
+    ISISDNIVARM(A,N)=INTEGER(A[269+ 26*N] ,08)  #, % 08                 00090000          
+     SISDNIVARM(A,N)=        A[269+ 26*N]       #, % 08                 00091000          
+    ISISDNIVBDM(A,N)=INTEGER(A[277+ 26*N] ,08)  #, % 08                 00092000          
+     SISDNIVBDM(A,N)=        A[277+ 26*N]       #, % 08                 00093000          
+    ISISDSTAARM(A,N)=INTEGER(A[285+ 26*N] ,02)  #, % 02                 00094000          
+     SISDSTAARM(A,N)=        A[285+ 26*N]       #, % 02                 00095000          
+%==============================================================         00096000          
+%      DESCRIPCION DEL LLAMADO PARA ACCESAR EL DATASET B05              00097000          
+%==============================================================         00098000          
+    IDFB05FUNCION(A) = INTEGER(A[00]       ,02)   #, % 02               00099000          
+    IDFB05SISTEMA(A) = INTEGER(A[02]       ,04)   #, % 04               00100000          
+    IDFB05FECPRO (A) = INTEGER(A[06]       ,08)   #, % 08               00101000          
+    IDFB05NUMPRO (A) = INTEGER(A[14]       ,04)   #, % 04               00102000          
+    IDFB05STAPGMA(A) = INTEGER(A[18]       ,02)   #, % 02               00103000          
+                                                                        00104000          
+    IDFB05MIX    (A) = INTEGER(A[24]       ,08)   #, % 08               00105000          
+    IDFB05FECINI (A) = INTEGER(A[32]       ,06)   #, % 06               00106000          
+    IDFB05HORAINI(A) = INTEGER(A[38]       ,06)   #, % 06               00107000          
+    IDFB05FECFIN (A) = INTEGER(A[44]       ,06)   #, % 06               00108000          
+    IDFB05HORAFIN(A) = INTEGER(A[50]       ,06)   #, % 06               00109000          
+    IDFB05REGINI (A) = INTEGER(A[56]       ,08)   #, % 08               00110000          
+    IDFB05REGFIN (A) = INTEGER(A[64]       ,08)   #, % 08               00111000          
+                                                                        00112000          
+    DFB05FUNCION(A) = A[00]#, % 02                                      00113000          
+    DFB05SISTEMA(A) = A[02]#, % 04                                      00114000          
+    DFB05FECPRO (A) = A[06]#, % 08                                      00115000          
+    DFB05NUMPRO (A) = A[14]#, % 04                                      00116000          
+    DFB05STAPGMA(A) = A[18]#, % 02                                      00117000          
+                                                                        00118000          
+    DFB05MIX    (A) = A[24]#, % 08                                      00119000          
+    DFB05FECINI (A) = A[32]#, % 06                                      00120000          
+    DFB05HORAINI(A) = A[38]#, % 06                                      00121000          
+    DFB05FECFIN (A) = A[44]#, % 06                                      00122000          
+    DFB05HORAFIN(A) = A[50]#, % 06                                      00123000          
+    DFB05REGINI (A) = A[56]#, % 08                                      00124000          
+    DFB05REGFIN (A) = A[64]#, % 08                                      00125000          
+                                                                        00126000          
+  CAND(X,Y) = IF (X) THEN (Y) ELSE FALSE #,                             00127000          
+                                                                        00128000          
+  VALIDA_CVE(CVE, ECTA, CONTA) = IF NOT LIB_SBC     AND                 00129000          
+                                    CVE NEQ 3009    AND                 00130000          
+                                    CVE NEQ 3036                        00131000          
+                                 THEN TRUE                              00132000          
+                                 ELSE                                   00133000          
+                                    IF CAND (LIB_SBC,                   00134000          
+                                             (CVE = 3009 OR             00135000          
+                                              CVE = 3036 ))             00136000          
+                                    THEN TRUE                           00137000          
+                                    ELSE FALSE#;                        00138000          
+                                                                        00139000          
+%==============================================================         00140000          
+%    DEFINICION DE VARIABALES GLOBALES                                  00141000          
+%==============================================================         00142000          
+                                                                        00143000          
+ INTEGER FECHA_PROCESO,    % FECHA DE PROCESO EN 8 DIGITOS              00144000          
+         TOT_RECIBIDOS,    % TOTAL DE MOVIMIENTOS RECIBIDOS             00145000          
+         TOT_ALTAS,        % TOTAL DE ALTAS                             00146000          
+         TOT_BAJAS,        % TOTAL DE BAJAS                             00147000          
+         TOT_MODIF,        % TOTAL DE MODIFICACIONES                    00148000          
+         TOT_CONS ,        % TOTAL DE CONSULTAS                         00149000          
+         TOT_ERRORES,      % TOTAL DE ERRORES                           00150000          
+         CSI_LIB,          % CSI DEL EQUIPO                             00151000          
+         CONLJ,            % CONTADOR LLAMADOR A LJ                     00152000          
+         RESULT_LINK;      % RESULTADO DE LIGA                          00153000          
+ DOUBLE  IMPORTE,          % IMPORTE DE LA TRANSACCION                  00154000          
+         D_ENTERO;         % PARTE ENTERA DEL IMPORTE                   00155000          
+                                                                        00156000          
+ ARRAY   NOMB_ARC_BITA    [0:71]  ; % NOMBRE DE ARCHIVO LOG             00157000          
+                                                                        00158000          
+ EBCDIC ARRAY CTLVER_ID   [0:11]  , % ID PARA CONTROL DE VERSIONES      00159000          
+              CTLVER_NOM  [0:71]  , % NOMBRE EN VERSIONES               00160000          
+              MSGLJ       [0:350] , % CAMPO PARA DESPLIEGA DE MENSAJES  00161000          
+              ACONTROL_B05[0:560] , % ARREGLO PARA LLAMADO A L001       00162000          
+              REGISTRO    [0:1259];                                     00163000          
+ STRING STR_HDRMSG;                                                     00164000          
+                                                                        00165000          
+ BOOLEAN    MONITOR;                                                    00166000          
+                                                                        00167000          
+  PROCEDURE VERSIONES;                                                  00168000          
+            FORWARD;                                                    00169000          
+                                                                        00170000          
+  PROCEDURE INICIA;                                                     00171000          
+            FORWARD;                                                    00172000          
+                                                                        00173000          
+  PROCEDURE GRABA_BITACORA(REGISTRO);                                   00174000          
+  EBCDIC ARRAY REGISTRO[*];                                             00175000          
+  BEGIN                                                                 00176000          
+     DEFINE DF_NOMINA  (A) = A[0]                #, % 8                 00177000          
+            DF_FECHA   (A) = A[07]               #, % 8                 00178000          
+            DF_HORA    (A) = A[15]               #, % 8                 00179000          
+            DF_ESTACION(A) = A[23]               #, % 8                 00180000          
+            DF_SISTEMA (A) = A[31]               #, % 4                 00181000          
+            DF_CVETRAN (A) = A[35]               #, % 8                 00182000          
+            DF_TIPO_OPE(A) = A[43]               #, % 1                 00183000          
+            DF_MSG_IN  (A) = A[44]               #, % 63                00184000          
+            DF_MSG_OUT (A) = A[108]              #, % 1150              00185000          
+            DF_CVE_RES (A) = A[1258]             #, % 2                 00186000          
+           IDF_CVE_RES (A) = INTEGER(A[1258],2)  #; % 2                 00187000          
+     EBCDIC  ARRAY REG_BITA[0:1255];                                    00188000          
+     INTEGER LONG_MSG;                                                  00189000          
+                                                                        00190000          
+     LONG_MSG := SIZE(REGISTRO);                                        00191000          
+     IF LONG_MSG > 1260 THEN LONG_MSG := 1260;                          00192000          
+     REPLACE REG_BITA BY REGISTRO FOR 1260;                             00193000          
+     TOT_RECIBIDOS := * + 1;                                            00194000          
+     IF IDF_CVE_RES (REG_BITA) > 1 THEN                                 00195000          
+        TOT_ERRORES := * + 1;                                           00196000          
+     WRITE(BITA_P010,1260,REG_BITA);                                    00197000          
+  END;                                                                  00198000          
+                                                                        00199000          
+  PROCEDURE BAJA;                                                       00200000          
+  BEGIN                                                                 00201000          
+     INTEGER RESPUESTA;                                                 00202000          
+     RESPUESTA := LINKLIBRARY(CONTROL);                                 00203000          
+     CLOSE (BITA_P010,LOCK);                                            00204000          
+     IF RESPUESTA GEQ 0 THEN                                            00205000          
+     BEGIN                                                              00206000          
+        REPLACE ACONTROL_B05 BY 48"00" FOR SIZE(ACONTROL_B05);          00207000          
+        REPLACE DFB05FUNCION(ACONTROL_B05) BY    22 FOR 2 DIGITS,       00208000          
+                                           SIST_LIB FOR 4 DIGITS,       00209000          
+                                           0        FOR 8 DIGITS,       00210000          
+                                           10       FOR 4 DIGITS;       00211000          
+        B05PROCESOS(ACONTROL_B05);                                      00212000          
+        RESPUESTA := DELINKLIBRARY(CONTROL);                            00213000          
+     END;                                                               00214000          
+  END;                                                                  00215000          
+                                                                        00216000          
+  PROCEDURE VERIFICA_B05;                                               00217000          
+  BEGIN                                                                 00218000          
+     DEFINE SNR = MYSELF.MIXNUMBER#;                                    00219000          
+                                                                        00220000          
+     ARRAY   ARR1,ARR2[0:200],           % ARREGLO PARA EJEC. DE DCKEY  00221000          
+             TOKEN    [0:79],            % PALABRA DE RESPUESTA         00222000          
+             NOM_LIB,                                                   00223000          
+             MIX_SIN_MTP,                                               00224000          
+             LIB_SIN_MTP[0:71];          % NOMBRE DE LA LIBRERIA        00225000          
+                                                                        00226000          
+     STRING  STR_LIB,                                                   00227000          
+             STR_MIX;                                                   00228000          
+                                                                        00229000          
+     INTEGER RESULT_CTL,                 % RESULTADO DE LLAMADO A L001  00230000          
+             MIX_L010;                   % MEZCLA DE LIBRERIA           00231000          
+                                                                        00232000          
+                                                                        00233000          
+     POINTER P_SAL;                      % APUNTADOR A RESP. DE DCKEY   00234000          
+                                                                        00235000          
+     REPLACE NOM_LIB BY MYSELF.NAME;                                    00236000          
+     REPLACE LIB_SIN_MTP BY POINTER(NOM_LIB) FOR 33;                    00237000          
+     REPLACE ACONTROL_B05 BY 48"00" FOR SIZE(ACONTROL_B05);             00238000          
+     REPLACE DFB05FUNCION(ACONTROL_B05)                                 00239000          
+             BY     1 FOR 2 DIGITS,                                     00240000          
+                    SIST_LIB FOR 4 DIGITS,                              00241000          
+                    0        FOR 8 DIGITS,                              00242000          
+                    10       FOR 4 DIGITS;                              00243000          
+     RESULT_CTL:= B05PROCESOS(ACONTROL_B05);                            00244000          
+     WHILE RESULT_CTL = 0 DO                                            00245000          
+     BEGIN                                                              00246000          
+        MIX_L010 := IDFB05MIX(ACONTROL_B05);                            00247000          
+        REPLACE ARR1 BY " " FOR 201 WORDS;                              00248000          
+        REPLACE ARR1 BY MIX_L010   FOR 5 DIGITS,                        00249000          
+                    "Y"                 ,                               00250000          
+                    48"00";                                             00251000          
+        DCKEYIN(POINTER(ARR1),ARR2);                                    00252000          
+        P_SAL := POINTER(ARR2);                                         00253000          
+        REPLACE TOKEN BY 48"00" FOR 80;                                 00254000          
+        REPLACE TOKEN BY P_SAL:P_SAL UNTIL = " ";                       00255000          
+        IF TOKEN = "INVALID" OR TOKEN = "Task" THEN                     00256000          
+        BEGIN                                                           00257000          
+           REPLACE ACONTROL_B05 BY 48"00" FOR SIZE(ACONTROL_B05);       00258000          
+           REPLACE DFB05FUNCION(ACONTROL_B05)                           00259000          
+                   BY    22 FOR 2 DIGITS,                               00260000          
+                         SIST_LIB FOR 4 DIGITS,                         00261000          
+                         0        FOR 8 DIGITS,                         00262000          
+                         10       FOR 4 DIGITS;                         00263000          
+           RESULT_CTL := B05PROCESOS(ACONTROL_B05);                     00264000          
+        END                                                             00265000          
+        ELSE                                                            00266000          
+        BEGIN                                                           00267000          
+           REPLACE TOKEN BY 48"00" FOR 80;                              00268000          
+           REPLACE TOKEN BY P_SAL:P_SAL WHILE > 48"00";                 00269000          
+           REPLACE TOKEN BY 48"00" FOR 80;                              00270000          
+           REPLACE TOKEN BY P_SAL:P_SAL UNTIL = " ";                    00271000          
+           P_SAL := P_SAL + 1;                                          00272000          
+           REPLACE TOKEN BY 48"00" FOR 80;                              00273000          
+           REPLACE TOKEN BY P_SAL:P_SAL UNTIL = " ";                    00274000          
+           P_SAL := P_SAL + 1;                                          00275000          
+           REPLACE TOKEN BY 48"00" FOR 80;                              00276000          
+           REPLACE MIX_SIN_MTP BY P_SAL:P_SAL FOR 33;                   00277000          
+           STR_LIB := STRING(LIB_SIN_MTP,35);                           00278000          
+           STR_MIX := STRING(MIX_SIN_MTP,35);                           00279000          
+           IF STR_MIX = STR_LIB THEN                                    00280000          
+           BEGIN                                                        00281000          
+              REPLACE ARR1 BY " " FOR 201 WORDS;                        00282000          
+              REPLACE ARR1 BY MIX_L010   FOR 5 DIGITS,                  00283000          
+                             "HI 4"                 ,                   00284000          
+                             48"00";                                    00285000          
+              DCKEYIN(POINTER(ARR1),ARR2);                              00286000          
+              WAIT((5));                                                00287000          
+              DCKEYIN(POINTER(ARR1),ARR2);                              00288000          
+              IF  ARR2 = "INVALID NUMBER" THEN                          00289000          
+              BEGIN                                                     00290000          
+                 REPLACE ACONTROL_B05 BY 48"00"                         00291000          
+                                       FOR SIZE(ACONTROL_B05);          00292000          
+                  REPLACE DFB05FUNCION(ACONTROL_B05)                    00293000          
+                          BY    22 FOR 2 DIGITS,                        00294000          
+                                SIST_LIB FOR 4 DIGITS,                  00295000          
+                                0        FOR 8 DIGITS,                  00296000          
+                                10       FOR 4 DIGITS;                  00297000          
+                  RESULT_CTL := B05PROCESOS(ACONTROL_B05);              00298000          
+              END                                                       00299000          
+              ELSE                                                      00300000          
+              BEGIN                                                     00301000          
+                 REPLACE MSGLJ BY STR_HDRMSG, 48"00" FOR 227;           00302000          
+                 REPLACE TXTMSG BY " L010 > ",                          00303000          
+                                  "ERROR L010/S",                       00304000          
+                                  SIST_LIB FOR 3 DIGITS,                00305000          
+                                  ", EXISTE UNA L010 CON MIX ",         00306000          
+                                  MIX_L010   FOR 4 DIGITS,              00307000          
+                                  " DARLA DE BAJA PARA PODER CONT. ";   00308000          
+                 LJ(CONLJ,MSGLJ);                                       00309000          
+                 ACCEPT(TXTMSG);                                        00310000          
+              END;                                                      00311000          
+              REPLACE ACONTROL_B05 BY 48"00" FOR SIZE(ACONTROL_B05);    00312000          
+              REPLACE DFB05FUNCION(ACONTROL_B05)                        00313000          
+                      BY     1 FOR 2 DIGITS,                            00314000          
+                             SIST_LIB FOR 4 DIGITS,                     00315000          
+                             0        FOR 8 DIGITS,                     00316000          
+                             10       FOR 4 DIGITS;                     00317000          
+              RESULT_CTL:= B05PROCESOS(ACONTROL_B05);                   00318000          
+           END                                                          00319000          
+           ELSE                                                         00320000          
+           BEGIN                                                        00321000          
+              REPLACE ACONTROL_B05 BY 48"00" FOR SIZE(ACONTROL_B05);    00322000          
+              REPLACE DFB05FUNCION(ACONTROL_B05)                        00323000          
+                      BY    22 FOR 2 DIGITS,                            00324000          
+                            SIST_LIB FOR 4 DIGITS,                      00325000          
+                            0        FOR 8 DIGITS,                      00326000          
+                            10       FOR 4 DIGITS;                      00327000          
+              RESULT_CTL:= B05PROCESOS(ACONTROL_B05);                   00328000          
+           END;                                                         00329000          
+        END;                                                            00330000          
+     END;                                                               00331000          
+     REPLACE ACONTROL_B05 BY 48"00" FOR SIZE(ACONTROL_B05);             00332000          
+     REPLACE DFB05FUNCION(ACONTROL_B05)                                 00333000          
+             BY    19 FOR 2 DIGITS,                                     00334000          
+                   SIST_LIB FOR 4 DIGITS,                               00335000          
+                   0        FOR 8 DIGITS,                               00336000          
+                   10       FOR 4 DIGITS,                               00337000          
+                   "    ",                                              00338000          
+                   0        FOR 2 DIGITS,                               00339000          
+                   SNR      FOR 8 DIGITS;                               00340000          
+     RESULT_CTL:= B05PROCESOS(ACONTROL_B05);                            00341000          
+     IF RESULT_CTL > 0 THEN                                             00342000          
+     BEGIN                                                              00343000          
+        REPLACE MSGLJ BY STR_HDRMSG, 48"00" FOR 227;                    00344000          
+        REPLACE TXTMSG BY " L010 > ",                                   00345000          
+                         "ERROR L010/S",                                00346000          
+                         SIST_LIB FOR 3 DIGITS,                         00347000          
+                         ", NO SE PUDO DAR DE ALTA REG. EN B05"         00348000          
+                         ", RESULT ",                                   00349000          
+                         RESULT_CTL FOR 4 DIGITS;                       00350000          
+        LJ(CONLJ,MSGLJ);                                                00351000          
+        MYSELF.STATUS:= -1;                                             00352000          
+     END;                                                               00353000          
+   END;                                                                 00354000          
+                                                                        00355000          
+ %===========================================================           00356000          
+ % CONTROL DE VERSIONES                                                 00357000          
+%============================================================           00358000          
+    PROCEDURE VERSIONES;                                                00359000          
+    BEGIN                                                               00360000          
+       EBCDIC ARRAY CTLVER_ID[0:11],CTLVER_NOM [0:71], NOM_ASINC[0:71]; 00361000          
+                                                                        00362000          
+       REPLACE CTLVER_ID BY "S080BD01CON ";                             00363000          
+       IF DAME_TIT(CTLVER_ID,CTLVER_NOM) < 0  THEN                      00364000          
+       BEGIN                                                            00365000          
+          REPLACE MSGLJ BY STR_HDRMSG, 48"00" FOR 227;                  00366000          
+          REPLACE TXTMSG BY " L010 > ",                                 00367000          
+                            "ERROR EN VERSIONES, NO EXISTE ",           00368000          
+                            "IDENTIFICADOR DEL ",                       00369000          
+                            "S080 (S080BF01CON)";                       00370000          
+          LJ(CONLJ,MSGLJ);                                              00371000          
+       END                                                              00372000          
+       ELSE                                                             00373000          
+          REPLACE S080L710.TITLE BY CTLVER_NOM FOR 72;                  00374000          
+                                                                        00375000          
+       REPLACE CTLVER_ID BY "S151L001CTL ";                             00376000          
+       IF DAME_TIT(CTLVER_ID,CTLVER_NOM) < 0  THEN                      00377000          
+       BEGIN                                                            00378000          
+          REPLACE MSGLJ BY STR_HDRMSG, 48"00" FOR 227;                  00379000          
+          REPLACE TXTMSG BY " L010 > ERROR EN CTLVER," ,                00380000          
+                           " NO EXISTE IDENTIFICADOR DE " ,             00381000          
+                           "CTLVER_NOM CONTROL S151 (S151L001CTL)";     00382000          
+          LJ(CONLJ,MSGLJ);                                              00383000          
+          REPLACE CONTROL.TITLE BY "(S151)S151/OBJECT/L001/CONTROL.";   00384000          
+       END                                                              00385000          
+       ELSE                                                             00386000          
+          REPLACE CONTROL.TITLE BY CTLVER_NOM FOR 72;                   00387000          
+                                                                        00388000          
+    END;     % FIN DEL PROCEDIMIENTO DE CONTROL DE VERSIONES.           00389000          
+                                                                        00390000          
+%====================================================================   00391000          
+%      PROCESO DE INICIO DE LIBRERIA                                =   00392000          
+%====================================================================   00393000          
+ PROCEDURE INICIA;                                                      00394000          
+ BEGIN                                                                  00395000          
+    EBCDIC ARRAY   DATOS_HOST[0:42], NOM_ARCH[0:60], PK_MOV[0:17];      00396000          
+    INTEGER        AA, MM, DD, INT,                                     00397000          
+                   RESULT_CTL;                                          00398000          
+                                                                        00399000          
+    PROCEDURE CONSULTA_B01;                                             00400000          
+    BEGIN                                                               00401000          
+       EBCDIC ARRAY ACONTROL[0:560];                                    00402000          
+       REPLACE SISDFUNCI(ACONTROL) BY       1 FOR 2 DIGITS,             00403000          
+                                          500 FOR 4 DIGITS,             00404000          
+                                     CSI_LIB  FOR 2 DIGITS;             00405000          
+       RESULT_CTL:= CONSISDIA(ACONTROL);                                00406000          
+       IF RESULT_CTL > 0 THEN                                           00407000          
+       BEGIN                                                            00408000          
+          REPLACE MSGLJ BY STR_HDRMSG, 48"00" FOR 227;                  00409000          
+          REPLACE TXTMSG BY " L010 > ERROR EN CONSULTA ",               00410000          
+                           "DE LIB S151/L001, SISTEMA S",               00411000          
+                           SIST_LIB FOR 3 DIGITS,                       00412000          
+                           RESULT_CTL FOR 6 DIGITS;                     00413000          
+          LJ(CONLJ,MSGLJ);                                              00414000          
+          MYSELF.STATUS:= -1;                                           00415000          
+       END;                                                             00416000          
+       FECHA_PROCESO := ISISDFECCON(ACONTROL);                          00417000          
+       REPLACE NOMB_ARC_BITA BY "(S151)S151/FILE/LOGP010/",             00418000          
+                                FECHA_PROCESO  FOR 6 DIGITS,            00419000          
+                                " ON CMEMP.";                           00420000          
+    END;        % FIN DE CONSULTA_B01                                   00421000          
+                                                                        00422000          
+%=================================================================      00423000          
+%   PROCEDURE ASIGNA ARCHIVOS                                    =      00424000          
+%=================================================================      00425000          
+    PROCEDURE ASIGNA_ARCHIVOS;                                          00426000          
+    BEGIN                                                               00427000          
+       REPLACE BITA_P010.TITLE BY NOMB_ARC_BITA;                        00428000          
+       BITA_P010.BLOCKSIZE := 37800;                                    00429000          
+       BITA_P010.MYUSE := 3;                                            00430000          
+       IF NOT (BITA_P010.RESIDENT) THEN                                 00431000          
+       BEGIN                                                            00432000          
+          BITA_P010.MYUSE := 2;       % MYUSE 1 = IN, 2 = OUT, 3 = IO   00433000          
+          OPEN(BITA_P010,WAIT)                                          00434000          
+       END                                                              00435000          
+       ELSE                                                             00436000          
+          OPEN(BITA_P010,ATEND);                                        00437000          
+    END;       % FIN DE PROCEDIMIENTO DE VALIDACION DE ARCHIVOS         00438000          
+                                                                        00439000          
+%=================================================================      00440000          
+% INICIA CODIGO DE PROCEDIMIENTO INICIA                          =      00441000          
+%=================================================================      00442000          
+    VERSIONES;                                                          00443000          
+%    AA := TIME(7).[47:12];                                             00444000          
+%    MM := TIME(7).[35:06];                                             00445000          
+%    DD := TIME(7).[29:06];                                             00446000          
+%    REPLACE AFECHA_MAQUINA BY AA FOR 4 DIGITS,                         00447000          
+%                              MM FOR 2 DIGITS,                         00448000          
+%                              DD FOR 2 DIGITS;                         00449000          
+                                                                        00450000          
+    INT := LINKLIBRARY(SOPORTE);                                        00451000          
+    CSIID(DATOS_HOST);                                                  00452000          
+    INT := DELINKLIBRARY(SOPORTE);                                      00453000          
+    CSI_LIB := INTEGER(DATOS_HOST,2);                                   00454000          
+    INT := LINKLIBRARY(CONTROL);                                        00455000          
+    CONSULTA_B01;                                                       00456000          
+    INT := DELINKLIBRARY(CONTROL);                                      00457000          
+    ASIGNA_ARCHIVOS;                                                    00458000          
+ END;           % FIN DE PROCEDIMIENTO INICIA                           00459000          
+%==========================================================             00460000          
+% PROCESO DE CONTROL DE LA LIBRERIA                       =             00461000          
+%==========================================================             00462000          
+  PROCEDURE CONTROL_LIB;                                                00463000          
+  BEGIN                                                                 00464000          
+   INTEGER EVENTO  , % NUMERO DE EVENTO PARA CONTROL DE LA LIBRERIA     00465000          
+           NUM_HI  ; % NUMERO DE HI                                     00466000          
+   EBCDIC ARRAY STR_HR_MM[0:3];                                         00467000          
+                                                                        00468000          
+   EXCEPTION PROCEDURE CIERRA;                                          00469000          
+   BEGIN                                                                00470000          
+     CLOSE (BITA_P010,LOCK);                                            00471000          
+   END;                                                                 00472000          
+%==================================================================     00473000          
+%       INICIA CODIGO PARA EJECUCION DE HI'S                      =     00474000          
+%==================================================================     00475000          
+   PROCEDURE EJECUTA_HI;                                                00476000          
+   BEGIN                                                                00477000          
+      CASE NUM_HI OF                                                    00478000          
+      BEGIN                                                             00479000          
+         0 : ;                                                          00480000          
+         1 : BEGIN                                                      00481000          
+                REPLACE MSGLJ BY STR_HDRMSG, 48"00" FOR 227;            00482000          
+                REPLACE TXTMSG BY "FECHA PROCESO      ",                00483000          
+                                  FECHA_PROCESO FOR 8 DIGITS;           00484000          
+                LJ(CONLJ,MSGLJ);                                        00485000          
+                                                                        00486000          
+                REPLACE MSGLJ BY STR_HDRMSG, 48"00" FOR 227;            00487000          
+                REPLACE TXTMSG BY "MOVTOS. RECIBIDOS  ",                00488000          
+                                  TOT_RECIBIDOS FOR 6 DIGITS;           00489000          
+                LJ(CONLJ,MSGLJ);                                        00490000          
+                                                                        00491000          
+                REPLACE MSGLJ BY STR_HDRMSG, 48"00" FOR 227;            00492000          
+                REPLACE TXTMSG BY "ALTAS              ",                00493000          
+                                  TOT_ALTAS     FOR 6 DIGITS;           00494000          
+                LJ(CONLJ,MSGLJ);                                        00495000          
+                                                                        00496000          
+                REPLACE MSGLJ BY STR_HDRMSG, 48"00" FOR 227;            00497000          
+                REPLACE TXTMSG BY "BAJAS              ",                00498000          
+                                  TOT_BAJAS     FOR 8 DIGITS;           00499000          
+                LJ(CONLJ,MSGLJ);                                        00500000          
+                                                                        00501000          
+                REPLACE MSGLJ BY STR_HDRMSG, 48"00" FOR 227;            00502000          
+                REPLACE TXTMSG BY "MODIFICACIONES     ",                00503000          
+                                  TOT_MODIF     FOR 8 DIGITS;           00504000          
+                LJ(CONLJ,MSGLJ);                                        00505000          
+                                                                        00506000          
+                REPLACE MSGLJ BY STR_HDRMSG, 48"00" FOR 227;            00507000          
+                REPLACE TXTMSG BY "CONSULTAS          ",                00508000          
+                                  TOT_CONS      FOR 8 DIGITS;           00509000          
+                LJ(CONLJ,MSGLJ);                                        00510000          
+                                                                        00511000          
+                REPLACE MSGLJ BY STR_HDRMSG, 48"00" FOR 227;            00512000          
+                REPLACE TXTMSG BY "ERRORES            ",                00513000          
+                                  TOT_ERRORES   FOR 8 DIGITS;           00514000          
+                LJ(CONLJ,MSGLJ);                                        00515000          
+             END;                                                       00516000          
+         2 : MONITOR := TRUE;                                           00517000          
+         3 : MONITOR := FALSE;                                          00518000          
+         4 : IF MYSELF.LIBRARYUSERS > 0 THEN                            00519000          
+             BEGIN                                                      00520000          
+                REPLACE MSGLJ BY STR_HDRMSG, 48"00" FOR 227;            00521000          
+                REPLACE TXTMSG BY "NO ES POSIBLE DAR DE BAJA LA ",      00522000          
+                                  "LIBRERIA, EXISTEN USUARIOS",         00523000          
+                                  " UTILIZANDOLA";                      00524000          
+                LJ(CONLJ,MSGLJ);                                        00525000          
+             END;                                                       00526000          
+        25 : BEGIN                                                      00527000          
+                CLOSE (BITA_P010,LOCK);                                 00527100          
+                INICIA;                                                 00527200          
+             END;                                                       00527300          
+      ELSE : BEGIN                                                      00528000          
+                REPLACE MSGLJ BY STR_HDRMSG, 48"00" FOR 227;            00529000          
+                REPLACE TXTMSG BY "HI 1 .- DESPLIEGA         DEL PROC"; 00530000          
+                LJ(CONLJ,MSGLJ);                                        00531000          
+             END;                                                       00532000          
+      END;              % FIN DEL CASE                                  00533000          
+   END;                 % FIN PROCEDIMIENTO EJECUTA HI                  00534000          
+%====================================================================== 00535000          
+%    CODIGO DE PROCEDIMIENTO DE CONTROL                                 00536000          
+%====================================================================== 00537000          
+   NUM_HI := 0;                                                         00538000          
+   WHILE MYSELF.LIBRARYUSERS > 0  DO                                    00539000          
+   BEGIN                                                                00540000          
+      EVENTO := WAITANDRESET((10), MYSELF.EXCEPTIONEVENT);              00541000          
+      CASE EVENTO OF                                                    00542000          
+      BEGIN                                                             00543000          
+         1    : BEGIN                                                   00544000          
+                                                                        00545000          
+                END;                                                    00546000          
+         2    : BEGIN                                                   00547000          
+                  NUM_HI := MYSELF.TASKVALUE;                           00548000          
+                  EJECUTA_HI;                                           00549000          
+                END;                                                    00550000          
+         ELSE :    ;                                                    00551000          
+      END ;                                                             00552000          
+   END;                                                                 00553000          
+   MYSELF.STATUS := VALUE(GOINGAWAY);                                   00554000          
+ END;                                                                   00555000          
+                                                                        00556000          
+ EXPORT GRABA_BITACORA;                                                 00557000          
+ STR_HDRMSG := "S151/L010/001:I>020901< ";                              00558000          
+ VERSIONES;                                                             00559000          
+ RESULT_LINK := LINKLIBRARY(CONTROL);                                   00560000          
+ VERIFICA_B05;                                                          00561000          
+ RESULT_LINK := DELINKLIBRARY(CONTROL);                                 00562000          
+ INICIA;                                                                00563000          
+ FREEZE(CONTROL,CONTROL_LIB);                                           00564000          
+ BAJA;                                                                  00565000          
+END.                                                                    00566000          

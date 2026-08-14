@@ -1,0 +1,56 @@
+$ SET VERSION 99.01.00                                                  00000100          
+BEGIN                                                                   00000200          
+                                                                        00000300          
+INPUTHEADER     COMSINHDR;                                              00000400          
+OUTPUTHEADER    COMSOUTHDR;                                             00000500          
+                                                                        00000600          
+LIBRARY TIME_OUT(LIBACCESS = BYTITLE);                                  00000700          
+                                                                        00000800          
+PROCEDURE ENVIA_CANCELACIONES(COMS_IN,COMS_OUT,IN_EV,TSK_EV);           00000900          
+    INPUTHEADER  COMS_IN;                                               00001000          
+    OUTPUTHEADER COMS_OUT;                                              00001100          
+    EVENT        IN_EV, TSK_EV;                                         00001200          
+    LIBRARY TIME_OUT;                                                   00001300          
+                                                                        00001400          
+PROCEDURE INICIA;                                                       00001500          
+    BEGIN                                                               00001600          
+    EBCDIC ARRAY E_MSG, TITULO[0:71], AUX[0:20];                        00001700          
+      EBCDIC VALUE ARRAY MY_ID("25MTP002");                             00001800          
+                                                                        00001900          
+    LIBRARY CTLVER(LIBACCESS=BYFUNCTION,FUNCTIONNAME="CTLVERS"),        00002000          
+            SHELL (LIBACCESS=BYFUNCTION,FUNCTIONNAME="SOPORTECOMS.");   00002100          
+                                                                        00002200          
+    INTEGER PROCEDURE DAME_TIT(ID,TITULO);                              00002300          
+        EBCDIC  ARRAY ID,TITULO[0];                                     00002400          
+        LIBRARY CTLVER;                                                 00002500          
+                                                                        00002600          
+    PROCEDURE CSIID(INFO);                                              00002700          
+        EBCDIC ARRAY INFO[0];                                           00002800          
+        LIBRARY SHELL;                                                  00002900          
+                                                                        00003000          
+    REPLACE AUX BY MYSELF.USERCODE;                                     00003100          
+    REPLACE E_MSG BY AUX UNTIL = ".","L091ASIN",48"00";                 00003200          
+    IF DAME_TIT(E_MSG,TITULO) < 0 THEN                                  00003300          
+        DISPLAY("ERROR AL LLAMAR A CONTROL DE VERSIONES")               00003400          
+    ELSE                                                                00003500          
+        REPLACE TIME_OUT.TITLE BY TITULO FOR 72;                        00003600          
+                                                                        00003700          
+    CSIID(E_MSG);                                                       00003800          
+    MYSELF.OPTIONS:=* & 1 [VALUE(BDBASE):1]                             00003900          
+                      & 1 [VALUE(FAULT) :1]                             00004000          
+                      & 1 [VALUE(DSED)  :1]                             00004100          
+                      & 1 [VALUE(ARRAYS):1];                            00004200          
+    REPLACE TITULO BY "S500/LIST/P091/",E_MSG FOR 2,                    00004300          
+        "00/R000/",TIME(15).[15:48],".";                                00004400          
+    REPLACE MYSELF.BDNAME BY TITULO;                                    00004500          
+    ENABLE(COMSINHDR,"ONLINE");                                         00004600          
+    DELINKLIBRARY(CTLVER);                                              00004700          
+    DELINKLIBRARY(SHELL);                                               00004800          
+    END INICIA;                                                         00004900          
+                                                                        00005000          
+INICIA;                                                                 00005100          
+                                                                        00005200          
+ENVIA_CANCELACIONES                                                     00005300          
+    (COMSINHDR,COMSOUTHDR,MYSELF.DCIINPUTEVENT,MYSELF.DCITASKEVENT);    00005400          
+                                                                        00005500          
+END.                                                                    00005600          

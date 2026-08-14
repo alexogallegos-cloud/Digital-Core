@@ -1,0 +1,1553 @@
+100100$ SET LIST$                                                                   
+100200$ SET ERRORLIST                                                               
+100400$ SET LIST STACK XREF LINEINFO FREE                                           
+100500$ ERRORLIMIT = 500                                                            
+100600$ SET BDB02R01                                                                
+100620$ SET BDB03R02                                                                
+100630$ SET BDB05R02                                                                
+100640$ SET BDB06R08                                                                
+100700$ SET S100VERSIONES S006LOCSUP S080TARIFAS S080IVA                            
+100800$ SET FECHA2000                                                               
+100810$ SET S000LIBLJ                                                               
+100820$ SET LIBMAPLI                                                                
+100840$ SET MAPLIACTLIB012 MAPLIACTLIB013 MAPLIACTLIB015                            
+100860$ SET MAPLIACTLIB040                                                          
+100880$ SET HOSTNAME                                                                
+100900$ RESET LIST$                                                                 
+101000****************************************************************              
+101100** P200 P200 P200 P200 P200 P200 P200 P200 P200 P200 P200 P200 *              
+101200****************************************************************              
+101300** GENERA ARCHIVO PARA TESORERIA CON INFORMACION DE TASAS PAGADAS             
+101400** POR RANGOS CALIFICADOS EN S080.                                            
+101410                                                                              
+101420** GENERA UN ARCHIVO PUENTE                                                   
+101430** CLASIFICA ARCHIVO PUENTE                                                   
+101440** GENERA ARCHIVO PARA TESORERIA                                              
+101445** CLASIFICA ARCHIVO PARA TESORERIA                                           
+101450** GENERA REPORTE PARA VALIDACION                                             
+101452** EL ARCHIVO PUENTE SE TIRA AL FINAL (CLOSE WITH PURGE)                      
+101500                                                                              
+101600****************************************************************              
+101700 IDENTIFICATION DIVISION.                                                     
+101800 PROGRAM-ID.    P200.                                                         
+101900 AUTHOR.        JOSE LUIS IBARRA LARA.                                        
+102000 DATE-WRITTEN.  SEP/1998.                                                     
+102100 INSTALLATION.  BANCO NACIONAL DE MEXICO, S.A.                                
+102200 SECURITY.                                                                    
+102300 ENVIRONMENT    DIVISION.                                                     
+102400 CONFIGURATION  SECTION.                                                      
+102500 SOURCE-COMPUTER.  SERIES-A.                                                  
+102600 OBJECT-COMPUTER.  SERIES-A.                                                  
+102700 INPUT-OUTPUT   SECTION.                                                      
+102800 FILE-CONTROL.                                                                
+102900                                                                              
+103000     SELECT I01-RANGOS      ASSIGN TO DISK.                                   
+103020                                                                              
+103040     SELECT I02-RGOSPTE     ASSIGN TO DISK.                                   
+103100                                                                              
+103200     SELECT S01-RANGOS      ASSIGN TO SORT DISK.                              
+103220                                                                              
+103240     SELECT S02-RGOSPTE     ASSIGN TO SORT DISK.                              
+103300                                                                              
+103400     SELECT R01-RGOSDO      ASSIGN TO PRINTER.                                
+103500                                                                              
+103600*******************************************************                       
+103700 DATA  DIVISION.                                                              
+103800 FILE  SECTION.                                                               
+103900*******************************************************                       
+104000 FD  I01-RANGOS                                                               
+104100     BLOCK  CONTAINS  90  RECORDS                                             
+104200     RECORD CONTAINS  96  CHARACTERS                                          
+104300            VALUE OF                                                          
+104400                  AREAS        IS  1000                                       
+104500                  AREASIZE     IS  1800                                       
+104600                  SECURITYTYPE IS PUBLIC                                      
+104700                  TITLE        IS  WKS-TIT-E01-RGOS.                          
+104800                                                                              
+104900 01  I01-REG-RANGOS.                                                          
+104910     02 FD-I01-REG-DOMMY   PIC X(12).                                         
+104920     02 FILLER             PIC X(84).                                         
+104930                                                                              
+105000******************************************************                        
+105002 FD  I02-RGOSPTE                                                              
+105004     BLOCK  CONTAINS   540 RECORDS                                            
+105006     RECORD CONTAINS    42 CHARACTERS                                         
+105008            VALUE OF                                                          
+105010                  AREAS        IS  1000                                       
+105012                  AREASIZE     IS  3240                                       
+105014                  SECURITYTYPE IS PUBLIC                                      
+105016                  TITLE        IS  WKS-TIT-I02-RPTE.                          
+105018                                                                              
+105020 01  FD-I02-REG-RPTE.                                                         
+105022     02 FD-I02-LLAVE-01          PIC 9(12)           COMP.                    
+105024     02 RD-FD-I02-LLAVE-01       REDEFINES FD-I02-LLAVE-01.                   
+105026        04 FD-I02-PROD           PIC 9(04)           COMP.                    
+105028        04 FD-I02-INST           PIC 9(04)           COMP.                    
+105030        04 FD-I02-MONEDA         PIC 9(02)           COMP.                    
+105032        04 FD-I02-PERSONA        PIC 9(02)           COMP.                    
+105034     02 FD-I02-NUNRGO            PIC 9(02)           COMP.                    
+105036     02 FD-I02-TASANP            PIC 9(03)V9(03)     COMP.                    
+105038     02 FD-I02-TASABP            PIC 9(03)V9(03)     COMP.                    
+105040     02 FD-I02-TASANT            PIC 9(03)V9(03)     COMP.                    
+105042     02 FD-I02-LMTINF            PIC 9(10)V99        COMP.                    
+105044     02 FD-I02-LMTSUP            PIC 9(10)V99        COMP.                    
+105046     02 FD-I02-SDOACT            PIC 9(10)V99        COMP.                    
+105048     02 FD-I02-SDOPROM           PIC 9(10)V99        COMP.                    
+105050     02 FD-I02-FILLER            PIC 9(04)           COMP.                    
+105052                                                                              
+105074**********************************************************                    
+105100 SD  S01-RANGOS.                                                              
+105200                                                                              
+105300 01  SD-S01-REGSORT.                                                          
+105400     02 SD-S01-FECPROC           PIC 9(08).                                   
+105500     02 SD-S01-PRODUCTO          PIC 9(11).                                   
+105600     02 RD-SD-S01-PRODUCTO       REDEFINES SD-S01-PRODUCTO.                   
+105700        04 SD-S01-PROD           PIC 9(04).                                   
+105800        04 SD-S01-INST           PIC 9(04).                                   
+105900        04 SD-S01-MONEDA         PIC 9(03).                                   
+106000     02 SD-S01-LMTINF            PIC 9(10)V99.                                
+106100     02 SD-S01-LMTSUP            PIC 9(10)V99.                                
+106200     02 SD-S01-SDOACT            PIC 9(12)V99.                                
+106300     02 SD-S01-SDOPROM           PIC 9(12)V99.                                
+106400     02 SD-S01-NUNRGO            PIC 9(02).                                   
+106500     02 SD-S01-PERSONA           PIC 9(02).                                   
+106600     02 SD-S01-NUMCTAS           PIC 9(08).                                   
+106700     02 SD-S01-TASANP            PIC 9(02)V9(03).                             
+106710     02 SD-S01-TASABP            PIC 9(02)V9(03).                             
+106800     02 SD-S01-RESTO             PIC X(03).                                   
+106900                                                                              
+106910*********************************************************                     
+106920 SD  S02-RGOSPTE.                                                             
+106922                                                                              
+106930 01  SD-I02-REG-RPTE.                                                         
+106940     02 SD-I02-LLAVE-01          PIC 9(12)           COMP.                    
+106950     02 RD-SD-I02-LLAVE-01       REDEFINES SD-I02-LLAVE-01.                   
+106960        04 SD-I02-PROD           PIC 9(04)           COMP.                    
+106970        04 SD-I02-INST           PIC 9(04)           COMP.                    
+106980        04 SD-I02-MONEDA         PIC 9(02)           COMP.                    
+106990        04 SD-I02-PERSONA        PIC 9(02)           COMP.                    
+107000     02 SD-I02-NUNRGO            PIC 9(02)           COMP.                    
+107010     02 SD-I02-TASANP            PIC 9(03)V9(03)     COMP.                    
+107020     02 SD-I02-TASABP            PIC 9(03)V9(03)     COMP.                    
+107030     02 SD-I02-TASANT            PIC 9(03)V9(03)     COMP.                    
+107040     02 SD-I02-LMTINF            PIC 9(10)V99        COMP.                    
+107050     02 SD-I02-LMTSUP            PIC 9(10)V99        COMP.                    
+107060     02 SD-I02-SDOACT            PIC 9(10)V99        COMP.                    
+107070     02 SD-I02-SDOPROM           PIC 9(10)V99        COMP.                    
+107072     02 SD-I02-FILLER            PIC 9(04)           COMP.                    
+107080                                                                              
+107100*******************************************************                       
+107200 FD R01-RGOSDO.                                                               
+107300                                                                              
+107400 01 R01-LIN-RGOS       PIC X(132).                                            
+107500                                                                              
+107600***************************************************************               
+107700 DATA-BASE SECTION.                                                           
+107800 DB  S500BD01CAPTACION.                                                       
+107900 01  S500B02CONTROL.                                                          
+108000 01  S500B03CONTRATOS.                                                        
+108100 01  S500B05INSTRUMEN.                                                        
+108200 01  S500B06HISTORICO.                                                        
+108300 01  S500B91REINICIO.                                                         
+108310                                                                              
+108400*************************************************************                 
+108500 WORKING-STORAGE SECTION.                                                     
+108510*********  PARA USO DE LIBRERIA MAPLI **********                              
+108520 77 W77-ID-ACT01-MAPLI       PIC 9(02).                                       
+108530 77 W77-ID-ACT02-MAPLI       PIC 9(02).                                       
+108540 77 W77-ID-ACT03-MAPLI       PIC 9(02).                                       
+108550 77 W77-ID-ACT04-MAPLI       PIC 9(02).                                       
+108560                                                                              
+108570                                                                              
+108580                                                                              
+108590*************************************************                             
+108600 77  W77-MY-CSI              PIC 9(02)         COMP.                          
+108700 77  W77-EOF-BD              PIC 9(02)         COMP.                          
+108710 77  W77-EOF-PTE             PIC 9(02)         COMP.                          
+108720 77  W77-EOF-I01             PIC 9(02)         COMP.                          
+108730 77  W77-EOF-INST            PIC 9(02)         COMP.                          
+108750 77  W77-SALDO-TOTAL         PIC S9(15)V99     COMP.                          
+108800 77  W77-SALDO-RGO           PIC 9(12)V99      COMP.                          
+108900 77  W77-PRMCIC              PIC 9(12)V99      COMP.                          
+109000 77  W77-SDOACT              PIC 9(12)V99      COMP.                          
+109010 77  W77-TPRD-SDOACT         PIC 9(12)V99      COMP VALUE 0.                  
+109020 77  W77-TPRD-SDOPROM        PIC 9(12)V99      COMP VALUE 0.                  
+109200 77  W77-NUMLIN              PIC 9(02)         COMP VALUE 90.                 
+109300 77  W77-NUMPAG              PIC 9(04)         COMP.                          
+109400 77  W77-PROD-ANT            PIC 9(11)              VALUE 0.                  
+109500 77  W77-PERS-ANT            PIC 9(02)              VALUE 0.                  
+109550 77  W77-TASKVALUE           PIC 9(02)         COMP VALUE 0.                  
+109560 77  W77-ES-PRUEBA           PIC 9(02)         COMP VALUE 0.                  
+109570 77  W77-TOT-DISKSIZE        PIC 9(14)         COMP VALUE 0.                  
+109580 77  W77-TOT-MEMSIZE         PIC 9(14)         COMP VALUE 0.                  
+109600                                                                              
+109610*******************************************************                       
+109620*01  WKS-NAME-HOST.                                                           
+109630*    02 WKS-MY-HOST         PIC X(20).                                        
+109640*    02 RD-WKS-MY-HOST      REDEFINES  WKS-MY-HOST.                           
+109650*       04 WKS-MY-HOST-03   PIC X(04).                                        
+109660*       04 WKS-MY-HOST-17   PIC X(16).                                        
+109670*                                                                             
+109700*************************************************                             
+109800 01  WKS-TABLA-MESES.                                                         
+109900     02 FILLER         PIC X(18) VALUE  "ENEFEBMARABRMAYJUN".                 
+110000     02 FILLER         PIC X(18) VALUE  "JULAGOSEPOCTNOVDIC".                 
+110100 01  RD-WKS-TABLA-MESES REDEFINES WKS-TABLA-MESES.                            
+110200     02 WKS-TB-MES      PIC X(03) OCCURS 12 TIMES.                            
+110300                                                                              
+110400************************************************************                  
+110500 01  WKS-VARIABLES-GLOBALES.                                                  
+110520     02 WKS-LLAVE01-ANT          PIC 9(12)         COMP VALUE 0.              
+110540     02 WKS-NUNRGO-ANT           PIC 9(02)         COMP VALUE 0.              
+110560     02 WKS-TASANP-ANT           PIC 9(03)V9(03)   COMP VALUE 0.              
+110580     02 WKS-TASABP-ANT           PIC 9(03)V9(03)   COMP VALUE 0.              
+110600     02 WKS-DIA-SEMHOY           PIC 9(02)         COMP.                      
+110700     02 WKS-DIA-SEMPROX          PIC 9(02)         COMP.                      
+110800     02 WKS-ES-SEMANAL           PIC 9(02)         COMP VALUE 0.              
+110900     02 WKS-ES-MENSUAL           PIC 9(02)         COMP VALUE 0.              
+111000     02 WKS-NUM-LEIDOS           PIC 9(08)         VALUE 0.                   
+111010     02 WKS-REGS-PTE             PIC 9(08)         VALUE 0.                   
+111020     02 WKS-REGS-GEN             PIC 9(08)         VALUE 0.                   
+111400     02 WKS-FIN-CARGA            PIC 9(02)         COMP.                      
+111500     02 WKS-TASANETA             PIC 9(04)V9(06)   COMP.                      
+111510     02 WKS-TASABRUTA            PIC 9(04)V9(06)   COMP.                      
+111600     02 WKS-RGO-ANT              PIC 9(04)         COMP.                      
+111700     02 WKS-RGO-ANTF             PIC 9(04)         COMP.                      
+111800     02 WKS-RGO-ANTM             PIC 9(04)         COMP.                      
+111900     02 WKS-I                    PIC 9(04)         COMP.                      
+111950     88 WKS-I-OK                 VALUE 1 THRU 30.                             
+112000     02 WKS-P                    PIC 9(04)         COMP.                      
+112050     88 WKS-P-OK                 VALUE 1 THRU 2.                              
+112100     02 WKS-R                    PIC 9(04)         COMP.                      
+112200     88 WKS-R-OK                 VALUE 1 THRU 20.                             
+112300     02 WKS-IND-I                PIC 9(04)         COMP.                      
+112400     02 WKS-IND-J                PIC 9(04)         COMP.                      
+112500     02 WKS-PROD-ANT-S           PIC 9(04)         COMP.                      
+112600     02 WKS-INST-ANT-S           PIC 9(02)         COMP.                      
+112700     02 WKS-CVE-ANT-S            PIC 9(04)         COMP.                      
+112800     02 WKS-MON-ANT-S            PIC 9(04)         COMP.                      
+112900     02 WKS-PERS-ANT-S           PIC 9(02)         COMP.                      
+112910     02 WKS-PLAZO-ANT-S          PIC 9(02)         COMP.                      
+113000     02 WKS-LTEINF-ANT-S         PIC S9(11)        COMP.                      
+113100     02 WKS-LIMINF               PIC 9(12)V99      COMP.                      
+113200     02 WKS-LIMSUP               PIC 9(12)V99      COMP.                      
+113300     02 WKS-IMPPTE               PIC 9(12)V9(06)   COMP.                      
+113400     02 WKS-IND-SUP              PIC 9(04)         COMP.                      
+113500                                                                              
+113600     02 WKS-FBATCH-EDIT.                                                      
+113700        04 WKS-DD-FBEDIT         PIC 9(02).                                   
+113800        04 FILLER                PIC X(01) VALUE "/".                         
+113900        04 WKS-MM-FBEDIT         PIC X(03).                                   
+114000        04 FILLER                PIC X(01) VALUE "/".                         
+114100        04 WKS-AAAA-FBEDIT       PIC 9(04).                                   
+114200                                                                              
+114300     02 WKS-FMAQ-EDIT.                                                        
+114400        04 WKS-DD-FMEDIT         PIC 9(02).                                   
+114500        04 FILLER                PIC X(01) VALUE "/".                         
+114600        04 WKS-MM-FMEDIT         PIC X(03).                                   
+114700        04 FILLER                PIC X(01) VALUE "/".                         
+114800        04 WKS-AAAA-FMEDIT       PIC 9(04).                                   
+114900                                                                              
+115000     02 WKS-FECHA-BATCH          PIC 9(08)        COMP.                       
+115100     02 RD-WKS-FECHA-BATCH       REDEFINES WKS-FECHA-BATCH.                   
+115200        04 WKS-AAAA-FBATCH       PIC 9999         COMP.                       
+115300        04 WKS-MM-FBATCH         PIC 99           COMP.                       
+115400        04 WKS-DD-FBATCH         PIC 99           COMP.                       
+115500                                                                              
+115600     02 WKS-FECHA-LINEA          PIC 9(08)        COMP.                       
+115700     02 RD-WKS-FECHA-LINEA       REDEFINES WKS-FECHA-LINEA.                   
+115800        04 WKS-AAAA-FLINEA       PIC 9999         COMP.                       
+115900        04 WKS-MM-FLINEA         PIC 99           COMP.                       
+116000        04 WKS-DD-FLINEA         PIC 99           COMP.                       
+116200                                                                              
+116300     02 WKS-TIME-MAQ             PIC 9(08)        COMP.                       
+116400     02 RD-WKS-TIME-MAQ          REDEFINES WKS-TIME-MAQ.                      
+116500        04 WKS-HMS-MAQ           PIC 9(06)        COMP.                       
+116510        04 WKS-DECSS             PIC 9(02)        COMP.                       
+116520     02 RD-WKS-HRA-MAQ           REDEFINES WKS-TIME-MAQ.                      
+116530        04 WKS-HRMAQ-HH          PIC 9(02)        COMP.                       
+116540        04 WKS-HRMAQ-MM          PIC 9(02)        COMP.                       
+116550        04 WKS-HRMAQ-SS          PIC 9(02)        COMP.                       
+116560        04 WKS-HRMAQ-DD          PIC 9(02)        COMP.                       
+116600                                                                              
+116610********************************************************                      
+116612 01  WKS-VARIABLES-B03.                                                       
+116614      02 WS03-NUM-CONTRATO               PIC 9(12).                           
+116616     02 WS03-NUM-CLIENTE                PIC 9(12).                            
+116618     02 WS03-PIM.                                                             
+116620        04 WS03-NUM-PRODUCTO            PIC 9(04).                            
+116622        04 WS03-NUM-INSTRUM             PIC 9(04).                            
+116624        04 WS03-MONEDA                  PIC 9(03).                            
+116626           88 WS03-88-M-NAL             VALUE  1.                             
+116628           88 WS03-88-M-DLS             VALUE  5.                             
+116630     02 WS03-PIM-R                      REDEFINES WS03-PIM.                   
+116632        04 WS03-PIM-PRD                 PIC 9(11).                            
+116634        88 WS03-88-PIM-AHORROS          VALUE  05000006001.                   
+116635        88 WS03-88-PIM-CTAMAX           VALUE  05000001001.                   
+116636        88 WS03-88-PIM-CTAMAE           VALUE  00660006001.                   
+116637        88 WS03-88-PIM-PERF-UNIV        VALUE  00660009001.                   
+116638        88 WS03-88-PIM-CTAMAEOP         VALUE  00660007001.                   
+116639        88 WS03-88-PIM-CTA-BAS          VALUE  00660014001.                   
+116640        88 WS03-88-PIM-CTAMAEDL         VALUE  00660005005.                   
+116641        88 WS03-88-PIM-CTA-ACCESO       VALUE  00660008001.                   
+116642        88 WS03-88-PIM-CHQ-MN           VALUE  00010001001.                   
+116644        88 WS03-88-PIM-CHQ-DL-FRONT     VALUE  00010001005.                   
+116646        88 WS03-88-PIM-CHQ-CTA-PROD     VALUE  00010003001.                   
+116648        88 WS03-88-PIM-CHQ-DL-SIN-INTE  VALUE  00010004005.                   
+116650        88 WS03-88-PIM-CHQ-DL-CON-INTE  VALUE  00010005005.                   
+116652     02 WS03-TIPO-PERSONA               PIC 9(02).                            
+116654     88 WS03-88-TP-FISICA               VALUE  1.                             
+116656     88 WS03-88-TP-MORAL                VALUE  2.                             
+116658     88 WS03-88-TP-FISEMP               VALUE  3.                             
+116660     88 WS03-88-TP-MORNOLUCR1           VALUE  4.                             
+116662     88 WS03-88-TP-FISMENOR             VALUE  5.                             
+116664     88 WS03-88-TP-FISINCAP             VALUE  6.                             
+116666     88 WS03-88-TP-FISDEEXT             VALUE  7.                             
+116668     88 WS03-88-TP-CABGPO               VALUE  8.                             
+116670     88 WS03-88-TP-MORDEEXT             VALUE  9.                             
+116672     88 WS03-88-TP-FISEXT               VALUE  11.                            
+116674     88 WS03-88-TP-MOREXT               VALUE  12.                            
+116676     88 WS03-88-TP-MORNOLUCR2           VALUE  14.                            
+116677     88 WS03-88-TP-FNALENEXT            VALUE  15.                            
+116678     88 WS03-88-TP-FEMPEXTEM            VALUE  16.                            
+116679     88 WS03-88-TP-GFISICA              VALUE  1,3,5,6,7,11,15,16.            
+116680     88 WS03-88-TP-GMORAL               VALUE  2,4,8,9,12,14.                 
+116700                                                                              
+116710******************************************************************            
+116720 01 WKS-TIT-I02-RPTE.                                                         
+116730    02 FILLER                PIC X(15) VALUE "S500/FILE/S500/".               
+116740    02 WKS-TIT-I02-CSI       PIC 99.                                          
+116750    02 FILLER                PIC X(09) VALUE "/RGOSPTE/".                     
+116760    02 WKS-TIT-I02-FECH      PIC 9(06).                                       
+116770    02 FILLER                PIC X     VALUE ".".                             
+116780                                                                              
+116790 01  WKS-I02-REG-RPTE.                                                        
+116792     02 WKS-I02-LLAVE-01         PIC 9(12)           COMP.                    
+116794     02 RD-WKS-I02-LLAVE-01      REDEFINES WKS-I02-LLAVE-01.                  
+116800        04 WKS-I02-PROD          PIC 9(04)           COMP.                    
+116805        04 WKS-I02-INST          PIC 9(04)           COMP.                    
+116810        04 WKS-I02-MONEDA        PIC 9(02)           COMP.                    
+116815        04 WKS-I02-PERSONA       PIC 9(02)           COMP.                    
+116816     02 WKS-I02-NUNRGO           PIC 9(02)           COMP.                    
+116817     02 WKS-I02-TASANP           PIC 9(03)V9(03)     COMP.                    
+116818     02 WKS-I02-TASABP           PIC 9(03)V9(03)     COMP.                    
+116819     02 WKS-I02-TASANT           PIC 9(03)V9(03)     COMP.                    
+116820     02 WKS-I02-LMTINF           PIC 9(10)V99        COMP.                    
+116825     02 WKS-I02-LMTSUP           PIC 9(10)V99        COMP.                    
+116830     02 WKS-I02-SDOACT           PIC 9(10)V99        COMP.                    
+116835     02 WKS-I02-SDOPROM          PIC 9(10)V99        COMP.                    
+116860     02 WKS-I02-FILLER           PIC 9(04)           COMP.                    
+116865                                                                              
+116900******************************************************************            
+117000 01 WKS-TIT-E01-RGOS.                                                         
+117100    02 FILLER                PIC X(24)                                        
+117150                                 VALUE "S500/FILE/INTS/50004S15/".            
+117200    02 WKS-TIT-E01-CSI       PIC 99.                                          
+117250    02 FILLER                PIC X VALUE "/".                                 
+117270    02 WKS-TIT-E01-FECH      PIC 9(08).                                       
+117300    02 FILLER                PIC X(08) VALUE "/RANGOS.".                      
+117400*   02 WKS-TIT-E01-FECH      PIC 9(06).                                       
+117500*   02 FILLER                PIC X     VALUE ".".                             
+117510                                                                              
+117520**************************************************************                
+117525 01 WKS-E01-HEADER.                                                           
+117530    02 WKS-E01-TPOR-H        PIC 9         VALUE 1.                           
+117535    02 WKS-E01-SISOR-H       PIC 9(04)     VALUE 0500.                        
+117540    02 WKS-E01-FECCREA-H     PIC 9(08).                                       
+117545    02 WKS-E01-HORACREA-H    PIC 9(06).                                       
+117550    02 WKS-E01-FECINI-H      PIC 9(08).                                       
+117555    02 WKS-E01-FECFIN-H      PIC 9(08).                                       
+117560    02 FILLER                PIC X(61)     VALUE " ".                         
+117600                                                                              
+117700*****************************************************************             
+117800 01  WKS-E01-DETALLE.                                                         
+117900     02 WKS-E01-FECPROC           PIC 9(08).                                  
+118000     02 WKS-E01-PRODUCTO          PIC 9(11).                                  
+118100     02 RD-WKS-E01-PRODUCTO       REDEFINES  WKS-E01-PRODUCTO.                
+118200        04 WKS-E01-PROD           PIC 9(04).                                  
+118300        04 WKS-E01-INST           PIC 9(04).                                  
+118400        04 WKS-E01-MONEDA         PIC 9(03).                                  
+118500     02 WKS-E01-LMTINF            PIC 9(10)V99.                               
+118600     02 WKS-E01-LMTSUP            PIC 9(10)V99.                               
+118700     02 WKS-E01-SDOACT            PIC 9(12)V99.                               
+118800     02 WKS-E01-SDOPROM           PIC 9(12)V99.                               
+118900     02 WKS-E01-NUNRGO            PIC 9(02).                                  
+119000     02 WKS-E01-PERSONA           PIC 9(02).                                  
+119100     02 WKS-E01-NUMCTAS           PIC 9(08).                                  
+119200     02 WKS-E01-TASANP            PIC 9(02)V9(03).                            
+119210     02 WKS-E01-TASABP            PIC 9(02)V9(03).                            
+119300     02 WKS-E01-RESTO             PIC X(03).                                  
+119310                                                                              
+119320***************************************************************               
+119330 01 WKS-E01-TRAILER.                                                          
+119340    02 WKS-E01-TPOR-T        PIC 9         VALUE 9.                           
+119350    02 WKS-E01-TOTREGS-T     PIC 9(13)     VALUE 0.                           
+119360    02 WKS-E01-TOTSDOS-T     PIC 9(16)V99  VALUE 0.                           
+119370    02 FILLER                PIC X(64)     VALUE " ".                         
+119400                                                                              
+119500**************************************************************                
+119600 01 WKS-TAB-PRODUCTOS.                                                        
+119700    02 WKS-TOT-RGOS-INSTRUM-01        OCCURS 30 TIMES.                        
+119800       04 WKS-TAB-PROD.                                                       
+120000          06 WKS-TOT-PROD             PIC 9(04).                              
+120100          06 WKS-TOT-INST             PIC 9(04).                              
+120200          06 WKS-TOT-MON              PIC 9(04).                              
+120300                                                                              
+120400 01 WKS-TAB-NOMB-PROD.                                                        
+120500    02 WKS-NOM-PROD-X-INST            OCCURS 30 TIMES.                        
+120600       04 WKS-NOM-PROD-B05            PIC X(40).                              
+135000                                                                              
+135800****************************************************************              
+135900 01  WS-TASAS-XCOMUN.                                                         
+136000     02 WS-TASAS-XINSTR           OCCURS 30 TIMES.                            
+136100        04 WS-TASAS-XPERS         OCCURS  2 TIMES.                            
+136200           08 WS-XRGOSUP          PIC 99           COMP.                      
+136300           08 WS-XRANGOS          OCCURS 20 TIMES.                            
+136400              10 WS-XLMTEINF      PIC 9(09)V99     COMP.                      
+136500              10 WS-XLMTESUP      PIC 9(09)V99     COMP.                      
+136600              10 WS-XTASANETA     PIC 9(04)V9(06)  COMP.                      
+136700              10 WS-XTASABRTA     PIC 9(04)V9(06)  COMP.                      
+136800                                                                              
+136900******************************************************************            
+137000 01  WKS-TITULO-REP.                                                          
+137050     02 FILLER               PIC X(15) VALUE "S500/LIST/P200/".               
+137100     02 WKS-TIT-R-CSI        PIC 99    VALUE 99.                              
+137150     02 WKS-TIT-R-SBNODO     PIC 99    VALUE 0.                               
+137200     02 FILLER               PIC X(01) VALUE "/".                             
+137250     02 WKS-TIT-R-TPO        PIC X(01) VALUE "R".                             
+137300     02 WKS-TIT-R-NREP       PIC 9(03) VALUE 0.                               
+137350     02 FILLER               PIC X(01) VALUE "/".                             
+137400     02 WKS-TIT-R-FECHA      PIC 9(06) VALUE 0.                               
+137450     02 FILLER               PIC X(01) VALUE "/".                             
+137500     02 WKS-TIT-R-MIX        PIC 9(07) VALUE 0.                               
+137550     02 FILLER               PIC X(01) VALUE "/".                             
+137600     02 WKS-TIT-R-NAME       PIC X(17).                                       
+137650     02 FILLER               PIC X(01) VALUE ".".                             
+137700                                                                              
+137750**************************************************************                
+137800****************   LINEAS DE IMPRESION ***********************                
+137850 01  WLI-R00-L01-ENCA.                                                        
+137900     02 FILLER              PIC X(19) VALUE                                   
+137950                            "S500/P200/25MTP004/".                            
+138000     02 WLI-R00-L01-NAME    PIC X(35) VALUE "001RGOSDOS".                     
+138050     02 FILLER              PIC X(51) VALUE                                   
+138100                            "DEPOSITOS A LA VISTA".                           
+138150     02 FILLER              PIC X(14) VALUE                                   
+138200                            "FECHA MOVTOS: ".                                 
+138250     02 WLI-R00-L01-FPROC   PIC X(13).                                        
+138300                                                                              
+138350 01  WLI-R00-L02-ENCA.                                                        
+138400     02 FILLER              PIC X(15) VALUE                                   
+138450                            "FECHA PROCESO: ".                                
+138500     02 WLI-R00-L02-FMAQ    PIC X(13).                                        
+138550     02 FILLER              PIC X(14) VALUE " ".                              
+138600     02 WLI-R00-L02-TITULO  PIC X(63) VALUE                                   
+138650        "       REPORTE DE RANGOS POR PRODUCTO".                              
+138700     02 FILLER              PIC X(14) VALUE                                   
+138750                            "TIPO PROCESO: ".                                 
+138800     02 WLI-R00-L02-TPROC   PIC X(13) VALUE "SEMANAL".                        
+138850                                                                              
+138900 01  WLI-R00-L03-ENCA.                                                        
+138950     02 FILLER              PIC X(15) VALUE                                   
+139000                            "HORA  PROCESO: ".                                
+139050     02 WLI-R00-L03-HR-HH   PIC 99.                                           
+139060     02 FILLER              PIC X(01)   VALUE ":".                            
+139070     02 WLI-R00-L03-HR-MM   PIC 99.                                           
+139080     02 FILLER              PIC X(01)   VALUE ":".                            
+139090     02 WLI-R00-L03-HR-SS   PIC 99.                                           
+139100     02 FILLER              PIC X(19) VALUE " ".                              
+139150     02 WLI-R00-L03-SBTIT   PIC X(63) VALUE " ".                              
+139200     02 FILLER              PIC X(14) VALUE                                   
+139250                            "HOJA NUM    : ".                                 
+139300     02 WLI-R00-L03-NPAG    PIC ZZZZZ.                                        
+139350     02 FILLER              PIC X(08) VALUE " ".                              
+139400                                                                              
+139450 01  WLI-R00-L04-ENCA.                                                        
+139500     02 WLI-R00-L04-SUC     PIC 9(04)  VALUE 0511.                            
+139550     02 FILLER              PIC X(128) VALUE " ".                             
+139600                                                                              
+139650 01  WLI-R00-L05-ENCA.                                                        
+139700     02 WLI-R00-L05-NBSUC   PIC X(060) VALUE                                  
+139750                            "CTO PROC DE VALORES".                            
+139800     02 WLI-R00-L05-NCSI    PIC X(072) VALUE                                  
+139850                            "S500 CAPTACION".                                 
+139900                                                                              
+139950 01  WLI-R01-L06-ENCA.                                                        
+140000     02 FILLER                   PIC X(44) VALUE " ".                         
+140050     02 WLI-R01-L06-PRODUCTO     PIC X(44) VALUE " ".                         
+140100     02 FILLER                   PIC X(44) VALUE " ".                         
+140150                                                                              
+140200 01  WLI-R01-L07-ENCA.                                                        
+140250     02 FILLER                   PIC X(09) VALUE                              
+140300        "   TASA  ".                                                          
+140350     02 FILLER                   PIC X(39) VALUE                              
+140400        "             L  I  M  I  T  E  S       ".                            
+140450     02 FILLER                   PIC X(40) VALUE                              
+140500        "      SALDO ACTUAL      SALDO PROMEDIO  ".                           
+140550     02 FILLER                   PIC X(27) VALUE                              
+140600        "RANGO  PERSONA  NUM CUENTAS".                                        
+140650     02 FILLER                   PIC X(17) VALUE                              
+140700        " TASA-PAG TAS-BRT".                                                  
+140750                                                                              
+140800 01  WLI-R01-L08-DETALLE.                                                     
+140850     02 WLI-R01-L08-TASA         PIC ZZ9.999.                                 
+140900     02 FILLER                   PIC X(02).                                   
+140950     02 WLI-R01-L08-LTEINF       PIC ZZZ,ZZZ,ZZZ,ZZ9.99.                      
+141000     02 FILLER                   PIC X(01).                                   
+141050     02 WLI-R01-L08-LTESUP       PIC ZZZ,ZZZ,ZZZ,ZZ9.99.                      
+141100     02 FILLER                   PIC X(02).                                   
+141150     02 WLI-R01-L08-SDOACT       PIC ZZZ,ZZZ,ZZZ,ZZ9.99.                      
+141200     02 FILLER                   PIC X(02).                                   
+141250     02 WLI-R01-L08-SDOPRO       PIC ZZZ,ZZZ,ZZZ,ZZ9.99.                      
+141300     02 FILLER                   PIC X(03).                                   
+141350     02 WLI-R01-L08-RANGO        PIC Z9.                                      
+141400     02 FILLER                   PIC X(06).                                   
+141450     02 WLI-R01-L08-PERS         PIC Z9.                                      
+141500     02 FILLER                   PIC X(05).                                   
+141550     02 WLI-R01-L08-NCTAS        PIC ZZZ,ZZZ,ZZ9.                             
+141600     02 FILLER                   PIC X.                                       
+141650     02 WLI-R01-L08-TASANP       PIC ZZZ9.999.                                
+141652     02 FILLER                   PIC X.                                       
+141700     02 WLI-R01-L08-TASABP       PIC ZZ9.999.                                 
+141750                                                                              
+141800*****************************************************                         
+146700 COPY "S500/INC/WOR/25MTP002".                                                
+146710                                                                              
+146720                                                                              
+146750 COPY "S500/INC/MAPLI/WOR/15MTP001".                                          
+146900/                                                                             
+147000*****************************************************                         
+147100 PROCEDURE DIVISION.                                                          
+147200*****************************************************************             
+147300 DECLARATIVES.                                                                
+147400 INTERRUPT-SECCION        SECTION  00.                                        
+147500     USE AS INTERRUPT PROCEDURE.                                              
+147600 INTERRUPT-BY-HI.                                                             
+147700     DISALLOW  INTERRUPT.                                                     
+147800     MOVE "I" TO W77-TIPO-DISP.                                               
+148000     STRING "CTOS LEIDOS=", WKS-NUM-LEIDOS,                                   
+148100            DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                           
+148200     PERFORM 70000050-MENSAJE.                                                
+148210     MOVE "E" TO W77-TIPO-DISP.                                               
+148300 END-INTERRUPT-BY-HI.                                                         
+148400     ALLOW INTERRUPT.                                                         
+148500 END DECLARATIVES.                                                            
+148600                                                                              
+148700*****************************************************************             
+148800 00000000-SECTION-UNICA   SECTION 01.                                         
+148850 00000000-CONTROL-PROGRAMA.                                                   
+148855                                                                              
+148860     MOVE ATTRIBUTE TASKVALUE OF MYSELF TO W77-TASKVALUE.                     
+148865                                                                              
+148870     MOVE 2             TO W77-USO-LIBLJ.                                     
+148875     MOVE "S500P200"    TO W77-S000-MY-ID.                                    
+148880     MOVE "P200"        TO WS-0101-PASO-MSG.                                  
+148885     MOVE "25MTP004"    TO WS-0101-MTP-MSG W77-S000-MY-VERSION.               
+148890                                                                              
+148905******************************************************                        
+148906     PERFORM 10000100-VERSIONES.                                              
+148910     PERFORM 1000038-S038L035.                                                
+148915     MOVE 1                TO W77-ID-NUM-COPIA-MAPLI.                         
+148920     MOVE 1                TO W77-ID-TPODSP-INFO-MAPLI.                       
+148925     MOVE 00               TO W77-ID-ESINI-GRUPO-MAPLI.                       
+148930     MOVE 06               TO W77-ID-NUM-GRUPO-MAPLI.                         
+148935     MOVE "BATCH DIARIO"   TO W77-ID-NOMB-LIB.                                
+148940     PERFORM 70000950-INI-PGM-MAPLI.                                          
+148945******************************************************                        
+148950     MOVE 1                           TO W77-ID-NUMREG-PROC.                  
+148955     MOVE 01                          TO W77-ID-ACTXX-MAPLI                   
+148960                                         W77-ID-ACT01-MAPLI.                  
+148965     MOVE "OPEN Y CARGA DE TASAS "    TO W77-ID-NOMB-LIB.                     
+148975     MOVE "PROCESO INICIO UNICA VEZ " TO W77-ID-TXTA-LIB.                     
+148990     PERFORM 70000910-INIACT-MAPLI.                                           
+148995*******************************************************                       
+149000     PERFORM 00001000-INICIO-PROGRAMA.                                        
+149100     PERFORM 10000000-TITLE-LIBRERIAS.                                        
+149200     PERFORM 20000000-ABRE-BASE.                                              
+149300     PERFORM 30000000-CARGA-INST-TASAS.                                       
+149310******************************************************                        
+149320     MOVE W77-ID-ACT01-MAPLI TO W77-ID-ACTXX-MAPLI.                           
+149330     MOVE " "                TO W77-ID-TXTA-LIB.                              
+149340     PERFORM 70000950-ACT-REGPROC.                                            
+149350                                                                              
+149360     MOVE W77-ID-ACT01-MAPLI TO W77-ID-ACTXX-MAPLI.                           
+149370     PERFORM 70000910-FIN-ACTI-MAPLI.                                         
+149380******************************************************                        
+149400     PERFORM 50000000-PROCESO-PRINCIPAL.                                      
+149405******************************************************                        
+149410     MOVE 1                         TO W77-ID-NUMREG-PROC.                    
+149415     MOVE 04                        TO W77-ID-ACTXX-MAPLI                     
+149420                                       W77-ID-ACT04-MAPLI.                    
+149425     MOVE "RUTINA FINAL "           TO W77-ID-NOMB-LIB.                       
+149435     MOVE "CLOSE ARCHIVOS REPORTES" TO W77-ID-TXTA-LIB.                       
+149450     PERFORM 70000910-INIACT-MAPLI.                                           
+149455*******************************************************                       
+149500     PERFORM 70000000-FIN-PROGRAMA.                                           
+149505                                                                              
+149510******************************************************                        
+149515     MOVE W77-ID-ACT04-MAPLI TO W77-ID-ACTXX-MAPLI.                           
+149520     MOVE " "                TO W77-ID-TXTA-LIB.                              
+149525     PERFORM 70000950-ACT-REGPROC.                                            
+149530                                                                              
+149535     MOVE W77-ID-ACT04-MAPLI TO W77-ID-ACTXX-MAPLI.                           
+149540     PERFORM 70000910-FIN-ACTI-MAPLI.                                         
+149545                                                                              
+149550     PERFORM 70000950-FIN-PGM-MAPLI.                                          
+149555******************************************************                        
+149600     STOP RUN.                                                                
+149700                                                                              
+149800********************************************************                      
+149810 00001000-INICIO-PROGRAMA.                                                    
+149812                                                                              
+149814     MOVE ZEROS     TO WKS-TB-NUMACT-LIBS.                                    
+149816                                                                              
+149818     MOVE 20        TO WKS-NUMACT-LIB(12).                                    
+149820     MOVE 21        TO WKS-NUMACT-LIB(13).                                    
+149822     MOVE 22        TO WKS-NUMACT-LIB(15).                                    
+149824     MOVE 23        TO WKS-NUMACT-LIB(40).                                    
+149900                                                                              
+149915     PERFORM 00000000-CHANGE-SOPCOMS.                                         
+149920     PERFORM 0000-CALL-HOSTNAME.                                              
+149925     IF WS-DH-HOSTNAME-PBA OR WS-DH-HOSTNAME-UAT OR                           
+149935        WS-DH-HOSTNAME-SIT                                                    
+149955        MOVE 1                     TO W77-ES-PRUEBA.                          
+149970        MOVE "PROCESO DE PRUEBAS " TO WS-0101-TEXT-MSG                        
+149975        PERFORM 70000050-MENSAJE.                                             
+149980                                                                              
+150000     IF W77-TASKVALUE > 0                                                     
+150005        IF W77-ES-PRUEBA = 0                                                  
+150010           MOVE W77-TASKVALUE     TO WS-MSG-N-02                              
+150025           STRING "EN PRODUCCION NO CORRE CON VALUE > 0 ",                    
+150030                  " VALUE=", WS-MSG-N-02                                      
+150035           DELIMITED BY SIZE INTO  WS-0101-TEXT-MSG                           
+150040           PERFORM 70000050-MENSAJE                                           
+150045           CALL SYSTEM DMTERMINATE.                                           
+150900                                                                              
+151000     ATTACH INTERRUPT-SECCION TO ATTRIBUTE EXCEPTIONEVENT                     
+151100            OF MYSELF.                                                        
+151200     ALLOW INTERRUPT.                                                         
+151300                                                                              
+151400*********************************************************                     
+151500 10000000-TITLE-LIBRERIAS.                                                    
+151600*************************** LIBRARIA S408 ***********************             
+151700                                                                              
+151800     PERFORM 20000100-CHECAME-VERSION.                                        
+151900     IF S000-CTR-CVEERROR < 0                                                 
+152200        MOVE "ERROR DE VERSION "    TO WS-0101-TEXT-MSG                       
+152300        PERFORM 70000050-MENSAJE                                              
+152400        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                              
+152500                                                                              
+152600     PERFORM 10000006-LOCSUP.                                                 
+152700                                                                              
+152800     PERFORM 10000080-S080L700.                                               
+152900                                                                              
+153000                                                                              
+153100****************************************************************              
+153200 20000000-ABRE-BASE.                                                          
+153300     OPEN INQUIRY S500BD01CAPTACION.                                          
+153400     PERFORM 20001000-VALIDA-BASE.                                            
+153500     PERFORM 20003000-INICIA-WORKING.                                         
+153600                                                                              
+153700****************************************************************              
+153800 20001000-VALIDA-BASE.                                                        
+153900     PERFORM 90000002-B02CONTROL-FIND.                                        
+154000     IF WS-STATUS-BASE > 0                                                    
+154300        STRING "ERR FIND B02CONTROL ", WS-STATUS-BASE                         
+154400               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+154500        PERFORM 70000050-MENSAJE                                              
+154600        CALL SYSTEM DMTERMINATE.                                              
+154700                                                                              
+154800     MOVE B02-NUM-CSI       TO W77-MY-CSI.                                    
+154900     MOVE B02-FECHA-LINEA   TO WKS-FECHA-LINEA.                               
+155000                                                                              
+155020***************************************************************               
+155040* OBTENER DIA HABIL ANTERIOR DESDE LA FECHA DE LINEA                          
+155060***************************************************************               
+155100     MOVE WKS-FECHA-LINEA        TO WS-S006-FECHA1                            
+155200     MOVE 1                      TO WS-S006-FECHA2                            
+155300     MOVE 12                     TO WS-S006-FORMATO                           
+155400     MOVE 15                     TO WS-S006-FUNCION                           
+155500     PERFORM 20003500-LLAMA-LOCSUP                                            
+155600     MOVE WS-S006-FECHA1         TO WKS-FECHA-BATCH.                          
+155700                                                                              
+155800************************************************************                  
+155900 20003500-LLAMA-LOCSUP.                                                       
+156000     PERFORM 20000006-LOCSUP.                                                 
+156100                                                                              
+156200     IF WS-S006-FUNCION > 0                                                   
+156300        MOVE WS-S006-FORMATO  TO WS-MSG-N-02                                  
+156400        MOVE WS-S006-FUNCION  TO WS-MSG-N-04                                  
+156500        STRING "ERR CALL LOCSUP ",                                            
+156600               " FUNC ", WS-MSG-N-04                                          
+156700               " FMTO ", WS-MSG-N-02                                          
+156800               " FEC1 ", WS-S006-FECHA1                                       
+156900               " FEC2 ", WS-S006-FECHA2                                       
+157000               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+157100        PERFORM 70000050-MENSAJE                                              
+157200        CALL SYSTEM DMTERMINATE.                                              
+157300                                                                              
+157400*************************************************************                 
+157500 20003000-INICIA-WORKING.                                                     
+157600********  OBTIENE FECHA Y HORA DEL HOST ***********                           
+157700     PERFORM 90000000-DAME-FEC-MAQUINA.                                       
+157800     ACCEPT WKS-TIME-MAQ   FROM  TIME.                                        
+157900                                                                              
+158000********  EDITA FECHAS BATCH Y HOST    ***********                            
+158100     MOVE WKS-AAAA-FBATCH           TO WKS-AAAA-FBEDIT.                       
+158200     MOVE WKS-TB-MES(WKS-MM-FBATCH) TO WKS-MM-FBEDIT.                         
+158300     MOVE WKS-DD-FBATCH             TO WKS-DD-FBEDIT.                         
+158400                                                                              
+158500     MOVE WKS-AAAA-MAQ              TO WKS-AAAA-FMEDIT.                       
+158600     MOVE WKS-TB-MES(WKS-MM-MAQ)    TO WKS-MM-FMEDIT.                         
+158700     MOVE WKS-DD-MAQ                TO WKS-DD-FMEDIT.                         
+158800                                                                              
+158810********  ARMA FECHAS HEADER  ***********                                     
+158820     MOVE WKS-FECHA-BATCH           TO WKS-E01-FECINI-H                       
+158830                                       WKS-E01-FECFIN-H.                      
+158840     MOVE WKS-FEC-MAQ-08            TO WKS-E01-FECCREA-H.                     
+158850     MOVE WKS-HMS-MAQ               TO WKS-E01-HORACREA-H.                    
+158860                                                                              
+158870***********************************************************                   
+158900********  PIDE QUE DIA DE LA SEMANA ES FECHA BATCH ********                   
+159000     MOVE WKS-FECHA-BATCH        TO WS-S006-FECHA1.                           
+159100     MOVE 1                      TO WS-S006-FECHA2.                           
+159200     MOVE 12                     TO WS-S006-FORMATO.                          
+159300     MOVE 6                      TO WS-S006-FUNCION.                          
+159400     PERFORM 20003500-LLAMA-LOCSUP.                                           
+159500     MOVE WS-S006-FECHA1      TO WKS-DIA-SEMHOY.                              
+159600                                                                              
+159700********  PIDE DIA DE LA SEMANA ES FECHA DE LINEA  *****                      
+159800     MOVE WKS-FECHA-LINEA        TO WS-S006-FECHA1.                           
+159900     MOVE 1                      TO WS-S006-FECHA2.                           
+160000     MOVE 12                     TO WS-S006-FORMATO.                          
+160100     MOVE 6                      TO WS-S006-FUNCION.                          
+160200     PERFORM 20003500-LLAMA-LOCSUP.                                           
+160300     MOVE WS-S006-FECHA1      TO WKS-DIA-SEMPROX.                             
+160400                                                                              
+160500********  VERIFICA SI ES FIN DE SEMANA     ********                           
+160600     IF WKS-DIA-SEMHOY > WKS-DIA-SEMPROX                                      
+160700        MOVE  1    TO WKS-ES-SEMANAL.                                         
+160800                                                                              
+160900********  VERIFICA SI ES FIN DE MES  **************                           
+161000     IF WKS-MM-FLINEA NOT = WKS-MM-FBATCH                                     
+161100        MOVE 1     TO WKS-ES-MENSUAL.                                         
+161105                                                                              
+161108     IF W77-ES-PRUEBA = 1                                                     
+161110        IF W77-TASKVALUE = 1                                                  
+161115           MOVE 1     TO WKS-ES-MENSUAL.                                      
+161120                                                                              
+161122******************************************************                        
+161125     IF W77-ES-PRUEBA = 1                                                     
+161140        IF WKS-ES-MENSUAL = 1                                                 
+161145           MOVE "ES PROCESO MENSUAL" TO WS-0101-TEXT-MSG                      
+161150           PERFORM 70000050-MENSAJE                                           
+161155        ELSE                                                                  
+161160        IF WKS-ES-SEMANAL = 1                                                 
+161165           MOVE "ES PROCESO SEMANAL" TO WS-0101-TEXT-MSG                      
+161170           PERFORM 70000050-MENSAJE                                           
+161175        ELSE                                                                  
+161180           MOVE "ES PROCESO DIARIO " TO WS-0101-TEXT-MSG                      
+161185           PERFORM 70000050-MENSAJE.                                          
+161200                                                                              
+162700*************************************************************                 
+162800     MOVE ATTRIBUTE MIXNUMBER OF MYSELF  TO WKS-TIT-R-MIX.                    
+163000                                                                              
+163100     MOVE WKS-FECHA-BATCH                TO WKS-TIT-E01-FECH                  
+163110                                            WKS-TIT-I02-FECH                  
+163200                                            WKS-TIT-R-FECHA                   
+163300                                            WLI-R00-L01-FPROC.                
+163400                                                                              
+163500     MOVE W77-MY-CSI                     TO WKS-TIT-E01-CSI                   
+163510                                            WKS-TIT-I02-CSI                   
+163600                                            WKS-TIT-R-CSI.                    
+163700                                                                              
+163800     MOVE WKS-FBATCH-EDIT                TO WLI-R00-L01-FPROC.                
+163900     MOVE WKS-FMAQ-EDIT                  TO WLI-R00-L02-FMAQ.                 
+164000     MOVE WKS-HRMAQ-HH                   TO WLI-R00-L03-HR-HH.                
+164020     MOVE WKS-HRMAQ-MM                   TO WLI-R00-L03-HR-MM.                
+164040     MOVE WKS-HRMAQ-SS                   TO WLI-R00-L03-HR-SS.                
+164100                                                                              
+164200     IF W77-MY-CSI = 10                                                       
+164300        MOVE "C.C.I. MEXICO"             TO WLI-R00-L05-NCSI                  
+164400        MOVE  3084                       TO WLI-R00-L04-SUC                   
+164500        MOVE "PYCP JARDINES"             TO WLI-R00-L05-NBSUC                 
+164600     ELSE                                                                     
+164700        MOVE "C.C.I. MONTERREY"          TO WLI-R00-L05-NCSI                  
+164800        MOVE  3667                       TO WLI-R00-L04-SUC                   
+164900        MOVE "CYSAU MTY CTROL PROD"      TO WLI-R00-L05-NBSUC.                
+165000                                                                              
+165100     IF WKS-ES-MENSUAL = 1                                                    
+165200        MOVE "MENSUAL"                   TO WLI-R00-L02-TPROC                 
+165300     ELSE                                                                     
+165400        MOVE "SEMANAL"                   TO WLI-R00-L02-TPROC.                
+165500                                                                              
+165600     SET R01-RGOSDO    (USERBACKUPNAME) TO VALUE TRUE.                        
+165700                                                                              
+165800     MOVE "001RGOSDOS"                  TO WKS-TIT-R-NAME.                    
+165900                                                                              
+166000     SET R01-RGOSDO    (TITLE)          TO WKS-TITULO-REP.                    
+166100                                                                              
+166200     OPEN OUTPUT R01-RGOSDO.                                                  
+166300                                                                              
+166400     OPEN OUTPUT I01-RANGOS.                                                  
+166410     OPEN OUTPUT I02-RGOSPTE.                                                 
+166700                                                                              
+166710     MOVE ALL @00@               TO WKS-I02-REG-RPTE.                         
+166720                                                                              
+166800     MOVE ALL @00@               TO WKS-TAB-PRODUCTOS.                        
+166900     MOVE SPACES                 TO WKS-TAB-NOMB-PROD.                        
+168500                                                                              
+168510     MOVE " "                    TO   WLI-R01-L08-DETALLE.                    
+168520                                                                              
+168600*****************************************************                         
+168700 30000000-CARGA-INST-TASAS.                                                   
+168800                                                                              
+168900     MOVE ALL @00@  TO WS-TASAS-XCOMUN.                                       
+169000                                                                              
+169100     MOVE ZEROS     TO W77-EOF-INST                                           
+169200                       WKS-I.                                                 
+169300                                                                              
+169400                                                                              
+169500     SET S500B05INSTRUMEN    TO BEGINNING.                                    
+169600                                                                              
+169700     PERFORM 20021000-SUBE-INSTRUMENTOS UNTIL W77-EOF-INST = 1.               
+169800                                                                              
+169900*************************************************************                 
+170000 20021000-SUBE-INSTRUMENTOS.                                                  
+170100     PERFORM 90000005-B05INSTRUMEN-FINDN.                                     
+170200     IF WS-STATUS-BASE = 0                                                    
+170300        PERFORM 20021100-CARGA-INSTR                                          
+170400     ELSE                                                                     
+170500     IF WS-DB-NOTFOUND                                                        
+170600        MOVE 1 TO W77-EOF-INST                                                
+170700     ELSE                                                                     
+171000       STRING "ERR B05FINDNEXT ", WS-STATUS-BASE                              
+171100              DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                         
+171200       PERFORM 70000050-MENSAJE                                               
+171300       CALL SYSTEM DMTERMINATE.                                               
+171400                                                                              
+171500***********************************************************                   
+171600 20021100-CARGA-INSTR.                                                        
+171700     ADD  1                    TO WKS-I.                                      
+171800                                                                              
+171900     IF WKS-I > 30                                                            
+172200        MOVE "MAS DE 30 INST. EN LA BASE" TO WS-0101-TEXT-MSG                 
+172300        PERFORM 70000050-MENSAJE                                              
+172400        CALL SYSTEM DMTERMINATE.                                              
+172500                                                                              
+172600     MOVE B05-NUM-PRODUCTO     TO WKS-TOT-PROD    (WKS-I).                    
+172700     MOVE B05-NUM-INSTRUM      TO WKS-TOT-INST    (WKS-I).                    
+172800     MOVE B05-MONEDA           TO WKS-TOT-MON     (WKS-I).                    
+172850     MOVE B05-NOMBRE-PROD      TO WKS-NOM-PROD-B05(WKS-I).                    
+172900                                                                              
+173000     PERFORM 20030000-CARGA-RANGOS.                                           
+173100                                                                              
+173200**************************************************************                
+173300 20030000-CARGA-RANGOS.                                                       
+173400                                                                              
+173500     MOVE B05-NUM-PRODUCTO       TO WS-MSG-PRD.                               
+173550     MOVE B05-NUM-INSTRUM        TO WS-MSG-INST.                              
+173560     MOVE B05-MONEDA             TO WS-MSG-MDA.                               
+173565                                                                              
+173600     IF B05-IND-PAGOREND = 1                                                  
+173610        PERFORM 20030010-TARIFA-50                                            
+173620     ELSE                                                                     
+173630        MOVE 1              TO WS-XRGOSUP  (WKS-I, 1)                         
+173640                               WS-XRGOSUP  (WKS-I, 2)                         
+173650        MOVE 9999999999.99  TO WS-XLMTESUP (WKS-I, 1, 1)                      
+173660                               WS-XLMTESUP (WKS-I, 2, 1).                     
+173670                                                                              
+173675*************************************************************                 
+173700 20030010-TARIFA-50.                                                          
+173705                                                                              
+173715     IF B05-TIPO-PERS-F = 1                                                   
+173720        MOVE 1                   TO WKS-PERS-ANT-S                            
+173722                                    WS-MSG-PERS                               
+173725        PERFORM 20030010-SACA-TASAS.                                          
+173730                                                                              
+173740     IF B05-TIPO-PERS-M = 1                                                   
+173745        MOVE 2                   TO WKS-PERS-ANT-S                            
+173747                                    WS-MSG-PERS                               
+173750        PERFORM 20030010-SACA-TASAS.                                          
+173755                                                                              
+173760                                                                              
+173765************************************************************                  
+173800 20030010-SACA-TASAS.                                                         
+173900                                                                              
+174000     MOVE 50                     TO WKS-CVE-ANT-S                             
+174100     MOVE 0                      TO WKS-RGO-ANTF                              
+174200                                    WKS-RGO-ANTM                              
+174300     MOVE 0                      TO WKS-FIN-CARGA                             
+174400     MOVE B05-NUM-PRODUCTO       TO WKS-PROD-ANT-S                            
+174500     MOVE B05-NUM-INSTRUM        TO WKS-INST-ANT-S                            
+174600     MOVE B05-MONEDA             TO WKS-MON-ANT-S                             
+174710     MOVE 1                      TO WKS-PLAZO-ANT-S                           
+174800     MOVE 0                      TO WKS-LTEINF-ANT-S                          
+174900     PERFORM 20040000-CALL-S080-TASAS                                         
+175000             UNTIL WKS-FIN-CARGA = 9.                                         
+175600                                                                              
+175700***************************************************************               
+175800 20040000-CALL-S080-TASAS.                                                    
+175900     MOVE WKS-CVE-ANT-S        TO WS-S080-0201-CVTARIF.                       
+176000     MOVE WKS-PROD-ANT-S       TO WS-S080-0201-PRODUCTO.                      
+176100     MOVE WKS-INST-ANT-S       TO WS-S080-0201-INSTRUM.                       
+176200     MOVE WKS-MON-ANT-S        TO WS-S080-0201-MONEDA.                        
+176300     MOVE WKS-PERS-ANT-S       TO WS-S080-0201-PERSONA.                       
+176310     MOVE WKS-PLAZO-ANT-S      TO WS-S080-0201-PLAZO.                         
+176400     MOVE WKS-LTEINF-ANT-S     TO WS-S080-0201-IMPMIN.                        
+176500     MOVE WKS-FECHA-BATCH      TO WS-S080-0201-FECHVIG.                       
+176600     MOVE 0                    TO WS-S080-0201-HORAVIG                        
+176700                                  WS-S080-0201-RESULT.                        
+176900     MOVE 10                   TO WS-S080-0201-NUMREGS.                       
+177000     PERFORM 20000080-L700-TARIFAS.                                           
+177100     IF WS-S080-0201-RESULT = 0 OR 1                                          
+177200        PERFORM 20041000-ANALIZA-TASAS                                        
+177300                VARYING WKS-IND-I FROM 1 BY 1                                 
+177400                UNTIL WKS-IND-I > WS-S080-0201-REGS-S                         
+177500        IF WS-S080-0201-RESULT = 1                                            
+177600           MOVE WS-S080-0201-NIVEL-S TO WS-S080-0201-NIVEL                    
+177700           MOVE WS-S080-0201-FECHA-S TO WS-S080-0201-FECHCTRL                 
+177800           MOVE WS-S080-0201-HORA-S  TO WS-S080-0201-HORACTRL                 
+177900        ELSE                                                                  
+178000           MOVE 9                     TO WKS-FIN-CARGA                        
+178100     ELSE                                                                     
+178300        PERFORM 20040100-NOHAY-TASAS.                                         
+179700                                                                              
+179800*****************************************************                         
+179900 20040100-NOHAY-TASAS.                                                        
+180150     MOVE WS-S080-0201-RESULT  TO WS-MSG-N-04                                 
+180200     STRING  "NO HAY TASAS PARA: " WS-MSG-PRD                                 
+180300                               "-" WS-MSG-INST,                               
+180400                               "-" WS-MSG-MDA                                 
+180420                               "-" WS-MSG-PERS                                
+180470                            " RS=" WS-MSG-N-04                                
+180500             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                          
+180600     PERFORM 70000050-MENSAJE.                                                
+180610                                                                              
+180620     IF WS-MSG-PERS = 1 OR 2                                                  
+180640        MOVE 1                                                                
+180650          TO WS-XRGOSUP  (WKS-I, WS-MSG-PERS)                                 
+180660        MOVE 9999999999.99                                                    
+180670          TO WS-XLMTESUP (WKS-I, WS-MSG-PERS, 1).                             
+180680                                                                              
+180690     MOVE 9                     TO WKS-FIN-CARGA.                             
+180700***  CALL SYSTEM DMTERMINATE.                                                 
+180800                                                                              
+180900***********************************************************                   
+181000 20041000-ANALIZA-TASAS.                                                      
+181100     MOVE WS-S080-0201-PRODTAR-S(WKS-IND-I) TO WKS-PROD-ANT-S.                
+181200     MOVE WS-S080-0201-INSTAR-S (WKS-IND-I) TO WKS-INST-ANT-S.                
+181300     MOVE WS-S080-0201-CVETAR-S (WKS-IND-I) TO WKS-CVE-ANT-S.                 
+181400     MOVE WS-S080-0201-MONEDA-S (WKS-IND-I) TO WKS-MON-ANT-S.                 
+181500     MOVE WS-S080-0201-PERS-S   (WKS-IND-I) TO WKS-PERS-ANT-S.                
+181600     MOVE WS-S080-0201-LTEINF-S (WKS-IND-I) TO WKS-LTEINF-ANT-S.              
+181700     MOVE WS-S080-0201-PERS-S   (WKS-IND-I) TO WKS-IND-J.                     
+181710     MOVE WS-S080-0201-PLAZO-S  (WKS-IND-I) TO WKS-PLAZO-ANT-S.               
+181800                                                                              
+181900     COMPUTE WKS-IMPPTE = WS-S080-0201-TASA-S(WKS-IND-I) /                    
+182000                 (10 ** WS-S080-0201-DCTASA-S(WKS-IND-I))                     
+182100     MOVE WKS-IMPPTE                        TO WKS-TASABRUTA.                 
+182200                                                                              
+182300     COMPUTE WKS-IMPPTE = WS-S080-0201-LTEINF-S(WKS-IND-I) /                  
+182400            (10 ** WS-S080-0201-DECINF-S(WKS-IND-I))                          
+182500     MOVE WKS-IMPPTE                     TO WKS-LIMINF                        
+182600                                                                              
+182700     COMPUTE WKS-IMPPTE = WS-S080-0201-LTESUP-S(WKS-IND-I) /                  
+182800            (10 ** WS-S080-0201-DECSUP-S(WKS-IND-I))                          
+182900     MOVE WKS-IMPPTE                     TO WKS-LIMSUP                        
+183000                                                                              
+183100     PERFORM 20041100-ARMA-TASAS.                                             
+183200                                                                              
+183300***********************************************************                   
+183400 20041100-ARMA-TASAS.                                                         
+183500     IF WKS-IND-J = 1                                                         
+183600        MOVE WKS-RGO-ANTF  TO WKS-RGO-ANT WKS-R                               
+183700     ELSE                                                                     
+183800        MOVE WKS-RGO-ANTM  TO WKS-RGO-ANT WKS-R.                              
+183900                                                                              
+184000     ADD 1 TO WKS-R.                                                          
+184100     IF WKS-R > 20                                                            
+184400        STRING "MAS DE 20 LIMITES EN TASAS PARA ",                            
+184500               WS-MSG-PRD "-" WS-MSG-INST,  "-" WS-MSG-MDA                    
+184600              DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                         
+184700        PERFORM 70000050-MENSAJE                                              
+184900        CALL SYSTEM DMTERMINATE.                                              
+185000                                                                              
+185100     IF WKS-R > 0 AND < 21                                                    
+185200        MOVE WKS-TASABRUTA                                                    
+185300          TO WS-XTASABRTA(WKS-I, WKS-IND-J, WKS-R)                            
+185400        MOVE WKS-LIMINF                                                       
+185500          TO WS-XLMTEINF(WKS-I, WKS-IND-J, WKS-R)                             
+185600        MOVE WKS-LIMSUP                                                       
+185700          TO WS-XLMTESUP(WKS-I, WKS-IND-J, WKS-R)                             
+185800        MOVE WKS-R  TO WS-XRGOSUP(WKS-I, WKS-IND-J).                          
+185900                                                                              
+186000     IF WKS-R > 0 AND < 21                                                    
+186100        IF WKS-IND-J = 1                                                      
+186200           MOVE WKS-R  TO WKS-RGO-ANTF                                        
+186300           PERFORM 20042000-CALCULA-TASAS                                     
+186400           IF B05-TIPO-PERS-M = 0                                             
+186500              MOVE WS-XRANGOS(WKS-I, WKS-IND-J, WKS-R)                        
+186600                TO WS-XRANGOS(WKS-I, 2,    WKS-R)                             
+186700              MOVE WS-XRGOSUP(WKS-I, WKS-IND-J)                               
+186800                TO WS-XRGOSUP(WKS-I, 2   )                                    
+186900              MOVE 2       TO WKS-IND-J                                       
+187000              PERFORM 20042000-CALCULA-TASAS                                  
+187100              MOVE 1       TO WKS-IND-J                                       
+187200           ELSE                                                               
+187300              NEXT SENTENCE                                                   
+187400        ELSE                                                                  
+187500           MOVE WKS-R  TO WKS-RGO-ANTM                                        
+187600           PERFORM 20042000-CALCULA-TASAS                                     
+187700           IF B05-TIPO-PERS-F = 0                                             
+187800              MOVE WS-XRANGOS(WKS-I, WKS-IND-J, WKS-R)                        
+187900                TO WS-XRANGOS(WKS-I, 1,         WKS-R)                        
+188000              MOVE WS-XRGOSUP(WKS-I, WKS-IND-J)                               
+188100                TO WS-XRGOSUP(WKS-I, 1        )                               
+188200              MOVE 1       TO WKS-IND-J                                       
+188300              PERFORM 20042000-CALCULA-TASAS                                  
+188400              MOVE 2       TO WKS-IND-J.                                      
+188500                                                                              
+188600*******************************************************                       
+188700 20042000-CALCULA-TASAS.                                                      
+188710***  IF WKS-IND-J = 2                                                         
+188800        IF WKS-TASABRUTA > WS-ISR-0                                           
+188900           COMPUTE                                                            
+189000           WS-XTASANETA(WKS-I, WKS-IND-J, WKS-R) =                            
+189100           WKS-TASABRUTA - WS-ISR-0                                           
+189200        ELSE                                                                  
+189300           MOVE ZEROS                                                         
+189400             TO WS-XTASANETA(WKS-I, WKS-IND-J, WKS-R).                        
+189410***  ELSE                                                                     
+189420***  IF WKS-TASABRUTA > 0.85      WS-ISR-0                                    
+189430***     COMPUTE                                                               
+189440***     WS-XTASANETA(WKS-I, WKS-IND-J, WKS-R) =                               
+189450***     WKS-TASABRUTA - 0.85      WS-ISR-0                                    
+189460***  ELSE                                                                     
+189470***     MOVE WKS-TASABRUTA                                                    
+189480***       TO WS-XTASANETA(WKS-I, WKS-IND-J, WKS-R).                           
+189500                                                                              
+189600                                                                              
+189700**********************************************************                    
+189800 50000000-PROCESO-PRINCIPAL.                                                  
+189805******************************************************                        
+189810     MOVE 3  TO W77-ID-NUMDSET-MAPLI.                                         
+189815     MOVE 1  TO W77-ID-NUMBASE-MAPLI.                                         
+189820     PERFORM 70000600-REGS-EN-BASE.                                           
+189830                                                                              
+189840******************************************************                        
+189845     MOVE 02                          TO W77-ID-ACTXX-MAPLI                   
+189850                                         W77-ID-ACT02-MAPLI.                  
+189855     MOVE "GENERA ARCHIVO PTE "       TO W77-ID-NOMB-LIB.                     
+189865     MOVE "GENERA ARCHIVO DESDE B03 " TO W77-ID-TXTA-LIB.                     
+189880     PERFORM 70000910-INIACT-MAPLI.                                           
+189885*******************************************************                       
+189900     MOVE 1                 TO WKS-I.                                         
+190000     SET S500B03CONTRATOS   TO BEGINNING.                                     
+190100     PERFORM 50003000-LEE-BASE-500   UNTIL W77-EOF-BD = 1.                    
+190200     PERFORM 70002000-CIERRA-BASE.                                            
+190210     CLOSE   I02-RGOSPTE  WITH SAVE.                                          
+190215*******************************************************                       
+190220     MOVE W77-ID-ACT02-MAPLI TO W77-ID-ACTXX-MAPLI.                           
+190225     PERFORM 70000910-FIN-ACTI-MAPLI.                                         
+190230******************************************************                        
+190235     MOVE 1                             TO W77-ID-NUMREG-PROC.                
+190240     MOVE 03                            TO W77-ID-ACTXX-MAPLI                 
+190245                                           W77-ID-ACT03-MAPLI.                
+190250     MOVE "GEN ARCHIVO TESORERIA"       TO W77-ID-NOMB-LIB.                   
+190260     MOVE "CLASIFICA Y GENERA ARCHIVO " TO W77-ID-TXTA-LIB.                   
+190275     PERFORM 70000910-INIACT-MAPLI.                                           
+190280*******************************************************                       
+190290     PERFORM 50007000-SORT-PTE.                                               
+190300     PERFORM 60000000-GENERA-ARCHIVO.                                         
+190400     PERFORM 60030000-SORT-ARCHIVO.                                           
+190500     PERFORM 60050000-GENERA-REPORTE.                                         
+190600                                                                              
+190620*******************************************************                       
+190622     MOVE W77-ID-ACT03-MAPLI TO W77-ID-ACTXX-MAPLI.                           
+190624     MOVE " "                TO W77-ID-TXTA-LIB.                              
+190626     PERFORM 70000950-ACT-REGPROC.                                            
+190628                                                                              
+190640     MOVE W77-ID-ACT03-MAPLI TO W77-ID-ACTXX-MAPLI.                           
+190660     PERFORM 70000910-FIN-ACTI-MAPLI.                                         
+190680******************************************************                        
+190700                                                                              
+190800**********************************************************                    
+190900 50003000-LEE-BASE-500.                                                       
+191000     PERFORM 50003100-DAME-B03CTO.                                            
+191100                                                                              
+191200     IF W77-EOF-BD = 0                                                        
+191300        IF (B03-STATUS < 2 OR B03-STATUS = 5) AND                             
+191350           B03-MIGR-S111 NOT = 1                                              
+191400           PERFORM 50003110-SELECT-PTE                                        
+191500        ELSE                                                                  
+191510        IF (B03-SDO-ANTERIOR + B03-SDOPROT-ANT) > 0                           
+191520       AND B03-MIGR-S111 NOT = 1                                              
+191530           PERFORM 50003110-SELECT-PTE.                                       
+191600                                                                              
+191605*************************************************                             
+191610     IF W77-EOF-BD = 0                                                        
+191615        MOVE W77-ID-ACT02-MAPLI    TO W77-ID-ACTXX-MAPLI                      
+191620        MOVE " "                   TO W77-ID-TXTA-LIB                         
+191625        MOVE B03-NUM-CONTRATO      TO WS-MSG-CTO                              
+191630        STRING "CTOS LEIDOS B03 = "   WKS-NUM-LEIDOS                          
+191635                   " ULTIMO CTO = "   WS-MSG-CTO                              
+191640               DELIMITED BY SIZE INTO W77-ID-TXTA-LIB                         
+191645        PERFORM 70000950-ACT-REGPROC.                                         
+191650                                                                              
+191700                                                                              
+191710*********************************************************                     
+191720 50003110-SELECT-PTE.                                                         
+191730     PERFORM 50004000-DAME-HISTORICO.                                         
+191740     PERFORM 50003105-MUEVE-B03-WKS.                                          
+191750     PERFORM 50006000-GENERA-PTE.                                             
+191760                                                                              
+191800**********************************************************                    
+191900 50003100-DAME-B03CTO.                                                        
+192000     PERFORM 90000003-B03CONTRATOS-FINDN.                                     
+192100     IF WS-STATUS-BASE > 0                                                    
+192200        IF WS-DB-NOTFOUND                                                     
+192300           MOVE 1 TO W77-EOF-BD                                               
+192400        ELSE                                                                  
+192700           STRING "ERR FINDN B03CONTRATOS ", WS-STATUS-BASE                   
+192800                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                     
+192900           PERFORM 70000050-MENSAJE                                           
+193000           CALL SYSTEM DMTERMINATE.                                           
+193100                                                                              
+193200     IF W77-EOF-BD = 0                                                        
+193300        ADD 1   TO WKS-NUM-LEIDOS.                                            
+193500                                                                              
+193600**************************************************************                
+193700 50003105-MUEVE-B03-WKS.                                                      
+193800     MOVE B03-NUM-CONTRATO    TO WS03-NUM-CONTRATO.                           
+193900     MOVE B03-NUM-CLIENTE     TO WS03-NUM-CLIENTE.                            
+194000     MOVE B03-NUM-PRODUCTO    TO WS03-NUM-PRODUCTO.                           
+194100     MOVE B03-NUM-INSTRUM     TO WS03-NUM-INSTRUM.                            
+194200     MOVE B03-MONEDA          TO WS03-MONEDA.                                 
+194300     MOVE B03-TIPO-PERSONA    TO WS03-TIPO-PERSONA.                           
+194400                                                                              
+194500**************************************************************                
+194600 50004000-DAME-HISTORICO.                                                     
+194700     MOVE B03-NUM-CONTRATO    TO WS-NUM-CONTRATO.                             
+194800     PERFORM 90000006-B06SXCTO-FIND.                                          
+194900     IF WS-STATUS-BASE > 0                                                    
+195200        STRING "ERR FIND B06XCTO ", WS-STATUS-BASE                            
+195300               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+195400        PERFORM 70000050-MENSAJE                                              
+195500        CALL SYSTEM DMTERMINATE.                                              
+195600                                                                              
+195700****************************************************                          
+195800 50004500-DAME-INSTRUMENTO.                                                   
+195900     IF (B03-NUM-PRODUCTO =  WKS-TOT-PROD(WKS-I)                              
+196000    AND  B03-NUM-INSTRUM  =  WKS-TOT-INST(WKS-I)                              
+196100    AND  B03-MONEDA       =  WKS-TOT-MON (WKS-I))                             
+196200         NEXT SENTENCE                                                        
+196300     ELSE                                                                     
+196400         PERFORM 50004510-DAME-INDICE                                         
+196500          VARYING WKS-I FROM 1 BY 1                                           
+196550          UNTIL (WKS-I > 30)                                                  
+196600             OR (WKS-TOT-PROD(WKS-I) = B03-NUM-PRODUCTO                       
+196700            AND  WKS-TOT-INST(WKS-I) = B03-NUM-INSTRUM                        
+196800            AND  WKS-TOT-MON (WKS-I) = B03-MONEDA).                           
+196900                                                                              
+197000                                                                              
+197100     IF WKS-I > 30                                                            
+197400        MOVE B03-NUM-PRODUCTO    TO WS-MSG-PRD                                
+197500        MOVE B03-NUM-INSTRUM     TO WS-MSG-INST                               
+197600        MOVE B03-MONEDA          TO WS-MSG-MDA                                
+197700        STRING "NO HAY INSTR ", WS-MSG-PRD                                    
+197800                           " ", WS-MSG-INST                                   
+197900                           " ", WS-MSG-MDA                                    
+198000               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+198100        PERFORM 70000050-MENSAJE                                              
+198200        CALL SYSTEM DMTERMINATE.                                              
+198300                                                                              
+198400*************************************************                             
+198500 50004510-DAME-INDICE.                                                        
+198600                                                                              
+198700*********************************************************                     
+198800 50006000-GENERA-PTE.                                                         
+198900     PERFORM 50004500-DAME-INSTRUMENTO.                                       
+199000     PERFORM 50006100-UBICA-RANGO.                                            
+199100     PERFORM 50006300-ARMA-PTE.                                               
+199200                                                                              
+199300****************************************************                          
+199400 50006100-UBICA-RANGO.                                                        
+199500     IF WS03-88-TP-GFISICA                                                    
+199600        MOVE 1         TO WKS-P                                               
+199700     ELSE                                                                     
+199800        MOVE 2         TO WKS-P.                                              
+199810                                                                              
+199820     COMPUTE W77-SALDO-TOTAL = B03-SDO-ANTERIOR + B03-SDOPROT-ANT.            
+199900                                                                              
+199910     IF B03-STATUS = 3                                                        
+199920        MOVE W77-SALDO-TOTAL       TO W77-SALDO-RGO                           
+199930                                      W77-PRMCIC                              
+199940                                      W77-SDOACT                              
+199950     ELSE                                                                     
+200000     IF WKS-ES-MENSUAL = 1                                                    
+200100        IF B06-FEC-CICLOANT > 0                                               
+200200           MOVE B06-PROM-CICLO(12)  TO W77-SALDO-RGO                          
+200300                                       W77-PRMCIC                             
+200350           MOVE W77-SALDO-TOTAL     TO W77-SDOACT                             
+200400        ELSE                                                                  
+200500           MOVE W77-SALDO-TOTAL       TO W77-SALDO-RGO                        
+200600                                         W77-PRMCIC                           
+200650                                         W77-SDOACT                           
+200700     ELSE                                                                     
+200800        MOVE W77-SALDO-TOTAL       TO W77-SALDO-RGO                           
+200805                                      W77-PRMCIC                              
+200810                                      W77-SDOACT.                             
+200900                                                                              
+201000     MOVE WS-XRGOSUP(WKS-I, WKS-P)                                            
+201100       TO WKS-IND-SUP.                                                        
+201200                                                                              
+201300     IF W77-SALDO-RGO = 0                                                     
+201400     OR WKS-IND-SUP = 1                                                       
+201500        MOVE  1   TO WKS-R                                                    
+201600     ELSE                                                                     
+201700     IF W77-SALDO-RGO NOT <                                                   
+201800        WS-XLMTESUP(WKS-I,WKS-P,WKS-IND-SUP)                                  
+201900        MOVE WKS-IND-SUP   TO WKS-R                                           
+202000     ELSE                                                                     
+202100        PERFORM 50006200-DAME-RANGO                                           
+202200         VARYING WKS-R  FROM 1 BY 1                                           
+202250          UNTIL (WKS-R > WKS-IND-SUP)                                         
+202300             OR (W77-SALDO-RGO NOT >                                          
+202400                 WS-XLMTESUP(WKS-I,WKS-P,WKS-R)).                             
+202500                                                                              
+202600                                                                              
+202700*************************************************                             
+202800 50006200-DAME-RANGO.                                                         
+202900                                                                              
+203000****************************************************                          
+203100 50006300-ARMA-PTE.                                                           
+203200     MOVE B03-NUM-PRODUCTO                 TO WKS-I02-PROD.                   
+203205     MOVE B03-NUM-INSTRUM                  TO WKS-I02-INST.                   
+203210     MOVE B03-MONEDA                       TO WKS-I02-MONEDA.                 
+203215     MOVE WKS-P                            TO WKS-I02-PERSONA.                
+203220     MOVE WS-XLMTEINF (WKS-I,WKS-P,WKS-R)  TO WKS-I02-LMTINF.                 
+203225     MOVE WS-XLMTESUP (WKS-I,WKS-P,WKS-R)  TO WKS-I02-LMTSUP.                 
+203230     MOVE W77-SDOACT                       TO WKS-I02-SDOACT.                 
+203235     MOVE W77-PRMCIC                       TO WKS-I02-SDOPROM.                
+203240     MOVE WKS-R                            TO WKS-I02-NUNRGO.                 
+203245                                                                              
+203250     IF B03-STATUS = 3                                                        
+203255        MOVE ZEROS                           TO WKS-I02-TASANP                
+203260        MOVE ZEROS                           TO WKS-I02-TASABP                
+203265        MOVE WS-XTASANETA(WKS-I,WKS-P,WKS-R) TO WKS-I02-TASANT                
+203270     ELSE                                                                     
+203275        MOVE B03-TASA-ANTERIOR               TO WKS-I02-TASANP                
+203280        MOVE B06-TASA-BRUTA                  TO WKS-I02-TASABP                
+203285        MOVE WS-XTASANETA(WKS-I,WKS-P,WKS-R) TO WKS-I02-TASANT.               
+203300                                                                              
+203400     PERFORM 50006310-ESC-PTE.                                                
+203600                                                                              
+203700**********************************************                                
+203800 50006310-ESC-PTE.                                                            
+203810     WRITE FD-I02-REG-RPTE  FROM WKS-I02-REG-RPTE INVALID KEY                 
+203840           MOVE "ERROR WRITE PTE "   TO WS-0101-TEXT-MSG                      
+203850           PERFORM 70000050-MENSAJE                                           
+203860           CALL SYSTEM DMTERMINATE.                                           
+203870                                                                              
+203970     ADD  1 TO WKS-REGS-PTE.                                                  
+208400                                                                              
+208405******************************************************************            
+208410 50007000-SORT-PTE.                                                           
+208415     ADD 100     TO WKS-REGS-PTE.                                             
+208420     COMPUTE W77-TOT-DISKSIZE = WKS-REGS-PTE * 07 * 2.5.                      
+208425     COMPUTE W77-TOT-MEMSIZE  = (10 * 5400) + 1500.                           
+208430     SORT S02-RGOSPTE                                                         
+208435          ON ASCENDING KEY SD-I02-LLAVE-01                                    
+208440                           SD-I02-NUNRGO                                      
+208445                           SD-I02-TASANP                                      
+208450                           SD-I02-TASABP                                      
+208455                                                                              
+208460          USING   I02-RGOSPTE                                                 
+208465          GIVING  I02-RGOSPTE                                                 
+208470          MEMORY SIZE W77-TOT-MEMSIZE  WORDS                                  
+208475          DISK   SIZE W77-TOT-DISKSIZE WORDS.                                 
+208480                                                                              
+253400************************************************************                  
+253500 60000000-GENERA-ARCHIVO.                                                     
+253510     OPEN INPUT I02-RGOSPTE.                                                  
+253520                                                                              
+253530     PERFORM 60000100-HEADER-DOMMY.                                           
+253540                                                                              
+253600     PERFORM 60010000-PASA-PTE UNTIL W77-EOF-PTE = 1.                         
+253700                                                                              
+253800**   CLOSE I02-RGOSPTE WITH PURGE.                                            
+253810     CLOSE I02-RGOSPTE WITH SAVE.                                             
+253900                                                                              
+254000     CLOSE I01-RANGOS  WITH SAVE.                                             
+254010                                                                              
+254020**************************************************************                
+254100 60000100-HEADER-DOMMY.                                                       
+254104     MOVE ALL "0"     TO I01-REG-RANGOS.                                      
+254106                                                                              
+254108     WRITE I01-REG-RANGOS                                                     
+254110        INVALID KEY                                                           
+254116        MOVE "ERR WRITE DOMMY HEADER " TO WS-0101-TEXT-MSG                    
+254118        PERFORM 70000050-MENSAJE                                              
+254120        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                              
+254122                                                                              
+254124     MOVE ALL "9"     TO I01-REG-RANGOS.                                      
+254126                                                                              
+254128     WRITE I01-REG-RANGOS                                                     
+254130        INVALID KEY                                                           
+254136        MOVE "ERR WRITE DOMMY HEADER " TO WS-0101-TEXT-MSG                    
+254138        PERFORM 70000050-MENSAJE                                              
+254140        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                              
+254150                                                                              
+254200**************************************************************                
+254300 60010000-PASA-PTE.                                                           
+254400     READ I02-RGOSPTE  AT END                                                 
+254500          MOVE 1   TO W77-EOF-PTE.                                            
+254600                                                                              
+254700     IF W77-EOF-PTE = 0                                                       
+254750        PERFORM 60010100-COMPARA-ANTERIOR                                     
+254770     ELSE                                                                     
+254790        PERFORM 60015000-ESCRIBE-ARCHIVO.                                     
+254800                                                                              
+254900***********************************************************                   
+255000 60010100-COMPARA-ANTERIOR.                                                   
+255100     IF WKS-LLAVE01-ANT = 0                                                   
+255120        MOVE FD-I02-LLAVE-01   TO WKS-LLAVE01-ANT                             
+255140        MOVE FD-I02-NUNRGO     TO WKS-NUNRGO-ANT                              
+255160        MOVE FD-I02-TASANP     TO WKS-TASANP-ANT                              
+255180        MOVE FD-I02-TASABP     TO WKS-TASABP-ANT                              
+255190        PERFORM 60010120-INICIA-REGS.                                         
+255200                                                                              
+255210     IF FD-I02-LLAVE-01 = WKS-LLAVE01-ANT                                     
+255220    AND FD-I02-NUNRGO   = WKS-NUNRGO-ANT                                      
+255230    AND FD-I02-TASANP   = WKS-TASANP-ANT                                      
+255240    AND FD-I02-TASABP   = WKS-TASABP-ANT                                      
+255250        PERFORM 60012000-SUMA-IGUAL                                           
+255260      ELSE                                                                    
+255270        PERFORM 60015000-ESCRIBE-ARCHIVO                                      
+255280        PERFORM 60010120-INICIA-REGS                                          
+255700        PERFORM 60012000-SUMA-IGUAL                                           
+255720        MOVE FD-I02-LLAVE-01   TO WKS-LLAVE01-ANT                             
+255740        MOVE FD-I02-NUNRGO     TO WKS-NUNRGO-ANT                              
+255760        MOVE FD-I02-TASANP     TO WKS-TASANP-ANT                              
+255780        MOVE FD-I02-TASABP     TO WKS-TASABP-ANT.                             
+256700*************************************************************                 
+256800 60010120-INICIA-REGS.                                                        
+256900     MOVE WKS-FECHA-BATCH      TO WKS-E01-FECPROC.                            
+256920     MOVE FD-I02-PROD          TO WKS-E01-PROD.                               
+256940     MOVE FD-I02-INST          TO WKS-E01-INST.                               
+256960     MOVE FD-I02-MONEDA        TO WKS-E01-MONEDA.                             
+256980     MOVE FD-I02-LMTINF        TO WKS-E01-LMTINF.                             
+257000     MOVE FD-I02-LMTSUP        TO WKS-E01-LMTSUP.                             
+257020     MOVE FD-I02-NUNRGO        TO WKS-E01-NUNRGO.                             
+257040     MOVE FD-I02-PERSONA       TO WKS-E01-PERSONA.                            
+257060     MOVE ZEROS                TO WKS-E01-SDOACT.                             
+257080     MOVE ZEROS                TO WKS-E01-SDOPROM.                            
+257100     MOVE FD-I02-TASANP        TO WKS-E01-TASANP.                             
+257120     MOVE FD-I02-TASABP        TO WKS-E01-TASABP.                             
+257140     MOVE ZEROS                TO WKS-E01-NUMCTAS.                            
+257160     MOVE " "                  TO WKS-E01-RESTO.                              
+257400                                                                              
+257500**************************************************************                
+257600 60012000-SUMA-IGUAL.                                                         
+257700     ADD FD-I02-SDOACT        TO WKS-E01-SDOACT.                              
+257800     ADD FD-I02-SDOPROM       TO WKS-E01-SDOPROM.                             
+257900     ADD 1                    TO WKS-E01-NUMCTAS.                             
+258000                                                                              
+261600************************************************************                  
+261700 60015000-ESCRIBE-ARCHIVO.                                                    
+261800     WRITE I01-REG-RANGOS FROM WKS-E01-DETALLE                                
+261900        INVALID KEY                                                           
+262200        MOVE "ERROR WRITE ARCH-RGOS " TO WS-0101-TEXT-MSG                     
+262300        PERFORM 70000050-MENSAJE                                              
+262400        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                              
+262500                                                                              
+262520     ADD 1    TO WKS-REGS-GEN.                                                
+262540                                                                              
+262560     ADD 1                TO WKS-E01-TOTREGS-T.                               
+262580     ADD WKS-E01-SDOACT   TO WKS-E01-TOTSDOS-T.                               
+262590                                                                              
+262600***********************************************************                   
+262700 60030000-SORT-ARCHIVO.                                                       
+262720     ADD 50      TO WKS-REGS-GEN.                                             
+262740     COMPUTE W77-TOT-DISKSIZE = WKS-REGS-GEN * 16 * 2.5.                      
+262760     COMPUTE W77-TOT-MEMSIZE  = (19 * 5400) + 1500.                           
+262780                                                                              
+262800     SORT S01-RANGOS ON ASCENDING KEY SD-S01-PRODUCTO                         
+262900                                      SD-S01-PERSONA                          
+263000                                      SD-S01-NUNRGO                           
+263100                                      SD-S01-TASANP                           
+263150                                      SD-S01-TASABP                           
+263200                                                                              
+263300     USING   I01-RANGOS                                                       
+263400     GIVING  I01-RANGOS.                                                      
+263500                                                                              
+263600*****************************************************                         
+263650 60050000-GENERA-REPORTE.                                                     
+263700     OPEN I-O   I01-RANGOS.                                                   
+263750     PERFORM 60051000-LEE-ARCHIVO UNTIL W77-EOF-I01 = 1.                      
+263800                                                                              
+263850*****************************************************                         
+263900 60051000-LEE-ARCHIVO.                                                        
+263950     READ I01-RANGOS INTO WKS-E01-DETALLE AT END                              
+264000          MOVE 1     TO W77-EOF-I01.                                          
+264050                                                                              
+264100     IF W77-EOF-I01 = 0                                                       
+264105        IF FD-I01-REG-DOMMY = "000000000000"                                  
+264110           PERFORM 60051010-GRABA-HEADER                                      
+264115        ELSE                                                                  
+264120        IF FD-I01-REG-DOMMY = "999999999999"                                  
+264125           PERFORM 60051020-GRABA-TRAILER                                     
+264130        ELSE                                                                  
+264150           PERFORM 60052000-ARMA-REPORTE                                      
+264155     ELSE                                                                     
+264160        PERFORM 60055000-ESC-REP-01                                           
+264165        MOVE "TOTAL PRODUCTO "     TO WLI-R01-L08-DETALLE                     
+264170        MOVE W77-TPRD-SDOACT       TO WLI-R01-L08-SDOACT                      
+264175        MOVE W77-TPRD-SDOPROM      TO WLI-R01-L08-SDOPRO                      
+264180        PERFORM 60055000-ESC-REP-01.                                          
+264182                                                                              
+264190********************************************************                      
+264200 60051010-GRABA-HEADER.                                                       
+264204     WRITE I01-REG-RANGOS FROM WKS-E01-HEADER                                 
+264206        INVALID KEY                                                           
+264212        MOVE "ERR WRITE DOMMY HEADER " TO WS-0101-TEXT-MSG                    
+264214        PERFORM 70000050-MENSAJE                                              
+264216        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                              
+264218                                                                              
+264220*********************************************************                     
+264222 60051020-GRABA-TRAILER.                                                      
+264226     WRITE I01-REG-RANGOS FROM WKS-E01-TRAILER                                
+264228        INVALID KEY                                                           
+264234        MOVE "ERR WRITE DOMMY HEADER " TO WS-0101-TEXT-MSG                    
+264236        PERFORM 70000050-MENSAJE                                              
+264238        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                              
+264240                                                                              
+264250*********************************************************                     
+264300 60052000-ARMA-REPORTE.                                                       
+264310     IF W77-PROD-ANT = 0                                                      
+264315        MOVE WKS-E01-PRODUCTO  TO W77-PROD-ANT                                
+264320        MOVE WKS-E01-PERSONA   TO W77-PERS-ANT                                
+264325        MOVE 70                TO W77-NUMLIN                                  
+264330        PERFORM 60054000-BUSCA-INSTRUMENTO                                    
+264335        PERFORM 60053000-NOMBRE-INSTR.                                        
+264350                                                                              
+264400     IF WKS-E01-PRODUCTO NOT = W77-PROD-ANT                                   
+264405        PERFORM 60055000-ESC-REP-01                                           
+264410        MOVE "TOTAL PRODUCTO "     TO WLI-R01-L08-DETALLE                     
+264415        MOVE W77-TPRD-SDOACT       TO WLI-R01-L08-SDOACT                      
+264420        MOVE W77-TPRD-SDOPROM      TO WLI-R01-L08-SDOPRO                      
+264425        PERFORM 60055000-ESC-REP-01                                           
+264430        MOVE ZEROS                 TO W77-TPRD-SDOACT                         
+264435        MOVE ZEROS                 TO W77-TPRD-SDOPROM                        
+264450        MOVE WKS-E01-PRODUCTO      TO W77-PROD-ANT                            
+264500        MOVE WKS-E01-PERSONA       TO W77-PERS-ANT                            
+264550        MOVE 70                    TO W77-NUMLIN                              
+264600        PERFORM 60054000-BUSCA-INSTRUMENTO                                    
+264650        PERFORM 60053000-NOMBRE-INSTR                                         
+264700     ELSE                                                                     
+264750     IF WKS-E01-PERSONA NOT = W77-PERS-ANT                                    
+264800        MOVE WKS-E01-PERSONA TO W77-PERS-ANT                                  
+264850        PERFORM 60055000-ESC-REP-01.                                          
+264900                                                                              
+264950     MOVE WKS-E01-PERSONA  TO WKS-P.                                          
+265000     MOVE WKS-E01-NUNRGO   TO WKS-R.                                          
+265050                                                                              
+265060     IF WKS-I-OK                                                              
+265070    AND WKS-P-OK                                                              
+265080    AND WKS-R-OK                                                              
+265100        MOVE WS-XTASABRTA (WKS-I, WKS-P, WKS-R )                              
+265150          TO WLI-R01-L08-TASA                                                 
+265155     ELSE                                                                     
+265160        MOVE ZEROS        TO WLI-R01-L08-TASA.                                
+265200                                                                              
+265250     MOVE WKS-E01-LMTINF     TO WLI-R01-L08-LTEINF.                           
+265300     MOVE WKS-E01-LMTSUP     TO WLI-R01-L08-LTESUP.                           
+265350     MOVE WKS-E01-SDOACT     TO WLI-R01-L08-SDOACT.                           
+265400     MOVE WKS-E01-SDOPROM    TO WLI-R01-L08-SDOPRO.                           
+265450     MOVE WKS-E01-TASANP     TO WLI-R01-L08-TASANP.                           
+265452     MOVE WKS-E01-TASABP     TO WLI-R01-L08-TASABP.                           
+265500     MOVE WKS-E01-NUNRGO     TO WLI-R01-L08-RANGO.                            
+265550     MOVE WKS-E01-PERSONA    TO WLI-R01-L08-PERS.                             
+265600     MOVE WKS-E01-NUMCTAS    TO WLI-R01-L08-NCTAS.                            
+265610                                                                              
+265620     ADD  WKS-E01-SDOACT     TO W77-TPRD-SDOACT.                              
+265630     ADD  WKS-E01-SDOPROM    TO W77-TPRD-SDOPROM.                             
+265650                                                                              
+265700     PERFORM 60055000-ESC-REP-01.                                             
+265750                                                                              
+265800**************************************************************                
+265850 60053000-NOMBRE-INSTR.                                                       
+265900     MOVE WKS-NOM-PROD-B05(WKS-I)  TO WLI-R01-L06-PRODUCTO.                   
+266000                                                                              
+268800**************************************************************                
+268850 60054000-BUSCA-INSTRUMENTO.                                                  
+268900     PERFORM 60054100-DAME-INDICE                                             
+268950      VARYING WKS-I FROM 1 BY 1                                               
+268970       UNTIL (WKS-I > 30)                                                     
+269000          OR (WKS-TOT-PROD(WKS-I) = WKS-E01-PROD                              
+269050         AND  WKS-TOT-INST(WKS-I) = WKS-E01-INST                              
+269100         AND  WKS-TOT-MON (WKS-I) = WKS-E01-MONEDA).                          
+269150                                                                              
+269200                                                                              
+269250     IF WKS-I > 30                                                            
+269400        MOVE WKS-E01-PROD     TO WS-MSG-PRD                                   
+269450        MOVE WKS-E01-INST     TO WS-MSG-INST                                  
+269500        MOVE WKS-E01-MONEDA   TO WS-MSG-MDA                                   
+269550        STRING "NO ENCONTRO INSTR ", WS-MSG-PRD                               
+269600                           " ", WS-MSG-INST                                   
+269650                           " ", WS-MSG-MDA                                    
+269700               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG                        
+269750        PERFORM 70000050-MENSAJE                                              
+269800        CALL SYSTEM DMTERMINATE.                                              
+269850                                                                              
+269900*************************************************                             
+269950 60054100-DAME-INDICE.                                                        
+270000                                                                              
+270050*********************************************************                     
+270100 60055000-ESC-REP-01.                                                         
+270150     ADD 1 TO W77-NUMLIN.                                                     
+270200     IF W77-NUMLIN > 56                                                       
+270250        PERFORM 60056000-ENCA-REP-01                                          
+270300        PERFORM 60057000-LINEA-PRODUCTO.                                      
+270350                                                                              
+270400     WRITE R01-LIN-RGOS  FROM WLI-R01-L08-DETALLE AFTER 1.                    
+270450     MOVE " "            TO   WLI-R01-L08-DETALLE.                            
+270500                                                                              
+270550************************************************************                  
+270600 60056000-ENCA-REP-01.                                                        
+270650     ADD  1             TO W77-NUMPAG.                                        
+270700     MOVE W77-NUMPAG    TO WLI-R00-L03-NPAG.                                  
+270750                                                                              
+270800     WRITE R01-LIN-RGOS  FROM WLI-R00-L01-ENCA AFTER PAGE.                    
+270850     WRITE R01-LIN-RGOS  FROM WLI-R00-L02-ENCA AFTER 1.                       
+270900     WRITE R01-LIN-RGOS  FROM WLI-R00-L03-ENCA AFTER 1.                       
+270950     WRITE R01-LIN-RGOS  FROM WLI-R00-L04-ENCA AFTER 1.                       
+271000     WRITE R01-LIN-RGOS  FROM WLI-R00-L05-ENCA AFTER 1.                       
+271050                                                                              
+271100     MOVE 6              TO W77-NUMLIN.                                       
+271150                                                                              
+271200*************************************************************                 
+271250 60057000-LINEA-PRODUCTO.                                                     
+271300     WRITE R01-LIN-RGOS  FROM WLI-R01-L06-ENCA AFTER 2                        
+271350     WRITE R01-LIN-RGOS  FROM WLI-R01-L07-ENCA AFTER 1.                       
+271400                                                                              
+271450     ADD 2 TO W77-NUMLIN.                                                     
+271500                                                                              
+279500*************************************************************                 
+279600 70000000-FIN-PROGRAMA.                                                       
+279700     CLOSE I01-RANGOS     WITH SAVE.                                          
+279800     CLOSE R01-RGOSDO     WITH SAVE.                                          
+279900                                                                              
+280400                                                                              
+280500************************************************************                  
+280600 70002000-CIERRA-BASE.                                                        
+280700     CLOSE S500BD01CAPTACION.                                                 
+280800                                                                              
+280900*****************************************************                         
+281000/                                                                             
+281100 COPY "S500/INC/PRO/25MTP002".                                                
+281110                                                                              
+281120                                                                              
+281150 COPY "S500/INC/MAPLI/PRO/15MTP001".                                          
+281200****************************************************                          

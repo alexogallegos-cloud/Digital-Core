@@ -1,0 +1,2029 @@
+$SET ERRORLIMIT = 50                                                    00001006          
+$SET SHARING = SHAREDBYALL                                              00001016          
+$SET LIST                                                               00002006          
+$SET OPTIMIZE                                                           00003006          
+%$TARGET ALL                                                            00003106          
+ BEGIN                                                                  00005006          
+%*************************************************************          00006006          
+    FILE LOG1(KIND=PACK,MAXRECSIZE=75,BLOCKSIZE=10800,                  00009006          
+              AREAS=1000,AREASIZE=15120,SECURITYUSE=3,BUFFERS = 1,      00010006          
+              SECURITYTYPE=1,MYUSE = 1,                                 00011006          
+              UNITS=WORDS,PROTECTION=PROTECTED,SAVEFACTOR=99);          00012006          
+                                                                        00013006          
+%************************************************************           00013020          
+% RECOMPILACION POR EL UPGRADE DEL MCP A 55                 *           00013022          
+% 20141205 15MTP001 MJGRG                                   *           00013024          
+%*************************************************************          00013500          
+%*************************************************************          00015006          
+% L I B R E R I A S                                                     00016006          
+%*************************************************************          00017006          
+%*************************************************************          00018006          
+  LIBRARY LIBLJ(TITLE="(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK."); 00019006          
+          PROCEDURE LJ(CONTADOR,MENSAJE);                               00020006          
+          INTEGER   CONTADOR;                                           00021006          
+          EBCDIC    ARRAY MENSAJE[0];                                   00022006          
+          LIBRARY   LIBLJ;                                              00023006          
+                                                                        00024006          
+  LIBRARY LOCSUP(LIBACCESS=BYFUNCTION,FUNCTIONNAME="LOCSUP.");          00025006          
+          PROCEDURE THECALENDAR(TCFUNCION,TCFEC1,TCFEC2,TCFORMATO);     00026006          
+          VALUE     TCFUNCION,TCFORMATO;                                00027006          
+          INTEGER   TCFUNCION,TCFORMATO;                                00028006          
+          EBCDIC    ARRAY TCFEC1[0],TCFEC2[0];                          00029006          
+          LIBRARY   LOCSUP;                                             00030006          
+                                                                        00031006          
+  LIBRARY CONTROL;                                                      00032006          
+          INTEGER PROCEDURE CONSISDIA(DATOS);                           00033006          
+          EBCDIC    ARRAY DATOS[*];                                     00034006          
+          LIBRARY   CONTROL;                                            00035006          
+%         INTEGER PROCEDURE CONSISMEN(DATOS);                           00036006          
+%         EBCDIC    ARRAY DATOS[*];                                     00037006          
+%         LIBRARY   CONTROL;                                            00038006          
+                                                                        00039006          
+  LIBRARY SOPORTE(LIBACCESS=BYFUNCTION,FUNCTIONNAME="SOPORTECOMS.");    00040006          
+          PROCEDURE CSIID(EBC);                                         00041006          
+          EBCDIC ARRAY EBC[0];                                          00042006          
+          LIBRARY SOPORTE;                                              00043006          
+                                                                        00044006          
+  LIBRARY CTLVERS(LIBACCESS=BYFUNCTION,FUNCTIONNAME="CTLVERS.");        00045006          
+          INTEGER PROCEDURE DAME_TIT(IDENT,TITULO);                     00046006          
+                  EBCDIC ARRAY IDENT, TITULO[0];                        00047006          
+          LIBRARY CTLVERS;                                              00048006          
+                                                                        00049006          
+  LIBRARY S080L710;                                                     00050006          
+          INTEGER PROCEDURE L710_CONSUL_DETALLE(STMA,PRG,PAR_E,PAR_S);  00051006          
+          INTEGER       STMA, PRG;                                      00052006          
+          EBCDIC ARRAY  PAR_E, PAR_S[0];                                00053006          
+          LIBRARY S080L710;                                             00054006          
+                                                                        00055006          
+  DATABASE S151BD02ADSALDO(TITLE="(S151)S151BD02ADSALDO ON CMEMP");     00056006          
+%*************************************************************          00057006          
+%*************************************************************          00058006          
+% D E F I N E S                                                         00059006          
+%*************************************************************          00060006          
+%*************************************************************          00061006          
+ DEFINE                                                                 00062006          
+  TIPOMSG = MSGLJ[14]#,                                                 00063006          
+  CODMSG  = MSGLJ[16]#,                                                 00064006          
+  TXTMSG  = MSGLJ[23]#,                                                 00065006          
+                                                                        00066006          
+%-------------------------------------------------------------          00067006          
+  DFFECDIAANT(FECDIA)=                                                  00068006          
+  BEGIN                                                                 00069006          
+    REPLACE FECH1 BY FECDIA FOR 8 DIGITS;                               00070006          
+    REPLACE FECH2 BY "00000001";                                        00071006          
+    THECALENDAR(15,FECH1,FECH2,13);                                     00072006          
+    FECDIA:=INTEGER(FECH1,8);                                           00073006          
+  END#,                                                                 00074006          
+                                                                        00075006          
+%-------------------------------------------------------------          00076006          
+     ERRORMSG = BEGIN                                                   00077006          
+                  REPLACE MSGLJ BY " " FOR SIZE(MSGLJ);                 00078006          
+                  REPLACE MSGLJ BY "S151/L006/006:I>050110<";           00079006          
+                END#,                                                   00080006          
+     HDRMSG  = "S151/L006/001:" #,                                      00081006          
+     ERRORDB = BEGIN                                                    00082006          
+               ERROR_BASE := 5;                                         00082106          
+               REPLACE MSGLJ       BY " " FOR SIZE(MSGLJ);              00083006          
+               REPLACE MSGLJ       BY HDRMSG,"E>04",                    00084006          
+                       DMERR.DMERROR     FOR 2 DIGITS,                  00085006          
+                       DMERR.DMERRORTYPE FOR 2 DIGITS,                  00086006          
+                       "< L006/TESORERIA ",                             00087006          
+                       " ERROR EN DMSII ",                              00088006          
+                       "ESTRUCTURA ",DMERR.DMSTRUCTURE FOR 2 DIGITS;    00089006          
+                       LJ(CONLJ,MSGLJ);                                 00090006          
+               END#,                                                    00091006          
+                                                                        00092006          
+%--------------------------------------------%                          00093006          
+%******* FORMATO DE LECTURA DE LA LOG *******%                          00094006          
+%--------------------------------------------%                          00095006          
+%   IDFFUNCION (A) = INTEGER(POINTER(A,4)      , 2)#,                   00096006          
+%   IDFSISTEMA (A) = INTEGER((POINTER(A,4)+  2), 4)#,                   00097006          
+%   IDFPRODUCT (A) = INTEGER((POINTER(A,4)+  6), 4)#,                   00098006          
+%   IDFCVEINST (A) = INTEGER((POINTER(A,4)+ 10), 2)#,                   00099006          
+%   IDFSUCPROM (A) = INTEGER((POINTER(A,4)+ 12), 4)#,                   00100006          
+%   IDFCUENTA  (A) = DOUBLE ((POINTER(A,4)+ 16),16)#,                   00101006          
+%   IDFCVEOCUR (A,N) = INTEGER((POINTER(A,4)+((N-1)*26+32)), 4)#,       00102006          
+%   IDFCVE1    (A) = INTEGER((POINTER(A,4)+ 32), 4)#,                   00103006          
+%   IDFLEYOCUR (A,N) = INTEGER((POINTER(A,4)+((N-1)*26+36)), 2)#,       00104006          
+%   IDFINDLEY1 (A) = INTEGER((POINTER(A,4)+ 36), 2)#,                   00105006          
+%   IDFESQOCUR (A,N) = INTEGER((POINTER(A,4)+((N-1)*26+38)), 4)#,       00106006          
+%   IDFESQCONT1(A) = INTEGER((POINTER(A,4)+ 38), 4)#,                   00107006          
+%   IDFIMPOCUR (A,N) = DOUBLE ((POINTER(A,4)+((N-1)*26+42)),16)#,       00108006          
+%   IDFIMPORTE1(A) = DOUBLE ((POINTER(A,4)+ 42),16)#,                   00109006          
+%   IDFCVE2    (A) = INTEGER((POINTER(A,4)+ 58), 4)#,                   00110006          
+%   IDFINDLEY2 (A) = INTEGER((POINTER(A,4)+ 62), 2)#,                   00111006          
+%   IDFESQCONT2(A) = INTEGER((POINTER(A,4)+ 64), 4)#,                   00112006          
+%   IDFIMPO2   (A) = DOUBLE ((POINTER(A,4)+ 68),16)#,                   00113006          
+%   IDFCVE3    (A) = INTEGER((POINTER(A,4)+ 84), 4)#,                   00114006          
+%   IDFINDLEY3 (A) = INTEGER((POINTER(A,4)+ 88), 2)#,                   00115006          
+%   IDFESQCONT3(A) = INTEGER((POINTER(A,4)+ 90), 4)#,                   00116006          
+%   IDFIMPO3   (A) = DOUBLE ((POINTER(A,4)+ 94),16)#,                   00117006          
+%   IDFCVE4    (A) = INTEGER((POINTER(A,4)+110), 4)#,                   00118006          
+%   IDFINDLEY4 (A) = INTEGER((POINTER(A,4)+114), 2)#,                   00119006          
+%   IDFESQCONT4(A) = INTEGER((POINTER(A,4)+116), 4)#,                   00120006          
+%   IDFIMPO4   (A) = DOUBLE ((POINTER(A,4)+120),16)#,                   00121006          
+%   IDFCVE5    (A) = INTEGER((POINTER(A,4)+136), 4)#,                   00122006          
+%   IDFINDLEY5 (A) = INTEGER((POINTER(A,4)+140), 2)#,                   00123006          
+%   IDFESQCONT5(A) = INTEGER((POINTER(A,4)+142), 4)#,                   00124006          
+%   IDFIMPO5   (A) = DOUBLE ((POINTER(A,4)+146),16)#,                   00125006          
+%   IDCFECS087 (A) = INTEGER((POINTER(A,4)+334), 6)#,                   00126006          
+%   IDFFECOPE  (A) = INTEGER((POINTER(A,4)+162), 8)#,                   00127006          
+%   IDFHORAOPE (A) = INTEGER((POINTER(A,4)+170), 6)#,                   00128006          
+%   IDFFECCONT (A) = INTEGER((POINTER(A,4)+176), 8)#,                   00129006          
+%   IDFFECVAL  (A) = INTEGER((POINTER(A,4)+184), 8)#,                   00130006          
+%   IDFAUTAPLI (A) = INTEGER((POINTER(A,4)+192), 8)#,                   00131006          
+%   IDFAUT3ERN (A) = INTEGER((POINTER(A,4)+200), 8)#,                   00132006          
+%   IDFREFMOV  (A) = DOUBLE ((POINTER(A,4)+208),20)#,                   00133006          
+%   IDFCVEMDA  (A) = INTEGER((POINTER(A,4)+228), 2)#,                   00134006          
+%   IDFNUMMDA  (A) = DOUBLE ((POINTER(A,4)+230),20)#,                   00135006          
+%   IDFCVEMDE  (A) = INTEGER((POINTER(A,4)+250), 2)#,                   00136006          
+%   IDFSUCINI  (A) = INTEGER((POINTER(A,4)+252), 4)#,                   00137006          
+%   IDFCAJAINI (A) = INTEGER((POINTER(A,4)+256), 2)#,                   00138006          
+%   IDFSUCOPE  (A) = INTEGER((POINTER(A,4)+258), 4)#,                   00139006          
+%   IDFCAJAOPE (A) = INTEGER((POINTER(A,4)+262), 2)#,                   00140006          
+%   IDFSUCTRAN (A) = INTEGER((POINTER(A,4)+264), 4)#,                   00141006          
+%   IDFCAJATRA (A) = INTEGER((POINTER(A,4)+268), 2)#,                   00142006          
+%   IDFNOMOPE  (A) = INTEGER((POINTER(A,4)+270), 8)#,                   00143006          
+%   IDFORIGEN  (A) = INTEGER((POINTER(A,4)+278), 2)#,                   00144006          
+%   IDFMONEDA  (A) = INTEGER((POINTER(A,4)+280), 4)#,                   00145006          
+%   IDFAUT     (A) = INTEGER((POINTER(A,4)+284), 8)#,                   00146006          
+%   IDFAUTELIM (A) = INTEGER((POINTER(A,4)+292), 8)#,                   00147006          
+%   IDFAUTANT  (A) = INTEGER((POINTER(A,4)+300), 8)#,                   00148006          
+%   IDFTIPPROC (A) = INTEGER((POINTER(A,4)+308), 2)#,                   00149006          
+%   IDFSOBGIRO (A) = INTEGER((POINTER(A,4)+310), 2)#,                   00150006          
+%   IDFCVEAVISO(A) = INTEGER((POINTER(A,4)+312), 4)#,                   00151006          
+%   IDFINEDOCTA(A) = INTEGER((POINTER(A,4)+316), 2)#,                   00152006          
+%   IDFINDATADI(A) = INTEGER((POINTER(A,4)+318), 2)#,                   00153006          
+%   IDFINDCONTA(A) = INTEGER((POINTER(A,4)+320), 2)#,                   00154006          
+%   IDFRENGLON (A) = INTEGER((POINTER(A,4)+322), 2)#,                   00155006          
+%   IDFACTIV   (A) = INTEGER((POINTER(A,4)+324), 6)#,                   00156006          
+%   IDFSECTOR  (A) = INTEGER((POINTER(A,4)+330), 2)#,                   00157006          
+%   IDFBANCA   (A) = INTEGER((POINTER(A,4)+332), 2)#,                   00158006          
+%   IDFFECS087 (A) = INTEGER((POINTER(A,4)+334), 8)#,                   00159006          
+%   IDFSUCS015 (A) = INTEGER((POINTER(A,4)+334), 8)#, % REDEFINICIONES  00160006          
+%   IDFBCOORI  (A) = INTEGER((POINTER(A,4)+342), 3)#, % PARA OPERACIONES00161006          
+%   IDFBCODES  (A) = INTEGER((POINTER(A,4)+345), 3)#, % CRUZADAS        00162006          
+%--  DFFILLER  (A) =          POINTER(A,4)+334     #, % 14 CAR HEX      00163006          
+%   IDFNODOORI (A) = INTEGER((POINTER(A,4)+348), 2)#,   %AA             00164006          
+%   IDFAPUNDES (A) = INTEGER((POINTER(A,4)+350), 8)#,   %||             00165006          
+%   IDFSTATUS  (A) = INTEGER((POINTER(A,4)+358), 2)#,   %||             00166006          
+%                                                                       00167006          
+%---------------------------------------------------------------        00167056          
+%DESCRIPCION DEL NUEVO FORMATO DE LECTURA DE LAS LOG           %        00167106          
+%---------------------------------------------------------------        00167156          
+   IDFFUNCION (A)   = INTEGER( POINTER(A,4)    , 2)#,                   00167406          
+   IDFSISTEMA (A)   = INTEGER((POINTER(A,4)+ 4), 4)#,                   00167456          
+   IDFCVEOCUR (A,N) = INTEGER((POINTER(A,4)+((N-1)*38+34)), 6)#,        00167506          
+   IDFIMPOCUR (A,N) = DOUBLE ((POINTER(A,4)+((N-1)*38+46)),18)#,        00167526          
+   IDFMONEDA  (A)   = INTEGER((POINTER(A,4)+224), 4)#,                  00167556          
+   IDFORIGEN  (A)   = INTEGER((POINTER(A,4)+228), 2)#,                  00167576          
+   IDFBCOORI  (A)   = INTEGER((POINTER(A,4)+262), 5)#,                  00167606          
+   IDFBCODES  (A)   = INTEGER((POINTER(A,4)+267), 5)#,                  00167656          
+   IDFAUTELIM (A)   = INTEGER((POINTER(A,4)+472), 8)#,                  00167666          
+   IDFAUTANT  (A)   = INTEGER((POINTER(A,4)+480), 8)#,                  00167671          
+   IDFTIPPROC (A)   = INTEGER((POINTER(A,4)+488), 2)#,                  00167673          
+   IDFFECOPE  (A)   = INTEGER((POINTER(A,4)+490), 8)#,                  00167676          
+   IDFHORAOPE (A)   = INTEGER((POINTER(A,4)+498), 6)#,                  00167696          
+   IDFFECCONT (A)   = INTEGER((POINTER(A,4)+504), 8)#,                  00167706          
+   IDFSTATUS  (A)   = INTEGER((POINTER(A,4)+898), 2)#, %STATUS MOVTO.   00167956          
+%                                                                       00167976          
+%  TERMINA DESCRIPCION DE CAMPOS DE LA LOG QUE UTILIZA LA LIBRERIA      00167996          
+%------------------------------------------------------------------     00167998          
+%                                                                       00168000          
+%---------  DESCRIPCION DE CAMPOS DE LA LOG CON FORMATO ANTERIOR        00168002          
+%                                                                       00168004          
+%    DFFUNCION (A) = POINTER(A,4)                  #,                   00168006          
+%    DFSISTEMA (A) = POINTER(A,4)+  2              #,                   00169006          
+%    DFPRODUCT (A) = POINTER(A,4)+  6              #,                   00170006          
+%    DFCVEINST (A) = POINTER(A,4)+ 10              #,                   00171006          
+%    DFSUCPROM (A) = POINTER(A,4)+ 12              #,                   00172006          
+%    DFCUENTA  (A) = POINTER(A,4)+ 16              #,                   00173006          
+%    DFCVEOCUR (A,N)=POINTER(A,4)+((N-1)*26+32)    #,                   00174006          
+%    DFCVE1    (A) = POINTER(A,4)+ 32              #,                   00175006          
+%    DFLEYOCUR (A,N)=POINTER(A,4)+((N-1)*26+36)    #,                   00176006          
+%    DFINDLEY1 (A) = POINTER(A,4)+ 36              #,                   00177006          
+%    DFESQOCUR (A,N)=POINTER(A,4)+((N-1)*26+38)    #,                   00178006          
+%    DFESQCONT1(A) = POINTER(A,4)+ 38              #,                   00179006          
+%    DFIMPOCUR (A,N)=POINTER(A,4)+((N-1)*26+42)    #,                   00180006          
+%    DFIMPORTE1(A) = POINTER(A,4)+ 42              #,                   00181006          
+%    DFCVE2    (A) = POINTER(A,4)+ 58              #,                   00182006          
+%    DFINDLEY2 (A) = POINTER(A,4)+ 62              #,                   00183006          
+%    DFESQCONT2(A) = POINTER(A,4)+ 64              #,                   00184006          
+%    DFIMPO2   (A) = POINTER(A,4)+ 68              #,                   00185006          
+%    DFCVE3    (A) = POINTER(A,4)+ 84              #,                   00186006          
+%    DFINDLEY3 (A) = POINTER(A,4)+ 88              #,                   00187006          
+%    DFESQCONT3(A) = POINTER(A,4)+ 90              #,                   00188006          
+%    DFIMPO3   (A) = POINTER(A,4)+ 94              #,                   00189006          
+%    DFCVE4    (A) = POINTER(A,4)+110              #,                   00190006          
+%    DFINDLEY4 (A) = POINTER(A,4)+114              #,                   00191006          
+%    DFESQCONT4(A) = POINTER(A,4)+116              #,                   00192006          
+%    DFIMPO4   (A) = POINTER(A,4)+120              #,                   00193006          
+%    DFCVE5    (A) = POINTER(A,4)+136              #,                   00194006          
+%    DFINDLEY5 (A) = POINTER(A,4)+140              #,                   00195006          
+%    DFESQCONT5(A) = POINTER(A,4)+142              #,                   00196006          
+%    DFIMPO5   (A) = POINTER(A,4)+146              #,                   00197006          
+%    DFFECOPE  (A) = POINTER(A,4)+162              #,                   00198006          
+%    DFHORAOPE (A) = POINTER(A,4)+170              #,                   00199006          
+%    DFFECCONT (A) = POINTER(A,4)+176              #,                   00200006          
+%    DFFECVAL  (A) = POINTER(A,4)+184              #,                   00201006          
+%    DFAUTAPLI (A) = POINTER(A,4)+192              #,                   00202006          
+%    DFAUT3ERN (A) = POINTER(A,4)+200              #,                   00203006          
+%    DFREFMOV  (A) = POINTER(A,4)+208              #,                   00204006          
+%    DFCVEMDA  (A) = POINTER(A,4)+228              #,                   00205006          
+%    DFNUMMDA  (A) = POINTER(A,4)+230              #,                   00206006          
+%    DFCVEMDE  (A) = POINTER(A,4)+250              #,                   00207006          
+%    DFSUCINI  (A) = POINTER(A,4)+252              #,                   00208006          
+%    DFCAJAINI (A) = POINTER(A,4)+256              #,                   00209006          
+%    DFSUCOPE  (A) = POINTER(A,4)+258              #,                   00210006          
+%    DFCAJAOPE (A) = POINTER(A,4)+262              #,                   00211006          
+%    DFSUCTRAN (A) = POINTER(A,4)+264              #,                   00212006          
+%    DFCAJATRA (A) = POINTER(A,4)+268              #,                   00213006          
+%    DFNOMOPE  (A) = POINTER(A,4)+270              #,                   00214006          
+%    DFORIGEN  (A) = POINTER(A,4)+278              #,                   00215006          
+%    DFMONEDA  (A) = POINTER(A,4)+280              #,                   00216006          
+%    DFAUT     (A) = POINTER(A,4)+284              #,                   00217006          
+%    DFAUTELIM (A) = POINTER(A,4)+292              #,                   00218006          
+%    DFAUTANT  (A) = POINTER(A,4)+300              #,                   00219006          
+%    DFTIPPROC (A) = POINTER(A,4)+308              #,                   00220006          
+%    DFSOBGIRO (A) = POINTER(A,4)+310              #,                   00221006          
+%    DFCVEAVISO(A) = POINTER(A,4)+312              #,                   00222006          
+%    DFINEDOCTA(A) = POINTER(A,4)+316              #,                   00223006          
+%    DFINDATADI(A) = POINTER(A,4)+318              #,                   00224006          
+%    DFINDCONTA(A) = POINTER(A,4)+320              #,                   00225006          
+%    DFRENGLON (A) = POINTER(A,4)+322              #,                   00226006          
+%    DFACTIV   (A) = POINTER(A,4)+324              #,                   00227006          
+%    DFSECTOR  (A) = POINTER(A,4)+330              #,                   00228006          
+%    DFBANCA   (A) = POINTER(A,4)+332              #,                   00229006          
+%    DFFILLER  (A) = POINTER(A,4)+334              #, % 14 CAR HEX      00230006          
+%    DFNODOORI (A) = POINTER(A,4)+348              #, %  AA             00231006          
+%    DFAPUNDES (A) = POINTER(A,4)+350              #, %  ||             00232006          
+%    DFSTATUS  (A) = POINTER(A,4)+358              #, %  ||             00233006          
+                                                                        00234006          
+     SNR = MYSELF.MIXNUMBER  #,                                         00235006          
+%-------------------------------------------------------------          00236006          
+     ACQUIREL(E,A) =                                                    00237006          
+     BEGIN                                                              00238006          
+     IF READLOCK(SNR,A) NEQ 0 THEN                                      00239006          
+        DO                                                              00240006          
+        PROCURE (E)                                                     00241006          
+        UNTIL                                                           00242006          
+        READLOCK(-1,A) = 0;                                             00243006          
+     END#,                                                              00244006          
+%%   END OF ACQUIREL#                                                   00244106          
+%-------------------------------------------------------------          00245006          
+     RELINQUISHL(E,A) =                                                 00246006          
+     BEGIN                                                              00247006          
+       IF READLOCK(0,A) NEQ SNR THEN                                    00248006          
+       LIBERATE(E);                                                     00249006          
+     END#,                                                              00250006          
+%%   END OF RELINQUISHL#                                                00250106          
+%-------------------------------------------------------------          00251006          
+%------    PARAMETRO DE ENTRADA LIB_S080                ------          00252006          
+%-------------------------------------------------------------          00253006          
+   IDFCATENTRA(A) = INTEGER(POINTER(A,4)      , 6)#,                    00254006          
+    DFCATENTRA(A) =         POINTER(A,4)          #,                    00255006          
+   IDFCATCLAVE(A) = INTEGER(POINTER(A,4)+  6  , 2)#,                    00256006          
+    DFCATCLAVE(A) =         POINTER(A,4)+  6      #,                    00257006          
+   IDFCATORDEN(A) = INTEGER(POINTER(A,4)+  8  , 2)#,                    00258006          
+    DFCATORDEN(A) =         POINTER(A,4)+  8      #,                    00259006          
+   IDFCATNUMRE(A) = INTEGER(POINTER(A,4)+ 10  , 2)#,                    00260006          
+    DFCATNUMRE(A) =         POINTER(A,4)+ 10      #,                    00261006          
+   IDFCATLLAV1(A) = INTEGER(POINTER(A,4)+ 12  ,24)#,                    00262006          
+    DFCATLLAV1(A) =         POINTER(A,4)+ 12      #,                    00263006          
+   IDFCATLLAV2(A) = INTEGER(POINTER(A,4)+ 36  ,24)#,                    00264006          
+    DFCATLLAV2(A) =         POINTER(A,4)+ 36      #,                    00265006          
+   IDFCATLLAV3(A) = INTEGER(POINTER(A,4)+ 60  ,24)#,                    00266006          
+    DFCATLLAV3(A) =         POINTER(A,4)+ 60      #,                    00267006          
+   IDFCATLLAV4(A) = INTEGER(POINTER(A,4)+ 84  ,24)#,                    00268006          
+    DFCATLLAV4(A) =         POINTER(A,4)+ 84      #,                    00269006          
+   IDFCATLLAV5(A) = INTEGER(POINTER(A,4)+108  ,24)#,                    00270006          
+    DFCATLLAV5(A) =         POINTER(A,4)+108      #,                    00271006          
+   IDFCATLLAV6(A) = INTEGER(POINTER(A,4)+132  ,24)#,                    00272006          
+    DFCATLLAV6(A) =         POINTER(A,4)+132      #,                    00273006          
+   IDFCATFEVIG(A) = INTEGER(POINTER(A,4)+156  , 6)#,                    00274006          
+    DFCATFEVIG(A) =         POINTER(A,4)+156      #,                    00275006          
+   IDFCATFEINI(A) = INTEGER(POINTER(A,4)+162  , 6)#,                    00276006          
+    DFCATFEINI(A) =         POINTER(A,4)+162      #,                    00277006          
+   IDFCATNIVEL(A) = INTEGER(POINTER(A,4)+168  , 2)#,                    00278006          
+    DFCATNIVEL(A) =         POINTER(A,4)+168      #,                    00279006          
+    DFCATFILL (A) =         POINTER(A,4)+170      #,                    00280006          
+%---    ---     ---     ---     ---     ---     ---     ----            00281006          
+%---    ---     PARAMETRO DE SALIDA LIB_S080    ---     ----            00282006          
+%---    ---     ---     ---     ---     ---     ---     ----            00283006          
+  IDFSALNUMREG(A) = INTEGER(A       , 2)#,                              00284006          
+   DFSALNUMREG(A) =         A           #,                              00285006          
+  IDFSALCATALO(A) = INTEGER(A[2]    , 6)#,                              00286006          
+   DFSALCATALO(A) =         A[2]        #,                              00287006          
+  IDFSALFECONS(A) = INTEGER(A[8]    , 6)#,                              00288006          
+   DFSALFECONS(A) =         A[8]        #,                              00289006          
+  IDFSALNIVINI(A) = INTEGER(A[14]   , 2)#,                              00290006          
+   DFSALNIVINI(A) =         A[14]       #,                              00291006          
+   DFSALFILLE1(A) =         A[16]       #,                              00292006          
+  IDFSAL_LLAVE(A,I) = INTEGER(A[30 + (I-1)*12], 12) #,                  00293006          
+   DFSAL_LLAVE(A,I) = A[30 + (I-1)*12]  #,                              00294006          
+   DFSALCVETRA(A) =         A[30]       #,                              00295006          
+  IDFSALCVETRA(A) = INTEGER(A[30]   ,12)#,                              00296006          
+   DF400SISTEM(A) =         A[30]       #,                              00297006          
+  IDF400SISTEM(A) = INTEGER(A[30]   ,12)#,                              00298006          
+   DFSALSISTEM(A) =         A[42]       #,                              00299006          
+  IDFSALSISTEM(A) = INTEGER(A[42]   ,12)#,                              00300006          
+   DF400CVETRA(A) =         A[42]       #,                              00301006          
+  IDF400CVETRA(A) = INTEGER(A[42]   ,12)#,                              00302006          
+   DFSALCVELEY(A) =         A[54]       #,                              00303006          
+  IDFSALCVELEY(A) = INTEGER(A[54]   ,12)#,                              00304006          
+   DFSALCVEGEN(A) =         A[66]       #,                              00305006          
+  IDFSALCVEGEN(A) = INTEGER(A[66]   ,12)#,                              00306006          
+   DFSALINDEDC(A) =         A[78]       #,                              00307006          
+  IDFSALINDEDC(A) = INTEGER(A[78]   ,12)#,                              00308006          
+   DFSALNATSDO(A) =         A[90]       #,                              00309006          
+  IDFSALNATSDO(A) = INTEGER(A[90]   ,12)#,                              00310006          
+   DFSALINDMOV(A) =         A[102]      #,                              00311006          
+  IDFSALINDMOV(A) = INTEGER(A[102]  ,12)#,                              00312006          
+   DFSALRENTOT(A) =         A[114]      #,                              00313006          
+  IDFSALRENTOT(A) = INTEGER(A[114]  ,12)#,                              00314006          
+   DFSALRENBIT(A) =         A[126]      #,                              00315006          
+  IDFSALRENBIT(A) = INTEGER(A[126]  ,12)#,                              00316006          
+   DFSALESQCON(A) =         A[138]      #,                              00317006          
+  IDFSALESQCON(A) = INTEGER(A[138]  ,12)#,                              00318006          
+   DFSALNAT028(A) =         A[150]      #,                              00319006          
+  IDFSALNAT028(A) = INTEGER(A[150]  ,12)#,                              00320006          
+   DFSALNAT250(A) =         A[162]      #,                              00321006          
+  IDFSALNAT250(A) = INTEGER(A[162]  ,12)#,                              00322006          
+   DFSALFILLER(A) =         A[174]      #, % 192 CHAR EBCDIC            00323006          
+  IDFSALFECALT(A) = INTEGER(A[366]  , 6)#,                              00324006          
+   DFSALFECALT(A) =         A[366]      #,                              00325006          
+  IDFSALFECBAJ(A) = INTEGER(A[372]  , 6)#,                              00326006          
+   DFSALFECBAJ(A) =         A[372]      #,                              00327006          
+  IDFSALFECULM(A) = INTEGER(A[378]  , 6)#,                              00328006          
+   DFSALFECULM(A) =         A[378]      #,                              00329006          
+  IDFSALFECVIG(A) = INTEGER(A[384]  , 6)#,                              00330006          
+   DFSALFECVIG(A) =         A[384]      #,                              00331006          
+   DFSALFILLE2(A) = INTEGER A[390]      #,                              00332006          
+%------------------------------------------------------------           00333006          
+   IDFCVESIST     = INTEGER((POINTER(AFCVES)),4)           #,           00334006          
+   IDFCLAVE(N)    = INTEGER((POINTER(AFCVES)+((N)*9+ 5)),4)#,           00335006          
+%  IDFSUBCLAVE(N) = INTEGER((POINTER(AFCVES)+((N)*9+ 8)),1)#,           00336006          
+   IDFCVEINDIC(N) = INTEGER((POINTER(AFCVES)+((N)*9+ 9)),1)#,           00337006          
+   IDFCVERENG(N)  = INTEGER((POINTER(AFCVES)+((N)*9+10)),2)#,           00338006          
+   IDFCVECOL(N)   = INTEGER((POINTER(AFCVES)+((N)*9+12)),1)#,           00339006          
+   IDFCVESDOS(N)  = INTEGER((POINTER(AFCVES)+((N)*9+13)),1)#,           00340006          
+                                                                        00341006          
+   DFCVESIST      = POINTER(AFCVES)                        #,           00342006          
+   DFCLAVE(N)     = POINTER(AFCVES)+((N)*9+ 5)             #,           00343006          
+   DFSUBCLAVE(N)  = POINTER(AFCVES)+((N)*9+ 8)             #,           00344006          
+   DFCVEINDIC(N)  = POINTER(AFCVES)+((N)*9+ 9)             #,           00345006          
+   DFCVERENG(N)   = POINTER(AFCVES)+((N)*9+10)             #,           00346006          
+   DFCVECOL(N)    = POINTER(AFCVES)+((N)*9+12)             #,           00347006          
+   DFCVESDOS(N)   = POINTER(AFCVES)+((N)*9+13)             #,           00348006          
+                                                                        00349006          
+   ADFCVEINDIC(N) = POINTER(ACLAVES,4)+((N)*4    )#,                    00350006          
+   ADFCVERENG (N) = POINTER(ACLAVES,4)+((N)*4+1  )#,                    00351006          
+   ADFCVECOL  (N) = POINTER(ACLAVES,4)+((N)*4+3  )#,                    00352006          
+                                                                        00353006          
+  IADFCVEINDIC(N) = INTEGER((POINTER(ACLAVES,4)+((N)*4  )),1)#,         00354006          
+  IADFCVERENG (N) = INTEGER((POINTER(ACLAVES,4)+((N)*4+1)),2)#,         00355006          
+  IADFCVECOL  (N) = INTEGER((POINTER(ACLAVES,4)+((N)*4+3)),1)#,         00356006          
+%-------------------------------------------------------------          00357006          
+% DATOS LIBRARY CONTROL                                                 00358006          
+                                                                        00359006          
+% DATOS GLOBALES                                                        00360006          
+  IDFCFUNCION (A)   = INTEGER(A        , 4)#,                           00361006          
+  IDFCSISTEMA (A)   = INTEGER(A[ 4]    , 4)#,                           00362006          
+  IDFCPRODUCTO(A)   = INTEGER(A[ 8]    , 4)#,                           00363006          
+                                                                        00364006          
+% FUNCION 1                                                             00365006          
+  IDFCNUMBASE (A)   = INTEGER(A[12]    , 2)#,                           00366006          
+  IDFCCSI     (A)   = INTEGER(A[14]    , 2)#,                           00367006          
+  IDFCFECPROC (A)   = INTEGER(A[16]    , 8)#,                           00368006          
+  IDFCFECANT  (A)   = INTEGER(A[24]    , 8)#,                           00369006          
+  IDFCFECSIG  (A)   = INTEGER(A[32]    , 8)#,                           00370006          
+  IDFCFECDIA1 (A)   = INTEGER(A[40]    , 8)#,                           00371006          
+  IDFCSTATUS1 (A)   = INTEGER(A[48]    , 1)#,                           00372006          
+  IDFCFECDIA2 (A)   = INTEGER(A[49]    , 8)#,                           00373006          
+  IDFCSTATUS2 (A)   = INTEGER(A[57]    , 1)#,                           00374006          
+  IDFCFECDIA3 (A)   = INTEGER(A[58]    , 8)#,                           00375006          
+  IDFCSTATUS3 (A)   = INTEGER(A[66]    , 1)#,                           00376006          
+  IDFCFECOCCUR(A,N) = INTEGER(A[40+N*9], 8)#,                           00377006          
+  IDFCSTAOCCUR(A,N) = INTEGER(A[48+N*9], 1)#,                           00378006          
+                                                                        00379006          
+% FUNCION 2                                                             00380006          
+  IDFCFECAPLI (A)   = INTEGER(A[12]    , 8)#,                           00381006          
+  IDFCSTAAPLI (A)   = INTEGER(A[20]    , 1)#,                           00382006          
+                                                                        00383006          
+% DATOS GLOBALES                                                        00384006          
+   DFCFUNCION (A)   =         A            #,                           00385006          
+   DFCSISTEMA (A)   =         A[04]        #,                           00386006          
+   DFCPRODUCTO(A)   =         A[08]        #,                           00387006          
+                                                                        00388006          
+% FUNCION 1                                                             00389006          
+   DFCNUMBASE (A)   =         A[12]        #,                           00390006          
+   DFCCSI     (A)   =         A[14]        #,                           00391006          
+   DFCFECPROC (A)   =         A[16]        #,                           00392006          
+   DFCFECANT  (A)   =         A[24]        #,                           00393006          
+   DFCFECSIG  (A)   =         A[32]        #,                           00394006          
+   DFCFECDIA1 (A)   =         A[40]        #,                           00395006          
+   DFCSTATUS1 (A)   =         A[48]        #,                           00396006          
+   DFCFECDIA2 (A)   =         A[49]        #,                           00397006          
+   DFCSTATUS2 (A)   =         A[57]        #,                           00398006          
+   DFCFECDIA3 (A)   =         A[58]        #,                           00399006          
+   DFCSTATUS3 (A)   =         A[66]        #,                           00400006          
+   DFCFECOCCUR(A,N) =         A[40+N*9+40] #,                           00401006          
+   DFCSTAOCCUR(A,N) =         A[40+N*9+48] #,                           00402006          
+                                                                        00403006          
+% FUNCION 2                                                             00404006          
+   DFCFECAPLI (A)   =         A[12]        #,                           00405006          
+   DFCSTAAPLI (A)   =         A[20]        #,                           00406006          
+%-----------------------------------------------------------------------00407006          
+%   PARAMETRO DE CONSULTA POR SISTEMA A LIBRERIA DE CONTROL             00408006          
+%-----------------------------------------------------------------------00409006          
+    ISISDFUNCI (A) = INTEGER(A[0]       , 02)   #,                      00410006          
+     SISDFUNCI (A) =         A[0]               #,                      00411006          
+    ISISDSISTEM(A) = INTEGER(A[2]       , 04)   #,                      00412006          
+     SISDSISTEM(A) =         A[2]               #, % 04                 00413006          
+    ISISDNUMCSI(A) = INTEGER(A[6]       , 02)   #,                      00414006          
+     SISDNUMCSI(A) =         A[6]               #, % 02                 00415006          
+    ISISDFECPRO(A) = INTEGER(A[08]      , 08)   #,                      00416006          
+     SISDFECPRO(A) =         A[08]              #, % 08                 00417006          
+    ISISDFECCON(A) = INTEGER(A[16]      , 08)   #,                      00418006          
+     SISDFECCON(A) =         A[16]              #, % 08                 00419006          
+    ISISDFEC151(A) = INTEGER(A[24]      , 08)   #,                      00420006          
+     SISDFEC151(A) =         A[24]              #, % 08                 00421006          
+    ISISDSTAREG(A) = INTEGER(A[32]      , 02)   #,                      00422006          
+     SISDSTAREG(A) =         A[32]              #, % 02                 00423006          
+     SISDNOMSDO(A) =         A[34]              #, % 34                 00424006          
+     SISDPKSDOS(A) =         A[68]              #, % 17                 00425006          
+     SISDNOMMOV(A) =         A[85]              #, % 34                 00426006          
+     SISDPKMOVS(A) =         A[119]             #, % 17                 00427006          
+     SISDNOMDES(A) =         A[136]             #, % 34                 00428006          
+     SISDPKDESS(A) =         A[170]             #, % 17                 00429006          
+     SISDNOMERR(A) =         A[187]             #, % 34                 00430006          
+     SISDPKERRS(A) =         A[221]             #, % 17                 00431006          
+     SISDNOMBDM(A) =         A[238]             #, % 17                 00432006          
+     SISDSTABDM(A) =         A[255]             #, % 02                 00433006          
+     SISDNUMARC(A) =         A[257]             #, % 02                 00434006          
+     SISDTERNIV(A) =         A[259]             #, % 02                 00435006          
+    ISISDFECARM(A,N)=INTEGER(A[261+ 26*N] ,08)  #, % 08                 00436006          
+     SISDFECARM(A,N)=        A[261+ 26*N]       #, % 08                 00437006          
+                                                                        00438006          
+    ISISDFECARM6(A,N)=INTEGER(A[263+ 26*N] ,06) #, % 06                 00439006          
+     SISDFECARM6(A,N)=        A[263+ 26*N]      #, % 06                 00440006          
+                                                                        00441006          
+    ISISDNIVARM(A,N)=INTEGER(A[269+ 26*N] ,08)  #, % 08                 00442006          
+     SISDNIVARM(A,N)=        A[269+ 26*N]       #, % 08                 00443006          
+    ISISDNIVBDM(A,N)=INTEGER(A[277+ 26*N] ,08)  #, % 08                 00444006          
+     SISDNIVBDM(A,N)=        A[277+ 26*N]       #, % 08                 00445006          
+    ISISDSTAARM(A,N)=INTEGER(A[285+ 26*N] ,02)  #, % 02                 00446006          
+     SISDSTAARM(A,N)=        A[285+ 26*N]       #; % 02                 00447006          
+%*************************************************************          00489006          
+%*************************************************************          00490006          
+% VARIABLES MISCELANEAS                                                 00491006          
+%*************************************************************          00492006          
+%*************************************************************          00493006          
+  INTEGER BLOCK_SIZE,FECPROC,FEC_DIA, AUT, CONLJ, SUMA_RESTA,           00494006          
+          CSI_LIB, GRABA, CLAVE, ERROR_BASE,                            00495006          
+          NUMCAR_BNX , NUMABO_BNX , NUMLIQ_1078,                        00496006          
+          NUMCAR_OTRO, NUMABO_OTRO, NUMLIQ_2129;                        00497006          
+                                                                        00498006          
+  DOUBLE  IMPMOV;                                                       00499006          
+                                                                        00500006          
+  REAL    DMERR,Z, SIGNO;                                               00501006          
+  EBCDIC  ARRAY MSGLJ[0:273],ACONTROLE1[0:560],                         00502006          
+                ARC_MOV[0:34],PK_MOV[0:17], NOM_ARCMOV[0:70],           00503006          
+                CTLVER_ID[0:11],CTLVER_NOM [0:71],                      00504006          
+                FECH1[0:7], FECH2[0:7], INTERNO[0:24];                  00505006          
+  ARRAY   AFCVES[0:29],ACLAVES[0:29999], NOM_LIB[0:59], LLAMADO[0:24];  00506006          
+  DOUBLE  ARRAY TOTCAR_BNX,  TOTABO_BNX, INICAR_BNX,  INIABO_BNX,       00507006          
+                TOTCAR_BNC,  TOTABO_BNC, INICAR_BNC,  INIABO_BNC,       00508006          
+                LIQ_1078, LIQ_2129,                                     00509006          
+                INICIO_MONEDA[0:12,0:12,0:05];                          00509056          
+  INTEGER ARRAY INUMCAR_BNX ,INUMABO_BNX ,INUMLIQ_1078,                 00509106          
+                INUMCAR_OTRO,INUMABO_OTRO,INUMLIQ_2129[0:12,0:12,0:05]; 00509206          
+  DIRECT ARRAY   ALOG[0:74];                                            00510006          
+                                                                        00511006          
+  EVENT CON_SDO, CON_MOV, BASE_OPEN, SUMA, ANALIZA, LEER;               00512006          
+                                                                        00513006          
+                                                                        00514006          
+  BOOLEAN BOOL_CAT;                                                     00515006          
+                                                                        00516006          
+%*************************************************************          00517006          
+%*************************************************************          00518006          
+% F O R W A R D     P R O C E D U R E S                                 00519006          
+%*************************************************************          00520006          
+%*************************************************************          00521006          
+                                                                        00522006          
+  PROCEDURE CARGACVES;                                                  00523006          
+            FORWARD;                                                    00524006          
+  PROCEDURE CONTROLVERS;                                                00525006          
+            FORWARD;                                                    00526006          
+  PROCEDURE ACUMULA_REG;                                                00527006          
+            FORWARD;                                                    00528006          
+%*************************************************************          00529006          
+%*************************************************************          00530006          
+% P R O C E D I M I E N T O S                                           00531006          
+%*************************************************************          00532006          
+%*************************************************************          00533006          
+                                                                        00534006          
+%****************************                                           00535006          
+ PROCEDURE CONTROLVERS;    % CONTROL DE VERSIONES                       00536006          
+%****************************                                           00537006          
+ BEGIN                                                                  00538006          
+   EBCDIC ARRAY CONSULTAS[0:11],LIBRERIA [0:71];                        00539006          
+                                                                        00540006          
+                                                                        00541006          
+   REPLACE CONSULTAS BY "S080BD01CON ";                                 00542006          
+   IF DAME_TIT(CONSULTAS,LIBRERIA) < 0  THEN                            00543006          
+   BEGIN                                                                00544006          
+      REPLACE MSGLJ BY " " FOR SIZE(MSGLJ);                             00545006          
+      REPLACE MSGLJ BY HDRMSG,"I>020901< L006 ",                        00546006          
+              "ERROR EN CTLVERS, NO EXISTE IDENTIFICADOR DE ",          00547006          
+              "LIBRERIA CATALOGOS S080 (S080BF01CON)";                  00548006          
+      LJ(CONLJ,MSGLJ);                                                  00549006          
+   END                                                                  00550006          
+   ELSE                                                                 00551006          
+      REPLACE S080L710.TITLE BY LIBRERIA FOR 72;                        00552006          
+                                                                        00553006          
+   REPLACE CONSULTAS BY "S151L001CTL ";                                 00554006          
+   IF DAME_TIT(CONSULTAS,LIBRERIA) < 0  THEN                            00555006          
+   BEGIN                                                                00556006          
+      REPLACE MSGLJ BY " " FOR SIZE(MSGLJ);                             00557006          
+      REPLACE MSGLJ BY HDRMSG,"I>020901< L006 ",                        00558006          
+              "ERROR EN CTLVERS, NO EXISTE IDENTIFICADOR DE " ,         00559006          
+              "LIBRERIA CONTROL S151 (S151L001CTL )";                   00560006          
+      LJ(CONLJ,MSGLJ);                                                  00561006          
+   REPLACE CONTROL.TITLE BY "(S151)S151/OBJECT/L001/CONTROL ON CMEMP."; 00562006          
+   END                                                                  00563006          
+   ELSE                                                                 00564006          
+      REPLACE CONTROL.TITLE BY LIBRERIA FOR 72;                         00565006          
+                                                                        00566006          
+ END OF CONTROLVERS;                                                    00567006          
+                                                                        00568006          
+%********************                                                   00569006          
+ PROCEDURE CARGACVES;                                                   00570006          
+%********************                                                   00571006          
+ BEGIN                                                                  00572006          
+                                                                        00573006          
+  INTEGER   SIST,PROG,RESULTADO,NIVINI,NAT,CLAVETR,I,INDSIS,            00574006          
+                                                                        00575006          
+            FORMATO,NUMCAT,INDS250, FECINI;                             00576006          
+  EBCDIC ARRAY   RSLT[0:79],REG[0:570], PAR_ENT[0:94],PAR_SAL[0:4259];  00577006          
+                                                                        00578006          
+  HEX ARRAY      TEMP_ENT[0]=PAR_ENT,                                   00579006          
+                 TEMP_SAL[0]=PAR_SAL;                                   00580006          
+  POINTER        PTR_HEX,PTR_EBC;                                       00581006          
+                                                                        00582006          
+ PTR_HEX := TEMP_ENT[0];                                                00583006          
+ PTR_EBC := PAR_ENT[6];                                                 00584006          
+ REPLACE PTR_HEX:PTR_HEX     BY 000523200201 FOR 12 DIGITS;             00585006          
+ REPLACE PTR_EBC:PTR_EBC     BY "         ",                            00586006          
+                                500         FOR 3 DIGITS,               00587006          
+                                "000000000001",                         00588006          
+                                "            ",                         00589006          
+                                "            ",                         00590006          
+                                "            ",                         00591006          
+                                "            ";                         00592006          
+ RESULTADO := 0;                                                        00593006          
+ RESULTADO := L710_CONSUL_DETALLE(SIST,PROG,PAR_ENT,PAR_SAL);           00594006          
+ REPLACE REG BY TEMP_SAL[0] FOR 16 WITH HEXTOEBCDIC,"@" FOR 14,         00595006          
+         PAR_SAL[30] FOR 336,TEMP_SAL[732] FOR 24 WITH HEXTOEBCDIC,     00596006          
+         "@" FOR 4;                                                     00597006          
+ IF RESULTADO = 20 THEN                                                 00598006          
+ BEGIN                                                                  00599006          
+    REPLACE TXTMSG BY "ERROR LIB/L006",                                 00600006          
+                      ", CATALOGO S080 VACIO, ",                        00601006          
+                      " NO EXISTE INFORMACION EN CAT. DE CATALOGOS";    00602006          
+    LJ(CONLJ,MSGLJ);                                                    00603006          
+    MYSELF.STATUS := -1;                                                00604006          
+ END                                                                    00605006          
+ ELSE                                                                   00606006          
+ BEGIN                                                                  00607006          
+    NUMCAT := IDFSAL_LLAVE(REG,4);                                      00608006          
+    FORMATO:= IDFSAL_LLAVE(REG,5);                                      00609006          
+ END;                                                                   00610006          
+ PTR_HEX := TEMP_ENT[0];                                                00611006          
+ PTR_EBC := PAR_ENT[6];                                                 00612006          
+ REPLACE PTR_HEX:PTR_HEX     BY NUMCAT FOR 6 DIGITS;                    00613006          
+                                                                        00614006          
+ IF FORMATO = 2 THEN                                                    00615006          
+ BEGIN                                                                  00616006          
+    REPLACE PTR_HEX:PTR_HEX     BY 200101 FOR 6 DIGITS;                 00617006          
+    REPLACE PTR_EBC:PTR_EBC     BY "         ",                         00618006          
+                                   500 FOR 3 DIGITS,                    00619006          
+                                   "            ";                      00620006          
+ END                                                                    00621006          
+ ELSE                                                                   00622006          
+ IF FORMATO = 1 THEN                                                    00623006          
+ BEGIN                                                                  00624006          
+    REPLACE PTR_HEX:PTR_HEX     BY 200201 FOR 6 DIGITS;                 00625006          
+    REPLACE PTR_EBC:PTR_EBC     BY "            ",                      00626006          
+                                   "        ",                          00627006          
+                                   500 FOR 3 DIGITS;                    00628006          
+ END                                                                    00629006          
+ ELSE                                                                   00630006          
+ BEGIN                                                                  00631006          
+    REPLACE TXTMSG BY "ERROR L006 "        ,                            00632006          
+                      ", CATALOGO S080 NUMERO ",                        00633006          
+                      " DE FORMATO NO VALIDO";                          00634006          
+    LJ(CONLJ,MSGLJ);                                                    00635006          
+    MYSELF.STATUS := -1;                                                00636006          
+ END;                                                                   00637006          
+ REPLACE PTR_EBC:PTR_EBC     BY "            ",                         00638006          
+                                "            ",                         00639006          
+                                "            ",                         00640006          
+                                "            ";                         00641006          
+ PTR_HEX := TEMP_ENT[156];                                              00642006          
+ REPLACE PTR_HEX:PTR_HEX     BY 0000000 FOR 6 DIGITS,                   00643006          
+                                0000000 FOR 6 DIGITS,                   00644006          
+                                00      FOR 2 DIGITS;                   00645006          
+ SIST := 151;                                                           00646006          
+ RESULTADO := 0;                                                        00647006          
+ PROG := 009;                                                           00648006          
+ BOOL_CAT := FALSE ;                                                    00649006          
+ REPLACE PAR_SAL[0] BY 4"0" FOR SIZE(PAR_SAL);                          00650006          
+ WHILE RESULTADO < 2 DO                                                 00651006          
+ BEGIN                                                                  00652006          
+    RESULTADO := L710_CONSUL_DETALLE(SIST,PROG,PAR_ENT,PAR_SAL);        00653006          
+    REPLACE REG BY TEMP_SAL[0] FOR 16 WITH HEXTOEBCDIC,"@" FOR 14,      00654006          
+            PAR_SAL[30] FOR 336,TEMP_SAL[732] FOR 24 WITH HEXTOEBCDIC,  00655006          
+            "@" FOR 4;                                                  00656006          
+    PTR_HEX := TEMP_ENT[162];                                           00657006          
+    PTR_EBC := PAR_ENT[6];                                              00658006          
+    FECINI:= IDFSALFECONS(REG);                                         00659006          
+    NIVINI:= IDFSALNIVINI(REG);                                         00660006          
+    NAT   := IDFSALNAT028(REG);                                         00661006          
+    REPLACE PTR_HEX:PTR_HEX BY FECINI FOR 6 DIGITS,NIVINI FOR 2 DIGITS; 00662006          
+    IF FORMATO = 2 THEN                                                 00663006          
+      CLAVETR:=IDFSAL_LLAVE(REG,2)                                      00664006          
+    ELSE                                                                00665006          
+       CLAVETR:=IDFSALCVETRA(REG);                                      00666006          
+    PTR_EBC := PAR_ENT[6];                                              00667006          
+    REPLACE PTR_EBC:PTR_EBC BY DFSAL_LLAVE(REG,1) FOR 12,               00668006          
+                               DFSAL_LLAVE(REG,2) FOR 12,               00669006          
+                               DFSAL_LLAVE(REG,3) FOR 12,               00670006          
+                               DFSAL_LLAVE(REG,4) FOR 12,               00671006          
+                               DFSAL_LLAVE(REG,5) FOR 12,               00672006          
+                               DFSAL_LLAVE(REG,6) FOR 12;               00673006          
+    IF RESULTADO > 1 AND NOT BOOL_CAT THEN                              00674006          
+    BEGIN                                                               00675006          
+       REPLACE TXTMSG BY "ERROR L006 "        ,                         00676006          
+                         ", CATALOGO S080 VACIO, ",                     00677006          
+                         " NO EXISTEN CLAVES DE TRANSACCION PARA S";    00678006          
+       LJ(CONLJ,MSGLJ);                                                 00679006          
+    END;                                                                00680006          
+    IF RESULTADO = 0 THEN RESULTADO:=3;                                 00681006          
+    BOOL_CAT:=TRUE;                                                     00682006          
+                                                                        00683006          
+    REPLACE ADFCVECOL  (CLAVETR) BY NAT FOR 1 DIGITS;                   00684006          
+ END;                                                                   00685006          
+ END OF CARGACVES;                                                      00686006          
+                                                                        00687006          
+ PROCEDURE ACUMULA_REG;                                                 00688006          
+ BEGIN                                                                  00689006          
+  DEFINE                                                                00689016          
+     GRABAMOVTO = BEGIN                                                 00689026          
+                  ERROR_BASE := 0;                                      00689036          
+                  LOCK B15SXCONMOV AT                                   00689046          
+                       B15-MOV-CSI      = CSI_LIB           AND         00689056          
+                       B15-MOV-FCHCON   = IDFFECCONT(ALOG)  AND         00689066          
+                       B15-MOV-SISTEMA  = IDFSISTEMA(ALOG)  AND         00689076          
+                       B15-MOV-MONEDA   = IDFMONEDA (ALOG)  AND         00689086          
+                       B15-MOV-BCOORI   = IDFBCOORI (ALOG)  AND         00689096          
+                       B15-MOV-BCODES   = IDFBCODES (ALOG)  AND         00689106          
+                       B15-MOV-HHMMSS   = IDFHORAOPE(ALOG)  AND         00689116          
+                       B15-MOV-FCHMAQ   = IDFFECOPE (ALOG) : DMERR;     00689126          
+                  IF BOOLEAN(DMERR) THEN                                00689136          
+                     IF DMERR.DMERROR = NOTFOUND THEN                   00689146          
+                     BEGIN                                              00689156          
+                        CREATE S151B15MOVOPECRUZ : DMERR;               00689166          
+                        IF BOOLEAN(DMERR) THEN                          00689176          
+                           ERRORDB;                                     00689186          
+                     END                                                00689208          
+                     ELSE                                               00689216          
+                        ERRORDB;                                        00689226          
+                  IF ERROR_BASE = 0 THEN                                00689236          
+                  BEGIN                                                 00689246          
+                     PUT S151B15MOVOPECRUZ                              00689256          
+                         (B15-MOV-CSI    := CSI_LIB         ,           00689266          
+                          B15-MOV-FCHCON := IDFFECCONT(ALOG),           00689276          
+                          B15-MOV-SISTEMA:= IDFSISTEMA(ALOG),           00689286          
+                          B15-MOV-MONEDA := IDFMONEDA (ALOG),           00689296          
+                          B15-MOV-BCOORI := IDFBCOORI (ALOG),           00689306          
+                          B15-MOV-BCODES := IDFBCODES (ALOG),           00689316          
+                          B15-MOV-HHMMSS := IDFHORAOPE(ALOG),           00689326          
+                          B15-MOV-FCHMAQ := IDFFECOPE (ALOG),           00689336          
+                          B15-MOV-CVETRA := CLAVE           ,           00689346          
+                          B15-MOV-IMPMOV := IMPMOV          );          00689356          
+                     BEGINTRANSACTION NOAUDIT S151B91REINICIO : DMERR;  00689366          
+                     STORE S151B15MOVOPECRUZ : DMERR;                   00689376          
+                     IF BOOLEAN(DMERR) THEN                             00689386          
+                        ERRORDB;                                        00689396          
+                     ENDTRANSACTION AUDIT S151B91REINICIO : DMERR;      00689406          
+                  END;                                                  00689416          
+               END#;                                                    00689426          
+                                                                        00689436          
+    INTEGER I, ORI, DES, CVEMON;                                        00690006          
+    I      := 1;                                                        00691006          
+    ORI    := IDFBCOORI(ALOG);                                          00692006          
+    DES    := IDFBCODES(ALOG);                                          00693006          
+    CVEMON := IDFMONEDA(ALOG);                                          00694006          
+    IF SUMA_RESTA = 0 THEN                                              00694106          
+       SIGNO := 1                                                       00694206          
+    ELSE                                                                00694306          
+       SIGNO := -1;                                                     00694406          
+    IF ORI NEQ DES THEN                                                 00695006          
+    WHILE I < 6 AND IDFCVEOCUR(ALOG,I) > 0 DO                           00696006          
+    BEGIN                                                               00697006          
+       CLAVE := IDFCVEOCUR(ALOG,I);                                     00698006          
+       IF CLAVE = 1078 THEN                                             00699006          
+       BEGIN                                                            00700006          
+          LIQ_1078[ORI,DES,CVEMON] := * +                               00701006          
+                                   (IDFIMPOCUR(ALOG,I)/100 * SIGNO);    00702006          
+          INUMLIQ_1078[ORI,DES,CVEMON] := * + 1;                        00703006          
+          IMPMOV := LIQ_1078[ORI,DES,CVEMON];                           00704006          
+          GRABAMOVTO;                                                   00705006          
+       END                                                              00706006          
+       ELSE                                                             00707006          
+       IF CLAVE = 2129 THEN                                             00708006          
+       BEGIN                                                            00709006          
+          LIQ_2129[ORI,DES,CVEMON] := * +                               00710006          
+                                   (IDFIMPOCUR(ALOG,I)/100 * SIGNO);    00711006          
+          INUMLIQ_2129[ORI,DES,CVEMON] := * + 1;                        00712006          
+          IMPMOV := LIQ_2129[ORI,DES,CVEMON];                           00713006          
+          GRABAMOVTO;                                                   00714006          
+       END                                                              00715006          
+       ELSE                                                             00716006          
+       IF ORI = 2 THEN                                                  00717006          
+       BEGIN                                                            00717106          
+          IF IADFCVECOL(CLAVE) = 1 THEN                                 00718006          
+          BEGIN                                                         00719006          
+             TOTCAR_BNX[ORI,DES,CVEMON]:= * +                           00720006          
+                                    ((IDFIMPOCUR(ALOG,I)/100) * SIGNO); 00721006          
+             INUMCAR_BNX[ORI,DES,CVEMON] := * + 1;                      00722006          
+          END                                                           00723006          
+          ELSE                                                          00724006          
+          IF IADFCVECOL(CLAVE) = 2 THEN                                 00725006          
+          BEGIN                                                         00726006          
+             TOTABO_BNX[ORI,DES,CVEMON]:= * +                           00727006          
+                                    ((IDFIMPOCUR(ALOG,I)/100) * SIGNO); 00728006          
+             INUMABO_BNX[ORI,DES,CVEMON] := * + 1;                      00729006          
+          END                                                           00730006          
+       END                                                              00730106          
+       ELSE                                                             00731006          
+       BEGIN                                                            00731056          
+          IF IADFCVECOL(CLAVE) = 1 THEN                                 00732006          
+          BEGIN                                                         00733006          
+             TOTCAR_BNC[ORI,DES,CVEMON] := * +                          00734006          
+                                   ((IDFIMPOCUR(ALOG,I)/100) * SIGNO);  00735006          
+             INUMCAR_OTRO[ORI,DES,CVEMON] := * + 1;                     00736006          
+          END                                                           00737006          
+          ELSE                                                          00738006          
+          IF IADFCVECOL(CLAVE) = 2 THEN                                 00739006          
+          BEGIN                                                         00740006          
+             TOTABO_BNC[ORI,DES,CVEMON] := * +                          00741006          
+                                   ((IDFIMPOCUR(ALOG,I)/100) * SIGNO);  00742006          
+             INUMABO_OTRO[ORI,DES,CVEMON] := * + 1;                     00743006          
+         END;                                                           00744006          
+       END;                                                             00744106          
+      I := * + 1;                                                       00745006          
+    END;                                                                00746006          
+ END OF ACUMULA_REG;                                                    00747006          
+                                                                        00748006          
+ PROCEDURE SUMA_ARCHIVO;                                                00749006          
+ BEGIN                                                                  00752006          
+   READ(LOG1[AUT:=*+1],75,ALOG);                                        00754006          
+   WHILE IDFFUNCION(ALOG) NEQ 99 DO                                     00755006          
+   BEGIN                                                                00756006          
+     IF IDFFUNCION(ALOG) = 1   AND                                      00757006          
+        IDFSTATUS(ALOG)  = 1   AND                                      00758006          
+       (IDFORIGEN(ALOG)  = 1   OR                                       00758106          
+        IDFORIGEN(ALOG)  = 2)  AND                                      00758206          
+       (IDFBCODES(ALOG)  NEQ 2 OR                                       00759006          
+        IDFBCOORI(ALOG)  NEQ 2) THEN                                    00760006          
+     BEGIN                                                              00761006          
+        SUMA_RESTA := 0;                                                00762106          
+        ACUMULA_REG ;                                                   00763006          
+     END;                                                               00764006          
+     READ(LOG1[AUT:=*+1],75,ALOG);                                      00765006          
+   END;                                                                 00766006          
+   AUT := * - 1;                                                        00767006          
+ END OF SUMA_ARCHIVO;                                                   00769006          
+                                                                        00770006          
+ PROCEDURE ANALIZA_FUNCION;                                             00771006          
+ BEGIN                                                                  00774006          
+   INTEGER I, AUT_ELIM, AUT_ELIM_ANT, SIGNO, L, M, K, FN;               00775006          
+   WAIT(CON_SDO);                                                       00775106          
+   RESET(ANALIZA);                                                      00775116          
+   READ(LOG1[AUT:=*+1],75,ALOG);                                        00777006          
+   FN := IDFFUNCION(ALOG);                                              00777106          
+   WHILE IDFFUNCION(ALOG) NEQ 99 DO                                     00778006          
+   BEGIN                                                                00779006          
+     IF IDFFUNCION(ALOG) = 1   AND                                      00780006          
+       (IDFORIGEN(ALOG)  = 1   OR                                       00781106          
+        IDFORIGEN(ALOG)  = 2)  AND                                      00781206          
+       (IDFBCOORI(ALOG)  NEQ 2 OR                                       00782006          
+        IDFBCODES(ALOG)  NEQ 2) THEN                                    00783006          
+     BEGIN                                                              00784006          
+        SUMA_RESTA := 0;                                                00785006          
+        ACUMULA_REG ;                                                   00786006          
+     END                                                                00787006          
+     ELSE                                                               00788006          
+     BEGIN                                                              00788106          
+        IF IDFFUNCION(ALOG) = 2  THEN                                   00789006          
+        BEGIN                                                           00792006          
+           SUMA_RESTA := 1;                                             00793006          
+           AUT_ELIM_ANT := IDFAUTELIM(ALOG);                            00794206          
+           WHILE AUT_ELIM_ANT > 0 DO                                    00795006          
+           BEGIN                                                        00796006          
+              READ(LOG1[AUT_ELIM_ANT],75,ALOG);                         00797006          
+              IF IDFFUNCION(ALOG) = 1   AND                             00797106          
+                (IDFORIGEN(ALOG)  = 1   OR                              00797206          
+                 IDFORIGEN(ALOG)  = 2)  AND                             00797306          
+                (IDFBCOORI(ALOG)  NEQ 2 OR                              00797326          
+                 IDFBCODES(ALOG)  NEQ 2) THEN                           00797346          
+              BEGIN                                                     00797406          
+                 ACUMULA_REG;                                           00798006          
+                 AUT_ELIM_ANT := IDFAUTANT(ALOG);                       00799006          
+              END                                                       00799106          
+              ELSE                                                      00799206          
+                 AUT_ELIM_ANT := 0;                                     00799306          
+           END                                                          00800006          
+        END                                                             00801006          
+        ELSE                                                            00802006          
+        BEGIN                                                           00802106          
+           IF (IDFFUNCION(ALOG) = 21 OR IDFFUNCION(ALOG) = 22) AND      00803006          
+               IDFTIPPROC(ALOG) < 20  THEN                              00803106          
+           BEGIN                                                        00804006          
+               L:= M:= 0;                                               00805006          
+               K := 1;                                                  00806006          
+               WHILE L < 13  DO                                         00807006          
+               BEGIN                                                    00807016          
+                  M := 1;                                               00807026          
+                  WHILE M < 13  DO                                      00808006          
+                  BEGIN                                                 00808016          
+                     K := 1;                                            00808026          
+                     WHILE K < 6   DO                                   00809006          
+                     BEGIN                                              00810006          
+                        LIQ_1078[L,M,K]    :=  0;                       00811006          
+                        LIQ_2129[L,M,K]    :=  0;                       00812006          
+                        TOTCAR_BNX[L,M,K]  :=  INICAR_BNX[L,M,K];       00813006          
+                        TOTCAR_BNC[L,M,K]  :=  INICAR_BNC[L,M,K];       00814006          
+                        TOTABO_BNX[L,M,K]  :=  INIABO_BNX[L,M,K];       00815006          
+                        TOTABO_BNC[L,M,K]  :=  INIABO_BNC[L,M,K];       00816006          
+                        K := * + 1;                                     00816016          
+                     END;                                               00817006          
+                     M := * + 1;                                        00817016          
+                  END;                                                  00817026          
+                  L := * + 1;                                           00817036          
+               END;                                                     00817046          
+               RESET(SUMA);                                             00817106          
+               WAIT((60));                                              00817206          
+               AUT := -1;                                               00818006          
+               SUMA_ARCHIVO;                                            00819006          
+               CAUSE(SUMA);                                             00819106          
+           END;                                                         00819206          
+        END;                                                            00820006          
+     END;                                                               00820056          
+     READ(LOG1[AUT:=*+1],75,ALOG);                                      00821006          
+   END;                                                                 00822006          
+   AUT := * -1;                                                         00823006          
+   CAUSE(ANALIZA);                                                      00823016          
+ END OF ANALIZA_FUNCION;                                                00825006          
+%******************                                                     00826006          
+ PROCEDURE LEVANTA;                                                     00827006          
+%******************                                                     00828006          
+ BEGIN                                                                  00829006          
+   ARRAY   ACONTROLE[0:280];                                            00830006          
+   EBCDIC  ARRAY NOMBRE[0:49],RESDATA[0:175],                           00831006          
+                 NOM_FILE[0:49],DATOS_HOST[0:42];                       00832006          
+   INTEGER INDSISTEMA,MD,IND,N_ASIN,I,J,RESULT,RESULT_CTL,K,INT,        00833006          
+           NUM_MONEDA, NUM_BORI, NUM_BDES;                              00833106          
+   INTEGER ARRAY FECHA_K, NIVEL_K, STATUS_K[0:9];                       00834006          
+   INTEGER NUMCAR,NUMABO,NIV_INF,NIV_SUP,NUM_REG, AUT_ANT;              00835006          
+   DOUBLE  IMPCAR,IMPABO;                                               00836006          
+   BOOLEAN RECUPERA1,RECUPERA2;                                         00837006          
+                                                                        00837016          
+  INTEGER PROCEDURE BUSCA_FECHA;                                        00837026          
+  BEGIN                                                                 00837036          
+     INTEGER ERROR_FECHA;                                               00837046          
+     ERROR_FECHA := 0;                                                  00837056          
+     FIND LAST B14SXCONOPE AT                                           00837066          
+            B14-CON-CSI      = CSI_LIB    AND                           00837076          
+            B14-CON-FCHCON   = FECPROC   : DMERR;                       00837086          
+     IF BOOLEAN(DMERR) THEN                                             00837096          
+        ERROR_FECHA := 1;                                               00837106          
+                                                                        00837116          
+     BUSCA_FECHA := ERROR_FECHA;                                        00837126          
+ END OF BUSCA_FECHA;                                                    00837136          
+                                                                        00838006          
+%----------------------------------------------                         00839006          
+  INTEGER PROCEDURE BUSCA_REINICIO(REINI_MON);                          00839016          
+  VALUE REINI_MON;                                                      00839026          
+  INTEGER REINI_MON;                                                    00839036          
+                                                                        00839046          
+  BEGIN                                                                 00839048          
+  PROCEDURE GET_REINICIO;                                               00839056          
+  BEGIN                                                                 00839066          
+  INTEGER LAST, REINI_BORI, REINI_BDES,                                 00839067          
+          REINI_BNM_NCAR, REINI_BNM_NABO,                               00839068          
+          REINI_OTRO_NCAR,REINI_OTRO_NABO;                              00839069          
+  DOUBLE  REINI_BNM_IMPCAR,  REINI_BNM_IMPABO,  REINI_BNM_LIQ,          00839070          
+          REINI_OTRO_IMPCAR, REINI_OTRO_IMPABO, REINI_OTRO_LIQ;         00839071          
+                                                                        00839072          
+     GET S151B14CONOPECRUZ(REINI_BORI       := B14-CON-ORIBNM,          00839076          
+                           REINI_BDES       := B14-CON-DESOTR,          00839086          
+                           REINI_MON        := B14-CON-MONEDA,          00839096          
+                           REINI_BNM_NCAR   := B14-BNM-NUMCAR,          00839106          
+                           REINI_BNM_IMPCAR := B14-BNM-IMPCAR,          00839116          
+                           REINI_BNM_NABO   := B14-BNM-NUMABO,          00839126          
+                           REINI_BNM_IMPABO := B14-BNM-IMPABO,          00839136          
+                           REINI_BNM_LIQ    := B14-BNM-LIQ   ,          00839146          
+                           REINI_OTRO_NCAR  := B14-OTR-NUMCAR,          00839156          
+                           REINI_OTRO_IMPCAR:= B14-OTR-IMPCAR,          00839166          
+                           REINI_OTRO_NABO  := B14-OTR-NUMABO,          00839176          
+                           REINI_OTRO_IMPABO:= B14-OTR-IMPABO,          00839186          
+                           REINI_OTRO_LIQ   := B14-OTR-LIQ   ,          00839196          
+                           AUT              := B14-CON-AUTS151);        00839198          
+     INUMCAR_BNX[REINI_BORI, REINI_BDES, REINI_MON] := REINI_BNM_NCAR;  00839224          
+     TOTCAR_BNX[REINI_BORI, REINI_BDES, REINI_MON]  := REINI_BNM_IMPCAR;00839226          
+     INUMABO_BNX[REINI_BORI, REINI_BDES, REINI_MON] := REINI_BNM_NABO;  00839236          
+     TOTABO_BNX[REINI_BORI, REINI_BDES, REINI_MON]  := REINI_BNM_IMPABO;00839246          
+     LIQ_2129[REINI_BORI, REINI_BDES, REINI_MON]    := REINI_BNM_LIQ;   00839256          
+                                                                        00839266          
+     INUMCAR_OTRO[REINI_BDES,REINI_BORI, REINI_MON]:= REINI_OTRO_NCAR;  00839276          
+     TOTCAR_BNC[REINI_BDES, REINI_BORI, REINI_MON] := REINI_OTRO_IMPCAR;00839286          
+     INUMABO_OTRO[REINI_BDES,REINI_BORI, REINI_MON]:= REINI_OTRO_NABO;  00839296          
+     TOTABO_BNC[REINI_BDES, REINI_BORI, REINI_MON] := REINI_OTRO_IMPABO;00839300          
+     LIQ_1078[REINI_BDES,REINI_BORI, REINI_MON]    := REINI_OTRO_LIQ;   00839306          
+     INICIO_MONEDA[REINI_BORI, REINI_BDES, REINI_MON] := 1;             00839308          
+                                                                        00839313          
+     INICAR_BNX[REINI_BORI, REINI_BDES, REINI_MON] := REINI_BNM_IMPCAR; 00839318          
+     INIABO_BNX[REINI_BORI, REINI_BDES, REINI_MON] := REINI_BNM_IMPABO; 00839323          
+     INICAR_BNC[REINI_BDES, REINI_BORI, REINI_MON] := REINI_OTRO_IMPCAR;00839328          
+     INIABO_BNC[REINI_BDES, REINI_BORI, REINI_MON] := REINI_OTRO_IMPABO;00839333          
+                                                                        00839336          
+  END OF GET_REINICIO;                                                  00839346          
+                                                                        00839356          
+%% BLOCK OUTER DE BUSCA_REINICIO                                        00839366          
+  INTEGER ERROR_LAST;                                                   00839376          
+  ERROR_LAST := 0;                                                      00839426          
+                                                                        00839436          
+  FIND LAST B14SXCONOPE AT                                              00839446          
+            B14-CON-CSI      = CSI_LIB    AND                           00839456          
+            B14-CON-FCHCON   = FECPROC    AND                           00839466          
+            B14-CON-SISTEMA  = 500        AND                           00839476          
+            B14-CON-MONEDA   = NUM_MONEDA : DMERR;                      00839486          
+  IF BOOLEAN(DMERR) THEN                                                00839496          
+     ERROR_LAST := 1                                                    00839506          
+  ELSE                                                                  00839516          
+     GET_REINICIO;                                                      00839526          
+                                                                        00839536          
+   BUSCA_REINICIO := ERROR_LAST;                                        00839546          
+ END OF BUSCA_REINICIO;                                                 00839556          
+                                                                        00839566          
+ PROCEDURE OPENLOG(FECDIA);                                             00840006          
+%----------------------------------------------                         00841006          
+ VALUE FECDIA;                                                          00842006          
+ INTEGER FECDIA;                                                        00843006          
+ BEGIN                                                                  00844006          
+   DEFINE HFECLOG     = INTEGER((POINTER(ALOG)+2),8)#;                  00845006          
+                                                                        00846006          
+   LABEL VERIFICA;                                                      00847006          
+   INTEGER NIVLOG2,I;                                                   00848006          
+   VERIFICA:                                                            00849006          
+                                                                        00850006          
+   REPLACE NOM_ARCMOV BY ARC_MOV FOR 34,                                00851006          
+                         FECDIA  FOR 6 DIGITS,                          00852006          
+                         " ON "              ,                          00853006          
+                         PK_MOV  FOR 17,"."  ;                          00854006          
+                                                                        00855006          
+   REPLACE LOG1.TITLE BY NOM_ARCMOV;                                    00856006          
+   CLOSE(LOG1,LOCK);                                                    00857006          
+                                                                        00859006          
+   IF LOG1.RESIDENT THEN                                                00860006          
+   BEGIN                                                                00861006          
+     READ(LOG1[0],75,ALOG);                                             00862006          
+     IF IDFFUNCION(ALOG) NEQ 99 THEN                                    00864006          
+        WHILE HFECLOG NEQ FECDIA DO                                     00865006          
+        BEGIN                                                           00866006          
+          CLOSE(LOG1,LOCK);                                             00867006          
+          REPLACE TXTMSG BY "ERROR L006 ",                              00868006          
+                            ", FECHA HEADER FILE/MOVTOS: ",             00869006          
+                            POINTER(ALOG)+2 FOR 8,                      00870006          
+                            " FECHA CORRECTA: ",                        00871006          
+                            FECDIA FOR 8 DIGITS;                        00872006          
+          LJ(CONLJ,MSGLJ);                                              00873006          
+          ACCEPT(TXTMSG);                                               00874006          
+          READ(LOG1[0],75,ALOG);                                        00876006          
+        END;                                                            00877006          
+   END                                                                  00880006          
+   ELSE                                                                 00881006          
+   BEGIN                                                                00882006          
+      REPLACE TXTMSG BY "ERROR : NO EXISTE ARCHIVO ",                   00883006          
+                        LOG1.TITLE              ,                       00884006          
+                        ", FAVOR DE ASIGNARLO  ";                       00885006          
+                                                                        00886006          
+      LJ(CONLJ,MSGLJ);                                                  00887006          
+      ACCEPT(TXTMSG);                                                   00888006          
+      GO VERIFICA;                                                      00889006          
+   END;                                                                 00890006          
+ END  OF OPENLOG;                                                       00891006          
+                                                                        00892006          
+%-------------------------------------------------------------          00893006          
+% LEVANTA OUTER BLOCK                                                   00894006          
+%-------------------------------------------------------------          00895006          
+ REPLACE MSGLJ BY "S151/L006/006:I>050110<";                            00896006          
+ CONTROLVERS;                                                           00897006          
+ WHILE INT := LINKLIBRARY(SOPORTE) < 0 DO                               00898006          
+ BEGIN        % ERROR EN LIGA                                           00899006          
+ END;                                                                   00900006          
+ CSIID(DATOS_HOST);                                                     00901006          
+                                                                        00902006          
+ WHILE INT := DELINKLIBRARY(SOPORTE) < 0 DO                             00903006          
+ BEGIN                                                                  00904006          
+    % ERROR EN DESLIGA                                                  00905006          
+ END;                                                                   00906006          
+                                                                        00907006          
+ CSI_LIB := INTEGER(DATOS_HOST,2);                                      00908006          
+                                                                        00909006          
+ REPLACE NOM_LIB BY MYSELF.NAME;                                        00910006          
+                                                                        00911006          
+ CARGACVES;          %% CARGA CLAVES DE CATALOGOS %%                    00912006          
+ REPLACE SISDFUNCI(ACONTROLE1) BY     1 FOR 2 DIGITS,                   00913006          
+                               0500     FOR 4 DIGITS,                   00914006          
+                               CSI_LIB  FOR 2 DIGITS;                   00915006          
+ RESULT_CTL:= CONSISDIA(ACONTROLE1);                                    00916006          
+ IF RESULT_CTL > 0 THEN                                                 00917006          
+ BEGIN                                                                  00918006          
+   REPLACE TXTMSG BY "ERROR L006 SISTEMA "    ,                         00919006          
+                     " 500 "                  ,                         00919106          
+                     " CSI "                  ,                         00919206          
+                     CSI_LIB FOR 2 DIGITS     ,                         00919306          
+                     ", RESULT L001/CONTROL ",                          00920006          
+                     RESULT FOR 6 DIGITS;                               00921006          
+   LJ(CONLJ,MSGLJ);                                                     00922006          
+   MYSELF.STATUS:= -1;                                                  00923006          
+ END;                                                                   00924006          
+ REPLACE ARC_MOV BY SISDNOMMOV(ACONTROLE1) FOR 34;                      00925006          
+ REPLACE PK_MOV  BY SISDPKMOVS(ACONTROLE1) FOR 17;                      00926006          
+ FECPROC := ISISDFECCON(ACONTROLE1);                                    00927006          
+ RESET(BASE_OPEN);                                                      00929006          
+ OPEN UPDATE S151BD02ADSALDO : DMERR;                                   00930006          
+ IF BOOLEAN(DMERR) THEN                                                 00931006          
+ BEGIN                                                                  00932006          
+    ERRORDB;                                                            00933006          
+    MYSELF.STATUS := -1;                                                00934006          
+ END                                                                    00935006          
+ ELSE                                                                   00936006          
+    CAUSE(BASE_OPEN);                                                   00937006          
+ IF BUSCA_FECHA = 0 THEN                                                00937026          
+ BEGIN                                                                  00937036          
+    NUM_MONEDA := 1;                                                    00937038          
+    AUT_ANT := 0;                                                       00937039          
+    WHILE NUM_MONEDA < 6   DO                                           00937040          
+    BEGIN                                                               00937042          
+       BUSCA_REINICIO(NUM_MONEDA);                                      00937046          
+       NUM_MONEDA := * + 1;                                             00937047          
+       IF AUT > AUT_ANT THEN AUT_ANT := AUT;                            00937049          
+    END;                                                                00937050          
+    AUT := AUT_ANT;                                                     00937051          
+    OPENLOG(FECPROC);                                                   00937052          
+    CAUSE(SUMA);                                                        00937054          
+ END                                                                    00937055          
+ ELSE                                                                   00937056          
+ BEGIN                                                                  00937066          
+    OPENLOG(FECPROC);                                                   00937116          
+    RESET(SUMA);                                                        00937126          
+    AUT := -1;                                                          00937136          
+    SUMA_ARCHIVO;                                                       00937146          
+    CAUSE(SUMA);                                                        00937156          
+ END;                                                                   00937166          
+ END OF LEVANTA;                                                        00938006          
+                                                                        00939006          
+%==============================================================         00940006          
+% EL EXTRY-POINT SALDOS EFECTUA ACTAULIZACIONES, CONSULTAS    =         00941006          
+% SOBRE EL DATSET S151B14CONOPECRUZ Y BORRADO SOBRE LOS       =         00942006          
+% DATASET DE SALDOS ( S151B14CONOPECRUZ ) Y MOVIMIENTOS       =         00943006          
+% ( S151B15MOVOPECRUZ ), ESTO VA DE ACUERDO AL VALOR DE LA    =         00944006          
+% FUNCION Y CSI RECIBIDO EN EL LLAMADO                        =         00945006          
+%==============================================================         00946006          
+                                                                        00947006          
+ INTEGER PROCEDURE SALDOS(DATOSE);                                      00948006          
+ EBCDIC ARRAY DATOSE[*];                                                00949006          
+ BEGIN                                                                  00950006          
+  DEFINE IDCFUNCION(A)   = INTEGER(POINTER(A,4)      ,2)#,              00951006          
+         IDCFECHA  (A)   = INTEGER(POINTER(A,4)+ 2   ,8)#,              00952006          
+         IDCCSI    (A)   = INTEGER(POINTER(A,4)+ 10  ,2)#,              00953006          
+         IDCSISTEMA(A)   = INTEGER(POINTER(A,4)+ 12  ,4)#,              00954006          
+         IDCBCOORI (A)   = INTEGER(POINTER(A,4)+ 16  ,3)#,              00955006          
+         IDCBCODES (A)   = INTEGER(POINTER(A,4)+ 19  ,3)#,              00956006          
+         IDCMONEDA (A)   = INTEGER(POINTER(A,4)+ 22  ,4)#,              00957006          
+         IDCSISCON (A)   = INTEGER(POINTER(A,4)+ 26  ,4)#,              00958006          
+         IDCBCOS   (A)   = INTEGER(POINTER(A,4)+ 30  ,6)#,              00959006          
+         IDCBORICON(A)   = INTEGER(POINTER(A,4)+ 30  ,3)#,              00960006          
+         IDCBDESCON(A)   = INTEGER(POINTER(A,4)+ 33  ,3)#,              00961006          
+         IDCMONCON (A)   = INTEGER(POINTER(A,4)+ 36  ,4)#,              00962006          
+         IDCHORACON(A)   = INTEGER(POINTER(A,4)+ 40  ,6)#,              00963006          
+         IDCSISDET1(A,N) = INTEGER((POINTER(A,4)+((N-1)*138 + 46)),4) #,00964006          
+         IDCBCOTRA1(A,N) = INTEGER((POINTER(A,4)+((N-1)*138 + 50)),3) #,00965006          
+         IDCBCOPRO1(A,N) = INTEGER((POINTER(A,4)+((N-1)*138 + 53)),3) #,00966006          
+         IDCCARGOS1(A,N) = DOUBLE((POINTER(A,4) +((N-1)*138 + 56)),14)#,00967006          
+         IDCABONOS1(A,N) = DOUBLE((POINTER(A,4) +((N-1)*138 + 70)),14)#,00968006          
+         IDCMOVLIQ1(A,N) = DOUBLE((POINTER(A,4) +((N-1)*138 + 84)),14)#,00969006          
+         IDCDIFBCO1(A,N) = DOUBLE((POINTER(A,4) +((N-1)*138 + 98)),14)#,00970006          
+         IDCSISDET2(A,N) = INTEGER((POINTER(A,4)+((N-1)*138 +112)),4) #,00971006          
+         IDCBCOTRA2(A,N) = INTEGER((POINTER(A,4)+((N-1)*138 +116)),3) #,00972006          
+         IDCBCOPRO2(A,N) = INTEGER((POINTER(A,4)+((N-1)*138 +119)),3) #,00973006          
+         IDCCARGOS2(A,N) = DOUBLE((POINTER(A,4) +((N-1)*138 +122)),14)#,00974006          
+         IDCABONOS2(A,N) = DOUBLE((POINTER(A,4) +((N-1)*138 +136)),14)#,00975006          
+         IDCMOVLIQ2(A,N) = DOUBLE((POINTER(A,4) +((N-1)*138 +150)),14)#,00976006          
+         IDCDIFBCO2(A,N) = DOUBLE((POINTER(A,4) +((N-1)*138 +164)),14)#,00977006          
+         IDCHORA   (A,N) = INTEGER((POINTER(A,4)+((N-1)*138 +178)),6) #,00978006          
+                                                                        00979006          
+         DCFUNCION(A)   = POINTER(A,4)                 #,               00980006          
+         DCFECHA  (A)   = POINTER(A,4)+ 2              #,               00981006          
+         DCCSI    (A)   = POINTER(A,4)+ 10             #,               00982006          
+         DCSISTEMA(A)   = POINTER(A,4)+ 12             #,               00983006          
+         DCBCOORI (A)   = POINTER(A,4)+ 16             #,               00984006          
+         DCBCODES (A)   = POINTER(A,4)+ 19             #,               00985006          
+         DCMONEDA (A)   = POINTER(A,4)+ 22             #,               00986006          
+         DCSISCON (A)   = POINTER(A,4)+ 26             #,               00987006          
+         DCBCOS   (A)   = POINTER(A,4)+ 30             #,               00988006          
+         DCBORICON(A)   = POINTER(A,4)+ 30             #,               00989006          
+         DCBDESCON(A)   = POINTER(A,4)+ 33             #,               00990006          
+         DCMONCON (A)   = POINTER(A,4)+ 36             #,               00991006          
+         DCHORACON(A)   = POINTER(A,4)+ 40             #,               00992006          
+         DCSISDET1(A,N) = POINTER(A,4)+((N-1)*138 +46) #,               00993006          
+         DCBCOTRA1(A,N) = POINTER(A,4)+((N-1)*138 +50) #,               00994006          
+         DCBCOPRO1(A,N) = POINTER(A,4)+((N-1)*138 +53) #,               00995006          
+         DCCARGOS1(A,N) = POINTER(A,4)+((N-1)*138 +56) #,               00996006          
+         DCABONOS1(A,N) = POINTER(A,4)+((N-1)*138 +70) #,               00997006          
+         DCMOVLIQ1(A,N) = POINTER(A,4)+((N-1)*138 +84) #,               00998006          
+         DCDIFBCO1(A,N) = POINTER(A,4)+((N-1)*138 +98) #,               00999006          
+         DCSISDET2(A,N) = POINTER(A,4)+((N-1)*138 +112)#,               01000006          
+         DCBCOTRA2(A,N) = POINTER(A,4)+((N-1)*138 +116)#,               01001006          
+         DCBCOPRO2(A,N) = POINTER(A,4)+((N-1)*138 +119)#,               01002006          
+         DCCARGOS2(A,N) = POINTER(A,4)+((N-1)*138 +122)#,               01003006          
+         DCABONOS2(A,N) = POINTER(A,4)+((N-1)*138 +136)#,               01004006          
+         DCMOVLIQ2(A,N) = POINTER(A,4)+((N-1)*138 +150)#,               01005006          
+         DCDIFBCO2(A,N) = POINTER(A,4)+((N-1)*138 +164)#,               01006006          
+         DCHORA   (A,N) = POINTER(A,4)+((N-1)*138 +178))#,              01007006          
+   GRABASALDO = BEGIN                                                   01008006          
+                   ERROR_BASE := 0;                                     01008106          
+                   LOCK B14SXCONOPE AT                                  01009006          
+                        B14-CON-CSI    = CSI             AND            01010006          
+                        B14-CON-FCHCON = FECHA           AND            01011006          
+                        B14-CON-SISTEMA= SISTEMA         AND            01012006          
+                        B14-CON-MONEDA = MONEDA          AND            01013006          
+                        B14-CON-ORIBNM = BCOORI          AND            01014006          
+                        B14-CON-DESOTR = BCOPRO          AND            01015006          
+                        B14-CON-ORIOTR = BCOPRO          AND            01016006          
+                        B14-CON-DESBNM = BCOORI          AND            01017006          
+                        B14-CON-HHMMSS = HORA            : DMERR;       01018006          
+                   IF BOOLEAN(DMERR) THEN                               01019006          
+                      IF DMERR.DMERROR = NOTFOUND THEN                  01020006          
+                         CREATE S151B14CONOPECRUZ : DMERR               01022006          
+                      ELSE                                              01022106          
+                         ERRORDB;                                       01024006          
+                   PUT S151B14CONOPECRUZ                                01026006          
+                                (B14-CON-CSI     := CSI            ,    01027006          
+                                 B14-CON-FCHCON  := FECHA          ,    01028006          
+                                 B14-CON-SISTEMA := SISTEMA        ,    01029006          
+                                 B14-CON-MONEDA  := MONEDA         ,    01030006          
+                                 B14-CON-ORIBNM  := BCOORI         ,    01031006          
+                                 B14-CON-DESOTR  := BCOPRO         ,    01032006          
+                                 B14-CON-ORIOTR  := BCOPRO         ,    01033006          
+                                 B14-CON-DESBNM  := BCOORI         ,    01034006          
+                                 B14-CON-HHMMSS  := HORA           ,    01035006          
+                                 B14-BNM-NUMCAR  := NUMCAR_BNX     ,    01036006          
+                                 B14-BNM-IMPCAR  := CAR_BNX        ,    01037006          
+                                 B14-BNM-NUMABO  := NUMABO_BNX     ,    01038006          
+                                 B14-BNM-IMPABO  := ABO_BNX        ,    01039006          
+                                 B14-BNM-LIQ     := ILIQ_2129      ,    01040006          
+                                 B14-BNM-DIF     := DIF_BNX        ,    01041006          
+                                 B14-OTR-NUMCAR  := NUMCAR_OTRO    ,    01042006          
+                                 B14-OTR-IMPCAR  := CAR_OTRO       ,    01043006          
+                                 B14-OTR-NUMABO  := NUMABO_OTRO    ,    01044006          
+                                 B14-OTR-IMPABO  := ABO_OTRO       ,    01045006          
+                                 B14-OTR-LIQ     := ILIQ_1078      ,    01046006          
+                                 B14-OTR-DIF     := DIF_OTRO       ,    01047006          
+                                 B14-CON-AUTS151 := AUT);               01047106          
+                   BEGINTRANSACTION NOAUDIT S151B91REINICIO : DMERR;    01048006          
+                   IF BOOLEAN(DMERR) THEN                               01050006          
+                      ERRORDB                                           01051006          
+                   ELSE                                                 01052006          
+                   BEGIN                                                01053006          
+                      STORE S151B14CONOPECRUZ : DMERR;                  01054006          
+                      IF BOOLEAN(DMERR) THEN                            01055006          
+                         ERRORDB;                                       01056006          
+                      ENDTRANSACTION AUDIT S151B91REINICIO : DMERR;     01057006          
+                   END;                                                 01059006          
+   END#;                                                                01063006          
+%END OF GRABASALDO#,                                                    01063106          
+ INTEGER FECHA,  CSI, ERR_SDO, SISTEMA, BCOORI, BCOPRO, MONEDA, FUNCION,01064006          
+         MONCON, BCOCON, SISCON, ERROR, TAMANO, NUMMOV , HORA,          01065006          
+         BCOORI2, BCOPRO2;                                              01065106          
+ ARRAY   DATOSD[0:65], ARR_HORA[0:5];                                   01066006          
+ DOUBLE  CAR_BNX , ABO_BNX ,ILIQ_1078, DIF_BNX, DIF_DSP,                01067006          
+         CAR_OTRO, ABO_OTRO,ILIQ_2129, DIF_OTRO;                        01068006          
+ ARRAY LLAMADO[0:500];                                                  01068206          
+ REAL    HH, MM, DD;                                                    01068306          
+                                                                        01069006          
+%===========================================================            01070006          
+% PROCEDIMIENTO PARA BUSCAR EL PRIMER REGISTRO QUE CUMPLA  =            01071006          
+% CON LOS DATOS DE ENTRADA (LLAMADA).                      =            01072006          
+%===========================================================            01073006          
+ INTEGER PROCEDURE FIND_FIRST;                                          01074006          
+ BEGIN                                                                  01075006          
+    INTEGER ERR_FIND;                                                   01076006          
+    ERR_FIND := 0;                                                      01077006          
+    FIND FIRST B14SXCONOPE AT                                           01078006          
+               B14-CON-CSI      = CSI        AND                        01079006          
+               B14-CON-FCHCON   = FECHA      AND                        01080006          
+               B14-CON-SISTEMA  = SISTEMA    AND                        01081006          
+               B14-CON-MONEDA   = MONEDA     AND                        01081106          
+               B14-CON-ORIBNM   = BCOORI     AND                        01082006          
+               B14-CON-DESOTR   = BCOPRO     AND                        01083006          
+               B14-CON-ORIOTR   = BCOPRO     AND                        01084006          
+               B14-CON-DESBNM   = BCOORI     AND                        01084106          
+               B14-CON-HHMMSS   > HORA       : DMERR;                   01085006          
+    IF BOOLEAN(DMERR) THEN                                              01086006          
+       IF DMERR.DMERROR = NOTFOUND THEN                                 01087006          
+          ERR_FIND := 8                                                 01088006          
+       ELSE                                                             01089006          
+       BEGIN                                                            01090006          
+          ERRORDB;                                                      01091006          
+          ERR_FIND := 5;                                                01092006          
+       END;                                                             01093006          
+    FIND_FIRST := ERR_FIND;                                             01094006          
+ END OF FIND_FIRST;                                                     01095006          
+                                                                        01096006          
+%===========================================================            01097006          
+% PROCEDIMIENTO PARA BUSCAR EL SIGIENTE REGISTRO QUE CUMPLA=            01098006          
+% CON LOS DATOS DE ENTRADA (LLAMADA).                      =            01099006          
+%===========================================================            01100006          
+                                                                        01101006          
+ INTEGER PROCEDURE FIND_NEXT;                                           01102006          
+ BEGIN                                                                  01103006          
+    INTEGER ERR_FNEXT;                                                  01104006          
+    ERR_FNEXT := 0;                                                     01105006          
+    FIND NEXT  B14SXCONOPE AT                                           01106006          
+               B14-CON-CSI      = CSI        AND                        01107006          
+               B14-CON-FCHCON   = FECHA      AND                        01108006          
+               B14-CON-SISTEMA  = SISTEMA    AND                        01109006          
+               B14-CON-MONEDA   = MONEDA     AND                        01109106          
+               B14-CON-ORIBNM   = BCOORI     AND                        01110006          
+               B14-CON-DESOTR   = BCOPRO     AND                        01111006          
+               B14-CON-ORIOTR   = BCOPRO     AND                        01112006          
+               B14-CON-DESBNM   = BCOORI     AND                        01112106          
+               B14-CON-HHMMSS   > HORA       : DMERR;                   01113006          
+    IF BOOLEAN(DMERR) THEN                                              01114006          
+       IF DMERR.DMERROR = NOTFOUND THEN                                 01115006          
+          ERR_FNEXT := 1                                                01116006          
+       ELSE                                                             01117006          
+       BEGIN                                                            01118006          
+          ERRORDB;                                                      01119006          
+          ERR_FNEXT := 5;                                               01120006          
+       END;                                                             01121006          
+    FIND_NEXT := ERR_FNEXT;                                             01122006          
+ END OF FIND_NEXT;                                                      01123006          
+                                                                        01124006          
+%============================================================           01125006          
+% PROCEDIMIENTO PARA EXTRAE DE LA BASE LOS DATOS ALMACENADOS=           01126006          
+% UNA VEZ QUE SE HAYA TENIDO EXITO EL FIND FIRST O FIND NEXT=           01127006          
+%============================================================           01128006          
+                                                                        01129006          
+ PROCEDURE GET_DATOS;                                                   01130006          
+ BEGIN                                                                  01131006          
+    GET S151B14CONOPECRUZ ( HORA     := B14-CON-HHMMSS ,                01132006          
+                            CAR_BNX  := B14-BNM-IMPCAR ,                01133006          
+                            ABO_BNX  := B14-BNM-IMPABO ,                01134006          
+                            ILIQ_2129:= B14-BNM-LIQ    ,                01135006          
+                            DIF_BNX  := B14-BNM-DIF    ,                01136006          
+                            CAR_OTRO := B14-OTR-IMPCAR ,                01137006          
+                            ABO_OTRO := B14-OTR-IMPABO ,                01138006          
+                            ILIQ_1078:= B14-OTR-LIQ    ,                01139006          
+                            DIF_OTRO := B14-OTR-DIF    ,                01140006          
+                            MONEDA   := B14-CON-MONEDA ,                01141006          
+                            BCOORI2  := B14-CON-ORIOTR ,                01141106          
+                            BCOPRO2  := B14-CON-DESBNM);                01141206          
+                                                                        01141306          
+    CAR_BNX  := * * 100;                                                01142006          
+    ABO_BNX  := * * 100;                                                01143006          
+    ILIQ_1078:= * * 100;                                                01144006          
+    DIF_BNX  := * * 100;                                                01145006          
+    CAR_OTRO := * * 100;                                                01146006          
+    ABO_OTRO := * * 100;                                                01147006          
+    ILIQ_2129:= * * 100;                                                01148006          
+    DIF_OTRO := * * 100;                                                01149006          
+                                                                        01150006          
+ END OF GET_DATOS;                                                      01151006          
+                                                                        01152006          
+%===========================================================            01153006          
+% PROCEDIMIENTO PARA REGISTRAR EN EL ARREGLO LOS DATOS LO- =            01154006          
+% CALIZADOS.                                               =            01155006          
+%===========================================================            01156006          
+ PROCEDURE REP_DATOS;                                                   01157006          
+                                                                        01158006          
+ BEGIN                                                                  01159006          
+     REPLACE DCSISDET1(DATOSD, NUMMOV) BY SISTEMA  FOR  4  DIGITS,      01160006          
+                                          BCOORI   FOR  3  DIGITS,      01161006          
+                                          BCOPRO   FOR  3  DIGITS,      01162006          
+                                          CAR_BNX  FOR 13 SDIGITS,      01163006          
+                                          ABO_BNX  FOR 13 SDIGITS,      01164006          
+                                         ILIQ_2129 FOR 13 SDIGITS,      01165006          
+                                          DIF_BNX  FOR 13 SDIGITS,      01166006          
+                                          SISTEMA  FOR  4  DIGITS,      01167006          
+                                          BCOORI2  FOR  3  DIGITS,      01168006          
+                                          BCOPRO2  FOR  3  DIGITS,      01169006          
+                                          CAR_OTRO FOR 13 SDIGITS,      01170006          
+                                          ABO_OTRO FOR 13 SDIGITS,      01171006          
+                                         ILIQ_1078 FOR 13 SDIGITS,      01172006          
+                                          DIF_OTRO FOR 13 SDIGITS,      01173006          
+                                          HORA     FOR  6  DIGITS;      01174006          
+     DIF_DSP := IDCDIFBCO1(DATOSD, NUMMOV);                             01174106          
+ END OF REP_DATOS;                                                      01181006          
+                                                                        01182006          
+%===========================================================            01183006          
+% PROCEDIMIENTO PARA CONSULTA DE INFORMACION DE SALDOS     =            01184006          
+%===========================================================            01185006          
+ INTEGER PROCEDURE CONSDO;                                              01186006          
+ BEGIN                                                                  01187006          
+    INTEGER ERR_CON, CICLO;                                             01188006          
+    NUMMOV   := 1;                                                      01189006          
+    CICLO   := 0;                                                       01189106          
+    ERR_CON := 0;                                                       01189206          
+    ERR_CON := FIND_FIRST  ;                                            01190006          
+    WHILE CICLO   = 0 AND NUMMOV < 5 DO                                 01191006          
+    BEGIN                                                               01192006          
+       GET_DATOS;                                                       01193006          
+       REP_DATOS;                                                       01194006          
+       CICLO  := FIND_NEXT;                                             01194106          
+       NUMMOV := * + 1;                                                 01196006          
+    END;                                                                01197006          
+    IF CICLO = 1 THEN                                                   01197026          
+    BEGIN                                                               01197046          
+       ERR_CON := 0;                                                    01197066          
+       HORA    := 0;                                                    01197086          
+    END                                                                 01197106          
+    ELSE                                                                01197126          
+       ERR_CON := CICLO;                                                01197146          
+                                                                        01197166          
+    REPLACE DCSISCON(DATOSD) BY  SISTEMA  FOR  4 DIGITS,                01197306          
+                                 BCOORI   FOR  3 DIGITS,                01197406          
+                                 BCOPRO   FOR  3 DIGITS,                01197506          
+                                 MONEDA   FOR  4 DIGITS,                01197606          
+                                 HORA     FOR  6 DIGITS;                01197706          
+    CONSDO := ERR_CON;                                                  01198006          
+ END OF CONSDO;                                                         01199006          
+                                                                        01200006          
+%===========================================================            01201006          
+% PROCEDIMIENTO PARA GRABAR EN BASE LOS DATOS DE MEMORIA   =            01202006          
+%===========================================================            01203006          
+ INTEGER PROCEDURE ACTSDO;                                              01204006          
+                                                                        01205006          
+ BEGIN                                                                  01206006          
+    NUMCAR_BNX := INUMCAR_BNX [BCOORI,BCOPRO,MONEDA];                   01206106          
+    NUMABO_BNX := INUMABO_BNX [BCOORI,BCOPRO,MONEDA];                   01206206          
+    NUMCAR_OTRO:= INUMCAR_OTRO[BCOPRO,BCOORI,MONEDA];                   01206306          
+    NUMABO_OTRO:= INUMABO_OTRO[BCOPRO,BCOORI,MONEDA];                   01206406          
+    NUMLIQ_1078:= INUMLIQ_1078[BCOPRO,BCOORI,MONEDA];                   01206506          
+    NUMLIQ_2129:= INUMLIQ_2129[BCOORI,BCOPRO,MONEDA];                   01206606          
+    CAR_BNX  := TOTCAR_BNX[BCOORI,BCOPRO,MONEDA];                       01209006          
+    ABO_BNX  := TOTABO_BNX[BCOORI,BCOPRO,MONEDA];                       01210006          
+    CAR_OTRO := TOTCAR_BNC[BCOPRO,BCOORI,MONEDA];                       01211006          
+    ABO_OTRO := TOTABO_BNC[BCOPRO,BCOORI,MONEDA];                       01212006          
+    ILIQ_1078:= LIQ_1078[BCOPRO,BCOORI,MONEDA]  ;                       01213006          
+    ILIQ_2129:= LIQ_2129[BCOORI,BCOPRO,MONEDA]  ;                       01214006          
+    DIF_BNX  := CAR_OTRO - ABO_BNX  - ILIQ_2129 ;                       01215006          
+    DIF_OTRO := CAR_BNX  - ABO_OTRO - ILIQ_1078 ;                       01216006          
+    GRABASALDO;                                                         01217006          
+    IF ERROR_BASE = 0 THEN                                              01217106          
+    BEGIN                                                               01217206          
+       NUMMOV:= 1;                                                      01218006          
+       CAR_BNX  := * * 100;                                             01219006          
+       ABO_BNX  := * * 100;                                             01220006          
+       ILIQ_1078:= * * 100;                                             01221006          
+       DIF_BNX  := * * 100;                                             01222006          
+       CAR_OTRO := * * 100;                                             01223006          
+       ABO_OTRO := * * 100;                                             01224006          
+       ILIQ_2129:= * * 100;                                             01225006          
+       DIF_OTRO := * * 100;                                             01226006          
+       BCOORI2  := BCOPRO;                                              01226106          
+       BCOPRO2  := BCOORI;                                              01226206          
+       REP_DATOS;                                                       01227006          
+    END                                                                 01227016          
+    ELSE                                                                01227106          
+       ACTSDO := ERROR_BASE;                                            01227206          
+                                                                        01229006          
+ END OF ACTSDO;                                                         01230006          
+                                                                        01231006          
+%===========================================================            01232006          
+% PROCEDIMIENTO DE CARGA DE TOTALES, ESTE PROCEDIMIENTO    =            01233006          
+% CONSIDERA REINCIO DE APLICACION O INICIO DE APLICACION.  =            01234006          
+%                                                          =            01235006          
+% EN INICIO: SE ACCESA EL ULTIMO REGISTRO GRABADO CON FECHA=            01236006          
+%            HABIL ANTERIOR Y SE RESTA EL REGISTRO PREVIO  =            01237006          
+%            Y SE CARGAN TOTALES A MEMORIA.                =            01238006          
+% EN REINICIO : SE LOCALIZA EL ULTIMO REGISTRO Y SI LA     =            01239006          
+%               AUTORIZACION ES MAYOR A CERO SE CARGAN     =            01240006          
+%               TOTALES A MEMORIA                          =            01241006          
+%===========================================================            01242006          
+                                                                        01243006          
+ PROCEDURE INICIA;                                                      01244006          
+                                                                        01245006          
+ BEGIN                                                                  01246006          
+    INTEGER FECHA_ANT;                                                  01247006          
+                                                                        01248006          
+    DOUBLE  LCAR_BNX , LABO_BNX ,                                       01249006          
+            LCAR_OTRO, LABO_OTRO,                                       01250006          
+            LDIF_BNX , LDIF_OTRO;                                       01253206          
+  INTEGER PROCEDURE FIND_LAST;                                          01254006          
+                                                                        01255006          
+  BEGIN                                                                 01256006          
+     INTEGER ERR_FLAST;                                                 01257006          
+                                                                        01257016          
+     LCAR_BNX := 0;                                                     01257026          
+     LABO_BNX := 0;                                                     01257036          
+     LCAR_OTRO:= 0;                                                     01257046          
+     LABO_OTRO:= 0;                                                     01257056          
+                                                                        01257106          
+     ERR_FLAST := 0;                                                    01258006          
+     FIND LAST B14SXCONOPE AT                                           01259006          
+               B14-CON-CSI      = CSI        AND                        01260006          
+               B14-CON-FCHCON   = FECHA_ANT  AND                        01261006          
+               B14-CON-SISTEMA  = SISTEMA    AND                        01262006          
+               B14-CON-MONEDA   = MONEDA     AND                        01262106          
+               B14-CON-ORIBNM   = BCOORI     AND                        01263006          
+               B14-CON-DESOTR   = BCOPRO     AND                        01264006          
+               B14-CON-ORIOTR   = BCOPRO     AND                        01264106          
+               B14-CON-DESBNM   = BCOORI     :DMERR;                    01264206          
+     IF BOOLEAN(DMERR) THEN                                             01266006          
+     BEGIN                                                              01266106          
+        IF DMERR.DMERROR = NOTFOUND THEN                                01267006          
+        BEGIN                                                           01268006          
+           LDIF_BNX := 0;                                               01269006          
+           LDIF_OTRO:= 0;                                               01270006          
+           ERR_FLAST:= 1;                                               01273006          
+%          AUT      := -1;                                              01273106          
+        END                                                             01274006          
+        ELSE ERR_FLAST := 5;                                            01274106          
+     END                                                                01274206          
+     ELSE                                                               01275006          
+        GET S151B14CONOPECRUZ(LDIF_BNX := B14-BNM-DIF,                  01276006          
+                              LDIF_OTRO:= B14-OTR-DIF);                 01277006          
+                                                                        01277056          
+     IF LDIF_BNX > 0 THEN                                               01277106          
+        LCAR_OTRO := LDIF_BNX                                           01277156          
+     ELSE                                                               01277206          
+        LABO_OTRO := DABS(LDIF_BNX);                                    01277256          
+                                                                        01277306          
+     IF LDIF_OTRO > 0 THEN                                              01277356          
+        LCAR_BNX  := LDIF_OTRO                                          01277406          
+     ELSE                                                               01277456          
+        LABO_BNX  := DABS(LDIF_OTRO);                                   01277506          
+                                                                        01277606          
+     FIND_LAST := ERR_FLAST;                                            01282006          
+                                                                        01282206          
+  END OF FIND_LAST;                                                     01283006          
+                                                                        01284006          
+%======== INICIA PROGRAMACION PARA PROCEDIMIENTO INICIA =========       01313006          
+ FECHA_ANT := FECHA;                                                    01314006          
+ DFFECDIAANT(FECHA_ANT);                                                01326006          
+ ILIQ_1078  := 0;                                                       01327006          
+ ILIQ_2129  := 0;                                                       01328006          
+ DIF_BNX    := 0;                                                       01328106          
+ DIF_OTRO   := 0;                                                       01328206          
+ IF FIND_LAST = 0 THEN       % BUSCA EL ULTIMO REGISTRO DEL HABIL ANT.  01330006          
+ BEGIN                                                                  01330106          
+    CAR_BNX  := LCAR_BNX;                                               01340006          
+    ABO_BNX  := LABO_BNX;                                               01341006          
+    CAR_OTRO := LCAR_OTRO;                                              01342006          
+    ABO_OTRO := LABO_OTRO;                                              01343006          
+ END                                                                    01344106          
+ ELSE                                                                   01345006          
+ BEGIN                                                                  01346006          
+    CAR_BNX   := 0;                                                     01347006          
+    ABO_BNX   := 0;                                                     01348006          
+    CAR_OTRO  := 0;                                                     01349006          
+    ABO_OTRO  := 0;                                                     01350006          
+ END;                                                                   01351006          
+ END OF INICIA;                                                         01353006          
+                                                                        01354006          
+%===========================================================            01355006          
+% PROCEDIMIENTO PARA BORRAR LOS REGISTROS DEL DATASET      =            01356006          
+% S151B14CONOPECRUZ                                        =            01357006          
+%===========================================================            01358006          
+                                                                        01359006          
+ PROCEDURE BORRASALDOS;                                                 01360006          
+ BEGIN                                                                  01361006          
+ INTEGER FIN_BASE;                                                      01362006          
+    FIN_BASE := 0;                                                      01363006          
+    LOCK FIRST B14SXCONOPE AT                                           01364006          
+               B14-CON-SISTEMA  = SISTEMA    AND                        01365006          
+               B14-CON-FCHCON   = FECHA : DMERR;                        01366006          
+    IF BOOLEAN(DMERR) THEN                                              01367006          
+       FIN_BASE := 1;                                                   01368006          
+                                                                        01369006          
+    WHILE FIN_BASE = 0 DO                                               01370006          
+    BEGIN                                                               01371006          
+       BEGINTRANSACTION NOAUDIT S151B91REINICIO;                        01372006          
+       DELETE S151B14CONOPECRUZ;                                        01373006          
+       LOCK NEXT B14SXCONOPE AT                                         01374006          
+                 B14-CON-SISTEMA  = SISTEMA    AND                      01375006          
+                 B14-CON-FCHCON   = FECHA : DMERR;                      01376006          
+       IF BOOLEAN(DMERR) THEN                                           01377006          
+          FIN_BASE := 1;                                                01378006          
+       ENDTRANSACTION AUDIT S151B91REINICIO;                            01379006          
+    END;                                                                01380006          
+ END OF BORRASALDOS;                                                    01381006          
+                                                                        01382006          
+%===========================================================            01383006          
+% PROCEDIMIENTO PARA BORRAR LOS REGISTROS DEL DATASET      =            01384006          
+% S151B15MOVOPECRUZ                                        =            01385006          
+%===========================================================            01386006          
+                                                                        01387006          
+ PROCEDURE BORRAMOVTOS;                                                 01388006          
+ BEGIN                                                                  01389006          
+  INTEGER FIN_BASE;                                                     01390006          
+    FIN_BASE := 0;                                                      01391006          
+    LOCK FIRST B15SXCONMOV AT                                           01392006          
+               B15-MOV-SISTEMA  =  SISTEMA   AND                        01393006          
+               B15-MOV-FCHCON   =  FECHA : DMERR;                       01394006          
+    IF BOOLEAN(DMERR) THEN                                              01395006          
+       FIN_BASE := 1;                                                   01396006          
+                                                                        01397006          
+    WHILE FIN_BASE = 0  DO                                              01398006          
+    BEGIN                                                               01399006          
+       BEGINTRANSACTION NOAUDIT S151B91REINICIO;                        01400006          
+       DELETE S151B15MOVOPECRUZ;                                        01401006          
+       LOCK NEXT B15SXCONMOV AT                                         01402006          
+                 B15-MOV-SISTEMA  =  SISTEMA   AND                      01403006          
+                 B15-MOV-FCHCON   =  FECHA : DMERR;                     01404006          
+       IF BOOLEAN(DMERR) THEN                                           01405006          
+          FIN_BASE := 1;                                                01406006          
+       ENDTRANSACTION AUDIT S151B91REINICIO;                            01407006          
+    END;                                                                01408006          
+ END OF BORRAMOVTOS;                                                    01409006          
+                                                                        01410006          
+%===========================================================            01411006          
+% PROCEDIMIENTO PARA PASAR LOS DATOS DEL LLAMADO A LAS     =            01412006          
+% VARIABLES DE MEMORIA PARA GRABADO EN BASE.               =            01413006          
+%===========================================================            01414006          
+                                                                        01415006          
+ PROCEDURE VACIA_MEMORIA;                                               01416006          
+ BEGIN                                                                  01417006          
+  INTEGER DSP_FN, DSP_FEC, DSP_CSI, DSP_SIS, DSP_ORI, DSP_DES,          01417026          
+          DSP_MON, DSP_SISCON, DSP_ORICON, DSP_DESCON, DSP_MONCON,      01417046          
+          DSP_HRCON, DSP_SISDET1, DSP_TRA1, DSP_PRO1;                   01417066          
+                                                                        01417086          
+    CAR_BNX  := IDCCARGOS1(DATOSD,1);                                   01418006          
+    CAR_BNX  := * / 100;                                                01419006          
+    ABO_BNX  := IDCABONOS1(DATOSD,1);                                   01420006          
+    ABO_BNX  := * / 100;                                                01421006          
+    CAR_OTRO := IDCCARGOS2(DATOSD,1);                                   01422006          
+    CAR_OTRO := * / 100;                                                01423006          
+    ABO_OTRO := IDCABONOS2(DATOSD,1);                                   01424006          
+    ABO_OTRO := * / 100;                                                01425006          
+    ILIQ_1078:= IDCMOVLIQ1(DATOSD,1);                                   01426006          
+    ILIQ_1078:= * / 100;                                                01427006          
+    ILIQ_2129:= IDCMOVLIQ2(DATOSD,1);                                   01428006          
+    ILIQ_2129:= * / 100;                                                01429006          
+    DIF_BNX  := IDCDIFBCO1(DATOSD,1);                                   01430006          
+    DIF_BNX  := * / 100;                                                01431006          
+    DIF_OTRO := IDCDIFBCO2(DATOSD,1);                                   01432006          
+    DIF_OTRO := * / 100;                                                01433006          
+ END OF VACIA_MEMORIA;                                                  01434006          
+                                                                        01435006          
+%===== INICIA CUERPO DE SALDOS   ==========%                            01436006          
+ RESET(CON_SDO);                                                        01436046          
+ WAIT(ANALIZA);                                                         01436066          
+ IF HAPPENED(BASE_OPEN) THEN % SI LA BASE ESTA ABIERTA                  01436106          
+ BEGIN                                                                  01436206          
+  ERROR := 0;                                                           01438006          
+  TAMANO := SIZE(DATOSE);                                               01439006          
+  REPLACE POINTER(DATOSD) BY DATOSE FOR TAMANO;                         01440006          
+  FUNCION  := IDCFUNCION(DATOSD)    ;                                   01441006          
+  FECHA    := IDCFECHA(DATOSD)      ;                                   01442006          
+  CSI      := IDCCSI(DATOSD)        ;                                   01443006          
+  SISTEMA  := IDCSISTEMA(DATOSD)    ;                                   01444006          
+  BCOORI   := IDCBCOORI(DATOSD)     ;                                   01445006          
+  BCOPRO   := IDCBCODES(DATOSD)     ;                                   01446006          
+  MONEDA   := IDCMONEDA(DATOSD)     ;                                   01447006          
+  MONCON   := IDCMONCON(DATOSD)     ;                                   01448006          
+  BCOCON   := IDCBCOS   (DATOSD)    ;                                   01449006          
+  SISCON   := IDCSISCON (DATOSD)    ;                                   01450006          
+  HORA     := IDCHORACON(DATOSD)    ;                                   01451006          
+  IF BCOORI < 13  AND                                                   01452006          
+     BCOPRO < 13  AND                                                   01452106          
+     MONEDA < 6   THEN                                                  01452206          
+  BEGIN                                                                 01452306          
+    CASE FUNCION OF                                                     01453006          
+    BEGIN                                                               01454006          
+       0    : BEGIN                                                     01455006          
+               IF INICIO_MONEDA[BCOORI, BCOPRO, MONEDA] = 0 THEN        01455106          
+               BEGIN                                                    01455206          
+                  INICIA ;        % RESTA EL REG ANT. AL ULTIMO REG.    01468006          
+                  GRABASALDO;                                           01468206          
+                  INICIO_MONEDA[BCOORI, BCOPRO, MONEDA] := 1;           01468306          
+                  NUMMOV := 1;                                          01468406          
+                  BCOORI2 := BCOPRO;                                    01468426          
+                  BCOPRO2 := BCOORI;                                    01468446          
+                  ILIQ_1078:= 0;                                        01468448          
+                  ILIQ_2129:= 0;                                        01468450          
+                  DIF_BNX  := 0;                                        01468452          
+                  DIF_OTRO := 0;                                        01468454          
+                  TOTCAR_BNX[BCOORI, BCOPRO, MONEDA] := * + CAR_BNX;    01468456          
+                  TOTABO_BNX[BCOORI, BCOPRO, MONEDA] := * + ABO_BNX;    01468466          
+                  TOTCAR_BNC[BCOPRO, BCOORI, MONEDA] := * + CAR_OTRO;   01468476          
+                  TOTABO_BNC[BCOPRO, BCOORI, MONEDA] := * + ABO_OTRO;   01468478          
+                                                                        01468479          
+                  INICAR_BNX[BCOORI, BCOPRO, MONEDA] := CAR_BNX;        01468480          
+                  INIABO_BNX[BCOORI, BCOPRO, MONEDA] := ABO_BNX;        01468481          
+                  INICAR_BNC[BCOPRO, BCOORI, MONEDA] := CAR_OTRO;       01468482          
+                  INIABO_BNC[BCOPRO, BCOORI, MONEDA] := ABO_OTRO;       01468483          
+                                                                        01468488          
+                  CAR_BNX := * * 100;                                   01468490          
+                  ABO_BNX := * * 100;                                   01468492          
+                  CAR_OTRO:= * * 100;                                   01468494          
+                  ABO_OTRO:= * * 100;                                   01468496          
+                                                                        01468501          
+                  REP_DATOS;                                            01468506          
+                                                                        01468606          
+                  CAR_BNX := 0;                                         01468706          
+                  ABO_BNX := 0;                                         01468806          
+                  CAR_OTRO:= 0;                                         01468906          
+                  ABO_OTRO:= 0;                                         01469006          
+               END                                                      01474106          
+               ELSE                                                     01474206          
+                 ERR_SDO := 9;                                          01474211          
+              END;                                                      01475006          
+       1    : ERR_SDO := CONSDO;                                        01476006          
+       2    : IF INICIO_MONEDA[BCOORI, BCOPRO, MONEDA] = 1 THEN         01477006          
+                 ERR_SDO := ACTSDO     % GRABA EN BASE LOS TOTALES      01477106          
+              ELSE                     % CALCULADOS EN EL ARCHIVO       01477206          
+                 ERR_SDO := 10;                                         01477306          
+                                                                        01490006          
+       6    : BEGIN                                                     01494006          
+                 BORRASALDOS;          % BORRA SALDOS                   01496006          
+                 BORRAMOVTOS;          % BORRA LOS MOVIMIENTOS          01497006          
+              END;                                                      01498006          
+       7    : BEGIN                                                     01499006          
+                 WAIT(SUMA);                                            01499013          
+                 BCOORI := 1;                                           01499016          
+                 WHILE BCOORI < 13  DO                                  01499026          
+                 BEGIN                                                  01499036          
+                    BCOPRO := 1;                                        01499046          
+                    WHILE BCOPRO < 13  DO                               01499056          
+                    BEGIN                                               01499066          
+                       MONEDA := 1;                                     01499076          
+                       WHILE MONEDA < 6   DO                            01499086          
+                       BEGIN                                            01499096          
+                          IF TOTCAR_BNX[BCOORI,BCOPRO,MONEDA] > 0 OR    01499116          
+                             TOTABO_BNX[BCOORI,BCOPRO,MONEDA] > 0 OR    01499126          
+                             TOTCAR_BNC[BCOPRO,BCOORI,MONEDA] > 0 OR    01499136          
+                             TOTABO_BNC[BCOPRO,BCOORI,MONEDA] > 0 THEN  01499146          
+                             BEGIN                                      01499246          
+                                HH := TIME(7).[23:6];                   01499390          
+                                MM := TIME(7).[17:06];                  01499396          
+                                DD := TIME(7).[11:06];                  01499397          
+                                HORA := DD + MM*100 + HH*10000;         01499398          
+                                ERR_SDO := ACTSDO; % GRABA LOS TOTALES  01503006          
+                             END;                                       01503011          
+                          MONEDA := * + 1;                              01503016          
+                       END;                                             01503026          
+                       BCOPRO := * + 1                                  01503036          
+                    END;                                                01503046          
+                    BCOORI := * + 1;                                    01503056          
+                 END;                                                   01503066          
+                 CLOSE(LOG1);        % EN LA BASE DE SALDOS Y CIERRA    01504006          
+                 CLOSE S151BD02ADSALDO:DMERR; % EL ARCHIVO Y LA BASE    01505006          
+              END;                                                      01509006          
+       ELSE : ERR_SDO := 1;                                             01510006          
+    END;                                                                01511006          
+  END                                                                   01511016          
+  ELSE                                                                  01511026          
+     ERR_SDO := 7;                  % VALORES INVALIDOS PARA BANCOS Y/O 01511036          
+ END                                % MONEDA                            01511106          
+ ELSE                                                                   01511206          
+    ERR_SDO := 5;                   % BASE DE DATOS NO DISPONIBLE       01511306          
+ REPLACE DATOSE BY POINTER(DATOSD) FOR TAMANO;                          01512006          
+ CAUSE(CON_SDO);                                                        01513006          
+ SALDOS := ERR_SDO;                                                     01514006          
+ END OF SALDOS ;                                                        01515006          
+                                                                        01516006          
+ INTEGER PROCEDURE BASE(DATOSB);                                        01517006          
+ EBCDIC ARRAY DATOSB[*];                                                01518006          
+ BEGIN                                                                  01519006          
+ DEFINE IDBFUNCION (A) = INTEGER(POINTER(A,4)  ,2)#;                    01520006          
+ ARRAY DATOSD[0:65];                                                    01521006          
+ INTEGER FUN_BASE, ERR_BASE, TAMANO ;                                   01522006          
+                                                                        01523006          
+ INTEGER PROCEDURE CIERRA_BASE;                                         01524006          
+ BEGIN                                                                  01525006          
+    INTEGER ERR_OPEN;                                                   01526006          
+    ERR_OPEN := 0;                                                      01527006          
+    RESET(BASE_OPEN);                                                   01528006          
+    WAIT(SUMA);                                                         01528106          
+    WAIT(CON_SDO);                                                      01529006          
+    WAIT(CON_MOV);                                                      01530006          
+    WAIT(ANALIZA);                                                      01530106          
+    CLOSE S151BD02ADSALDO : DMERR;                                      01531006          
+    IF BOOLEAN(DMERR) THEN                                              01532006          
+    BEGIN                                                               01533006          
+       ERR_OPEN := 5;                                                   01534006          
+       ERRORDB;                                                         01535006          
+       RESET(BASE_OPEN);                                                01536006          
+    END                                                                 01537006          
+    ELSE                                                                01538006          
+       CAUSE(BASE_OPEN);                                                01539006          
+    CIERRA_BASE := ERR_OPEN;                                            01540006          
+ END OF CIERRA_BASE;                                                    01541006          
+                                                                        01542006          
+ INTEGER PROCEDURE OPEN_BASE;                                           01543006          
+                                                                        01544006          
+ BEGIN                                                                  01545006          
+    INTEGER ERR_CLOSE ;                                                 01546006          
+    ERR_CLOSE := 0;                                                     01547006          
+    RESET(BASE_OPEN);                                                   01548006          
+    OPEN S151BD02ADSALDO : DMERR;                                       01551006          
+    IF BOOLEAN(DMERR) THEN                                              01552006          
+    BEGIN                                                               01553006          
+       ERR_CLOSE := 5;                                                  01554006          
+       ERRORDB;                                                         01555006          
+    END                                                                 01557006          
+    ELSE                                                                01557106          
+       CAUSE(BASE_OPEN);                                                01557206          
+    OPEN_BASE := ERR_CLOSE;                                             01558006          
+ END OF OPEN_BASE;                                                      01559006          
+                                                                        01560006          
+%==== BLOCK DE CONTROL ENTRY-POINT BASE =======                         01561006          
+ ERR_BASE := 0;                                                         01562006          
+ TAMANO := SIZE(DATOSB);                                                01563006          
+ REPLACE POINTER(DATOSD) BY DATOSB FOR TAMANO;                          01564006          
+ FUN_BASE := IDBFUNCION (DATOSD);                                       01565006          
+ CASE FUN_BASE OF                                                       01566006          
+ BEGIN                                                                  01567006          
+    0    : ERR_BASE := OPEN_BASE;                                       01568006          
+    1    : ERR_BASE := CIERRA_BASE;                                     01569006          
+    ELSE : ERR_BASE := 1;                                               01570006          
+ END ;                                                                  01571006          
+ BASE := ERR_BASE;                                                      01572006          
+                                                                        01573006          
+END OF BASE;                                                            01574006          
+                                                                        01575006          
+INTEGER PROCEDURE MOVIMIENTOS(DATOSM);                                  01576006          
+                                                                        01577006          
+EBCDIC ARRAY DATOSM[*];                                                 01578006          
+BEGIN                                                                   01579006          
+   DEFINE IDFMFUNCION(A) =INTEGER(POINTER(A,4),      2)#,               01580006          
+          IDFMFECHA  (A) =INTEGER(POINTER(A,4) +  2, 8)#,               01581006          
+          IDFMCSI    (A) =INTEGER(POINTER(A,4) + 10, 2)#,               01582006          
+          IDFMSISTEMA(A) =INTEGER(POINTER(A,4) + 12, 4)#,               01583006          
+          IDFMBCOORI (A) =INTEGER(POINTER(A,4) + 16, 3)#,               01584006          
+          IDFMBCODES (A) =INTEGER(POINTER(A,4) + 19, 3)#,               01585006          
+          IDFMMONEDA (A) =INTEGER(POINTER(A,4) + 22, 4)#,               01586006          
+          IDFMSISCON (A) =INTEGER(POINTER(A,4) + 26, 4)#,               01587006          
+          IDFMBCOSCON(A) =INTEGER(POINTER(A,4) + 30, 6)#,               01588006          
+          IDFMMONCON (A) =INTEGER(POINTER(A,4) + 36, 4)#,               01589006          
+          IDFMHRCON  (A) =INTEGER(POINTER(A,4) + 40, 6)#,               01589106          
+          IDFMNUMCSI (A,N) =INTEGER(POINTER(A,4) + (46 + (N-1)*46), 2)#,01590006          
+          IDFMNUMSIS (A,N) =INTEGER(POINTER(A,4) + (48 + (N-1)*46), 4)#,01591006          
+          IDFMBCOTRA (A,N) =INTEGER(POINTER(A,4) + (52 + (N-1)*46), 3)#,01592006          
+          IDFMBCOPRO (A,N) =INTEGER(POINTER(A,4) + (55 + (N-1)*46), 3)#,01593006          
+          IDFMIMPORTE(A,N) =DOUBLE (POINTER(A,4) + (58 + (N-1)*46),16)#,01594006          
+          IDFMHORA   (A,N) =INTEGER(POINTER(A,4) + (74 + (N-1)*46), 6)#,01595006          
+          IDFMFECMAQ (A,N) =INTEGER(POINTER(A,4) + (80 + (N-1)*46), 8)#,01596006          
+          IDFMCVETRA (A,N) =INTEGER(POINTER(A,4) + (88 + (N-1)*46), 4)#,01596106          
+           DFMFUNCION(A) =POINTER(A,4)     #,                           01597006          
+           DFMFECHA  (A) =POINTER(A,4) +  2#,                           01598006          
+           DFMCSI    (A) =POINTER(A,4) + 10#,                           01599006          
+           DFMSISTEMA(A) =POINTER(A,4) + 12#,                           01600006          
+           DFMBCOORI (A) =POINTER(A,4) + 16#,                           01601006          
+           DFMBCODES (A) =POINTER(A,4) + 19#,                           01602006          
+           DFMMONEDA (A) =POINTER(A,4) + 22#,                           01603006          
+           DFMSISCON (A) =POINTER(A,4) + 26#,                           01604006          
+           DFMBCOSCON(A) =POINTER(A,4) + 30#,                           01605006          
+           DFMMONCON (A) =POINTER(A,4) + 36#,                           01606006          
+           DFMHRCON  (A) =POINTER(A,4) + 40#,                           01606106          
+           DFMNUMCSI (A,N) =POINTER(A,4) + (46 + (N-1)*46)#,            01607006          
+           DFMNUMSIS (A,N) =POINTER(A,4) + (48 + (N-1)*46)#,            01608006          
+           DFMBCOTRA (A,N) =POINTER(A,4) + (52 + (N-1)*46)#,            01609006          
+           DFMBCOPRO (A,N) =POINTER(A,4) + (55 + (N-1)*46)#,            01610006          
+           DFMIMPORTE(A,N) =POINTER(A,4) + (58 + (N-1)*46)#,            01611006          
+           DFMHORA   (A,N) =POINTER(A,4) + (74 + (N-1)*46)#,            01612006          
+           DFMFECMAQ (A,N) =POINTER(A,4) + (80 + (N-1)*46)#,            01613006          
+           DFMCVETRA (A,N) =POINTER(A,4) + (88 + (N-1)*46)#;            01613106          
+  INTEGER ERR_MOV,                                                      01614006          
+          CSIMOV, FECMOV, SISMOV, MONMOV, BORIMOV, BDESMOV,             01615006          
+          HORA  , FMAQ  , CVE,    NMOV,   BUSCA;                        01616006          
+                                                                        01617006          
+  DOUBLE IMP ;                                                          01618006          
+                                                                        01619006          
+  ARRAY DATOMOV[0:65];                                                  01620006          
+                                                                        01621006          
+  INTEGER PROCEDURE FF_MOV;                                             01622006          
+                                                                        01623006          
+  BEGIN                                                                 01624006          
+     INTEGER ERR_FF_MOV;                                                01625006          
+     ERR_FF_MOV := 0;                                                   01626006          
+     FIND FIRST B15SXCONMOV AT                                          01627006          
+                B15-MOV-CSI      =  CSIMOV      AND                     01628006          
+                B15-MOV-FCHCON   =  FECMOV      AND                     01629006          
+                B15-MOV-SISTEMA  =  SISMOV      AND                     01630006          
+                B15-MOV-MONEDA   =  MONMOV      AND                     01631006          
+                B15-MOV-BCOORI   =  BORIMOV     AND                     01632006          
+                B15-MOV-BCODES   =  BDESMOV     AND                     01633006          
+                B15-MOV-HHMMSS   >  HORA        : DMERR;                01633106          
+     IF BOOLEAN(DMERR) THEN                                             01634006          
+        IF DMERR.DMERROR = NOTFOUND THEN                                01634106          
+           ERR_FF_MOV := 3                                              01634206          
+        ELSE                                                            01634306          
+           ERR_FF_MOV := 5;                                             01635006          
+     FF_MOV := ERR_FF_MOV;                                              01635106          
+  END OF FF_MOV;                                                        01636006          
+                                                                        01637006          
+  INTEGER PROCEDURE FN_MOV;                                             01638006          
+                                                                        01639006          
+  BEGIN                                                                 01640006          
+     INTEGER ERR_FN_MOV;                                                01641006          
+     ERR_FN_MOV := 0;                                                   01642006          
+     FIND NEXT B15SXCONMOV AT                                           01643006          
+               B15-MOV-CSI      =  CSIMOV      AND                      01644006          
+               B15-MOV-FCHCON   =  FECMOV      AND                      01645006          
+               B15-MOV-SISTEMA  =  SISMOV      AND                      01646006          
+               B15-MOV-MONEDA   =  MONMOV      AND                      01647006          
+               B15-MOV-BCOORI   =  BORIMOV     AND                      01648006          
+               B15-MOV-BCODES   =  BDESMOV     AND                      01649006          
+               B15-MOV-HHMMSS   >  HORA        :DMERR;                  01649106          
+     IF BOOLEAN(DMERR) THEN                                             01650006          
+        IF DMERR.DMERROR = NOTFOUND THEN                                01650106          
+           ERR_FN_MOV := 1                                              01650206          
+        ELSE                                                            01650306          
+           ERR_FN_MOV := 5;                                             01651006          
+                                                                        01651106          
+     FN_MOV := ERR_FN_MOV;                                              01651206          
+                                                                        01651306          
+  END OF FN_MOV;                                                        01652006          
+                                                                        01653006          
+  PROCEDURE GET_DATOS;                                                  01654006          
+  BEGIN                                                                 01655006          
+     GET S151B15MOVOPECRUZ( HORA := B15-MOV-HHMMSS ,                    01656006          
+                            FMAQ := B15-MOV-FCHMAQ ,                    01657006          
+                            CVE  := B15-MOV-CVETRA ,                    01658006          
+                            IMP  := B15-MOV-IMPMOV);                    01659006          
+     IMP := * * 100;                                                    01659056          
+  END OF GET_DATOS;                                                     01660006          
+                                                                        01661006          
+  PROCEDURE REEMPLAZA_DATOS;                                            01662006          
+  BEGIN                                                                 01663006          
+     REPLACE DFMNUMCSI(DATOMOV, NMOV)   BY CSIMOV  FOR  2 DIGITS,       01664006          
+                                           SISMOV  FOR  4 DIGITS,       01665006          
+                                           BORIMOV FOR  3 DIGITS,       01666006          
+                                           BDESMOV FOR  3 DIGITS,       01667006          
+                                           IMP     FOR 16 DIGITS,       01668006          
+                                           HORA    FOR  6 DIGITS,       01669006          
+                                           FMAQ    FOR  8 DIGITS,       01670006          
+                                           CVE     FOR  4 DIGITS;       01670106          
+  END OF REEMPLAZA_DATOS;                                               01671006          
+%===============================================================        01671106          
+%       INICIA PROCEDIMIENTO DE MOVIMIENTOS                    =        01671206          
+%===============================================================        01671306          
+ IF HAPPENED(BASE_OPEN) THEN                                            01671406          
+ BEGIN                                                                  01671506          
+    RESET(CON_MOV);                                                     01672006          
+    REPLACE POINTER(DATOMOV) BY DATOSM FOR SIZE(DATOSM);                01673006          
+    BUSCA         := 0;                                                 01673106          
+    CSIMOV        := IDFMCSI(DATOMOV)    ;                              01675006          
+    FECMOV        := IDFMFECHA(DATOMOV)  ;                              01676006          
+    SISMOV        := IDFMSISTEMA(DATOMOV);                              01677006          
+    MONMOV        := IDFMMONEDA(DATOMOV) ;                              01678006          
+    BORIMOV       := IDFMBCOORI(DATOMOV) ;                              01679006          
+    BDESMOV       := IDFMBCODES(DATOMOV) ;                              01680006          
+    HORA          := IDFMHRCON (DATOMOV) ;                              01680106          
+    NMOV          := 1;                                                 01681006          
+    BUSCA := ERR_MOV := FF_MOV;                                         01682006          
+    WHILE NMOV < 15 AND BUSCA = 0 DO                                    01683006          
+    BEGIN                                                               01684006          
+       GET_DATOS;                                                       01685006          
+       REEMPLAZA_DATOS;                                                 01686006          
+       BUSCA   := FN_MOV;                                               01687006          
+       NMOV := * + 1;                                                   01688006          
+    END;                                                                01689006          
+    IF BUSCA = 1 THEN                                                   01689106          
+    BEGIN                                                               01689206          
+       ERR_MOV := 0;                                                    01689306          
+       HORA    := 0;                                                    01689406          
+    END                                                                 01689506          
+    ELSE                                                                01689556          
+       ERR_MOV := BUSCA;                                                01689606          
+                                                                        01689656          
+    REPLACE DFMSISCON(DATOMOV)         BY SISMOV  FOR  4 DIGITS,        01689706          
+                                          BORIMOV FOR  3 DIGITS,        01689806          
+                                          BDESMOV FOR  3 DIGITS,        01689906          
+                                          MONMOV  FOR  4 DIGITS,        01690006          
+                                          HORA    FOR  6 DIGITS;        01690106          
+                                                                        01690206          
+ END                                                                    01691106          
+ ELSE                                                                   01691206          
+    ERR_MOV := 5;                                                       01691306          
+                                                                        01691406          
+ REPLACE DATOSM BY POINTER(DATOMOV) FOR SIZE(DATOSM);                   01691506          
+ CAUSE(CON_MOV);                                                        01692006          
+ MOVIMIENTOS := ERR_MOV;                                                01693006          
+ END OF MOVIMIENTOS;                                                    01694006          
+                                                                        01695006          
+                                                                        01696006          
+%============================================================           01697006          
+%       INICIA PROCEDIMIENTO DE CONTROL                     =           01698006          
+%============================================================           01699006          
+ PROCEDURE PROC_CONTROL;                                                01700006          
+ BEGIN                                                                  01701006          
+   INTEGER EVENTO, NUM_HI;                                              01702006          
+   EBCDIC ARRAY DAT_CONTROL[0:11];                                      01703006          
+                                                                        01704006          
+   NUM_HI := 0;                                                         01705006          
+   WHILE MYSELF.LIBRARYUSERS > 0 DO                                     01706006          
+   BEGIN                                                                01707006          
+      EVENTO := WAITANDRESET((30), MYSELF.EXCEPTIONEVENT);              01708006          
+      CASE EVENTO OF                                                    01709006          
+      BEGIN                                                             01710006          
+         1    : IF NOT HAPPENED(ANALIZA) THEN                           01711006          
+                                                                        01711026          
+                ELSE                                                    01711046          
+                BEGIN                                                   01711056          
+                   WAIT(SUMA);                                          01711096          
+                   ANALIZA_FUNCION;                                     01711206          
+                   CLOSE(LOG1,LOCK);                                    01711356          
+                END;                                                    01711406          
+         2    : BEGIN                                                   01712006          
+                   NUM_HI := MYSELF.TASKVALUE;                          01713006          
+                   RESET(MYSELF.EXCEPTIONEVENT);                        01714006          
+                   CASE NUM_HI OF                                       01715006          
+                   BEGIN                                                01716006          
+                        1    : BEGIN    % ABRE BASE S151BD02ADSALDO     01717006          
+                                  IF NOT HAPPENED(BASE_OPEN) THEN       01717106          
+                                  BEGIN                                 01717206          
+                                     REPLACE INTERNO BY 00 FOR 2 DIGITS;01718006          
+                                     BASE(INTERNO);                     01719006          
+                                  END;                                  01719106          
+                               END;                                     01720006          
+                        2    : BEGIN    % CIERRA BASE S151BD02ADSALDO   01721006          
+                                  IF HAPPENED(BASE_OPEN) THEN           01721106          
+                                  BEGIN                                 01721206          
+                                     REPLACE INTERNO BY 01 FOR 2 DIGITS;01722006          
+                                     BASE(INTERNO);                     01723006          
+                                  END;                                  01723106          
+                               END;                                     01724006          
+                        3    : CLOSE(LOG1,LOCK); %CIERRA ARCHIVO DE MOVS01725006          
+                        4    : IF MYSELF.LIBRARYUSERS = 0 THEN          01725106          
+                                  MYSELF.STATUS := VALUE(GOINGAWAY);    01725206          
+                        6    : BEGIN    % GRABA TOTALES DE ARCHIVO      01730006          
+                                  REPLACE INTERNO BY 48"00"             01730206          
+                                                  FOR SIZE(INTERNO);    01730306          
+                                  REPLACE POINTER(LLAMADO,4) BY         01733006          
+                                          06        FOR 2 DIGITS,       01734006          
+                                          FECPROC   FOR 8 DIGITS,       01735006          
+                                          CSI_LIB   FOR 2 DIGITS,       01735106          
+                                          0500      FOR 4 DIGITS;       01735206          
+                                  REPLACE INTERNO BY LLAMADO            01735306          
+                                                  FOR 16;               01735406          
+                                  SALDOS(INTERNO);                      01737006          
+                               END;                                     01738006          
+                       10    : BEGIN    % DESPLIEGA NIVELES DE ACT.     01739006          
+                                  REPLACE MSGLJ BY " " FOR SIZE(MSGLJ); 01740006          
+                                  REPLACE MSGLJ BY HDRMSG,"I>020901< ", 01741006          
+                                          "L006 FECHA ",                01742006          
+                                          FECPROC FOR 8 DIGITS,         01743006          
+                                          " NIVEL ",                    01744006          
+                                          AUT FOR 8 DIGITS;             01745006          
+                                  LJ(CONLJ,MSGLJ);                      01746006          
+                               END;                                     01747006          
+                      113    : CAUSE(ANALIZA);                          01747106          
+                      115    : CAUSE(SUMA);                             01747206          
+                      118    : CAUSE(CON_SDO);                          01747306          
+                      121    : CAUSE(CON_MOV);                          01747406          
+                      124    : RESET(ANALIZA);                          01747506          
+                      127    : RESET(SUMA);                             01747606          
+                      130    : RESET(CON_SDO);                          01747706          
+                      133    : RESET(CON_MOV);                          01747806          
+                        ELSE :                                          01748006          
+                   END;                                                 01749006          
+                   EVENTO := 0;                                         01750006          
+                END;                                                    01751006          
+         ELSE :    ;                                                    01752006          
+      END ;                                                             01753006          
+   END;                                                                 01754006          
+   MYSELF.STATUS := VALUE(GOINGAWAY);                                   01755006          
+ END OF PROC_CONTROL;                                                   01756006          
+                                                                        01757006          
+%************************************************************           01758006          
+% OUTER BLOCK                                                           01759006          
+%************************************************************           01760006          
+  EXPORT SALDOS,                                                        01761006          
+         MOVIMIENTOS,                                                   01762006          
+         BASE;                                                          01763006          
+  LEVANTA;                                                              01764006          
+  CAUSE(CON_SDO);                                                       01766006          
+  CAUSE(CON_MOV);                                                       01767006          
+  CAUSE(ANALIZA);                                                       01768006          
+  FREEZE(CONTROL,PROC_CONTROL);                                         01769006          
+ END.                                                                   01770006          
