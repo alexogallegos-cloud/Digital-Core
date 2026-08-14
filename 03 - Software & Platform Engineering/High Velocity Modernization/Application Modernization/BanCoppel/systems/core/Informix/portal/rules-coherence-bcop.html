@@ -126,11 +126,12 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
 <!-- HERO -->
 <div class="hero">
-  <div class="eyebrow"><span class="dot"></span>Semantic Coherence · Metodología 8 señales</div>
+  <div class="eyebrow"><span class="dot"></span>Semantic Coherence · Metodología 11 señales</div>
   <h1>Rules vs. Code</h1>
   <p class="sub">Solapamiento token-by-token entre <code>business_name</code> y ±8 líneas de contexto SPL.
   Propagación de constantes · contexto unificado para reglas compuestas · normalización de acentos ·
   extracción de condición IF para CÓDIGO_RETORNO · swarm de expertos CNBV+GAT y LTOSF+CAT ·
+  swarm 4 agentes DT MEDIUM: 755 programático + 148 bdicheq + 221 multi-dominio + 189 bdicred/bdicont = 1,313 enrichments ·
   21 sub-tipos derivados empíricamente.</p>
 
   <div class="kpi-row">
@@ -173,7 +174,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
 <!-- SECTION 1 — METODOLOGÍA 8 SEÑALES -->
 <section id="s-method">
-  <div class="sh"><h2>Metodología de identificación</h2><span class="shsub">del fragmento SPL a la intención de negocio · 8 señales</span></div>
+  <div class="sh"><h2>Metodología de identificación</h2><span class="shsub">del fragmento SPL a la intención de negocio · 11 señales</span></div>
   <div class="sig-grid">
 
     <div class="sig-card glass">
@@ -228,8 +229,29 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="sig-card glass">
       <div class="sig-num" style="color:var(--cmp)">S8</div>
       <div class="sig-title">Swarm de expertos dominio</div>
-      <div class="sig-body">Fórmulas financieras con label regulatorio genérico se envían a agentes expertos (CNBV+GAT, LTOSF+CAT). Cada agente produce un enriched_name específico por patrón de código. 769 reglas enriquecidas.</div>
-      <div class="sig-ex">CNBV+GAT: 232 patrones → TIR, sobretasa, interés diario, GAT<br>LTOSF+CAT: 99 patrones → comisión por-mil, IVA, min/max<br>LOW: 738 → 40 (−94.6%)</div>
+      <div class="sig-body">Fórmulas financieras con label regulatorio genérico se envían a agentes expertos (CNBV+GAT, LTOSF+CAT). Cada agente produce un enriched_name específico por patrón de código. 769 reglas enriquecidas. Las 40 restantes resueltas por enriquecimiento manual dirigido por código fuente.</div>
+      <div class="sig-ex">CNBV+GAT: 232 patrones → TIR, sobretasa, interés diario, GAT<br>LTOSF+CAT: 99 patrones → comisión por-mil, IVA, min/max<br>LOW: 738 → 40 → 0 (−100%)</div>
+    </div>
+
+    <div class="sig-card glass">
+      <div class="sig-num" style="color:var(--low)">S9</div>
+      <div class="sig-title">Inversión de signo × -1 — doble semántica</div>
+      <div class="sig-body">El <code>× -1</code> tiene dos usos: <strong>polaridad contable</strong> (saldo debe→haber, bdicheq) y <strong>valor absoluto en aritmética de fechas</strong> (días transcurridos negativos cuando la fecha de pago ya pasó). En migración: transformer de presentación vs. <code>Math.abs()</code> + lógica de ciclo.</div>
+      <div class="sig-ex">vsdo_ret × -1 → inversión debe/haber (bdicheq)<br>iDiastranscurridos × -1 → fecha pago anterior a hoy<br>&nbsp;&nbsp;→ sp_obtienefechapago: próximo ciclo pago crédito</div>
+    </div>
+
+    <div class="sig-card glass">
+      <div class="sig-num" style="color:var(--med)">S10</div>
+      <div class="sig-title">Bloque comentado /* */ — falso positivo del brain-builder</div>
+      <div class="sig-body">El brain-builder captura líneas dentro de bloques <code>/* ... */</code> como reglas de negocio. Síntoma diagnóstico: la línea de código termina con <code>*/</code>. Son código muerto — candidatas a reclasificar como <code>clase = INACTIVO</code> y excluir del inventario de migración.</div>
+      <div class="sig-ex">BR-V2-6771: cTimEdoCiv = dtFechSol - cEdoCiv::INTEGER units MONTH;*/<br>→ código alternativo comentado (DSB, 01/10/2013)<br>→ NO es regla activa de negocio</div>
+    </div>
+
+    <div class="sig-card glass">
+      <div class="sig-num" style="color:var(--gen)">S11</div>
+      <div class="sig-title">Algoritmo dígito verificador — Luhn mod-10</div>
+      <div class="sig-body">Patrón <code>digito × peso</code> dentro de <code>FOR</code>, seguido de <code>MOD(suma, 10)</code>. Implementa Luhn (BTS, sp_validabts) y CLABE/CCC (sp_validadv). No son reglas de negocio — son validaciones de integridad de dato replicadas. En migración: un único <code>DigitVerifier.validate()</code> reemplaza los tres SPs.</div>
+      <div class="sig-ex">iAux = iValorDigito × iNoPeso (peso 2 par / 1 impar)<br>IF iAux > 9: suma dígitos del resultado<br>MOD(iSuma, 10) → dígito esperado vs. capturado (BTS / CLABE CCC)</div>
     </div>
 
   </div>
@@ -243,7 +265,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="ih">Hallazgo principal</div>
     <p><strong>CÓDIGO_RETORNO: 95% HIGH, 0% LOW</strong> — la extracción de condición IF (S7) resolvió el gap completo. Cada código de retorno lleva la condición que lo dispara: '600' → vestado='P' (cheque pagado), '110' → parámetros nulos, '1001' → excepción sistema.</p>
     <p><strong>EXCEPCIÓN: 95% HIGH, 2% LOW</strong> — S7 extendido: los 15 RAISE EXCEPTION genéricos ("Lanzar error: código") ahora llevan la condición IF que los dispara. Patrón dominante: cCodRetSp &lt; 0 (propagación error sub-SP). Excepción notable: "p_fecha_tc IS NULL OR p_empresa IS NULL" (validación parámetros obligatorios).</p>
-    <p><strong>CÁLCULO_ARITMÉTICO: 76% HIGH, 2% LOW</strong> — el swarm de expertos CNBV+GAT y LTOSF+CAT (S8) redujo el LOW de 35% a 2%. Las 40 reglas restantes son genuinamente ambiguas: nombres abstractos sin variables que hagan match semántico — candidatas a enriquecimiento manual o validación con equipo BanCoppel.</p>
+    <p><strong>CÁLCULO_ARITMÉTICO: 84% HIGH, 0% LOW</strong> — S8 (swarm CNBV+GAT, LTOSF+CAT) cerró los LOW. Swarm MEDIUM 4 agentes elevó HIGH de 79% a 84%: Agent 1 (bdicred+bdicont) — cuota francesa PMT, CNBV B-5 PI, ratio SIC, reserva pesos 30.42; Agent 2 (bdicheq) — GAT, ISR, saldo promedio, tipo de cambio; Agent 3 (bdinvers+bdinteg+23 dominios) — provisión diaria pagaré, ISR IPAB, scoring AML PLD, escala cifras CNBV; Agent 4 (programático) — 755 automáticas + 54 manuales CNBV/GAT/ISR/CAT. Total: 1,313 enrichments.</p>
+    <p><strong>CÁLCULO_INVERSIÓN: 0% LOW</strong> — señal S9 (inversión de signo × -1): dos patrones identificados: polaridad contable debe/haber (sdo_ret × -1, bdicheq) y valor absoluto en aritmética de fechas (días transcurridos < 0 → negado para ciclo pago crédito, sp_obtienefechapago_creditos).</p>
+    <p><strong>Señales emergentes (S12-S15, observación metodológica)</strong> — detect-shared-formulas.py identificó 59 fórmulas compartidas cross-SP en 391 reglas: función logística PI CNBV B-5 (8 SPs, bdicred), ISR base 360 con retención (12 SPs), fórmula anualidad PMT (7 SPs), redondeo bancario entero para Coppel (15 SPs), acumulador saldo×días (7 SPs). En migración: cada cluster es candidato de extracción a servicio compartido. Señal: tokens de metadatos no deben agregarse a business_name — solo tokens que existen en código SPL.</p>
   </div>
 </section>
 

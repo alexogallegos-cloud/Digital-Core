@@ -274,13 +274,119 @@ El campo `cross_sp_replica_id` (por implementar en brain.db) agrupará estas ré
 
 ---
 
+## Señal 7 — Condición IF como semántica de retorno y excepción
+
+### Principio
+
+Un `CÓDIGO_RETORNO` o `EXCEPCIÓN` sin contexto visible tiene su significado en la condición IF que lo dispara, típicamente en las ±30 líneas anteriores. El extractor backward-IF (`find_trigger_condition()` en `enrich-return-codes.py`) busca hacia atrás el primer IF/ELIF/ELSE y extrae la condición como parte del business_name.
+
+### Patrón
+```
+-- backward-IF context: IF v_estado = 'P'
+LET cCodRet = '600'   →   "código 600 — cheque pagado (vestado='P')"
+```
+
+**Resultado:** CÓDIGO_RETORNO: 95% HIGH (desde <70%). EXCEPCIÓN: 95% HIGH. La condición IF es la semántica principal, no el número de código.
+
+---
+
+## Señal 8 — Swarm de expertos dominio para fórmulas CNBV/fiscal
+
+### Principio
+
+Fórmulas financieras con label genérico ("Calcular X") se envían a agentes expertos por dominio (CNBV+GAT, LTOSF+CAT, bdicheq, bdinvers, bdicred, multi-dominio). Cada agente produce un `enriched_name` específico con tokens del código fuente (no metadatos en español).
+
+**Regla crítica de coherencia:** los tokens añadidos al business_name deben existir en el código SPL. Tokens de metadatos en español (e.g. "centavos", "compartida", "pesos") que no están en el código REDUCEN el score de coherencia.
+
+**Resultado swarm MEDIUM (4 agentes · 2026-08-13):**
+- Agent 1 (bdicred+bdicont): 189 enrichments — cuota francesa PMT, CNBV B-5 PI, reserva pesos 30.42
+- Agent 2 (bdicheq): 148 enrichments — GAT, ISR, saldo promedio, tipo de cambio
+- Agent 3 (bdinvers+bdinteg+23 dominios): 221 enrichments — provisión diaria pagaré, ISR IPAB, scoring AML PLD
+- Agent 4 (programático): 755 enrichments — 701 automáticas + 54 manuales CNBV/GAT/ISR/CAT
+- **Total: 1,313 enrichments. HIGH MEDIUM: de 79% a 84.4%.**
+
+---
+
+## Señal 9 — Inversión de signo × -1: doble semántica contable
+
+### Principio
+
+`LET var = var * -1` tiene dos significados distintos en BanCoppel:
+
+1. **Polaridad contable debe→haber**: `sdo_ret * -1` en bdicheq — convierte saldo positivo a negativo para presentar como débito en extracto.
+2. **Valor absoluto en aritmética de fechas**: `iDiastranscurridos = iDiastranscurridos * -1` en `sp_obtienefechapago_creditos` — cuando la fecha de pago del ciclo ya pasó, el resultado de la resta es negativo; `* -1` convierte a valor absoluto para comparar contra umbral de días (≥8 → avanzar mes).
+
+**Regla de discriminación:** el contexto de la variable objetivo (tipo MONEY/INTEGER + dominio bdicheq vs. bdicred) distingue el caso. En migración: transformer de presentación (caso 1) vs. `Math.abs()` + lógica de ciclo (caso 2).
+
+---
+
+## Señal 10 — Bloque comentado /* */ — falso positivo del brain-builder
+
+### Principio
+
+El brain-builder captura líneas dentro de bloques `/* ... */` como reglas de negocio activas. Síntoma diagnóstico: el código de la regla termina con `*/`. Estas son reglas de código muerto (código desactivado, no borrado). En migración: clasificar como `clase = INACTIVO` y excluir del inventario activo.
+
+**Ejemplo confirmado:** BR-V2-6771 en bdicred, código termina en `*/`. El nombre le asignó coherencia baja hasta que el análisis de código fuente confirmó que era dead code comentado.
+
+---
+
+## Señal 11 — Algoritmo dígito verificador: Luhn mod-10
+
+### Principio
+
+El patrón `digito × peso (1 ó 2)` dentro de un bucle FOR, acumulado en `iSuma` y verificado con `MOD(iSuma, 10)`, implementa el algoritmo de Luhn. BanCoppel lo usa en tres contextos:
+- **BTS** (11 dígitos, posiciones 4-10): `sp_validabts` — número de confirmación de pago
+- **CLABE** (18 dígitos): `sp_validadv` — Clave Bancaria Estandarizada  
+- **CCC** (11 dígitos): `sp_validadv` — Clave de Cliente Coppel
+
+En migración: un único `DigitVerifier.validateLuhn(number, positions)` reemplaza los tres SPs. No son reglas de negocio — son validaciones de integridad de dato.
+
+---
+
+## Señales emergentes S12–S15 (observaciones del swarm, 2026-08-13)
+
+Estas señales fueron observadas durante el swarm de enriquecimiento MEDIUM pero no implementadas como cambios en brain.db, ya que no pasan la regla de S8: sus tokens de semántica no aparecen en el código SPL de la regla individual.
+
+### S12 — Fórmula canónica compartida cross-SP → candidato de extracción
+
+`detect-shared-formulas.py` normaliza la RHS de asignaciones de cálculo y agrupa por fingerprint. Con umbral ≥3 SPs y ≥3 tokens VAR, encontró 59 fórmulas compartidas en 391 reglas:
+
+| Fórmula (normalizada) | SPs | Capacidad a extraer |
+|----------------------|-----|---------------------|
+| `(VAR * (VAR/100)) * VAR / VAR` | 19 | ISR retención sobre base IPAB |
+| `(VAR * (VAR/100) * VAR) / 360` | 16 | Interés diario base 360 |
+| `((NVL(VAR,0) + VAR/2) / VAR)::SMALLINT` | 15 | Redondeo bancario entero Coppel |
+| `TRUNC(((VAR/100) * VAR) / VAR, 6)` | 12 | ISR 6 decimales retención |
+| `1/(1 + EXP(coefs + VAR * coefs + ...))` | 8 | PI logística CNBV B-5 |
+| `VAR / (POW(1+VAR, -VAR) ...)` | 7 | Anualidad PMT (pago mensual crédito) |
+| `(VAR + VAR) / VAR` | 7 | Provisión diaria pagaré (vprovdia) |
+
+**En migración:** cada cluster es candidato a un único servicio compartido. El número de clusters (59) es la lista de extracción de lógica financiera transversal, independiente del número de SPs.
+
+### S13 — Centavos÷100 en archivos de medios de pago
+
+`importe::MONEY / 100` en bditarjeta: archivos INTERCARD y MasterCard almacenan montos en centavos (INTEGER). La conversión `::MONEY / 100` es una conversión de unidad, no aritmética genérica. En migración: el adapter de medio de pago debe declarar la unidad canónica (pesos vs. centavos) en su boundary.
+
+Afecta ~12 SPs en bditarjeta. El token `MONEY` sí aparece en el código y mejora coherencia cuando el business_name lo incluye.
+
+### S14 — Función logística PI CNBV B-5 (probabilidad de incumplimiento)
+
+`dPI = 1/(1 + EXP(β₀ + β₁×iACT + β₂×iHIST + β₃×dPorUt ...))` — modelo regulatorio CNBV CUB B-5 para cartera de consumo. Los parámetros `2.1859`, `0.7864`, `0.3978` son los coeficientes del modelo. Aparece en 8 SPs de bdicred. Ya enriquecido por el swarm con tokens del código fuente (`dPI`, `iACT`, `iHIST`, `gencartconsumo`).
+
+### S15 — Acumulador saldo ponderado × días (base de saldo promedio)
+
+`vgacum_sdo_pos = vgacum_sdo_pos + vgsdo_actual * pdias` — acumulador de saldo positivo ponderado por días, base del cálculo de intereses y GAT. Aparece en 7 SPs de bdicheq (cierre_diario, cierre_mensual). Ya enriquecido por el swarm con tokens `sdo_pos`, `pdias`, `cierre`.
+
+---
+
 ## Relación con otros artefactos
 
 - **Notación húngara SPL**: [notacion-hungara-spl.md](../vocabulary/notacion-hungara-spl.md) — señales 4 y 5 (tipo declarado, CamelCase, constantes)
 - **Coherence check**: `generators/validate-rules-vs-code.py` — implementa señales 3, 4 y 5
 - **Compound grouper**: `generators/group-compound-rules.py` — implementa señal 3
+- **Detector de fórmulas compartidas**: `generators/detect-shared-formulas.py` — implementa señal S12 (sólo reporte, no modifica brain.db)
 - **Catálogo de reglas**: `business-rules-bcop.md` — output enriquecido aplicando esta metodología
 
 ---
 
-*v1.0 · 2026-08-13 · DT-Reglas · Metodología de 5 señales para identificación de reglas de negocio en código SPL legacy.*
+*v2.0 · 2026-08-13 · DT-Reglas · Metodología ampliada a 11 señales implementadas + S12-S15 emergentes. Swarm MEDIUM: 1,313 enrichments. HIGH final: 84.4% (5,123 / 6,067). LOW: 0.*
