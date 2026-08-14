@@ -542,6 +542,41 @@ Antes de cualquier decommission de un sistema legacy (ej: apagar PISA/Informix),
 
 ---
 
+## Reglas de Vocabulario Empresarial (Reglas V)
+
+> Complementan las Reglas de Brains (B1-B12). Mientras las Reglas B gobiernan la **estructura y federación** del conocimiento, las Reglas V gobiernan el **lenguaje** con que ese conocimiento se nombra y se conecta entre sistemas.
+
+### Regla V1 — Vocabulario Empresarial como Semilla Cross-Sistema
+
+El vocabulario del `bank-brain` (`knowledge-base/vocab/vocab-bancoppel-v{N}.json`) es el **lexicón canónico del programa**. Todo pipeline de extracción de vocabulario en cualquier sistema del programa — sin importar el lenguaje (SPL, ABAP, Java, COBOL, PL/SQL, T-SQL, JavaScript) ni el contexto (core bancario, canales digitales, integración, datos, compliance) — debe:
+
+1. **Cargar el vocabulario empresarial como capa de referencia** antes de nombrar reglas, journeys o capacidades del sistema analizado.
+2. **Cruzar los términos extraídos** contra el vocabulario empresarial en tres categorías:
+   - **Confirmar**: mismo término, mismo significado — el sistema valida el término empresarial.
+   - **Enriquecer**: término existente, contexto nuevo — añadir al `meaning` del banco.
+   - **Proponer**: término no existe — candidato para la versión N+1 del vocabulario.
+3. **Nombrar reglas y journeys con términos del vocabulario empresarial** — nunca con nombres de variables internas, prefijos de lenguaje, o nombres de campos de tabla. El `business_name` de una regla se construye con términos que el banco reconoce, no con artefactos del sistema origen.
+
+**Consecuencia práctica**: cuando Apolo tiene un SP que calcula crédito disponible, el extractor no inventa un nombre — cruza contra el vocabulario, encuentra `crédito` (enterprise · ENTIDAD · nivel ALTA) y `disponible` (enterprise · ESTADO), y produce "Crédito disponible" como `business_name`. El mismo término, en cualquier sistema del programa.
+
+**Evolución**: el vocabulario empresarial crece con cada sistema analizado. Cada sistema es un **contribuidor**; el `bank-brain` es la **autoridad**. La versión del vocabulario sube cuando se incorporan y curan los términos propuestos por un nuevo sistema.
+
+| Rol | Entidad | Acción |
+|-----|---------|--------|
+| Autoridad | `bank-brain/knowledge-base/vocab/vocab-bancoppel-v{N}.json` | Define el término canónico; resuelve conflictos entre sistemas |
+| Contribuidor | `{sistema}/knowledge-base/vocab/` | Extrae términos del sistema; cruza contra el banco; propone nuevos |
+| Pipeline | `{sistema}/generators/build-vocab-*.py` | Carga vocabulario empresarial como referencia; emite términos nuevos como propuestas |
+
+### Regla V2 — Resolución de Conflictos de Vocabulario
+
+Cuando dos sistemas usan el mismo término con significados distintos, o términos distintos para el mismo concepto:
+
+1. El `bank-brain` documenta el conflicto en `knowledge-base/vocab/conflicts-v{N}.json`.
+2. La resolución la decide el **Industry Banking SME** (o el SME de dominio correspondiente) — no el agente técnico del sistema.
+3. El término ganador pasa al vocabulario con `est: "resolved"` y referencia a ambos sistemas. El término perdedor pasa a `scope: "system"` en el sistema origen y `maturity: "deprecated"` en el banco.
+
+---
+
 ## SLOs canónicos
 
 - SLO-AM-01: Equivalence drift < 0.05% sostenido en parallel-run.
