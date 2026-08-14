@@ -299,10 +299,11 @@ def main():
     print(f'Rules to check: {total}  '
           f'(compound rules: {len(rule_to_group)}, groups: {len(compound_groups)})')
 
-    by_level  = defaultdict(int)
-    by_tipo   = defaultdict(lambda: defaultdict(int))
-    low_rules = []
-    all_scores = []
+    by_level    = defaultdict(int)
+    by_tipo     = defaultdict(lambda: defaultdict(int))
+    low_rules   = []
+    medium_rules = []
+    all_scores  = []
 
     for i, (rule_id, sp_id, db, line, code, biz, tipo, sub_tipo, cg_id) in enumerate(rows):
         if i % 1000 == 0:
@@ -361,6 +362,8 @@ def main():
         }
         if level == 'LOW':
             low_rules.append(entry)
+        elif level == 'MEDIUM':
+            medium_rules.append(entry)
 
     # Summary
     avg_score = sum(all_scores) / len(all_scores) if all_scores else 0
@@ -377,6 +380,7 @@ def main():
         print(f'    {r["id"]} {r["sp"]} [{r["tipo"]}] score={r["score"]} biz="{r["business_name"][:50]}"')
         print(f'      name_tokens={r["name_tokens"]} matched={r["matched"]}')
 
+    medium_sorted = sorted(medium_rules, key=lambda r: r['score'])
     report = {
         'generated': '2026-08-13',
         'total': total,
@@ -384,6 +388,7 @@ def main():
         'by_level': dict(by_level),
         'by_tipo':  {t: dict(v) for t, v in by_tipo.items()},
         'low_rules': low_rules_sorted[:200],
+        'medium_rules': medium_sorted,
     }
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
