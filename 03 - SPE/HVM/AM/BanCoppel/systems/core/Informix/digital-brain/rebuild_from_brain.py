@@ -76,6 +76,7 @@ for row in rows:
         'c':  code or '',
         'e':  '',       # explanation (campo manual)
         'cl': clase or '',
+        'k':  [],       # risk keys (campo manual, se preserva si existe)
         'gi': 0,        # se recalcula abajo
         'gc': 1,        # se recalcula abajo
     })
@@ -96,6 +97,7 @@ for r in portal_rules:
 by_tipo  = Counter(r['t']  for r in portal_rules)
 by_clase = Counter(r['cl'] for r in portal_rules)
 n_negocio = by_clase.get('NEGOCIO', 0)
+domains_list = sorted({r['d'] for r in portal_rules if r['d']})
 
 # Preservar campos manuales del JSON existente (e, he, vr, bc, k, ex, rn)
 MANUAL_FIELDS = ('e', 'he', 'vr', 'bc', 'k', 'ex', 'rn')
@@ -120,6 +122,7 @@ meta = {
     'n_groups': len(name_to_gi),
     'by_tipo': dict(by_tipo),
     'by_clase': dict(by_clase),
+    'domains': domains_list,
 }
 out = {'meta': meta, 'rules': portal_rules}
 PDATA.write_text(json.dumps(out, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
