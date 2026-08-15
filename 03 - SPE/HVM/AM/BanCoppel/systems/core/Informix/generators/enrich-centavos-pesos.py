@@ -89,13 +89,12 @@ def main():
         m = LET_VAR_PAT.match((code or "").strip())
         var_name = m.group(1) if m else None
 
-        new_bn = build_new_name(business_name or "", var_name)
+        # ADR-SPE-AM-010: solo sub_tipo; business_name lo genera la síntesis LLM
         cur.execute(
-            "UPDATE rules SET sub_tipo='CONVERSIÓN_UNIDAD', business_name=? WHERE id=?",
-            (new_bn, rid),
+            "UPDATE rules SET sub_tipo='CONVERSIÓN_UNIDAD' WHERE id=?",
+            (rid,),
         )
         print(f"  [{sp}] {(code or '')[:70]}")
-        print(f"    → {new_bn[:80]}")
         updates += 1
 
     con.commit()
