@@ -158,6 +158,364 @@ def asigna_clase(tipo: str, context: str) -> str:
         return "NEGOCIO"
     return "INFRAESTRUCTURA"
 
+# ── Vocabulario para síntesis funcional ──────────────────────────────────────
+
+# Fragmentos de field names camelCase → término en español de negocio
+# Se aplica palabra por palabra tras dividir camelCase
+_FIELD_TERMS: dict = {
+    # Montos y valores financieros
+    "amount": "monto", "ammount": "monto",
+    "balance": "saldo", "saldo": "saldo",
+    "importe": "importe", "capital": "capital",
+    "cuota": "cuota", "comision": "comisión",
+    "tasa": "tasa", "interes": "interés",
+    "mora": "mora", "rendimiento": "rendimiento",
+    "deuda": "deuda", "cargo": "cargo",
+    # Cuentas
+    "account": "cuenta", "accounts": "cuentas",
+    "cuenta": "cuenta", "cuentas": "cuentas",
+    "debit": "débito", "credit": "crédito",
+    "savings": "ahorro", "checking": "cheques",
+    "number": "número", "numbers": "números",
+    # Identificadores
+    "clabe": "CLABE", "rfc": "RFC", "curp": "CURP",
+    "id": "identificador", "folio": "folio",
+    "reference": "referencia", "uuid": "UUID",
+    "token": "token", "code": "código",
+    # Personas y entidades
+    "beneficiary": "beneficiario", "beneficiaries": "beneficiarios",
+    "customer": "cliente", "clients": "clientes",
+    "name": "nombre", "lastname": "apellido",
+    "company": "empresa", "branch": "sucursal",
+    "email": "correo electrónico",
+    # Operaciones
+    "payment": "pago", "transfer": "transferencia",
+    "withdrawal": "retiro", "deposit": "depósito",
+    "loan": "préstamo", "salary": "nómina",
+    "advance": "anticipo", "investment": "inversión",
+    "invest": "inversión", "promissory": "pagaré",
+    "envelope": "sobre digital", "amortization": "amortización",
+    "agreement": "contrato",
+    "open": "apertura", "opening": "apertura",
+    "activate": "activación", "confirm": "confirmación",
+    "register": "registro", "request": "solicitud",
+    "validate": "validación", "validation": "validación",
+    "send": "envío", "receive": "recepción",
+    "cancel": "cancelación", "reversion": "reversión",
+    "operation": "operación", "operations": "operaciones",
+    "transaction": "transacción", "transactions": "transacciones",
+    "movement": "movimiento", "movements": "movimientos",
+    "detail": "detalle", "details": "detalles",
+    "summary": "resumen", "offer": "oferta",
+    # Canales y dispositivos
+    "channel": "canal", "device": "dispositivo",
+    "phone": "teléfono", "cellphone": "teléfono",
+    "interbank": "interbancario", "intrabank": "intrabancario",
+    "card": "tarjeta", "cards": "tarjetas",
+    "cardless": "sin tarjeta",
+    "atm": "cajero automático",
+    "frequent": "frecuente",
+    "direct": "directo",
+    # Regulatorios y seguridad
+    "spei": "SPEI", "codi": "CoDi",
+    "nip": "NIP", "pin": "PIN", "cvv": "CVV",
+    "otp": "OTP", "biometric": "biométrico",
+    "enrollment": "enrolamiento",
+    "session": "sesión", "auth": "autenticación",
+    "black": "lista", "list": "lista",
+    "unusual": "inusual",
+    # Datos de persona
+    "birthdate": "fecha de nacimiento", "date": "fecha",
+    "address": "dirección", "street": "calle",
+    "neighborhood": "colonia", "neighborhoodcode": "código de colonia",
+    "city": "ciudad", "zip": "código postal",
+    "type": "tipo", "status": "estatus",
+    # Crédito
+    "limit": "límite", "available": "disponible",
+    "kit": "kit", "delivery": "entrega",
+    "upgrade": "mejora de producto", "level": "nivel",
+    "captureline": "línea de captura",
+    "debit": "domiciliación",
+    # Mensajería
+    "messaging": "mensajería", "notification": "notificación",
+    "push": "notificación push",
+    # Datos bancarios
+    "catalog": "catálogo", "banks": "bancos", "bank": "banco",
+    "intercard": "intercard",
+    "proposition": "propuesta", "offer": "oferta",
+}
+
+# Excepción Java → consecuencia funcional de negocio en español
+_EXC_MEANING: dict = {
+    "BadRequestException":            "solicitud inválida",
+    "UnauthorizedException":          "acceso no autorizado",
+    "ExecuteSplException":            "error al ejecutar procedimiento en core bancario",
+    "TimeoutException":               "tiempo de espera excedido",
+    "DownstreamException":            "servicio externo no disponible",
+    "DatabaseTimeoutException":       "tiempo de espera en base de datos",
+    "ExecuteSplTimeoutException":     "tiempo de espera en core bancario",
+    "DataNotFoundException":          "información no encontrada",
+    "NoResourceFoundException":       "recurso no encontrado",
+    "NotValidHeadersException":       "cabeceras de canal inválidas",
+    "CheckHeadersException":          "validación de cabeceras del canal fallida",
+    "ConstraintViolationException":   "restricción de negocio no cumplida",
+    "MethodArgumentNotValidException":"parámetros de operación inválidos",
+    "MicroserviceClientException":    "error en microservicio dependiente",
+    "CircuitBreakerException":        "circuit breaker activo",
+}
+
+# Fragmento del nombre de MSA → contexto de negocio en español
+_MSA_CTX: dict = {
+    "codi":        "CoDi",
+    "spei":        "SPEI",
+    "interbank":   "transferencia interbancaria",
+    "intrabank":   "transferencia intrabancaria",
+    "transfer":    "transferencia",
+    "payment":     "pago",
+    "card":        "tarjeta",
+    "cardless":    "retiro sin tarjeta",
+    "loan":        "préstamo",
+    "salary":      "anticipo de nómina",
+    "deposit":     "cuenta de depósito",
+    "credit":      "crédito",
+    "invest":      "inversión",
+    "promissory":  "pagaré",
+    "envelope":    "sobre digital",
+    "benefici":    "beneficiario",
+    "enrollment":  "enrolamiento",
+    "session":     "sesión del cliente",
+    "atm":         "cajero automático",
+    "frequent":    "cuentas frecuentes",
+    "debit":       "domiciliación",
+    "amortiz":     "amortización",
+    "agreement":   "contrato",
+    "cvv":         "CVV dinámico",
+    "otp":         "OTP",
+    "customer":    "datos del cliente",
+    "biometric":   "identidad biométrica",
+    "black":       "listas negras",
+    "unusual":     "operaciones inusuales",
+    "remittance":  "remesa",
+    "captureline": "línea de captura",
+    "services":    "pago de servicios",
+    "opening":     "apertura de cuenta",
+    "activation":  "activación de tarjeta",
+    "upgrade":     "mejora de producto",
+}
+
+
+def _split_camel(s: str) -> list:
+    """Divide camelCase / PascalCase en lista de palabras en minúsculas."""
+    s = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", s)
+    s = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1 \2", s)
+    return [w.lower() for w in s.split() if w]
+
+
+def _field_to_es(field: str) -> str:
+    """
+    Traduce un nombre de campo camelCase a descripción en español de negocio.
+    Intenta bigramas antes de palabras sueltas para capturar 'accountNumber',
+    'debitAccount', 'companyNumber', etc.
+    """
+    words = _split_camel(field)
+    result = []
+    i = 0
+    while i < len(words):
+        if i + 1 < len(words):
+            bigram = words[i] + words[i + 1]
+            if bigram in _FIELD_TERMS:
+                result.append(_FIELD_TERMS[bigram])
+                i += 2
+                continue
+        result.append(_FIELD_TERMS.get(words[i], words[i]))
+        i += 1
+    return " ".join(result) if result else field
+
+
+def _msa_ctx(repo: str) -> str:
+    """Extrae el contexto de negocio del nombre del repositorio MSA."""
+    # Quita prefijo msa??-?-{layer}-
+    clean = re.sub(
+        r"^msa[a-z]{2}-[a-z]-"
+        r"(?:business|domain|security|platform|service|serv|"
+        r"utility|orchestration|middleware|integration|b|d|p|o|s|m|u|i)-?",
+        "", repo,
+    )
+    parts = clean.split("-")
+    for part in parts:
+        for key, label in _MSA_CTX.items():
+            if part.startswith(key):
+                return label
+    return ""
+
+
+# ── Descripción funcional de la regla (síntesis en extracción, sin LLM) ──────
+
+def gen_descripcion(
+    tipo: str, sub_tipo: str, code: str, ctx: str = "", repo: str = ""
+) -> str:
+    """
+    Genera una descripción funcional de negocio en el momento de la extracción.
+    Usa vocabulario de dominio, traducción de camelCase y contexto del MSA para
+    producir texto legible sin depender de LLM.
+
+    business_name sigue siendo null (ADR-SPE-AM-010 — síntesis LLM posterior).
+    """
+    s = (code or "").strip()
+    c = (ctx or s)
+    biz = _msa_ctx(repo)
+
+    # ── VALIDACIÓN ────────────────────────────────────────────────────────────
+    if tipo == "VALIDACIÓN":
+        exc = sub_tipo or ""
+        # Lookup case-insensitive para cubrir variantes (TimeoutException / TimeOutException)
+        meaning = next(
+            (v for k, v in _EXC_MEANING.items() if k.lower() == exc.lower()),
+            re.sub(r"([a-z])([A-Z])", r"\1 \2",
+                   re.sub(r"Exception$|Error$", "", exc)).lower().strip() or exc
+        )
+        # Buscar condición if(...) antes del throw en el contexto
+        cond_m = re.search(
+            r"if\s*\((.{5,120}?)\)\s*(?:\{[^}]{0,80}\})?\s*throw",
+            c, re.DOTALL
+        )
+        if cond_m:
+            cond = re.sub(r"\s+", " ", cond_m.group(1)).strip()
+            # Limpiar ruido técnico de la condición
+            cond = re.sub(r"\b[A-Z][a-zA-Z0-9_]+\.", "", cond)   # ClassName.
+            cond = re.sub(r"\(\([^)]+\)\s*", "", cond)           # casts
+            cond = re.sub(r"StringUtils\.|Objects\.|CollectionUtils\.", "", cond)
+            cond = cond.strip()[:80]
+            if cond:
+                return f"{meaning.capitalize()} — condición: {cond}"
+        if biz:
+            return f"{meaning.capitalize()} en operación de {biz}"
+        return meaning.capitalize()
+
+    # ── UMBRAL ────────────────────────────────────────────────────────────────
+    elif tipo == "UMBRAL":
+        # Timeouts vienen de properties: tratar por separado
+        if sub_tipo == "TIMEOUT_OPERATIVO":
+            val_m = re.search(r"=\s*([0-9]+)\s*$", s, re.M)
+            val = val_m.group(1) if val_m else ""
+            op = biz or "operación"
+            return f"Tiempo de espera máximo para {op}: {val} ms" if val \
+                else f"Tiempo de espera máximo para {op}"
+
+        ann_label = {
+            "MIN": "mínimo", "MAX": "máximo",
+            "DECIMALMIN": "mínimo", "DECIMALMAX": "máximo",
+            "SIZE": "tamaño máximo",
+        }.get((sub_tipo or "").upper(), "límite")
+
+        val_m = (
+            re.search(r'"([0-9]+(?:\.[0-9]+)?)"', s) or
+            re.search(r"value\s*=\s*([0-9]+(?:\.[0-9]+)?)", s, re.I) or
+            re.search(r"\(\s*([0-9]+(?:\.[0-9]+)?)\s*[,)]", s) or
+            re.search(r"=\s*([0-9]+(?:\.[0-9]+)?)\s*$", s, re.M)
+        )
+        val = val_m.group(1) if val_m else ""
+
+        field_m = (
+            re.search(r"(?:private|public|protected)\s+\S+\s+(\w+)\s*;", s) or
+            re.search(r"\bBigDecimal\b\s+(\w+)\b", s) or
+            re.search(r"\bString\b\s+(\w+)\s*;", s) or
+            re.search(r"(\w+)\s*;", s)
+        )
+        field_raw = field_m.group(1) if field_m else ""
+        field_es  = _field_to_es(field_raw) if field_raw else ""
+
+        if field_es and val:
+            return f"Valor {ann_label} de {field_es}: {val}"
+        elif field_es:
+            return f"Valor {ann_label} para {field_es}"
+        elif biz:
+            return f"Límite {ann_label} en {biz}"
+        return f"Umbral {ann_label} en DTO"
+
+    # ── ANOTACIÓN ─────────────────────────────────────────────────────────────
+    elif tipo == "ANOTACIÓN":
+        field_m = (
+            re.search(r"(?:private|public|protected)\s+\S+\s+(\w+)\s*;", s) or
+            re.search(r"(\w+)\s*;", s)
+        )
+        raw = field_m.group(1) if field_m else ""
+        field_es = _field_to_es(raw) if raw else ""
+
+        if field_es and biz:
+            return f"{field_es.capitalize()} obligatorio para {biz}"
+        elif field_es:
+            return f"{field_es.capitalize()} obligatorio en la solicitud"
+        return "Campo obligatorio en solicitud"
+
+    # ── CONFIGURACIÓN ─────────────────────────────────────────────────────────
+    elif tipo == "CONFIGURACIÓN":
+        eq = s.find("=")
+        if eq <= 0:
+            return f"Configuración: {s[:70]}"
+        key = s[:eq].strip()
+        val = s[eq + 1:].strip()
+
+        if sub_tipo == "SP_REFERENCIA":
+            # Extraer nombre del SP:
+            # "bdicred:spcobrocredito"          → spcobrocredito
+            # "{call bdicred:sp_xxx(?,?,?)}"     → sp_xxx
+            # "{CALL bdicred:informix.sp_xxx(?)}"→ sp_xxx
+            sp_clean = re.sub(r"^\{CALL\s+|^\{call\s+", "", val, flags=re.I).strip()
+            sp_clean = re.sub(r"\(.*", "", sp_clean).strip()  # quitar parámetros
+            # db:sp_name o db:informix.sp_name
+            m_sp = re.search(r"(?:informix\.)?(\w+)\s*$", sp_clean, re.I)
+            sp_name = m_sp.group(1) if m_sp else sp_clean[:40]
+            return f"Procedimiento Informix invocado: {sp_name}"
+
+        if sub_tipo == "CANAL_VÁLIDO":
+            return f"Canales de acceso permitidos al MSA: {val[:60]}"
+
+        if sub_tipo == "TIMEOUT_OPERATIVO":
+            parts = key.split(".")
+            op = parts[-2] if len(parts) >= 2 else biz or "operación"
+            return f"Tiempo de espera máximo para {op}: {val} ms"
+
+        if sub_tipo == "PARÁMETRO_PAGO":
+            parts = key.split(".")
+            op = _field_to_es(parts[-1]) if parts else key
+            return f"Parámetro de pago — {op}: {val[:50]}"
+
+        if sub_tipo == "CONEXIÓN_BD":
+            # Extraer nombre de BD del JDBC URL
+            db_m = re.search(r"informix/(\w+)", val, re.I) or \
+                   re.search(r"databaseName=(\w+)", val, re.I)
+            db_name = db_m.group(1) if db_m else "Informix"
+            return f"Conexión JDBC al core bancario: {db_name}"
+
+        # PARÁMETRO_OPERATIVO genérico
+        parts = key.split(".")
+        key_short = ".".join(parts[-3:]) if len(parts) > 3 else key
+        return f"Parámetro operativo del canal: {key_short} = {val[:40]}"
+
+    # ── CÓDIGO_ERROR ──────────────────────────────────────────────────────────
+    elif tipo == "CÓDIGO_ERROR":
+        eq = s.find("=")
+        if eq > 0:
+            key = s[:eq].strip()
+            val = s[eq + 1:].strip()[:60]
+            parts = key.split(".")
+            # constants.api.codes.{operacion}.{variante}  →  operacion (variante)
+            # constants.api.codes.sp                      →  sp
+            op_idx = next((i for i, p in enumerate(parts) if p == "codes"), None)
+            if op_idx is not None and op_idx + 1 < len(parts):
+                op_raw  = parts[op_idx + 1]
+                variant = parts[op_idx + 2] if op_idx + 2 < len(parts) else ""
+                op_es   = _field_to_es(op_raw)
+                label   = f"{op_es} / {variant}" if variant else op_es
+            else:
+                label = _field_to_es(parts[-1]) or key
+            return f"Códigos de respuesta Informix — {label}: {val}"
+        return f"Código de error: {s[:60]}"
+
+    return s[:80]
+
+
 # ── Patrones de extracción Java ───────────────────────────────────────────────
 
 # Excepciones de negocio (excluye NPE / ClassCast / puras infra)
@@ -239,20 +597,21 @@ def load_vocab(db_path: Path) -> list:
 
 DDL_RULES = """
 CREATE TABLE IF NOT EXISTS rules (
-    id           TEXT PRIMARY KEY,
-    tipo         TEXT NOT NULL,
-    sp           TEXT,
-    db           TEXT,
-    domain       TEXT,
-    line         INTEGER,
-    code         TEXT,
-    reg          TEXT,
-    riesgo       TEXT,
-    business_name TEXT,
-    clase        TEXT,
-    sub_tipo     TEXT,
-    source_file  TEXT,
-    extracted_at TEXT DEFAULT (datetime('now'))
+    id               TEXT PRIMARY KEY,
+    tipo             TEXT NOT NULL,
+    sp               TEXT,
+    db               TEXT,
+    domain           TEXT,
+    line             INTEGER,
+    code             TEXT,
+    reg              TEXT,
+    riesgo           TEXT,
+    business_name    TEXT,
+    clase            TEXT,
+    sub_tipo         TEXT,
+    source_file      TEXT,
+    descripcion_regla TEXT,
+    extracted_at     TEXT DEFAULT (datetime('now'))
 );
 """
 
@@ -273,6 +632,12 @@ CREATE TABLE IF NOT EXISTS rule_enrichment_log (
 
 def init_rules_table(con: sqlite3.Connection):
     con.executescript(DDL_RULES + DDL_RULE_LOG)
+    # Migración: agregar columna si el brain.db ya existe sin ella
+    try:
+        con.execute("ALTER TABLE rules ADD COLUMN descripcion_regla TEXT")
+        con.commit()
+    except sqlite3.OperationalError:
+        pass  # ya existe
     con.commit()
 
 # ── Extracción de archivos Java ───────────────────────────────────────────────
@@ -336,6 +701,7 @@ def extract_from_java(java_file: Path, repo: str, fin_pat: re.Pattern, verbose: 
             "clase": asigna_clase("VALIDACIÓN", ctx),
             "sub_tipo": exc_name,
             "source_file": str(java_file.relative_to(SOURCE_DIR.parent.parent.parent)),
+            "descripcion_regla": gen_descripcion("VALIDACIÓN", exc_name, code_frag, ctx, repo),
         })
 
     # ── UMBRAL: @Min / @Max / @DecimalMin / @DecimalMax / @Size ──────────────
@@ -359,6 +725,7 @@ def extract_from_java(java_file: Path, repo: str, fin_pat: re.Pattern, verbose: 
             continue
         seen.add(key)
         code_frag = (s + " " + field_line.strip())[:180]
+        sub_t_umbral = m.group(1).upper()
         rid = f"BR-AM-{msa_abbr(repo)}-{i}"
         rules.append({
             "id": rid, "tipo": "UMBRAL",
@@ -367,8 +734,9 @@ def extract_from_java(java_file: Path, repo: str, fin_pat: re.Pattern, verbose: 
             "code": code_frag, "reg": reg, "riesgo": rsk,
             "business_name": None,
             "clase": "NEGOCIO",
-            "sub_tipo": m.group(1).upper(),
+            "sub_tipo": sub_t_umbral,
             "source_file": str(java_file.relative_to(SOURCE_DIR.parent.parent.parent)),
+            "descripcion_regla": gen_descripcion("UMBRAL", sub_t_umbral, code_frag, "", repo),
         })
 
     # ── ANOTACIÓN: @NotNull / @NotBlank / @NotEmpty en campos financieros ────
@@ -399,6 +767,7 @@ def extract_from_java(java_file: Path, repo: str, fin_pat: re.Pattern, verbose: 
                             "clase": "NEGOCIO",
                             "sub_tipo": "CAMPO_OBLIGATORIO",
                             "source_file": str(java_file.relative_to(SOURCE_DIR.parent.parent.parent)),
+                            "descripcion_regla": gen_descripcion("ANOTACIÓN", "CAMPO_OBLIGATORIO", code_frag, "", repo),
                         })
                 break
 
@@ -479,6 +848,7 @@ def extract_from_properties(prop_file: Path, repo: str, verbose: bool) -> list:
             "clase": asigna_clase(tipo_r, ctx),
             "sub_tipo": sub_tipo,
             "source_file": str(prop_file.relative_to(SOURCE_DIR.parent.parent.parent)),
+            "descripcion_regla": gen_descripcion(tipo_r, sub_tipo, ctx[:180], "", repo),
         })
 
     if verbose and rules:
@@ -501,22 +871,24 @@ def load_into_brain(rules: list, db_path: Path, verbose: bool):
         if existing:
             con.execute("""
                 UPDATE rules SET tipo=?,sp=?,db=?,domain=?,line=?,code=?,reg=?,
-                riesgo=?,clase=?,sub_tipo=?,source_file=?,extracted_at=?
+                riesgo=?,clase=?,sub_tipo=?,source_file=?,descripcion_regla=?,
+                extracted_at=?
                 WHERE id=?
             """, (r["tipo"], r["sp"], r["db"], r["domain"], r["line"],
                   r["code"], r["reg"], r["riesgo"], r["clase"],
-                  r["sub_tipo"], r["source_file"], TS_NOW, r["id"]))
+                  r["sub_tipo"], r["source_file"],
+                  r.get("descripcion_regla"), TS_NOW, r["id"]))
             updated += 1
         else:
             con.execute("""
                 INSERT INTO rules
                 (id,tipo,sp,db,domain,line,code,reg,riesgo,business_name,
-                 clase,sub_tipo,source_file,extracted_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                 clase,sub_tipo,source_file,descripcion_regla,extracted_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (r["id"], r["tipo"], r["sp"], r["db"], r["domain"],
                   r["line"], r["code"], r["reg"], r["riesgo"],
                   r["business_name"], r["clase"], r["sub_tipo"],
-                  r["source_file"], TS_NOW))
+                  r["source_file"], r.get("descripcion_regla"), TS_NOW))
             inserted += 1
 
     con.commit()
@@ -533,7 +905,7 @@ def render_catalog(db_path: Path, out_path: Path):
     con = sqlite3.connect(str(db_path))
     rows = con.execute("""
         SELECT id, tipo, sp, domain, line, code, reg, riesgo, business_name,
-               clase, sub_tipo, source_file
+               clase, sub_tipo, source_file, descripcion_regla
         FROM rules
         ORDER BY
             CASE tipo
@@ -603,17 +975,17 @@ def render_catalog(db_path: Path, out_path: Path):
             "",
             f"_{TIPO_DESC.get(tipo, tipo)}_",
             "",
-            "| ID | Clase | Dominio | SP / Clase | Línea | Regulación | Sub-tipo | Código fuente |",
-            "|----|-------|---------|------------|-------|------------|----------|---------------|",
+            "| ID | Descripción de regla | Clase | Dominio | SP / Clase | Línea | Regulación | Sub-tipo |",
+            "|----|----------------------|-------|---------|------------|-------|------------|----------|",
         ]
         for row in group:
-            rid, _, sp, domain, line, code, reg, riesgo, bname, clase, sub_tipo, src = row
-            code_md = (code or "").replace("|", "&#124;").replace("\n", " ")[:80]
+            rid, _, sp, domain, line, code, reg, riesgo, bname, clase, sub_tipo, src, desc = row
+            desc_md = (desc or "").replace("|", "&#124;")[:90]
             reg_md  = (reg or "—").replace("|", "&#124;")[:60]
             sp_md   = (sp or "—").replace("|", "&#124;")[:40]
             lines.append(
-                f"| {rid} | {clase or '—'} | {domain or '—'} | {sp_md} "
-                f"| {line or '—'} | {reg_md} | {sub_tipo or '—'} | `{code_md}` |"
+                f"| {rid} | {desc_md or '—'} | {clase or '—'} | {domain or '—'} | {sp_md} "
+                f"| {line or '—'} | {reg_md} | {sub_tipo or '—'} |"
             )
         lines.append("")
 
@@ -656,7 +1028,7 @@ def render_catalog(db_path: Path, out_path: Path):
 
 # ── Pipeline principal ────────────────────────────────────────────────────────
 
-def run(source_dir: Path, db_path: Path, gen_catalog: bool, verbose: bool):
+def run(source_dir: Path, db_path: Path, gen_catalog: bool, gen_json: bool, verbose: bool):
     if not source_dir.exists():
         print(f"ERROR: directorio de código fuente no encontrado: {source_dir}")
         sys.exit(1)
@@ -745,15 +1117,37 @@ def run(source_dir: Path, db_path: Path, gen_catalog: bool, verbose: bool):
     print(f"\n  Extracción completa. {len(deduped)} reglas en brain.db::rules")
     print(f"  Siguiente paso: swarm de enriquecimiento LLM → business_name (ADR-SPE-AM-010)")
 
+    if gen_json:
+        json_path = db_path.parent.parent / "portal" / "data" / "rules-data.json"
+        export_json(db_path, json_path)
+
+
+def export_json(db_path: Path, out_path: Path):
+    """Exporta brain.db::rules a JSON para el portal HTML (incluye descripcion_regla)."""
+    con = sqlite3.connect(str(db_path))
+    con.row_factory = sqlite3.Row
+    rows = con.execute("""
+        SELECT id, tipo, sp, db, domain, line, code, reg, riesgo,
+               business_name, clase, sub_tipo, source_file, descripcion_regla
+        FROM rules ORDER BY tipo, domain, sp, line
+    """).fetchall()
+    con.close()
+    data = [dict(r) for r in rows]
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"  JSON exportado: {out_path} ({len(data)} reglas)")
+
 
 def main():
     parser = argparse.ArgumentParser(description="Extractor de reglas Java — AppMovil")
-    parser.add_argument("--source", type=Path, default=SOURCE_DIR, help="Directorio source/code")
-    parser.add_argument("--db",     type=Path, default=DB_PATH,    help="Ruta al brain.db")
-    parser.add_argument("--catalog", action="store_true", help="Generar catalogo-reglas-appmovil.md")
-    parser.add_argument("--verbose", action="store_true", help="Output detallado por archivo")
+    parser.add_argument("--source",      type=Path, default=SOURCE_DIR, help="Directorio source/code")
+    parser.add_argument("--db",          type=Path, default=DB_PATH,    help="Ruta al brain.db")
+    parser.add_argument("--catalog",     action="store_true", help="Generar catalogo-reglas-appmovil.md")
+    parser.add_argument("--export-json", action="store_true", help="Exportar portal/data/rules-data.json")
+    parser.add_argument("--verbose",     action="store_true", help="Output detallado por archivo")
     args = parser.parse_args()
-    run(args.source, args.db, args.catalog, args.verbose)
+    run(args.source, args.db, args.catalog, args.export_json, args.verbose)
+
 
 if __name__ == "__main__":
     main()
