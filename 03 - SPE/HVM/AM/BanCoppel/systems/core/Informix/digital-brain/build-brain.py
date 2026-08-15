@@ -728,7 +728,7 @@ def load_rules(conn):
     ''', rows)
 
     # Re-aplicar síntesis LLM desde rule_enrichment_log (persiste entre rebuilds).
-    # Cualquier nombre en el log sobreescribe lo que vino del JSON.
+    # SOLO llena reglas vacías — no sobreescribe nombres buenos que vienen del JSON (Layer B+).
     try:
         log_count = conn.execute("""
             UPDATE rules
@@ -741,7 +741,8 @@ def load_rules(conn):
                 ORDER BY timestamp DESC
                 LIMIT 1
             )
-            WHERE EXISTS (
+            WHERE (rules.business_name IS NULL OR rules.business_name = '')
+              AND EXISTS (
                 SELECT 1 FROM rule_enrichment_log
                 WHERE rule_id = rules.id
                   AND field = 'business_name'
