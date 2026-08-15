@@ -39,27 +39,41 @@ Control-M **no contiene lógica de negocio propia** — la lógica vive en los S
 
 ## Brain — Estado Actual
 
-`digital-brain/brain.db` construido desde fuente real (`source/Cierre ControlM 12082026 (1) (1).xls`):
+`digital-brain/brain.db` construido desde fuente real (`source/Cierre ControlM 12082026 (1) (1).xls`) + enriquecido con 1,789 scripts `.sh` de `source/code/`:
 
 | Tabla | Contenido | Filas |
 |-------|-----------|-------|
 | `jobs` | Catálogo de jobs: nombre, folder, tipo, servidor, sitio, host, usuario, script | 5,052 |
 | `flows` | Procesos batch por folder/carpeta — estadísticas agregadas (OS, AFT, Informix, Unity) | 65 |
-| `sp_hints` | Referencias a SPs de Informix encontradas en nombre o script de jobs | 1,107 |
+| `sp_hints` | Referencias a SPs — desde nombre/script de jobs + contenido real de `.sh` | 1,107 + 109 |
 | `cross_dependencies` | Dependencias cross-sistema (Regla B5 AM) — perspectiva CTM | 4 |
+| `sh_scripts` | Análisis de 1,789 scripts .sh: DBs, SPs, SSH calls, finderr, mail, retcode | 1,789 |
+| `sh_sp_refs` | SP references extraídas de contenido real de scripts (high/medium confidence) | 200 |
 
-### Hallazgos clave (build 2026-08-12)
+### Hallazgos clave (build 2026-08-12 + parse-sh-scripts 2026-08-14)
 
-- **5,052 jobs totales** — 3,859 corren en servidores Informix (`dccsif01`/`dcmsif01`) — 1,243 son AFT (file transfers)
-- **32 jobs Unity** ya en producción — carpeta `USV-UNITY_SMARTVISTA_001` (SmartVista R2/R3 en producción parcial)
-- **1,107 SP hints** — referencias a SPs encontradas en nombres de jobs (ej. `sp_generaredoctaeje_factelect_pag`)
-- **65 flows/carpetas** con dominio Informix mapeado — PRO_JOBS_001 (multi-dominio, 3,042 jobs) es el flujo principal
-- **Dos sitios replicados**: CLN (Culiacán) + MTY (Monterrey) — carpetas `_001` + `_001_MTY`
+- **5,052 jobs totales** — 3,859 en servidores Informix (`dccsif01`/`dcmsif01`) — 1,243 AFT
+- **32 jobs Unity** en producción — `USV-UNITY_SMARTVISTA_001` (SmartVista R2/R3)
+- **65 flows/carpetas** — PRO_JOBS_001 (multi-dominio, 3,042 jobs) es el flujo principal
+- **Dos sitios replicados**: CLN (Culiacán) + MTY (Monterrey)
+- **200 SP refs desde contenido real de scripts**: 107 `execute procedure` (alta confianza) + 93 echo/sql-filename (media confianza)
+- **1,033 scripts con `finderr`** (57.7%) — captura de error Informix presente en la mayoría de los scripts; patrón crítico para equivalencia funcional (el sistema target debe mantener los mismos códigos de retorno)
+- **4 SSH calls al servidor `10.26.214.85`** — todos relacionados con nómina: `Eje_Nom.sh`, `Eje_Nom2.sh`, `Eje_Nom3.sh`, `Eje_NomCopiar.sh` → servidor de nómina externo (Grupo Coppel)
+- **`intercard`** aparece como DB en 6 refs de scripts — sistema de tarjetas no mapeado en D01-D49 (posiblemente SmartVista/BPC en proceso de migración al sistema Unity)
+- **DB más activas en CTM**: `bdicred` (57) · `bdimnsj` (36) · `bdinteg` (24) · `bdicheq` (23)
+- **SP más frecuente**: `sp_chi_notifica_resultados` en `bdimnsj` × 17 scripts — sistema de notificaciones crítico
 
-### DATO-REQUERIDO — pendiente
+### DR-CTM-004 — CERRADO PARCIALMENTE (2026-08-14)
 
-- `DR-CTM-003` parcial: export actual no incluye dependencias job→job (cadena de ejecución) — requiere export adicional desde CTM API o doc de malla
-- `DR-CTM-004` parcial: SP hints extraídos por regex del nombre del job; la columna `Mem Name` en su mayoría contiene scripts `.sh`, no el nombre del SP directamente
+`generators/parse-sh-scripts.py` extrae SP refs desde el contenido real de los 1,789 scripts `.sh`:
+- 107 `execute procedure "informix".{sp_name}()` — confianza alta
+- 93 desde echo messages + nombres de sql files referenciados — confianza media
+- 109 new sp_hints enlazados a jobs por `mem_name`
+- Nota: algunos nombres capturados (`monthadd`, `pasecont`) son funciones built-in de Informix, no SPs custom — distinguibles por ausencia en `brain.db` de Informix
+
+### DR-CTM-003 — aún abierto
+
+Export actual no incluye dependencias job→job (cadena de ejecución dentro de la malla). Requiere export adicional desde CTM API o documento de malla batch.
 
 ---
 
@@ -67,10 +81,11 @@ Control-M **no contiene lógica de negocio propia** — la lógica vive en los S
 
 | Ruta | Tipo | Descripción |
 |------|------|-------------|
-| `source/Cierre ControlM 12082026 (1) (1).xls` | Excel `.xls` | Inventario completo de jobs exportado de BMC Control-M — 5,052 jobs · cargado 2026-08-12 |
+| `source/Cierre ControlM 12082026 (1) (1).xls` | Excel `.xls` | Inventario completo de jobs — 5,052 jobs · cargado 2026-08-12 |
+| `source/code/*.sh` | Shell scripts | 1,789 scripts reales (+ 66 versiones backup `.sh_FECHA`) · cargados 2026-08-14 |
 | `source/docs/` | `.pdf`, `.docx` | Documentación de la malla batch (pendiente) |
-| `source/ops/` | `.json`, `.xml` | Exports directos de la API CTM con dependencias job→job (pendiente) |
+| `source/ops/` | `.json`, `.xml` | Exports CTM API con dependencias job→job (pendiente — DR-CTM-003) |
 
 ---
 
-*Última actualización: 2026-08-12 · v0.2 · Brain construido — 5,052 jobs · 3,859 Informix · 1,107 SP hints · 32 Unity · 65 flows.*
+*Última actualización: 2026-08-14 · v0.3 · Shell scripts analizados — `generators/parse-sh-scripts.py`: 1,789 scripts · 200 SP refs · 1,033 con finderr · 4 SSH calls nomina · intercard descubierta · DR-CTM-004 cerrado parcialmente.*
