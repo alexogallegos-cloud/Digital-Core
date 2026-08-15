@@ -32,6 +32,26 @@ with open(BASE + "portal/bancoppel-logo.png", "rb") as _f:
 v3 = json.load(open(BASE + "portal/data/business-rules-v3.json", encoding="utf-8"))
 rules = v3["rules"]
 
+# brain.db es la fuente autoritativa de business_name (síntesis LLM source_read).
+# Se sobrepone a v3.json para que el portal SIEMPRE refleje los nombres del cerebro,
+# aunque enrich-rules-v3 haya regenerado v3.json con business_name vacío.
+import sqlite3 as _sqlite
+_brain = BASE + "digital-brain/brain.db"
+try:
+    _con = _sqlite.connect(_brain)
+    _bn = {rid: name for rid, name in _con.execute(
+        "SELECT id, business_name FROM rules WHERE business_name IS NOT NULL AND business_name != ''")}
+    _con.close()
+    _overlaid = 0
+    for _r in rules:
+        _n = _bn.get(_r.get("id"))
+        if _n and _n != _r.get("business_name", ""):
+            _r["business_name"] = _n
+            _overlaid += 1
+    print(f"brain.db overlay: {_overlaid} business_name autoritativos desde el cerebro")
+except Exception as _e:
+    print(f"brain.db overlay omitido ({_e}) — usando business_name de v3.json")
+
 RIESGO_KEYS = {"360": "360", "365": "365", "TRUNC": "TRUNC", "ROUND": "ROUND",
                "MONEY": "MONEY", "DIV": "DIV", "IVA": "IVA", "DBACCESS": "DBACCESS"}
 

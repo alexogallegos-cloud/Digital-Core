@@ -13,19 +13,26 @@ Etapa 3 — Business Logic Extraction · Specialist Informix SPL · SPE-AM-001
 import json
 import sys
 import re as _re
+import csv as _csv
 from collections import Counter
+from pathlib import Path
 
-BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
-        "03 - SPE/HVM/AM/BanCoppel/Informix/")
-INV = json.load(open(BASE + "knowledge-base/vocabulary-inventory.json", encoding="utf-8"))
+BASE = Path(__file__).resolve().parent.parent
+INV  = json.load(open(BASE / "knowledge-base" / "vocabulary-inventory.json", encoding="utf-8"))
 
-# ── scope, tipo y mascara autoritativos desde brain.db ──
+# ── scope autoritativo desde brain.db ──
 import sqlite3 as _sq
-_bdb = _sq.connect(BASE + "digital-brain/brain.db")
+_bdb = _sq.connect(str(BASE / "digital-brain" / "brain.db"))
 _SCOPE_DB = {r[0]: r[1] for r in _bdb.execute("SELECT term, scope FROM terms")}
-_TIPO_DB  = {r[0]: (r[1] or "?", r[2] or "?")
-             for r in _bdb.execute("SELECT term, tipo, mascara FROM terms")}
 _bdb.close()
+
+# ── tipo y mascara desde ola-c-tipos-result.csv (Ola C) ──
+_TIPO_DB = {}
+_csv_path = BASE / "generators" / "ola-c-tipos-result.csv"
+if _csv_path.exists():
+    with open(_csv_path, encoding="utf-8") as _f:
+        for _row in _csv.DictReader(_f):
+            _TIPO_DB[_row["term"]] = (_row["tipo"] or "?", _row["mascara"] or "?")
 
 # ── fila unificada para la tabla ──
 rows = []
@@ -82,10 +89,7 @@ for r in rows:
 # con scope '—' son términos confiables sin clasificar, van al Vocabulario principal.
 _EFIM_SCOPE = {'EFIMERA', 'EFIMERA-CALCULO'}
 def _is_efim(r):
-    s = r.get('scope', '—')
-    if s in _EFIM_SCOPE: return True
-    if s == '—' and r.get('tipo') != 'compuesto': return True
-    return False
+    return r.get('scope', '—') in _EFIM_SCOPE
 _EFIM = {'EFIMERA', 'EFIMERA-CALCULO', '—'}  # kept for N_EFIM_DASH calc
 rows_main = [r for r in rows if not _is_efim(r)]
 rows_efim = [r for r in rows if _is_efim(r)]
@@ -1112,7 +1116,7 @@ HTML = (HTML
     .replace("__ERDIAG__",    ERDIAG)
     .replace("__SPS__",       f"{meta['sps']:,}"))
 
-out = BASE + "portal/vocabulary-catalog-bcop.CANDIDATE.html"
+out = BASE / "portal" / "vocabulary-catalog-bcop.CANDIDATE.html"
 open(out, "w", encoding="utf-8").write(HTML)
 print(f"vocabulary-catalog-bcop.CANDIDATE.html escrito · {len(rows)} términos "
       f"({bytipo['atómico']} atómicos · {bytipo['compuesto']} compuestos · {bytipo['candidato']} candidatos) · "

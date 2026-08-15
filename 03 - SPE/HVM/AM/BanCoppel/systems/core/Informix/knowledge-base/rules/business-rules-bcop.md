@@ -1,7 +1,7 @@
 # Informix · Catálogo de Reglas de Negocio — v3.0 (Layer A+)
 
 > **Componente:** Informix · SPE-AM-001 · Etapa 3 — Business Logic Enrichment Layer A+
-> **Generado:** 2026-08-06 · `enrich-rules-v3.py` · 5,979 reglas · 2,673 con nombre natural · 0 con explicación
+> **Generado:** 2026-08-06 · `enrich-rules-v3.py` · 5,979 reglas · 872 con nombre natural · 0 con explicación
 > **Cobertura:** D01-D53 (todos los dominios) · 49 bases de datos activas
 > **Fuente primaria:** `business-rules-v3.json` (v3.0, Layer A+)
 
@@ -17,7 +17,7 @@
 
 | Dimensión | Valor |
 |---|---|
-| Reglas con nombre natural (business_name) | 2,673 |
+| Reglas con nombre natural (business_name) | 872 |
 | Reglas con explicación | 0 |
 | Reglas con riesgo de equivalencia | 539 |
 | Dominios cubiertos | 24 |
@@ -124,25 +124,25 @@
 | BR-V2-0140 |  | `sp_burofisicas_cortos_cnr` | ROUND — validar modo (banker's vs half-up) |
 | BR-V2-0142 |  | `sp_burofisicas_cortos_cnr` | ROUND — validar modo (banker's vs half-up) |
 | BR-V2-0187 |  | `arr_intacum` | base 360 (año comercial) — verificar vs 365 |
-| BR-V2-0189 | Ejecutar comando de sistema | `arr_invcrec_12262009` | base 360 (año comercial) — verificar vs 365 |
-| BR-V2-0190 | Formato de fecha | `arr_pagaint` | base 360 (año comercial) — verificar vs 365 |
-| BR-V2-0201 | Ejecutar comando de sistema | `arrpagoint_18082010` | base 360 (año comercial) — verificar vs 365 |
+| BR-V2-0189 |  | `arr_invcrec_12262009` | base 360 (año comercial) — verificar vs 365 |
+| BR-V2-0190 |  | `arr_pagaint` | base 360 (año comercial) — verificar vs 365 |
+| BR-V2-0201 |  | `arrpagoint_18082010` | base 360 (año comercial) — verificar vs 365 |
 | BR-V2-0215 |  | `calc_int` | base 360 (año comercial) — verificar vs 365 |
 | BR-V2-0218 |  | `calc_interes` | base 360 (año comercial) — verificar vs 365 |
-| BR-V2-0220 | Calcular idpaisnacionalidad: n ÷ a | `calc_isr` | TRUNC — Informix trunca; PostgreSQL puede redondear (divergencia centavos) |
+| BR-V2-0220 |  | `calc_isr` | TRUNC — Informix trunca; PostgreSQL puede redondear (divergencia centavos) |
 | BR-V2-0221 |  | `calc_isr` | TRUNC — Informix trunca; PostgreSQL puede redondear (divergencia centavos) |
 | BR-V2-0222 |  | `calc_isr` | TRUNC — Informix trunca; PostgreSQL puede redondear (divergencia centavos) |
-| BR-V2-0224 | propaga error al ejecutar procedimiento chq crg bitacor | `calc_isr_proy` | TRUNC — Informix trunca; PostgreSQL puede redondear (divergencia centavos) |
-| BR-V2-0225 | propaga error al ejecutar procedimiento pld chq crg xml | `calc_isr_proy` | TRUNC — Informix trunca; PostgreSQL puede redondear (divergencia centavos) |
+| BR-V2-0224 |  | `calc_isr_proy` | TRUNC — Informix trunca; PostgreSQL puede redondear (divergencia centavos) |
+| BR-V2-0225 |  | `calc_isr_proy` | TRUNC — Informix trunca; PostgreSQL puede redondear (divergencia centavos) |
 | BR-V2-0261 |  | `cargo_comisiones_pba` | ROUND — validar modo (banker's vs half-up) |
 | BR-V2-0262 |  | `cargo_comisiones_pba` | TRUNC — Informix trunca; PostgreSQL puede redondear (divergencia centavos) |
-| BR-V2-0265 | propaga error al ejecutar cancela SOE | `cargo_comisiones_per` | ROUND — validar modo (banker's vs half-up) |
-| BR-V2-0266 | propaga error al ejecutar SOE | `cargo_comisiones_per` | TRUNC — Informix trunca; PostgreSQL puede redondear (divergencia centavos) |
-| BR-V2-0269 | propaga error al ejecutar cancela SOE | `cargo_comisiones_per_web` | ROUND — validar modo (banker's vs half-up) |
-| BR-V2-0270 | propaga error al ejecutar SOE | `cargo_comisiones_per_web` | TRUNC — Informix trunca; PostgreSQL puede redondear (divergencia centavos) |
+| BR-V2-0265 |  | `cargo_comisiones_per` | ROUND — validar modo (banker's vs half-up) |
+| BR-V2-0266 |  | `cargo_comisiones_per` | TRUNC — Informix trunca; PostgreSQL puede redondear (divergencia centavos) |
+| BR-V2-0269 |  | `cargo_comisiones_per_web` | ROUND — validar modo (banker's vs half-up) |
+| BR-V2-0270 |  | `cargo_comisiones_per_web` | TRUNC — Informix trunca; PostgreSQL puede redondear (divergencia centavos) |
 | BR-V2-0273 |  | `cargo_comisiones_web` | ROUND — validar modo (banker's vs half-up) |
-| BR-V2-0274 | propaga error al ejecutar cargo | `cargo_comisiones_web` | TRUNC — Informix trunca; PostgreSQL puede redondear (divergencia centavos) |
+| BR-V2-0274 |  | `cargo_comisiones_web` | TRUNC — Informix trunca; PostgreSQL puede redondear (divergencia centavos) |
 | BR-V2-0553 |  | `histsbg` | base 360 (año comercial) — verificar vs 365 |
-| BR-V2-0554 | Calcular acumulado (multiplicación) | `histsbg` | base 360 (año comercial) — verificar vs 365 |
+| BR-V2-0554 |  | `histsbg` | base 360 (año comercial) — verificar vs 365 |
 | BR-V2-0557 |  | `histsbg` | base 360 (año comercial) — verificar vs 365 |
 | BR-V2-0558 |  | `histsbg` | base 360 (año comercial) — verificar vs 365 |

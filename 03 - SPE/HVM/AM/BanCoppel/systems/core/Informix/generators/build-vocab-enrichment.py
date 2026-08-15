@@ -38,8 +38,7 @@ import re as _re
 from collections import Counter
 from pathlib import Path
 
-BASE = Path("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
-            "03 - SPE/HVM/AM/BanCoppel/Informix/")
+BASE = Path(__file__).resolve().parent.parent
 
 INV_FILE    = BASE / "knowledge-base" / "vocabulary-inventory.json"
 BRAIN_DB    = BASE / "digital-brain/brain.db"

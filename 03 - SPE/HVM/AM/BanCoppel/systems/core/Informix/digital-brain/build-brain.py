@@ -728,7 +728,10 @@ def load_rules(conn):
     ''', rows)
 
     # Re-aplicar síntesis LLM desde rule_enrichment_log (persiste entre rebuilds).
-    # SOLO llena reglas vacías — no sobreescribe nombres buenos que vienen del JSON (Layer B+).
+    # ADR-SPE-AM-010: SOLO confía en síntesis LLM genuina (method='llm_synthesis').
+    #   - Nunca restaura nombres heurísticos (esos ya no viven en el log tras la purga).
+    #   - Excluye defensivamente cualquier valor con firma de código crudo (÷).
+    #   - SOLO llena reglas vacías — no sobreescribe nombres del JSON (Layer B+).
     try:
         log_count = conn.execute("""
             UPDATE rules
@@ -737,8 +740,12 @@ def load_rules(conn):
                 FROM rule_enrichment_log
                 WHERE rule_id = rules.id
                   AND field = 'business_name'
+                  AND method IN ('llm_synthesis','llm_synthesis_source_read')
                   AND new_value IS NOT NULL AND new_value != ''
-                ORDER BY timestamp DESC
+                  AND new_value NOT LIKE '%÷%'
+                ORDER BY
+                  CASE method WHEN 'llm_synthesis_source_read' THEN 0 ELSE 1 END,
+                  timestamp DESC
                 LIMIT 1
             )
             WHERE (rules.business_name IS NULL OR rules.business_name = '')
@@ -746,13 +753,84 @@ def load_rules(conn):
                 SELECT 1 FROM rule_enrichment_log
                 WHERE rule_id = rules.id
                   AND field = 'business_name'
+                  AND method IN ('llm_synthesis','llm_synthesis_source_read')
                   AND new_value IS NOT NULL AND new_value != ''
+                  AND new_value NOT LIKE '%÷%'
             )
         """).rowcount
         if log_count:
-            print(f'  enrichment   {log_count:>6,} names restaurados desde rule_enrichment_log')
+            print(f'  enrichment   {log_count:>6,} names LLM restaurados desde rule_enrichment_log')
+
+        # Prioridad de fuente: la síntesis que LEYÓ CÓDIGO FUENTE (source_read) es autoritativa
+        # y SOBREESCRIBE incluso nombres del overlay (name-overrides-ai.json) — el overlay puede
+        # contener nombres pobres con prefijo de variable que la lectura de fuente ya corrigió.
+        override_count = conn.execute("""
+            UPDATE rules
+            SET business_name = (
+                SELECT new_value
+                FROM rule_enrichment_log
+                WHERE rule_id = rules.id
+                  AND field = 'business_name'
+                  AND method = 'llm_synthesis_source_read'
+                  AND new_value IS NOT NULL AND new_value != ''
+                  AND new_value NOT LIKE '%÷%'
+                ORDER BY timestamp DESC
+                LIMIT 1
+            )
+            WHERE EXISTS (
+                SELECT 1 FROM rule_enrichment_log
+                WHERE rule_id = rules.id
+                  AND field = 'business_name'
+                  AND method = 'llm_synthesis_source_read'
+                  AND new_value IS NOT NULL AND new_value != ''
+                  AND new_value NOT LIKE '%÷%'
+            )
+        """).rowcount
+        if override_count:
+            print(f'  enrichment   {override_count:>6,} names source_read (autoritativos sobre overlay)')
     except Exception:
         pass  # rule_enrichment_log aún no existe — primer build limpio
+
+    # Normalización: el sufijo "(regulatorio: ...)" es redundante con la columna reg
+    # (el portal ya muestra los reguladores por separado). Se elimina del nombre.
+    conn.execute(r"""
+        UPDATE rules
+        SET business_name = TRIM(
+            substr(business_name, 1, instr(business_name, '(regulatorio:') - 1)
+        )
+        WHERE business_name LIKE '%(regulatorio:%'
+    """)
+
+    # Normalización: eliminar fugas de nombre técnico (BD/SP) del business_name.
+    # El nombre de negocio no debe contener 'bdixxx' ni 'sp_xxx' — son artefactos del código.
+    import re as _re_norm
+    _tech_rows = conn.execute(
+        "SELECT id, business_name FROM rules "
+        "WHERE business_name GLOB '*bdi[a-z]*' OR business_name GLOB '*sp_*'"
+    ).fetchall()
+    _tech_fixed = []
+    for _rid, _bn in _tech_rows:
+        _new = _bn
+        _new = _re_norm.sub(r"\s*\((?:bdi[a-z0-9_]+|sp_[a-z0-9_]+)\)", "", _new)   # (bdinvers) / (sp_x)
+        _new = _re_norm.sub(r"\s+en\s+bdi[a-z0-9_]+", "", _new)                     # en bdisolic
+        _new = _re_norm.sub(r"\s+del\s+SP\s+sp_[a-z0-9_]+", "", _new, flags=_re_norm.I)  # del SP sp_x
+        _new = _re_norm.sub(r"\s+de\s+bdi[a-z0-9_]+", "", _new)                     # de bdicobranza
+        _new = _re_norm.sub(r"\s{2,}", " ", _new).strip(" .,—-")
+        if _new and _new != _bn:
+            _tech_fixed.append((_new, _rid))
+    if _tech_fixed:
+        conn.executemany("UPDATE rules SET business_name=? WHERE id=?", _tech_fixed)
+        print(f'  normalize    {len(_tech_fixed):>6,} nombres — fuga técnica (bdi/sp_) removida')
+
+    # Capitalización: toda descripción visible inicia con mayúscula (feedback global).
+    _cap_rows = conn.execute(
+        "SELECT id, business_name FROM rules WHERE business_name != '' "
+        "AND substr(business_name,1,1) BETWEEN 'a' AND 'z'"
+    ).fetchall()
+    _cap_fixed = [(bn[0].upper() + bn[1:], rid) for rid, bn in _cap_rows]
+    if _cap_fixed:
+        conn.executemany("UPDATE rules SET business_name=? WHERE id=?", _cap_fixed)
+        print(f'  normalize    {len(_cap_fixed):>6,} nombres — capitalizada inicial')
 
     conn.commit()
     print(f'  rules        {len(rows):>6,} business rules')

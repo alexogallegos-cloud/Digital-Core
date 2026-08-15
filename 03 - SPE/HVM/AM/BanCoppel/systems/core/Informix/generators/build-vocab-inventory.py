@@ -12,12 +12,12 @@ Etapa 3 — Business Logic Extraction · Specialist Informix SPL · SPE-AM-001
 """
 import json, re, os
 from collections import Counter
+from pathlib import Path
 from sp_vocab import CAT, KEYS
 
-BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
-        "03 - SPE/HVM/AM/BanCoppel/Informix/")
-SRC = BASE + "source/informix/"
-CG = json.load(open(BASE + "portal/data/callgraph-data.json", encoding="utf-8"))
+BASE = Path(__file__).resolve().parent.parent
+SRC  = BASE / "source" / "informix"
+CG   = json.load(open(BASE / "portal" / "data" / "callgraph-data.json", encoding="utf-8"))
 nodes = CG["graph"]["nodes"]
 RE_SIG = re.compile(r"CREATE\s+(?:PROCEDURE|FUNCTION)\s+[^\(]*\(([^;]*?)\)\s*RETURNING", re.I | re.S)
 
@@ -29,7 +29,7 @@ def dehung(p):
 param_names = Counter()
 for n in nodes:
     db, sp = n["id"].split(":", 1)
-    fp = SRC + f"{db}_{sp}.sql"
+    fp = SRC / f"{db}_{sp}.sql"
     if os.path.exists(fp):
         head = open(fp, encoding="utf-8", errors="replace").read()[:3000]
         m = RE_SIG.search(head)
@@ -147,7 +147,7 @@ out = {"atomos": atomos, "compuestos": compuestos,
                 "n_ruido": n_ruido}}
 
 # ── merge enrichment semántico (Capa 2: bc, dominio_as_is, relaciones, SME) ──
-_ENRICH_PATH = BASE + "knowledge-base/vocabulary/vocabulary-enrichment.json"
+_ENRICH_PATH = BASE / "knowledge-base" / "vocabulary" / "vocabulary-enrichment.json"
 try:
     _enrich = json.load(open(_ENRICH_PATH, encoding="utf-8"))
     _ENRICH_FIELDS = ("bc", "bc_name", "dominio_as_is", "es_variante_de", "tipo_relacion",
@@ -168,7 +168,7 @@ except FileNotFoundError:
     print("  AVISO: vocabulary-enrichment.json no encontrado.")
     print("         Córrelo primero: python build-vocab-enrichment.py")
 
-json.dump(out, open(BASE + "knowledge-base/vocabulary-inventory.json", "w", encoding="utf-8"),
+json.dump(out, open(BASE / "knowledge-base" / "vocabulary-inventory.json", "w", encoding="utf-8"),
           ensure_ascii=False, separators=(",", ":"))
 
 # ── Markdown ──
@@ -239,7 +239,7 @@ L += [f"| **Total clasificado** | **{tot}** | |",
  "",
  "*Generado por Specialist — Informix SPL Analysis · Etapa 3 · fuente: callgraph-data.json + source/ + sp_vocab.py*"]
 
-open(BASE + "knowledge-base/vocabulary/vocabulary-inventory-bcop.md", "w", encoding="utf-8").write("\n".join(L))
+open(BASE / "knowledge-base" / "vocabulary" / "vocabulary-inventory-bcop.md", "w", encoding="utf-8").write("\n".join(L))
 print(f"knowledge-base/vocabulary/vocabulary-inventory-bcop.md + vocabulary-inventory.json escritos.")
 print(f"  {len(atomos)} atómicos · {len(compuestos)} compuestos · {len(candidatos)} candidatos")
 print(f"  confiabilidad: {dict(byn)}")

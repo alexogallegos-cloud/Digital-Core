@@ -31,12 +31,12 @@ Etapa 3 - Business Logic Extraction - Specialist Informix SPL - SPE-AM-001
 """
 import json, re, os
 from collections import defaultdict, Counter
+from pathlib import Path
 import sp_vocab
 
-BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
-        "03 - SPE/HVM/AM/BanCoppel/Informix/")
-SRC = BASE + "source/informix/"
-CG  = json.load(open(BASE + "portal/data/callgraph-data.json", encoding="utf-8"))
+BASE = Path(__file__).resolve().parent.parent
+SRC  = str(BASE / "source" / "informix") + "/"
+CG   = json.load(open(BASE / "portal" / "data" / "callgraph-data.json", encoding="utf-8"))
 
 # ── patrones de extraccion ──
 RE_CREATE   = re.compile(r"create\s+(?:procedure|function)\b", re.I)
@@ -226,7 +226,7 @@ def scope_10(c):
     return "MIXTO", total
 
 # ── enriquecer inventario ──
-INVP = BASE + "knowledge-base/vocabulary-inventory.json"
+INVP = BASE / "knowledge-base" / "vocabulary-inventory.json"
 INV  = json.load(open(INVP, encoding="utf-8"))
 
 SIGNAL_KEYS = ("AIN", "AOUT", "BDR", "BDW", "LOC", "LC", "CUR", "EXC", "BAT")
@@ -332,7 +332,7 @@ L += [
     "*Generado por extract-dataflow.py v2 - 10 tipos de scope*",
 ]
 
-open(BASE + "knowledge-base/dataflow-scope-bcop.md", "w", encoding="utf-8").write("\n".join(L))
+open(BASE / "knowledge-base" / "dataflow-scope-bcop.md", "w", encoding="utf-8").write("\n".join(L))
 print(f"knowledge-base/dataflow-scope-bcop.md escrito - {n_sp:,} SPs analizados")
 print(f"  AIN={id_scope['AIN']:,}  AOUT={id_scope['AOUT']:,}  "
       f"BDR={id_scope['BDR']:,}  BDW={id_scope['BDW']:,}  "

@@ -234,18 +234,49 @@ for r in rules:
     r.setdefault('business_name', '')
 
 # ── 5b. Apply Layer B+ overrides (name-overrides-ai.json) ────────────────────
+# ADR-SPE-AM-010: guardia defensiva — nunca aplicar un override con firma de
+# código crudo. Si un nombre parece código (÷, "Calcular vsql", "LET ...",
+# snake_case puro), se descarta y la regla queda vacía para síntesis LLM.
+import re as _re_ov
+
+_BAD_OV_PREFIX = (
+    "Calcular v", "Calcular cadena", "Calcular ruta", "Calcular shell",
+    "Calcular descripci", "Calcular sql", "Calcular stmt", "Calcular idpais",
+    "Calcular monto", "Calcular plazo", "Calcular div", "Calcular fecha",
+    "Calcular valor", "Calcular bill", "Calcular vbill",
+    "Cálculo con umbral", "Calculo con umbral",
+    "Fórmula:", "Formula:", "And num_", "LET ", "let ", "RAISE ", "RETURN ",
+)
+
+def _override_is_bad(v: str) -> bool:
+    v = (v or "").strip()
+    if not v or "÷" in v:
+        return True
+    if v.startswith(_BAD_OV_PREFIX):
+        return True
+    if _re_ov.fullmatch(r"[a-z0-9_]+", v) and "_" in v:      # identificador de código puro
+        return True
+    if _re_ov.search(r"\((multiplicaci[óo]n|divisi[óo]n|suma|resta)\)\s*$", v, _re_ov.I):
+        return True
+    return False
+
 _overrides_path = BASE + 'knowledge-base/rules/name-overrides-ai.json'
 try:
     ov_raw = json.load(open(_overrides_path, encoding='utf-8'))
     ov_names = ov_raw.get('names', ov_raw) if isinstance(ov_raw, dict) else {}
     ov_applied = 0
+    ov_skipped = 0
     rules_idx = {r['id']: r for r in rules}
     for rule_id, better_name in ov_names.items():
         r = rules_idx.get(rule_id)
-        if r and better_name and better_name.strip():
-            r['business_name'] = better_name.strip()
-            ov_applied += 1
-    print(f"Layer B+ overlay: {ov_applied} / {len(ov_names)} overrides applied")
+        if not r or not better_name or not better_name.strip():
+            continue
+        if _override_is_bad(better_name):
+            ov_skipped += 1
+            continue
+        r['business_name'] = better_name.strip()
+        ov_applied += 1
+    print(f"Layer B+ overlay: {ov_applied} aplicados, {ov_skipped} descartados (firma código) / {len(ov_names)} total")
 except FileNotFoundError:
     print(f"Layer B+ overrides not found at {_overrides_path}, skipping")
 
