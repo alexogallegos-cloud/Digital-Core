@@ -14,11 +14,11 @@ Mejoras sobre v1:
 Etapa 3 — Business Logic Extraction · Specialist Informix SPL · SPE-AM-001
 """
 import json, re, os
+from pathlib import Path
 from collections import defaultdict, Counter
 
-BASE = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
-        "03 - SPE/HVM/AM/BanCoppel/Informix/")
-SRC = BASE + "source/informix/"
+BASE = str(Path(__file__).resolve().parent.parent) + "/"
+SRC = BASE + "source/informix/informix/"
 
 # ── Cargar vocabulario certificado ────────────────────────────────────────────
 inv = json.load(open(BASE + "knowledge-base/vocabulary-inventory.json", encoding="utf-8"))
@@ -295,8 +295,12 @@ for db, sp, fp in cand:
         sl = s.lower()
 
         # FÓRMULA — asignación aritmética sobre variable financiera
+        # ADR-SPE-AM-010: excluir RHS que sea string literal (ruta, comando shell).
+        # El '/' en paths como '/respaldos/...' dispararía el check [*/] falsamente.
         m = RE_FORMULA.match(s)
-        if m and re.search(r"[*/]", m.group(2)) and re.search(FIN_PAT, s, re.I):
+        _rhs_v2 = m.group(2).strip() if m else ""
+        if (m and re.search(r"[*/]", _rhs_v2) and re.search(FIN_PAT, s, re.I)
+                and not _rhs_v2.startswith(("'", '"'))):
             expr = norm_expr(m.group(1) + " = " + m.group(2))
             key = (sp, re.sub(r"\d", "#", expr))
             if key not in seen_formula:

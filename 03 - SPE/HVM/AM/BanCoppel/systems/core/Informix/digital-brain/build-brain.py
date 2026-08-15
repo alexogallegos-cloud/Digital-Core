@@ -246,6 +246,8 @@ CREATE TABLE domains (
 CREATE TABLE rules (
     id            TEXT PRIMARY KEY,
     tipo          TEXT,
+    sub_tipo      TEXT,
+    clase         TEXT,
     sp            TEXT,
     db            TEXT,
     domain        TEXT,
@@ -697,16 +699,60 @@ def load_rules(conn):
                 riesgo = json.dumps(riesgo, ensure_ascii=False)
         rows.append((
             r.get('id', ''), r.get('tipo', ''),
+            r.get('categoria', ''),   # sub_tipo: categoría funcional de la regla
+            r.get('clase', ''),       # clase: NEGOCIO / INFRAESTRUCTURA / ENSAMBLAJE_REPORTE / PRESENTACION
             full_sp_id, db, DB_TO_DOMAIN.get(db, ''),
             r.get('line', 0), r.get('code', ''),
             reg or '', riesgo or '',
             r.get('business_name', '')
         ))
 
+    # ADR-SPE-AM-010: INSERT siempre toma el valor del JSON (extractor o Layer B+).
+    # Los nombres heurísticos antiguos NO se preservan — solo sobreviven los de rule_enrichment_log.
+    # Después del INSERT se re-aplica el log para restaurar nombres LLM sin contaminar con heurísticas.
     conn.executemany('''
-        INSERT OR REPLACE INTO rules (id,tipo,sp,db,domain,line,code,reg,riesgo,business_name)
-        VALUES (?,?,?,?,?,?,?,?,?,?)
+        INSERT INTO rules (id,tipo,sub_tipo,clase,sp,db,domain,line,code,reg,riesgo,business_name)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+        ON CONFLICT(id) DO UPDATE SET
+            tipo          = excluded.tipo,
+            sub_tipo      = excluded.sub_tipo,
+            clase         = excluded.clase,
+            sp            = excluded.sp,
+            db            = excluded.db,
+            domain        = excluded.domain,
+            line          = excluded.line,
+            code          = excluded.code,
+            reg           = excluded.reg,
+            riesgo        = excluded.riesgo,
+            business_name = excluded.business_name
     ''', rows)
+
+    # Re-aplicar síntesis LLM desde rule_enrichment_log (persiste entre rebuilds).
+    # Cualquier nombre en el log sobreescribe lo que vino del JSON.
+    try:
+        log_count = conn.execute("""
+            UPDATE rules
+            SET business_name = (
+                SELECT new_value
+                FROM rule_enrichment_log
+                WHERE rule_id = rules.id
+                  AND field = 'business_name'
+                  AND new_value IS NOT NULL AND new_value != ''
+                ORDER BY timestamp DESC
+                LIMIT 1
+            )
+            WHERE EXISTS (
+                SELECT 1 FROM rule_enrichment_log
+                WHERE rule_id = rules.id
+                  AND field = 'business_name'
+                  AND new_value IS NOT NULL AND new_value != ''
+            )
+        """).rowcount
+        if log_count:
+            print(f'  enrichment   {log_count:>6,} names restaurados desde rule_enrichment_log')
+    except Exception:
+        pass  # rule_enrichment_log aún no existe — primer build limpio
+
     conn.commit()
     print(f'  rules        {len(rows):>6,} business rules')
 

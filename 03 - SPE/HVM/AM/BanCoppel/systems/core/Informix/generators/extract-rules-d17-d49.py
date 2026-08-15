@@ -253,8 +253,11 @@ for db, sp, fp in cand:
         sl = s.lower()
 
         # FÓRMULA
+        # ADR-SPE-AM-010: excluir RHS string literal — '/' en paths dispara [*/] falsamente.
         m = RE_FORMULA.match(s)
-        if m and re.search(r"[*/]", m.group(2)) and re.search(FIN_PAT, s, re.I):
+        _rhs_d = m.group(2).strip() if m else ""
+        if (m and re.search(r"[*/]", _rhs_d) and re.search(FIN_PAT, s, re.I)
+                and not _rhs_d.startswith(("'", '"'))):
             expr = norm_expr(m.group(1) + " = " + m.group(2))
             key = (db, sp, re.sub(r"\d", "#", expr))
             if key not in seen_f:
