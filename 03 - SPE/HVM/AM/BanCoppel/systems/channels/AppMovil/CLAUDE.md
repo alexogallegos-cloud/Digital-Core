@@ -107,8 +107,9 @@
 - [x] Ecosistema de 14 Digital Twins completo (2026-08-13)
 - [x] Construir `digital-brain/build-brain.py` — brain.db activo (2026-08-14)
 - [x] Patrones P6c/P6d/P_DBINFER/P8 implementados — 49 SPs (2026-08-14)
+- [x] **dt-java-analysis poblado** — `analisis-calidad-appmovil.md` construido desde análisis estático de 216 repos (2026-08-14)
 - [ ] Ejecutar DT-Validador: smoke tests de los 14 DTs (pase de existencia)
-- [ ] Poblar artefactos centrales de cada DT analizando `source/code/`
+- [ ] Poblar artefactos centrales de DTs restantes (dt-riesgos · dt-regulatorio · dt-sp-dependencies · dt-modelo-dominio)
 - [ ] Emitir seeds propios (Regla B11) al terminar el rebuild con patrones P6-P8
 - [ ] Actualizar `bank-brain/build-bank-brain.py` con ATTACH a este brain
 
@@ -116,3 +117,4 @@
 
 *Generado automáticamente por `bank-brain/bootstrap-from-seeds.py` · 2026-08-12 · Regla B9 AM*
 *Actualizado: 2026-08-14 — brain.db ACTIVO · 49 SPs únicos · 11 BDs Informix · 133 refs · patrones P6-P8 implementados*
+*Actualizado: 2026-08-14 — dt-java-analysis: 216 repos analizados · 60 legacy · viabilidad 2027 evaluada*
