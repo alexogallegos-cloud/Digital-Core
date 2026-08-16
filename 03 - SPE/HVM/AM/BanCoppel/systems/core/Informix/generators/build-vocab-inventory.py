@@ -168,6 +168,41 @@ except FileNotFoundError:
     print("  AVISO: vocabulary-enrichment.json no encontrado.")
     print("         Córrelo primero: python build-vocab-enrichment.py")
 
+# ── ID canónico por palabra del vocabulario ──────────────────────────────────
+# Ancho fijo homologado: VOC-XXXXXX (4 + 6 = 10 caracteres). El código de 6 chars es
+# base32 de un hash del término: determinístico y ESTABLE por término (la misma palabra
+# siempre da el mismo ID, inmune a altas/bajas de otras palabras). No secuencial.
+import hashlib, base64
+def _vid(t):
+    h = hashlib.sha1(str(t).strip().lower().encode("utf-8")).digest()
+    code = base64.b32encode(h).decode("ascii").rstrip("=")[:6]   # A-Z2-7, 6 chars
+    return "VOC-" + code
+
+for r in out["atomos"]:
+    r["id"] = _vid(r["term"])
+for r in out["compuestos"]:
+    r["id"] = _vid(r["term"])
+for r in out["candidatos"]:
+    r["id"] = _vid(r["frag"])
+
+# Garantía de unicidad (colisión de 6 chars base32 es improbable, pero se verifica):
+_seen, _collision = {}, []
+for _sec in ("atomos", "compuestos", "candidatos"):
+    for r in out[_sec]:
+        k = r.get("term") or r.get("frag")
+        if r["id"] in _seen and _seen[r["id"]] != k:
+            _collision.append((r["id"], _seen[r["id"]], k))
+        _seen[r["id"]] = k
+if _collision:
+    # extiende a 8 chars solo si hubo colisión real
+    print(f"  AVISO: {len(_collision)} colisiones de ID a 6 chars → extendiendo a 8")
+    def _vid8(t):
+        h = hashlib.sha1(str(t).strip().lower().encode("utf-8")).digest()
+        return "VOC-" + base64.b32encode(h).decode("ascii").rstrip("=")[:8]
+    for r in out["atomos"]:     r["id"] = _vid8(r["term"])
+    for r in out["compuestos"]: r["id"] = _vid8(r["term"])
+    for r in out["candidatos"]: r["id"] = _vid8(r["frag"])
+
 json.dump(out, open(BASE / "knowledge-base" / "vocabulary-inventory.json", "w", encoding="utf-8"),
           ensure_ascii=False, separators=(",", ":"))
 

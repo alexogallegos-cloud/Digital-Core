@@ -70,7 +70,7 @@ CAT = {
  "bts":         ("ENTIDAD","BTS — sistema de beneficiarios/servicios SAC (sp_validabts, sp_consinfobtssif)","inf"),
  "sif":         ("ENTIDAD","SIF — Sistema de Información Financiero (sp_consinfobtssif — bdisac; sp_cnsif_* — bdinteg)","conf"),
  "dv":          ("ENTIDAD","dv — divisa (abreviación — bdisac)","conf"),
- "gdf":         ("ENTIDAD","gdf — código geográfico / Gobierno CDMX (abreviación — bdisac)","inf"),
+ "gdf":         ("ENTIDAD","Gobierno de la CDMX: convenio de pago de impuestos y servicios (predial, agua, tenencia, licencias, derechos) — confirmado por código bdisac","conf"),
  "sac":         ("ENTIDAD","SAC — Servicio de Atención al Cliente (prefijo sp_sac_* — bdisac)","conf"),
  "fal":         ("ENTIDAD","fal — fallo/disputa (prefijo sp_fal_* — aclaraciones bancarias — bdiaclaracion)","conf"),
  "aclaracion":  ("ENTIDAD","aclaración bancaria — proceso de disputa o reclamación del cliente","conf"),

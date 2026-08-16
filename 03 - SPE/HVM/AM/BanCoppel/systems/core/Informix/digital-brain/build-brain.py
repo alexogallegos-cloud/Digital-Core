@@ -183,6 +183,7 @@ DROP TABLE IF EXISTS sp_calls;
 DROP TABLE IF EXISTS journeys;
 DROP TABLE IF EXISTS external_systems;
 DROP TABLE IF EXISTS authors;
+DROP TABLE IF EXISTS rule_vocab;
 DROP TABLE IF EXISTS terms;
 DROP TABLE IF EXISTS rules;
 DROP TABLE IF EXISTS domains;
@@ -259,13 +260,28 @@ CREATE TABLE rules (
 );
 
 CREATE TABLE terms (
+    id      TEXT,
     term    TEXT PRIMARY KEY,
     cat     TEXT,
     meaning TEXT,
     est     TEXT,
     nivel   TEXT,
-    scope   TEXT
+    scope   TEXT,
+    seccion TEXT
 );
+CREATE INDEX idx_terms_id ON terms(id);
+
+-- Referencia rule ↔ vocabulario: qué términos del glosario usa cada regla de negocio.
+-- Solo referencias resueltas (el término existe en `terms`) — mantiene la consistencia
+-- entre el lenguaje (vocabulario) y las reglas. Poblada desde vocab_refs de v3.json.
+CREATE TABLE rule_vocab (
+    rule_id  TEXT NOT NULL,
+    term     TEXT NOT NULL,
+    term_id  TEXT NOT NULL,
+    PRIMARY KEY (rule_id, term_id)
+);
+CREATE INDEX idx_rule_vocab_rule ON rule_vocab(rule_id);
+CREATE INDEX idx_rule_vocab_term ON rule_vocab(term_id);
 
 CREATE TABLE external_systems (
     id              TEXT PRIMARY KEY,
@@ -840,19 +856,66 @@ def load_vocabulary(conn):
     with open(BASE / 'knowledge-base' / 'vocabulary-inventory.json', encoding='utf-8') as f:
         vi = json.load(f)
 
+    # Cada palabra del vocabulario (átomos + compuestos + candidatos) con su ID VOC-*.
     rows = []
     for a in vi.get('atomos', []):
         rows.append((
-            a.get('term', ''), a.get('cat', ''), a.get('mean', ''),
-            a.get('est', ''), a.get('nivel', ''), a.get('scope', '')
+            a.get('id', ''), a.get('term', ''), a.get('cat', ''), a.get('mean', ''),
+            a.get('est', ''), a.get('nivel', ''), a.get('scope', ''), 'atomo'
+        ))
+    for c in vi.get('compuestos', []):
+        rows.append((
+            c.get('id', ''), c.get('term', ''), c.get('cat', ''), c.get('mean', ''),
+            c.get('est', ''), c.get('nivel', ''), c.get('scope', ''), 'compuesto'
+        ))
+    for cnd in vi.get('candidatos', []):
+        rows.append((
+            cnd.get('id', ''), cnd.get('frag', ''), 'CANDIDATO', '(sin clasificar)',
+            'inf', 'CANDIDATO', '', 'candidato'
         ))
 
     conn.executemany('''
-        INSERT OR REPLACE INTO terms (term,cat,meaning,est,nivel,scope)
-        VALUES (?,?,?,?,?,?)
+        INSERT OR REPLACE INTO terms (id,term,cat,meaning,est,nivel,scope,seccion)
+        VALUES (?,?,?,?,?,?,?,?)
     ''', rows)
     conn.commit()
-    print(f'  vocabulary   {len(rows):>6,} terms')
+    print(f'  vocabulary   {len(rows):>6,} terms (con ID VOC-*)')
+
+
+def load_rule_vocab(conn):
+    """Referencia rule ↔ vocabulario. Liga cada regla con los términos del glosario que
+    identifica (vocab_refs de v3.json), resolviendo el término a su ID VOC-* en `terms`.
+    Solo se guardan referencias RESUELTAS (término presente en el glosario): eso mantiene
+    la consistencia lenguaje↔reglas. Requiere terms ya cargada."""
+    with open(BASE / 'portal' / 'data' / 'business-rules-v3.json', encoding='utf-8') as f:
+        br = json.load(f)
+
+    term2id = {t: i for i, t in conn.execute("SELECT id, term FROM terms")}   # term → VOC-id
+
+    rows, unresolved = [], set()
+    seen = set()
+    for r in br.get('rules', []):
+        rid = r.get('id')
+        for term in (r.get('vocab_refs') or []):
+            if not isinstance(term, str):
+                continue
+            tid = term2id.get(term)
+            if not tid:
+                unresolved.add(term)          # no es vocabulario del glosario (ruido/variable/BD)
+                continue
+            key = (rid, tid)
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append((rid, term, tid))
+
+    conn.executemany(
+        "INSERT OR IGNORE INTO rule_vocab (rule_id, term, term_id) VALUES (?,?,?)", rows)
+    conn.commit()
+    n_rules = len({r[0] for r in rows})
+    n_terms = len({r[2] for r in rows})
+    print(f'  rule_vocab   {len(rows):>6,} refs · {n_rules:,} reglas ↔ {n_terms:,} términos '
+          f'· {len(unresolved)} términos no-glosario ignorados')
 
 
 def load_etb_capabilities(conn):
@@ -1365,6 +1428,7 @@ def main():
     load_quality(conn)
     load_rules(conn)
     load_vocabulary(conn)
+    load_rule_vocab(conn)
     load_etb_capabilities(conn)
     build_sp_capabilities(conn)
     merge_fine_capabilities(conn)

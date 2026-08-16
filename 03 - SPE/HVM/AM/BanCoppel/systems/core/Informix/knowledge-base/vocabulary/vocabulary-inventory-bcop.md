@@ -367,7 +367,7 @@ Morfemas irreducibles — los building blocks del vocabulario.
 | `domicilio` | entidad | Dirección registrada del cliente, validada contra INE/SAT/SEPOMEX y usada en KYC y notificaciones | 🟢 Alta | 8 | 0 |
 | `final` | modificador | Modificador: marca de cierre o última fase de un proceso ya ejecutado (pase contable final, finalización de cédula) | 🟢 Alta | 8 | 0 |
 | `fus` | acción | fusión de cuentas | 🟢 Alta | 8 | 0 |
-| `gdf` | entidad | gdf — código geográfico / Gobierno CDMX (abreviación — bdisac) | 🟡 Media | 8 | 0 |
+| `gdf` | entidad | Gobierno de la CDMX: convenio de pago de impuestos y servicios (predial, agua, tenencia, licencias, derechos) — confirmado por código bdisac | 🟢 Alta | 8 | 0 |
 | `hora` | entidad | Momento u horario límite que condiciona la ejecución de operaciones (TEF, remesas, cortes) | 🟢 Alta | 8 | 0 |
 | `layout` | entidad | layout — formato de archivo de intercambio interbancario | 🟢 Alta | 8 | 0 |
 | `plaza` | entidad | plaza (regional) | 🟢 Alta | 8 | 0 |
@@ -792,8 +792,8 @@ Fragmentos que el segmentador no reconoce y aparecen ≥ 4 veces. Son los **pró
 
 | Nivel | Términos | % |
 |---|--:|--:|
-| 🟢 Alta | 675 | 97% |
-| 🟡 Media | 11 | 1% |
+| 🟢 Alta | 676 | 97% |
+| 🟡 Media | 10 | 1% |
 | 🔴 Ambigua | 4 | 0% |
 | **Total clasificado** | **690** | |
 | ⚪ Candidatos pendientes | 60 | |

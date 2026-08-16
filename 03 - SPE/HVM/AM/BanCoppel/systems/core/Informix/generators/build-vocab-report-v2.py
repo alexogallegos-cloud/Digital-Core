@@ -602,7 +602,6 @@ header .hbadge.v2{background:rgba(61,95,205,.3);border:1px solid rgba(61,95,205,
 .bianrow.tec{opacity:.72;border-top:1px solid var(--line);margin-top:8px;padding-top:10px}
 .btec{font-size:11px;color:var(--muted);font-style:italic;align-self:center}
 /* ER diagram */
-.ermwrap{overflow-x:auto}.ermwrap .mermaid{text-align:center;min-height:300px}
 /* sinónimos */
 .synrow{display:grid;grid-template-columns:190px 1fr;gap:14px;align-items:baseline;
   padding:6px 0;border-bottom:1px solid rgba(38,49,124,.5);font-size:12.5px}
@@ -731,9 +730,7 @@ td.col-dom,td.col-target,td.col-reg,td.col-taxon{max-width:130px;overflow:hidden
 __ENRICH_HERO__
 
 <div class="lead">
-  <div class="lhead">Hallazgos principales</div>
-  <div class="hgrid">__HALLAZGOS__</div>
-  <div class="lhead" style="margin-top:22px;font-size:12px;opacity:.8">Log de enriquecimiento</div>
+  <div class="lhead">Log de enriquecimiento</div>
   __ENRICH_LOG__
 
   <div class="lhead" style="margin-top:28px">Aggregate Roots — identificadores canónicos del target</div>
@@ -744,20 +741,8 @@ __ENRICH_HERO__
   <div class="lsub">Cada DT peer aporta vocabulario desde una perspectiva distinta del sistema. La Capa 1 (sp_vocab) extrae del código; las capas superiores aportan semántica de negocio que el código no nombra explícitamente.</div>
   <div class="dt-wrap">__DTLAYERS__</div>
 
-  <div class="lhead" style="margin-top:28px">Vocabulario alineado a BIAN</div>
-  <div class="lsub">Cada término mapeado a un dominio del <b>BIAN Service Landscape</b> — dónde vive el lenguaje del negocio dentro del core.</div>
-  <div class="bianwrap">__BIANBARS__</div>
-
-  <div class="lhead" style="margin-top:28px">Distribución por Bounded Context</div>
-  <div class="lsub">Los mismos términos agrupados por <b>Bounded Context del modelo target</b>. BC-7.1 (Customer) y BC-3.3 (Lending) dominan porque el producto central de BanCoppel es crédito Coppel con cliente de la red retail.</div>
-  <div class="bianwrap">__BCBARS__</div>
-
-  <div class="lhead" style="margin-top:28px">Modelo entidad-relación de dominios</div>
-  <div class="lsub">Dominios como entidades con top-10 términos como atributos. Relaciones derivadas del grafo de llamadas real — el número = nº de llamadas cruzadas entre dominios.</div>
-  <div class="bianwrap ermwrap"><pre class="mermaid">__ERDIAG__</pre></div>
-
   <div class="lhead" style="margin-top:30px">Explorador de vocabulario</div>
-  <div class="lsub">Filtra por tipo, confiabilidad, categoría, evidencia, scope y <b>Bounded Context</b>. Los términos ⭐ son aggregate roots o sus variantes AS-IS.</div>
+  <div class="lsub">Filtra por tipo, confiabilidad, categoría, evidencia y scope. Los términos ⭐ son aggregate roots o sus variantes AS-IS.</div>
 </div>
 
 <div id="tiles"></div>
@@ -778,7 +763,6 @@ __ENRICH_HERO__
   <div class="fgroup"><span class="lbl">Categoría</span><div id="fcat"></div></div>
   <div class="fgroup"><span class="lbl">Evidencia</span><div id="ffte"></div></div>
   <div class="fgroup"><span class="lbl">Scope</span><div id="fscope"></div></div>
-  <div class="fgroup"><span class="lbl">BC</span><div id="fbc"></div></div>
   <div class="fgroup">
     <span class="lbl">Root</span>
     <div id="froot"></div>
@@ -975,8 +959,6 @@ mkChips('fcat',['PREFIJO','ACCION','ENTIDAD','MODIF','REG','AMBIGUO'],fCat,v=>CA
 mkChips('ffte',['CODIGO','SME','NEGOCIO','CONVENCION','INFERIDO','AMBIGUO'],fFte,v=>FTE[v][0]);
 const scopeVals=[...new Set(DATA.map(r=>r.scope).filter(s=>s&&s!=='—'))].sort();
 mkChips('fscope',scopeVals,fScope,v=>(SCOPE[v]||[v])[0]);
-const bcVals=[...new Set(DATA.map(r=>r.bc).filter(b=>b&&b!=='—'))].sort();
-mkChips('fbc',bcVals,fBC,v=>v);
 // root toggle
 document.getElementById('froot').innerHTML='<span class="chip" id="croot">⭐ Solo roots</span>';
 document.getElementById('croot').onclick=function(){
@@ -1087,13 +1069,6 @@ function render(){
   document.getElementById('count').textContent=`${rs.length} de ${DATA.length} términos`;
 }
 render();
-</script>
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-<script>
-try{mermaid.initialize({startOnLoad:true,securityLevel:'loose',theme:'dark',
-  themeVariables:{fontFamily:'Inter, sans-serif',primaryColor:'#122152',primaryBorderColor:'#3D5FCD',
-    primaryTextColor:'#EAEDF7',lineColor:'#6f8ce6',tertiaryColor:'#0d1a3d',
-    attributeBackgroundColorOdd:'#0d1a3d',attributeBackgroundColorEven:'#132152'}});}catch(e){}
 </script>
 </body>
 </html>"""
