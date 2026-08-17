@@ -243,11 +243,114 @@ _FIELD_TERMS: dict = {
     "catalog": "catálogo", "banks": "bancos", "bank": "banco",
     "intercard": "intercard",
     "proposition": "propuesta", "offer": "oferta",
+    # Modificadores sueltos frecuentes
+    "destination": "destino",  "source":   "origen",
+    "postal":      "postal",   "ext":      "exterior",
+    "external":    "exterior", "internal": "interior",
+    "third":       "tercero",  "own":      "propio",
+    "valid":       "válido",   "flag":     "indicador",
+    "total":       "total",    "default":  "predeterminado",
+    "notes":       "pagarés",  "invoice":   "folio",
+    "names":       "nombres",  "consent":   "consentimiento",
+    "verification":"verificación", "identity": "identidad",
+    "facial":      "facial",   "outdoor":   "exterior",
+    "indoor":      "interior", "series":    "serie",
+    "confirm":     "confirmación", "request": "solicitud",
+    "response":    "respuesta","detail":    "detalle",
+    "info":        "información", "data":   "datos",
+    "register":    "registro", "list":      "lista",
+    "period":      "período",  "frequency": "frecuencia",
+    "currency":    "moneda",   "country":   "país",
+    "region":      "región",   "category":  "categoría",
+    "origin":      "origen",   "special":   "especial",
+    "message":     "mensaje",  "charge":    "cargo",
+    "pay":         "pago",     "profile":   "perfil",
+    "image":       "imagen",   "records":   "registros",
+    "send":        "envío",    "sending":   "envío",
+    "receive":     "recepción","receiving": "recepción",
+    "update":      "actualización", "create": "creación",
+    "delete":      "eliminación",   "apply":  "aplicación",
+    "save":        "guardado", "load":        "carga",
+    "party":       "contraparte", "requested":   "solicitado",
+    "issued":      "emitido",     "assigned":    "asignado",
+    "allowed":     "permitido",   "product":     "producto",
+    "version":     "versión",     "accumulated": "acumulado",
+    "timestamp":   "marca temporal", "stamp":    "marca",
+    "sucursal":    "sucursal",    "password":    "contraseña",
+    "token":       "token",       "session":     "sesión",
+    "channel":     "canal",       "device":      "dispositivo",
+    "format":      "formato",     "template":    "plantilla",
+    "priority":    "prioridad",   "sequence":    "secuencia",
+    "branch":      "sucursal",    "office":      "oficina",
+    "signature":   "firma",       "hash":        "hash",
+    "otp":         "OTP",         "pin":         "PIN",
+    "municipality":"municipio",   "state":       "estado",
+    "reverse":     "reverso",     "document":    "documento",
+    "interest":    "interés",     "rate":        "tasa",
+    "score":       "puntuación",  "risk":        "riesgo",
+    "unique":      "único",       "population":  "población",
+    "registry":    "registro",    "curp":        "CURP",
+    "rfc":         "RFC",         "imss":        "IMSS",
+    "population":  "población",   "front":       "anverso",
+    # Bigramas de identidad y finanzas
+    "interestrate":             "tasa de interés",
+    "uniquepopulationregistry": "CURP",
+    "reversedocument":          "reverso del documento",
+    "frontdocument":            "anverso del documento",
+    "municipalitycode":         "código de municipio",
+    "statecode":                "código de estado",
+    # Datos biográficos y entidades
+    "birthday":   "fecha de nacimiento",
+    "birth":      "nacimiento",
+    "counter":    "contador",
+    "entity":     "entidad",
+    "batch":      "lote",
+    "step":       "paso",
+    "attempt":    "intento",
+    "retries":    "reintentos",
+    "retry":      "reintento",
+    "timeout":    "tiempo de espera",
+    "interval":   "intervalo",
+    "delay":      "retraso",
+    "expiration": "vencimiento",
+    "expiry":     "vencimiento",
+    "activation": "activación",
+    "concept":    "concepto",
+    "movement":   "movimiento",
+    "operation":  "operación",
+    # Bigramas adicionales
+    "thirdparty":    "contraparte",
+    "requestedrecords": "registros solicitados",
+    "beneficiaryaccount": "cuenta de beneficiario",
+    "destinationclabe":   "CLABE destino",
+    "sourceclabe":        "CLABE origen",
+    "debitclabe":         "CLABE de domiciliación",
+    # Bigramas de alta frecuencia (revisados antes que palabras sueltas en _field_to_es)
+    "accountnumber":    "número de cuenta",
+    "accountnumbers":   "números de cuenta",
+    "debitaccount":     "cuenta débito",
+    "creditaccount":    "cuenta crédito",
+    "customernumber":   "número de cliente",
+    "companynumber":    "número de empresa",
+    "postalcode":       "código postal",
+    "cardnumber":       "número de tarjeta",
+    "creditnumber":     "número de crédito",
+    "loannumber":       "número de préstamo",
+    "accounttype":      "tipo de cuenta",
+    "transferamount":   "monto de transferencia",
+    "branchnumber":     "número de sucursal",
+    "phonenumber":      "número de teléfono",
+    "mobilenumber":     "número de celular",
+    "transactionid":    "identificador de transacción",
+    "transactiontype":  "tipo de transacción",
+    "paymentreference": "referencia de pago",
 }
 
 # Excepción Java → consecuencia funcional de negocio en español
 _EXC_MEANING: dict = {
     "BadRequestException":            "solicitud inválida",
+    "BadRequestCustomException":      "solicitud inválida",
+    "NoDataFoundException":           "información no encontrada",
     "UnauthorizedException":          "acceso no autorizado",
     "ExecuteSplException":            "error al ejecutar procedimiento en core bancario",
     "TimeoutException":               "tiempo de espera excedido",
@@ -262,6 +365,50 @@ _EXC_MEANING: dict = {
     "MethodArgumentNotValidException":"parámetros de operación inválidos",
     "MicroserviceClientException":    "error en microservicio dependiente",
     "CircuitBreakerException":        "circuit breaker activo",
+    "OpenSessionUnauthorizedException": "sesión no autorizada",
+    "SessionExpiredException":          "sesión expirada",
+    "InsufficientFundsException":       "saldo insuficiente",
+    "InsufficientBalanceException":     "saldo insuficiente",
+    "DuplicateTransactionException":    "transacción duplicada",
+    "InvalidAmountException":           "monto inválido",
+    "InvalidAccountException":          "cuenta inválida",
+    "BlockedAccountException":          "cuenta bloqueada",
+    "CardBlockedException":             "tarjeta bloqueada",
+    "InvalidCardException":             "tarjeta inválida",
+    "LimitExceededException":           "límite excedido",
+    "NipInvalidException":              "NIP inválido",
+    "NipBlockedException":              "NIP bloqueado",
+    "NipException":                     "error de NIP",
+    "SpeiException":                    "error en operación SPEI",
+    "CodiException":                    "error en operación CoDi",
+    "FeignException":                   "error en microservicio dependiente",
+    "RetryableException":               "error transitorio — reintento disponible",
+    "AccountNotFoundException":         "cuenta no encontrada",
+    "CustomerNotFoundException":        "cliente no encontrado",
+    "ServiceUnavailableException":      "servicio no disponible",
+    "HttpClientErrorException":         "error de cliente HTTP",
+    "HttpServerErrorException":         "error de servidor externo",
+    "SqlException":                     "error en base de datos",
+    "JdbcException":                    "error de conexión a base de datos",
+    "TransactionException":             "error en la transacción",
+    "AuthorizationException":           "autorización denegada",
+    "ForbiddenException":               "acceso prohibido",
+    "ValidationException":              "error de validación",
+    "BusinessException":                "regla de negocio no cumplida",
+    "MongoException":                   "error en base de datos MongoDB",
+    "MongoDataNotFoundException":       "dato no encontrado en MongoDB",
+    "MongoTimeoutException":            "tiempo de espera en MongoDB",
+    "RedisException":                   "error en caché Redis",
+    "RedisTimeoutException":            "tiempo de espera en Redis",
+    "KafkaException":                   "error en mensajería Kafka",
+    "RollbackException":                "error al revertir transacción",
+    "OptimisticLockingFailureException":"conflicto de concurrencia en registro",
+    "DataAccessException":              "error de acceso a datos",
+    "InvalidTokenException":            "token inválido",
+    "TokenExpiredException":            "token expirado",
+    "NotFoundException":                "recurso no encontrado",
+    "ConflictException":                "conflicto de estado",
+    "InternalServerException":          "error interno del servicio",
 }
 
 # Fragmento del nombre de MSA → contexto de negocio en español
@@ -304,6 +451,14 @@ _MSA_CTX: dict = {
 }
 
 
+# Palabras de "tipo/medida" que en español van al frente: "número de cuenta" no "cuenta número"
+_MEASURE_WORDS: set = {
+    "número", "números", "código", "monto", "saldo", "importe",
+    "cuota", "folio", "referencia", "identificador", "tipo",
+    "dirección", "nombre", "clave", "correo", "límite",
+}
+
+
 def _split_camel(s: str) -> list:
     """Divide camelCase / PascalCase en lista de palabras en minúsculas."""
     s = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", s)
@@ -329,7 +484,19 @@ def _field_to_es(field: str) -> str:
                 continue
         result.append(_FIELD_TERMS.get(words[i], words[i]))
         i += 1
-    return " ".join(result) if result else field
+    if not result:
+        return field
+    # Reordenamiento español: si el último elemento es palabra de medida/tipo
+    # (o un bigrama traducido que empieza con una), va al frente con "de":
+    # "cliente número" → "número de cliente"
+    # "origen números de cuenta" → "números de cuenta de origen"
+    if len(result) > 1:
+        last = result[-1]
+        first_of_last = last.split()[0] if last else ""
+        if last in _MEASURE_WORDS or first_of_last in _MEASURE_WORDS:
+            rest = result[:-1]
+            return f"{last} de {' '.join(rest)}"
+    return " ".join(result)
 
 
 def _msa_ctx(repo: str) -> str:
@@ -521,10 +688,11 @@ def gen_descripcion(
 # Excepciones de negocio (excluye NPE / ClassCast / puras infra)
 BIZ_EXCEPTIONS = re.compile(
     r"ExecuteSplException|TimeoutException|BadRequestException|"
+    r"BadRequestCustomException|ForbiddenException|"
     r"UnauthorizedException|DownstreamException|DatabaseTimeoutException|"
     r"ExecuteSplTimeoutException|NotValidHeadersException|CheckHeadersException|"
     r"ConstraintViolationException|MethodArgumentNotValidException|"
-    r"DataNotFoundException|NoResourceFoundException|"
+    r"DataNotFoundException|NoDataFoundException|NoResourceFoundException|"
     r"MicroserviceClientException|CircuitBreakerException",
     re.I
 )
