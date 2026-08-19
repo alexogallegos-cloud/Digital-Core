@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arquitectura — Unity R4 · TDC P4900</title>
+<style>
+  :root {
+    --bcop-blue: #122FB1;
+    --bcop-yellow: #F0D224;
+    --bcop-blue-light: #1a3fd4;
+    --bcop-blue-dark: #0d2080;
+    --rag-red: #e53e3e;
+    --rag-yellow: #d69e2e;
+    --rag-green: #38a169;
+    --bg: #f7f8fc;
+    --surface: #ffffff;
+    --border: #e2e8f0;
+    --text: #1a202c;
+    --text-muted: #718096;
+    --text-light: #a0aec0;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  .header {
+    background: var(--bcop-blue);
+    color: #fff;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .logo-badge {
+    background: var(--bcop-yellow);
+    color: var(--bcop-blue-dark);
+    font-weight: 800;
+    font-size: 15px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    letter-spacing: 0.5px;
+  }
+  .header h1 { font-size: 17px; font-weight: 600; }
+  .header p { font-size: 11px; opacity: 0.75; margin-top: 2px; }
+  .header-right { display: flex; gap: 10px; align-items: center; }
+  .nav-link {
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    text-decoration: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    transition: background 0.15s;
+  }
+  .nav-link:hover { background: rgba(255,255,255,0.22); }
+  .nav-link.active { background: var(--bcop-yellow); color: var(--bcop-blue-dark); font-weight: 700; }
+
+  /* MAIN */
+  .main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+
+  /* LEGEND */
+  .legend {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    padding: 10px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  .legend-title { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .legend-box { width: 14px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+  .legend-line { width: 20px; height: 2px; flex-shrink: 0; }
+
+  /* ARCH CONTAINER */
+  .arch-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+  }
+
+  /* LAYER */
+  .layer {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .layer-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+    padding: 6px 12px;
+    background: var(--bg);
+    border-left: 3px solid var(--border);
+    margin-bottom: 0;
+  }
+  .layer-body {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    background: #f0f2f8;
+    border: 1px solid var(--border);
+    border-top: none;
+    flex-wrap: wrap;
+    align-items: stretch;
+    position: relative;
+  }
+  .layer-body.highlight {
+    background: #e8ecf8;
+    border-color: #c5cfe8;
+  }
+
+  /* CONNECTOR ARROW between layers */
+  .layer-connector {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 28px;
+    position: relative;
+    z-index: 1;
+  }
+  .layer-connector::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--border), #aab0c8);
+    transform: translateX(-50%);
+  }
+  .layer-connector .arrow-down {
+    position: absolute;
+    bottom: 0;
+    width: 10px;
+    height: 10px;
+    border-right: 2px solid #aab0c8;
+    border-bottom: 2px solid #aab0c8;
+    transform: rotate(45deg) translateX(-50%);
+    left: 50%;
+  }
+
+  /* COMPONENT CARD */
+  .comp {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    min-width: 180px;
+    flex: 1;
+    position: relative;
+    transition: box-shadow 0.15s, transform 0.15s;
+  }
+  .comp:hover {
+    box-shadow: 0 4px 16px rgba(18,47,177,0.12);
+    transform: translateY(-1px);
+  }
+  .comp-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .comp-name {
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.3;
+  }
+  .comp-sub {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .comp-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .pill {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .pill-blue { background: #dbeafe; color: #1e40af; }
+  .pill-purple { background: #ede9fe; color: #5b21b6; }
+  .pill-green { background: #d1fae5; color: #065f46; }
+  .pill-orange { background: #fef3c7; color: #92400e; }
+  .pill-gray { background: #f1f5f9; color: #475569; }
+  .pill-red { background: #fee2e2; color: #991b1b; }
+
+  /* RAG BADGE */
+  .rag {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .rag-red { background: var(--rag-red); box-shadow: 0 0 0 2px #fee2e2; }
+  .rag-yellow { background: var(--rag-yellow); box-shadow: 0 0 0 2px #fef3c7; }
+  .rag-green { background: var(--rag-green); box-shadow: 0 0 0 2px #d1fae5; }
+  .rag-gray { background: #94a3b8; box-shadow: 0 0 0 2px #f1f5f9; }
+
+  /* PRODUCT CARD (centro) */
+  .product-card {
+    background: var(--bcop-blue);
+    color: white;
+    border-radius: 10px;
+    padding: 16px 20px;
+    text-align: center;
+    flex: 2;
+    min-width: 280px;
+    position: relative;
+    border: 3px solid var(--bcop-yellow);
+  }
+  .product-card .product-name {
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+  }
+  .product-card .product-id {
+    font-size: 11px;
+    opacity: 0.75;
+    margin-bottom: 10px;
+  }
+  .product-metrics {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .product-metric {
+    background: rgba(255,255,255,0.12);
+    border-radius: 6px;
+    padding: 6px 10px;
+    text-align: center;
+  }
+  .product-metric .val { font-size: 18px; font-weight: 800; color: var(--bcop-yellow); }
+  .product-metric .lbl { font-size: 9px; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* INTEGRATION BAND */
+  .integ-band {
+    background: #1e1e3a;
+    border-radius: 8px;
+    padding: 12px 16px;
+    flex: 2;
+    min-width: 300px;
+    color: white;
+  }
+  .integ-band-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.7; margin-bottom: 8px; }
+  .integ-items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .integ-tag {
+    font-size: 10px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #e2e8f0;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+  }
+  .integ-tag.api { border-color: #4ade80; color: #4ade80; }
+  .integ-tag.batch { border-color: #facc15; color: #facc15; }
+  .integ-tag.event { border-color: #60a5fa; color: #60a5fa; }
+
+  /* EXTERNAL BAND */
+  .ext-band {
+    background: #2d3748;
+    border-radius: 8px;
+    padding: 12px 16px;
+    color: white;
+    min-width: 160px;
+    flex: 1;
+  }
+  .ext-band-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.6; margin-bottom: 8px; }
+  .ext-items { display: flex; flex-direction: column; gap: 4px; }
+  .ext-item {
+    font-size: 10px;
+    color: #cbd5e0;
+    padding: 3px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ext-item:last-child { border-bottom: none; }
+  .ext-dot { width: 6px; height: 6px; border-radius: 50%; background: #718096; flex-shrink: 0; }
+  .ext-dot.critical { background: #f6ad55; }
+  .ext-dot.regulatory { background: #9f7aea; }
+
+  /* ALERTS PANEL */
+  .alerts-panel {
+    background: #fff5f5;
+    border: 1px solid #fed7d7;
+    border-left: 4px solid var(--rag-red);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 16px;
+  }
+  .alerts-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #c53030; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .alert-item {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 4px 0;
+    font-size: 11px;
+    color: #742a2a;
+    border-bottom: 1px solid #fee2e2;
+  }
+  .alert-item:last-child { border-bottom: none; }
+  .alert-icon { flex-shrink: 0; margin-top: 1px; }
+
+  /* DECISIONS PANEL */
+  .decisions-panel {
+    background: #fffaf0;
+    border: 1px solid #fbd38d;
+    border-left: 4px solid #d69e2e;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 12px;
+  }
+  .decisions-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #744210; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .decision-item {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 4px 0;
+    font-size: 11px;
+    color: #744210;
+    border-bottom: 1px solid #fbd38d;
+  }
+  .decision-item:last-child { border-bottom: none; }
+
+  /* FOOTER */
+  .footer { text-align: center; padding: 16px; font-size: 10px; color: var(--text-light); margin-top: 20px; }
+
+  /* AVANCE BAR */
+  .avance-bar-wrap { display: flex; align-items: center; gap: 8px; }
+  .avance-bar {
+    flex: 1;
+    height: 5px;
+    background: #e2e8f0;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .avance-fill { height: 100%; border-radius: 3px; }
+  .avance-val { font-size: 10px; font-weight: 700; min-width: 32px; text-align: right; }
+
+  /* SECTION TITLE */
+  .section-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px; margin-top: 20px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+
+  /* RESPONSIVE */
+  @media (max-width: 900px) {
+    .layer-body { flex-direction: column; }
+    .product-card { min-width: unset; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="logo-badge">BanCoppel</div>
+    <div>
+      <h1>Arquitectura — Unity R4</h1>
+      <p>TDC P4900 · Tarjeta de Crédito Clásica Digital · Corte 2026-08-17</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <a href="plan-director.html" class="nav-link">Plan Director</a>
+    <a href="arquitectura.html" class="nav-link active">Arquitectura</a>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- LEGEND -->
+  <div class="legend">
+    <span class="legend-title">Leyenda</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--rag-red)"></span> Track en ROJO (bloqueado)</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--rag-yellow)"></span> Track en AMARILLO (en riesgo)</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--rag-green)"></span> Track en VERDE</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#94a3b8"></span> Sistema externo</span>
+    <span class="legend-item"><span class="integ-tag api" style="font-size:9px">API</span> Integración API REST</span>
+    <span class="legend-item"><span class="integ-tag batch" style="font-size:9px">BATCH</span> Integración batch</span>
+    <span class="legend-item"><span class="integ-tag event" style="font-size:9px">EVENT</span> Integración evento</span>
+  </div>
+
+  <!-- ===== ARCHITECTURE ===== -->
+  <div class="arch-container">
+
+    <!-- LAYER 0: CLIENTE / USUARIO FINAL -->
+    <div class="layer-label" style="border-left-color: #a0aec0;">CAPA 0 · Usuario Final</div>
+    <div class="layer-body">
+      <div class="comp" style="flex: 0.5; min-width: 120px; background: #f8fafc;">
+        <div class="comp-header">
+          <span class="comp-name" style="font-size:12px;">Tarjetahabiente</span>
+        </div>
+        <div class="comp-sub">Cliente BanCoppel</div>
+        <div class="comp-pills">
+          <span class="pill pill-gray">TDC P4900</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- LAYER 1: CANALES DIGITALES -->
+    <div class="layer-label" style="border-left-color: #3b82f6; margin-top: 2px;">CAPA 1 · Canales Digitales</div>
+    <div class="layer-body highlight">
+
+      <!-- APP MÓVIL -->
+      <div class="comp" style="border-top: 3px solid var(--rag-red);">
+        <div class="comp-header">
+          <span class="comp-name">App Móvil</span>
+          <span class="rag rag-red" title="RAG: ROJO"></span>
+        </div>
+        <div class="comp-sub">Proveedor: AppWhere</div>
+        <div style="margin: 6px 0 4px; font-size: 10px; color: var(--text-muted);">Avance must HUs</div>
+        <div class="avance-bar-wrap">
+          <div class="avance-bar"><div class="avance-fill" style="width: 35%; background: var(--rag-red);"></div></div>
+          <span class="avance-val" style="color:var(--rag-red);">~35%</span>
+        </div>
+        <div class="comp-pills" style="margin-top:8px;">
+          <span class="pill pill-red">15 must HUs</span>
+          <span class="pill pill-gray">18 total HUs</span>
+          <span class="pill pill-red">6 HUs cierran nov ⚠</span>
+        </div>
+        <div style="margin-top:8px; font-size:10px; color:#c53030;">
+          DTMs sin publicar · 6 HUs must cierran Nov (riesgo SIT)
+        </div>
+      </div>
+
+      <!-- SIWEB -->
+      <div class="comp" style="border-top: 3px solid var(--rag-yellow);">
+        <div class="comp-header">
+          <span class="comp-name">SIWEB</span>
+          <span class="rag rag-yellow" title="RAG: AMARILLO"></span>
+        </div>
+        <div class="comp-sub">Banca por Internet</div>
+        <div style="margin: 6px 0 4px; font-size: 10px; color: var(--text-muted);">Avance must HUs</div>
+        <div class="avance-bar-wrap">
+          <div class="avance-bar"><div class="avance-fill" style="width: 20%; background: var(--rag-yellow);"></div></div>
+          <span class="avance-val" style="color:var(--rag-yellow);">~20%</span>
+        </div>
+        <div class="comp-pills" style="margin-top:8px;">
+          <span class="pill pill-orange">0 must HUs</span>
+          <span class="pill pill-gray">5 total HUs</span>
+        </div>
+        <div style="margin-top:8px; font-size:10px; color:#744210;">
+          10 semanas construcción desde 18-ago → llega 29-oct (2 sem. tarde)
+        </div>
+      </div>
+
+      <!-- CAT -->
+      <div class="comp" style="border-top: 3px solid var(--rag-red);">
+        <div class="comp-header">
+          <span class="comp-name">CAT</span>
+          <span class="rag rag-red" title="RAG: ROJO"></span>
+        </div>
+        <div class="comp-sub">Canales adicionales transaccionales</div>
+        <div style="margin: 6px 0 4px; font-size: 10px; color: var(--text-muted);">Avance must HUs</div>
+        <div class="avance-bar-wrap">
+          <div class="avance-bar"><div class="avance-fill" style="width: 0%; background: var(--rag-red);"></div></div>
+          <span class="avance-val" style="color:var(--rag-red);">0%</span>
+        </div>
+        <div class="comp-pills" style="margin-top:8px;">
+          <span class="pill pill-red">9 must HUs</span>
+          <span class="pill pill-gray">12 total HUs</span>
+          <span class="pill pill-red">Sin proveedor ⚠</span>
+        </div>
+        <div style="margin-top:8px; font-size:10px; color:#c53030;">
+          Doble bloqueo: proveedor no contratado + DTMs sin responsable
+        </div>
+      </div>
+
+      <!-- PROMOTORÍA -->
+      <div class="comp" style="border-top: 3px solid #94a3b8; background: #f8fafc;">
+        <div class="comp-header">
+          <span class="comp-name">Promotoría</span>
+          <span class="rag rag-gray" title="Sin RAG confirmado"></span>
+        </div>
+        <div class="comp-sub">Fuerza de ventas presencial</div>
+        <div class="comp-pills" style="margin-top:8px;">
+          <span class="pill pill-gray">1 must HU</span>
+          <span class="pill pill-gray">Scope original Jul</span>
+        </div>
+        <div style="margin-top:8px; font-size:10px; color:#718096;">
+          ⚠ No aparece en track_rag actual. Verificar: ¿absorbido, diferido a R5 o descartado?
+        </div>
+      </div>
+
+    </div><!-- /CAPA 1 -->
+
+    <!-- LAYER 2: CAPA DE INTEGRACIÓN (API LAYER) -->
+    <div class="layer-label" style="border-left-color: #8b5cf6; margin-top: 2px;">CAPA 2 · API Gateway / Apificación</div>
+    <div class="layer-body" style="background: #1e1e3a; border-color: #2d2d5a;">
+      <div class="integ-band" style="background: transparent;">
+        <div class="integ-band-title">Apificación — Owner: Armando Riveros</div>
+        <div class="integ-items">
+          <span class="integ-tag api">API REST (SmartVista ↔ App)</span>
+          <span class="integ-tag api">API REST (SmartVista ↔ SIWEB)</span>
+          <span class="integ-tag api">API REST (SmartVista ↔ CAT)</span>
+          <span class="integ-tag api">API REST (Apolo ↔ SmartVista)</span>
+          <span class="integ-tag api">API REST (Apolo ↔ App)</span>
+          <span class="integ-tag batch">Batch (SmartVista → ControlM)</span>
+          <span class="integ-tag batch">Batch (SmartVista → CNBV/Banxico)</span>
+          <span class="integ-tag event">Evento (SmartVista → e-Global)</span>
+        </div>
+      </div>
+      <div class="ext-band" style="border: 1px solid rgba(255,255,255,0.1);">
+        <div class="ext-band-title">18 integraciones cross-track</div>
+        <div class="ext-items">
+          <div class="ext-item"><span class="ext-dot"></span>7 · SmartVista ↔ ext</div>
+          <div class="ext-item"><span class="ext-dot"></span>4 · App ↔ ext</div>
+          <div class="ext-item"><span class="ext-dot"></span>7 · CAT / SIWEB ↔ ext</div>
+          <div class="ext-item" style="color:#facc15; border-top: 1px solid rgba(255,255,255,0.1); padding-top:6px; margin-top:4px;">
+            <span style="font-size:10px;">⚠ Latencia activa &gt;10seg en App</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LAYER 3: PLATAFORMAS CORE -->
+    <div class="layer-label" style="border-left-color: var(--bcop-blue); margin-top: 2px;">CAPA 3 · Plataformas Core</div>
+    <div class="layer-body highlight" style="background: #e8ecf8; align-items: stretch;">
+
+      <!-- SMARTVISTA -->
+      <div class="comp" style="border-top: 3px solid var(--rag-yellow); flex: 1.5;">
+        <div class="comp-header">
+          <div>
+            <div class="comp-name">SmartVista (BPC)</div>
+            <div class="comp-sub">Procesador de Tarjeta · Core TDC</div>
+          </div>
+          <span class="rag rag-yellow" title="RAG: AMARILLO"></span>
+        </div>
+        <div style="margin: 6px 0 4px; font-size: 10px; color: var(--text-muted);">Avance must HUs</div>
+        <div class="avance-bar-wrap">
+          <div class="avance-bar"><div class="avance-fill" style="width: 40%; background: var(--rag-yellow);"></div></div>
+          <span class="avance-val" style="color:var(--rag-yellow);">~40%</span>
+        </div>
+        <div class="comp-pills" style="margin-top:8px;">
+          <span class="pill pill-blue">11 must HUs</span>
+          <span class="pill pill-gray">22 total HUs</span>
+          <span class="pill pill-orange">7 integraciones</span>
+        </div>
+        <div style="margin-top:10px; font-size:10px; color:#718096; display:flex; flex-direction:column; gap:4px;">
+          <div style="display:flex; justify-content:space-between;">
+            <span>TRNTs Pagos</span>
+            <span style="color:var(--rag-red); font-weight:700;">0% / 100% ⚠</span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span>SVFM en QA</span>
+            <span style="color:var(--rag-red); font-weight:700;">NO instalado ⚠</span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span>Llaves PGP DEV</span>
+            <span style="color:var(--rag-yellow); font-weight:700;">Pendiente</span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span>Maquila (Forza/TGS/Thales)</span>
+            <span style="color:var(--rag-yellow); font-weight:700;">En proceso</span>
+          </div>
+        </div>
+        <div style="margin-top:10px; padding-top:8px; border-top:1px solid var(--border); font-size:10px; color:#718096;">
+          <strong style="font-size:9px; text-transform:uppercase; letter-spacing:0.5px; color:#a0aec0;">Trabaja en R4 para R5:</strong><br>
+          Disposición de efectivo ATM · MCI (Motor de Crédito Institucional)
+        </div>
+      </div>
+
+      <!-- PRODUCTO CENTRAL -->
+      <div class="product-card">
+        <div class="product-id">PRODUCTO</div>
+        <div class="product-name">TDC P4900</div>
+        <div class="product-id" style="margin-top:4px;">Tarjeta de Crédito Clásica Digital</div>
+        <div class="product-metrics">
+          <div class="product-metric">
+            <div class="val">45</div>
+            <div class="lbl">HUs R4</div>
+          </div>
+          <div class="product-metric">
+            <div class="val">43</div>
+            <div class="lbl">Must Have</div>
+          </div>
+          <div class="product-metric">
+            <div class="val">20.66%</div>
+            <div class="lbl">Avance real</div>
+          </div>
+          <div class="product-metric">
+            <div class="val" style="color:#f6ad55;">34%</div>
+            <div class="lbl">Esperado</div>
+          </div>
+        </div>
+        <div style="margin-top:14px; padding:8px; background:rgba(230,53,53,0.25); border-radius:6px; font-size:11px;">
+          RAG del producto: <strong style="color:#fc8181; font-size:14px;">🔴 ROJO</strong><br>
+          <span style="font-size:10px; opacity:0.8;">Rezago -13.34pp · 2 tracks bloqueados · 1 sin proveedor</span>
+        </div>
+        <div style="margin-top:10px; font-size:10px; opacity:0.7;">
+          Go-Live objetivo: <strong style="color: var(--bcop-yellow);">15 enero 2027</strong>
+        </div>
+      </div>
+
+      <!-- APOLO -->
+      <div class="comp" style="border-top: 3px solid var(--rag-yellow); flex: 1.5;">
+        <div class="comp-header">
+          <div>
+            <div class="comp-name">Apolo (Appware)</div>
+            <div class="comp-sub">Onboarding Digital · Canal Core</div>
+          </div>
+          <span class="rag rag-yellow" title="RAG: AMARILLO"></span>
+        </div>
+        <div style="margin: 6px 0 4px; font-size: 10px; color: var(--text-muted);">Avance must HUs</div>
+        <div class="avance-bar-wrap">
+          <div class="avance-bar"><div class="avance-fill" style="width: 30%; background: var(--rag-yellow);"></div></div>
+          <span class="avance-val" style="color:var(--rag-yellow);">~30%</span>
+        </div>
+        <div class="comp-pills" style="margin-top:8px;">
+          <span class="pill pill-blue">11 must HUs</span>
+          <span class="pill pill-gray">22 total HUs</span>
+          <span class="pill pill-purple">22 DTMs (REC_*)</span>
+        </div>
+        <div style="margin-top:10px; font-size:10px; color:#718096; display:flex; flex-direction:column; gap:4px;">
+          <div style="display:flex; justify-content:space-between;">
+            <span>REC_ExecuteCreditContracting</span>
+            <span style="color:var(--rag-red); font-weight:700;">Alta · SA=12 ⚠</span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span>Critical Breakers abiertos</span>
+            <span style="color:var(--rag-yellow); font-weight:700;">CB2 · CB7</span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span>Latencia en producción</span>
+            <span style="color:var(--rag-yellow); font-weight:700;">Activa</span>
+          </div>
+        </div>
+        <div style="margin-top:10px; padding-top:8px; border-top:1px solid var(--border); font-size:10px; color:#718096;">
+          <strong style="font-size:9px; text-transform:uppercase; letter-spacing:0.5px; color:#a0aec0;">Deferidos a R5 (Apolo):</strong><br>
+          Cliente prospecto · Retoma de solicitud
+        </div>
+        <div style="margin-top:8px; background:#fff7e6; border-radius:4px; padding:5px 8px; font-size:10px; color:#744210;">
+          ⚠ Tensión de fechas: deploy Apolo 06–22 ene · Go-Live 15 ene (solo 9 días de margen)
+        </div>
+      </div>
+
+    </div><!-- /CAPA 3 -->
+
+    <!-- LAYER 4: SISTEMAS EXTERNOS Y REGULATORIOS -->
+    <div class="layer-label" style="border-left-color: #718096; margin-top: 2px;">CAPA 4 · Sistemas Externos y Regulación</div>
+    <div class="layer-body" style="background: #2d3748; border-color: #4a5568; flex-wrap: wrap; gap: 10px;">
+
+      <div class="ext-band">
+        <div class="ext-band-title">Pagos y Redes</div>
+        <div class="ext-items">
+          <div class="ext-item"><span class="ext-dot critical"></span>e-Global (88 reglas ISO 8583)</div>
+          <div class="ext-item"><span class="ext-dot critical"></span>PROSA / Mastercard</div>
+          <div class="ext-item"><span class="ext-dot"></span>SPEI / CoDi (Banxico)</div>
+          <div class="ext-item"><span class="ext-dot"></span>Western Union</div>
+          <div class="ext-item"><span class="ext-dot"></span>MoneyGram</div>
+          <div class="ext-item"><span class="ext-dot"></span>Corresponsales</div>
+        </div>
+      </div>
+
+      <div class="ext-band">
+        <div class="ext-band-title">Seguridad y Certificación</div>
+        <div class="ext-items">
+          <div class="ext-item"><span class="ext-dot critical"></span>Thales (llaves PGP · layout ⚠ bloqueado)</div>
+          <div class="ext-item"><span class="ext-dot critical"></span>SVFM (módulo fraude · sin instalar en QA)</div>
+          <div class="ext-item"><span class="ext-dot"></span>Buró de Crédito</div>
+          <div class="ext-item"><span class="ext-dot"></span>SAT</div>
+        </div>
+      </div>
+
+      <div class="ext-band">
+        <div class="ext-band-title">Regulación y Cumplimiento</div>
+        <div class="ext-items">
+          <div class="ext-item"><span class="ext-dot regulatory"></span>CNBV (reportería)</div>
+          <div class="ext-item"><span class="ext-dot regulatory"></span>Banxico (SPEI · normativa)</div>
+          <div class="ext-item"><span class="ext-dot regulatory"></span>UIF / PLD</div>
+          <div class="ext-item"><span class="ext-dot regulatory"></span>CONDUSEF</div>
+        </div>
+      </div>
+
+      <div class="ext-band">
+        <div class="ext-band-title">Orquestación y Datos</div>
+        <div class="ext-items">
+          <div class="ext-item"><span class="ext-dot"></span>ControlM (batch jobs)</div>
+          <div class="ext-item"><span class="ext-dot"></span>DataStage (ETL)</div>
+          <div class="ext-item"><span class="ext-dot"></span>Nómina Coppel</div>
+          <div class="ext-item"><span class="ext-dot"></span>Orion (scoring)</div>
+          <div class="ext-item"><span class="ext-dot"></span>IPAB</div>
+        </div>
+      </div>
+
+    </div><!-- /CAPA 4 -->
+
+  </div><!-- /arch-container -->
+
+  <!-- BLOCKERS & DECISIONS -->
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px;">
+
+    <div class="alerts-panel">
+      <div class="alerts-title">Bloqueadores Activos de Arquitectura</div>
+      <div class="alert-item">
+        <span class="alert-icon">🔴</span>
+        <span><strong>SVFM sin instalar en QA</strong> — 88 reglas de fraude del autorizador no pueden probarse. Bloquea SIT SmartVista. Owner: BPC. Deadline: 31-ago.</span>
+      </div>
+      <div class="alert-item">
+        <span class="alert-icon">🔴</span>
+        <span><strong>DTMs Appwhere sin publicar</strong> — documentación técnica mandatoria pre-desarrollo para App, CAT y SIWEB. Bloquea 54% de HUs con dependencia técnica. Owner: AppWhere. Deadline: 15-sep.</span>
+      </div>
+      <div class="alert-item">
+        <span class="alert-icon">🔴</span>
+        <span><strong>TRNTs Pagos al 0%</strong> — tipos de transacción base de la contabilidad de pagos. Sin esto, la integración SmartVista↔contabilidad no tiene definición. Owner: BPC. Deadline: 31-ago.</span>
+      </div>
+      <div class="alert-item">
+        <span class="alert-icon">🔴</span>
+        <span><strong>Llaves PGP DEV sin completar</strong> — certificación layout Thales bloqueada. Owner: Armando García Ortiz. Deadline: 31-ago.</span>
+      </div>
+      <div class="alert-item">
+        <span class="alert-icon">🔴</span>
+        <span><strong>CAT sin proveedor</strong> — 9 HUs must, 7 integraciones y ambiente de prueba sin activar. Bloqueo total del track. Owner: BanCoppel PMO. Decisión inmediata.</span>
+      </div>
+      <div class="alert-item">
+        <span class="alert-icon">🟡</span>
+        <span><strong>Latencia Apolo &gt;10 seg en App</strong> — activa en producción. Fragmentación de capa API. Owner: Apificación (Armando Riveros). Deadline: 15-sep.</span>
+      </div>
+    </div>
+
+    <div class="decisions-panel">
+      <div class="decisions-title">Decisiones de Arquitectura Pendientes</div>
+      <div class="decision-item">
+        <span>⚠</span>
+        <span><strong>Promotoría — scope incierto:</strong> canal con 1 HU en el plan original de julio no aparece en el tracking actual. ¿Fue absorbido, diferido a R5 o descartado silenciosamente? Requiere clarificación formal antes del 31-ago.</span>
+      </div>
+      <div class="decision-item">
+        <span>⚠</span>
+        <span><strong>Tensión de fechas Apolo vs Go-Live:</strong> Apolo pasa a producción 06–22 ene; Go-Live del producto es 15 ene. Solo 9 días de margen de deployment al momento del lanzamiento. Requiere decisión explícita del programa sobre si Apolo puede estar en producción a tiempo.</span>
+      </div>
+      <div class="decision-item">
+        <span>⚠</span>
+        <span><strong>Calendario QA integrado SV+CAT+SIWEB:</strong> tres tracks convergen en sep-nov sin un plan QA coordinado. Riesgo de conflictos de ambiente entre tracks.</span>
+      </div>
+      <div class="decision-item">
+        <span>⚠</span>
+        <span><strong>R4.1 — 9 HUs candidatas a diferir:</strong> 5 de Apolo + 4 de SV. Decisión requerida del Business Owner antes del 15-sep para proteger el calendario del producto. Sin decisión, el scope sigue siendo 45 HUs.</span>
+      </div>
+      <div class="decision-item">
+        <span>⚠</span>
+        <span><strong>Pentest Cobranza vs SIT:</strong> ventana pentest (15–20 nov) convive con el SIT activo. El ambiente de Cobranza quedaría congelado durante el pentest. Requiere plan de aislamiento de ambientes.</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    Unity R4 · TDC P4900 · Arquitectura · brain.db v1.0.0 · Corte 2026-08-17 · Accenture México — SPE/HVM/AM
+  </div>
+
+</div><!-- /main -->
+</body>
+</html>

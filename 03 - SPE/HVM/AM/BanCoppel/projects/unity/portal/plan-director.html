@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan Director — TDC P4900 · Unity R4</title>
+<style>
+  :root {
+    --bc-blue: #122FB1;
+    --bc-yellow: #F0D224;
+    --bc-blue-dark: #0d2280;
+    --bc-blue-light: #1a40d4;
+    --bc-yellow-light: #f8e96a;
+    --gray-50: #f8f9fa;
+    --gray-100: #e9ecef;
+    --gray-200: #dee2e6;
+    --gray-600: #6c757d;
+    --gray-800: #343a40;
+    --green: #1a7a3c;
+    --green-bg: #d4edda;
+    --yellow-rag: #a86800;
+    --yellow-rag-bg: #fff3cd;
+    --red: #8b0000;
+    --red-bg: #f8d7da;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--gray-50); color: var(--gray-800); font-size: 14px; }
+
+  /* HEADER */
+  .header { background: var(--bc-blue); color: white; padding: 18px 32px 0; }
+  .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .header-brand { display: flex; align-items: center; gap: 14px; }
+  .header-logo { width: 40px; height: 40px; background: var(--bc-yellow); border-radius: 6px;
+    display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; color: var(--bc-blue); }
+  .header-title h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+  .header-title p { font-size: 12px; opacity: 0.75; margin-top: 1px; }
+  .header-rag { display: flex; align-items: center; gap: 10px; }
+  .rag-badge { padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; gap: 6px; }
+  .rag-red   { background: #ff4444; color: white; }
+  .rag-yellow { background: var(--bc-yellow); color: #7a5000; }
+  .rag-green  { background: #28a745; color: white; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: white; }
+  .dot-red { background: #ff8888; }
+  .dot-yellow { background: #7a5000; }
+  .header-sub { display: flex; gap: 24px; border-top: 1px solid rgba(255,255,255,0.15); padding: 8px 0; margin-top: 4px; }
+  .header-sub span { font-size: 11.5px; opacity: 0.8; }
+  .header-sub strong { opacity: 1; font-weight: 600; }
+
+  /* MAIN */
+  .main { max-width: 1200px; margin: 0 auto; padding: 24px 32px; }
+  section { margin-bottom: 32px; }
+  .section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--bc-blue); margin-bottom: 14px; padding-bottom: 6px; border-bottom: 2px solid var(--bc-yellow); display: inline-block; }
+
+  /* KPI STRIP */
+  .kpi-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 28px; }
+  .kpi-card { background: white; border-radius: 8px; padding: 16px; border: 1px solid var(--gray-200);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .kpi-label { font-size: 11px; color: var(--gray-600); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .kpi-value { font-size: 28px; font-weight: 800; color: var(--bc-blue); line-height: 1; }
+  .kpi-sub { font-size: 11px; color: var(--gray-600); margin-top: 4px; }
+  .kpi-warn .kpi-value { color: #cc0000; }
+  .kpi-ok .kpi-value { color: #1a7a3c; }
+
+  /* PROGRESS BAR */
+  .progress-wrap { margin-top: 8px; }
+  .progress-bar-bg { background: var(--gray-100); border-radius: 4px; height: 6px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; border-radius: 4px; }
+  .fill-blue { background: var(--bc-blue); }
+  .fill-red  { background: #cc0000; }
+  .fill-expected { background: var(--gray-200); }
+  .progress-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--gray-600); margin-top: 2px; }
+
+  /* DUAL PROGRESS */
+  .dual-bar { position: relative; height: 6px; border-radius: 4px; background: var(--gray-100); overflow: hidden; margin-top: 8px; }
+  .dual-real { position: absolute; left: 0; top: 0; height: 100%; background: var(--bc-blue); border-radius: 4px; }
+  .dual-exp  { position: absolute; left: 0; top: 0; height: 100%; background: rgba(18,47,177,0.2); border-radius: 4px; }
+
+  /* TRACK CARDS */
+  .tracks-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .track-card { background: white; border-radius: 8px; border: 1px solid var(--gray-200);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden; }
+  .track-header { padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; }
+  .track-header.th-red    { background: var(--red-bg); }
+  .track-header.th-yellow { background: var(--yellow-rag-bg); }
+  .track-header.th-green  { background: var(--green-bg); }
+  .track-name { font-weight: 700; font-size: 13px; }
+  .track-name.tn-red    { color: var(--red); }
+  .track-name.tn-yellow { color: var(--yellow-rag); }
+  .track-name.tn-green  { color: var(--green); }
+  .track-rag-dot { width: 14px; height: 14px; border-radius: 50%; }
+  .rag-dot-red    { background: #cc0000; }
+  .rag-dot-yellow { background: #e6a800; }
+  .rag-dot-green  { background: #28a745; }
+  .track-body { padding: 12px 14px; }
+  .track-stat { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px; }
+  .track-stat-label { color: var(--gray-600); }
+  .track-stat-value { font-weight: 600; color: var(--gray-800); }
+  .track-stat-value.must { color: var(--bc-blue); }
+  .track-blocker { margin-top: 10px; padding: 8px; background: var(--gray-50); border-radius: 5px;
+    border-left: 3px solid var(--gray-200); font-size: 11px; color: var(--gray-600); line-height: 1.4; }
+  .track-blocker.bl-red    { border-left-color: #cc0000; background: var(--red-bg); }
+  .track-blocker.bl-yellow { border-left-color: #e6a800; background: var(--yellow-rag-bg); }
+  .track-integ { font-size: 11px; color: var(--gray-600); margin-top: 6px; display: flex; align-items: center; gap: 4px; }
+
+  /* ACCIONES CRÍTICAS */
+  .actions-table { width: 100%; border-collapse: collapse; }
+  .actions-table th { background: var(--bc-blue); color: white; padding: 8px 12px;
+    text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .actions-table td { padding: 9px 12px; border-bottom: 1px solid var(--gray-100); font-size: 12.5px; vertical-align: top; }
+  .actions-table tr:last-child td { border-bottom: none; }
+  .actions-table tr:hover td { background: var(--gray-50); }
+  .prio-badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.4px; }
+  .prio-critico  { background: var(--red-bg);       color: var(--red); }
+  .prio-urgente  { background: var(--yellow-rag-bg); color: var(--yellow-rag); }
+  .prio-alto     { background: #cce5ff;              color: #004085; }
+  .deadline { font-size: 11px; color: var(--gray-600); white-space: nowrap; }
+
+  /* MILESTONES */
+  .milestones-wrap { display: flex; flex-direction: column; gap: 0; }
+  .milestone-row { display: grid; grid-template-columns: 120px 12px 1fr; gap: 0 16px; align-items: start;
+    padding: 8px 0; }
+  .milestone-date { font-size: 12px; color: var(--gray-600); text-align: right; padding-top: 2px; }
+  .milestone-line { display: flex; flex-direction: column; align-items: center; }
+  .milestone-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid; flex-shrink: 0; }
+  .mdot-pending  { border-color: var(--gray-400, #adb5bd); background: white; }
+  .mdot-at-risk  { border-color: #e6a800; background: #e6a800; }
+  .mdot-green    { border-color: #28a745; background: #28a745; }
+  .milestone-vline { width: 2px; background: var(--gray-200); flex: 1; min-height: 24px; }
+  .milestone-content { padding-bottom: 4px; }
+  .milestone-title { font-size: 12.5px; font-weight: 600; color: var(--gray-800); }
+  .milestone-note  { font-size: 11px; color: var(--gray-600); margin-top: 2px; }
+  .milestone-badge { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 10px;
+    font-weight: 600; margin-left: 6px; vertical-align: middle; }
+  .mb-risk    { background: var(--yellow-rag-bg); color: var(--yellow-rag); }
+  .mb-pending { background: var(--gray-100); color: var(--gray-600); }
+  .mb-last    { background: var(--bc-blue); color: white; }
+
+  /* RISKS */
+  .risks-table { width: 100%; border-collapse: collapse; }
+  .risks-table th { background: var(--gray-800); color: white; padding: 8px 12px;
+    text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .risks-table td { padding: 8px 12px; border-bottom: 1px solid var(--gray-100); font-size: 12px; vertical-align: top; }
+  .risks-table tr:hover td { background: var(--gray-50); }
+  .risk-id { font-weight: 700; color: var(--bc-blue); font-size: 11px; }
+  .severity-tag { display: inline-block; padding: 2px 7px; border-radius: 3px; font-size: 10px; font-weight: 700; }
+  .sev-hh { background: #f8d7da; color: #8b0000; }
+  .sev-hm { background: #fff3cd; color: #7a5000; }
+  .sev-mm { background: #cce5ff; color: #004085; }
+  .comp-tag { font-size: 11px; color: var(--gray-600); }
+
+  /* FOOTER */
+  .footer { text-align: center; padding: 20px; font-size: 11px; color: var(--gray-600);
+    border-top: 1px solid var(--gray-200); margin-top: 8px; }
+  .footer strong { color: var(--bc-blue); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-top">
+    <div class="header-brand">
+      <div class="header-logo">B</div>
+      <div class="header-title">
+        <h1>Plan Director · TDC P4900</h1>
+        <p>Unity R4 — Gestión transversal por producto · Go-live enero 2027</p>
+      </div>
+    </div>
+    <div class="header-rag">
+      <div style="text-align:right; margin-right:8px;">
+        <div style="font-size:11px; opacity:0.75;">Estado del producto</div>
+        <div style="font-size:11px; opacity:0.75;">Corte 2026-08-11</div>
+      </div>
+      <div class="rag-badge rag-red"><span class="dot dot-red"></span> PRODUCTO EN RIESGO</div>
+    </div>
+  </div>
+  <div class="header-sub">
+    <span>Avance real: <strong>20.66%</strong></span>
+    <span>Esperado: <strong>34.0%</strong></span>
+    <span>Desviación: <strong>−13.34 pp</strong></span>
+    <span>Tracks en rojo: <strong>2 (APP · CAT)</strong></span>
+    <span>Bloqueadores críticos: <strong>3</strong></span>
+    <span>Go-live: <strong>15-Ene-2027</strong></span>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- KPI STRIP -->
+  <div class="kpi-strip">
+    <div class="kpi-card kpi-warn">
+      <div class="kpi-label">Avance real</div>
+      <div class="kpi-value">20.7%</div>
+      <div class="kpi-sub">vs 34.0% esperado</div>
+      <div class="progress-wrap">
+        <div class="dual-bar">
+          <div class="dual-exp"  style="width:34%"></div>
+          <div class="dual-real" style="width:20.7%"></div>
+        </div>
+        <div class="progress-labels"><span>0%</span><span style="color:#cc0000">−13.3 pp</span><span>100%</span></div>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">HUs totales en scope</div>
+      <div class="kpi-value" style="color:var(--gray-800)">76</div>
+      <div class="kpi-sub">5 tracks · 2 proveedores confirmados</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">HUs must (go-live)</div>
+      <div class="kpi-value">43</div>
+      <div class="kpi-sub">SV=11 · APP=15 · CAT=9 · Apolo=11</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Integraciones cross-track</div>
+      <div class="kpi-value" style="color:var(--gray-800)">18</div>
+      <div class="kpi-sub">API · Batch · Evento</div>
+    </div>
+    <div class="kpi-card kpi-warn">
+      <div class="kpi-label">Riesgos P=H I=H abiertos</div>
+      <div class="kpi-value">6</div>
+      <div class="kpi-sub">R01 R04 R05 R10 R15 R18</div>
+    </div>
+  </div>
+
+  <!-- TRACKS -->
+  <section>
+    <div class="section-title">Estado por track · TDC P4900</div>
+    <div class="tracks-grid">
+
+      <!-- SmartVista -->
+      <div class="track-card">
+        <div class="track-header th-yellow">
+          <span class="track-name tn-yellow">SmartVista</span>
+          <div class="track-rag-dot rag-dot-yellow"></div>
+        </div>
+        <div class="track-body">
+          <div class="track-stat"><span class="track-stat-label">HUs total</span><span class="track-stat-value">22</span></div>
+          <div class="track-stat"><span class="track-stat-label">HUs must</span><span class="track-stat-value must">11</span></div>
+          <div class="track-stat"><span class="track-stat-label">Avance SV</span><span class="track-stat-value">32.6%</span></div>
+          <div class="track-integ">🔗 7 integraciones</div>
+          <div class="progress-wrap" style="margin-top:8px">
+            <div class="progress-bar-bg"><div class="progress-bar-fill fill-blue" style="width:32.6%"></div></div>
+          </div>
+          <div class="track-blocker bl-yellow">Maquila y Homologación Comisiones omnicanal no cierran antes del 15-Oct.</div>
+        </div>
+      </div>
+
+      <!-- APP -->
+      <div class="track-card">
+        <div class="track-header th-red">
+          <span class="track-name tn-red">APP Móvil</span>
+          <div class="track-rag-dot rag-dot-red"></div>
+        </div>
+        <div class="track-body">
+          <div class="track-stat"><span class="track-stat-label">HUs total</span><span class="track-stat-value">18</span></div>
+          <div class="track-stat"><span class="track-stat-label">HUs must</span><span class="track-stat-value must">15</span></div>
+          <div class="track-stat"><span class="track-stat-label">Complejidad</span><span class="track-stat-value">7A · 6M · 5B</span></div>
+          <div class="track-integ">🔗 4 integraciones</div>
+          <div class="progress-wrap" style="margin-top:8px">
+            <div class="progress-bar-bg"><div class="progress-bar-fill fill-red" style="width:15%"></div></div>
+          </div>
+          <div class="track-blocker bl-red">6 HUs must cierran implementación 6–20 Nov. Riesgo directo sobre SIT y go-live enero.</div>
+        </div>
+      </div>
+
+      <!-- CAT -->
+      <div class="track-card">
+        <div class="track-header th-red">
+          <span class="track-name tn-red">CAT</span>
+          <div class="track-rag-dot rag-dot-red"></div>
+        </div>
+        <div class="track-body">
+          <div class="track-stat"><span class="track-stat-label">HUs total</span><span class="track-stat-value">12</span></div>
+          <div class="track-stat"><span class="track-stat-label">HUs must</span><span class="track-stat-value must">9</span></div>
+          <div class="track-stat"><span class="track-stat-label">Proveedor</span><span class="track-stat-value" style="color:#cc0000">Sin contratar</span></div>
+          <div class="track-integ">🔗 7 integraciones</div>
+          <div class="progress-wrap" style="margin-top:8px">
+            <div class="progress-bar-bg"><div class="progress-bar-fill fill-red" style="width:0%"></div></div>
+          </div>
+          <div class="track-blocker bl-red">Doble bloqueo: proveedor sin contratar y DTMs sin responsable confirmado.</div>
+        </div>
+      </div>
+
+      <!-- SIWEB -->
+      <div class="track-card">
+        <div class="track-header th-yellow">
+          <span class="track-name tn-yellow">SIWEB</span>
+          <div class="track-rag-dot rag-dot-yellow"></div>
+        </div>
+        <div class="track-body">
+          <div class="track-stat"><span class="track-stat-label">HUs total</span><span class="track-stat-value">5</span></div>
+          <div class="track-stat"><span class="track-stat-label">HUs must</span><span class="track-stat-value" style="color:var(--gray-600)">0</span></div>
+          <div class="track-stat"><span class="track-stat-label">HUs should</span><span class="track-stat-value must">5</span></div>
+          <div class="track-integ">— integraciones pendientes</div>
+          <div class="progress-wrap" style="margin-top:8px">
+            <div class="progress-bar-bg"><div class="progress-bar-fill fill-blue" style="width:8%"></div></div>
+          </div>
+          <div class="track-blocker bl-yellow">10 sem. construcción desde 18-Ago → 29-Oct. 2 semanas después del cierre requerido.</div>
+        </div>
+      </div>
+
+      <!-- Apolo -->
+      <div class="track-card">
+        <div class="track-header th-yellow">
+          <span class="track-name tn-yellow">Apolo</span>
+          <div class="track-rag-dot rag-dot-yellow"></div>
+        </div>
+        <div class="track-body">
+          <div class="track-stat"><span class="track-stat-label">HUs total</span><span class="track-stat-value">22</span></div>
+          <div class="track-stat"><span class="track-stat-label">HUs must</span><span class="track-stat-value must">11</span></div>
+          <div class="track-stat"><span class="track-stat-label">Latencia</span><span class="track-stat-value" style="color:#cc0000">&gt;10 seg App</span></div>
+          <div class="track-integ">— detalle por HU en inventario</div>
+          <div class="progress-wrap" style="margin-top:8px">
+            <div class="progress-bar-bg"><div class="progress-bar-fill fill-blue" style="width:20%"></div></div>
+          </div>
+          <div class="track-blocker bl-yellow">Track en roadmap. Latencia en producción persiste; mejoras de Apificación no confirmadas.</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ACCIONES CRÍTICAS -->
+  <section>
+    <div class="section-title">Acciones críticas abiertas</div>
+    <table class="actions-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Prioridad</th>
+          <th>Acción</th>
+          <th>Track</th>
+          <th>Fecha límite</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="font-weight:700;color:var(--bc-blue)">A1</td>
+          <td><span class="prio-badge prio-critico">Crítico</span></td>
+          <td>Contratar proveedor CAT y asignar DTMs con responsable técnico confirmado</td>
+          <td>CAT</td>
+          <td class="deadline">Inmediata</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;color:var(--bc-blue)">A2</td>
+          <td><span class="prio-badge prio-critico">Crítico</span></td>
+          <td>Instalar SVFM en ambiente QA — desbloquea 88 reglas del autorizador de fraude</td>
+          <td>SmartVista</td>
+          <td class="deadline">2026-08-31</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;color:var(--bc-blue)">A3</td>
+          <td><span class="prio-badge prio-critico">Crítico</span></td>
+          <td>Completar TRNTs Pagos (0% vs 100% esperado) — base de configuración contable de pagos</td>
+          <td>SmartVista</td>
+          <td class="deadline">2026-08-31</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;color:var(--bc-blue)">A4</td>
+          <td><span class="prio-badge prio-urgente">Urgente</span></td>
+          <td>Entregar llaves PGP para ambiente DEV — desbloquea certificación layout Thales (−50 pp)</td>
+          <td>Cross (SV)</td>
+          <td class="deadline">2026-08-31</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;color:var(--bc-blue)">A5</td>
+          <td><span class="prio-badge prio-urgente">Urgente</span></td>
+          <td>Publicar DTMs Appwhere — documentación técnica mandatoria pre-desarrollo (0% vs 57.7%)</td>
+          <td>APP / CAT / SIWEB</td>
+          <td class="deadline">2026-09-15</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;color:var(--bc-blue)">A6</td>
+          <td><span class="prio-badge prio-urgente">Urgente</span></td>
+          <td>Habilitar ambiente prueba CAT — desbloquear infraestructura rechazada por arquitectura</td>
+          <td>CAT</td>
+          <td class="deadline">2026-09-01</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;color:var(--bc-blue)">A7</td>
+          <td><span class="prio-badge prio-alto">Alto</span></td>
+          <td>Publicar calendario QA integrado SV+CAT+SIWEB — convergencia sep-nov sin plan actual</td>
+          <td>Cross</td>
+          <td class="deadline">2026-09-01</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;color:var(--bc-blue)">A8</td>
+          <td><span class="prio-badge prio-alto">Alto</span></td>
+          <td>Resolver fragmentación de capa API — latencia activa &gt;10 seg en App en producción</td>
+          <td>APP / Apolo</td>
+          <td class="deadline">2026-09-15</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- DOS COLUMNAS: MILESTONES + RIESGOS -->
+  <div style="display:grid; grid-template-columns: 1fr 1.6fr; gap:24px;">
+
+    <!-- MILESTONES -->
+    <section style="margin-bottom:0">
+      <div class="section-title">Hitos del programa</div>
+      <div class="milestones-wrap">
+        <div class="milestone-row">
+          <div class="milestone-date">15-Oct-2026</div>
+          <div class="milestone-line">
+            <div class="milestone-dot mdot-pending"></div>
+            <div class="milestone-vline"></div>
+          </div>
+          <div class="milestone-content">
+            <div class="milestone-title">Cierre análisis y diseño (SmartVista/Apolo)<span class="milestone-badge mb-pending">Pendiente</span></div>
+            <div class="milestone-note">Análisis debe cerrar antes de iniciar SIT.</div>
+          </div>
+        </div>
+        <div class="milestone-row">
+          <div class="milestone-date">15-Oct-2026</div>
+          <div class="milestone-line">
+            <div class="milestone-dot mdot-at-risk"></div>
+            <div class="milestone-vline"></div>
+          </div>
+          <div class="milestone-content">
+            <div class="milestone-title">Inicio SIT<span class="milestone-badge mb-risk">En riesgo</span></div>
+            <div class="milestone-note">CAT no contratado. 6 HUs APP cierran en noviembre.</div>
+          </div>
+        </div>
+        <div class="milestone-row">
+          <div class="milestone-date">15-Oct-2026</div>
+          <div class="milestone-line">
+            <div class="milestone-dot mdot-pending"></div>
+            <div class="milestone-vline"></div>
+          </div>
+          <div class="milestone-content">
+            <div class="milestone-title">Code Freeze — todos los componentes<span class="milestone-badge mb-pending">Pendiente</span></div>
+            <div class="milestone-note">Código freeze para entrada a SIT.</div>
+          </div>
+        </div>
+        <div class="milestone-row">
+          <div class="milestone-date">15-Nov-2026</div>
+          <div class="milestone-line">
+            <div class="milestone-dot mdot-at-risk"></div>
+            <div class="milestone-vline"></div>
+          </div>
+          <div class="milestone-content">
+            <div class="milestone-title">Pentest Cobranza<span class="milestone-badge mb-risk">En riesgo</span></div>
+            <div class="milestone-note">15–20 nov. Congela ambiente Cobranza en pleno SIT.</div>
+          </div>
+        </div>
+        <div class="milestone-row">
+          <div class="milestone-date">15-Dic-2026</div>
+          <div class="milestone-line">
+            <div class="milestone-dot mdot-pending"></div>
+            <div class="milestone-vline"></div>
+          </div>
+          <div class="milestone-content">
+            <div class="milestone-title">Fin SIT / Code Freeze definitivo<span class="milestone-badge mb-pending">Pendiente</span></div>
+            <div class="milestone-note">Sin cambios de código después de esta fecha.</div>
+          </div>
+        </div>
+        <div class="milestone-row">
+          <div class="milestone-date" style="font-weight:700;color:var(--bc-blue)">15-Ene-2027</div>
+          <div class="milestone-line">
+            <div class="milestone-dot" style="border-color:var(--bc-blue);background:var(--bc-yellow)"></div>
+          </div>
+          <div class="milestone-content">
+            <div class="milestone-title">Go-Live TDC P4900<span class="milestone-badge mb-last">Objetivo</span></div>
+            <div class="milestone-note">Fecha sujeta a éxito de SIT.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIESGOS -->
+    <section style="margin-bottom:0">
+      <div class="section-title">Riesgos de mayor exposición</div>
+      <table class="risks-table">
+        <thead>
+          <tr><th>ID</th><th>P × I</th><th>Descripción</th><th>Track</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="risk-id">R01</td>
+            <td><span class="severity-tag sev-hh">H × H</span></td>
+            <td>DTMs Appware bloquean construcción SV, SIWEB y CAT — 54% HUs sin delta técnico cerrado</td>
+            <td class="comp-tag">SmartVista</td>
+          </tr>
+          <tr>
+            <td class="risk-id">R04</td>
+            <td><span class="severity-tag sev-hh">H × H</span></td>
+            <td>Fragmentación API — sin estándar de servicio único, latencia ya &gt;10 seg en App</td>
+            <td class="comp-tag">Apificación</td>
+          </tr>
+          <tr>
+            <td class="risk-id">R05</td>
+            <td><span class="severity-tag sev-hh">H × H</span></td>
+            <td>Latencia Apolo persiste en producción — mejoras no confirmadas como desplegadas</td>
+            <td class="comp-tag">Apolo</td>
+          </tr>
+          <tr>
+            <td class="risk-id">R10</td>
+            <td><span class="severity-tag sev-hh">H × H</span></td>
+            <td>4 despliegues en Q4-26 con capacidad limitada y pruebas paralelas — riesgo de retraso en cadena</td>
+            <td class="comp-tag">Cross</td>
+          </tr>
+          <tr>
+            <td class="risk-id">R15</td>
+            <td><span class="severity-tag sev-hh">H × H</span></td>
+            <td>Ambientes DEV/TEST SV sin infraestructura SVFM — 88 reglas del autorizador sin probar</td>
+            <td class="comp-tag">SmartVista</td>
+          </tr>
+          <tr>
+            <td class="risk-id">R18</td>
+            <td><span class="severity-tag sev-hh">H × H</span></td>
+            <td>Ambiente prueba CAT bloqueado — arquitectura rechazó habilitar servidor IBR</td>
+            <td class="comp-tag">CAT</td>
+          </tr>
+          <tr>
+            <td class="risk-id">R12</td>
+            <td><span class="severity-tag sev-hm">H × M</span></td>
+            <td>Diseños CX/Figma Bloque 2 APP sin cerrar desde sep-2025 — bloquea desarrollo</td>
+            <td class="comp-tag">APP</td>
+          </tr>
+          <tr>
+            <td class="risk-id">R09</td>
+            <td><span class="severity-tag sev-hm">H × M</span></td>
+            <td>ATLAS Fase 2 (MDM/Golden Record) sin confirmar — puede bloquear migración TDC a SV</td>
+            <td class="comp-tag">SmartVista</td>
+          </tr>
+          <tr>
+            <td class="risk-id">R07</td>
+            <td><span class="severity-tag sev-mm">M × H</span></td>
+            <td>QA sin capacidad coordinada — SV, CAT y SIWEB convergen sep-nov sin calendario integrado</td>
+            <td class="comp-tag">Cross</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+  </div>
+
+  <!-- SIMPLIFICACION R4.1 -->
+  <section>
+    <div class="section-title">Candidatos a simplificación R4.1</div>
+    <div style="background:white; border:1px solid var(--gray-200); border-radius:8px; padding:16px;
+      display:grid; grid-template-columns:1fr 1fr; gap:20px; box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+      <div>
+        <div style="font-weight:700; color:var(--bc-blue); margin-bottom:8px; font-size:13px;">9 HUs candidatas a diferir a R4.1</div>
+        <div style="display:flex; gap:20px; margin-bottom:10px;">
+          <div style="background:var(--yellow-rag-bg); border-radius:6px; padding:10px 18px; text-align:center;">
+            <div style="font-size:22px; font-weight:800; color:var(--yellow-rag)">5</div>
+            <div style="font-size:11px; color:var(--yellow-rag)">HUs Apolo</div>
+          </div>
+          <div style="background:#cce5ff; border-radius:6px; padding:10px 18px; text-align:center;">
+            <div style="font-size:22px; font-weight:800; color:#004085">4</div>
+            <div style="font-size:11px; color:#004085">HUs SmartVista</div>
+          </div>
+        </div>
+        <div style="font-size:12px; color:var(--gray-600); line-height:1.5;">
+          Funcionalidad complementaria no bloqueante para el go-live de TDC P4900.
+          Diferir a una release R4.1 posterior protege el calendario del programa.
+        </div>
+      </div>
+      <div style="border-left:1px solid var(--gray-200); padding-left:20px;">
+        <div style="font-weight:700; color:var(--gray-800); margin-bottom:8px; font-size:13px;">Decisión requerida</div>
+        <div style="font-size:12.5px; color:var(--gray-600); line-height:1.6;">
+          El <strong>Business Owner de TDC P4900</strong> debe validar y firmar la lista de diferimiento
+          antes del <strong>2026-09-15</strong>.
+          <br><br>
+          Sin esta decisión, el scope sigue siendo <strong>76 HUs</strong> y el riesgo de calendario permanece abierto.
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div class="footer">
+  Plan Director · <strong>TDC P4900</strong> · Unity R4 &nbsp;|&nbsp;
+  Corte de datos: 2026-08-11 &nbsp;|&nbsp;
+  Fuente: brain.db v1.0.0 (track_rag · plan_progress · milestones · risks · user_stories_inventory) &nbsp;|&nbsp;
+  Accenture — Software &amp; Platform Engineering
+</div>
+
+</body>
+</html>

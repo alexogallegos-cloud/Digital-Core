@@ -144,51 +144,54 @@ TOGAF 9 distingue cuatro dominios de arquitectura empresarial. Para AM, los sist
 ```
 {Cliente}/
 ├── bank-brain/                     ← inteligencia federada del programa (nivel cliente)
-│   ├── bank-brain.db               ← SQLite federado — ATTACHa todos los brain.db de sistemas
+│   ├── bank-brain.db               ← SQLite federado — ATTACHa todos los brain.db de sistemas y proyectos
 │   ├── bank-brain.py               ← Agent API (federated queries)
 │   ├── build-bank-brain.py         ← pipeline de construcción
 │   └── [scripts de enriquecimiento estratégico]
-└── systems/                        ← todos los sistemas, agrupados por tipo TOGAF
-    ├── core/                       ← SoR de alta criticidad (core bancario, ERP)
-    ├── processors/                 ← procesadores especializados (tarjetas, pagos, liquidación)
-    ├── channels/                   ← canales digitales y físicos (SoD)
-    ├── data/                       ← plataformas de datos — Data Architecture domain propio
-    ├── integration/                ← capa de integración (ESB/iPaaS — transitional)
-    └── compliance/                 ← sistemas regulatorios y de cumplimiento
+├── systems/                        ← entidades técnicas en producción, agrupadas por tipo TOGAF
+│   ├── core/                       ← SoR de alta criticidad (core bancario, ERP)
+│   ├── processors/                 ← procesadores especializados (tarjetas, pagos, liquidación)
+│   ├── channels/                   ← canales digitales y físicos (SoD)
+│   ├── data/                       ← plataformas de datos — Data Architecture domain propio
+│   ├── integration/                ← capa de integración (ESB/iPaaS — transitional)
+│   └── compliance/                 ← sistemas regulatorios y de cumplimiento
+└── projects/                       ← programas de modernización en construcción (FUTURO incubado)
+    └── {proyecto}/                 ← ej. unity/ — mismo esquema canónico que sistemas
 ```
 
-### Estructura Canónica por Sistema
+### Estructura Canónica de Entidad AM
 
-Cada carpeta leaf dentro de `systems/{tipo}/{sistema}/` sigue esta estructura exacta:
+**Regla universal**: toda entidad bajo AM — ya sea un sistema en producción (`systems/`) o un proyecto en construcción (`projects/`) — sigue exactamente la misma estructura de carpetas. La distinción PRESENTE/FUTURO la da el `togaf_state` y el `status` en el brain, no la ubicación en el árbol.
 
 ```
-{sistema}/
-├── source/              ← artefactos originales del sistema (readonly — no modificar)
-│   ├── code/            ← código fuente (SQL, SPL, ABAP, COBOL, Java, configuración, etc.)
-│   ├── docs/            ← documentación vendor/técnica original
+{entidad}/
+├── source/              ← artefactos originales (readonly — no modificar)
+│   ├── code/            ← código fuente, configuración, customizaciones Temenos, etc.
+│   ├── docs/            ← documentación vendor/técnica/diseño original
 │   └── ops/             ← config operativa (scripts de producción, CTM jobs, JCL)
-├── digital-brain/       ← base de conocimiento SQLite + Agent API del sistema
-│   ├── brain.db         ← SQLite del sistema (gitignored)
+├── digital-brain/       ← base de conocimiento SQLite + Agent API
+│   ├── brain.db         ← SQLite de la entidad (gitignored)
 │   ├── build-brain.py   ← pipeline de construcción del brain
-│   └── brain.py         ← Agent API — clase {Sistema}Brain con interfaz estándar
+│   └── brain.py         ← Agent API — clase {Entidad}Brain con interfaz estándar
 ├── knowledge-base/      ← conocimiento estructurado y analítico
-│   ├── rules/           ← reglas de negocio extraídas (JSON por dominio/módulo)
-│   ├── vocab/           ← vocabulario y terminología del sistema
-│   ├── ontology/        ← mapeo TOGAF: abb-to-sbb.json · bian-mapping.json · architecture-states.json
-│   └── regulacion/      ← mapeo a regulación aplicable (CNBV, Banxico, CNBV Anexo 33, etc.)
+│   ├── rules/           ← reglas de negocio (extraídas de AS-IS o diseñadas en TO-BE)
+│   ├── vocab/           ← vocabulario y terminología de la entidad
+│   ├── ontology/        ← mapeo TOGAF: abb-to-sbb.json · bian-mapping.json (sistemas)
+│   └── regulacion/      ← mapeo a regulación aplicable (CNBV, Banxico, PCI-DSS, etc.)
 ├── generators/          ← scripts de análisis y enriquecimiento (re-ejecutables, versionados)
-├── dt/                  ← Digital Twins del sistema (siempre `dt/` — nunca DTs/ ni digital-twins/)
+├── dt/                  ← Digital Twins (siempre `dt/` — nunca DTs/ ni digital-twins/)
 ├── portal/              ← visualizaciones HTML activas
-│   ├── index.html       ← entry point del portal del sistema
+│   ├── index.html       ← entry point del portal de la entidad
 │   └── data/            ← JSON de datos para las visualizaciones
 ├── old/                 ← archivos archivados (nunca borrar — mover aquí)
-└── CLAUDE.md            ← agente especializado del sistema (hereda este CLAUDE.md)
+└── CLAUDE.md            ← agente especializado de la entidad (hereda este CLAUDE.md)
 ```
 
-### Metadata TOGAF Obligatoria en CLAUDE.md por Sistema
+### Metadata TOGAF Obligatoria en CLAUDE.md por Entidad
 
-El encabezado del `CLAUDE.md` de cada sistema declara:
+El encabezado del `CLAUDE.md` de cada entidad declara su naturaleza. El formato varía según el tipo:
 
+**Sistemas** (`systems/`):
 ```markdown
 # {Nombre del Sistema} — Application Modernization Agent
 # togaf_type: core | processors | channels | data | integration | compliance
@@ -196,6 +199,17 @@ El encabezado del `CLAUDE.md` de cada sistema declara:
 # togaf_system_of: record | differentiation | innovation
 # togaf_abb: {nombre del ABB que implementa, ej. "core-banking"}
 # bian_domains: [{BIAN Service Domains cubiertos, ej. "loan-management", "savings-management"}]
+```
+
+**Proyectos** (`projects/`):
+```markdown
+# {Nombre del Proyecto} — Application Modernization Project Agent
+# project_type: core-banking-modernization | channel-modernization | platform-migration | ...
+# project_state: active | paused | completed
+# platform: {plataforma tecnológica, ej. "Temenos Transact"}
+# horizon_present: {qué está en producción hoy}
+# horizon_future: {qué está en construcción}
+# replaces_or_complements: {sistemas que reemplaza o complementa}
 ```
 
 ### Interfaz Estándar de `brain.py`

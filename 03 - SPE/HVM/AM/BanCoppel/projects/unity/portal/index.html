@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<!-- Unity R4 — Plan Director · Portal de Programa · BanCoppel
+     SPE-AM-001 · 2026-08-19 · v1.0.0 -->
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Unity R4 · Plan Director · BanCoppel</title>
+<style>
+/* ─── Reset y tokens ─── */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--blue:#3D5FCD;--blued:#122FB1;--bluedd:#0d2185;--yellow:#F0D224;
+  --ink:#F4F6FF;--muted:#aab3d4;--muted2:#818ab0;
+  --glass:rgba(255,255,255,.055);--glassb:rgba(255,255,255,.10);
+  --red:#E8400A;--green:#22c55e}
+html{scroll-behavior:smooth}
+body{background:#060a1a;color:var(--ink);
+  font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Calibri,sans-serif;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+
+/* ─── Aurora ─── */
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(27,63,208,.65),transparent 70%);animation:f1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(13,33,133,.7),transparent 70%);animation:f2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(240,210,36,.22),transparent 70%);animation:f3 32s ease-in-out infinite}
+@keyframes f1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes f2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes f3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+.grain{position:fixed;inset:0;z-index:-1;opacity:.045;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* ─── Scroll progress ─── */
+#prog{position:fixed;top:0;left:0;height:3px;width:0;z-index:100;
+  background:linear-gradient(90deg,var(--yellow),#fff);box-shadow:0 0 12px rgba(240,210,36,.6)}
+
+/* ─── Nav ─── */
+nav{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;gap:14px;padding:14px 30px;
+  backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);
+  background:rgba(6,10,26,.55);border-bottom:1px solid rgba(255,255,255,.06)}
+nav img{height:20px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+nav .nt{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.01em}
+nav .sp{flex:1}
+nav a.jump{font-size:12px;color:var(--muted);padding:6px 12px;border-radius:20px;transition:.22s;text-decoration:none}
+nav a.jump:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+nav a.jump.ext{color:var(--yellow)}
+nav a.jump.ext:hover{color:#fff}
+@media(max-width:700px){nav .nt,.nav-links{display:none}}
+
+/* ─── Glass ─── */
+.glass{background:var(--glass);backdrop-filter:blur(22px) saturate(155%);-webkit-backdrop-filter:blur(22px) saturate(155%);
+  border:1px solid var(--glassb);border-radius:22px;box-shadow:0 12px 44px rgba(0,0,0,.36),inset 0 1px 0 rgba(255,255,255,.10)}
+
+/* ─── Layout ─── */
+.wrap{max-width:1200px;margin:0 auto;padding:0 30px}
+section{padding:72px 0;scroll-margin-top:70px}
+
+/* ─── HERO ─── */
+.hero{min-height:100vh;display:grid;grid-template-columns:1fr 1fr;gap:40px;
+  align-items:center;padding:110px 0 60px}
+@media(max-width:900px){.hero{grid-template-columns:1fr;min-height:auto;padding-top:90px}}
+.eyebrow{display:inline-flex;align-items:center;gap:9px;padding:8px 16px;border-radius:30px;
+  font-size:12px;font-weight:600;letter-spacing:.03em;color:#dfe6ff;margin-bottom:24px;
+  background:rgba(255,255,255,.05);border:1px solid var(--glassb);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--yellow);
+  box-shadow:0 0 12px var(--yellow);animation:pulse 2.4s infinite}
+@keyframes pulse{50%{opacity:.4}}
+.hero h1{font-size:clamp(40px,5.5vw,72px);font-weight:800;line-height:1.0;letter-spacing:-.035em;
+  background:linear-gradient(176deg,#fff 34%,#9fb4ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{font-size:16px;color:var(--muted);margin-top:18px;max-width:50ch;line-height:1.6}
+.hero .sub b{color:#e4eaff;font-weight:600}
+
+/* Countdown */
+.countdown{display:inline-flex;flex-direction:column;align-items:center;padding:20px 36px;
+  border-radius:18px;margin-top:28px;gap:4px}
+.cdays{font-size:48px;font-weight:900;letter-spacing:-.04em;
+  background:linear-gradient(170deg,#fff 40%,var(--yellow));-webkit-background-clip:text;background-clip:text;color:transparent;
+  font-variant-numeric:tabular-nums}
+.clabel{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2)}
+
+/* ─── HERO CUBE ZONE ─── */
+.hero-cube-zone{display:flex;flex-direction:column;align-items:center;gap:18px;position:relative}
+.cube-hint{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2);font-weight:600}
+
+/* ── 3D Cube (280px faces, depth 140px) ── */
+.scene3d{width:380px;height:380px;perspective:840px;cursor:grab;user-select:none}
+.scene3d:active{cursor:grabbing}
+.cube3d{width:280px;height:280px;position:relative;transform-style:preserve-3d;
+  transform:rotateX(-30deg) rotateY(-30deg);
+  transition:transform .65s cubic-bezier(.25,.46,.45,.94);margin:50px auto}
+.cube3d.dragging{transition:none}
+.cf{position:absolute;width:280px;height:280px;border:1px solid rgba(255,255,255,.18);
+  overflow-y:auto;padding:12px;border-radius:4px}
+.cf::-webkit-scrollbar{width:3px}
+.cf::-webkit-scrollbar-thumb{background:rgba(255,255,255,.25);border-radius:2px}
+.cf-top   {transform:rotateX(90deg) translateZ(140px);background:linear-gradient(135deg,#AB47BC,#4A148C)}
+.cf-front {transform:translateZ(140px);background:linear-gradient(135deg,#1976D2,#0D47A1)}
+.cf-right {transform:rotateY(90deg) translateZ(140px);background:linear-gradient(135deg,#43A047,#1B5E20)}
+.cf-back  {transform:translateZ(-140px) rotateY(180deg);background:linear-gradient(135deg,#1a237e,#0d1421)}
+.cf-left  {transform:rotateY(-90deg) translateZ(140px);background:linear-gradient(135deg,#1a237e,#0d1421)}
+.cf-bot   {transform:rotateX(-90deg) translateZ(140px);background:linear-gradient(135deg,#1a237e,#0d1421)}
+.cf-title{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#fff;
+  margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid rgba(255,255,255,.22)}
+.cf-gl{font-size:8px;font-weight:600;letter-spacing:2px;text-transform:uppercase;
+  color:rgba(255,255,255,.45);margin-top:6px;margin-bottom:3px}
+.cfc{background:rgba(255,255,255,.11);border:1px solid rgba(255,255,255,.14);border-radius:4px;
+  padding:3px 7px;margin-bottom:3px;display:flex;align-items:center;justify-content:space-between;
+  gap:5px;min-height:20px}
+.cfcn{font-size:10px;color:rgba(255,255,255,.9);font-weight:500;flex:1}
+.cfbadge{font-size:8px;font-weight:700;padding:1px 5px;border-radius:8px;white-space:nowrap;flex-shrink:0}
+.b-bl{background:rgba(21,101,192,.65);color:#90CAF9}
+.b-tg{background:rgba(46,125,50,.65);color:#A5D6A7}
+.b-vc{background:rgba(183,28,28,.55);color:#EF9A9A}
+.b-tr{background:rgba(245,124,0,.55);color:#FFCC80}
+.pcard{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.20);border-radius:6px;padding:6px 9px;margin-bottom:5px}
+.pcard.hl{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.55)}
+.pcn{font-size:10px;font-weight:600;color:#fff}
+.pcm{font-size:8.5px;color:rgba(255,255,255,.52);margin-top:1px}
+.cfc-pair{display:flex;gap:3px;margin-bottom:3px}
+.cfc-pair .cfc{flex:1;margin-bottom:0}
+
+/* Cube nav buttons */
+.cube-btns{display:flex;gap:8px}
+.cbtn{padding:6px 14px;border-radius:16px;border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.06);color:rgba(255,255,255,.65);font-size:10px;font-weight:600;
+  letter-spacing:.05em;cursor:pointer;transition:background .18s,color .18s,border-color .18s;
+  font-family:inherit}
+.cbtn:hover{background:rgba(255,255,255,.14);color:#fff}
+.cbtn.active{background:rgba(255,255,255,.18);color:#fff}
+.cbtn-p{border-color:rgba(171,71,188,.55);color:#CE93D8}
+.cbtn-s{border-color:rgba(25,118,210,.55);color:#90CAF9}
+.cbtn-c{border-color:rgba(67,160,71,.55);color:#A5D6A7}
+
+/* ─── Stats ─── */
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:13px;margin-top:0}
+@media(max-width:1000px){.stats{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat{padding:20px 14px;text-align:center}
+.statn{font-size:clamp(20px,2.5vw,30px);font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;
+  background:linear-gradient(180deg,#fff,#c4d0ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.statl{font-size:10px;color:var(--muted2);margin-top:8px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.stat.danger .statn{background:linear-gradient(180deg,#fca5a5,#ef4444);-webkit-background-clip:text;background-clip:text}
+.stat.warn .statn{background:linear-gradient(180deg,#fde68a,var(--yellow));-webkit-background-clip:text;background-clip:text}
+
+/* ─── Section headings ─── */
+.shead{margin-bottom:36px}
+.kick{font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--yellow);margin-bottom:14px}
+.shead h2{font-size:clamp(26px,3.5vw,40px);font-weight:800;letter-spacing:-.025em;line-height:1.06}
+.shead p{color:var(--muted);font-size:15px;margin-top:12px;max-width:72ch;line-height:1.55}
+
+/* ─── RAG tracks ─── */
+.rag-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+@media(max-width:900px){.rag-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:560px){.rag-grid{grid-template-columns:1fr 1fr}}
+.rag-card{padding:20px 18px;border-radius:18px;border-left:4px solid transparent}
+.rag-card.r{border-left-color:#ef4444;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.18);border-left:4px solid #ef4444}
+.rag-card.y{border-left-color:var(--yellow);background:rgba(240,210,36,.05);border:1px solid rgba(240,210,36,.18);border-left:4px solid var(--yellow)}
+.rag-card.g{border-left-color:var(--green);background:rgba(34,197,94,.05);border:1px solid rgba(34,197,94,.18);border-left:4px solid var(--green)}
+.rag-dot{font-size:20px;margin-bottom:8px}
+.rag-name{font-size:13.5px;font-weight:700;margin-bottom:4px}
+.rag-sub{font-size:11px;color:var(--muted2);line-height:1.4}
+.rag-label{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  padding:2px 7px;border-radius:8px;margin-top:8px}
+.rag-label.r{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}
+.rag-label.y{background:rgba(240,210,36,.1);color:var(--yellow);border:1px solid rgba(240,210,36,.3)}
+
+/* ─── DT grid ─── */
+.dt-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:960px){.dt-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.dt-grid{grid-template-columns:1fr}}
+.dt-group{margin-bottom:44px}
+.dt-group-label{font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted2);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.07)}
+
+.dtcard{display:flex;flex-direction:column;gap:10px;padding:22px;color:inherit;text-decoration:none;
+  border-radius:20px;transition:transform .34s cubic-bezier(.16,1,.3,1),border-color .34s,box-shadow .34s;cursor:default}
+.dtcard.link{cursor:pointer}
+.dtcard.link:hover{transform:translateY(-5px);border-color:rgba(240,210,36,.42);box-shadow:0 20px 52px rgba(0,0,0,.5)}
+.dtcard.crit{border-left:3px solid var(--red)!important}
+.dtcard.warn{border-left:3px solid var(--yellow)!important}
+.dt-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.dt-ico{font-size:22px;width:46px;height:46px;display:flex;align-items:center;justify-content:center;
+  border-radius:14px;flex-shrink:0;background:linear-gradient(150deg,rgba(255,255,255,.13),rgba(255,255,255,.02));
+  border:1px solid rgba(255,255,255,.11)}
+.dt-ver{font-size:9px;font-weight:700;color:var(--muted2);letter-spacing:.06em;padding:2px 7px;
+  border-radius:8px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.05);white-space:nowrap}
+.dt-name{font-size:15px;font-weight:800;letter-spacing:-.01em;margin-top:4px}
+.dt-desc{font-size:12.5px;color:var(--muted);line-height:1.55;flex:1}
+.dt-chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{display:inline-block;font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:.04em}
+.chip.blue{border:1px solid rgba(100,140,255,.35);color:#9db8ff;background:rgba(61,95,205,.15)}
+.chip.yellow{border:1px solid rgba(240,210,36,.35);color:var(--yellow);background:rgba(240,210,36,.09)}
+.chip.red{border:1px solid rgba(232,64,10,.35);color:#f87171;background:rgba(232,64,10,.10)}
+.chip.green{border:1px solid rgba(34,197,94,.35);color:#86efac;background:rgba(34,197,94,.09)}
+.dt-go{font-size:11px;font-weight:700;color:var(--yellow);display:inline-flex;align-items:center;gap:5px;margin-top:4px}
+.arr{transition:transform .3s}.dtcard.link:hover .arr{transform:translateX(5px)}
+
+/* ─── Riesgos ─── */
+.risk-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:760px){.risk-grid{grid-template-columns:1fr}}
+.rcard{padding:22px 24px;border-left:3px solid var(--red);border-radius:0 14px 14px 0}
+.rcard.med{border-left-color:var(--yellow)}
+.rkick{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#f87171;margin-bottom:6px}
+.rcard.med .rkick{color:var(--yellow)}
+.rtitle{font-size:15px;font-weight:700;margin-bottom:8px;letter-spacing:-.01em}
+.rdesc{font-size:12.5px;color:var(--muted);line-height:1.55}
+.rdesc b{color:#e4eaff}
+
+/* ─── Timeline hitos ─── */
+.tl{position:relative;padding-left:36px;max-width:680px}
+.tl::before{content:"";position:absolute;left:5px;top:8px;bottom:8px;width:2px;
+  background:linear-gradient(180deg,var(--yellow),var(--blue) 60%,transparent)}
+.node{position:relative;padding-bottom:22px}
+.node:last-child{padding-bottom:0}
+.node::before{content:"";position:absolute;left:-36px;top:3px;width:12px;height:12px;border-radius:50%;
+  background:var(--yellow);border:3px solid #060a1a;box-shadow:0 0 0 2px rgba(240,210,36,.55),0 0 14px rgba(240,210,36,.5)}
+.node.risk::before{background:var(--red);box-shadow:0 0 0 2px rgba(232,64,10,.55),0 0 14px rgba(232,64,10,.5)}
+.node h4{font-size:14.5px;font-weight:700;letter-spacing:-.01em}
+.node .ndate{font-size:11.5px;color:var(--muted2);margin-top:2px}
+.node p{font-size:12.5px;color:var(--muted);margin-top:5px;line-height:1.5}
+.node .ntag{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  padding:2px 7px;border-radius:8px;margin-top:5px}
+.ntag.ok{background:rgba(34,197,94,.12);color:#86efac;border:1px solid rgba(34,197,94,.25)}
+.ntag.risk{background:rgba(239,68,68,.12);color:#fca5a5;border:1px solid rgba(239,68,68,.25)}
+.ntag.pend{background:rgba(170,179,212,.1);color:var(--muted);border:1px solid rgba(255,255,255,.12)}
+
+/* ─── Reveal ─── */
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1)}
+.reveal.in{opacity:1;transform:none}
+
+/* ─── Footer ─── */
+footer{padding:40px 30px 60px;text-align:center;color:var(--muted2);font-size:12px;
+  border-top:1px solid rgba(255,255,255,.06);margin-top:50px;line-height:1.8}
+footer code{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid rgba(240,210,36,.25);
+  border-radius:5px;padding:1px 6px;font-size:11px;font-family:'SF Mono',ui-monospace,monospace}
+
+@media(prefers-reduced-motion:reduce){.reveal{transition:none;opacity:1;transform:none}.aurora *{animation:none}}
+</style></head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<div class="grain"></div>
+<div id="prog"></div>
+
+<!-- ─── NAV ─── -->
+<nav>
+  <img src="../../../design-studio/bancoppel-logo.png" alt="BanCoppel" onerror="this.style.display='none'">
+  <span class="nt">Unity R4 · Plan Director</span>
+  <span class="sp"></span>
+  <span class="nav-links" style="display:contents">
+    <a class="jump" href="#estado">Estado</a>
+    <a class="jump" href="#twins">Digital Twins</a>
+    <a class="jump" href="#cronograma">Cronograma</a>
+    <a class="jump" href="#riesgos">Riesgos</a>
+    <a class="jump ext" href="lifecycle-p4900.html">Lifecycle P4900 ↗</a>
+    <a class="jump ext" href="plan-director.html">Plan Director ↗</a>
+  </span>
+</nav>
+
+<div class="wrap">
+
+  <!-- ─── HERO ─── -->
+  <header class="hero">
+
+    <!-- Texto izquierda -->
+    <div>
+      <div class="eyebrow reveal">
+        <span class="dot"></span>&nbsp; SPE-AM-001 · Unity R4 · BUILD · ago 2026
+      </div>
+      <h1 class="reveal">Plan Director<br>Unity R4</h1>
+      <p class="sub reveal">
+        Programa de modernización del core bancario BanCoppel.<br>
+        <b>Tarjeta de Crédito Clásica Digital — Producto P4900.</b><br>
+        SmartVista BPC · APOLO · Temenos Transact.
+      </p>
+      <div class="countdown glass reveal">
+        <div class="cdays" id="cdays">149</div>
+        <div class="clabel">días al Go-Live · 15 enero 2027</div>
+      </div>
+    </div>
+
+    <!-- Cubo 3D derecha -->
+    <div class="hero-cube-zone reveal">
+      <div class="cube-hint">Marco de referencia 3D · Arrastra para explorar</div>
+
+      <div class="scene3d" id="scene3d">
+        <div class="cube3d" id="cube3d">
+
+          <!-- TOP — PRODUCTOS (morado) -->
+          <div class="cf cf-top">
+            <div class="cf-title">Productos</div>
+            <div class="pcard hl">
+              <div class="pcn">P4900 TDC Clásica Digital</div>
+              <div class="pcm">Ancla R4 · Prioridad 1 · building</div>
+            </div>
+            <div class="pcard"><div class="pcn">R1 · Cuenta Efectiva N2</div><div class="pcm">live</div></div>
+            <div class="pcard"><div class="pcn">R2 · CED N4</div><div class="pcm">live</div></div>
+            <div class="pcard"><div class="pcn">R3 · Nómina N4</div><div class="pcm">live</div></div>
+            <div class="pcard"><div class="pcn">Rx · Préstamo Simple</div><div class="pcm">live</div></div>
+          </div>
+
+          <!-- FRONT — SISTEMAS (azul) -->
+          <div class="cf cf-front">
+            <div class="cf-title">Sistemas</div>
+            <div class="cf-gl">Channels</div>
+            <div class="cfc"><span class="cfcn">Apolo</span></div>
+            <div class="cfc-pair">
+              <div class="cfc"><span class="cfcn">App Móvil</span></div>
+              <div class="cfc"><span class="cfcn">SIWEB</span></div>
+            </div>
+            <div class="cfc"><span class="cfcn">CAT</span></div>
+            <div class="cf-gl">Core</div>
+            <div class="cfc-pair">
+              <div class="cfc"><span class="cfcn">Informix</span><span class="cfbadge b-bl">base</span></div>
+              <div class="cfc"><span class="cfcn">Transact</span><span class="cfbadge b-tg">target</span></div>
+            </div>
+            <div class="cf-gl">Processors</div>
+            <div class="cfc-pair">
+              <div class="cfc"><span class="cfcn">SmartVista</span><span class="cfbadge b-tg">target</span></div>
+              <div class="cfc"><span class="cfcn">eGlobal</span><span class="cfbadge b-bl">base</span></div>
+            </div>
+            <div class="cf-gl">Data · Integration</div>
+            <div class="cfc"><span class="cfcn">Atlas MDM</span><span class="cfbadge b-tr">trans</span></div>
+            <div class="cfc"><span class="cfcn">Control-M</span></div>
+          </div>
+
+          <!-- RIGHT — CAPACIDADES IT (verde) -->
+          <div class="cf cf-right">
+            <div class="cf-title">Capacidades IT</div>
+            <div class="cf-gl">Engineering</div>
+            <div class="cfc-pair">
+              <div class="cfc"><span class="cfcn">QE</span></div>
+              <div class="cfc"><span class="cfcn">DevOps</span></div>
+            </div>
+            <div class="cf-gl">Delivery</div>
+            <div class="cfc-pair">
+              <div class="cfc"><span class="cfcn">Arquitectura</span></div>
+              <div class="cfc"><span class="cfcn">Interoperabilidad</span></div>
+            </div>
+            <div class="cfc-pair">
+              <div class="cfc"><span class="cfcn">Ambientación</span></div>
+              <div class="cfc"><span class="cfcn">Seguridad</span></div>
+            </div>
+            <div class="cf-gl">Operations</div>
+            <div class="cfc"><span class="cfcn">Observabilidad</span></div>
+            <div class="cfc-pair">
+              <div class="cfc"><span class="cfcn">Change</span></div>
+              <div class="cfc"><span class="cfcn">Release</span></div>
+            </div>
+            <div class="cfc-pair">
+              <div class="cfc"><span class="cfcn">Vendor Mgmt</span></div>
+              <div class="cfc"><span class="cfcn">Compliance</span></div>
+            </div>
+            <div class="cf-gl">Data</div>
+            <div class="cfc"><span class="cfcn">Data / Migración</span></div>
+          </div>
+
+          <!-- fillers -->
+          <div class="cf cf-back"><div class="cf-title">Unity R4</div></div>
+          <div class="cf cf-left"><div class="cf-title">BanCoppel</div></div>
+          <div class="cf cf-bot"></div>
+        </div>
+      </div>
+
+      <div class="cube-btns">
+        <button class="cbtn cbtn-p" onclick="rotateTo('productos')">Productos</button>
+        <button class="cbtn cbtn-s" onclick="rotateTo('sistemas')">Sistemas</button>
+        <button class="cbtn cbtn-c" onclick="rotateTo('capacidades')">Capacidades</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ─── ESTADO / KPIs ─── -->
+  <section id="estado">
+    <div class="stats reveal">
+      <div class="stat glass">
+        <div class="statn" id="s-days">149</div>
+        <div class="statl">Días al Go-Live</div>
+      </div>
+      <div class="stat glass warn">
+        <div class="statn">20.66%</div>
+        <div class="statl">Avance · 34% esperado</div>
+      </div>
+      <div class="stat glass">
+        <div class="statn" data-target="76">0</div>
+        <div class="statl">User Stories · 43 Must</div>
+      </div>
+      <div class="stat glass danger">
+        <div class="statn" data-target="9">0</div>
+        <div class="statl">Riesgos Alta Prioridad</div>
+      </div>
+      <div class="stat glass danger">
+        <div class="statn" data-target="5">0</div>
+        <div class="statl">Vacantes Críticas</div>
+      </div>
+    </div>
+
+    <!-- RAG por Track -->
+    <div style="margin-top:52px">
+      <div class="shead reveal">
+        <div class="kick">Semáforo del Programa</div>
+        <h2>Estado por Track</h2>
+        <p>Fuente: Roadmap Accenture · 11-ago-2026 · Plan de Trabajo 12-ago-2026</p>
+      </div>
+      <div class="rag-grid reveal">
+        <div class="rag-card r">
+          <div class="rag-dot">🔴</div>
+          <div class="rag-name">App Móvil</div>
+          <div class="rag-sub">6 User Stories Must Have cierran en noviembre · riesgo Go-Live</div>
+          <div class="rag-label r">Rojo</div>
+        </div>
+        <div class="rag-card r">
+          <div class="rag-dot">🔴</div>
+          <div class="rag-name">CAT</div>
+          <div class="rag-sub">Proveedor no contratado · deadline 31-ago-2026</div>
+          <div class="rag-label r">Rojo · Bloqueado</div>
+        </div>
+        <div class="rag-card y">
+          <div class="rag-dot">🟡</div>
+          <div class="rag-name">SmartVista</div>
+          <div class="rag-sub">DTMs con gaps críticos · DPP pendiente · OCG manual</div>
+          <div class="rag-label y">Amarillo</div>
+        </div>
+        <div class="rag-card y">
+          <div class="rag-dot">🟡</div>
+          <div class="rag-name">SIWEB</div>
+          <div class="rag-sub">Bloqueado esperando APIs de otros tracks</div>
+          <div class="rag-label y">Amarillo · Bloqueado</div>
+        </div>
+        <div class="rag-card y">
+          <div class="rag-dot">🟡</div>
+          <div class="rag-name">APOLO</div>
+          <div class="rag-sub">Tensión 15-ene vs 22-ene · Critical Breakers pendientes</div>
+          <div class="rag-label y">Amarillo</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── DIGITAL TWINS ─── -->
+  <section id="twins">
+    <div class="shead reveal">
+      <div class="kick">Gemelos Digitales</div>
+      <h2>Plan Director · 14 Digital Twins</h2>
+      <p>Cobertura end-to-end del programa Unity R4 — desde gobernanza hasta operaciones.</p>
+    </div>
+
+    <!-- Grupo: Programa -->
+    <div class="dt-group reveal">
+      <div class="dt-group-label">Programa y Gestión</div>
+      <div class="dt-grid">
+
+        <div class="dtcard glass warn link" onclick="window.location='plan-director.html'">
+          <div class="dt-top">
+            <div class="dt-ico">📋</div>
+            <span class="dt-ver">v1.0.0</span>
+          </div>
+          <div class="dt-name">Plan Director</div>
+          <div class="dt-desc">Visión transversal del programa · KPI framework · dashboard RAG cruzado · 8 acciones críticas · anti-silos.</div>
+          <div class="dt-chips">
+            <span class="chip yellow">KPIs</span><span class="chip blue">RAG</span><span class="chip blue">76 User Stories</span>
+          </div>
+          <div class="dt-go">Abrir portal <span class="arr">→</span></div>
+        </div>
+
+        <div class="dtcard glass">
+          <div class="dt-top">
+            <div class="dt-ico">🏛️</div>
+            <span class="dt-ver">v1.0.0</span>
+          </div>
+          <div class="dt-name">Gobierno</div>
+          <div class="dt-desc">Estructura de comités · RACI del programa · protocolo de escalación · RAID owners y frecuencias.</div>
+          <div class="dt-chips">
+            <span class="chip blue">Comités</span><span class="chip blue">RACI</span><span class="chip blue">RAID</span>
+          </div>
+        </div>
+
+        <div class="dtcard glass warn">
+          <div class="dt-top">
+            <div class="dt-ico">👥</div>
+            <span class="dt-ver">v2.0.0</span>
+          </div>
+          <div class="dt-name">Equipo</div>
+          <div class="dt-desc">Roster por componente · rotación crítica dic-ene · capacidad vs demanda · plan de Change Management.</div>
+          <div class="dt-chips">
+            <span class="chip yellow">Change Mgmt</span><span class="chip red">Vacante Lead</span>
+          </div>
+        </div>
+
+        <div class="dtcard glass crit">
+          <div class="dt-top">
+            <div class="dt-ico">⚠️</div>
+            <span class="dt-ver">v1.0.0</span>
+          </div>
+          <div class="dt-name">Riesgos</div>
+          <div class="dt-desc">18 riesgos RAID · 9 alta prioridad · mitigaciones y owners · RISK-001 CAT sin contrato.</div>
+          <div class="dt-chips">
+            <span class="chip red">9 Alta</span><span class="chip yellow">8 Media</span><span class="chip blue">RAID</span>
+          </div>
+        </div>
+
+        <div class="dtcard glass warn">
+          <div class="dt-top">
+            <div class="dt-ico">📅</div>
+            <span class="dt-ver">v1.1.0</span>
+          </div>
+          <div class="dt-name">Cronograma</div>
+          <div class="dt-desc">Hitos R4 con semáforo · SIT oct · Code Freeze dic · Go-Live 15-ene-2027 · fechas en riesgo.</div>
+          <div class="dt-chips">
+            <span class="chip yellow">At Risk</span><span class="chip blue">Go-Live ene-2027</span>
+          </div>
+        </div>
+
+        <div class="dtcard glass crit">
+          <div class="dt-top">
+            <div class="dt-ico">🏪</div>
+            <span class="dt-ver">v1.0.0</span>
+          </div>
+          <div class="dt-name">Vendors</div>
+          <div class="dt-desc">8 vendors · modelo SIAM · CAT sin contratar · BYU0039 · DPP · maquiladores AppWhere.</div>
+          <div class="dt-chips">
+            <span class="chip red">CAT urgente</span><span class="chip blue">SIAM</span><span class="chip blue">8 vendors</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Grupo: Delivery técnico -->
+    <div class="dt-group reveal">
+      <div class="dt-group-label">Delivery Técnico</div>
+      <div class="dt-grid">
+
+        <div class="dtcard glass warn">
+          <div class="dt-top">
+            <div class="dt-ico">💳</div>
+            <span class="dt-ver">v1.0.0</span>
+          </div>
+          <div class="dt-name">SmartVista BPC</div>
+          <div class="dt-desc">58 HDUs · 14 DTMs · cobertura PreGame · gaps críticos DPP, BYU0039 y OCG manual.</div>
+          <div class="dt-chips">
+            <span class="chip blue">58 HDUs</span><span class="chip red">5 gaps críticos</span>
+          </div>
+        </div>
+
+        <div class="dtcard glass warn">
+          <div class="dt-top">
+            <div class="dt-ico">🚀</div>
+            <span class="dt-ver">v1.1.0</span>
+          </div>
+          <div class="dt-name">APOLO</div>
+          <div class="dt-desc">37 HDUs originación digital · 10 fases · 13 sprints backend · integración crítica con SmartVista (HDU-20).</div>
+          <div class="dt-chips">
+            <span class="chip blue">37 HDUs</span><span class="chip yellow">Tensión fechas</span>
+          </div>
+        </div>
+
+        <div class="dtcard glass">
+          <div class="dt-top">
+            <div class="dt-ico">🧪</div>
+            <span class="dt-ver">v1.0.0</span>
+          </div>
+          <div class="dt-name">SIT / UAT</div>
+          <div class="dt-desc">Plan de pruebas por capability · conflicto pentest nov 15-20 · triage · criterios entrada y salida.</div>
+          <div class="dt-chips">
+            <span class="chip yellow">Conflicto pentest</span><span class="chip blue">14 caps</span>
+          </div>
+        </div>
+
+        <div class="dtcard glass">
+          <div class="dt-top">
+            <div class="dt-ico">📦</div>
+            <span class="dt-ver">v1.0.0</span>
+          </div>
+          <div class="dt-name">Productos</div>
+          <div class="dt-desc">Catálogo P4900 · componentes R4 por track · alcance confirmado · User Stories por canal.</div>
+          <div class="dt-chips">
+            <span class="chip blue">P4900</span><span class="chip blue">5 tracks</span><span class="chip blue">76 USs</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Grupo: Arquitectura y Operación -->
+    <div class="dt-group reveal">
+      <div class="dt-group-label">Arquitectura y Operación</div>
+      <div class="dt-grid">
+
+        <div class="dtcard glass">
+          <div class="dt-top">
+            <div class="dt-ico">🔀</div>
+            <span class="dt-ver">v1.0.0</span>
+          </div>
+          <div class="dt-name">Coexistencia</div>
+          <div class="dt-desc">Routing Informix ↔ Unity por canal y producto · tipos MONEY · migration fate · parallel run.</div>
+          <div class="dt-chips">
+            <span class="chip blue">Informix</span><span class="chip blue">Transact</span><span class="chip blue">11 rutas</span>
+          </div>
+        </div>
+
+        <div class="dtcard glass">
+          <div class="dt-top">
+            <div class="dt-ico">📊</div>
+            <span class="dt-ver">v1.0.0</span>
+          </div>
+          <div class="dt-name">SLO y Observabilidad</div>
+          <div class="dt-desc">SLIs y SLOs por capability · criterios cuantitativos de cutover · business observability · trazabilidad.</div>
+          <div class="dt-chips">
+            <span class="chip blue">SLOs</span><span class="chip blue">Cutover criteria</span>
+          </div>
+        </div>
+
+        <div class="dtcard glass">
+          <div class="dt-top">
+            <div class="dt-ico">⚖️</div>
+            <span class="dt-ver">v1.0.0</span>
+          </div>
+          <div class="dt-name">Compliance</div>
+          <div class="dt-desc">CNBV Art.76 LIC · PCI-DSS v4.0 scope SmartVista · CONDUSEF · timeline regulatorio R4.</div>
+          <div class="dt-chips">
+            <span class="chip blue">CNBV</span><span class="chip blue">PCI-DSS v4.0</span><span class="chip blue">CONDUSEF</span>
+          </div>
+        </div>
+
+        <div class="dtcard glass">
+          <div class="dt-top">
+            <div class="dt-ico">🛡️</div>
+            <span class="dt-ver">v1.0.0</span>
+          </div>
+          <div class="dt-name">Ops Readiness</div>
+          <div class="dt-desc">PRR por capability · runbooks · modelo on-call · DRP · rollback plan · handoff AMS Reinvention.</div>
+          <div class="dt-chips">
+            <span class="chip blue">PRR</span><span class="chip blue">Runbooks</span><span class="chip blue">DRP</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── RIESGOS CRÍTICOS ─── -->
+  <section id="riesgos">
+    <div class="shead reveal">
+      <div class="kick">Registro de Riesgos</div>
+      <h2>Riesgos de Alta Prioridad</h2>
+      <p>9 riesgos activos de prioridad alta · RAID v2.0 · actualizado 12-ago-2026</p>
+    </div>
+    <div class="risk-grid reveal">
+      <div class="rcard glass">
+        <div class="rkick">RISK-001 · Alta · CAT</div>
+        <div class="rtitle">Proveedor CAT no contratado</div>
+        <div class="rdesc">El proveedor de Contact Center no ha sido contratado. <b>Deadline: 31-ago-2026.</b> Sin contrato antes del SIT, el track queda fuera del Go-Live.</div>
+      </div>
+      <div class="rcard glass">
+        <div class="rkick">RISK-002 · Alta · App</div>
+        <div class="rtitle">6 User Stories Must Have cierran en noviembre</div>
+        <div class="rdesc">6 User Stories críticas del canal App cierran análisis en noviembre, comprimiendo el tiempo de desarrollo antes del Code Freeze dic-2026.</div>
+      </div>
+      <div class="rcard glass">
+        <div class="rkick">RISK-003 · Alta · Transversal</div>
+        <div class="rtitle">Vacante Change Management Lead</div>
+        <div class="rdesc">Karina Nayeli Zepeda Arroyo (ACN Change Lead) renunció. <b>Reemplazo requerido antes de sep-2026</b> para no comprometer el plan de adopción Go-Live.</div>
+      </div>
+      <div class="rcard glass">
+        <div class="rkick">RISK-010 · Alta · Transversal</div>
+        <div class="rtitle">Sin sign-off formal de negocio</div>
+        <div class="rdesc">No existe aceptación formal del alcance R4 por parte de la organización BanCoppel. <b>Deadline: 15-sep-2026.</b> Bloquea go/no-go diciembre.</div>
+      </div>
+      <div class="rcard med glass">
+        <div class="rkick">RISK-004 · Media · SmartVista</div>
+        <div class="rtitle">DTMs con gaps críticos sin resolver</div>
+        <div class="rdesc">5 de 14 DTMs de SmartVista tienen gaps críticos (DPP, BYU0039, OCG manual). Resolución pendiente de definición de negocio BanCoppel.</div>
+      </div>
+      <div class="rcard med glass">
+        <div class="rkick">RISK-005 · Media · QE / DevOps</div>
+        <div class="rtitle">Vacantes Engineering sin cubrir</div>
+        <div class="rdesc">QE, DevOps, Observabilidad, Change Mgmt y Release Mgmt sin recurso asignado. Impacto directo en calidad del SIT y observabilidad post Go-Live.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── CRONOGRAMA ─── -->
+  <section id="cronograma">
+    <div class="shead reveal">
+      <div class="kick">Hitos R4</div>
+      <h2>Cronograma al Go-Live</h2>
+      <p>Fechas clave · Inicio SIT octubre · Code Freeze diciembre · Go-Live 15-ene-2027</p>
+    </div>
+    <div class="reveal">
+      <div class="tl">
+        <div class="node">
+          <h4>Cierre de análisis — último track</h4>
+          <div class="ndate">16 octubre 2026</div>
+          <span class="ntag pend">Pendiente</span>
+        </div>
+        <div class="node">
+          <h4>Inicio SIT</h4>
+          <div class="ndate">15 octubre 2026</div>
+          <p>Arranque de System Integration Testing · conflicto con Pentest Cobranza (15-20 nov)</p>
+          <span class="ntag risk">At Risk</span>
+        </div>
+        <div class="node risk">
+          <h4>Pentest Cobranza</h4>
+          <div class="ndate">15–20 noviembre 2026</div>
+          <p>Conflicto con ventana SIT · requiere coordinación urgente con proveedor de seguridad</p>
+          <span class="ntag risk">Conflicto</span>
+        </div>
+        <div class="node">
+          <h4>Cierre SIT · Code Freeze</h4>
+          <div class="ndate">15 diciembre 2026</div>
+          <span class="ntag pend">Pendiente</span>
+        </div>
+        <div class="node">
+          <h4>Go / No-Go</h4>
+          <div class="ndate">Diciembre 2026</div>
+          <p>Decisión basada en KPIs del Plan Director · firma de todos los track owners</p>
+          <span class="ntag pend">Pendiente</span>
+        </div>
+        <div class="node">
+          <h4>Go-Live — Producto P4900</h4>
+          <div class="ndate">~15 enero 2027</div>
+          <p>Tarjeta de Crédito Clásica Digital · SmartVista + APOLO + canales</p>
+          <span class="ntag pend">Pendiente</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div><!-- /wrap -->
+
+<footer>
+  <code>Unity R4 · Plan Director · SPE-AM-001</code> · BanCoppel · Accenture México<br>
+  Digital Brain actualizado 2026-08-19 · v1.0.0 · Gemelo Cognitivo — Capa Estratégica
+</footer>
+
+<script>
+  /* ── Scroll progress bar ── */
+  window.addEventListener('scroll',()=>{
+    const p=(window.scrollY/(document.body.scrollHeight-window.innerHeight))*100;
+    document.getElementById('prog').style.width=p+'%';
+  });
+
+  /* ── Countdown to Go-Live ── */
+  (function(){
+    const goLive=new Date('2027-01-15');
+    const today=new Date();
+    today.setHours(0,0,0,0);
+    const days=Math.ceil((goLive-today)/(1000*60*60*24));
+    ['cdays','s-days'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=days;});
+  })();
+
+  /* ── Counter animation ── */
+  function animateCounter(el){
+    const target=parseInt(el.getAttribute('data-target'));
+    if(!target)return;
+    let start=0;const duration=1200;const step=target/duration*16;
+    const tick=()=>{start=Math.min(start+step,target);el.textContent=Math.round(start);if(start<target)requestAnimationFrame(tick);}
+    requestAnimationFrame(tick);
+  }
+
+  /* ── Reveal on scroll ── */
+  const ro=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){
+        e.target.classList.add('in');
+        if(e.target.classList.contains('stats'))
+          e.target.querySelectorAll('[data-target]').forEach(animateCounter);
+      }
+    });
+  },{threshold:.12});
+  document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));
+
+  /* ──────────────────────────────────────────────
+     3D CUBE — drag + buttons + bounce auto-rotate
+  ────────────────────────────────────────────── */
+  const cube=document.getElementById('cube3d');
+  const scene=document.getElementById('scene3d');
+  const btns=document.querySelectorAll('.cbtn');
+
+  let rotX=-30,rotY=-30,isDragging=false,startX=0,startY=0;
+  let isAuto=true,lastT=0,autoDir=1;
+
+  function clamp(){rotX=Math.max(-90,Math.min(5,rotX));rotY=Math.max(-90,Math.min(5,rotY));}
+  function apply(){cube.style.transform=`rotateX(${rotX}deg) rotateY(${rotY}deg)`;}
+
+  /* Auto-rotate bounce */
+  (function loop(now){
+    if(isAuto&&!isDragging){
+      const dt=Math.min((now-lastT)/1000,.05);
+      rotY+=dt*12*autoDir;
+      if(rotY>5){rotY=5;autoDir=-1;}
+      if(rotY<-90){rotY=-90;autoDir=1;}
+      apply();
+    }
+    lastT=now;requestAnimationFrame(loop);
+  })(0);
+
+  /* Mouse drag */
+  scene.addEventListener('mousedown',e=>{isDragging=true;startX=e.clientX;startY=e.clientY;cube.classList.add('dragging');isAuto=false;});
+  window.addEventListener('mousemove',e=>{
+    if(!isDragging)return;
+    rotY+=(e.clientX-startX)*.4;rotX-=(e.clientY-startY)*.4;
+    clamp();startX=e.clientX;startY=e.clientY;apply();
+  });
+  window.addEventListener('mouseup',()=>{isDragging=false;cube.classList.remove('dragging');});
+
+  /* Touch drag */
+  let tx=0,ty=0;
+  scene.addEventListener('touchstart',e=>{e.preventDefault();tx=e.touches[0].clientX;ty=e.touches[0].clientY;cube.classList.add('dragging');isAuto=false;},{passive:false});
+  scene.addEventListener('touchmove',e=>{
+    e.preventDefault();
+    rotY+=(e.touches[0].clientX-tx)*.4;rotX-=(e.touches[0].clientY-ty)*.4;
+    clamp();tx=e.touches[0].clientX;ty=e.touches[0].clientY;apply();
+  },{passive:false});
+  scene.addEventListener('touchend',()=>cube.classList.remove('dragging'));
+
+  /* Button navigation */
+  function rotateTo(face){
+    isAuto=false;cube.classList.remove('dragging');
+    if(face==='productos'){rotX=-90;rotY=0;}
+    else if(face==='sistemas'){rotX=0;rotY=0;}
+    else if(face==='capacidades'){rotX=0;rotY=-90;}
+    apply();
+    btns.forEach(b=>b.classList.remove('active'));
+    const idx={productos:0,sistemas:1,capacidades:2}[face];
+    btns[idx].classList.add('active');
+  }
+</script>
+</body></html>

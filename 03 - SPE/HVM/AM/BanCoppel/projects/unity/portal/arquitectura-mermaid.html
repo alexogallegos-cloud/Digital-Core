@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arquitectura Técnica — Unity R4 — BanCoppel</title>
+<style>
+:root {
+  --blue:   #122FB1;
+  --yellow: #F0D224;
+  --ink:    #F4F6FF;
+  --muted:  #8b9cc8;
+  --bg:     #060a1a;
+  --surf:   rgba(255,255,255,.04);
+  --bord:   rgba(255,255,255,.07);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--ink); }
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  display: flex; align-items: center; gap: 14px; padding: 13px 28px;
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  background: rgba(6,10,26,.6);
+  border-bottom: 1px solid var(--bord);
+}
+nav img     { height: 22px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
+nav .title  { font-size: 12.5px; font-weight: 600; color: var(--muted); letter-spacing: .01em; }
+nav .sp     { flex: 1; }
+nav .badge  { font-size: 10px; font-weight: 800; letter-spacing: .1em; color: #060a1a; background: var(--yellow); padding: 3px 9px; border-radius: 20px; }
+nav a       { font-size: 12px; color: var(--muted); padding: 6px 13px; border-radius: 20px; border: 1px solid rgba(255,255,255,.08); text-decoration: none; transition: .2s; }
+nav a:hover { color: var(--ink); background: rgba(255,255,255,.07); }
+nav a.on    { color: var(--ink); background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.15); }
+
+/* ── DIAGRAM CANVAS ── */
+.canvas {
+  position: fixed; top: 50px; left: 0; right: 0; bottom: 0;
+  overflow: hidden; background: var(--bg);
+}
+#diagram { width: 100%; height: 100%; }
+#diagram svg { width: 100%; height: 100%; display: block; max-width: none; }
+
+/* ── ZOOM CONTROLS ── */
+.zoom-bar {
+  position: fixed; bottom: 22px; right: 22px; z-index: 300;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.zb {
+  width: 34px; height: 34px;
+  background: rgba(20,26,50,.8);
+  border: 1px solid rgba(255,255,255,.12);
+  color: var(--ink); border-radius: 8px;
+  font-size: 17px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(8px); transition: .15s;
+  font-family: inherit;
+}
+.zb:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.25); }
+
+/* ── HINT ── */
+.hint {
+  position: fixed; bottom: 22px; left: 22px; z-index: 300;
+  font-size: 11px; color: var(--muted);
+  background: rgba(6,10,26,.75); padding: 6px 14px; border-radius: 20px;
+  border: 1px solid var(--bord); backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
+/* ── LOADING ── */
+.loading {
+  position: fixed; inset: 0; z-index: 500;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg); flex-direction: column; gap: 16px;
+}
+.spinner {
+  width: 36px; height: 36px;
+  border: 3px solid rgba(255,255,255,.1);
+  border-top-color: var(--yellow);
+  border-radius: 50%; animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading p { font-size: 13px; color: var(--muted); }
+
+/* ── ERROR ── */
+.err {
+  position: fixed; inset: 0; z-index: 600;
+  display: none; align-items: center; justify-content: center;
+  background: var(--bg); flex-direction: column; gap: 12px; padding: 40px;
+}
+.err h2 { color: #f87171; font-size: 15px; }
+.err pre { font-size: 11px; color: var(--muted); white-space: pre-wrap; max-width: 700px; background: rgba(255,255,255,.04); padding: 16px; border-radius: 8px; border: 1px solid var(--bord); }
+</style>
+</head>
+<body>
+
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  <p>Generando diagrama de arquitectura…</p>
+</div>
+
+<div class="err" id="errBox">
+  <h2>Error al parsear el diagrama</h2>
+  <pre id="errMsg"></pre>
+</div>
+
+<nav>
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 40" height="24" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))"><rect x="0" y="0" width="5" height="40" fill="#F0D224" rx="2"/><text x="13" y="15" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#FFFFFF" letter-spacing="0.5">Ban</text><text x="40" y="15" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#F0D224" letter-spacing="0.5">Coppel</text><text x="13" y="28" font-family="'Segoe UI',Arial,sans-serif" font-size="8" font-weight="400" fill="rgba(255,255,255,0.5)" letter-spacing="1.5">BANCO</text></svg>
+  <span class="title">Unity R4 · Arquitectura Técnica · TDC P4900</span>
+  <span class="sp"></span>
+  <span class="badge">R4</span>
+  <a href="plan-director.html">Plan Director</a>
+  <a href="arquitectura.html">Vista HTML</a>
+  <a href="arquitectura-mermaid.html" class="on">Diagrama</a>
+</nav>
+
+<div class="canvas">
+  <div id="diagram"></div>
+</div>
+
+<div class="zoom-bar">
+  <button class="zb" id="zIn"  title="Acercar">+</button>
+  <button class="zb" id="zFit" title="Ajustar" style="font-size:13px">⤢</button>
+  <button class="zb" id="zOut" title="Alejar">−</button>
+</div>
+
+<div class="hint">Scroll para zoom · Arrastrar para mover</div>
+
+<script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'dark',
+  flowchart: { htmlLabels: true, curve: 'basis', padding: 18 },
+  themeVariables: {
+    background:          '#0a0f24',
+    primaryColor:        '#1a2545',
+    primaryTextColor:    '#c8d4f0',
+    primaryBorderColor:  '#334880',
+    lineColor:           '#3a4e78',
+    secondaryColor:      '#141d38',
+    edgeLabelBackground: '#0d1226',
+    clusterBkg:          '#101628',
+    clusterBorder:       '#2a3860',
+    fontFamily:          'system-ui, sans-serif',
+    fontSize:            '12px'
+  }
+});
+
+const diagram = `flowchart TD
+    classDef ragred fill:#7f1d1d,stroke:#f87171,stroke-width:2px,color:#fecaca
+    classDef ragylw fill:#78350f,stroke:#fbbf24,stroke-width:2px,color:#fde68a
+    classDef prod   fill:#122FB1,stroke:#F0D224,stroke-width:3px,color:#ffffff
+    classDef apigw  fill:#1e1b4b,stroke:#8b5cf6,stroke-width:2px,color:#ddd6fe
+    classDef xcrit  fill:#451a03,stroke:#f59e0b,stroke-width:2px,color:#fef3c7
+    classDef xreg   fill:#2e1065,stroke:#a78bfa,stroke-width:2px,color:#ede9fe
+    classDef xops   fill:#111827,stroke:#475569,color:#94a3b8
+    classDef usr    fill:#0c1a3a,stroke:#60a5fa,stroke-width:2px,color:#bfdbfe
+    classDef norac  fill:#111827,stroke:#6b7280,color:#9ca3af
+
+    USER["Tarjetahabiente<br>Cliente BanCoppel<br>Solicita TDC P4900"]
+
+    subgraph L1["CAPA 1 - Canales Digitales"]
+        APP["APP MOVIL - RAG ROJO<br>Proveedor AppWhere<br>18 HUs / 15 must / 4 integraciones<br>BLOQUEO: 6 must cierran Noviembre<br>BLOQUEO: DTMs sin publicar<br>BLOQUEO: Latencia mayor a 10seg"]
+        SIWEB["SIWEB - RAG AMARILLO<br>Banca por Internet<br>5 HUs / 0 must have<br>10 semanas construccion desde 18-ago<br>Cierre estimado 29-oct llega tarde<br>Bloqueado esperando APIs SmartVista"]
+        CAT["CAT - RAG ROJO<br>Canales Adicionales Transaccionales<br>12 HUs / 9 must / 7 integraciones<br>CRITICO: Sin proveedor contratado<br>CRITICO: DTMs sin responsable<br>CRITICO: Ambiente de prueba rechazado"]
+        PROM["PROMOTORIA - Sin RAG<br>Canal fuerza de ventas presencial<br>1 HU en scope original Jul-2026<br>ALERTA: Ausente en tracking actual<br>Confirmar si R5 o eliminado"]
+    end
+
+    subgraph L2["CAPA 2 - API Gateway y Apificacion"]
+        APIF["Apificacion - Owner Armando Riveros<br>18 integraciones cross-track<br>Tipos: API REST / BATCH / EVENT<br>ALERTA: Latencia activa mayor 10seg App-SV<br>ALERTA: Fragmentacion de capa API<br>Deadline: 15-sep-2026"]
+    end
+
+    subgraph L3["CAPA 3 - Plataformas Core"]
+        SV["SMARTVISTA BPC - RAG AMARILLO<br>Procesador de Tarjeta Core TDC<br>22 HUs / 11 must / 7 integraciones<br>CRITICO: TRNTs Pagos al 0pct vs 100pct esperado<br>CRITICO: SVFM sin instalar en QA<br>CRITICO: Llaves PGP DEV sin completar<br>RIESGO: Maquila Forza-TGS-Thales en decision<br>R4-para-R5: Disposicion ATM y MCI"]
+        P4900["TDC P4900 - RAG ROJO<br>Tarjeta de Credito Clasica Digital<br>45 HUs R4 total / 43 must have<br>TDC: SV-7 App-7 CAT-3 Promotoria-1<br>Onboarding Digital: 27 funcionalidades Apolo<br>Avance real: 20.66pct vs 34.0pct esperado<br>Desviacion: menos 13.34 puntos<br>Go-Live objetivo: 15-ene-2027<br>Owner: M.F. Barbosa"]
+        APOLO["APOLO APPWARE - RAG AMARILLO<br>Onboarding Digital<br>22 HUs / 11 must have<br>27 funcionalidades onboarding<br>22 DTMs prefijo REC / 98 servicios PreGame<br>CRITICO: REC ExecuteCreditContracting SA12 Alta<br>CRITICO: CB2 cert arquitectura pendiente 105 dias<br>CRITICO: CB7 riesgo infraestructura activo<br>TENSION: Deploy 06-22 ene 2027 vs Go-Live 15 ene<br>Solo 9 dias de margen al go-live"]
+    end
+
+    subgraph PAG["Pagos y Redes"]
+        EGLOBAL["e-Global - BLOQUEADO<br>88 reglas ISO 8583<br>Bloqueado SVFM sin QA"]
+        PROSA["PROSA - Mastercard<br>Compensacion y liquidacion"]
+        SPEI["SPEI y CoDi<br>Pagos tiempo real Banxico"]
+        WU["Western Union - MoneyGram<br>Remesas internacionales"]
+    end
+
+    subgraph SEC["Seguridad y Certificacion"]
+        THALES["THALES - BLOQUEADO<br>Llaves PGP y Layout tarjeta<br>Cert bloqueada sin llaves DEV<br>Deadline 31-ago - Owner A. Garcia"]
+        SVFM["SVFM - BLOQUEADO<br>Modulo Fraude SmartVista<br>Sin instalar en QA<br>Deadline 31-ago - Owner BPC"]
+        BURO["Buro de Credito<br>Score e historial crediticio"]
+        SAT["SAT<br>Validacion CURP y RFC"]
+    end
+
+    subgraph REG["Regulacion MX"]
+        CNBV["CNBV<br>Reporteria regulatoria<br>Normativa tarjetas credito"]
+        BANXICO["Banxico<br>SPEI / CoDi / DIOT<br>Reservas tecnicas"]
+        UIF["UIF y PLD<br>Prevencion lavado dinero<br>GAFI y FATF"]
+        CONDUSEF["CONDUSEF<br>Proteccion al usuario<br>Reclamaciones"]
+    end
+
+    subgraph OPS["Operacion y Datos"]
+        CTM["ControlM<br>Orquestacion batch<br>Jobs nocturnos"]
+        DS["DataStage<br>ETL y transformacion"]
+        NOMINA["Nomina Coppel<br>Domiciliacion"]
+        ORION["Orion<br>Motor scoring crediticio"]
+        IPAB["IPAB<br>Seguro de depositos"]
+    end
+
+    USER --> APP
+    USER --> SIWEB
+    USER --> CAT
+    USER -.-> PROM
+
+    APP   --> APIF
+    SIWEB --> APIF
+    CAT   --> APIF
+    PROM  -.-> APIF
+
+    APIF --> SV
+    APIF --> APOLO
+
+    SV    --> APOLO
+    APOLO --> SV
+    SV    --> P4900
+    APOLO --> P4900
+
+    SV --> EGLOBAL
+    SV --> THALES
+    SV --> SVFM
+    SV --> PROSA
+    SV --> CTM
+    SV --> CNBV
+    SV --> SPEI
+    SV --> WU
+    SV -.-> IPAB
+
+    APOLO --> ORION
+    APOLO --> BURO
+    APOLO --> SAT
+    APOLO --> UIF
+
+    CTM --> DS
+    CTM --> NOMINA
+
+    SPEI --> BANXICO
+    CNBV --> BANXICO
+    UIF  --> CONDUSEF
+
+    class APP,CAT ragred
+    class SV,SIWEB,APOLO ragylw
+    class P4900 prod
+    class APIF apigw
+    class PROM norac
+    class USER usr
+    class EGLOBAL,THALES,SVFM xcrit
+    class PROSA,SPEI,WU,CTM,DS,NOMINA,ORION,BURO,SAT,IPAB xops
+    class CNBV,BANXICO,UIF,CONDUSEF xreg`;
+
+try {
+  const { svg } = await mermaid.render('arch', diagram);
+  document.getElementById('diagram').innerHTML = svg;
+
+  // Remove fixed size so SVG fills the container
+  const svgEl = document.querySelector('#diagram svg');
+  svgEl.removeAttribute('width');
+  svgEl.removeAttribute('height');
+  svgEl.style.width  = '100%';
+  svgEl.style.height = '100%';
+
+  // Hide loader
+  document.getElementById('loading').style.display = 'none';
+
+  // Init pan-zoom
+  const pz = window.svgPanZoom(svgEl, {
+    zoomEnabled:          true,
+    controlIconsEnabled:  false,
+    fit:                  true,
+    center:               true,
+    minZoom:              0.08,
+    maxZoom:              12,
+    zoomScaleSensitivity: 0.35,
+    mouseWheelZoomEnabled: true,
+    dblClickZoomEnabled:  true,
+    preventMouseEventsDefault: true
+  });
+
+  document.getElementById('zIn').addEventListener('click',  () => pz.zoomIn());
+  document.getElementById('zOut').addEventListener('click', () => pz.zoomOut());
+  document.getElementById('zFit').addEventListener('click', () => { pz.resetZoom(); pz.fit(); pz.center(); });
+
+} catch (e) {
+  document.getElementById('loading').style.display = 'none';
+  const box = document.getElementById('errBox');
+  box.style.display = 'flex';
+  document.getElementById('errMsg').textContent = e.message || String(e);
+}
+</script>
+</body>
+</html>
