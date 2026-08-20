@@ -3258,7 +3258,7 @@ TRACK_ANALYSIS = [
     },
     {
         "id": "TA-APP", "track": "app", "session_date": "2026-08-04/06",
-        "hu_total": 20, "hu_must": 15, "hu_should": 0, "hu_could": 1, "hu_wont": 2,
+        "hu_total": 18, "hu_must": 15, "hu_should": 0, "hu_could": 1, "hu_wont": 2,
         "hu_tipo_solucion": 10, "hu_tipo_integracion": 4, "hu_tipo_mixta": 4,
         "complexity_low": 5, "complexity_mid": 6, "complexity_high": 7, "complexity_pending": 0,
         "integrations_total": 4, "integrations_api": 4, "integrations_event": 0,
