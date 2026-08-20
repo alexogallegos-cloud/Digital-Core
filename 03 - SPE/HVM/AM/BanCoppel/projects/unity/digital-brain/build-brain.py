@@ -1,5 +1,5 @@
 """
-build-brain.py  --  Unity Project Brain Builder v1.1.0
+build-brain.py  --  Unity Project Brain Builder v1.2.0
 Construye brain.db con el conocimiento incubado del programa Unity.
 Fuente: forward-knowledge (productos, componentes, riesgos, cronograma, vocabulario)
         --  diferente al brain de Informix que analiza cÃ³digo existente.
@@ -5513,7 +5513,7 @@ def load_plan_progress(con: sqlite3.Connection) -> None:
 # â"€â"€ Main â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Unity Project Brain Builder v1.1.0")
+    parser = argparse.ArgumentParser(description="Unity Project Brain Builder v1.2.0")
     parser.add_argument("--reset", action="store_true", help="Borra y reconstruye brain.db")
     args = parser.parse_args()
 

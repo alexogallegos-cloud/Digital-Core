@@ -418,7 +418,7 @@ Ver `dt/dt-riesgos.md` para los 10 riesgos con detalle completo.
 
 ---
 
-## brain.db — Estado v1.1.0 (2026-08-20)
+## brain.db — Estado v1.2.0 (2026-08-20)
 
 > Build canónico generado por `build-brain.py --reset`. Tablas Marco 3D (`program_stakeholders`, `program_systems`, `it_capabilities`) pendientes de implementar en `build-brain.py` — ver Próximos Pasos.
 
@@ -445,6 +445,8 @@ Ver `dt/dt-riesgos.md` para los 10 riesgos con detalle completo.
 | `user_stories_inventory` | 79 | **Actualizado v1.1.0** — Inventario con scoring MoSCoW: must=46 should=28 · apolo:22 app:18 cat:12 siweb:5 smartvista:22 · 3 HUs APP-ENC-nn añadidas |
 | `r4_integrations` | 18 | Integraciones R4: API(15) Batch(2) Evento(1) · Nueva(9) Modificar(9) · SmartVista(7)+CAT(7)+APP(4) |
 | `track_rag` | 5 | RAG por track (PPTX 11-ago): red=app,cat · yellow=smartvista,siweb,apolo · fuente: Roadmap Accenture |
+| `legacy_systems` | 14 | **NUEVO v1.2.0** — sistemas del ecosistema Unity (no del core Informix): core-app(2) · middleware(4) · rules-engine(4) · document-mgmt(1) · mdm(1) · rpa(1) · other(1) · core_path=2 (InterAct+IBM-BUS) |
+| `audit_findings` | 19 | **NUEVO v1.2.0** — hallazgos barrido documental 2026-08-19: cifra-huerfana(3) · correccion(5) · ambiguedad(3) · hallazgo(5) · dato-requerido(3) · 7 abiertos |
 | `risks` | 26 | **26 riesgos** (12 alta, 1 cerrado) — incluye 8 nuevos Reportes Regulatorios añadidos barrido 2026-08-19 |
 | `raid_assumptions` | 4 | Supuestos RAID (sin validar) |
 | `raid_issues` | 3 | Issues RAID (todos alta severidad) |
@@ -482,12 +484,13 @@ Ver `dt/dt-riesgos.md` para los 10 riesgos con detalle completo.
 - [x] Procesar `Respaldo Docs Bancoppel - App/` — 13 User Stories Jira TDC F&D en `brain.db::app_user_stories` — v0.9.0
 - [x] Procesar `Roadmap Accenture/` — 76 User Stories scoring + 18 integraciones + 5 tracks RAG en `brain.db::user_stories_inventory+r4_integrations+track_rag` — v1.0.0
 - [x] **v1.1.0 — `product_releases` (8 releases TDC+CSE con plataforma y estado) + campo `scope` en `products` (cnbv-scope vs prior-scope) + inventario HUs 76→79 (APP-ENC-01/02/03 Encendido/Apagado TDC F&D) + `plan_progress` actualizado a corte 17-ago (21.19% vs 60.58%) + vocabulario F&F/F&D/Manos del Cliente + 8 riesgos Reportes Regulatorios + portal lifecycle-p4900.html + barrido documental 257 docs**
-- [ ] **v1.2.0 — Marco 3D SISTEMA: `program_systems` (11: smartvista · transact · informix · apolo · app-movil · siweb · cat · atlas · controlm · eglobal · connect-direct con togaf_type+togaf_state+vendor) + `it_capabilities` (13 top-level: qe · devops · ambientacion · seguridad · interoperabilidad · data · arquitectura · change-mgmt · ai · release-management · vendor-management · observabilidad · compliance) + ejes system_id/itcapability_ids en RAID y user_stories_inventory**
-- [ ] **v1.3.0 — Marco 3D STAKEHOLDER: `program_stakeholders` (62 personas: sponsors(2) · director(1) · PM(1) · track_owners(7) · pmo(4) · arquitectos(4) · acn(12) · vendors(6) · otros) + QE sub-caps (qe-strategy · qe-tem · qe-tdm) en `it_capabilities` (16 total)**
+- [x] **v1.2.0 — `legacy_systems` (14 sistemas ecosistema Unity: SIF/SOC/TDH/InterAct/IBM-BUS/ATLAS/DataStage/Bajaware/RiskLogic/BRM×3/OnBase-Prometeo/Blue-Prism) + `audit_findings` (19 hallazgos del barrido documental 2026-08-19: 3 cifras-huérfanas, 5 correcciones, 3 ambigüedades, 5 hallazgos, 3 datos-requeridos)**
+- [ ] **v1.3.0 — Marco 3D SISTEMA: `program_systems` (11: smartvista · transact · informix · apolo · app-movil · siweb · cat · atlas · controlm · eglobal · connect-direct con togaf_type+togaf_state+vendor) + `it_capabilities` (13 top-level: qe · devops · ambientacion · seguridad · interoperabilidad · data · arquitectura · change-mgmt · ai · release-management · vendor-management · observabilidad · compliance) + ejes system_id/itcapability_ids en RAID y user_stories_inventory**
+- [ ] **v1.4.0 — Marco 3D STAKEHOLDER: `program_stakeholders` (62 personas: sponsors(2) · director(1) · PM(1) · track_owners(7) · pmo(4) · arquitectos(4) · acn(12) · vendors(6) · otros) + `program_systems` (11) + `it_capabilities` (16 con sub-caps QE)**
 - [ ] Mapear capabilities ETB de los productos live en `brain.db`
 - [ ] Registrar ADR-UNITY-002 (coexistencia) + ADR-UNITY-003 (routing)
 - [ ] Conectar al `bank-brain` vía ATTACH
 
 ---
 
-*Creado: 2026-08-15 · Actualizado: 2026-08-20 (v1.1.0: product_releases · scope cnbv · 79 HUs · plan 17-ago · lifecycle-p4900.html · barrido 257 docs · brain.db Estado corregido a v1.1.0 — v1.2.0/v1.3.0 Marco 3D pendientes de implementar en build-brain.py)*
+*Creado: 2026-08-15 · Actualizado: 2026-08-20 (v1.2.0: legacy_systems 14 sistemas ecosistema + audit_findings 19 hallazgos barrido documental + brain.db Estado corregido a v1.2.0 — v1.3.0 Marco 3D pendiente)*
