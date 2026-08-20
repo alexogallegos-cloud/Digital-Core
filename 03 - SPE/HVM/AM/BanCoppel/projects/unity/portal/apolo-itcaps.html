@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APOLO — Capacidades IT · Unity R4</title>
+<style>
+:root {
+  --blue: #3D5FCD; --blued: #122FB1; --yellow: #F0D224;
+  --ink: #F4F6FF; --muted: #aab3d4; --bg: #060a1a;
+  --glass: rgba(255,255,255,0.04); --border: rgba(255,255,255,0.09);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; overflow-x: hidden; }
+
+.aurora {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 50% at 15% 20%, rgba(61,95,205,.16) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 40% at 85% 80%, rgba(18,47,177,.11) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 60% at 50% 50%, rgba(240,210,36,.03) 0%, transparent 70%);
+  animation: aurora 22s ease-in-out infinite alternate;
+}
+@keyframes aurora { 0%{ transform: scale(1) } 100%{ transform: scale(1.06) translateX(18px) } }
+.grain {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: .025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+nav {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(6,10,26,.88); backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 2rem; display: flex; align-items: center; gap: 1.75rem; height: 52px;
+}
+.nav-brand { font-weight: 700; font-size: .95rem; letter-spacing: .02em; white-space: nowrap; }
+.nav-brand span { color: var(--yellow); }
+nav a { color: var(--muted); text-decoration: none; font-size: .83rem; transition: color .2s; white-space: nowrap; }
+nav a:hover { color: var(--ink); }
+.nav-sep { flex: 1; }
+
+main { position: relative; z-index: 2; max-width: 1300px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+/* HERO */
+.hero {
+  background: linear-gradient(135deg, rgba(61,95,205,.14) 0%, transparent 60%);
+  border: 1px solid var(--border); border-radius: 16px;
+  padding: 2rem 2.5rem; margin-bottom: 1.75rem; position: relative; overflow: hidden;
+}
+.hero::after {
+  content: ''; position: absolute; top: -50px; right: -50px;
+  width: 220px; height: 220px;
+  background: radial-gradient(circle, rgba(240,210,36,.055) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.hero-title { font-size: 1.85rem; font-weight: 800; line-height: 1.2; }
+.hero-title .sys { color: var(--yellow); }
+.hero-sub { color: var(--muted); margin-top: .4rem; font-size: .88rem; max-width: 580px; line-height: 1.5; }
+.rag-badge {
+  display: inline-flex; align-items: center; gap: .45rem;
+  padding: .35rem .9rem; border-radius: 20px; font-size: .78rem; font-weight: 700; letter-spacing: .05em;
+}
+.rag-yellow { background: rgba(240,210,36,.13); border: 1px solid rgba(240,210,36,.3); color: var(--yellow); }
+
+.hero-stats { display: flex; gap: 2.5rem; margin-top: 1.75rem; flex-wrap: wrap; }
+.stat .sv { font-size: 1.9rem; font-weight: 800; }
+.stat .sl { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-top: 2px; }
+.sv.y { color: var(--yellow); } .sv.r { color: #E05353; }
+
+.hero-chips { display: flex; gap: .65rem; flex-wrap: wrap; margin-top: 1.1rem; }
+.chip {
+  background: var(--glass); border: 1px solid var(--border);
+  border-radius: 7px; padding: .28rem .7rem; font-size: .76rem; color: var(--muted);
+}
+.chip strong { color: var(--ink); }
+
+/* SUMMARY */
+.sum-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: .75rem; margin-bottom: 1.75rem; }
+.sum-card {
+  background: var(--glass); border: 1px solid var(--border); border-radius: 10px;
+  padding: .9rem 1.1rem; text-align: center;
+}
+.sum-v { font-size: 1.6rem; font-weight: 800; }
+.sum-l { font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-top: .25rem; }
+
+/* FILTER */
+.filter-bar { display: flex; gap: .45rem; margin-bottom: 1.5rem; flex-wrap: wrap; align-items: center; }
+.filter-lbl { color: var(--muted); font-size: .78rem; }
+.fb {
+  padding: .28rem .8rem; border-radius: 20px; border: 1px solid var(--border);
+  background: var(--glass); color: var(--muted);
+  cursor: pointer; font-size: .76rem; transition: all .2s; font-family: inherit;
+}
+.fb:hover { border-color: rgba(255,255,255,.2); color: var(--ink); }
+.fb.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+
+/* SECTION */
+.sec-head {
+  display: flex; align-items: center; gap: .7rem;
+  margin: 2rem 0 .9rem; padding-bottom: .7rem; border-bottom: 1px solid var(--border);
+}
+.sec-head h2 { font-size: .97rem; font-weight: 700; }
+.sec-head .cnt {
+  background: rgba(255,255,255,.07); border-radius: 9px;
+  padding: .08rem .45rem; font-size: .7rem; color: var(--muted);
+}
+
+/* GRID */
+.cap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(370px, 1fr)); gap: .9rem; }
+
+/* CARD */
+.cap-card {
+  background: var(--glass); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden; transition: border-color .22s, box-shadow .22s;
+}
+.cap-card:hover { border-color: rgba(61,95,205,.38); box-shadow: 0 4px 20px rgba(61,95,205,.09); }
+.cap-card.hi-risk { border-left: 3px solid rgba(224,83,83,.5); }
+
+.cap-hdr { padding: .95rem 1.2rem .7rem; cursor: pointer; display: flex; align-items: flex-start; justify-content: space-between; gap: .7rem; }
+.cap-hdr:hover { background: rgba(255,255,255,.02); }
+.cap-lft { flex: 1; min-width: 0; }
+.cap-name { font-size: .92rem; font-weight: 700; margin-bottom: .35rem; }
+.cap-meta { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
+
+.mat {
+  display: inline-flex; align-items: center; gap: .25rem;
+  padding: .12rem .55rem; border-radius: 9px; font-size: .67rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+}
+.mat-m { background: rgba(61,95,205,.18); color: #8aaeff; border: 1px solid rgba(61,95,205,.28); }
+.mat-i { background: rgba(232,147,26,.13); color: #f0a83a; border: 1px solid rgba(232,147,26,.24); }
+.mat-t { background: rgba(107,117,145,.13); color: #aab3d4; border: 1px solid rgba(107,117,145,.24); }
+
+.lead-ok { font-size: .7rem; color: var(--muted); display: inline-flex; align-items: center; gap: .3rem; }
+.lead-dot { width: 6px; height: 6px; border-radius: 50%; background: #4dc98a; flex-shrink: 0; }
+.vac {
+  display: inline-flex; align-items: center; gap: .25rem; padding: .1rem .45rem; border-radius: 7px;
+  font-size: .65rem; font-weight: 700; background: rgba(224,83,83,.13); color: #E05353; border: 1px solid rgba(224,83,83,.22);
+}
+
+.risk-pills { display: flex; gap: .35rem; margin-top: .3rem; flex-wrap: wrap; }
+.rp { padding: .09rem .4rem; border-radius: 7px; font-size: .66rem; font-weight: 700; }
+.rp-h { background: rgba(224,83,83,.18); color: #E05353; }
+.rp-m { background: rgba(232,147,26,.13); color: #f0a83a; }
+.rp-i { background: rgba(224,83,83,.13); color: #f07070; }
+
+.arrow { color: var(--muted); font-size: .65rem; flex-shrink: 0; padding-top: 3px; transition: transform .24s; }
+.cap-card.open .arrow { transform: rotate(180deg); }
+
+/* BODY */
+.cap-body {
+  display: none; padding: 0 1.2rem 1.2rem;
+  border-top: 1px solid var(--border);
+}
+.cap-card.open .cap-body { display: block; }
+
+.cap-gap { margin-top: .75rem; color: var(--muted); font-size: .81rem; line-height: 1.55; }
+
+.dl { margin-top: .95rem; }
+.dl-lbl { font-size: .67rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; margin-bottom: .45rem; }
+
+/* Risk items */
+.ri {
+  display: flex; gap: .7rem; align-items: flex-start;
+  padding: .55rem .7rem; border-radius: 8px;
+  background: rgba(255,255,255,.025); border: 1px solid var(--border); margin-bottom: .35rem;
+}
+.ri:last-child { margin-bottom: 0; }
+.rid {
+  font-size: .65rem; font-weight: 800; letter-spacing: .04em;
+  flex-shrink: 0; padding: .08rem .38rem; border-radius: 5px; line-height: 1.5;
+}
+.rid-h { background: rgba(224,83,83,.18); color: #E05353; }
+.rid-m { background: rgba(232,147,26,.13); color: #f0a83a; }
+.rid-l { background: rgba(107,117,145,.13); color: #aab3d4; }
+.rid-c { background: rgba(77,201,138,.1); color: #4dc98a; opacity: .75; }
+.rdesc { font-size: .77rem; color: var(--ink); line-height: 1.4; }
+.rown { font-size: .69rem; color: var(--muted); margin-top: .18rem; }
+
+/* Decision items */
+.di {
+  padding: .55rem .7rem; border-radius: 8px;
+  background: rgba(61,95,205,.06); border: 1px solid rgba(61,95,205,.14); margin-bottom: .35rem;
+}
+.di:last-child { margin-bottom: 0; }
+.di-id-row { display: flex; align-items: center; gap: .45rem; margin-bottom: .28rem; }
+.di-id { font-size: .66rem; font-weight: 700; color: #8aaeff; }
+.di-st {
+  padding: .08rem .38rem; border-radius: 6px; font-size: .62rem; font-weight: 700;
+}
+.st-a { background: rgba(77,201,138,.13); color: #4dc98a; }
+.st-p { background: rgba(232,147,26,.13); color: #f0a83a; }
+.di-title { font-size: .78rem; color: var(--ink); font-weight: 600; }
+.di-sum { font-size: .72rem; color: var(--muted); margin-top: .18rem; line-height: 1.4; }
+
+/* Issue items */
+.ii {
+  display: flex; gap: .7rem; align-items: flex-start;
+  padding: .55rem .7rem; border-radius: 8px;
+  background: rgba(224,83,83,.05); border: 1px solid rgba(224,83,83,.15); margin-bottom: .35rem;
+}
+.ii:last-child { margin-bottom: 0; }
+.iid { font-size: .65rem; font-weight: 800; color: #E05353; flex-shrink: 0; }
+.idesc { font-size: .77rem; color: var(--ink); line-height: 1.4; }
+.iimp { font-size: .69rem; color: var(--muted); margin-top: .18rem; line-height: 1.35; }
+
+/* Dep items */
+.dep {
+  padding: .48rem .7rem; border-radius: 8px;
+  background: rgba(107,117,145,.07); border: 1px solid rgba(107,117,145,.18);
+  font-size: .77rem; color: var(--ink); margin-bottom: .35rem;
+}
+.dep:last-child { margin-bottom: 0; }
+.dep-id { font-size: .64rem; color: var(--muted); margin-bottom: .18rem; }
+
+/* Subcaps */
+.sc-wrap { margin-top: .95rem; padding-top: .95rem; border-top: 1px solid var(--border); }
+.sc-lbl { font-size: .67rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; margin-bottom: .5rem; }
+.sc-item {
+  background: rgba(255,255,255,.025); border: 1px solid var(--border);
+  border-radius: 8px; padding: .6rem .75rem; margin-bottom: .35rem;
+}
+.sc-item:last-child { margin-bottom: 0; }
+.sc-hdr { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; margin-bottom: .28rem; }
+.sc-name { font-size: .8rem; font-weight: 700; }
+.sc-gap { font-size: .74rem; color: var(--muted); line-height: 1.45; }
+
+.no-items { color: var(--muted); font-size: .76rem; font-style: italic; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="aurora"></div>
+<div class="grain"></div>
+
+<nav>
+  <div class="nav-brand">Unity R4 · <span>APOLO IT</span></div>
+  <a href="index.html">Plan Director</a>
+  <a href="lifecycle-p4900.html">Lifecycle P4900</a>
+  <div class="nav-sep"></div>
+  <a href="http://localhost:7730" style="color:var(--muted)">localhost:7730 ↗</a>
+</nav>
+
+<main>
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-top">
+      <div>
+        <div class="hero-title">Capacidades IT — <span class="sys">APOLO</span></div>
+        <div class="hero-sub">Vista de las 16 capacidades IT del programa Unity R4 con decisiones, riesgos e issues RAID en el contexto del canal de onboarding digital APOLO.</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.5rem;">
+        <span class="rag-badge rag-yellow">● RAG AMARILLO</span>
+        <span style="font-size:.72rem;color:var(--muted)">2026-08-19</span>
+      </div>
+    </div>
+    <div class="hero-stats">
+      <div class="stat"><div class="sv">37</div><div class="sl">HDUs total</div></div>
+      <div class="stat"><div class="sv">22</div><div class="sl">User Stories R4</div></div>
+      <div class="stat"><div class="sv y">9</div><div class="sl">Candidatas simplif.</div></div>
+      <div class="stat"><div class="sv">12</div><div class="sl">Épicas</div></div>
+    </div>
+    <div class="hero-chips">
+      <div class="chip"><strong>Vendor:</strong> AppWhere</div>
+      <div class="chip"><strong>Tipo:</strong> Onboarding digital</div>
+      <div class="chip"><strong>Stack:</strong> GCP / Cloud Run</div>
+      <div class="chip"><strong>Integración pendiente:</strong> Apificación</div>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="sum-grid">
+    <div class="sum-card"><div class="sum-v" style="color:#8aaeff">3</div><div class="sum-l">Managed</div></div>
+    <div class="sum-card"><div class="sum-v" style="color:#f0a83a">12</div><div class="sum-l">Initial</div></div>
+    <div class="sum-card"><div class="sum-v" style="color:var(--muted)">1</div><div class="sum-l">TBD</div></div>
+    <div class="sum-card"><div class="sum-v" style="color:#E05353">9</div><div class="sum-l">Sin Lead</div></div>
+    <div class="sum-card"><div class="sum-v" style="color:#E05353">17</div><div class="sum-l">Riesgos abiertos</div></div>
+    <div class="sum-card"><div class="sum-v" style="color:#E05353">3</div><div class="sum-l">Issues activos</div></div>
+  </div>
+
+  <!-- Filter -->
+  <div class="filter-bar">
+    <span class="filter-lbl">Filtrar:</span>
+    <button class="fb on" onclick="setFilter('all',this)">Todas</button>
+    <button class="fb" onclick="setFilter('managed',this)">Managed</button>
+    <button class="fb" onclick="setFilter('initial',this)">Initial</button>
+    <button class="fb" onclick="setFilter('tbd',this)">TBD</button>
+    <button class="fb" onclick="setFilter('no-lead',this)">Sin Lead</button>
+    <button class="fb" onclick="setFilter('hi-risk',this)">Riesgo Alto</button>
+  </div>
+
+  <!-- Arquitectura y Delivery -->
+  <div class="sec-head">
+    <h2>Arquitectura y Delivery</h2>
+    <span class="cnt" id="cnt-arch">—</span>
+  </div>
+  <div class="cap-grid" id="grid-arch"></div>
+
+  <!-- Quality Engineering -->
+  <div class="sec-head">
+    <h2>Quality Engineering</h2>
+    <span class="cnt" id="cnt-qe">—</span>
+  </div>
+  <div class="cap-grid" id="grid-qe"></div>
+
+  <!-- Operaciones y Seguridad -->
+  <div class="sec-head">
+    <h2>Operaciones y Seguridad</h2>
+    <span class="cnt" id="cnt-ops">—</span>
+  </div>
+  <div class="cap-grid" id="grid-ops"></div>
+
+  <!-- Regulación y Gestión -->
+  <div class="sec-head">
+    <h2>Regulación y Gestión</h2>
+    <span class="cnt" id="cnt-gov">—</span>
+  </div>
+  <div class="cap-grid" id="grid-gov"></div>
+</main>
+
+<script>
+const RISKS = {
+  R01:{ id:'R01', impact:'high', status:'open',   desc:'Retraso en DTMs de Appware bloquea inicio de construcción en SmartVista, SIWEB y CAT — 54% HUs sin delta técnico cerrado', owner:'Program Lead / Ma. Fernanda Barbosa; Appware Alfredo Aguilar' },
+  R02:{ id:'R02', impact:'high', status:'open',   desc:'Módulos SmartVista no contemplados de inicio: Inventario de Tarjetas y Campanas requieren desarrollo a medida', owner:'PM SmartVista / Armando García' },
+  R03:{ id:'R03', impact:'high', status:'closed', desc:'Confirmación de refuerzo equipo Appware pendiente', owner:'Appware / PMO Brenda Pichardo' },
+  R04:{ id:'R04', impact:'high', status:'open',   desc:'Fragmentación de capa de APIs sin estándar de servicio único por función — latencia ya encima de 10 seg en app', owner:'Arquitectura BCPL' },
+  R05:{ id:'R05', impact:'high', status:'open',   desc:'Latencia en Apolo persiste en producción — mejoras de Apificación no confirmadas como desplegadas', owner:'API / Edgar Mejia; Arq. / Edgar Mejia' },
+  R06:{ id:'R06', impact:'medium', status:'open', desc:'Plan de trabajo Cobranza sin formalizar — estatus desconocido, impacta planificación de integraciones con canales', owner:'Program Lead / Ma. Fernanda Barbosa' },
+  R07:{ id:'R07', impact:'medium', status:'open', desc:'QA sin capacidad coordinada entre canales — SIWEB, CAT y SmartVista convergen en pruebas sep-nov sin calendario integrado', owner:'Testing R4' },
+  R08:{ id:'R08', impact:'medium', status:'open', desc:'Entregables de Contabilidad pendientes bloquean inicio de QA SmartVista — guía contable, reportes regulatorios y matriz de casos de prueba con retraso', owner:'Contabilidad / J.A. Valverde, G. Martínez, S. Melo' },
+  R09:{ id:'R09', impact:'high', status:'open',   desc:'Dependencia de ATLAS Fase 2 (MDM/Golden Record) sin confirmar — puede bloquear migración TDC a SmartVista en R3/R4', owner:'Leader Programa ATLAS BCPL' },
+  R10:{ id:'R10', impact:'high', status:'open',   desc:'Inestabilidad o retraso por escenario de despliegue — 4 despliegues por canal en Q4-26 con capacidad limitada y pruebas paralelas', owner:'PM SmartVista / Armando García' },
+  R11:{ id:'R11', impact:'medium', status:'open', desc:'Guía contable de diferimientos y pagos anticipados incompleta — HUs R418-R420 no pueden cerrar criterios de aceptación', owner:'SmartVista / Armando García' },
+  R12:{ id:'R12', impact:'high', status:'open',   desc:'Retraso en diseños CX/Figma bloquea inicio de desarrollo Bloque 2 App — CX desde sep-2025 sin cerrar alcance completo', owner:'CX / Benjamín Herrera' },
+  R13:{ id:'R13', impact:'medium', status:'open', desc:'Disponibilidad limitada de SmartVista y Apificación para pruebas de App — recursos clave con responsabilidades en múltiples frentes', owner:'SmartVista / Armando García' },
+  R14:{ id:'R14', impact:'medium', status:'open', desc:'Inestabilidad del ambiente de integración Unity en pruebas R4 — ya ocurrió en R3', owner:'Testing / Miguel Burcio' },
+  R15:{ id:'R15', impact:'high', status:'open',   desc:'Ambientes DEV y TEST SmartVista sin infraestructura para componente SVFM — 88 reglas del autorizador no pueden probarse', owner:'Infra BCPL / Miguel Castillo' },
+  R16:{ id:'R16', impact:'medium', status:'open', desc:'Incompatibilidad entre SmartVista y legado detectada tarde en pruebas — gaps con comportamiento del sistema antiguo descubiertos durante QA', owner:'PM Lead SmartVista / Armando García' },
+  R17:{ id:'R17', impact:'medium', status:'open', desc:'Frameworks obsoletos en canales CAT generan riesgo técnico y de cronograma — sin soporte, vulnerabilidades, o cambio de framework inviable en R4', owner:'CAT Ramses Santos / Arquitectura Mercedes Espinosa' },
+  R18:{ id:'R18', impact:'high', status:'open',   desc:'Habilitación de ambientes de prueba CAT bloqueada — arquitectura rechazó habilitar servidor IBR por requisito de nube; proceso involucra múltiples áreas con SLAs independientes', owner:'CAT Ramses Santos' },
+};
+
+const ISSUES = {
+  I01:{ id:'I01', severity:'high', desc:'CAT sin equipo de desarrollo — inicio de construcción estimado a mediados de octubre, freeze en diciembre deja margen crítico', impact:'Sin equipo asignado, CAT no puede iniciar construcción en R4. Cronograma oct-nov deja margen crítico hacia freeze Dic\'26.', owner:'CAT / Ramses Santos' },
+  I02:{ id:'I02', severity:'high', desc:'Único entorno homologado disponible para SIT, UAT, NFT y Seguridad — colisión de demanda entre ciclos de prueba activa desde R3', impact:'Bloqueos efectivos entre equipos durante ventanas de prueba. Riesgo de contaminación de datos por superposición de ciclos. Compromete calidad y fechas de SIT/UAT R4.', owner:'Infra BCPL' },
+  I03:{ id:'I03', severity:'high', desc:'Célula Apolo App BanCoppel sin contratar — sin capacidad para arrancar sprints en tiempo', impact:'Sin capacidad asignada, canal App no puede completar integración antes de SIT. Bloquea hitos R4 en Dic\'26.', owner:'Apolo Lead / Leonardo Hernández' },
+};
+
+const DEPS = {
+  D01:{ id:'D01', severity:'severe', desc:'Normatividad Contable debe entregar guía de diferimientos para que SmartVista cierre criterios de aceptación R418-R420', pred:'Normatividad Contable / J.A. Valverde', succ:'PM SmartVista / Armando García' },
+  D02:{ id:'D02', severity:'severe', desc:'Infra BCPL debe estabilizar entorno homologado para que todos los streams puedan iniciar SIT', pred:'Infra BCPL', succ:'QA Lead / PMO' },
+};
+
+const DECS = {
+  A1:{ id:'ADR-UNITY-001', title:'Temenos Transact como nuevo core bancario', status:'accepted', sum:'Adoptar Temenos Transact primero con productos nuevos, sin migración inmediata del portfolio Informix. Operación dual durante el periodo transicional.' },
+  A2:{ id:'ADR-UNITY-002', title:'Estrategia de coexistencia Informix-Unity', status:'proposed', sum:'PENDIENTE — define el roadmap de migración de SPs Informix y la arquitectura de integración de canales. Escenarios: sustitución total, coexistencia permanente o híbrido por dominio.' },
+  A3:{ id:'ADR-UNITY-003', title:'Routing de canales digitales por producto', status:'proposed', sum:'PENDIENTE — definir la capa de enrutamiento (API Gateway, ESB, lógica en canal) para AppMóvil y canales digitales con 49 SPs Informix actuales.' },
+  A4:{ id:'ADR-UNITY-004', title:'SmartVista (BPC) para gestión de tarjetas en R4', status:'accepted', sum:'SmartVista como motor de gestión de tarjetas para Producto 4900. CMS/Intercard/Macweb quedan como sistemas a retirar post-Go-Live.' },
+};
+
+const CAPS = [
+  /* ─── ARQUITECTURA Y DELIVERY ─── */
+  { id:'arquitectura', name:'Arquitectura de Solución', g:'arch', mat:'managed',
+    lead:'Mercedes Espinosa Cortés', lid:'STK-024',
+    gap:'54% de HUs sin DTM cerrado (R01). Módulos SmartVista fuera de scope original sin dimensionar (R02). Diseños CX/Figma sin cerrar desde sep-2025 (R12). Guía contable de diferimientos incompleta bloquea R418-R420 (R11).',
+    risks:['R01','R02','R06','R09','R11','R12'], decs:['A1','A2','A3','A4'], issues:[], deps:['D01'] },
+
+  { id:'interoperabilidad', name:'Interoperabilidad / API Management', g:'arch', mat:'managed',
+    lead:'Edgar Mejia', lid:'STK-012',
+    gap:'Fragmentación de capa de APIs sin estándar de servicio único por función (R04). Latencia >10 seg en Apolo persistente en producción (R05). APIs SIWEB sin definir bloquean desarrollo y SIT. Disponibilidad limitada de recursos clave para pruebas de App (R13).',
+    risks:['R04','R05','R08','R13','R14','R17'], decs:['A2','A3'], issues:[], deps:[] },
+
+  { id:'devops', name:'DevOps / CI-CD', g:'arch', mat:'initial',
+    lead:null,
+    gap:'No hay pipeline CI/CD establecido para SmartVista ni canales. Deployments manuales con riesgo de colisión en Q4-2026 (4 releases en ventana reducida). Célula Apolo App BanCoppel sin contratar (I03).',
+    risks:['R10','R16'], decs:[], issues:['I03'], deps:[] },
+
+  { id:'ambientacion', name:'Ambientación / Environments', g:'arch', mat:'initial',
+    lead:'Miguel Castillo', lid:'STK-030',
+    gap:'Ambientes DEV y TEST SmartVista sin infraestructura para SVFM — 88 reglas del autorizador no pueden probarse (R15). IBR no habilitado para CAT — rechazado por requisito de nube (R18). Único ambiente homologado para SIT+UAT+NFT+Pentest colisiona entre streams (I02).',
+    risks:['R10','R15','R18'], decs:[], issues:['I02'], deps:['D02'] },
+
+  /* ─── QUALITY ENGINEERING ─── */
+  { id:'qe', name:'Quality Engineering', g:'qe', mat:'initial',
+    lead:null,
+    gap:'Sin lead de QE definido. Sin estrategia de testing ni framework de automatización. Sin quality gates formales en el SDLC. Sin baseline de regresión. TEM y TDM sin proceso estructurado.',
+    risks:['R03','R05','R07','R08'], decs:[], issues:['I02'], deps:['D01','D02'],
+    subcaps:[
+      { id:'qe-strategy', name:'QE — Test Strategy & Execution', mat:'initial', lead:null,
+        gap:'Sin estrategia de testing definida. Todo manual. Sin framework de automatización. Sin proceso de gestión de defectos cross-track. Sin criterio de salida formal para pasar de Dev a SIT.', issues:[] },
+      { id:'qe-tdm', name:'QE — Test Data Management (TDM)', mat:'initial', lead:null,
+        gap:'Sin estrategia de TDM. Riesgo de contaminación de datos entre ciclos al compartir ambiente (I02). Datos PCI-DSS sin masking en ambientes non-prod.', issues:['I02'] },
+      { id:'qe-tem', name:'QE — Test Environment Management (TEM)', mat:'initial', lead:null,
+        gap:'Único ambiente compartido para SIT + UAT + NFT + Pentest — colisión de demanda entre equipos (I02). Sin owner formal de TEM. Sin calendario de ambientes publicado.', issues:['I02'] },
+    ] },
+
+  /* ─── OPERACIONES Y SEGURIDAD ─── */
+  { id:'observabilidad', name:'Observabilidad', g:'ops', mat:'initial',
+    lead:null,
+    gap:'Sin owner de observabilidad asignado. SLOs definidos en DT pero sin instrumentación activa en ningún ambiente. Sin dashboards de negocio (tasas de aprobación, volumen TDC). On-call model no formalizado. Audit trail PCI-DSS/CNBV no verificado en SmartVista. Sin trazabilidad distribuida cross-sistema.',
+    risks:[], decs:[], issues:[], deps:[] },
+
+  { id:'release-management', name:'Release Management', g:'ops', mat:'initial',
+    lead:null,
+    gap:'4 releases en Q4-2026 con capacidad limitada y pruebas paralelas sin owner de release management (R10). Sin proceso formal de go/no-go ni freeze coordinado entre tracks.',
+    risks:['R10'], decs:[], issues:[], deps:[] },
+
+  { id:'seguridad', name:'Seguridad / Security', g:'ops', mat:'managed',
+    lead:'Seguridad BCPL', lid:'STK-026',
+    gap:'Pentest Cobranza programado en ventana SIT (nov-2026) — colisión que puede bloquear pruebas de cobranza. JWT sin cifrado identificado en APIs SmartVista.',
+    risks:['R07'], decs:[], issues:[], deps:[] },
+
+  { id:'change-mgmt', name:'Change Management', g:'ops', mat:'initial',
+    lead:null,
+    gap:'VACANTE CRÍTICA: Karina Zepeda (ACN Change Mgmt Lead) renunció. Change Management actual en BanCoppel es táctico (manuales, capacitación), no estratégico. Kreios evaluado como refuerzo.',
+    risks:[], decs:[], issues:[], deps:[] },
+
+  /* ─── REGULACIÓN Y GESTIÓN ─── */
+  { id:'compliance', name:'Compliance Regulatorio', g:'gov', mat:'initial',
+    lead:null,
+    gap:'Sin owner formal de compliance del programa. CNBV Art.76 requiere autorización expresa antes de operar P4900 — sin plan de gestión. PCI-DSS v4.0 en SmartVista sin evaluación de brecha formal. CONDUSEF sin protocolo de atención a reclamaciones definido.',
+    risks:[], decs:[], issues:[], deps:[] },
+
+  { id:'vendor-management', name:'Vendor Management', g:'gov', mat:'initial',
+    lead:'Brenda Pichardo', lid:'STK-008',
+    gap:'CAT sin proveedor contratado — inicio de construcción estimado a mediados de octubre (I01). AppWhere con DTMs bloqueados sin penalización aplicada (R01). BPC con módulos fuera de scope sin dimensionar (R02). Nunca se han aplicado penalizaciones a proveedores.',
+    risks:['R01','R02'], decs:[], issues:['I01'], deps:[] },
+
+  { id:'data', name:'Data / Migración', g:'gov', mat:'initial',
+    lead:'Leader Programa ATLAS', lid:'STK-029',
+    gap:'ATLAS Fase 2 (MDM/Golden Record) sin confirmar puede bloquear migración TDC a SmartVista en R3/R4 (R09). Estrategia de datos R4 no documentada formalmente.',
+    risks:['R09'], decs:['A1'], issues:[], deps:[] },
+
+  { id:'ai', name:'AI / Inteligencia Artificial', g:'gov', mat:'tbd',
+    lead:null,
+    gap:'No hay iniciativa AI formal dentro del programa Unity R4.',
+    risks:[], decs:[], issues:[], deps:[] },
+];
+
+/* ── Render helpers ── */
+function matBadge(m) {
+  const c = m==='managed'?'mat-m':m==='initial'?'mat-i':'mat-t';
+  const l = m==='managed'?'● Managed':m==='initial'?'● Initial':'◌ TBD';
+  return `<span class="mat ${c}">${l}</span>`;
+}
+
+function leadHtml(cap) {
+  if (!cap.lead) return `<span class="vac">⚠ VACANTE</span>`;
+  return `<span class="lead-ok"><span class="lead-dot"></span>${cap.lead}</span>`;
+}
+
+function riskPills(ids) {
+  if (!ids?.length) return '';
+  const open = ids.filter(id=>RISKS[id]?.status!=='closed');
+  const hi = open.filter(id=>RISKS[id]?.impact==='high').length;
+  const md = open.filter(id=>RISKS[id]?.impact==='medium').length;
+  const cl = ids.filter(id=>RISKS[id]?.status==='closed').length;
+  let h = '';
+  if (hi) h += `<span class="rp rp-h">${hi} riesgo${hi>1?'s':''} alto${hi>1?'s':''}</span>`;
+  if (md) h += `<span class="rp rp-m">${md} medio${md>1?'s':''}</span>`;
+  if (cl) h += `<span class="rp" style="background:rgba(77,201,138,.1);color:#4dc98a;opacity:.7">${cl} cerrado${cl>1?'s':''}</span>`;
+  return h ? `<div class="risk-pills">${h}</div>` : '';
+}
+
+function hasHighRisk(ids) {
+  return ids?.some(id=>RISKS[id]?.impact==='high' && RISKS[id]?.status!=='closed');
+}
+
+function renderRisks(ids) {
+  if (!ids?.length) return `<div class="no-items">Sin riesgos asociados a esta capacidad.</div>`;
+  return ids.map(id=>{
+    const r=RISKS[id]; if(!r) return '';
+    const cl = r.status==='closed'?'rid-c':r.impact==='high'?'rid-h':r.impact==='medium'?'rid-m':'rid-l';
+    const lbl = r.status==='closed'?`${r.id} ✓`:r.id;
+    return `<div class="ri">
+      <div class="rid ${cl}">${lbl}</div>
+      <div><div class="rdesc">${r.desc}</div><div class="rown">${r.owner}</div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderDecs(ids) {
+  if (!ids?.length) return `<div class="no-items">Sin decisiones asociadas.</div>`;
+  return ids.map(id=>{
+    const d=DECS[id]; if(!d) return '';
+    const sc=d.status==='accepted'?'st-a':'st-p';
+    const sl=d.status==='accepted'?'Aceptada':'Propuesta';
+    return `<div class="di">
+      <div class="di-id-row"><span class="di-id">${d.id}</span><span class="di-st ${sc}">${sl}</span></div>
+      <div class="di-title">${d.title}</div>
+      <div class="di-sum">${d.sum}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderIssues(ids) {
+  if (!ids?.length) return '';
+  const h = ids.map(id=>{
+    const i=ISSUES[id]; if(!i) return '';
+    return `<div class="ii">
+      <div class="iid">ISSUE ${i.id}</div>
+      <div><div class="idesc">${i.desc}</div><div class="iimp">${i.impact}</div></div>
+    </div>`;
+  }).join('');
+  return h ? `<div class="dl"><div class="dl-lbl">Issues RAID</div>${h}</div>` : '';
+}
+
+function renderDeps(ids) {
+  if (!ids?.length) return '';
+  const h = ids.map(id=>{
+    const d=DEPS[id]; if(!d) return '';
+    return `<div class="dep">
+      <div class="dep-id">${d.id} · Dependencia severa</div>
+      ${d.desc}
+    </div>`;
+  }).join('');
+  return h ? `<div class="dl"><div class="dl-lbl">Dependencias</div>${h}</div>` : '';
+}
+
+function renderSubcaps(scs) {
+  if (!scs?.length) return '';
+  const h = scs.map(sc=>{
+    const leadH = sc.lead
+      ? `<span class="lead-ok"><span class="lead-dot"></span>${sc.lead}</span>`
+      : `<span class="vac">⚠ VACANTE</span>`;
+    const issH = sc.issues?.map(id=>ISSUES[id]
+      ? `<div style="font-size:.71rem;color:#E05353;margin-top:.3rem">⚠ ${ISSUES[id].desc}</div>`
+      : '').join('') || '';
+    return `<div class="sc-item">
+      <div class="sc-hdr">${matBadge(sc.mat)}<span class="sc-name">${sc.name}</span>${leadH}</div>
+      <div class="sc-gap">${sc.gap}</div>${issH}
+    </div>`;
+  }).join('');
+  return `<div class="sc-wrap"><div class="sc-lbl">Sub-capacidades</div>${h}</div>`;
+}
+
+function buildCard(cap) {
+  const cid = `c-${cap.id}`;
+  const hiR = hasHighRisk(cap.risks);
+  return `<div class="cap-card${hiR?' hi-risk':''}" id="${cid}"
+      data-g="${cap.g}" data-mat="${cap.mat}" data-no-lead="${!cap.lead}" data-hi="${hiR}">
+    <div class="cap-hdr" onclick="tog('${cid}')">
+      <div class="cap-lft">
+        <div class="cap-name">${cap.name}</div>
+        <div class="cap-meta">${matBadge(cap.mat)}${leadHtml(cap)}</div>
+        ${riskPills(cap.risks)}
+      </div>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="cap-body">
+      <div class="cap-gap">${cap.gap}</div>
+      <div class="dl">
+        <div class="dl-lbl">Riesgos (${cap.risks?.length||0})</div>
+        ${renderRisks(cap.risks)}
+      </div>
+      ${renderIssues(cap.issues)}
+      ${renderDeps(cap.deps)}
+      <div class="dl">
+        <div class="dl-lbl">Decisiones arquitectónicas (${cap.decs?.length||0})</div>
+        ${renderDecs(cap.decs)}
+      </div>
+      ${renderSubcaps(cap.subcaps)}
+    </div>
+  </div>`;
+}
+
+function tog(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+
+function updateCounts() {
+  ['arch','qe','ops','gov'].forEach(g=>{
+    const grid = document.getElementById(`grid-${g}`);
+    const vis = grid.querySelectorAll('.cap-card:not(.hidden)').length;
+    document.getElementById(`cnt-${g}`).textContent = `${vis} cap${vis!==1?'s':''}`;
+  });
+}
+
+function setFilter(f, btn) {
+  document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  document.querySelectorAll('.cap-card').forEach(card=>{
+    let show = true;
+    if (f==='managed') show = card.dataset.mat==='managed';
+    else if (f==='initial') show = card.dataset.mat==='initial';
+    else if (f==='tbd') show = card.dataset.mat==='tbd';
+    else if (f==='no-lead') show = card.dataset.noLead==='true';
+    else if (f==='hi-risk') show = card.dataset.hi==='true';
+    card.classList.toggle('hidden', !show);
+  });
+  updateCounts();
+}
+
+function init() {
+  const groups = { arch:[], qe:[], ops:[], gov:[] };
+  CAPS.forEach(cap=>{
+    if (groups[cap.g]) groups[cap.g].push(cap);
+  });
+  Object.keys(groups).forEach(g=>{
+    document.getElementById(`grid-${g}`).innerHTML = groups[g].map(buildCard).join('');
+  });
+  updateCounts();
+}
+
+init();
+</script>
+</body>
+</html>

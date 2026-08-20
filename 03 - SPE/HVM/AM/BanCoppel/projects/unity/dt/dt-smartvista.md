@@ -1,7 +1,7 @@
 # DT: SmartVista & Canales — Unity R4
 > **Digital Twin** · Fuente: `HDU_R4_CANALES APP_SIWEB_CATT_SMARTVISTA.xlsx` + `TDC_R4_SV_Canales_PreGame_20260728_V1.0_Appwhere.pdf`
 > **Versión**: v1.0.0 · 2026-08-16
-> **Scope**: Producto 4900 — TDC Clásica Digital · BIN 4268 0711
+> **Scope**: Producto 4900 — Tarjeta de Crédito · BIN 4268 0711
 
 ---
 
@@ -278,7 +278,8 @@ Comercio → E-Global → SmartVista autorizador (88 reglas)
 ```
 MSI: Canal → E-Global → SmartVista (registro) — R4 scope; pruebas integración en scope
 MCI: Canal → SIWEB → SmartVista (CrediSoluciones/DPP) — backend R4; APP en R4.5
-     Contabilidad: SmartVista → TRNT → PISA
+     Contabilidad: SmartVista aplica el TRNT (tipo de transacción contable interno, ej. T623) y PISA recibe
+                   OJO: TRNT aquí NO es Temenos Transact. Transact no participa en el ciclo del Producto 4900.
      Reclasificación MCI: Grupo contable 13 (capital no corriente)
      Cuenta 2402/Eglobal: solo para interchange MSI; MCI NO debe recircular aquí
 ```

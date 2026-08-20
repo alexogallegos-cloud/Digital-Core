@@ -8,7 +8,7 @@
 
 El estado actual del programa Unity R4 opera en **silos por proveedor y por plataforma**: cada equipo (BPC/SmartVista, Appware/Apolo, AppWhere/APP, CAT, SIWEB) gestiona su propio avance, sus propias fechas, y sus propios riesgos de forma independiente. Los KPIs se reportan por track tecnológico, no por capacidad de negocio entregada.
 
-El objetivo del Plan Director es reemplazar ese modelo por **gestión transversal por producto**: el producto es **TDC P4900 (Tarjeta de Crédito Clásica Digital)** y la unidad de medición es su disponibilidad completa para el go-live de enero 2027. Un solo plan, un set de KPIs, una cadencia de reporte integrada.
+El objetivo del Plan Director es reemplazar ese modelo por **gestión transversal por producto**: el producto es **TDC P4900 (Tarjeta de Crédito)** y la unidad de medición es su disponibilidad completa para el go-live de enero 2027. Un solo plan, un set de KPIs, una cadencia de reporte integrada.
 
 **Implicación práctica**: el semáforo del programa no es el promedio de los semáforos de cada proveedor. Es la respuesta a una sola pregunta: *¿Está TDC P4900 en condiciones de llegar a producción en enero 2027 con la funcionalidad must comprometida?*
 
@@ -19,7 +19,7 @@ El objetivo del Plan Director es reemplazar ese modelo por **gestión transversa
 ### Jerarquía de medición
 
 ```
-Producto: TDC P4900 (Tarjeta de Crédito Clásica Digital)
+Producto: TDC P4900 (Tarjeta de Crédito)
 ├── Capacidades must: 43 User Stories must (SmartVista=11 · APP=15 · CAT=9 · SIWEB=0 · Apolo=11 · sin track=0+)
 ├── Integraciones: 18 cross-track (API + Batch + Evento)
 ├── Entornos: DEV · QA · UAT · SIT

@@ -7,7 +7,7 @@
 
 ## ¿Qué es APOLO?
 
-APOLO es el sistema de **Originación Digital** de BanCoppel — la aplicación que un prospecto usa para solicitar y recibir la Tarjeta de Crédito Clásica Digital (Producto 4900). No es un componente de SmartVista: es un sistema separado de Appwhere que se integra con SmartVista al momento del alta de crédito.
+APOLO es el sistema de **Originación Digital** de BanCoppel — la aplicación que un prospecto usa para solicitar y recibir la Tarjeta de Crédito (Producto 4900). No es un componente de SmartVista: es un sistema separado de Appwhere que se integra con SmartVista al momento del alta de crédito.
 
 | Campo | Valor |
 |-------|-------|

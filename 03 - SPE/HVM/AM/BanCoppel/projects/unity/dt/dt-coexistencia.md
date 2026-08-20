@@ -21,7 +21,7 @@ BanCoppel opera **dos cores bancarios simultáneamente**. El estado actual es Tr
 | Cuenta Efectiva Digital N4 | UNITY-R2-P-CED-N4 | Temenos Transact | DATO-REQUERIDO | En producción |
 | Nómina N4 | UNITY-R3-P-NOM-N4 | Temenos Transact | DATO-REQUERIDO | En producción |
 | Préstamo Simple | UNITY-RX-P-PS | Temenos Transact | DATO-REQUERIDO | En producción |
-| **TDC Clásica Digital (4900)** | UNITY-R4-P4900 | **SmartVista** | DATO-REQUERIDO | **Building — go-live ene 2027** |
+| **Tarjeta de Crédito (4900)** | UNITY-R4-P4900 | **SmartVista** | DATO-REQUERIDO | **Building — go-live ene 2027** |
 | Crédito Coppel (legacy) | DATO-REQUERIDO | **Informix/PISA** | Sí — native | En producción |
 | Nómina (legacy) | DATO-REQUERIDO | **Informix/PISA** | Sí — native | En producción |
 | Todos los demás productos | DATO-REQUERIDO | **Informix/PISA** | Sí — native | En producción |

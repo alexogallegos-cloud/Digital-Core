@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Análisis de Duplicidad — Informix vs Nuevo Core · BanCoppel</title>
+<style>
+:root {
+  --blue:#3D5FCD; --blued:#122FB1; --yellow:#F0D224;
+  --ink:#F4F6FF; --muted:#aab3d4; --bg:#060a1a;
+  --glass:rgba(255,255,255,0.04); --border:rgba(255,255,255,0.09);
+  --c-replace:#4dc98a; --c-coex:#3D5FCD; --c-loop:#E05353; --c-pending:#E8931A; --c-keep:#6b7591;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;overflow-x:hidden;}
+
+.aurora{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse 80% 50% at 15% 20%,rgba(61,95,205,.15) 0%,transparent 70%),
+             radial-gradient(ellipse 60% 40% at 85% 80%,rgba(18,47,177,.10) 0%,transparent 70%);
+  animation:aurora 22s ease-in-out infinite alternate;}
+@keyframes aurora{0%{transform:scale(1)}100%{transform:scale(1.06) translateX(16px)}}
+.grain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.025;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)'/%3E%3C/svg%3E");}
+
+nav{position:sticky;top:0;z-index:100;background:rgba(6,10,26,.9);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;gap:1.75rem;height:52px;}
+.nb{font-weight:700;font-size:.95rem;white-space:nowrap;}
+.nb span{color:var(--yellow);}
+nav a{color:var(--muted);text-decoration:none;font-size:.83rem;transition:color .2s;white-space:nowrap;}
+nav a:hover{color:var(--ink);}
+.ns{flex:1;}
+
+main{position:relative;z-index:2;max-width:1340px;margin:0 auto;padding:2rem 1.5rem 5rem;}
+
+/* HERO */
+.hero{background:linear-gradient(135deg,rgba(224,83,83,.10) 0%,rgba(61,95,205,.10) 60%,transparent 100%);
+  border:1px solid rgba(224,83,83,.25);border-radius:16px;padding:2rem 2.5rem;margin-bottom:2rem;position:relative;overflow:hidden;}
+.hero::after{content:'';position:absolute;top:-40px;right:-40px;width:220px;height:220px;
+  background:radial-gradient(circle,rgba(224,83,83,.06) 0%,transparent 70%);pointer-events:none;}
+.hero-title{font-size:1.75rem;font-weight:800;line-height:1.2;}
+.hero-title .inf{color:#f0a83a;}
+.hero-title .new{color:#4dc98a;}
+.hero-sub{color:var(--muted);margin-top:.45rem;font-size:.88rem;line-height:1.5;max-width:640px;}
+
+.hero-stats{display:flex;gap:2.5rem;margin-top:1.75rem;flex-wrap:wrap;}
+.stat .sv{font-size:1.85rem;font-weight:800;}
+.stat .sl{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-top:2px;}
+.sv.y{color:var(--yellow);} .sv.r{color:#E05353;} .sv.g{color:#4dc98a;} .sv.o{color:#f0a83a;}
+
+.adr-banner{
+  display:flex;align-items:flex-start;gap:.85rem;padding:.9rem 1.1rem;border-radius:10px;
+  background:rgba(224,83,83,.08);border:1px solid rgba(224,83,83,.25);margin-bottom:1.75rem;}
+.adr-icon{font-size:1.1rem;flex-shrink:0;margin-top:1px;}
+.adr-body{font-size:.82rem;line-height:1.55;color:var(--ink);}
+.adr-body strong{color:#E05353;}
+
+/* LEGEND */
+.legend{display:flex;gap:1.2rem;flex-wrap:wrap;margin-bottom:1.75rem;align-items:center;}
+.legend-label{font-size:.75rem;color:var(--muted);}
+.leg-item{display:flex;align-items:center;gap:.4rem;font-size:.75rem;}
+.leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+
+/* SECTION */
+.sh{display:flex;align-items:center;gap:.75rem;margin:2rem 0 .9rem;padding-bottom:.7rem;border-bottom:1px solid var(--border);}
+.sh h2{font-size:.97rem;font-weight:700;}
+.sh .badge{padding:.12rem .55rem;border-radius:9px;font-size:.7rem;font-weight:700;border:1px solid;}
+.b-loop{background:rgba(224,83,83,.15);color:#E05353;border-color:rgba(224,83,83,.3);}
+.b-coex{background:rgba(61,95,205,.15);color:#8aaeff;border-color:rgba(61,95,205,.3);}
+.b-rep{background:rgba(77,201,138,.13);color:#4dc98a;border-color:rgba(77,201,138,.3);}
+.b-pend{background:rgba(232,147,26,.13);color:#f0a83a;border-color:rgba(232,147,26,.3);}
+.b-keep{background:rgba(107,117,145,.13);color:#aab3d4;border-color:rgba(107,117,145,.28);}
+
+/* SUMMARY GRID */
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.75rem;margin-bottom:2rem;}
+.sc{background:var(--glass);border:1px solid var(--border);border-radius:10px;padding:.85rem 1.1rem;text-align:center;}
+.sc .sv2{font-size:1.5rem;font-weight:800;}
+.sc .sl2{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-top:.25rem;}
+
+/* DOMAIN TABLE */
+.dtable{width:100%;border-collapse:collapse;font-size:.79rem;}
+.dtable th{text-align:left;padding:.55rem .75rem;font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--muted);border-bottom:1px solid var(--border);font-weight:700;white-space:nowrap;}
+.dtable td{padding:.55rem .75rem;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top;}
+.dtable tr:hover td{background:rgba(255,255,255,.02);}
+.dtable .dn{font-weight:700;color:var(--ink);}
+.dtable .did{font-size:.68rem;color:var(--muted);margin-top:2px;}
+.dtable .etb{font-size:.72rem;color:var(--muted);}
+.num{text-align:right;font-variant-numeric:tabular-nums;}
+
+/* Fate tag */
+.fate{display:inline-block;padding:.1rem .5rem;border-radius:7px;font-size:.67rem;font-weight:700;white-space:nowrap;}
+.fate-r{background:rgba(77,201,138,.15);color:#4dc98a;border:1px solid rgba(77,201,138,.3);}
+.fate-c{background:rgba(61,95,205,.13);color:#8aaeff;border:1px solid rgba(61,95,205,.25);}
+.fate-l{background:rgba(224,83,83,.15);color:#E05353;border:1px solid rgba(224,83,83,.28);}
+.fate-p{background:rgba(232,147,26,.13);color:#f0a83a;border:1px solid rgba(232,147,26,.28);}
+.fate-k{background:rgba(107,117,145,.13);color:#aab3d4;border:1px solid rgba(107,117,145,.22);}
+
+/* Overlap tag */
+.ov{display:inline-block;font-size:.65rem;color:var(--muted);margin-top:.25rem;}
+
+/* Target system */
+.tgt{font-size:.76rem;color:var(--ink);}
+.tgt .sys{color:#8aaeff;font-weight:600;}
+
+/* CONFLICT CARDS */
+.conflict-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:1rem;}
+.cc{background:var(--glass);border:1px solid var(--border);border-radius:12px;padding:1.25rem;}
+.cc-title{font-size:.92rem;font-weight:700;margin-bottom:.5rem;display:flex;align-items:center;gap:.5rem;}
+.sev-c{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.sev-critico{background:#E05353;}
+.sev-alto{background:#f0a83a;}
+.sev-medio{background:#3D5FCD;}
+.cc-body{font-size:.8rem;color:var(--muted);line-height:1.55;}
+.cc-body strong{color:var(--ink);}
+.cc-flows{margin-top:.75rem;display:flex;flex-direction:column;gap:.35rem;}
+.flow-row{display:flex;align-items:center;gap:.5rem;font-size:.75rem;}
+.flow-label{color:var(--muted);font-size:.68rem;width:60px;flex-shrink:0;text-transform:uppercase;letter-spacing:.05em;}
+.flow-arrow{color:var(--muted);font-size:.7rem;}
+.sys-chip{padding:.1rem .45rem;border-radius:5px;font-size:.68rem;font-weight:700;}
+.s-inf{background:rgba(232,147,26,.15);color:#f0a83a;}
+.s-sv{background:rgba(61,95,205,.15);color:#8aaeff;}
+.s-tra{background:rgba(77,201,138,.12);color:#4dc98a;}
+.s-ego{background:rgba(107,117,145,.15);color:#aab3d4;}
+.cc-risk{margin-top:.75rem;padding:.5rem .7rem;border-radius:8px;background:rgba(224,83,83,.06);border:1px solid rgba(224,83,83,.15);font-size:.75rem;color:#f07070;}
+
+/* COVERAGE BAR */
+.cov-section{background:var(--glass);border:1px solid var(--border);border-radius:12px;padding:1.5rem;margin-bottom:2rem;}
+.cov-title{font-size:.9rem;font-weight:700;margin-bottom:1.25rem;}
+.cov-row{display:flex;align-items:center;gap:.75rem;margin-bottom:.65rem;}
+.cov-label{font-size:.75rem;color:var(--muted);width:200px;flex-shrink:0;line-height:1.3;}
+.cov-bar{flex:1;height:18px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden;position:relative;}
+.cov-fill{height:100%;border-radius:4px;transition:width .4s ease;}
+.fill-r{background:linear-gradient(90deg,rgba(77,201,138,.7),rgba(77,201,138,.4));}
+.fill-c{background:linear-gradient(90deg,rgba(61,95,205,.7),rgba(61,95,205,.4));}
+.fill-l{background:linear-gradient(90deg,rgba(224,83,83,.8),rgba(224,83,83,.5));}
+.fill-p{background:linear-gradient(90deg,rgba(232,147,26,.7),rgba(232,147,26,.4));}
+.fill-k{background:linear-gradient(90deg,rgba(107,117,145,.5),rgba(107,117,145,.3));}
+.cov-pct{font-size:.75rem;font-weight:700;width:48px;text-align:right;flex-shrink:0;}
+
+.tbl-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--border);}
+</style>
+</head>
+<body>
+<div class="aurora"></div>
+<div class="grain"></div>
+
+<nav>
+  <div class="nb">BanCoppel · <span>Duplicidad Informix ↔ Nuevo Core</span></div>
+  <a href="index.html">Plan Director</a>
+  <a href="lifecycle-p4900.html">Lifecycle P4900</a>
+  <a href="apolo-itcaps.html">APOLO IT Caps</a>
+  <div class="ns"></div>
+  <a href="http://localhost:7730" style="color:var(--muted)">localhost:7730 ↗</a>
+</nav>
+
+<main>
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-title">Análisis de Duplicidad: <span class="inf">Informix</span> ↔ <span class="new">Nuevo Core</span></div>
+    <div class="hero-sub">Mapa completo de cobertura funcional entre PISA/IBM Informix IDS 14.10 (core legacy) y la suite de modernización Unity (Temenos Transact + SmartVista BPC). Basado en 29 dominios Informix, 10,144 SPs y las capacidades del programa R4.</div>
+    <div class="hero-stats">
+      <div class="stat"><div class="sv o">3,894</div><div class="sl">SPs mapeados Informix</div></div>
+      <div class="stat"><div class="sv o">6,664</div><div class="sl">Reglas de negocio</div></div>
+      <div class="stat"><div class="sv g">0.8%</div><div class="sl">SPs reemplazados (D16)</div></div>
+      <div class="stat"><div class="sv r">77%</div><div class="sl">SPs sin decisión ADR</div></div>
+      <div class="stat"><div class="sv y">5</div><div class="sl">Zonas de conflicto activas</div></div>
+    </div>
+  </div>
+
+  <!-- ADR Alert -->
+  <div class="adr-banner">
+    <div class="adr-icon">⚠</div>
+    <div class="adr-body">
+      <strong>ADR-UNITY-002 PENDIENTE — Estrategia de coexistencia Informix-Unity sin decidir.</strong>
+      Sin este ADR no existe un plan formal de migración por capability. La tabla <code>informix_migration_map</code>
+      en el brain Unity está vacía. El 77% de los SPs de Informix operan en producción sin un destino definido en Unity.
+      Las zonas de conflicto identificadas a continuación son riesgos <em>reales y activos hoy</em>, no teóricos.
+    </div>
+  </div>
+
+  <!-- Coverage summary -->
+  <div class="cov-section">
+    <div class="cov-title">Distribución de SPs Informix por fate de migración</div>
+    <div class="cov-row">
+      <div class="cov-label">Reemplazado (D16 CMS → SmartVista)</div>
+      <div class="cov-bar"><div class="cov-fill fill-r" style="width:0.8%"></div></div>
+      <div class="cov-pct" style="color:#4dc98a">0.8%</div>
+    </div>
+    <div class="cov-row">
+      <div class="cov-label">Convivencia planificada (routing por producto)</div>
+      <div class="cov-bar"><div class="cov-fill fill-c" style="width:21.7%"></div></div>
+      <div class="cov-pct" style="color:#8aaeff">21.7%</div>
+    </div>
+    <div class="cov-row">
+      <div class="cov-label">Loop activo crítico (Informix aún en flujo Unity)</div>
+      <div class="cov-bar"><div class="cov-fill fill-l" style="width:0.5%"></div></div>
+      <div class="cov-pct" style="color:#E05353">↗ D12</div>
+    </div>
+    <div class="cov-row">
+      <div class="cov-label">Sin decisión de migración (ADR-002 pendiente)</div>
+      <div class="cov-bar"><div class="cov-fill fill-p" style="width:63%"></div></div>
+      <div class="cov-pct" style="color:#f0a83a">63%</div>
+    </div>
+    <div class="cov-row">
+      <div class="cov-label">Permanece en Informix (sin migrar en R4)</div>
+      <div class="cov-bar"><div class="cov-fill fill-k" style="width:14%"></div></div>
+      <div class="cov-pct" style="color:#aab3d4">14%</div>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <span class="legend-label">Fate:</span>
+    <div class="leg-item"><div class="leg-dot" style="background:#4dc98a"></div>Reemplazo</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#3D5FCD"></div>Convivencia planificada</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#E05353"></div>Loop activo (Informix en flujo Unity)</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#f0a83a"></div>Sin decisión ADR</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#6b7591"></div>Permanece en Informix</div>
+  </div>
+
+  <!-- Conflict zones -->
+  <div class="sh"><h2>Zonas de conflicto activas</h2><span class="badge b-loop">5 zonas · riesgo de proceso dual</span></div>
+
+  <div class="conflict-grid" style="margin-bottom:2.5rem;">
+
+    <div class="cc">
+      <div class="cc-title"><div class="sev-c sev-critico"></div>Z1 · Contabilidad en loop doble</div>
+      <div class="cc-body">
+        <strong>Informix (PISA) sigue siendo el sistema de registro contable</strong> incluso para transacciones procesadas por SmartVista.
+        La ruta RT-ACC-SV confirma que SmartVista envía movimientos a TRNT (Temenos) que los reenvía a PISA (Informix).
+        La guía contable formal para TDC nunca se entregó — HUs R418-R420 bloqueadas.
+      </div>
+      <div class="cc-flows">
+        <div class="flow-row"><span class="flow-label">Pre-R4</span><span class="sys-chip s-inf">Informix</span><span class="flow-arrow">→</span><span class="sys-chip s-inf">PISA</span></div>
+        <div class="flow-row"><span class="flow-label">Post-R4</span><span class="sys-chip s-sv">SmartVista</span><span class="flow-arrow">→</span><span class="sys-chip s-tra">TRNT</span><span class="flow-arrow">→</span><span class="sys-chip s-inf">PISA / Informix</span></div>
+      </div>
+      <div class="cc-risk">Informix D12 (19 SPs, 54 reglas contables) es la fuente de verdad contable para TODO el portfolio Unity. Sin guía contable entregada, cualquier transacción SmartVista puede tener asiento contable incorrecto. CNBV Art.76.</div>
+    </div>
+
+    <div class="cc">
+      <div class="cc-title"><div class="sev-c sev-critico"></div>Z2 · Canal Digital D01 sin estrategia</div>
+      <div class="cc-body">
+        <strong>D01 es el dominio más grande de Informix (2,122 SPs — 54% del total).</strong>
+        AppMóvil BanCoppel sigue llamando a 49 SPs de Informix para el portfolio legacy mientras Unity tiene sus propias APIs vía Apificación.
+        No existe routing ni feature flag que separe qué petición va a Informix y cuál a Unity para el mismo cliente.
+      </div>
+      <div class="cc-flows">
+        <div class="flow-row"><span class="flow-label">Portfolio legacy</span><span class="sys-chip s-inf">AppMóvil</span><span class="flow-arrow">→</span><span class="sys-chip s-inf">Informix D01 (49 SPs)</span></div>
+        <div class="flow-row"><span class="flow-label">Portfolio Unity</span><span class="sys-chip s-sv">AppMóvil</span><span class="flow-arrow">→</span><span class="sys-chip s-tra">SmartVista / Transact</span></div>
+      </div>
+      <div class="cc-risk">ADR-UNITY-003 PENDIENTE — sin definir la capa de routing por producto. Un cliente con cuenta legacy y TDC nueva activa simultáneamente recibirá respuestas de dos sistemas distintos sin garantía de coherencia.</div>
+    </div>
+
+    <div class="cc">
+      <div class="cc-title"><div class="sev-c sev-critico"></div>Z3 · Cobranza TDC en dos sistemas</div>
+      <div class="cc-body">
+        Informix D11 (82 SPs, 156 reglas) tiene la lógica de cobranza del portfolio legacy.
+        SmartVista calcula <code>agingPeriod</code> nativamente para P4900.
+        La ruta RT-COL-INT confirma la migración planificada, pero <strong>el plan de trabajo de Cobranza no está formalizado</strong> (Risk R06).
+        Si un cliente tiene crédito legacy y TDC nueva, dos sistemas determinan su situación de mora.
+      </div>
+      <div class="cc-flows">
+        <div class="flow-row"><span class="flow-label">Legacy TDC</span><span class="sys-chip s-inf">Informix D11</span><span class="flow-arrow">→</span><span class="sys-chip s-inf">CAT/IVR</span></div>
+        <div class="flow-row"><span class="flow-label">P4900 TDC</span><span class="sys-chip s-sv">SmartVista agingPeriod</span><span class="flow-arrow">→</span><span class="sys-chip s-sv">App / CAT</span></div>
+      </div>
+      <div class="cc-risk">Riesgo de mensajes contradictorios al mismo cliente: Informix lo puede marcar al día mientras SmartVista lo restringe por mora (o viceversa). Sin calendario integrado de pruebas QA (Risk R07).</div>
+    </div>
+
+    <div class="cc">
+      <div class="cc-title"><div class="sev-c sev-alto"></div>Z4 · Autorizador: cambio de ruta sin parallel run</div>
+      <div class="cc-body">
+        La ruta RT-AUTH-SV cambia el flujo de autorización de <code>E-Global → CMS (Informix-side)</code>
+        a <code>E-Global → SmartVista SVIP</code> mediante feature flag por producto.
+        Las 88 reglas ISO 8583 que Informix/CMS tenía ahora están en SmartVista SVFM —
+        <strong>pero el ambiente SVFM no tiene infraestructura</strong> (Risk R15).
+      </div>
+      <div class="cc-flows">
+        <div class="flow-row"><span class="flow-label">Pre-R4</span><span class="sys-chip s-ego">E-Global</span><span class="flow-arrow">→</span><span class="sys-chip s-inf">CMS / Intercard</span></div>
+        <div class="flow-row"><span class="flow-label">Post-R4</span><span class="sys-chip s-ego">E-Global</span><span class="flow-arrow">→</span><span class="sys-chip s-sv">SmartVista SVIP</span></div>
+      </div>
+      <div class="cc-risk">Sin paralel run configurado en R4. Si el feature flag falla, una transacción P4900 podría caer al flujo CMS legacy — que ya no tiene la cuenta. 88 reglas sin ambiente de prueba disponible (tickets #13830642, #13830651).</div>
+    </div>
+
+    <div class="cc">
+      <div class="cc-title"><div class="sev-c sev-alto"></div>Z5 · Aclaraciones y Disputas sin migrar</div>
+      <div class="cc-body">
+        Informix D07 (84 SPs, 42 reglas) gestiona todas las aclaraciones y disputas del portfolio actual.
+        SmartVista tiene capacidad nativa de dispute management para P4900.
+        <strong>No existe una ruta de migración definida</strong>: cuando un cliente con TDC P4900 genera una aclaración,
+        ¿quién la recibe? El flujo en CAT (ICCAT) no está contratado aún.
+      </div>
+      <div class="cc-flows">
+        <div class="flow-row"><span class="flow-label">Legacy</span><span class="sys-chip s-inf">Canal → Informix D07</span><span class="flow-arrow">→</span><span class="sys-chip s-inf">Aclaraciones</span></div>
+        <div class="flow-row"><span class="flow-label">P4900</span><span class="sys-chip s-sv">?? → SmartVista D&amp;S</span><span class="flow-arrow">→</span><span class="sys-chip s-sv">sin implementar</span></div>
+      </div>
+      <div class="cc-risk">Un cliente P4900 que presenta una aclaración en sucursal o CAT puede recibir un "no encontramos su cuenta" si el flujo consulta a Informix. CONDUSEF monitorea resolución de aclaraciones.</div>
+    </div>
+
+  </div>
+
+  <!-- Domain matrix -->
+  <div class="sh"><h2>Matriz completa por dominio Informix</h2><span class="badge b-pend">29 dominios · 6,664 reglas</span></div>
+
+  <div class="tbl-wrap">
+  <table class="dtable">
+    <thead>
+      <tr>
+        <th>Dominio Informix</th>
+        <th class="num">SPs</th>
+        <th class="num">Reglas</th>
+        <th>ETB L2 (Banking)</th>
+        <th>Sistema nuevo</th>
+        <th>Fate</th>
+        <th>Nota de duplicidad</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  </div>
+
+  <!-- Migration gaps -->
+  <div class="sh" style="margin-top:2.5rem;"><h2>Análisis de brechas críticas</h2><span class="badge b-loop">sin contraparte en Unity</span></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:.9rem;">
+
+    <div class="cc">
+      <div class="cc-title"><div class="sev-c sev-critico"></div>D08 SPEI — 568 reglas sin migrar</div>
+      <div class="cc-body">SPEI es la infraestructura de pagos más crítica de BanCoppel (regulación Banxico estricta). Informix D08 tiene 46 SPs y 568 reglas de validación, liquidación y reporting. <strong>No existe ningún componente Unity que cubra SPEI.</strong> La integración ISV01 del brain Unity muestra que la maquila aún va "OLTP-Informix → Connect Direct".</div>
+      <div class="cc-risk">92 debilidades técnicas (weaknesses) en D08. Banxico supervisa tiempo de procesamiento SPEI. Migración de SPEI sin ETB coverage = riesgo regulatorio máximo.</div>
+    </div>
+
+    <div class="cc">
+      <div class="cc-title"><div class="sev-c sev-alto"></div>D03 Créditos — 1,611 reglas parciales</div>
+      <div class="cc-body">El dominio más rico en reglas de negocio. Solo Préstamo Simple migró a Transact. El resto del portfolio de créditos (ABCD, revolvente, crédito grupal) permanece en Informix con 380 SPs. <strong>234 debilidades técnicas catalogadas.</strong> La estrategia de coexistencia para créditos no tiene ADR.</div>
+      <div class="cc-risk">Información de crédito del mismo cliente puede estar fragmentada entre Informix y Transact. Cálculo de límite de crédito global imposible sin integración ATLAS (Fase 2 sin confirmar — Risk R09).</div>
+    </div>
+
+    <div class="cc">
+      <div class="cc-title"><div class="sev-c sev-alto"></div>D01 Canal Digital — 2,122 SPs, cero migración</div>
+      <div class="cc-body">El 54% de todos los SPs mapeados de Informix está en D01 (bdicnweb). AppMóvil sigue consumiendo estos SPs para el portfolio legacy. <strong>No hay ni un solo SP de D01 en el alcance de Unity.</strong> ADR-UNITY-003 (routing de canales) está PENDIENTE.</div>
+      <div class="cc-risk">Cualquier cambio al AppMóvil que afecte el portfolio legacy impacta D01 directamente. El riesgo de regresión durante R4 es real — las pruebas de D01 no están en el calendario de SIT Unity.</div>
+    </div>
+
+    <div class="cc">
+      <div class="cc-title"><div class="sev-c sev-medio"></div>D15 PLD/LIDE — 238 reglas regulatorias</div>
+      <div class="cc-body">5 SPs de interfaz con el sistema PLD (Minds). Informix actúa como capa de comunicación entre el core y el sistema de prevención de lavado. SmartVista tiene PayTrue como sustituto de SVFM. <strong>No hay definición de cómo PayTrue se conecta con PLD</strong> para los clientes P4900.</div>
+      <div class="cc-risk">UIF/GAFI supervisan reporte de operaciones. Cualquier brecha en la detección de operaciones inusuales en productos Unity tiene riesgo regulatorio severo. 16 debilidades en D15.</div>
+    </div>
+
+  </div>
+
+  <!-- Recommendations -->
+  <div class="sh" style="margin-top:2.5rem;"><h2>Acciones recomendadas</h2></div>
+  <div style="display:flex;flex-direction:column;gap:.75rem;max-width:860px;">
+    <div class="cc" style="padding:1rem 1.25rem;">
+      <div style="display:flex;gap:.75rem;align-items:flex-start;">
+        <span style="font-size:1rem;flex-shrink:0">1.</span>
+        <div>
+          <div style="font-size:.88rem;font-weight:700;margin-bottom:.3rem;">Cerrar ADR-UNITY-002 antes de SIT (Oct 15)</div>
+          <div style="font-size:.8rem;color:var(--muted);line-height:1.5;">Sin la estrategia de coexistencia formal, las 5 zonas de conflicto son <em>sin owner</em>. El ADR debe definir: escenarios de routing por producto, qué dominios Informix tienen fecha de decommission, y qué dominios permanecen indefinidamente. Bloquear entrada a SIT sin ADR firmado.</div>
+        </div>
+      </div>
+    </div>
+    <div class="cc" style="padding:1rem 1.25rem;">
+      <div style="display:flex;gap:.75rem;align-items:flex-start;">
+        <span style="font-size:1rem;flex-shrink:0">2.</span>
+        <div>
+          <div style="font-size:.88rem;font-weight:700;margin-bottom:.3rem;">Completar la tabla informix_migration_map en Unity Brain</div>
+          <div style="font-size:.8rem;color:var(--muted);line-height:1.5;">La tabla existe en el brain Unity pero está vacía. Requiere una sesión de mapping entre los SMEs de Informix (Specialist Informix SPL) y el equipo de arquitectura Unity para decidir el fate de cada dominio: replace / coexist / keep / retire. Output: migration_map completado + versión borrador de ADR-002.</div>
+        </div>
+      </div>
+    </div>
+    <div class="cc" style="padding:1rem 1.25rem;">
+      <div style="display:flex;gap:.75rem;align-items:flex-start;">
+        <span style="font-size:1rem;flex-shrink:0">3.</span>
+        <div>
+          <div style="font-size:.88rem;font-weight:700;margin-bottom:.3rem;">Resolver Z1 (Contabilidad) antes del Go-Live</div>
+          <div style="font-size:.8rem;color:var(--muted);line-height:1.5;">El hecho de que SmartVista → TRNT → PISA signifique que Informix sigue siendo el registro contable es un riesgo de CNBV Art.76. La guía contable de diferimientos debe cerrarse con Normatividad Contable (Dep. D01 — fecha firme firmada). Sin ella, HUs R418-R420 no pueden tener criterios de aceptación y el Go-Live tiene riesgo regulatorio no mitigado.</div>
+        </div>
+      </div>
+    </div>
+    <div class="cc" style="padding:1rem 1.25rem;">
+      <div style="display:flex;gap:.75rem;align-items:flex-start;">
+        <span style="font-size:1rem;flex-shrink:0">4.</span>
+        <div>
+          <div style="font-size:.88rem;font-weight:700;margin-bottom:.3rem;">Definir pruebas de regresión D01 en el plan SIT</div>
+          <div style="font-size:.8rem;color:var(--muted);line-height:1.5;">Los cambios en AppMóvil para R4 tocan la capa de integración que también llama a D01. Si D01 no tiene caso de prueba en SIT, cualquier regresión sobre el portfolio legacy pasará desapercibida hasta producción. Los 49 SPs de Informix que AppMóvil consume deben tener smoke tests en el calendario de pruebas R4.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const DOMAINS = [
+  /* id, name, sps, rules, etb_l2, fate, target, note, weaknesses */
+  {id:'D01', name:'Canal Digital Web', db:'bdicnweb', sps:2122, rules:1247, etb:'1.1 Digital Interaction Channel',
+   fate:'pending', target:'AppMóvil / APOLO (parcial)', weaknesses:0,
+   note:'54% del total de SPs. AppMóvil aún llama 49 SPs de D01 para portfolio legacy. Sin ADR-UNITY-003 (routing canales) no hay separación formal entre peticiones Informix y Unity para el mismo cliente.'},
+
+  {id:'D02', name:'Integración y Auth', db:'bdinteg', sps:220, rules:499, etb:'7.1 Customer & Access Management',
+   fate:'coex', target:'Apificación / Transact',
+   note:'Capa de autenticación compartida. Apificación es el nuevo middleware pero D02 sigue siendo invocado para sesiones legacy. Sin fecha de decommission.'},
+
+  {id:'D03', name:'Créditos', db:'bdicred', sps:380, rules:1613, etb:'3.3 Lending Management',
+   fate:'coex', target:'Temenos Transact (Préstamo Simple)', weaknesses:234,
+   note:'Solo Préstamo Simple migró a Transact. El resto del portfolio (crédito grupal, revolvente, ABCD) permanece en Informix. ATLAS Fase 2 sin confirmar bloquea golden record para cálculo de límite global (Risk R09).'},
+
+  {id:'D04', name:'Cheques y Cuentas', db:'bdicheq', sps:111, rules:1467, etb:'3.2 Accounts and Deposits',
+   fate:'coex', target:'Temenos Transact (R1, R2, R3)', weaknesses:11,
+   note:'Nuevas cuentas (R1/R2/R3) en Transact. Cuentas legacy en Informix. Routing por tipo de cuenta — sin feature flag implementado para el mismo cliente con ambos portfolios.'},
+
+  {id:'D05', name:'Saldos y Cuentas', db:'bdisac', sps:145, rules:132, etb:'3.2 Accounts — Balance & Reporting',
+   fate:'coex', target:'Temenos Transact',
+   note:'Balance reporting en convivencia. Informix mantiene el saldo de cuentas legacy; Transact tiene sus propias posiciones. Consolidación de saldo global del cliente requiere ATLAS MDM (pendiente).'},
+
+  {id:'D06', name:'Solicitudes', db:'bdisolic', sps:84, rules:234, etb:'3.2 Account Opening / 7.1 Customer',
+   fate:'coex', target:'APOLO / Temenos Transact',
+   note:'APOLO reemplaza el onboarding digital para productos nuevos. Solicitudes de productos legacy siguen en Informix D06. Convivencia por tipo de producto con riesgo de lógica de elegibilidad duplicada.'},
+
+  {id:'D07', name:'Aclaraciones', db:'bdiaclaracion', sps:84, rules:42, etb:'3.18 Dispute Management',
+   fate:'pending', target:'SmartVista (TDC P4900 — parcial)',
+   note:'Z5: Dispute para P4900 en SmartVista; para portfolio legacy en Informix D07. No hay definición de flujo cuando cliente P4900 abre aclaración en sucursal/CAT (proveedor no contratado).'},
+
+  {id:'D08', name:'SPEI', db:'bdispei', sps:46, rules:569, etb:'3.4 Payments — SPEI',
+   fate:'keep', target:'Sin contraparte Unity', weaknesses:92,
+   note:'BRECHA CRÍTICA: Sin ningún componente Unity para SPEI. La integración batch ISV01/ISV02 del brain Unity confirma que el flujo SPEI sigue pasando por Informix. Banxico supervisa. 92 debilidades técnicas.'},
+
+  {id:'D09', name:'Mensajería', db:'bdimnsj', sps:1, rules:13, etb:'2.7 Message Management',
+   fate:'keep', target:'Sin migrar', weaknesses:41,
+   note:'SP de notificaciones. 41 debilidades. Sin plan de migración — funcionalidad probable en CES o plataforma de mensajería independiente.'},
+
+  {id:'D10', name:'Sucursales', db:'bdisuc', sps:37, rules:127, etb:'1.2 Physical Channel (Branch)',
+   fate:'keep', target:'Sin migrar',
+   note:'Operación de sucursales. Sin contraparte en Unity — no es objetivo de R4. Seguirá en Informix.'},
+
+  {id:'D11', name:'Cobranza', db:'bdicobranza', sps:82, rules:156, etb:'3.3 Credit Servicing / Collections',
+   fate:'coex', target:'SmartVista (agingPeriod P4900)', weaknesses:20,
+   note:'Z3: SmartVista calcula agingPeriod para P4900; Informix D11 para portfolio legacy. Mismo cliente puede tener estado de mora diferente en cada sistema. Plan de trabajo Cobranza sin formalizar (Risk R06).'},
+
+  {id:'D12', name:'Contabilidad', db:'bdicont', sps:19, rules:54, etb:'5.4 Finance Management',
+   fate:'loop', target:'SmartVista → TRNT → PISA (Informix)',
+   note:'Z1 CRÍTICO: Informix sigue siendo el sistema de registro contable para transacciones Unity. SmartVista envía a TRNT que reenvía a PISA. Guía contable TDC sin entregar. HUs R418-R420 bloqueadas. CNBV Art.76.'},
+
+  {id:'D13', name:'TEF', db:'bditef', sps:69, rules:33, etb:'3.4 Core Payment Processing',
+   fate:'keep', target:'Sin migrar', weaknesses:132,
+   note:'Transferencias interbancarias (no SPEI). 132 debilidades técnicas. Sin plan de migración definido para R4. Seguirá procesando en Informix.'},
+
+  {id:'D14', name:'BEI', db:'bdibei', sps:42, rules:41, etb:'7.1 Customer Management (digital)',
+   fate:'coex', target:'Temenos Transact', weaknesses:243,
+   note:'Banca electrónica institucional. 243 debilidades. Transact maneja clientes nuevos; BEI legacy sigue en Informix. Sin ADR de migración específico.'},
+
+  {id:'D15', name:'LIDE / PLD', db:'bdilide', sps:5, rules:240, etb:'5.8 Fraud & AML Prevention',
+   fate:'keep', target:'PLD externo (Minds) — PayTrue parcial',
+   note:'Interfaz con sistema PLD externo. PayTrue en SmartVista sustituye SVFM pero no define cómo se conecta con PLD para clientes P4900. Riesgo regulatorio UIF/GAFI. 16 debilidades.'},
+
+  {id:'D16', name:'Tarjetas / CMS / Intercard', db:'intercard', sps:32, rules:108, etb:'3.5 Cards Issuance & 3.15-3.16 Interest/Limits',
+   fate:'replace', target:'SmartVista BPC (P4900)', weaknesses:242,
+   note:'ÚNICO dominio con reemplazo formal confirmado (ADR-004). CMS/Intercard/Macweb a retirar post-Go-Live. 242 debilidades técnicas — decommission motivado también por calidad. 88 reglas ISO 8583 migradas a SmartVista SVFM.'},
+
+  {id:'D23', name:'MIS Sucursales', db:'bdmis', sps:107, rules:24, etb:'1.2 Physical Channel',
+   fate:'keep', target:'Sin migrar', weaknesses:71,
+   note:'Reportería de desempeño de sucursales. 71 debilidades. Fuera del alcance Unity R4.'},
+
+  {id:'D26', name:'Prospectos', db:'bdiprospectos', sps:54, rules:12, etb:'2.5 Lead Mgmt / 7.1 Customer',
+   fate:'pending', target:'APOLO (onboarding parcial)',
+   note:'Gestión de prospectos de clientes. APOLO cubre onboarding digital de prospectos para productos nuevos; D26 cubre el flujo legacy. Sin decisión sobre cuándo se migra el flujo completo. 30 debilidades.'},
+
+  {id:'D32', name:'Reportes Visa/MC', db:'bdireports', sps:36, rules:6, etb:'5.10 Compliance Reporting',
+   fate:'keep', target:'Sin migrar', weaknesses:52,
+   note:'Reportería regulatoria a redes internacionales. Sin plan de migración. 52 debilidades — riesgo de compliance técnico.'},
+
+  {id:'D35', name:'Digitalización', db:'bdidigital', sps:43, rules:8, etb:'1.1 Digital Channel',
+   fate:'keep', target:'Sin migrar', weaknesses:29,
+   note:'Digitalización de documentos. Sin contraparte en Unity R4.'},
+
+  {id:'D36', name:'Reportería CNBV', db:'bdireports', sps:18, rules:27, etb:'5.10 Regulatory Reporting',
+   fate:'keep', target:'Sin migrar', weaknesses:30,
+   note:'Reportes regulatorios CNBV. Crítico regulatoriamente — sin plan de migración. Cuando Unity tenga cartera mayor, la reportería fragmentada entre Informix y Unity será un riesgo regulatorio.'},
+
+  {id:'D37', name:'Nómina BPI', db:'bdiadminnomina', sps:11, rules:0, etb:'4.4 Human Capital (nómina)',
+   fate:'keep', target:'Sin migrar',
+   note:'Nómina interna Coppel. Fuera del alcance Unity. Informix R3 (Nómina N4) es producto para empleados de empresas convenio — no es D37.'},
+
+  {id:'D44', name:'Conciliación Operativa', db:'bdirech', sps:77, rules:3, etb:'3.17 Reconciliation Services',
+   fate:'keep', target:'Sin migrar', weaknesses:50,
+   note:'Conciliación de operaciones. Sin contraparte Unity. 50 debilidades. Cuando SmartVista y Transact tengan cartera real, la conciliación cross-sistema será un gap crítico.'},
+
+  {id:'D46', name:'Oficinas de Cobro', db:'bdiofi', sps:16, rules:5, etb:'1.2 Physical Channel',
+   fate:'keep', target:'Sin migrar', weaknesses:9,
+   note:'Pagos en oficinas de cobro. Fuera del alcance Unity R4.'},
+
+  {id:'D47', name:'Garantías', db:'bdigaran', sps:11, rules:0, etb:'3.7 Collateral Management',
+   fate:'keep', target:'Sin migrar', weaknesses:8,
+   note:'Gestión de garantías. Fuera del alcance Unity R4.'},
+
+  {id:'D48', name:'Riesgos de Crédito', db:'bdiriesgos', sps:1, rules:4, etb:'5.9 Risk Management',
+   fate:'keep', target:'Sin migrar',
+   note:'Modelo de riesgo. Sin contraparte Unity. Integración futura con ATLAS MDM para scoring unificado.'},
+
+  {id:'D49', name:'Retiro sin Tarjeta', db:'bdirst', sps:2, rules:0, etb:'1.2 ATM / Physical Channel',
+   fate:'keep', target:'Sin migrar',
+   note:'Operaciones ATM sin tarjeta. Fuera del alcance Unity R4.'},
+];
+
+const FATE_TAG = {
+  replace:`<span class="fate fate-r">● Reemplazo</span>`,
+  coex:   `<span class="fate fate-c">◐ Convivencia</span>`,
+  loop:   `<span class="fate fate-l">⚠ Loop activo</span>`,
+  pending:`<span class="fate fate-p">? Sin decisión</span>`,
+  keep:   `<span class="fate fate-k">– Permanece</span>`,
+};
+
+function buildRows() {
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = DOMAINS.map(d => {
+    const wk = d.weaknesses ? `<div style="font-size:.68rem;color:#f0a83a;margin-top:2px;">${d.weaknesses} debilidades técnicas</div>` : '';
+    const tgt = `<span class="sys">${d.target}</span>`;
+    return `<tr>
+      <td><div class="dn">${d.name}</div><div class="did">${d.id} · ${d.db}</div>${wk}</td>
+      <td class="num">${d.sps.toLocaleString()}</td>
+      <td class="num">${d.rules.toLocaleString()}</td>
+      <td><span class="etb">${d.etb}</span></td>
+      <td><span class="tgt">${tgt}</span></td>
+      <td>${FATE_TAG[d.fate]||''}</td>
+      <td style="max-width:340px;font-size:.76rem;color:var(--muted);line-height:1.45;">${d.note}</td>
+    </tr>`;
+  }).join('');
+}
+
+buildRows();
+</script>
+</body>
+</html>

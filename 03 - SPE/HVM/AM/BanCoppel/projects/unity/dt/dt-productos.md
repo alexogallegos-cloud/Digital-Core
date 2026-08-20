@@ -10,12 +10,12 @@
 
 ## Productos Unity
 
-### UNITY-R4-P4900 — Tarjeta de Crédito Clásica Digital
+### UNITY-R4-P4900 — Tarjeta de Crédito
 
 | Campo | Valor |
 |-------|-------|
 | **ID** | UNITY-R4-P4900 |
-| **Nombre completo** | Tarjeta de Crédito Clásica Digital |
+| **Nombre completo** | Tarjeta de Crédito |
 | **Identificador BanCoppel** | Producto 4900 |
 | **Estado** | `building` — en construcción |
 | **Go-Live target** | Mediados de enero 2027 |
@@ -118,7 +118,7 @@ Los componentes son los tracks de implementación de Unity R4, cada uno con su p
 
 ## Estado de Capabilities ETB
 
-> Pendiente de mapeo formal. La TDC Clásica Digital cubre al menos: card-issuance, credit-origination, collections, digital-channel.
+> Pendiente de mapeo formal. La Tarjeta de Crédito cubre al menos: card-issuance, credit-origination, collections, digital-channel.
 
 ---
 

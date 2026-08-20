@@ -1,5 +1,5 @@
 """
-build-brain.py  --  Unity Project Brain Builder v1.0.0
+build-brain.py  --  Unity Project Brain Builder v1.1.0
 Construye brain.db con el conocimiento incubado del programa Unity.
 Fuente: forward-knowledge (productos, componentes, riesgos, cronograma, vocabulario)
         --  diferente al brain de Informix que analiza cÃ³digo existente.
@@ -11,9 +11,12 @@ Uso:
 Changelog:
     0.9.0  --  2026-08-16  app_user_stories (13 HUs canal App TDC F&D: backlog=8 release=3 removed=2)
     1.0.0  --  2026-08-16  user_stories_inventory (76 HUs scoring) + r4_integrations (18) + track_rag (5 tracks RAG Roadmap)
+    1.1.0  --  2026-08-19  user_stories_inventory (79 HUs, +3 APP Encendido/Apagado TDC) + product_releases dual-plataforma
+    1.2.0  --  2026-08-20  legacy_systems (14 sistemas ecosistema) + audit_findings (19 hallazgos barrido documental)
+                           + reportes_regulatorios en program_components + RISK-UNITY-R19..R26 (Reportes Reg.)
     0.8.0  --  2026-08-16  product_vision_requirements (28 RFs Product Vision R4, todos Alta/Esencial)
     0.7.0  --  2026-08-16  track_analysis (7 sesiones HUs: CAT/SIWEB/APOLO/APP/SV/Cobranza/APIf) +
-                         plan_progress (Plan de Trabajo 12-ago: avance global 20.66% vs 34%  --  RETRASADO)
+                         plan_progress (Plan de Trabajo corte 17-ago: avance global 21.19% vs 60.58%  --  RETRASADO)
     0.6.1  --  2026-08-16  capability_stakeholders (49 rows RACI) + apolo_hdu_catalog (37 HDUs APOLO)
     0.6.0  --  2026-08-16  Capa semÃ¡ntica/ontolÃ³gica: capability_vendors, capability_slos,
                          capability_test_plan, capability_compliance, capability_prr,
@@ -53,8 +56,33 @@ CREATE TABLE IF NOT EXISTS products (
     etb_capabilities    TEXT,
     informix_domains    TEXT,
     coexistence_mode    TEXT CHECK(coexistence_mode IN ('replaces','complements','parallel','unknown')),
+    -- v1.1.0: Unity tiene DOS productos en alcance formal (documento CNBV), no cinco.
+    -- cnbv-scope  = uno de los dos productos que el Documento de Arquitectura UNITY v1.0
+    --               declara como alcance para revision y autorizacion de CNBV.
+    -- prior-scope = producto de captacion en produccion sobre Transact, NO listado en ese
+    --               documento. Pertenencia al programa sin confirmar (DATO-REQUERIDO).
+    scope               TEXT CHECK(scope IN ('cnbv-scope','prior-scope')),
     notes               TEXT,
     updated_at          TEXT DEFAULT (datetime('now'))
+);
+
+-- Tren de releases por producto (v1.1.0) --------------------------------------
+-- Existe porque hay DOS numeraciones que no se contradicen y confundirlas produce
+-- cronogramas falsos: la del PRODUCTO y la de la PLATAFORMA. En SmartVista coinciden
+-- (solo hospeda la TDC); en Transact difieren (hospeda varios productos, su tren va
+-- por delante). El Credito Simple Empresarial esta en su R1 del producto, que corre
+-- sobre Transact R4 de plataforma.
+CREATE TABLE IF NOT EXISTS product_releases (
+    id               TEXT PRIMARY KEY,
+    product_id       TEXT REFERENCES products(id),
+    release_label    TEXT,
+    platform_release TEXT,
+    scope            TEXT,
+    status           TEXT CHECK(status IN ('productivo','building','backlog','sin-definir','abierto')),
+    release_date     TEXT,
+    functionalities  INTEGER,
+    channels         TEXT,
+    provenance       TEXT
 );
 
 CREATE TABLE IF NOT EXISTS program_components (
@@ -355,8 +383,17 @@ CREATE TABLE IF NOT EXISTS app_user_stories (
 
 -- HU Inventory (v1.0.0) -------------------------------------------------------
 -- Fuente: Consolidacion y priorizacion_HUs_R4_v2.xlsx (Inventario HUs sheet)
--- 76 HUs Accenture con scoring MoSCoW + complejidad ponderada
--- Tracks: smartvista(22), apolo(22), app(15+15Jira), cat(12), siweb(5)
+-- 79 HUs Accenture con scoring MoSCoW + complejidad ponderada
+-- Tracks: smartvista(22), apolo(22), app(18), cat(12), siweb(5)
+--
+-- v1.1.0 (2026-08-20): se agregaron las 3 HUs Must de "Encendido y Apagado TDC Fisica y
+-- Digital" del track APP, que el cargador anterior descartaba. Causa raiz: en el xlsx esas
+-- filas NO TIENEN valor en la columna "ID HU" (arrancan directo en Track), y el cargador
+-- las omitia al no poder derivar la clave primaria. Se les asigna un ID sintetico APP-ENC-nn
+-- y se documenta la ausencia de ticket Jira en source_doc.
+-- Con esto el total pasa de 76 a 79 y APP de 15 a 18, que es lo que reportan tanto el deck
+-- BCPL_R4 Roadmap_Remediaciones_v1_11082026 ("HUs validadas 18 | 15 Must, 1 Could, 2 Won't")
+-- como la minuta del 06-ago-2026 del track APP.
 CREATE TABLE IF NOT EXISTS user_stories_inventory (
     id              TEXT PRIMARY KEY,
     track           TEXT,
@@ -580,6 +617,37 @@ LEFT JOIN capability_slos cs        ON cs.capability_id = c.id
 LEFT JOIN capability_test_plan ct   ON ct.capability_id = c.id
 LEFT JOIN capability_compliance cc  ON cc.capability_id = c.id
 LEFT JOIN capability_prr cp         ON cp.capability_id = c.id;
+
+-- Legacy Systems inventory (v1.2.0) -----------------------------------------
+-- Sistemas del legado y plataforma TO-BE descubiertos en barrido documental
+-- 2026-08-19. Captura quienes comparten el ecosistema con Unity.
+CREATE TABLE IF NOT EXISTS legacy_systems (
+    id              TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    acronym         TEXT,
+    type            TEXT CHECK(type IN ('core-app','middleware','channel','mdm','dwh','rules-engine','document-mgmt','scheduler','auth','rpa','other')),
+    provider        TEXT,
+    platform        TEXT,
+    description     TEXT,
+    unity_relation  TEXT CHECK(unity_relation IN ('coexists','to-replace','to-decommission','complementary','data-source','unknown')),
+    core_path       INTEGER DEFAULT 0,
+    discovered_via  TEXT,
+    notes           TEXT
+);
+
+-- Audit findings (v1.2.0) ----------------------------------------------------
+-- Hallazgos del barrido de 257 documentos del corpus Unity (2026-08-19).
+CREATE TABLE IF NOT EXISTS audit_findings (
+    id              TEXT PRIMARY KEY,
+    category        TEXT NOT NULL CHECK(category IN ('cifra-huerfana','correccion','ambiguedad','hallazgo','dato-requerido')),
+    title           TEXT NOT NULL,
+    description     TEXT,
+    impact          TEXT CHECK(impact IN ('critical','high','medium','low')),
+    status          TEXT DEFAULT 'open' CHECK(status IN ('open','resolved','watchlist')),
+    verified_date   TEXT DEFAULT '2026-08-19',
+    source_doc      TEXT,
+    notes           TEXT
+);
 """
 
 # â"€â"€ Datos â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -590,7 +658,7 @@ PROJECT_INFO = {
     "platform":          "Temenos Transact",
     "client":            "BanCoppel",
     "state":             "active",
-    "brain_version":     "1.0.0",
+    "brain_version":     "1.2.0",
     "built_at":          datetime.now().isoformat(),
     "scope_note":        "PRESENTE (en produccion) + FUTURO (en construccion  --  R4 Producto 4900)",
 }
@@ -988,8 +1056,8 @@ INITIAL_PRODUCTS = [
         "etb_capabilities": json.dumps(["demand-deposit","basic-account-management"]),
         "informix_domains": json.dumps(["Cuentas","Depositos"]),
         "coexistence_mode": "complements",
-        "notes":            "R1  --  primer release del programa Unity. Producto 100% en Temenos Transact. "
-                            "Informix sigue procesando la mayoria del portfolio; este producto es el primer hito.",
+        "scope":            "prior-scope",
+        "notes":            "FUERA del alcance formal de DOS productos. Producto de captacion en produccion sobre Temenos Transact, NO listado entre los dos productos del documento CNBV. DATO-REQUERIDO: confirmar si fue entregado por releases anteriores de Unity o si nunca pertenecio al programa; el Roadmap Unity 2025 etiqueta el bloque como 'CUENTAS - N2/N4 (Legado)'. El numero de release TAMPOCO tiene fuente: el Design Authority declara que Transact tiene 'Releases R1-R4' y que R4 es Prestamo Simple, pero nunca dice que R1, R2 y R3 sean estos productos; la unica fuente con granularidad (de EY) mapea los releases de Transact a GRUPOS DE CAPACIDAD, no a productos, y no contiene R3. El ID conserva el numero por compatibilidad, pero no debe presentarse como dato verificado. Pendiente relacionado L-07: discrepancia declarada entre EY y el roadmap maestro sobre las fechas de Transact R1 y R2.",
     },
     {
         "id":               "UNITY-R2-P-CED-N4",
@@ -1002,8 +1070,8 @@ INITIAL_PRODUCTS = [
         "etb_capabilities": json.dumps(["demand-deposit","digital-channel","digital-onboarding"]),
         "informix_domains": json.dumps(["Cuentas","Depositos","CanalDigital"]),
         "coexistence_mode": "complements",
-        "notes":            "R2  --  segundo release del programa Unity. Apertura digital sin visita a sucursal. "
-                            "Primer producto con integracion de canal AppMovil sobre Temenos.",
+        "scope":            "prior-scope",
+        "notes":            "FUERA del alcance formal de DOS productos. Producto de captacion en produccion sobre Temenos Transact, NO listado entre los dos productos del documento CNBV. DATO-REQUERIDO: confirmar si fue entregado por releases anteriores de Unity o si nunca pertenecio al programa; el Roadmap Unity 2025 etiqueta el bloque como 'CUENTAS - N2/N4 (Legado)'. El numero de release TAMPOCO tiene fuente: el Design Authority declara que Transact tiene 'Releases R1-R4' y que R4 es Prestamo Simple, pero nunca dice que R1, R2 y R3 sean estos productos; la unica fuente con granularidad (de EY) mapea los releases de Transact a GRUPOS DE CAPACIDAD, no a productos, y no contiene R3. El ID conserva el numero por compatibilidad, pero no debe presentarse como dato verificado. Pendiente relacionado L-07: discrepancia declarada entre EY y el roadmap maestro sobre las fechas de Transact R1 y R2.",
     },
     {
         "id":               "UNITY-R3-P-NOM-N4",
@@ -1016,41 +1084,143 @@ INITIAL_PRODUCTS = [
         "etb_capabilities": json.dumps(["payroll-account","demand-deposit","benefit-management"]),
         "informix_domains": json.dumps(["Nomina","Cuentas","Empresas"]),
         "coexistence_mode": "complements",
-        "notes":            "R3  --  tercer release del programa Unity. Integrado con empresas de nomina. "
-                            "Informix mantiene el core de nomina legado para empleados Coppel propios.",
+        "scope":            "prior-scope",
+        "notes":            "FUERA del alcance formal de DOS productos. Producto de captacion en produccion sobre Temenos Transact, NO listado entre los dos productos del documento CNBV. DATO-REQUERIDO: confirmar si fue entregado por releases anteriores de Unity o si nunca pertenecio al programa; el Roadmap Unity 2025 etiqueta el bloque como 'CUENTAS - N2/N4 (Legado)'. El numero de release TAMPOCO tiene fuente: el Design Authority declara que Transact tiene 'Releases R1-R4' y que R4 es Prestamo Simple, pero nunca dice que R1, R2 y R3 sean estos productos; la unica fuente con granularidad (de EY) mapea los releases de Transact a GRUPOS DE CAPACIDAD, no a productos, y no contiene R3. El ID conserva el numero por compatibilidad, pero no debe presentarse como dato verificado. Pendiente relacionado L-07: discrepancia declarada entre EY y el roadmap maestro sobre las fechas de Transact R1 y R2.",
     },
     {
         "id":               "UNITY-RX-P-PS",
-        "name":             "Prestamo Simple",
-        "description":      "Credito personal de prestamo simple (monto fijo, plazo fijo). "
-                            "Opera sobre Temenos Transact. Release exacto no confirmado.",
+        "name":             "Credito Simple Empresarial",
+        "description":      "Credito simple para PERSONA MORAL (empresarial). El promotor crea la solicitud, "
+                            "integra el Expediente (INE, RFC, CURP, comprobante de domicilio), hace analisis "
+                            "basico y genera la carpeta empresarial con datos generales, representante legal, "
+                            "direccion, identificacion oficial, escritura constitutiva, poderes notariales, "
+                            "cedula y CURP del representante. El analista centralizador asigna la solicitud, "
+                            "valida y solicita el alta de cliente, beneficiario y cuenta. Soportado por OnBase, "
+                            "PISA y Temenos Transact. Modulos Transact: garantias colaterales, prestamos de "
+                            "modelo, prestamos y montos dispuestos de lineas.",
         "status":           "live",
         "launch_date":      None,
-        "temenos_module":   "Temenos Transact",
-        "etb_capabilities": json.dumps(["personal-loan","credit-origination","collections"]),
-        "informix_domains": json.dumps(["Credito","CobranzaDireccionada"]),
+        "temenos_module":   "Temenos Transact (CBS)",
+        "etb_capabilities": json.dumps(["corporate-lending","credit-origination",
+                                        "collateral-management","regulatory-reporting"]),
+        "informix_domains": json.dumps(["Credito","Garantias","CobranzaDireccionada"]),
         "coexistence_mode": "complements",
-        "notes":            "Release exacto (Rx) no confirmado en fuentes disponibles. "
-                            "Identificado en alcance del RAID v2.0 como producto ya en produccion sobre Transact. "
-                            "DATO-REQUERIDO: confirmar release y fecha de go-live con PMO Unity.",
+        "scope":            "cnbv-scope",
+        "notes":            "PRODUCTO 2 de los DOS del alcance formal segun el Documento de Arquitectura "
+                            "UNITY v1.0 (para revision y autorizacion de CNBV). "
+                            "ESTADO: R1 del producto EN PRODUCTIVO, confirmado por el equipo 2026-08-19; "
+                            "coherente con el Roadmap Unity 2025 que lo muestra en Pruebas, Transicion y "
+                            "Estabilizacion. Antes estuvo registrado como 'planned' y como 'live' sin fuente. "
+                            "RELEASE, DOS NUMERACIONES QUE NO SE CONTRADICEN: el producto esta en su R1, que "
+                            "corre sobre TRANSACT R4 (release de plataforma que habilita el ciclo de vida de "
+                            "credito). El Design Authority dice 'Releases R1-R4. Prestamo Simple es Transact "
+                            "R4, no Apolo' refiriendose al tren de PLATAFORMA. Segun la fuente de EY, Transact "
+                            "R4 habilita originaciones, pago de creditos y amortizaciones, reestructuracion y "
+                            "procesamiento de cheques. El Roadmap NO le asigna numero: etiqueta sus barras "
+                            "como 'CSE' en paralelo a las R1, R2 y R3 del carril de TDC. "
+                            "L-02 REINTERPRETADA: como el producto YA opera, la decision abierta "
+                            "'Estrategia Prestamo Simple: F&F vs migracion de cartera' NO es sobre el arranque "
+                            "sino sobre que se hace con la CARTERA EMPRESARIAL del legado, que vive en Orion "
+                            "SFI (proveedor TASF) con destino declarado 'Migrar a Temenos Transact'. "
+                            "Consistente con sus entregables E-MG-03 (decision paper) y E-MG-06 (plan de "
+                            "migracion, condicionado a que el paper resulte en migracion). "
+                            "VARIANTES FUTURAS: el roadmap registra 'Analisis - Nuevos Productos (CSE "
+                            "Variantes | Cuenta Corriente | Factoraje)'. "
+                            "DATO-REQUERIDO: el Design Authority lo llama 'Prestamo Simple' y el documento "
+                            "CNBV 'Credito Simple Empresarial'. Ningun documento equipara ambos nombres.",
     },
     # â"€â"€ Producto en construccion (FUTURO) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     {
         "id":               "UNITY-R4-P4900",
-        "name":             "Tarjeta de Credito Clasica Digital (Producto 4900)",
-        "description":      "Primera TDC digital nativa de BanCoppel sobre SmartVista (BPC). "
-                            "Numero de credito de 18 digitos (cuenta clave = clave interbancaria). "
-                            "Reemplaza el sistema legado CMS/Intercard/Macweb.",
+        "name":             "Tarjeta de Credito",
+        "description":      "TDC de BanCoppel sobre SmartVista (BPC), documentada como 'Administrador de "
+                            "Tarjetas' y 'CMS (Card Management System)'. Numero de credito de 18 digitos "
+                            "(cuenta clave = clave interbancaria). Reemplaza CMS/Intercard/Macweb. "
+                            "Portafolio mas amplio que la Clasica: Oro (8100), Platinum (7000), Clasica "
+                            "(6001), Clasica Apolo (4900), Grupo Coppel e Infinite; parametrico para nuevos.",
         "status":           "building",
         "launch_date":      "2027-01-15",
         "temenos_module":   "SmartVista (BPC Banking Technologies)",
         "etb_capabilities": json.dumps(["card-issuance","credit-origination","collections","digital-channel"]),
         "informix_domains": json.dumps(["TDC","Credito","Cobranza","CMS"]),
         "coexistence_mode": "replaces",
-        "notes":            "R4  --  SIT Oct 15  --  Dic 15 2026. Go-Live mediados enero 2027. "
-                            "Producto 4900 con parcializaciones MSI/MCI. "
-                            "Origen + maquila tarjetas via Connect Direct.",
+        "scope":            "cnbv-scope",
+        "notes":            "PRODUCTO 1 de los DOS del alcance formal segun el Documento de Arquitectura "
+                            "UNITY v1.0 (para revision y autorizacion de CNBV). "
+                            "EL PRODUCTO NO NACE EN R4: opera en produccion desde dic-2024. R4 es el cuarto "
+                            "release y lo que agrega es la TDC Clasica completa. Ver product_releases. "
+                            "R1 (dic-2024, 38 func, SIN canales) = configuracion del gestor de TDC. "
+                            "R2 (jul-2025, 33 func) = integracion a App y onboarding. "
+                            "R3 (sep-2025, 15 func) = TARJETA FISICA liberada en modo Friends & Family. "
+                            "R4 (ene-2027, 13 func) = TDC Clasica, Producto 4900, release ancla, SIT 15-oct "
+                            "a 15-dic-2026. R4.5 = MCI en App. R5 y R6 sin alcance definido. "
+                            "R1, R2 y R3 EN PRODUCTIVO (equipo 2026-08-19). "
+                            "F&F es el MODO de liberacion, no el alcance: no es excluyente con 'tarjeta "
+                            "fisica'. Una lectura previa lo planteo como dicotomia y era falso. "
+                            "PROPOSITO DE R3: cerrar la brecha de valor entre el producto que Apolo origina "
+                            "(4900) y el legado (6001) para habilitar la MIGRACION DE 3 MILLONES DE TARJETAS; "
+                            "estimacion de 122,000 clientes nuevos 2025-2026. "
+                            "OJO: el 'R4' de este producto es SmartVista R4 y coexiste con un Transact R4 "
+                            "distinto, que es el Credito Simple Empresarial. Dos R4 simultaneos en "
+                            "plataformas distintas; igual colision en R3. "
+                            "L-01 ABIERTA: escenario de despliegue R4 sin decidir, Esc.1 (4 despliegues en "
+                            "Q4-2026) contra Esc.2 (unico en dic-2026). "
+                            "BIN 42680711 = BIN 426807 mas subproducto 11. Parcializaciones MSI/MCI. "
+                            "Origen y maquila de tarjetas via Connect-Direct.",
     },
+]
+
+# ── Tren de releases por producto (v1.1.0) ───────────────────────────────────
+# Dos numeraciones que no se contradicen: la del PRODUCTO y la de la PLATAFORMA.
+# En SmartVista coinciden (solo hospeda la TDC); en Transact difieren.
+# La columna provenance distingue lo que es cita literal de lo que confirmo el equipo.
+PRODUCT_RELEASES = [
+    ("TDC-R1", "UNITY-R4-P4900", "R1", "SmartVista R1",
+     "Configuracion del gestor de TDC (SmartVista como CMS)", "productivo", "2024-12", 38, None,
+     "Equipo 2026-08-19. Sustento convergente, NO cita literal: la frase 'gestor de TDC' no existe en "
+     "la documentacion, pero SmartVista esta documentado como 'Administrador de Tarjetas' y 'CMS'. "
+     "Senal estructural: 38 funcionalidades y ningun canal listado, lo esperable de configuracion de "
+     "plataforma. LIMITE: la lamina 2 del Roadmap Unity 2025 tiene la matriz de releases pero al "
+     "extraerla a texto se pierde la asignacion celda-columna; abrirla visualmente para cerrarlo."),
+    ("TDC-R2", "UNITY-R4-P4900", "R2", "SmartVista R2",
+     "Integracion a App y onboarding de la TDC", "productivo", "2025-07", 33,
+     "App, Promotoria, Sucursal, SPEI",
+     "Equipo 2026-08-19. Sustento: las cadenas 'CMS Administrador de Tarjetas - Apolo Onboarding' y "
+     "'CMS Administrador de Tarjetas - App Bancoppel', mas el encabezado del roadmap ('todo su ciclo "
+     "de vida: Onboarding, Operacion y Post-Venta')."),
+    ("TDC-R3", "UNITY-R4-P4900", "R3", "SmartVista R3",
+     "Tarjeta fisica, liberada en modo Friends & Family", "productivo", "2025-09", 15,
+     "App, Promotoria, Sucursal, Aclaraciones",
+     "Equipo 2026-08-19 MAS cita literal: el DEF se titula 'DEF Tarjeta fisica R3 desglozado Historia "
+     "de Usuario'. F&F es el MODO de liberacion, no el alcance: no son excluyentes. Su proposito real "
+     "es cerrar la brecha de valor entre el 4900 de Apolo y el legado 6001 para habilitar la migracion "
+     "de 3 millones de tarjetas. Dependencia critica de ATLAS a sep-2026 (decision L-03)."),
+    ("TDC-R4", "UNITY-R4-P4900", "R4", "SmartVista R4",
+     "Tarjeta de Credito Clasica, Producto 4900. Release ancla", "building", "2027-01", 13,
+     "App, Promotoria, Sucursal, CAT",
+     "RAID v2.0, plan de trabajo y minutas de ago-2026. SIT 15-oct a 15-dic-2026, go-live a mediados "
+     "de enero 2027 (las minutas dicen 'mediados', no un dia concreto). L-01 abierta: escenario de "
+     "despliegue sin decidir entre 4 despliegues en Q4-2026 o uno unico en dic-2026."),
+    ("TDC-R4.5", "UNITY-R4-P4900", "R4.5", "SmartVista R4.5",
+     "Meses con intereses (MCI) en App", "backlog", None, None, "App",
+     "El Design Authority nombra R4.5 pero no declara su alcance; el alcance viene del PreGame via "
+     "dt-smartvista. TENSION SIN CERRAR: las fuentes de julio dicen R4.5 y las de agosto (06-ago y "
+     "11-ago) dicen R5 para la integracion con canal. El backend de MCI si va en R4."),
+    ("TDC-R5", "UNITY-R4-P4900", "R5", "SmartVista R5",
+     "Sin alcance definido", "sin-definir", None, None, None,
+     "Roadmap Unity 2025 y Gestion_Track 06-jul-2026 ('TDC Clasica R2, R3, R4, R5'). El agrupamiento "
+     "'ATM + tarjetas adicionales + corresponsales -> R5' que se uso antes NO existe en la "
+     "documentacion, y para corresponsales la evidencia apunta a que estan DENTRO de R4."),
+    ("TDC-R6", "UNITY-R4-P4900", "R6", None,
+     "Sin alcance definido", "sin-definir", None, None, None,
+     "Una sola mencion en todo el corpus: Minuta_CAT_27072026, 'los releases siguientes (R4.5, R5, "
+     "R6)'. Es tambien el unico lugar donde R4.5 y R5 conviven como releases secuenciales distintos."),
+    ("CSE-R1", "UNITY-RX-P-PS", "R1", "Transact R4",
+     "Credito simple a persona moral", "productivo", None, None,
+     "Sucursales, Banca Empresarial, CAT, Sistema de Aclaraciones",
+     "Release del producto y estado productivo confirmados por el equipo 2026-08-19. Corre sobre "
+     "Transact R4 (plataforma). La decision L-02 sigue abierta pero es sobre la migracion de la "
+     "cartera empresarial del legado, no sobre el arranque del producto."),
 ]
 
 INITIAL_COMPONENTS = [
@@ -1148,6 +1318,26 @@ INITIAL_COMPONENTS = [
                            "Valida DTMs y DTCs (gov: Play Digital). "
                            "Inventario de integraciones sin consolidar  --  riesgo de gaps. "
                            "Responsables: Jose Villena + Oscar Melo.",
+    },
+    # v1.2.0  --  Reportes Regulatorios: 4to componente del alcance formal CNBV
+    # Fuente: Documento de Arquitectura UNITY_v1.0.docx, barrido documental 2026-08-19
+    {
+        "id":              "reportes-regulatorios",
+        "name":            "Reportes Regulatorios  --  CNBV y Banxico",
+        "type":            "transversal",
+        "hus_total":       None,
+        "provider":        "Multi-fuente (Bajaware, RiskLogic, DataStage)",
+        "provider_status": "internal",
+        "status":          "at_risk",
+        "product_id":      "UNITY-R4-P4900",
+        "notes":           "4to componente del alcance formal CNBV (junto con Apolo, TDC y CSE). "
+                           "No tiene stream propio en R4  --  anidado bajo '5 CONTABILIDAD'. "
+                           "Cadena: Transact/SmartVista/Apolo -> DataStage -> DWH -> RiskLogic/Bajaware -> reportes CNBV. "
+                           "CRITICO: Bajaware en decomiso Q1-2027 mientras el doc CNBV lo declara como motor de generacion. "
+                           "Hallazgo APO_F01 y SMA_F01: documentacion CNBV desactualizada, severidad Alta. "
+                           "Owner Gustavo Martinez Martinez (Reporte Autoridades); Selene Esparza (arq cadena). "
+                           "~100 reportes estimados (por confirmar); serie R-04-C + calificacion cartera + 18 SV + ~20 SPL legacy. "
+                           "Retencion WORM 5-10 anios conforme CUB CNBV.",
     },
 ]
 
@@ -1316,6 +1506,423 @@ INITIAL_RISKS = [
         "due_date": None, "owner": "CAT Ramses Santos", "source": "Entrevista CAT",
         "notes": "Sin ambiente IBR no puede iniciar pruebas CAT. Proceso lleva semanas estancado.",
     },
+    # v1.2.0  --  Reportes Regulatorios: 8 riesgos identificados en barrido documental 2026-08-19
+    {
+        "id": "RISK-UNITY-R19", "raid_id": "REG-01",
+        "description": "Documentacion CNBV desactualizada con hallazgo formal de severidad Alta (APO_F01 y SMA_F01): arquitectura aprobada no refleja herramientas adicionales reales",
+        "component_id": "reportes-regulatorios", "category": "Regulatorio", "impact": "critical", "probability": "high",
+        "status": "open",
+        "mitigation": "Plan de actualizacion y regularizacion de documentacion ante CNBV. Owner: Mercedes Espinosa Cortes.",
+        "due_date": None, "owner": "Mercedes Espinosa Cortes", "source": "Barrido documental 2026-08-19",
+        "notes": "Hallazgos APO_F01 y SMA_F01 documentados. CNBV puede objetar el programa si no se regulariza.",
+    },
+    {
+        "id": "RISK-UNITY-R20", "raid_id": "REG-02",
+        "description": "Bajaware en decomiso Q1-2027 mientras el documento CNBV lo declara como motor de generacion de reportes regulatorios",
+        "component_id": "reportes-regulatorios", "category": "Arquitectura", "impact": "critical", "probability": "high",
+        "status": "open",
+        "mitigation": "Definir motor de reemplazo (RiskLogic u otro) antes del decomiso. Actualizar documentacion CNBV.",
+        "due_date": "2027-01-01", "owner": "Por asignar", "source": "Barrido documental 2026-08-19",
+        "notes": "'En proceso de Baja - Decomiso Fecha 1er Bimestre 2027'. El doc CNBV lo requiere activo.",
+    },
+    {
+        "id": "RISK-UNITY-R21", "raid_id": "REG-03",
+        "description": "IC-83: los pipelines DataStage se rompen al decomisar Informix (Exodus Ola 6); T-17 y T-19 en Confianza Baja sin definicion documentada",
+        "component_id": "reportes-regulatorios", "category": "Dependencia", "impact": "high", "probability": "high",
+        "status": "open",
+        "mitigation": "Quinta decision critica del Design Authority, estado Gap. Asignar owner.",
+        "due_date": None, "owner": "Por asignar", "source": "Design Authority v1.2",
+        "notes": "Sin owner al corte del barrido. Bloquea la Ola 6 de Exodus y los reportes CNBV post-decomiso.",
+    },
+    {
+        "id": "RISK-UNITY-R22", "raid_id": "REG-04",
+        "description": "Cobertura de Apolo y SmartVista en reportes regulatorios nunca evaluada: columnas de gap dicen literalmente 'completar'",
+        "component_id": "reportes-regulatorios", "category": "Alcance", "impact": "high", "probability": "medium",
+        "status": "open",
+        "mitigation": "Completar evaluacion de gap por plataforma antes de SIT.",
+        "due_date": "2026-10-15", "owner": "Selene Esparza", "source": "Mapa de capacidades Unity",
+        "notes": "Las columnas de gap para Apolo y SmartVista en el mapa de capacidades estan vacias.",
+    },
+    {
+        "id": "RISK-UNITY-R23", "raid_id": "REG-05",
+        "description": "Reportes Regulatorios no tiene stream propio en R4  --  anidado bajo '5 CONTABILIDAD'; capacidad 2.4.2 Reporteria es P1 con alcance no confirmado",
+        "component_id": "reportes-regulatorios", "category": "Alcance", "impact": "medium", "probability": "high",
+        "status": "open",
+        "mitigation": "Confirmar alcance de la capacidad 2.4.2 con PMO. Considerar crear stream propio si hay entregables especificos.",
+        "due_date": "2026-09-15", "owner": "PMO Unity", "source": "Plan de trabajo R4",
+        "notes": "El componente es CNBV-scope pero no tiene visibilidad en el plan de trabajo.",
+    },
+    {
+        "id": "RISK-UNITY-R24", "raid_id": "REG-06",
+        "description": "Descuadre por codigos compartidos: el codigo 43 de SmartVista agrupa motivos de baja distintos, alterando veracidad de reportes a autoridades",
+        "component_id": "reportes-regulatorios", "category": "Calidad de Datos", "impact": "high", "probability": "medium",
+        "status": "open",
+        "mitigation": "Revisar con BPC la desambiguacion del codigo 43. Confirmar con CNBV si afecta reportes R-04-C.",
+        "due_date": None, "owner": "BPC / Armando Garcia", "source": "Barrido documental 2026-08-19",
+        "notes": "Documentado en minutas. Puede producir errores en series regulatorias CNBV.",
+    },
+    {
+        "id": "RISK-UNITY-R25", "raid_id": "REG-07",
+        "description": "Homologacion de comisiones bloqueada por normatividad  --  2 User Stories Must regulatorias sin avance hasta confirmar aprobacion Banxico/RECO",
+        "component_id": "reportes-regulatorios", "category": "Regulatorio", "impact": "medium", "probability": "medium",
+        "status": "open",
+        "mitigation": "Dar seguimiento al proceso RECO. No iniciar desarrollo hasta tener aprobacion.",
+        "due_date": None, "owner": "Por definir con PMO BanCoppel", "source": "Barrido documental 2026-08-19",
+        "notes": "DTMs sin fecha bloqueados por normatividad. 2 HUs Must en riesgo.",
+    },
+    {
+        "id": "RISK-UNITY-R26", "raid_id": "REG-08",
+        "description": "Exodus Ola 6 declara migrar Reportes Regulatorios CNBV pero no los inventaria; apps 96, 97 y 100 no aparecen en ninguna ola",
+        "component_id": "reportes-regulatorios", "category": "Dependencia", "impact": "medium", "probability": "high",
+        "status": "open",
+        "mitigation": "Coordinar con equipo Exodus para confirmar cubrimiento de apps regulatorias.",
+        "due_date": None, "owner": "Edgar Mejia (Exodus) / PMO Unity", "source": "Barrido documental 2026-08-19",
+        "notes": "Potencial gap de migracion para los reportes al cierre del datacenter (Exodus Ola 6, 2029-H2).",
+    },
+]
+
+# -- Sistemas del legado y ecosistema Unity (v1.2.0) --------------------------
+# Descubiertos en barrido documental 2026-08-19 (257 documentos del corpus).
+# core_path=1 indica que es una de las 3 unicas vias validas al core Informix.
+LEGACY_SYSTEMS = [
+    {
+        "id": "SIF", "name": "Sistema Integral Financiero", "acronym": "SIF",
+        "type": "core-app", "provider": "Grupo PISA", "platform": "IBM Informix IDS 14.10 / AIX",
+        "description": "Aplicacion core real que corre sobre Informix. Informix es el motor; SIF es la "
+                       "aplicacion bancaria. No son sinonimos. 10,144 stored procedures confirmados por "
+                       "parseo de codigo fuente (unica cifra empirica disponible).",
+        "unity_relation": "to-replace", "core_path": 0,
+        "discovered_via": "barrido-documental-2026-08-19",
+        "notes": "Golden Record del cliente vive en SIF/Informix (cita doc CNBV). "
+                 "El decomiso de PISA es de Exodus Ola 6 (2029-H2), no de Unity.",
+    },
+    {
+        "id": "SOC", "name": "Sistema Operativo Central", "acronym": "SOC",
+        "type": "core-app", "provider": "TASF", "platform": "Por confirmar",
+        "description": "Mini-core bancario con 15 modulos y 710 funcionalidades. "
+                       "Destino de migracion de modulos del SIF. "
+                       "Desambiguacion: 'Sistema Operativo Central' (uso mayoritario) vs "
+                       "'Sistema de Operacion Central' (uso minoritario).",
+        "unity_relation": "complementary", "core_path": 0,
+        "discovered_via": "barrido-documental-2026-08-19",
+        "notes": "Tiempo de migracion estimado por app core: 10-12 meses (informe ejecutivo Exodus).",
+    },
+    {
+        "id": "TDH", "name": "Temenos Data Hub", "acronym": "TDH",
+        "type": "middleware", "provider": "Temenos", "platform": "On-premise",
+        "description": "Extraccion near-realtime de Temenos Transact. Alimenta el ODS y los reportes "
+                       "regulatorios. Forma parte de la cadena: Transact -> TDH -> DataStage -> DWH -> reportes.",
+        "unity_relation": "data-source", "core_path": 0,
+        "discovered_via": "barrido-documental-2026-08-19",
+        "notes": "Relevante para la cadena de Reportes Regulatorios. Sin TDH no hay datos Transact en el DWH.",
+    },
+    {
+        "id": "INTERACT", "name": "InterAct Router / Switch", "acronym": "InterAct",
+        "type": "middleware", "provider": "Syndein", "platform": "On-premise",
+        "description": "Middleware transaccional. Una de las 3 unicas vias validas al core Informix/SIF. "
+                       "Informix NO recibe REST, SOAP, ISO 8583 ni SFTP directo.",
+        "unity_relation": "coexists", "core_path": 1,
+        "discovered_via": "barrido-documental-2026-08-19",
+        "notes": "Las 3 vias al core: (1) conexion directa ODBC/JDBC/SPL, (2) InterAct, (3) IBM BUS.",
+    },
+    {
+        "id": "IBM-BUS", "name": "IBM Business Integration Bus (IIB/ACE)", "acronym": "IBM BUS",
+        "type": "middleware", "provider": "IBM", "platform": "On-premise",
+        "description": "ESB corporativo. Una de las 3 unicas vias validas al core Informix/SIF. "
+                       "Alternativa: IBM App Connect Enterprise (ACE).",
+        "unity_relation": "coexists", "core_path": 1,
+        "discovered_via": "barrido-documental-2026-08-19",
+        "notes": "Una de las 2 migraciones de middleware: IBM BUS/InterAct a MuleSoft (ESB) "
+                 "y Apigee a MuleSoft (gateway). Son migraciones distintas, no una sola.",
+    },
+    {
+        "id": "ATLAS", "name": "ATLAS  --  Master Data Management", "acronym": "ATLAS",
+        "type": "mdm", "provider": "Por confirmar", "platform": "GCP (AlloyDB + Cloud Run + Vertex AI)",
+        "description": "MDM de grupo (retail Coppel + banco + Afore), no solo bancario. "
+                       "Usa AlloyDB para el Golden Record, Cloud Run, Vertex AI Vector Search para "
+                       "fuzzy matching y Apigee como gateway. ATLAS esta en GCP, NO en AWS. "
+                       "La carga inicial de Informix hacia ATLAS no aparece en ningun documento.",
+        "unity_relation": "complementary", "core_path": 0,
+        "discovered_via": "barrido-documental-2026-08-19",
+        "notes": "Candidato receptor del Golden Record post-Informix. Decision critica L-03 (TDC-R3 dependency).",
+    },
+    {
+        "id": "DATASTAGE", "name": "IBM InfoSphere DataStage", "acronym": "DataStage",
+        "type": "middleware", "provider": "IBM", "platform": "On-premise",
+        "description": "Plataforma ETL corporativa. Alimenta el DWH para reportes regulatorios. "
+                       "Carpeta UTR-UNITY_TRANSACT ya existente en produccion (hallazgo CTM brain). "
+                       "Exodus Ola 6 migra DataStage hacia Snowflake o Databricks.",
+        "unity_relation": "data-source", "core_path": 0,
+        "discovered_via": "ctm-brain + barrido-documental-2026-08-19",
+        "notes": "IC-83 (riesgo abierto): los pipelines DataStage se rompen al decomisar Informix.",
+    },
+    {
+        "id": "BAJAWARE", "name": "Bajaware  --  Motor de Reportes", "acronym": "Bajaware",
+        "type": "rules-engine", "provider": "Por confirmar", "platform": "On-premise",
+        "description": "Motor de generacion de reportes regulatorios CNBV. "
+                       "Declarado en el documento CNBV como motor de generacion junto con RiskLogic. "
+                       "En proceso de Baja - Decomiso Fecha 1er Bimestre 2027.",
+        "unity_relation": "to-decommission", "core_path": 0,
+        "discovered_via": "barrido-documental-2026-08-19",
+        "notes": "RIESGO CRITICO: el doc CNBV lo requiere activo mientras el banco lo esta decommisionando.",
+    },
+    {
+        "id": "RISKLOGIC", "name": "RiskLogic  --  Motor de Reportes", "acronym": "RiskLogic",
+        "type": "rules-engine", "provider": "Por confirmar", "platform": "On-premise",
+        "description": "Motor de generacion de reportes regulatorios CNBV. "
+                       "Par de Bajaware en la cadena de reportes. "
+                       "Candidato natural a reemplazar Bajaware en decomiso.",
+        "unity_relation": "coexists", "core_path": 0,
+        "discovered_via": "barrido-documental-2026-08-19",
+        "notes": "Definir si RiskLogic absorbe el scope de Bajaware post-decomiso.",
+    },
+    {
+        "id": "BRM-WEBMETHODS", "name": "WebMethods BRM (Software AG)", "acronym": "BRM",
+        "type": "rules-engine", "provider": "Software AG", "platform": "On-premise",
+        "description": "Uno de los 3 referentes distintos del acronimo BRM en el corpus. "
+                       "No confundir con Experian BRM ni con BRM Coppel.",
+        "unity_relation": "unknown", "core_path": 0,
+        "discovered_via": "barrido-documental-2026-08-19",
+        "notes": "Ambiguedad documentada: BRM tiene 3 referentes diferentes en la documentacion de Unity.",
+    },
+    {
+        "id": "BRM-EXPERIAN", "name": "Experian BRM  --  Motor de Evaluacion", "acronym": "BRM",
+        "type": "rules-engine", "provider": "Experian", "platform": "Por confirmar",
+        "description": "Motor de evaluacion crediticia. Segundo de los 3 referentes del acronimo BRM.",
+        "unity_relation": "unknown", "core_path": 0,
+        "discovered_via": "barrido-documental-2026-08-19",
+        "notes": "No confundir con WebMethods BRM ni con BRM Coppel.",
+    },
+    {
+        "id": "BRM-COPPEL", "name": "BRM Coppel  --  Web Service Red Coppel", "acronym": "BRM",
+        "type": "other", "provider": "Grupo Coppel", "platform": "Por confirmar",
+        "description": "Web service de la Red Coppel. Tercero de los 3 referentes del acronimo BRM.",
+        "unity_relation": "unknown", "core_path": 0,
+        "discovered_via": "barrido-documental-2026-08-19",
+        "notes": "No confundir con los motores de reglas BRM externos.",
+    },
+    {
+        "id": "ONBASE-PROMETEO", "name": "OnBase / Prometeo  --  Gestion Documental", "acronym": None,
+        "type": "document-mgmt", "provider": "Hyland (OnBase) / Por confirmar (Prometeo)",
+        "platform": "Por confirmar",
+        "description": "Sistema de gestion documental. Aparecen fusionados en un inventario y "
+                       "separados en otro, con stacks incompatibles.",
+        "unity_relation": "unknown", "core_path": 0,
+        "discovered_via": "barrido-documental-2026-08-19",
+        "notes": "Ambiguedad: inventarios inconsistentes. Confirmar si son un solo sistema o dos distintos.",
+    },
+    {
+        "id": "BLUE-PRISM", "name": "Blue Prism  --  RPA (bots EY)", "acronym": "BluePrism",
+        "type": "rpa", "provider": "Blue Prism / EY", "platform": "On-premise",
+        "description": "Bots RPA operados por EY. Hostnames: BluePrismEYR1Mty, BluePrismEYR2Cul, "
+                       "BluePrismEYR4Cul. NO son releases de EY  --  son bots de automatizacion.",
+        "unity_relation": "unknown", "core_path": 0,
+        "discovered_via": "barrido-documental-2026-08-19",
+        "notes": "Falso positivo a evitar: los hostnames parecen releases EY pero son bots Blue Prism.",
+    },
+]
+
+# -- Hallazgos del barrido documental 2026-08-19 (v1.2.0) --------------------
+# 257 documentos del corpus de Unity revisados. Hallazgos que cambian el analisis.
+AUDIT_FINDINGS = [
+    # Cifras huerfanas  --  NO usar sin calificar su procedencia
+    {
+        "id": "AUD-CF-001", "category": "cifra-huerfana",
+        "title": "128 aplicaciones de PISA",
+        "description": "Cifra sin fuente primaria verificable y sobre-atribuida. La version previa del mismo "
+                       "deck decia 114, sin que cambiara ninguna fuente. Inventarios reales dicen 116, 124, "
+                       "125 y 129, y son totales del legado del banco, no de PISA.",
+        "impact": "high", "status": "open",
+        "source_doc": "multiples decks Unity, sin fuente primaria",
+        "notes": "No usar. Derivar del inventario canonico si es necesaria la cifra.",
+    },
+    {
+        "id": "AUD-CF-002", "category": "cifra-huerfana",
+        "title": "13,000-14,000 SPLs sin mapear",
+        "description": "Cifra huerfana. Solo aparece en 4 documentos de Accenture que se citan entre si. "
+                       "El inventario del banco (Inventario_bdanalisis, ago-2026) suma 17,380 SPs declarados. "
+                       "Exodus dice 7,480 y tambien '10,000+'. Nuestro parseo de codigo fuente: 10,144.",
+        "impact": "high", "status": "open",
+        "source_doc": "Design Authority v1.2 (sin fuente primaria)",
+        "notes": "La unica cifra con base empirica es 10,144 (parseo codigo fuente). Defender esa.",
+    },
+    {
+        "id": "AUD-CF-003", "category": "cifra-huerfana",
+        "title": "80 SUDs ejecutan SPL",
+        "description": "Error de categoria. El dato real es: 80 de 88 System Understanding Documents "
+                       "(documentos de Accenture) referencian Informix, OLTP o SPL. "
+                       "Un SUD es un documento, no un sistema del banco.",
+        "impact": "medium", "status": "resolved",
+        "source_doc": "Design Authority v1.2",
+        "notes": "Corregido en la redaccion del Plan Director. No usar la formulacion original.",
+    },
+    # Correcciones aplicadas
+    {
+        "id": "AUD-COR-001", "category": "correccion",
+        "title": "TDC Clasica Digital -> Tarjeta de Credito",
+        "description": "El nombre oficial del producto es 'Tarjeta de Credito', no 'TDC Clasica Digital'. "
+                       "Aplicado en todos los DTs, CLAUDE.md, portal y brain el 2026-08-19.",
+        "impact": "medium", "status": "resolved",
+        "source_doc": "Equipo BanCoppel confirmado 2026-08-19",
+        "notes": "Todos los artefactos actualizados.",
+    },
+    {
+        "id": "AUD-COR-002", "category": "correccion",
+        "title": "MCI = Meses Con Intereses (no Motor de Credito Institucional)",
+        "description": "MCI en el contexto de Unity R4 significa Meses Con Intereses (funcionalidad de "
+                       "financiamiento). No es el Motor de Credito Institucional.",
+        "impact": "medium", "status": "resolved",
+        "source_doc": "dt-cronograma.md, plan de julio",
+        "notes": "Backend MCI en R4; App en R4.5 (o R5, fuentes contradictorias).",
+    },
+    {
+        "id": "AUD-COR-003", "category": "correccion",
+        "title": "TRNT es tipo de transaccion SmartVista, Temenos Transact NO participa en P4900",
+        "description": "TRNT en el contexto del ciclo contable del Producto 4900 es el tipo de transaccion "
+                       "contable interno de SmartVista (ej. T623 es una transaccion SIWEB, no de SmartVista). "
+                       "Temenos Transact no participa en el ciclo del Producto 4900 (TDC). "
+                       "La cadena contable real es: SVBO -> SVXP (XML) -> PISA.",
+        "impact": "high", "status": "resolved",
+        "source_doc": "Conciliacion automatica PISA - SmartVista (SV).docx, 16-nov-2023",
+        "notes": "Actualizado en dt-smartvista.md y capability_routing del brain.",
+    },
+    {
+        "id": "AUD-COR-004", "category": "correccion",
+        "title": "Informix v14.10 (documentacion Unity dice v12)",
+        "description": "El corpus de Unity dice 'Informix 12' y 'Informix 12.10'. "
+                       "El log de la instancia productiva dice: IBM Informix Dynamic Server Version "
+                       "14.10.FC10W2 -- On-Line (Prim) -- Up. La instancia prevalece.",
+        "impact": "medium", "status": "resolved",
+        "source_doc": "systems/core/Informix/source/logs/ifmx_stats_coppel_shm_*.txt",
+        "notes": "Siempre citar v14.10 en artefactos. La documentacion del programa esta desactualizada.",
+    },
+    {
+        "id": "AUD-COR-005", "category": "correccion",
+        "title": "EY tiene alcance R4 y no sale del programa",
+        "description": "La palabra 'incumbente' no existe en el corpus. EY tiene alcance declarado en R4 "
+                       "('R4 - Originaciones de procesos', 'R4 - Pago de Creditos/Amortizaciones'). "
+                       "Figura como colaborador del Master Test Plan. "
+                       "Redaccion defendible: EY es responsable de la arquitectura objetivo de Transact "
+                       "(ARQ-10, E-AQ-EY) y su alcance contractual en R4 no esta documentado.",
+        "impact": "high", "status": "resolved",
+        "source_doc": "Documento de arquitectura EY, Master Test Plan",
+        "notes": "Actualizado en CLAUDE.md Unity. Mantener alerta de competidor pero sin sobrepresentar.",
+    },
+    # Hallazgos nuevos
+    {
+        "id": "AUD-HAL-001", "category": "hallazgo",
+        "title": "Golden Record vive en Informix/SIF, no en ATLAS ni Transact",
+        "description": "Cita del documento CNBV: 'El cliente se generara en la base de datos de Informix "
+                       "(PISA) donde BanCoppel utilizara esta base de datos para almacenar el Golden Record "
+                       "del cliente'. ATLAS (AlloyDB/GCP) es candidato receptor en Fase 2 (sep-2026, sin "
+                       "diseno). La carga inicial de Informix hacia ATLAS no aparece en ningun documento.",
+        "impact": "critical", "status": "open",
+        "source_doc": "Documento de Arquitectura UNITY_v1.0.docx",
+        "notes": "El decomiso de PISA esta bloqueado por la propiedad del Golden Record, al mismo nivel "
+                 "que por los stored procedures. Anadir al analisis de desacoplamiento.",
+    },
+    {
+        "id": "AUD-HAL-002", "category": "hallazgo",
+        "title": "Exodus es un programa separado de Unity",
+        "description": "Exodus = migracion de datacenters Mexico a la nube 2026-2030, 6 olas. "
+                       "El apagado de Informix esta en Exodus Ola 6 (2029-H2), no en Unity. "
+                       "Ningun documento de Exodus menciona Unity. "
+                       "IMPLICACION: el business case de Unity que incluye 'el decomiso de PISA' "
+                       "descansa sobre el roadmap de otro programa sin dueno compartido.",
+        "impact": "critical", "status": "watchlist",
+        "source_doc": "Informe Ejecutivo Exodus BanCoppel",
+        "notes": "Brain de Exodus en projects/exodus/. 30 apps, 6 olas, 7 preguntas abiertas.",
+    },
+    {
+        "id": "AUD-HAL-003", "category": "hallazgo",
+        "title": "Contradiccion API gateway: Apigee EOL 2027 (Unity) vs mantener Apigee (Exodus Ola 1)",
+        "description": "Plan Director Unity: Apigee EOL 2027, migracion a MuleSoft 'en curso' sin plan ni "
+                       "inventario. Exodus Ola 1: 'Mantener y migrar su gateway a Apigee'. "
+                       "Lineamientos StackTech 11-ago-2026: 'Apigee / WSO2 API Manager' (sin MuleSoft). "
+                       "Son ademas 2 migraciones distintas: Apigee->MuleSoft (gateway) e IBM BUS->MuleSoft (ESB).",
+        "impact": "high", "status": "open",
+        "source_doc": "Plan Director Unity + Exodus Informe + StackTech Guidelines 2026-08-11",
+        "notes": "Escalar al arquitecto principal. Decisiones incompatibles entre programas.",
+    },
+    {
+        "id": "AUD-HAL-004", "category": "hallazgo",
+        "title": "Autorreferencia en entregables Accenture: 4 de 5 banderas rojas del legado sin sustento independiente",
+        "description": "Cuatro banderas rojas del legado se sostienen solo en entregables Accenture "
+                       "(Design_Authority_v1.2 + Catalogo Interoperabilidad v0.1) que se citan mutuamente. "
+                       "La unica con respaldo independiente es el decomiso de PISA (pptx BanCoppel 6-jul-2026). "
+                       "Riesgo: si el cliente audita el Plan Director, 4 de 5 banderas resultan autorreferenciales.",
+        "impact": "high", "status": "watchlist",
+        "source_doc": "Design_Authority_v1.2.pptx, Catalogo Interoperabilidad v0.1",
+        "notes": "Regla derivada: antes de presentar una cifra del legado al cliente, verificar si "
+                 "su unica fuente somos nosotros. Ver CLAUDE.md Unity seccion Barrido.",
+    },
+    {
+        "id": "AUD-HAL-005", "category": "hallazgo",
+        "title": "Numeracion de releases es por plataforma, no del programa",
+        "description": "No existe un tren unico R1->R5 del programa. Transact tiene R1-R4, "
+                       "SmartVista tiene R3/R4/R4.5. Coexisten dos 'R4' simultaneos en plataformas distintas. "
+                       "El Credito Simple Empresarial esta en R1 del producto corriendo sobre Transact R4.",
+        "impact": "medium", "status": "resolved",
+        "source_doc": "Design_Authority_v1.2 slide 7, equipo 2026-08-19",
+        "notes": "Aplicar al interpretar cualquier hito o entregable: siempre especificar plataforma.",
+    },
+    # Ambiguedades
+    {
+        "id": "AUD-AMB-001", "category": "ambiguedad",
+        "title": "BRM tiene 3 referentes distintos",
+        "description": "BRM puede ser: (1) WebMethods BRM de Software AG, (2) Experian BRM motor de "
+                       "evaluacion, (3) BRM Coppel web service de Red Coppel. Nunca asumir cual sin contexto.",
+        "impact": "medium", "status": "watchlist",
+        "source_doc": "multiples documentos del corpus",
+        "notes": "Desambiguar en cada mencion. Ver legacy_systems: BRM-WEBMETHODS, BRM-EXPERIAN, BRM-COPPEL.",
+    },
+    {
+        "id": "AUD-AMB-002", "category": "ambiguedad",
+        "title": "SOC tiene 2 expansiones incompatibles",
+        "description": "'Sistema Operativo Central' (uso mayoritario) vs 'Sistema de Operacion Central'.",
+        "impact": "low", "status": "watchlist",
+        "source_doc": "multiples documentos del corpus",
+        "notes": "Usar 'Sistema Operativo Central' como expansion canonica.",
+    },
+    {
+        "id": "AUD-AMB-003", "category": "ambiguedad",
+        "title": "BPC se expande mal como 'Banking Payments Context'",
+        "description": "El documento de arquitectura usa 'Banking Payments Context' para BPC. "
+                       "La razon social correcta es BPC Banking Technologies.",
+        "impact": "low", "status": "resolved",
+        "source_doc": "Documento de Arquitectura UNITY_v1.0.docx",
+        "notes": "Usar siempre 'BPC Banking Technologies'.",
+    },
+    # Datos requeridos
+    {
+        "id": "AUD-DR-001", "category": "dato-requerido",
+        "title": "Credito Simple Empresarial = Prestamo Simple?",
+        "description": "El Design Authority lo llama 'Prestamo Simple'; el documento CNBV lo llama "
+                       "'Credito Simple Empresarial'. Podrian ser el mismo producto o dos distintos.",
+        "impact": "high", "status": "open",
+        "source_doc": "Design Authority v1.2 + Documento de Arquitectura UNITY_v1.0.docx",
+        "notes": "Confirmar con PMO antes de tratar como sinonimos en cualquier artefacto.",
+    },
+    {
+        "id": "AUD-DR-002", "category": "dato-requerido",
+        "title": "L-07: discrepancia EY vs roadmap en fechas Transact R1 y R2",
+        "description": "Discrepancia declarada entre el documento de EY y el roadmap maestro sobre "
+                       "las fechas de Transact R1 y R2.",
+        "impact": "medium", "status": "open",
+        "source_doc": "Design Authority v1.2 (L-07)",
+        "notes": "Confirmar con equipo EY / PMO Unity.",
+    },
+    {
+        "id": "AUD-DR-003", "category": "dato-requerido",
+        "title": "Releases R1-R3 de captacion: pertenecen a Unity o al legado?",
+        "description": "Cuenta Efectiva N2, CED N4 y Nomina N4 estan en produccion sobre Transact pero "
+                       "no aparecen en el documento formal de alcance CNBV. El Roadmap 2025 los etiqueta "
+                       "como 'CUENTAS - N2/N4 (Legado)'. Confirmar si son releases de Unity o producciones "
+                       "independientes de Transact.",
+        "impact": "medium", "status": "open",
+        "source_doc": "Roadmap Unity 2025.pptx",
+        "notes": "Impacta la presentacion publica del programa y los conteos de productos en produccion.",
+    },
 ]
 
 INITIAL_ASSUMPTIONS = [
@@ -1456,7 +2063,7 @@ INITIAL_MILESTONES = [
     },
     {
         "id":           "MS-UNITY-006",
-        "name":         "Go-Live Producto 4900  --  TDC Clasica Digital",
+        "name":         "Go-Live Producto 4900  --  Tarjeta de Credito",
         "target_date":  "2027-01-15",
         "status":       "pending",
         "component_id": None,
@@ -1466,10 +2073,10 @@ INITIAL_MILESTONES = [
 
 INITIAL_VOCABULARY = [
     # Negocio
-    ("Producto 4900",   "Tarjeta de Credito Clasica Digital de BanCoppel. Numero de credito de 18 digitos (cuenta clave = clave interbancaria).", "negocio", "minutas"),
+    ("Producto 4900",   "Tarjeta de Credito de BanCoppel. Numero de credito de 18 digitos (cuenta clave = clave interbancaria).", "negocio", "minutas"),
     ("Parcializaciones","Meses Con Intereses (MSI) y Meses Con Intereses variables (MCI)  --  esquemas de pago en parcialidades.", "negocio", "minutas"),
     ("Maquila",         "Fabricacion de tarjetas plasticas. Proveedores: Forza, TGS, Tales. Archivo de maquila se envia via Connect Direct.", "negocio", "minutas"),
-    ("Cuenta clave",    "Clave interbancaria de 18 digitos que identifica unicamente la TDC Clasica Digital.", "negocio", "minutas"),
+    ("Cuenta clave",    "Clave interbancaria de 18 digitos que identifica unicamente la Tarjeta de Credito.", "negocio", "minutas"),
     ("eGlobal",         "Equipo de BanCoppel que prueba las 88 reglas del autorizador ISO 8583 (validacion de transacciones en SmartVista).", "negocio", "minutas"),
     # Proceso
     ("DTM",             "Diseno Tecnico de Microservicio. Documento que define flujo, componentes involucrados y contratos de un microservicio.", "proceso", "minutas"),
@@ -1522,7 +2129,7 @@ INITIAL_VOCABULARY = [
     ("PPNGI",           "Pago Para No Generar Intereses: monto minimo que evita cargos de interes al periodo siguiente.", "negocio", "sv-canales"),
     ("MAD",             "Monto minimo a pagar del periodo. Distinto del PPNGI; si se paga solo el MAD se generan intereses.", "negocio", "sv-canales"),
     ("Credito 18 digitos","Numero interno de SmartVista que identifica el contrato de TDC. Diferente al PAN de 16 digitos del plastico.", "tecnico", "sv-canales"),
-    ("BIN 4268 0711",   "BIN del Producto 4900  --  TDC Clasica Digital R4. BIN 426807, producto 11.", "negocio", "sv-canales"),
+    ("BIN 4268 0711",   "BIN del Producto 4900  --  Tarjeta de Credito R4. BIN 426807, producto 11.", "negocio", "sv-canales"),
     ("subBIN R4",       "BIN 426807 producto 11: digito 8vo posicion 0-4 = tarjeta digital; posicion 5-9 = tarjeta fisica.", "tecnico", "sv-canales"),
     # APIs SVIP
     ("getInstantCreditStatement","API SVIP: estado de cuenta en tiempo real (saldo, limite, disponible, PPNGI, MAD, fechas de corte/pago).", "tecnico", "sv-canales"),
@@ -1567,8 +2174,14 @@ INITIAL_VOCABULARY = [
     ("Autorizador 88-reglas","Modulo de SmartVista: Modulo 1 rechaza por codigo ISO; Modulo 2 evalua riesgo via PayTrue.", "tecnico", "sv-canales"),
     ("PreGame",         "Fase de pre-analisis que dictamina cada HDU contra la documentacion de la plataforma SmartVista. Responsable: Appwhere.", "proceso", "sv-canales"),
     ("HDU",             "Historia de Usuario Detallada: unidad de trabajo de SmartVista y Canales. R4 tiene 59 HDUs en 4 canales.", "proceso", "sv-canales"),
-    ("Producto 4900",   "TDC Clasica Digital de BanCoppel, unico producto en scope de R4. BIN 4268 0711.", "negocio", "sv-canales"),
-    ("Producto 11",     "Codigo de producto SmartVista para el Producto 4900 (TDC Clasica Digital). BIN 426807 producto 11.", "tecnico", "sv-canales"),
+    ("Producto 4900",   "Tarjeta de Credito de BanCoppel, unico producto en scope de R4. BIN 4268 0711.", "negocio", "sv-canales"),
+    ("Producto 11",     "Codigo de producto SmartVista para el Producto 4900 (Tarjeta de Credito). BIN 426807 producto 11.", "tecnico", "sv-canales"),
+    # v1.1.0  --  siglas de release. F&F y F&D NO son la misma sigla y confundirlas
+    # produjo un error real: leer "TDC R3 F&F" como si R3 fuera un piloto y no la tarjeta fisica.
+    ("F&F",              "Friends & Family: MODO DE LIBERACION acotado a empleados y allegados antes de la disponibilidad general, opuesto a 'Manos del Cliente'. Es el COMO se libera, no el QUE. 'TDC R3 F&F' = el release de tarjeta FISICA liberado en modo Friends & Family: las dos cosas a la vez. No confundir con F&D.", "proceso", "roadmap-unity-2025 + design-authority-v1.2"),
+    ("Friends & Family", "Ver F&F. El Roadmap Unity 2025 contrapone 'Onboarding TDC Digital (Friends & Family)' con 'Onboarding TDC Digital (Manos del Cliente)' y 'TDC Digital y Fisica + Autorizador (Manos del Cliente)'. Aplica sobre un release, no lo sustituye.", "proceso", "roadmap-unity-2025"),
+    ("Manos del Cliente","Modo de liberacion con disponibilidad general al cliente final, opuesto al piloto Friends & Family.", "proceso", "roadmap-unity-2025"),
+    ("F&D",              "Fisica y Digital: convivencia de la tarjeta fisica y la digital en el mismo producto. Denota la FORMA del plastico, no un modo de liberacion. Los User Stories de Jira del canal App etiquetados 'Convivencia TDC F&D' se refieren a esto. No confundir con F&F.", "negocio", "respaldo-app-jira"),
 ]
 
 # â"€â"€ HDU Catalog  --  Fuente: HDU_R4_CANALES APP_SIWEB_CATT_SMARTVISTA.xlsx â"€â"€â"€â"€â"€â"€
@@ -2002,7 +2615,7 @@ INITIAL_DECISIONS = [
         "id":          "ADR-UNITY-004",
         "title":       "SmartVista (BPC) como plataforma de gestion de tarjetas en R4",
         "status":      "accepted",
-        "context":     "Unity R4 entrega Producto 4900 (TDC Clasica Digital). Se requiere un sistema de gestion de tarjetas que reemplace CMS/Intercard.",
+        "context":     "Unity R4 entrega Producto 4900 (Tarjeta de Credito). Se requiere un sistema de gestion de tarjetas que reemplace CMS/Intercard.",
         "decision":    "Adoptar SmartVista de BPC Banking Technologies como el motor de gestion de tarjetas para el Producto 4900.",
         "consequences": "CMS/Intercard/Macweb quedan como sistemas a retirar post-Go-Live. eGlobal valida 88 reglas ISO 8583 contra SmartVista.",
         "date":        "2026-01-01",
@@ -2031,12 +2644,24 @@ def load_products(con: sqlite3.Connection) -> None:
         con.execute("""
             INSERT OR REPLACE INTO products
                 (id, name, description, status, launch_date, temenos_module,
-                 etb_capabilities, informix_domains, coexistence_mode, notes)
+                 etb_capabilities, informix_domains, coexistence_mode, scope, notes)
             VALUES (:id, :name, :description, :status, :launch_date, :temenos_module,
-                    :etb_capabilities, :informix_domains, :coexistence_mode, :notes)
+                    :etb_capabilities, :informix_domains, :coexistence_mode,
+                    :scope, :notes)
         """, p)
     con.commit()
-    print(f"  products          : {len(INITIAL_PRODUCTS)} productos")
+    n_cnbv = sum(1 for p in INITIAL_PRODUCTS if p.get("scope") == "cnbv-scope")
+    print(f"  products          : {len(INITIAL_PRODUCTS)} productos  |  alcance formal CNBV: {n_cnbv}")
+
+
+def load_product_releases(con: sqlite3.Connection) -> None:
+    """v1.1.0  --  tren de releases por producto, con procedencia por fila."""
+    con.executemany(
+        "INSERT OR REPLACE INTO product_releases VALUES (?,?,?,?,?,?,?,?,?,?)",
+        PRODUCT_RELEASES)
+    con.commit()
+    prod = sum(1 for r in PRODUCT_RELEASES if r[5] == "productivo")
+    print(f"  product_releases  : {len(PRODUCT_RELEASES)} releases  |  en productivo: {prod}")
 
 
 def load_components(con: sqlite3.Connection) -> None:
@@ -2255,7 +2880,7 @@ def coverage_summary(con: sqlite3.Connection) -> None:
         "SELECT COUNT(*) FROM program_capabilities WHERE coverage_status IN ('native','configurable')"
     ).fetchone()[0]
 
-    print("\n  Unity Brain v0.6.1  --  resumen:")
+    print("\n  Unity Brain v1.2.0  --  resumen:")
     print(f"    Productos live (R1-R3+Rx) : {live}")
     print(f"    En construccion (R4)      : {building}")
     print(f"    Componentes R4            : {comp_tot} ({at_risk_c} en riesgo, {blocked_c} bloqueados)")
@@ -2535,7 +3160,7 @@ CAPABILITY_ROUTING = [
     {"id": "RT-PAY-APP",    "capability_id": "CAP-PAYMENT",               "channel": "app",         "pre_r4_route": "Informix",       "post_r4_route": "SmartVista SVIP",       "switch_mechanism": "feature_flag_producto", "parallel_run": 1, "notes": None},
     {"id": "RT-CHAN-CAT",   "capability_id": "CAP-CHANNEL-SELFSERVICE",   "channel": "cat",         "pre_r4_route": "N/A",            "post_r4_route": "SmartVista SVIP via IVR","switch_mechanism": "feature_flag_producto", "parallel_run": 0, "notes": "CAT sin contratar  --  bloqueado"},
     {"id": "RT-COL-INT",    "capability_id": "CAP-COLLECTIONS-AGING",     "channel": "cobranza",    "pre_r4_route": "Informix",       "post_r4_route": "SmartVista agingPeriod", "switch_mechanism": "feature_flag_producto", "parallel_run": 0, "notes": None},
-    {"id": "RT-ACC-SV",     "capability_id": "CAP-ACCOUNTING-INTEGRATION","channel": "apificacion", "pre_r4_route": "Informix -> PISA",  "post_r4_route": "SmartVista -> TRNT -> PISA",  "switch_mechanism": "feature_flag_producto", "parallel_run": 1, "notes": "Guia contable pendiente"},
+    {"id": "RT-ACC-SV",     "capability_id": "CAP-ACCOUNTING-INTEGRATION","channel": "apificacion", "pre_r4_route": "Informix -> PISA",  "post_r4_route": "SmartVista SVBO libro de saldos; SVXP archivo XML contable; PISA marca conciliado sin cargo ni abono; SOC", "switch_mechanism": "feature_flag_producto", "parallel_run": 1, "notes": "CORREGIDO 2026-08-19. La cadena previa 'SmartVista -> TRNT -> PISA' se leyo mal como si TRNT fuera Temenos Transact. TRNT es el tipo de transaccion contable de reclasificacion DENTRO de SmartVista; el ejemplo T623 que se uso antes es falso, el 623 es una transaccion de SIWEB (PAGO CGO A CTA DE CREDISOLUCIONES). Temenos Transact NO participa en el ciclo del Producto 4900. La frontera contable real es SVBO -> SVXP (archivo XML) -> PISA: la contabilidad PERMANECE en PISA. Para el BIN 42680711 la conciliacion es solo informativa: PISA registra y marca conciliado pero NO genera cargo ni abono, porque credito, saldos y asignacion de tarjeta viven en SmartVista; tampoco genera archivo ni reporte posterior. El BCPLPNC SI contiene los 4 bines; lo excluido es la AFECTACION de cuentas del subproducto 11. Guia contable pendiente; PP-TRNT-PAGOS al 0%. Fuente: Conciliacion automatica PISA - SmartVista (SV).docx, 16-nov-2023: revalidar vigencia contra el diseno R4."},
 ]
 
 
@@ -2636,9 +3261,20 @@ PLAN_PROGRESS = [
      "activity": "Avance Real Global Unity R4",
      "responsible": "Maria Fernanda Barbosa (LÃ­der de Control)",
      "start_date": None, "end_date": None,
-     "pct_real": 20.66, "pct_expected": 34.0, "deviation": -13.34,
-     "status": "delayed", "blocker_note": "Retrasado 13.34pp. 6 tracks con desviaciÃ³n negativa.",
-     "as_of_date": "2026-08-16"},
+     # CORREGIDO 2026-08-20. Se usaba 20.66% vs 34.0% con corte 2026-08-16: las tres cifras
+     # estaban mal. El 34% no existe en ningun documento; el esperado del corte 12-ago era
+     # 31.72%; y existe un corte POSTERIOR, el del 17-ago, que es el que se carga aqui.
+     "pct_real": 21.19, "pct_expected": 60.58, "deviation": -39.39,
+     "status": "delayed",
+     "blocker_note": "Retrasado 39.39pp al corte 17-ago-2026. SERIE: corte 12-ago = 20.66% real vs "
+                     "31.72% esperado; corte 17-ago = 21.19% real vs 60.58% esperado. El salto del "
+                     "esperado de 31.72% a 60.58% en 5 dias indica que se RECALCULARON LAS LINEAS "
+                     "BASE, no que el programa avanzara. TRAMPA DE ARCHIVO: el corte 17-ago vive en "
+                     "'Plan de Trabajo UNITY R4_200726.xlsx', cuyo nombre sugiere 20-jul; hay que leer "
+                     "el campo 'Corte de Informacion', nunca el nombre del archivo. Ese mismo archivo "
+                     "reporta en otra hoja un par distinto para el mismo corte (10.27% vs 67.07%), "
+                     "inconsistencia interna sin resolver.",
+     "as_of_date": "2026-08-17"},
 
     # â"€â"€ CANAL: SMARTVISTA â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     {"id": "PP-SV", "track": "smartvista", "activity_id": "1",
@@ -2698,7 +3334,10 @@ PLAN_PROGRESS = [
      "activity": "DefiniciÃ³n de TRNTs Pagos",
      "responsible": "BPC",
      "start_date": "2026-07-27", "end_date": "2026-08-13",
-     "pct_real": 0.0, "pct_expected": 100.0, "deviation": -100.0,
+     "pct_real": 0.0, "pct_expected": 92.86, "deviation": -92.86,
+     # CORREGIDO 2026-08-19: 13 de 14 dias habiles al corte 12-ago, no 100%.
+     # Fecha limite REAL 2026-08-13, ya vencida. En el plan con corte 17-ago la actividad
+     # ya no existe: la estructura del subtrack cambio, asi que no hay dato de cierre.
      "status": "delayed",
      "blocker_note": "CRÃTICO: 0% vs 100% esperado. Bloquea configuraciÃ³n contable de pagos.",
      "as_of_date": "2026-08-16"},
@@ -4001,6 +4640,65 @@ HU_INVENTORY = [  # 76 HUs con scoring completo
         "complejidad": "Baja",
         "source_doc": "Consolidacion y priorizacion_HUs_R4_v2.xlsx"
     },
+    # ── v1.1.0: 3 HUs Must de "Encendido y Apagado TDC Física y Digital".
+    # Estas filas existen en el xlsx pero SIN valor en la columna "ID HU": el cargador
+    # anterior las descartaba. ID sintético APP-ENC-nn. Sin ticket Jira en la fuente.
+    # El deck del 11-ago-2026 confirma que APP tiene 18 HUs (15 Must, 1 Could, 2 Won't) y
+    # su cronograma las agrupa como "Encendido y Apagado TDC F&D (3HUs 100% M)".
+    # Las 3 no tienen fecha de implementación confirmada por el impacto en cascada del
+    # retraso de las 3 primeras HUs del track (dependencia de diseño UX, ambientes y
+    # enrolamiento del equipo).
+    {
+        "id": "APP-ENC-01",
+        "track": "app",
+        "title": "Encendido, Apagado y Bloqueo Operativo - Tarjeta de Crédito Digital (Originación Apolo)",
+        "producto": "TDC",
+        "funcionalidad": "Encendido y Apagado TDC Física y Digital",
+        "moscow": "must",
+        "tipo_solucion": "Solución",
+        "impacto_solucion": "Desarrollo",
+        "reusabilidad": "Componentes existentes reutilizables >80%",
+        "num_integraciones": 0,
+        "num_criterios": 7,
+        "num_pantallas": 2,
+        "score_ponderado": 1.9,
+        "complejidad": "Media",
+        "source_doc": "Consolidacion y priorizacion_HUs_R4_v2.xlsx (fila sin ID HU; sin ticket Jira)"
+    },
+    {
+        "id": "APP-ENC-02",
+        "track": "app",
+        "title": "Encendido, Apagado y Bloqueo Operativo - Tarjeta de Crédito Física (Originación Apolo)",
+        "producto": "TDC",
+        "funcionalidad": "Encendido y Apagado TDC Física y Digital",
+        "moscow": "must",
+        "tipo_solucion": "Solución",
+        "impacto_solucion": "Desarrollo",
+        "reusabilidad": "Componentes existentes reutilizables >80%",
+        "num_integraciones": 0,
+        "num_criterios": 6,
+        "num_pantallas": 2,
+        "score_ponderado": 1.9,
+        "complejidad": "Media",
+        "source_doc": "Consolidacion y priorizacion_HUs_R4_v2.xlsx (fila sin ID HU; sin ticket Jira)"
+    },
+    {
+        "id": "APP-ENC-03",
+        "track": "app",
+        "title": "Encendido, Apagado y Bloqueo Operativo - Tarjeta de Crédito Física (Originación Legado)",
+        "producto": "TDC",
+        "funcionalidad": "Encendido y Apagado TDC Física y Digital",
+        "moscow": "must",
+        "tipo_solucion": "Solución",
+        "impacto_solucion": "Desarrollo",
+        "reusabilidad": "Componentes existentes reutilizables >80%",
+        "num_integraciones": 0,
+        "num_criterios": None,   # la fila del xlsx no trae criterios para esta HU
+        "num_pantallas": 2,
+        "score_ponderado": 1.45,
+        "complejidad": "Baja",
+        "source_doc": "Consolidacion y priorizacion_HUs_R4_v2.xlsx (fila sin ID HU; sin ticket Jira)"
+    },
     {
         "id": "SMART-4219",
         "track": "app",
@@ -4594,7 +5292,7 @@ TRACK_RAG = [  # 5 tracks RAG desde PPTX 11-ago-2026
         "hu_could": 0,
         "hu_wont": 1,
         "integraciones_count": 7,
-        "rag_general": "Maquila y Homologacion de Comisiones omnicanal no cierran antes del 15-Oct.",
+        "rag_general": "CONFIRMADO 2026-08-19: amarillo en las tres dimensiones. Maquila y Homologacion de Comisiones omnicanal no cierran antes del 15-Oct.",
         "rag_solucion": "18 HUs con fechas comprometidas. Diferimiento MCI al 27-Nov sin impacto en SIT.",
         "rag_integraciones": "Inventario pendiente de Validar y completar con APIficacion y SIWEB. DTMs Comisiones sin fecha.",
         "tipo_solucion_detail": "15 Solucion + 6 Solucion+Integracion + 1 Integracion",
@@ -4604,14 +5302,14 @@ TRACK_RAG = [  # 5 tracks RAG desde PPTX 11-ago-2026
     },
     {
         "track": "app",
-        "rag_color": "red",
+        "rag_color": "yellow",
         "hu_total": 18,
         "hu_must": 15,
         "hu_should": 0,
         "hu_could": 1,
         "hu_wont": 2,
         "integraciones_count": 4,
-        "rag_general": "6 HUs Must cierran implementacion 6-20 Nov — riesgo directo sobre SIT y Go-live enero.",
+        "rag_general": "CORREGIDO 2026-08-19: RAG GENERAL = AMARILLO, no rojo. El rojo aplica solo a la dimension INTEGRACIONES. El deck 11-ago tiene 3 semaforos por track y accent2 del tema = F0D224 (amarillo). 6 HUs Must cierran implementacion 6-20 Nov — riesgo directo sobre SIT y Go-live enero.",
         "rag_solucion": "10 HUs analisis completado. 8 cierran ago-sep. 2 HUs sin fechas de implementacion confirmadas.",
         "rag_integraciones": "4 integraciones API identificadas. Inventario en consolidacion. Sin detalles tecnicos de volumenes/tiempos.",
         "tipo_solucion_detail": "10 Solucion + 4 Solucion+Integracion + 4 Integracion",
@@ -4628,7 +5326,7 @@ TRACK_RAG = [  # 5 tracks RAG desde PPTX 11-ago-2026
         "hu_could": 0,
         "hu_wont": 0,
         "integraciones_count": 7,
-        "rag_general": "Doble bloqueo: proveedor sin contratar y DTMs sin responsable confirmado.",
+        "rag_general": "CONFIRMADO 2026-08-19: unico track ROJO en las TRES dimensiones. Doble bloqueo: proveedor sin contratar y DTMs sin responsable confirmado.",
         "rag_solucion": "Cero fechas de implementacion. Proveedor entra ~mid-Sep con 1 mes onboarding — inicio real coincide con SIT.",
         "rag_integraciones": "Sin fechas ni responsable de DTMs confirmado. Pendiente trazabilidad completa de integraciones.",
         "tipo_solucion_detail": "5 Solucion + 7 Solucion+Integracion",
@@ -4645,7 +5343,7 @@ TRACK_RAG = [  # 5 tracks RAG desde PPTX 11-ago-2026
         "hu_could": 0,
         "hu_wont": 0,
         "integraciones_count": None,
-        "rag_general": "Sin fechas de implementacion confirmadas. 10 semanas construccion desde 18-Ago llegan al 29-Oct — 2 sem. despues del cierre.",
+        "rag_general": "CORREGIDO 2026-08-19: GENERAL y SOLUCION amarillo; ROJO en INTEGRACIONES. Sin fechas de implementacion confirmadas. 10 semanas construccion desde 18-Ago llegan al 29-Oct — 2 sem. despues del cierre.",
         "rag_solucion": "Cero fechas de implementacion. APIficacion entrega DTMs el 18-Ago — a partir de ahi se confirman fechas.",
         "rag_integraciones": "Numero de integraciones pendiente de confirmar con APIficacion. Sesion tecnica acordada.",
         "tipo_solucion_detail": "5 Solucion+Integracion",
@@ -4662,7 +5360,7 @@ TRACK_RAG = [  # 5 tracks RAG desde PPTX 11-ago-2026
         "hu_could": None,
         "hu_wont": None,
         "integraciones_count": None,
-        "rag_general": "Track incluido en roadmap — detalle por HU en Inventario HUs (22 HDUs).",
+        "rag_general": "SIN FUENTE 2026-08-19: el deck 11-ago NO tiene lamina RAG de Apolo ni de Cobranza, solo SmartVista, APP, CAT y SIWEB. Este RAG es inferencia nuestra, sin respaldo documental. NO presentarlo como dato del programa. Track incluido en roadmap — detalle por HU en Inventario HUs (22 HDUs).",
         "rag_solucion": "9 HUs candidatas a simplificacion segun PPTX slide 7 (diferir a R4.1).",
         "rag_integraciones": "Inventario en consolidacion con APIficacion.",
         "tipo_solucion_detail": None,
@@ -4815,7 +5513,7 @@ def load_plan_progress(con: sqlite3.Connection) -> None:
 # â"€â"€ Main â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Unity Project Brain Builder v0.6.1")
+    parser = argparse.ArgumentParser(description="Unity Project Brain Builder v1.1.0")
     parser.add_argument("--reset", action="store_true", help="Borra y reconstruye brain.db")
     args = parser.parse_args()
 
@@ -4827,10 +5525,11 @@ def main() -> None:
     con = sqlite3.connect(str(DB_PATH))
     con.execute("PRAGMA journal_mode=WAL")
 
-    print("Construyendo Unity Project Brain v1.0.0...")
+    print("Construyendo Unity Project Brain v1.2.0...")
     init_db(con)
     load_project_info(con)
     load_products(con)
+    load_product_releases(con)   # v1.1.0  --  tren de releases por producto
     load_components(con)
     load_capabilities(con)   # debe ir antes de hdus/dtms (FK)
     load_risks(con)
@@ -4848,9 +5547,11 @@ def main() -> None:
     load_plan_progress(con)   # v0.7.0  --  Plan de Trabajo corte 16-ago: avance global 20.66%
     load_pv_requirements(con)  # v0.8.0  --  28 RFs Product Vision R4
     load_app_user_stories(con) # v0.9.0  --  13 HUs App canal TDC F&D (Jira SMART-XXXX)
-    load_user_stories_inventory(con)     # v1.0.0  --  76 HUs scoring Accenture (Inventario HUs Excel)
+    load_user_stories_inventory(con)     # v1.1.0  --  79 HUs scoring Accenture (Inventario HUs Excel)
     load_r4_integrations(con)  # v1.0.0  --  18 integraciones R4 cross-track
     load_track_rag(con)        # v1.0.0  --  5 tracks RAG (PPTX Roadmap 11-ago-2026)
+    load_legacy_systems(con)   # v1.2.0  --  14 sistemas legado/ecosistema (barrido documental 2026-08-19)
+    load_audit_findings(con)   # v1.2.0  --  19 hallazgos del barrido (cifras, correcciones, ambiguedades)
     rebuild_fts(con)
     coverage_summary(con)
     semantic_summary(con)     # v0.6.1  --  vista capability_360
@@ -4934,6 +5635,43 @@ def load_track_rag(con) -> None:
     reds    = sum(1 for r in TRACK_RAG if r.get("rag_color") == "red")
     yellows = sum(1 for r in TRACK_RAG if r.get("rag_color") == "yellow")
     print(f"  track_rag         : {len(TRACK_RAG)} tracks  |  red={reds} yellow={yellows}")
+
+
+def load_legacy_systems(con: sqlite3.Connection) -> None:
+    """Carga inventario de sistemas del legado y ecosistema Unity (v1.2.0).
+    Descubiertos en barrido documental 2026-08-19 (257 documentos del corpus).
+    """
+    cols = list(LEGACY_SYSTEMS[0].keys())
+    ph   = ", ".join("?" * len(cols))
+    sql  = f"INSERT OR REPLACE INTO legacy_systems ({', '.join(cols)}) VALUES ({ph})"
+    con.executemany(sql, [tuple(r.get(c) for c in cols) for r in LEGACY_SYSTEMS])
+    con.commit()
+    core_paths = sum(1 for r in LEGACY_SYSTEMS if r.get("core_path"))
+    types: dict[str, int] = {}
+    for r in LEGACY_SYSTEMS:
+        t = r.get("type", "?")
+        types[t] = types.get(t, 0) + 1
+    type_str = " | ".join(f"{t}:{n}" for t, n in sorted(types.items()))
+    print(f"  legacy_systems    : {len(LEGACY_SYSTEMS)} sistemas  |  core_path={core_paths}  |  {type_str}")
+
+
+def load_audit_findings(con: sqlite3.Connection) -> None:
+    """Carga hallazgos del barrido documental 2026-08-19 (v1.2.0).
+    Incluye cifras-huerfanas, correcciones, ambiguedades, hallazgos y datos-requeridos.
+    """
+    cols = list(AUDIT_FINDINGS[0].keys())
+    ph   = ", ".join("?" * len(cols))
+    sql  = f"INSERT OR REPLACE INTO audit_findings ({', '.join(cols)}) VALUES ({ph})"
+    con.executemany(sql, [tuple(r.get(c) for c in cols) for r in AUDIT_FINDINGS])
+    con.commit()
+    by_cat: dict[str, int] = {}
+    for r in AUDIT_FINDINGS:
+        c = r.get("category", "?")
+        by_cat[c] = by_cat.get(c, 0) + 1
+    open_n  = sum(1 for r in AUDIT_FINDINGS if r.get("status") == "open")
+    cat_str = " | ".join(f"{c}:{n}" for c, n in sorted(by_cat.items()))
+    print(f"  audit_findings    : {len(AUDIT_FINDINGS)} hallazgos  |  open={open_n}  |  {cat_str}")
+
 
 if __name__ == "__main__":
     main()

@@ -8,7 +8,7 @@
 
 > **Tipo:** Proyecto de modernización (no es un sistema técnico — ver `systems/` para sistemas en producción)
 > **Estado:** `[STATE: ACTIVE]` — productos en producción + construcción activa  
-> **Release activo:** R4 — Tarjeta de Crédito Clásica Digital (Producto 4900) · Go-Live: enero 2027  
+> **Release activo:** R4 — Tarjeta de Crédito (Producto 4900) · Go-Live: enero 2027  
 > **Última actualización:** 2026-08-19
 
 ---
@@ -72,13 +72,260 @@ El `bank-brain` federa este brain para responder:
 
 | ID | Producto | Status | Release | Plataforma | Informix: reemplaza / complementa |
 |----|----------|--------|---------|------------|----------------------------------|
-| UNITY-R1-P-CE-N2 | Cuenta Efectiva N2 | `live` | R1 | Temenos Transact | — |
-| UNITY-R2-P-CED-N4 | Cuenta Efectiva Digital N4 | `live` | R2 | Temenos Transact | — |
-| UNITY-R3-P-NOM-N4 | Nómina N4 | `live` | R3 | Temenos Transact | — |
-| UNITY-RX-P-PS | Préstamo Simple | `live` | Rx* | Temenos Transact | — |
-| UNITY-R4-P4900 | Tarjeta de Crédito Clásica Digital | `building` | R4 | SmartVista (BPC) + APOLO | CMS / Intercard / Macweb |
+> **Unity tiene DOS productos.** No cinco. El alcance formal del programa, declarado en el documento que va a CNBV, son dos productos más un proceso y un entregable regulatorio.
 
-> *Rx: Release exacto de Préstamo Simple no confirmado. **DATO-REQUERIDO**: confirmar con PMO Unity.
+**Los dos productos del alcance** (`scope = cnbv-scope` en `brain.db::products`):
+
+| ID | Producto | Segmento | Status | Release | Plataforma | Reemplaza |
+|----|----------|----------|--------|---------|------------|-----------|
+| UNITY-R4-P4900 | **Tarjeta de Crédito** | Persona física | `building` | **SmartVista R4** ✓ | SmartVista (BPC) + APOLO | CMS / Intercard / Macweb |
+| UNITY-RX-P-PS | **Crédito Simple Empresarial** | **Persona moral** | `planned` | **Transact R4** ✓ | Temenos Transact (CBS) | — |
+
+**Fuera del alcance de dos productos** (`scope = prior-scope`) — productos de captación en producción sobre Transact, no listados en el documento CNBV:
+
+| ID | Producto | Status | Release |
+|----|----------|--------|---------|
+| UNITY-R1-P-CE-N2 | Cuenta Efectiva N2 | `live` | sin fuente* |
+| UNITY-R2-P-CED-N4 | Cuenta Efectiva Digital N4 | `live` | sin fuente* |
+| UNITY-R3-P-NOM-N4 | Nómina N4 | `live` | sin fuente* |
+
+> ✓ = release con respaldo documental textual. \* = el número de release **no tiene fuente**; ver la sección de numeración de releases.
+
+> **DATO-REQUERIDO**: confirmar si estos tres fueron entregados por releases anteriores de Unity o si nunca pertenecieron al programa. Señal a favor de lo segundo: el `Roadmap Unity 2025.pptx` etiqueta el bloque como *"CUENTAS - N2/N4 (Legado)"*.
+
+---
+
+## Alcance Formal del Programa (documento CNBV)
+
+`Documento de Arquitectura UNITY_v1.0.docx` es la declaración autoritativa de alcance, redactada para revisión y autorización de **CNBV**. Declara cuatro componentes:
+
+| # | Componente | Tipo | Plataforma |
+|---|------------|------|------------|
+| 1 | OnBoarding Digital Apolo | Proceso | Apolo (AppWhere) |
+| 2 | **Tarjeta de Crédito — CMS** | Producto | SmartVista (BPC) |
+| 3 | **Crédito Simple Empresarial — CBS** | Producto | Temenos Transact |
+| 4 | Reportes Regulatorios | Entregable regulatorio | Multi-fuente (TDC y CSE) |
+
+**Crédito Simple Empresarial** es crédito para **persona moral**, no crédito personal. El promotor genera la carpeta empresarial (escritura constitutiva, poderes notariales, representante legal); el analista centralizador valida y solicita el alta. Soportado por OnBase, PISA y Temenos Transact. Módulos Transact relevantes: garantías colaterales, préstamos de modelo, préstamos y montos dispuestos de líneas.
+
+> **DATO-REQUERIDO**: ningún documento equipara "Crédito Simple Empresarial" (nombre del documento CNBV) con "Préstamo Simple" (nombre del Design Authority). Podrían ser el mismo producto o dos distintos. Confirmar con PMO antes de tratarlos como uno.
+
+---
+
+## Reportes Regulatorios — Cuarto Componente del Alcance
+
+Caracterizado por barrido documental el 2026-08-19. No tiene DT propio ni fase en el lifecycle todavía.
+
+**Cadena de generación** (cita: *"Cadena: Temenos TDH → DataStage → DWH → RiskLogic → reportes CNBV (R-04-C, calificación cartera)"*): Temenos Transact vía TDH, SmartVista BPC y Apolo alimentan por DataStage un DWH, del que RiskLogic y Bajaware generan los reportes. Todo on-premise; el documento de arquitectura declara explícitamente que *"se mantiene a como se tenía establecido previamente"* y que no requiere alta disponibilidad.
+
+**Reguladores.** No son solo CNBV y Banxico. La documentación nombra **CNBV, Banxico, IPAB y CONDUSEF**, más PROFECO en regulaciones locales y SAT por la vía CFDI. VISA y MasterCard aparecen como destinatarios de reportes tipificados como regulatorios. Aplica también LFPIORPI para PEP y KYC. **CNSF y SHCP no aparecen** en ningún documento.
+
+**Volumen.** Tres cifras distintas y no reconciliadas: serie **R-04-C** más calificación de cartera; **18 reportes** en el bloque de SmartVista (cartera, número de tarjetas, apertura por mes); y **~20 reportes SPL** en el legado disparados por Control-M con frecuencias diaria, mensual, trimestral, semestral y anual. Una minuta estima *"alrededor de 100 reportes"* con la anotación *"por confirmar"*.
+
+> **Cuidado con "0430 al 0440"**: ese rango solo aparece en el documento de arquitectura. El único otro uso de "0430" en la documentación es un **tipo de mensaje ISO 8583**, no un reporte CNBV. Posible homónimo.
+
+**Owners identificados**: Gustavo Martínez Martínez (dueño de negocio, *"Reporte Autoridades"*), Selene Esparza (arquitectura de la cadena UNITY-RegRep), Diana Patricia Morales Ramírez (representante en mesas SmartVista). No hay owner de Design Authority asignado al componente.
+
+### Riesgos abiertos del componente
+
+| # | Riesgo | Evidencia |
+|---|--------|-----------|
+| 1 | **Documentación CNBV desactualizada, con hallazgo formal de severidad Alta** | Hallazgos APO_F01 y SMA_F01: *"se identificó la incorporación de herramientas tecnológicas adicionales que no estaban contempladas en la arquitectura de referencia aprobada ni declaradas en la documentación presentada ante la CNBV"*. Owner Mercedes Espinosa Cortés. Pide *"plan de actualización y regularización de la documentación presentada ante la CNBV"* |
+| 2 | **Bajaware está en decomiso mientras la arquitectura aprobada depende de él** | *"En proceso de Baja - Decomiso Fecha 1er Bimestre 2027"*, y el documento CNBV lo declara como uno de los dos motores de generación |
+| 3 | **IC-83: los pipelines DataStage se rompen al decomisar Informix** | Quinta decisión crítica del Design Authority. Estado Gap, owner *"Por asignar"*. T-17 y T-19 en Confianza Baja, y su definición no existe en la documentación |
+| 4 | **Cobertura de Apolo y SmartVista nunca evaluada** | El mapa de capacidades marca *"P — En producción"* con la columna de gap vacía, pero las columnas de Apolo y SmartVista dicen literalmente *"← completar"* |
+| 5 | **No es stream propio en R4** | Está anidado bajo *"5 CONTABILIDAD"* en el plan de trabajo. La capacidad *"2.4.2 Reportería"* es P1 con alcance no confirmado |
+| 6 | **Descuadre por códigos compartidos** | El código 43 de SmartVista agrupa motivos de baja distintos, lo que *"podría alterar la veracidad de los reportes entregados a las autoridades reguladoras"* |
+| 7 | **Homologación de comisiones bloqueada por normatividad** | *"no puede avanzar técnicamente hasta confirmar aprobación de normatividad y estatus en Banxico/RECO"*. 2 User Stories Must regulatorias bloqueadas por DTMs sin fecha |
+| 8 | **Exodus Ola 6 declara migrarlos pero no los inventaría** | La ficha de Ola 6 dice migrar *"Reportes Regulatorios CNBV"* pero su lista es de 3 sistemas: Intranet, Contabilidad y DWH. Las apps 96, 97 y 100 no aparecen en ninguna ola |
+
+**Retención**: *"Copias inmutables (WORM) retenidas por un periodo regulatorio de 5 a 10 años conforme a la CUB de la CNBV"*.
+
+---
+
+## Barrido de Verificación Documental (2026-08-19)
+
+Barrido de 257 documentos del corpus con cross-reference por cita textual. Reglas derivadas.
+
+### ⚠️ Riesgo de autorreferencia en nuestros propios entregables
+
+Cuatro de las cinco banderas rojas que citamos sobre el legado se sostienen **solo** en entregables de Accenture de julio 2026 (`Design_Authority_v1.2` y `Catálogo de Capacidades de Interoperabilidad v0.1`) que **se citan mutuamente** vía los IDs ARQ-07, IC-82 e INT-09. Ninguna fuente de BanCoppel las respalda.
+
+La única con respaldo independiente y anterior del banco es *"el decomiso del Sistema Legado, el cual no está confirmado si se puede realizar ni como se realizaría"* (`20260706_Arquitectura UNITY.pptx`, 6-jul-2026).
+
+> **Regla**: antes de presentar una cifra del legado al cliente, verificar si su única fuente somos nosotros. Si el cliente audita el Plan Director, cuatro de cinco banderas resultan autorreferenciales.
+
+### Cifras huérfanas — no usar sin calificar
+
+| Cifra que citábamos | Estado real |
+|---|---|
+| **128 aplicaciones** de PISA | Huérfana y sobre-atribuida. La versión previa del mismo deck decía **114**, sin que cambiara ninguna fuente. Los inventarios reales dicen 116, 124, 125 y 129, y son totales del legado del banco, no de PISA |
+| **13,000–14,000 SPLs** sin mapear | Huérfana. Solo en 4 documentos nuestros que se citan entre sí. Cifras alternativas: el inventario del propio banco (`Inventario_bdanalisis`, ago-2026) suma **17,380** SPs declarados en Informix; Exodus planea refactorizar **7,480** con desglose auditable por ola; el mismo informe de Exodus dice también "10,000+" |
+| **10,144 stored procedures** (nuestro brain) | **Es la única cifra con base empírica.** Proviene del parseo del código fuente real. Hay que defenderla explicando que cuenta SPs reales en las bases entregadas, no estimaciones por aplicación |
+| **80 SUDs ejecutan SPL** | Error de categoría. El dato real es **80 de 88 System Understanding Documents referencian** Informix, OLTP o SPL. Un SUD es un documento nuestro, no un sistema del banco |
+
+### Versión de Informix — nuestro brain es el correcto
+
+El corpus de Unity dice *"Informix 12"* y *"Informix 12.10 – Core Bancario"*. **Está desactualizado.** El log de operación de la instancia productiva dice textualmente:
+
+```
+IBM Informix Dynamic Server Version 14.10.FC10W2 -- On-Line (Prim) -- Up
+```
+
+> Fuente: `systems/core/Informix/source/logs/.../ifmx_stats_coppel_shm_*.txt`, salida directa de la instancia. Prevalece sobre la documentación del programa. El módulo Contabilidad también está documentado en v14.
+
+### La afirmación sobre EY no se sostiene como la teníamos
+
+La palabra "incumbente" no existe en el corpus. Los releases de Transact son **R1 a R4**, no R1 a R3, y **el propio documento de EY contiene alcance R4** (*"R4 — Originaciones de procesos"*, *"R4 — Pago de Créditos/Amortizaciones"*). No hay ninguna evidencia de que EY salga del programa, y sí indicios en contra: figura como colaborador del Master Test Plan.
+
+Redacción defendible: *EY es responsable de la arquitectura objetivo de Transact (ARQ-10, E-AQ-EY) y autor del documento de cobertura por release; su alcance contractual y su participación en R4 no están documentados.*
+
+> **Falso positivo a evitar**: los hostnames `BPrismEYR1Mty`, `BluePrismEYR2Cul` y `BluePrismEYR4Cul` son bots **Blue Prism**, no releases de EY.
+
+### Golden Record — hallazgo que reordena el decomiso
+
+El Golden Record **vive hoy en Informix**, no en ATLAS ni en Transact. Cita del documento CNBV: *"El cliente se generará en la base de datos de Informix (PISA) donde BanCoppel utilizará esta base de datos para almacenar el Golden Record del cliente"*.
+
+Hay tres candidatos simultáneos: Informix (operativo hoy), ATLAS/AlloyDB (Fase 2 sep-2026, sin diseño) y Transact (nunca activado en ningún release). Y la carga inicial de Informix hacia ATLAS *"no aparece en ningún documento del programa"*.
+
+> Consecuencia: el decomiso de PISA está bloqueado por la **propiedad del Golden Record**, al mismo nivel que por los stored procedures. No estaba en nuestro análisis.
+
+### Sistemas de primer orden que faltaban en el inventario
+
+| Sistema | Qué es | Proveedor |
+|---------|--------|-----------|
+| **SIF (Sistema Integral Financiero)** | El producto core real que corre sobre Informix. Informix es el motor, SIF es la aplicación | Grupo PISA |
+| **SOC (Sistema Operativo Central)** | Mini-core bancario, 15 módulos y 710 funcionalidades. Destino de migración de módulos del SIF | TASF |
+| **Temenos Data Hub (TDH)** | Extracción near-realtime de Transact. Alimenta el ODS y los reportes regulatorios | Temenos |
+| **InterAct Router / Switch** | Middleware transaccional. Es **una de las 3 únicas vías válidas al core** | Syndein |
+| **IBM BUS (IIB/ACE)** | ESB corporativo. Otra de las 3 vías al core | IBM |
+
+> Las 3 únicas vías al core son: conexión directa a BD por ODBC/JDBC/SPL, InterAct, e IBM BUS. Informix **no** recibe REST, SOAP, ISO 8583 ni SFTP directo.
+
+**ATLAS está en GCP, no en AWS**, y es un MDM de **grupo** (retail Coppel, banco y Afore), no solo bancario. Usa AlloyDB para el Golden Record, Cloud Run, Vertex AI Vector Search para fuzzy matching y Apigee. Su proveedor no está documentado.
+
+### Retirar del inventario de sistemas
+
+No son sistemas: **DPP** (funcionalidad de SmartVista, "Deferred Payment Plan"), **CrediSoluciones** (producto comercial y transacción SIWEB 623), **BYU0039** (ticket de defecto BPC de severidad High), **Forza** y **TGS** (proveedores de maquila), **SUD** (tipo de documento). **Estados de Cuenta** solo tiene como evidencia una etiqueta en un diagrama.
+
+### Desambiguaciones obligatorias
+
+- **BRM** tiene tres referentes distintos: WebMethods BRM (Software AG), Experian BRM (motor de evaluación) y BRM Coppel (web service de Red Coppel).
+- **Prometeo** y **OnBase** están fusionados en un inventario y separados en otro, con stacks incompatibles.
+- **SOC** tiene dos expansiones: "Sistema Operativo Central" (mayoritaria) y "Sistema de Operación Central".
+- **BPC** se expande mal como "Banking Payments Context" en el documento de arquitectura. La razón social es **BPC Banking Technologies**.
+- **Nunca cruzar inventarios por ID**: el ID 111 es "Prometeo Gestor Documental" en una matriz y "Administración ATM's (SPL)" en otra.
+
+### Dos programas más que no teníamos
+
+**Exodus** es un programa aparte, no parte de Unity: migración de datacenters de México a la nube 2026-2030, 6 olas más Ola 0, con el apagado de Informix en la Ola 6 (2029-H2). Los hallazgos de Unity lo tratan como tercero al que *"alinearse"*. Ningún documento de Exodus menciona Unity.
+
+> **Tiene estructura y brain propios desde 2026-08-19**: [`projects/exodus/`](../exodus/CLAUDE.md) — 30 aplicaciones con assessment APO, 6 olas, 7 preguntas abiertas. Consultar con `python projects/exodus/digital-brain/brain.py coverage`.
+
+**ACDC** es una tercera iniciativa corporativa de migración a la nube, par de Exodus, de la que no tenemos nada.
+
+> **Implicación de negocio**: si el decomiso de Informix ocurre en Exodus Ola 6 y no en Unity, el business case de Unity (*"el decomiso de PISA es parte central del ahorro proyectado"*) descansa sobre el roadmap de **otro programa, sin dueño compartido**.
+
+### Contradicción entre programas sobre el API gateway
+
+El Plan Director declara Apigee con **EOL 2027** y migración a MuleSoft *"en curso"*, pero el mismo documento admite que *"no tiene plan ni inventario de APIs documentado"*. Exodus Ola 1 va en dirección **opuesta**: *"Mantener y migrar su gateway a Apigee"*. Y los Lineamientos StackTech del 11-ago-2026 listan una tercera opción: *"Apigee / WSO2 API Manager"*, sin MuleSoft.
+
+Además son **dos** migraciones, no una: Apigee a MuleSoft (gateway) e IBM BUS/InterAct a MuleSoft (ESB).
+
+---
+
+## Numeración de Releases — Es por Plataforma, No del Programa
+
+> **Regla crítica**: no existe un tren único de releases R1→R5 del programa. Cada plataforma numera sus propios releases y **coexisten dos "R4" simultáneos en plataformas distintas**. Confundirlos produce cronogramas y alcances falsos.
+
+Fuente: `Bancoppel_Plan_Director_-_Design_Authority_v1.2.pptx`, slide 7 "Dominios en scope".
+
+| Dominio | Plataforma | Releases declarados | Nota del Design Authority |
+|---------|-----------|--------------------|--------------------------|
+| Canales / Onboarding | Apolo | sin numeración propia | Arquitectura dual con Transact en CED N4: Apolo hace onboarding, Transact el core |
+| Core Transaccional | Transact (T24) | **R1 a R4** | "Préstamo Simple es Transact R4, no Apolo" |
+| Tarjetas y Pagos | SmartVista (BPC) | **R3, R4, R4.5** | TDC Clásica; escenario de despliegue R4 sin decidir |
+| Legado | PISA / Informix | — | 128 aplicaciones; 13,000–14,000 SPLs sin mapa funcional; decomiso sin confirmar |
+| Integraciones | Apigee · MuleSoft | — | ATLAS/Golden Record crítico para TDC R4 en sep-2026 |
+| Datos / MDM | ATLAS · DataStage | — | Golden Record no activado en ningún release de Transact |
+
+### Tren de releases por producto
+
+**Tarjeta de Crédito (SmartVista)**
+
+| Release | Alcance | Estado |
+|---------|---------|--------|
+| SmartVista R1 | **Configuración del gestor de TDC** (SmartVista como CMS) | ✅ **En productivo** — dic-2024, 38 funcionalidades, **sin canales listados** |
+| SmartVista R2 | **Integración a App y onboarding de la TDC** | ✅ **En productivo** — jul-2025, 33 funcionalidades; App, Promotoría, Sucursal, SPEI |
+| SmartVista R3 | **Tarjeta física**, liberada en modo Friends & Family | ✅ **En productivo** — sep-2025, 15 funcionalidades; depende de ATLAS a sep-2026 (decisión L-03 pide plan alterno) |
+| **SmartVista R4** | **Tarjeta de Crédito Clásica — Producto 4900** | **Building — release ancla**, SIT 15-oct a 15-dic-2026, go-live ~15-ene-2027 |
+| SmartVista R4.5 | Meses con intereses (MCI) en App | Backlog — el Design Authority nombra R4.5 pero no declara su alcance; el alcance viene del PreGame vía `dt-smartvista` |
+
+**Producto 2 — Crédito Simple Empresarial (Temenos Transact)**
+
+| Release del producto | Alcance | Release de plataforma | Estado |
+|---------------------|---------|----------------------|--------|
+| **R1** | Crédito simple a persona moral | Transact R4 | ✅ **En productivo** |
+
+> **La decisión L-02 no es sobre el arranque del producto.** Como el R1 ya opera en producción, *"Estrategia Préstamo Simple: F&F vs migración de cartera"* tiene que ser sobre qué se hace con la **cartera empresarial existente en el legado**: dejarla donde está y captar solo negocio nuevo en Transact, o migrarla. Es consistente con sus dos entregables: E-MG-03 *"Decision Paper Préstamo Simple"* y E-MG-06 *"Revisión Plan Migración"*, el segundo condicionado a *"si E-MG-03 resulta en migración"*. La cartera vive en el legado vía **Orión SFI** (Crédito Comercial, proveedor TASF), cuyo destino declarado es *"Migrar (Transformar) a Temenos Transact"*.
+
+> **Dos numeraciones que no se contradicen.** El producto está en su **R1**, su primer release (confirmado por el equipo el 2026-08-19). Ese R1 aterriza sobre **Transact R4**, que es el release de la plataforma que habilita el ciclo de vida de crédito. El Design Authority dice *"Préstamo Simple es Transact R4, no Apolo"* refiriéndose al tren de **plataforma**, no al del producto.
+>
+> Por qué difieren aquí y no en la TDC: Transact hospeda varios productos, así que su tren de plataforma va por delante del de cada producto. SmartVista solo hospeda la TDC, así que ahí las dos numeraciones coinciden.
+>
+> Según la fuente de EY, **Transact R4** habilita justamente lo que el crédito empresarial necesita: *"Originaciones de procesos"*, *"Pago de Créditos/Amortizaciones"*, *"Reestructuración / modificación de crédito"* y *"Procesamiento de cheques"*.
+>
+> El `Roadmap Unity 2025.pptx` **no le asigna número**: etiqueta sus barras como **"CSE"** (Despliegue, Desarrollo, Transición, Pruebas, Estabilización y Soporte) en paralelo a las barras R1, R2 y R3 del carril de TDC. También registra un análisis de variantes futuras: *"Análisis - Nuevos Productos (CSE Variantes | Cuenta Corriente | Factoraje)"*.
+
+**Captación (Temenos Transact) — en producción, release sin verificar**
+
+| Producto | Estado | Release |
+|----------|--------|---------|
+| Cuenta Efectiva N2 | Live | Sin fuente documental |
+| Cuenta Efectiva Digital N4 | Live | Sin fuente documental — el DA habla de "Fase 1 de CED N4", lo que sugiere fases propias en lugar de un R2 |
+| Nómina N4 | Live | Sin fuente documental |
+
+> El Design Authority declara que Transact tiene "Releases R1–R4" y que R4 es Préstamo Simple, pero **nunca dice qué son R1, R2 y R3**. El mapeo a estos tres productos venía de síntesis previa del brain sin fuente. Señal contraria: el `Roadmap Unity 2025.pptx` agrupa "Onboarding | Cuenta N4 / N2" y "Go-Live Cuenta N4 / N2" como un mismo tramo, no como dos releases, y etiqueta "CUENTAS - N2/N4 (Legado)".
+
+### Abreviaturas de release — no confundirlas
+
+| Sigla | Significado | Qué denota | Fuente |
+|-------|-------------|-----------|--------|
+| **F&F** | **Friends & Family** | Modo de liberación: piloto acotado antes de disponibilidad general | `Roadmap Unity 2025.pptx` contrapone "Onboarding TDC Digital (Friends & Family)" con "(Manos del Cliente)" |
+| **F&D** | **Física y Digital** | Forma del plástico: convivencia de tarjeta física y digital | `build-brain.py`: "card TDC F&D con convivencia física/digital; botoneras dinámicas por banderas" |
+
+> No son la misma sigla, pero **no son excluyentes**. "TDC R3 F&F" significa el release de **tarjeta física** liberado en modo **Friends & Family**. Confirmado por el equipo el 2026-08-19 y sustentado por el DEF cuyo título es literalmente *"DEF Tarjeta física R3 desglozado Historia de Usuario"*. El error a evitar es el opuesto: tratar F&F como si fuera el alcance del release en lugar de su modo de liberación.
+
+### Procedencia del alcance de R1 y R2
+
+Confirmado por el equipo el 2026-08-19. **No es cita literal**: la frase "gestor de TDC" no existe en la documentación. Está sustentado de forma indirecta y convergente.
+
+A favor: SmartVista está documentado como *"Administrador de Tarjetas"* y *"CMS (Card Management System) de BPC para gestión del ciclo de vida completo de la TDC"*, así que "configuración del gestor" describe la configuración de SmartVista. Para R2 hay dos cadenas que emparejan el gestor con exactamente lo que se describe: *"CMS Administrador de Tarjetas - Apolo Onboarding"* y *"CMS Administrador de Tarjetas - App Bancoppel"*. Y el encabezado del roadmap dice que las liberaciones cubren *"todo su ciclo de vida (Onboarding, Operación y Post-Venta)"*.
+
+Señal estructural fuerte: **R1 tiene 38 funcionalidades y ningún canal listado**, mientras las listas de canales arrancan en R2. Un release con funcionalidad y sin canales es lo esperable de una configuración de plataforma.
+
+> **Límite de verificación**: la lámina 2 del `Roadmap Unity 2025.pptx` contiene la matriz de releases, pero al extraerla a texto **se pierde la asignación de celda a columna** porque PowerPoint entrega las cajas en orden de creación, no de posición visual. Se ven los elementos "TDC Digital", "Configuración y Customización de Caja", "TDC Física" y "TDC MVP" sin poder saber a qué release corresponde cada uno. Además ese elemento dice "Caja" (ventanilla), no "gestor de TDC". **Para cerrarlo hay que abrir visualmente la lámina 2.**
+
+### Qué hace realmente el R3 de tarjeta física
+
+Su propósito no es emitir plástico: es **cerrar la brecha de valor** entre el producto que Apolo origina y el legado, para habilitar la migración del portafolio. Cita del DEF:
+
+> *"Actualmente el producto de TDC clásica que se otorga desde Apolo (4900) tiene una brecha de valor al cliente respecto a lo que hoy en día oferta el producto vigente (6100)... El homologar las funcionalidades entre el legacy y Apolo nos permitirá empezar con la migración de portafolio a Smart Vista, así el cliente actual no pierde ninguna funcionalidad que hoy en día tiene."*
+
+Alcance declarado: acceso a ATM para las operaciones que hoy hace un cliente legado, tarjetas adicionales para clientes que viven en SmartVista, contratación directa desde canal digital, generación de contratos, reportes automáticos y conciliación de pagos fijos, y rediseño de la App.
+
+**El objetivo de negocio detrás es la migración de 3 millones de tarjetas**: *"Migrara el portafolio actual de 3 millones de tarjetas a Smart Vista"*, con una estimación de 122,000 clientes nuevos para 2025 y 2026.
+
+> El portafolio de TDC es más amplio que la Clásica: **Oro (8100), Platinum (7000), Clásica (6001), Clásica Apolo (4900), Grupo Coppel e Infinite**, quedando paramétrico para nuevos productos. Reducir SmartVista a "TDC Clásica" describe R3 y R4, no el alcance del tren.
+>
+> Ojo con el código del legado: el mismo DEF dice **6100** en la introducción y **6001** en el alcance. El resto de la documentación usa 6001, y el cambio regulatorio se documenta como **6001 a 4900**. El 6100 es errata.
+
+### Datos corregidos y pendientes
+
+- **DATO-REQUERIDO**: el Design Authority lo llama "Préstamo Simple"; el documento CNBV lo llama "Crédito Simple Empresarial". Confirmar con PMO si son el mismo producto.
+- **DATO-REQUERIDO (L-07)**: discrepancia declarada entre EY y el roadmap maestro sobre las fechas de Transact R1 y R2.
+- **Corregido**: "R5 · ATM · Tarjetas adicionales · Corresponsales" se retiró de los artefactos. El `Plan de trabajo R4_v1 Julio` dice "disponible R5" para esos alcances pero nunca declara de qué plataforma, así que asignarlo a un R5 del programa era inferencia sin sustento.
+- **Corregido**: "R6" y "R7+" se retiraron. Eran valores de una lista de validación de Excel en el RAID v2.0, no releases planeados.
 
 Ver `dt/dt-productos.md` para el catálogo completo con componentes R4.
 
@@ -171,36 +418,41 @@ Ver `dt/dt-riesgos.md` para los 10 riesgos con detalle completo.
 
 ---
 
-## brain.db — Estado v1.3.0 (2026-08-19)
+## brain.db — Estado v1.1.0 (2026-08-20)
+
+> Build canónico generado por `build-brain.py --reset`. Tablas Marco 3D (`program_stakeholders`, `program_systems`, `it_capabilities`) pendientes de implementar en `build-brain.py` — ver Próximos Pasos.
 
 | Tabla | Registros | Notas |
 |-------|-----------|-------|
-| `products` | 5 | 4 live (R1-R3+Rx) + 1 building (R4-P4900) |
-| `program_capabilities` | 14 | Spine del brain — 1 configurable + 8 partial + 4 not_covered + 1 tbd |
+| `products` | 5 | 2 cnbv-scope (TDC P4900 · CSE) + 3 prior-scope (CED N4 · Nómina N4 · Cuenta Efectiva N2) · campo `scope` añadido v1.1.0 |
+| `product_releases` | 8 | **NUEVO v1.1.0** — TDC: R1(dic-2024) R2(jul-2025) R3(sep-2025) R4(building) R4.5 R5 R6+ · CSE: R1(building) · 4 productivos |
+| `program_capabilities` | 14 | Spine del brain — 1 configurable + 8 partial + 4 not_covered + 1 tbd · bloqueadas: 4 |
+| `program_components` | 8 | 8 componentes R4 (2 en riesgo, 1 bloqueado) |
 | `hdu_catalog` | 58 | 4 canales: SV(22) APP(20) CAT(12) SIWEB(5) — todos con capability_id |
 | `dtm_catalog` | 14 | 5 con gap crítico — todos con capability_id |
+| `apolo_hdu_catalog` | 37 | HDUs de APOLO originación digital: 22 VoBo + 10 MVP2 + 3 Taggeo + 2 Desestimada |
 | `capability_vendors` | 22 | Vendor responsable por capability + status contrato |
 | `capability_slos` | 14 | SLI/SLO targets por capability |
 | `capability_test_plan` | 14 | Plan SIT/UAT por capability + bloqueantes |
 | `capability_compliance` | 14 | CNBV Art.76 / PCI-DSS / CONDUSEF por capability |
 | `capability_prr` | 14 | Production Readiness Review por capability |
 | `capability_routing` | 11 | Routing Informix↔Unity por canal y capability |
-| **`program_stakeholders`** | **62** | **Roster ejecutivo del programa: sponsors(2) + director(1) + PM(1) + track_owners(7) + pmo(3+1) + arquitectos(4) + acn(12) + vendors(6) + otros — incluye 15 alertas (4 EY competidor)** |
 | `capability_stakeholders` | 49 | SMEs ACN + arquitectos del programa + owners BanCoppel por capability (RACI técnico) |
-| **`program_systems`** | **11** | **Marco 3D — dimensión SISTEMA: smartvista · transact · informix · apolo · app-movil · siweb · cat · atlas · controlm · eglobal · connect-direct (togaf_type + togaf_state + vendor)** |
-| **`it_capabilities`** | **16** | **Marco 3D — CAPACIDAD IT: 13 top-level + 3 sub-caps QE. Top-level: qe · devops · ambientacion · seguridad · interoperabilidad · data · arquitectura · change-mgmt · ai · release-management · vendor-management · observabilidad · compliance. Sub-caps QE (parent_id=qe): qe-strategy · qe-tem · qe-tdm** |
-| `apolo_hdu_catalog` | 37 | HDUs de APOLO originación digital: 22 VoBo + 10 MVP2 + 3 Taggeo + 2 Desestimada |
-| **`track_analysis`** | **7** | **User Stories por sesión de trabajo: SV/APOLO/APP/CAT/SIWEB/Cobranza/Apificación — complejidad, integraciones, MoSCoW** |
-| **`plan_progress`** | **11** | **Plan de Trabajo 12-ago: global 20.66% vs 34% esperado — 9 retrasadas, 3 críticas** |
-| **`product_vision_requirements`** | **28** | **RFs del DEF PV 1006626 — todos Alta/Esencial · canal: app(13) cat(4) cross(1) multi(4) siweb(2) smartvista(4)** |
-| **`app_user_stories`** | **13** | **User Stories Jira canal App TDC F&D: backlog(8) release(3) removed(2) · SMART-3962…4531** |
-| **`user_stories_inventory`** | **76** | **Inventario Accenture con scoring MoSCoW: must=43 should=28 could=2 wont=3 · tracks: SV(22)+Apolo(22)+App(15)+CAT(12)+SIWEB(5)** |
-| **`r4_integrations`** | **18** | **Integraciones R4: API(15) Batch(2) Evento(1) · Nueva(9) Modificar(9) · SmartVista(7)+CAT(7)+APP(4)** |
-| **`track_rag`** | **5** | **RAG por track (PPTX 11-ago): red=app,cat · yellow=smartvista,siweb,apolo · fuente: Roadmap Accenture** |
-| `risks` | 18 | 9 alta + 8 media + 1 cerrado |
-| `vocabulary` | 89 | RAID v2.0 + SmartVista/Canales |
+| `track_analysis` | 7 | User Stories por sesión de trabajo: SV/APOLO/APP/CAT/SIWEB/Cobranza/Apificación — complejidad, integraciones, MoSCoW |
+| `plan_progress` | 11 | **Corte 17-ago: global 21.19% real vs 60.58% esperado — 9 retrasadas, 2 a tiempo** |
+| `product_vision_requirements` | 28 | RFs del DEF PV 1006626 — todos Alta/Esencial · canal: app(13) cat(4) cross(1) multi(4) siweb(2) smartvista(4) |
+| `app_user_stories` | 13 | User Stories Jira canal App TDC F&D: backlog(8) release(3) removed(2) · SMART-3962…4531 |
+| `user_stories_inventory` | 79 | **Actualizado v1.1.0** — Inventario con scoring MoSCoW: must=46 should=28 · apolo:22 app:18 cat:12 siweb:5 smartvista:22 · 3 HUs APP-ENC-nn añadidas |
+| `r4_integrations` | 18 | Integraciones R4: API(15) Batch(2) Evento(1) · Nueva(9) Modificar(9) · SmartVista(7)+CAT(7)+APP(4) |
+| `track_rag` | 5 | RAG por track (PPTX 11-ago): red=app,cat · yellow=smartvista,siweb,apolo · fuente: Roadmap Accenture |
+| `risks` | 26 | **26 riesgos** (12 alta, 1 cerrado) — incluye 8 nuevos Reportes Regulatorios añadidos barrido 2026-08-19 |
+| `raid_assumptions` | 4 | Supuestos RAID (sin validar) |
+| `raid_issues` | 3 | Issues RAID (todos alta severidad) |
+| `raid_dependencies` | 2 | Dependencias RAID (ambas severas) |
+| `milestones` | 6 | Hitos de cronograma |
+| `vocabulary` | 93 | **93 términos** — RAID v2.0 + SmartVista/Canales + F&F/F&D/Manos del Cliente añadidos v1.1.0 |
 | `decisions` | 4 | ADR-UNITY-001 a 004 |
-| **`capability_360`** | **vista** | **Cross-join 7 dimensiones (vendors · SLOs · test · compliance · PRR · routing · stakeholders)** |
+| `capability_360` | vista | Cross-join 7 dimensiones (vendors · SLOs · test · compliance · PRR · routing · stakeholders) |
 
 ## Plan Director — DTs v1.0.0 (2026-08-16)
 
@@ -229,13 +481,13 @@ Ver `dt/dt-riesgos.md` para los 10 riesgos con detalle completo.
 - [x] Procesar `DEF PV 1006626 Mercado Abierto (R4).docx` — 28 RFs en `brain.db::product_vision_requirements` — v0.8.0
 - [x] Procesar `Respaldo Docs Bancoppel - App/` — 13 User Stories Jira TDC F&D en `brain.db::app_user_stories` — v0.9.0
 - [x] Procesar `Roadmap Accenture/` — 76 User Stories scoring + 18 integraciones + 5 tracks RAG en `brain.db::user_stories_inventory+r4_integrations+track_rag` — v1.0.0
-- [x] **v1.1.0 — `program_stakeholders`: 62 personas del programa (sponsors·directores·track owners·acn·vendors·ey-competidor) extraídas de pd/ minutas (mar–abr 2026) + DTs + capability_stakeholders**
-- [x] **v1.2.0 — Marco 3D PRODUCTO × SISTEMA × CAPACIDAD IT: `program_systems` (11) + `it_capabilities` (9, con madurez y lead) + ejes system_id/itcapability_ids en todo el RAID (18 riesgos + 3 issues) + system_id en user_stories_inventory (76 User Stories) y plan_progress + reclasificación program_components (7: 5 sistema · 1 producto · 1 itcapacity)**
-- [x] **v1.3.0 — QE sub-capacidades: qe-strategy + qe-tem (TEM) + qe-tdm (TDM) con parent_id; non-prod-environments eliminada (absorbida en qe-tem); Issue I02 re-taggeado a qe-tem. Nuevas IT capabilities standalone: observabilidad (SLOs · dashboards negocio · audit trail regulatorio · trazabilidad cross-sistema) + compliance (CNBV Art.76 · PCI-DSS v4.0 SmartVista · CONDUSEF). Total: 16 filas (13 top-level + 3 sub-caps)**
+- [x] **v1.1.0 — `product_releases` (8 releases TDC+CSE con plataforma y estado) + campo `scope` en `products` (cnbv-scope vs prior-scope) + inventario HUs 76→79 (APP-ENC-01/02/03 Encendido/Apagado TDC F&D) + `plan_progress` actualizado a corte 17-ago (21.19% vs 60.58%) + vocabulario F&F/F&D/Manos del Cliente + 8 riesgos Reportes Regulatorios + portal lifecycle-p4900.html + barrido documental 257 docs**
+- [ ] **v1.2.0 — Marco 3D SISTEMA: `program_systems` (11: smartvista · transact · informix · apolo · app-movil · siweb · cat · atlas · controlm · eglobal · connect-direct con togaf_type+togaf_state+vendor) + `it_capabilities` (13 top-level: qe · devops · ambientacion · seguridad · interoperabilidad · data · arquitectura · change-mgmt · ai · release-management · vendor-management · observabilidad · compliance) + ejes system_id/itcapability_ids en RAID y user_stories_inventory**
+- [ ] **v1.3.0 — Marco 3D STAKEHOLDER: `program_stakeholders` (62 personas: sponsors(2) · director(1) · PM(1) · track_owners(7) · pmo(4) · arquitectos(4) · acn(12) · vendors(6) · otros) + QE sub-caps (qe-strategy · qe-tem · qe-tdm) en `it_capabilities` (16 total)**
 - [ ] Mapear capabilities ETB de los productos live en `brain.db`
 - [ ] Registrar ADR-UNITY-002 (coexistencia) + ADR-UNITY-003 (routing)
 - [ ] Conectar al `bank-brain` vía ATTACH
 
 ---
 
-*Creado: 2026-08-15 · Actualizado: 2026-08-19 (v1.3.0: QE sub-capacidades TEM+TDM; observabilidad + compliance como IT capabilities standalone — 16 filas en it_capabilities)*
+*Creado: 2026-08-15 · Actualizado: 2026-08-20 (v1.1.0: product_releases · scope cnbv · 79 HUs · plan 17-ago · lifecycle-p4900.html · barrido 257 docs · brain.db Estado corregido a v1.1.0 — v1.2.0/v1.3.0 Marco 3D pendientes de implementar en build-brain.py)*

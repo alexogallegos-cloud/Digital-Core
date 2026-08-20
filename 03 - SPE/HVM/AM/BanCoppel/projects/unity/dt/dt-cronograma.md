@@ -113,7 +113,7 @@ Cierre del SIT y congelamiento definitivo del código. Ningún cambio de código
 | **Estado** | `pending` |
 | **Componente** | Todos |
 
-Lanzamiento productivo de la Tarjeta de Crédito Clásica Digital (Producto 4900) en SmartVista. La fecha exacta está sujeta al resultado del SIT.
+Lanzamiento productivo de la Tarjeta de Crédito (Producto 4900) en SmartVista. La fecha exacta está sujeta al resultado del SIT.
 
 **Pre-requisitos para Go-Live (identificados en minutas):**
 - SIT verde en todos los componentes Must Have
@@ -166,7 +166,7 @@ Lanzamiento productivo de la Tarjeta de Crédito Clásica Digital (Producto 4900
 | App Móvil (AppWhere) | 7 | Canal digital |
 | CAT | 3 | Canales adicionales transaccionales |
 | **Promotoría** | **1** | Canal de fuerza de ventas ⚠️ ver abajo |
-| **Total TDC** | **18** | Tarjeta de Crédito Clásica Digital |
+| **Total TDC** | **18** | Tarjeta de Crédito |
 | Onboarding Digital (Apolo) | 27 | Proceso de alta de cliente nuevo |
 | **Total R4** | **45** | TDC + Onboarding Digital |
 
@@ -176,7 +176,7 @@ Lanzamiento productivo de la Tarjeta de Crédito Clásica Digital (Producto 4900
 
 Las siguientes funcionalidades fueron **confirmadas como out-of-scope** en el Plan de Julio y no deben incluirse en la medición de avance:
 - Disposición de efectivo en cajeros ATM (se trabaja en SV; R5 la consume desde APP)
-- MCI — Motor de Crédito Institucional (ídem — R5)
+- MCI — **Meses Con Intereses** (ídem — R5)
 - Tarjetas adicionales
 - Incrementos de línea de crédito
 - Pago en corresponsales

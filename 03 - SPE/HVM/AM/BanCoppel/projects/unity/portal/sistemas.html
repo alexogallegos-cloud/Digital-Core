@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Salud de Entrega por Sistema — Unity R4</title>
+<style>
+:root{--blue:#3D5FCD;--blued:#122FB1;--yellow:#F0D224;
+  --ink:#F4F6FF;--muted:#aab3d4;--muted2:#818ab0;
+  --glass:rgba(255,255,255,.055);--glassb:rgba(255,255,255,.10);
+  --red:#E8400A;--green:#22c55e}
+html{scroll-behavior:smooth}
+body{background:#060a1a;color:var(--ink);
+  font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Calibri,sans-serif;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;min-height:100vh}
+
+/* Aurora */
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before{content:"";position:absolute;width:62vw;height:62vw;left:-12vw;top:-14vw;border-radius:50%;
+  filter:blur(80px);background:radial-gradient(circle,rgba(18,47,177,.50),transparent 70%);
+  animation:f1 24s ease-in-out infinite}
+.aurora::after{content:"";position:absolute;width:50vw;height:50vw;right:-10vw;top:10vw;border-radius:50%;
+  filter:blur(90px);background:radial-gradient(circle,rgba(13,33,133,.65),transparent 70%);
+  animation:f2 28s ease-in-out infinite}
+@keyframes f1{50%{transform:translate(6vw,8vh) scale(1.12)}}
+@keyframes f2{50%{transform:translate(-7vw,10vh) scale(1.10)}}
+.grain{position:fixed;inset:0;z-index:-1;opacity:.04;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+#prog{position:fixed;top:0;left:0;height:3px;width:0;z-index:100;
+  background:linear-gradient(90deg,var(--yellow),#fff);box-shadow:0 0 12px rgba(240,210,36,.6)}
+
+/* Nav */
+nav{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;gap:14px;padding:13px 28px;
+  backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);
+  background:rgba(6,10,26,.55);border-bottom:1px solid rgba(255,255,255,.06)}
+nav img{height:18px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+nav .nt{font-size:12px;font-weight:600;color:var(--muted)}
+nav .sp{flex:1}
+nav a{font-size:12px;color:var(--muted);padding:5px 12px;border-radius:20px;transition:.2s;text-decoration:none}
+nav a:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+nav a.hl{color:var(--yellow)}
+
+/* Layout */
+.wrap{max-width:1240px;margin:0 auto;padding:0 28px}
+
+/* Hero */
+.hero{padding:100px 0 36px}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:30px;font-size:11px;font-weight:700;
+  letter-spacing:.05em;color:#dfe6ff;margin-bottom:20px;background:rgba(255,255,255,.05);
+  border:1px solid var(--glassb);backdrop-filter:blur(10px)}
+.eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--yellow);
+  box-shadow:0 0 10px var(--yellow);animation:pulse 2.4s infinite}
+@keyframes pulse{50%{opacity:.35}}
+h1{font-size:clamp(28px,4vw,48px);font-weight:800;line-height:1.05;letter-spacing:-.03em;
+  background:linear-gradient(175deg,#fff 30%,#9fb4ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{font-size:14px;color:var(--muted);margin-top:12px;max-width:70ch;line-height:1.6}
+
+/* Stats strip */
+.stats{display:flex;gap:12px;margin-top:24px;flex-wrap:wrap}
+.stat{padding:14px 20px;border-radius:16px;background:var(--glass);border:1px solid var(--glassb);
+  backdrop-filter:blur(16px);display:flex;flex-direction:column;gap:4px;min-width:120px}
+.stn{font-size:20px;font-weight:800;letter-spacing:-.02em;
+  background:linear-gradient(180deg,#fff,#c4d0ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.stl{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted2)}
+
+/* Section label */
+.section-label{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted2);margin:36px 0 16px;display:flex;align-items:center;gap:12px}
+.section-label::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.08)}
+
+/* System cards grid */
+.sys-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px;margin-bottom:48px}
+
+/* System card */
+.scard{background:var(--glass);border:1px solid var(--glassb);border-radius:20px;
+  padding:22px 24px;backdrop-filter:blur(18px);
+  display:flex;flex-direction:column;gap:16px;
+  transition:border-color .25s,box-shadow .25s;position:relative;overflow:hidden}
+.scard::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;
+  background:rgba(255,255,255,.12);pointer-events:none}
+.scard:hover{border-color:rgba(255,255,255,.18);box-shadow:0 8px 32px rgba(0,0,0,.35)}
+.scard.blocked{border-color:rgba(232,64,10,.30);box-shadow:0 0 0 1px rgba(232,64,10,.12)}
+.scard.live{border-color:rgba(34,197,94,.25)}
+
+/* Card header */
+.scard-head{display:flex;align-items:center;gap:10px}
+.rag-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.rag-green{background:#22c55e;box-shadow:0 0 8px #22c55e88}
+.rag-yellow{background:var(--yellow);box-shadow:0 0 8px rgba(240,210,36,.55)}
+.rag-red{background:var(--red);box-shadow:0 0 8px rgba(232,64,10,.55)}
+.sys-name{font-size:15px;font-weight:800;letter-spacing:-.01em;flex:1}
+.type-badge{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  padding:3px 8px;border-radius:8px;white-space:nowrap}
+.tb-channel{background:rgba(61,95,205,.20);color:#90CAF9;border:1px solid rgba(61,95,205,.35)}
+.tb-core{background:rgba(13,33,133,.40);color:#82B1FF;border:1px solid rgba(25,118,210,.40)}
+.tb-processor{background:rgba(27,94,32,.30);color:#A5D6A7;border:1px solid rgba(76,175,80,.35)}
+.tb-data{background:rgba(106,27,154,.25);color:#CE93D8;border:1px solid rgba(149,117,205,.35)}
+.tb-integration{background:rgba(55,71,79,.35);color:#CFD8DC;border:1px solid rgba(144,164,174,.30)}
+.togaf-badge{font-size:9px;font-weight:700;letter-spacing:.06em;padding:2px 7px;border-radius:6px}
+.tb-target{background:rgba(34,197,94,.12);color:#86efac;border:1px solid rgba(34,197,94,.25)}
+.tb-base{background:rgba(255,255,255,.06);color:var(--muted2);border:1px solid rgba(255,255,255,.10)}
+.tb-trans{background:rgba(240,210,36,.10);color:var(--yellow);border:1px solid rgba(240,210,36,.25)}
+
+/* SDLC progress */
+.sdlc{display:flex;align-items:center;gap:0}
+.sdlc-step{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
+.sdlc-node{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:8px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+  border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.04);color:var(--muted2);
+  transition:.2s;position:relative;z-index:1}
+.sdlc-node.done{background:rgba(34,197,94,.18);border-color:rgba(34,197,94,.45);color:#86efac}
+.sdlc-node.active{border-color:currentColor;font-size:7px}
+.sdlc-node.blocked{background:rgba(232,64,10,.18);border-color:rgba(232,64,10,.50);color:#fca5a5}
+.sdlc-lbl{font-size:8px;font-weight:600;color:var(--muted2);letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.sdlc-lbl.done{color:#86efac88}
+.sdlc-lbl.active{color:var(--ink)}
+.sdlc-lbl.blocked{color:#fca5a5}
+.sdlc-line{flex:1;height:1px;background:rgba(255,255,255,.08);margin:0 -1px;position:relative;top:-10px;z-index:0}
+.sdlc-line.done{background:rgba(34,197,94,.35)}
+
+/* Metrics row */
+.metrics{display:flex;gap:16px;flex-wrap:wrap}
+.metric{display:flex;flex-direction:column;gap:2px}
+.metric-val{font-size:16px;font-weight:800;letter-spacing:-.02em}
+.metric-lbl{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2)}
+
+/* Blocker */
+.blocker{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;
+  background:rgba(232,64,10,.07);border:1px solid rgba(232,64,10,.18);border-radius:10px;font-size:11.5px;line-height:1.45}
+.blocker.warn{background:rgba(240,210,36,.06);border-color:rgba(240,210,36,.18)}
+.blocker.ok{background:rgba(34,197,94,.06);border-color:rgba(34,197,94,.18);color:#86efac}
+.blocker-icon{flex-shrink:0;font-size:12px;margin-top:1px}
+.blocker-text{color:var(--muted)}
+
+footer{padding:36px 0 52px;text-align:center;color:var(--muted2);font-size:12px;
+  border-top:1px solid rgba(255,255,255,.05);line-height:1.8}
+footer code{color:var(--muted);background:rgba(240,210,36,.09);border:1px solid rgba(240,210,36,.22);
+  border-radius:4px;padding:1px 6px;font-size:11px;font-family:'SF Mono',ui-monospace,monospace}
+</style>
+</head>
+<body>
+<div class="aurora"></div>
+<div class="grain"></div>
+<div id="prog"></div>
+
+<nav>
+  <img src="../../../design-studio/logos/BanCoppel_logo.png" alt="BanCoppel" onerror="this.style.display='none'">
+  <span class="nt">Unity R4 — Salud de Entrega</span>
+  <span class="sp"></span>
+  <a href="index.html">Portal ←</a>
+  <a href="lifecycle-p4900.html">Lifecycle TDC</a>
+  <a href="arquitectura.html" class="hl">Arquitectura ↗</a>
+</nav>
+
+<div class="wrap">
+  <div class="hero">
+    <div class="eyebrow"><span class="dot"></span>&nbsp; SPE-AM-001 — Unity R4 — BUILD</div>
+    <h1>Salud de Entrega<br>por Sistema</h1>
+    <p class="sub">Estado de cada sistema en el SDLC de R4 — fase actual, bloqueantes y métricas clave.
+      Corte <b>17-ago-2026</b>. Go-Live objetivo: <b>15-ene-2027</b>.</p>
+    <div class="stats">
+      <div class="stat"><div class="stn">11</div><div class="stl">Sistemas en scope</div></div>
+      <div class="stat"><div class="stn" style="color:#fca5a5">2</div><div class="stl">Bloqueados</div></div>
+      <div class="stat"><div class="stn" style="color:var(--yellow)">6</div><div class="stl">En BUILD</div></div>
+      <div class="stat"><div class="stn" style="color:#86efac">2</div><div class="stl">En producción</div></div>
+    </div>
+  </div>
+
+  <div class="section-label">Canales digitales</div>
+  <div class="sys-grid" id="channels"></div>
+
+  <div class="section-label">Core y procesadores</div>
+  <div class="sys-grid" id="core"></div>
+
+  <div class="section-label">Datos e integración</div>
+  <div class="sys-grid" id="infra"></div>
+</div>
+
+<footer>
+  <code>sistemas.html — Unity R4 — SPE-AM-001</code> — BanCoppel — Accenture México<br>
+  Fuente: Digital Brain Unity R4 — 2026-08-20 — v1.0.0
+</footer>
+
+<script>
+window.addEventListener('scroll',()=>{
+  const p=(window.scrollY/(document.body.scrollHeight-window.innerHeight))*100;
+  document.getElementById('prog').style.width=p+'%';
+});
+
+// SDLC phase index: 0=DISCOVER 1=DESIGN 2=BUILD 3=TEST 4=RELEASE
+const PHASES=['DISC','DESIGN','BUILD','TEST','RELEASE'];
+
+const SYSTEMS = [
+  // ── CHANNELS ──────────────────────────────────────────────────────────────
+  {
+    id:'apolo', name:'APOLO', type:'channel', togaf:'target', group:'channels',
+    rag:'yellow', phase:2,
+    metrics:[{v:'22',l:'User Stories'},{v:'17',l:'Must Have'},{v:'37',l:'HDUs'}],
+    blocker:{type:'warn', text:'HDU-20 integración crítica con SmartVista sin cerrar. Análisis cierra 16-oct — último track en terminar.'}
+  },
+  {
+    id:'app', name:'App Móvil', type:'channel', togaf:'target', group:'channels',
+    rag:'yellow', phase:2,
+    metrics:[{v:'18',l:'User Stories'},{v:'13',l:'Must Have'},{v:'4',l:'Integraciones'}],
+    blocker:{type:'warn', text:'6 USs Must Have cierran en noviembre, después de inicio de SIT. Riesgo directo sobre go-live ene-2027.'}
+  },
+  {
+    id:'siweb', name:'SIWEB', type:'channel', togaf:'target', group:'channels',
+    rag:'yellow', phase:2, blocked:true,
+    metrics:[{v:'5',l:'User Stories'},{v:'4',l:'Must Have'},{v:'2',l:'Integraciones'}],
+    blocker:{type:'block', text:'Bloqueado en BUILD: APIs de SmartVista no disponibles. Sin APIs no hay desarrollo posible.'}
+  },
+  {
+    id:'cat', name:'CAT / IVR', type:'channel', togaf:'target', group:'channels',
+    rag:'red', phase:1, blocked:true,
+    metrics:[{v:'12',l:'User Stories'},{v:'8',l:'Must Have'},{v:'7',l:'Integraciones'}],
+    blocker:{type:'block', text:'Proveedor sin contratar — deadline 31-ago-2026 vencido. Sin contrato no inicia desarrollo. Riesgo crítico de go-live.'}
+  },
+  // ── CORE + PROCESSORS ────────────────────────────────────────────────────
+  {
+    id:'smartvista', name:'SmartVista BPC', type:'processor', togaf:'target', group:'core',
+    rag:'yellow', phase:2,
+    metrics:[{v:'22',l:'User Stories'},{v:'14',l:'Must Have'},{v:'88',l:'Reglas autorizador'}],
+    blocker:{type:'warn', text:'Connect-Direct para emisión de tarjeta es MANUAL — bloquea el flujo end-to-end de Emisión y Maquila. Contradicción SVFM sin resolver.'}
+  },
+  {
+    id:'transact', name:'Temenos Transact', type:'core', togaf:'target', group:'core',
+    rag:'green', phase:4, live:true,
+    metrics:[{v:'CSE R1',l:'En productivo'},{v:'R4',l:'Plataforma'},{v:'0',l:'USs R4 pendientes'}],
+    blocker:{type:'ok', text:'Crédito Simple Empresarial R1 en producción. Sin bloqueantes para R4. Decisión L-02 (migración de cartera) pendiente de resolución.'}
+  },
+  {
+    id:'informix', name:'Informix (PISA)', type:'core', togaf:'base', group:'core',
+    rag:'green', phase:4,
+    metrics:[{v:'10,144',l:'Stored Procedures'},{v:'v14.10',l:'Versión productiva'},{v:'60 TB',l:'Datos'}],
+    blocker:{type:'ok', text:'Sistema baseline en producción. No participa en BUILD de R4. Decomiso en Exodus Ola 6 (2029-H2) — fuera del scope de Unity.'}
+  },
+  {
+    id:'eglobal', name:'E-Global', type:'processor', togaf:'base', group:'core',
+    rag:'yellow', phase:2,
+    metrics:[{v:'1',l:'User Story formal'},{v:'88',l:'Reglas a configurar'},{v:'2',l:'Rutas (e-comm + POS)'}],
+    blocker:{type:'warn', text:'Sin User Story formal que respalde las 88 reglas del autorizador. Sin proyecto abierto con E-Global ni ventanas de pruebas confirmadas.'}
+  },
+  // ── DATOS E INTEGRACIÓN ───────────────────────────────────────────────────
+  {
+    id:'atlas', name:'Atlas MDM', type:'data', togaf:'trans', group:'infra',
+    rag:'yellow', phase:1,
+    metrics:[{v:'GCP',l:'Plataforma'},{v:'AlloyDB',l:'Golden Record'},{v:'Sep-2026',l:'Dependencia R3'}],
+    blocker:{type:'warn', text:'Golden Record vive hoy en Informix, no en Atlas. Activación en Atlas no aparece en ningún documento del programa. R3 depende de ATLAS a sep-2026 — decisión L-03 pide plan alterno.'}
+  },
+  {
+    id:'controlm', name:'Control-M', type:'integration', togaf:'base', group:'infra',
+    rag:'green', phase:4,
+    metrics:[{v:'Batch',l:'Tipo'},{v:'Informix',l:'Sistema principal'},{v:'Orquestador',l:'Rol'}],
+    blocker:{type:'ok', text:'Orquestador batch en producción. No hay cambios planeados en R4. Impactado en Exodus Ola 6 cuando se decomise Informix.'}
+  },
+  {
+    id:'connectdirect', name:'Connect-Direct', type:'integration', togaf:'base', group:'infra',
+    rag:'red', phase:2, blocked:true,
+    metrics:[{v:'Manual',l:'Modo actual'},{v:'Emisión',l:'Fase impactada'},{v:'Maquilador',l:'Destino'}],
+    blocker:{type:'block', text:'El depósito del archivo al maquilador es MANUAL — no hay automatización definida para R4. Bloquea el flujo end-to-end de Emisión y Maquila.'}
+  },
+];
+
+function sdlcHtml(phaseIdx, blocked){
+  let h = '<div class="sdlc">';
+  PHASES.forEach((ph,i)=>{
+    if(i>0) h += `<div class="sdlc-line ${i<=phaseIdx?'done':''}"></div>`;
+    const cls = blocked && i===phaseIdx ? 'blocked' : i<phaseIdx ? 'done' : i===phaseIdx ? 'active' : '';
+    const lbl = blocked && i===phaseIdx ? 'blocked' : cls;
+    h += `<div class="sdlc-step">
+      <div class="sdlc-node ${cls}" ${i===phaseIdx&&!blocked?'style="border-color:currentColor"':''}>${ph}</div>
+      <div class="sdlc-lbl ${lbl}">${ph}</div>
+    </div>`;
+  });
+  return h + '</div>';
+}
+
+function blockerHtml(b){
+  const icon = b.type==='block' ? '⛔' : b.type==='warn' ? '⚠' : '✓';
+  const cls  = b.type==='block' ? '' : b.type==='warn' ? ' warn' : ' ok';
+  return `<div class="blocker${cls}"><span class="blocker-icon">${icon}</span><span class="blocker-text">${b.text}</span></div>`;
+}
+
+function ragColor(r){ return r==='green'?'#22c55e':r==='red'?'#E8400A':'#F0D224'; }
+
+function renderGroup(group){
+  const el = document.getElementById(group);
+  SYSTEMS.filter(s=>s.group===group).forEach(sys=>{
+    const card = document.createElement('div');
+    const cardCls = sys.blocked?'blocked':sys.live?'live':'';
+    card.className = 'scard '+cardCls;
+    card.style.setProperty('--phase-color', ragColor(sys.rag));
+
+    const metricsHtml = sys.metrics.map(m=>
+      `<div class="metric"><div class="metric-val">${m.v}</div><div class="metric-lbl">${m.l}</div></div>`
+    ).join('');
+
+    card.innerHTML = `
+      <div class="scard-head">
+        <div class="rag-dot rag-${sys.rag}"></div>
+        <div class="sys-name">${sys.name}</div>
+        <span class="type-badge tb-${sys.type}">${sys.type}</span>
+        <span class="togaf-badge tb-${sys.togaf}">${sys.togaf}</span>
+      </div>
+      ${sdlcHtml(sys.phase, sys.blocked)}
+      <div class="metrics">${metricsHtml}</div>
+      ${blockerHtml(sys.blocker)}
+    `;
+    el.appendChild(card);
+  });
+}
+
+renderGroup('channels');
+renderGroup('core');
+renderGroup('infra');
+</script>
+</body>
+</html>

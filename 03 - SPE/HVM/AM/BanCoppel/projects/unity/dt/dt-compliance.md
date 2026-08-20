@@ -7,7 +7,7 @@
 
 ## Resumen Ejecutivo de Obligaciones
 
-El go-live del Producto 4900 (TDC Clásica Digital) en enero 2027 activa obligaciones regulatorias múltiples. El incumplimiento de cualquiera de ellas puede resultar en:
+El go-live del Producto 4900 (Tarjeta de Crédito) en enero 2027 activa obligaciones regulatorias múltiples. El incumplimiento de cualquiera de ellas puede resultar en:
 - Suspensión del producto por la CNBV
 - Multas administrativas (CNBV, CONDUSEF)
 - Invalidación de la certificación PCI-DSS (suspensión de operación con tarjetas)

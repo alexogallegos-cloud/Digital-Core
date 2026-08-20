@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BanCoppel — Arquitectura AS IS · Capa de Negocio</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bc-navy:   #0B1F3A;
+    --bc-blue:   #0D3B6E;
+    --bc-mid:    #1A5276;
+    --bc-accent: #2E86C1;
+    --bc-light:  #AED6F1;
+    --bc-teal:   #117A65;
+    --bc-teal-l: #A9DFBF;
+    --bc-amber:  #B7770D;
+    --bc-amber-l:#FAD7A0;
+    --bc-red:    #922B21;
+    --bc-red-l:  #F5CBA7;
+    --bc-purple: #6C3483;
+    --bc-purple-l:#D7BDE2;
+    --bc-gray:   #5D6D7E;
+    --bc-gray-l: #D5DBDB;
+    --ok:        #1E8449;
+    --ok-bg:     #EAFAF1;
+    --ok-bd:     #82E0AA;
+    --partial:   #B7770D;
+    --partial-bg:#FEF9E7;
+    --partial-bd:#F9E79F;
+    --none:      #922B21;
+    --none-bg:   #FDEDEC;
+    --none-bd:   #F1948A;
+    --grid:      #E8ECF0;
+    --border:    #C8D6E5;
+    --text:      #1A252F;
+    --text-s:    #2C3E50;
+    --text-m:    #566573;
+    --bg:        #F2F5F8;
+    --white:     #FFFFFF;
+    --row-h:     #EBF5FB;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 12px;
+    min-width: 1400px;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    background: var(--bc-navy);
+    color: white;
+    padding: 20px 32px 16px;
+    border-bottom: 3px solid var(--bc-accent);
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+  }
+  .header-logo {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    white-space: nowrap;
+    padding-top: 2px;
+  }
+  .header-logo span { color: var(--bc-light); }
+  .header-body { flex: 1; }
+  .header-body h1 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    margin-bottom: 4px;
+  }
+  .header-body p {
+    font-size: 11px;
+    color: #93B8D4;
+    line-height: 1.5;
+  }
+  .legend {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 6px;
+  }
+  .leg-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: #BDC3C7;
+  }
+  .leg-dot {
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .leg-ok     { background: var(--ok);      }
+  .leg-partial { background: var(--partial); }
+  .leg-none   { background: var(--none);    }
+
+  /* ── MAIN GRID ── */
+  .map-wrap {
+    padding: 16px 20px 32px;
+    overflow-x: auto;
+  }
+
+  table.cap-map {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  /* Row label column */
+  td.row-label {
+    width: 64px;
+    background: var(--bc-navy);
+    color: white;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    padding: 10px 8px;
+    text-align: center;
+    vertical-align: middle;
+    border: 1px solid #0B2A4A;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    line-height: 1.3;
+  }
+  td.row-label.biz  { background: #0D3B6E; }
+  td.row-label.sup  { background: #1A5276; }
+
+  /* Section headers spanning the grid */
+  td.section-hdr {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    padding: 6px 10px;
+    color: white;
+    border: 1px solid rgba(0,0,0,0.15);
+  }
+  td.section-hdr.row-hdr { background: var(--bc-blue); }
+
+  /* ── TOP ROWS: Segmentos / Canales / Productos ── */
+  tr.row-top td {
+    background: var(--bc-navy);
+    color: #AED6F1;
+    font-size: 10px;
+    font-weight: 500;
+    text-align: center;
+    padding: 6px 4px;
+    border: 1px solid #1A3A5C;
+    vertical-align: middle;
+  }
+  tr.row-top td.covered    { background: #154360; color: #AED6F1; }
+  tr.row-top td.not-covered { background: #1C2833; color: #5D6D7E; text-decoration: line-through; opacity: 0.6; }
+
+  /* ── CAPABILITY CELLS ── */
+  td.cap {
+    padding: 0;
+    border: 1px solid var(--border);
+    vertical-align: top;
+    min-height: 80px;
+    word-wrap: break-word;
+  }
+  td.cap.covered   { background: var(--ok-bg);      border-color: var(--ok-bd); }
+  td.cap.partial   { background: var(--partial-bg); border-color: var(--partial-bd); }
+  td.cap.not-covered { background: var(--none-bg);  border-color: var(--none-bd); }
+  td.cap.empty     { background: var(--grid);        border-color: #DDE1E6; }
+
+  .cap-inner {
+    padding: 6px 7px 5px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .cap-title {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.3;
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+    padding-bottom: 3px;
+    margin-bottom: 2px;
+  }
+  td.covered   .cap-title { color: var(--ok);      }
+  td.partial   .cap-title { color: var(--partial); }
+  td.not-covered .cap-title { color: var(--none);  }
+
+  .cap-sys {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8.5px;
+    color: var(--text-m);
+    line-height: 1.4;
+      overflow-wrap: anywhere;
+  }
+  td.covered   .cap-sys { color: #1A6635; }
+  td.partial   .cap-sys { color: #7D6608; }
+  td.not-covered .cap-sys { color: #78281F; }
+
+  .cap-tag {
+    display: inline-block;
+    font-size: 7.5px;
+    font-weight: 600;
+    padding: 1px 4px;
+    border-radius: 2px;
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .tag-ok      { background: var(--ok-bd);      color: #0B5E2E; }
+  .tag-partial { background: var(--partial-bd); color: #6E4C00; }
+  .tag-none    { background: var(--none-bd);    color: #5B1A1A; }
+
+  /* ── GROUP HEADERS inside capability section ── */
+  td.grp-hdr {
+    background: #D6EAF8;
+    font-size: 10px;
+    font-weight: 700;
+    color: #1A5276;
+    padding: 5px 8px;
+    border: 1px solid #AED6F1;
+    letter-spacing: 0.3px;
+    vertical-align: middle;
+  }
+  td.grp-hdr.support { background: #E8DAEF; color: #6C3483; border-color: #D7BDE2; }
+
+  /* Row background alternation */
+  tr.biz-row  { background: white; }
+  tr.sup-row  { background: #F8F3FF; }
+
+  /* ── FOOTER ── */
+  .footer {
+    background: var(--bc-navy);
+    color: #7FB3D3;
+    font-size: 9px;
+    padding: 10px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  
+  /* ── APP NAME highlighting inside cap-sys ── */
+  .app-name {
+    display: inline-block;
+    max-width: 100%;
+    background: rgba(30, 100, 160, 0.12);
+    border: 1px solid rgba(30, 100, 160, 0.28);
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-weight: 600;
+    font-size: 7.5px;
+    line-height: 1.25;
+    color: #0D3B6E;
+    margin: 1px 2px 1px 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    vertical-align: top;
+  }
+  td.covered   .app-name { background: rgba(14,100,60,0.10); border-color: rgba(14,100,60,0.30); color: #0B5E2E; }
+  td.partial   .app-name { background: rgba(183,119,13,0.10); border-color: rgba(183,119,13,0.30); color: #6E4C00; }
+  td.not-covered .app-name { background: rgba(146,43,33,0.10); border-color: rgba(146,43,33,0.25); color: #5B1A1A; }
+  td.degraded  .app-name { background: rgba(183,119,13,0.12); border-color: rgba(230,126,34,0.35); color: #7D5A00; }
+  .app-context {
+    font-size: 8px;
+    color: var(--text-m);
+    line-height: 1.4;
+    margin-top: 2px;
+  }
+  td.covered   .app-context { color: #1A6635; }
+  td.partial   .app-context { color: #7D6608; }
+  td.not-covered .app-context { color: #78281F; }
+  td.degraded  .app-context { color: #7D6608; }
+
+  /* ── RIGHT-COLUMN groups (Transacciones, Estado de cuenta, Gestión de productos) ── */
+  td.grp-hdr.right-col {
+    background: #154360;
+    color: #AED6F1;
+    border-color: #1A5276;
+    border-left: 3px solid var(--bc-accent);
+  }
+  tr.biz-row td.right-col-cell {
+    border-left: 2px solid #AED6F1;
+  }
+  td.cap.degraded {
+    background: #FDF2E9;
+    border-color: #F0B27A;
+  }
+  td.cap.degraded .cap-title { color: #B7770D; }
+  td.cap.degraded .cap-sys  { color: #7D6608; }
+  .tag-degraded {
+    background: #FAD7A0;
+    color: #7D5A00;
+    display: inline-block;
+    font-size: 7.5px;
+    font-weight: 600;
+    padding: 1px 4px;
+    border-radius: 2px;
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .tag-new {
+    background: #D5F5E3;
+    color: #1E6B3C;
+    display: inline-block;
+    font-size: 7.5px;
+    font-weight: 600;
+    padding: 1px 4px;
+    border-radius: 2px;
+    margin-top: 1px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  /* fix legend dot for degraded */
+  .leg-degraded { background: #E67E22; }
+
+
+  /* ── CORE BANKING markers ── */
+  .app-name.core {
+    background: #1B4F72 !important;
+    border: 1px solid #0B2A4A !important;
+    color: #FFFFFF !important;
+    font-weight: 700;
+    box-shadow: 0 1px 2px rgba(11,42,74,0.35);
+    position: relative;
+  }
+  .app-name.core::before {
+    content: "\2756";
+    font-size: 7px;
+    margin-right: 3px;
+    color: #FAD7A0;
+    vertical-align: middle;
+  }
+  .core-badge {
+    display: inline-block;
+    background: #1B4F72;
+    color: #FFFFFF;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 4px;
+    vertical-align: middle;
+    border: 1px solid #0B2A4A;
+  }
+
+  /* tooltip on hover */
+  td.cap { position: relative; cursor: default; }
+  td.cap:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1A252F;
+    color: white;
+    font-size: 9px;
+    padding: 5px 8px;
+    border-radius: 4px;
+    white-space: pre-wrap;
+    width: 220px;
+    z-index: 100;
+    line-height: 1.5;
+    pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  td.cap[data-tip=""]::after { display: none; }
+</style>
+</head>
+<body>
+
+<!-- ══════ HEADER ══════ -->
+<div class="header">
+  <div class="header-logo">Ban<span>Coppel</span></div>
+  <div class="header-body">
+    <h1>Arquitectura AS IS — Capa de Negocio &nbsp;|&nbsp; Business Capability Map</h1>
+    <p>Basado en el modelo de referencia Unity · <strong>Nombres oficiales AMS-IMS · Marca de Core Bancario (Informix/SPL) en aplicaciones y capacidades · Verificación documental cruzada</strong>. Cada capacidad muestra el sistema legado que la cubre hoy en BanCoppel.<br>
+       Fuente: Documentación de soporte operativo, BCP, BP Z-Curve, SUC_, SOC_, App_, BPI_, EmpNet_, SIF_ + CMDB V2.2 &amp; Tenant Onboarding Templates.</p>
+    <div class="legend">
+      <div class="leg-item"><div class="leg-dot leg-ok"></div>Capacidad cubierta — sistema(s) identificado(s)</div>
+      <div class="leg-item"><div class="leg-dot leg-partial"></div>Cobertura parcial — sistema existente con brechas</div>
+      <div class="leg-item"><div class="leg-dot leg-none"></div>No identificado en documentación / no aplica AS IS</div>
+      <div class="leg-item"><div class="leg-dot leg-degraded"></div>Sistema con degradación operativa documentada</div>
+      <div class="leg-item"><span style="display:inline-block;background:#1B4F72;color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:3px;border:1px solid #0B2A4A;">&#10070; CORE</span>&nbsp;Aplicación / capacidad soportada por el Core Bancario (Informix/SPL)</div>
+      <div class="leg-item"><div class="leg-item"><div class="leg-dot leg-none"></div>No identificado en documentación / no aplica AS IS</div>nbsp;Hallazgo incorporado en esta iteración</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ MAP ══════ -->
+<div class="map-wrap">
+<table class="cap-map">
+<colgroup>
+<col style="width:64px">
+<col style="width:8.7%"><col style="width:8.7%"><col style="width:8.7%"><col style="width:8.7%">
+<col style="width:8.7%"><col style="width:8.7%"><col style="width:8.7%"><col style="width:8.7%">
+<col style="width:8.7%"><col style="width:8.7%"><col style="width:8.7%">
+</colgroup>
+
+<!-- ── SEGMENTOS ── -->
+<tr class="row-top">
+  <td class="row-label" rowspan="1" style="writing-mode:horizontal-tb;transform:none;font-size:8px;padding:3px 2px;line-height:1.15;letter-spacing:0.2px;">Segmentos</td>
+  <td class="covered">Comercios<br><span style="font-size:8px;color:#7FB3D3">Tiendas Coppel</span></td>
+  <td class="not-covered" colspan="2">Alto patrimonio neto</td>
+  <td class="not-covered">Fiduciaria</td>
+  <td class="covered" colspan="2">Comercial<br><span style="font-size:8px;color:#7FB3D3">EmpresaNet</span></td>
+  <td class="not-covered">Pequeñas empresas</td>
+  <td class="covered" colspan="4" style="background:#154360;color:#AED6F1;font-weight:600;">Banca Minorista / Masiva<br><span style="font-size:8px;color:#7FB3D3">Segmento principal cubierto · 2.5–2.6 M clientes activos</span></td>
+</tr>
+
+<!-- ── CANALES ── -->
+<tr class="row-top">
+  <td class="row-label" style="writing-mode:horizontal-tb;transform:none;font-size:9px;padding:4px;">Canales</td>
+  <td class="not-covered">Kiosco</td>
+  <td class="covered">Web/Online<br><span style="font-size:8px">BPI · bancoppel.com</span></td>
+  <td class="covered">Call Center<br><span style="font-size:8px">CAT · Genesys</span></td>
+  <td class="covered">Cajero/Ventanilla<br><span style="font-size:8px">OFI Tradicional</span></td>
+  <td class="covered">Móvil y tablet<br><span style="font-size:8px">App BanCoppel</span></td>
+  <td class="covered">ATM<br><span style="font-size:8px">IST/Switch ATMs</span></td>
+  <td class="covered">IVR<br><span style="font-size:8px">IVR · CAT (01-800)</span></td>
+  <td class="covered">Papel/Tarjeta<br><span style="font-size:8px">OFI · Maquila</span></td>
+  <td class="covered" colspan="3">Corresponsalía/POS<br><span style="font-size:8px">OXXO · Coppel · E-Global</span></td>
+</tr>
+
+<!-- ── PRODUCTOS ── -->
+<tr class="row-top">
+  <td class="row-label" style="writing-mode:horizontal-tb;transform:none;font-size:9px;padding:4px;">Productos</td>
+  <td class="covered" colspan="3">Débito<br><span style="font-size:8px">Cuenta Efectiva Digital · Cta. Clic N2</span></td>
+  <td class="covered" colspan="2">Crédito<br><span style="font-size:8px">PP · Nómina · Préstamo Dig.</span></td>
+  <td class="covered" colspan="2">Tarjeta de Crédito<br><span style="font-size:8px">TDC Visa · TDC Infinite</span></td>
+  <td class="partial">Pensiones/Afore<br><span style="font-size:8px">SAFRE (batch)</span></td>
+  <td class="covered">Inversiones<br><span style="font-size:8px">Inv. Creciente · Pagaré · Aladdin</span></td>
+  <td class="partial">Hipoteca<br><span style="font-size:8px">Créd. Coparticipativo Infonavit</span></td>
+  <td class="covered">Ahorro<br><span style="font-size:8px">Apartados App</span></td>
+</tr>
+
+<!-- ══ CAPACIDADES DE NEGOCIO — encabezado ══ -->
+<tr>
+  <td class="row-label biz" rowspan="34">Capacidades de negocio</td>
+  <td colspan="11" class="section-hdr row-hdr">CAPACIDADES DE NEGOCIO</td>
+</tr>
+
+<!-- ── GRUPO: Clase de producto: depósitos ── -->
+<tr><td colspan="11" class="grp-hdr">Clase de producto: depósitos</td></tr>
+<tr class="biz-row">
+  <td class="cap covered" colspan="2"
+      data-tip="Razón: el core transaccional de cuentas vista y eje reside en el módulo central SPL. · Detalle: Integral (módulo central) (SPL) lleva saldos y movimientos; Caja General (SPL) opera efectivo de ventanilla. · Fuente: BP_Z_Integral_Módulo_Central · BP_Z_Caja_General">
+    <div class="cap-inner">
+      <div class="cap-title">Cuentas Corrientes <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Integral (módulo central) (SPL)</span><span class="app-name">Créditos Revolventes SPL Centrales</span><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Caja General (SPL)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered"
+      data-tip="Razón: los productos de crédito revolvente y a plazo se administran en módulos SPL Centrales dedicados. · Detalle: TDC en Créditos Revolventes; préstamos y nómina en Créditos a Plazo. · Fuente: BP_Z_Créditos_Revolventes · BP_Z_Créditos_a_Plazo">
+    <div class="cap-inner">
+      <div class="cap-title">Cuentas de crédito <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Créditos a Plazo (SPL Centrales)</span><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Créditos Revolventes (SPL Centrales)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap not-covered"
+      data-tip="Razón: no se identificó en la documentación ni en el catálogo AMS-IMS un sistema dedicado a banca privada o servicios patrimoniales. · Detalle: capacidad no cubierta en el AS IS actual. · Fuente: sin evidencia documental">
+    <div class="cap-inner">
+      <div class="cap-title">Banco privado / Serv. patrimoniales</div>
+      <div class="cap-sys"><span class="app-context">No identificado en docs</span></div>
+      <span class="cap-tag tag-none">Sin evidencia</span>
+    </div>
+  </td>
+  <td class="cap partial" colspan="2"
+      data-tip="Razón: la definición de productos vive como parametrización dentro del core SPL y OFI, sin un catálogo de productos independiente. · Detalle: parámetros de producto en Integral SPL; sin sistema PIM dedicado. · Fuente: BP_Z_Integral_Módulo_Central">
+    <div class="cap-inner">
+      <div class="cap-title">Información clase de producto</div>
+      <div class="cap-sys"><span class="app-name">Oficina Financiera Integral (OFI)</span><span class="app-context">SPL · Gestión Productos · Parametrización interna</span></div>
+      <span class="cap-tag tag-partial">Parcial</span>
+    </div>
+  </td>
+  <td class="cap not-covered"
+      data-tip="Razón: no se identificó producto de cuenta de jubilación en la documentación ni el catálogo. · Detalle: capacidad no cubierta en el AS IS. · Fuente: sin evidencia documental">
+    <div class="cap-inner">
+      <div class="cap-title">Cuentas de jubilación</div>
+      <div class="cap-sys"><span class="app-context">No identificado</span></div>
+      <span class="cap-tag tag-none">Sin evidencia</span>
+    </div>
+  </td>
+  <td class="cap covered"
+      data-tip="Razón: inversión creciente y pagaré se originan en el módulo de Inversiones SPL y se exponen por App. · Detalle: tasas de rendimiento parametrizadas en el core. · Fuente: BCP_Inversiones · App_Apertura_Inversión">
+    <div class="cap-inner">
+      <div class="cap-title">Cuentas de ahorro / inversión <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Inversiones (SPL)</span><span class="app-name">App BanCoppel Movil</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered"
+      data-tip="Razón: los depósitos a plazo son el mismo producto de inversión creciente/pagaré gestionado por Inversiones SPL. · Detalle: tasas y plazos en el core SPL. · Fuente: BCP_Inversiones">
+    <div class="cap-inner">
+      <div class="cap-title">Cuentas de depósito a plazo <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Inversiones (SPL)</span><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Créditos a Plazo (SPL Centrales)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered"
+      data-tip="Razón: las transferencias SPEI y operaciones se enrutan por SPEI Enlace Financiero y la capa de integración. · Detalle: App y canales digitales como puntos de entrada. · Fuente: BP_Z_SPEI_Enlace_Financiero">
+    <div class="cap-inner">
+      <div class="cap-title">Banca transaccional</div>
+      <div class="cap-sys"><span class="app-name">SPEI Enlace Financiero</span><span class="app-name">Interfaces servicios Coppel</span><span class="app-name">App BanCoppel Movil</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap not-covered"
+      data-tip="Razón: no se identificó un producto de cuenta de saldo cero en la documentación. · Detalle: capacidad no cubierta en el AS IS. · Fuente: sin evidencia documental">
+    <div class="cap-inner">
+      <div class="cap-title">Cuentas de saldo cero</div>
+      <div class="cap-sys"><span class="app-context">No identificado</span></div>
+      <span class="cap-tag tag-none">Sin evidencia</span>
+    </div>
+  </td>
+</tr>
+
+<!-- ── GRUPO: Gestión de cuentas ── -->
+<tr><td colspan="11" class="grp-hdr">Gestión de cuentas</td></tr>
+<tr class="biz-row">
+  <td class="cap covered"
+      data-tip="Razón: la cancelación de cuentas se ejecuta en el core de crédito/captación SPL con control operativo del SOC. · Detalle: incluye cuentas nunca usadas e inactivas. · Fuente: BCP_Cancelación_cuentas_nunca_e_inactivas">
+    <div class="cap-inner">
+      <div class="cap-title">Cierre de cuenta</div>
+      <div class="cap-sys"><span class="app-name">Créditos Revolventes SPL Centrales</span><span class="app-name">Sistema Operativo Central (SOC)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="2"
+      data-tip="Razón: la apertura combina captura en OFI (sucursal) o Alta Móvil/App (digital) con validación de identidad contra INE, RENAPO y biometría. · Detalle: tiempo promedio en sucursal 45 min; el canal digital usa Dictamen Unificado con SLA objetivo de 5 seg que hoy llega a 15 seg. · Fuente: SUC_Apertura_cuenta_efectiva_digital · BP_Z_Clientes">
+    <div class="cap-inner">
+      <div class="cap-title">Originación de cuentas</div>
+      <div class="cap-sys"><span class="app-name">Clientes</span><span class="app-name">Oficina Financiera Integral (OFI)</span><span class="app-name">Consulta INE</span><span class="app-name">ConsultaRenapo</span><span class="app-name">Motor de Huellas</span><span class="app-name">Alta Móvil</span><span class="app-name">Dictamen Unificado</span><span class="app-name">BancoppelWS</span><span class="app-name">Autenticador BC</span><span class="app-name">Autenticador CC</span><span class="app-context">SLA roto 5s vs 15s</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap partial" colspan="2"
+      data-tip="Razón: los eventos programados (calificación de cartera, cobranza) corren como jobs batch nocturnos del core SPL. · Detalle: procesamiento por lotes en Integral SPL y Cobranza SPL. · Fuente: Tenant_Onboarding_Templates · BP_Z_Cobranza">
+    <div class="cap-inner">
+      <div class="cap-title">Eventos activados por calendario <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Integral (módulo central) (SPL)</span><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Cobranza (SPL)</span><span class="app-context">Batch Informix</span></div>
+      <span class="cap-tag tag-partial">Parcial (sin IPs)</span>
+    </div>
+  </td>
+  <td class="cap covered"
+      data-tip="Razón: la configuración de servicios del cliente (canales, domiciliación, portabilidad) se realiza en OFI y la App. · Detalle: alta/baja de domiciliación y activación de canales. · Fuente: SUC_Portabilidad_nómina · App_Alta_domiciliación_TDC">
+    <div class="cap-inner">
+      <div class="cap-title">Servicios de configuración</div>
+      <div class="cap-sys"><span class="app-name">Oficina Financiera Integral (OFI)</span><span class="app-name">Domiciliacion</span><span class="app-name">App BanCoppel Movil</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered"
+      data-tip="Razón: las acciones iniciadas por el cliente (bloqueo de tarjeta, CVV dinámico) se atienden en App, OFI y VCAS. · Detalle: autoservicio en App con respaldo de VCAS para compras. · Fuente: App_Bloqueo_y_desbloqueo_de_tarjetas · App_CVV">
+    <div class="cap-inner">
+      <div class="cap-title">Eventos activados por cliente</div>
+      <div class="cap-sys"><span class="app-name">App BanCoppel Movil</span><span class="app-name">VCAS</span><span class="app-name">Oficina Financiera Integral (OFI)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered"
+      data-tip="Razón: las operaciones de tarjeta en ATM y POS pasan por el switch autorizador propio y la administración de tarjetas. · Detalle: IST SW ATMs Propios e Interact SW Autorizador procesan la transaccionalidad. · Fuente: BCP_Pago_de_TDC_y_Préstamos_en_ATM">
+    <div class="cap-inner">
+      <div class="cap-title">Servicios tarjeta débito/ATM</div>
+      <div class="cap-sys"><span class="app-name">IST SW ATMs Propios</span><span class="app-name">Interact SW Autorizador</span><span class="app-name">Administración de Tarjetas (MAC WEB)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered"
+      data-tip="Razón: los depósitos entran por el core SPL desde múltiples canales (ventanilla, SPEI, corresponsales). · Detalle: Interfaces servicios Coppel para depósitos en tiendas. · Fuente: SUC_Depósito_en_efectivo_a_cuenta">
+    <div class="cap-inner">
+      <div class="cap-title">Depositar fondos <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Integral (módulo central) (SPL)</span><span class="app-name">SPEI Enlace Financiero</span><span class="app-name">Interfaces servicios Coppel</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered"
+      data-tip="Razón: el alta cumple KYC validando identidad (INE/RENAPO), listas negras y marcaje IPAB. · Detalle: 7,000–20,000 consultas diarias a INE/RENAPO. · Fuente: BCP_Alta_de_Cliente · SOC_Marcaje_IPAB">
+    <div class="cap-inner">
+      <div class="cap-title">Gestión cumplimiento / Incorporación <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name">Clientes</span><span class="app-name">Consulta INE</span><span class="app-name">ConsultaRenapo</span><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Formato IPAB (SPL)</span><span class="app-name">Prevención de Lavado de Dinero</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered"
+      data-tip="Razón: TDC, inversiones y préstamos calculan intereses en sus módulos SPL respectivos. · Detalle: tasas parametrizadas en el core. · Fuente: BCP_Inversiones · BP_Z_Créditos_Revolventes">
+    <div class="cap-inner">
+      <div class="cap-title">Cuentas que generan intereses <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name">Créditos Revolventes SPL Centrales</span><span class="app-name">Créditos a Plazo SPL Centrales</span><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Inversiones (SPL)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+</tr>
+<tr class="biz-row">
+  <td class="cap covered" colspan="2"
+      data-tip="Razón: el pago de servicios se canaliza por el Motor de Pago de Servicios expuesto en App y Portal Internet. · Detalle: impuestos, telefonía, televisión. · Fuente: App_Pago_de_Servicios · BPI_Pago_de_Servicios">
+    <div class="cap-inner">
+      <div class="cap-title">Servicios de pago de facturas en línea</div>
+      <div class="cap-sys"><span class="app-name">Motor de Pago de Servicios</span><span class="app-name">App BanCoppel Movil</span><span class="app-name">Portal Internet</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap partial" colspan="2"
+      data-tip="Razón: el segmento empresarial se atiende con EmpresaNet y crédito comercial, más capacidades de banca de negocios. · Detalle: Fiduciario y OpenBanking amplían la oferta empresarial. · Fuente: BP_Z_EmpresaNet · BP_Z_Crédito_Comercial_Orión">
+    <div class="cap-inner">
+      <div class="cap-title">Pequeñas empresas</div>
+      <div class="cap-sys"><span class="app-name">Empresa Net</span><span class="app-name">Crédito Comercial (Orión)</span><span class="app-name">Fiduciario</span><span class="app-name">OpenBanking</span></div>
+      <span class="cap-tag tag-partial">Parcial</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="2"
+      data-tip="Razón: la transaccionalidad de cuentas (SPEI, transferencias) opera por SPEI Enlace Financiero accesible desde todos los canales. · Detalle: App, Portal Internet, EmpresaNet, sucursal. · Fuente: BP_Z_SPEI_Enlace_Financiero">
+    <div class="cap-inner">
+      <div class="cap-title">Banca transaccional (cuentas)</div>
+      <div class="cap-sys"><span class="app-name">SPEI Enlace Financiero</span><span class="app-name">App BanCoppel Movil</span><span class="app-name">Portal Internet</span><span class="app-name">Empresa Net</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="2"
+      data-tip="Razón: la actualización de datos del cliente se hace en OFI contra el maestro de Clientes, con recaptura biométrica. · Detalle: validación de domicilio toma hasta 7 min por operación. · Fuente: SUC_Actualización_de_datos">
+    <div class="cap-inner">
+      <div class="cap-title">Actualizar información</div>
+      <div class="cap-sys"><span class="app-name">Clientes</span><span class="app-name">Oficina Financiera Integral (OFI)</span><span class="app-name">Motor de Huellas</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="3"
+      data-tip="Razón: los retiros se procesan por el switch de ATMs propios, el autorizador y OFI en ventanilla. · Detalle: incluye retiro sin tarjeta vía App. · Fuente: SUC_Retiro_de_efectivo_ventanilla · App_Retiro_de_efectivo_sin_tarjeta">
+    <div class="cap-inner">
+      <div class="cap-title">Retirar fondos</div>
+      <div class="cap-sys"><span class="app-name">IST SW ATMs Propios</span><span class="app-name">Interact SW Autorizador</span><span class="app-name">Oficina Financiera Integral (OFI)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+</tr>
+
+<!-- ── GRUPO: Gestión documental ── -->
+<tr><td colspan="11" class="grp-hdr">Gestión documental</td></tr>
+<tr class="biz-row">
+  <td class="cap covered" colspan="3"
+      data-tip="Razón: el expediente digital del cliente se integra en OFI con captura desde Clientes y Dictamen Unificado. · Detalle: digitalización de INE, comprobante de domicilio y contratos. · Fuente: SUC_Apertura_cuenta_efectiva_digital">
+    <div class="cap-inner">
+      <div class="cap-title">Documentación de cumplimiento de cuenta</div>
+      <div class="cap-sys"><span class="app-name">Clientes</span><span class="app-name">Oficina Financiera Integral (OFI)</span><span class="app-name">Dictamen Unificado</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="3"
+      data-tip="Razón: la aceptación de contratos y avisos se firma en OFI (sucursal) o App; la firma digital FAD existe pero está dada de baja en App. · Detalle: clientes de App son redirigidos a sucursal para firmar contrato de servicios digitales. · Fuente: App_Registro_de_usuario · DUD_Formalización">
+    <div class="cap-inner">
+      <div class="cap-title">Divulgación y aceptar (procesamiento)</div>
+      <div class="cap-sys"><span class="app-name">App BanCoppel Movil</span><span class="app-name">Oficina Financiera Integral (OFI)</span><span class="app-name">Firma Autografa Digital (FAD)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap partial" colspan="3"
+      data-tip="Razón: la gestión documental está fragmentada entre el gestor Prometeo, BLOB Informix y captura física (ICAR, ID BOX). · Detalle: cinco mecanismos sin un ECM centralizado único. · Fuente: SUC_Apertura_cuenta_efectiva_digital">
+    <div class="cap-inner">
+      <div class="cap-title">Gestión de documentos de imagen</div>
+      <div class="cap-sys"><span class="app-name">Prometeo Gestor Documental</span><span class="app-name">Clientes</span><span class="app-name">Strikeiron</span><span class="app-context">(BLOB Informix) · ICAR · ID BOX · SFTP biométrico</span></div>
+      <span class="cap-tag tag-partial">Parcial — muy fragmentado</span>
+    </div>
+  </td>
+  <td class="cap partial" colspan="2"
+      data-tip="Razón: la correspondencia al cliente se genera vía notificaciones (Latinia, BancoppelSMS) y estados de cuenta fiscales. · Detalle: sin motor de plantillas centralizado. · Fuente: App_Token_Digital · SUC_Impresión_EC">
+    <div class="cap-inner">
+      <div class="cap-title">Templates (correspondencia)</div>
+      <div class="cap-sys"><span class="app-name">Latinia</span><span class="app-name">BancoppelSMS</span><span class="app-name">Fact. Electrónica CFDI (Interfactura/Detecno)</span></div>
+      <span class="cap-tag tag-partial">Parcial</span>
+    </div>
+  </td>
+</tr>
+
+<!-- ── GRUPO: Marketing ── -->
+<tr><td colspan="11" class="grp-hdr">Marketing</td></tr>
+<tr class="biz-row">
+  <td class="cap partial" colspan="3"
+      data-tip="Razón: las campañas se gestionan con MEDALLIA (voz del cliente) y se difunden por Latinia. · Detalle: pre-aprobados vía Interfaces servicios Coppel. · Fuente: App_Originación_TDC_Infinite">
+    <div class="cap-inner">
+      <div class="cap-title">Gestión de campañas</div>
+      <div class="cap-sys"><span class="app-name">MEDALLIA</span><span class="app-name">Latinia</span><span class="app-name">Interfaces servicios Coppel</span></div>
+      <span class="cap-tag tag-partial">Parcial</span>
+    </div>
+  </td>
+  <td class="cap partial" colspan="4"
+      data-tip="Razón: la venta de seguros (repatriación, protección familiar) se opera desde OFI en sucursal. · Detalle: sin CRM de garantías dedicado. · Fuente: SUC_Club_de_protección_familiar · SUC_Venta_seguro_paisano">
+    <div class="cap-inner">
+      <div class="cap-title">Gestión de garantías / seguros</div>
+      <div class="cap-sys"><span class="app-name">Seguros de Repatriación</span><span class="app-name">Oficina Financiera Integral (OFI)</span></div>
+      <span class="cap-tag tag-partial">Parcial</span>
+    </div>
+  </td>
+  <td class="cap not-covered" colspan="4"
+      data-tip="Encuestas e investigación de mercado&#10;No identificado en documentación operativa AS IS">
+    <div class="cap-inner">
+      <div class="cap-title">Encuestas / investigación</div>
+      <div class="cap-sys"><span class="app-context">No identificado en docs</span></div>
+      <span class="cap-tag tag-none">Sin evidencia</span>
+    </div>
+  </td>
+</tr>
+
+<!-- ── GRUPO: Proceso de cuenta ── -->
+<tr><td colspan="11" class="grp-hdr">Proceso de cuenta</td></tr>
+<tr class="biz-row">
+  <td class="cap covered" colspan="2"
+      data-tip="Razón: los ajustes y reversos se autorizan en el SOC y se concilian en el módulo operativo-contable. · Detalle: incluye bonificaciones por error o fraude. · Fuente: SOC_Autorización_reversos · BCP_Bonificación_recursos">
+    <div class="cap-inner">
+      <div class="cap-title">Ajustes</div>
+      <div class="cap-sys"><span class="app-name">Sistema Operativo Central (SOC)</span><span class="app-name">Conciliaciones Operativo Contables</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="2"
+      data-tip="Razón: el cálculo de saldos vive en Integral SPL y se cuadra contra Contabilidad vía conciliaciones. · Detalle: conciliación operativo-contable diaria. · Fuente: BCP_Conciliación_operativa_contable">
+    <div class="cap-inner">
+      <div class="cap-title">Procesamiento de saldos <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Integral (módulo central) (SPL)</span><span class="app-name">Contabilidad</span><span class="app-name">Conciliaciones Operativo Contables</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="2"
+      data-tip="Razón: las excepciones operativas se atienden en el SOC y mediante el módulo de Aclaraciones. · Detalle: gestión de incidencias de SPEI y operaciones. · Fuente: SOC_Autorización_reversos">
+    <div class="cap-inner">
+      <div class="cap-title">Excepciones</div>
+      <div class="cap-sys"><span class="app-name">Sistema Operativo Central (SOC)</span><span class="app-name">Aclaraciones</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="2"
+      data-tip="Razón: la contabilidad central reside en Contabilidad y se complementa con conciliaciones y módulos de gastos/arrendamiento. · Detalle: Arrendamiento IFRS16 en Oracle; Dynamics para cuentas por pagar. · Fuente: SIF_* · BCP_Conciliación_Operativocontable_arrendamiento">
+    <div class="cap-inner">
+      <div class="cap-title">Contabilidad</div>
+      <div class="cap-sys"><span class="app-name">Contabilidad</span><span class="app-name">Conciliaciones Operativo Contables</span><span class="app-name">Dynamics Cuentas por Pagar y Presupuestos</span><span class="app-name">Arrendamiento de inmuebles (Conta Oracle ) IFRS16</span><span class="app-name">Gastos Banco</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="3"
+      data-tip="Razón: la conciliación abarca operativo-contable, ATM/POS automática y SPEI. · Detalle: conciliación de captación, garantías y arrendamiento. · Fuente: BCP_Conciliación_* · SOC_Conciliación_Automática">
+    <div class="cap-inner">
+      <div class="cap-title">Reconciliaciones</div>
+      <div class="cap-sys"><span class="app-name">Conciliaciones Operativo Contables</span><span class="app-name">Conciliación Automática ATM / POS</span><span class="app-name">SPEI Enlace Financiero</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+</tr>
+
+<!-- ── GRUPO: Ventas ── -->
+<tr><td colspan="11" class="grp-hdr">Ventas</td></tr>
+<tr class="biz-row">
+  <td class="cap partial" colspan="3"
+      data-tip="Razón: la corresponsalía con OXXO y Tiendas Coppel se opera por sus canales dedicados sobre la integración. · Detalle: 16.5M transacciones y $32.5B MXN en 2025 en Tiendas Coppel. · Fuente: BP_Z_Corresponsalía_OXXO · BP_Z_Corresponsales_Tiendas_Coppel">
+    <div class="cap-inner">
+      <div class="cap-title">Asociaciones / Corresponsalía</div>
+      <div class="cap-sys"><span class="app-name">Canal Corresponsales Tiendas Coppel</span><span class="app-name">Corresponsalía OXXO</span><span class="app-name">Interfaces servicios Coppel</span></div>
+      <span class="cap-tag tag-partial">Parcial</span>
+    </div>
+  </td>
+  <td class="cap partial" colspan="3"
+      data-tip="Razón: incentivos y venta cruzada se apoyan en MEDALLIA, Latinia, seguros y el programa Coppel Max. · Detalle: sin módulo formal de gestión de incentivos. · Fuente: App_Uso_de_Coppel_Max">
+    <div class="cap-inner">
+      <div class="cap-title">Ventas / incentivos</div>
+      <div class="cap-sys"><span class="app-name">MEDALLIA</span><span class="app-name">Latinia</span><span class="app-context">Seguros Repatriación · Coppel Max</span></div>
+      <span class="cap-tag tag-partial">Parcial</span>
+    </div>
+  </td>
+  <td class="cap not-covered" colspan="2"
+      data-tip="Razón: la relación con el cliente se atiende vía CAT y el sistema de cobranza, sin un CRM unificado. · Detalle: cuando el sistema de cobranza falla, los asesores usan Genesys directamente. · Fuente: BACK_Cobranza · BCP_User_Journey_CAT">
+    <div class="cap-inner">
+      <div class="cap-title">Gestión relación con el cliente</div>
+      <div class="cap-sys"><span class="app-name">CAT (01-800)</span><span class="app-name">Aclaraciones</span><span class="app-name">MEDALLIA</span><span class="app-context">Sin CRM formal identificado</span></div>
+      <span class="cap-tag tag-none">Sin CRM formal</span>
+    </div>
+  </td>
+  <td class="cap partial" colspan="3"
+      data-tip="Razón: la prospección de crédito se canaliza por Dictamen Unificado e Interfaces servicios Coppel. · Detalle: sin módulo de gestión de leads dedicado. · Fuente: BP_Z_DUD">
+    <div class="cap-inner">
+      <div class="cap-title">Gestión de prospectos</div>
+      <div class="cap-sys"><span class="app-name">Dictamen Unificado</span><span class="app-name">Interfaces servicios Coppel</span></div>
+      <span class="cap-tag tag-partial">Parcial</span>
+    </div>
+  </td>
+</tr>
+
+<!-- ── GRUPO: Servicios de inversión ── -->
+<tr><td colspan="11" class="grp-hdr">Servicios de inversión</td></tr>
+<tr class="biz-row">
+  <td class="cap covered" colspan="5"
+      data-tip="Razón: tesorería e inversiones institucionales operan con Aladdin, ION Trading e Indeval, más banca de negocios. · Detalle: conexión vía VPN MPLS; tasas de referencia externas. · Fuente: BCP_Inversiones · AMS_IMS_Inversiones">
+    <div class="cap-inner">
+      <div class="cap-title">Finanzas y Tesorería</div>
+      <div class="cap-sys"><span class="app-name">Aladdin</span><span class="app-name">ION Trading</span><span class="app-name">Indeval Enlace Financiero</span><span class="app-name">Fiduciario</span><span class="app-name">Plataforma Arrendadora</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="6"
+      data-tip="Razón: la inversión retail (creciente, pagaré) se origina en Inversiones SPL y se ofrece por App y sucursal. · Detalle: tasas en el core. · Fuente: App_Apertura_de_Inversión_Creciente_y_Pagaré">
+    <div class="cap-inner">
+      <div class="cap-title">Servicios de inversión (retail) <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Inversiones (SPL)</span><span class="app-name">App BanCoppel Movil</span><span class="app-name">Oficina Financiera Integral (OFI)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+</tr>
+
+<!-- ── GRUPO: Gestión de información del cliente ── -->
+<tr><td colspan="11" class="grp-hdr">Gestión de la información del cliente</td></tr>
+<tr class="biz-row">
+  <td class="cap covered" colspan="2"
+      data-tip="Razón: los datos de contacto residen en Clientes y se validan con servicios externos (correo, domicilio). · Detalle: Strikeiron valida correos en job nocturno de la 1 AM. · Fuente: SUC_Actualización_de_datos">
+    <div class="cap-inner">
+      <div class="cap-title">Contacto personal</div>
+      <div class="cap-sys"><span class="app-name">Clientes</span><span class="app-name">Motores de Consumo de WS(INE,RENAPO)</span><span class="app-name">Strikeiron</span><span class="app-context">(email batch 1AM)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap not-covered" colspan="2"
+      data-tip="Razón: la persona moral se atiende parcialmente en EmpresaNet y Clientes; los módulos de RRHH cubren la nómina interna. · Detalle: sin módulo de entidad jurídica completo. · Fuente: BP_Z_EmpresaNet">
+    <div class="cap-inner">
+      <div class="cap-title">Entidad (persona moral)</div>
+      <div class="cap-sys"><span class="app-name">Empresa Net</span><span class="app-name">Clientes</span><span class="app-name">BancoN RH</span><span class="app-name">Pensiones alimenticias RH</span><span class="app-context">RRHH interno · nómina colaboradores · Sin módulo entidad completo</span></div>
+      <span class="cap-tag tag-none">Sin evidencia completa</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="2"
+      data-tip="Razón: las preferencias del cliente se almacenan en Clientes y la App, con canales de notificación en Latinia. · Detalle: preferencias de notificación SMS/Push. · Fuente: BP_Z_Clientes">
+    <div class="cap-inner">
+      <div class="cap-title">Preferencias personales</div>
+      <div class="cap-sys"><span class="app-name">Clientes</span><span class="app-name">App BanCoppel Movil</span><span class="app-name">Latinia</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="2"
+      data-tip="Razón: las relaciones cliente-cuenta y la sincronización Coppel-BanCoppel se mantienen en Clientes y los replicadores. · Detalle: marcaje IPAB para relaciones jurídicas. · Fuente: BP_Z_Clientes">
+    <div class="cap-inner">
+      <div class="cap-title">Relación <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name">Clientes</span><span class="app-name">Empresa Net</span><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Formato IPAB (SPL)</span><span class="app-name">Replicadores Coppel BanCoppel</span><span class="app-name">Replicación de Empleados (INET)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered"
+      data-tip="Razón: la seguridad del cliente se basa en biometría (huellas, rostros), VCAS y tokens. · Detalle: el Motor de Rostros está fuera de servicio y el de huellas con incidente activo; biométrico facial no disponible hoy. · Fuente: BCP_Comparación_y_monitoreo_de_rostros">
+    <div class="cap-inner">
+      <div class="cap-title">Seguridad personal</div>
+      <div class="cap-sys"><span class="app-name">Motor de Huellas</span><span class="app-name">Motor de Rostros</span><span class="app-name">VCAS</span><span class="app-name">Autenticador BC</span><span class="app-context">(fuera srv. )</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="2"
+      data-tip="Razón: el perfil crediticio se construye con SICC's, el motor de evaluación y modelos de scoring. · Detalle: 52k solicitudes evaluadas al día; consultas a Buró y Círculo. · Fuente: BP_Z_SICCs · BP_Z_Motor_de_evaluación">
+    <div class="cap-inner">
+      <div class="cap-title">Perfil de riesgo de la persona</div>
+      <div class="cap-sys"><span class="app-name">SICC's</span><span class="app-name">Motor de Evaluación de Crédito</span><span class="app-name">TRIAD</span><span class="app-name">Calificación de Cartera / Reportes Regulatorios (Bajaware)</span><span class="app-context">(Calific. Cartera)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+</tr>
+
+<!-- ── GRUPO: Reportes y análisis ── -->
+<tr><td colspan="11" class="grp-hdr">Reportes y análisis</td></tr>
+<tr class="biz-row">
+  <td class="cap covered" colspan="3"
+      data-tip="Razón: los reportes contables y regulatorios se generan en Contabilidad, IPAB y Bajaware, con auditoría en Audisoft. · Detalle: reportes a BANXICO, CNBV e IPAB. · Fuente: SIF_* · BCP_Conciliación_regulatorio">
+    <div class="cap-inner">
+      <div class="cap-title">Reportes contables <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name">Contabilidad</span><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Formato IPAB (SPL)</span><span class="app-name">Bajaware (Calific. Cartera / Rpt. Reg.)</span><span class="app-name">Audisoft</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="3"
+      data-tip="Razón: las consultas de saldos y movimientos se exponen por Consulta Cuentas y clientes, Portal Internet y App. · Detalle: consulta en línea y descargable. · Fuente: BPI_Consulta_de_Saldos · App_Detalles_y_Movimientos">
+    <div class="cap-inner">
+      <div class="cap-title">Reportes de clientes</div>
+      <div class="cap-sys"><span class="app-name">Consulta Cuentas y clientes</span><span class="app-name">Portal Internet</span><span class="app-name">App BanCoppel Movil</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap partial" colspan="3"
+      data-tip="Razón: los reportes operativos y de desempeño usan REFLEXIS, monitores de operación y el SOC; no hay BI de negocio centralizado. · Detalle: REFLEXIS lleva KPIs de metas por sucursal y empleado. · Fuente: SUC_Apertura_cuenta_efectiva_digital">
+    <div class="cap-inner">
+      <div class="cap-title">Reporte Operacional / Utilización <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name">REFLEXIS</span><span class="app-name">Monitor Web Interfaces Coppel</span><span class="app-name">Sistema Operativo Central (SOC)</span><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Órdenes de Supervisión (SPL Centrales)</span><span class="app-name">Monitor de Operaciones BPI</span></div>
+      <span class="cap-tag tag-partial">Parcial</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="2"
+      data-tip="Razón: el reporte regulatorio se cubre con Bajaware, IPAB, facturación CFDI y Risk Logic. · Detalle: correcciones a Buró y CFDI para el SAT. · Fuente: BCP_Correcciones_al_buró · SOC_IPAB">
+    <div class="cap-inner">
+      <div class="cap-title">Regulatorios (government rpt) <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name">Bajaware (Calific. Cartera / Rpt. Reg.)</span><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Formato IPAB (SPL)</span><span class="app-name">Risk Logic Regulatorio</span><span class="app-name">Fact. Electrónica CFDI (Interfactura/Detecno)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+</tr>
+
+<!-- ── GRUPO: Data Analytics ── -->
+<tr><td colspan="11" class="grp-hdr">Data Analytics y procesamiento de datos</td></tr>
+<tr class="biz-row">
+  <td class="cap not-covered" colspan="3"
+      data-tip="Razón: la analítica disponible es de monitoreo transaccional (Kibana); no hay plataforma de BI de negocio. · Detalle: capacidad analítica de negocio limitada. · Fuente: catálogo AMS-IMS">
+    <div class="cap-inner">
+      <div class="cap-title">Analítica</div>
+      <div class="cap-sys"><span class="app-name">Kibana Monitor Transaccional</span><span class="app-context">Sin plataforma BI negocio centralizada</span></div>
+      <span class="cap-tag tag-none">Sin evidencia BI</span>
+    </div>
+  </td>
+  <td class="cap partial" colspan="3"
+      data-tip="Razón: el archivo del cliente combina el gestor Prometeo con el maestro Clientes en Informix. · Detalle: información fragmentada entre repositorios. · Fuente: BP_Z_Clientes">
+    <div class="cap-inner">
+      <div class="cap-title">Archivo de información del cliente</div>
+      <div class="cap-sys"><span class="app-name">Prometeo Gestor Documental</span><span class="app-name">Clientes</span><span class="app-context">(BDINTEG Informix)</span></div>
+      <span class="cap-tag tag-partial">Parcial (fragmentado)</span>
+    </div>
+  </td>
+  <td class="cap partial" colspan="2"
+      data-tip="Razón: existe una capa de reporting histórico (Data WareHouse, REFLEXIS) pero no un DW analítico completo. · Detalle: reporte de captación diario y mensual. · Fuente: SUC_Apertura_cuenta_efectiva_digital">
+    <div class="cap-inner">
+      <div class="cap-title">Data warehouse</div>
+      <div class="cap-sys"><span class="app-name">Data WareHouse</span><span class="app-name">REFLEXIS</span><span class="app-context">(KPIs suc./empleados) · Informix histórico (sin DW analítico completo)</span></div>
+      <span class="cap-tag tag-partial">Parcial</span>
+    </div>
+  </td>
+  <td class="cap partial" colspan="3"
+      data-tip="Razón: los datos operativos viven en el core Informix y los batch del sistema central. · Detalle: 80+ jobs batch identificados. · Fuente: Tenant_Onboarding_Templates">
+    <div class="cap-inner">
+      <div class="cap-title">Datos operacionales <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Integral (módulo central) (SPL)</span><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Cobranza (SPL)</span><span class="app-context">Batch jobs Informix Sistema 206</span></div>
+      <span class="cap-tag tag-partial">Parcial (legacy batch)</span>
+    </div>
+  </td>
+</tr>
+
+<!-- ── GRUPO: Gestión de comunicaciones ── -->
+<tr><td colspan="11" class="grp-hdr">Gestión de comunicaciones</td></tr>
+<tr class="biz-row">
+  <td class="cap covered" colspan="5"
+      data-tip="Razón: las alertas al cliente se envían por Latinia y BancoppelSMS, más confirmaciones SPEI. · Detalle: SMS, push y CEP. · Fuente: App_Token_Digital · BCP_SPEI_Central">
+    <div class="cap-inner">
+      <div class="cap-title">Alertas y notificaciones</div>
+      <div class="cap-sys"><span class="app-name">Latinia</span><span class="app-name">BancoppelSMS</span><span class="app-name">SPEI Enlace Financiero</span><span class="app-context">(CEP notif.)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="6"
+      data-tip="Razón: la atención humana se da por CAT (con IVR y sistema de cobranza), sucursal OFI y App. · Detalle: 300 asesores de cobranza; herramientas Zendesk, Emplifi y Pulse complementan el CAT. · Fuente: BCP_User_Journey_CAT · BACK_Cobranza">
+    <div class="cap-inner">
+      <div class="cap-title">Interacciones humanas</div>
+      <div class="cap-sys"><span class="app-name">CAT (01-800)</span><span class="app-name">IVR</span><span class="app-name">Aclaraciones</span><span class="app-name">Oficina Financiera Integral (OFI)</span><span class="app-name">App BanCoppel Movil</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+</tr>
+
+<!-- ── GRUPO: Servicios facturables ── -->
+<tr><td colspan="11" class="grp-hdr">Servicios facturables</td></tr>
+<tr class="biz-row">
+  <td class="cap partial" colspan="2"
+      data-tip="Razón: el análisis de cuentas se hace por consulta en Portal Internet, App y Consulta Cuentas y clientes. · Detalle: sin módulo analítico dedicado. · Fuente: BPI_Consulta_de_Saldos">
+    <div class="cap-inner">
+      <div class="cap-title">Análisis de cuentas</div>
+      <div class="cap-sys"><span class="app-name">Consulta Cuentas y clientes</span><span class="app-name">Portal Internet</span><span class="app-name">App BanCoppel Movil</span></div>
+      <span class="cap-tag tag-partial">Parcial</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="2"
+      data-tip="Razón: la gestión de efectivo empresarial se opera con Caja General, EmpresaNet y el SOC, más cuentas por pagar. · Detalle: dispersión de nómina y control de efectivo por plaza. · Fuente: BP_Z_Caja_General · BP_Z_EmpresaNet">
+    <div class="cap-inner">
+      <div class="cap-title">Cash management <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Caja General (SPL)</span><span class="app-name">Empresa Net</span><span class="app-name">Sistema Operativo Central (SOC)</span><span class="app-name">Dynamics Cuentas por pagar y Presupuestos</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="2"
+      data-tip="Razón: los cheques se administran en el módulo Cheques SPL y EmpresaNet. · Detalle: cheques a nuestro cargo y chequeras empresariales. · Fuente: SUC_Cheques_a_nuestro_cargo">
+    <div class="cap-inner">
+      <div class="cap-title">Cheque de caja / Giros postales <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Cheques (SPL)</span><span class="app-name">Empresa Net</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="2"
+      data-tip="Razón: los servicios comerciales se cubren con EmpresaNet, crédito comercial Orión y APIs de OpenBanking. · Detalle: líneas de crédito empresarial y arrendamiento. · Fuente: BP_Z_Crédito_Comercial_Orión">
+    <div class="cap-inner">
+      <div class="cap-title">Servicios comerciales</div>
+      <div class="cap-sys"><span class="app-name">Empresa Net</span><span class="app-name">Crédito Comercial (Orión)</span><span class="app-name">Homologación-Servicios</span><span class="app-name">OpenBanking</span><span class="app-name">Plataforma Arrendadora</span><span class="app-name">Nasa Control de Expedientes de Proveedores</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered"
+      data-tip="Razón: los pagos se procesan por el Motor de Pago de Servicios, pagos programados, órdenes de pago y Afore. · Detalle: incluye retiros de Afore vía SAFRE. · Fuente: BCP_Pagos_de_la_Afore">
+    <div class="cap-inner">
+      <div class="cap-title">Servicios de pago</div>
+      <div class="cap-sys"><span class="app-name">Motor de Pago de Servicios</span><span class="app-name">Pagos Programados</span><span class="app-name">Ordenes de Pago Nacionales</span><span class="app-name">Pagos de la Afore</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap not-covered"
+      data-tip="Caja de seguridad&#10;No identificado en documentación operativa AS IS">
+    <div class="cap-inner">
+      <div class="cap-title">Caja de seguridad</div>
+      <div class="cap-sys"><span class="app-context">No identificado</span></div>
+      <span class="cap-tag tag-none">Sin evidencia</span>
+    </div>
+  </td>
+  <td class="cap not-covered"
+      data-tip="Gestión de confianza / Trust services&#10;No identificado en documentación operativa AS IS">
+    <div class="cap-inner">
+      <div class="cap-title">Gestión de confianza</div>
+      <div class="cap-sys"><span class="app-context">No identificado</span></div>
+      <span class="cap-tag tag-none">Sin evidencia</span>
+    </div>
+  </td>
+</tr>
+
+<!-- ── GRUPO: Transacciones ── -->
+<tr><td colspan="11" class="grp-hdr right-col">Transacciones</td></tr>
+<tr class="biz-row">
+  <td class="cap partial" colspan="2"
+      data-tip="Razón: la facturación electrónica se genera vía CFDI y los reportes de VISA en el core. · Detalle: CFDI para el SAT. · Fuente: BPI_CFDI_Solicitud_de_Envío">
+    <div class="cap-inner">
+      <div class="cap-title">Facturación <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name">Fact. Electrónica CFDI (Interfactura/Detecno)</span><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Reporte de VISA (SIF) (SPL)</span></div>
+      <span class="cap-tag tag-partial">Parcial</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="2"
+      data-tip="Razón: el procesamiento de cheques reside en el módulo Cheques SPL con conciliación en el SOC. · Detalle: cheques a nuestro cargo. · Fuente: SOC_Conciliación_cheques">
+    <div class="cap-inner">
+      <div class="cap-title">Procesamiento de cheques <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Cheques (SPL)</span><span class="app-name">Empresa Net</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="2"
+      data-tip="Razón: el ciclo diario de procesamiento corre como batch en Integral SPL con cierre contable. · Detalle: apertura y cierre diario. · Fuente: Tenant_Onboarding_Templates">
+    <div class="cap-inner">
+      <div class="cap-title">Proceso del día 1 y día 2 <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Integral (módulo central) (SPL)</span><span class="app-name">Contabilidad</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="2"
+      data-tip="Razón: el cierre del día ejecuta los batch del core y la conciliación automática ATM/POS. · Detalle: cierre de sucursal y conciliación nocturna. · Fuente: SUC_Cierre_de_sucursal · SOC_Conciliación_Automática">
+    <div class="cap-inner">
+      <div class="cap-title">Fin del día y BATCH <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Integral (módulo central) (SPL)</span><span class="app-name">Conciliación Automática ATM / POS</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap partial" colspan="3"
+      data-tip="Razón: el efectivo en bóveda y dotaciones se controla en Caja General y el SOC. · Detalle: traslado de valores con proveedor externo. · Fuente: SUC_Cierre_caja_principal">
+    <div class="cap-inner">
+      <div class="cap-title">Gestión de cajas de seguridad <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Caja General (SPL)</span><span class="app-name">Sistema Operativo Central (SOC)</span></div>
+      <span class="cap-tag tag-partial">Parcial</span>
+    </div>
+  </td>
+</tr>
+<tr class="biz-row">
+  <td class="cap covered" colspan="2"
+      data-tip="Razón: la contabilización se centraliza en Contabilidad y el ruteo transaccional pasa por la capa de integración. · Detalle: Interact Router y Bus IBM enrutan operaciones. · Fuente: BCP_Conciliación_automática">
+    <div class="cap-inner">
+      <div class="cap-title">Contabilización y cola</div>
+      <div class="cap-sys"><span class="app-name">Contabilidad</span><span class="app-name">Interact Router (21)</span><span class="app-name">Bus IBM</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="3"
+      data-tip="Razón: las transacciones electrónicas (SPEI, CoDi) se procesan por SPEI Enlace Financiero y el autorizador. · Detalle: 307M transacciones de App en 2024. · Fuente: BP_Z_SPEI_Enlace_Financiero">
+    <div class="cap-inner">
+      <div class="cap-title">Procesar transacciones electrónicas</div>
+      <div class="cap-sys"><span class="app-name">SPEI Enlace Financiero</span><span class="app-name">App BanCoppel Movil</span><span class="app-name">Interact SW Autorizador</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="3"
+      data-tip="Razón: las operaciones de préstamo y TDC viven en los módulos de crédito SPL, con pagos desde múltiples canales. · Detalle: pago de TDC de otros bancos incluido. · Fuente: BCP_Pago_al_vencimiento_y_anticipado">
+    <div class="cap-inner">
+      <div class="cap-title">Transacciones cuentas de préstamo</div>
+      <div class="cap-sys"><span class="app-name">Créditos Revolventes SPL Centrales</span><span class="app-name">Créditos a Plazo SPL Centrales</span><span class="app-name">Pago de TDC de Otros Bancos</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="3"
+      data-tip="Razón: la originación de crédito orquesta Dictamen Unificado, el motor de evaluación y Alta Móvil. · Detalle: 35,498 TDC BanCoppel + 254,365 Coppel en 2024. · Fuente: BCP_User_Journey_Dictamen_Unificado">
+    <div class="cap-inner">
+      <div class="cap-title">Originaciones de procesos</div>
+      <div class="cap-sys"><span class="app-name">Dictamen Unificado</span><span class="app-name">Motor de Evaluación de Crédito</span><span class="app-name">Alta Móvil</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+</tr>
+<tr class="biz-row">
+  <td class="cap covered" colspan="4"
+      data-tip="Razón: los pagos en tiempo real corren por SPEI Enlace Financiero y TEF. · Detalle: $752MM enviados y $1,695MM recibidos en 2024. · Fuente: BP_Z_SPEI_Enlace_Financiero">
+    <div class="cap-inner">
+      <div class="cap-title">Pagos en tiempo real — Tratamiento</div>
+      <div class="cap-sys"><span class="app-name">SPEI Enlace Financiero</span><span class="app-name">Transferencia Electrónica de Fondos (TEF)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="4"
+      data-tip="Razón: la autorización de tarjetas en ATM/POS pasa por el switch autorizador y la conciliación, con control de inventario de plásticos. · Detalle: 2.5M autorizaciones E-Global al mes. · Fuente: BP_Z_Interact_SW_Autorizador">
+    <div class="cap-inner">
+      <div class="cap-title">Banca transaccional (autorizador)</div>
+      <div class="cap-sys"><span class="app-name">Interact SW Autorizador</span><span class="app-name">IST SW ATMs Propios</span><span class="app-name">Conciliación Automática ATM / POS</span><span class="app-name">Control de Inventario de Tarjetas (maquila)</span><span class="app-name">Puntos Compromiso</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="3"
+      data-tip="Razón: las transferencias se ejecutan por SPEI Enlace Financiero y canales de préstamos Coppel. · Detalle: inmediata y programada. · Fuente: BP_Z_SPEI_Enlace_Financiero">
+    <div class="cap-inner">
+      <div class="cap-title">Proceso de transferencia</div>
+      <div class="cap-sys"><span class="app-name">SPEI Enlace Financiero</span><span class="app-name">Canal Transferencias Préstamos Coppel</span><span class="app-name">Homologación-Servicios</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+</tr>
+
+<!-- ── GRUPO: Estado de cuenta ── -->
+<tr><td colspan="11" class="grp-hdr right-col">Estado de cuenta</td></tr>
+<tr class="biz-row">
+  <td class="cap covered" colspan="3"
+      data-tip="Razón: el estado de cuenta en línea se expone por App, Portal Internet y consulta. · Detalle: en línea y descargable. · Fuente: App_Detalles_y_Movimientos">
+    <div class="cap-inner">
+      <div class="cap-title">Generación estado de cuenta en línea</div>
+      <div class="cap-sys"><span class="app-name">App BanCoppel Movil</span><span class="app-name">Portal Internet</span><span class="app-name">Consulta Cuentas y clientes</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap partial" colspan="3"
+      data-tip="Razón: el histórico de estados de cuenta se guarda en Prometeo y CFDI fiscal. · Detalle: sin repositorio único centralizado. · Fuente: SUC_Solicitud_EC_Fiscal">
+    <div class="cap-inner">
+      <div class="cap-title">Archivo estado de cuenta / Histórico</div>
+      <div class="cap-sys"><span class="app-name">Prometeo Gestor Documental</span><span class="app-name">Fact. Electrónica CFDI (Interfactura/Detecno)</span></div>
+      <span class="cap-tag tag-partial">Parcial</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="2"
+      data-tip="Razón: la definición del corte se calcula en Contabilidad y el módulo de crédito revolvente. · Detalle: corte de TDC. · Fuente: SUC_Validación_corte_de_TDC">
+    <div class="cap-inner">
+      <div class="cap-title">Definición del estado de cuenta <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name">Contabilidad</span><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Créditos Revolventes (SPL Centrales)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="3"
+      data-tip="Razón: la generación del estado de cuenta corre como batch del core con facturación CFDI. · Detalle: EC fiscal electrónico. · Fuente: BPI_CFDI_Solicitud_de_Envío">
+    <div class="cap-inner">
+      <div class="cap-title">Generación del estado de cuenta <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Integral (módulo central) (SPL)</span><span class="app-name">Contabilidad</span><span class="app-name">Fact. Electrónica CFDI (Interfactura/Detecno)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+</tr>
+
+<!-- ── GRUPO: Gestión de productos ── -->
+<tr><td colspan="11" class="grp-hdr right-col">Gestión de productos</td></tr>
+<tr class="biz-row">
+  <td class="cap partial" colspan="2"
+      data-tip="Razón: los modelos de crédito residen en el motor de evaluación y TRIAD. · Detalle: scoring de capacidad de pago. · Fuente: BP_Z_Motor_de_evaluación">
+    <div class="cap-inner">
+      <div class="cap-title">Información de modelos</div>
+      <div class="cap-sys"><span class="app-name">Motor de Evaluación de Crédito</span><span class="app-name">TRIAD</span></div>
+      <span class="cap-tag tag-partial">Parcial</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="3"
+      data-tip="Razón: la parametrización de productos vive en Integral SPL y el motor de evaluación. · Detalle: catálogo de productos motor. · Fuente: BP_Z_Integral_Módulo_Central">
+    <div class="cap-inner">
+      <div class="cap-title">Parametrización <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Integral (módulo central) (SPL)</span><span class="app-name">Motor de Evaluación de Crédito</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap covered" colspan="3"
+      data-tip="Razón: precios y tasas se administran en Contabilidad y el reporte de VISA, alineados a tasas de referencia. · Detalle: TIIE/CETES de BANXICO. · Fuente: BCP_Captura_tasas_de_referencia">
+    <div class="cap-inner">
+      <div class="cap-title">Precio, honorarios y tarifas <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name">Contabilidad</span><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Reporte de VISA (SIF) (SPL)</span><span class="app-context">Tasas TIIE/CETES BANXICO</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+  <td class="cap partial" colspan="3"
+      data-tip="Razón: la gestión de productos, roles y reglas se realiza como parametrización en el core SPL, OFI y el motor de evaluación, sin un catálogo de productos independiente. · Detalle: definición de roles y perfiles en OFI y EmpresaNet; OpenBanking expone APIs. · Fuente: BP_Z_Integral_Módulo_Central">
+    <div class="cap-inner">
+      <div class="cap-title">Cap. gestión de productos / Roles / Motor reglas</div>
+      <div class="cap-sys"><span class="app-name">Oficina Financiera Integral (OFI)</span><span class="app-name">Empresa Net</span><span class="app-name">Motor de Evaluación de Crédito</span><span class="app-name">OpenBanking</span></div>
+      <span class="cap-tag tag-partial">Parcial (sin catálogo central)</span>
+    </div>
+  </td>
+</tr>
+
+<!-- ══════════════════════════════════════════════════════════════
+     CAPACIDADES DE SOPORTE
+══════════════════════════════════════════════════════════════ -->
+<tr>
+  <td class="row-label sup" rowspan="6">Capacidades de soporte</td>
+  <td colspan="11" class="section-hdr" style="background:#1A5276;">CAPACIDADES DE SOPORTE</td>
+</tr>
+
+<!-- ── FILA DE 7 BLOQUES DE SOPORTE (encabezados) ── -->
+<tr class="sup-row">
+  <td colspan="1" class="grp-hdr support" style="font-size:9px;text-align:center;padding:6px 4px;">① Gestión de identidad y seguridad</td>
+  <td colspan="2" class="grp-hdr support" style="font-size:9px;text-align:center;padding:6px 4px;">② Aseguramiento de la calidad (QA)</td>
+  <td colspan="2" class="grp-hdr support" style="font-size:9px;text-align:center;padding:6px 4px;">③ Gestión de cumplimiento</td>
+  <td colspan="2" class="grp-hdr support" style="font-size:9px;text-align:center;padding:6px 4px;">④ Gestión de riesgos</td>
+  <td colspan="1" class="grp-hdr support" style="font-size:9px;text-align:center;padding:6px 4px;">⑤ Gestión de fraudes</td>
+  <td colspan="2" class="grp-hdr support" style="font-size:9px;text-align:center;padding:6px 4px;">⑥ Evaluación de monitoreo</td>
+  <td colspan="1" class="grp-hdr support" style="font-size:9px;text-align:center;padding:6px 4px;">⑦ Gestión de Infraestructura</td>
+</tr>
+
+<tr class="sup-row">
+<td class="cap degraded" colspan="1"
+      data-tip="Razón: la validación de identidad del cliente se basa en biometría (huellas y rostros), VCAS para compras y tokens RSA/Gemalto. · Detalle: el Motor de Rostros está fuera de servicio y el de huellas con incidente activo; el biométrico facial no está disponible en el AS IS actual. · Fuente: BCP_Comparación_y_monitoreo_de_rostros · BCP_Autenticador">
+    <div class="cap-inner">
+      <div class="cap-title">Autenticación (validación ID cliente)</div>
+      <div class="cap-sys"><span class="app-name">VCAS</span><span class="app-name">Autenticador BC</span><span class="app-name">Motor de Huellas</span><span class="app-name">Motor de Rostros</span><span class="app-name">Autentificación de token RSA/Gemalto</span><span class="app-context">OTP SMS</span></div>
+      <span class="tag-degraded">⚠ Degradado — ver nota</span>
+    </div>
+  </td>
+<td class="cap partial" colspan="2"
+      data-tip="Razón: la calidad se monitorea de forma informal con herramientas de tickets y métricas técnicas, sin una suite QA bancaria formal. · Detalle: gestión de incidentes y pain points documentados. · Fuente: documentación BP_Z_Curve">
+    <div class="cap-inner">
+      <div class="cap-title">Recopilación de parámetros</div>
+      <div class="cap-sys"><span class="app-context">InvGate · Corima tickets · Splunk métricas técnicas · Pain points documentados BP_Z</span></div>
+      <span class="cap-tag tag-partial">Parcial</span>
+    </div>
+  </td>
+<td class="cap covered" colspan="2"
+      data-tip="Razón: el cumplimiento al consumidor se cubre con avisos de privacidad, consentimiento de Buró y el módulo de Derechos ARCO. · Detalle: firma de contrato física o digital. · Fuente: DUD_Formalización · App_Registro_de_usuario">
+    <div class="cap-inner">
+      <div class="cap-title">Consumidor y privacidad (cumplimiento)</div>
+      <div class="cap-sys"><span class="app-name">Derechos ARCO</span><span class="app-name">App BanCoppel Movil</span><span class="app-name">Dictamen Unificado</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+<td class="cap covered" colspan="2"
+      data-tip="Razón: las restricciones (bloqueos, reducción de líneas) se aplican en el core de crédito, prevención de fraudes y el SOC. · Detalle: incluye bloqueos por PLD y extorsión. · Fuente: BCP_Reducción_líneas · SOC_Bloqueo_cuentas_PLD">
+    <div class="cap-inner">
+      <div class="cap-title">Gestión de restricciones de cuenta <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Créditos Revolventes (SPL Centrales)</span><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Prevención de Fraudes (SPL)</span><span class="app-name">Sistema Operativo Central (SOC)</span><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Administración de Faltantes y Daños a Inmuebles (SPL)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+<td class="cap covered" colspan="1"
+      data-tip="Razón: el KYC valida identidad contra INE y RENAPO, listas negras y marcaje IPAB. · Detalle: la consulta a INE se omite cuando el prospecto llega por un canal distinto a sucursal. · Fuente: BCP_Alta_de_Cliente · SOC_Marcaje_IPAB">
+    <div class="cap-inner">
+      <div class="cap-title">Conozca a su cliente (KYC) <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name">Consulta INE</span><span class="app-name">ConsultaRenapo</span><span class="app-name">Motores de Consumo de WS(INE,RENAPO)</span><span class="app-name">Prevención de Lavado de Dinero</span><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Formato IPAB (SPL)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+<td class="cap covered" colspan="2"
+      data-tip="Razón: la disponibilidad de fondos se monitorea con Caja General, el SOC y el monitor de ATMs. · Detalle: cuadre de saldos físicos contra contables por plaza. · Fuente: SOC_Monitor_de_efectivo · BCP_Recuperación_remota_ATM">
+    <div class="cap-inner">
+      <div class="cap-title">Fondos disponibles <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Caja General (SPL)</span><span class="app-name">Sistema Operativo Central (SOC)</span><span class="app-name">Netxms Monitor ATM</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+<td class="cap covered" colspan="1"
+      data-tip="Razón: la administración de datos abarca el core Informix, PostgreSQL en OpenShift, DB2 y el Data Warehouse. · Detalle: la CMDB registra más de 9,000 elementos de configuración de BD. · Fuente: CMDB_V2.2">
+    <div class="cap-inner">
+      <div class="cap-title">Gestión de bases de datos <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Integral (módulo central) (SPL)</span><span class="app-name">Contabilidad</span><span class="app-name">Data WareHouse</span><span class="app-context">Informix · PostgreSQL · DB2</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+</tr>
+
+<tr class="sup-row">
+<td class="cap partial" colspan="1"
+      data-tip="Razón: existen tres capas de autenticación no federadas entre sí, por lo que no hay SSO empresarial unificado. · Detalle: OpenShift OIDC para App, INCODE para el canal digital y huella de empleado en sucursal. · Fuente: App_Registro_de_usuario · DUD_Formalización">
+    <div class="cap-inner">
+      <div class="cap-title">Inicio de sesión único (SSO)</div>
+      <div class="cap-sys"><span class="app-name">Oficina Financiera Integral (OFI)</span><span class="app-context">3 capas auth no federadas: · OpenShift OIDC (App) · INCODE (DUD) · (Sucursal)</span></div>
+      <span class="cap-tag tag-partial">3 capas — sin federar</span>
+    </div>
+  </td>
+<td class="cap partial" colspan="2"
+      data-tip="Razón: la inspección de calidad se apoya en herramientas de incidentes y capacitación interna, sin proceso QA bancario formal. · Detalle: pain points documentados en los blueprints. · Fuente: documentación BP_Z_Curve">
+    <div class="cap-inner">
+      <div class="cap-title">QA inspección</div>
+      <div class="cap-sys"><span class="app-name">Universidad Virtual</span><span class="app-context">InvGate/Corima incidentes · Splunk alertas · Mesa ayuda · Pain points en 349 docs BP_Z</span></div>
+      <span class="cap-tag tag-partial">Parcial</span>
+    </div>
+  </td>
+<td class="cap covered" colspan="2"
+      data-tip="Razón: el cumplimiento normativo nacional se cubre con PLD, facturación CFDI y Derechos ARCO. · Detalle: reportes a autoridades federales. · Fuente: SOC_Bloqueo_cuentas_PLD">
+    <div class="cap-inner">
+      <div class="cap-title">Regulaciones de México</div>
+      <div class="cap-sys"><span class="app-name">Prevención de Lavado de Dinero</span><span class="app-name">Fact. Electrónica CFDI (Interfactura/Detecno)</span><span class="app-name">Derechos ARCO</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+<td class="cap covered" colspan="2"
+      data-tip="Razón: la consulta crediticia se realiza vía SICC's y el motor de evaluación contra Buró y Círculo de Crédito. · Detalle: 29,000 consultas a Buró y 23,000 a Círculo al día. · Fuente: BP_Z_SICCs">
+    <div class="cap-inner">
+      <div class="cap-title">Buró de crédito</div>
+      <div class="cap-sys"><span class="app-name">SICC's</span><span class="app-name">Motor de Evaluación de Crédito</span><span class="app-context">Demonio Buró/Coppel vía Inets (servicios Coppel)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+<td class="cap covered" colspan="1"
+      data-tip="Razón: el monitoreo transaccional antifraude usa prevención de fraudes SPL, VCAS y la administración de tarjetas. · Detalle: 61.6% de compras autenticadas en 2024. · Fuente: BP_Z_Administración_de_Tarjetas · BCP_Autenticación_compras">
+    <div class="cap-inner">
+      <div class="cap-title">Comportamiento de la transacción <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Prevención de Fraudes (SPL)</span><span class="app-name">VCAS</span><span class="app-name">Administración de Tarjetas (MAC WEB)</span><span class="app-name">Kibana Monitor Transaccional</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+<td class="cap covered" colspan="2"
+      data-tip="Razón: los ingresos entrantes (SPEI recibido, remesas) se procesan por SPEI Enlace Financiero y los motores de remesas. · Detalle: $1,695MM recibidos por SPEI en 2024. · Fuente: BP_Z_Remesas">
+    <div class="cap-inner">
+      <div class="cap-title">Evaluación de ingresos (entrantes)</div>
+      <div class="cap-sys"><span class="app-name">SPEI Enlace Financiero</span><span class="app-name">Motor de Pago de Remesas Appriza/BTS</span><span class="app-name">BD Usuarios de Remesas</span><span class="app-name">Homologación-Remesas</span><span class="app-name">Pago de Remesas WU/Orlandi/Vigo</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+<td class="cap covered" colspan="1"
+      data-tip="Razón: la infraestructura corre sobre OpenShift, AIX y Linux administrados con frameworks y automatización. · Detalle: 3,310 servidores productivos y 1,262 en DRP. · Fuente: CMDB_V2.2">
+    <div class="cap-inner">
+      <div class="cap-title">Gestión de plataformas</div>
+      <div class="cap-sys"><span class="app-name">Framework Administración</span><span class="app-name">Interact Router (21)</span><span class="app-name">RPA (Robots)</span><span class="app-name">Intranet</span><span class="app-name">GUI</span><span class="app-name">Rational</span><span class="app-context">OpenShift · AIX · Linux</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+</tr>
+
+<tr class="sup-row">
+<td class="cap covered" colspan="1" rowspan="2"
+      data-tip="Razón: la seguridad sistémica combina cifrado HSM, validación de dispositivo y perímetro (firewall/WAF). · Detalle: el OTP de enrolamiento se valida contra un servicio externo. · Fuente: SUC_Apertura_cuenta_efectiva_digital · App_Login">
+    <div class="cap-inner">
+      <div class="cap-title">Seguridad del sistema (disposiciones)</div>
+      <div class="cap-sys"><span class="app-context">HSM NIP · Tales OTP (enrolamiento) · Morphon reglas biométricas Suc. · Trusteer · F5/Imperva · SSL Syndein</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+<td class="cap partial" colspan="2"
+      data-tip="Razón: la revisión de calidad se hace en réplicas Informix y validaciones previas a liberación, sin ambiente QA formal. · Detalle: revisión pre-liberación de SPEI. · Fuente: documentación operativa">
+    <div class="cap-inner">
+      <div class="cap-title">QA revisión</div>
+      <div class="cap-sys"><span class="app-context">Informix réplica (dev/pruebas) · Revisión pre-liberación SPEI · Sin ambiente QA formal ident.</span></div>
+      <span class="cap-tag tag-partial">Parcial</span>
+    </div>
+  </td>
+<td class="cap covered" colspan="2"
+      data-tip="Razón: el cumplimiento con BANXICO cubre SPEI, IPAB, tasas de referencia y los sistemas de Caja General. · Detalle: SAM, SIBUC y AUDI son los sistemas BANXICO en Caja General. · Fuente: BP_Z_Caja_General · BP_Z_Curve_IPAB">
+    <div class="cap-inner">
+      <div class="cap-title">Regulaciones de BANXICO <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name">SPEI Enlace Financiero</span><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Formato IPAB (SPL)</span><span class="app-name">Contabilidad</span><span class="app-name">SAM</span><span class="app-name">SIBUC</span><span class="app-name">AUDI</span><span class="app-context">(Caja Gral. BANXICO)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+<td class="cap covered" colspan="2" rowspan="2"
+      data-tip="Razón: los umbrales de riesgo se calculan en el motor de evaluación, TRIAD y Risk Logic. · Detalle: scoring y capacidad de pago en 52k solicitudes/día. · Fuente: BP_Z_Motor_de_evaluación">
+    <div class="cap-inner">
+      <div class="cap-title">Umbrales de riesgo (evaluar y modelar)</div>
+      <div class="cap-sys"><span class="app-name">Motor de Evaluación de Crédito</span><span class="app-name">TRIAD</span><span class="app-name">Unilogic (Risk Logic)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+<td class="cap covered" colspan="1"
+      data-tip="Razón: la prevención de fraude opera con monitoreo de tarjetas (MAC), bloqueos del SOC y listas de tarjetas robadas en el switch. · Detalle: bloqueo de efectivo por extorsión y hot cards en el autorizador. · Fuente: MAC_Monitoreo_y_prevención_de_fraudes · SOC_Bloqueo_cuentas_efectivas_por_extorsión">
+    <div class="cap-inner">
+      <div class="cap-title">Prevención y bloqueos fraude</div>
+      <div class="cap-sys"><span class="app-context">MAC Monitoreo fraudes · SOC Bloqueo extorsión/PLD · Hot cards IST/Switch · Reversos</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+<td class="cap covered" colspan="2"
+      data-tip="Razón: las reclamaciones se gestionan por el módulo de Aclaraciones, el CAT y el sistema de cobranza. · Detalle: incluye bonificaciones por error. · Fuente: BACK_Cobranza · SOC_Autorización_reversos">
+    <div class="cap-inner">
+      <div class="cap-title">Reclamaciones y disputas</div>
+      <div class="cap-sys"><span class="app-name">Aclaraciones</span><span class="app-name">CAT (01-800)</span><span class="app-name">Sistema Operativo Central (SOC)</span><span class="app-name">Sistema de Cobranza iCS</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+<td class="cap covered" colspan="1"
+      data-tip="Razón: la mensajería entre sistemas pasa por Bus IBM e Interact Router, y al cliente por Latinia. · Detalle: capa de integración central del banco. · Fuente: TI_Arquitectura_general_router">
+    <div class="cap-inner">
+      <div class="cap-title">Gestión de mensajería</div>
+      <div class="cap-sys"><span class="app-name">Bus IBM</span><span class="app-name">Interact Router (21)</span><span class="app-name">Latinia</span><span class="app-name">BancoppelSMS</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+</tr>
+
+<tr class="sup-row">
+<td class="cap partial" colspan="2"
+      data-tip="Razón: las notificaciones de calidad son alertas técnicas, sin un sistema QA orientado a negocio. · Detalle: alertas de monitoreo e incidentes. · Fuente: documentación operativa">
+    <div class="cap-inner">
+      <div class="cap-title">QA notificación</div>
+      <div class="cap-sys"><span class="app-context">Splunk alertas técnicas · InvGate/Corima notif. incidentes · Sin QA notif. negocio formal</span></div>
+      <span class="cap-tag tag-partial">Parcial</span>
+    </div>
+  </td>
+<td class="cap partial" colspan="2"
+      data-tip="Razón: las regulaciones locales se atienden vía CONDUSEF a través del CAT, sin un módulo dedicado. · Detalle: el marco federal (IPAB) sí está cubierto. · Fuente: BCP_User_Journey_CAT">
+    <div class="cap-inner">
+      <div class="cap-title">Regulaciones locales y estatales</div>
+      <div class="cap-sys"><span class="app-context">CONDUSEF vía CAT · PROFECO · Sin módulo local/estatal ident. · IPAB federal cubierto</span></div>
+      <span class="cap-tag tag-partial">Parcial</span>
+    </div>
+  </td>
+<td class="cap covered" colspan="1"
+      data-tip="Razón: la gestión integral de fraude combina detección comportamental, VCAS y bloqueos de tarjetas. · Detalle: bloqueo de BIN en ATMs y comercios. · Fuente: MAC_Monitoreo_y_prevención_de_fraudes">
+    <div class="cap-inner">
+      <div class="cap-title">Gestión fraudes integral</div>
+      <div class="cap-sys"><span class="app-name">VCAS</span><span class="app-name">Administración de Tarjetas (MAC WEB)</span><span class="app-context">BioCatch · SynInterCardWeb BIN bloqueos · Cobranza preventiva Genesys</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+<td class="cap covered" colspan="2"
+      data-tip="Razón: los egresos (SPEI enviado, dotaciones) se controlan con SPEI Enlace Financiero, Caja General y TEF. · Detalle: $752MM enviados por SPEI en 2024. · Fuente: BP_Z_Remesas">
+    <div class="cap-inner">
+      <div class="cap-title">Evaluación de gastos (saliente) <span class="core-badge" title="Capacidad soportada por al menos una aplicación del Core Bancario">CORE</span></div>
+      <div class="cap-sys"><span class="app-name">SPEI Enlace Financiero</span><span class="app-name core" title="Aplicación del Core Bancario (Informix/SPL)">Caja General (SPL)</span><span class="app-name">Transferencia Electrónica de Fondos (TEF)</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+<td class="cap covered" colspan="1"
+      data-tip="Razón: el hardware (servidores, ATMs, lectores) se inventaría en la CMDB y se monitorea con Netxms. · Detalle: la CMDB registra más de 9,000 servidores. · Fuente: CMDB_V2.2">
+    <div class="cap-inner">
+      <div class="cap-title">Gestión de hardware</div>
+      <div class="cap-sys"><span class="app-name">Netxms Monitor ATM</span><span class="app-name">IST SW ATMs Propios</span><span class="app-context">CMDB: 9,154 CI's Servers</span></div>
+      <span class="cap-tag tag-ok">Cubierto</span>
+    </div>
+  </td>
+</tr>
+
+</table>
+</div>
+
+<!-- ── ESTADÍSTICAS RESUMEN ── -->
+<div style="background:white;border-top:2px solid var(--border);padding:16px 24px;display:flex;gap:32px;align-items:center;flex-wrap:wrap;">
+  <div style="font-size:11px;font-weight:700;color:var(--bc-navy);letter-spacing:0.3px;">RESUMEN DE COBERTURA</div>
+  <div style="font-size:10px;color:var(--text-m);padding:2px 0;">Nombres de aplicaciones según catálogo oficial <strong>Apps AMS-IMS</strong> (115 apps · 11 BUs) &nbsp;|&nbsp;=crítico=alto=medio=bajo</div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <div style="width:14px;height:14px;border-radius:3px;background:var(--ok);"></div>
+    <span style="font-size:11px;color:var(--text-s);">Cubierto: <strong>~50%</strong> de capacidades</span>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <div style="width:14px;height:14px;border-radius:3px;background:var(--partial);"></div>
+    <span style="font-size:11px;color:var(--text-s);">Parcial: <strong>~31%</strong> de capacidades</span>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <div style="width:14px;height:14px;border-radius:3px;background:var(--none);"></div>
+    <span style="font-size:11px;color:var(--text-s);">Sin evidencia: <strong>~16%</strong> de capacidades &nbsp;|&nbsp; <span style="color:#E67E22;font-weight:600">Degradado: ~3%</span></span>
+  </div>
+  <div style="margin-left:auto;font-size:10px;color:var(--text-m);">
+    Gaps Negocio: CRM · Data Warehouse · Analytics · Banco privado · Hipoteca · IVR · Caja de seguridad · Gestión de confianza  |  Gaps Soporte: SSO empresarial · Suite QA formal · Regulaciones locales/estatales
+  </div>
+</div>
+
+<div class="footer">
+  <span>BanCoppel — Arquitectura AS IS · Capa de Negocio · Basado en Unity Reference Architecture · Generado: Mayo 2026 · Marca de Core Bancario aplicada · 12 aplicaciones core (Informix/SPL) identificadas y validadas contra catálogo AMS-IMS</span>
+  <span>Fuente: 349 PDFs operativos + CMDB V2.2 + Tenant Onboarding Templates + Diagramas PNG arquitectura</span>
+</div>
+
+</body>
+</html>
