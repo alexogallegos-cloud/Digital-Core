@@ -1,5 +1,5 @@
 """
-build-brain.py  --  Unity Project Brain Builder v1.2.0
+build-brain.py  --  Unity Project Brain Builder v1.3.0
 Construye brain.db con el conocimiento incubado del programa Unity.
 Fuente: forward-knowledge (productos, componentes, riesgos, cronograma, vocabulario)
         --  diferente al brain de Informix que analiza cÃ³digo existente.
@@ -12,6 +12,15 @@ Changelog:
     0.9.0  --  2026-08-16  app_user_stories (13 HUs canal App TDC F&D: backlog=8 release=3 removed=2)
     1.0.0  --  2026-08-16  user_stories_inventory (76 HUs scoring) + r4_integrations (18) + track_rag (5 tracks RAG Roadmap)
     1.1.0  --  2026-08-19  user_stories_inventory (79 HUs, +3 APP Encendido/Apagado TDC) + product_releases dual-plataforma
+    1.3.0  --  2026-08-20  Swarm QA: correcciones verificadas contra source/docs (5 agentes paralelos)
+                           -- program_capabilities: 3 coverage_status corregidos (not_covered->partial:
+                              CAP-CARD-MANUFACTURING, CAP-DEFERRED-PURCHASE, CAP-BALANCE-STATEMENT)
+                           -- program_capabilities: 2 filas nuevas (CAP-ONBOARDING-DIGITAL + CAP-COLLECTIONS-ENGINE)
+                           -- legacy_systems: IBM-BUS nombre corregido, BAJAWARE tipo, RISKLOGIC provider+tipo
+                           -- legacy_systems: SOC plataforma, notas INTERACT/BRM-*/ONBASE enriquecidas
+                           -- track_analysis: APP hu_total 18->20, integrations_total SmartVista/APP/Apolo
+                           -- product_releases: TDC-R5 platform_release retractado, TDC-R6 retractado
+                           -- risks: RISK-R20 fecha precision, RISK-R05 latencia P95 concreta
     1.2.0  --  2026-08-20  legacy_systems (14 sistemas ecosistema) + audit_findings (19 hallazgos barrido documental)
                            + reportes_regulatorios en program_components + RISK-UNITY-R19..R26 (Reportes Reg.)
     0.8.0  --  2026-08-16  product_vision_requirements (28 RFs Product Vision R4, todos Alta/Esencial)
@@ -625,7 +634,7 @@ CREATE TABLE IF NOT EXISTS legacy_systems (
     id              TEXT PRIMARY KEY,
     name            TEXT NOT NULL,
     acronym         TEXT,
-    type            TEXT CHECK(type IN ('core-app','middleware','channel','mdm','dwh','rules-engine','document-mgmt','scheduler','auth','rpa','other')),
+    type            TEXT CHECK(type IN ('core-app','middleware','channel','mdm','dwh','rules-engine','regulatory-reporting','risk-management','document-mgmt','scheduler','auth','rpa','other')),
     provider        TEXT,
     platform        TEXT,
     description     TEXT,
@@ -678,7 +687,7 @@ PROGRAM_CAPABILITIES = [
                             "(GID, Forza, TGS). Incluye calculo de abasto, generacion segura de archivos "
                             "(PGP+HSM), envio via Connect Direct y seguimiento de lotes.",
         "mandatory_r4":     1,
-        "coverage_status":  "not_covered",
+        "coverage_status":  "partial",
         "gap_type":         "not_built",
         "gap_description":  "Calculo automatico de abasto (piso, semanas, redondeo 250) no nativo en SmartVista. "
                             "OCG y Connect Direct manuales en R4 (tickets #13830642 y #13830651).",
@@ -687,7 +696,9 @@ PROGRAM_CAPABILITIES = [
         "component_ids":    json.dumps(["smartvista"]),
         "lifecycle_stage":  "in_dev",
         "notes":            "HDUs R4-01 a R4-08. DTMs: CalculateCardManufacturing (not_covered) + "
-                            "ExecuteCardManufacturingRequest (partial). Solicitud manual nativa (R4-05 + R4-06).",
+                            "ExecuteCardManufacturingRequest (partial). Solicitud manual nativa (R4-05 + R4-06). "
+                            "GAP-3 operativo: OCG y Cargen manuales en R4 (tickets #13830642 y #13830651 pendientes). "
+                            "2 HDUs nativas (R4-05/06) + 5 parciales + 1 not_covered (R4-03 calculo automatico).",
     },
     # â"€â"€ AUTORIZADOR â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     {
@@ -706,9 +717,11 @@ PROGRAM_CAPABILITIES = [
         "confidence":       "confirmed",
         "component_ids":    json.dumps(["smartvista"]),
         "lifecycle_stage":  "in_dev",
-        "notes":            "HDU R4-11. DTM: ValidateBPCAuthorization. Flujo: Comercio -> E-Global -> SV -> PayTrue.",
+        "notes":            "HDU R4-11. DTM: ValidateBPCAuthorization. Flujo: Comercio -> E-Global -> SV -> PayTrue. "
+                            "SVFM NO licenciado por BanCoppel — PayTrue sustituye SVFM como motor antifraude. "
+                            "Sin integracion PayTrue completa no hay capa de fraude en el autorizador.",
     },
-    # â"€â"€ CICLO DE VIDA DE LA TARJETA â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    #â"€â"€ CICLO DE VIDA DE LA TARJETA â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     {
         "id":               "CAP-CARD-LIFECYCLE",
         "name":             "Gestion del Ciclo de Vida de la Tarjeta",
@@ -748,9 +761,11 @@ PROGRAM_CAPABILITIES = [
         "lifecycle_stage":  "designed",
         "notes":            "HDUs R4-12/13/14, APP-R4-18/19/20, SIWEB-R4-05. "
                             "DTMs: ManageOverpaymentLimit + ValidateOverpaymentLimit (ambos tbd). "
-                            "Parametrizacion (R4-12) es configurable; validacion en runtime es el gap.",
+                            "Parametrizacion (R4-12) es configurable; validacion en runtime es el gap. "
+                            "APP-R4-18/19/20 = NOT COVERED (validacion middleware + homologacion mensajes "
+                            "entre canales — build independiente del ticket BYU0039).",
     },
-    # â"€â"€ COMPRAS DIFERIDAS â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    #â"€â"€ COMPRAS DIFERIDAS â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     {
         "id":               "CAP-DEFERRED-PURCHASE",
         "name":             "Compras Diferidas MSI/MCI y CrediSoluciones",
@@ -760,7 +775,7 @@ PROGRAM_CAPABILITIES = [
                             "(CrediSoluciones, con intereses). Incluye contabilizacion (TRNT 623, Grupo contable 13), "
                             "liquidacion anticipada y cancelacion de planes activos.",
         "mandatory_r4":     1,
-        "coverage_status":  "not_covered",
+        "coverage_status":  "partial",
         "gap_type":         "not_licensed",
         "gap_description":  "GAP CRITICO: modulo DPP (Deferred Payment Plan) de BPC no contratado para R4. "
                             "Cancelacion de CrediSoluciones no posible. MCI App diferido a R4.5.",
@@ -771,9 +786,11 @@ PROGRAM_CAPABILITIES = [
         "notes":            "HDUs R4-16/19/20/21, APP-R4-09/14/15/16, SIWEB-R4-02/03/04. "
                             "DTMs: CancelDeferredPurchasePlan (not_covered) + SettleDeferredPurchasePlan (partial) "
                             "+ ManageDeferredPurchase (partial) + RegisterDeferredPurchaseAccountingEffects (partial). "
-                            "Cuenta 2402/Eglobal NO aplica a MCI; solo MSI interchange.",
+                            "Cuenta 2402/Eglobal NO aplica a MCI; solo MSI interchange. "
+                            "Gap dual: DPP not_licensed solo para cancelacion (HDU-R4-21, SIWEB-R4-03); "
+                            "HDUs parciales (SIWEB-R4-02, SMART-R4-20, todos los App) = not_built integraciones.",
     },
-    # â"€â"€ SALDOS Y ESTADO DE CUENTA â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    #â"€â"€ SALDOS Y ESTADO DE CUENTA â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     {
         "id":               "CAP-BALANCE-STATEMENT",
         "name":             "Consulta de Saldos y Estado de Cuenta",
@@ -783,7 +800,7 @@ PROGRAM_CAPABILITIES = [
                             "(incluyendo pre-autorizaciones amountHoldPlaced), y estado de cuenta completo "
                             "desde App, SIWEB, CAT e IVR.",
         "mandatory_r4":     1,
-        "coverage_status":  "not_covered",
+        "coverage_status":  "partial",
         "gap_type":         "not_built",
         "gap_description":  "Integracion IVR-SVIP completa a construir (CAT-R4-02 y R4-08). "
                             "App y SIWEB parciales via getInstantCreditStatement + getTransactions v22.",
@@ -955,6 +972,54 @@ PROGRAM_CAPABILITIES = [
         "lifecycle_stage":  "in_dev",
         "notes":            "HDUs SMART-R4-10 (nombre producto) y SMART-R4-15 (mensajes error, 3 canales). "
                             "Homologacion BANXICO para mensajes de rechazo.",
+    },
+    # ── ORIGINACION DIGITAL (APOLO) ──────────────────────────────────────────
+    # Agregada v1.3.0: 37 HDUs documentados, integración crítica con SV (HDU-20)
+    {
+        "id":               "CAP-ONBOARDING-DIGITAL",
+        "name":             "Originacion Digital (Apolo)",
+        "domain":           "originacion",
+        "bian_domain":      "Party Life Cycle Management / Product Directory",
+        "description":      "Onboarding digital de la TDC desde solicitud hasta activacion. "
+                            "37 HDUs: 22 VoBo AppWhere (MVP1) + 3 Taggeo Modyo + 10 MVP2 + 2 Desestimadas. "
+                            "Flow Engineering: 4 semanas de diseno. Integracion critica con SmartVista (HDU-20).",
+        "mandatory_r4":     1,
+        "coverage_status":  "partial",
+        "gap_type":         "not_built",
+        "gap_description":  "22 DTMs REC_* identificados (6 Atomico, 9 Orquestado, 2 Regla de Negocio, 5 No Aplica). "
+                            "8 Critical Breakers identificados. Latencia P95 actual = 9,000ms vs SLO 5,000ms (out-of-SLO).",
+        "blocker_id":       None,
+        "confidence":       "confirmed",
+        "component_ids":    json.dumps(["apolo", "smartvista"]),
+        "lifecycle_stage":  "in_dev",
+        "notes":            "37 HDUs Apolo R4. MVP1: 25 total (22 VoBo + 3 Taggeo). MVP2: 10 (fuera scope ene-2027). "
+                            "Integracion critica SV HDU-20 (firma electronica + expediente digital OnBase BB16). "
+                            "Tech stack R3: Spring Boot 3.4.5 + Java 21 + EKS + Istio + Apigee + YugabyteDB + Redis. "
+                            "Identity: Entra ID (Azure AD). Edge: Cloudflare + Cloud Armor. 17 DTMs totales.",
+    },
+    # ── MOTOR DE COBRANZA DIRECCIONADA ───────────────────────────────────────
+    # Agregada v1.3.0: componente cross-canal con 37-50 User Stories, habilita CAP-COLLECTIONS-AGING
+    {
+        "id":               "CAP-COLLECTIONS-ENGINE",
+        "name":             "Motor de Cobranza Direccionada",
+        "domain":           "cobranza",
+        "bian_domain":      "Collections / Delinquent Account Handling",
+        "description":      "Motor subyacente que habilita restricciones por mora en canales digitales "
+                            "y Contact Center. Incluye evolucion del modelo de datos BPC, adecuaciones "
+                            "SmartVista y construccion de componentes de cobranza direccionada.",
+        "mandatory_r4":     1,
+        "coverage_status":  "partial",
+        "gap_type":         "not_built",
+        "gap_description":  "37-50 User Stories pendientes de incorporar al inventario unificado. "
+                            "Plan de trabajo aun sin formalizar (RISK-UNITY-R06). "
+                            "Conflict pentest 15-20 nov vs inicio SIT 15-oct.",
+        "blocker_id":       "RISK-UNITY-R06",
+        "confidence":       "confirmed",
+        "component_ids":    json.dumps(["cobranza", "smartvista", "app", "cat"]),
+        "lifecycle_stage":  "in_dev",
+        "notes":            "37-50 User Stories (rango pendiente de confirmar). Build planificado: "
+                            "construccion/UT fin agosto - mediados septiembre. Motor de CAP-COLLECTIONS-AGING. "
+                            "Campo agingPeriod en getInstantCreditStatement = superficie visible para canales.",
     },
 ]
 
@@ -1206,13 +1271,13 @@ PRODUCT_RELEASES = [
      "El Design Authority nombra R4.5 pero no declara su alcance; el alcance viene del PreGame via "
      "dt-smartvista. TENSION SIN CERRAR: las fuentes de julio dicen R4.5 y las de agosto (06-ago y "
      "11-ago) dicen R5 para la integracion con canal. El backend de MCI si va en R4."),
-    ("TDC-R5", "UNITY-R4-P4900", "R5", "SmartVista R5",
+    ("TDC-R5", "UNITY-R4-P4900", "R5", None,
      "Sin alcance definido", "sin-definir", None, None, None,
      "Roadmap Unity 2025 y Gestion_Track 06-jul-2026 ('TDC Clasica R2, R3, R4, R5'). El agrupamiento "
      "'ATM + tarjetas adicionales + corresponsales -> R5' que se uso antes NO existe en la "
      "documentacion, y para corresponsales la evidencia apunta a que estan DENTRO de R4."),
     ("TDC-R6", "UNITY-R4-P4900", "R6", None,
-     "Sin alcance definido", "sin-definir", None, None, None,
+     "Sin alcance definido. RETRACTADO: era valor lista validacion RAID v2.0 (Excel)", "sin-definir", None, None, None,
      "Una sola mencion en todo el corpus: Minuta_CAT_27072026, 'los releases siguientes (R4.5, R5, "
      "R6)'. Es tambien el unico lugar donde R4.5 y R5 conviven como releases secuenciales distintos."),
     ("CSE-R1", "UNITY-RX-P-PS", "R1", "Transact R4",
@@ -1387,7 +1452,7 @@ INITIAL_RISKS = [
         "status": "open",
         "mitigation": "Oscar Melo confirma mejoras en PROD con mediciones reales. Edgar Mejia lidera revision orquestacion en WebMethods y diagnostico cuello de botella GCP/AWS a Informix con infraestructura.",
         "due_date": "2026-08-08", "owner": "API / Edgar Mejia; Arq. / Edgar Mejia", "source": "Due Diligence",
-        "notes": "Impacta experiencia de onboarding. Puede bloquear salida a mercado abierto.",
+        "notes": "P95 actual = 9,000ms vs SLO objetivo = 5,000ms (out-of-SLO pre go-live R4). Impacta experiencia de onboarding. Puede bloquear salida a mercado abierto. Cuello de botella: GCP/AWS a Informix via WebMethods IS.",
     },
     {
         "id": "RISK-UNITY-R06", "raid_id": "R06",
@@ -1518,7 +1583,7 @@ INITIAL_RISKS = [
     },
     {
         "id": "RISK-UNITY-R20", "raid_id": "REG-02",
-        "description": "Bajaware en decomiso Q1-2027 mientras el documento CNBV lo declara como motor de generacion de reportes regulatorios",
+        "description": "Bajaware en decomiso 1er Bimestre 2027 (Ene-Feb) mientras el documento CNBV lo declara como motor de generacion de reportes regulatorios",
         "component_id": "reportes-regulatorios", "category": "Arquitectura", "impact": "critical", "probability": "high",
         "status": "open",
         "mitigation": "Definir motor de reemplazo (RiskLogic u otro) antes del decomiso. Actualizar documentacion CNBV.",
@@ -1598,7 +1663,7 @@ LEGACY_SYSTEMS = [
     },
     {
         "id": "SOC", "name": "Sistema Operativo Central", "acronym": "SOC",
-        "type": "core-app", "provider": "TASF", "platform": "Por confirmar",
+        "type": "core-app", "provider": "TASF", "platform": "Linux RedHat 7.2 / JBoss EAP 7.0 / Postgres 9.4.11 / ZK8",
         "description": "Mini-core bancario con 15 modulos y 710 funcionalidades. "
                        "Destino de migracion de modulos del SIF. "
                        "Desambiguacion: 'Sistema Operativo Central' (uso mayoritario) vs "
@@ -1623,10 +1688,10 @@ LEGACY_SYSTEMS = [
                        "Informix NO recibe REST, SOAP, ISO 8583 ni SFTP directo.",
         "unity_relation": "coexists", "core_path": 1,
         "discovered_via": "barrido-documental-2026-08-19",
-        "notes": "Las 3 vias al core: (1) conexion directa ODBC/JDBC/SPL, (2) InterAct, (3) IBM BUS.",
+        "notes": "Las 3 vias al core: (1) conexion directa ODBC/JDBC/SPL, (2) InterAct, (3) IBM BUS. ASIS registra 2 apps separadas: Interact Router (row 15, middleware app-Informix) e Interact SW Autorizador (row 11, switch POS/ATM, schema intercard). SUDs distintos para cada uno.",
     },
     {
-        "id": "IBM-BUS", "name": "IBM Business Integration Bus (IIB/ACE)", "acronym": "IBM BUS",
+        "id": "IBM-BUS", "name": "IBM Integration Bus (IIB/ACE)", "acronym": "IBM BUS",
         "type": "middleware", "provider": "IBM", "platform": "On-premise",
         "description": "ESB corporativo. Una de las 3 unicas vias validas al core Informix/SIF. "
                        "Alternativa: IBM App Connect Enterprise (ACE).",
@@ -1644,7 +1709,7 @@ LEGACY_SYSTEMS = [
                        "La carga inicial de Informix hacia ATLAS no aparece en ningun documento.",
         "unity_relation": "complementary", "core_path": 0,
         "discovered_via": "barrido-documental-2026-08-19",
-        "notes": "Candidato receptor del Golden Record post-Informix. Decision critica L-03 (TDC-R3 dependency).",
+        "notes": "Candidato receptor del Golden Record post-Informix. Decision critica L-03 (TDC-R3 dependency). MDM de nivel Grupo (retail Coppel + banco + Afore) -- no exclusivo de BanCoppel. Proveedor no confirmado en corpus BanCoppel.",
     },
     {
         "id": "DATASTAGE", "name": "IBM InfoSphere DataStage", "acronym": "DataStage",
@@ -1658,7 +1723,7 @@ LEGACY_SYSTEMS = [
     },
     {
         "id": "BAJAWARE", "name": "Bajaware  --  Motor de Reportes", "acronym": "Bajaware",
-        "type": "rules-engine", "provider": "Por confirmar", "platform": "On-premise",
+        "type": "regulatory-reporting", "provider": "Por confirmar", "platform": "On-premise",
         "description": "Motor de generacion de reportes regulatorios CNBV. "
                        "Declarado en el documento CNBV como motor de generacion junto con RiskLogic. "
                        "En proceso de Baja - Decomiso Fecha 1er Bimestre 2027.",
@@ -1667,14 +1732,14 @@ LEGACY_SYSTEMS = [
         "notes": "RIESGO CRITICO: el doc CNBV lo requiere activo mientras el banco lo esta decommisionando.",
     },
     {
-        "id": "RISKLOGIC", "name": "RiskLogic  --  Motor de Reportes", "acronym": "RiskLogic",
-        "type": "rules-engine", "provider": "Por confirmar", "platform": "On-premise",
+        "id": "RISKLOGIC", "name": "RiskLogic  --  Gestion de Riesgos y Reportes Regulatorios", "acronym": "RiskLogic",
+        "type": "risk-management", "provider": "Unilogic", "platform": "On-premise",
         "description": "Motor de generacion de reportes regulatorios CNBV. "
                        "Par de Bajaware en la cadena de reportes. "
                        "Candidato natural a reemplazar Bajaware en decomiso.",
         "unity_relation": "coexists", "core_path": 0,
         "discovered_via": "barrido-documental-2026-08-19",
-        "notes": "Definir si RiskLogic absorbe el scope de Bajaware post-decomiso.",
+        "notes": "Candidato a reemplazar Bajaware en decomiso. Sistema de administracion de riesgos (Mercado, Liquidez, Reservas, Consumo). LIDE migro reporteria regulatoria hacia RiskLogic. Definir si absorbe scope completo de Bajaware post-decomiso.",
     },
     {
         "id": "BRM-WEBMETHODS", "name": "WebMethods BRM (Software AG)", "acronym": "BRM",
@@ -1683,7 +1748,7 @@ LEGACY_SYSTEMS = [
                        "No confundir con Experian BRM ni con BRM Coppel.",
         "unity_relation": "unknown", "core_path": 0,
         "discovered_via": "barrido-documental-2026-08-19",
-        "notes": "Ambiguedad documentada: BRM tiene 3 referentes diferentes en la documentacion de Unity.",
+        "notes": "Ambiguedad documentada: BRM tiene 3 referentes diferentes en la documentacion de Unity. Identificacion como Software AG/webMethods es analisis interno ACN -- no citado en corpus BanCoppel. Requiere confirmacion con cliente.",
     },
     {
         "id": "BRM-EXPERIAN", "name": "Experian BRM  --  Motor de Evaluacion", "acronym": "BRM",
@@ -1691,7 +1756,7 @@ LEGACY_SYSTEMS = [
         "description": "Motor de evaluacion crediticia. Segundo de los 3 referentes del acronimo BRM.",
         "unity_relation": "unknown", "core_path": 0,
         "discovered_via": "barrido-documental-2026-08-19",
-        "notes": "No confundir con WebMethods BRM ni con BRM Coppel.",
+        "notes": "No confundir con WebMethods BRM ni con BRM Coppel. Identificacion como Experian no citada en corpus de SUDs -- el SUD Motor de Evaluacion indica que el WS BRM es responsabilidad de Coppel. Requiere confirmacion con cliente.",
     },
     {
         "id": "BRM-COPPEL", "name": "BRM Coppel  --  Web Service Red Coppel", "acronym": "BRM",
@@ -1709,7 +1774,7 @@ LEGACY_SYSTEMS = [
                        "separados en otro, con stacks incompatibles.",
         "unity_relation": "unknown", "core_path": 0,
         "discovered_via": "barrido-documental-2026-08-19",
-        "notes": "Ambiguedad: inventarios inconsistentes. Confirmar si son un solo sistema o dos distintos.",
+        "notes": "Ambiguedad: inventarios inconsistentes. Confirmar si son un solo sistema o dos distintos. OnBase confirmado activo en R4: APOLO BB16 (HDU-TDC-R4-20, firma electronica + expediente digital). Aclarar si Prometeo es capa propietaria sobre OnBase o sistema independiente.",
     },
     {
         "id": "BLUE-PRISM", "name": "Blue Prism  --  RPA (bots EY)", "acronym": "BluePrism",
@@ -3172,7 +3237,7 @@ TRACK_ANALYSIS = [
         "hu_total": 22, "hu_must": 11, "hu_should": 10, "hu_could": 0, "hu_wont": 1,
         "hu_tipo_solucion": 15, "hu_tipo_integracion": 1, "hu_tipo_mixta": 6,
         "complexity_low": 2, "complexity_mid": 16, "complexity_high": 4, "complexity_pending": 0,
-        "integrations_total": None, "integrations_api": None, "integrations_event": None,
+        "integrations_total": 7, "integrations_api": 7, "integrations_event": 0,
         "apificacion_scope": "2 integraciones omnicanal (SV->SIWEB y SV->APP)",
         "key_risk": "Won't: 'Excluir abonos bancarios del lÃ­mite' descartada formalmente por Negocio",
         "key_decision": "18 HUs resueltas por combinaciÃ³n desarrollo+configuraciÃ³n; 3 por desarrollo puro",
@@ -3184,7 +3249,7 @@ TRACK_ANALYSIS = [
         "hu_total": 22, "hu_must": 11, "hu_should": 10, "hu_could": 1, "hu_wont": 0,
         "hu_tipo_solucion": 10, "hu_tipo_integracion": 7, "hu_tipo_mixta": 5,
         "complexity_low": 5, "complexity_mid": 11, "complexity_high": 6, "complexity_pending": 0,
-        "integrations_total": None, "integrations_api": None, "integrations_event": None,
+        "integrations_total": 17, "integrations_api": 12, "integrations_event": 0,
         "apificacion_scope": "100% del Ã¡mbito de integraciÃ³n en APOLO",
         "key_risk": "ComplejidaD pendiente de ajuste al confirmar pantallas y APIs; esfuerzo real puede ser menor (evoluciÃ³n, no build nuevo)",
         "key_decision": "7 HUs solo integraciones = responsabilidad de ApificaciÃ³n; esfuerzo de desarrollo puede reducirse significativamente",
@@ -3193,10 +3258,10 @@ TRACK_ANALYSIS = [
     },
     {
         "id": "TA-APP", "track": "app", "session_date": "2026-08-04/06",
-        "hu_total": 18, "hu_must": 15, "hu_should": 0, "hu_could": 1, "hu_wont": 2,
+        "hu_total": 20, "hu_must": 15, "hu_should": 0, "hu_could": 1, "hu_wont": 2,
         "hu_tipo_solucion": 10, "hu_tipo_integracion": 4, "hu_tipo_mixta": 4,
         "complexity_low": 5, "complexity_mid": 6, "complexity_high": 7, "complexity_pending": 0,
-        "integrations_total": None, "integrations_api": None, "integrations_event": None,
+        "integrations_total": 4, "integrations_api": 4, "integrations_event": 0,
         "apificacion_scope": "100% del Ã¡mbito de integraciÃ³n en APP",
         "key_risk": "2 Won't diferidas a R4.5: 'Detalle de Movimientos Convivencia TDC F&D' y 'EliminaciÃ³n de TDC Digital'",
         "key_decision": "Todas las HUs de soluciÃ³n por desarrollo (consistente con naturaleza canal digital)",
@@ -5513,7 +5578,7 @@ def load_plan_progress(con: sqlite3.Connection) -> None:
 # â"€â"€ Main â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Unity Project Brain Builder v1.2.0")
+    parser = argparse.ArgumentParser(description="Unity Project Brain Builder v1.3.0")
     parser.add_argument("--reset", action="store_true", help="Borra y reconstruye brain.db")
     args = parser.parse_args()
 
@@ -5525,7 +5590,7 @@ def main() -> None:
     con = sqlite3.connect(str(DB_PATH))
     con.execute("PRAGMA journal_mode=WAL")
 
-    print("Construyendo Unity Project Brain v1.2.0...")
+    print("Construyendo Unity Project Brain v1.3.0...")
     init_db(con)
     load_project_info(con)
     load_products(con)
