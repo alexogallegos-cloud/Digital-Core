@@ -1356,6 +1356,386 @@ footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+
+# ── v1.5.0 Vista Sistemas — datos editoriales del plan de entrega ─────────────
+
+TOGAF_TYPE_COLOR = {
+    "core":        "#7B61FF",
+    "processors":  "#FF6B35",
+    "channels":    "#00C4CC",
+    "data":        "#FFC107",
+    "integration": "#4CAF50",
+    "compliance":  "#9C27B0",
+}
+
+TOGAF_STATE_LABEL = {
+    "baseline":     "AS-IS",
+    "transitional": "EN MIGRACIÓN",
+    "target":       "TO-BE",
+}
+
+SDLC_PHASES_LIST = ["DISCOVER", "DESIGN", "BUILD", "TEST", "RELEASE", "OPERATE"]
+
+SYSTEM_SDLC = {
+    "informix": {
+        "sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",
+        "summary": "Core bancario actual (AIX/POWER). Sistema de registro hasta el cutover. Fuente de 10,144 SPs y 11,391 reglas de negocio a migrar a Transact.",
+        "milestones": [
+            {"label": "Sistema en produccion (baseline)",      "date": "< 2024",    "status": "done"},
+            {"label": "Extraccion reglas GemCog v1.5.0",       "date": "2026-08-20","status": "done"},
+            {"label": "Parallel-run Informix + Transact",      "date": "2026-Q4",   "status": "pending"},
+            {"label": "Cutover final — Informix a DEPRECATE",  "date": "2027-Q1",   "status": "planned"},
+        ],
+        "capabilities_impacted": ["CAP-CARD-LIFECYCLE","CAP-CREDIT-LIMIT","CAP-PAYMENT","CAP-BALANCE-STATEMENT","CAP-FEE-COMMISSION","CAP-COLLECTIONS-AGING","CAP-COLLECTIONS-ENGINE","CAP-CUSTOMER-PROFILE","CAP-ONBOARDING-DIGITAL","CAP-DEFERRED-PURCHASE"],
+    },
+    "transact": {
+        "sdlc_phase": "BUILD", "sdlc_progress": 35, "sdlc_status": "yellow",
+        "summary": "Plataforma core bancario destino (Temenos Transact). Recibe la migracion de cuentas, originacion y contabilidad GL desde Informix. Plataforma target de Unity R4.",
+        "milestones": [
+            {"label": "Contrato Temenos firmado",              "date": "2026-01",   "status": "done"},
+            {"label": "Configuracion productos TDC P4900",     "date": "2026-08",   "status": "done"},
+            {"label": "SIT Transact-SmartVista-eGlobal",       "date": "2026-10",   "status": "pending"},
+            {"label": "UAT contabilidad GL end-to-end",        "date": "2026-11",   "status": "pending"},
+            {"label": "GoLive R4",                             "date": "2026-12",   "status": "planned"},
+        ],
+        "capabilities_impacted": ["CAP-ONBOARDING-DIGITAL","CAP-BALANCE-STATEMENT","CAP-FEE-COMMISSION","CAP-ERROR-CATALOG","CAP-CUSTOMER-PROFILE","CAP-COLLECTIONS-ENGINE"],
+    },
+    "smartvista": {
+        "sdlc_phase": "BUILD", "sdlc_progress": 55, "sdlc_status": "yellow",
+        "summary": "Motor de gestion de tarjetas TDC P4900 (BPC Banking Technologies). Maneja autorizacion, ciclo de vida de tarjeta y MDM. Reemplaza CMS/Intercard/Macweb post-GoLive.",
+        "milestones": [
+            {"label": "Contrato BPC firmado",                  "date": "2026-01",   "status": "done"},
+            {"label": "Catalogo 37 HDUs SmartVista",           "date": "2026-08-01","status": "done"},
+            {"label": "Correccion macro APP-MF-02 (QA)",       "date": "2026-08-20","status": "done"},
+            {"label": "SIT SmartVista-Transact-eGlobal",       "date": "2026-09",   "status": "pending"},
+            {"label": "UAT tarjeta de credito end-to-end",     "date": "2026-10",   "status": "pending"},
+            {"label": "GoLive — CMS/Intercard a DEPRECATE",   "date": "2026-12",   "status": "planned"},
+        ],
+        "capabilities_impacted": ["CAP-CARD-LIFECYCLE","CAP-CREDIT-LIMIT","CAP-PAYMENT","CAP-DEFERRED-PURCHASE","CAP-CARD-MANUFACTURING"],
+    },
+    "apolo": {
+        "sdlc_phase": "BUILD", "sdlc_progress": 45, "sdlc_status": "yellow",
+        "summary": "Canal digital (Appwhere) para oferta y originacion de TDC. Primer punto de contacto del cliente para solicitud de tarjeta. Bridge de datos hacia Transact.",
+        "milestones": [
+            {"label": "37 HDUs APOLO catalogados",             "date": "2026-08-01","status": "done"},
+            {"label": "Integracion Apolo-Transact (API)",      "date": "2026-09",   "status": "pending"},
+            {"label": "SIT originacion TDC completa",          "date": "2026-10",   "status": "pending"},
+            {"label": "GoLive canal Apolo",                    "date": "2026-12",   "status": "planned"},
+        ],
+        "capabilities_impacted": ["CAP-ONBOARDING-DIGITAL","CAP-DEFERRED-PURCHASE","CAP-CUSTOMER-PROFILE"],
+    },
+    "app-movil": {
+        "sdlc_phase": "BUILD", "sdlc_progress": 42, "sdlc_status": "yellow",
+        "summary": "Canal movil BanCoppel (Nova). Canal principal del cliente digital: activacion de tarjeta, autorizacion TDC, pagos, consultas de saldo y compras diferidas.",
+        "milestones": [
+            {"label": "79 HUs inventariadas (App TDC R4)",     "date": "2026-08-19","status": "done"},
+            {"label": "Encendido/Apagado TDC (+3 HUs)",        "date": "2026-08-19","status": "done"},
+            {"label": "SIT App-SmartVista-Transact",           "date": "2026-10",   "status": "pending"},
+            {"label": "UAT cliente digital",                   "date": "2026-11",   "status": "pending"},
+            {"label": "GoLive App Movil TDC",                  "date": "2026-12",   "status": "planned"},
+        ],
+        "capabilities_impacted": ["CAP-PAYMENT","CAP-BALANCE-STATEMENT","CAP-DEFERRED-PURCHASE","CAP-COLLECTIONS-AGING","CAP-CARD-LIFECYCLE","CAP-ONBOARDING-DIGITAL"],
+    },
+    "siweb": {
+        "sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",
+        "summary": "Canal web de sucursal (interno BanCoppel). Operaciones de ventanilla y soporte al cliente. Sistema baseline; candidato a refactor post-R4.",
+        "milestones": [
+            {"label": "Sistema en produccion (baseline)",      "date": "< 2024",    "status": "done"},
+            {"label": "Adaptacion flujos TDC P4900",           "date": "2026-Q4",   "status": "pending"},
+            {"label": "Revision roadmap post-GoLive",          "date": "2027-Q1",   "status": "planned"},
+        ],
+        "capabilities_impacted": ["CAP-PAYMENT","CAP-BALANCE-STATEMENT","CAP-CARD-LIFECYCLE"],
+    },
+    "cat": {
+        "sdlc_phase": "DISCOVER", "sdlc_progress": 20, "sdlc_status": "red",
+        "summary": "Canales Alternativos de Pago — TPV, corresponsales, kioscos. Proveedor sin contratar al 2026-08-31. Riesgo RISK-UNITY-R27 activo.",
+        "milestones": [
+            {"label": "Requerimientos funcionales definidos",  "date": "2026-07",   "status": "done"},
+            {"label": "RFP / seleccion de proveedor",         "date": "2026-08-31","status": "pending"},
+            {"label": "Contrato y kickoff",                    "date": "2026-09",   "status": "planned"},
+            {"label": "GoLive CAT",                           "date": "TBD",        "status": "planned"},
+        ],
+        "capabilities_impacted": ["CAP-PAYMENT"],
+    },
+    "atlas": {
+        "sdlc_phase": "DESIGN", "sdlc_progress": 60, "sdlc_status": "green",
+        "summary": "Plataforma de datos analiticos en GCP (BigQuery + Dataflow). Recibe feeds desde Informix y Transact. Soporte a reportes regulatorios CNBV y analitica de negocio.",
+        "milestones": [
+            {"label": "Landing zone GCP aprovisionada",        "date": "2026-07",   "status": "done"},
+            {"label": "Pipelines Informix a Atlas (Dataflow)", "date": "2026-09",   "status": "pending"},
+            {"label": "Integracion reportes CNBV Anexos",      "date": "2026-10",   "status": "pending"},
+            {"label": "GoLive Atlas (analitica + regulatorio)","date": "2026-11",   "status": "planned"},
+        ],
+        "capabilities_impacted": ["CAP-BALANCE-STATEMENT","CAP-COLLECTIONS-AGING","CAP-FEE-COMMISSION"],
+    },
+    "controlm": {
+        "sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",
+        "summary": "Orquestador de batch BMC Control-M. Jobs criticos: cierre de dia, comisiones, cobranza, estados de cuenta nocturnos. Permanece como baseline en R4.",
+        "milestones": [
+            {"label": "Sistema en produccion (baseline)",      "date": "< 2024",    "status": "done"},
+            {"label": "Nuevos jobs TDC P4900 (cierre dia)",    "date": "2026-Q4",   "status": "pending"},
+            {"label": "Validacion SLA batch post-GoLive",      "date": "2027-Q1",   "status": "planned"},
+        ],
+        "capabilities_impacted": ["CAP-BALANCE-STATEMENT","CAP-FEE-COMMISSION","CAP-COLLECTIONS-AGING","CAP-COLLECTIONS-ENGINE"],
+    },
+    "eglobal": {
+        "sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",
+        "summary": "Switch ISO 8583 interno BanCoppel. Valida 88 reglas de transacciones TDC contra SmartVista. Frontera critica de autorizacion en tiempo real.",
+        "milestones": [
+            {"label": "Sistema en produccion (baseline)",      "date": "< 2024",    "status": "done"},
+            {"label": "Validacion 88 reglas vs SmartVista",    "date": "2026-08",   "status": "done"},
+            {"label": "SIT eGlobal-SmartVista-Transact",       "date": "2026-09",   "status": "pending"},
+            {"label": "Pruebas de carga ISO 8583 P4900",       "date": "2026-10",   "status": "pending"},
+        ],
+        "capabilities_impacted": ["CAP-CARD-LIFECYCLE","CAP-PAYMENT"],
+    },
+    "connect-direct": {
+        "sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "yellow",
+        "summary": "Transferencia segura de archivos batch (IBM Sterling). Mueve archivos entre sistemas internos y redes VISA/MC. Licencia a revisar — alternativa MFT en evaluacion.",
+        "milestones": [
+            {"label": "Sistema en produccion (baseline)",      "date": "< 2024",    "status": "done"},
+            {"label": "Evaluacion alternativa MFT",            "date": "2026-09",   "status": "pending"},
+            {"label": "Decision de renovacion / migracion",    "date": "2026-10",   "status": "pending"},
+            {"label": "Resolucion de riesgo de licencia",      "date": "2026-11",   "status": "planned"},
+        ],
+        "capabilities_impacted": ["CAP-CARD-LIFECYCLE","CAP-CARD-MANUFACTURING"],
+    },
+}
+
+
+
+def build_systems_page(brain_path: str, out_dir) -> None:
+    """Genera portal/systems-p4900.html — drill-down Vista Sistemas."""
+    import json as _json
+    import sqlite3 as _sq
+
+    con = _sq.connect(brain_path)
+    systems = con.execute(
+        "SELECT id, name, vendor, togaf_type, togaf_state, togaf_abb, role_in_r4, status, notes "
+        "FROM program_systems ORDER BY togaf_type, id"
+    ).fetchall()
+    caps = {r[0]: {'name': r[1], 'status': r[2]} for r in con.execute(
+        "SELECT id, name, coverage_status FROM program_capabilities"
+    ).fetchall()}
+    con.close()
+
+    systems_js = {}
+    for row in systems:
+        sid, name, vendor, ttype, tstate, tabb, role, st, notes = row
+        sdlc = SYSTEM_SDLC.get(sid, {})
+        systems_js[sid] = {
+            "id": sid, "name": name, "vendor": vendor or "",
+            "togaf_type": ttype, "togaf_state": tstate, "togaf_abb": tabb or "",
+            "role_in_r4": role or "", "status": st,
+            "color": TOGAF_TYPE_COLOR.get(ttype, "#666"),
+            "state_label": TOGAF_STATE_LABEL.get(tstate, tstate.upper()),
+            "sdlc_phase": sdlc.get("sdlc_phase", "DISCOVER"),
+            "sdlc_progress": sdlc.get("sdlc_progress", 0),
+            "sdlc_status": sdlc.get("sdlc_status", "yellow"),
+            "summary": sdlc.get("summary", role or ""),
+            "milestones": sdlc.get("milestones", []),
+            "capabilities_impacted": [
+                {"id": cid, "name": caps.get(cid, {}).get("name", cid),
+                 "coverage": caps.get(cid, {}).get("status", "unknown")}
+                for cid in sdlc.get("capabilities_impacted", [])
+            ],
+        }
+
+    systems_json = _json.dumps(systems_js, ensure_ascii=False, indent=2)
+
+    by_type = {}
+    for row in systems:
+        sid, name, _, ttype, tstate, *_ = row
+        sdlc = SYSTEM_SDLC.get(sid, {})
+        sts = sdlc.get("sdlc_status", "yellow")
+        by_type.setdefault(ttype, []).append((sid, name, tstate, sts))
+
+    type_order = ["core", "processors", "channels", "data", "integration", "compliance"]
+    type_labels = {"core": "Core Bancario", "processors": "Procesadores",
+                   "channels": "Canales", "data": "Datos", "integration": "Integracion",
+                   "compliance": "Compliance"}
+
+    sidebar_html = ""
+    for ttype in type_order:
+        items = by_type.get(ttype, [])
+        if not items:
+            continue
+        color = TOGAF_TYPE_COLOR.get(ttype, "#666")
+        lbl = type_labels.get(ttype, ttype.upper())
+        sidebar_html += '<div class="sb-group">'
+        sidebar_html += f'<div class="sb-group-label" style="color:{color}">{lbl}</div>'
+        for sid, name, tstate, sts in items:
+            dot_color = {"green": "#4CAF50", "yellow": "#FFC107", "red": "#FF5252"}.get(sts, "#888")
+            state_chip = TOGAF_STATE_LABEL.get(tstate, tstate)
+            oc = "selectSys('" + sid + "')"
+            sidebar_html += f'<div class="sb-item" data-sys="{sid}" onclick="{oc}">'
+            sidebar_html += f'<span class="sb-dot" style="background:{dot_color}"></span>'
+            sidebar_html += f'<span class="sb-name">{name}</span>'
+            sidebar_html += f'<span class="sb-state">{state_chip}</span>'
+            sidebar_html += '</div>'
+        sidebar_html += '</div>'
+
+    sdlc_phases_js = _json.dumps(SDLC_PHASES_LIST)
+    sys_json_str = systems_json
+
+    html_parts = []
+    html_parts.append('<!DOCTYPE html>')
+    html_parts.append('<html lang="es">')
+    html_parts.append('<head>')
+    html_parts.append('<meta charset="UTF-8">')
+    html_parts.append('<meta name="viewport" content="width=device-width,initial-scale=1">')
+    html_parts.append('<title>Habilitadores del Proceso — Unity R4 | BanCoppel</title>')
+    html_parts.append('<style>')
+    html_parts.append('''
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#0a1628;color:#e8eaf6;min-height:100vh;display:flex;flex-direction:column}
+.hdr{background:linear-gradient(135deg,#0d1f3c 0%,#1a2d5a 100%);padding:16px 32px;display:flex;align-items:center;gap:16px;border-bottom:1px solid rgba(255,255,255,.1)}
+.hdr-back{color:#7B9FFF;text-decoration:none;font-size:.8rem;letter-spacing:.08em;opacity:.8;transition:.2s}
+.hdr-back:hover{opacity:1}
+.hdr-sep{color:rgba(255,255,255,.2);margin:0 4px}
+.hdr-title{font-size:.85rem;letter-spacing:.12em;color:#FFD700;font-weight:700;text-transform:uppercase}
+.hdr-sub{font-size:.75rem;color:rgba(255,255,255,.5);margin-left:auto}
+.layout{display:flex;flex:1;overflow:hidden;height:calc(100vh - 53px)}
+.sidebar{width:240px;min-width:240px;background:#0d1f3c;border-right:1px solid rgba(255,255,255,.08);overflow-y:auto;padding:16px 0}
+.sb-title{font-size:.65rem;letter-spacing:.15em;color:rgba(255,255,255,.35);padding:0 16px 12px;text-transform:uppercase}
+.sb-group{margin-bottom:8px}
+.sb-group-label{font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;font-weight:700;padding:10px 16px 4px;opacity:.85}
+.sb-item{display:flex;align-items:center;gap:8px;padding:8px 16px;cursor:pointer;transition:.15s;border-left:3px solid transparent}
+.sb-item:hover{background:rgba(255,255,255,.05)}
+.sb-item.active{background:rgba(123,159,255,.12);border-left-color:#7B9FFF}
+.sb-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.sb-name{font-size:.8rem;flex:1;color:#c5cae9}
+.sb-state{font-size:.58rem;color:rgba(255,255,255,.3);letter-spacing:.06em;text-transform:uppercase;flex-shrink:0}
+.main{flex:1;overflow-y:auto;padding:28px 36px}
+.placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;opacity:.35;gap:8px}
+.placeholder p{font-size:.85rem;color:#7B9FFF}
+.sys-panel{display:none}
+.sys-panel.visible{display:block}
+.sys-hdr{display:flex;align-items:flex-start;gap:20px;margin-bottom:24px}
+.sys-abb{width:64px;height:64px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:800;color:#fff;flex-shrink:0;letter-spacing:.05em}
+.sys-meta{flex:1}
+.sys-name{font-size:1.5rem;font-weight:800;color:#fff;margin-bottom:4px}
+.sys-vendor{font-size:.8rem;color:rgba(255,255,255,.5);margin-bottom:8px}
+.sys-chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.chip-baseline{background:rgba(255,255,255,.1);color:rgba(255,255,255,.6)}
+.chip-transitional{background:rgba(123,159,255,.2);color:#7B9FFF}
+.chip-target{background:rgba(255,215,0,.2);color:#FFD700}
+.chip-active{background:rgba(76,175,80,.2);color:#4CAF50}
+.chip-at_risk{background:rgba(255,82,82,.2);color:#FF5252}
+.sys-role{font-size:.82rem;color:#9fa8da;margin-top:4px;line-height:1.5;max-width:680px}
+.section{margin-bottom:28px}
+.sec-title{font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.06)}
+.sdlc-wrap{background:rgba(255,255,255,.04);border-radius:10px;padding:18px 20px}
+.sdlc-phases{display:flex;gap:4px;margin-bottom:12px}
+.sdlc-ph{flex:1;text-align:center;font-size:.6rem;letter-spacing:.06em;text-transform:uppercase;padding:8px 4px;border-radius:6px;color:rgba(255,255,255,.3);background:rgba(255,255,255,.04)}
+.sdlc-ph.done{background:rgba(76,175,80,.15);color:#4CAF50}
+.sdlc-ph.planned{background:rgba(255,255,255,.03);color:rgba(255,255,255,.15)}
+.sdlc-bar-wrap{display:flex;align-items:center;gap:10px}
+.sdlc-bar-bg{flex:1;height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden}
+.sdlc-bar-fill{height:100%;border-radius:3px;transition:width .6s ease}
+.sdlc-pct{font-size:.75rem;font-weight:700;min-width:36px;text-align:right}
+.milestones{display:flex;flex-direction:column;gap:0}
+.ms-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.ms-row:last-child{border-bottom:none}
+.ms-icon{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:.7rem}
+.ms-done{background:rgba(76,175,80,.25);color:#4CAF50}
+.ms-pending{background:rgba(255,193,7,.2);color:#FFC107}
+.ms-planned{background:rgba(255,255,255,.08);color:rgba(255,255,255,.3)}
+.ms-label{flex:1;font-size:.8rem;color:#c5cae9}
+.ms-date{font-size:.72rem;color:rgba(255,255,255,.35);min-width:70px;text-align:right}
+.caps-grid{display:flex;flex-wrap:wrap;gap:8px}
+.cap-chip{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;font-size:.72rem;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);color:#c5cae9}
+.cap-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.cov-full{background:#4CAF50}.cov-partial{background:#FFC107}.cov-not_covered{background:#FF5252}.cov-not_applicable{background:#666}.cov-unknown{background:#888}
+.summary-box{background:rgba(255,255,255,.04);border-left:3px solid #7B9FFF;border-radius:0 8px 8px 0;padding:12px 16px;font-size:.82rem;color:#9fa8da;line-height:1.6}
+.impact-empty{font-size:.78rem;color:rgba(255,255,255,.25);font-style:italic}
+''')
+    html_parts.append('</style>')
+    html_parts.append('</head>')
+    html_parts.append('<body>')
+    html_parts.append('<div class="hdr">')
+    html_parts.append('  <a class="hdr-back" href="index.html">&#8592; Portal Unity R4</a>')
+    html_parts.append('  <span class="hdr-sep">&middot;</span>')
+    html_parts.append('  <span class="hdr-title">Habilitadores del Proceso</span>')
+    html_parts.append('  <span class="hdr-sub">BanCoppel &middot; Programa Unity R4 &middot; TDC P4900</span>')
+    html_parts.append('</div>')
+    html_parts.append('<div class="layout">')
+    html_parts.append('  <div class="sidebar">')
+    html_parts.append('    <div class="sb-title">Ecosistema Tecnologico</div>')
+    html_parts.append(sidebar_html)
+    html_parts.append('  </div>')
+    html_parts.append('  <div class="main" id="main">')
+    html_parts.append('    <div class="placeholder" id="placeholder">')
+    html_parts.append('      <p>Selecciona un sistema del menu lateral</p>')
+    html_parts.append('    </div>')
+    html_parts.append('    <div class="sys-panel" id="sys-panel"></div>')
+    html_parts.append('  </div>')
+    html_parts.append('</div>')
+
+    js_block = '''<script>
+const SYSTEMS = ''' + sys_json_str + ''';
+const SDLC_PHASES = ''' + sdlc_phases_js + ''';
+const COV_DOT = {full:'cov-full',partial:'cov-partial',not_covered:'cov-not_covered',not_applicable:'cov-not_applicable',unknown:'cov-unknown'};
+const MS_ICON = {done:'&#10003;',pending:'&#9658;',planned:'&#9675;'};
+function selectSys(id) {
+  document.querySelectorAll('.sb-item').forEach(el => el.classList.toggle('active', el.dataset.sys === id));
+  const s = SYSTEMS[id]; if (!s) return;
+  document.getElementById('placeholder').style.display = 'none';
+  const panel = document.getElementById('sys-panel');
+  panel.classList.add('visible');
+  const phIdx = SDLC_PHASES.indexOf(s.sdlc_phase);
+  const phasesH = SDLC_PHASES.map((ph,i) => {
+    const cls = i < phIdx ? 'done' : i === phIdx ? 'current' : 'planned';
+    const style = i === phIdx ? 'style="background:'+s.color+';color:#fff;font-weight:700"' : '';
+    return '<div class="sdlc-ph '+cls+'" '+style+'>'+ph+'</div>';
+  }).join('');
+  const barColor = {green:'#4CAF50',yellow:'#FFC107',red:'#FF5252'}[s.sdlc_status]||'#7B9FFF';
+  const msH = (s.milestones||[]).map(m =>
+    '<div class="ms-row"><div class="ms-icon ms-'+m.status+'">'+(MS_ICON[m.status]||'?')+'</div>'
+    +'<div class="ms-label">'+m.label+'</div><div class="ms-date">'+m.date+'</div></div>'
+  ).join('');
+  const capsH = (s.capabilities_impacted||[]).map(c => {
+    const dc = COV_DOT[c.coverage]||'cov-unknown';
+    return '<div class="cap-chip"><span class="cap-dot '+dc+'"></span>'+c.name+'</div>';
+  }).join('') || '<span class="impact-empty">Sin capabilities mapeadas</span>';
+  const stCls = s.togaf_state;
+  const stLbl = s.state_label;
+  const actCls = s.status==='at_risk'?'chip-at_risk':'chip-active';
+  const actLbl = s.status==='at_risk'?'&#9888; En riesgo':'&#9679; Activo';
+  panel.innerHTML = '<div class="sys-hdr">'
+    +'<div class="sys-abb" style="background:'+s.color+'">'+(s.togaf_abb||s.id.slice(0,3).toUpperCase())+'</div>'
+    +'<div class="sys-meta">'
+    +'<div class="sys-name">'+s.name+'</div>'
+    +'<div class="sys-vendor">'+s.vendor+'</div>'
+    +'<div class="sys-chips">'
+    +'<span class="chip" style="background:'+s.color+'22;color:'+s.color+'">'+s.togaf_type.toUpperCase()+'</span>'
+    +'<span class="chip chip-'+stCls+'">'+stLbl+'</span>'
+    +'<span class="chip '+actCls+'">'+actLbl+'</span>'
+    +'</div></div></div>'
+    +'<div class="section"><div class="sec-title">Rol en el Programa</div>'
+    +'<div class="summary-box">'+s.summary+'</div></div>'
+    +'<div class="section"><div class="sec-title">Plan de Entrega &mdash; SDLC</div>'
+    +'<div class="sdlc-wrap">'
+    +'<div class="sdlc-phases">'+phasesH+'</div>'
+    +'<div class="sdlc-bar-wrap">'
+    +'<div class="sdlc-bar-bg"><div class="sdlc-bar-fill" style="width:'+s.sdlc_progress+'%;background:'+barColor+'"></div></div>'
+    +'<div class="sdlc-pct" style="color:'+barColor+'">'+s.sdlc_progress+'%</div>'
+    +'</div></div></div>'
+    +'<div class="section"><div class="sec-title">Hitos del Sistema</div>'
+    +'<div class="milestones">'+msH+'</div></div>'
+    +'<div class="section"><div class="sec-title">Impacto en Vista de Producto &mdash; Capabilities</div>'
+    +'<div class="caps-grid">'+capsH+'</div></div>';
+}
+const firstKey = Object.keys(SYSTEMS)[0];
+if (firstKey) setTimeout(() => selectSys(firstKey), 100);
+</script>'''
+    html_parts.append(js_block)
+    html_parts.append('</body></html>')
+
+    out_path = out_dir / 'systems-p4900.html'
+    out_path.write_text('\n'.join(html_parts), encoding='utf-8')
+    print(f'[build-portal] systems-p4900.html generado OK — {len(systems)} sistemas')
 def main():
     parser = argparse.ArgumentParser(description="Genera portal/index.html desde brain.db")
     parser.add_argument("--brain", default=str(BRAIN), help="Ruta al brain.db")
@@ -1568,6 +1948,9 @@ def main():
 
         lifecycle_path.write_text(lc, encoding="utf-8")
         print(f"[build-portal] lifecycle-p4900.html títulos actualizados ✓")
+
+    # Drill-down Vista Sistemas
+    build_systems_page(str(brain_path), out_path.parent)
 
     print(f"[build-portal] OK — {out_path}")
     print(f"  Productos : {len(data['products'])} | Releases: {len(data['releases'])}")
