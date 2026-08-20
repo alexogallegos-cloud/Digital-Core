@@ -662,6 +662,18 @@ CREATE TABLE IF NOT EXISTS audit_findings (
     source_doc      TEXT,
     notes           TEXT
 );
+
+CREATE TABLE IF NOT EXISTS lifecycle_phase_steps (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    phase_id    TEXT NOT NULL,
+    step_n      INTEGER NOT NULL,
+    paso        TEXT NOT NULL,
+    sistema     TEXT NOT NULL,
+    us_id       TEXT DEFAULT '—',
+    us_title    TEXT DEFAULT '',
+    fuente      TEXT DEFAULT 'manual' CHECK(fuente IN ('manual','brain')),
+    UNIQUE(phase_id, step_n)
+);
 """
 
 # â"€â"€ Datos â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -5631,6 +5643,7 @@ def main() -> None:
     load_track_rag(con)        # v1.0.0  --  5 tracks RAG (PPTX Roadmap 11-ago-2026)
     load_legacy_systems(con)   # v1.2.0  --  14 sistemas legado/ecosistema (barrido documental 2026-08-19)
     load_audit_findings(con)   # v1.2.0  --  19 hallazgos del barrido (cifras, correcciones, ambiguedades)
+    load_lifecycle_phase_steps(con)  # v1.3.0  --  48 pasos cadena de valor TDC (8 fases, brain+manual)
     rebuild_fts(con)
     coverage_summary(con)
     semantic_summary(con)     # v0.6.1  --  vista capability_360
@@ -5750,6 +5763,144 @@ def load_audit_findings(con: sqlite3.Connection) -> None:
     open_n  = sum(1 for r in AUDIT_FINDINGS if r.get("status") == "open")
     cat_str = " | ".join(f"{c}:{n}" for c, n in sorted(by_cat.items()))
     print(f"  audit_findings    : {len(AUDIT_FINDINGS)} hallazgos  |  open={open_n}  |  {cat_str}")
+
+
+# ── Cadena de valor TDC — pasos por fase (v1.3.0) ───────────────────────────
+# Fuente: DT-Productos v1.2.0 + US reales del brain (user_stories_inventory,
+# app_user_stories, hdu_catalog). Cada paso mapea sistema + US que lo cubre.
+LIFECYCLE_PHASE_STEPS = [
+    # ── ORIGINACIÓN ──────────────────────────────────────────────────────────
+    {"phase_id":"originacion","step_n":1,"paso":"Presentación de oferta de producto y CAT",
+     "sistema":"Apolo","us_id":"HDU-TDC-R4-01","us_title":"Actualizar tasa ordinaria y CAT en la oferta de producto","fuente":"brain"},
+    {"phase_id":"originacion","step_n":2,"paso":"Validación de teléfono y OTP (titularidad celular)",
+     "sistema":"Apolo","us_id":"HDU-TDC-R4-24","us_title":"Validar titularidad del celular y disponibilidad para OTP","fuente":"brain"},
+    {"phase_id":"originacion","step_n":3,"paso":"Perfilamiento y validación de domicilio",
+     "sistema":"Apolo + Informix","us_id":"HDU-TDC-R4-05","us_title":"Aplicar Coltrane en perfilamiento, riesgo y KYC","fuente":"brain"},
+    {"phase_id":"originacion","step_n":4,"paso":"Declaración de Persona Vulnerable (grupos prioritarios)",
+     "sistema":"Apolo + PLD","us_id":"HDU-TDC-R4-07","us_title":"Capturar declaración inicial de persona vulnerable","fuente":"brain"},
+    {"phase_id":"originacion","step_n":5,"paso":"Consulta SIC / Buró de Crédito",
+     "sistema":"Apolo + Buró de Crédito","us_id":"HDU-TDC-R4-05","us_title":"Validación SIC en bloque de perfilamiento","fuente":"brain"},
+    {"phase_id":"originacion","step_n":6,"paso":"Validación listas negras PLD (solicitante, familiar, referencia)",
+     "sistema":"Apolo + PLD","us_id":"HDU-TDC-R4-13","us_title":"Validar al solicitante contra listas negras PLD","fuente":"brain"},
+    {"phase_id":"originacion","step_n":7,"paso":"Presentación y aceptación de Términos y Contrato (CONDUSEF)",
+     "sistema":"Apolo","us_id":"HDU-TDC-R4-17","us_title":"Presentar pantalla de términos con Contrato Múltiple","fuente":"brain"},
+    {"phase_id":"originacion","step_n":8,"paso":"Prueba de vida y lectura de documentos",
+     "sistema":"Apolo","us_id":"HDU-TDC-R4-18","us_title":"Permitir lectura de documentos y avance a firma electrónica","fuente":"brain"},
+    {"phase_id":"originacion","step_n":9,"paso":"Firma electrónica, alta de crédito e integración de expediente digital",
+     "sistema":"Apolo + Informix + SmartVista","us_id":"HDU-TDC-R4-20","us_title":"Integrar firma, alta de crédito y expediente digital","fuente":"brain"},
+    {"phase_id":"originacion","step_n":10,"paso":"Bienvenida: envío de contrato vigente por correo",
+     "sistema":"Apolo + Notificaciones","us_id":"HDU-TDC-R4-03","us_title":"Enviar contrato vigente al finalizar la solicitud","fuente":"brain"},
+    # ── EMISIÓN ──────────────────────────────────────────────────────────────
+    {"phase_id":"emision","step_n":1,"paso":"Consulta de inventario de tarjetas por sucursal",
+     "sistema":"SmartVista BPC","us_id":"HDU-SMART-R4-02","us_title":"Consultar inventario de tarjetas por sucursal","fuente":"brain"},
+    {"phase_id":"emision","step_n":2,"paso":"Cálculo de solicitud de maquila con parámetros de abasto",
+     "sistema":"SmartVista BPC","us_id":"HDU-SMART-R4-03","us_title":"Calcular maquila con parámetros de abasto","fuente":"brain"},
+    {"phase_id":"emision","step_n":3,"paso":"Generación de solicitud automatizada de maquila",
+     "sistema":"SmartVista BPC","us_id":"HDU-SMART-R4-04","us_title":"Ejecutar solicitud automatizada de maquila","fuente":"brain"},
+    {"phase_id":"emision","step_n":4,"paso":"Generación de archivos cifrados (PGP) para el maquilador",
+     "sistema":"SmartVista BPC + HSM","us_id":"HDU-SMART-R4-06","us_title":"Generar archivos seguros de maquila","fuente":"brain"},
+    {"phase_id":"emision","step_n":5,"paso":"Certificación de layouts de maquila con el proveedor",
+     "sistema":"SmartVista BPC + Maquilador","us_id":"HDU-SMART-R4-01","us_title":"Certificar layouts de maquila con proveedores","fuente":"brain"},
+    {"phase_id":"emision","step_n":6,"paso":"Seguimiento de estatus de lotes de producción",
+     "sistema":"SmartVista BPC","us_id":"HDU-SMART-R4-07","us_title":"Dar seguimiento a estatus de lotes","fuente":"brain"},
+    {"phase_id":"emision","step_n":7,"paso":"Recepción y control de lotes (física y digital)",
+     "sistema":"SmartVista BPC","us_id":"HDU-SMART-R4-08","us_title":"Controlar recepción y cancelación de lotes","fuente":"brain"},
+    # ── ACTIVACIÓN ───────────────────────────────────────────────────────────
+    {"phase_id":"activacion","step_n":1,"paso":"Gestión de TDC Física desde canal Apolo",
+     "sistema":"Apolo + SmartVista BPC","us_id":"SMART-3964","us_title":"Gestión de Tarjeta de Crédito Física - Canal Apolo","fuente":"brain"},
+    {"phase_id":"activacion","step_n":2,"paso":"Activación de TDC Digital por AppMóvil",
+     "sistema":"AppMóvil + SmartVista BPC","us_id":"SMART-3966","us_title":"Activación de TDC Digital","fuente":"brain"},
+    {"phase_id":"activacion","step_n":3,"paso":"Gestión de TDC Digital desde canal Apolo",
+     "sistema":"Apolo + SmartVista BPC","us_id":"SMART-4219","us_title":"Gestión de Tarjeta de Crédito Digital - Canal Apolo","fuente":"brain"},
+    {"phase_id":"activacion","step_n":4,"paso":"Notificación de activación al portador (push + email)",
+     "sistema":"AppMóvil + Notificaciones","us_id":"SMART-4105","us_title":"Notificación de activación Tarjeta Digital BanCoppel","fuente":"brain"},
+    {"phase_id":"activacion","step_n":5,"paso":"Convivencia TDC Física y Digital en Home de la app",
+     "sistema":"AppMóvil + Informix","us_id":"SMART-4531","us_title":"Convivencia en Home de Cuentas TDC F&D","fuente":"brain"},
+    # ── AUTORIZACIÓN ─────────────────────────────────────────────────────────
+    {"phase_id":"autorizacion","step_n":1,"paso":"Recepción de mensaje ISO 8583 del adquirente (POS / e-commerce)",
+     "sistema":"SmartVista SVFE","us_id":"HDU-SMART-R4-11","us_title":"Incorporar 88 reglas del autorizador BPC","fuente":"brain"},
+    {"phase_id":"autorizacion","step_n":2,"paso":"Validación del instrumento (límite, vigencia, CVV2)",
+     "sistema":"SmartVista SVFE","us_id":"HDU-SMART-R4-11","us_title":"Incorporar 88 reglas del autorizador BPC","fuente":"brain"},
+    {"phase_id":"autorizacion","step_n":3,"paso":"Aplicación de 88 reglas del autorizador BPC",
+     "sistema":"SmartVista SVFE","us_id":"HDU-SMART-R4-11","us_title":"Incorporar 88 reglas del autorizador BPC","fuente":"brain"},
+    {"phase_id":"autorizacion","step_n":4,"paso":"Control de saldo a favor y validación del límite",
+     "sistema":"SmartVista BPC","us_id":"HDU-SMART-R4-13","us_title":"Validar límite de saldo a favor por línea de crédito","fuente":"brain"},
+    {"phase_id":"autorizacion","step_n":5,"paso":"Respuesta aprobación / rechazo en tiempo real",
+     "sistema":"SmartVista SVFE","us_id":"HDU-SMART-R4-11","us_title":"Incorporar 88 reglas del autorizador BPC","fuente":"brain"},
+    {"phase_id":"autorizacion","step_n":6,"paso":"Registro del movimiento y actualización de saldo disponible",
+     "sistema":"SmartVista BPC + Informix","us_id":"—","us_title":"Sin User Story específica en R4","fuente":"manual"},
+    # ── TRANSACCIONES ────────────────────────────────────────────────────────
+    {"phase_id":"transacciones","step_n":1,"paso":"Consulta de movimientos convivencia TDC Física y Digital",
+     "sistema":"AppMóvil + Informix + SmartVista","us_id":"SMART-4176","us_title":"Movimientos Convivencia TDC F&D","fuente":"brain"},
+    {"phase_id":"transacciones","step_n":2,"paso":"Detalle de movimiento individual",
+     "sistema":"AppMóvil + SmartVista BPC","us_id":"SMART-4180","us_title":"Detalle de Movimientos Convivencia TDC F&D","fuente":"brain"},
+    {"phase_id":"transacciones","step_n":3,"paso":"Consulta de saldo y estado de cuenta",
+     "sistema":"AppMóvil + Informix","us_id":"SMART-3962","us_title":"Detalle de Crédito Convivencia TDC F&D","fuente":"brain"},
+    {"phase_id":"transacciones","step_n":4,"paso":"Actualización de operaciones en una misma sesión",
+     "sistema":"AppMóvil + SmartVista","us_id":"PTCSF-6267","us_title":"Actualizar operaciones TDC Digital en una misma sesión","fuente":"brain"},
+    {"phase_id":"transacciones","step_n":5,"paso":"Encendido / apagado operativo de TDC Física y Digital",
+     "sistema":"AppMóvil + SmartVista","us_id":"APP-ENC-01","us_title":"Encendido, Apagado y Bloqueo Operativo - Tarjeta de Crédito","fuente":"brain"},
+    {"phase_id":"transacciones","step_n":6,"paso":"Homologación omnicanal de nombres de comisiones",
+     "sistema":"SmartVista BPC","us_id":"HDU-SMART-R4-10","us_title":"Sincronizar nombres de comisiones en canales","fuente":"brain"},
+    # ── PAGOS ────────────────────────────────────────────────────────────────
+    {"phase_id":"pagos","step_n":1,"paso":"Visualización de montos de pago (mínimo, total, otra cantidad)",
+     "sistema":"AppMóvil + SmartVista","us_id":"SMART-4182","us_title":"Visualización y aplicación de montos de pago en Línea TDC","fuente":"brain"},
+    {"phase_id":"pagos","step_n":2,"paso":"Validación del límite de saldo a favor en pago",
+     "sistema":"AppMóvil + SmartVista BPC","us_id":"SMART-4183","us_title":"Límite de saldo a favor para pago de TDC en la aplicación móvil","fuente":"brain"},
+    {"phase_id":"pagos","step_n":3,"paso":"Gestión del campo 'Otra cantidad' por límite de SAF",
+     "sistema":"AppMóvil + SmartVista","us_id":"SMART-4280","us_title":"Gestión del campo 'Otra cantidad' basado en el límite de SAF","fuente":"brain"},
+    {"phase_id":"pagos","step_n":4,"paso":"Aplicación de pago anticipado a parcialidades activas",
+     "sistema":"SmartVista BPC","us_id":"HDU-SMART-R4-19","us_title":"Aplicar pagos anticipados a pagos fijos","fuente":"brain"},
+    {"phase_id":"pagos","step_n":5,"paso":"Liquidación total de compra diferida",
+     "sistema":"SmartVista BPC","us_id":"HDU-SMART-R4-20","us_title":"Liquidar totalmente compras diferidas","fuente":"brain"},
+    {"phase_id":"pagos","step_n":6,"paso":"Acreditación SPEI al saldo disponible (< 5 min BANXICO)",
+     "sistema":"Informix + SPEI / e-Global","us_id":"—","us_title":"Sin User Story específica en R4","fuente":"manual"},
+    # ── CONTABILIDAD ─────────────────────────────────────────────────────────
+    {"phase_id":"contabilidad","step_n":1,"paso":"Cierre de día operativo en SmartVista (EOD)",
+     "sistema":"SmartVista BPC","us_id":"—","us_title":"Sin User Story — pendiente CAP-ACCOUNTING-INTEGRATION","fuente":"manual"},
+    {"phase_id":"contabilidad","step_n":2,"paso":"Generación de archivo SVXP de posting contable",
+     "sistema":"SmartVista BPC → Informix","us_id":"—","us_title":"Interfaz SVXP no construida — prioridad PreGame","fuente":"manual"},
+    {"phase_id":"contabilidad","step_n":3,"paso":"Aplicación de asientos contables en core (Informix / PISA)",
+     "sistema":"Informix (PISA)","us_id":"—","us_title":"Sin User Story en R4","fuente":"manual"},
+    {"phase_id":"contabilidad","step_n":4,"paso":"Conciliación: transacciones autorizadas vs. contabilizadas",
+     "sistema":"Informix + SmartVista","us_id":"—","us_title":"Sin User Story en R4","fuente":"manual"},
+    {"phase_id":"contabilidad","step_n":5,"paso":"Generación de reportería CNBV (Anexos 33 y 36 CUB)",
+     "sistema":"Informix + CNBV","us_id":"—","us_title":"Sin User Story en R4","fuente":"manual"},
+    {"phase_id":"contabilidad","step_n":6,"paso":"Cálculo mensual de provisión de cartera (NIF C-16)",
+     "sistema":"Informix","us_id":"—","us_title":"Sin User Story en R4","fuente":"manual"},
+    # ── COBRANZA ─────────────────────────────────────────────────────────────
+    {"phase_id":"cobranza","step_n":1,"paso":"Clasificación de cartera por tramos de aging (1-29, 30-60, 61-120, >120 días)",
+     "sistema":"SmartVista BPC + Informix","us_id":"—","us_title":"Sin User Story — Cobranza Direccionada pendiente","fuente":"manual"},
+    {"phase_id":"cobranza","step_n":2,"paso":"Bloqueo de cuenta y restricciones operativas por mora",
+     "sistema":"SmartVista BPC + Informix","us_id":"—","us_title":"Sin User Story en R4","fuente":"manual"},
+    {"phase_id":"cobranza","step_n":3,"paso":"Gestión de cobranza preventiva (1-29 días de atraso)",
+     "sistema":"Motor Cobranza Direccionada","us_id":"—","us_title":"37-50 USs de Cobranza Direccionada no incorporadas al R4","fuente":"manual"},
+    {"phase_id":"cobranza","step_n":4,"paso":"Reporte al Buró de Crédito (día 30 de atraso — SISEC)",
+     "sistema":"Informix + Buró de Crédito","us_id":"—","us_title":"Sin User Story en R4","fuente":"manual"},
+    {"phase_id":"cobranza","step_n":5,"paso":"Reporte de cartera vencida a CNBV (SISEC mensual)",
+     "sistema":"Informix + CNBV","us_id":"—","us_title":"Sin User Story en R4","fuente":"manual"},
+    {"phase_id":"cobranza","step_n":6,"paso":"Castigo de cartera y proceso de recuperación (> 120 días)",
+     "sistema":"Informix + Motor Castigo","us_id":"—","us_title":"Sin User Story en R4","fuente":"manual"},
+]
+
+
+def load_lifecycle_phase_steps(con: sqlite3.Connection) -> None:
+    """Carga pasos del proceso industria por fase de la cadena de valor TDC (v1.3.0).
+    Fuente: DT-Productos v1.2.0 + USs reales del brain. Usado por build-portal.py
+    para generar la tabla 'Proceso paso a paso' en lifecycle-p4900.html.
+    """
+    con.execute("DELETE FROM lifecycle_phase_steps")
+    cols = ["phase_id", "step_n", "paso", "sistema", "us_id", "us_title", "fuente"]
+    ph   = ", ".join("?" * len(cols))
+    sql  = f"INSERT OR REPLACE INTO lifecycle_phase_steps ({', '.join(cols)}) VALUES ({ph})"
+    con.executemany(sql, [tuple(r.get(c) for c in cols) for r in LIFECYCLE_PHASE_STEPS])
+    con.commit()
+    by_phase = {}
+    for r in LIFECYCLE_PHASE_STEPS:
+        p = r["phase_id"]
+        by_phase[p] = by_phase.get(p, 0) + 1
+    brain_n = sum(1 for r in LIFECYCLE_PHASE_STEPS if r.get("fuente") == "brain")
+    print(f"  lifecycle_phase_steps: {len(LIFECYCLE_PHASE_STEPS)} pasos  |  brain={brain_n}  |  fases={len(by_phase)}")
 
 
 if __name__ == "__main__":

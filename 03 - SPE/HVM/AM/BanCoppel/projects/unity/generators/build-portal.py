@@ -32,32 +32,215 @@ KNOWN_STATUSES = {"productivo", "live", "building", "backlog", "planned", "retir
 # Fuente autoritativa: dt/dt-productos.md § "Capacidades de Negocio (ETB)"
 # sem: "crit" = 🔴 crítico, "warn" = 🟡 at risk, "ok" = 🟢
 CAPABILITIES_VP = [
-    {"label": "Emisión TDC",        "system": "SmartVista",            "sem": "warn", "note": "Gaps DPP, BYU0039, OCG manual"},
-    {"label": "Originación Digital","system": "APOLO",                 "sem": "warn", "note": "Latencia 9s en PROD sin plan"},
-    {"label": "Canal Digital",      "system": "App / SIWEB / CAT",     "sem": "crit", "note": "CAT sin contratar; SIWEB bloqueado"},
-    {"label": "Cobranza",           "system": "Cobranza Direccionada",  "sem": "warn", "note": "Pentest nov 15-20 vs SIT"},
-    {"label": "Integración",        "system": "Apificación",           "sem": "warn", "note": "Inventario no consolidado"},
-    {"label": "Reg. Reporting",     "system": "Reportes Regulatorios", "sem": "warn", "note": "Alcance R4 sin confirmar"},
+    {"label": "Emisión TDC",        "system": "SmartVista",            "sem": "warn", "note": "Brechas funcionales pendientes de cierre"},
+    {"label": "Originación Digital","system": "APOLO",                 "sem": "warn", "note": "Rendimiento en producción por confirmar"},
+    {"label": "Canal Digital",      "system": "App / Sucursal / Contact Center", "sem": "crit", "note": "Dos canales sin plan de entrega confirmado"},
+    {"label": "Cobranza",           "system": "Cobranza Direccionada", "sem": "warn", "note": "Conflicto en ventana de pruebas de noviembre"},
+    {"label": "Integración",        "system": "Integraciones",         "sem": "warn", "note": "Mapa de dependencias entre sistemas incompleto"},
+    {"label": "Reportes Regulatorios", "system": "CNBV / Banxico",     "sem": "warn", "note": "Alcance regulatorio pendiente de validación"},
 ]
 
 # KPIs de la Vista Producto — disponibles ahora desde brain.db o DT; gaps marcados
 KPIS_VP = [
-    {"label": "User Stories R4",  "value": "~116-129",  "sub": "Total comprometidas",         "gap": False},
-    {"label": "Must Have",        "value": "46",         "sub": "Must Have en inventario",     "gap": False},
-    {"label": "Tracks en Riesgo", "value": "5 / 6",      "sub": "1 crítico · 4 at risk",       "gap": False},
-    {"label": "Avance R4",        "value": "21.19%",     "sub": "vs 60.58% esp. (17-ago)",     "gap": False},
-    {"label": "Clientes Obj.",    "value": "GAP",        "sub": "GAP-VP-001 sin dato",         "gap": True},
-    {"label": "SLA Autorización", "value": "GAP",        "sub": "GAP-VP-002 sin dato",         "gap": True},
+    {"label": "Funcionalidades",  "value": "~116-129",  "sub": "Requerimientos comprometidos",     "gap": False},
+    {"label": "Críticas",         "value": "46",         "sub": "De entrega obligatoria",           "gap": False},
+    {"label": "Áreas en riesgo",  "value": "5 / 6",      "sub": "1 crítica · 4 en seguimiento",    "gap": False},
+    {"label": "Avance",           "value": "21.19%",     "sub": "vs 60.58% esperado al 17-ago",    "gap": False},
+    {"label": "Clientes objetivo","value": "—",          "sub": "Pendiente de confirmar",           "gap": True},
+    {"label": "SLA servicio",     "value": "—",          "sub": "Pendiente de confirmar",           "gap": True},
 ]
 
-# Bloqueos de negocio activos — perspectiva de valor al cliente, no técnica
+# Bloqueos de negocio activos — perspectiva de valor al cliente, sin jerga técnica
 BLOCKERS_VP = [
-    {"text": "CAT (Contact Center) sin proveedor contratado",         "cap": "Canal Digital",       "owner": "BanCoppel",         "level": "crit"},
-    {"text": "SIWEB bloqueado — esperando contratos API de Apific.",  "cap": "Canal Digital",       "owner": "Apificación (ACN)", "level": "warn"},
-    {"text": "Latencia APOLO 9s en PROD sin plan de mejora firmado",  "cap": "Originación Digital", "owner": "Appwhere",          "level": "warn"},
-    {"text": "Inventario de integraciones sin consolidar",            "cap": "Integración",         "owner": "Apificación (ACN)", "level": "warn"},
-    {"text": "Pentest nov 15-20 puede congelar ambiente SIT",         "cap": "Cobranza",            "owner": "BanCoppel / Infra", "level": "warn"},
+    {"text": "Contact center sin proveedor contratado",                          "cap": "Canal Digital",        "owner": "BanCoppel",    "level": "crit"},
+    {"text": "Sistema de sucursales bloqueado por dependencia de integraciones", "cap": "Canal Digital",        "owner": "Accenture",    "level": "warn"},
+    {"text": "Rendimiento de originación digital sin plan de mejora firmado",    "cap": "Originación Digital",  "owner": "Appwhere",     "level": "warn"},
+    {"text": "Mapa de dependencias entre sistemas sin consolidar",               "cap": "Integración",          "owner": "Accenture",    "level": "warn"},
+    {"text": "Pruebas de seguridad programadas en ventana crítica de integración","cap": "Cobranza",            "owner": "BanCoppel",    "level": "warn"},
 ]
+
+# ── Narrativas funcionales por fase — Cadena de Valor TDC ────────────────────
+# Fuente: DT-Productos v1.2.0 · DT-Compliance · Marco regulatorio MX
+# Cada entrada: industria (texto), kpis (lista de {k,v}), brechas (lista de {txt,level})
+PHASE_NARRATIVES = {
+    "originacion": {
+        "industria": (
+            "La originación es el primer momento de relación del cliente con el producto. "
+            "En México, la CONDUSEF exige entregar el Resumen de Contrato con el CAT (Costo Anual Total) "
+            "calculado conforme a la Circular 9/2019 de Banxico, y el banco debe registrar el contrato "
+            "de adhesión en el RECA antes de usarlo. El flujo incluye validación KYC, consulta al Buró de "
+            "Crédito, scoring crediticio (CES) y alta en el sistema de gestión de tarjetas. "
+            "La LFPIORPI exige que el banco aplique controles PLD desde la solicitud."
+        ),
+        "kpis": [
+            {"k": "Tasa de aprobación",         "v": "30-55% (varía por segmento)"},
+            {"k": "Tiempo de resolución digital","v": "< 5 minutos"},
+            {"k": "Activación a 30 días",        "v": "> 70%"},
+            {"k": "CAT comunicado correctamente","v": "100% (CONDUSEF)"},
+        ],
+        "brechas": [
+            {"txt": "Pantallas intermedias del flujo de solicitud APOLO sin mapear", "level": "warn"},
+            {"txt": "Clientes objetivo (volumen / segmento) sin definir — GAP-VP-001", "level": "crit"},
+            {"txt": "Latencia 9 seg en producción — sin plan de mejora confirmado",  "level": "crit"},
+            {"txt": "Contrato CONDUSEF (RECA): fecha de registro no confirmada",      "level": "warn"},
+        ],
+    },
+    "emision": {
+        "industria": (
+            "La emisión convierte una cuenta aprobada en un instrumento de pago. El sistema de gestión "
+            "de tarjetas arma el lote de personalización, un módulo generador produce el archivo cifrado "
+            "con PGP y lo transfiere al maquilador vía protocolo seguro (Connect-Direct o SFTP). "
+            "El HSM (Hardware Security Module) genera y custodia las llaves por tarjeta — control "
+            "mandatorio PCI-DSS Req. 3.6. El maquilador embosa el plástico, instala el chip y envía "
+            "la tarjeta al cliente. Tiempo estándar en México: 5-10 días hábiles desde aprobación."
+        ),
+        "kpis": [
+            {"k": "Aprobación → tarjeta en mano", "v": "5-10 días hábiles"},
+            {"k": "Tasa de defectos de maquila",  "v": "< 0.1%"},
+            {"k": "Activación post-maquila 30d",  "v": "> 70%"},
+            {"k": "Integridad de lote (PCI)",      "v": "100%"},
+        ],
+        "brechas": [
+            {"txt": "Connect-Direct no en producción — depósito manual por tickets",    "level": "crit"},
+            {"txt": "Maquilador único no definido formalmente — riesgo de capacidad",  "level": "warn"},
+            {"txt": "Inconsistencia de maquiladores en documentación (3-5 proveedores)","level": "warn"},
+            {"txt": "SLA de tiempo aprobación→tarjeta en mano: sin definir — GAP-VP-002","level": "warn"},
+        ],
+    },
+    "activacion": {
+        "industria": (
+            "La CONDUSEF exige que ninguna tarjeta esté activa al momento de entregarse al cliente: "
+            "el portador debe activarla explícitamente, lo que constituye una segunda confirmación "
+            "del consentimiento. La industria ofrece cuatro canales: App móvil (preferente en productos "
+            "digitales), IVR, sucursal y ATM. Para tarjeta digital, la activación incluye la provisión "
+            "del token de pago en billeteras digitales (Apple Pay / Google Pay) mediante el protocolo "
+            "EMVCo 3DS del emisor."
+        ),
+        "kpis": [
+            {"k": "Tasa de activación a 30 días", "v": "> 70%"},
+            {"k": "Tasa de activación a 7 días",  "v": "> 40% (digital-first)"},
+            {"k": "Tiempo al primer uso",          "v": "< 48 horas"},
+            {"k": "Intentos fallidos",             "v": "< 5%"},
+        ],
+        "brechas": [
+            {"txt": "Activación por ATM: Customer Journey documentado pero sin User Story en R4",    "level": "warn"},
+            {"txt": "Activación por sucursal (SIWEB): Journey documentado pero sin User Story en R4","level": "warn"},
+            {"txt": "Provisión de token digital (Apple Pay / Google Pay): no mencionada en R4",      "level": "warn"},
+        ],
+    },
+    "autorizacion": {
+        "industria": (
+            "La autorización ocurre en tiempo real para cada intento de compra. El flujo ISO 8583 "
+            "lleva el mensaje del POS o e-commerce al emisor vía la red adquirente. El motor de "
+            "autorización (SmartVista SVFE) aplica las reglas del producto — límite disponible, "
+            "validez de tarjeta, CVV2, control de fraude — y devuelve aprobación o rechazo en "
+            "milisegundos. Visa penaliza emisores con alta tasa de declinación injustificada. "
+            "La CNBV exige reportar eventos de fraude y mantener controles activos de riesgo "
+            "transaccional (3DS v2 para e-commerce es estándar de mercado)."
+        ),
+        "kpis": [
+            {"k": "Tasa de autorización",      "v": "> 85% (Visa: > 90% para emisores maduros)"},
+            {"k": "Latencia P99",              "v": "< 2,000 ms"},
+            {"k": "Tasa de fraude",            "v": "< 0.05% (benchmark CNBV)"},
+            {"k": "Disponibilidad 24×7",       "v": "> 99.9%"},
+        ],
+        "brechas": [
+            {"txt": "Contradicción abierta sobre SVFM (módulo fraude): licenciado vs. no licenciado", "level": "crit"},
+            {"txt": "SLA de autorización (latencia P99): sin definir en contrato R4 — GAP-VP-002",    "level": "warn"},
+            {"txt": "3DS v2 para e-commerce: sin evidencia de implementación en R4",                  "level": "warn"},
+            {"txt": "Segunda US de cierre de análisis: 16-oct — overlap con inicio SIT 15-oct",       "level": "warn"},
+        ],
+    },
+    "transacciones": {
+        "industria": (
+            "Esta fase cubre toda la operación del portador sobre el producto activo: consultas de "
+            "saldo, movimientos y estado de cuenta. La CONDUSEF exige estado de cuenta gratuito en "
+            "formato regulatorio, con al menos 45 días entre fecha de corte y fecha límite de pago. "
+            "Los emisores deben habilitar al menos App, IVR y sucursal. Las compras diferidas "
+            "(MSI/MCI — Meses Sin/Con Intereses) son reguladas: el estado de cuenta debe mostrar "
+            "el desglose de parcializaciones activas, el cargo mensual y el saldo pendiente."
+        ),
+        "kpis": [
+            {"k": "Adopción canal digital",          "v": "> 60% portadores con consulta digital/mes"},
+            {"k": "Latencia consulta P95",           "v": "< 2 segundos"},
+            {"k": "Entrega estado de cuenta a tiempo","v": "100% (CONDUSEF)"},
+            {"k": "Reclamaciones por estado de cuenta","v": "< 0.1% de cuentas"},
+        ],
+        "brechas": [
+            {"txt": "Estado de cuenta formato CONDUSEF: sin evidencia de validación en R4",   "level": "warn"},
+            {"txt": "MSI/MCI en estado de cuenta digital: sin User Story específica confirmada","level": "warn"},
+            {"txt": "Consulta via ATM: no en scope R4",                                        "level": "warn"},
+        ],
+    },
+    "pagos": {
+        "industria": (
+            "El pago es la fase de mayor impacto en la relación cliente-banco y la principal causa "
+            "de reclamaciones CONDUSEF si falla. El regulador exige al menos dos mecanismos de pago "
+            "sin costo, fecha límite ≥ 45 días después del corte, y que el pago mínimo esté "
+            "claramente definido. Los canales estándar en México incluyen: SPEI, ventanilla de sucursal, "
+            "domiciliación / cargo automático, CoDi, tiendas de conveniencia y banca en línea. "
+            "La acreditación del pago debe reflejarse en el saldo disponible en minutos (SPEI)."
+        ),
+        "kpis": [
+            {"k": "Tasa de pago a tiempo",           "v": "> 80%"},
+            {"k": "Acreditación SPEI",               "v": "< 5 minutos"},
+            {"k": "Portadores con domiciliación",    "v": "> 20%"},
+            {"k": "Reclamaciones CONDUSEF por pagos","v": "< 0.05% de cuentas"},
+        ],
+        "brechas": [
+            {"txt": "Pago en ventanilla: bloqueado por dependencia de SIWEB — sin alternativa confirmada","level": "crit"},
+            {"txt": "Domiciliación / cargo automático: sin User Story en R4",                             "level": "warn"},
+            {"txt": "Pago CoDi: sin cobertura en R4 (canal Banxico en crecimiento)",                      "level": "warn"},
+            {"txt": "SLA de acreditación SPEI: sin definir en R4 — GAP-VP-002",                           "level": "warn"},
+        ],
+    },
+    "contabilidad": {
+        "industria": (
+            "La contabilidad y conciliación es invisible para el cliente pero crítica para el regulador. "
+            "La CNBV — vía la Circular Única de Bancos, Anexos 33 y 36 — exige que cada transacción "
+            "del portador quede registrada en el libro contable central (core bancario) el mismo día. "
+            "El posting diario genera los asientos contables en el procesador de tarjetas (SmartVista), "
+            "que se transfieren al core vía archivo SVXP. La conciliación garantiza que el total de "
+            "transacciones autorizadas coincida con los movimientos contabilizados. La NIF C-16 exige "
+            "estimar y registrar mensualmente la provisión por pérdida esperada sobre la cartera."
+        ),
+        "kpis": [
+            {"k": "Conciliación D+0",              "v": "> 99.5%"},
+            {"k": "Breaks sin resolver > 24h",     "v": "0 (objetivo CNBV)"},
+            {"k": "Latencia de posting",           "v": "< 4 horas post-cierre"},
+            {"k": "Compliance reportería CNBV",    "v": "100% — multas automáticas"},
+        ],
+        "brechas": [
+            {"txt": "Interfaz SVXP→PISA no construida — prioridad PreGame pendiente",                 "level": "crit"},
+            {"txt": "Guía contable formal (TRNTs del Producto 4900) no entregada",                    "level": "crit"},
+            {"txt": "Nuevo tipo conciliación SOC (req. 16-nov-2023): sin plan en R4",                 "level": "warn"},
+            {"txt": "Provisión NIF C-16: sin evidencia de diseño en R4",                              "level": "warn"},
+        ],
+    },
+    "cobranza": {
+        "industria": (
+            "La cobranza cierra el ciclo de crédito y determina la salud de la cartera. "
+            "La CONDUSEF prohíbe llamadas fuera de 8am-9pm y exige ofrecer reestructura antes de "
+            "reportar al Buró. La CNBV requiere reportar cartera vencida al SISEC mensualmente y "
+            "registrar la provisión contable (NIF C-16). La gestión opera en cuatro capas de aging: "
+            "preventiva (1-29 días), temprana (30-60), cartera vencida (61-120) y litigio/castigo "
+            "(> 120 días). El reporte al Buró se activa al día 30 de atraso — el Producto 4900 "
+            "tendrá sus primeros reportes al Buró dentro de los primeros 60 días post go-live."
+        ),
+        "kpis": [
+            {"k": "NPL ratio (cartera vencida > 90d)","v": "< 4% (TDC masiva)"},
+            {"k": "Recuperación temprana",             "v": "> 60% en < 30 días de contacto"},
+            {"k": "Contactabilidad digital",           "v": "> 40%"},
+            {"k": "Reclamaciones CONDUSEF cobranza",   "v": "Tolerancia cero"},
+        ],
+        "brechas": [
+            {"txt": "37-50 User Stories de Cobranza Direccionada no incorporadas al inventario R4","level": "crit"},
+            {"txt": "Pentest nov 15-20 congela el único ambiente de SIT de Cobranza",              "level": "crit"},
+            {"txt": "Reporte al Buró de Crédito (SISEC): sin evidencia de diseño en R4",           "level": "warn"},
+            {"txt": "Proceso de reestructura de deuda: sin alcance en R4 (CONDUSEF lo exige)",     "level": "warn"},
+        ],
+    },
+}
 
 # ── IT Capabilities (cara verde del cubo) ─────────────────────────────────────
 # No hay tabla dedicada en el brain aún → config estática en el generador.
@@ -221,6 +404,25 @@ def load_data(db_path):
         "SELECT * FROM milestones ORDER BY target_date"
     ).fetchall()
 
+    # Pasos de la cadena de valor (lifecycle_phase_steps) — para lifecycle-p4900.html
+    phase_steps_raw = []
+    try:
+        phase_steps_raw = con.execute(
+            "SELECT phase_id, step_n, paso, sistema, us_id, us_title FROM lifecycle_phase_steps ORDER BY phase_id, step_n"
+        ).fetchall()
+    except Exception:
+        pass  # tabla aún no existe en brains viejos
+    phase_steps = {}
+    for r in phase_steps_raw:
+        pid = r["phase_id"]
+        if pid not in phase_steps:
+            phase_steps[pid] = []
+        phase_steps[pid].append({
+            "n": r["step_n"], "paso": r["paso"],
+            "sistema": r["sistema"], "us": r["us_id"] or "—",
+            "us_title": r["us_title"] or ""
+        })
+
     con.close()
     return {
         "products":    products,
@@ -231,6 +433,7 @@ def load_data(db_path):
         "high_risks":  high_risks,
         "risks":       risks,
         "milestones":  milestones,
+        "phase_steps": phase_steps,
     }
 
 # ── Render parciales ──────────────────────────────────────────────────────────
@@ -300,8 +503,11 @@ def render_view_productos(products, releases, cube_top_content="", cube_img=None
           </div>
           <div class="vw-body">
             <div class="kick">Vista · Productos</div>
-            <h2 class="vw-h2 vwc-p">Eje Rector del Programa</h2>
-            <p class="vw-desc">Visión end-to-end desde el negocio — Producto P4900, Tarjeta de Crédito. Gobierna el valor liberado a través de capacidades de negocio, User Stories y SLAs. Fuente autoritativa: DT-Productos v1.1.0.</p>
+            <div class="vp-h2-row">
+              <h2 class="vw-h2 vwc-p">Eje Rector del Programa</h2>
+              <a href="lifecycle-p4900.html" class="vp-h2-link">Ver cadena de valor <span class="vp-arr">→</span></a>
+            </div>
+            <p class="vw-desc">Visión integral de la Tarjeta de Crédito desde el negocio. Consolida el estado de madurez por capacidad, los indicadores de avance y los bloqueos que hoy frenan el valor al cliente.</p>
             <div class="vp-section-label">Capacidades de Negocio</div>
             <div class="vp-caps">{caps_html}</div>
             <div class="vp-section-label">KPIs del Programa</div>
@@ -752,7 +958,7 @@ section{{padding:72px 0;scroll-margin-top:70px}}
 .pcs{{font-size:8.5px;color:rgba(255,255,255,.65);line-height:1.3;margin-top:3px}}
 .cfc-pair{{display:flex;gap:3px;margin-bottom:3px}}
 .cfc-pair .cfc{{flex:1;margin-bottom:0}}
-.vw-grid{{display:grid;grid-template-columns:260px 1fr;gap:36px;align-items:start}}
+.vw-grid{{display:grid;grid-template-columns:260px 1fr;gap:52px;align-items:start}}
 .vw-rev{{grid-template-columns:1fr 260px}}
 .vw-rev .vw-cube-wrap{{order:2}}
 .vw-rev .vw-body{{order:1}}
@@ -913,6 +1119,11 @@ footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid
 .vp-block.warn{{border-left-color:var(--yellow)}}
 .vp-btext{{font-size:11px;font-weight:600;color:#e4eaff;line-height:1.4}}
 .vp-bsub{{font-size:8.5px;color:var(--muted2);margin-top:2px}}
+.vp-h2-row{{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap}}
+.vp-h2-link{{font-size:11px;font-weight:600;text-decoration:none;color:var(--muted2);
+  white-space:nowrap;transition:color .2s;letter-spacing:.01em}}
+.vp-h2-link:hover{{color:var(--yellow)}}
+.vp-arr{{display:inline-block;transition:transform .2s}}.vp-h2-link:hover .vp-arr{{transform:translateX(3px)}}
 </style></head>
 <body>
 <div class="aurora"><div class="blob"></div></div>
@@ -929,7 +1140,6 @@ footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid
     <a class="jump" href="#twins">Digital Twins</a>
     <a class="jump" href="#cronograma">Cronograma</a>
     <a class="jump" href="#riesgos">Riesgos</a>
-    <a class="jump ext" href="lifecycle-p4900.html">Lifecycle P4900 ↗</a>
     <a class="jump ext" href="apolo-itcaps.html">APOLO IT Caps ↗</a>
     <a class="jump ext" href="duplicidad-informix-unity.html">Duplicidad ↗</a>
     <a class="jump ext" href="plan-director.html">Plan Director ↗</a>
@@ -1174,6 +1384,190 @@ def main():
     if cube_imgs:
         out_path.write_text(render(data, cube_imgs=cube_imgs), encoding="utf-8")
         print(f"[build-portal] Screenshots embebidos ✓")
+
+    # Parcheo de títulos en lifecycle-p4900.html (no tiene generador propio aún)
+    lifecycle_path = out_path.parent / "lifecycle-p4900.html"
+    if lifecycle_path.exists():
+        lc = lifecycle_path.read_text(encoding="utf-8")
+        replacements = {
+            "Lifecycle TDC P4900 — Unity R4 — BanCoppel": "Cadena de Valor — Tarjeta de Crédito — Unity R4",
+            "<!-- Unity R4 · Lifecycle TDC P4900": "<!-- Unity R4 · Cadena de Valor TDC",
+            "Unity R4 — Lifecycle TDC P4900": "Unity R4 — Cadena de Valor",
+            "<h1>Lifecycle<br>TDC P4900</h1>": "<h1>Cadena de Valor<br>Tarjeta de Crédito</h1>",
+            "SPE-AM-001 — Unity R4 — BUILD": "Tarjeta de Crédito · Unity R4",
+            '<p class="sub">Flujo de vida completo de la <b>Tarjeta de Crédito</b> —\n    desde la originación hasta la cobranza. Mapeado desde el Digital Brain de Unity R4.</p>':
+                '<p class="sub">Ocho etapas conforman la experiencia completa del cliente con la <b>Tarjeta de Crédito</b> —'
+                ' desde que solicita hasta que realiza su pago. Esta vista muestra el estado de entrega de cada etapa del programa R4 y los sistemas que la habilitan.</p>',
+            "lifecycle-p4900.html — Unity R4 — SPE-AM-001": "Unity R4 — Tarjeta de Crédito",
+            "Fuente: Digital Brain Unity R4 — 2026-08-19 — v1.0.0": "",
+            # Revert: restaurar flex:1 (igual ancho todos los chevrons)
+            "color:var(--muted);position:relative;flex:0 0 auto;min-width:118px;":
+                "color:var(--muted);position:relative;flex:1;min-width:118px;",
+            # Acortar nombre largo que desborda el chevron con flex:1
+            "name:'Contabilidad y conciliación'": "name:'Contabilidad'",
+            # "USs" → "User Stories" en el panel de detalle de fase
+            "<span class=\"pmeta-label\">USs&nbsp;</span>": "<span class=\"pmeta-label\">User Stories&nbsp;</span>",
+            # Ocultar badge "Cobertura completa/parcial" — jerga interna, no ejecutiva
+            ".cov-badge{display:inline-flex;": ".cov-badge{display:none;",
+        }
+        for old, new in replacements.items():
+            lc = lc.replace(old, new)
+
+        # ── Eliminar bloque pnEl legado (doble render) ───────────────────────
+        import re as _re
+        if "const pnEl = document.getElementById('phase-narrative')" in lc:
+            lc = _re.sub(
+                r"\s*const pnEl = document\.getElementById\('phase-narrative'\);[\s\S]*?} else if\(pnEl\)\{ pnEl\.innerHTML=''; \}",
+                "",
+                lc
+            )
+
+        # ── Inyectar narrativas funcionales de DT-Productos ──────────────────
+        # 1. CSS para la sección de narrativa
+        narrative_css = """
+/* Narrativa funcional por fase — DT-Productos */
+.ph-narr{margin-top:28px;border-radius:20px;background:var(--glass);border:1px solid var(--glassb);
+  backdrop-filter:blur(18px);padding:28px 28px 20px;animation:fadeUp .35s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.ph-narr-eyebrow{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted2);margin-bottom:10px}
+.ph-narr-industry{font-size:13px;color:var(--muted);line-height:1.65;margin-bottom:20px}
+.ph-narr-cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:700px){.ph-narr-cols{grid-template-columns:1fr}}
+.ph-narr-block{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+  border-radius:14px;padding:14px 16px}
+.ph-narr-block-title{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted2);margin-bottom:10px}
+.ph-narr-kpi-row{display:flex;justify-content:space-between;align-items:baseline;
+  padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);gap:8px}
+.ph-narr-kpi-row:last-child{border-bottom:none}
+.ph-narr-kpi-k{font-size:11px;color:var(--muted)}
+.ph-narr-kpi-v{font-size:11px;font-weight:600;color:#fff;text-align:right}
+.ph-narr-brecha{display:flex;align-items:flex-start;gap:8px;padding:5px 0;
+  border-bottom:1px solid rgba(255,255,255,.05)}
+.ph-narr-brecha:last-child{border-bottom:none}
+.ph-narr-brecha-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:5px}
+.ph-narr-brecha-dot.crit{background:#ff4d4d}
+.ph-narr-brecha-dot.warn{background:var(--yellow)}
+.ph-narr-brecha-txt{font-size:11px;color:var(--muted);line-height:1.45}
+"""
+        if "ph-narr{margin-top" not in lc:
+            lc = lc.replace("/* Phase content */", narrative_css + "\n/* Phase content */")
+
+        # 2. Placeholder div — inmediatamente después del flow-wrap (antes de notes)
+        if 'id="phase-narrative"' not in lc:
+            lc = lc.replace(
+                '<div class="flow-wrap" id="flow-wrap"></div>',
+                '<div class="flow-wrap" id="flow-wrap"></div>\n    <div id="phase-narrative"></div>'
+            )
+        # Si quedó en la posición vieja (después de phase-notes), moverlo
+        elif '<div id="phase-notes"></div>\n    <div id="phase-narrative"></div>' in lc:
+            lc = lc.replace(
+                '<div class="flow-wrap" id="flow-wrap"></div>\n    <div id="phase-notes"></div>\n    <div id="phase-narrative"></div>',
+                '<div class="flow-wrap" id="flow-wrap"></div>\n    <div id="phase-narrative"></div>\n    <div id="phase-notes"></div>'
+            )
+
+        # 3. JS: datos de narrativa como constante global
+        import json as _json
+        narr_js_lines = ["const PHASE_NARRATIVES = {"]
+        for pid, nd in PHASE_NARRATIVES.items():
+            kpis_json  = _json.dumps(nd["kpis"],    ensure_ascii=False)
+            brech_json = _json.dumps(nd["brechas"], ensure_ascii=False)
+            industria  = nd["industria"].replace("\\", "\\\\").replace("`", "\\`").replace("${", "\\${")
+            narr_js_lines.append(f"  {_json.dumps(pid)}: {{")
+            narr_js_lines.append(f"    industria: `{industria}`,")
+            narr_js_lines.append(f"    kpis: {kpis_json},")
+            narr_js_lines.append(f"    brechas: {brech_json},")
+            narr_js_lines.append("  },")
+        narr_js_lines.append("};")
+        narr_js = "\n".join(narr_js_lines)
+
+        if "const PHASE_NARRATIVES" not in lc:
+            lc = lc.replace("const PHASES = [", narr_js + "\n\nconst PHASES = [")
+
+        # 4. JS: actualizar #phase-narrative al activar una fase
+        # JS que inyecta la narrativa dentro de flow-wrap, antes del us-block
+        narr_update_js = r"""
+  /* Narrativa funcional — se inserta en fw antes del us-block */
+  const narr = PHASE_NARRATIVES[id];
+"""
+        narr_insert_js = r"""
+  if(narr){
+    const _kHtml = narr.kpis.map(r=>`<div class="ph-narr-kpi-row"><span class="ph-narr-kpi-k">${r.k}</span><span class="ph-narr-kpi-v">${r.v}</span></div>`).join('');
+    const _bHtml = narr.brechas.map(b=>`<div class="ph-narr-brecha"><span class="ph-narr-brecha-dot ${b.level}"></span><span class="ph-narr-brecha-txt">${b.txt}</span></div>`).join('');
+    const _nd = document.createElement('div');
+    _nd.innerHTML = `<div class="ph-narr"><div class="ph-narr-eyebrow">Proceso de industria · Marco regulatorio MX</div><p class="ph-narr-industry">${narr.industria}</p><div class="ph-narr-cols"><div class="ph-narr-block"><div class="ph-narr-block-title">KPIs de referencia</div>${_kHtml}</div><div class="ph-narr-block"><div class="ph-narr-block-title">Brechas identificadas en R4</div>${_bHtml}</div></div></div>`;
+    const _us = fw.querySelector('.us-block');
+    if(_us) fw.insertBefore(_nd.firstElementChild, _us);
+    else fw.appendChild(_nd.firstElementChild);
+  }
+"""
+        if "PHASE_NARRATIVES[id]" not in lc:
+            lc = lc.replace("  /* Meta panel */", narr_update_js + "\n  /* Meta panel */")
+        if "fw.querySelector('.us-block')" not in lc:
+            lc = lc.replace("  fw.innerHTML = html;", "  fw.innerHTML = html;\n" + narr_insert_js)
+
+        # ── Tabla paso-a-paso (PHASE_STEPS — desde brain.db) ─────────────────
+        phase_steps = data.get("phase_steps", {})
+
+        # CSS de la tabla de pasos (guard: 'pns-scroll')
+        steps_css = """
+/* Tabla paso a paso por fase — brain.db lifecycle_phase_steps */
+.ph-narr-steps-wrap{margin:4px 0 20px}
+.ph-narr-steps-title{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted2);margin-bottom:8px}
+.pns-scroll{overflow-x:auto}
+.pns-table{width:100%;border-collapse:collapse;font-size:12px}
+.pns-table th{text-align:left;padding:6px 10px;color:var(--muted2);font-weight:700;
+  font-size:9px;letter-spacing:.08em;text-transform:uppercase;
+  border-bottom:1px solid rgba(255,255,255,.08)}
+.pns-table td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top;line-height:1.4}
+.pns-table tr:last-child td{border-bottom:none}
+.pns-table tr:hover td{background:rgba(255,255,255,.03)}
+.pns-n{color:var(--muted2);font-variant-numeric:tabular-nums;width:20px;text-align:center}
+.pns-paso{color:var(--text)}
+.pns-sis{color:#7bb3f0;white-space:nowrap;font-size:11px}
+.pns-us-id{font-family:monospace;font-size:10px;background:rgba(100,180,255,.12);
+  color:#7bb3f0;padding:2px 7px;border-radius:4px;white-space:nowrap}
+.pns-us-none{color:var(--muted2);font-size:11px}
+"""
+        if "pns-scroll" not in lc:
+            lc = lc.replace("/* Phase content */", steps_css + "\n/* Phase content */")
+
+        # JS: constante PHASE_STEPS serializada desde brain
+        import json as _json2
+        steps_js_lines = ["const PHASE_STEPS = {"]
+        for pid, slist in phase_steps.items():
+            steps_js_lines.append(f"  {_json2.dumps(pid)}: {_json2.dumps(slist, ensure_ascii=False)},")
+        steps_js_lines.append("};")
+        steps_js = "\n".join(steps_js_lines)
+        if "const PHASE_STEPS" not in lc:
+            lc = lc.replace("const PHASES = [", steps_js + "\n\nconst PHASES = [")
+
+        # JS: insertar tabla de pasos dentro de .ph-narr, antes de .ph-narr-cols
+        steps_render_js = r"""
+  const psteps = PHASE_STEPS[id];
+  const narrEl = fw.querySelector('.ph-narr');
+  if(narrEl && psteps && psteps.length){
+    const stHtml = psteps.map(s=>`<tr>
+      <td class="pns-n">${s.n}</td>
+      <td class="pns-paso">${s.paso}</td>
+      <td class="pns-sis">${s.sistema}</td>
+      <td class="pns-us">${s.us !== '—' ? `<span class="pns-us-id">${s.us}</span>` : `<span class="pns-us-none">—</span>`}</td>
+    </tr>`).join('');
+    const _sd = document.createElement('div');
+    _sd.innerHTML = `<div class="ph-narr-steps-wrap"><div class="ph-narr-steps-title">Proceso paso a paso · Sistema · User Story R4</div><div class="pns-scroll"><table class="pns-table"><thead><tr><th>#</th><th>Paso del proceso</th><th>Sistema</th><th>User Story</th></tr></thead><tbody>${stHtml}</tbody></table></div></div>`;
+    const _cols = narrEl.querySelector('.ph-narr-cols');
+    if(_cols) narrEl.insertBefore(_sd.firstElementChild, _cols);
+    else narrEl.appendChild(_sd.firstElementChild);
+  }
+"""
+        if "PHASE_STEPS[id]" not in lc:
+            lc = lc.replace("  fw.innerHTML = html;\n" + narr_insert_js,
+                            "  fw.innerHTML = html;\n" + narr_insert_js + steps_render_js)
+
+        lifecycle_path.write_text(lc, encoding="utf-8")
+        print(f"[build-portal] lifecycle-p4900.html títulos actualizados ✓")
 
     print(f"[build-portal] OK — {out_path}")
     print(f"  Productos : {len(data['products'])} | Releases: {len(data['releases'])}")
