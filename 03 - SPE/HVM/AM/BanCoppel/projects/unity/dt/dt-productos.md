@@ -116,10 +116,73 @@ Los componentes son los tracks de implementación de Unity R4, cada uno con su p
 
 ---
 
-## Estado de Capabilities ETB
+## Vista Producto — Definición del DT
 
-> Pendiente de mapeo formal. La Tarjeta de Crédito cubre al menos: card-issuance, credit-origination, collections, digital-channel.
+Esta sección define lo que la Vista Producto del portal debe gobernar. El DT-Productos es el experto y establece el modelo; los valores concretos se alimentan desde `brain.db` y `source/`.
+
+> **Principio rector del Gemelo Cognitivo:** El brain no es un dashboard de métricas. Es el motor de razonamiento que permite a los DT **proponer escenarios y alternativas** — técnicas y de gobernanza — cuando el estado del programa lo exige. Medir es el piso; el techo es el advisoring: *"dado este estado, estas son las tres rutas posibles y sus trade-offs"*.
 
 ---
 
-*Generado desde: minutas R4 · brain.db v0.2.0 · build-brain.py*
+### Capacidades de Negocio (ETB)
+
+Mapa de capacidades de negocio del Producto 4900 hacia los sistemas que las habilitan:
+
+| Capability | Descripción | Sistemas habilitadores | Semáforo | Motivo |
+|------------|-------------|----------------------|----------|--------|
+| `card-issuance` | Emisión, gestión y ciclo de vida de la TDC | SmartVista (BPC) | 🟡 At Risk | Gaps DPP, BYU0039, OCG manual sin resolver |
+| `credit-origination` | Onboarding digital, solicitud y activación de la TDC | APOLO | 🟡 At Risk | Latencia 9s en PROD sin plan de mejora confirmado |
+| `digital-channel` | Operación del producto vía canales del cliente | APP, SIWEB, CAT | 🔴 Crítico | CAT sin contratar; SIWEB bloqueado; App: 6 USs Must cierran en nov |
+| `collections` | Cobranza del Producto 4900 | Cobranza Direccionada | 🟡 At Risk | Pentest 15-20 nov puede congelar ambiente en pleno SIT |
+| `integration-fabric` | Contratos de integración entre todos los sistemas | Apificación (Accenture) | 🟡 At Risk | Inventario de integraciones no consolidado; ningún track tiene visión completa |
+| `regulatory-reporting` | Reportes CNBV / Banxico del Producto 4900 | Reportes Regulatorios | 🟡 At Risk | Alcance R4 no confirmado formalmente |
+
+---
+
+### KPIs de Negocio — Modelo de Gobierno
+
+Los siguientes KPIs gobiernan la Vista Producto. El DT define la estructura; los valores se completan desde source/ y el banco.
+
+| KPI | Descripción | Valor actual | Fuente | Estado |
+|-----|-------------|-------------|--------|--------|
+| `us-must-completadas` | User Stories Must completadas vs. total Must | `[DATO-REQUERIDO]` | brain.db / track_rag | `[GAP]` |
+| `us-total` | Total de User Stories R4 comprometidas | ~116–129 | DT-Productos | Estimado |
+| `clientes-objetivo-r4` | Clientes objetivo fase 1 Go-Live | `[DATO-REQUERIDO]` | Documentos funcionales BanCoppel | `[GAP]` |
+| `sla-autorizacion` | SLA de autorización de transacción (ms) | `[DATO-REQUERIDO]` | SLO/SLA contractual con BanCoppel | `[GAP]` |
+| `sla-onboarding` | SLA de onboarding digital TDC (min) | `[DATO-REQUERIDO]` | SLO/SLA contractual con BanCoppel | `[GAP]` |
+| `tracks-en-riesgo` | Tracks con semáforo 🔴 o 🟡 | 5 / 6 | DT-Productos | Calculable |
+| `dias-go-live` | Días restantes al Go-Live 15-ene-2027 | Dinámico | brain.db | Calculable |
+| `avance-r4` | % avance general del programa R4 | 21.19% (17-ago) | Plan de trabajo BanCoppel | Desactualizado |
+
+---
+
+### Bloqueos de Negocio Activos
+
+Bloqueos que hoy impiden liberar valor al cliente final — perspectiva de negocio, no técnica:
+
+| # | Bloqueo | Capability afectada | Dueño | Tipo | Fecha límite |
+|---|---------|---------------------|-------|------|-------------|
+| 1 | CAT (Contact Center) sin proveedor contratado | `digital-channel` | BanCoppel | Vendor / Contratación | Crítica — SIT inicia oct |
+| 2 | SIWEB bloqueado hasta que Apificación entregue contratos API | `digital-channel` | Apificación (Accenture) | Dependencia técnica | `[DATO-REQUERIDO]` |
+| 3 | Latencia APOLO 9s en PROD sin plan de mejora confirmado | `credit-origination` | Appwhere | Performance | `[DATO-REQUERIDO]` |
+| 4 | Inventario de integraciones no consolidado | `integration-fabric` | Apificación (Accenture) | Gobernanza | Inmediato |
+| 5 | Pentest nov 15-20 congela ambiente SIT de Cobranza | `collections` | BanCoppel / Infra | Planeación | 15-nov-2026 |
+
+---
+
+### Gaps de Información — Alimentar al Digital Brain
+
+Los siguientes datos son necesarios para la Vista Producto ejecutiva y no están disponibles aún:
+
+| Gap ID | Información requerida | Impacto en Vista Producto | Fuente probable |
+|--------|----------------------|--------------------------|-----------------|
+| GAP-VP-001 | Clientes objetivo fase 1 Go-Live | KPI central del producto | Documentos funcionales / DIP BanCoppel |
+| GAP-VP-002 | SLAs de servicio contractuales (autorización, onboarding, cobranza) | Criterios de éxito del Go-Live | Contrato / SLO acordado con BanCoppel |
+| GAP-VP-003 | User Stories Must completadas por track (no solo total) | Semáforo de avance real por capability | Sistema de gestión (Jira/Mind Master/Excel) |
+| GAP-VP-004 | Volumen transaccional esperado mes 1 post Go-Live | Sizing y resiliencia operativa | Plan de negocio BanCoppel |
+| GAP-VP-005 | Criterios de Go/No-Go formales del banco | Semáforo de readiness | Design Authority / Gobierno |
+
+---
+
+*Generado desde: minutas R4 · brain.db v0.2.0 · build-brain.py*  
+*Vista Producto enriquecida por DT-Productos v1.1.0 · 2026-08-20*

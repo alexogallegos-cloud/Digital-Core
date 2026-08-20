@@ -13,6 +13,13 @@ import sqlite3, json, argparse, html, math
 from datetime import date, datetime
 from pathlib import Path
 
+# Orientaciones del cubo hero para cada vista (face hacia la cámara)
+CUBE_ORIENTATIONS = [
+    ("productos",   "rotateX(-70deg) rotateY(-20deg)"),
+    ("sistemas",    "rotateX(-10deg) rotateY(-5deg)"),
+    ("capacidades", "rotateX(-10deg) rotateY(-80deg)"),
+]
+
 ROOT   = Path(__file__).parent.parent
 BRAIN  = ROOT / "digital-brain" / "brain.db"
 OUTPUT = ROOT / "portal" / "index.html"
@@ -20,6 +27,37 @@ OUTPUT = ROOT / "portal" / "index.html"
 GOLIVE = date(2027, 1, 15)
 
 KNOWN_STATUSES = {"productivo", "live", "building", "backlog", "planned", "retired", "sin-definir", "retracted"}
+
+# ── Vista Producto — Capabilities de Negocio (DT-Productos v1.1.0 · 2026-08-20) ─
+# Fuente autoritativa: dt/dt-productos.md § "Capacidades de Negocio (ETB)"
+# sem: "crit" = 🔴 crítico, "warn" = 🟡 at risk, "ok" = 🟢
+CAPABILITIES_VP = [
+    {"label": "Emisión TDC",        "system": "SmartVista",            "sem": "warn", "note": "Gaps DPP, BYU0039, OCG manual"},
+    {"label": "Originación Digital","system": "APOLO",                 "sem": "warn", "note": "Latencia 9s en PROD sin plan"},
+    {"label": "Canal Digital",      "system": "App / SIWEB / CAT",     "sem": "crit", "note": "CAT sin contratar; SIWEB bloqueado"},
+    {"label": "Cobranza",           "system": "Cobranza Direccionada",  "sem": "warn", "note": "Pentest nov 15-20 vs SIT"},
+    {"label": "Integración",        "system": "Apificación",           "sem": "warn", "note": "Inventario no consolidado"},
+    {"label": "Reg. Reporting",     "system": "Reportes Regulatorios", "sem": "warn", "note": "Alcance R4 sin confirmar"},
+]
+
+# KPIs de la Vista Producto — disponibles ahora desde brain.db o DT; gaps marcados
+KPIS_VP = [
+    {"label": "User Stories R4",  "value": "~116-129",  "sub": "Total comprometidas",         "gap": False},
+    {"label": "Must Have",        "value": "46",         "sub": "Must Have en inventario",     "gap": False},
+    {"label": "Tracks en Riesgo", "value": "5 / 6",      "sub": "1 crítico · 4 at risk",       "gap": False},
+    {"label": "Avance R4",        "value": "21.19%",     "sub": "vs 60.58% esp. (17-ago)",     "gap": False},
+    {"label": "Clientes Obj.",    "value": "GAP",        "sub": "GAP-VP-001 sin dato",         "gap": True},
+    {"label": "SLA Autorización", "value": "GAP",        "sub": "GAP-VP-002 sin dato",         "gap": True},
+]
+
+# Bloqueos de negocio activos — perspectiva de valor al cliente, no técnica
+BLOCKERS_VP = [
+    {"text": "CAT (Contact Center) sin proveedor contratado",         "cap": "Canal Digital",       "owner": "BanCoppel",         "level": "crit"},
+    {"text": "SIWEB bloqueado — esperando contratos API de Apific.",  "cap": "Canal Digital",       "owner": "Apificación (ACN)", "level": "warn"},
+    {"text": "Latencia APOLO 9s en PROD sin plan de mejora firmado",  "cap": "Originación Digital", "owner": "Appwhere",          "level": "warn"},
+    {"text": "Inventario de integraciones sin consolidar",            "cap": "Integración",         "owner": "Apificación (ACN)", "level": "warn"},
+    {"text": "Pentest nov 15-20 puede congelar ambiente SIT",         "cap": "Cobranza",            "owner": "BanCoppel / Infra", "level": "warn"},
+]
 
 # ── IT Capabilities (cara verde del cubo) ─────────────────────────────────────
 # No hay tabla dedicada en el brain aún → config estática en el generador.
@@ -103,12 +141,12 @@ def days_to_golive():
 
 def badge_status(status):
     map_ = {
-        "productivo": ("b-tg", "productivo"),
-        "live":       ("b-tg", "productivo"),
-        "building":   ("b-tr", "building"),
+        "productivo": ("b-tg", "prod"),
+        "live":       ("b-tg", "prod"),
+        "building":   ("b-tr", "build"),
         "backlog":    ("b-bl", "backlog"),
         "planned":    ("b-bl", "backlog"),
-        "retired":    ("b-vc", "retirado"),
+        "retired":    ("b-vc", "ret"),
     }
     cls, label = map_.get(status, ("b-bl", status or ""))
     return f'<span class="cfbadge {cls}">{label}</span>'
@@ -197,7 +235,7 @@ def load_data(db_path):
 
 # ── Render parciales ──────────────────────────────────────────────────────────
 
-EXCLUDED_STATUSES = {"sin-definir", "undefined", "tbd"}
+EXCLUDED_STATUSES = {"sin-definir", "undefined", "tbd", "backlog", "planned"}
 
 def _static_cube(variant, top="", front="", right=""):
     """Cubo decorativo estático con contenido real en la cara destacada (p=top, s=front, c=right)."""
@@ -213,44 +251,69 @@ def _static_cube(variant, top="", front="", right=""):
         </div>"""
 
 
-def render_view_productos(products, releases, cube_top_content=""):
-    """Sección Vista Productos: cubo izquierda orientado a cara superior (morado), contenido derecha."""
-    rel_by_product = {}
-    for r in releases:
-        rel_by_product.setdefault(r["product_id"], []).append(r)
+def render_view_productos(products, releases, cube_top_content="", cube_img=None):
+    """Vista Productos: capabilities de negocio con semáforo, KPIs y bloqueos activos. Fuente: DT-Productos."""
+    # Capabilities semáforo
+    sem_icon = {"crit": "🔴", "warn": "🟡", "ok": "🟢"}
+    caps_html = ""
+    for cap in CAPABILITIES_VP:
+        icon = sem_icon.get(cap["sem"], "⚪")
+        caps_html += (
+            f'<div class="vp-cap {cap["sem"]}">'
+            f'<div class="vp-caplabel">{icon} {h(cap["label"])}</div>'
+            f'<div class="vp-capsys">{h(cap["system"])}</div>'
+            f'<div class="vp-capnote">{h(cap["note"])}</div>'
+            f'</div>'
+        )
 
-    lines = []
-    for prod in products:
-        prod_lines = []
-        for rel in rel_by_product.get(prod["id"], []):
-            if rel["status"] in EXCLUDED_STATUSES:
-                continue
-            hl = " hl" if rel["status"] == "building" else ""
-            prod_lines.append(
-                f'<div class="fpcard{hl}"><div class="fpcn">'
-                f'{h(rel["release_label"])} {badge_status(rel["status"])}'
-                f'</div></div>'
-            )
-        if prod_lines:
-            lines.append(f'<div class="fgl">{h(prod["name"])}</div>')
-            lines.extend(prod_lines)
-    content = "\n          ".join(lines) if lines else '<div class="fgl">Sin datos</div>'
+    # KPIs
+    kpis_html = ""
+    for kpi in KPIS_VP:
+        gap_cls = " gap" if kpi["gap"] else ""
+        kpis_html += (
+            f'<div class="vp-kpi{gap_cls}">'
+            f'<div class="vp-kval">{h(kpi["value"])}</div>'
+            f'<div class="vp-klabel">{h(kpi["label"])}</div>'
+            f'<div class="vp-ksub">{h(kpi["sub"])}</div>'
+            f'</div>'
+        )
 
+    # Bloqueos
+    blocks_html = ""
+    for blk in BLOCKERS_VP:
+        blocks_html += (
+            f'<div class="vp-block {blk["level"]}">'
+            f'<div style="flex:1">'
+            f'<div class="vp-btext">{h(blk["text"])}</div>'
+            f'<div class="vp-bsub">{h(blk["cap"])} · {h(blk["owner"])}</div>'
+            f'</div>'
+            f'</div>'
+        )
+
+    cube_el = (f'<img src="{cube_img}" alt="Productos" class="vw-cube-img">'
+               if cube_img else _static_cube("p", top=cube_top_content))
     return f"""
+        <div class="wrap">
         <div class="vw-grid reveal">
           <div class="vw-cube-wrap">
-            {_static_cube("p", top=cube_top_content)}
+            {cube_el}
           </div>
           <div class="vw-body">
             <div class="kick">Vista · Productos</div>
-            <h2 class="vw-h2 vwc-p">Catálogo de Productos</h2>
-            <p class="vw-desc">Roadmap de releases por producto — desde las configuraciones base en producción hasta la Tarjeta de Crédito P4900 en construcción y los habilitadores transversales.</p>
-            {content}
+            <h2 class="vw-h2 vwc-p">Eje Rector del Programa</h2>
+            <p class="vw-desc">Visión end-to-end desde el negocio — Producto P4900, Tarjeta de Crédito. Gobierna el valor liberado a través de capacidades de negocio, User Stories y SLAs. Fuente autoritativa: DT-Productos v1.1.0.</p>
+            <div class="vp-section-label">Capacidades de Negocio</div>
+            <div class="vp-caps">{caps_html}</div>
+            <div class="vp-section-label">KPIs del Programa</div>
+            <div class="vp-kpis">{kpis_html}</div>
+            <div class="vp-section-label">Bloqueos Activos al Valor</div>
+            <div class="vp-blocks">{blocks_html}</div>
           </div>
+        </div>
         </div>"""
 
 
-def render_view_sistemas(components, cube_front_content=""):
+def render_view_sistemas(components, cube_front_content="", cube_img=None):
     """Sección Vista Sistemas: contenido izquierda, cubo derecha orientado a cara frontal (azul)."""
     groups = {"channel": ("Channels", []), "core": ("Core", []),
               "enabler": ("Processors", []), "transversal": ("Data, Integration", [])}
@@ -294,20 +357,21 @@ def render_view_sistemas(components, cube_front_content=""):
     content = "\n          ".join(lines)
 
     return f"""
+        <div class="wrap">
         <div class="vw-grid vw-rev reveal">
           <div class="vw-body">
             <div class="kick">Vista · Sistemas</div>
-            <h2 class="vw-h2 vwc-s">Stack Tecnológico</h2>
-            <p class="vw-desc">Plataformas core (Informix, Transact), procesadores de tarjeta (SmartVista, eGlobal), canales digitales (Apolo, App Móvil, SIWEB, CAT) y capa de datos e integración.</p>
-            {content}
+            <h2 class="vw-h2 vwc-s">Habilitadores del Proceso</h2>
+            <p class="vw-desc">Vista de los habilitadores tecnológicos que ejecutan el producto end-to-end. Cada sistema tiene su propio SDLC dado que son tecnologías distintas. Esta vista permite identificar y gobernar los planes individuales de entrega por stack — SmartVista, Apolo, canales digitales, integración — y los alimenta al gobierno de la Vista de Producto.</p>
           </div>
           <div class="vw-cube-wrap">
-            {_static_cube("s", front=cube_front_content)}
+            {(f'<img src="{cube_img}" alt="Sistemas" class="vw-cube-img">' if cube_img else _static_cube("s", front=cube_front_content))}
           </div>
+        </div>
         </div>"""
 
 
-def render_view_capacidades(cube_right_content=""):
+def render_view_capacidades(cube_right_content="", cube_img=None):
     """Sección Vista Capacidades IT: cubo izquierda orientado a cara derecha (verde), contenido derecha."""
     lines = []
     for group, items in IT_CAPS.items():
@@ -324,16 +388,17 @@ def render_view_capacidades(cube_right_content=""):
     content = "\n          ".join(lines)
 
     return f"""
+        <div class="wrap">
         <div class="vw-grid reveal">
           <div class="vw-cube-wrap">
-            {_static_cube("c", right=cube_right_content)}
+            {(f'<img src="{cube_img}" alt="Capacidades IT" class="vw-cube-img">' if cube_img else _static_cube("c", right=cube_right_content))}
           </div>
           <div class="vw-body">
             <div class="kick">Vista · Capacidades IT</div>
-            <h2 class="vw-h2 vwc-c">Capacidades IT</h2>
-            <p class="vw-desc">Capacidades organizativas y técnicas que habilitan el delivery — Engineering (QE, DevOps), Delivery (Arquitectura, Interoperabilidad, Ambientación, Seguridad), Operations y Data.</p>
-            {content}
+            <h2 class="vw-h2 vwc-c">Capacidades Transversales de TI</h2>
+            <p class="vw-desc">Capacidades institucionales del banco — no exclusivas de este proyecto. Proveen servicios de implementación y operación a cualquier iniciativa, midiendo su capacidad y madurez de entrega. Gestionan la demanda, los proveedores y la evolución del SDLC, estableciendo las bases fundacionales de operación y resiliencia operativa que soportan a la Vista de Sistemas y la Vista de Producto.</p>
           </div>
+        </div>
         </div>"""
 
 
@@ -346,11 +411,16 @@ def render_cube_productos(products, releases):
     for prod in products:
         prod_lines = []
         for rel in rel_by_product.get(prod["id"], []):
+            if rel["status"] in EXCLUDED_STATUSES:
+                continue
             hl = ' hl' if rel["status"] == "building" else ""
+            scope = rel["scope"] or ""
+            scope_line = f'<div class="pcs">{h(scope)}</div>' if scope else ""
             prod_lines.append(
-                f'<div class="pcard{hl}"><div class="pcn">'
-                f'{h(rel["release_label"])} {badge_status(rel["status"])}'
-                f'</div></div>'
+                f'<div class="pcard{hl}">'
+                f'<div class="pcn">{h(rel["release_label"])} {badge_status(rel["status"])}</div>'
+                f'{scope_line}'
+                f'</div>'
             )
         if prod_lines:
             lines.append(f'<div class="cf-gl">{h(prod["name"])}</div>')
@@ -522,17 +592,60 @@ def render_dt_groups():
 
 # ── Template principal ────────────────────────────────────────────────────────
 
-def render(data):
+def capture_cube_screenshots(html_path, img_dir):
+    """Abre el HTML con Playwright, rota el cubo a cada orientación canónica y guarda PNGs."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        print("[build-portal] playwright no instalado — cubos CSS como fallback")
+        print("               pip install playwright && playwright install chromium")
+        return {}
+
+    img_dir.mkdir(parents=True, exist_ok=True)
+    imgs = {}
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1400, "height": 900})
+        page.goto(html_path.resolve().as_uri())
+        page.wait_for_timeout(900)  # aurora + fonts + primer frame
+
+        # Detener el loop requestAnimationFrame para que no sobreescriba el transform
+        page.evaluate("window.requestAnimationFrame = function() { return 0; };")
+        page.wait_for_timeout(100)
+
+        for name, transform in CUBE_ORIENTATIONS:
+            page.evaluate(f"""
+                var c = document.getElementById('cube3d');
+                c.style.setProperty('transform', '{transform}', 'important');
+                c.style.setProperty('transition', 'none', 'important');
+            """)
+            page.wait_for_timeout(200)
+            out = img_dir / f"cube-{name}.png"
+            page.query_selector('#scene3d').screenshot(path=str(out))
+            imgs[name] = f"img/cube-{name}.png"
+            print(f"[build-portal]   screenshot cube-{name}.png ✓")
+
+        browser.close()
+
+    return imgs
+
+
+def render(data, cube_imgs=None):
     days   = days_to_golive()
     hus    = data["total_hus"] or 79
     risks_n = data["high_risks"] or 9
 
+    cube_imgs  = cube_imgs or {}
     cube_prod  = render_cube_productos(data["products"], data["releases"])
     cube_sis   = render_cube_sistemas(data["components"])
     cube_cap   = render_cube_capacidades()
-    view_prod  = render_view_productos(data["products"], data["releases"], cube_prod)
-    view_sis   = render_view_sistemas(data["components"], cube_sis)
-    view_cap   = render_view_capacidades(cube_cap)
+    view_prod  = render_view_productos(data["products"], data["releases"], cube_prod,
+                                       cube_img=cube_imgs.get("productos"))
+    view_sis   = render_view_sistemas(data["components"], cube_sis,
+                                      cube_img=cube_imgs.get("sistemas"))
+    view_cap   = render_view_capacidades(cube_cap,
+                                         cube_img=cube_imgs.get("capacidades"))
     rag_html   = render_rag(data["track_rags"])
     risk_html  = render_risks(data["risks"])
     mile_html  = render_milestones(data["milestones"])
@@ -582,6 +695,7 @@ nav a.jump.ext:hover{{color:#fff}}
   border:1px solid var(--glassb);border-radius:22px;box-shadow:0 12px 44px rgba(0,0,0,.36),inset 0 1px 0 rgba(255,255,255,.10)}}
 .wrap{{max-width:1200px;margin:0 auto;padding:0 30px}}
 section{{padding:72px 0;scroll-margin-top:70px}}
+#view-productos,#view-sistemas,#view-capacidades{{padding:44px 0}}
 .hero{{min-height:100vh;display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center;padding:110px 0 60px}}
 @media(max-width:900px){{.hero{{grid-template-columns:1fr;min-height:auto;padding-top:90px}}}}
 .eyebrow{{display:inline-flex;align-items:center;gap:9px;padding:8px 16px;border-radius:30px;
@@ -610,7 +724,7 @@ section{{padding:72px 0;scroll-margin-top:70px}}
   transition:transform .65s cubic-bezier(.25,.46,.45,.94);margin:50px auto}}
 .cube3d.dragging{{transition:none}}
 .cf{{position:absolute;width:280px;height:280px;border:1px solid rgba(255,255,255,.18);
-  overflow-y:auto;padding:12px;border-radius:4px}}
+  overflow-y:auto;padding:8px;border-radius:4px}}
 .cf::-webkit-scrollbar{{width:3px}}
 .cf::-webkit-scrollbar-thumb{{background:rgba(255,255,255,.25);border-radius:2px}}
 .cf-top   {{transform:rotateX(90deg) translateZ(140px);background:linear-gradient(135deg,#AB47BC,#4A148C)}}
@@ -619,39 +733,48 @@ section{{padding:72px 0;scroll-margin-top:70px}}
 .cf-back  {{transform:translateZ(-140px) rotateY(180deg);background:linear-gradient(135deg,#1a237e,#0d1421)}}
 .cf-left  {{transform:rotateY(-90deg) translateZ(140px);background:linear-gradient(135deg,#AB47BC,#4A148C)}}
 .cf-bot   {{transform:rotateX(-90deg) translateZ(140px);background:linear-gradient(135deg,#1a237e,#0d1421)}}
-.cf-title{{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#fff;
-  margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid rgba(255,255,255,.22)}}
-.cf-gl{{font-size:8px;font-weight:600;letter-spacing:2px;text-transform:uppercase;
-  color:rgba(255,255,255,.45);margin-top:6px;margin-bottom:3px}}
+.cf-title{{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#fff;
+  margin-bottom:9px;padding-bottom:5px;border-bottom:1px solid rgba(255,255,255,.22)}}
+.cf-gl{{font-size:7px;font-weight:600;letter-spacing:2px;text-transform:uppercase;
+  color:rgba(255,255,255,.45);margin-top:8px;margin-bottom:3px}}
 .cfc{{background:rgba(255,255,255,.11);border:1px solid rgba(255,255,255,.14);border-radius:4px;
-  padding:3px 7px;margin-bottom:3px;display:flex;align-items:center;justify-content:space-between;
-  gap:5px;min-height:20px}}
+  padding:2px 6px;margin-bottom:2px;display:flex;align-items:center;justify-content:flex-start;
+  gap:5px;min-height:18px}}
 .cfcn{{font-size:10px;color:rgba(255,255,255,.9);font-weight:500;flex:1}}
-.cfbadge{{font-size:8px;font-weight:700;padding:1px 5px;border-radius:8px;white-space:nowrap;flex-shrink:0}}
+.cfbadge{{font-size:7.5px;font-weight:700;padding:1px 4px;border-radius:6px;white-space:nowrap;flex-shrink:0}}
 .b-bl{{background:rgba(21,101,192,.65);color:#90CAF9}}
 .b-tg{{background:rgba(46,125,50,.65);color:#A5D6A7}}
 .b-vc{{background:rgba(183,28,28,.55);color:#EF9A9A}}
 .b-tr{{background:rgba(245,124,0,.55);color:#FFCC80}}
-.pcard{{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.20);border-radius:6px;padding:6px 9px;margin-bottom:5px}}
-.pcard.hl{{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.55)}}
-.pcn{{font-size:10px;font-weight:600;color:#fff}}
+.pcard{{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);border-radius:5px;padding:6px 9px;margin-bottom:4px}}
+.pcard.hl{{background:rgba(255,255,255,.20);border-color:rgba(255,255,255,.50)}}
+.pcn{{font-size:9.5px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:flex-start;gap:5px;line-height:1}}
+.pcs{{font-size:8.5px;color:rgba(255,255,255,.65);line-height:1.3;margin-top:3px}}
 .cfc-pair{{display:flex;gap:3px;margin-bottom:3px}}
 .cfc-pair .cfc{{flex:1;margin-bottom:0}}
-.vw-grid{{display:grid;grid-template-columns:300px 1fr;gap:56px;align-items:start}}
-.vw-rev{{grid-template-columns:1fr 300px}}
+.vw-grid{{display:grid;grid-template-columns:260px 1fr;gap:36px;align-items:start}}
+.vw-rev{{grid-template-columns:1fr 260px}}
 .vw-rev .vw-cube-wrap{{order:2}}
 .vw-rev .vw-body{{order:1}}
 @media(max-width:900px){{.vw-grid{{grid-template-columns:1fr}}.vw-rev .vw-cube-wrap,.vw-rev .vw-body{{order:unset}}}}
-.vw-scene{{width:310px;height:310px;perspective:700px;margin:0 auto}}
-.vw-static{{width:280px;height:280px;position:relative;transform-style:preserve-3d;margin:15px auto;transition:none!important}}
+.vw-scene{{width:260px;height:260px;perspective:600px;margin:0 auto}}
+.vw-cube-img{{width:100%;max-width:380px;border-radius:16px;box-shadow:0 12px 48px rgba(0,0,0,.55);display:block;margin:0 auto}}
+.vw-static{{width:220px;height:220px;position:relative;transform-style:preserve-3d;margin:20px auto;transition:none!important}}
 .vw-static-p{{transform:rotateX(-70deg) rotateY(-20deg)!important}}
 .vw-static-s{{transform:rotateX(-15deg) rotateY(-5deg)!important}}
 .vw-static-c{{transform:rotateX(-15deg) rotateY(-80deg)!important}}
+.vw-static .cf{{width:220px;height:220px;font-size:8.5px}}
+.vw-static .cf-top{{transform:rotateX(90deg) translateZ(110px)!important}}
+.vw-static .cf-front{{transform:translateZ(110px)!important}}
+.vw-static .cf-right{{transform:rotateY(90deg) translateZ(110px)!important}}
+.vw-static .cf-back{{transform:translateZ(-110px) rotateY(180deg)!important}}
+.vw-static .cf-left{{transform:rotateY(-90deg) translateZ(110px)!important}}
+.vw-static .cf-bot{{transform:rotateX(-90deg) translateZ(110px)!important}}
 .vw-h2{{font-size:clamp(22px,2.8vw,34px);font-weight:800;letter-spacing:-.025em;line-height:1.06;margin:14px 0 10px}}
 .vwc-p{{color:#CE93D8}}
 .vwc-s{{color:#90CAF9}}
 .vwc-c{{color:#A5D6A7}}
-.vw-desc{{font-size:14px;color:var(--muted);line-height:1.6;max-width:52ch;margin-bottom:20px}}
+.vw-desc{{font-size:14px;color:var(--muted);line-height:1.6;max-width:60ch;margin-bottom:14px}}
 #view-productos{{border-top:2px solid rgba(171,71,188,.25)}}
 #view-sistemas{{border-top:2px solid rgba(25,118,210,.25)}}
 #view-capacidades{{border-top:2px solid rgba(67,160,71,.25)}}
@@ -669,7 +792,7 @@ section{{padding:72px 0;scroll-margin-top:70px}}
 .fpcard{{padding:7px 10px;border-radius:8px;margin-bottom:5px;
   background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12)}}
 .fpcard.hl{{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.35)}}
-.fpcn{{font-size:11px;font-weight:600;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:8px}}
+.fpcn{{font-size:11px;font-weight:600;color:#fff;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;line-height:1.45}}
 .stats{{display:grid;grid-template-columns:repeat(5,1fr);gap:13px;margin-top:0}}
 @media(max-width:1000px){{.stats{{grid-template-columns:repeat(3,1fr)}}}}
 @media(max-width:600px){{.stats{{grid-template-columns:repeat(2,1fr)}}}}
@@ -764,6 +887,32 @@ footer{{padding:40px 30px 60px;text-align:center;color:var(--muted2);font-size:1
 footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid rgba(240,210,36,.25);
   border-radius:5px;padding:1px 6px;font-size:11px;font-family:'SF Mono',ui-monospace,monospace}}
 @media(prefers-reduced-motion:reduce){{.reveal{{transition:none;opacity:1;transform:none}}.aurora *{{animation:none}}}}
+/* ── Vista Producto — Capabilities, KPIs, Bloqueadores ── */
+.vp-section-label{{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.35);margin:14px 0 6px}}
+.vp-caps{{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}}
+@media(max-width:700px){{.vp-caps{{grid-template-columns:repeat(2,1fr)}}}}
+.vp-cap{{padding:9px 11px;border-radius:9px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-left:3px solid rgba(255,255,255,.15)}}
+.vp-cap.warn{{border-left-color:var(--yellow)}}
+.vp-cap.crit{{border-left-color:var(--red)}}
+.vp-cap.ok{{border-left-color:var(--green)}}
+.vp-caplabel{{font-size:10.5px;font-weight:700;color:#e4eaff;margin-bottom:2px;line-height:1.3}}
+.vp-capsys{{font-size:8.5px;color:var(--muted2)}}
+.vp-capnote{{font-size:8px;color:var(--muted);margin-top:3px;line-height:1.35}}
+.vp-kpis{{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}}
+@media(max-width:700px){{.vp-kpis{{grid-template-columns:repeat(2,1fr)}}}}
+.vp-kpi{{padding:10px 11px;border-radius:9px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);text-align:center}}
+.vp-kpi.gap{{background:rgba(255,255,255,.02);border-style:dashed;opacity:.55}}
+.vp-kval{{font-size:15px;font-weight:800;letter-spacing:-.02em;color:#fff}}
+.vp-kpi.gap .vp-kval{{font-size:11px;color:var(--muted2)}}
+.vp-klabel{{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);margin-top:3px}}
+.vp-ksub{{font-size:7.5px;color:var(--muted2);margin-top:1px;opacity:.7}}
+.vp-blocks{{display:flex;flex-direction:column;gap:5px}}
+.vp-block{{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:8px;
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-left:3px solid rgba(255,255,255,.15)}}
+.vp-block.crit{{border-left-color:var(--red)}}
+.vp-block.warn{{border-left-color:var(--yellow)}}
+.vp-btext{{font-size:11px;font-weight:600;color:#e4eaff;line-height:1.4}}
+.vp-bsub{{font-size:8.5px;color:var(--muted2);margin-top:2px}}
 </style></head>
 <body>
 <div class="aurora"><div class="blob"></div></div>
@@ -1015,7 +1164,16 @@ def main():
 
     print(f"[build-portal] Generando {out_path} ...")
     out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Pasada 1 — HTML con cubos CSS (necesario para que Playwright lo abra)
     out_path.write_text(render(data), encoding="utf-8")
+
+    # Pasada 2 — Screenshots con Playwright → reemplaza cubos CSS por imágenes
+    img_dir = out_path.parent / "img"
+    cube_imgs = capture_cube_screenshots(out_path, img_dir)
+    if cube_imgs:
+        out_path.write_text(render(data, cube_imgs=cube_imgs), encoding="utf-8")
+        print(f"[build-portal] Screenshots embebidos ✓")
 
     print(f"[build-portal] OK — {out_path}")
     print(f"  Productos : {len(data['products'])} | Releases: {len(data['releases'])}")
