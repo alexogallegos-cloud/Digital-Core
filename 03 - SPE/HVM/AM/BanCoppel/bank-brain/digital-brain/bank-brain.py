@@ -1,5 +1,5 @@
 ﻿"""
-bank-brain.py â€” API de consulta del Federated Bank Brain BanCoppel
+bank-brain.py  -  API de consulta del Federated Bank Brain BanCoppel
 Uso:
     from bank_brain import BankBrain
     bb = BankBrain()
@@ -26,7 +26,7 @@ class BankBrain:
                 f"ATTACH DATABASE '{str(LEGACY_DB).replace(chr(92), '/')}' AS legacy"
             )
 
-    # â”€â”€ Sistemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Sistemas â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     def systems(self) -> list[dict]:
         rows = self._db.execute("SELECT * FROM systems ORDER BY type, id").fetchall()
         return [dict(r) for r in rows]
@@ -35,9 +35,9 @@ class BankBrain:
         r = self._db.execute("SELECT * FROM systems WHERE id = ?", (sys_id,)).fetchone()
         return dict(r) if r else None
 
-    # â”€â”€ MigraciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ MigraciÃ3n â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     def coverage(self) -> dict:
-        """Resumen de cobertura de migraciÃ³n por sistema destino."""
+        """Resumen de cobertura de migraciÃ3n por sistema destino."""
         rows = self._db.execute("""
             SELECT target_sys, COUNT(*) sp_count, SUM(rule_count) rule_count
             FROM migrations
@@ -99,7 +99,7 @@ class BankBrain:
         """).fetchall()
         return [dict(r) for r in rows]
 
-    # â”€â”€ Documentos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Documentos â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     def documents(
         self,
         system: Optional[str] = None,
@@ -133,7 +133,7 @@ class BankBrain:
         ).fetchall()
         return [dict(r) for r in rows]
 
-    # â”€â”€ Interfaces â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Interfaces â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     def interfaces(
         self,
         from_sys: Optional[str] = None,
@@ -151,7 +151,7 @@ class BankBrain:
         ).fetchall()
         return [dict(r) for r in rows]
 
-    # â”€â”€ Releases â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Releases â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     def releases(self) -> list[dict]:
         rows = self._db.execute(
             "SELECT * FROM releases ORDER BY target_date"
@@ -164,7 +164,7 @@ class BankBrain:
         return result
 
     def release_status(self, release_id: str) -> dict:
-        """Detalle de un release: productos que salieron a producciÃ³n y productos en esa wave."""
+        """Detalle de un release: productos que salieron a producciÃ3n y productos en esa wave."""
         r = self._db.execute(
             "SELECT * FROM releases WHERE id = ?", (release_id,)
         ).fetchone()
@@ -188,9 +188,9 @@ class BankBrain:
         ]
         return result
 
-    # â”€â”€ Vista TOGAF de sistemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Vista TOGAF de sistemas â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     def systems_status(self) -> list[dict]:
-        """Todos los sistemas con clasificaciÃ³n TOGAF (togaf_type, togaf_state, production_status)."""
+        """Todos los sistemas con clasificaciÃ3n TOGAF (togaf_type, togaf_state, production_status)."""
         rows = self._db.execute(
             """SELECT id, name, togaf_type, togaf_state, production_status, production_since,
                       type, status
@@ -199,7 +199,7 @@ class BankBrain:
         return [dict(r) for r in rows]
 
     def production_systems(self) -> list[dict]:
-        """Sistemas con al menos algo en producciÃ³n (production_status = live o partial)."""
+        """Sistemas con al menos algo en producciÃ3n (production_status = live o partial)."""
         rows = self._db.execute(
             """SELECT id, name, togaf_type, togaf_state, production_status, production_since
                FROM systems WHERE production_status IN ('live', 'partial')
@@ -216,7 +216,7 @@ class BankBrain:
         ).fetchall()
         return [dict(r) for r in rows]
 
-    # â”€â”€ Capa estratÃ©gica â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Capa estratÃ©gica â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     def stakeholders(self, org: Optional[str] = None, level: Optional[str] = None) -> list[dict]:
         """Lista actores estratÃ©gicos, opcionalmente filtrado por org o nivel."""
         where, params = [], []
@@ -263,7 +263,7 @@ class BankBrain:
         driver: Optional[str] = None,
         limit: int = 50,
     ) -> list[dict]:
-        """Decisiones estratÃ©gicas, filtrable por tema o quiÃ©n la impulsÃ³."""
+        """Decisiones estratÃ©gicas, filtrable por tema o quiÃ©n la impulsÃ3."""
         where, params = [], []
         if topic:
             where.append("topic LIKE ?"); params.append(f"%{topic}%")
@@ -344,9 +344,9 @@ class BankBrain:
             "open_items": self.open_items(status="open"),
         }
 
-    # â”€â”€ Vendors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Vendors â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     def vendors(self) -> list[dict]:
-        """Vendors tecnolÃ³gicos y sus plataformas en Unity."""
+        """Vendors tecnolÃ3gicos y sus plataformas en Unity."""
         import json as _json
         rows = self._db.execute(
             "SELECT * FROM vendors ORDER BY category, id"
@@ -358,7 +358,7 @@ class BankBrain:
             result.append(d)
         return result
 
-    # â”€â”€ Productos bancarios â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Productos bancarios â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     def products(
         self,
         platform: Optional[str] = None,
@@ -458,7 +458,7 @@ class BankBrain:
         min_rules: int = 10,
         limit: int = 50,
     ) -> list[dict]:
-        """SPs clasificados como replicate con alta carga de reglas â€” los mÃ¡s crÃ­ticos."""
+        """SPs clasificados como replicate con alta carga de reglas  -  los mÃ¡s crÃ­ticos."""
         where = ["migration_fate = 'replicate'", "rule_count >= ?"]
         params: list = [min_rules]
         if target:
@@ -526,7 +526,7 @@ class BankBrain:
             "by_domain": [dict(r) for r in rows],
         }
 
-    # â”€â”€ ETB federado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ ETB federado â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     def capabilities_consolidated(self) -> list[dict]:
         """Capacidades ETB cubiertas en algÃºn sistema ATTACHED (COVERED o CROSS_CUTTING).
         Cada fila incluye el sistema que la cubre y su etb_version local.
@@ -549,8 +549,8 @@ class BankBrain:
 
     def capability_gap(self) -> list[dict]:
         """Capacidades ETB L3 que ningÃºn sistema cubre (NOT_COVERED en todos los brains).
-        Responde: Â¿quÃ© capacidades del modelo ETB quedan sin sistema despuÃ©s de la migraciÃ³n?
-        Es la validaciÃ³n de decommission de PISA: si una capability solo existe en legacy
+        Responde: Â¿quÃ© capacidades del modelo ETB quedan sin sistema despuÃ©s de la migraciÃ3n?
+        Es la validaciÃ3n de decommission de PISA: si una capability solo existe en legacy
         y no hay sistema target que la cubra, es un riesgo de cutover.
         """
         try:
@@ -565,9 +565,9 @@ class BankBrain:
         return [dict(r) for r in rows]
 
     def capability_alignment(self) -> list[dict]:
-        """VersiÃ³n ETB por sistema attached â€” detecta desalineaciÃ³n cuando el catÃ¡logo evoluciona.
-        bank-brain es el custodio del modelo ETB; cuando ETB sube de versiÃ³n, esta funciÃ³n
-        identifica quÃ© brains todavÃ­a usan una versiÃ³n anterior y necesitan rebuild.
+        """VersiÃ3n ETB por sistema attached  -  detecta desalineaciÃ3n cuando el catÃ¡logo evoluciona.
+        bank-brain es el custodio del modelo ETB; cuando ETB sube de versiÃ3n, esta funciÃ3n
+        identifica quÃ© brains todavÃ­a usan una versiÃ3n anterior y necesitan rebuild.
         """
         systems_checked = [("informix", "legacy")]
         result = []
@@ -587,7 +587,7 @@ class BankBrain:
     ) -> list[dict]:
         """Dependencias cross-sistema declaradas en bank-brain.
         direction: 'inbound' | 'outbound' (perspectiva de source_system).
-        Refleja la regla: cada cerebro declara SU LADO de la relaciÃ³n â€” banco-brain agrega la vista global.
+        Refleja la regla: cada cerebro declara SU LADO de la relaciÃ3n  -  banco-brain agrega la vista global.
         """
         try:
             where, params = [], []
@@ -605,7 +605,96 @@ class BankBrain:
         except Exception:
             return []
 
-    # â”€â”€ Legacy passthrough â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -- Inventario AS-IS de aplicaciones -----------------------------------------
+    def applications(
+        self,
+        es_core: bool | None = None,
+        dbms: str | None = None,
+        plan_baja: bool | None = None,
+        agrupacion: str | None = None,
+        limit: int = 200,
+    ) -> list[dict]:
+        """Inventario AS-IS de las 124 aplicaciones en produccion del banco.
+        Filtros: es_core, dbms ('informix'|'postgres'|'db2'|'oracle'|'mssql'),
+                 plan_baja=True para apps con plan de baja declarado, agrupacion.
+        """
+        where, params = [], []
+        if es_core is not None:
+            where.append("a.es_core = ?"); params.append(1 if es_core else 0)
+        if dbms:
+            where.append("EXISTS (SELECT 1 FROM app_dbms d WHERE d.app_id=a.id AND d.dbms=?)")
+            params.append(dbms.lower())
+        if plan_baja is True:
+            where.append("a.plan_baja != '' AND lower(a.plan_baja) NOT IN ('no','n/a')")
+        if agrupacion:
+            where.append("a.agrupacion LIKE ?"); params.append(f"%{agrupacion}%")
+        clause = ("WHERE " + " AND ".join(where)) if where else ""
+        rows = self._db.execute(
+            f"SELECT * FROM applications a {clause} ORDER BY a.spl_declared DESC, a.id LIMIT ?",
+            params + [limit],
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def application(self, app_id: str) -> dict | None:
+        """Detalle de una aplicacion: datos base + todos sus DBMS."""
+        r = self._db.execute(
+            "SELECT * FROM applications WHERE id = ?", (app_id.zfill(3),)
+        ).fetchone()
+        if not r:
+            return None
+        result = dict(r)
+        result["dbms_list"] = [
+            dict(d) for d in self._db.execute(
+                "SELECT dbms, role FROM app_dbms WHERE app_id = ? ORDER BY role", (app_id.zfill(3),)
+            ).fetchall()
+        ]
+        return result
+
+    def applications_landscape(self) -> dict:
+        """Resumen estadistico del inventario AS-IS: por DBMS, agrupacion, criticidad."""
+        total = self._db.execute("SELECT COUNT(*) FROM applications").fetchone()[0]
+        if not total:
+            return {"total": 0}
+
+        by_dbms = {
+            row["dbms"]: row["cnt"]
+            for row in self._db.execute(
+                "SELECT dbms, COUNT(DISTINCT app_id) cnt FROM app_dbms GROUP BY dbms ORDER BY cnt DESC"
+            ).fetchall()
+        }
+        by_agrup = {
+            row[0]: row[1]
+            for row in self._db.execute(
+                "SELECT agrupacion, COUNT(*) FROM applications GROUP BY agrupacion ORDER BY 2 DESC"
+            ).fetchall()
+        }
+        by_crit = {
+            row[0]: row[1]
+            for row in self._db.execute(
+                "SELECT criticidad, COUNT(*) FROM applications GROUP BY criticidad ORDER BY 2 DESC"
+            ).fetchall()
+        }
+        spl_total, spl_organic = self._db.execute(
+            "SELECT SUM(spl_declared), SUM(CASE WHEN spl_is_estimate=0 THEN spl_declared ELSE 0 END) FROM applications"
+        ).fetchone()
+        core_count = self._db.execute(
+            "SELECT COUNT(*) FROM applications WHERE es_core=1"
+        ).fetchone()[0]
+        baja_count = self._db.execute(
+            "SELECT COUNT(*) FROM applications WHERE plan_baja!='' AND lower(plan_baja) NOT IN ('no','n/a')"
+        ).fetchone()[0]
+        return {
+            "total": total,
+            "core": core_count,
+            "plan_baja": baja_count,
+            "spl_declared_total": spl_total or 0,
+            "spl_organic": spl_organic or 0,
+            "by_dbms": by_dbms,
+            "by_agrupacion": by_agrup,
+            "by_criticidad": by_crit,
+        }
+
+    # -- Legacy passthrough --â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     def legacy_sp(self, sp_name: str, db_name: Optional[str] = None) -> Optional[dict]:
         """Consulta un SP directamente de brain.db legacy."""
         where = "name = ?"
@@ -640,7 +729,7 @@ class BankBrain:
         self.close()
 
 
-# â”€â”€ CLI rÃ¡pido â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ CLI rÃ¡pido â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 def _cli():
     bb = BankBrain()
     print("=== BankBrain CLI ===")
@@ -649,27 +738,27 @@ def _cli():
     for s in bb.systems():
         print(f"  [{s['id']:<12}] {s['name']:<35} {s['type']:<12} {s['status']}")
 
-    print("\n-- Cobertura de migraciÃ³n --")
+    print("\n-- Cobertura de migraciÃ3n --")
     cov = bb.coverage()
     print(f"  Total SPs : {cov['total_sps']:,}")
     print(f"  Total reglas: {cov['total_rules']:,}")
     for t in cov["by_target"]:
-        bar = "â–ˆ" * int(t["sp_pct"] / 2)
+        bar = "â - ˆ" * int(t["sp_pct"] / 2)
         print(f"  {t['target']:<15}: {t['sps']:>5} SPs  {t['rules']:>6} reglas  {t['sp_pct']:>5.1f}%  {bar}")
 
-    print("\n-- Dominios â†’ target --")
+    print("\n-- Dominios â†' target --")
     for d in bb.domains():
         print(f"  {d['domain_id']:<4}  {d['target_sys']:<14} {d['confidence']:<8}  "
-              f"{d['sp_count']:>5} SPs  {d['domain_name'] or 'â€”'}")
+              f"{d['sp_count']:>5} SPs  {d['domain_name'] or ' - '}")
 
     print("\n-- Sistemas (TOGAF) --")
     for s in bb.systems_status():
         print(f"  [{s['id']:<12}] {s['togaf_type'] or '?':<12} {s['togaf_state'] or '?':<14} "
-              f"{s['production_status'] or '?':<12} since={s['production_since'] or 'â€”'}")
+              f"{s['production_status'] or '?':<12} since={s['production_since'] or ' - '}")
 
-    print("\n-- Sistemas en producciÃ³n --")
+    print("\n-- Sistemas en producciÃ3n --")
     for s in bb.production_systems():
-        print(f"  [{s['id']:<12}] {s['name']:<35} {s['production_status']:<10} since={s['production_since'] or 'â€”'}")
+        print(f"  [{s['id']:<12}] {s['name']:<35} {s['production_status']:<10} since={s['production_since'] or ' - '}")
 
     print("\n-- Releases BanCoppel (R-series) + Waves Accenture (U-series) --")
     for r in bb.releases():
@@ -686,7 +775,7 @@ def _cli():
     for p in rs4.get("products_in_wave", []):
         print(f"  IN WAVE  [{p['platform_id']:<12}] {p['name']}")
 
-    print("\n-- AlineaciÃ³n ETB por sistema --")
+    print("\n-- AlineaciÃ3n ETB por sistema --")
     for a in bb.capability_alignment():
         print(f"  {a['system_id']:<15} etb_version={a['etb_version']}")
 
@@ -709,7 +798,7 @@ def _cli():
         for d in deps:
             print(f"  {d['source_system']:<12} --[{d['dependency_type']}]--> {d['target_system']:<12}  {d['criticality'] or '?'}  {d['description'] or ''[:60]}")
     else:
-        print("  (tabla system_dependencies vacÃ­a â€” sin dependencias declaradas aÃºn)")
+        print("  (tabla system_dependencies vacÃ­a  -  sin dependencias declaradas aÃºn)")
 
     print("\n-- Minutas (Ãºltimas 10) --")
     for d in bb.documents(limit=10):
@@ -719,38 +808,66 @@ def _cli():
     print("\n-- Vendors y plataformas --")
     for v in bb.vendors():
         mods = ", ".join(v["modules"][:3])
-        print(f"  [{v['id']:<10}] â†’ {v['system_id']:<12} ({v['category']})  mÃ³dulos: {mods}...")
+        print(f"  [{v['id']:<10}] â†' {v['system_id']:<12} ({v['category']})  mÃ3dulos: {mods}...")
 
     print("\n-- Productos bancarios --")
     for p in bb.products():
         print(f"  [{p['platform_id']:<12}] {p['name']:<50} {p['status']:<12} {p['target_date'] or '?'}")
 
-    print("\n-- Gap de migraciÃ³n legacy por producto --")
+    print("\n-- Gap de migraciÃ3n legacy por producto --")
     for p in bb.products():
         gap = bb.migration_gap(p["id"])
-        print(f"  {p['id']:<28} â†’ {gap['platform']:<12}: "
+        print(f"  {p['id']:<28} â†' {gap['platform']:<12}: "
               f"{gap['total_sps']:>5} SPs  {gap['total_rules']:>6} reglas")
 
-    print("\n-- Actores estratÃ©gicos (por apariciones) --")
-    for s in bb.stakeholders():
-        if s["appearance_count"] == 0:
-            continue
-        print(f"  {s['name']:<30} {s['org']:<12} {s['level']:<12} {s['influence']:<16} {s['appearance_count']:>3} aparic")
+    print("\n-- Inventario AS-IS de aplicaciones (top 20 por SPL declarado) --")
+    try:
+        apps = bb.applications(limit=20)
+        for a in apps:
+            baja = "  [BAJA]" if a.get("plan_baja") else ""
+            dbms = a.get("dbms_raw") or "-"
+            print(f"  {a['id']:<8} {a['nombre'][:40]:<40} SPL={a['spl_declared']:>6}  {dbms[:25]}{baja}")
+        landscape = bb.applications_landscape()
+        by_dbms = landscape.get("by_dbms", {})
+        print(f"  --- Total: {landscape.get('total',0)} apps | "
+              f"Informix={by_dbms.get('informix',0)} | "
+              f"Baja={landscape.get('plan_baja',0)} | "
+              f"SPL total={landscape.get('spl_declared_total',0):,}")
+    except Exception as exc:
+        print(f"  (applications: {exc})")
 
-    print("\n-- Posturas de preocupaciÃ³n (concerned) --")
-    for p in bb.positions(sentiment="concerned", limit=10):
-        name = p.get("stakeholder_name") or p["stakeholder_id"]
-        print(f"  {name:<28} [{p['topic']:<14}] {p['stance'][:90]}")
+    print("\n-- Actores estratÃ©gicos (por apariciones) --")
+    try:
+        for s in bb.stakeholders():
+            if s["appearance_count"] == 0:
+                continue
+            print(f"  {s['name']:<30} {s['org']:<12} {s['level']:<12} {s['influence']:<16} {s['appearance_count']:>3} aparic")
+    except Exception as exc:
+        print(f"  (stakeholders: {exc})")
+
+    print("\n-- Posturas de preocupaciÃ3n (concerned) --")
+    try:
+        for p in bb.positions(sentiment="concerned", limit=10):
+            name = p.get("stakeholder_name") or p["stakeholder_id"]
+            print(f"  {name:<28} [{p['topic']:<14}] {p['stance'][:90]}")
+    except Exception as exc:
+        print(f"  (positions: {exc})")
 
     print("\n-- Decisiones estratÃ©gicas recientes --")
-    for d in bb.decisions(limit=8):
-        drv = d["driver_id"] or "â€”"
-        print(f"  {d['id']} {d['date'] or '?':12} [{d['topic']:<14}] drv={drv:<20} {d['decision'][:70]}")
+    try:
+        for d in bb.decisions(limit=8):
+            drv = d["driver_id"] or " - "
+            print(f"  {d['id']} {d['date'] or '?':12} [{d['topic']:<14}] drv={drv:<20} {d['decision'][:70]}")
+    except Exception as exc:
+        print(f"  (decisions: {exc})")
 
     print("\n-- Open items HIGH priority --")
-    for oi in bb.open_items(priority="high", limit=10):
-        owner = oi.get("owner_name") or oi["owner_id"] or "â€”"
-        print(f"  {oi['id']} {oi['date'] or '?':12} {owner:<28} {oi['item'][:70]}")
+    try:
+        for oi in bb.open_items(priority="high", limit=10):
+            owner = oi.get("owner_name") or oi["owner_id"] or " - "
+            print(f"  {oi['id']} {oi['date'] or '?':12} {owner:<28} {oi['item'][:70]}")
+    except Exception as exc:
+        print(f"  (open_items: {exc})")
 
     bb.close()
 

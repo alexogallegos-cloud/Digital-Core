@@ -1,18 +1,18 @@
 ﻿"""
-build-bank-brain.py â€” Federated Bank Brain para BanCoppel Unity
+build-bank-brain.py  -  Federated Bank Brain para BanCoppel Unity
 Crea bank-brain.db que integra:
-  - Informix Core legacy (via ATTACH brain.db â€” systems/core/Informix/)
+  - Informix Core legacy (via ATTACH brain.db  -  systems/core/Informix/)
   - Minutas Plan Director (56 .docx)
-  - Mapa de migraciÃ³n: dominio â†’ sistema destino
+  - Mapa de migraciÃ3n: dominio â†' sistema destino
   - Interfaces entre sistemas
   - Roadmap de releases Unity
 """
 
-import sqlite3, os, re, sys
+import sqlite3, os, re, sys, shutil, tempfile
 from pathlib import Path
 from datetime import datetime
 
-# â”€â”€ Rutas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ Rutas â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 BASE = Path(__file__).parent.parent.parent  # BanCoppel/
 LEGACY_DB  = BASE / "systems/core/Informix/digital-brain/brain.db"
 MINUTAS_DIR = BASE / "systems/core/Informix/source/minutas/pd"
@@ -20,80 +20,80 @@ OUT_DB = Path(__file__).parent / "bank-brain.db"
 
 assert LEGACY_DB.exists(), f"No se encuentra brain.db en {LEGACY_DB}"
 
-# â”€â”€ Mapping: dominio Informix â†’ sistema destino Unity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ Mapping: dominio Informix â†' sistema destino Unity â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 DOMAIN_TARGET = {
-    # Canal Digital Web â†’ entrada API; reparto entre todos los targets
+    # Canal Digital Web â†' entrada API; reparto entre todos los targets
     "D01": "multi",
-    # IntegraciÃ³n y Auth â†’ middleware â†’ reemplazado por MuleSoft/APG
+    # IntegraciÃ3n y Auth â†' middleware â†' reemplazado por MuleSoft/APG
     "D02": "multi",
-    # CrÃ©ditos â†’ Apolo
+    # CrÃ©ditos â†' Apolo
     "D03": "apolo",
-    # Cheques / Cuentas â†’ Transact
+    # Cheques / Cuentas â†' Transact
     "D04": "transact",
-    # Saldos y Cuentas â†’ Transact
+    # Saldos y Cuentas â†' Transact
     "D05": "transact",
-    # Solicitudes (origination) â†’ Apolo
+    # Solicitudes (origination) â†' Apolo
     "D06": "apolo",
-    # Aclaraciones â†’ Transact (gestiÃ³n de cuentas)
+    # Aclaraciones â†' Transact (gestiÃ3n de cuentas)
     "D07": "transact",
-    # SPEI â†’ Transact
+    # SPEI â†' Transact
     "D08": "transact",
-    # MensajerÃ­a (1 SP) â†’ cross
+    # MensajerÃ­a (1 SP) â†' cross
     "D09": "cross",
-    # Sucursales â†’ Transact
+    # Sucursales â†' Transact
     "D10": "transact",
-    # Cobranza â†’ Apolo (lifecycle de crÃ©dito)
+    # Cobranza â†' Apolo (lifecycle de crÃ©dito)
     "D11": "apolo",
-    # Contabilidad â†’ cross (GL transversal)
+    # Contabilidad â†' cross (GL transversal)
     "D12": "cross",
-    # TEF â†’ Transact
+    # TEF â†' Transact
     "D13": "transact",
-    # BEI (Banca ElectrÃ³nica Institucional) â†’ Transact
+    # BEI (Banca ElectrÃ3nica Institucional) â†' Transact
     "D14": "transact",
-    # LIDE / PLD â†’ cross (compliance)
+    # LIDE / PLD â†' cross (compliance)
     "D15": "cross",
-    # Tarjetas â†’ SmartVista
+    # Tarjetas â†' SmartVista
     "D16": "smartvista",
-    # D17-D22 (sin nombre conocido) â†’ unknown
+    # D17-D22 (sin nombre conocido) â†' unknown
     "D17": "unknown", "D18": "unknown", "D19": "unknown",
     "D20": "unknown", "D21": "unknown", "D22": "unknown",
-    # MIS Sucursales â†’ Transact
+    # MIS Sucursales â†' Transact
     "D23": "transact",
     "D24": "unknown", "D25": "unknown",
-    # Prospectos â†’ Apolo (origination)
+    # Prospectos â†' Apolo (origination)
     "D26": "apolo",
     "D27": "unknown", "D28": "unknown", "D29": "unknown",
     "D30": "unknown", "D31": "unknown",
-    # Reportes Visa/MC â†’ SmartVista
+    # Reportes Visa/MC â†' SmartVista
     "D32": "smartvista",
     "D33": "unknown",
-    # Respaldos DBA â†’ decommission (sÃ³lo infraestructura)
+    # Respaldos DBA â†' decommission (sÃ3lo infraestructura)
     "D34": "decommission",
-    # DigitalizaciÃ³n â†’ multi (canal digital)
+    # DigitalizaciÃ3n â†' multi (canal digital)
     "D35": "multi",
-    # ReporterÃ­a CNBV â†’ cross (regulatorio)
+    # ReporterÃ­a CNBV â†' cross (regulatorio)
     "D36": "cross",
-    # NÃ³mina BPI â†’ Transact
+    # NÃ3mina BPI â†' Transact
     "D37": "transact",
     "D38": "unknown", "D39": "unknown",
-    # Banca Internet â†’ multi (canal digital)
+    # Banca Internet â†' multi (canal digital)
     "D40": "multi",
     "D41": "unknown", "D42": "unknown", "D43": "unknown",
-    # ConciliaciÃ³n Operativa â†’ cross
+    # ConciliaciÃ3n Operativa â†' cross
     "D44": "cross",
-    # Premios â†’ multi
+    # Premios â†' multi
     "D45": "multi",
-    # Oficinas de Cobro â†’ Apolo
+    # Oficinas de Cobro â†' Apolo
     "D46": "apolo",
-    # GarantÃ­as â†’ Apolo
+    # GarantÃ­as â†' Apolo
     "D47": "apolo",
-    # Riesgos de CrÃ©dito â†’ Apolo
+    # Riesgos de CrÃ©dito â†' Apolo
     "D48": "apolo",
-    # Retiro sin Tarjeta â†’ Transact (cajero/operaciÃ³n)
+    # Retiro sin Tarjeta â†' Transact (cajero/operaciÃ3n)
     "D49": "transact",
 }
 
-# Confidence: cÃ³mo de seguro estamos del mapping
+# Confidence: cÃ3mo de seguro estamos del mapping
 DOMAIN_CONFIDENCE = {
     "D03": "high", "D04": "high", "D05": "high", "D06": "high",
     "D08": "high", "D11": "high", "D12": "high", "D13": "high",
@@ -106,7 +106,7 @@ DOMAIN_CONFIDENCE = {
     "D34": "high", "D35": "medium",
 }
 
-# â”€â”€ Helpers minutas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ Helpers minutas â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 SYSTEM_KEYWORDS = {
     "apolo":       r"\bapolo\b",
     "smartvista":  r"\bsmartvista\b|\bsmart\s*vista\b|\bbpc\b",
@@ -139,7 +139,7 @@ def extract_date_from_filename(fname: str) -> str | None:
         "jan": "01", "feb": "02", "jun": "06", "jul": "07", "aug": "08",
         "sep": "09", "oct": "10", "nov": "11", "dec": "12",
     }
-    # PatrÃ³n ISO
+    # PatrÃ3n ISO
     m = re.search(r'(\d{4}-\d{2}-\d{2})', fname)
     if m:
         return m.group(1)
@@ -185,8 +185,8 @@ def parse_minuta(path: Path) -> dict:
 
         # Extraer temas clave: pÃ¡rrafos que contengan palabras clave de arquitectura
         topic_keywords = [
-            r"\bdecisi[oÃ³]n\b", r"\bacord[oÃ³]\b", r"\bpendiente\b",
-            r"\barquitectura\b", r"\bintegraci[oÃ³]n\b", r"\bmigraci[oÃ³]n\b",
+            r"\bdecisi[oÃ3]n\b", r"\bacord[oÃ3]\b", r"\bpendiente\b",
+            r"\barquitectura\b", r"\bintegraci[oÃ3]n\b", r"\bmigraci[oÃ3]n\b",
             r"\bapi\b", r"\bbase de datos\b", r"\bflujo\b", r"\bseguridad\b",
         ]
         key_paras = []
@@ -201,6 +201,147 @@ def parse_minuta(path: Path) -> dict:
     except Exception as e:
         result["error"] = str(e)
     return result
+
+
+_XLSX_SCRATCHPAD = Path(
+    r"C:\Users\ALEJAN~1.GAL\AppData\Local\Temp\claude"
+    r"\c--Users-alejandro-gallegos-OneDrive---Accenture-Documents-Digital-Core"
+    r"\56103126-11ae-4a18-a744-bf648d4a4f80\scratchpad\Inventario_bdanalisis.xlsx"
+)
+_COL = dict(
+    AGRUPACION=1, CORE=2, ID=3, NOMBRE=4, CORTO=5,
+    COMPLEJIDAD=11, CRITICIDAD=12, OPS_DAY=13,
+    HOSTING=19, SPL=20, DBMS=21, MIDDLEWARE=22, HOSTS=25, BAJA=26
+)
+
+def _nc(v):
+    return str(v).strip() if v is not None else ""
+
+def _ic(v):
+    try:
+        return int(float(str(v))) if v is not None else 0
+    except Exception:
+        return 0
+
+def _parse_dbms_flags(raw):
+    low = raw.lower()
+    return {
+        "uses_informix": 1 if "informix" in low else 0,
+        "uses_postgres": 1 if any(x in low for x in ["postgres", "posgres", "postgress"]) else 0,
+        "uses_db2":      1 if "db2" in low else 0,
+        "uses_oracle":   1 if "oracle" in low else 0,
+        "uses_mssql":    1 if any(x in low for x in ["mssql", "sql server", "ms sql"]) else 0,
+    }
+
+def _dbms_entries(raw):
+    flags = _parse_dbms_flags(raw)
+    entries = []
+    names = [k.replace("uses_", "") for k, v in flags.items() if v]
+    for i, n in enumerate(names):
+        entries.append((n, "primary" if i == 0 else "secondary"))
+    low = raw.lower()
+    if "mongodb" in low:
+        entries.append(("mongodb", "secondary"))
+    if "netezza" in low or "neteeza" in low:
+        entries.append(("netezza", "secondary"))
+    if not entries and raw.strip():
+        entries.append(("other", "primary"))
+    return entries
+
+def _load_applications(db, base):
+    try:
+        import openpyxl
+    except ImportError:
+        print("  SKIP applications: pip install openpyxl")
+        return
+
+    xlsx = base / "projects/exodus/source/docs/Inventario 20260803/Inventario_bdanalisis.xlsx"
+    wb = None
+    for src in [xlsx, _XLSX_SCRATCHPAD]:
+        try:
+            wb = openpyxl.load_workbook(str(src), read_only=True, data_only=True)
+            print(f"  Fuente: {src.name}")
+            break
+        except (PermissionError, FileNotFoundError):
+            pass
+    if wb is None:
+        try:
+            tmp = Path(tempfile.mktemp(suffix=".xlsx"))
+            shutil.copy2(str(xlsx), str(tmp))
+            wb = openpyxl.load_workbook(str(tmp), read_only=True, data_only=True)
+        except Exception as e:
+            print(f"  SKIP applications: {e}")
+            return
+
+    ws = wb["Hoja 1"]
+    rows = list(ws.iter_rows(min_row=3, values_only=True))
+    wb.close()
+
+    app_rows, dbms_rows = [], []
+    for r in rows:
+        if len(r) <= _COL["BAJA"]:
+            continue
+        raw_id = r[_COL["ID"]]
+        if raw_id is None and r[_COL["NOMBRE"]] is None:
+            continue
+        if raw_id is None:
+            continue
+        try:
+            app_id = str(int(float(str(raw_id)))).zfill(3)
+        except Exception:
+            continue
+
+        spl     = _ic(r[_COL["SPL"]])
+        dbms_raw = _nc(r[_COL["DBMS"]])
+        flags   = _parse_dbms_flags(dbms_raw)
+        core_raw = _nc(r[_COL["CORE"]]).lower()
+        es_core  = 1 if core_raw in ("si", "s", "yes") else 0
+
+        app_rows.append((
+            app_id,
+            _nc(r[_COL["NOMBRE"]]),
+            _nc(r[_COL["CORTO"]]),
+            _nc(r[_COL["AGRUPACION"]]),
+            es_core,
+            _nc(r[_COL["CRITICIDAD"]]),
+            _nc(r[_COL["COMPLEJIDAD"]]),
+            spl,
+            1 if spl > 0 and spl % 1000 == 0 else 0,
+            dbms_raw[:500],
+            flags["uses_informix"], flags["uses_postgres"],
+            flags["uses_db2"], flags["uses_oracle"], flags["uses_mssql"],
+            _nc(r[_COL["HOSTING"]]),
+            _ic(r[_COL["HOSTS"]]),
+            _ic(r[_COL["OPS_DAY"]]),
+            _nc(r[_COL["BAJA"]]),
+            _nc(r[_COL["MIDDLEWARE"]]),
+            "Inventario_bdanalisis.xlsx",
+            "2026-08-20",
+        ))
+        for dbms_name, role in _dbms_entries(dbms_raw):
+            dbms_rows.append((app_id, dbms_name, role))
+
+    db.executemany(
+        "INSERT OR REPLACE INTO applications "
+        "(id,nombre,nombre_corto,agrupacion,es_core,criticidad,complejidad,"
+        "spl_declared,spl_is_estimate,dbms_raw,uses_informix,uses_postgres,"
+        "uses_db2,uses_oracle,uses_mssql,hosting,hosts,ops_day,"
+        "plan_baja,middleware,source_doc,verified_date) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        app_rows,
+    )
+    db.executemany(
+        "INSERT OR REPLACE INTO app_dbms (app_id, dbms, role) VALUES (?,?,?)",
+        dbms_rows,
+    )
+    db.commit()
+
+    n_core = sum(1 for r in app_rows if r[4])
+    n_ifx  = sum(1 for r in app_rows if r[10])
+    n_baja = sum(1 for r in app_rows if r[18] and r[18].lower() not in ("no", "n/a", ""))
+    spl_t  = sum(r[7] for r in app_rows)
+    print(f"  applications: {len(app_rows)} | CORE={n_core} | Informix={n_ifx} | baja={n_baja}")
+    print(f"  app_dbms    : {len(dbms_rows)} filas | SPL declarado={spl_t:,}")
 
 
 def build():
@@ -219,11 +360,11 @@ def build():
     db.execute("PRAGMA journal_mode=WAL")
     db.execute("PRAGMA foreign_keys=ON")
 
-    # â”€â”€ 1. ATTACH legacy brain.db â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ 1. ATTACH legacy brain.db â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     db.execute(f"ATTACH DATABASE '{str(LEGACY_DB).replace(chr(92), '/')}' AS legacy")
     print("Attached brain.db as 'legacy'")
 
-    # â”€â”€ 2. DDL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ 2. DDL â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     db.executescript("""
     -- Sistemas participantes en el ecosistema BanCoppel Unity
     CREATE TABLE IF NOT EXISTS systems (
@@ -237,7 +378,7 @@ def build():
         togaf_type        TEXT,   -- core | processors | channels | data | integration | compliance
         togaf_state       TEXT,   -- baseline | transitional | target
         production_status TEXT,   -- live | partial | in_flight | planned
-        production_since  TEXT    -- primera fecha en producciÃ³n (YYYY-QN o YYYY-MM)
+        production_since  TEXT    -- primera fecha en producciÃ3n (YYYY-QN o YYYY-MM)
     );
 
     -- Documentos indexados (minutas + futuros ADRs, specs)
@@ -255,7 +396,7 @@ def build():
         error       TEXT
     );
 
-    -- Interfaces entre sistemas (capa de integraciÃ³n)
+    -- Interfaces entre sistemas (capa de integraciÃ3n)
     CREATE TABLE IF NOT EXISTS interfaces (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
         from_sys    TEXT NOT NULL REFERENCES systems(id),
@@ -268,7 +409,7 @@ def build():
         notes       TEXT
     );
 
-    -- Mapa de migraciÃ³n: SP legacy â†’ sistema destino
+    -- Mapa de migraciÃ3n: SP legacy â†' sistema destino
     CREATE TABLE IF NOT EXISTS migrations (
         sp          TEXT NOT NULL,          -- nombre del SP
         db          TEXT NOT NULL,          -- BD Informix de origen
@@ -282,7 +423,7 @@ def build():
         PRIMARY KEY (sp, db)
     );
 
-    -- Resumen de migraciÃ³n por dominio
+    -- Resumen de migraciÃ3n por dominio
     CREATE VIEW IF NOT EXISTS migration_summary AS
         SELECT
             domain_id,
@@ -311,7 +452,7 @@ def build():
     CREATE INDEX IF NOT EXISTS idx_doc_date    ON documents(date);
     CREATE INDEX IF NOT EXISTS idx_doc_systems ON documents(systems_mentioned);
 
-    -- Vendors tecnolÃ³gicos (Temenos, BPC, etc.)
+    -- Vendors tecnolÃ3gicos (Temenos, BPC, etc.)
     CREATE TABLE IF NOT EXISTS vendors (
         id          TEXT PRIMARY KEY,
         name        TEXT NOT NULL,
@@ -321,7 +462,7 @@ def build():
         notes       TEXT
     );
 
-    -- Productos bancarios (puente producto â†’ plataforma â†’ legacy)
+    -- Productos bancarios (puente producto â†' plataforma â†' legacy)
     CREATE TABLE IF NOT EXISTS products (
         id                TEXT PRIMARY KEY,
         name              TEXT NOT NULL,
@@ -332,7 +473,7 @@ def build():
         launch_wave       TEXT,                -- release wave en curso (R4, U1, etc.)
         target_date       TEXT,
         notes             TEXT,
-        went_live_release TEXT REFERENCES releases(id)  -- release en que saliÃ³ a producciÃ³n (null si aÃºn no)
+        went_live_release TEXT REFERENCES releases(id)  -- release en que saliÃ3 a producciÃ3n (null si aÃºn no)
     );
 
     CREATE INDEX IF NOT EXISTS idx_products_platform ON products(platform_id);
@@ -343,7 +484,7 @@ def build():
     -- direction: 'outbound' = source_system depende de target_system
     --            'inbound'  = source_system es proveedor de target_system
     -- En este contexto la FK es entre sistemas del ecosistema; target_system puede ser
-    -- externo (ej. controlm, banxico, visa) â€” no FK constraint en target_system.
+    -- externo (ej. controlm, banxico, visa)  -  no FK constraint en target_system.
     CREATE TABLE IF NOT EXISTS system_dependencies (
         id               TEXT PRIMARY KEY,
         source_system    TEXT NOT NULL REFERENCES systems(id),
@@ -351,18 +492,59 @@ def build():
         dependency_type  TEXT NOT NULL,    -- orchestrates | calls | reads | writes | feeds | notifies
         direction        TEXT NOT NULL,    -- outbound (source necesita target) | inbound (target necesita source)
         description      TEXT,
-        evidence         TEXT,             -- cuantificaciÃ³n: "3,847 SPs batch invocados desde malla CTM"
+        evidence         TEXT,             -- cuantificaciÃ3n: "3,847 SPs batch invocados desde malla CTM"
         criticality      TEXT,             -- critical | high | medium | low
         notes            TEXT
     );
 
     CREATE INDEX IF NOT EXISTS idx_sysdep_source ON system_dependencies(source_system);
     CREATE INDEX IF NOT EXISTS idx_sysdep_target ON system_dependencies(target_system);
+
+    -- Inventario AS-IS de aplicaciones en produccion (Inventario_bdanalisis.xlsx 2026-08)
+    -- 124 aplicaciones reales del banco, independiente de cualquier programa de cambio.
+    CREATE TABLE IF NOT EXISTS applications (
+        id              TEXT PRIMARY KEY,
+        nombre          TEXT NOT NULL,
+        nombre_corto    TEXT,
+        agrupacion      TEXT,
+        es_core         INTEGER DEFAULT 0,
+        criticidad      TEXT,
+        complejidad     TEXT,
+        spl_declared    INTEGER DEFAULT 0,
+        spl_is_estimate INTEGER DEFAULT 0,
+        dbms_raw        TEXT,
+        uses_informix   INTEGER DEFAULT 0,
+        uses_postgres   INTEGER DEFAULT 0,
+        uses_db2        INTEGER DEFAULT 0,
+        uses_oracle     INTEGER DEFAULT 0,
+        uses_mssql      INTEGER DEFAULT 0,
+        hosting         TEXT,
+        hosts           INTEGER DEFAULT 0,
+        ops_day         INTEGER DEFAULT 0,
+        plan_baja       TEXT,
+        middleware      TEXT,
+        source_doc      TEXT DEFAULT 'Inventario_bdanalisis.xlsx',
+        verified_date   TEXT DEFAULT '2026-08-20'
+    );
+
+    -- Detalle DBMS por app (relacion N:M, una app puede usar varios DBMS)
+    CREATE TABLE IF NOT EXISTS app_dbms (
+        app_id  TEXT NOT NULL REFERENCES applications(id),
+        dbms    TEXT NOT NULL,
+        role    TEXT DEFAULT 'primary',
+        PRIMARY KEY (app_id, dbms)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_app_core      ON applications(es_core);
+    CREATE INDEX IF NOT EXISTS idx_app_informix  ON applications(uses_informix);
+    CREATE INDEX IF NOT EXISTS idx_app_agrupacion ON applications(agrupacion);
+    CREATE INDEX IF NOT EXISTS idx_app_dbms_app  ON app_dbms(app_id);
+    CREATE INDEX IF NOT EXISTS idx_app_dbms_dbms ON app_dbms(dbms);
     """)
     db.commit()
     print("DDL aplicado")
 
-    # â”€â”€ 3. Sistemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ 3. Sistemas â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     systems = [
         #  id            name                   type       status     tech_stack
         #  description   notes
@@ -384,17 +566,17 @@ def build():
          "processors", "transitional", "partial", "2026-Q1"),
         ("transact",   "Transact",             "target",  "in-dev",
          "Temenos Transact / Java",
-         "Sistema destino para cuentas, depÃ³sitos, SPEI, TEF, sucursales.",
+         "Sistema destino para cuentas, depÃ3sitos, SPEI, TEF, sucursales.",
          "Dominios D04, D05, D07, D08, D10, D13, D14, D23, D37, D49.",
          "core", "transitional", "partial", "2026-Q1"),
         ("atlas",      "Atlas",                "migration", "in-dev",
          "Talend / Python / Spark",
-         "Plataforma de migraciÃ³n de datos PISA â†’ sistemas destino.",
-         "No es sistema operativo. Gobierna la extracciÃ³n, transformaciÃ³n y carga de datos histÃ³ricos.",
+         "Plataforma de migraciÃ3n de datos PISA â†' sistemas destino.",
+         "No es sistema operativo. Gobierna la extracciÃ3n, transformaciÃ3n y carga de datos histÃ3ricos.",
          "data", "transitional", "in_flight", None),
         ("mulesoft",   "MuleSoft / API Gateway","middleware","in-dev",
          "MuleSoft Anypoint Platform",
-         "Capa de integraciÃ³n y orquestaciÃ³n entre sistemas (reemplaza bdicnweb + bdinteg).",
+         "Capa de integraciÃ3n y orquestaciÃ3n entre sistemas (reemplaza bdicnweb + bdinteg).",
          "Dominios D01, D02 migran a APIs publicadas en MuleSoft.",
          "integration", "transitional", "in_flight", None),
         ("controlm",   "Control-M / Malla Batch", "middleware", "active",
@@ -402,39 +584,39 @@ def build():
          "Orquestador de trabajos batch del ecosistema BanCoppel. Ejecuta la malla de SPs "
          "Informix en ventanas horarias programadas (noche, fin de semana). Gestiona cadenas "
          "de dependencia entre jobs, calendarios, alertas de SLA batch y retry automÃ¡tico.",
-         "Sistema en producciÃ³n desde operaciÃ³n legacy. 5,052 jobs confirmados en inventario "
+         "Sistema en producciÃ3n desde operaciÃ3n legacy. 5,052 jobs confirmados en inventario "
          "2026-08-12: 3,859 Informix, 32 Unity/SmartVista, 65 flujos batch identificados.",
          "integration", "baseline", "live", "~2000"),
-        # â”€â”€ Sistemas descubiertos vÃ­a inventario CTM 2026-08-12 (Regla B8 AM) â”€â”€
+        # â"€â"€ Sistemas descubiertos vÃ­a inventario CTM 2026-08-12 (Regla B8 AM) â"€â"€
         ("pld",        "PLD / Minds AML",          "compliance", "active",
          "Minds (vendor pendiente confirmar)",
-         "Sistema de PrevenciÃ³n de Lavado de Dinero de BanCoppel. Gestiona la carga de "
-         "informaciÃ³n de transacciones, detecciÃ³n de patrones sospechosos y generaciÃ³n de "
+         "Sistema de PrevenciÃ3n de Lavado de Dinero de BanCoppel. Gestiona la carga de "
+         "informaciÃ3n de transacciones, detecciÃ3n de patrones sospechosos y generaciÃ3n de "
          "reportes regulatorios para CNBV/UIF (LFPIORPI R17/R35).",
          "Descubierto: inventario CTM 2026-08-12. 208 jobs en servidores PLD dedicados "
-         "(dccpld01/dcmpld01/dccpld02/dcmpld02). DR-PLD-001 pendiente: vendor/versiÃ³n Minds.",
+         "(dccpld01/dcmpld01/dccpld02/dcmpld02). DR-PLD-001 pendiente: vendor/versiÃ3n Minds.",
          "compliance", "baseline", "live", "unknown"),
         ("datastage",  "IBM InfoSphere DataStage",  "data",      "active",
          "IBM InfoSphere DataStage (ETL)",
-         "Motor ETL de BanCoppel. Gestiona flujos de integraciÃ³n de datos: extracciÃ³n desde "
-         "Informix, transformaciÃ³n y carga hacia Data Warehouse y sistemas destino. "
+         "Motor ETL de BanCoppel. Gestiona flujos de integraciÃ3n de datos: extracciÃ3n desde "
+         "Informix, transformaciÃ3n y carga hacia Data Warehouse y sistemas destino. "
          "HALLAZGO CRÃTICO: carpeta UTR-UNITY_TRANSACT confirma que DataStage ya estÃ¡ "
-         "integrado en la malla de migraciÃ³n Unity/Transact.",
+         "integrado en la malla de migraciÃ3n Unity/Transact.",
          "Descubierto: inventario CTM 2026-08-12. Hosts: dccinfsph2/dccinfsphe2/dccinfsph1. "
-         "UTR-UNITY_TRANSACT activo en producciÃ³n â€” DataStage ES parte de la migraciÃ³n.",
+         "UTR-UNITY_TRANSACT activo en producciÃ3n  -  DataStage ES parte de la migraciÃ3n.",
          "data", "transitional", "live", "unknown"),
-        ("digitalizacion", "DigitalizaciÃ³n / Expediente Digital", "data", "active",
-         "Sistema de gestiÃ³n documental (vendor pendiente confirmar)",
-         "Sistema de gestiÃ³n documental de BanCoppel. Gestiona el expediente digital de "
+        ("digitalizacion", "DigitalizaciÃ3n / Expediente Digital", "data", "active",
+         "Sistema de gestiÃ3n documental (vendor pendiente confirmar)",
+         "Sistema de gestiÃ3n documental de BanCoppel. Gestiona el expediente digital de "
          "clientes: imÃ¡genes de identificaciones, contratos firmados, comprobantes, "
          "estados de cuenta y archivos de intercambio entre Ã¡reas.",
          "Descubierto: inventario CTM 2026-08-12. 156 jobs en servidores imagen "
          "(dccimg01/dcmimg01). DR-DIG-001 pendiente: vendor/plataforma documental.",
          "data", "baseline", "live", "unknown"),
-        ("paytrue",    "PayTrue / PrevenciÃ³n de Fraudes", "channels", "active",
+        ("paytrue",    "PayTrue / PrevenciÃ3n de Fraudes", "channels", "active",
          "PayTrue (vendor/interno pendiente confirmar) + Python",
-         "Sistema de prevenciÃ³n de fraude transaccional. Corre sobre servidores Python. "
-         "Aplica modelos de scoring para detecciÃ³n de fraude sobre transacciones y "
+         "Sistema de prevenciÃ3n de fraude transaccional. Corre sobre servidores Python. "
+         "Aplica modelos de scoring para detecciÃ3n de fraude sobre transacciones y "
          "seÃ±ales de comportamiento de clientes (transacciones NO financieras).",
          "Descubierto: inventario CTM 2026-08-12. 56 jobs en servidores Python "
          "(dccpyt01/dcmpyt01). DR-PT-001 pendiente: vendor vs desarrollo interno.",
@@ -446,7 +628,7 @@ def build():
     )
     print(f"Sistemas insertados: {len(systems)}")
 
-    # â”€â”€ 4. Minutas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ 4. Minutas â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     import json
     minutas_files = sorted(MINUTAS_DIR.glob("*.docx")) if MINUTAS_DIR.exists() else []
     minutas_data = []
@@ -475,36 +657,36 @@ def build():
     )
     print(f"Minutas indexadas: {len(minutas_data)} ({errors} con error)")
 
-    # â”€â”€ 5. Interfaces (seeded desde minutas y arquitectura conocida) â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ 5. Interfaces (seeded desde minutas y arquitectura conocida) â"€â"€â"€â"€â"€â"€â"€
     interfaces = [
-        # PISA â†’ MuleSoft (durante coexistencia)
-        ("pisa", "mulesoft", "PISAâ†’ESB adapt", "REST/SOAP", "sync",
+        # PISA â†' MuleSoft (durante coexistencia)
+        ("pisa", "mulesoft", "PISAâ†'ESB adapt", "REST/SOAP", "sync",
          "in-dev", "arquitectura-unity.docx",
-         "Adaptadores para exponer SPs legacy via API durante la transiciÃ³n"),
-        # MuleSoft â†’ Apolo
-        ("mulesoft", "apolo", "ESBâ†’Apolo crÃ©dito", "REST", "sync",
-         "in-dev", None, "OrquestaciÃ³n de operaciones de crÃ©dito"),
-        # MuleSoft â†’ SmartVista
-        ("mulesoft", "smartvista", "ESBâ†’SmartVista TDC", "REST", "sync",
+         "Adaptadores para exponer SPs legacy via API durante la transiciÃ3n"),
+        # MuleSoft â†' Apolo
+        ("mulesoft", "apolo", "ESBâ†'Apolo crÃ©dito", "REST", "sync",
+         "in-dev", None, "OrquestaciÃ3n de operaciones de crÃ©dito"),
+        # MuleSoft â†' SmartVista
+        ("mulesoft", "smartvista", "ESBâ†'SmartVista TDC", "REST", "sync",
          "in-dev", None, "Procesamiento de transacciones de tarjeta"),
-        # MuleSoft â†’ Transact
-        ("mulesoft", "transact", "ESBâ†’Transact depÃ³sitos", "REST", "sync",
-         "planned", None, "Cuentas, depÃ³sitos y TEF"),
-        # Atlas â† PISA (extracciÃ³n)
-        ("pisa", "atlas", "PISAâ†’Atlas extracciÃ³n", "JDBC/file", "batch",
-         "in-dev", None, "ExtracciÃ³n de datos histÃ³ricos para migraciÃ³n"),
-        # Atlas â†’ Apolo (carga)
-        ("atlas", "apolo", "Atlasâ†’Apolo carga", "API/SQL", "batch",
-         "in-dev", None, "Carga de saldos y cartera de crÃ©dito histÃ³rica"),
-        # Atlas â†’ Transact (carga)
-        ("atlas", "transact", "Atlasâ†’Transact carga", "API/SQL", "batch",
-         "planned", None, "Carga de cuentas y depÃ³sitos histÃ³ricos"),
-        # Atlas â†’ SmartVista (carga)
-        ("atlas", "smartvista", "Atlasâ†’SmartVista carga", "API/SQL", "batch",
-         "planned", None, "Carga de portafolio de tarjetas histÃ³rico"),
-        # SPEI: Transact â†’ Banxico
-        ("transact", "mulesoft", "Transactâ†’SPEI", "ISO20022", "async",
-         "planned", None, "LiquidaciÃ³n SPEI vÃ­a red Banxico"),
+        # MuleSoft â†' Transact
+        ("mulesoft", "transact", "ESBâ†'Transact depÃ3sitos", "REST", "sync",
+         "planned", None, "Cuentas, depÃ3sitos y TEF"),
+        # Atlas â† PISA (extracciÃ3n)
+        ("pisa", "atlas", "PISAâ†'Atlas extracciÃ3n", "JDBC/file", "batch",
+         "in-dev", None, "ExtracciÃ3n de datos histÃ3ricos para migraciÃ3n"),
+        # Atlas â†' Apolo (carga)
+        ("atlas", "apolo", "Atlasâ†'Apolo carga", "API/SQL", "batch",
+         "in-dev", None, "Carga de saldos y cartera de crÃ©dito histÃ3rica"),
+        # Atlas â†' Transact (carga)
+        ("atlas", "transact", "Atlasâ†'Transact carga", "API/SQL", "batch",
+         "planned", None, "Carga de cuentas y depÃ3sitos histÃ3ricos"),
+        # Atlas â†' SmartVista (carga)
+        ("atlas", "smartvista", "Atlasâ†'SmartVista carga", "API/SQL", "batch",
+         "planned", None, "Carga de portafolio de tarjetas histÃ3rico"),
+        # SPEI: Transact â†' Banxico
+        ("transact", "mulesoft", "Transactâ†'SPEI", "ISO20022", "async",
+         "planned", None, "LiquidaciÃ3n SPEI vÃ­a red Banxico"),
     ]
     db.executemany(
         """INSERT INTO interfaces
@@ -514,7 +696,7 @@ def build():
     )
     print(f"Interfaces insertadas: {len(interfaces)}")
 
-    # â”€â”€ 6. Migrations: PISA SPs â†’ target system â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ 6. Migrations: PISA SPs â†' target system â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # Leer todos los SPs de legacy brain.db con su dominio
     sp_rows = db.execute("""
         SELECT
@@ -546,57 +728,57 @@ def build():
     )
     print(f"SPs migrados a tabla migrations: {len(migration_rows)}")
 
-    # â”€â”€ 7. Releases Unity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ 7. Releases Unity â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     releases = [
-        # â”€â”€ Hitos internos BanCoppel (R-series) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        ("R1", "Release 1 â€” Infraestructura y Aprobaciones Regulatorias",
+        # â"€â"€ Hitos internos BanCoppel (R-series) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        ("R1", "Release 1  -  Infraestructura y Aprobaciones Regulatorias",
          "2025-12", "completed",
          json.dumps(["transact", "smartvista", "atlas"], ensure_ascii=False),
-         "Setup de ambientes cloud (AWS). AprobaciÃ³n CNBV para operaciÃ³n cloud-native.",
-         "Hito regulatorio clave: CNBV autoriza operaciÃ³n sobre AWS antes del primer go-live"),
-        ("R2", "Release 2 â€” Friends & Family",
+         "Setup de ambientes cloud (AWS). AprobaciÃ3n CNBV para operaciÃ3n cloud-native.",
+         "Hito regulatorio clave: CNBV autoriza operaciÃ3n sobre AWS antes del primer go-live"),
+        ("R2", "Release 2  -  Friends & Family",
          "2026-Q1", "completed",
          json.dumps(["transact", "smartvista"], ensure_ascii=False),
          "CrÃ©dito simple empresarial (Transact) + Tarjeta de crÃ©dito BanCoppel (SmartVista). "
          "Usuarios internos y amigos/familia.",
          "Primer go-live real con productos bancarios en plataformas target"),
-        ("R3", "Release 3 â€” POC Colaboradores",
+        ("R3", "Release 3  -  POC Colaboradores",
          "2026-Q2", "completed",
          json.dumps(["smartvista", "atlas"], ensure_ascii=False),
-         "SmartVista: POC con colaboradores BanCoppel. Atlas: primera fase de migraciÃ³n de datos histÃ³ricos.",
-         "Cerrado â€” confirmado 2026-08-12"),
-        ("R4", "Release 4 â€” Go-Live Masivo",
+         "SmartVista: POC con colaboradores BanCoppel. Atlas: primera fase de migraciÃ3n de datos histÃ3ricos.",
+         "Cerrado  -  confirmado 2026-08-12"),
+        ("R4", "Release 4  -  Go-Live Masivo",
          "2026-12", "in_flight",
          json.dumps(["smartvista", "apolo", "transact", "atlas"], ensure_ascii=False),
          "Rollout masivo cartera TDC (17 funcionalidades crÃ­ticas SmartVista). Apollo App a mercado abierto. "
-         "DepÃ³sitos/cuentas Transact inician.",
+         "DepÃ3sitos/cuentas Transact inician.",
          "Deadline de negocio: diciembre 2026. Hito de cierre del primer bloque Unity"),
-        # â”€â”€ Waves del Plan Director Accenture (U-series) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        ("U1", "Unity Wave 1 â€” CrÃ©dito Digital",
+        # â"€â"€ Waves del Plan Director Accenture (U-series) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        ("U1", "Unity Wave 1  -  CrÃ©dito Digital",
          "2026-09", "in_flight",
          json.dumps(["apolo", "mulesoft"], ensure_ascii=False),
-         "MigraciÃ³n de origination y crÃ©dito personal (D03, D06). Apolo go-live parcial.",
+         "MigraciÃ3n de origination y crÃ©dito personal (D03, D06). Apolo go-live parcial.",
          "Plan Director semanas 1-6 (mar-abr 2026)"),
-        ("U2", "Unity Wave 2 â€” Cuentas y DepÃ³sitos",
+        ("U2", "Unity Wave 2  -  Cuentas y DepÃ3sitos",
          "2026-12", "planned",
          json.dumps(["transact", "mulesoft"], ensure_ascii=False),
-         "MigraciÃ³n de cuentas, SPEI y TEF (D04, D05, D08, D13). Transact go-live parcial.",
+         "MigraciÃ3n de cuentas, SPEI y TEF (D04, D05, D08, D13). Transact go-live parcial.",
          "Pendiente arquitectura detallada Transact"),
-        ("U3", "Unity Wave 3 â€” Tarjetas",
+        ("U3", "Unity Wave 3  -  Tarjetas",
          "2027-03", "planned",
          json.dumps(["smartvista", "mulesoft"], ensure_ascii=False),
-         "MigraciÃ³n de portafolio TDC/TDD (D16). SmartVista go-live.",
-         "Sujeto a certificaciÃ³n Visa/MC"),
-        ("U4", "Unity Wave 4 â€” Cobranza y Riesgos",
+         "MigraciÃ3n de portafolio TDC/TDD (D16). SmartVista go-live.",
+         "Sujeto a certificaciÃ3n Visa/MC"),
+        ("U4", "Unity Wave 4  -  Cobranza y Riesgos",
          "2027-06", "planned",
          json.dumps(["apolo"], ensure_ascii=False),
-         "MigraciÃ³n de cobranza, garantÃ­as y riesgos (D11, D47, D48). Cierre Apolo.",
+         "MigraciÃ3n de cobranza, garantÃ­as y riesgos (D11, D47, D48). Cierre Apolo.",
          ""),
-        ("U5", "Unity Final â€” PISA Decommission",
+        ("U5", "Unity Final  -  PISA Decommission",
          "2027-12", "planned",
          json.dumps(["pisa"], ensure_ascii=False),
-         "Apagado de PISA/Informix. Cierre de Atlas. MigraciÃ³n de datos histÃ³ricos completa.",
-         "Hito regulatorio: notificaciÃ³n CNBV mÃ­nimo 6 meses antes"),
+         "Apagado de PISA/Informix. Cierre de Atlas. MigraciÃ3n de datos histÃ3ricos completa.",
+         "Hito regulatorio: notificaciÃ3n CNBV mÃ­nimo 6 meses antes"),
     ]
     db.executemany(
         "INSERT OR REPLACE INTO releases VALUES (?,?,?,?,?,?,?)",
@@ -604,26 +786,26 @@ def build():
     )
     print(f"Releases insertados: {len(releases)}")
 
-    # â”€â”€ 8. Vendors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ 8. Vendors â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     vendors_data = [
         (
             "temenos", "Temenos", "transact", "core-banking",
             json.dumps([
                 "Retail Banking", "Corporate Banking / CrÃ©dito Empresarial",
-                "DepÃ³sitos y Cuentas", "Pagos (SPEI/TEF/ACH)", "Sucursales",
-                "GestiÃ³n de LÃ­mites", "Cumplimiento Regulatorio"
+                "DepÃ3sitos y Cuentas", "Pagos (SPEI/TEF/ACH)", "Sucursales",
+                "GestiÃ3n de LÃ­mites", "Cumplimiento Regulatorio"
             ], ensure_ascii=False),
-            "Vendor del core bancario Transact. EY consultor responsable de implementaciÃ³n. "
+            "Vendor del core bancario Transact. EY consultor responsable de implementaciÃ3n. "
             "Productivo: crÃ©dito simple empresarial (CNBV aprobado sobre AWS). "
-            "Roadmap: cuentas/depÃ³sitos 1T-2028, crÃ©dito retail 4T-2028."
+            "Roadmap: cuentas/depÃ3sitos 1T-2028, crÃ©dito retail 4T-2028."
         ),
         (
-            "bpc", "BPC (Budget Pro Consulting) â€” SmartVista", "smartvista", "card-processing",
+            "bpc", "BPC (Budget Pro Consulting)  -  SmartVista", "smartvista", "card-processing",
             json.dumps([
-                "EmisiÃ³n de Tarjetas (TDC/TDD)", "AutorizaciÃ³n en tiempo real",
-                "LiquidaciÃ³n y CompensaciÃ³n", "GestiÃ³n de LÃ­mites de CrÃ©dito",
+                "EmisiÃ3n de Tarjetas (TDC/TDD)", "AutorizaciÃ3n en tiempo real",
+                "LiquidaciÃ3n y CompensaciÃ3n", "GestiÃ3n de LÃ­mites de CrÃ©dito",
                 "Recompensas y Beneficios", "ReporterÃ­a Visa/Mastercard",
-                "GestiÃ³n de Disputas y Aclaraciones"
+                "GestiÃ3n de Disputas y Aclaraciones"
             ], ensure_ascii=False),
             "Vendor del procesador de tarjetas SmartVista. Certificado Visa/Mastercard. "
             "Productivo: tarjeta de crÃ©dito BanCoppel (friends & family, R2). "
@@ -633,7 +815,7 @@ def build():
     db.executemany("INSERT OR REPLACE INTO vendors VALUES (?,?,?,?,?,?)", vendors_data)
     print(f"Vendors insertados: {len(vendors_data)}")
 
-    # â”€â”€ 9. Products â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ 9. Products â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     products_data = [
         # id, name, platform_id, vendor_id, segment, status, launch_wave, target_date, notes, went_live_release
         ("tarjeta-credito-sv",
@@ -645,24 +827,24 @@ def build():
         ("credito-simple-emp",
          "CrÃ©dito Simple Empresarial (Transact)",
          "transact", "temenos", "empresarial", "partial", "R4", "2026-Q1",
-         "Primer producto nativo en Temenos Transact. CNBV aprobÃ³ operaciÃ³n sobre AWS (R2). "
+         "Primer producto nativo en Temenos Transact. CNBV aprobÃ3 operaciÃ3n sobre AWS (R2). "
          "Escenario minorista y cuentas requieren aprobaciones adicionales.",
          "R2"),     # went_live_release
         ("tarjeta-credito-full",
-         "Cartera Completa TDC (migraciÃ³n masiva a SmartVista)",
+         "Cartera Completa TDC (migraciÃ3n masiva a SmartVista)",
          "smartvista", "bpc", "retail", "in_flight", "R4", "2026-12",
-         "MigraciÃ³n de toda la cartera TDC al procesador SmartVista. "
+         "MigraciÃ3n de toda la cartera TDC al procesador SmartVista. "
          "POC en R3 con colaboradores. 17 funcionalidades crÃ­ticas en R4.",
-         None),    # went_live_release = null (no estÃ¡ en producciÃ³n aÃºn)
+         None),    # went_live_release = null (no estÃ¡ en producciÃ3n aÃºn)
         ("apollo-app",
-         "Apollo App (experiencia mÃ³vil)",
+         "Apollo App (experiencia mÃ3vil)",
          "apolo", None, "retail", "in_flight", "R4", "2026-12",
-         "Experiencia mÃ³vil para lanzamiento a mercado abierto. Deadline de negocio: R4.",
+         "Experiencia mÃ3vil para lanzamiento a mercado abierto. Deadline de negocio: R4.",
          None),
         ("depositos-cuentas",
-         "DepÃ³sitos y Cuentas (Transact)",
+         "DepÃ3sitos y Cuentas (Transact)",
          "transact", "temenos", "retail", "planned", None, "2028-Q1",
-         "Cuentas y depÃ³sitos retail en Temenos Transact. "
+         "Cuentas y depÃ3sitos retail en Temenos Transact. "
          "Depende de Atlas Fase 2 (Golden Record MDM productivo). Dominios legacy: D04, D05.",
          None),
         ("credito-retail",
@@ -675,65 +857,65 @@ def build():
     db.executemany("INSERT OR REPLACE INTO products VALUES (?,?,?,?,?,?,?,?,?,?)", products_data)
     print(f"Productos insertados: {len(products_data)}")
 
-    # â”€â”€ 10. System Dependencies â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ 10. System Dependencies â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # Regla: cada cerebro declara su lado; bank-brain agrega la vista global.
     # Perspectiva: outbound = el source_system NECESITA al target_system.
     sys_deps = [
         # PISA (Informix) â† Control-M: CTM orquesta los SPs batch de PISA.
-        # Desde perspectiva de PISA = inbound (recibe orquestaciÃ³n).
+        # Desde perspectiva de PISA = inbound (recibe orquestaciÃ3n).
         # Desde perspectiva de CTM  = outbound (llama a PISA).
         ("pisa-controlm-batch",
          "pisa", "controlm", "orchestrates", "inbound",
          "Control-M invoca los SPs batch de Informix en ventanas programadas. "
-         "La lÃ³gica de negocio (SPs) vive en PISA; el cuÃ¡ndo y en quÃ© orden vive en Control-M.",
-         "Dato pendiente: NÂ° de jobs activos en malla CTM â†’ SP Informix",
+         "La lÃ3gica de negocio (SPs) vive en PISA; el cuÃ¡ndo y en quÃ© orden vive en Control-M.",
+         "Dato pendiente: NÂ° de jobs activos en malla CTM â†' SP Informix",
          "critical",
-         "RelaciÃ³n bidireccional documentada en ambos brains. "
-         "PISA brain: cross_dependencies â†’ outbound a CTM (batch-callable SPs). "
-         "CTM brain (futuro): cross_dependencies â†’ inbound a PISA (jobs que invocan SPs)."),
-        # Informix â†’ Banxico (SPEI batch liquidaciones nocturnas)
+         "RelaciÃ3n bidireccional documentada en ambos brains. "
+         "PISA brain: cross_dependencies â†' outbound a CTM (batch-callable SPs). "
+         "CTM brain (futuro): cross_dependencies â†' inbound a PISA (jobs que invocan SPs)."),
+        # Informix â†' Banxico (SPEI batch liquidaciones nocturnas)
         ("pisa-banxico-spei-batch",
          "pisa", "banxico", "feeds", "outbound",
-         "Informix genera los archivos de liquidaciÃ³n SPEI que se envÃ­an a Banxico en batch nocturno.",
-         "Dominio D08 â€” SPs de SPEI generan archivos CECOBAN/SPEI para cierre de dÃ­a.",
+         "Informix genera los archivos de liquidaciÃ3n SPEI que se envÃ­an a Banxico en batch nocturno.",
+         "Dominio D08  -  SPs de SPEI generan archivos CECOBAN/SPEI para cierre de dÃ­a.",
          "critical",
-         "Externo â€” Banxico no tiene brain. Dependencia documentada desde perspectiva PISA."),
-        # Informix â†’ VISA/MC reporterÃ­a
+         "Externo  -  Banxico no tiene brain. Dependencia documentada desde perspectiva PISA."),
+        # Informix â†' VISA/MC reporterÃ­a
         ("pisa-visa-reporteria",
          "pisa", "smartvista", "feeds", "outbound",
-         "Informix genera reporterÃ­a de tarjetas (D32) que alimenta reconciliaciÃ³n en SmartVista.",
-         "Dominio D32 â€” SPs de reporterÃ­a Visa/MC. SmartVista los consume.",
+         "Informix genera reporterÃ­a de tarjetas (D32) que alimenta reconciliaciÃ3n en SmartVista.",
+         "Dominio D32  -  SPs de reporterÃ­a Visa/MC. SmartVista los consume.",
          "high", None),
         # Atlas extrae de PISA (ya en interfaces, se documenta tambiÃ©n como dependencia)
         ("pisa-atlas-extraccion",
          "pisa", "atlas", "reads", "inbound",
-         "Atlas extrae datos histÃ³ricos de PISA vÃ­a JDBC y archivos flat para migraciÃ³n.",
-         "ExtracciÃ³n nocturna por ventana batch. Impacta performance en ventana activa.",
+         "Atlas extrae datos histÃ3ricos de PISA vÃ­a JDBC y archivos flat para migraciÃ3n.",
+         "ExtracciÃ3n nocturna por ventana batch. Impacta performance en ventana activa.",
          "high", None),
-        # â”€â”€ Dependencias de sistemas descubiertos CTM 2026-08-12 (Regla B8 + B10 AM) â”€â”€
+        # â"€â"€ Dependencias de sistemas descubiertos CTM 2026-08-12 (Regla B8 + B10 AM) â"€â"€
         # PLD recibe seÃ±ales AML de PISA (D15) orquestadas por Control-M.
         ("pisa-pld-feeds",
          "pisa", "pld", "feeds", "outbound",
          "PISA (D15 bdilide/bdiauditor/bdisitesp) genera seÃ±ales AML batch que PLD/Minds "
          "consume para anÃ¡lisis de lavado de dinero y reportes CNBV/UIF.",
          "208 jobs CTM en servidores PLD. Inventario 2026-08-12. "
-         "Knowledge interlock: Informix brain declarÃ³ pisa-pld-aml-signals el mismo dÃ­a.",
+         "Knowledge interlock: Informix brain declarÃ3 pisa-pld-aml-signals el mismo dÃ­a.",
          "high",
-         "Regla B10 AM â€” knowledge interlock: hallado en inventario CTM, propagado a "
+         "Regla B10 AM  -  knowledge interlock: hallado en inventario CTM, propagado a "
          "Informix brain (pisa-pld-aml-signals) y a bank-brain (este registro)."),
         # DataStage lee de PISA para Unity Transact (UTR-UNITY_TRANSACT).
         ("pisa-datastage-unity",
          "pisa", "datastage", "reads", "inbound",
-         "DataStage extrae datos de PISA para la integraciÃ³n Unity/Transact "
-         "(carpeta UTR-UNITY_TRANSACT activa en producciÃ³n). DataStage es capa ETL "
+         "DataStage extrae datos de PISA para la integraciÃ3n Unity/Transact "
+         "(carpeta UTR-UNITY_TRANSACT activa en producciÃ3n). DataStage es capa ETL "
          "entre el core Informix y el sistema Transact destino.",
          "Hallazgo crÃ­tico CTM 2026-08-12: UTR-UNITY_TRANSACT en host datastage. "
-         "Knowledge interlock: Informix brain declarÃ³ pisa-datastage-transact el mismo dÃ­a.",
+         "Knowledge interlock: Informix brain declarÃ3 pisa-datastage-transact el mismo dÃ­a.",
          "high",
-         "Regla B10 AM â€” knowledge interlock: hallado en inventario CTM, propagado a "
+         "Regla B10 AM  -  knowledge interlock: hallado en inventario CTM, propagado a "
          "Informix brain (pisa-datastage-transact) y a bank-brain (este registro). "
-         "IMPLICACIÃ“N: DataStage IS parte de la migraciÃ³n Unity, no solo del legacy."),
-        # Control-M orquesta a DataStage, PLD, DigitalizaciÃ³n y PayTrue.
+         "IMPLICACION: DataStage IS parte de la migraciÃ3n Unity, no solo del legacy."),
+        # Control-M orquesta a DataStage, PLD, DigitalizaciÃ3n y PayTrue.
         ("controlm-datastage-batch",
          "controlm", "datastage", "orchestrates", "outbound",
          "Control-M orquesta los jobs de DataStage via PRO_DATA_WAREHOUSE_001 y "
@@ -747,12 +929,12 @@ def build():
          "high", None),
         ("controlm-digitalizacion-batch",
          "controlm", "digitalizacion", "orchestrates", "outbound",
-         "Control-M orquesta los jobs de DigitalizaciÃ³n (156 jobs en PRO_DIGITALIZACION_001).",
+         "Control-M orquesta los jobs de DigitalizaciÃ3n (156 jobs en PRO_DIGITALIZACION_001).",
          "Inventario CTM 2026-08-12: hosts dccimg01/dcmimg01.",
          "medium", None),
         ("controlm-paytrue-batch",
          "controlm", "paytrue", "orchestrates", "outbound",
-         "Control-M orquesta los jobs de PayTrue/PrevenciÃ³n de Fraudes (56 jobs en "
+         "Control-M orquesta los jobs de PayTrue/PrevenciÃ3n de Fraudes (56 jobs en "
          "PRO_PAYTRUE_001 + PFR-PREVENCION_FRAUDES).",
          "Inventario CTM 2026-08-12: hosts dccpyt01/dcmpyt01.",
          "high", None),
@@ -765,13 +947,19 @@ def build():
     )
     print(f"System dependencies insertadas: {len(sys_deps)}")
 
+    # -- 11. Inventario AS-IS aplicaciones ----------------------------------------
+    print()
+    print("Cargando inventario AS-IS de aplicaciones...")
+    _load_applications(db, BASE)
+
     db.commit()
 
-    # â”€â”€ 10. Resumen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -- Resumen --â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     print()
     print("=== RESUMEN bank-brain.db ===")
     for table in ["systems", "documents", "interfaces", "migrations", "releases",
-                  "vendors", "products", "system_dependencies"]:
+                  "vendors", "products", "system_dependencies",
+                  "applications", "app_dbms"]:
         n, = db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()
         print(f"  {table:<15}: {n:>6}")
 
