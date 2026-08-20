@@ -452,7 +452,7 @@ Ver `dt/dt-riesgos.md` para los 10 riesgos con detalle completo.
 | `raid_issues` | 3 | Issues RAID (todos alta severidad) |
 | `raid_dependencies` | 2 | Dependencias RAID (ambas severas) |
 | `milestones` | 6 | Hitos de cronograma |
-| `vocabulary` | 93 | **93 términos** — RAID v2.0 + SmartVista/Canales + F&F/F&D/Manos del Cliente añadidos v1.1.0 |
+| `vocabulary` | 91 | **91 términos** — RAID v2.0 + SmartVista/Canales + F&F/F&D/Manos del Cliente añadidos v1.1.0 |
 | `decisions` | 4 | ADR-UNITY-001 a 004 |
 | `capability_360` | vista | Cross-join 7 dimensiones (vendors · SLOs · test · compliance · PRR · routing · stakeholders) |
 

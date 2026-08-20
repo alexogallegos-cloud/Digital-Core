@@ -903,13 +903,13 @@ PROGRAM_CAPABILITIES = [
         "mandatory_r4":     1,
         "coverage_status":  "not_covered",
         "gap_type":         "not_built",
-        "gap_description":  "Proveedor CAT no contratado (RISK-001, due 2026-08-31). "
+        "gap_description":  "Proveedor CAT no contratado (RISK-UNITY-R27, due 2026-08-31). "
                             "IVR menu dinamico por mora (CAT-R4-10) y autenticacion DTMF (CAT-R4-09) sin definir.",
-        "blocker_id":       "RISK-001",
+        "blocker_id":       "RISK-UNITY-R27",
         "confidence":       "confirmed",
         "component_ids":    json.dumps(["app", "cat", "siweb"]),
         "lifecycle_stage":  "in_dev",
-        "notes":            "HDUs CAT-R4-01, SIWEB general. RISK-001 es el riesgo de mayor urgencia del programa. "
+        "notes":            "HDUs CAT-R4-01, SIWEB general. RISK-UNITY-R27 es el riesgo de mayor urgencia del programa. "
                             "IVR requiere integracion completa SVIP (92 comandos disponibles).",
     },
     # â"€â"€ AUTENTICACION Y SEGURIDAD â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -925,7 +925,7 @@ PROGRAM_CAPABILITIES = [
         "gap_type":         "not_built",
         "gap_description":  "Flujos de autenticacion en CAT (R4-04 hasta R4-09) dependen de proveedor no contratado. "
                             "OTP y ANI especificados; implementacion pendiente del proveedor.",
-        "blocker_id":       "RISK-001",
+        "blocker_id":       "RISK-UNITY-R27",
         "confidence":       "confirmed",
         "component_ids":    json.dumps(["app", "cat"]),
         "lifecycle_stage":  "designed",
@@ -1692,7 +1692,7 @@ INITIAL_RISKS = [
      "source": "dt-vendors.md + dt-integraciones.md",
      "notes": "Deadline critico: si no hay firma antes de 2026-08-31, las 6 integraciones nuevas CAT->SmartVista "
               "(ICAT01/02/04/05/06/07) no tendran responsable tecnico para SIT oct-nov 2026. "
-              "Referenciado en CLAUDE.md como RISK-001."},
+              "Alias historico en build-brain.py: RISK-001. ID canonico: RISK-UNITY-R27."},
 ]
 
 # -- Sistemas del legado y ecosistema Unity (v1.2.0) --------------------------
@@ -3083,9 +3083,9 @@ CAPABILITY_VENDORS = [
     # CAP-CUSTOMER-PROFILE
     {"id": "CV-CUST-AWH",   "capability_id": "CAP-CUSTOMER-PROFILE",     "vendor_id": "appwhere","vendor_name": "Appwhere",                  "role": "primary",    "contract_status": "contracted", "open_tickets": None, "risk_note": "ICCAT integration con CAT aun sin proveedor"},
     # CAP-CHANNEL-SELFSERVICE
-    {"id": "CV-CHAN-CAT",   "capability_id": "CAP-CHANNEL-SELFSERVICE",  "vendor_id": "cat_tbd", "vendor_name": "Proveedor CAT [SIN CONTRATAR]", "role": "primary", "contract_status": "pending",   "open_tickets": json.dumps(["RISK-001"]), "risk_note": "CRITICO: deadline contratacion 31-ago-2026"},
+    {"id": "CV-CHAN-CAT",   "capability_id": "CAP-CHANNEL-SELFSERVICE",  "vendor_id": "cat_tbd", "vendor_name": "Proveedor CAT [SIN CONTRATAR]", "role": "primary", "contract_status": "pending",   "open_tickets": json.dumps(["RISK-UNITY-R27"]), "risk_note": "CRITICO: deadline contratacion 31-ago-2026"},
     # CAP-AUTHENTICATION
-    {"id": "CV-AUTHN-CAT",  "capability_id": "CAP-AUTHENTICATION",       "vendor_id": "cat_tbd", "vendor_name": "Proveedor CAT [SIN CONTRATAR]", "role": "primary", "contract_status": "pending",   "open_tickets": json.dumps(["RISK-001"]), "risk_note": "Flujos IVR/OTP dependen del proveedor CAT"},
+    {"id": "CV-AUTHN-CAT",  "capability_id": "CAP-AUTHENTICATION",       "vendor_id": "cat_tbd", "vendor_name": "Proveedor CAT [SIN CONTRATAR]", "role": "primary", "contract_status": "pending",   "open_tickets": json.dumps(["RISK-UNITY-R27"]), "risk_note": "Flujos IVR/OTP dependen del proveedor CAT"},
     # CAP-COLLECTIONS-AGING
     {"id": "CV-COL-INT",    "capability_id": "CAP-COLLECTIONS-AGING",    "vendor_id": "interno", "vendor_name": "BanCoppel Interno (Cobranza Direccionada)", "role": "primary", "contract_status": "contracted", "open_tickets": None, "risk_note": "Pentest conflicto nov 15-20"},
     {"id": "CV-COL-BPC",    "capability_id": "CAP-COLLECTIONS-AGING",    "vendor_id": "bpc",     "vendor_name": "BPC Banking Technologies", "role": "support",    "contract_status": "contracted", "open_tickets": None, "risk_note": None},
@@ -3126,7 +3126,7 @@ CAPABILITY_TEST_PLAN = [
     {"id": "TP-BAL",    "capability_id": "CAP-BALANCE-STATEMENT",     "sit_included": 1, "sit_status": "planned",         "sit_blocker": None,           "uat_included": 1, "uat_signer": None, "test_cases_planned": None, "test_type": "integration+uat", "notes": "IVR/CAT parcialmente bloqueado"},
     {"id": "TP-PAY",    "capability_id": "CAP-PAYMENT",               "sit_included": 1, "sit_status": "planned",         "sit_blocker": None,           "uat_included": 1, "uat_signer": None, "test_cases_planned": None, "test_type": "integration+uat", "notes": None},
     {"id": "TP-CUST",   "capability_id": "CAP-CUSTOMER-PROFILE",      "sit_included": 1, "sit_status": "planned",         "sit_blocker": None,           "uat_included": 1, "uat_signer": None, "test_cases_planned": None, "test_type": "integration",     "notes": "ICCAT parcialmente bloqueado por CAT sin contratar"},
-    {"id": "TP-CHAN",   "capability_id": "CAP-CHANNEL-SELFSERVICE",   "sit_included": 1, "sit_status": "blocked",         "sit_blocker": "RISK-001",     "uat_included": 1, "uat_signer": None, "test_cases_planned": None, "test_type": "integration+uat", "notes": "Bloqueado hasta contratar proveedor CAT"},
+    {"id": "TP-CHAN",   "capability_id": "CAP-CHANNEL-SELFSERVICE",   "sit_included": 1, "sit_status": "blocked",         "sit_blocker": "RISK-UNITY-R27", "uat_included": 1, "uat_signer": None, "test_cases_planned": None, "test_type": "integration+uat", "notes": "Bloqueado hasta contratar proveedor CAT"},
     {"id": "TP-AUTHN",  "capability_id": "CAP-AUTHENTICATION",        "sit_included": 1, "sit_status": "planned",         "sit_blocker": None,           "uat_included": 1, "uat_signer": None, "test_cases_planned": None, "test_type": "integration+security", "notes": "OTP/ANI  --  parcialmente bloqueado por CAT"},
     {"id": "TP-COL",    "capability_id": "CAP-COLLECTIONS-AGING",     "sit_included": 1, "sit_status": "planned",         "sit_blocker": None,           "uat_included": 1, "uat_signer": None, "test_cases_planned": None, "test_type": "integration+pentest", "notes": "Pentest Cobranza 15-20 nov  --  conflicto con SIT activo"},
     {"id": "TP-FEE",    "capability_id": "CAP-FEE-COMMISSION",        "sit_included": 1, "sit_status": "planned",         "sit_blocker": None,           "uat_included": 1, "uat_signer": None, "test_cases_planned": None, "test_type": "integration",     "notes": None},
@@ -3368,7 +3368,7 @@ TRACK_ANALYSIS = [
         "complexity_low": 4, "complexity_mid": 4, "complexity_high": 4, "complexity_pending": 0,
         "integrations_total": 7, "integrations_api": 6, "integrations_event": 1,
         "apificacion_scope": "100% del Ã¡mbito de integraciÃ³n en CAT",
-        "key_risk": "Proveedor CAT no contratado (RISK-001, due 2026-08-31)  --  bloquea implementaciÃ³n",
+        "key_risk": "Proveedor CAT no contratado (RISK-UNITY-R27, due 2026-08-31)  --  bloquea implementaciÃ³n",
         "key_decision": "Responsabilidad de integraciones: nuevo proveedor CAT + equipo ApificaciÃ³n. Alcance cerrado al 20-Jul-26.",
         "source_doc": "20260803 - R4 CAT - Analisis detallado HDUs e Integraciones.docx",
         "notes": "7 de las 12 HUs requieren integraciones. 6 APIs + 1 evento."
@@ -3609,7 +3609,7 @@ PV_REQUIREMENTS = [
      "priority": "alta", "moscow": "must", "channel": "cat", "capability_id": "CAP-CHANNEL-SELFSERVICE",
      "description": "CAT (Contact Center / IVR) debe reconocer y operar el producto 4900. Ejecutivos y IVR atienden clientes con este producto.",
      "business_rules": "Producto 4900 configurado en sistemas CAT. IVR enruta correctamente solicitudes del producto 4900.",
-     "actors": "Ejecutivo CAT, Cliente BanCoppel", "systems_involved": "CAT, IVR, SmartVista, APOLO", "scope_product": "4900", "notes": "RISK-001: proveedor CAT no contratado (deadline 31-ago-2026)"},
+     "actors": "Ejecutivo CAT, Cliente BanCoppel", "systems_involved": "CAT, IVR, SmartVista, APOLO", "scope_product": "4900", "notes": "RISK-UNITY-R27: proveedor CAT no contratado (deadline 31-ago-2026)"},
     {"id": "RF-014", "rf_num": 14,
      "name": "Identificacion de clientes Apolo en CAT",
      "priority": "alta", "moscow": "must", "channel": "cat", "capability_id": "CAP-AUTHENTICATION",

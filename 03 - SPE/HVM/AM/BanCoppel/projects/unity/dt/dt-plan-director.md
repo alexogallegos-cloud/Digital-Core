@@ -28,7 +28,8 @@ Producto: TDC P4900 (Tarjeta de Crédito)
     ├── Apolo (Appware) — canal digital core
     ├── APP (AppWhere) — aplicación móvil
     ├── CAT — canales adicionales transaccionales
-    └── SIWEB — banca por internet
+    ├── SIWEB — banca por internet
+    └── Cobranza Direccionada (Interno BanCoppel + BPC) — enabler cross-canal (impacta App, CAT y SIWEB)
 ```
 
 ### Semáforo de TDC P4900
@@ -71,6 +72,7 @@ El semáforo del producto es el **peor RAG entre todos los tracks** que tienen U
 | CAT | 🔴 | 12 | 9 | 7 | Doble bloqueo: proveedor sin contratar + DTMs sin responsable confirmado |
 | SIWEB | 🟡 | 5 | 0 | — | 10 semanas de construcción desde 18-Ago llegan al 29-Oct (2 sem. después del cierre) |
 | Apolo | 🟡 | 22 | 11 | — | Track en roadmap, detalle por User Story en inventario |
+| Cobranza Direccionada | 🔴 | 45 (rango 37-50) | Sin definir | 0 (cargas de datos) | RISK-UNITY-R06 VENCIDO — plan sin formalizar; Pentest nov conflicto SIT; 3 HDUs dependientes en App y CAT |
 
 ### 3.3 Actividades críticas retrasadas
 

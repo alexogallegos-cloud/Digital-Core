@@ -139,6 +139,12 @@ Lanzamiento productivo de la Tarjeta de Crédito (Producto 4900) en SmartVista. 
 
 ⚠️ = componente en riesgo o con fecha no confirmada
 
+> **Restricción crítica CAT (2026-08-31):** El proveedor CAT debe firmar contrato antes del 31 de agosto 2026.
+> Si no hay firma, el canal CAT no puede operar en go-live enero 2027. Impacta 12 HDUs y 6 integraciones ICAT. Ver RISK-UNITY-R27.
+
+> **SIWEB timeline:** Con 10 semanas de construcción desde 18-ago-2026, el cierre de Dev/UT cae el 29-oct-2026 —
+> 14 días después del inicio de SIT (15-oct). SIWEB entraría tardío al SIT sin aceleración. Ver RAG YELLOW en dt-siweb.md.
+
 ---
 
 ## Riesgos que Impactan el Cronograma

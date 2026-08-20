@@ -1,11 +1,11 @@
 # DT-Riesgos — RAID Log Unity R4
 
 > **Tipo:** Digital Twin — Programa Unity  
-> **Versión:** v2.0.0  
+> **Versión:** v2.1.0  
 > **Estado:** `[STATE: ACTIVE]`  
 > **Fuente autoritativa:** `RAID_Log_Programa_Unity_R4_v2.0.xlsx` — 03/08/2026 — Responsable: Ma. Fernanda Barbosa  
-> **Fuente complementaria:** Minutas R4 (17 documentos, sesiones previas al 03/08)  
-> **Última actualización:** 2026-08-15
+> **Fuente complementaria:** Minutas R4 (17 documentos) · Barrido documental 2026-08-19 (8 riesgos regulatorios R19-R26) · dt-vendors.md (R27 CAT sin contratar)  
+> **Última actualización:** 2026-08-20
 
 ---
 
@@ -13,7 +13,7 @@
 
 | Dimensión | Total | Alta/Severa | Abiertos |
 |-----------|-------|-------------|---------|
-| Risks (R) | 18 | 9 alta | 17 (1 cerrado) |
+| Risks (R) | 27 | 12 alta | 26 (1 cerrado) |
 | Assumptions (H) | 4 | 3 alta | 4 (0 validados) |
 | Issues (I) | 3 | 3 alta | 3 |
 | Dependencies (D) | 2 | 2 severas | 2 |
@@ -186,6 +186,25 @@ Arquitectura rechazó habilitar el servidor IBR por no cumplir requisito de nube
 
 ---
 
+#### R27 — Proveedor CAT no contratado — Contact Center sin equipo técnico responsable
+| Campo | Valor |
+|-------|-------|
+| **Severidad** | Alta |
+| **Categoría** | Vendor |
+| **Componente** | CAT |
+| **Owner** | PMO Unity |
+| **Due date** | 2026-08-31 |
+| **RAID ID** | Fuera de RAID Log formal — identificado vía dt-vendors.md |
+| **Fuente** | dt-vendors.md + dt-integraciones.md |
+
+El proveedor de Contact Center (IVR + agentes ICCAT) no ha sido contratado. Sin firma antes del 2026-08-31, las 12 HDUs del canal CAT y las 6 integraciones nuevas CAT→SmartVista (ICAT01, ICAT02, ICAT04, ICAT05, ICAT06, ICAT07) quedan sin responsable técnico para SIT oct-nov 2026. Referenciado internamente como RISK-001 en build-brain.py y dt-vendors.md.
+
+**Impacto directo:** CAP-CHANNEL-SELFSERVICE y CAP-AUTHENTICATION bloqueadas. Canal CAT no puede entrar en go-live enero 2027.
+
+**Mitigación:** Contratación y firma antes del 2026-08-31; si no hay firma, escalar a PMO para decisión de scope out del canal CAT en R4.
+
+---
+
 ### Media Severidad — Abiertos
 
 | ID | Descripción | Owner | Due date |
@@ -206,6 +225,27 @@ Arquitectura rechazó habilitar el servidor IBR por no cumplir requisito de nube
 | ID | Descripción | Fecha cierre |
 |----|-------------|-------------|
 | R03 | Confirmación de refuerzo equipo Appware | 22/07/2026 |
+
+---
+
+## Riesgos Regulatorios — R19-R26 (Barrido documental 2026-08-19)
+
+> Riesgos identificados durante el barrido documental de 257 artefactos del programa (2026-08-19).
+> Fuentes: mapa de capacidades Unity, Design Authority v1.2, minutas R4, `RAID_Log_Programa_Unity_R4_v2.0.xlsx`.
+> Componente: `reportes-regulatorios` — afecta directamente la capacidad de cumplimiento CNBV del programa.
+
+| ID | RAID ID | Descripción | Categoría | Impacto | Prob. | Owner | Due date |
+|----|---------|-------------|-----------|---------|-------|-------|----------|
+| R19 | REG-01 | Documentación CNBV desactualizada — hallazgos formales APO_F01 y SMA_F01: arquitectura aprobada no refleja herramientas adicionales reales | Regulatorio | critical | high | Mercedes Espinosa Cortés | Sin fecha |
+| R20 | REG-02 | Bajaware en decomiso 1er bimestre 2027 (ene-feb) mientras el documento CNBV lo declara como motor de reportes regulatorios activo | Arquitectura | critical | high | Por asignar | 2027-01-01 |
+| R21 | REG-03 | IC-83: pipelines DataStage se rompen al decomisar Informix (Exodus Ola 6); T-17 y T-19 en Confianza Baja sin definición documentada | Dependencia | high | high | Por asignar | Sin fecha |
+| R22 | REG-04 | Cobertura de Apolo y SmartVista en reportes regulatorios nunca evaluada — columnas de gap dicen literalmente "completar" | Alcance | high | medium | Selene Esparza | 2026-10-15 |
+| R23 | REG-05 | Reportes Regulatorios sin stream propio en R4 — anidado bajo "5 CONTABILIDAD"; capacidad 2.4.2 P1 con alcance no confirmado | Alcance | medium | high | PMO Unity | 2026-09-15 |
+| R24 | REG-06 | Código 43 SmartVista agrupa motivos de baja distintos — descuadre en reportes CNBV R-04-C | Calidad de datos | high | medium | BPC / Armando García | Sin fecha |
+| R25 | REG-07 | Homologación de comisiones bloqueada por normatividad — 2 User Stories Must sin avance hasta aprobación Banxico/RECO | Regulatorio | medium | medium | Por definir (PMO BanCoppel) | Sin fecha |
+| R26 | REG-08 | Exodus Ola 6 declara migrar Reportes Regulatorios CNBV pero no los inventaria — apps 96, 97 y 100 sin ola asignada | Dependencia | medium | high | Edgar Mejía (Exodus) / PMO | Sin fecha |
+
+**Hallazgo estructural regulatorio:** Los riesgos R19, R20 y R21 tienen impacto critical o equivalent — CNBV puede objetar el programa si no se regulariza la documentación, y la arquitectura de reportes queda sin motor si Bajaware se decomisa sin reemplazo. El barrido documental revela que el componente Reportes Regulatorios no tiene owner claro en el programa R4.
 
 ---
 

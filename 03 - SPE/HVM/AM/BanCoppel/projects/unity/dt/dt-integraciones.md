@@ -42,7 +42,7 @@ Todas API REST, tiempo real. 3 modificaciones de APIs existentes + 1 nueva (noti
 
 ### Track CAT — 7 integraciones
 
-6 APIs REST + 1 Evento. 6 nuevas + 1 modificación. CAT aún **no tiene proveedor contratado** (RISK-UNITY-R01).
+6 APIs REST + 1 Evento. 6 nuevas + 1 modificación. CAT aún **no tiene proveedor contratado** (RISK-UNITY-R27).
 
 | ID | HU | Nombre | Sistema Origen | Sistema Destino | Tipo | Estado | Complejidad | Existe Hoy |
 |----|-----|--------|---------------|----------------|------|--------|-------------|-----------|
@@ -55,7 +55,7 @@ Todas API REST, tiempo real. 3 modificaciones de APIs existentes + 1 nueva (noti
 | ICAT07 | HDU-CAT-R4-11 | Consultar productos y estatus de tarjetas SmartVista | ICCAT | SMARTVISTA | API | Nueva | Media | No |
 
 > **Bloqueo:** CAT sin proveedor contratado. Si el proveedor no firma antes del 2026-08-31, las 6 integraciones
-> nuevas de CAT quedan sin responsable técnico. Ver RISK-UNITY-R01.
+> nuevas de CAT quedan sin responsable técnico. Ver RISK-UNITY-R27.
 
 ---
 

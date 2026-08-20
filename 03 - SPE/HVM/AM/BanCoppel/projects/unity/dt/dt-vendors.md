@@ -17,7 +17,7 @@ Impacto directo: 12 HDUs · 2 capabilities (CAP-CHANNEL-SELFSERVICE + CAP-AUTHEN
 
 | Vendor | Rol | Componente | Status contrato | Riesgo principal |
 |--------|-----|-----------|-----------------|-----------------|
-| BPC Banking Technologies | Plataforma SmartVista | `smartvista` | Contratado | BYU0039 abierto + DPP no licenciado |
+| BPC Banking Technologies | Plataforma SmartVista + Soporte Cobranza Direccionada | `smartvista` · `cobranza` | Contratado | BYU0039 abierto + DPP no licenciado + Pentest nov conflicto SIT |
 | Appwhere | APOLO (originación) + DTMs SmartVista | `apolo` | Contratado | Latencia 9s PROD / 30s QA pendiente |
 | **Proveedor CAT** | Contact Center (IVR + agentes) | `cat` | **NO CONTRATADO** 🔴 | RISK-001 — deadline 31-ago |
 | GID (Giesecke & Devrient) | Maquila de tarjetas | `smartvista` | DATO-REQUERIDO | Certificación PGP/layout pendiente |
