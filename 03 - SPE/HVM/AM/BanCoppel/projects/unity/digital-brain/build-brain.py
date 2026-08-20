@@ -1,4 +1,4 @@
-"""
+﻿"""
 build-brain.py  --  Unity Project Brain Builder v1.4.0
 Construye brain.db con el conocimiento incubado del programa Unity.
 Fuente: forward-knowledge (productos, componentes, riesgos, cronograma, vocabulario)
@@ -12,6 +12,9 @@ Changelog:
     0.9.0  --  2026-08-16  app_user_stories (13 HUs canal App TDC F&D: backlog=8 release=3 removed=2)
     1.0.0  --  2026-08-16  user_stories_inventory (76 HUs scoring) + r4_integrations (18) + track_rag (5 tracks RAG Roadmap)
     1.1.0  --  2026-08-19  user_stories_inventory (79 HUs, +3 APP Encendido/Apagado TDC) + product_releases dual-plataforma
+    1.5.0  --  2026-08-20  Marco 3D SISTEMA: program_systems (11 sistemas TOGAF) +
+                           -- it_capabilities (13 capacidades IT del programa) +
+                           -- system_id en risks + system_id/itcapability_ids en user_stories_inventory
     1.4.0  --  2026-08-20  swarm2 QA: HDU-APP-R4-09 macro APP-MF-01→APP-MF-02
                            -- TA-SMARTVISTA integrations_api 7→5 (2 Batch)
                            -- TDC-R6 status retracted (DDL extended)
@@ -674,6 +677,26 @@ CREATE TABLE IF NOT EXISTS lifecycle_phase_steps (
     fuente      TEXT DEFAULT 'manual' CHECK(fuente IN ('manual','brain')),
     UNIQUE(phase_id, step_n)
 );
+CREATE TABLE IF NOT EXISTS program_systems (
+    id              TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    vendor          TEXT,
+    togaf_type      TEXT NOT NULL CHECK(togaf_type IN ('core','processors','channels','data','integration','compliance')),
+    togaf_state     TEXT NOT NULL CHECK(togaf_state IN ('baseline','transitional','target')),
+    togaf_abb       TEXT,
+    role_in_r4      TEXT,
+    status          TEXT DEFAULT 'active' CHECK(status IN ('active','at_risk','planned','retired')),
+    notes           TEXT
+);
+
+CREATE TABLE IF NOT EXISTS it_capabilities (
+    id              TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    description     TEXT,
+    category        TEXT,
+    owner_component TEXT
+);
+
 """
 
 # â"€â"€ Datos â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -684,7 +707,7 @@ PROJECT_INFO = {
     "platform":          "Temenos Transact",
     "client":            "BanCoppel",
     "state":             "active",
-    "brain_version":     "1.2.0",
+    "brain_version":     "1.5.0",
     "built_at":          datetime.now().isoformat(),
     "scope_note":        "PRESENTE (en produccion) + FUTURO (en construccion  --  R4 Producto 4900)",
 }
@@ -2716,8 +2739,52 @@ INITIAL_DECISIONS = [
 
 # â"€â"€ Funciones de carga â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
+
+# ── v1.5.0 Marco 3D SISTEMA ──────────────────────────────────────────────────
+
+PROGRAM_SYSTEMS = [
+    {"id": "smartvista",     "name": "SmartVista",          "vendor": "BPC Banking Technologies",  "togaf_type": "processors",  "togaf_state": "transitional", "togaf_abb": "SV",  "role_in_r4": "Motor de gestion de tarjetas TDC P4900 (autorizacion, ciclo de vida, MDM)",  "status": "active",  "notes": "Reemplaza CMS/Intercard/Macweb post-GoLive"},
+    {"id": "transact",       "name": "Temenos Transact",    "vendor": "Temenos",                   "togaf_type": "core",        "togaf_state": "target",       "togaf_abb": "TRN", "role_in_r4": "Core bancario destino: cuentas, originacion, contabilidad GL",               "status": "active",  "notes": "Plataforma target del programa Unity R4"},
+    {"id": "informix",       "name": "Informix IDS",        "vendor": "IBM (PISA)",                "togaf_type": "core",        "togaf_state": "baseline",     "togaf_abb": "INF", "role_in_r4": "Core bancario actual; fuente de reglas y logica de negocio a migrar",        "status": "active",  "notes": "10,144 SPs; 11,391 reglas; sistema de registro hasta cutover"},
+    {"id": "apolo",          "name": "Apolo",               "vendor": "Appwhere",                  "togaf_type": "channels",    "togaf_state": "transitional", "togaf_abb": "APO", "role_in_r4": "Canal digital para oferta y originacion de TDC",                            "status": "active",  "notes": "37 HDUs catalogados; bridge hacia Transact"},
+    {"id": "app-movil",      "name": "App Movil BanCoppel", "vendor": "Nova",                      "togaf_type": "channels",    "togaf_state": "transitional", "togaf_abb": "APP", "role_in_r4": "Canal movil: activacion, autorizacion TDC, pagos, consultas",               "status": "active",  "notes": "79 HUs inventariadas; canal principal cliente digital"},
+    {"id": "siweb",          "name": "SIWEB",               "vendor": "Interno BanCoppel",         "togaf_type": "channels",    "togaf_state": "baseline",     "togaf_abb": "SIW", "role_in_r4": "Canal web sucursal para operaciones de ventanilla y soporte",               "status": "active",  "notes": "Canal legacy; candidato a refactor post-R4"},
+    {"id": "cat",            "name": "CAT",                 "vendor": "Por contratar",             "togaf_type": "channels",    "togaf_state": "transitional", "togaf_abb": "CAT", "role_in_r4": "Canales alternativos de pago (TPV, corresponsales, kioscos)",               "status": "at_risk", "notes": "Proveedor sin contrato al 2026-08-31; riesgo RISK-UNITY-R27"},
+    {"id": "atlas",          "name": "Atlas (GCP)",         "vendor": "Google Cloud Platform",     "togaf_type": "data",        "togaf_state": "target",       "togaf_abb": "ATL", "role_in_r4": "Plataforma de datos analiticos y reportes regulatorios en la nube",         "status": "active",  "notes": "BigQuery + Dataflow; feeds desde Informix/Transact"},
+    {"id": "controlm",       "name": "Control-M",           "vendor": "BMC Software",              "togaf_type": "integration", "togaf_state": "baseline",     "togaf_abb": "CTM", "role_in_r4": "Orquestador de batch: cierre de dia, integraciones, reportes nocturnos",    "status": "active",  "notes": "Jobs criticos: estados de cuenta, comisiones, cobranza"},
+    {"id": "eglobal",        "name": "eGlobal",             "vendor": "Interno BanCoppel",         "togaf_type": "processors",  "togaf_state": "baseline",     "togaf_abb": "EGL", "role_in_r4": "Switch ISO 8583: 88 reglas de validacion de transacciones TDC",             "status": "active",  "notes": "Valida contra SmartVista en produccion; frontera critica"},
+    {"id": "connect-direct", "name": "Connect:Direct",      "vendor": "IBM Sterling",              "togaf_type": "integration", "togaf_state": "baseline",     "togaf_abb": "CDR", "role_in_r4": "Transferencia segura de archivos batch entre sistemas y VISA/MC",           "status": "at_risk", "notes": "Licencia a revisar; alternativa MFT en evaluacion"},
+]
+
+IT_CAPABILITIES = [
+    {"id": "ITC-QE",      "name": "Quality Engineering",       "description": "Testing shift-left: pruebas unitarias, integracion, regresion, performance y UAT en todos los tracks", "category": "delivery",       "owner_component": "QE"},
+    {"id": "ITC-DEVOPS",  "name": "DevOps & CI/CD",            "description": "Pipelines de integracion y despliegue continuo; automatizacion de builds y releases por track",         "category": "delivery",       "owner_component": "DevOps"},
+    {"id": "ITC-ENV",     "name": "Environment Management",    "description": "Gestion de ambientes DEV/QA/UAT/STG/PROD; aprovisionamiento IaC y configuracion parametrizada",          "category": "infrastructure", "owner_component": "Infra"},
+    {"id": "ITC-SEC",     "name": "Cybersecurity",             "description": "DevSecOps: SAST, SCA, secrets scan, DAST; cumplimiento CNBV/Banxico e ISO 27001",                        "category": "cross-cutting",  "owner_component": "Security"},
+    {"id": "ITC-INTEROP", "name": "Interoperability & APIs",   "description": "Diseno y gestion de APIs REST/AsyncAPI; patrones de integracion entre sistemas del ecosistema",          "category": "architecture",   "owner_component": "Interop"},
+    {"id": "ITC-DATA",    "name": "Data Management",           "description": "Calidad de datos, contratos de datos, migracion Informix a Transact y feeds analiticos a Atlas",         "category": "data",           "owner_component": "Data"},
+    {"id": "ITC-ARCH",    "name": "Architecture & Design",     "description": "Toma de decisiones arquitectonicas (ADRs), blueprint de sistemas, gobernanza tecnica del programa",      "category": "architecture",   "owner_component": "Arch"},
+    {"id": "ITC-CHG",     "name": "Change Management",         "description": "Gestion del cambio organizacional: capacitacion, comunicacion, adopcion de Transact por usuarios",       "category": "people",         "owner_component": "PMO"},
+    {"id": "ITC-AI",      "name": "AI/GenAI Engineering",      "description": "IA generativa para aceleracion: transpilacion SPL a Java, generacion de tests, analisis de codigo",     "category": "innovation",     "owner_component": "AI"},
+    {"id": "ITC-REL",     "name": "Release Management",        "description": "Coordinacion de releases por wave: CAB, ventanas de cambio, rollback plans y comunicacion",              "category": "delivery",       "owner_component": "Release"},
+    {"id": "ITC-VND",     "name": "Vendor & ITSM",             "description": "Gestion de contratos y SLAs con Temenos, BPC, Appwhere, BMC; ITSM para incidentes y cambios",           "category": "governance",     "owner_component": "ITSM"},
+    {"id": "ITC-OBS",     "name": "Observability & SRE",       "description": "Monitoreo RED metrics, tracing OTEL, alertas y SLOs del programa; Dynatrace/GCP Monitoring",             "category": "operations",     "owner_component": "SRE"},
+    {"id": "ITC-COMP",    "name": "Compliance & Regulatory",   "description": "Reportes CNBV (Anexos 33-36), cumplimiento Banxico, auditorias internas; trazabilidad reg.",             "category": "governance",     "owner_component": "Compliance"},
+]
+
+
 def init_db(con: sqlite3.Connection) -> None:
     con.executescript(DDL)
+    con.commit()
+    for _sql in [
+        "ALTER TABLE risks ADD COLUMN system_id TEXT REFERENCES program_systems(id)",
+        "ALTER TABLE user_stories_inventory ADD COLUMN system_id TEXT REFERENCES program_systems(id)",
+        "ALTER TABLE user_stories_inventory ADD COLUMN itcapability_ids TEXT",
+    ]:
+        try:
+            con.execute(_sql)
+        except Exception:
+            pass
     con.commit()
 
 
@@ -5603,6 +5670,30 @@ def load_plan_progress(con: sqlite3.Connection) -> None:
 
 # â"€â"€ Main â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
+
+def load_program_systems(con) -> None:
+    for s in PROGRAM_SYSTEMS:
+        con.execute(
+            """INSERT OR REPLACE INTO program_systems
+                (id, name, vendor, togaf_type, togaf_state, togaf_abb, role_in_r4, status, notes)
+                VALUES (:id, :name, :vendor, :togaf_type, :togaf_state, :togaf_abb, :role_in_r4, :status, :notes)""",
+            s,
+        )
+    con.commit()
+    print(f"  program_systems   : {len(PROGRAM_SYSTEMS)} sistemas TOGAF")
+
+
+def load_it_capabilities(con) -> None:
+    for c in IT_CAPABILITIES:
+        con.execute(
+            """INSERT OR REPLACE INTO it_capabilities (id, name, description, category, owner_component)
+                VALUES (:id, :name, :description, :category, :owner_component)""",
+            c,
+        )
+    con.commit()
+    print(f"  it_capabilities   : {len(IT_CAPABILITIES)} capacidades IT")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Unity Project Brain Builder v1.4.0")
     parser.add_argument("--reset", action="store_true", help="Borra y reconstruye brain.db")
@@ -5643,7 +5734,9 @@ def main() -> None:
     load_track_rag(con)        # v1.0.0  --  5 tracks RAG (PPTX Roadmap 11-ago-2026)
     load_legacy_systems(con)   # v1.2.0  --  14 sistemas legado/ecosistema (barrido documental 2026-08-19)
     load_audit_findings(con)   # v1.2.0  --  19 hallazgos del barrido (cifras, correcciones, ambiguedades)
-    load_lifecycle_phase_steps(con)  # v1.3.0  --  48 pasos cadena de valor TDC (8 fases, brain+manual)
+    load_lifecycle_phase_steps(con)
+    load_program_systems(con)
+    load_it_capabilities(con)  # v1.3.0  --  48 pasos cadena de valor TDC (8 fases, brain+manual)
     rebuild_fts(con)
     coverage_summary(con)
     semantic_summary(con)     # v0.6.1  --  vista capability_360
