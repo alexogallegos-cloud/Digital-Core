@@ -1,5 +1,5 @@
 """
-build-brain.py  --  Unity Project Brain Builder v1.3.0
+build-brain.py  --  Unity Project Brain Builder v1.4.0
 Construye brain.db con el conocimiento incubado del programa Unity.
 Fuente: forward-knowledge (productos, componentes, riesgos, cronograma, vocabulario)
         --  diferente al brain de Informix que analiza cÃ³digo existente.
@@ -12,6 +12,11 @@ Changelog:
     0.9.0  --  2026-08-16  app_user_stories (13 HUs canal App TDC F&D: backlog=8 release=3 removed=2)
     1.0.0  --  2026-08-16  user_stories_inventory (76 HUs scoring) + r4_integrations (18) + track_rag (5 tracks RAG Roadmap)
     1.1.0  --  2026-08-19  user_stories_inventory (79 HUs, +3 APP Encendido/Apagado TDC) + product_releases dual-plataforma
+    1.4.0  --  2026-08-20  swarm2 QA: HDU-APP-R4-09 macro APP-MF-01→APP-MF-02
+                           -- TA-SMARTVISTA integrations_api 7→5 (2 Batch)
+                           -- TDC-R6 status retracted (DDL extended)
+                           -- RISK-UNITY-R27 CAT sin proveedor (due 2026-08-31)
+                           -- dt-appmovil.md RAG corrected YELLOW; DTs creados
     1.3.0  --  2026-08-20  Swarm QA: correcciones verificadas contra source/docs (5 agentes paralelos)
                            -- program_capabilities: 3 coverage_status corregidos (not_covered->partial:
                               CAP-CARD-MANUFACTURING, CAP-DEFERRED-PURCHASE, CAP-BALANCE-STATEMENT)
@@ -87,7 +92,7 @@ CREATE TABLE IF NOT EXISTS product_releases (
     release_label    TEXT,
     platform_release TEXT,
     scope            TEXT,
-    status           TEXT CHECK(status IN ('productivo','building','backlog','sin-definir','abierto')),
+    status           TEXT CHECK(status IN ('productivo','building','backlog','sin-definir','abierto','retracted')),
     release_date     TEXT,
     functionalities  INTEGER,
     channels         TEXT,
@@ -1277,7 +1282,7 @@ PRODUCT_RELEASES = [
      "'ATM + tarjetas adicionales + corresponsales -> R5' que se uso antes NO existe en la "
      "documentacion, y para corresponsales la evidencia apunta a que estan DENTRO de R4."),
     ("TDC-R6", "UNITY-R4-P4900", "R6", None,
-     "Sin alcance definido. RETRACTADO: era valor lista validacion RAID v2.0 (Excel)", "sin-definir", None, None, None,
+     "Sin alcance definido. RETRACTADO: era valor lista validacion RAID v2.0 (Excel)", "retracted", None, None, None,
      "Una sola mencion en todo el corpus: Minuta_CAT_27072026, 'los releases siguientes (R4.5, R5, "
      "R6)'. Es tambien el unico lugar donde R4.5 y R5 conviven como releases secuenciales distintos."),
     ("CSE-R1", "UNITY-RX-P-PS", "R1", "Transact R4",
@@ -1644,6 +1649,15 @@ INITIAL_RISKS = [
         "due_date": None, "owner": "Edgar Mejia (Exodus) / PMO Unity", "source": "Barrido documental 2026-08-19",
         "notes": "Potencial gap de migracion para los reportes al cierre del datacenter (Exodus Ola 6, 2029-H2).",
     },
+    {"id": "RISK-UNITY-R27", "raid_id": None, "description": "Proveedor CAT no contratado  --  Contact Center sin equipo tecnico responsable de 12 HUs y 6 integraciones nuevas hacia SmartVista",
+     "component_id": "cat", "category": "vendor", "impact": "high", "probability": "high",
+     "status": "open",
+     "mitigation": "Contratar proveedor antes del 2026-08-31; si no hay firma, escalar a PMO para decision de scope out",
+     "due_date": "2026-08-31", "owner": "PMO Unity",
+     "source": "dt-vendors.md + dt-integraciones.md",
+     "notes": "Deadline critico: si no hay firma antes de 2026-08-31, las 6 integraciones nuevas CAT->SmartVista "
+              "(ICAT01/02/04/05/06/07) no tendran responsable tecnico para SIT oct-nov 2026. "
+              "Referenciado en CLAUDE.md como RISK-001."},
 ]
 
 # -- Sistemas del legado y ecosistema Unity (v1.2.0) --------------------------
@@ -2377,7 +2391,7 @@ HDU_CATALOG = [
      "narrativa_corta": "Consultar movimientos del periodo (getTransactions v22)", "pregame_status": "partial",
      "dtm_id": None,
      "notes": "Movimientos en SVIP; filtros y UI a construir; distincion MSI/MCI vs normal"},
-    {"id": "HDU-APP-R4-09", "canal": "app", "funcionalidad_macro": "APP-MF-01",
+    {"id": "HDU-APP-R4-09", "canal": "app", "funcionalidad_macro": "APP-MF-02",
      "narrativa_corta": "Consultar estado de planes de compras diferidas (CrediSoluciones)", "pregame_status": "partial",
      "dtm_id": None,
      "notes": "Planes en SmartVista; visualizacion de CrediSoluciones a construir"},
@@ -3237,8 +3251,8 @@ TRACK_ANALYSIS = [
         "hu_total": 22, "hu_must": 11, "hu_should": 10, "hu_could": 0, "hu_wont": 1,
         "hu_tipo_solucion": 15, "hu_tipo_integracion": 1, "hu_tipo_mixta": 6,
         "complexity_low": 2, "complexity_mid": 16, "complexity_high": 4, "complexity_pending": 0,
-        "integrations_total": 7, "integrations_api": 7, "integrations_event": 0,
-        "apificacion_scope": "2 integraciones omnicanal (SV->SIWEB y SV->APP)",
+        "integrations_total": 7, "integrations_api": 5, "integrations_event": 0,
+        "apificacion_scope": "2 integraciones omnicanal (SV->SIWEB y SV->APP). Nota: 2 Batch (ISV01 AWS→Informix y ISV02 AFT Connect Direct) contabilizadas en total pero no en api",
         "key_risk": "Won't: 'Excluir abonos bancarios del lÃ­mite' descartada formalmente por Negocio",
         "key_decision": "18 HUs resueltas por combinaciÃ³n desarrollo+configuraciÃ³n; 3 por desarrollo puro",
         "source_doc": "20260806 - R4 SMARTVISTA - Analisis detallado HDUs e Integraciones.docx",
@@ -5578,7 +5592,7 @@ def load_plan_progress(con: sqlite3.Connection) -> None:
 # â"€â"€ Main â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Unity Project Brain Builder v1.3.0")
+    parser = argparse.ArgumentParser(description="Unity Project Brain Builder v1.4.0")
     parser.add_argument("--reset", action="store_true", help="Borra y reconstruye brain.db")
     args = parser.parse_args()
 
@@ -5590,7 +5604,7 @@ def main() -> None:
     con = sqlite3.connect(str(DB_PATH))
     con.execute("PRAGMA journal_mode=WAL")
 
-    print("Construyendo Unity Project Brain v1.3.0...")
+    print("Construyendo Unity Project Brain v1.4.0...")
     init_db(con)
     load_project_info(con)
     load_products(con)

@@ -79,7 +79,7 @@ El `bank-brain` federa este brain para responder:
 | ID | Producto | Segmento | Status | Release | Plataforma | Reemplaza |
 |----|----------|----------|--------|---------|------------|-----------|
 | UNITY-R4-P4900 | **Tarjeta de Crédito** | Persona física | `building` | **SmartVista R4** ✓ | SmartVista (BPC) + APOLO | CMS / Intercard / Macweb |
-| UNITY-RX-P-PS | **Crédito Simple Empresarial** | **Persona moral** | `planned` | **Transact R4** ✓ | Temenos Transact (CBS) | — |
+| UNITY-RX-P-PS | **Crédito Simple Empresarial** | **Persona moral** | `live` | **Transact R4** ✓ | Temenos Transact (CBS) | — |
 
 **Fuera del alcance de dos productos** (`scope = prior-scope`) — productos de captación en producción sobre Transact, no listados en el documento CNBV:
 
@@ -418,15 +418,15 @@ Ver `dt/dt-riesgos.md` para los 10 riesgos con detalle completo.
 
 ---
 
-## brain.db — Estado v1.2.0 (2026-08-20)
+## brain.db — Estado v1.4.0 (2026-08-20)
 
 > Build canónico generado por `build-brain.py --reset`. Tablas Marco 3D (`program_stakeholders`, `program_systems`, `it_capabilities`) pendientes de implementar en `build-brain.py` — ver Próximos Pasos.
 
 | Tabla | Registros | Notas |
 |-------|-----------|-------|
 | `products` | 5 | 2 cnbv-scope (TDC P4900 · CSE) + 3 prior-scope (CED N4 · Nómina N4 · Cuenta Efectiva N2) · campo `scope` añadido v1.1.0 |
-| `product_releases` | 8 | **NUEVO v1.1.0** — TDC: R1(dic-2024) R2(jul-2025) R3(sep-2025) R4(building) R4.5 R5 R6+ · CSE: R1(building) · 4 productivos |
-| `program_capabilities` | 14 | Spine del brain — 1 configurable + 8 partial + 4 not_covered + 1 tbd · bloqueadas: 4 |
+| `product_releases` | 8 | **NUEVO v1.1.0** — TDC: R1(dic-2024) R2(jul-2025) R3(sep-2025) R4(building) R4.5 R5 R6+ · CSE: R1(productivo) · 4 productivos |
+| `program_capabilities` | 16 | Spine del brain — 1 configurable + 8 partial + 4 not_covered + 1 tbd · bloqueadas: 4 |
 | `program_components` | 8 | 8 componentes R4 (2 en riesgo, 1 bloqueado) |
 | `hdu_catalog` | 58 | 4 canales: SV(22) APP(20) CAT(12) SIWEB(5) — todos con capability_id |
 | `dtm_catalog` | 14 | 5 con gap crítico — todos con capability_id |
@@ -444,10 +444,10 @@ Ver `dt/dt-riesgos.md` para los 10 riesgos con detalle completo.
 | `app_user_stories` | 13 | User Stories Jira canal App TDC F&D: backlog(8) release(3) removed(2) · SMART-3962…4531 |
 | `user_stories_inventory` | 79 | **Actualizado v1.1.0** — Inventario con scoring MoSCoW: must=46 should=28 · apolo:22 app:18 cat:12 siweb:5 smartvista:22 · 3 HUs APP-ENC-nn añadidas |
 | `r4_integrations` | 18 | Integraciones R4: API(15) Batch(2) Evento(1) · Nueva(9) Modificar(9) · SmartVista(7)+CAT(7)+APP(4) |
-| `track_rag` | 5 | RAG por track (PPTX 11-ago): red=app,cat · yellow=smartvista,siweb,apolo · fuente: Roadmap Accenture |
-| `legacy_systems` | 14 | **NUEVO v1.2.0** — sistemas del ecosistema Unity (no del core Informix): core-app(2) · middleware(4) · rules-engine(4) · document-mgmt(1) · mdm(1) · rpa(1) · other(1) · core_path=2 (InterAct+IBM-BUS) |
+| `track_rag` | 5 | RAG por track (PPTX 11-ago): red=cat · yellow=app,smartvista,siweb,apolo · fuente: Roadmap Accenture |
+| `legacy_systems` | 14 | **NUEVO v1.2.0** — sistemas del ecosistema Unity (no del core Informix): core-app(2) · middleware(4) · rules-engine(2) · risk-management(1) · regulatory-reporting(1) · document-mgmt(1) · mdm(1) · rpa(1) · other(1) · core_path=2 (InterAct+IBM-BUS) |
 | `audit_findings` | 19 | **NUEVO v1.2.0** — hallazgos barrido documental 2026-08-19: cifra-huerfana(3) · correccion(5) · ambiguedad(3) · hallazgo(5) · dato-requerido(3) · 7 abiertos |
-| `risks` | 26 | **26 riesgos** (12 alta, 1 cerrado) — incluye 8 nuevos Reportes Regulatorios añadidos barrido 2026-08-19 |
+| `risks` | 27 | **27 riesgos** (12 alta, 1 cerrado) — incluye 8 nuevos Reportes Regulatorios añadidos barrido 2026-08-19 |
 | `raid_assumptions` | 4 | Supuestos RAID (sin validar) |
 | `raid_issues` | 3 | Issues RAID (todos alta severidad) |
 | `raid_dependencies` | 2 | Dependencias RAID (ambas severas) |
