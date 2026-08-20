@@ -1,16 +1,35 @@
-# Exodus — Programa de Migración de Datacenters a la Nube (BanCoppel)
-# project_type: datacenter-exit-and-cloud-migration
+# Exodus — Programa de Modernización de Aplicaciones BanCoppel (AWS ProServe)
+# project_type: application-modernization
 # project_state: active
+# executor: AWS ProServe
+# spectrum: lift-and-shift → modernización progresiva (refactorización de SPLs → microservicios)
 # platform: AWS EKS + YugabyteDB + Kafka/Debezium CDC
 # horizon_present: 636 hosts on-premise en 3 sites (Ciudad de México, Monterrey, Culiacán)
 # horizon_future: apagado total de datacenters México y decomiso de Informix
 # replaces_or_complements: complementa a projects/unity (Exodus migra, Unity construye el TO-BE)
 
-> **Tipo:** Programa de migración de infraestructura y refactorización de legado
+> **Tipo:** Programa de modernización de aplicaciones — espectro completo desde lift & shift hasta refactorización de SPLs a microservicios Java 21
+> **Ejecutor:** AWS ProServe
 > **Estado:** `[STATE: ACTIVE]` — Ola 0 en curso (Q3–Q4 2026)
 > **Horizonte:** 2026 a 2030, con meta interna de diciembre 2029
 > **Descubierto:** 2026-08-19, por barrido documental del corpus de Unity
-> **Última actualización:** 2026-08-19
+> **Última actualización:** 2026-08-20
+
+---
+
+## Contexto de engagement
+
+**Ejecutor**: AWS ProServe es el integrador del programa Exodus. BanCoppel es el cliente. Accenture participa en el rol de documentación, análisis de AS-IS y generación del knowledge base que alimenta la planeación.
+
+**Espectro de modernización**: Exodus no es solo lift & shift ni solo refactorización. Cubre el espectro completo según la clasificación APO por aplicativo:
+- **Lift & shift** (rehosting): apps clasificadas "Tolerar (Mantener)" — se mueven a la nube sin cambiar el código
+- **Refactorización progresiva**: apps "Migrar (Transformar)" — se adaptan a microservicios con cambios moderados
+- **Modernización profunda**: apps "Invertir (Innovar)" — refactorización completa de SPLs Informix a Java 21 + YugabyteDB
+- **Decomiso**: apps "Eliminar (Deprecar)" — se apagan sin reemplazo en la nube
+
+**Implicación para los conteos de SPL**: el delta entre los 7,480 SPLs que Exodus planea refactorizar y los 11,391 del brain puede explicarse parcialmente si las apps de lift & shift no requieren tocar los SPLs. Sin embargo, ese supuesto no está documentado en las fichas — es una hipótesis que requiere confirmación (ver EXO-R001).
+
+**Rol de este brain**: el brain de Exodus (`digital-brain/brain.db`) y los análisis derivados son artefactos del plan del engagement — input para la planeación de AWS ProServe y para el gobierno del programa por parte de BanCoppel.
 
 ---
 
