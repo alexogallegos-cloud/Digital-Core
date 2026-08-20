@@ -21,13 +21,17 @@
 
 **Ejecutor**: AWS ProServe es el integrador del programa Exodus. BanCoppel es el cliente. Accenture participa en el rol de documentación, análisis de AS-IS y generación del knowledge base que alimenta la planeación.
 
-**Espectro de modernización**: Exodus no es solo lift & shift ni solo refactorización. Cubre el espectro completo según la clasificación APO por aplicativo:
-- **Lift & shift** (rehosting): apps clasificadas "Tolerar (Mantener)" — se mueven a la nube sin cambiar el código
-- **Refactorización progresiva**: apps "Migrar (Transformar)" — se adaptan a microservicios con cambios moderados
-- **Modernización profunda**: apps "Invertir (Innovar)" — refactorización completa de SPLs Informix a Java 21 + YugabyteDB
-- **Decomiso**: apps "Eliminar (Deprecar)" — se apagan sin reemplazo en la nube
+**Framework de clasificación**: Exodus usa el framework **APO (Application Portfolio Optimization)** con cuatro categorías. Las 7Rs de AWS **no aparecen en ningún documento fuente** — ni "rehost", ni "replatform", ni "7R", ni "lift & shift". La estrategia nombrada en el informe ejecutivo es el **Strangler Fig Pattern**.
 
-**Implicación para los conteos de SPL**: el delta entre los 7,480 SPLs que Exodus planea refactorizar y los 11,391 del brain puede explicarse parcialmente si las apps de lift & shift no requieren tocar los SPLs. Sin embargo, ese supuesto no está documentado en las fichas — es una hipótesis que requiere confirmación (ver EXO-R001).
+Las cuatro categorías APO y su significado operativo según los racionales reales de las fichas:
+- **Invertir (Innovar)**: varía por app — puede ser rediseño en EKS, descomposición DDD hacia Transact, o reemplazo por producto nuevo (Interact Router → Kafka+MuleSoft). No es una sola estrategia.
+- **Tolerar (Mantener)**: también varía — algunos apps se mueven a AWS EKS (App Móvil), otros a AWS SNS/SQS (Mensajería), otros se mantienen sin cambio (Auth infra). No es lift & shift puro.
+- **Migrar (Transformar)**: refactorización moderada o reemplazo progresivo (Bus IBM → MuleSoft).
+- **Eliminar (Deprecar)**: SIWEB y OFI se desactivan; Aclaraciones se reemplaza por módulo SaaS.
+
+**Fuente de verdad pendiente**: existe `source/docs/Inventario 20260803/Clasificacion_APO.xlsx` y `Fuentedatos_APO.xlsx` — la tabla maestra de decisiones APO por aplicativo. No han sido procesados en el brain. Ahí debería estar la lógica formal de clasificación que usó AWS ProServe.
+
+**Implicación para EXO-R001**: el delta de ~3,911 SPLs (brain 11,391 vs Exodus 7,480) no puede explicarse simplemente con "lift & shift no toca SPLs" porque la categoría Tolerar no es lift & shift uniforme. La explicación requiere procesar el `Clasificacion_APO.xlsx` para ver qué apps tienen SPLs Informix reales asignados.
 
 **Rol de este brain**: el brain de Exodus (`digital-brain/brain.db`) y los análisis derivados son artefactos del plan del engagement — input para la planeación de AWS ProServe y para el gobierno del programa por parte de BanCoppel.
 
@@ -222,7 +226,7 @@ Declaradas en `brain.db::cross_dependencies` conforme a la Regla B5. Todas outbo
 - [x] `brain.py` con interfaz estándar de 5 métodos más `reconciliation`
 - [x] 8 dependencias cross-programa y 7 preguntas abiertas registradas
 - [ ] **Propagar dependencias (Regla B10)** a los brains de Informix y Unity
-- [ ] Procesar `source/docs/Inventario 20260803/` — 6 xlsx, incluye `Inventario_bdanalisis.xlsx` (los 17,380 SPLs) y `Clasificacion_APO.xlsx`
+- [ ] **Procesar `Clasificacion_APO.xlsx` y `Fuentedatos_APO.xlsx`** — tabla maestra de decisiones APO por aplicativo usada por AWS ProServe; necesaria para cerrar EXO-R001 (delta SPLs) y EXO-Q08 (unidad del campo SPL)
 - [ ] Cruzar las 30 aplicaciones de Exodus contra los 29 dominios D01-D49 del brain de Informix
 - [ ] Emitir seeds (Regla B11) hacia Informix, Unity, App Móvil, SPEI, E-Global, DataStage y Contabilidad
 - [ ] Conseguir documentación de **ACDC**
