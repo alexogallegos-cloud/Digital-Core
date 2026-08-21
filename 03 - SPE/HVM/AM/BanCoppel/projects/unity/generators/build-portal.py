@@ -1369,7 +1369,7 @@ TOGAF_TYPE_COLOR = {
 }
 
 TOGAF_STATE_LABEL = {
-    "baseline":     "AS-IS",
+    "baseline":     "",
     "transitional": "EN MIGRACIÓN",
     "target":       "TO-BE",
 }
@@ -1378,7 +1378,7 @@ SDLC_PHASES_LIST = ["DISCOVER", "DESIGN", "BUILD", "TEST", "RELEASE", "OPERATE"]
 
 SYSTEM_SDLC = {
     "informix": {
-        "sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",
+        "exclude": True, "sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",
         "summary": "Core bancario actual (AIX/POWER). Sistema de registro hasta el cutover. Fuente de 10,144 SPs y 11,391 reglas de negocio a migrar a Transact.",
         "milestones": [
             {"label": "Sistema en produccion (baseline)",      "date": "< 2024",    "status": "done"},
@@ -1437,7 +1437,7 @@ SYSTEM_SDLC = {
         "capabilities_impacted": ["CAP-PAYMENT","CAP-BALANCE-STATEMENT","CAP-DEFERRED-PURCHASE","CAP-COLLECTIONS-AGING","CAP-CARD-LIFECYCLE","CAP-ONBOARDING-DIGITAL"],
     },
     "siweb": {
-        "sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",
+        "exclude": True, "sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",
         "summary": "Canal web de sucursal (interno BanCoppel). Operaciones de ventanilla y soporte al cliente. Sistema baseline; candidato a refactor post-R4.",
         "milestones": [
             {"label": "Sistema en produccion (baseline)",      "date": "< 2024",    "status": "done"},
@@ -1469,7 +1469,7 @@ SYSTEM_SDLC = {
         "capabilities_impacted": ["CAP-BALANCE-STATEMENT","CAP-COLLECTIONS-AGING","CAP-FEE-COMMISSION"],
     },
     "controlm": {
-        "sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",
+        "exclude": True, "sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",
         "summary": "Orquestador de batch BMC Control-M. Jobs criticos: cierre de dia, comisiones, cobranza, estados de cuenta nocturnos. Permanece como baseline en R4.",
         "milestones": [
             {"label": "Sistema en produccion (baseline)",      "date": "< 2024",    "status": "done"},
@@ -1490,7 +1490,7 @@ SYSTEM_SDLC = {
         "capabilities_impacted": ["CAP-CARD-LIFECYCLE","CAP-PAYMENT"],
     },
     "connect-direct": {
-        "sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "yellow",
+        "exclude": True, "sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "yellow",
         "summary": "Transferencia segura de archivos batch (IBM Sterling). Mueve archivos entre sistemas internos y redes VISA/MC. Licencia a revisar — alternativa MFT en evaluacion.",
         "milestones": [
             {"label": "Sistema en produccion (baseline)",      "date": "< 2024",    "status": "done"},
@@ -1510,15 +1510,16 @@ def build_systems_page(brain_path: str, out_dir) -> None:
     import sqlite3 as _sq
 
     con = _sq.connect(brain_path)
-    systems = con.execute(
-        "SELECT id, name, vendor, togaf_type, togaf_state, togaf_abb, role_in_r4, status, notes "
-        "FROM program_systems ORDER BY togaf_type, id"
-    ).fetchall()
+    systems = [
+        r for r in con.execute(
+            "SELECT id, name, vendor, togaf_type, togaf_state, togaf_abb, role_in_r4, status, notes "
+            "FROM program_systems ORDER BY togaf_type, id"
+        ).fetchall()
+        if not SYSTEM_SDLC.get(r[0], {}).get('exclude', False)
+    ]
     caps = {r[0]: {'name': r[1], 'status': r[2]} for r in con.execute(
         "SELECT id, name, coverage_status FROM program_capabilities"
     ).fetchall()}
-    con.close()
-
     systems_js = {}
     for row in systems:
         sid, name, vendor, ttype, tstate, tabb, role, st, notes = row
@@ -1555,27 +1556,76 @@ def build_systems_page(brain_path: str, out_dir) -> None:
                    "channels": "Canales", "data": "Datos", "integration": "Integracion",
                    "compliance": "Compliance"}
 
-    sidebar_html = ""
+    # --- R4 sidebar ---
+    sidebar_r4 = ""
     for ttype in type_order:
         items = by_type.get(ttype, [])
         if not items:
             continue
         color = TOGAF_TYPE_COLOR.get(ttype, "#666")
         lbl = type_labels.get(ttype, ttype.upper())
-        sidebar_html += '<div class="sb-group">'
-        sidebar_html += f'<div class="sb-group-label" style="color:{color}">{lbl}</div>'
+        sidebar_r4 += '<div class="sb-group">'
+        sidebar_r4 += f'<div class="sb-group-label" style="color:{color}">{lbl}</div>'
         for sid, name, tstate, sts in items:
             dot_color = {"green": "#4CAF50", "yellow": "#FFC107", "red": "#FF5252"}.get(sts, "#888")
             state_chip = TOGAF_STATE_LABEL.get(tstate, tstate)
             oc = "selectSys('" + sid + "')"
-            sidebar_html += f'<div class="sb-item" data-sys="{sid}" onclick="{oc}">'
-            sidebar_html += f'<span class="sb-dot" style="background:{dot_color}"></span>'
-            sidebar_html += f'<span class="sb-name">{name}</span>'
-            sidebar_html += f'<span class="sb-state">{state_chip}</span>'
-            sidebar_html += '</div>'
-        sidebar_html += '</div>'
+            sidebar_r4 += f'<div class="sb-item" data-sys="{sid}" onclick="{oc}">'
+            sidebar_r4 += f'<span class="sb-dot" style="background:{dot_color}"></span>'
+            sidebar_r4 += f'<span class="sb-name">{name}</span>'
+            if state_chip:
+                sidebar_r4 += f'<span class="sb-state">{state_chip}</span>'
+            sidebar_r4 += '</div>'
+        sidebar_r4 += '</div>'
+
+    # --- Legacy sidebar ---
+    legacy_rows = con.execute(
+        "SELECT id, name, acronym, type, provider, unity_relation, notes FROM legacy_systems ORDER BY unity_relation, name"
+    ).fetchall()
+    con.close()
+
+    FATE_LABEL = {
+        "to-replace": "A reemplazar", "to-decommission": "A decommissionar",
+        "coexists": "Coexiste", "complementary": "Complementario",
+        "data-source": "Fuente de datos", "unknown": "Por confirmar",
+    }
+    FATE_DOT = {
+        "to-replace": "#FF5252", "to-decommission": "#FF7043",
+        "coexists": "#FFC107", "complementary": "#4CAF50",
+        "data-source": "#7B9FFF", "unknown": "#888",
+    }
+    sidebar_leg = '<div class="sb-group">'
+    sidebar_leg += '<div class="sb-group-label" style="color:#9e9e9e">Ecosistema AS-IS</div>'
+    for lid, lname, lacronym, ltype, lprov, lfate, lnotes in legacy_rows:
+        dot = FATE_DOT.get(lfate, "#888")
+        oc2 = "selectLegacy('" + lid + "')"
+        sidebar_leg += f'<div class="sb-item" data-leg="{lid}" onclick="{oc2}">'
+        sidebar_leg += f'<span class="sb-dot" style="background:{dot}"></span>'
+        sidebar_leg += f'<span class="sb-name">{lname}</span>'
+        sidebar_leg += '</div>'
+    sidebar_leg += '</div>'
+
+    legacy_json = _json.dumps({
+        r[0]: {"id": r[0], "name": r[1], "acronym": r[2] or r[0],
+               "type": r[3], "provider": r[4] or "—", "fate": r[5],
+               "fate_label": FATE_LABEL.get(r[5], r[5]),
+               "notes": r[6] or ""}
+        for r in legacy_rows
+    }, ensure_ascii=False, indent=2)
+
+    _oc_r4  = "setView('r4')"
+    _oc_leg = "setView('legacy')"
+    sidebar_html = (
+        '<div class="sb-view-toggle">'
+        f'<button class="sv-btn active" id="btn-r4" onclick="{_oc_r4}">R4 Delivery</button>'
+        f'<button class="sv-btn" id="btn-leg" onclick="{_oc_leg}">Legados</button>'
+        '</div>'
+        '<div class="r4-view" id="view-r4">' + sidebar_r4 + '</div>'
+        '<div class="legacy-view" id="view-leg">' + sidebar_leg + '</div>'
+    )
 
     sdlc_phases_js = _json.dumps(SDLC_PHASES_LIST)
+    leg_json_str = legacy_json
     sys_json_str = systems_json
 
     html_parts = []
@@ -1651,6 +1701,32 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#0a1628;color:#e8eaf6;mi
 .summary-box{background:rgba(255,255,255,.04);border-left:3px solid #7B9FFF;border-radius:0 8px 8px 0;padding:12px 16px;font-size:.82rem;color:#9fa8da;line-height:1.6}
 .impact-empty{font-size:.78rem;color:rgba(255,255,255,.25);font-style:italic}
 ''')
+    html_parts.append('''
+.sb-divider{height:1px;background:rgba(255,255,255,.06);margin:12px 8px}
+.sb-section-title{font-size:.6rem;letter-spacing:.15em;color:rgba(255,255,255,.22);padding:12px 16px 4px;text-transform:uppercase}
+.sb-view-toggle{display:flex;gap:4px;padding:8px 10px 4px}
+.sv-btn{flex:1;padding:6px 0;border:none;border-radius:6px;font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;font-weight:700;cursor:pointer;transition:.15s}
+.sv-btn.active{background:#7B9FFF;color:#0a1628}
+.sv-btn:not(.active){background:rgba(255,255,255,.06);color:rgba(255,255,255,.4)}
+.legacy-view{display:none}
+.r4-view{}
+.legacy-panel{display:none}
+.legacy-panel.visible{display:block}
+.legacy-hdr{display:flex;align-items:flex-start;gap:16px;margin-bottom:24px}
+.legacy-abb{width:56px;height:56px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:800;color:#fff;flex-shrink:0;background:#444;letter-spacing:.04em}
+.fate-chip{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.fate-to-replace{background:rgba(255,82,82,.2);color:#FF5252}
+.fate-to-decommission{background:rgba(255,82,82,.15);color:#FF7043}
+.fate-coexists{background:rgba(255,193,7,.15);color:#FFC107}
+.fate-complementary{background:rgba(76,175,80,.15);color:#4CAF50}
+.fate-data-source{background:rgba(123,159,255,.15);color:#7B9FFF}
+.fate-unknown{background:rgba(255,255,255,.08);color:rgba(255,255,255,.4)}
+.legacy-notes{background:rgba(255,255,255,.04);border-left:3px solid #444;border-radius:0 8px 8px 0;padding:12px 16px;font-size:.8rem;color:#9fa8da;line-height:1.6;margin-top:12px}
+.legacy-meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.legacy-meta-item{background:rgba(255,255,255,.03);border-radius:6px;padding:10px 12px}
+.lmi-label{font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:3px}
+.lmi-value{font-size:.8rem;color:#c5cae9}
+''')
     html_parts.append('</style>')
     html_parts.append('</head>')
     html_parts.append('<body>')
@@ -1710,7 +1786,7 @@ function selectSys(id) {
     +'<div class="sys-vendor">'+s.vendor+'</div>'
     +'<div class="sys-chips">'
     +'<span class="chip" style="background:'+s.color+'22;color:'+s.color+'">'+s.togaf_type.toUpperCase()+'</span>'
-    +'<span class="chip chip-'+stCls+'">'+stLbl+'</span>'
+    +(stLbl ? '<span class="chip chip-'+stCls+'">'+stLbl+'</span>' : '')
     +'<span class="chip '+actCls+'">'+actLbl+'</span>'
     +'</div></div></div>'
     +'<div class="section"><div class="sec-title">Rol en el Programa</div>'
@@ -1726,6 +1802,48 @@ function selectSys(id) {
     +'<div class="milestones">'+msH+'</div></div>'
     +'<div class="section"><div class="sec-title">Impacto en Vista de Producto &mdash; Capabilities</div>'
     +'<div class="caps-grid">'+capsH+'</div></div>';
+}
+const LEGACY = ''' + leg_json_str + ''';
+const FATE_CLS = {
+  'to-replace':'fate-to-replace','to-decommission':'fate-to-decommission',
+  'coexists':'fate-coexists','complementary':'fate-complementary',
+  'data-source':'fate-data-source','unknown':'fate-unknown'
+};
+function setView(v) {
+  document.getElementById('view-r4').style.display = v==='r4'?'':'none';
+  document.getElementById('view-leg').style.display = v==='legacy'?'':'none';
+  document.getElementById('btn-r4').classList.toggle('active', v==='r4');
+  document.getElementById('btn-leg').classList.toggle('active', v==='legacy');
+  document.getElementById('placeholder').style.display = '';
+  document.getElementById('sys-panel').classList.remove('visible');
+  const lp = document.getElementById('legacy-panel');
+  if (lp) { lp.style.display='none'; lp.innerHTML=''; }
+}
+function selectLegacy(id) {
+  document.querySelectorAll('.sb-item').forEach(el => el.classList.toggle('active', el.dataset.leg === id));
+  const l = LEGACY[id]; if (!l) return;
+  document.getElementById('placeholder').style.display = 'none';
+  document.getElementById('sys-panel').classList.remove('visible');
+  let lp = document.getElementById('legacy-panel');
+  if (!lp) { lp = document.createElement('div'); lp.id='legacy-panel'; document.getElementById('main').appendChild(lp); }
+  const fc = FATE_CLS[l.fate] || 'fate-unknown';
+  lp.innerHTML = '<div class="sys-hdr">'
+    + '<div class="legacy-abb">'+l.acronym+'</div>'
+    + '<div class="sys-meta">'
+    + '<div class="sys-name">'+l.name+'</div>'
+    + '<div class="sys-vendor">'+l.provider+'</div>'
+    + '<div class="sys-chips">'
+    + '<span class="chip" style="background:rgba(158,158,158,.15);color:#9e9e9e">'+l.type.toUpperCase()+'</span>'
+    + '<span class="fate-chip '+fc+'">'+l.fate_label+'</span>'
+    + '</div></div></div>'
+    + '<div class="legacy-meta-grid">'
+    + '<div class="legacy-meta-item"><div class="lmi-label">Tipo de sistema</div><div class="lmi-value">'+l.type+'</div></div>'
+    + '<div class="legacy-meta-item"><div class="lmi-label">Proveedor</div><div class="lmi-value">'+l.provider+'</div></div>'
+    + '<div class="legacy-meta-item"><div class="lmi-label">Destino en R4</div><div class="lmi-value">'+l.fate_label+'</div></div>'
+    + '<div class="legacy-meta-item"><div class="lmi-label">ID</div><div class="lmi-value">'+l.id+'</div></div>'
+    + '</div>'
+    + (l.notes ? '<div class="section"><div class="sec-title">Contexto y Notas</div><div class="legacy-notes">'+l.notes+'</div></div>' : '');
+  lp.style.display = 'block';
 }
 const firstKey = Object.keys(SYSTEMS)[0];
 if (firstKey) setTimeout(() => selectSys(firstKey), 100);
