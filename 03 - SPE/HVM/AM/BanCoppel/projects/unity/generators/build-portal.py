@@ -468,19 +468,139 @@ def load_data(db_path):
             "us_title": r["us_title"] or ""
         })
 
+    # Derivar blockers y KPIs desde brain.db antes de cerrar la conexión
+    derived_blockers, derived_kpis = derive_blockers_and_kpis(con)
+
     con.close()
     return {
-        "products":    products,
-        "releases":    releases,
-        "components":  components,
-        "track_rags":  track_rags,
-        "total_hus":   total_hus,
-        "high_risks":  high_risks,
-        "risks":       risks,
-        "actions":     actions,
-        "milestones":  milestones,
-        "phase_steps": phase_steps,
+        "products":         products,
+        "releases":         releases,
+        "components":       components,
+        "track_rags":       track_rags,
+        "total_hus":        total_hus,
+        "high_risks":       high_risks,
+        "risks":            risks,
+        "actions":          actions,
+        "milestones":       milestones,
+        "phase_steps":      phase_steps,
+        "derived_blockers": derived_blockers,
+        "derived_kpis":     derived_kpis,
     }
+
+# ── Derivación dinámica desde brain.db ───────────────────────────────────────
+
+def derive_blockers_and_kpis(con):
+    """Deriva blockers y KPIs desde brain.db en tiempo de generación.
+
+    Retorna (blockers, kpis) donde:
+    - blockers: lista de dicts con level, text, sys, cap, owner, raid_id, mitigation
+      (tanto 'sys' como 'cap' apuntan al nombre del sistema para compatibilidad con las 3 vistas)
+    - kpis: dict con conteos del programa (total_us, must, should, could, etc.)
+    """
+    # ── Mapa system_id → nombre legible ─────────────────────────────────────
+    try:
+        sys_names = {r[0]: r[1] for r in con.execute(
+            "SELECT id, name FROM program_systems"
+        ).fetchall()}
+    except Exception:
+        sys_names = {}
+
+    # ── Blockers — riesgos critical/high abiertos ────────────────────────────
+    blockers = []
+    try:
+        for r in con.execute("""
+            SELECT raid_id, system_id, impact, description, mitigation, owner, status
+            FROM risks
+            WHERE impact IN ('critical', 'high') AND status != 'closed'
+            ORDER BY
+                CASE impact WHEN 'critical' THEN 0 WHEN 'high' THEN 1 END,
+                system_id
+        """).fetchall():
+            raid_id, system_id, impact, description, mitigation, owner, status = r
+            sys_name = sys_names.get(system_id, system_id or "Programa")
+            blockers.append({
+                "level":      "crit" if impact == "critical" else "warn",
+                "text":       (description or raid_id or "")[:120],
+                "sys":        sys_name,
+                "cap":        sys_name,   # alias para render_view_productos (usa blk["cap"])
+                "owner":      owner or "Sin asignar",
+                "raid_id":    raid_id or "",
+                "mitigation": mitigation or "",
+            })
+    except Exception:
+        pass
+
+    # ── KPIs — conteos del programa ──────────────────────────────────────────
+    total_us, must, should, could, wont = 0, 0, 0, 0, 0
+    try:
+        total_us = con.execute("SELECT COUNT(*) FROM user_stories_inventory").fetchone()[0]
+        for moscow, cnt in con.execute(
+            "SELECT moscow, COUNT(*) FROM user_stories_inventory GROUP BY moscow"
+        ).fetchall():
+            if moscow == "must":     must   = cnt
+            elif moscow == "should": should = cnt
+            elif moscow == "could":  could  = cnt
+            elif moscow == "wont":   wont   = cnt
+    except Exception:
+        pass
+
+    total_risks, critical_risks, high_risks_cnt = 0, 0, 0
+    try:
+        total_risks = con.execute(
+            "SELECT COUNT(*) FROM risks WHERE status != 'closed'"
+        ).fetchone()[0]
+        for impact, cnt in con.execute(
+            "SELECT impact, COUNT(*) FROM risks WHERE status != 'closed' GROUP BY impact"
+        ).fetchall():
+            if impact == "critical": critical_risks = cnt
+            elif impact == "high":   high_risks_cnt = cnt
+    except Exception:
+        pass
+
+    red_sys, yellow_sys, green_sys, total_sys = 0, 0, 0, 0
+    try:
+        total_sys = con.execute(
+            "SELECT COUNT(*) FROM program_systems WHERE exclude_from_portal=0"
+        ).fetchone()[0]
+        for sts, cnt in con.execute(
+            "SELECT sdlc_status, COUNT(*) FROM program_systems WHERE exclude_from_portal=0 GROUP BY sdlc_status"
+        ).fetchall():
+            if sts == "red":     red_sys    = cnt
+            elif sts == "yellow": yellow_sys = cnt
+            elif sts == "green":  green_sys  = cnt
+    except Exception:
+        pass
+
+    total_integrations = 0
+    try:
+        total_integrations = con.execute(
+            "SELECT COUNT(*) FROM r4_integrations"
+        ).fetchone()[0]
+    except Exception:
+        pass
+
+    total_itcaps, crit_itcaps = 0, 0
+    try:
+        total_itcaps = con.execute("SELECT COUNT(*) FROM it_capabilities").fetchone()[0]
+        crit_itcaps  = con.execute(
+            "SELECT COUNT(*) FROM it_capabilities WHERE sem='crit'"
+        ).fetchone()[0]
+    except Exception:
+        pass
+
+    kpis = {
+        "total_us": total_us, "must": must, "should": should,
+        "could": could, "wont": wont,
+        "total_risks": total_risks,
+        "critical_risks": critical_risks, "high_risks": high_risks_cnt,
+        "red_sys": red_sys, "yellow_sys": yellow_sys, "green_sys": green_sys,
+        "total_sys": total_sys,
+        "total_integrations": total_integrations,
+        "total_itcaps": total_itcaps, "crit_itcaps": crit_itcaps,
+    }
+
+    return blockers, kpis
+
 
 # ── Render parciales ──────────────────────────────────────────────────────────
 
@@ -500,7 +620,8 @@ def _static_cube(variant, top="", front="", right=""):
         </div>"""
 
 
-def render_view_productos(products, releases, cube_top_content="", cube_img=None):
+def render_view_productos(products, releases, cube_top_content="", cube_img=None,
+                          _blockers=None, _kpis=None):
     """Vista Productos: capabilities de negocio con semáforo, KPIs y bloqueos activos. Fuente: DT-Productos."""
     # Capabilities semáforo
     sem_icon = {"crit": "🔴", "warn": "🟡", "ok": "🟢"}
@@ -515,9 +636,33 @@ def render_view_productos(products, releases, cube_top_content="", cube_img=None
             f'</div>'
         )
 
-    # KPIs
+    # KPIs — derivados de brain.db si están disponibles, fallback a constante
+    if _kpis is not None:
+        _must   = _kpis["must"]
+        _should = _kpis["should"]
+        _could  = _kpis["could"]
+        _risks  = _kpis["total_risks"]
+        _crit   = _kpis["critical_risks"]
+        _high   = _kpis["high_risks"]
+        kpis_list = [
+            {"label": "User Stories",      "value": str(_kpis["total_us"]),
+             "sub": f"{_must} Must Have · {_should + _could} Should/Could", "gap": False},
+            {"label": "Must Have",         "value": str(_must),
+             "sub": "De entrega obligatoria",                                "gap": False},
+            {"label": "Riesgos abiertos",  "value": str(_risks),
+             "sub": f"{_crit} críticos · {_high} altos",                    "gap": False},
+            {"label": "Avance",            "value": "21.19%",
+             "sub": "vs 60.58% esperado al 17-ago",                         "gap": False},
+            {"label": "Clientes objetivo", "value": "—",
+             "sub": "Pendiente de confirmar",                                "gap": True},
+            {"label": "SLA servicio",      "value": "—",
+             "sub": "Pendiente de confirmar",                                "gap": True},
+        ]
+    else:
+        kpis_list = KPIS_VP
+
     kpis_html = ""
-    for kpi in KPIS_VP:
+    for kpi in kpis_list:
         gap_cls = " gap" if kpi["gap"] else ""
         kpis_html += (
             f'<div class="vp-kpi{gap_cls}">'
@@ -527,9 +672,10 @@ def render_view_productos(products, releases, cube_top_content="", cube_img=None
             f'</div>'
         )
 
-    # Bloqueos
+    # Bloqueos — derivados de brain.db si están disponibles, fallback a constante
+    blockers_src = _blockers[:5] if _blockers is not None else BLOCKERS_VP
     blocks_html = ""
-    for blk in BLOCKERS_VP:
+    for blk in blockers_src:
         blocks_html += (
             f'<div class="vp-block {blk["level"]}">'
             f'<div style="flex:1">'
@@ -629,7 +775,8 @@ RAG_MATRIX_VS = {
 
 
 def render_view_sistemas(components, cube_front_content="", cube_img=None,
-                          track_rags=None, us_must_by_track=None):
+                          track_rags=None, us_must_by_track=None,
+                          _blockers=None, _kpis=None):
     """Vista Sistemas: semáforo por track, KPIs técnicos y bloqueos activos."""
     track_rags       = track_rags or []
     us_must_by_track = us_must_by_track or {}
@@ -655,9 +802,29 @@ def render_view_sistemas(components, cube_front_content="", cube_img=None,
             f'</div>'
         )
 
-    # ── Bloque 2: KPIs técnicos ───────────────────────────────────────────────
+    # ── Bloque 2: KPIs técnicos — derivados de brain.db si están disponibles ─
+    if _kpis is not None:
+        _must   = _kpis["must"]
+        _should = _kpis["should"]
+        _could  = _kpis["could"]
+        _integ  = _kpis["total_integrations"] or 18
+        kpis_list = [
+            {"value": str(_kpis["total_us"]), "label": "User Stories",
+             "sub": f"{_must} Must Have · {_should + _could} Should/Could", "gap": False},
+            {"value": str(_integ), "label": "Integraciones",
+             "sub": "9 nuevas · 9 modificadas",                              "gap": False},
+            {"value": "58", "label": "User Stories de diseño",
+             "sub": "SmartVista · App · CAT · SIWEB",                       "gap": False},
+            {"value": "5",  "label": "DTMs con gap crítico",
+             "sub": "DPP · BYU0039 · OCG y 2 más",                         "gap": True},
+            {"value": "21.19%", "label": "Avance de desarrollo",
+             "sub": "vs 60.58% esperado al 17-ago",                         "gap": True},
+        ]
+    else:
+        kpis_list = KPIS_VS
+
     kpis_html = ""
-    for kpi in KPIS_VS:
+    for kpi in kpis_list:
         gap_cls = " gap" if kpi["gap"] else ""
         kpis_html += (
             f'<div class="vs-kpi{gap_cls}">'
@@ -667,9 +834,10 @@ def render_view_sistemas(components, cube_front_content="", cube_img=None,
             f'</div>'
         )
 
-    # ── Bloque 3: bloqueos por sistema ────────────────────────────────────────
+    # ── Bloque 3: bloqueos por sistema — derivados de brain.db si disponibles ─
+    blockers_src = _blockers[:5] if _blockers is not None else BLOCKERS_VS
     blocks_html = ""
-    for blk in BLOCKERS_VS:
+    for blk in blockers_src:
         blocks_html += (
             f'<div class="vs-block {blk["level"]}">'
             f'<div style="flex:1">'
@@ -703,7 +871,8 @@ def render_view_sistemas(components, cube_front_content="", cube_img=None,
         </div>"""
 
 
-def render_view_capacidades(cube_right_content="", cube_img=None):
+def render_view_capacidades(cube_right_content="", cube_img=None,
+                             _blockers=None, _kpis=None):
     """Vista Capacidades IT: semáforo por capacidad, KPIs IT y bloqueos activos."""
     dot_map = {"crit": "🔴", "warn": "🟡", "ok": "🟢"}
 
@@ -750,9 +919,28 @@ def render_view_capacidades(cube_right_content="", cube_img=None):
             f'</div>'
         )
 
-    # ── Bloque 2: KPIs IT
+    # ── Bloque 2: KPIs IT — derivados de brain.db si están disponibles ─────────
+    if _kpis is not None:
+        _itcaps  = _kpis["total_itcaps"] or 13
+        _crit_it = _kpis["crit_itcaps"]  or 2
+        _integ   = _kpis["total_integrations"] or 18
+        kpis_vc_list = [
+            {"value": str(_itcaps),  "label": "Capacidades IT",
+             "sub": f"{_crit_it} críticas · {max(0, _itcaps - _crit_it)} en seguimiento", "gap": False},
+            {"value": str(_crit_it), "label": "Capacidades críticas",
+             "sub": "Interoperabilidad · Vendor / SIAM",                                    "gap": True},
+            {"value": str(_integ),   "label": "Integraciones R4",
+             "sub": "9 nuevas · 9 modificadas",                                             "gap": False},
+            {"value": "1",           "label": "Proveedor sin contratar",
+             "sub": "CAT / ICAT — RISK-001",                                                "gap": True},
+            {"value": "~ene-27",     "label": "Go-Live objetivo",
+             "sub": "15-ene-2027 · margen mínimo",                                         "gap": False},
+        ]
+    else:
+        kpis_vc_list = KPIS_VC
+
     kpis_html = ""
-    for kpi in KPIS_VC:
+    for kpi in kpis_vc_list:
         gap_cls = " gap" if kpi.get("gap") else ""
         kpis_html += (
             f'<div class="vs-kpi{gap_cls}">'
@@ -762,9 +950,10 @@ def render_view_capacidades(cube_right_content="", cube_img=None):
             f'</div>'
         )
 
-    # ── Bloque 3: bloqueos activos por capacidad
+    # ── Bloque 3: bloqueos activos — derivados de brain.db si disponibles ────
+    blockers_vc_src = _blockers[:5] if _blockers is not None else BLOCKERS_VC
     blocks_html = ""
-    for bl in BLOCKERS_VC:
+    for bl in blockers_vc_src:
         lvl_icon = "\U0001f534" if bl["level"] == "crit" else "\U0001f7e1"
         blocks_html += (
             f'<div class="vs-block {bl["level"]}">'
@@ -784,6 +973,10 @@ def render_view_capacidades(cube_right_content="", cube_img=None):
         '    <p class="vw-desc">Capacidades institucionales que proveen servicios de '
         'implementación y operación al programa. Gobiernan el SDLC, la demanda de proveedores, '
         'la seguridad, el testing y la resiliencia operativa del Go-Live.</p>\n'
+        '    <div class="vp-h2-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">\n'
+        '    <div class="kick" style="margin-bottom:0">Vista · Capacidades IT</div>\n'
+        '    <a href="capacidades-it.html" class="vp-h2-link">Ver gobernanza <span class="vp-arr">→</span></a>\n'
+        '    </div>\n'
         f'    <div class="vs-section-label">Estado por Capacidad</div>\n'
         f'    <div class="vp-caps">{caps_html}</div>\n'
         f'    <div class="vs-section-label">KPIs de Entrega IT</div>\n'
@@ -1074,14 +1267,22 @@ def render(data, cube_imgs=None):
     cube_prod  = render_cube_productos(data["products"], data["releases"])
     cube_sis   = render_cube_sistemas(data["components"])
     cube_cap   = render_cube_capacidades()
+
+    # Datos derivados de brain.db (None si load_data no los pudo computar)
+    _db_blockers = data.get("derived_blockers")
+    _db_kpis     = data.get("derived_kpis")
+
     view_prod  = render_view_productos(data["products"], data["releases"], cube_prod,
-                                       cube_img=cube_imgs.get("productos"))
+                                       cube_img=cube_imgs.get("productos"),
+                                       _blockers=_db_blockers, _kpis=_db_kpis)
     view_sis   = render_view_sistemas(data["components"], cube_sis,
                                       cube_img=cube_imgs.get("sistemas"),
                                       track_rags=data.get("track_rags", []),
-                                      us_must_by_track=data.get("us_must_by_track", {}))
+                                      us_must_by_track=data.get("us_must_by_track", {}),
+                                      _blockers=_db_blockers, _kpis=_db_kpis)
     view_cap   = render_view_capacidades(cube_cap,
-                                         cube_img=cube_imgs.get("capacidades"))
+                                         cube_img=cube_imgs.get("capacidades"),
+                                         _blockers=_db_blockers, _kpis=_db_kpis)
     rag_html    = render_rag(data["track_rags"])
     risk_html   = render_risks(data["risks"])
     action_html = render_actions(data.get("actions", []))
@@ -1427,11 +1628,9 @@ footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid
   <span class="sp"></span>
   <span class="nav-links" style="display:contents">
     <a class="jump" href="#view-productos">Alcance</a>
-    <a class="jump ext" href="systems-p4900.html">Estado por Track ↗</a>
     <a class="jump" href="#cronograma">Cronograma</a>
     <a class="jump" href="#acciones">Acciones</a>
     <a class="jump" href="#riesgos">Riesgos</a>
-    <a class="jump ext" href="apolo-itcaps.html">APOLO IT Caps ↗</a>
     <a class="jump ext" href="duplicidad-informix-unity.html">Duplicidad ↗</a>
     <a class="jump ext" href="plan-director.html">Plan Director ↗</a>
   </span>
@@ -1796,6 +1995,337 @@ SYSTEM_SDLC = {
     },
 }
 
+
+
+
+ITCAP_RISKS = {
+    "testing":        [{"level":"warn","text":"Pentest nov 15-20 en conflicto directo con ventana SIT — sin resolución confirmada"},
+                       {"level":"warn","text":"CAT sin plan de pruebas — 12 User Stories Must sin cobertura QE"}],
+    "devops":         [{"level":"warn","text":"Pipelines SIT sin ambiente confirmado al 15-oct"}],
+    "arquitectura":   [{"level":"warn","text":"18 integraciones R4 sin mapa de dependencias validado"}],
+    "interop":        [{"level":"crit","text":"APIs SmartVista BPC sin fecha — bloquea 6 User Stories SIWEB (HDU-SWEB-R4-01…06)"},
+                       {"level":"warn","text":"18 integraciones R4 sin contrato de API firmado"}],
+    "ambientacion":   [{"level":"warn","text":"Entorno SIT al 15-oct sin confirmar — deuda configuración canal CAT"}],
+    "seguridad":      [{"level":"warn","text":"PCI-DSS v4.0 en scope SmartVista — sin plan de remediación documentado"},
+                       {"level":"warn","text":"Pentest conflicto nov 15-20 con SIT — riesgo de slip SIT a dic"}],
+    "observabilidad": [{"level":"warn","text":"Alerting y dashboards Dynatrace sin activar — go-live sin observabilidad"}],
+    "change":         [{"level":"warn","text":"Plan cambio organizacional 3M tarjetahabientes sin ejecutar — riesgo de baja adopción"}],
+    "release":        [{"level":"warn","text":"Go-Live 15-ene-2027 con margen mínimo — SIT debe cerrar el 15-dic"}],
+    "vendor":         [{"level":"crit","text":"RISK-001: CAT sin proveedor contratado — 12 User Stories Must sin owner técnico"},
+                       {"level":"warn","text":"DPP y BYU0039 abiertos con BPC sin fecha de cierre"}],
+    "compliance":     [{"level":"warn","text":"Hallazgos APO_F01 y SMA_F01 CNBV abiertos — documentación desactualizada"},
+                       {"level":"warn","text":"Bajaware en proceso de decomiso — riesgo regulatorio pendiente"}],
+    "data":           [{"level":"warn","text":"Golden Record en Informix sin plan de carga inicial a ATLAS (target sep-2026)"},
+                       {"level":"warn","text":"Exodus Ola 6 en 2029 — riesgo de datos duplicados durante migración"}],
+}
+
+
+def build_capacidades_it_page(brain_path: str, out_dir) -> None:
+    """Genera portal/capacidades-it.html — drill-down Vista Capacidades IT."""
+    from datetime import date as _date
+    from pathlib import Path as _Path
+
+    _MONTH_ES = {"ene":1,"feb":2,"mar":3,"abr":4,"may":5,"jun":6,
+                 "jul":7,"ago":8,"sep":9,"oct":10,"nov":11,"dic":12}
+
+    def _parse_due(s):
+        if not s: return None
+        parts = s.strip().split("-")
+        if len(parts) == 2:
+            day, mon = parts
+            m = _MONTH_ES.get(mon.lower())
+            if m:
+                try: return _date(2026, m, int(day))
+                except: return None
+        return None
+
+    URGENT_THRESHOLD = _date(2026, 9, 10)
+
+    # ── Stats para el hero ───────────────────────────────────────────────────────
+    n_caps   = len(IT_CAP_META)
+    n_level1 = sum(1 for m in IT_CAP_META.values() if m.get("mat_cur",2) == 1)
+    n_urgent = sum(1 for m in IT_CAP_META.values()
+                   if (d := _parse_due(m.get("next_due",""))) and d <= URGENT_THRESHOLD)
+    n_owners = len(set(m.get("owner","") for m in IT_CAP_META.values() if m.get("owner","")))
+    n_days   = days_to_golive()
+
+    mat_color = {1: "#ef4444", 2: "#f59e0b", 3: "#84cc16", 4: "#22c55e"}
+    mat_pct   = {1: 0, 2: 33, 3: 66, 4: 100}
+    sem_dot_color = {"crit": "#ef4444", "warn": "#f59e0b", "ok": "#22c55e"}
+
+    # ── Tarjetas ──────────────────────────────────────────────────────────────────
+    cards_html = ""
+    for cap_id, meta in IT_CAP_META.items():
+        sem       = meta["sem"]
+        dot_color = sem_dot_color.get(sem, "#888")
+        mat_cur   = meta.get("mat_cur", 2)
+        mat_tgt   = meta.get("mat_tgt", 4)
+        cp        = mat_pct.get(mat_cur, 0)
+        tp        = mat_pct.get(mat_tgt, 100)
+        fc        = mat_color.get(mat_cur, "#f59e0b")
+        owner     = meta.get("owner", "")
+        nxt       = meta.get("next_action", "")
+        due_str   = meta.get("next_due", "")
+        due_date  = _parse_due(due_str)
+        is_urgent = bool(due_date and due_date <= URGENT_THRESHOLD)
+        group     = meta.get("group", "")
+        note      = meta.get("note", "")
+
+        # barra de madurez expandida
+        tgt_dot = ""
+        if mat_tgt != mat_cur:
+            tgt_dot = '<div class="mat-dot-tgt" style="left:' + str(tp) + '%"></div>'
+        mat_bar = (
+            '<div class="mat-wrap-ex">'
+            '<div class="mat-track-ex">'
+            '<div class="mat-fill-ex" style="width:' + str(cp) + '%;background:' + fc + '"></div>'
+            '<div class="mat-dot-cur-ex" style="left:' + str(cp) + '%"></div>'
+            + tgt_dot +
+            '</div>'
+            '<div class="mat-labels-ex">'
+            '<div class="mat-label-ex" style="left:0%">'
+            '<span>1</span><span class="mat-level-ex">Inexistente</span></div>'
+            '<div class="mat-label-ex" style="left:33%;transform:translateX(-50%)">'
+            '<span>2</span><span class="mat-level-ex">Inicial</span></div>'
+            '<div class="mat-label-ex" style="left:66%;transform:translateX(-50%)">'
+            '<span>3</span><span class="mat-level-ex">Definido</span></div>'
+            '<div class="mat-label-ex" style="left:100%;transform:translateX(-100%)">'
+            '<span>4</span><span class="mat-level-ex">Operado</span></div>'
+            '</div>'
+            '</div>'
+        )
+
+        owner_html = '<div class="card-owner">&#128100;&nbsp;' + h(owner) + '</div>' if owner else ""
+
+        if nxt:
+            urgency = ' <span class="badge-urgente">URGENTE</span>' if is_urgent else ""
+            next_html = (
+                '<div class="card-next">&#8599;&nbsp;' + h(nxt)
+                + '&nbsp;<span class="due-date">' + h(due_str) + '</span>' + urgency + '</div>'
+            )
+        else:
+            next_html = ""
+
+        note_html = (
+            '<div class="card-note">' + h(note) + '</div>' if note else ""
+        )
+
+        risks = ITCAP_RISKS.get(cap_id, [])
+        risks_html = ""
+        if risks:
+            risk_items = ""
+            for r in risks:
+                dot_icon = "&#9679;" if r["level"] == "crit" else "&#9650;"
+                risk_items += (
+                    '<div class="risk-item ' + r["level"] + '">'
+                    + '<span class="risk-dot">' + dot_icon + '</span>'
+                    + '<span>' + h(r["text"]) + '</span></div>'
+                )
+            risks_html = (
+                '<div class="risks-section">'
+                + '<div class="risks-title">Riesgos vinculados</div>'
+                + risk_items
+                + '</div>'
+            )
+
+        grp_slug = group.lower().replace(" ", "-")
+        group_badge = '<span class="group-badge group-' + grp_slug + '">' + h(group) + '</span>'
+
+        cards_html += (
+            '<div class="it-card ' + sem + '">'
+            + '<div class="card-header">'
+            + '<span class="sem-dot" style="background:' + dot_color + '"></span>'
+            + '<span class="card-name">' + h(meta["name"]) + '</span>'
+            + group_badge
+            + '</div>'
+            + mat_bar
+            + owner_html
+            + next_html
+            + note_html
+            + risks_html
+            + '</div>\n'
+        )
+
+    # ── Tabla resumen ───────────────────────────────────────────────────────────
+    table_rows = ""
+    for cap_id, meta in IT_CAP_META.items():
+        mc        = meta.get("mat_cur", 2)
+        mt        = meta.get("mat_tgt", 4)
+        sem       = meta["sem"]
+        dot_color = sem_dot_color.get(sem, "#888")
+        due_str   = meta.get("next_due", "")
+        due_date  = _parse_due(due_str)
+        is_urgent = bool(due_date and due_date <= URGENT_THRESHOLD)
+        urgency   = ' <span class="badge-urgente">URGENTE</span>' if is_urgent else ""
+        grp_slug  = meta.get("group","").lower().replace(" ","-")
+        table_rows += (
+            '<tr>'
+            + '<td><span class="sem-dot-sm" style="background:' + dot_color + '"></span>'
+            + h(meta["name"]) + '</td>'
+            + '<td><span class="group-badge group-' + grp_slug + '">'
+            + h(meta.get("group","")) + '</span></td>'
+            + '<td class="mat-cell">' + str(mc) + ' <span class="mat-arr">&rarr;</span> ' + str(mt) + '</td>'
+            + '<td>' + h(meta.get("owner","")) + '</td>'
+            + '<td>' + h(meta.get("next_action","")) + '</td>'
+            + '<td>' + h(due_str) + urgency + '</td>'
+            + '</tr>\n'
+        )
+
+    # ── CSS embebido ──────────────────────────────────────────────────────────────
+    _CSS_LINES = [
+        '*{box-sizing:border-box;margin:0;padding:0}',
+        ':root{',
+        '  --bg:#0a1628;--bg2:#0d1d35;--blue:#122FB1;--yellow:#F0D224;',
+        '  --red:#ef4444;--green:#22c55e;--text:#e4eaff;',
+        '  --muted:rgba(228,234,255,.45);--muted2:rgba(228,234,255,.25);',
+        '  --glass:rgba(255,255,255,.04);--glassb:rgba(255,255,255,.08)}',
+        'html{scroll-behavior:smooth}',
+        'body{background:var(--bg);color:var(--text);font-family:\'SF Pro Display\',-apple-system,BlinkMacSystemFont,\'Inter\',\'Segoe UI\',Calibri,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}',
+        '.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}',
+        '.aurora::before{content:"";position:absolute;width:62vw;height:62vw;left:-12vw;top:-16vw;border-radius:50%;filter:blur(90px);background:radial-gradient(circle,rgba(27,63,208,.55),transparent 70%);animation:f1 24s ease-in-out infinite}',
+        '.aurora::after{content:"";position:absolute;width:50vw;height:50vw;right:-10vw;top:10vw;border-radius:50%;filter:blur(90px);background:radial-gradient(circle,rgba(13,33,133,.65),transparent 70%);animation:f2 28s ease-in-out infinite}',
+        '@keyframes f1{50%{transform:translate(6vw,8vh) scale(1.12)}}',
+        '@keyframes f2{50%{transform:translate(-7vw,10vh) scale(1.10)}}',
+        '.grain{position:fixed;inset:0;z-index:-1;opacity:.04;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'140\' height=\'140\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'.85\' numOctaves=\'2\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")}',
+        '#prog{position:fixed;top:0;left:0;height:3px;width:0;z-index:100;background:linear-gradient(90deg,var(--yellow),#fff);box-shadow:0 0 12px rgba(240,210,36,.6)}',
+        'nav{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;gap:14px;padding:13px 28px;backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);background:rgba(10,22,40,.7);border-bottom:1px solid rgba(255,255,255,.06)}',
+        'nav img{height:18px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}',
+        'nav .nt{font-size:12px;font-weight:600;color:var(--muted)}',
+        '.sp{flex:1}',
+        'nav a{font-size:12px;color:var(--muted);padding:5px 12px;border-radius:20px;transition:.2s;text-decoration:none}',
+        'nav a:hover{color:var(--text);background:rgba(255,255,255,.07)}',
+        'nav a.hl{color:var(--yellow)}',
+        'main{padding-top:56px}',
+        '.wrap{max-width:1240px;margin:0 auto;padding:0 28px}',
+        '.hero{padding:80px 0 44px}',
+        '.eyebrow{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:30px;font-size:11px;font-weight:700;letter-spacing:.05em;color:#dfe6ff;margin-bottom:20px;background:rgba(255,255,255,.05);border:1px solid var(--glassb);backdrop-filter:blur(10px)}',
+        '.eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--yellow);box-shadow:0 0 10px var(--yellow);animation:pulse 2.4s infinite}',
+        '@keyframes pulse{50%{opacity:.35}}',
+        'h1{font-size:clamp(26px,3.8vw,50px);font-weight:800;line-height:1.08;letter-spacing:-.03em;background:linear-gradient(175deg,#fff 30%,#9fb4ff);-webkit-background-clip:text;background-clip:text;color:transparent}',
+        '.sub{font-size:14px;color:var(--muted);margin-top:14px;max-width:72ch;line-height:1.6}',
+        '.sub b{color:#e4eaff;font-weight:600}',
+        '.stats{display:flex;gap:12px;margin-top:28px;flex-wrap:wrap}',
+        '.stat{padding:14px 20px;border-radius:16px;background:var(--glass);border:1px solid var(--glassb);backdrop-filter:blur(16px);display:flex;flex-direction:column;gap:4px;min-width:110px}',
+        '.stn{font-size:22px;font-weight:800;letter-spacing:-.02em;background:linear-gradient(180deg,#fff,#c4d0ff);-webkit-background-clip:text;background-clip:text;color:transparent}',
+        '.stl{font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted2)}',
+        '.stat.warn{border-color:rgba(240,210,36,.35);background:rgba(240,210,36,.06)}',
+        '.stat.warn .stn{background:linear-gradient(180deg,var(--yellow),#e0b800);-webkit-background-clip:text;background-clip:text}',
+        '.section-hdr{display:flex;align-items:center;justify-content:space-between;margin:44px 0 20px}',
+        '.section-kick{font-size:.68rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--yellow)}',
+        '.caps-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;margin:0 0 64px}',
+        '@media(max-width:900px){.caps-grid{grid-template-columns:1fr}}',
+        '.it-card{background:var(--glass);border:1px solid var(--glassb);border-radius:18px;padding:22px;display:flex;flex-direction:column;gap:14px}',
+        '.it-card.crit{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.04)}',
+        '.it-card.warn{border-color:rgba(245,158,11,.22);background:rgba(245,158,11,.025)}',
+        '.it-card.ok{border-color:rgba(34,197,94,.22);background:rgba(34,197,94,.02)}',
+        '.card-header{display:flex;align-items:center;gap:10px}',
+        '.sem-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}',
+        '.card-name{font-size:15px;font-weight:700;color:#fff;flex:1}',
+        '.group-badge{padding:3px 10px;border-radius:20px;font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;flex-shrink:0}',
+        '.group-engineering{background:rgba(99,102,241,.22);color:#a5b4fc}',
+        '.group-delivery{background:rgba(14,165,233,.22);color:#7dd3fc}',
+        '.group-operations{background:rgba(34,197,94,.18);color:#86efac}',
+        '.group-data{background:rgba(251,191,36,.18);color:#fcd34d}',
+        '.mat-wrap-ex{position:relative;margin:2px 0 34px}',
+        '.mat-track-ex{position:relative;height:20px;background:rgba(255,255,255,.08);border-radius:10px;overflow:hidden}',
+        '.mat-fill-ex{position:absolute;top:0;left:0;height:100%;border-radius:10px}',
+        '.mat-dot-cur-ex{position:absolute;top:50%;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid rgba(0,0,0,.4);box-shadow:0 0 8px rgba(255,255,255,.6);z-index:3;overflow:visible}',
+        '.mat-dot-tgt{position:absolute;top:50%;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:50%;background:transparent;border:2px solid rgba(255,255,255,.65);box-shadow:0 0 6px rgba(255,255,255,.3);z-index:3;overflow:visible}',
+        '.mat-labels-ex{position:absolute;top:24px;left:0;right:0;height:28px}',
+        '.mat-label-ex{position:absolute;display:flex;flex-direction:column;align-items:center;gap:2px}',
+        '.mat-label-ex>span:first-child{font-size:9px;font-weight:700;color:rgba(228,234,255,.55);letter-spacing:.04em}',
+        '.mat-level-ex{font-size:7.5px;color:rgba(228,234,255,.3);white-space:nowrap;letter-spacing:.02em}',
+        '.card-owner{font-size:12px;color:var(--muted)}',
+        '.card-next{font-size:12px;color:var(--text);display:flex;align-items:center;gap:6px;flex-wrap:wrap;line-height:1.5}',
+        '.due-date{color:var(--yellow);font-weight:700;font-size:11px}',
+        '.badge-urgente{padding:2px 7px;border-radius:9px;font-size:8px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;background:rgba(239,68,68,.22);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}',
+        '.card-note{font-size:11px;color:var(--muted);line-height:1.55;background:rgba(255,255,255,.028);border-radius:8px;padding:8px 11px;border:1px solid rgba(255,255,255,.05)}',
+        '.risks-section{border-top:1px solid rgba(255,255,255,.06);padding-top:10px}',
+        '.risks-title{font-size:8px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(228,234,255,.28);margin-bottom:8px}',
+        '.risk-item{display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:11px;color:var(--muted);line-height:1.4}',
+        '.risk-item:last-child{border-bottom:none}',
+        '.risk-dot{font-size:8px;flex-shrink:0;margin-top:2px;line-height:1}',
+        '.risk-item.crit .risk-dot{color:var(--red)}',
+        '.risk-item.warn .risk-dot{color:#f59e0b}',
+        '.summary-section{margin:0 0 80px}',
+        '.summary-label{font-size:10px;font-weight:700;color:rgba(228,234,255,.5);letter-spacing:.14em;text-transform:uppercase;margin-bottom:16px}',
+        '.table-scroll{overflow-x:auto;border-radius:14px;border:1px solid var(--glassb)}',
+        '.summary-table{width:100%;border-collapse:collapse;font-size:12px;min-width:720px}',
+        '.summary-table th{text-align:left;padding:10px 14px;color:rgba(228,234,255,.38);font-size:8px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03)}',
+        '.summary-table td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--muted);vertical-align:middle;line-height:1.4}',
+        '.summary-table tr:last-child td{border-bottom:none}',
+        '.summary-table tr:hover td{background:rgba(255,255,255,.02)}',
+        '.sem-dot-sm{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:middle}',
+        '.mat-cell{font-weight:600;color:#fff;white-space:nowrap}',
+        '.mat-arr{color:var(--muted2);margin:0 3px}',
+    ]
+    _CSS = '\n'.join(_CSS_LINES)
+
+    # ── HTML final ───────────────────────────────────────────────────────────────
+    _html = (
+        '<!DOCTYPE html>\n'
+        '<html lang="es"><head><meta charset="UTF-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1.0">\n'
+        '<title>Capacidades IT — Unity R4 — BanCoppel</title>\n'
+        '<style>\n' + _CSS + '\n</style></head>\n'
+        '<body>\n'
+        '<div class="aurora"></div><div class="grain"></div><div id="prog"></div>\n'
+        '<nav>\n'
+        '  <img src="../../../design-studio/logos/BanCoppel_logo.png" alt="BanCoppel" onerror="this.style.display=\'none\'">\n'
+        '  <span class="nt">Unity R4 — Gobernanza</span>\n'
+        '  <span class="sp"></span>\n'
+        '  <a class="hl" href="index.html">&#8592; Portal</a>\n'
+        '  <a href="plan-director.html">Plan Director</a>\n'
+        '  <a class="hl" href="#">Capacidades IT</a>\n'
+        '</nav>\n'
+        '<main>\n'
+        '<div class="wrap">\n'
+        '<div class="hero">\n'
+        '  <div class="eyebrow"><span class="dot"></span>SPE-AM-001 &middot; Unity R4 &middot; Capacidades Transversales</div>\n'
+        '  <h1>Gobernanza de Capacidades<br>Transversales de TI</h1>\n'
+        '  <p class="sub">Estado de las ' + str(n_caps) + ' capacidades institucionales que habilitan el delivery del programa. '
+        '<b>Gobiernan el SDLC, la demanda de proveedores, la seguridad y la resiliencia operativa del Go-Live.</b></p>\n'
+        '  <div class="stats">\n'
+        '    <div class="stat"><div class="stn">' + str(n_caps) + '</div><div class="stl">Capacidades IT</div></div>\n'
+        '    <div class="stat warn"><div class="stn">' + str(n_level1) + '</div><div class="stl">En nivel 1 &middot; Inexistente</div></div>\n'
+        '    <div class="stat warn"><div class="stn">' + str(n_urgent) + '</div><div class="stl">Acciones urgentes</div></div>\n'
+        '    <div class="stat"><div class="stn">' + str(n_owners) + '</div><div class="stl">Propietarios</div></div>\n'
+        '    <div class="stat warn"><div class="stn">' + str(n_days) + '</div><div class="stl">Días al Go-Live</div></div>\n'
+        '  </div>\n'
+        '</div>\n'
+        '<div class="section-hdr">\n'
+        '  <div class="section-kick">Estado por Capacidad</div>\n'
+        '</div>\n'
+        '<div class="caps-grid">\n' + cards_html + '</div>\n'
+        '<div class="summary-section">\n'
+        '  <div class="summary-label">Resumen de capacidades</div>\n'
+        '  <div class="table-scroll">\n'
+        '  <table class="summary-table">\n'
+        '    <thead><tr>'
+        '<th>Capacidad</th>'
+        '<th>Grupo</th>'
+        '<th>Madurez actual&rarr;objetivo</th>'
+        '<th>Owner</th>'
+        '<th>Próxima acción</th>'
+        '<th>Fecha</th>'
+        '</tr></thead>\n'
+        '    <tbody>\n' + table_rows + '    </tbody>\n'
+        '  </table>\n'
+        '  </div>\n'
+        '</div>\n'
+        '</div></main>\n'
+        '<script>\n'
+        'window.addEventListener("scroll",function(){\n'
+        '  var p=document.documentElement.scrollTop/(document.documentElement.scrollHeight-window.innerHeight)||0;\n'
+        '  document.getElementById("prog").style.width=Math.round(p*100)+"%";\n'
+        '});\n'
+        '</script>\n'
+        '</body></html>'
+    )
+
+    _out = _Path(out_dir) / "capacidades-it.html"
+    _out.write_text(_html, encoding="utf-8")
+    print(f"[build-portal] capacidades-it.html generado \u2713 ({len(_html):,} chars)")
 
 
 def build_systems_page(brain_path: str, out_dir) -> None:
@@ -2423,7 +2953,6 @@ def main():
         old_nav_links = (
             '  <a href="index.html">Portal ←</a>\n'
             '  <a href="plan-director.html">Plan Director</a>\n'
-            '  <a href="apolo-itcaps.html">APOLO IT Caps</a>\n'
             '  <a href="arquitectura.html" class="hl">Arquitectura ↗</a>'
         )
         new_nav_links = (
@@ -2615,6 +3144,9 @@ def main():
 
     # Drill-down Vista Sistemas
     build_systems_page(str(brain_path), out_path.parent)
+
+    # Drill-down Vista Capacidades IT
+    build_capacidades_it_page(str(brain_path), out_path.parent)
 
     print(f"[build-portal] OK — {out_path}")
     print(f"  Productos : {len(data['products'])} | Releases: {len(data['releases'])}")
