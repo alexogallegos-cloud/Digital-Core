@@ -58,11 +58,21 @@ h1{font-size:clamp(28px,4vw,52px);font-weight:800;line-height:1.05;letter-spacin
 .sh .badge{padding:.15rem .65rem;border-radius:10px;font-size:.7rem;font-weight:700}
 
 /* Filter bar */
-.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;align-items:center}
-.filters label{font-size:11px;color:var(--muted);margin-right:4px}
-.filters select{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--ink);padding:5px 10px;font-size:12px;cursor:pointer}
-.filt-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--muted);padding:5px 12px;font-size:11px;cursor:pointer;transition:.2s}
-.filt-btn:hover,.filt-btn.active{background:rgba(255,255,255,.12);color:var(--ink)}
+.filter-section{margin-bottom:18px}
+.filter-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.filter-label{font-size:10px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;min-width:68px;flex-shrink:0}
+.pill{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:20px;color:var(--muted);padding:4px 12px;font-size:11px;cursor:pointer;transition:.18s;white-space:nowrap;user-select:none}
+.pill:hover{background:rgba(255,255,255,.09);color:var(--ink)}
+.pill.active{background:rgba(61,95,205,.3);border-color:rgba(61,95,205,.5);color:#d0e0ff}
+.pill.active-red{background:rgba(224,83,83,.25);border-color:rgba(224,83,83,.4);color:#ffb0b0}
+.pill.active-green{background:rgba(77,201,138,.2);border-color:rgba(77,201,138,.35);color:#90f0c0}
+.pill-sc-coex.active{background:rgba(61,95,205,.28);border-color:rgba(61,95,205,.45);color:#9ab8ff}
+.pill-sc-decom.active{background:rgba(224,83,83,.22);border-color:rgba(224,83,83,.38);color:#ffaaaa}
+.pill-sc-comp.active{background:rgba(77,201,138,.2);border-color:rgba(77,201,138,.35);color:#80e8a8}
+.pill-sc-absorb.active{background:rgba(240,168,58,.2);border-color:rgba(240,168,58,.35);color:#ffc870}
+.pill-sc-tbd.active{background:rgba(107,117,145,.18);border-color:rgba(107,117,145,.3);color:#c8d0e8}
+.pill-reset{color:#e05353;border-color:rgba(224,83,83,.2)}
+.pill-reset:hover{background:rgba(224,83,83,.12);color:#ff8080}
 
 /* HEATMAP */
 .heatmap-wrap{overflow-x:auto;padding-bottom:16px}
@@ -169,21 +179,26 @@ h1{font-size:clamp(28px,4vw,52px);font-weight:800;line-height:1.05;letter-spacin
     <span class="leg-item"><span class="leg-swatch" style="background:#ff6b6b;box-shadow:0 0 4px #ff6b6b"></span>Blocker migracion</span>
   </div>
 
-  <div class="filters">
-    <label>L1 dominio:</label>
-    <select id="f-l1"><option value="">Todos</option></select>
-    <label>Escenario:</label>
-    <select id="f-sc">
-      <option value="">Todos</option>
-      <option value="coexistence">Coexistencia</option>
-      <option value="decommission">Decommission</option>
-      <option value="complement">Complemento</option>
-      <option value="absorb">Absorber</option>
-      <option value="tbd">TBD</option>
-    </select>
-    <button class="filt-btn" id="f-blocker">Solo blockers</button>
-    <button class="filt-btn" id="f-covered">Solo cubiertos Informix</button>
-    <button class="filt-btn" id="f-reset">Limpiar filtros</button>
+  <div class="filter-section">
+    <div class="filter-row">
+      <span class="filter-label">Dominio ETB</span>
+      <div id="f-l1-pills" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+    </div>
+    <div class="filter-row">
+      <span class="filter-label">Escenario</span>
+      <button class="pill pill-sc-coex" data-sc="">Todos</button>
+      <button class="pill pill-sc-coex" data-sc="coexistence">Coexistencia</button>
+      <button class="pill pill-sc-decom" data-sc="decommission">Decommission</button>
+      <button class="pill pill-sc-comp" data-sc="complement">Complemento</button>
+      <button class="pill pill-sc-absorb" data-sc="absorb">Absorber</button>
+      <button class="pill pill-sc-tbd" data-sc="tbd">Por definir</button>
+    </div>
+    <div class="filter-row">
+      <span class="filter-label">Opciones</span>
+      <button class="pill" id="f-blocker">Blockers</button>
+      <button class="pill active" id="f-covered">Solo Informix</button>
+      <button class="pill pill-reset" id="f-reset">Limpiar</button>
+    </div>
   </div>
 
   <div class="sh"><h2>Mapa de Capacidades ETB</h2><span class="badge" id="hm-badge" style="background:rgba(61,95,205,.15);color:#8aaeff;border:1px solid rgba(61,95,205,.25)">61 L3</span></div>
@@ -221,10 +236,8 @@ async function init() {
   const resp = await fetch(DATA_URL);
   DATA = await resp.json();
   renderKPIs();
-  populateFilters();
-  // Mostrar solo L3s cubiertos por Informix por default (61 de 261)
-  document.getElementById("f-covered").classList.add("active");
-  renderHeatmap();
+  populateFilters();  // sets up L1 pills + sc pills
+  renderHeatmap();    // activeFilters.covered=true arranca por default
   renderUncovered();
 }
 
@@ -242,12 +255,42 @@ function renderKPIs() {
 }
 
 function populateFilters() {
-  const sel = document.getElementById("f-l1");
+  const container = document.getElementById("f-l1-pills");
+  // "Todos" pill
+  const all = document.createElement("button");
+  all.className = "pill active"; all.dataset.l1 = ""; all.textContent = "Todos";
+  all.addEventListener("click", () => setL1Filter(""));
+  container.appendChild(all);
+  // One pill per L1
   DATA.l1s.forEach(l1 => {
-    const opt = document.createElement("option");
-    opt.value = l1.id; opt.textContent = l1.name;
-    sel.appendChild(opt);
+    const short = l1.name.replace(/^\d+\.\s*/, "").split(" ").slice(0, 2).join(" ");
+    const btn = document.createElement("button");
+    btn.className = "pill"; btn.dataset.l1 = l1.id;
+    btn.textContent = l1.id.split(".")[0] + ". " + short;
+    btn.addEventListener("click", () => setL1Filter(l1.id));
+    container.appendChild(btn);
   });
+  // Scenario pills
+  document.querySelectorAll("[data-sc]").forEach(btn => {
+    btn.addEventListener("click", () => setScFilter(btn.dataset.sc, btn));
+  });
+  // Mark "Todos" scenario active by default
+  document.querySelector("[data-sc='']").classList.add("active");
+}
+
+function setL1Filter(val) {
+  activeFilters.l1 = val;
+  document.querySelectorAll("#f-l1-pills .pill").forEach(b => {
+    b.classList.toggle("active", b.dataset.l1 === val);
+  });
+  renderHeatmap();
+}
+
+function setScFilter(val, btn) {
+  activeFilters.sc = val;
+  document.querySelectorAll("[data-sc]").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  renderHeatmap();
 }
 
 function renderHeatmap() {
@@ -341,7 +384,7 @@ function renderHeatmap() {
           const dupLabel = dupIds.map(d => d.replace("DUP-","")).join(",");
           html += `<td class="cell">
             <div class="cell-inner">
-              <span class="cell-tag sc-${sc}" onclick='openDupPanel("${dupIds[0]}")' title="${dupIds.join(', ')}">
+              <span class="cell-tag sc-${sc}" onclick='openDupPanel("${dupIds[0]}")'>
                 ${label}${isBlocker ? '<span class="blocker-dot"></span>' : ''}
               </span>
               <span class="cell-dup">DUP-${dupLabel}</span>
@@ -460,13 +503,7 @@ function closePanel() {
   document.getElementById("dp").classList.remove("open");
 }
 
-// Filter wiring
-document.getElementById("f-l1").addEventListener("change", e => {
-  activeFilters.l1 = e.target.value; renderHeatmap();
-});
-document.getElementById("f-sc").addEventListener("change", e => {
-  activeFilters.sc = e.target.value; renderHeatmap();
-});
+// Blocker / covered / reset pills
 document.getElementById("f-blocker").addEventListener("click", function() {
   activeFilters.blocker = !activeFilters.blocker;
   this.classList.toggle("active", activeFilters.blocker); renderHeatmap();
@@ -477,8 +514,8 @@ document.getElementById("f-covered").addEventListener("click", function() {
 });
 document.getElementById("f-reset").addEventListener("click", () => {
   activeFilters = {l1:"",sc:"",blocker:false,covered:true};
-  document.getElementById("f-l1").value="";
-  document.getElementById("f-sc").value="";
+  setL1Filter("");
+  setScFilter("", document.querySelector("[data-sc='']"));
   document.getElementById("f-blocker").classList.remove("active");
   document.getElementById("f-covered").classList.add("active");
   renderHeatmap();
