@@ -519,48 +519,118 @@ def render_view_productos(products, releases, cube_top_content="", cube_img=None
         </div>"""
 
 
-def render_view_sistemas(components, cube_front_content="", cube_img=None):
-    """Sección Vista Sistemas: contenido izquierda, cubo derecha orientado a cara frontal (azul)."""
-    groups = {"channel": ("Channels", []), "core": ("Core", []),
-              "enabler": ("Processors", []), "transversal": ("Data, Integration", [])}
-    order  = ["channel", "core", "enabler", "transversal"]
-    for c in components:
-        t = c["type"] if c["type"] in groups else "transversal"
-        groups[t][1].append(c)
+# ── Vista Sistemas — constantes ejecutivas ────────────────────────────────────
+SYSTEM_META_VS = {
+    "smartvista": {"name": "SmartVista BPC",       "type": "Core · Procesador de tarjetas", "note": "5 DTMs con gap crítico — DPP, BYU0039 y OCG sin plan de cierre"},
+    "apolo":      {"name": "APOLO",                "type": "Core · Originación digital",    "note": "Tensión de fechas — backend cierra 15-oct, go-live 15-ene"},
+    "app":        {"name": "App / Canal Digital",  "type": "Channel · AppMóvil",            "note": "6 User Stories Must cierran en noviembre, posterior al inicio de SIT"},
+    "cat":        {"name": "CAT — Contact Center", "type": "Channel · IBR + ICAT",          "note": "Proveedor sin contratar — 12 User Stories Must sin owner técnico"},
+    "siweb":      {"name": "SIWEB — Sucursales",   "type": "Channel · Ventanilla",          "note": "Bloqueado por APIs de SmartVista sin fecha de entrega confirmada"},
+}
 
-    lines = []
-    for key in order:
-        label, items = groups[key]
-        if not items:
-            continue
-        lines.append(f'<div class="fgl">{label}</div>')
-        for i in range(0, len(items), 2):
-            pair = items[i:i+2]
-            if len(pair) == 2:
-                lines.append('<div class="fpair">')
-                for it in pair:
-                    badge = ""
-                    if it["provider_status"] == "live":
-                        badge = '<span class="fbadge tg">target</span>'
-                    elif it["provider_status"] == "legacy":
-                        badge = '<span class="fbadge bl">base</span>'
-                    elif it["provider_status"] == "transitional":
-                        badge = '<span class="fbadge tr">trans</span>'
-                    lines.append(
-                        f'  <div class="frow"><span class="fname">{h(it["name"])}</span>{badge}</div>'
-                    )
-                lines.append('</div>')
-            else:
-                it = pair[0]
-                badge = ""
-                if it["provider_status"] == "live":
-                    badge = '<span class="fbadge tg">target</span>'
-                elif it["provider_status"] == "legacy":
-                    badge = '<span class="fbadge bl">base</span>'
-                lines.append(
-                    f'<div class="frow"><span class="fname">{h(it["name"])}</span>{badge}</div>'
-                )
-    content = "\n          ".join(lines)
+KPIS_VS = [
+    {"value": "79",     "label": "User Stories",           "sub": "46 Must Have · 33 Should / Could",  "gap": False},
+    {"value": "18",     "label": "Integraciones",          "sub": "9 nuevas · 9 modificadas",           "gap": False},
+    {"value": "58",     "label": "HDUs de diseño",         "sub": "SmartVista · App · CAT · SIWEB",    "gap": False},
+    {"value": "5",      "label": "DTMs con gap crítico",   "sub": "DPP · BYU0039 · OCG y 2 más",      "gap": True},
+    {"value": "21.19%", "label": "Avance de desarrollo",   "sub": "vs 60.58% esperado al 17-ago",      "gap": True},
+]
+
+BLOCKERS_VS = [
+    {"level": "crit", "text": "CAT sin proveedor contratado — 12 User Stories Must sin owner técnico",            "sys": "CAT",              "owner": "BanCoppel · Due: 31-ago-2026"},
+    {"level": "warn", "text": "App: 6 User Stories Must cierran en noviembre, posterior al inicio de SIT",        "sys": "App / Canal Digital", "owner": "Accenture · Due: 01-oct-2026"},
+    {"level": "warn", "text": "SIWEB bloqueado por APIs de SmartVista BPC sin fecha de entrega confirmada",        "sys": "SIWEB",            "owner": "Accenture"},
+    {"level": "warn", "text": "5 DTMs SmartVista sin plan de cierre — DPP, BYU0039 y OCG en estado Gap",          "sys": "SmartVista BPC",   "owner": "BPC Banking Technologies"},
+]
+
+RAG_MATRIX_VS = {
+    "smartvista": {
+        "avance":        ("yellow", "22 USs · plan ajustado a oct"),
+        "diseno":        ("red",    "5 DTMs con gap: DPP, BYU0039, OCG"),
+        "integraciones": ("yellow", "7 integraciones, 4 nuevas"),
+        "riesgos":       ("yellow", "BYU0039 severity High abierto"),
+        "pruebas":       ("yellow", "SIT 15-oct · sin plan pentest propio"),
+    },
+    "apolo": {
+        "avance":        ("yellow", "22 USs · 13 sprints backend"),
+        "diseno":        ("green",  "37 HDUs completos · 17 BBs"),
+        "integraciones": ("yellow", "HDU-20 integración crítica con SV"),
+        "riesgos":       ("yellow", "Tensión fechas: 15-ene vs 22-ene"),
+        "pruebas":       ("yellow", "8 critical breakers ADP por cerrar"),
+    },
+    "app": {
+        "avance":        ("yellow", "18 USs · 6 Must cierran noviembre"),
+        "diseno":        ("green",  "20 HDUs cubiertos"),
+        "integraciones": ("yellow", "4 integraciones · 2 nuevas"),
+        "riesgos":       ("yellow", "6 USs Must posteriores al inicio SIT"),
+        "pruebas":       ("yellow", "Pentest nov 15-20 en conflicto SIT"),
+    },
+    "cat": {
+        "avance":        ("red",    "12 USs Must sin owner técnico"),
+        "diseno":        ("red",    "12 HDUs sin proveedor que los entregue"),
+        "integraciones": ("red",    "7 integraciones sin responsable"),
+        "riesgos":       ("red",    "RISK-001 · proveedor sin contratar"),
+        "pruebas":       ("red",    "Sin plan de pruebas posible"),
+    },
+    "siweb": {
+        "avance":        ("yellow", "5 USs · bloqueadas por APIs SV"),
+        "diseno":        ("green",  "5 HDUs cubiertos"),
+        "integraciones": ("red",    "Bloqueado por APIs SmartVista BPC"),
+        "riesgos":       ("yellow", "Dependencia crítica sin resolver"),
+        "pruebas":       ("yellow", "Sin fecha de inicio confirmada"),
+    },
+}
+
+
+def render_view_sistemas(components, cube_front_content="", cube_img=None,
+                          track_rags=None, us_must_by_track=None):
+    """Vista Sistemas: semáforo por track, KPIs técnicos y bloqueos activos."""
+    track_rags       = track_rags or []
+    us_must_by_track = us_must_by_track or {}
+
+    # ── Bloque 1: semáforo por sistema ───────────────────────────────────────
+    rag_map = {r["track"]: dict(r) for r in track_rags}
+    tracks_html = ""
+    for track_id, meta in SYSTEM_META_VS.items():
+        rag   = rag_map.get(track_id, {})
+        color = rag.get("rag_color") or "yellow"
+        dot   = {"red": "🔴", "yellow": "🟡", "green": "🟢"}.get(color, "⚪")
+        css   = {"red": "r", "yellow": "y", "green": "g"}.get(color, "")
+        total = rag.get("hu_total") or 0
+        must  = us_must_by_track.get(track_id, 0)
+        us_lbl = f"{must} Must · {total} total" if total else ""
+        tracks_html += (
+            f'<div class="vs-track {css}">'
+            f'<div class="vs-tname">{dot} {h(meta["name"])}</div>'
+            f'<div class="vs-ttype">{h(meta["type"])}</div>'
+            f'{"<div class=vs-tus>" + h(us_lbl) + "</div>" if us_lbl else ""}'
+            f'<div class="vs-tnote">{h(meta["note"])}</div>'
+            f'</div>'
+        )
+
+    # ── Bloque 2: KPIs técnicos ───────────────────────────────────────────────
+    kpis_html = ""
+    for kpi in KPIS_VS:
+        gap_cls = " gap" if kpi["gap"] else ""
+        kpis_html += (
+            f'<div class="vs-kpi{gap_cls}">'
+            f'<div class="vs-kval">{h(kpi["value"])}</div>'
+            f'<div class="vs-klabel">{h(kpi["label"])}</div>'
+            f'<div class="vs-ksub">{h(kpi["sub"])}</div>'
+            f'</div>'
+        )
+
+    # ── Bloque 3: bloqueos por sistema ────────────────────────────────────────
+    blocks_html = ""
+    for blk in BLOCKERS_VS:
+        blocks_html += (
+            f'<div class="vs-block {blk["level"]}">'
+            f'<div style="flex:1">'
+            f'<div class="vs-btext">{h(blk["text"])}</div>'
+            f'<div class="vs-bsub">{h(blk["sys"])} · {h(blk["owner"])}</div>'
+            f'</div>'
+            f'</div>'
+        )
 
     return f"""
         <div class="wrap">
@@ -568,7 +638,13 @@ def render_view_sistemas(components, cube_front_content="", cube_img=None):
           <div class="vw-body">
             <div class="kick">Vista · Sistemas</div>
             <h2 class="vw-h2 vwc-s">Habilitadores del Proceso</h2>
-            <p class="vw-desc">Vista de los habilitadores tecnológicos que ejecutan el producto end-to-end. Cada sistema tiene su propio SDLC dado que son tecnologías distintas. Esta vista permite identificar y gobernar los planes individuales de entrega por stack — SmartVista, Apolo, canales digitales, integración — y los alimenta al gobierno de la Vista de Producto.</p>
+            <p class="vw-desc">Estado de los sistemas que ejecutan el producto end-to-end. Cada stack tiene su propio SDLC y plan de entrega — SmartVista, Apolo, canales digitales. Esta vista gobierna los planes individuales y los alimenta al gobierno de la Vista de Producto.</p>
+            <div class="vs-section-label">Estado por Sistema</div>
+            <div class="vs-tracks">{tracks_html}</div>
+            <div class="vs-section-label">KPIs Técnicos</div>
+            <div class="vs-kpis">{kpis_html}</div>
+            <div class="vs-section-label">Bloqueos Activos por Sistema</div>
+            <div class="vs-blocks">{blocks_html}</div>
           </div>
           <div class="vw-cube-wrap">
             {(f'<img src="{cube_img}" alt="Sistemas" class="vw-cube-img">' if cube_img else _static_cube("s", front=cube_front_content))}
@@ -849,7 +925,9 @@ def render(data, cube_imgs=None):
     view_prod  = render_view_productos(data["products"], data["releases"], cube_prod,
                                        cube_img=cube_imgs.get("productos"))
     view_sis   = render_view_sistemas(data["components"], cube_sis,
-                                      cube_img=cube_imgs.get("sistemas"))
+                                      cube_img=cube_imgs.get("sistemas"),
+                                      track_rags=data.get("track_rags", []),
+                                      us_must_by_track=data.get("us_must_by_track", {}))
     view_cap   = render_view_capacidades(cube_cap,
                                          cube_img=cube_imgs.get("capacidades"))
     rag_html   = render_rag(data["track_rags"])
@@ -1189,6 +1267,29 @@ footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid
     </div>
   </header>
 
+  <div class="stats reveal" style="margin:0 0 60px">
+    <div class="stat glass">
+      <div class="statn" id="s-days">{days}</div>
+      <div class="statl">Días al Go-Live — 15 Enero 2027</div>
+    </div>
+    <div class="stat glass warn">
+      <div class="statn">21.19%</div>
+      <div class="statl">Avance R4 TDC, 60.58% esperado al 17-ago</div>
+    </div>
+    <div class="stat glass">
+      <div class="statn" data-target="{hus}">0</div>
+      <div class="statl">User Stories, 46 Must</div>
+    </div>
+    <div class="stat glass danger">
+      <div class="statn" data-target="{risks_n}">0</div>
+      <div class="statl">Riesgos Alta Prioridad</div>
+    </div>
+    <div class="stat glass danger">
+      <div class="statn" data-target="10">0</div>
+      <div class="statl">Decisiones pendientes del Design Authority</div>
+    </div>
+  </div>
+
   <section id="view-productos">
     {view_prod}
   </section>
@@ -1375,6 +1476,35 @@ TOGAF_STATE_LABEL = {
 }
 
 SDLC_PHASES_LIST = ["DISCOVER", "DESIGN", "BUILD", "TEST", "RELEASE", "OPERATE"]
+
+# KPIs técnicos para Vista Sistemas
+KPIS_VS = [
+    {"label": "Sistemas R4",      "value": "7",       "sub": "En el alcance de entrega",       "gap": False},
+    {"label": "User Stories",     "value": "79",      "sub": "46 Must · 28 Should",            "gap": False},
+    {"label": "Avance global",    "value": "21.19%",  "sub": "vs 60.58% esperado al 17-ago",   "gap": False},
+    {"label": "Sistemas en riesgo","value": "2 / 7",  "sub": "CAT crítico · SIWEB bloqueado",  "gap": False},
+    {"label": "Integración ATLAS","value": "—",       "sub": "Golden Record pendiente sep-2026","gap": True},
+    {"label": "Pentest",          "value": "—",       "sub": "Conflicto ventana nov 15-20",    "gap": True},
+]
+
+# Bloqueos activos por sistema
+BLOCKERS_VS = [
+    {"text": "CAT: proveedor de contact center sin contratar",         "sys": "CAT",       "owner": "BanCoppel",  "level": "crit"},
+    {"text": "SIWEB: bloqueado por dependencias de APIs pendientes",   "sys": "SIWEB",     "owner": "Accenture",  "level": "warn"},
+    {"text": "Apolo: 6 User Stories Must cierran en noviembre",        "sys": "APOLO",     "owner": "Appwhere",   "level": "warn"},
+    {"text": "SmartVista: DTMs abiertos sin fecha de resolución",      "sys": "SmartVista","owner": "BPC / ACN",  "level": "warn"},
+]
+
+# Metadata editorial para Vista Sistemas (semáforo de tracks en index.html)
+SYSTEM_META_VS = {
+    "smartvista": {"name": "SmartVista (BPC)", "type": "Processors / CMS", "note": "Gestión ciclo de vida TDC"},
+    "apolo":      {"name": "APOLO — Originación", "type": "Channels / Onboarding", "note": "Originación digital TDC"},
+    "app":        {"name": "APP / AppMovil", "type": "Channels / Digital", "note": "Canal digital BanCoppel"},
+    "cat":        {"name": "CAT — Contact Center", "type": "Channels / IBR+ICAT", "note": "Atención y soporte TDC"},
+    "siweb":      {"name": "SIWEB — Sucursales", "type": "Channels / Sucursales", "note": "Canal sucursal físico"},
+    "cobranza":   {"name": "Cobranza Direccionada", "type": "Enabler / Cobranza", "note": "Gestión de cobranza"},
+    "apificacion":{"name": "Apificación (ACN)", "type": "Integration / APIs", "note": "Capa de integración R4"},
+}
 
 SYSTEM_SDLC = {
     "informix": {
@@ -1638,68 +1768,94 @@ def build_systems_page(brain_path: str, out_dir) -> None:
     html_parts.append('<style>')
     html_parts.append('''
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',Arial,sans-serif;background:#0a1628;color:#e8eaf6;min-height:100vh;display:flex;flex-direction:column}
-.hdr{background:linear-gradient(135deg,#0d1f3c 0%,#1a2d5a 100%);padding:16px 32px;display:flex;align-items:center;gap:16px;border-bottom:1px solid rgba(255,255,255,.1)}
-.hdr-back{color:#7B9FFF;text-decoration:none;font-size:.8rem;letter-spacing:.08em;opacity:.8;transition:.2s}
-.hdr-back:hover{opacity:1}
-.hdr-sep{color:rgba(255,255,255,.2);margin:0 4px}
-.hdr-title{font-size:.85rem;letter-spacing:.12em;color:#FFD700;font-weight:700;text-transform:uppercase}
-.hdr-sub{font-size:.75rem;color:rgba(255,255,255,.5);margin-left:auto}
-.layout{display:flex;flex:1;overflow:hidden;height:calc(100vh - 53px)}
-.sidebar{width:240px;min-width:240px;background:#0d1f3c;border-right:1px solid rgba(255,255,255,.08);overflow-y:auto;padding:16px 0}
-.sb-title{font-size:.65rem;letter-spacing:.15em;color:rgba(255,255,255,.35);padding:0 16px 12px;text-transform:uppercase}
-.sb-group{margin-bottom:8px}
-.sb-group-label{font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;font-weight:700;padding:10px 16px 4px;opacity:.85}
+:root{--blue:#3D5FCD;--blued:#122FB1;--yellow:#F0D224;
+  --ink:#F4F6FF;--muted:#aab3d4;--muted2:#818ab0;
+  --glass:rgba(255,255,255,.055);--glassb:rgba(255,255,255,.10);
+  --red:#E8400A;--green:#22c55e}
+html{scroll-behavior:smooth}
+body{background:#060a1a;color:var(--ink);
+  font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Calibri,sans-serif;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;min-height:100vh;display:flex;flex-direction:column}
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before{content:"";position:absolute;width:62vw;height:62vw;left:-12vw;top:-16vw;border-radius:50%;filter:blur(90px);
+  background:radial-gradient(circle,rgba(27,63,208,.45),transparent 70%);animation:f1 24s ease-in-out infinite}
+.aurora::after{content:"";position:absolute;width:50vw;height:50vw;right:-10vw;top:10vw;border-radius:50%;filter:blur(90px);
+  background:radial-gradient(circle,rgba(13,33,133,.55),transparent 70%);animation:f2 28s ease-in-out infinite}
+@keyframes f1{50%{transform:translate(6vw,8vh) scale(1.12)}}
+@keyframes f2{50%{transform:translate(-7vw,10vh) scale(1.10)}}
+.grain{position:fixed;inset:0;z-index:-1;opacity:.04;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+nav{position:relative;z-index:50;display:flex;align-items:center;gap:14px;padding:13px 28px;
+  backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);
+  background:rgba(6,10,26,.65);border-bottom:1px solid rgba(255,255,255,.07)}
+.nav-back{font-size:.78rem;font-weight:600;color:var(--muted);padding:5px 12px;border-radius:20px;
+  transition:.2s;text-decoration:none;border:1px solid rgba(255,255,255,.08)}
+.nav-back:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+.nav-sep{color:rgba(255,255,255,.18);margin:0 2px;font-size:.8rem}
+.nav-title{font-size:.82rem;letter-spacing:.1em;color:var(--yellow);font-weight:700;text-transform:uppercase}
+.nav-right{margin-left:auto;font-size:.72rem;color:var(--muted2);letter-spacing:.04em}
+.layout{display:flex;flex:1;overflow:hidden;height:calc(100vh - 50px)}
+.sidebar{width:252px;min-width:252px;background:rgba(10,20,50,.7);backdrop-filter:blur(12px);
+  border-right:1px solid rgba(255,255,255,.07);overflow-y:auto;padding:14px 0}
+.sb-title{font-size:.6rem;letter-spacing:.16em;color:rgba(255,255,255,.28);padding:0 16px 10px;text-transform:uppercase}
+.sb-group{margin-bottom:6px}
+.sb-group-label{font-size:.58rem;letter-spacing:.13em;text-transform:uppercase;font-weight:700;padding:8px 16px 4px;opacity:.7}
 .sb-item{display:flex;align-items:center;gap:8px;padding:8px 16px;cursor:pointer;transition:.15s;border-left:3px solid transparent}
-.sb-item:hover{background:rgba(255,255,255,.05)}
-.sb-item.active{background:rgba(123,159,255,.12);border-left-color:#7B9FFF}
+.sb-item:hover{background:rgba(255,255,255,.04)}
+.sb-item.active{background:rgba(123,159,255,.1);border-left-color:#7B9FFF}
 .sb-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
-.sb-name{font-size:.8rem;flex:1;color:#c5cae9}
-.sb-state{font-size:.58rem;color:rgba(255,255,255,.3);letter-spacing:.06em;text-transform:uppercase;flex-shrink:0}
-.main{flex:1;overflow-y:auto;padding:28px 36px}
-.placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;opacity:.35;gap:8px}
+.sb-name{font-size:.78rem;flex:1;color:var(--muted)}
+.sb-state{font-size:.56rem;color:rgba(255,255,255,.28);letter-spacing:.06em;text-transform:uppercase;flex-shrink:0}
+.main{flex:1;overflow-y:auto;padding:32px 40px}
+.placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;opacity:.3;gap:8px}
 .placeholder p{font-size:.85rem;color:#7B9FFF}
 .sys-panel{display:none}
 .sys-panel.visible{display:block}
-.sys-hdr{display:flex;align-items:flex-start;gap:20px;margin-bottom:24px}
-.sys-abb{width:64px;height:64px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:800;color:#fff;flex-shrink:0;letter-spacing:.05em}
+.sys-hdr{display:flex;align-items:flex-start;gap:20px;margin-bottom:28px}
+.sys-abb{width:64px;height:64px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+  font-size:1.05rem;font-weight:800;color:#fff;flex-shrink:0;letter-spacing:.05em}
 .sys-meta{flex:1}
-.sys-name{font-size:1.5rem;font-weight:800;color:#fff;margin-bottom:4px}
-.sys-vendor{font-size:.8rem;color:rgba(255,255,255,.5);margin-bottom:8px}
+.sys-name{font-size:1.55rem;font-weight:800;color:#fff;margin-bottom:4px;letter-spacing:-.02em}
+.sys-vendor{font-size:.78rem;color:var(--muted2);margin-bottom:10px}
 .sys-chips{display:flex;gap:8px;flex-wrap:wrap}
-.chip{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
-.chip-baseline{background:rgba(255,255,255,.1);color:rgba(255,255,255,.6)}
-.chip-transitional{background:rgba(123,159,255,.2);color:#7B9FFF}
-.chip-target{background:rgba(255,215,0,.2);color:#FFD700}
-.chip-active{background:rgba(76,175,80,.2);color:#4CAF50}
-.chip-at_risk{background:rgba(255,82,82,.2);color:#FF5252}
-.sys-role{font-size:.82rem;color:#9fa8da;margin-top:4px;line-height:1.5;max-width:680px}
+.chip{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.63rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.chip-baseline{background:rgba(255,255,255,.08);color:rgba(255,255,255,.55)}
+.chip-transitional{background:rgba(123,159,255,.18);color:#7B9FFF}
+.chip-target{background:rgba(240,210,36,.18);color:var(--yellow)}
+.chip-active{background:rgba(76,175,80,.18);color:#4CAF50}
+.chip-at_risk{background:rgba(255,82,82,.18);color:#FF5252}
+.sys-role{font-size:.82rem;color:var(--muted);margin-top:4px;line-height:1.5;max-width:680px}
 .section{margin-bottom:28px}
-.sec-title{font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.06)}
-.sdlc-wrap{background:rgba(255,255,255,.04);border-radius:10px;padding:18px 20px}
-.sdlc-phases{display:flex;gap:4px;margin-bottom:12px}
-.sdlc-ph{flex:1;text-align:center;font-size:.6rem;letter-spacing:.06em;text-transform:uppercase;padding:8px 4px;border-radius:6px;color:rgba(255,255,255,.3);background:rgba(255,255,255,.04)}
-.sdlc-ph.done{background:rgba(76,175,80,.15);color:#4CAF50}
-.sdlc-ph.planned{background:rgba(255,255,255,.03);color:rgba(255,255,255,.15)}
+.sec-title{font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.28);
+  margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.06)}
+.sdlc-wrap{background:var(--glass);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:18px 20px}
+.sdlc-phases{display:flex;gap:3px;margin-bottom:14px}
+.sdlc-ph{flex:1;text-align:center;font-size:.58rem;letter-spacing:.05em;text-transform:uppercase;
+  padding:8px 4px;border-radius:6px;color:rgba(255,255,255,.25);background:rgba(255,255,255,.03)}
+.sdlc-ph.done{background:rgba(76,175,80,.13);color:#4CAF50}
+.sdlc-ph.planned{background:rgba(255,255,255,.02);color:rgba(255,255,255,.12)}
 .sdlc-bar-wrap{display:flex;align-items:center;gap:10px}
-.sdlc-bar-bg{flex:1;height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden}
-.sdlc-bar-fill{height:100%;border-radius:3px;transition:width .6s ease}
+.sdlc-bar-bg{flex:1;height:6px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden}
+.sdlc-bar-fill{height:100%;border-radius:3px;transition:width .7s ease}
 .sdlc-pct{font-size:.75rem;font-weight:700;min-width:36px;text-align:right}
 .milestones{display:flex;flex-direction:column;gap:0}
-.ms-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.ms-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.04)}
 .ms-row:last-child{border-bottom:none}
 .ms-icon{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:.7rem}
-.ms-done{background:rgba(76,175,80,.25);color:#4CAF50}
-.ms-pending{background:rgba(255,193,7,.2);color:#FFC107}
-.ms-planned{background:rgba(255,255,255,.08);color:rgba(255,255,255,.3)}
-.ms-label{flex:1;font-size:.8rem;color:#c5cae9}
-.ms-date{font-size:.72rem;color:rgba(255,255,255,.35);min-width:70px;text-align:right}
+.ms-done{background:rgba(76,175,80,.22);color:#4CAF50}
+.ms-pending{background:rgba(255,193,7,.18);color:#FFC107}
+.ms-planned{background:rgba(255,255,255,.06);color:rgba(255,255,255,.28)}
+.ms-label{flex:1;font-size:.8rem;color:var(--muted)}
+.ms-date{font-size:.72rem;color:rgba(255,255,255,.3);min-width:70px;text-align:right}
 .caps-grid{display:flex;flex-wrap:wrap;gap:8px}
-.cap-chip{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;font-size:.72rem;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);color:#c5cae9}
+.cap-chip{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;font-size:.72rem;
+  background:var(--glass);border:1px solid rgba(255,255,255,.07);color:var(--muted)}
 .cap-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
-.cov-full{background:#4CAF50}.cov-partial{background:#FFC107}.cov-not_covered{background:#FF5252}.cov-not_applicable{background:#666}.cov-unknown{background:#888}
-.summary-box{background:rgba(255,255,255,.04);border-left:3px solid #7B9FFF;border-radius:0 8px 8px 0;padding:12px 16px;font-size:.82rem;color:#9fa8da;line-height:1.6}
-.impact-empty{font-size:.78rem;color:rgba(255,255,255,.25);font-style:italic}
+.cov-full{background:#4CAF50}.cov-partial{background:#FFC107}.cov-not_covered{background:#FF5252}
+.cov-not_applicable{background:#666}.cov-unknown{background:#888}
+.summary-box{background:var(--glass);border-left:3px solid #7B9FFF;border-radius:0 10px 10px 0;
+  padding:14px 18px;font-size:.82rem;color:var(--muted);line-height:1.65}
+.impact-empty{font-size:.78rem;color:rgba(255,255,255,.22);font-style:italic}
 ''')
     html_parts.append('''
 .sb-divider{height:1px;background:rgba(255,255,255,.06);margin:12px 8px}
@@ -1730,12 +1886,13 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#0a1628;color:#e8eaf6;mi
     html_parts.append('</style>')
     html_parts.append('</head>')
     html_parts.append('<body>')
-    html_parts.append('<div class="hdr">')
-    html_parts.append('  <a class="hdr-back" href="index.html">&#8592; Portal Unity R4</a>')
-    html_parts.append('  <span class="hdr-sep">&middot;</span>')
-    html_parts.append('  <span class="hdr-title">Habilitadores del Proceso</span>')
-    html_parts.append('  <span class="hdr-sub">BanCoppel &middot; Programa Unity R4 &middot; TDC P4900</span>')
-    html_parts.append('</div>')
+    html_parts.append('<div class="aurora"></div><div class="grain"></div>')
+    html_parts.append('<nav>')
+    html_parts.append('  <a class="nav-back" href="index.html">&#8592; Portal Unity R4</a>')
+    html_parts.append('  <span class="nav-sep">&middot;</span>')
+    html_parts.append('  <span class="nav-title">Habilitadores del Proceso</span>')
+    html_parts.append('  <span class="nav-right">BanCoppel &middot; Programa Unity R4 &middot; TDC P4900</span>')
+    html_parts.append('</nav>')
     html_parts.append('<div class="layout">')
     html_parts.append('  <div class="sidebar">')
     html_parts.append('    <div class="sb-title">Ecosistema Tecnologico</div>')
@@ -1810,11 +1967,11 @@ const FATE_CLS = {
   'data-source':'fate-data-source','unknown':'fate-unknown'
 };
 function setView(v) {
-  document.getElementById('view-r4').style.display = v==='r4'?'':'none';
-  document.getElementById('view-leg').style.display = v==='legacy'?'':'none';
+  document.getElementById('view-r4').style.display = v==='r4'?'block':'none';
+  document.getElementById('view-leg').style.display = v==='legacy'?'block':'none';
   document.getElementById('btn-r4').classList.toggle('active', v==='r4');
   document.getElementById('btn-leg').classList.toggle('active', v==='legacy');
-  document.getElementById('placeholder').style.display = '';
+  document.getElementById('placeholder').style.display = 'flex';
   document.getElementById('sys-panel').classList.remove('visible');
   const lp = document.getElementById('legacy-panel');
   if (lp) { lp.style.display='none'; lp.innerHTML=''; }
@@ -1910,6 +2067,53 @@ def main():
         }
         for old, new in replacements.items():
             lc = lc.replace(old, new)
+
+        # ── Formato visual: logo, nav, hero ───────────────────────────────────
+        _lc_days = days_to_golive()
+
+        # 1. Logo path correcto
+        lc = lc.replace(
+            'src="../../../design-studio/bancoppel-logo.png"',
+            'src="../../../design-studio/logos/BanCoppel_logo.png"'
+        )
+
+        # 2. Nav: links limpios alineados al Plan Director
+        old_nav_links = (
+            '  <a href="index.html">Portal ←</a>\n'
+            '  <a href="plan-director.html">Plan Director</a>\n'
+            '  <a href="apolo-itcaps.html">APOLO IT Caps</a>\n'
+            '  <a href="arquitectura.html" class="hl">Arquitectura ↗</a>'
+        )
+        new_nav_links = (
+            '  <a class="jump hl" href="index.html">← Plan Director</a>\n'
+            '  <a class="jump" href="arquitectura.html">Arquitectura ↗</a>'
+        )
+        if old_nav_links in lc:
+            lc = lc.replace(old_nav_links, new_nav_links)
+
+        # 3. Stats: añadir días al go-live (primera posición) y corregir USs
+        old_stats_block = (
+            '    <div class="stats">\n'
+            '      <div class="stat"><div class="stn">8</div><div class="stl">Fases del lifecycle</div></div>\n'
+            '      <div class="stat"><div class="stn">33+</div><div class="stl">User Stories mapeadas</div></div>'
+        )
+        new_stats_block = (
+            '    <div class="stats">\n'
+            f'      <div class="stat warn"><div class="stn">{_lc_days}</div><div class="stl">Días al Go-Live · 15 Ene 2027</div></div>\n'
+            '      <div class="stat"><div class="stn">8</div><div class="stl">Fases del lifecycle</div></div>\n'
+            '      <div class="stat"><div class="stn">79</div><div class="stl">User Stories — 46 Must</div></div>'
+        )
+        if old_stats_block in lc:
+            lc = lc.replace(old_stats_block, new_stats_block)
+
+        # 4. CSS: añadir .stat.warn si no existe
+        if '.stat.warn' not in lc:
+            lc = lc.replace(
+                '.stl{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted2)}',
+                '.stl{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted2)}\n'
+                '.stat.warn{border-color:rgba(240,210,36,.35);background:rgba(240,210,36,.06)}'
+                '.stat.warn .stn{background:linear-gradient(180deg,var(--yellow),#e0b800);-webkit-background-clip:text;background-clip:text}'
+            )
 
         # ── Eliminar bloque pnEl legado (doble render) ───────────────────────
         import re as _re
