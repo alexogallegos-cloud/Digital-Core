@@ -1658,6 +1658,7 @@ footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid
     <a class="jump" href="#acciones">Acciones</a>
     <a class="jump" href="#riesgos">Riesgos</a>
     <a class="jump" href="#cronograma">Cronograma</a>
+    <a class="jump ext" href="duplicidad-etb-bcop.html">ETB Map &#8599;</a>
   </span>
 </nav>
 
@@ -3154,8 +3155,7 @@ def main():
             '  <a href="arquitectura.html" class="hl">Arquitectura ↗</a>'
         )
         new_nav_links = (
-            '  <a class="jump hl" href="index.html">← Plan Director</a>\n'
-            '  <a class="jump" href="arquitectura.html">Arquitectura ↗</a>'
+            '  <a class="jump hl" href="index.html">← Plan Director</a>'
         )
         if old_nav_links in lc:
             lc = lc.replace(old_nav_links, new_nav_links)

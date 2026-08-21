@@ -654,7 +654,6 @@ footer code{color:var(--muted);background:rgba(240,210,36,.09);border:1px solid 
   <span class="nt">Unity R4 — Cadena de Valor</span>
   <span class="sp"></span>
   <a class="jump hl" href="index.html">← Plan Director</a>
-  <a class="jump" href="arquitectura.html">Arquitectura ↗</a>
 </nav>
 <div class="wrap">
   <div class="hero">
