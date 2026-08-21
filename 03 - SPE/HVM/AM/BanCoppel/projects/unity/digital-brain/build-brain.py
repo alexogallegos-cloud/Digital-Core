@@ -7262,7 +7262,7 @@ DUPLICITY_DATA = [
     {
         "id": "DUP-001", "dt_agent": "DT-SWAP-01",
         "capability_domain": "Captacion de cuentas",
-        "etb_capability": "5.1.1",
+        "etb_capability": '["3.2.1","3.2.2","3.2.3","3.2.4"]',
         "legacy_system": "sif-informix",
         "legacy_capability": "D04 Captacion (Cuenta N2/N4/Nomina) + D05 Saldos — >800 SPs, Golden Record en Informix",
         "legacy_evidence": "D04 fate=done (Transact en produccion). Golden Record en Informix segun doc CNBV.",
@@ -7281,7 +7281,7 @@ DUPLICITY_DATA = [
     {
         "id": "DUP-002", "dt_agent": "DT-SWAP-01",
         "capability_domain": "Credito Simple Empresarial",
-        "etb_capability": "5.2.1",
+        "etb_capability": '["3.3.1","3.3.2","3.3.3","3.3.4"]',
         "legacy_system": "sif-informix",
         "legacy_capability": "D03 Creditos (priority-ranking #1 Quick Win) + Orion/SFI credito comercial (TASF)",
         "legacy_evidence": "D03 es dominio prioritario. Orion SFI en legacy_systems fate=migrar a Transact.",
@@ -7299,7 +7299,7 @@ DUPLICITY_DATA = [
     {
         "id": "DUP-003", "dt_agent": "DT-SWAP-01",
         "capability_domain": "Saldos y movimientos de cuentas",
-        "etb_capability": "5.1.2",
+        "etb_capability": '["3.2.4","3.17.8"]',
         "legacy_system": "sif-informix",
         "legacy_capability": "D05 Saldos (563 SPs, ESB fan_in alto, RETURN WITH RESUME producer)",
         "legacy_evidence": "D05: 563 SPs, Quick Win priority-ranking, RETURN WITH RESUME pattern dominante (5,433 producers en todo Informix).",
@@ -7319,7 +7319,7 @@ DUPLICITY_DATA = [
     {
         "id": "DUP-004", "dt_agent": "DT-SWAP-02",
         "capability_domain": "CMS ciclo de vida TDC",
-        "etb_capability": "5.3.1",
+        "etb_capability": '["3.5.1","3.5.2"]',
         "legacy_system": "sif-informix",
         "legacy_capability": "Intercard (CMS legacy, producto 6001/6100, ~3M tarjetas) + Informix D16 Tarjetas (311 SPs) + Macweb",
         "legacy_evidence": "~3M tarjetas activas en Intercard. IMM-D16-SV: SmartVista replaces, in_progress.",
@@ -7338,7 +7338,7 @@ DUPLICITY_DATA = [
     {
         "id": "DUP-005", "dt_agent": "DT-SWAP-02",
         "capability_domain": "Autorizacion de transacciones TDC",
-        "etb_capability": "5.3.2",
+        "etb_capability": '["3.5.2","3.4.3"]',
         "legacy_system": "sif-informix",
         "legacy_capability": "D16 Tarjetas (311 SPs — paths AIX string concat) + Intercard autorizador",
         "legacy_evidence": "D16 triaje: 311 SPs FORMULA string concat (paths AIX/dbaccess). Reg=100%, riesgo=0% (no aritmetica).",
@@ -7356,7 +7356,7 @@ DUPLICITY_DATA = [
     {
         "id": "DUP-006", "dt_agent": "DT-SWAP-02",
         "capability_domain": "Meses con intereses (MCI)",
-        "etb_capability": "5.3.3",
+        "etb_capability": '["3.15.2","3.16.1"]',
         "legacy_system": "sif-informix",
         "legacy_capability": "D03 Creditos + D07 Cobranza: logica MCI legacy (calculo cuotas, intereses diferidos)",
         "legacy_evidence": "D03 prioridad Quick Win #1. APP-MF-02 corregida en swarm2 QA v1.4.0.",
@@ -7375,7 +7375,7 @@ DUPLICITY_DATA = [
     {
         "id": "DUP-007", "dt_agent": "DT-SWAP-03",
         "capability_domain": "Onboarding digital TDC",
-        "etb_capability": "5.4.1",
+        "etb_capability": '["7.1.1","3.1.4","3.2.1"]',
         "legacy_system": "sif-informix",
         "legacy_capability": "SIWEB legacy (originacion en sucursal) + Informix D26 Prospectos (54 SPs, CNBV KYC)",
         "legacy_evidence": "D26: CNBV KYC + PLD. IMM-D01-APO: apolo replaces, in_progress.",
@@ -7393,7 +7393,7 @@ DUPLICITY_DATA = [
     {
         "id": "DUP-008", "dt_agent": "DT-SWAP-03",
         "capability_domain": "Validacion KYC y PLD en originacion",
-        "etb_capability": "5.4.2",
+        "etb_capability": '["7.1.2","5.8.1","5.8.2"]',
         "legacy_system": "sif-informix",
         "legacy_capability": "D15 LIDE/PLD (CNBV PLD Circular 4/2019 + GAFI Rec.10/11) + D26 Prospectos KYC",
         "legacy_evidence": "D15: reg=100%, riesgo=19% (pld_* patterns). D26: CNBV KYC + CONDUSEF. D15=PLD/Minds AML sistema separado.",
@@ -7430,7 +7430,7 @@ DUPLICITY_DATA = [
     {
         "id": "DUP-010", "dt_agent": "DT-SWAP-04",
         "capability_domain": "App movil — consulta y operaciones cliente",
-        "etb_capability": "5.5.1",
+        "etb_capability": '["1.1.2","7.1.4"]',
         "legacy_system": "sif-informix",
         "legacy_capability": "AppMovil legacy: 49 SPs en Informix (D01/D05/D03) via 216 Spring Boot microservicios",
         "legacy_evidence": "AppMovil brain: 49 SPs unicos, 11 BDs, 133 referencias (21 Java Constants + 112 properties). 98% cobertura.",
@@ -7449,7 +7449,7 @@ DUPLICITY_DATA = [
     {
         "id": "DUP-011", "dt_agent": "DT-SWAP-04",
         "capability_domain": "Operaciones de sucursal",
-        "etb_capability": "5.5.2",
+        "etb_capability": '["1.2.1","1.1.1"]',
         "legacy_system": "sif-informix",
         "legacy_capability": "SIWEB legacy (sistema actual sucursales) + Informix D01/D14 (Canal Digital Web + Banca Electronica)",
         "legacy_evidence": "TA-SIWEB: GENERAL/SOLUCION amarillo, ROJO en integraciones. 10 semanas construccion 18-ago=29-oct (2 sem. tarde).",
@@ -7467,7 +7467,7 @@ DUPLICITY_DATA = [
     {
         "id": "DUP-012", "dt_agent": "DT-SWAP-04",
         "capability_domain": "Canal ATM y cajeros automaticos",
-        "etb_capability": "5.5.3",
+        "etb_capability": '["1.2.2"]',
         "legacy_system": "sif-informix",
         "legacy_capability": "D15 ATM (SPs legacy cajeros, out_of_scope R4) + InterAct como segundo autorizador POS/ATM",
         "legacy_evidence": "IMM-D15-RET: out_of_scope. 'Sin User Story en R4 (brecha Fase 03 dt-productos.md).'",
@@ -7486,7 +7486,7 @@ DUPLICITY_DATA = [
     {
         "id": "DUP-013", "dt_agent": "DT-SWAP-05",
         "capability_domain": "Golden Record del cliente (MDM)",
-        "etb_capability": "5.6.1",
+        "etb_capability": '["7.1.1","7.1.3"]',
         "legacy_system": "sif-informix",
         "legacy_capability": "Informix/PISA (PRESENTE): Golden Record autoritativo del cliente segun doc CNBV v1.0",
         "legacy_evidence": "Tres candidatos simultaneos activos: Informix (autoridad hoy), Atlas (Fase 2 sin diseno), Transact (nunca activado para Golden Record).",
@@ -7505,7 +7505,7 @@ DUPLICITY_DATA = [
     {
         "id": "DUP-014", "dt_agent": "DT-SWAP-05",
         "capability_domain": "Deduplicacion de clientes",
-        "etb_capability": "5.6.2",
+        "etb_capability": '["7.1.1","7.1.2"]',
         "legacy_system": "sif-informix",
         "legacy_capability": "sp_compara_nombres (D01, fine-mapping R26) — matching nombres para deduplication",
         "legacy_evidence": "sp_compara_nombres en Informix D01, fan_in no trivial, dominio Canal Digital Web.",
@@ -7580,7 +7580,7 @@ DUPLICITY_DATA = [
     {
         "id": "DUP-018", "dt_agent": "DT-SWAP-06",
         "capability_domain": "Pagos SPEI / CoDi interbancarios",
-        "etb_capability": "5.7.1",
+        "etb_capability": '["3.4.3","3.4.1","3.4.2","3.4.4","3.4.5"]',
         "legacy_system": "sif-informix",
         "legacy_capability": "D13 TEF (628 SPs, Banxico SPEI/CECOBAN, reg=100%, riesgo=20%) — procesamiento SPEI en core",
         "legacy_evidence": "D13 triaje: Banxico SPEI + CECOBAN. IMM-D05S-CMP: SPEI recibido en Informix/PISA como core de liquidacion.",
@@ -7599,7 +7599,7 @@ DUPLICITY_DATA = [
     {
         "id": "DUP-019", "dt_agent": "DT-SWAP-07",
         "capability_domain": "Reportes regulatorios CNBV/Banxico",
-        "etb_capability": "5.8.1",
+        "etb_capability": '["5.10.6","4.5.1"]',
         "legacy_system": "sif-informix",
         "legacy_capability": "~20 SPL batch jobs via CTM (D09/D13/D15/D16) + Bajaware (motor generacion, en decomiso Q1-2027)",
         "legacy_evidence": "audit_findings: ~100 reportes por confirmar. Cadena: Informix->DataStage->DWH->RiskLogic/Bajaware->CNBV. RISK-UNITY-R19..R26 (8 riesgos).",
@@ -7618,7 +7618,7 @@ DUPLICITY_DATA = [
     {
         "id": "DUP-020", "dt_agent": "DT-SWAP-07",
         "capability_domain": "Reportes de portafolio TDC (SmartVista vs Informix)",
-        "etb_capability": "5.8.2",
+        "etb_capability": '["3.17.8","5.10.6"]',
         "legacy_system": "sif-informix",
         "legacy_capability": "D16 Tarjetas + D32 Reports (36 SPs, MC+VISA+CNBV TDC) — reportes emisora en batch CTM",
         "legacy_evidence": "D32: reg=MC+VISA+CNBV TDC. D16: 311 SPs string concat. IMM-D10-AT: atlas replaces portafolio TDC reportes.",
@@ -7636,7 +7636,7 @@ DUPLICITY_DATA = [
     {
         "id": "DUP-021", "dt_agent": "DT-SWAP-07",
         "capability_domain": "Contabilidad y asientos contables",
-        "etb_capability": "5.8.3",
+        "etb_capability": '["5.4.1","5.4.2","5.4.8"]',
         "legacy_system": "sif-informix",
         "legacy_capability": "D07 Gestion Deuda + D08 Pagos (asientos contables cobranza/pago) + legacy libro mayor",
         "legacy_evidence": "D07/D08: fate=replicate en IMM. Asientos contables vinculados a CNBV Anexo 33-36.",
@@ -7655,7 +7655,7 @@ DUPLICITY_DATA = [
     {
         "id": "DUP-022", "dt_agent": "DT-SWAP-08",
         "capability_domain": "Motor de cobranza y recuperacion",
-        "etb_capability": "5.9.1",
+        "etb_capability": '["3.3.4","3.3.6"]',
         "legacy_system": "sif-informix",
         "legacy_capability": "D07 Gestion Deuda + D08 Pagos + D40 Cobranza + D41 Contacto Deudor + D42 Cartera Litigio",
         "legacy_evidence": "IMM: D40-D42 fate=replicate/unknown. D07/D08 fate=replicate. RISK-UNITY-R06: Cobranza Direccionada 30-50 HUs sin inventariar.",
@@ -7673,7 +7673,7 @@ DUPLICITY_DATA = [
     {
         "id": "DUP-023", "dt_agent": "DT-SWAP-08",
         "capability_domain": "Reglas de negocio y motor BRM cobranza",
-        "etb_capability": "5.9.2",
+        "etb_capability": '["3.3.4","5.9.2"]',
         "legacy_system": "sif-informix",
         "legacy_capability": "Experian BRM (scoring/elegibilidad) + WebMethods BRM (Software AG) + BRM Coppel (Red Coppel)",
         "legacy_evidence": "legacy_systems: BRM tiene 3 referentes distintos (ambiguedad documentada). Experian=scoring; WebMethods=orquestacion.",
