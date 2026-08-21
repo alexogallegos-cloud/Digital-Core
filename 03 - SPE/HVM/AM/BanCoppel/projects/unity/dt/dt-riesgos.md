@@ -1,4 +1,4 @@
-# DT-Riesgos — RAID Log Unity R4
+﻿# DT-Riesgos — RAID Log Unity R4
 
 > **Tipo:** Digital Twin — Programa Unity  
 > **Versión:** v2.1.0  
@@ -197,7 +197,7 @@ Arquitectura rechazó habilitar el servidor IBR por no cumplir requisito de nube
 | **RAID ID** | Fuera de RAID Log formal — identificado vía dt-vendors.md |
 | **Fuente** | dt-vendors.md + dt-integraciones.md |
 
-El proveedor de Contact Center (IVR + agentes ICCAT) no ha sido contratado. Sin firma antes del 2026-08-31, las 12 HDUs del canal CAT y las 6 integraciones nuevas CAT→SmartVista (ICAT01, ICAT02, ICAT04, ICAT05, ICAT06, ICAT07) quedan sin responsable técnico para SIT oct-nov 2026. Referenciado internamente como RISK-001 en build-brain.py y dt-vendors.md.
+El proveedor de Contact Center (IVR + agentes ICCAT) no ha sido contratado. Sin firma antes del 2026-08-31, las 12 User Stories del canal CAT y las 6 integraciones nuevas CAT→SmartVista (ICAT01, ICAT02, ICAT04, ICAT05, ICAT06, ICAT07) quedan sin responsable técnico para SIT oct-nov 2026. Referenciado internamente como RISK-001 en build-brain.py y dt-vendors.md.
 
 **Impacto directo:** CAP-CHANNEL-SELFSERVICE y CAP-AUTHENTICATION bloqueadas. Canal CAT no puede entrar en go-live enero 2027.
 

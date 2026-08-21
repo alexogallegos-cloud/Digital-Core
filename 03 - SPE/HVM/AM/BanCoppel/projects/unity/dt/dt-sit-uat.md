@@ -1,4 +1,4 @@
-# DT: Plan SIT/UAT — Unity R4
+﻿# DT: Plan SIT/UAT — Unity R4
 > **Digital Twin** · Fuente: RAID v2.0 · Minutas R4 · SME SRE & AIOps · SME Core Banking Transformation
 > **Versión**: v1.0.0 · 2026-08-16
 > **Propósito**: Plan de pruebas por capability, criterios de entrada/salida SIT y UAT, conflicto pentest noviembre, gestión de defectos y triage
@@ -86,7 +86,7 @@ Organización por capability (no por componente técnico) — esta es la vista q
 |-----------|-----|----------------|
 | CAP-DEFERRED-PURCHASE | DPP no contratado | Esta capability **no entra en SIT** — queda fuera del alcance R4 si no se decide antes de oct |
 | CAP-OVERPAYMENT | BYU0039 sin cierre | SIT de esta capability depende de que BPC cierre el ticket — bloqueante |
-| CAP-CHANNEL-SELFSERVICE + CAP-AUTHENTICATION (parcial) | CAT sin contratar | Las HUs de CAT no entran en SIT hasta contratar el proveedor |
+| CAP-CHANNEL-SELFSERVICE + CAP-AUTHENTICATION (parcial) | CAT sin contratar | Las User Stories de CAT no entran en SIT hasta contratar el proveedor |
 | CAP-CARD-MANUFACTURING | OCG/Connect Direct manuales | SIT cubre el flujo manual; el automático es post-R4 |
 
 ---

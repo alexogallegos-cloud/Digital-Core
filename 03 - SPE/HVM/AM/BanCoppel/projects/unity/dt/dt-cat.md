@@ -1,4 +1,4 @@
-# DT — CAT / Contact Center (Canal IVR + ICCAT)
+﻿# DT — CAT / Contact Center (Canal IVR + ICCAT)
 > Digital Twin del track CAT (Contact Center Atención Telefónica) para la Tarjeta de Crédito R4 (Producto 4900).
 > Fuente primaria: `20260803 - R4 CAT - Analisis detallado HDUs e Integraciones.docx`
 > Fuente secundaria: `Consolidacion y priorizacion_HUs_R4_v2.xlsx` · `Inventario de Integraciones_HUs_ R4_v1.0.xlsx`
@@ -15,7 +15,7 @@
 | Tipo | channel (Contact Center — IVR + ICCAT) |
 | Proveedor | **Por contratar** (provider_status: pending) |
 | Status | 🔴 En riesgo crítico |
-| HUs totales | 12 |
+| User Stories totales | 12 |
 | RAG | 🔴 RED en las TRES dimensiones |
 | Sesión de análisis | 2026-08-03 |
 | Source doc | `20260803 - R4 CAT - Analisis detallado HDUs e Integraciones.docx` |
@@ -60,7 +60,7 @@
 
 ---
 
-## HDUs (hdu_catalog) — 12 HDUs
+## User Stories (hdu_catalog) — 12 User Stories
 
 Cobertura general: **6 partial + 6 not_covered** = 12 total. El ratio de not_covered (50%) es el más alto de todos los tracks — consecuencia directa de que el proveedor no está contratado y el ambiente IBR está bloqueado.
 
@@ -74,7 +74,7 @@ Cobertura general: **6 partial + 6 not_covered** = 12 total. El ratio de not_cov
 | HDU-CAT-R4-09 | Gestionar autenticación reforzada en IVR (DTMF) | CAP-AUTHENTICATION | **not_covered** |
 | HDU-CAT-R4-10 | Gestionar opciones de autoservicio IVR por nivel de mora (`agingPeriod E1/E2/E3`) | CAP-COLLECTIONS-AGING | **not_covered** |
 
-> Los 5 HDUs de autoservicio IVR son not_covered. El IVR es un canal externo al alcance de SmartVista — la lógica de menús, ANI, DTMF y locuciones es responsabilidad del proveedor CAT, no de SmartVista.
+> Los 5 User Stories de autoservicio IVR son not_covered. El IVR es un canal externo al alcance de SmartVista — la lógica de menús, ANI, DTMF y locuciones es responsabilidad del proveedor CAT, no de SmartVista.
 
 ### CAT-MF-02 — Identificación y Autenticación en ICCAT
 
@@ -124,7 +124,7 @@ Fuente: `Consolidacion y priorizacion_HUs_R4_v2.xlsx`
 
 Fuente: `Inventario de Integraciones_HUs_ R4_v1.0.xlsx`
 
-| ID | HDU | Nombre | Origen | Destino | Tipo | Estado | Complejidad | Existe Hoy |
+| ID | User Story | Nombre | Origen | Destino | Tipo | Estado | Complejidad | Existe Hoy |
 |----|-----|--------|--------|---------|------|--------|-------------|-----------|
 | ICAT01 | R4-01 | Consulta de clientes SmartVista | IVR | SMARTVISTA | API | Nueva | Media | No |
 | ICAT02 | R4-01 | Consulta de cliente por cuenta SmartVista | IVR | SMARTVISTA | API | Nueva | Media | No |
@@ -159,7 +159,7 @@ Fuente: `Inventario de Integraciones_HUs_ R4_v1.0.xlsx`
 
 | ID | Descripción | Categoría | Impacto | Probabilidad | Due Date | Status | Owner |
 |----|-------------|-----------|---------|-------------|----------|--------|-------|
-| RISK-UNITY-R27 | Proveedor CAT no contratado — Contact Center sin equipo técnico responsable de 12 HUs y 6 integraciones nuevas | vendor | Alto | Alto | 2026-08-31 | 🔴 Abierto | PMO Unity |
+| RISK-UNITY-R27 | Proveedor CAT no contratado — Contact Center sin equipo técnico responsable de 12 User Stories y 6 integraciones nuevas | vendor | Alto | Alto | 2026-08-31 | 🔴 Abierto | PMO Unity |
 | RISK-UNITY-R18 | Ambiente IBR bloqueado — arquitectura rechazó habilitar servidor IBR sin nube; proceso involucra múltiples áreas con SLAs independientes | Entornos | Alto | Alto | Sin fecha | 🔴 Abierto | Ramses Santos |
 | RISK-UNITY-R17 | Frameworks obsoletos en canales CAT — vulnerabilidades + riesgo de cronograma si se decide cambiar en R4 | Arquitectura | Medio | Medio | 2026-08-03 | 🟡 Abierto | Ramses Santos / Mercedes Espinosa |
 
@@ -224,9 +224,9 @@ Fuente: `Inventario de Integraciones_HUs_ R4_v1.0.xlsx`
 
 | Gap ID | Descripción | Impacto | Status |
 |--------|-------------|---------|--------|
-| GAP-CAT-01 | Sin proveedor contratado — 12 HUs y 6 integraciones nuevas sin responsable técnico | Sin entrega de CAT en R4 si no se firma antes del 2026-08-31 | 🔴 Abierto |
+| GAP-CAT-01 | Sin proveedor contratado — 12 User Stories y 6 integraciones nuevas sin responsable técnico | Sin entrega de CAT en R4 si no se firma antes del 2026-08-31 | 🔴 Abierto |
 | GAP-CAT-02 | Ambiente IBR bloqueado — arquitectura rechazó habilitar sin infraestructura cloud | Sin ambiente de desarrollo/pruebas para el proveedor CAT | 🔴 Abierto |
-| GAP-CAT-03 | 7 de 12 HDUs en not_covered — ratio más alto de todos los tracks | Autoservicio IVR (menús, ANI, DTMF, locuciones) sin cobertura | 🔴 Sin proveedor |
+| GAP-CAT-03 | 7 de 12 User Stories en not_covered — ratio más alto de todos los tracks | Autoservicio IVR (menús, ANI, DTMF, locuciones) sin cobertura | 🔴 Sin proveedor |
 | GAP-CAT-04 | Frameworks obsoletos — postura técnica sin definir (RISK-R17) | Si se actualiza: impacto cronograma. Si no: deuda técnica y vulnerabilidades | 🟡 Abierto |
 | GAP-CAT-05 | HDU-CAT-R4-10 (agingPeriod IVR) depende de Cobranza Direccionada + proveedor CAT | Menú dinámico por mora no disponible en IVR para R4 | 🟡 Dependencia doble |
 

@@ -1,7 +1,7 @@
-# DT: APOLO — Originación Digital TDC R4
+﻿# DT: APOLO — Originación Digital TDC R4
 > **Digital Twin** · Fuente: APOLO_R4_HDU_TDC.xlsm · Plan_Integral_Apolo_R4_VF3_050826.xls · ADP_Onboarding Apolo TDC R4_20260708
 > **Versión**: v1.0.0 · 2026-08-16
-> **Propósito**: Catálogo completo de 37 HDUs de APOLO, 17 Building Blocks, plan integral fase a fase, recursos y mapeo a capabilities Unity
+> **Propósito**: Catálogo completo de 37 User Stories de APOLO, 17 Building Blocks, plan integral fase a fase, recursos y mapeo a capabilities Unity
 
 ---
 
@@ -64,7 +64,7 @@ BB17 Bienvenida               ←── Confirmación · Correo welcome kit (REC
 
 ---
 
-## Catálogo de HDUs — 37 HDUs
+## Catálogo de User Stories — 37 User Stories
 
 ### MVP1 — En scope enero 2027 (VoBo + Taggeo)
 
@@ -96,7 +96,7 @@ BB17 Bienvenida               ←── Confirmación · Correo welcome kit (REC
 | HDU-TDC-R4-34 | Asignar sucursal corporativa parametrizable a la TDC BanCoppel | BB6 / Sucursalización | Sucursalización | VoBo |
 | HDU-TDC-R4-37 | Implementar medición digital faltante por grupos de BBs | Medición digital · 10 BBs | Medición digital | Taggeo por Modyo |
 
-**Total MVP1: 25 HDUs (22 VoBo + 3 Taggeo)**
+**Total MVP1: 25 User Stories (22 VoBo + 3 Taggeo)**
 
 ### MVP2 — Fuera de alcance enero 2027
 
@@ -113,7 +113,7 @@ BB17 Bienvenida               ←── Confirmación · Correo welcome kit (REC
 | HDU-TDC-R4-35 | Identificar clientes titulares, prospectos y nuevos en validación | Sucursalización clientes |
 | HDU-TDC-R4-36 | Actualizar registro prospecto tipo 02 y aplicar alcance a onboarding | Onboarding cliente prospecto |
 
-**Total MVP2: 10 HDUs** — la funcionalidad de **Recuperación de Solicitud** (retoma) queda completamente fuera del go-live de enero 2027.
+**Total MVP2: 10 User Stories** — la funcionalidad de **Recuperación de Solicitud** (retoma) queda completamente fuera del go-live de enero 2027.
 
 ### Desestimadas
 
@@ -128,7 +128,7 @@ BB17 Bienvenida               ←── Confirmación · Correo welcome kit (REC
 
 > Fuente: ADP_Onboarding Apolo TDC R4_20260708_Base v1.0.pdf · Página 10
 
-| DTM | Nombre técnico (API) | Tipo | Cal. SA | HDU | Descripción funcional |
+| DTM | Nombre técnico (API) | Tipo | Cal. SA | User Story | Descripción funcional |
 |-----|----------------------|------|---------|-----|-----------------------|
 | DTM-01 | `REC_RetrieveOfferPricing` | Atómico | 3 | HDU-01 | Actualizar tasa ordinaria y CAT en oferta |
 | DTM-02 | `REC_NotifyContractDelivery` | Atómico | 3 | HDU-03 | Enviar contrato vigente al finalizar firma |
@@ -172,7 +172,7 @@ Condiciones que AppWhere declaró como bloqueadoras absolutas del inicio del pro
 | CB3 | Resolver estrategia de Branching (repos nuevos/actuales, clusters, token) | 🔄 En proceso |
 | CB4 | Revisión y aprobación de alcances y propuestas comerciales por proveedores con WAR correspondiente | 🟡 Pendiente de cerrar |
 | CB5 | Revisión y aprobación de alcances de todos los actores en la RACI (internos/externos) — presentar en Kickoff | 🔄 En proceso |
-| CB6 | HDUs formalizadas y autorizadas por responsables de Negocio (cerrar alcance funcional) | ✓ 22 HDUs con VoBo |
+| CB6 | User Stories formalizadas y autorizadas por responsables de Negocio (cerrar alcance funcional) | ✓ 22 User Stories con VoBo |
 | CB7 | Asegurar infraestructura y configuración del ambiente — su falta es stopper | 🔴 Riesgo activo (ver R03 cerrado → pendiente confirmar) |
 | CB8 | El roadmap final se formaliza hasta que proveedores externos completen análisis, dimensionamiento y cotización post-PreGame | ✓ Plan N4 F2 publicado 05-ago-2026 |
 
@@ -194,11 +194,11 @@ Condiciones que AppWhere declaró como bloqueadoras absolutas del inicio del pro
 
 ---
 
-## Agrupación por Building Block (BBs con más HDUs)
+## Agrupación por Building Block (BBs con más User Stories)
 
-| Building Block | HDUs asociados | Total CAs |
+| Building Block | User Stories asociados | Total CAs |
 |----------------|---------------|-----------|
-| Recuperación de Solicitud | 7 HDUs (todos MVP2) | 31 |
+| Recuperación de Solicitud | 7 User Stories (todos MVP2) | 31 |
 | Validación del Cliente | 6 | 26 |
 | Preparación | 5 | 23 |
 | Name Matching (listas negras) | 4 | 16 |
@@ -230,7 +230,7 @@ Condiciones que AppWhere declaró como bloqueadoras absolutas del inicio del pro
 
 ### Detalle Sprint Plan — Backend (Fase 3)
 
-| Sprint | Foco | HDUs | APIs |
+| Sprint | Foco | User Stories | APIs |
 |--------|------|------|------|
 | S1 | Validación Teléfono | 23, 24 | 5 |
 | S2 | Validación Teléfono | 26 | 5 |
@@ -267,13 +267,13 @@ Firma Electrónica completada
   └── Marcaje (taggeo) de visualización
 ```
 
-> Esta HDU es el **punto de integración más crítico de APOLO** — es donde el prospecto se convierte en cliente con tarjeta activa. Un fallo aquí bloquea el go-live completo.
+> Esta User Story es el **punto de integración más crítico de APOLO** — es donde el prospecto se convierte en cliente con tarjeta activa. Un fallo aquí bloquea el go-live completo.
 
 ---
 
 ## Mapeo a Capabilities Unity
 
-| Capability Unity | Building Blocks APOLO | HDUs principales |
+| Capability Unity | Building Blocks APOLO | User Stories principales |
 |-----------------|----------------------|-----------------|
 | CAP-CUSTOMER-PROFILE | BB4 Validación Cliente · BB5 Perfilamiento · BB7 KYC-PEP · BB8 PLD · BB10 SIC · BB9 Persona Vulnerable | 07, 08, 13, 14, 21, 34, 35 |
 | CAP-AUTHENTICATION | BB3 Validación Teléfono · OTP · Titularidad | 23, 24, 25, 26, 27 |
@@ -319,8 +319,8 @@ Firma Electrónica completada
 | Riesgo | Descripción | Impacto |
 |--------|-------------|---------|
 | **BB16 / HDU-20** | La integración Firma → SmartVista → OnBase es la más compleja y consume los últimos 6 sprints backend — cualquier retraso en SmartVista bloquea el cierre | Go-live |
-| **Recuperación de Solicitud** (MVP2) | Las 7 HDUs de retoma quedan fuera — un prospecto que abandona a mitad del flujo pierde su solicitud | Experiencia usuario post go-live |
-| **Taggeo por Modyo** | 3 HDUs dependen de Modyo (plataforma externa de CMS) para el taggeo — dependencia no del vendor Appwhere | Medición digital |
+| **Recuperación de Solicitud** (MVP2) | Las 7 User Stories de retoma quedan fuera — un prospecto que abandona a mitad del flujo pierde su solicitud | Experiencia usuario post go-live |
+| **Taggeo por Modyo** | 3 User Stories dependen de Modyo (plataforma externa de CMS) para el taggeo — dependencia no del vendor Appwhere | Medición digital |
 | **Certificación Arquitectura (Fase 9)** | 105 días, paralela a todo el desarrollo — si la certificación no aprueba antes del 5-ene, bloquea el pase a producción | Go-live |
 | **4 capas de despliegue** | SpringBoot + MuleSoft/Apigee + Frontend + WM — 4 capas independientes en 13 días (6-22 ene) | Go-live |
 | **APOLO latencia P95** | Actualmente en 9,000ms producción vs SLO de 5,000ms — ya out-of-SLO antes del go-live R4 | SLO go-live |
@@ -355,4 +355,4 @@ El **pase a producción de APOLO inicia el 6-ene y dura 13 días** (termina 22-e
 
 *Creado: 2026-08-16 — v1.0.0 · Digital Twin APOLO Originación Digital Unity R4*
 *Actualizado: 2026-08-17 — v1.1.0 · +17 DTMs con nombres técnicos REC_* · +8 Critical Breakers PreGame · +Perfiles equipo AppWhere · +Estructura gobierno · +Tensión fechas APOLO vs producto*
-*Fuentes: APOLO_R4_HDU_TDC.xlsm (37 HDUs) · Plan_Integral_Apolo_R4_VF3_050826.xls (10 fases, 13 sprints) · ADP_Onboarding Apolo TDC R4_20260708_Base v1.0.pdf (PreGame) · Plan Apolo N4 F2-05082026 V1.pdf (Gantt detallado)*
+*Fuentes: APOLO_R4_HDU_TDC.xlsm (37 User Stories) · Plan_Integral_Apolo_R4_VF3_050826.xls (10 fases, 13 sprints) · ADP_Onboarding Apolo TDC R4_20260708_Base v1.0.pdf (PreGame) · Plan Apolo N4 F2-05082026 V1.pdf (Gantt detallado)*

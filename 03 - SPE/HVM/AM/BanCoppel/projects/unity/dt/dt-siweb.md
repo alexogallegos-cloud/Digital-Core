@@ -1,4 +1,4 @@
-# DT — SIWEB / Sistema de Sucursales (Canal Ventanilla)
+﻿# DT — SIWEB / Sistema de Sucursales (Canal Ventanilla)
 > Digital Twin del track SIWEB (Sistema de Banca por Internet / Sucursales) para la Tarjeta de Crédito R4 (Producto 4900).
 > Fuente primaria: `20260805 - R4 SIWEB - Analisis detallado HDUs e Integraciones.docx`
 > Fuente secundaria: `Consolidacion y priorizacion_HUs_R4_v2.xlsx`
@@ -15,15 +15,15 @@
 | Tipo | channel (Sistema de Sucursales — ventanillas y caja) |
 | Proveedor | Interno BanCoppel |
 | Status | 🟡 Bloqueado (sin APIs de Apificación) |
-| HUs totales | 5 |
+| User Stories totales | 5 |
 | MoSCoW | 0 Must · 5 Should · 0 Could · 0 Won't |
 | RAG | 🟡 YELLOW (general y solución) · 🔴 RED (integraciones) |
 | Sesión de análisis | 2026-08-05 |
 | Source doc | `20260805 - R4 SIWEB - Analisis detallado HDUs e Integraciones.docx` |
 
-> **Perfil del track:** SIWEB es el canal de menor alcance en R4 — las 5 HUs son todas Should y gestionan operaciones de compras diferidas (MCI/MSI) desde sucursal (caja/ventanilla). El proveedor es interno BanCoppel, lo que elimina el riesgo de contratación. El riesgo dominante es la dependencia de los DTMs de Apificación (Appwhere) para confirmar fechas de implementación.
+> **Perfil del track:** SIWEB es el canal de menor alcance en R4 — las 5 User Stories son todas Should y gestionan operaciones de compras diferidas (MCI/MSI) desde sucursal (caja/ventanilla). El proveedor es interno BanCoppel, lo que elimina el riesgo de contratación. El riesgo dominante es la dependencia de los DTMs de Apificación (Appwhere) para confirmar fechas de implementación.
 
-> **Nota de nomenclatura:** "SIWEB" se refiere al sistema de operaciones en sucursal (ventanilla/caja), no a un portal de banca por internet para clientes. Las HUs son operaciones que ejecutan los cajeros de sucursal, no el titular de la tarjeta.
+> **Nota de nomenclatura:** "SIWEB" se refiere al sistema de operaciones en sucursal (ventanilla/caja), no a un portal de banca por internet para clientes. Las User Stories son operaciones que ejecutan los cajeros de sucursal, no el titular de la tarjeta.
 
 ---
 
@@ -31,13 +31,13 @@
 
 | MoSCoW | Cuenta | Notas |
 |--------|--------|-------|
-| Must | 0 | Ninguna HU es Must en R4 |
+| Must | 0 | Ninguna User Story es Must en R4 |
 | Should | 5 | Todo el alcance SIWEB es Should |
 | Could | 0 | — |
 | Won't | 0 | — |
 | **Total** | **5** | Menor alcance del programa |
 
-> Las 5 HUs son Should Have. Si hay presión de cronograma, SIWEB es el primer candidato a diferir. Sin embargo, la cancelación de planes diferidos (HDU-R4-03) requiere el módulo DPP que tampoco está contratado — lo que convierte ese HDU en Not Covered por licencia, independientemente del MoSCoW.
+> Las 5 User Stories son Should Have. Si hay presión de cronograma, SIWEB es el primer candidato a diferir. Sin embargo, la cancelación de planes diferidos (HDU-R4-03) requiere el módulo DPP que tampoco está contratado — lo que convierte ese User Story en Not Covered por licencia, independientemente del MoSCoW.
 
 ### Distribución por Tipo de Solución y Complejidad
 
@@ -48,7 +48,7 @@
 
 ---
 
-## HDUs (hdu_catalog) — 5 HDUs
+## User Stories (hdu_catalog) — 5 User Stories
 
 Cobertura: **3 partial + 1 not_covered + 1 tbd** = 5 total.
 
@@ -89,7 +89,7 @@ Fuente: `Consolidacion y priorizacion_HUs_R4_v2.xlsx`
 
 El inventario de integraciones R4 (`Inventario de Integraciones_HUs_ R4_v1.0.xlsx`) registra las integraciones SIWEB dentro del **track SmartVista** (ISV03–ISV07). Las 4 integraciones que involucran SIWEB son:
 
-| ID | Nombre | Origen | Destino | Tipo | Estado | HDU SIWEB |
+| ID | Nombre | Origen | Destino | Tipo | Estado | User Story SIWEB |
 |----|--------|--------|---------|------|--------|-----------|
 | ISV03 | Consulta de lotes por sucursal y lote | SIWEB | SMARTVISTA | API | Modificar | R4-01 |
 | ISV04 | Visualización nombres normativos de comisiones — SIWEB | SMARTVISTA | SIWEB | API | Modificar | R4-01 |
@@ -134,7 +134,7 @@ Ticket activo en SmartVista que bloquea la validación del límite de saldo a fa
 
 | ID | Descripción | Impacto | Prob. | Due Date | Status | Owner |
 |----|-------------|---------|-------|----------|--------|-------|
-| RISK-UNITY-R01 | Retraso DTMs Appware bloquea construcción en SIWEB (54% HUs sin delta técnico cerrado) | Alto | Alto | 2026-08-10 | 🟡 En seguimiento | Alfredo Aguilar (Appwhere) |
+| RISK-UNITY-R01 | Retraso DTMs Appware bloquea construcción en SIWEB (54% de User Stories sin delta técnico cerrado) | Alto | Alto | 2026-08-10 | 🟡 En seguimiento | Alfredo Aguilar (Appwhere) |
 | RISK-UNITY-R07 | QA sin capacidad coordinada entre canales — SIWEB/CAT/SmartVista convergen sin calendario integrado | Medio | Alto | 2026-07-26 | 🔴 Vencido | Testing R4 |
 | RISK-UNITY-R16 | Incompatibilidad SmartVista y legado detectada tarde en pruebas | Medio | Medio | Sin fecha | 🟡 Abierto | Armando Garcia (BanCoppel) |
 | DPP-GAP | Módulo DPP no contratado — cancelación automática de diferidos bloqueada | Alto | Alto | — | 🔴 Abierto | PMO BanCoppel |

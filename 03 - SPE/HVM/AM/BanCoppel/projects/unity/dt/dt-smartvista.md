@@ -1,4 +1,4 @@
-# DT: SmartVista & Canales — Unity R4
+﻿# DT: SmartVista & Canales — Unity R4
 > **Digital Twin** · Fuente: `HDU_R4_CANALES APP_SIWEB_CATT_SMARTVISTA.xlsx` + `TDC_R4_SV_Canales_PreGame_20260728_V1.0_Appwhere.pdf`
 > **Versión**: v1.0.0 · 2026-08-16
 > **Scope**: Producto 4900 — Tarjeta de Crédito · BIN 4268 0711
@@ -7,7 +7,7 @@
 
 ## Cobertura PreGame por Canal
 
-| Canal | HDUs | Nativo | Configurable | Parcial | No cubierto | Por determinar | Cobertura SV |
+| Canal | User Stories | Nativo | Configurable | Parcial | No cubierto | Por determinar | Cobertura SV |
 |-------|------|--------|--------------|---------|-------------|----------------|--------------|
 | SmartVista | 22 | 2 | 3 | 13 | 2 | 2 | 55% |
 | APP | 20 | 0 | 0 | 13 | 4 | 0 | 44% |
@@ -19,13 +19,13 @@
 
 ---
 
-## HDUs por Canal y Funcionalidad Macro
+## User Stories por Canal y Funcionalidad Macro
 
-### SmartVista — 22 HDUs
+### SmartVista — 22 User Stories
 
 #### SV-MF-01: Solicitud de Maquila Automatizada (HDU-SMART-R4-01 a 08)
 
-| HDU | Narrativa corta | PreGame | DTM |
+| User Story | Narrativa corta | PreGame | DTM |
 |-----|-----------------|---------|-----|
 | HDU-SMART-R4-01 | Certificar layouts de maquila con GID/Forza/TGS (PGP+HSM) | PARCIAL | DTM_ExecuteCardManufacturingRequest |
 | HDU-SMART-R4-02 | Consultar inventario de tarjetas por sucursal (existencia vs en-ruta) | PARCIAL | — |
@@ -38,20 +38,20 @@
 
 #### SV-MF-02: Comisiones y Catálogos (HDU-SMART-R4-09)
 
-| HDU | Narrativa corta | PreGame | DTM |
+| User Story | Narrativa corta | PreGame | DTM |
 |-----|-----------------|---------|-----|
 | HDU-SMART-R4-09 | Gestión de comisiones por catálogo centralizado (homologación BANXICO) | TOTAL PARAMETRIZABLE | — |
 
 #### SV-MF-03: Autorizador 88 Reglas (HDU-SMART-R4-10, 11)
 
-| HDU | Narrativa corta | PreGame | DTM |
+| User Story | Narrativa corta | PreGame | DTM |
 |-----|-----------------|---------|-----|
 | HDU-SMART-R4-10 | Actualizar nombre del producto desde catálogo SV (no hardcode) | PARCIAL | — |
 | HDU-SMART-R4-11 | Configurar criterios autorizador: Módulo 1 ISO + Módulo 2 PayTrue | PARCIAL | DTM_ValidateBPCAuthorization |
 
 #### SV-MF-04: Saldo a Favor / Overpayment (HDU-SMART-R4-12 a 14)
 
-| HDU | Narrativa corta | PreGame | DTM |
+| User Story | Narrativa corta | PreGame | DTM |
 |-----|-----------------|---------|-----|
 | HDU-SMART-R4-12 | Parametrizar límite de saldo a favor por tramo de línea de crédito | TOTAL PARAMETRIZABLE | — |
 | HDU-SMART-R4-13 | Validar límite saldo a favor (rechazo completo, sin póliza parcial) | **POR DETERMINAR** ⚠️ BYU0039 | DTM_ManageOverpaymentLimit |
@@ -59,7 +59,7 @@
 
 #### SV-MF-05: Catálogo / Gestión de Tarjetas (HDU-SMART-R4-15 a 18)
 
-| HDU | Narrativa corta | PreGame | DTM |
+| User Story | Narrativa corta | PreGame | DTM |
 |-----|-----------------|---------|-----|
 | HDU-SMART-R4-15 | Actualizar mensajes de error desde catálogo SV (3 canales) | PARCIAL | — |
 | HDU-SMART-R4-16 | Gestionar campañas MSI/MCI (parametrización) | TOTAL PARAMETRIZABLE | — |
@@ -68,7 +68,7 @@
 
 #### SV-MF-06: Compras Diferidas / Liquidación (HDU-SMART-R4-19 a 21)
 
-| HDU | Narrativa corta | PreGame | DTM |
+| User Story | Narrativa corta | PreGame | DTM |
 |-----|-----------------|---------|-----|
 | HDU-SMART-R4-19 | Gestionar PPNGI y MAD en estado de cuenta | PARCIAL | — |
 | HDU-SMART-R4-20 | Liquidar plan de pagos diferidos anticipadamente | PARCIAL | DTM_SettleDeferredPurchasePlan |
@@ -76,11 +76,11 @@
 
 ---
 
-### APP — 20 HDUs
+### APP — 20 User Stories
 
 #### APP-MF-01: Consulta y Estado de Cuenta (HDU-APP-R4-01 a 09)
 
-| HDU | Narrativa corta | PreGame |
+| User Story | Narrativa corta | PreGame |
 |-----|-----------------|---------|
 | HDU-APP-R4-01 | Visualizar estado de cuenta TDC (getInstantCreditStatement, agingPeriod) | PARCIAL |
 | HDU-APP-R4-02 | Gestionar convivencia tarjeta física y digital (estados individuales) | PARCIAL |
@@ -94,7 +94,7 @@
 
 #### APP-MF-02/03: Pagos y Restricciones (HDU-APP-R4-10 a 13)
 
-| HDU | Narrativa corta | PreGame |
+| User Story | Narrativa corta | PreGame |
 |-----|-----------------|---------|
 | HDU-APP-R4-10 | Procesar pago TDC desde App (MAD/PPNGI/total/libre) | PARCIAL |
 | HDU-APP-R4-11 | Gestionar eliminación tarjeta digital (cancelación definitiva) | PARCIAL |
@@ -103,7 +103,7 @@
 
 #### APP-MF-04: Montos Diferidos (HDU-APP-R4-14 a 16)
 
-| HDU | Narrativa corta | PreGame |
+| User Story | Narrativa corta | PreGame |
 |-----|-----------------|---------|
 | HDU-APP-R4-14 | Visualizar desglose de compras diferidas MCI | PARCIAL |
 | HDU-APP-R4-15 | Visualizar desglose de compras diferidas MSI (vía E-Global) | PARCIAL |
@@ -111,7 +111,7 @@
 
 #### APP-MF-05: Validaciones y Restricciones (HDU-APP-R4-17 a 20)
 
-| HDU | Narrativa corta | PreGame |
+| User Story | Narrativa corta | PreGame |
 |-----|-----------------|---------|
 | HDU-APP-R4-17 | Mostrar restricciones por mora (E1/E2/E3 visual) | PARCIAL |
 | HDU-APP-R4-18 | Validar límite saldo a favor en middleware App | **NO CUBIERTO** |
@@ -120,11 +120,11 @@
 
 ---
 
-### CAT — 12 HDUs
+### CAT — 12 User Stories
 
 #### CAT-MF-01: IVR Autoservicio
 
-| HDU | Narrativa corta | PreGame | DTM |
+| User Story | Narrativa corta | PreGame | DTM |
 |-----|-----------------|---------|-----|
 | HDU-CAT-R4-01 | Acceso al menú IVR con ANI (identificación automática) | **NO CUBIERTO** | — |
 | HDU-CAT-R4-02 | Consultar saldos y movimientos desde IVR | **NO CUBIERTO** | DTM_RetrieveCreditCardBalanceAndMovements |
@@ -134,7 +134,7 @@
 
 #### CAT-MF-02: Autenticación y Perfil
 
-| HDU | Narrativa corta | PreGame | DTM |
+| User Story | Narrativa corta | PreGame | DTM |
 |-----|-----------------|---------|-----|
 | HDU-CAT-R4-03 | Identificar cliente y perfil TDC en ICCAT (crédito 18 dígitos) | PARCIAL | DTM_RetrieveCustomerCreditCardProfile |
 | HDU-CAT-R4-04 | Gestionar intentos de autenticación CAT (3 max, bloqueo) | **NO CUBIERTO** | — |
@@ -144,16 +144,16 @@
 
 #### CAT-MF-03: Reporte de Cancelación
 
-| HDU | Narrativa corta | PreGame | DTM |
+| User Story | Narrativa corta | PreGame | DTM |
 |-----|-----------------|---------|-----|
 | HDU-CAT-R4-11 | Registrar reporte de robo/extravío desde CAT (folio + SMS) | PARCIAL | — |
 | HDU-CAT-R4-12 | Gestionar cancelación definitiva de tarjeta desde CAT | PARCIAL | DTM_ManageCardCancellationReport |
 
 ---
 
-### SIWEB — 5 HDUs
+### SIWEB — 5 User Stories
 
-| HDU | Narrativa corta | PreGame | DTM |
+| User Story | Narrativa corta | PreGame | DTM |
 |-----|-----------------|---------|-----|
 | HDU-SIWEB-R4-01 | Consultar saldos y movimientos TDC en SIWEB | PARCIAL | — |
 | HDU-SIWEB-R4-02 | Procesar compras diferidas MCI/MSI en SIWEB (Transacción 623) | PARCIAL | DTM_ManageDeferredPurchase |
@@ -165,7 +165,7 @@
 
 ## Inventario de DTMs (14 componentes técnicos)
 
-| DTM | Canal | HDUs | Estado | Gap |
+| DTM | Canal | User Stories | Estado | Gap |
 |-----|-------|------|--------|-----|
 | DTM_CalculateCardManufacturing | smartvista | R4-03 | 🔴 NO CUBIERTO | Lógica de cálculo paramétrico no nativa; requiere desarrollo |
 | DTM_ExecuteCardManufacturingRequest | smartvista | R4-01, R4-04 | 🟡 PARCIAL | OCG y Connect Direct manuales en R4 (2 pasos) |
@@ -186,7 +186,7 @@
 
 ## Brechas Críticas del Release R4
 
-### GAP 1 — Módulo DPP no contratado (impacto en 3 HDUs y 3 DTMs)
+### GAP 1 — Módulo DPP no contratado (impacto en 3 User Stories y 3 DTMs)
 
 El módulo **Deferred Payment Plan (DPP)** de SmartVista/BPC no está licenciado por BanCoppel para R4. Esto genera un bloque en cascada:
 
@@ -197,7 +197,7 @@ El módulo **Deferred Payment Plan (DPP)** de SmartVista/BPC no está licenciado
 
 **Opciones de remediación**: (1) Contratar el módulo DPP con BPC — decisión y presupuesto pendientes; (2) Desarrollar lógica de cancelación a medida — esfuerzo no dimensionado.
 
-### GAP 2 — Ticket BYU0039 abierto (impacto en 2 HDUs y 2 DTMs)
+### GAP 2 — Ticket BYU0039 abierto (impacto en 2 User Stories y 2 DTMs)
 
 El ticket **BYU0039** en ValueEdge sobre "Límite Máximo de Saldo a Favor" está en estado `Opened, in investigation`. Hasta que no cierre, no se puede determinar el comportamiento exacto ni cerrar los criterios de aceptación de:
 
@@ -232,7 +232,7 @@ APOLO (originación) ────────────► SVIP        └─�
 
 **APIs clave del catálogo SVIP (92 comandos):**
 
-| API | Qué retorna | HDUs que la consumen |
+| API | Qué retorna | User Stories que la consumen |
 |-----|-------------|----------------------|
 | `getInstantCreditStatement` | Estado de cuenta en tiempo real: saldo, límite, disponible, PPNGI, MAD, fechas | APP-01, CAT-02, CAT-08, SIWEB-01 |
 | `getTransactions v22` | Movimientos con `amountHoldPlaced` (boolean "En Proceso") | APP-07, APP-08, SIWEB-01 |
@@ -245,7 +245,7 @@ APOLO (originación) ────────────► SVIP        └─�
 
 ## Campos Críticos del Modelo de Datos SmartVista
 
-| Campo | Tipo | Significado | HDUs afectadas |
+| Campo | Tipo | Significado | User Stories afectadas |
 |-------|------|-------------|----------------|
 | `agingPeriod` | Enum E1/E2/E3 | Nivel de mora: E1=0-1 (sin restricción), E2=2-3 (parcial), E3≥4 (bloqueo) | APP-01/03/17, CAT-10 |
 | `amountHoldPlaced` | Boolean | `true` = pre-autorización e-commerce no liquidada ("En Proceso") | APP-07, SIWEB-01 |

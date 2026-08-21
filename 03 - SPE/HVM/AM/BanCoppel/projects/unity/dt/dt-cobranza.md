@@ -1,4 +1,4 @@
-# DT — Cobranza Direccionada (Enabler Cross-Canal)
+﻿# DT — Cobranza Direccionada (Enabler Cross-Canal)
 > Digital Twin del componente Cobranza Direccionada para la Tarjeta de Crédito R4 (Producto 4900).
 > Fuente primaria: `20260806 - Unity R4 - Cobranza - Resumen Detallado.docx` (binario, no legible en CLI)
 > Sesión de análisis: 2026-08-06
@@ -15,7 +15,7 @@
 | Proveedor principal | Interno BanCoppel |
 | Soporte tecnológico | BPC Banking Technologies |
 | Status | En desarrollo |
-| HUs totales estimadas | 45 (rango documentado: 37-50 HUs) |
+| User Stories totales estimadas | 45 (rango documentado: 37-50 User Stories) |
 | RAG actual | 🔴 RED |
 | Sesión de análisis | 2026-08-06 |
 | Source doc | `20260806 - Unity R4 - Cobranza - Resumen Detallado.docx` |
@@ -81,18 +81,18 @@ y consumido por App (HDU-APP-R4-17) y CAT (HDU-CAT-R4-10).
 
 ---
 
-## HDUs Impactadas en Otros Tracks
+## User Stories Impactadas en Otros Tracks
 
-Cobranza Direccionada no tiene HDUs propios en `hdu_catalog` — opera como habilitador.
-Los siguientes HDUs de otros canales dependen de que Cobranza construya sus componentes primero:
+Cobranza Direccionada no tiene User Stories propios en `hdu_catalog` — opera como habilitador.
+Los siguientes User Stories de otros canales dependen de que Cobranza construya sus componentes primero:
 
-| HDU ID | Canal | Narrativa | Capability | PreGame |
+| User Story ID | Canal | Narrativa | Capability | PreGame |
 |--------|-------|-----------|-----------|---------|
 | HDU-APP-R4-03 | App | Operar botones de acción por estatus CSTS de tarjeta | CAP-COLLECTIONS-AGING | partial |
 | HDU-APP-R4-17 | App | Mostrar restricciones por mora (`agingPeriod E1/E2/E3`) en App | CAP-COLLECTIONS-AGING | partial |
 | HDU-CAT-R4-10 | CAT | Gestionar opciones de autoservicio IVR por nivel de mora (`agingPeriod`) | CAP-COLLECTIONS-AGING | not_covered |
 
-> **Dependencia crítica:** Los tres HDUs anteriores no pueden completarse en SIT sin que
+> **Dependencia crítica:** Los tres User Stories anteriores no pueden completarse en SIT sin que
 > SmartVista exponga `agingPeriod` y `CSTS`, lo que depende de los componentes de Cobranza.
 
 ---
@@ -132,7 +132,7 @@ las pruebas de integración de los tres canales dependientes (App, CAT, SIWEB).
 **Opciones de mitigación a evaluar:**
 - Adelantar el Pentest a octubre (antes de inicio SIT)
 - Segmentar el ambiente: Pentest en un ambiente separado, SIT en productivo de pruebas
-- Diferir las HUs de Cobranza que requieran el ambiente congelado a una iteración posterior
+- Diferir las User Stories de Cobranza que requieran el ambiente congelado a una iteración posterior
 
 ---
 
@@ -140,11 +140,11 @@ las pruebas de integración de los tres canales dependientes (App, CAT, SIWEB).
 
 | Riesgo ID | Descripción | Due Date | Status | Owner |
 |-----------|-------------|----------|--------|-------|
-| RISK-UNITY-R06 | Plan de trabajo Cobranza sin formalizar — sin inventario detallado de HUs ni cronograma por actividad | 2026-07-30 | 🔴 VENCIDO | Ma. Fernanda Barbosa (PMO) |
+| RISK-UNITY-R06 | Plan de trabajo Cobranza sin formalizar — sin inventario detallado de User Stories ni cronograma por actividad | 2026-07-30 | 🔴 VENCIDO | Ma. Fernanda Barbosa (PMO) |
 | MS-UNITY-004 | Pentest Cobranza 15-20 nov 2026 puede congelar el ambiente en pleno SIT | 2026-11-15 | 🔴 En riesgo | PMO Unity |
 
 **Mitigación RISK-R06:** Validar con Marksey Sanvicente (BanCoppel accountable) el inventario
-definitivo de HUs y el cronograma de construcción. Objetivo: inventario consolidado antes de
+definitivo de User Stories y el cronograma de construcción. Objetivo: inventario consolidado antes de
 fin de agosto 2026.
 
 ---
@@ -165,12 +165,12 @@ fin de agosto 2026.
 | Campo | Valor |
 |-------|-------|
 | Filas en `user_stories_inventory` (cobranza) | 0 — pendiente de inventariar |
-| Estimación working assumption | 45 HUs (rango fuente: 37-50) |
+| Estimación working assumption | 45 User Stories (rango fuente: 37-50) |
 | MoSCoW breakdown | Sin definir — pendiente sesión de priorización |
 
 > El inventario de User Stories de Cobranza no está capturado en el brain v1.4.0.
 > Requiere una sesión de análisis adicional con Marksey Sanvicente para descomponer
-> las 45 HUs en historias individuales con MoSCoW, complejidad y trazabilidad.
+> las 45 User Stories en historias individuales con MoSCoW, complejidad y trazabilidad.
 
 ---
 
@@ -189,22 +189,22 @@ fin de agosto 2026.
 
 | Gap ID | Descripción | Impacto | Status |
 |--------|-------------|---------|--------|
-| GAP-COB-01 | Inventario de HUs sin desglose individual (45 HUs no desglosadas) | Sin trazabilidad de entrega por historia | 🔴 Abierto |
+| GAP-COB-01 | Inventario de User Stories sin desglose individual (45 User Stories no desglosadas) | Sin trazabilidad de entrega por historia | 🔴 Abierto |
 | GAP-COB-02 | Inventario de cargas de datos (integraciones BPC) no documentado | No se puede planificar el volumen real de trabajo de integración | 🔴 Abierto |
-| GAP-COB-03 | 0 HDUs propios en `hdu_catalog` — sin visibilidad técnica detallada | 3 HDUs dependientes (APP-03, APP-17, CAT-10) sin prerrequisito claro | 🟡 Documentado |
+| GAP-COB-03 | 0 User Stories propios en `hdu_catalog` — sin visibilidad técnica detallada | 3 User Stories dependientes (APP-03, APP-17, CAT-10) sin prerrequisito claro | 🟡 Documentado |
 | GAP-COB-04 | Plan de trabajo sin formalizar (RISK-R06 vencido) | Sin cronograma comprometido de construcción | 🔴 Vencido |
-| GAP-COB-05 | MoSCoW de las 45 HUs sin definir | No se pueden establecer compromisos de entrega parcial | 🔴 Abierto |
+| GAP-COB-05 | MoSCoW de las 45 User Stories sin definir | No se pueden establecer compromisos de entrega parcial | 🔴 Abierto |
 
 ---
 
 ## Pendientes
 
-- [ ] Sesión con Marksey Sanvicente: descomponer las 45 HUs en historias individuales con MoSCoW
+- [ ] Sesión con Marksey Sanvicente: descomponer las 45 User Stories en historias individuales con MoSCoW
 - [ ] Documentar inventario de cargas de datos BPC → SmartVista (separado del inventario de microservicios)
 - [ ] Resolver conflicto de calendario Pentest (15-20 nov) vs SIT (oct-dic)
 - [ ] Formalizar plan de trabajo con cronograma de construcción y UT (RISK-R06)
 - [ ] Confirmar firmante UAT por parte de BanCoppel
-- [ ] Actualizar `user_stories_inventory` en brain.db cuando se tenga el desglose de HUs
+- [ ] Actualizar `user_stories_inventory` en brain.db cuando se tenga el desglose de User Stories
 - [ ] Confirmar si las cargas de datos BPC → SmartVista requieren integraciones adicionales hacia App/CAT
 
 ---

@@ -940,6 +940,93 @@ STAKEHOLDERS = [
         "relevant_notes": "Consultoría de arquitectura para Apolo. Sale en abril 2026 porque Miguel Bucio trae un track interno de arquitectura.",
         "source_docs": "23 Marzo - Minutas.docx"
     },
+    # ── Nuevos — identificados en slide Plan Director acciones 14-ago-2026 ───────
+    {
+        "id": "STK-092",
+        "full_name": "Oscar Melo",
+        "organization": "bancoppel",
+        "role_title": "Líder Técnico de Integraciones R4",
+        "program_role": "track_owner",
+        "raci": "responsible",
+        "seniority": "manager",
+        "confidence": "confirmed",
+        "alert": None,
+        "relevant_notes": (
+            "Owner técnico de las integraciones cross-track: Apolo→SIWEB→CAT→SmartVista. "
+            "Co-owner ISSUE-R4-001 (fechas diseño técnico) e ISSUE-R4-004 (inventario integraciones). "
+            "Identificado en slide Plan Director 14-ago-2026."
+        ),
+        "source_docs": "Plan Director — slide acciones críticas 14-ago-2026"
+    },
+    {
+        "id": "STK-093",
+        "full_name": "Diana Estrada",
+        "organization": "bancoppel",
+        "role_title": "Track Owner — Canal App / AppMóvil",
+        "program_role": "track_owner",
+        "raci": "responsible",
+        "seniority": "manager",
+        "confidence": "confirmed",
+        "alert": None,
+        "relevant_notes": (
+            "Responsable del track de canal digital (App / AppMóvil). "
+            "Owner de ISSUE-R4-002: mitigar desfase de 6 HUs Must con implementación en noviembre. "
+            "Identificada en slide Plan Director 14-ago-2026."
+        ),
+        "source_docs": "Plan Director — slide acciones críticas 14-ago-2026"
+    },
+    {
+        "id": "STK-094",
+        "full_name": "Ramses Santos",
+        "organization": "bancoppel",
+        "role_title": "Track Owner — CAT (Contact Center)",
+        "program_role": "track_owner",
+        "raci": "responsible",
+        "seniority": "manager",
+        "confidence": "confirmed",
+        "alert": None,
+        "relevant_notes": (
+            "Co-owner de ISSUE-R4-003: formalizar contratación del proveedor CAT. "
+            "Comparte ownership con Fernanda Barbosa (STK-006). "
+            "Identificado en slide Plan Director 14-ago-2026."
+        ),
+        "source_docs": "Plan Director — slide acciones críticas 14-ago-2026"
+    },
+    {
+        "id": "STK-095",
+        "full_name": "Marksey Sanvicente",
+        "organization": "bancoppel",
+        "role_title": "Track Owner — Cobranza",
+        "program_role": "track_owner",
+        "raci": "responsible",
+        "seniority": "manager",
+        "confidence": "confirmed",
+        "alert": None,
+        "relevant_notes": (
+            "Responsable del track de Cobranza, el más opaco del programa: "
+            "30-50 HUs estimadas sin compartir al momento de identificación. "
+            "Owner de ISSUE-R4-005 (en breach desde 2026-08-07). "
+            "Identificado en slide Plan Director 14-ago-2026."
+        ),
+        "source_docs": "Plan Director — slide acciones críticas 14-ago-2026"
+    },
+    {
+        "id": "STK-096",
+        "full_name": "Christian Zazueta",
+        "organization": "bancoppel",
+        "role_title": "Responsable de Despliegue y Estrategia de Release R4",
+        "program_role": "delivery",
+        "raci": "responsible",
+        "seniority": "manager",
+        "confidence": "confirmed",
+        "alert": None,
+        "relevant_notes": (
+            "Owner de la estrategia de despliegue R4: runbook, simulacros DR y rollback. "
+            "ISSUE-R4-008, due 2026-08-28. "
+            "Identificado en slide Plan Director 14-ago-2026."
+        ),
+        "source_docs": "Plan Director — slide acciones críticas 14-ago-2026"
+    },
 ]
 
 

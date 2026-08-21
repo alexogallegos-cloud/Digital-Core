@@ -1,4 +1,4 @@
-# DT — Integraciones R4 (Inventario)
+﻿# DT — Integraciones R4 (Inventario)
 > Digital Twin del inventario de integraciones del Programa Unity R4.
 > Fuente primaria: `Inventario de Integraciones_HUs_ R4_v1.0.xlsx` (Accenture, agosto 2026)
 > Última actualización: 2026-08-20 · v1.0.0
@@ -17,7 +17,7 @@
 | Estado Nueva | 9 |
 | Estado Modificar | 9 |
 
-> **Importante:** Este inventario cubre solo las integraciones identificadas en las sesiones de análisis de HUs.
+> **Importante:** Este inventario cubre solo las integraciones identificadas en las sesiones de análisis de User Stories.
 > **No cubre** integraciones del track APOLO (17 DTMs catalogados en `dt-apolo.md`), ni del track SIWEB.
 > Los 17 DTMs de Apolo son la fuente canónica para las integraciones de onboarding digital.
 
@@ -29,7 +29,7 @@
 
 Todas API REST, tiempo real. 3 modificaciones de APIs existentes + 1 nueva (notificación CES).
 
-| ID | HU | Nombre | Sistema Origen | Sistema Destino | Tipo | Estado | Complejidad | Existe Hoy |
+| ID | User Story | Nombre | Sistema Origen | Sistema Destino | Tipo | Estado | Complejidad | Existe Hoy |
 |----|-----|--------|---------------|----------------|------|--------|-------------|-----------|
 | IAPP01 | SMART-3962 | CAMBIOS detalle TDC `Rec_retrieveCreditCardStatement` | APP | SMARTVISTA | API | Modificar | Media | Sí |
 | IAPP02 | SMART-4183 | Pago TDC `Rec_executeCardPaymentTransaction` | SMARTVISTA | APP | API | Modificar | Alta | Sí |
@@ -44,7 +44,7 @@ Todas API REST, tiempo real. 3 modificaciones de APIs existentes + 1 nueva (noti
 
 6 APIs REST + 1 Evento. 6 nuevas + 1 modificación. CAT aún **no tiene proveedor contratado** (RISK-UNITY-R27).
 
-| ID | HU | Nombre | Sistema Origen | Sistema Destino | Tipo | Estado | Complejidad | Existe Hoy |
+| ID | User Story | Nombre | Sistema Origen | Sistema Destino | Tipo | Estado | Complejidad | Existe Hoy |
 |----|-----|--------|---------------|----------------|------|--------|-------------|-----------|
 | ICAT01 | HDU-CAT-R4-01 | Consulta de clientes SmartVista | IVR | SMARTVISTA | API | Nueva | Media | No |
 | ICAT02 | HDU-CAT-R4-01 | Consulta cliente por cuenta SmartVista | IVR | SMARTVISTA | API | Nueva | Media | No |
@@ -63,7 +63,7 @@ Todas API REST, tiempo real. 3 modificaciones de APIs existentes + 1 nueva (noti
 
 5 APIs + 2 Batch. 2 nuevas + 5 modificaciones. Las 2 Batch son la interfaz de maquila (archivos PGP diarios).
 
-| ID | HU | Nombre | Sistema Origen | Sistema Destino | Tipo | Estado | Complejidad | Existe Hoy |
+| ID | User Story | Nombre | Sistema Origen | Sistema Destino | Tipo | Estado | Complejidad | Existe Hoy |
 |----|-----|--------|---------------|----------------|------|--------|-------------|-----------|
 | ISV01 | HDU-SMART-R4-06 | Interfaz temporal de maquila #6 (descarga nube → on-premise) | AWS | OLTP-Informix | Batch | Nueva | Baja | No |
 | ISV02 | HDU-SMART-R4-06 | AFT — Transferencia archivo maquila | OLTP-Informix | Connect Direct | Batch | Modificar | Baja | Sí |
@@ -85,7 +85,7 @@ Todas API REST, tiempo real. 3 modificaciones de APIs existentes + 1 nueva (noti
 | Gap | Track | Descripción |
 |-----|-------|-------------|
 | APOLO no incluido | Apolo | Los 17 DTMs de Apolo (onboarding digital) no están en este inventario. Ver `dt-apolo.md` |
-| SIWEB no incluido | SIWEB | Solo 2 de las 5 HUs SIWEB generan integraciones (ISV03, ISV04). Las otras 3 SIWEB HUs no tienen integración registrada |
+| SIWEB no incluido | SIWEB | Solo 2 de las 5 User Stories de SIWEB generan integraciones (ISV03, ISV04). Las otras 3 User Stories de SIWEB no tienen integración registrada |
 | Cobranza no incluida | Cobranza Direccionada | Las 37-50 User Stories de Cobranza no tienen inventario de integraciones R4 |
 | IAPP04 faltante | APP | El ID IAPP04 no aparece en el inventario. Posible supresión o reclasificación |
 
@@ -116,7 +116,7 @@ OLTP-Informix ───────► Connect Direct (ISV02 AFT batch)
 - [ ] Validar IAPP04 faltante con Nova Solution Systems
 - [ ] Inventariar integraciones de Cobranza Direccionada (no están en v1.0)
 - [ ] Confirmar sistemas detrás de "CES" (IAPP05 destino) — ¿CES = CES BanCoppel o servicio externo?
-- [ ] Validar SIWEB: de 5 HUs solo 2 generan integraciones — ¿las otras 3 son solo configuración?
+- [ ] Validar SIWEB: de 5 User Stories solo 2 generan integraciones — ¿las otras 3 son solo configuración?
 - [ ] Actualizar inventario cuando CAT tenga proveedor contratado (hoy: sin responsable técnico)
 
 ---

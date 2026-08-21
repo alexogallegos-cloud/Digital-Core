@@ -1,5 +1,5 @@
 ﻿"""
-build-brain.py  --  Unity Project Brain Builder v1.4.0
+build-brain.py  --  Unity Project Brain Builder v1.6.0
 Construye brain.db con el conocimiento incubado del programa Unity.
 Fuente: forward-knowledge (productos, componentes, riesgos, cronograma, vocabulario)
         --  diferente al brain de Informix que analiza cÃ³digo existente.
@@ -9,9 +9,12 @@ Uso:
     python build-brain.py --reset          # borra y reconstruye desde cero
 
 Changelog:
-    0.9.0  --  2026-08-16  app_user_stories (13 HUs canal App TDC F&D: backlog=8 release=3 removed=2)
-    1.0.0  --  2026-08-16  user_stories_inventory (76 HUs scoring) + r4_integrations (18) + track_rag (5 tracks RAG Roadmap)
-    1.1.0  --  2026-08-19  user_stories_inventory (79 HUs, +3 APP Encendido/Apagado TDC) + product_releases dual-plataforma
+    0.9.0  --  2026-08-16  app_user_stories (13 User Stories canal App TDC F&D: backlog=8 release=3 removed=2)
+    1.0.0  --  2026-08-16  user_stories_inventory (76 User Stories scoring) + r4_integrations (18) + track_rag (5 tracks RAG Roadmap)
+    1.1.0  --  2026-08-19  user_stories_inventory (79 User Stories, +3 APP Encendido/Apagado TDC) + product_releases dual-plataforma
+    1.6.0  --  2026-08-20  Marco 3D STAKEHOLDER: program_stakeholders (96 personas integradas en pipeline) +
+                           -- bancoppel(45) · accenture(12) · ey(4) · grupo_coppel(3) · otros(deloitte/bpc/appwhere/vendor)
+                           -- FTS5 program_stakeholders_fts
     1.5.0  --  2026-08-20  Marco 3D SISTEMA: program_systems (11 sistemas TOGAF) +
                            -- it_capabilities (13 capacidades IT del programa) +
                            -- system_id en risks + system_id/itcapability_ids en user_stories_inventory
@@ -32,14 +35,14 @@ Changelog:
     1.2.0  --  2026-08-20  legacy_systems (14 sistemas ecosistema) + audit_findings (19 hallazgos barrido documental)
                            + reportes_regulatorios en program_components + RISK-UNITY-R19..R26 (Reportes Reg.)
     0.8.0  --  2026-08-16  product_vision_requirements (28 RFs Product Vision R4, todos Alta/Esencial)
-    0.7.0  --  2026-08-16  track_analysis (7 sesiones HUs: CAT/SIWEB/APOLO/APP/SV/Cobranza/APIf) +
+    0.7.0  --  2026-08-16  track_analysis (7 sesiones User Stories: CAT/SIWEB/APOLO/APP/SV/Cobranza/APIf) +
                          plan_progress (Plan de Trabajo corte 17-ago: avance global 21.19% vs 60.58%  --  RETRASADO)
-    0.6.1  --  2026-08-16  capability_stakeholders (49 rows RACI) + apolo_hdu_catalog (37 HDUs APOLO)
+    0.6.1  --  2026-08-16  capability_stakeholders (49 rows RACI) + apolo_hdu_catalog (37 User Stories APOLO)
     0.6.0  --  2026-08-16  Capa semÃ¡ntica/ontolÃ³gica: capability_vendors, capability_slos,
                          capability_test_plan, capability_compliance, capability_prr,
                          capability_routing + vista capability_360  --  brain conecta todos los DTs
     0.5.0  --  2026-08-16  program_capabilities (14 caps de negocio R4), capability_id en hdu/dtm
-    0.4.0  --  2026-08-16  SmartVista/Canales: hdu_catalog (58 HDUs), dtm_catalog (14 DTMs),
+    0.4.0  --  2026-08-16  SmartVista/Canales: hdu_catalog (58 User Stories), dtm_catalog (14 DTMs),
                          vocabulario SV (+52 terminos), 4 productos live (R1-R3+Rx)
     0.3.0  --  2026-08-14  RAID v2.0: risks(18), raid_assumptions(4), raid_issues(3), raid_dependencies(2)
     0.2.0  --  2026-08-14  Minutas R4: program_components, risks, milestones, vocabulary
@@ -302,7 +305,7 @@ CREATE VIRTUAL TABLE IF NOT EXISTS dtm_fts USING fts5(
     content='dtm_catalog', content_rowid='rowid'
 );
 
--- HDUs de APOLO  --  37 historias de originaciÃ³n digital (fuente: APOLO_R4_HDU_TDC.xlsm)
+-- User Stories de APOLO  --  37 historias de originaciÃ³n digital (fuente: APOLO_R4_HDU_TDC.xlsm)
 CREATE TABLE IF NOT EXISTS apolo_hdu_catalog (
     id              TEXT PRIMARY KEY,            -- HDU-TDC-R4-NN
     descripcion     TEXT NOT NULL,
@@ -316,7 +319,7 @@ CREATE TABLE IF NOT EXISTS apolo_hdu_catalog (
 );
 
 -- â"€â"€ AnÃ¡lisis de tracks por sesiÃ³n (v0.7.0) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
--- Fuente: minutas de sesiones de trabajo HUs (3-7 agosto 2026)
+-- Fuente: minutas de sesiones de trabajo User Stories (3-7 agosto 2026)
 CREATE TABLE IF NOT EXISTS track_analysis (
     id                  TEXT PRIMARY KEY,           -- TA-{TRACK}
     track               TEXT NOT NULL,              -- smartvista, apolo, app, cat, siweb, cobranza, apificacion
@@ -383,7 +386,7 @@ CREATE TABLE IF NOT EXISTS product_vision_requirements (
 
 -- App User Stories (v0.9.0) -------------------------------------------------
 -- Fuente: Respaldo US-20260805T010347Z-1-001.zip (13 tickets Jira SMART-XXXX)
--- Canal App: HUs de TDC F&D -- gestion tarjeta, movimientos, activacion, pagos
+-- Canal App: User Stories de TDC F&D -- gestion tarjeta, movimientos, activacion, pagos
 CREATE TABLE IF NOT EXISTS app_user_stories (
     smart_id        TEXT PRIMARY KEY,
     title           TEXT NOT NULL,
@@ -398,18 +401,18 @@ CREATE TABLE IF NOT EXISTS app_user_stories (
     source_doc      TEXT DEFAULT 'Respaldo US-20260805T010347Z-1-001.zip'
 );
 
--- HU Inventory (v1.0.0) -------------------------------------------------------
--- Fuente: Consolidacion y priorizacion_HUs_R4_v2.xlsx (Inventario HUs sheet)
--- 79 HUs Accenture con scoring MoSCoW + complejidad ponderada
+-- User Story Inventory (v1.0.0) -------------------------------------------------------
+-- Fuente: Consolidacion y priorizacion_HUs_R4_v2.xlsx (Inventario User Stories sheet)
+-- 79 User Stories Accenture con scoring MoSCoW + complejidad ponderada
 -- Tracks: smartvista(22), apolo(22), app(18), cat(12), siweb(5)
 --
--- v1.1.0 (2026-08-20): se agregaron las 3 HUs Must de "Encendido y Apagado TDC Fisica y
+-- v1.1.0 (2026-08-20): se agregaron las 3 User Stories Must de "Encendido y Apagado TDC Fisica y
 -- Digital" del track APP, que el cargador anterior descartaba. Causa raiz: en el xlsx esas
 -- filas NO TIENEN valor en la columna "ID HU" (arrancan directo en Track), y el cargador
 -- las omitia al no poder derivar la clave primaria. Se les asigna un ID sintetico APP-ENC-nn
 -- y se documenta la ausencia de ticket Jira en source_doc.
 -- Con esto el total pasa de 76 a 79 y APP de 15 a 18, que es lo que reportan tanto el deck
--- BCPL_R4 Roadmap_Remediaciones_v1_11082026 ("HUs validadas 18 | 15 Must, 1 Could, 2 Won't")
+-- BCPL_R4 Roadmap_Remediaciones_v1_11082026 ("User Stories validadas 18 | 15 Must, 1 Could, 2 Won't")
 -- como la minuta del 06-ago-2026 del track APP.
 CREATE TABLE IF NOT EXISTS user_stories_inventory (
     id              TEXT PRIMARY KEY,
@@ -697,6 +700,35 @@ CREATE TABLE IF NOT EXISTS it_capabilities (
     owner_component TEXT
 );
 
+CREATE TABLE IF NOT EXISTS program_stakeholders (
+    id              TEXT PRIMARY KEY,
+    full_name       TEXT NOT NULL,
+    organization    TEXT NOT NULL
+        CHECK(organization IN ('bancoppel','grupo_coppel','accenture','ey','deloitte','bpc','appwhere','vendor','unknown')),
+    role_title      TEXT,
+    program_role    TEXT NOT NULL
+        CHECK(program_role IN (
+            'executive_sponsor','program_director','program_manager',
+            'track_owner','product_owner','delivery_lead','pmo','pmo_financial',
+            'architect','internal_consultant','vendor_lead','vendor_team',
+            'acn_lead','acn_team','acn_ams','acn_global_expert',
+            'operations','stakeholder','former_vendor','delivery','unknown'
+        )),
+    raci            TEXT CHECK(raci IN ('responsible','accountable','consulted','informed','tbd')),
+    seniority       TEXT CHECK(seniority IN ('executive','director','manager','specialist','coordinator','support','unknown')),
+    confidence      TEXT CHECK(confidence IN ('confirmed','inferred','assumed')) DEFAULT 'confirmed',
+    alert           TEXT,
+    relevant_notes  TEXT,
+    source_docs     TEXT,
+    active          INTEGER DEFAULT 1,
+    updated_at      TEXT DEFAULT (datetime('now'))
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS program_stakeholders_fts USING fts5(
+    id, full_name, organization, role_title, program_role, relevant_notes,
+    content='program_stakeholders', content_rowid='rowid'
+);
+
 """
 
 # â"€â"€ Datos â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -707,14 +739,14 @@ PROJECT_INFO = {
     "platform":          "Temenos Transact",
     "client":            "BanCoppel",
     "state":             "active",
-    "brain_version":     "1.5.0",
+    "brain_version":     "1.6.0",
     "built_at":          datetime.now().isoformat(),
     "scope_note":        "PRESENTE (en produccion) + FUTURO (en construccion  --  R4 Producto 4900)",
 }
 
 # â"€â"€ Capabilities de negocio del programa Unity R4 â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 # Organizadas por dominio bancario. Cada capability agrupa uno o mÃ¡s DTMs y un
-# conjunto de HDUs. Es el eje central del brain: todo lo demÃ¡s cuelga de aquÃ­.
+# conjunto de User Stories. Es el eje central del brain: todo lo demÃ¡s cuelga de aquÃ­.
 
 PROGRAM_CAPABILITIES = [
     # â"€â"€ MAQUILA â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -735,10 +767,10 @@ PROGRAM_CAPABILITIES = [
         "confidence":       "confirmed",
         "component_ids":    json.dumps(["smartvista"]),
         "lifecycle_stage":  "in_dev",
-        "notes":            "HDUs R4-01 a R4-08. DTMs: CalculateCardManufacturing (not_covered) + "
+        "notes":            "User Stories R4-01 a R4-08. DTMs: CalculateCardManufacturing (not_covered) + "
                             "ExecuteCardManufacturingRequest (partial). Solicitud manual nativa (R4-05 + R4-06). "
                             "GAP-3 operativo: OCG y Cargen manuales en R4 (tickets #13830642 y #13830651 pendientes). "
-                            "2 HDUs nativas (R4-05/06) + 5 parciales + 1 not_covered (R4-03 calculo automatico).",
+                            "2 User Stories nativas (R4-05/06) + 5 parciales + 1 not_covered (R4-03 calculo automatico).",
     },
     # â"€â"€ AUTORIZADOR â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     {
@@ -757,7 +789,7 @@ PROGRAM_CAPABILITIES = [
         "confidence":       "confirmed",
         "component_ids":    json.dumps(["smartvista"]),
         "lifecycle_stage":  "in_dev",
-        "notes":            "HDU R4-11. DTM: ValidateBPCAuthorization. Flujo: Comercio -> E-Global -> SV -> PayTrue. "
+        "notes":            "User Story R4-11. DTM: ValidateBPCAuthorization. Flujo: Comercio -> E-Global -> SV -> PayTrue. "
                             "SVFM NO licenciado por BanCoppel — PayTrue sustituye SVFM como motor antifraude. "
                             "Sin integracion PayTrue completa no hay capa de fraude en el autorizador.",
     },
@@ -778,7 +810,7 @@ PROGRAM_CAPABILITIES = [
         "confidence":       "confirmed",
         "component_ids":    json.dumps(["smartvista", "app", "cat"]),
         "lifecycle_stage":  "in_dev",
-        "notes":            "HDUs R4-17, R4-18, APP-R4-02/04/05/11/12/13, CAT-R4-05/06/07/11/12. "
+        "notes":            "User Stories R4-17, R4-18, APP-R4-02/04/05/11/12/13, CAT-R4-05/06/07/11/12. "
                             "DTM: ManageCardCancellationReport.",
     },
     # â"€â"€ SALDO A FAVOR â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -799,7 +831,7 @@ PROGRAM_CAPABILITIES = [
         "confidence":       "confirmed",
         "component_ids":    json.dumps(["smartvista", "app", "siweb"]),
         "lifecycle_stage":  "designed",
-        "notes":            "HDUs R4-12/13/14, APP-R4-18/19/20, SIWEB-R4-05. "
+        "notes":            "User Stories R4-12/13/14, APP-R4-18/19/20, SIWEB-R4-05. "
                             "DTMs: ManageOverpaymentLimit + ValidateOverpaymentLimit (ambos tbd). "
                             "Parametrizacion (R4-12) es configurable; validacion en runtime es el gap. "
                             "APP-R4-18/19/20 = NOT COVERED (validacion middleware + homologacion mensajes "
@@ -823,12 +855,12 @@ PROGRAM_CAPABILITIES = [
         "confidence":       "confirmed",
         "component_ids":    json.dumps(["smartvista", "siweb", "app"]),
         "lifecycle_stage":  "in_dev",
-        "notes":            "HDUs R4-16/19/20/21, APP-R4-09/14/15/16, SIWEB-R4-02/03/04. "
+        "notes":            "User Stories R4-16/19/20/21, APP-R4-09/14/15/16, SIWEB-R4-02/03/04. "
                             "DTMs: CancelDeferredPurchasePlan (not_covered) + SettleDeferredPurchasePlan (partial) "
                             "+ ManageDeferredPurchase (partial) + RegisterDeferredPurchaseAccountingEffects (partial). "
                             "Cuenta 2402/Eglobal NO aplica a MCI; solo MSI interchange. "
                             "Gap dual: DPP not_licensed solo para cancelacion (HDU-R4-21, SIWEB-R4-03); "
-                            "HDUs parciales (SIWEB-R4-02, SMART-R4-20, todos los App) = not_built integraciones.",
+                            "User Stories parciales (SIWEB-R4-02, SMART-R4-20, todos los App) = not_built integraciones.",
     },
     #â"€â"€ SALDOS Y ESTADO DE CUENTA â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     {
@@ -848,7 +880,7 @@ PROGRAM_CAPABILITIES = [
         "confidence":       "confirmed",
         "component_ids":    json.dumps(["smartvista", "app", "cat", "siweb"]),
         "lifecycle_stage":  "in_dev",
-        "notes":            "HDUs APP-R4-01/07/08, CAT-R4-02/08, SIWEB-R4-01. "
+        "notes":            "User Stories APP-R4-01/07/08, CAT-R4-02/08, SIWEB-R4-01. "
                             "DTM: RetrieveCreditCardBalanceAndMovements (not_covered para IVR). "
                             "APIs: getInstantCreditStatement, getTransactions v22, campo agingPeriod.",
     },
@@ -869,7 +901,7 @@ PROGRAM_CAPABILITIES = [
         "confidence":       "confirmed",
         "component_ids":    json.dumps(["smartvista", "app"]),
         "lifecycle_stage":  "in_dev",
-        "notes":            "HDUs APP-R4-10, SMART-R4-19. PPNGI != MAD; ambos en getInstantCreditStatement.",
+        "notes":            "User Stories APP-R4-10, SMART-R4-19. PPNGI != MAD; ambos en getInstantCreditStatement.",
     },
     # â"€â"€ PERFIL DEL CLIENTE â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     {
@@ -888,7 +920,7 @@ PROGRAM_CAPABILITIES = [
         "confidence":       "confirmed",
         "component_ids":    json.dumps(["smartvista", "app", "cat"]),
         "lifecycle_stage":  "in_dev",
-        "notes":            "HDUs APP-R4-04/05/06, CAT-R4-03/07. DTM: RetrieveCustomerCreditCardProfile. "
+        "notes":            "User Stories APP-R4-04/05/06, CAT-R4-03/07. DTM: RetrieveCustomerCreditCardProfile. "
                             "APIs: getAccountCards, getCardInfo. Credito 18 digitos != PAN 16 digitos.",
     },
     # â"€â"€ AUTOSERVICIO EN CANALES â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -909,7 +941,7 @@ PROGRAM_CAPABILITIES = [
         "confidence":       "confirmed",
         "component_ids":    json.dumps(["app", "cat", "siweb"]),
         "lifecycle_stage":  "in_dev",
-        "notes":            "HDUs CAT-R4-01, SIWEB general. RISK-UNITY-R27 es el riesgo de mayor urgencia del programa. "
+        "notes":            "User Stories CAT-R4-01, SIWEB general. RISK-UNITY-R27 es el riesgo de mayor urgencia del programa. "
                             "IVR requiere integracion completa SVIP (92 comandos disponibles).",
     },
     # â"€â"€ AUTENTICACION Y SEGURIDAD â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -929,7 +961,7 @@ PROGRAM_CAPABILITIES = [
         "confidence":       "confirmed",
         "component_ids":    json.dumps(["app", "cat"]),
         "lifecycle_stage":  "designed",
-        "notes":            "HDUs CAT-R4-03/04/06/09, APP-R4-06. Max 3 intentos IVR antes de transferir agente. "
+        "notes":            "User Stories CAT-R4-03/04/06/09, APP-R4-06. Max 3 intentos IVR antes de transferir agente. "
                             "OTP 4 digitos para desbloqueo (no SMS largo).",
     },
     # â"€â"€ COBRANZA Y MORA â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -950,8 +982,8 @@ PROGRAM_CAPABILITIES = [
         "confidence":       "confirmed",
         "component_ids":    json.dumps(["smartvista", "app", "cat"]),
         "lifecycle_stage":  "in_dev",
-        "notes":            "HDUs APP-R4-03/17, CAT-R4-10. Campo agingPeriod en getInstantCreditStatement. "
-                            "Componente Cobranza Direccionada (37-50 HUs) es el motor subyacente.",
+        "notes":            "User Stories APP-R4-03/17, CAT-R4-10. Campo agingPeriod en getInstantCreditStatement. "
+                            "Componente Cobranza Direccionada (37-50 User Stories) es el motor subyacente.",
     },
     # â"€â"€ COMISIONES Y CATALOGOS â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     {
@@ -969,7 +1001,7 @@ PROGRAM_CAPABILITIES = [
         "confidence":       "confirmed",
         "component_ids":    json.dumps(["smartvista"]),
         "lifecycle_stage":  "in_dev",
-        "notes":            "HDU R4-09. Solo requiere parametrizacion de valores BanCoppel en catalogo SV existente.",
+        "notes":            "User Story R4-09. Solo requiere parametrizacion de valores BanCoppel en catalogo SV existente.",
     },
     # â"€â"€ CONTABILIDAD â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     {
@@ -989,7 +1021,7 @@ PROGRAM_CAPABILITIES = [
         "confidence":       "inferred",
         "component_ids":    json.dumps(["smartvista", "siweb"]),
         "lifecycle_stage":  "designed",
-        "notes":            "HDU SIWEB-R4-04. DTM: RegisterDeferredPurchaseAccountingEffects. "
+        "notes":            "User Story SIWEB-R4-04. DTM: RegisterDeferredPurchaseAccountingEffects. "
                             "TRNT 623 = 'PAGO CGO A CTA DE CREDISOLUCIONES'. RAID-D01 dependencia.",
     },
     # â"€â"€ CATALOGO DE ERRORES â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -1010,18 +1042,18 @@ PROGRAM_CAPABILITIES = [
         "confidence":       "confirmed",
         "component_ids":    json.dumps(["smartvista", "app", "siweb", "cat"]),
         "lifecycle_stage":  "in_dev",
-        "notes":            "HDUs SMART-R4-10 (nombre producto) y SMART-R4-15 (mensajes error, 3 canales). "
+        "notes":            "User Stories SMART-R4-10 (nombre producto) y SMART-R4-15 (mensajes error, 3 canales). "
                             "Homologacion BANXICO para mensajes de rechazo.",
     },
     # ── ORIGINACION DIGITAL (APOLO) ──────────────────────────────────────────
-    # Agregada v1.3.0: 37 HDUs documentados, integración crítica con SV (HDU-20)
+    # Agregada v1.3.0: 37 User Stories documentados, integración crítica con SV (HDU-20)
     {
         "id":               "CAP-ONBOARDING-DIGITAL",
         "name":             "Originacion Digital (Apolo)",
         "domain":           "originacion",
         "bian_domain":      "Party Life Cycle Management / Product Directory",
         "description":      "Onboarding digital de la TDC desde solicitud hasta activacion. "
-                            "37 HDUs: 22 VoBo AppWhere (MVP1) + 3 Taggeo Modyo + 10 MVP2 + 2 Desestimadas. "
+                            "37 User Stories: 22 VoBo AppWhere (MVP1) + 3 Taggeo Modyo + 10 MVP2 + 2 Desestimadas. "
                             "Flow Engineering: 4 semanas de diseno. Integracion critica con SmartVista (HDU-20).",
         "mandatory_r4":     1,
         "coverage_status":  "partial",
@@ -1032,7 +1064,7 @@ PROGRAM_CAPABILITIES = [
         "confidence":       "confirmed",
         "component_ids":    json.dumps(["apolo", "smartvista"]),
         "lifecycle_stage":  "in_dev",
-        "notes":            "37 HDUs Apolo R4. MVP1: 25 total (22 VoBo + 3 Taggeo). MVP2: 10 (fuera scope ene-2027). "
+        "notes":            "37 User Stories Apolo R4. MVP1: 25 total (22 VoBo + 3 Taggeo). MVP2: 10 (fuera scope ene-2027). "
                             "Integracion critica SV HDU-20 (firma electronica + expediente digital OnBase BB16). "
                             "Tech stack R3: Spring Boot 3.4.5 + Java 21 + EKS + Istio + Apigee + YugabyteDB + Redis. "
                             "Identity: Entra ID (Azure AD). Edge: Cloudflare + Cloud Armor. 17 DTMs totales.",
@@ -1063,7 +1095,7 @@ PROGRAM_CAPABILITIES = [
     },
 ]
 
-# â"€â"€ Mapeo HDU  ->  Capability â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# â"€â"€ Mapeo User Story  ->  Capability â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 HDU_CAPABILITY_MAP = {
     # SmartVista  --  maquila
     "HDU-SMART-R4-01": "CAP-CARD-MANUFACTURING",
@@ -1365,7 +1397,7 @@ INITIAL_COMPONENTS = [
         "provider_status": "contracted",
         "status":          "development",
         "product_id":      "UNITY-R4-P4900",
-        "notes":           "Canal movil del cliente. 6 HUs Must Have cierran noviembre "
+        "notes":           "Canal movil del cliente. 6 User Stories Must Have cierran noviembre "
                            " --  conflicto con inicio de SIT en octubre (riesgo critico). "
                            "Interfaz con los 49 SPs del brain AppMovil (Informix).",
     },
@@ -1406,9 +1438,9 @@ INITIAL_COMPONENTS = [
         "status":          "development",
         "product_id":      "UNITY-R4-P4900",
         "notes":           "Sistema preexistente a Unity R4  --  se adapta para Producto 4900. "
-                           "Rango HUs: 37-50 (en consolidacion). "
+                           "Rango User Stories: 37-50 (en consolidacion). "
                            "Pentest programado 15-20 nov 2026  --  conflicto con SIT (riesgo). "
-                           "37-50 HUs en consolidacion.",
+                           "37-50 User Stories en consolidacion.",
     },
     {
         "id":              "apificacion",
@@ -1451,7 +1483,7 @@ INITIAL_COMPONENTS = [
 INITIAL_RISKS = [
     {
         "id": "RISK-UNITY-R01", "raid_id": "R01",
-        "description": "Retraso en DTMs de Appware bloquea inicio de construccion en SmartVista, SIWEB y CAT  --  54% HUs sin delta tecnico cerrado",
+        "description": "Retraso en DTMs de Appware bloquea inicio de construccion en SmartVista, SIWEB y CAT  --  54% User Stories sin delta tecnico cerrado",
         "component_id": "smartvista", "category": "Capacidad", "impact": "high", "probability": "high",
         "status": "open",
         "mitigation": "Mesas de trabajo lun-jue para cerrar delta tecnico. Alfredo Aguilar define fechas DTMs offline. Gate formal 10/08/2026.",
@@ -1541,7 +1573,7 @@ INITIAL_RISKS = [
     },
     {
         "id": "RISK-UNITY-R11", "raid_id": "R11",
-        "description": "Guia contable de diferimientos y pagos anticipados incompleta  --  HUs R418-R420 no pueden cerrar criterios de aceptacion",
+        "description": "Guia contable de diferimientos y pagos anticipados incompleta  --  User Stories R418-R420 no pueden cerrar criterios de aceptacion",
         "component_id": "smartvista", "category": "Planning", "impact": "medium", "probability": "high",
         "status": "open",
         "mitigation": "Sesion con normatividad contable para cerrar definicion de comportamiento contable de diferimientos, liquidaciones y pagos anticipados. Actualizar criterios aceptacion R418-R420.",
@@ -1673,7 +1705,7 @@ INITIAL_RISKS = [
         "status": "open",
         "mitigation": "Dar seguimiento al proceso RECO. No iniciar desarrollo hasta tener aprobacion.",
         "due_date": None, "owner": "Por definir con PMO BanCoppel", "source": "Barrido documental 2026-08-19",
-        "notes": "DTMs sin fecha bloqueados por normatividad. 2 HUs Must en riesgo.",
+        "notes": "DTMs sin fecha bloqueados por normatividad. 2 User Stories Must en riesgo.",
     },
     {
         "id": "RISK-UNITY-R26", "raid_id": "REG-08",
@@ -1684,7 +1716,7 @@ INITIAL_RISKS = [
         "due_date": None, "owner": "Edgar Mejia (Exodus) / PMO Unity", "source": "Barrido documental 2026-08-19",
         "notes": "Potencial gap de migracion para los reportes al cierre del datacenter (Exodus Ola 6, 2029-H2).",
     },
-    {"id": "RISK-UNITY-R27", "raid_id": None, "description": "Proveedor CAT no contratado  --  Contact Center sin equipo tecnico responsable de 12 HUs y 6 integraciones nuevas hacia SmartVista",
+    {"id": "RISK-UNITY-R27", "raid_id": None, "description": "Proveedor CAT no contratado  --  Contact Center sin equipo tecnico responsable de 12 User Stories y 6 integraciones nuevas hacia SmartVista",
      "component_id": "cat", "category": "vendor", "impact": "high", "probability": "high",
      "status": "open",
      "mitigation": "Contratar proveedor antes del 2026-08-31; si no hay firma, escalar a PMO para decision de scope out",
@@ -2157,7 +2189,7 @@ INITIAL_MILESTONES = [
         "target_date":  "2026-10-15",
         "status":       "at_risk",
         "component_id": None,
-        "notes":        "Riesgo: CAT no contratado, 6 HUs App cierran en noviembre.",
+        "notes":        "Riesgo: CAT no contratado, 6 User Stories App cierran en noviembre.",
     },
     {
         "id":           "MS-UNITY-004",
@@ -2195,13 +2227,13 @@ INITIAL_VOCABULARY = [
     # Proceso
     ("DTM",             "Diseno Tecnico de Microservicio. Documento que define flujo, componentes involucrados y contratos de un microservicio.", "proceso", "minutas"),
     ("DTC",             "Diseno Tecnico de Componente. Documento que define parametros, archivos de configuracion y contratos de un componente.", "proceso", "minutas"),
-    ("DEF",             "Documento de Especificacion Funcional. Fuente de las Historias de Usuario (HUs) del programa.", "proceso", "minutas"),
-    ("Pre-game",        "Sesion de refinamiento de criterios de aceptacion que se realiza antes del inicio del desarrollo de una HU.", "proceso", "minutas"),
+    ("DEF",             "Documento de Especificacion Funcional. Fuente de las Historias de Usuario (User Stories) del programa.", "proceso", "minutas"),
+    ("Pre-game",        "Sesion de refinamiento de criterios de aceptacion que se realiza antes del inicio del desarrollo de una User Story.", "proceso", "minutas"),
     ("Flow Engineering","Metodologia de diseno de Appwhere. Ciclos de 4 semanas para especificar flujos de usuario antes del desarrollo.", "proceso", "minutas"),
-    ("Mind Master",     "Herramienta de gestion y documentacion de HUs utilizada por Appwhere en el componente APOLO.", "proceso", "minutas"),
+    ("Mind Master",     "Herramienta de gestion y documentacion de User Stories utilizada por Appwhere en el componente APOLO.", "proceso", "minutas"),
     ("Play Digital",    "Gobierno de APIs y diseno tecnico. Valida DTMs y DTCs de todos los componentes del programa.", "proceso", "minutas"),
     ("HU",              "Historia de Usuario. Unidad de trabajo del backlog. Clasificadas como Must Have, Should Have o Nice To Have.", "proceso", "minutas"),
-    ("Must Have",       "HUs de entrega obligatoria para Go-Live. Tienen prioridad maxima en SIT.", "proceso", "minutas"),
+    ("Must Have",       "User Stories de entrega obligatoria para Go-Live. Tienen prioridad maxima en SIT.", "proceso", "minutas"),
     ("SIT",             "System Integration Testing. Fase de pruebas de integracion del programa. Fechas: 15 oct  --  15 dic 2026.", "proceso", "minutas"),
     ("UT",              "Unit Testing. Pruebas unitarias que cada proveedor ejecuta antes de entregar al SIT.", "proceso", "minutas"),
     # Tecnico
@@ -2219,7 +2251,7 @@ INITIAL_VOCABULARY = [
     ("Nova Solution Systems", "Proveedor externo responsable del desarrollo del canal APP / AppMovil en Unity R4.", "proveedor", "minutas"),
     # Participantes clave (referencia)
     ("Pablo Lorenzo",   "Lider Accenture en Unity R4. Coordina con BanCoppel y proveedores.", "proceso", "minutas"),
-    ("Ana Cervantes",   "Integrante Accenture en Unity R4. Gestiona seguimiento de HUs y riesgos.", "proceso", "minutas"),
+    ("Ana Cervantes",   "Integrante Accenture en Unity R4. Gestiona seguimiento de User Stories y riesgos.", "proceso", "minutas"),
     ("Fernanda Barbosa","Responsable BanCoppel en Unity R4. Aprueba alcance funcional.", "proceso", "minutas"),
     ("Jose Jaimes Ortiz","Responsable tecnico BanCoppel en Unity R4.", "proceso", "minutas"),
     # â"€â"€ SmartVista / Canales  --  terminologia tecnica (fuente: HDU_R4 + PreGame) â"€
@@ -2259,10 +2291,10 @@ INITIAL_VOCABULARY = [
     ("MAI_BDT_IC",      "Template de SMS de BanCoppel para notificacion de bloqueo de tarjeta al cliente.", "proceso", "sv-canales"),
     ("SMS_BDT_IC",      "Template de SMS de BanCoppel para notificacion de desbloqueo de tarjeta al cliente.", "proceso", "sv-canales"),
     # Canales
-    ("SIWEB",           "Canal de atencion en sucursal y ventanilla. 5 HDUs en R4. Bloqueado por falta de APIs de Apificacion.", "canal", "sv-canales"),
-    ("CAT",             "Centro de Atencion Telefonica: canal de agentes y autoservicio IVR. 12 HDUs en R4.", "canal", "sv-canales"),
+    ("SIWEB",           "Canal de atencion en sucursal y ventanilla. 5 User Stories en R4. Bloqueado por falta de APIs de Apificacion.", "canal", "sv-canales"),
+    ("CAT",             "Centro de Atencion Telefonica: canal de agentes y autoservicio IVR. 12 User Stories en R4.", "canal", "sv-canales"),
     ("ICCAT",           "Consola de atencion del CAT: herramienta de los agentes que integra con SVIP.", "tecnico", "sv-canales"),
-    ("IVR",             "Interactive Voice Response: canal telefonico de autoservicio (800 BanCoppel). 6 HDUs NO CUBIERTOS en R4.", "canal", "sv-canales"),
+    ("IVR",             "Interactive Voice Response: canal telefonico de autoservicio (800 BanCoppel). 6 User Stories NO CUBIERTOS en R4.", "canal", "sv-canales"),
     ("ANI",             "Automatic Number Identification: identifica el numero telefonico que origina la llamada para autenticar al cliente.", "tecnico", "sv-canales"),
     ("DTMF",            "Dual-Tone Multi-Frequency: tonos de teclado que el IVR usa para capturar datos sin que el agente escuche.", "tecnico", "sv-canales"),
     # Productos y planes
@@ -2286,8 +2318,8 @@ INITIAL_VOCABULARY = [
     ("BYU0039",         "Ticket ValueEdge sobre 'Limite Maximo de Saldo a Favor'. Estado: Opened, in investigation. Bloquea HDU-SMART-R4-13 y HDU-SIWEB-R4-05.", "proceso", "sv-canales"),
     ("E-Global",        "Switch transaccional de BanCoppel que enruta autorizaciones hacia SmartVista. Canal de entrada del autorizador de 88 reglas.", "tecnico", "sv-canales"),
     ("Autorizador 88-reglas","Modulo de SmartVista: Modulo 1 rechaza por codigo ISO; Modulo 2 evalua riesgo via PayTrue.", "tecnico", "sv-canales"),
-    ("PreGame",         "Fase de pre-analisis que dictamina cada HDU contra la documentacion de la plataforma SmartVista. Responsable: Appwhere.", "proceso", "sv-canales"),
-    ("HDU",             "Historia de Usuario Detallada: unidad de trabajo de SmartVista y Canales. R4 tiene 59 HDUs en 4 canales.", "proceso", "sv-canales"),
+    ("PreGame",         "Fase de pre-analisis que dictamina cada User Story contra la documentacion de la plataforma SmartVista. Responsable: Appwhere.", "proceso", "sv-canales"),
+    ("HDU",             "Historia de Usuario Detallada: unidad de trabajo de SmartVista y Canales. R4 tiene 59 User Stories en 4 canales.", "proceso", "sv-canales"),
     ("Producto 4900",   "Tarjeta de Credito de BanCoppel, unico producto en scope de R4. BIN 4268 0711.", "negocio", "sv-canales"),
     ("Producto 11",     "Codigo de producto SmartVista para el Producto 4900 (Tarjeta de Credito). BIN 426807 producto 11.", "tecnico", "sv-canales"),
     # v1.1.0  --  siglas de release. F&F y F&D NO son la misma sigla y confundirlas
@@ -2298,7 +2330,7 @@ INITIAL_VOCABULARY = [
     ("F&D",              "Fisica y Digital: convivencia de la tarjeta fisica y la digital en el mismo producto. Denota la FORMA del plastico, no un modo de liberacion. Los User Stories de Jira del canal App etiquetados 'Convivencia TDC F&D' se refieren a esto. No confundir con F&F.", "negocio", "respaldo-app-jira"),
 ]
 
-# â"€â"€ HDU Catalog  --  Fuente: HDU_R4_CANALES APP_SIWEB_CATT_SMARTVISTA.xlsx â"€â"€â"€â"€â"€â"€
+# â"€â"€ User Story Catalog  --  Fuente: HDU_R4_CANALES APP_SIWEB_CATT_SMARTVISTA.xlsx â"€â"€â"€â"€â"€â"€
 # Distribucion: SV=22, APP=20, CAT=12, SIWEB=5 (59 total; HDU-SMARTVISTA-R4-16 = alias de SMART-R4-16)
 # pregame_status: native=total nativo, configurable=total parametrizable, partial=parcial,
 #                 not_covered=no cubierto, tbd=por determinar
@@ -2746,14 +2778,15 @@ PROGRAM_SYSTEMS = [
     {"id": "smartvista",     "name": "SmartVista",          "vendor": "BPC Banking Technologies",  "togaf_type": "processors",  "togaf_state": "transitional", "togaf_abb": "SV",  "role_in_r4": "Motor de gestion de tarjetas TDC P4900 (autorizacion, ciclo de vida, MDM)",  "status": "active",  "notes": "Reemplaza CMS/Intercard/Macweb post-GoLive"},
     {"id": "transact",       "name": "Temenos Transact",    "vendor": "Temenos",                   "togaf_type": "core",        "togaf_state": "target",       "togaf_abb": "TRN", "role_in_r4": "Core bancario destino: cuentas, originacion, contabilidad GL",               "status": "active",  "notes": "Plataforma target del programa Unity R4"},
     {"id": "informix",       "name": "Informix IDS",        "vendor": "IBM (PISA)",                "togaf_type": "core",        "togaf_state": "baseline",     "togaf_abb": "INF", "role_in_r4": "Core bancario actual; fuente de reglas y logica de negocio a migrar",        "status": "active",  "notes": "10,144 SPs; 11,391 reglas; sistema de registro hasta cutover"},
-    {"id": "apolo",          "name": "Apolo",               "vendor": "Appwhere",                  "togaf_type": "channels",    "togaf_state": "transitional", "togaf_abb": "APO", "role_in_r4": "Canal digital para oferta y originacion de TDC",                            "status": "active",  "notes": "37 HDUs catalogados; bridge hacia Transact"},
-    {"id": "app-movil",      "name": "App Movil BanCoppel", "vendor": "Nova",                      "togaf_type": "channels",    "togaf_state": "transitional", "togaf_abb": "APP", "role_in_r4": "Canal movil: activacion, autorizacion TDC, pagos, consultas",               "status": "active",  "notes": "79 HUs inventariadas; canal principal cliente digital"},
+    {"id": "apolo",          "name": "Apolo",               "vendor": "Appwhere",                  "togaf_type": "channels",    "togaf_state": "transitional", "togaf_abb": "APO", "role_in_r4": "Canal digital para oferta y originacion de TDC",                            "status": "active",  "notes": "37 User Stories catalogados; bridge hacia Transact"},
+    {"id": "app-movil",      "name": "App Movil BanCoppel", "vendor": "Nova",                      "togaf_type": "channels",    "togaf_state": "transitional", "togaf_abb": "APP", "role_in_r4": "Canal movil: activacion, autorizacion TDC, pagos, consultas",               "status": "active",  "notes": "79 User Stories inventariadas; canal principal cliente digital"},
     {"id": "siweb",          "name": "SIWEB",               "vendor": "Interno BanCoppel",         "togaf_type": "channels",    "togaf_state": "baseline",     "togaf_abb": "SIW", "role_in_r4": "Canal web sucursal para operaciones de ventanilla y soporte",               "status": "active",  "notes": "Canal legacy; candidato a refactor post-R4"},
     {"id": "cat",            "name": "CAT",                 "vendor": "Por contratar",             "togaf_type": "channels",    "togaf_state": "transitional", "togaf_abb": "CAT", "role_in_r4": "Canales alternativos de pago (TPV, corresponsales, kioscos)",               "status": "at_risk", "notes": "Proveedor sin contrato al 2026-08-31; riesgo RISK-UNITY-R27"},
     {"id": "atlas",          "name": "Atlas (GCP)",         "vendor": "Google Cloud Platform",     "togaf_type": "data",        "togaf_state": "target",       "togaf_abb": "ATL", "role_in_r4": "Plataforma de datos analiticos y reportes regulatorios en la nube",         "status": "active",  "notes": "BigQuery + Dataflow; feeds desde Informix/Transact"},
     {"id": "controlm",       "name": "Control-M",           "vendor": "BMC Software",              "togaf_type": "integration", "togaf_state": "baseline",     "togaf_abb": "CTM", "role_in_r4": "Orquestador de batch: cierre de dia, integraciones, reportes nocturnos",    "status": "active",  "notes": "Jobs criticos: estados de cuenta, comisiones, cobranza"},
     {"id": "eglobal",        "name": "eGlobal",             "vendor": "Interno BanCoppel",         "togaf_type": "processors",  "togaf_state": "baseline",     "togaf_abb": "EGL", "role_in_r4": "Switch ISO 8583: 88 reglas de validacion de transacciones TDC",             "status": "active",  "notes": "Valida contra SmartVista en produccion; frontera critica"},
     {"id": "connect-direct", "name": "Connect:Direct",      "vendor": "IBM Sterling",              "togaf_type": "integration", "togaf_state": "baseline",     "togaf_abb": "CDR", "role_in_r4": "Transferencia segura de archivos batch entre sistemas y VISA/MC",           "status": "at_risk", "notes": "Licencia a revisar; alternativa MFT en evaluacion"},
+    {"id": "cobranza",      "name": "Cobranza Direccionada","vendor": "Interno BanCoppel",         "togaf_type": "channels",    "togaf_state": "transitional", "togaf_abb": "COB", "role_in_r4": "Gestion de cartera vencida TDC P4900: aging, contacto y recuperacion",       "status": "at_risk", "notes": "37-50 USs pendientes de incorporar al inventario R4; pentest nov congela SIT"},
 ]
 
 IT_CAPABILITIES = [
@@ -2962,7 +2995,7 @@ def load_hdus(con: sqlite3.Connection) -> None:
     for h in HDU_CATALOG:
         s = h["pregame_status"]
         by_status[s] = by_status.get(s, 0) + 1
-    print(f"  hdu_catalog       : {len(HDU_CATALOG)} HDUs"
+    print(f"  hdu_catalog       : {len(HDU_CATALOG)} User Stories"
           f" (nativo={by_status.get('native',0)}"
           f" configurable={by_status.get('configurable',0)}"
           f" parcial={by_status.get('partial',0)}"
@@ -2998,11 +3031,12 @@ def load_apolo_hdus(con: sqlite3.Connection) -> None:
     mvp2 = sum(1 for h in APOLO_HDU_CATALOG if h["mvp_scope"] == "mvp2")
     tag  = sum(1 for h in APOLO_HDU_CATALOG if h["mvp_scope"] == "taggeo")
     des  = sum(1 for h in APOLO_HDU_CATALOG if h["mvp_scope"] == "desestimada")
-    print(f"  apolo_hdu_catalog : {len(APOLO_HDU_CATALOG)} HDUs (mvp1={mvp1} mvp2={mvp2} taggeo={tag} desestimada={des})")
+    print(f"  apolo_hdu_catalog : {len(APOLO_HDU_CATALOG)} User Stories (mvp1={mvp1} mvp2={mvp2} taggeo={tag} desestimada={des})")
 
 
 def rebuild_fts(con: sqlite3.Connection) -> None:
-    for tbl in ("products_fts", "program_capabilities_fts", "components_fts", "risks_fts", "issues_fts", "hdu_fts", "dtm_fts"):
+    for tbl in ("products_fts", "program_capabilities_fts", "components_fts", "risks_fts",
+                "issues_fts", "hdu_fts", "dtm_fts", "program_stakeholders_fts"):
         try:
             con.execute(f"INSERT INTO {tbl}({tbl}) VALUES('rebuild')")
         except Exception:
@@ -3043,7 +3077,7 @@ def coverage_summary(con: sqlite3.Connection) -> None:
     print(f"    En construccion (R4)      : {building}")
     print(f"    Componentes R4            : {comp_tot} ({at_risk_c} en riesgo, {blocked_c} bloqueados)")
     print(f"    Capabilities de negocio   : {cap_tot} total  |  {cap_ok} full-coverage  |  {cap_nc} no-cubierto  |  {cap_tbd} tbd  |  {cap_blk} bloqueadas")
-    print(f"    HDUs SmartVista/Canales   : {hdu_tot} ({hdu_gap} no cubiertos, {hdu_tbd} por determinar)")
+    print(f"    User Stories SmartVista/Canales   : {hdu_tot} ({hdu_gap} no cubiertos, {hdu_tbd} por determinar)")
     print(f"    DTMs catalogados          : {dtm_tot} ({dtm_gap} con gap critico)")
     print(f"    Risks RAID (abiertos)     : {r_open} ({r_high} alta, {r_closed} cerrados)")
     print(f"    Assumptions (sin val.)    : {a_pending}")
@@ -3069,7 +3103,7 @@ CAPABILITY_VENDORS = [
     {"id": "CV-AUTH-AWH",   "capability_id": "CAP-AUTHORIZATION",        "vendor_id": "appwhere","vendor_name": "Appwhere",                  "role": "support",    "contract_status": "contracted", "open_tickets": None, "risk_note": None},
     # CAP-CARD-LIFECYCLE
     {"id": "CV-LIFE-BPC",   "capability_id": "CAP-CARD-LIFECYCLE",       "vendor_id": "bpc",     "vendor_name": "BPC Banking Technologies", "role": "primary",    "contract_status": "contracted", "open_tickets": None, "risk_note": None},
-    {"id": "CV-LIFE-AWH",   "capability_id": "CAP-CARD-LIFECYCLE",       "vendor_id": "appwhere","vendor_name": "Appwhere",                  "role": "support",    "contract_status": "contracted", "open_tickets": None, "risk_note": "6 HUs Must Have App cierran noviembre"},
+    {"id": "CV-LIFE-AWH",   "capability_id": "CAP-CARD-LIFECYCLE",       "vendor_id": "appwhere","vendor_name": "Appwhere",                  "role": "support",    "contract_status": "contracted", "open_tickets": None, "risk_note": "6 User Stories Must Have App cierran noviembre"},
     # CAP-OVERPAYMENT
     {"id": "CV-OVP-BPC",    "capability_id": "CAP-OVERPAYMENT",          "vendor_id": "bpc",     "vendor_name": "BPC Banking Technologies", "role": "primary",    "contract_status": "contracted", "open_tickets": json.dumps(["BYU0039"]), "risk_note": "BYU0039 abierto  --  bloquea SIT"},
     # CAP-DEFERRED-PURCHASE
@@ -3171,7 +3205,7 @@ CAPABILITY_PRR = [
     {"id": "PRR-ERR",    "capability_id": "CAP-ERROR-CATALOG",         "runbook_done": 0, "oncall_assigned": 0, "slo_configured": 0, "rollback_tested": 0, "drp_covered": 0, "prr_approved": 0, "prr_blocker": None},
 ]
 
-# HDUs de APOLO  --  37 historias (fuente: APOLO_R4_HDU_TDC.xlsm Â· 2026-08-05)
+# User Stories de APOLO  --  37 historias (fuente: APOLO_R4_HDU_TDC.xlsm Â· 2026-08-05)
 # mvp_scope: mvp1=en scope ene-2027 Â· mvp2=fuera de alcance Â· taggeo=solo mediciÃ³n digital Â· desestimada
 APOLO_HDU_CATALOG = [
     # â"€â"€ MVP1  --  VoBo â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -3244,7 +3278,7 @@ CAPABILITY_STAKEHOLDERS = [
     {"id": "STK-LIFE-SME1",   "capability_id": "CAP-CARD-LIFECYCLE",         "name": "Core Banking Transformation",   "stakeholder_type": "acn_sme",            "raci_role": "responsible",  "organization": "Accenture",   "sme_path": SME_BASE + "Core Banking Transformation/",  "contact_note": "CSTS states, F/D classification, reposiciÃ³n"},
     {"id": "STK-LIFE-SME2",   "capability_id": "CAP-CARD-LIFECYCLE",         "name": "Industry Banking",              "stakeholder_type": "acn_sme",            "raci_role": "consulted",    "organization": "Accenture",   "sme_path": SME_BASE + "Industry Banking/",              "contact_note": "Reglas de negocio de cancelaciÃ³n definitiva  --  CONDUSEF"},
     {"id": "STK-LIFE-ARCH1",  "capability_id": "CAP-CARD-LIFECYCLE",         "name": "Armando Garcia",                "stakeholder_type": "program_architect",  "raci_role": "accountable",  "organization": "BanCoppel",   "sme_path": None, "contact_note": "PM SmartVista"},
-    {"id": "STK-LIFE-ARCH2",  "capability_id": "CAP-CARD-LIFECYCLE",         "name": "Eduardo Guzman",                "stakeholder_type": "program_architect",  "raci_role": "responsible",  "organization": "BanCoppel",   "sme_path": None, "contact_note": "PM App  --  6 HUs Must Have app lifecycle"},
+    {"id": "STK-LIFE-ARCH2",  "capability_id": "CAP-CARD-LIFECYCLE",         "name": "Eduardo Guzman",                "stakeholder_type": "program_architect",  "raci_role": "responsible",  "organization": "BanCoppel",   "sme_path": None, "contact_note": "PM App  --  6 User Stories Must Have app lifecycle"},
 
     # â"€â"€ CAP-OVERPAYMENT â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     {"id": "STK-OVP-SME1",    "capability_id": "CAP-OVERPAYMENT",            "name": "Core Banking Transformation",   "stakeholder_type": "acn_sme",            "raci_role": "responsible",  "organization": "Accenture",   "sme_path": SME_BASE + "Core Banking Transformation/",  "contact_note": "BYU0039  --  lÃ­mite saldo a favor; dictar workaround si no cierra"},
@@ -3322,7 +3356,7 @@ CAPABILITY_ROUTING = [
 ]
 
 
-# â"€â"€ AnÃ¡lisis por track  --  fuente: minutas sesiones HUs 3-7 agosto 2026 â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# â"€â"€ AnÃ¡lisis por track  --  fuente: minutas sesiones User Stories 3-7 agosto 2026 â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 TRACK_ANALYSIS = [
     {
@@ -3333,7 +3367,7 @@ TRACK_ANALYSIS = [
         "integrations_total": 7, "integrations_api": 5, "integrations_event": 0,
         "apificacion_scope": "2 integraciones omnicanal (SV->SIWEB y SV->APP). Nota: 2 Batch (ISV01 AWS→Informix y ISV02 AFT Connect Direct) contabilizadas en total pero no en api",
         "key_risk": "Won't: 'Excluir abonos bancarios del lÃ­mite' descartada formalmente por Negocio",
-        "key_decision": "18 HUs resueltas por combinaciÃ³n desarrollo+configuraciÃ³n; 3 por desarrollo puro",
+        "key_decision": "18 User Stories resueltas por combinaciÃ³n desarrollo+configuraciÃ³n; 3 por desarrollo puro",
         "source_doc": "20260806 - R4 SMARTVISTA - Analisis detallado HDUs e Integraciones.docx",
         "notes": "3 sesiones (3-6 ago). Complejidad: 72% media. Requiere config intensiva BPC."
     },
@@ -3345,7 +3379,7 @@ TRACK_ANALYSIS = [
         "integrations_total": 17, "integrations_api": 12, "integrations_event": 0,
         "apificacion_scope": "100% del Ã¡mbito de integraciÃ³n en APOLO",
         "key_risk": "ComplejidaD pendiente de ajuste al confirmar pantallas y APIs; esfuerzo real puede ser menor (evoluciÃ³n, no build nuevo)",
-        "key_decision": "7 HUs solo integraciones = responsabilidad de ApificaciÃ³n; esfuerzo de desarrollo puede reducirse significativamente",
+        "key_decision": "7 User Stories solo integraciones = responsabilidad de ApificaciÃ³n; esfuerzo de desarrollo puede reducirse significativamente",
         "source_doc": "20260806 - R4 APOLO - Analisis detallado HDUs e Integraciones.docx",
         "notes": "Originacion digital Appwhere. IntegracioneS pendientes de confirmar. Semanana 10-ago = anÃ¡lisis APIs."
     },
@@ -3357,9 +3391,9 @@ TRACK_ANALYSIS = [
         "integrations_total": 4, "integrations_api": 4, "integrations_event": 0,
         "apificacion_scope": "100% del Ã¡mbito de integraciÃ³n en APP",
         "key_risk": "2 Won't diferidas a R4.5: 'Detalle de Movimientos Convivencia TDC F&D' y 'EliminaciÃ³n de TDC Digital'",
-        "key_decision": "Todas las HUs de soluciÃ³n por desarrollo (consistente con naturaleza canal digital)",
+        "key_decision": "Todas las User Stories de soluciÃ³n por desarrollo (consistente con naturaleza canal digital)",
         "source_doc": "20260806 - R4 APP - Analisis detallado HDUs e Integraciones.docx",
-        "notes": "2 sesiones. Complejidad alta (7 HUs). Stakeholders: Nova Solution Systems."
+        "notes": "2 sesiones. Complejidad alta (7 User Stories). Stakeholders: Nova Solution Systems."
     },
     {
         "id": "TA-CAT", "track": "cat", "session_date": "2026-08-03",
@@ -3371,7 +3405,7 @@ TRACK_ANALYSIS = [
         "key_risk": "Proveedor CAT no contratado (RISK-UNITY-R27, due 2026-08-31)  --  bloquea implementaciÃ³n",
         "key_decision": "Responsabilidad de integraciones: nuevo proveedor CAT + equipo ApificaciÃ³n. Alcance cerrado al 20-Jul-26.",
         "source_doc": "20260803 - R4 CAT - Analisis detallado HDUs e Integraciones.docx",
-        "notes": "7 de las 12 HUs requieren integraciones. 6 APIs + 1 evento."
+        "notes": "7 de las 12 User Stories requieren integraciones. 6 APIs + 1 evento."
     },
     {
         "id": "TA-SIWEB", "track": "siweb", "session_date": "2026-08-05",
@@ -3381,7 +3415,7 @@ TRACK_ANALYSIS = [
         "integrations_total": None, "integrations_api": None, "integrations_event": None,
         "apificacion_scope": "100% del Ã¡mbito de integraciÃ³n en SIWEB (pendiente sesiÃ³n tÃ©cnica)",
         "key_risk": "Sin confirmaciÃ³n formal de que Appwhere elabore DTMs/DTCs para SIWEB en R4",
-        "key_decision": "Todas HUs requieren soluciÃ³n e integraciÃ³n; sin posibilidad de reutilizar cÃ³digo legacy SV",
+        "key_decision": "Todas User Stories requieren soluciÃ³n e integraciÃ³n; sin posibilidad de reutilizar cÃ³digo legacy SV",
         "source_doc": "20260805 - R4 SIWEB - Analisis detallado HDUs e Integraciones.docx",
         "notes": "Solo Should Have. Pendiente sesiÃ³n tÃ©cnica con APIs y SmartVista. Semana 10-ago = anÃ¡lisis."
     },
@@ -3393,7 +3427,7 @@ TRACK_ANALYSIS = [
         "integrations_total": None, "integrations_api": None, "integrations_event": None,
         "apificacion_scope": "Integraciones son cargas de datos (data ingestion), no microservicios tradicionales",
         "key_risk": "Pentest Cobranza 15-20 nov 2026 (freeze) vs SIT desde 15-oct: RIESGO DE DESALINEACIÃšN calendarios",
-        "key_decision": "Alcance Cobranza: 37-50 HUs (pendiente incorporar al inventario unificado). EvoluciÃ³n del modelo de datos + adecuaciones BPC + construcciÃ³n componentes SV",
+        "key_decision": "Alcance Cobranza: 37-50 User Stories (pendiente incorporar al inventario unificado). EvoluciÃ³n del modelo de datos + adecuaciones BPC + construcciÃ³n componentes SV",
         "source_doc": "20260806 - Unity R4 - Cobranza - Resumen Detallado.docx",
         "notes": "ConstrucciÃ³n/UT: fin agosto - mediados septiembre. No es solo integraciones  --  incluye build en BPC."
     },
@@ -3404,8 +3438,8 @@ TRACK_ANALYSIS = [
         "complexity_low": None, "complexity_mid": None, "complexity_high": None, "complexity_pending": None,
         "integrations_total": None, "integrations_api": None, "integrations_event": None,
         "apificacion_scope": "APOLO+SIWEB+CAT=100%; SmartVista=2 integraciones omnicanal (SV->SIWEB, SV->APP)",
-        "key_risk": "Sin inventario consolidado de integraciones R4. HUs con baja calidad de definiciÃ³n requieren refinamiento",
-        "key_decision": "Secuencia anÃ¡lisis: Apolo (sem 10-ago) -> SIWEB (sem 10-ago) -> CAT y APP. Trazabilidad HU-IntegracionRACIÃ³n obligatoria",
+        "key_risk": "Sin inventario consolidado de integraciones R4. User Stories con baja calidad de definiciÃ³n requieren refinamiento",
+        "key_decision": "Secuencia anÃ¡lisis: Apolo (sem 10-ago) -> SIWEB (sem 10-ago) -> CAT y APP. Trazabilidad User Story-IntegracionRACIÃ³n obligatoria",
         "source_doc": "20260807 - R4 Integraciones - Equipo APIificaciÃ³n - Resumen Detallado.docx",
         "notes": "Coordinadores: Jose Villena, Oscar Melo, Juan Carlos Valenzuela. Esfuerzo APOLO puede ser menor (evoluciÃ³n)."
     },
@@ -3777,7 +3811,7 @@ APP_USER_STORIES = [
 # v1.0.0  --  Roadmap Accenture: HU_INVENTORY (76) + R4_INTEGRATIONS (18) + TRACK_RAG (5)
 # Fuentes: Consolidacion y priorizacion_HUs_R4_v2.xlsx + Inventario de Integraciones_HUs_ R4_v1.0.xlsx + BCPL_R4 Roadmap_Remediaciones_v1_11082026.pptx
 
-HU_INVENTORY = [  # 76 HUs con scoring completo
+HU_INVENTORY = [  # 76 User Stories con scoring completo
     {
         "id": "HDU-SMART-R4-01",
         "track": "smartvista",
@@ -4798,13 +4832,13 @@ HU_INVENTORY = [  # 76 HUs con scoring completo
         "complejidad": "Baja",
         "source_doc": "Consolidacion y priorizacion_HUs_R4_v2.xlsx"
     },
-    # ── v1.1.0: 3 HUs Must de "Encendido y Apagado TDC Física y Digital".
+    # ── v1.1.0: 3 User Stories Must de "Encendido y Apagado TDC Física y Digital".
     # Estas filas existen en el xlsx pero SIN valor en la columna "ID HU": el cargador
     # anterior las descartaba. ID sintético APP-ENC-nn. Sin ticket Jira en la fuente.
-    # El deck del 11-ago-2026 confirma que APP tiene 18 HUs (15 Must, 1 Could, 2 Won't) y
+    # El deck del 11-ago-2026 confirma que APP tiene 18 User Stories (15 Must, 1 Could, 2 Won't) y
     # su cronograma las agrupa como "Encendido y Apagado TDC F&D (3HUs 100% M)".
     # Las 3 no tienen fecha de implementación confirmada por el impacto en cascada del
-    # retraso de las 3 primeras HUs del track (dependencia de diseño UX, ambientes y
+    # retraso de las 3 primeras User Stories del track (dependencia de diseño UX, ambientes y
     # enrolamiento del equipo).
     {
         "id": "APP-ENC-01",
@@ -4851,7 +4885,7 @@ HU_INVENTORY = [  # 76 HUs con scoring completo
         "impacto_solucion": "Desarrollo",
         "reusabilidad": "Componentes existentes reutilizables >80%",
         "num_integraciones": 0,
-        "num_criterios": None,   # la fila del xlsx no trae criterios para esta HU
+        "num_criterios": None,   # la fila del xlsx no trae criterios para esta User Story
         "num_pantallas": 2,
         "score_ponderado": 1.45,
         "complejidad": "Baja",
@@ -5451,7 +5485,7 @@ TRACK_RAG = [  # 5 tracks RAG desde PPTX 11-ago-2026
         "hu_wont": 1,
         "integraciones_count": 7,
         "rag_general": "CONFIRMADO 2026-08-19: amarillo en las tres dimensiones. Maquila y Homologacion de Comisiones omnicanal no cierran antes del 15-Oct.",
-        "rag_solucion": "18 HUs con fechas comprometidas. Diferimiento MCI al 27-Nov sin impacto en SIT.",
+        "rag_solucion": "18 User Stories con fechas comprometidas. Diferimiento MCI al 27-Nov sin impacto en SIT.",
         "rag_integraciones": "Inventario pendiente de Validar y completar con APIficacion y SIWEB. DTMs Comisiones sin fecha.",
         "tipo_solucion_detail": "15 Solucion + 6 Solucion+Integracion + 1 Integracion",
         "impacto_solucion_detail": "3 Desarrollo + 18 Desarrollo+Config.",
@@ -5467,8 +5501,8 @@ TRACK_RAG = [  # 5 tracks RAG desde PPTX 11-ago-2026
         "hu_could": 1,
         "hu_wont": 2,
         "integraciones_count": 4,
-        "rag_general": "CORREGIDO 2026-08-19: RAG GENERAL = AMARILLO, no rojo. El rojo aplica solo a la dimension INTEGRACIONES. El deck 11-ago tiene 3 semaforos por track y accent2 del tema = F0D224 (amarillo). 6 HUs Must cierran implementacion 6-20 Nov — riesgo directo sobre SIT y Go-live enero.",
-        "rag_solucion": "10 HUs analisis completado. 8 cierran ago-sep. 2 HUs sin fechas de implementacion confirmadas.",
+        "rag_general": "CORREGIDO 2026-08-19: RAG GENERAL = AMARILLO, no rojo. El rojo aplica solo a la dimension INTEGRACIONES. El deck 11-ago tiene 3 semaforos por track y accent2 del tema = F0D224 (amarillo). 6 User Stories Must cierran implementacion 6-20 Nov — riesgo directo sobre SIT y Go-live enero.",
+        "rag_solucion": "10 User Stories analisis completado. 8 cierran ago-sep. 2 User Stories sin fechas de implementacion confirmadas.",
         "rag_integraciones": "4 integraciones API identificadas. Inventario en consolidacion. Sin detalles tecnicos de volumenes/tiempos.",
         "tipo_solucion_detail": "10 Solucion + 4 Solucion+Integracion + 4 Integracion",
         "impacto_solucion_detail": "18 Desarrollo",
@@ -5518,8 +5552,8 @@ TRACK_RAG = [  # 5 tracks RAG desde PPTX 11-ago-2026
         "hu_could": None,
         "hu_wont": None,
         "integraciones_count": None,
-        "rag_general": "SIN FUENTE 2026-08-19: el deck 11-ago NO tiene lamina RAG de Apolo ni de Cobranza, solo SmartVista, APP, CAT y SIWEB. Este RAG es inferencia nuestra, sin respaldo documental. NO presentarlo como dato del programa. Track incluido en roadmap — detalle por HU en Inventario HUs (22 HDUs).",
-        "rag_solucion": "9 HUs candidatas a simplificacion segun PPTX slide 7 (diferir a R4.1).",
+        "rag_general": "SIN FUENTE 2026-08-19: el deck 11-ago NO tiene lamina RAG de Apolo ni de Cobranza, solo SmartVista, APP, CAT y SIWEB. Este RAG es inferencia nuestra, sin respaldo documental. NO presentarlo como dato del programa. Track incluido en roadmap — detalle por User Story en Inventario User Stories (22 User Stories).",
+        "rag_solucion": "9 User Stories candidatas a simplificacion segun PPTX slide 7 (diferir a R4.1).",
         "rag_integraciones": "Inventario en consolidacion con APIficacion.",
         "tipo_solucion_detail": None,
         "impacto_solucion_detail": None,
@@ -5642,14 +5676,14 @@ def semantic_summary(con: sqlite3.Connection) -> None:
 
 
 def load_track_analysis(con: sqlite3.Connection) -> None:
-    """Carga anÃ¡lisis por track desde sesiones de trabajo HUs (3-7 agosto 2026)."""
+    """Carga anÃ¡lisis por track desde sesiones de trabajo User Stories (3-7 agosto 2026)."""
     cols = list(TRACK_ANALYSIS[0].keys())
     ph   = ", ".join("?" * len(cols))
     sql  = f"INSERT OR REPLACE INTO track_analysis ({', '.join(cols)}) VALUES ({ph})"
     con.executemany(sql, [tuple(r.get(c) for c in cols) for r in TRACK_ANALYSIS])
     con.commit()
     hu_total = sum(r["hu_total"] or 0 for r in TRACK_ANALYSIS)
-    print(f"  track_analysis    : {len(TRACK_ANALYSIS)} tracks  |  HUs totales confirmados: {hu_total} (cobranza y apificacion = sin confirmar)")
+    print(f"  track_analysis    : {len(TRACK_ANALYSIS)} tracks  |  User Stories totales confirmados: {hu_total} (cobranza y apificacion = sin confirmar)")
 
 
 def load_plan_progress(con: sqlite3.Connection) -> None:
@@ -5694,8 +5728,263 @@ def load_it_capabilities(con) -> None:
     print(f"  it_capabilities   : {len(IT_CAPABILITIES)} capacidades IT")
 
 
+# ── SDLC data por sistema (v1.5.0) ───────────────────────────────────────────
+# Fuente canonica: bloque SYSTEM_SDLC en build-portal.py (ya corregido).
+# Confirmaciones de DTs:
+#   - GoLive todos los sistemas = 2027-01 (MS-UNITY-006 dt-cronograma.md)
+#   - SIT SmartVista = 2026-10 (no 2026-09)
+#   - sdlc_status red/yellow/green segun DTs: red=proveedor sin contratar o
+#     riesgo critico; yellow=riesgo alto con workaround; green=sin riesgos activos
+#   - exclude_from_portal=1 para sistemas sin User Stories en R4:
+#     informix, controlm, eglobal, connect-direct
+SYSTEM_SDLC_DATA = {
+    "informix": {
+        "sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",
+        "sdlc_summary": "Core bancario actual (AIX/POWER). Sistema de registro hasta el cutover. Fuente de 10,144 SPs y 11,391 reglas de negocio a migrar a Transact.",
+        "exclude_from_portal": 1,
+        "milestones": [
+            {"seq": 1, "label": "Sistema en produccion (baseline)",      "target_date": "< 2024",    "status": "done"},
+            {"seq": 2, "label": "Extraccion reglas GemCog v1.5.0",       "target_date": "2026-08-20","status": "done"},
+            {"seq": 3, "label": "Parallel-run Informix + Transact",      "target_date": "2026-Q4",   "status": "pending"},
+            {"seq": 4, "label": "Cutover final — Informix a DEPRECATE",  "target_date": "2027-Q1",   "status": "planned"},
+        ],
+        "capabilities": [
+            "CAP-CARD-LIFECYCLE","CAP-CREDIT-LIMIT","CAP-PAYMENT","CAP-BALANCE-STATEMENT",
+            "CAP-FEE-COMMISSION","CAP-COLLECTIONS-AGING","CAP-COLLECTIONS-ENGINE",
+            "CAP-CUSTOMER-PROFILE","CAP-ONBOARDING-DIGITAL","CAP-DEFERRED-PURCHASE",
+        ],
+    },
+    "transact": {
+        "sdlc_phase": "BUILD", "sdlc_progress": 40, "sdlc_status": "yellow",
+        "sdlc_summary": "Plataforma core bancario destino (Temenos Transact). Configuracion TDC P4900 completa. Pendiente SIT integrado con SmartVista y UAT de contabilidad GL.",
+        "exclude_from_portal": 0,
+        "milestones": [
+            {"seq": 1, "label": "Contrato Temenos firmado",              "target_date": "2026-01",   "status": "done"},
+            {"seq": 2, "label": "Configuracion productos TDC P4900",     "target_date": "2026-08",   "status": "done"},
+            {"seq": 3, "label": "SIT Transact-SmartVista-eGlobal",       "target_date": "2026-10",   "status": "pending"},
+            {"seq": 4, "label": "UAT contabilidad GL end-to-end",        "target_date": "2026-11",   "status": "pending"},
+            {"seq": 5, "label": "GoLive R4",                             "target_date": "2027-01",   "status": "planned"},
+        ],
+        "capabilities": [
+            "CAP-ONBOARDING-DIGITAL","CAP-BALANCE-STATEMENT","CAP-FEE-COMMISSION",
+            "CAP-ERROR-CATALOG","CAP-CUSTOMER-PROFILE","CAP-COLLECTIONS-ENGINE",
+        ],
+    },
+    "smartvista": {
+        "sdlc_phase": "BUILD", "sdlc_progress": 55, "sdlc_status": "red",
+        "sdlc_summary": "Motor de gestion de tarjetas TDC P4900 (BPC Banking Technologies). 2 DTMs sin cobertura: DPP modulo no contratado (sin decision de remediacion) y BYU0039 abierto en investigacion.",
+        "exclude_from_portal": 0,
+        "milestones": [
+            {"seq": 1, "label": "Contrato BPC firmado",                  "target_date": "2026-01",   "status": "done"},
+            {"seq": 2, "label": "22 User Stories SmartVista catalogados", "target_date": "2026-08-01","status": "done"},
+            {"seq": 3, "label": "Correccion macro APP-MF-02 (QA)",       "target_date": "2026-08-20","status": "done"},
+            {"seq": 4, "label": "SIT SmartVista-Transact-eGlobal",       "target_date": "2026-10",   "status": "pending"},
+            {"seq": 5, "label": "UAT tarjeta de credito end-to-end",     "target_date": "2026-11",   "status": "pending"},
+            {"seq": 6, "label": "GoLive — CMS/Intercard a DEPRECATE",   "target_date": "2027-01",   "status": "planned"},
+        ],
+        "capabilities": [
+            "CAP-CARD-LIFECYCLE","CAP-PAYMENT","CAP-DEFERRED-PURCHASE","CAP-CARD-MANUFACTURING",
+            "CAP-OVERPAYMENT","CAP-AUTHORIZATION","CAP-FEE-COMMISSION","CAP-ERROR-CATALOG",
+        ],
+    },
+    "apolo": {
+        "sdlc_phase": "BUILD", "sdlc_progress": 45, "sdlc_status": "red",
+        "sdlc_summary": "Canal digital (Appwhere) para oferta y originacion de TDC. Issue I03: celula sin contratar (abierto 3+ meses, impacto sistemico critico). R05: latencia en PROD sin plan de mejora firmado.",
+        "exclude_from_portal": 0,
+        "milestones": [
+            {"seq": 1, "label": "37 User Stories APOLO catalogadas",     "target_date": "2026-08-01","status": "done"},
+            {"seq": 2, "label": "Integracion Apolo-Transact (API)",      "target_date": "2026-09",   "status": "pending"},
+            {"seq": 3, "label": "SIT originacion TDC completa",          "target_date": "2026-10",   "status": "pending"},
+            {"seq": 4, "label": "GoLive canal Apolo",                    "target_date": "2027-01",   "status": "planned"},
+        ],
+        "capabilities": [
+            "CAP-ONBOARDING-DIGITAL","CAP-DEFERRED-PURCHASE","CAP-CUSTOMER-PROFILE",
+        ],
+    },
+    "app-movil": {
+        "sdlc_phase": "BUILD", "sdlc_progress": 42, "sdlc_status": "yellow",
+        "sdlc_summary": "Canal movil BanCoppel (Nova). Canal principal del cliente digital: activacion de tarjeta, autorizacion TDC, pagos, consultas de saldo y compras diferidas.",
+        "exclude_from_portal": 0,
+        "milestones": [
+            {"seq": 1, "label": "18 User Stories canal App TDC R4",       "target_date": "2026-08-19","status": "done"},
+            {"seq": 2, "label": "Encendido/Apagado TDC (+3 User Stories)","target_date": "2026-08-19","status": "done"},
+            {"seq": 3, "label": "SIT App-SmartVista-Transact",           "target_date": "2026-10",   "status": "pending"},
+            {"seq": 4, "label": "UAT cliente digital",                   "target_date": "2026-11",   "status": "pending"},
+            {"seq": 5, "label": "GoLive App Movil TDC",                  "target_date": "2027-01",   "status": "planned"},
+        ],
+        "capabilities": [
+            "CAP-PAYMENT","CAP-BALANCE-STATEMENT","CAP-DEFERRED-PURCHASE",
+            "CAP-COLLECTIONS-AGING","CAP-CARD-LIFECYCLE","CAP-ONBOARDING-DIGITAL",
+        ],
+    },
+    "siweb": {
+        "sdlc_phase": "DISCOVER", "sdlc_progress": 15, "sdlc_status": "red",
+        "sdlc_summary": "Canal web de sucursal (ventanilla interna BanCoppel). 5 User Stories Must Have. Bloqueado: APIs SmartVista BPC sin fecha de entrega confirmada.",
+        "exclude_from_portal": 0,
+        "milestones": [
+            {"seq": 1, "label": "5 User Stories definidas (requerimientos)","target_date": "2026-07","status": "done"},
+            {"seq": 2, "label": "APIs SmartVista disponibles",           "target_date": "TBD",       "status": "pending"},
+            {"seq": 3, "label": "Desarrollo e integracion SIWEB",        "target_date": "TBD",       "status": "planned"},
+            {"seq": 4, "label": "SIT canal sucursal",                    "target_date": "TBD",       "status": "planned"},
+        ],
+        "capabilities": [
+            "CAP-BALANCE-STATEMENT","CAP-DEFERRED-PURCHASE",
+            "CAP-ACCOUNTING-INTEGRATION","CAP-OVERPAYMENT",
+        ],
+    },
+    "cat": {
+        "sdlc_phase": "DISCOVER", "sdlc_progress": 20, "sdlc_status": "red",
+        "sdlc_summary": "Contact Center (IVR + agentes). 12 User Stories Must Have. Proveedor sin contratar al 2026-08-31 — sin owner tecnico ni plan de pruebas posible. RISK-001 activo.",
+        "exclude_from_portal": 0,
+        "milestones": [
+            {"seq": 1, "label": "12 User Stories CAT definidas",         "target_date": "2026-07",   "status": "done"},
+            {"seq": 2, "label": "RFP / seleccion de proveedor",          "target_date": "2026-08-31","status": "pending"},
+            {"seq": 3, "label": "Contrato y kickoff proveedor",          "target_date": "2026-09",   "status": "planned"},
+            {"seq": 4, "label": "SIT Contact Center (IVR-SVIP)",         "target_date": "TBD",       "status": "planned"},
+            {"seq": 5, "label": "GoLive CAT",                            "target_date": "2027-01",   "status": "planned"},
+        ],
+        "capabilities": [
+            "CAP-CHANNEL-SELFSERVICE","CAP-AUTHENTICATION","CAP-BALANCE-STATEMENT",
+            "CAP-CUSTOMER-PROFILE","CAP-CARD-LIFECYCLE","CAP-COLLECTIONS-AGING",
+        ],
+    },
+    "atlas": {
+        "sdlc_phase": "BUILD", "sdlc_progress": 25, "sdlc_status": "yellow",
+        "sdlc_summary": "Plataforma de datos analiticos en GCP (BigQuery + Dataflow). Landing zone aprovisionada. Pendiente: pipelines Informix->Atlas y reportes CNBV. R09: Golden Record Fase 2 sin confirmar alcance.",
+        "exclude_from_portal": 0,
+        "milestones": [
+            {"seq": 1, "label": "Landing zone GCP aprovisionada",        "target_date": "2026-07",   "status": "done"},
+            {"seq": 2, "label": "Pipelines Informix a Atlas (Dataflow)", "target_date": "2026-09",   "status": "pending"},
+            {"seq": 3, "label": "Integracion reportes CNBV Anexos",      "target_date": "2026-10",   "status": "pending"},
+            {"seq": 4, "label": "GoLive Atlas (analitica + regulatorio)","target_date": "2026-11",   "status": "planned"},
+        ],
+        "capabilities": ["CAP-BALANCE-STATEMENT","CAP-COLLECTIONS-AGING","CAP-FEE-COMMISSION"],
+    },
+    "controlm": {
+        "sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",
+        "sdlc_summary": "Orquestador de batch BMC Control-M. Jobs criticos: cierre de dia, comisiones, cobranza, estados de cuenta nocturnos. Permanece como baseline en R4.",
+        "exclude_from_portal": 1,
+        "milestones": [
+            {"seq": 1, "label": "Sistema en produccion (baseline)",      "target_date": "< 2024",    "status": "done"},
+            {"seq": 2, "label": "Nuevos jobs TDC P4900 (cierre dia)",    "target_date": "2026-Q4",   "status": "pending"},
+            {"seq": 3, "label": "Validacion SLA batch post-GoLive",      "target_date": "2027-Q1",   "status": "planned"},
+        ],
+        "capabilities": [
+            "CAP-BALANCE-STATEMENT","CAP-FEE-COMMISSION",
+            "CAP-COLLECTIONS-AGING","CAP-COLLECTIONS-ENGINE",
+        ],
+    },
+    "eglobal": {
+        "sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",
+        "sdlc_summary": "Switch ISO 8583 interno BanCoppel. Valida 88 reglas de transacciones TDC contra SmartVista. Frontera critica de autorizacion en tiempo real.",
+        "exclude_from_portal": 1,
+        "milestones": [
+            {"seq": 1, "label": "Sistema en produccion (baseline)",      "target_date": "< 2024",    "status": "done"},
+            {"seq": 2, "label": "Validacion 88 reglas vs SmartVista",    "target_date": "2026-08",   "status": "done"},
+            {"seq": 3, "label": "SIT eGlobal-SmartVista-Transact",       "target_date": "2026-09",   "status": "pending"},
+            {"seq": 4, "label": "Pruebas de carga ISO 8583 P4900",       "target_date": "2026-10",   "status": "pending"},
+        ],
+        "capabilities": ["CAP-CARD-LIFECYCLE","CAP-PAYMENT"],
+    },
+    "cobranza": {
+        "sdlc_phase": "BUILD", "sdlc_progress": 30, "sdlc_status": "yellow",
+        "sdlc_summary": "Cobranza Direccionada — gestion de cartera vencida TDC P4900. 37-50 User Stories pendientes de incorporar al inventario R4. Riesgo: pentest nov 15-20 congela el unico ambiente de SIT.",
+        "exclude_from_portal": 0,
+        "milestones": [
+            {"seq": 1, "label": "37-50 USs identificadas (Cobranza Dir.)", "target_date": "2026-07", "status": "done"},
+            {"seq": 2, "label": "Incorporacion al inventario R4 formal",   "target_date": "2026-09", "status": "pending"},
+            {"seq": 3, "label": "SIT Cobranza (fuera de ventana pentest)", "target_date": "2026-11", "status": "pending"},
+            {"seq": 4, "label": "UAT cobranza + Buro de Credito",          "target_date": "2026-11", "status": "planned"},
+            {"seq": 5, "label": "GoLive Cobranza Direccionada",            "target_date": "2027-01", "status": "planned"},
+        ],
+        "capabilities": ["CAP-COLLECTIONS-AGING","CAP-COLLECTIONS-ENGINE","CAP-PAYMENT"],
+    },
+    "connect-direct": {
+        "sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "yellow",
+        "sdlc_summary": "Transferencia segura de archivos batch (IBM Sterling). Mueve archivos entre sistemas internos y redes VISA/MC. Licencia a revisar — alternativa MFT en evaluacion.",
+        "exclude_from_portal": 1,
+        "milestones": [
+            {"seq": 1, "label": "Sistema en produccion (baseline)",      "target_date": "< 2024",    "status": "done"},
+            {"seq": 2, "label": "Evaluacion alternativa MFT",            "target_date": "2026-09",   "status": "pending"},
+            {"seq": 3, "label": "Decision de renovacion / migracion",    "target_date": "2026-10",   "status": "pending"},
+            {"seq": 4, "label": "Resolucion de riesgo de licencia",      "target_date": "2026-11",   "status": "planned"},
+        ],
+        "capabilities": ["CAP-CARD-LIFECYCLE","CAP-CARD-MANUFACTURING"],
+    },
+}
+
+
+def load_system_sdlc(con: sqlite3.Connection) -> None:
+    """v1.5.0 — Carga fase SDLC, milestones y capabilities por sistema en brain.db.
+    Idempotente: usa ALTER TABLE con try/except + DELETE+INSERT para milestones,
+    e INSERT OR REPLACE para capabilities.
+    Fuente: SYSTEM_SDLC_DATA arriba (mismo contenido que SYSTEM_SDLC en build-portal.py).
+    """
+    # Schema — idempotente
+    for col_def in [
+        "ALTER TABLE program_systems ADD COLUMN sdlc_phase TEXT",
+        "ALTER TABLE program_systems ADD COLUMN sdlc_progress INTEGER DEFAULT 0",
+        "ALTER TABLE program_systems ADD COLUMN sdlc_status TEXT DEFAULT 'gray'",
+        "ALTER TABLE program_systems ADD COLUMN sdlc_summary TEXT",
+        "ALTER TABLE program_systems ADD COLUMN exclude_from_portal INTEGER DEFAULT 0",
+    ]:
+        try:
+            con.execute(col_def)
+        except Exception:
+            pass
+
+    con.executescript("""
+        CREATE TABLE IF NOT EXISTS program_system_milestones (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            system_id   TEXT NOT NULL REFERENCES program_systems(id),
+            seq         INTEGER NOT NULL,
+            label       TEXT NOT NULL,
+            target_date TEXT,
+            status      TEXT NOT NULL CHECK(status IN ('done','pending','planned'))
+        );
+        CREATE TABLE IF NOT EXISTS program_system_caps (
+            system_id      TEXT NOT NULL REFERENCES program_systems(id),
+            capability_id  TEXT NOT NULL,
+            PRIMARY KEY (system_id, capability_id)
+        );
+    """)
+    con.commit()
+
+    n_sys = n_ms = n_caps = 0
+    for sid, d in SYSTEM_SDLC_DATA.items():
+        con.execute("""
+            UPDATE program_systems
+               SET sdlc_phase          = ?,
+                   sdlc_progress       = ?,
+                   sdlc_status         = ?,
+                   sdlc_summary        = ?,
+                   exclude_from_portal = ?
+             WHERE id = ?
+        """, (d["sdlc_phase"], d["sdlc_progress"], d["sdlc_status"],
+              d["sdlc_summary"], d.get("exclude_from_portal", 0), sid))
+        n_sys += 1
+
+        con.execute("DELETE FROM program_system_milestones WHERE system_id = ?", (sid,))
+        for ms in d.get("milestones", []):
+            con.execute(
+                "INSERT INTO program_system_milestones (system_id, seq, label, target_date, status) VALUES (?,?,?,?,?)",
+                (sid, ms["seq"], ms["label"], ms["target_date"], ms["status"]),
+            )
+            n_ms += 1
+
+        for cap in d.get("capabilities", []):
+            con.execute(
+                "INSERT OR REPLACE INTO program_system_caps (system_id, capability_id) VALUES (?,?)",
+                (sid, cap),
+            )
+            n_caps += 1
+
+    con.commit()
+    print(f"  system_sdlc       : {n_sys} sistemas | {n_ms} milestones | {n_caps} capabilities")
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Unity Project Brain Builder v1.4.0")
+    parser = argparse.ArgumentParser(description="Unity Project Brain Builder v1.6.0")
     parser.add_argument("--reset", action="store_true", help="Borra y reconstruye brain.db")
     args = parser.parse_args()
 
@@ -5707,7 +5996,7 @@ def main() -> None:
     con = sqlite3.connect(str(DB_PATH))
     con.execute("PRAGMA journal_mode=WAL")
 
-    print("Construyendo Unity Project Brain v1.4.0...")
+    print("Construyendo Unity Project Brain v1.6.0...")
     init_db(con)
     load_project_info(con)
     load_products(con)
@@ -5723,20 +6012,22 @@ def main() -> None:
     load_decisions(con)
     load_hdus(con)
     load_dtms(con)
-    load_apolo_hdus(con)      # v0.6.1  --  APOLO 37 HDUs originaciÃ³n digital
-    load_semantic_layer(con)  # v0.6.1  --  capa semÃ¡ntica cross-DT
-    load_track_analysis(con)  # v0.7.0  --  7 tracks: HUs por sesiÃ³n, complejidad, integraciones
+    load_apolo_hdus(con)      # v0.6.1  --  APOLO 37 User Stories originacion digital
+    load_semantic_layer(con)  # v0.6.1  --  capa semantica cross-DT
+    load_track_analysis(con)  # v0.7.0  --  7 tracks: User Stories por sesion, complejidad, integraciones
     load_plan_progress(con)   # v0.7.0  --  Plan de Trabajo corte 16-ago: avance global 20.66%
     load_pv_requirements(con)  # v0.8.0  --  28 RFs Product Vision R4
-    load_app_user_stories(con) # v0.9.0  --  13 HUs App canal TDC F&D (Jira SMART-XXXX)
-    load_user_stories_inventory(con)     # v1.1.0  --  79 HUs scoring Accenture (Inventario HUs Excel)
+    load_app_user_stories(con) # v0.9.0  --  13 User Stories App canal TDC F&D (Jira SMART-XXXX)
+    load_user_stories_inventory(con)     # v1.1.0  --  79 User Stories scoring Accenture (Inventario User Stories Excel)
     load_r4_integrations(con)  # v1.0.0  --  18 integraciones R4 cross-track
     load_track_rag(con)        # v1.0.0  --  5 tracks RAG (PPTX Roadmap 11-ago-2026)
     load_legacy_systems(con)   # v1.2.0  --  14 sistemas legado/ecosistema (barrido documental 2026-08-19)
     load_audit_findings(con)   # v1.2.0  --  19 hallazgos del barrido (cifras, correcciones, ambiguedades)
     load_lifecycle_phase_steps(con)
     load_program_systems(con)
-    load_it_capabilities(con)  # v1.3.0  --  48 pasos cadena de valor TDC (8 fases, brain+manual)
+    load_system_sdlc(con)      # v1.5.0  --  fase/progreso/milestones/caps por sistema (desde brain.db)
+    load_it_capabilities(con)  # v1.5.0  --  13 capacidades IT del programa
+    load_stakeholders(con)     # v1.6.0  --  96 stakeholders (bancoppel/acn/ey/vendors)
     rebuild_fts(con)
     coverage_summary(con)
     semantic_summary(con)     # v0.6.1  --  vista capability_360
@@ -5761,7 +6052,7 @@ def load_pv_requirements(con: sqlite3.Connection) -> None:
 
 
 def load_app_user_stories(con: sqlite3.Connection) -> None:
-    """Carga 13 HUs del canal App (Respaldo US ZIP, Jira SMART-XXXX)."""
+    """Carga 13 User Stories del canal App (Respaldo US ZIP, Jira SMART-XXXX)."""
     cols = list(APP_USER_STORIES[0].keys())
     ph   = ", ".join("?" * len(cols))
     sql  = f"INSERT OR REPLACE INTO app_user_stories ({', '.join(cols)}) VALUES ({ph})"
@@ -5772,12 +6063,12 @@ def load_app_user_stories(con: sqlite3.Connection) -> None:
         e = r.get("estado", "unknown")
         by_estado[e] = by_estado.get(e, 0) + 1
     summary = " | ".join(f"{e}:{n}" for e, n in sorted(by_estado.items()))
-    print(f"  app_user_stories  : {len(APP_USER_STORIES)} HUs  |  {summary}")
+    print(f"  app_user_stories  : {len(APP_USER_STORIES)} User Stories  |  {summary}")
 
 
 
 def load_user_stories_inventory(con) -> None:
-    """Carga 76 HUs del Inventario Accenture (Roadmap Excel v2) con scoring MoSCoW."""
+    """Carga 76 User Stories del Inventario Accenture (Roadmap Excel v2) con scoring MoSCoW."""
     cols = list(HU_INVENTORY[0].keys())
     ph   = ", ".join("?" * len(cols))
     sql  = f"INSERT OR REPLACE INTO user_stories_inventory ({', '.join(cols)}) VALUES ({ph})"
@@ -5790,7 +6081,7 @@ def load_user_stories_inventory(con) -> None:
     summary = " | ".join(f"{t}:{n}" for t, n in sorted(by_track.items()))
     must_n = sum(1 for r in HU_INVENTORY if r.get("moscow") == "must")
     should_n = sum(1 for r in HU_INVENTORY if r.get("moscow") == "should")
-    print(f"  user_stories_inventory      : {len(HU_INVENTORY)} HUs  |  must={must_n} should={should_n}  |  {summary}")
+    print(f"  user_stories_inventory      : {len(HU_INVENTORY)} User Stories  |  must={must_n} should={should_n}  |  {summary}")
 
 
 def load_r4_integrations(con) -> None:
@@ -5994,6 +6285,443 @@ def load_lifecycle_phase_steps(con: sqlite3.Connection) -> None:
         by_phase[p] = by_phase.get(p, 0) + 1
     brain_n = sum(1 for r in LIFECYCLE_PHASE_STEPS if r.get("fuente") == "brain")
     print(f"  lifecycle_phase_steps: {len(LIFECYCLE_PHASE_STEPS)} pasos  |  brain={brain_n}  |  fases={len(by_phase)}")
+
+
+# -- v1.6.0 -- program_stakeholders ------------------------------------------
+# Roster completo del programa Unity R4: ejecutivos, track owners, PMO,
+# equipo ACN, vendors, EY (competidor). Fuente: minutas sesiones marzo 2026 +
+# slide Plan Director 14-ago-2026.
+STAKEHOLDERS = [
+    # -- BanCoppel / Grupo Coppel -----------------------------------------------
+    {"id":"STK-001","full_name":"Juan Manuel Fernández Islas","organization":"bancoppel",
+     "role_title":"CIO de Servicios Financieros, Grupo Coppel","program_role":"executive_sponsor",
+     "raci":"accountable","seniority":"executive","confidence":"confirmed","alert":None,
+     "relevant_notes":"Sponsor ejecutivo del programa Unity. En BanCoppel desde noviembre 2022. "
+       "Responsable del presupuesto y de la narrativa ante el Consejo de Administración "
+       "(sesión crítica 24-abr-2026). También lleva el programa Carteras. "
+       "Identificó los 16 productos, 3 tracks, horizonte 36 meses. "
+       "Tomó decisiones de salidas de talento por performance. "
+       "Principal punto de escalación ejecutiva. Quiere resultados, no presentaciones bonitas.",
+     "source_docs":"19 Marzo - Minutas.docx; 23 Marzo - Minutas.docx; dt-gobierno.md","active":1},
+    {"id":"STK-002","full_name":"Carlos López Moctezuma","organization":"grupo_coppel",
+     "role_title":"Director de Servicios Financieros, Grupo Coppel","program_role":"executive_sponsor",
+     "raci":"accountable","seniority":"executive","confidence":"confirmed","alert":None,
+     "relevant_notes":"Responsable a nivel Grupo de todos los servicios financieros: banco, crédito Coppel "
+       "y Personal Coppel. Involucró a Rodrigo Kennedy en Unity por instrucción propia. "
+       "Scope estratégico más allá del banco.",
+     "source_docs":"23 Marzo - Minutas.docx","active":1},
+    {"id":"STK-003","full_name":"Pablo Madinaveitia","organization":"bancoppel",
+     "role_title":"Director de Transformación Unity","program_role":"program_director",
+     "raci":"accountable","seniority":"director","confidence":"confirmed","alert":None,
+     "relevant_notes":"Nuevo director; se incorpora el 6 de abril 2026. Luis Barragán le reportará. "
+       "Debe contratar subdirectores (Apolo, Transact, SmartVista). "
+       "17 posiciones evaluadas, 46 personas mapeadas a su estructura, 11 vacantes abiertas, "
+       "universo de 117 personas. Requiere plan de onboarding de 60-90 días. "
+       "También transcrito como Medinaveitia y Mandinaveidia (errores de transcripción).",
+     "source_docs":"23 Marzo - Minutas.docx; dt-gobierno.md","active":1},
+    {"id":"STK-004","full_name":"Teresa (Tere) González","organization":"bancoppel",
+     "role_title":"Líder de Programa / Alineación Estratégica","program_role":"program_manager",
+     "raci":"responsible","seniority":"director","confidence":"confirmed","alert":None,
+     "relevant_notes":"10 años en Coppel. En el proyecto formalmente desde diciembre 2025. "
+       "Punto de contacto integral para negocio y tecnología durante el diagnóstico. "
+       "Traduce planeación estratégica a nivel tecnológico. Coordina reuniones con Juan Manuel, "
+       "dirección general y PMs. Le reportan PMs de Transact, SmartVista y Apolo. "
+       "Trabaja junto a Rodrigo Kennedy (él en assessment; ella en apagar fuegos). "
+       "Primer hallazgo al entrar: desastre en roles y responsabilidades.",
+     "source_docs":"23 Marzo - Minutas.docx; 25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-005","full_name":"Luis Barragán","organization":"bancoppel",
+     "role_title":"Líder de Tecnología — Apolo y SmartVista / TDC","program_role":"track_owner",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Coordina relación entre arquitectura y proveedores. Reportará a Pablo Madinaveitia. "
+       "Debe decidir si Leonardo Hernández continúa como responsable de Apolo. "
+       "Estaba ausente por vacaciones en la primera semana de diagnóstico.",
+     "source_docs":"19 Marzo - Minutas.docx; dt-gobierno.md; dt-cronograma.md","active":1},
+    {"id":"STK-006","full_name":"Sergio del Valle","organization":"bancoppel",
+     "role_title":"Líder de Negocio (sustituyendo a Stephany Ley)","program_role":"track_owner",
+     "raci":"responsible","seniority":"director","confidence":"confirmed","alert":None,
+     "relevant_notes":"Lidera la parte de negocio en ausencia de Stephany Ley (licencia de maternidad). "
+       "Colaboró con Juan Manuel en el roadmap actualizado de 16 productos. "
+       "Candidato para sesión de estrategia / North Star.",
+     "source_docs":"23 Marzo - Minutas.docx","active":1},
+    {"id":"STK-007","full_name":"Stephany Ley","organization":"bancoppel",
+     "role_title":"Responsable General de Productos y Canales","program_role":"track_owner",
+     "raci":"accountable","seniority":"director","confidence":"confirmed","alert":None,
+     "relevant_notes":"Actualmente en licencia de maternidad. Rol cubierto temporalmente por Sergio del Valle.",
+     "source_docs":"23 Marzo - Minutas.docx","active":1},
+    {"id":"STK-008","full_name":"Brenda Abril Pichardo Ramírez","organization":"bancoppel",
+     "role_title":"Subdirectora RMO (en transición)","program_role":"pmo_financial",
+     "raci":"responsible","seniority":"director","confidence":"confirmed",
+     "alert":"Nunca han aplicado penalizaciones a proveedores — riesgo de exigibilidad contractual.",
+     "relevant_notes":"En transición para tomar la Subdirección de la RMO. Desde el nacimiento de Unity. "
+       "Maneja 100% el control financiero (Excel + Dynamics). "
+       "Gestiona contratos, contratación y pago de ~25-40 proveedores. "
+       "Araceli Bárcenas le reporta. Conocimiento histórico invaluable. "
+       "Debe alinear todas las áreas de seguridad e integrar requerimientos en desarrollos.",
+     "source_docs":"23 Marzo - Minutas.docx; dt-gobierno.md","active":1},
+    {"id":"STK-009","full_name":"Fernanda Barbosa","organization":"bancoppel",
+     "role_title":"PMO — SmartVista y Apolo (reemplazo de Ana Rosa Cruz)","program_role":"pmo",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed",
+     "alert":"No puede integrarse plenamente antes del 16 de abril 2026 por proceso de transferencia.",
+     "relevant_notes":"Reemplazo de Ana Rosa Cruz. También identificada como Ma. Fernanda Barbosa. "
+       "Owners del P4900 en el DT de gobierno.",
+     "source_docs":"23 Marzo - Minutas.docx; dt-gobierno.md; dt-cronograma.md","active":1},
+    {"id":"STK-010","full_name":"Araceli Bárcenas","organization":"bancoppel",
+     "role_title":"PMO — Transact (Captación y Préstamo Personal)","program_role":"pmo",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"PMO para el track de Transact. Forma parte de la RMO y ya reporta a Brenda Pichardo. "
+       "Referida como Ara en notas informales. Con ella el plan director tomó más forma.",
+     "source_docs":"23 Marzo - Minutas.docx","active":1},
+    {"id":"STK-011","full_name":"Ana Rosa Cruz","organization":"bancoppel",
+     "role_title":"PMO SmartVista y Apolo (saliente ~abril 2026)","program_role":"pmo",
+     "raci":"informed","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"PMO hasta ~abril 2026. Visibilidad de roadmap hasta 2026. Reemplazada por Fernanda Barbosa.",
+     "source_docs":"23 Marzo - Minutas.docx","active":0},
+    {"id":"STK-012","full_name":"Armando Riveros","organization":"bancoppel",
+     "role_title":"Owner Apificación","program_role":"track_owner",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Owner del equipo transversal de Apificación que habilita las integraciones de todos los tracks.",
+     "source_docs":"dt-gobierno.md; capability_stakeholders","active":1},
+    {"id":"STK-013","full_name":"Sergio Arellano","organization":"bancoppel",
+     "role_title":"Product Manager — Tarjeta de Crédito","program_role":"product_owner",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Responsable del roadmap tecnológico de la Tarjeta de Crédito. "
+       "Debe congelar la versión del estado de cuenta y entregar definiciones completas "
+       "del alcance R3 para liberación oportuna.",
+     "source_docs":"25 Marzo - Minutas.docx; dt-cronograma.md","active":1},
+    {"id":"STK-014","full_name":"Arturo Valdivia / Luis Arturo Valdivieso Cruz","organization":"bancoppel",
+     "role_title":"Product Manager — Onboarding / Apolo","program_role":"product_owner",
+     "raci":"responsible","seniority":"manager","confidence":"inferred",
+     "alert":"Nombre con variantes (Alfredo Valdivieso en una transcripción) — confirmar nombre exacto.",
+     "relevant_notes":"Responsable del roadmap tecnológico del producto Onboarding/Apolo. "
+       "Juan Manuel solicitó sesión con él para definir estrategia de originación (pantalla única).",
+     "source_docs":"23 Marzo - Minutas.docx; 25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-015","full_name":"Leonardo (Leo) Hernández","organization":"bancoppel",
+     "role_title":"Delivery Lead — Apolo y SmartVista","program_role":"delivery_lead",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Responsable de la ejecución/delivery de Apolo y TDC. "
+       "Fue movido desde cobranza para ayudar en tarjetas. "
+       "Luis Barragán debe decidir si Leo continúa como responsable de Apolo.",
+     "source_docs":"23 Marzo - Minutas.docx","active":1},
+    {"id":"STK-016","full_name":"Sandra Figueroa","organization":"bancoppel",
+     "role_title":"Tech Lead — Transact","program_role":"delivery_lead",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Equivalente de Leonardo Hernández para el track de Transact. "
+       "Tiene fortaleza técnica pero faltaba complementar con capa funcional. "
+       "Recibe solicitudes de negocio sin priorización clara.",
+     "source_docs":"23 Marzo - Minutas.docx","active":1},
+    {"id":"STK-017","full_name":"Armando Garcia","organization":"bancoppel",
+     "role_title":"PM SmartVista","program_role":"delivery_lead",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"PM de SmartVista en BanCoppel. Identificado en capability_stakeholders del brain.",
+     "source_docs":"capability_stakeholders","active":1},
+    {"id":"STK-018","full_name":"David Ruelas","organization":"bancoppel",
+     "role_title":"Responsable de Crédito","program_role":"stakeholder",
+     "raci":"consulted","seniority":"director","confidence":"confirmed","alert":None,
+     "relevant_notes":"La evaluación y administración del crédito pasará a ser su responsabilidad. Referido como Ruedas en algunas notas.",
+     "source_docs":"23 Marzo - Minutas.docx","active":1},
+    {"id":"STK-019","full_name":"Iván de la O","organization":"bancoppel",
+     "role_title":"Responsable de Cobranza","program_role":"stakeholder",
+     "raci":"consulted","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Responsable del frente de cobranza. Referenciado en la estructura del programa.",
+     "source_docs":"23 Marzo - Minutas.docx","active":1},
+    {"id":"STK-020","full_name":"Alondra Bastidas","organization":"bancoppel",
+     "role_title":"Responsable de Integración e Interoperabilidad","program_role":"track_owner",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed",
+     "alert":"Diferente de Alondra Cárdenas (Change Management).",
+     "relevant_notes":"Responsable del frente de integración e interoperabilidad. Referida como Londra Bastidas en una minuta.",
+     "source_docs":"23 Marzo - Minutas.docx","active":1},
+    {"id":"STK-021","full_name":"Alondra Cárdenas","organization":"bancoppel",
+     "role_title":"Responsable de Change Management","program_role":"stakeholder",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Organizativamente con Brenda Pichardo. Ha hecho capacitaciones de change management. "
+       "Change Management actual es táctico (manuales, capacitación), no estratégico.",
+     "source_docs":"23 Marzo - Minutas.docx","active":1},
+    {"id":"STK-022","full_name":"Arcadio","organization":"bancoppel",
+     "role_title":"Arquitecto Empresarial de Grupo / Líder de Datos","program_role":"architect",
+     "raci":"consulted","seniority":"director","confidence":"inferred",
+     "alert":"Apellido no confirmado en fuentes.",
+     "relevant_notes":"Responsable de arquitectura empresarial a nivel de grupo y del proyecto Atlas (Golden Record / MDM). "
+       "Su scope impacta banco y tienda.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-023","full_name":"Mercedes Espinosa (María Mercedes)","organization":"bancoppel",
+     "role_title":"Líder de Arquitectura — Grupo y Servicios Financieros","program_role":"architect",
+     "raci":"consulted","seniority":"director","confidence":"inferred","alert":None,
+     "relevant_notes":"Establece lineamientos arquitectónicos a nivel grupo. "
+       "Rol más de validación/proceso arquitectónico (compliance/certificación) que de definición estratégica.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-024","full_name":"Miguel Bucio","organization":"bancoppel",
+     "role_title":"Responsable Interno de Arquitectura / Proceso Arquitectónico Unity","program_role":"architect",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Lleva la gestión del proceso de arquitectura. Trabaja con Luis Barragán. "
+       "Tiene conocimiento de la arquitectura documentada para las carpetas CNBV. "
+       "Con él el track interno de arquitectura reemplaza a Rino Inside.",
+     "source_docs":"23 Marzo - Minutas.docx","active":1},
+    {"id":"STK-025","full_name":"Raúl Goycolea","organization":"bancoppel",
+     "role_title":"Arquitecto Senior","program_role":"architect",
+     "raci":"consulted","seniority":"specialist","confidence":"confirmed","alert":None,
+     "relevant_notes":"Referente técnico senior a mantener cercano. Mencionado junto con Alex como referentes técnicos clave.",
+     "source_docs":"19 Marzo - Minutas.docx","active":1},
+    {"id":"STK-026","full_name":"Erika Mata","organization":"bancoppel",
+     "role_title":"CISO / Cabeza de OSI (Oficina de Seguridad de la Información)","program_role":"stakeholder",
+     "raci":"consulted","seniority":"director","confidence":"confirmed",
+     "alert":"Agenda muy saturada — conseguir 30 minutos ya sería un logro. Involucrar desde el inicio de decisiones de arquitectura.",
+     "relevant_notes":"CISO del banco. Responsable del frente de seguridad transversal. Delegará parte del trabajo en Frank Eduardo Ortiz Iglesias.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-027","full_name":"Frank Eduardo Ortiz Iglesias","organization":"bancoppel",
+     "role_title":"Gerente de Seguridad — OSI","program_role":"stakeholder",
+     "raci":"consulted","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Contacto operativo de apoyo en temas de seguridad e integración con OSI. Reporta a Erika Mata.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-028","full_name":"Cristóbal Iturbe","organization":"bancoppel",
+     "role_title":"Responsable de Estrategia 2030 — Servicios Financieros","program_role":"stakeholder",
+     "raci":"informed","seniority":"director","confidence":"confirmed","alert":None,
+     "relevant_notes":"Lleva la estrategia 2030 para servicios financieros. Frente de negocio más que tecnología. Interlocutor clave para el North Star.",
+     "source_docs":"23 Marzo - Minutas.docx","active":1},
+    {"id":"STK-029","full_name":"Cristian Sasueta","organization":"bancoppel",
+     "role_title":"Responsable de Datos, Migración y Atlas (temporal)","program_role":"track_owner",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Cubre temporalmente por Carolina. Responsable del track de datos/migración y del programa Atlas.",
+     "source_docs":"23 Marzo - Minutas.docx","active":1},
+    {"id":"STK-030","full_name":"Daniel Ángeles Baltazar","organization":"bancoppel",
+     "role_title":"Responsable de Infraestructura / IMS / Ambientes","program_role":"stakeholder",
+     "raci":"informed","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Juan Manuel no lo ve como el perfil correcto para liderar la estrategia; "
+       "lo ubica en un subtrack de infraestructura o IMS. Coordinó la entrega de la tabla de responsables de Legacy.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-031","full_name":"Arturo Pérez","organization":"bancoppel",
+     "role_title":"Coordinador / Líder del Frente Legacy","program_role":"track_owner",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Coordina al grupo de responsables de sistemas legacy. Fungirá como referente principal del frente Legacy. Karina Zepeda lo conoce.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-032","full_name":"José Luis Bueno","organization":"bancoppel",
+     "role_title":"Responsable del Programa Carteras","program_role":"stakeholder",
+     "raci":"consulted","seniority":"director","confidence":"confirmed","alert":None,
+     "relevant_notes":"Programa Carteras tiene dependencias relevantes con Unity. Al menos 3 proyectos: desacoplamiento de reglas, modernización de infraestructura, capacidades flexibles.",
+     "source_docs":"23 Marzo - Minutas.docx; dt-cronograma.md","active":1},
+    {"id":"STK-033","full_name":"Leticia Díaz","organization":"bancoppel",
+     "role_title":"Portfolio Manager (demanda TI-Negocio)","program_role":"stakeholder",
+     "raci":"informed","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Enlace entre negocio y TI para gestión de demanda, asignación de células y disponibilidad de equipos.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-034","full_name":"Itzel Vargas","organization":"bancoppel",
+     "role_title":"Responsable de Priorización y Asignación de Recursos","program_role":"stakeholder",
+     "raci":"informed","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Operación organizada en Value Streams / Portafolios.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-035","full_name":"Cinthia Ramírez","organization":"bancoppel",
+     "role_title":"HRBP — Tecnología SSFF","program_role":"stakeholder",
+     "raci":"informed","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"HRBP para todo el ámbito de tecnología de servicios financieros.",
+     "source_docs":"23 Marzo - Minutas.docx","active":1},
+    {"id":"STK-036","full_name":"Octavio Vázquez","organization":"bancoppel",
+     "role_title":"Director de Operaciones (Transact)","program_role":"stakeholder",
+     "raci":"consulted","seniority":"director","confidence":"inferred","alert":None,
+     "relevant_notes":"Firmó compromisos de validación funcional canal App el 12-jun-2026. Referido como Octavio en minutas.",
+     "source_docs":"23 Marzo - Minutas.docx; dt-cronograma.md","active":1},
+    {"id":"STK-037","full_name":"José Emiliano Palma","organization":"bancoppel",
+     "role_title":"TBD — Gobierno o Negocio","program_role":"stakeholder",
+     "raci":"tbd","seniority":"unknown","confidence":"assumed",
+     "alert":"Rol no confirmado — preguntar a Tere para definir su ubicación.",
+     "relevant_notes":"Aún no queda claro si se integrará del lado de gobierno o permanecerá del lado de negocio.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-038","full_name":"Rodrigo Kennedy","organization":"grupo_coppel",
+     "role_title":"Especialista en Estrategia y Assessment — Change Management","program_role":"internal_consultant",
+     "raci":"consulted","seniority":"specialist","confidence":"confirmed","alert":None,
+     "relevant_notes":"Reporta a Gaby Lozada. Involucrado por instrucción de Carlos López-Moctezuma. "
+       "3 años en BanCoppel, 20 años previos de consultor. "
+       "Realizó diagnóstico de Unity (dic 2025 – ene 2026): 61-65 stakeholders entrevistados, "
+       "200+ hallazgos. Conclusión: 75% de los problemas son de gobierno y personas, no tecnológicos. "
+       "Identificó 60% de rotación del equipo.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-039","full_name":"Gabriela (Gaby) Lozada","organization":"grupo_coppel",
+     "role_title":"Líder del Equipo de Estrategia Grupo (ex-Bain)","program_role":"stakeholder",
+     "raci":"informed","seniority":"director","confidence":"inferred",
+     "alert":"También referida como Daniela Lozada en una sección — confirmar.",
+     "relevant_notes":"Lidera el área de Estrategia a nivel Grupo. Rodrigo Kennedy le reporta. Ex-Bain.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-040","full_name":"Carelli","organization":"bancoppel",
+     "role_title":"Chief of Staff (Juan Manuel Fernández Islas)","program_role":"operations",
+     "raci":"informed","seniority":"coordinator","confidence":"confirmed","alert":None,
+     "relevant_notes":"Punto de contacto con stakeholders para Juan Manuel. Apoyo para coordinación de reuniones y agendas.",
+     "source_docs":"23 Marzo - Minutas.docx","active":1},
+    {"id":"STK-041","full_name":"Lisbeth","organization":"bancoppel",
+     "role_title":"Asistente Administrativa / Logística","program_role":"operations",
+     "raci":"informed","seniority":"support","confidence":"confirmed","alert":None,
+     "relevant_notes":"Gestión de espacios y logística de sesiones. Referida como Lis en algunas minutas.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-042","full_name":"Sharon","organization":"bancoppel",
+     "role_title":"Directora de Talento","program_role":"stakeholder",
+     "raci":"informed","seniority":"director","confidence":"inferred",
+     "alert":"Apellido no confirmado.",
+     "relevant_notes":"Comunicó la cifra de 60% de rotación del equipo Unity.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-043","full_name":"Ricardo","organization":"bancoppel",
+     "role_title":"Control Financiero / Presupuestal","program_role":"stakeholder",
+     "raci":"informed","seniority":"manager","confidence":"assumed",
+     "alert":"Apellido no confirmado.",
+     "relevant_notes":"Junto con Brenda Pichardo lleva las cifras de desviación presupuestal.",
+     "source_docs":"23 Marzo - Minutas.docx","active":1},
+    # -- Accenture ---------------------------------------------------------------
+    {"id":"STK-050","full_name":"Pablo Lorenzo Díaz","organization":"accenture",
+     "role_title":"Lead del Equipo ACN en el Engagement","program_role":"acn_lead",
+     "raci":"responsible","seniority":"director","confidence":"confirmed","alert":None,
+     "relevant_notes":"Lead visible del equipo Accenture. Vino de España para el engagement. Asignado al plan director y gobierno del programa.",
+     "source_docs":"19 Marzo - Minutas.docx; 25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-051","full_name":"Karina Nayeli Zepeda Arroyo","organization":"accenture",
+     "role_title":"Delivery Lead ACN","program_role":"acn_lead",
+     "raci":"responsible","seniority":"director","confidence":"inferred","alert":None,
+     "relevant_notes":"Participante en todas las sesiones clave. Conoce bien a Arturo Pérez — puede facilitar el contacto con el frente Legacy.",
+     "source_docs":"dt-gobierno.md","active":1},
+    {"id":"STK-052","full_name":"Salomón Monroy","organization":"accenture",
+     "role_title":"Especialista ACN — Delivery","program_role":"acn_team",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Participante ACN en sesiones de diagnóstico. Debe alinearse con Pablo Madinaveitia en fase 0.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-053","full_name":"Joaquín Navajas Helguero","organization":"accenture",
+     "role_title":"Especialista ACN — Delivery / Gobierno","program_role":"acn_team",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Gestiona la agenda de las 12 sesiones introductorias con stakeholders del cliente.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-054","full_name":"Alejandro Alonso García","organization":"accenture",
+     "role_title":"Especialista ACN — Delivery","program_role":"acn_team",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Participante ACN en todas las sesiones principales.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-055","full_name":"Omar Patrón","organization":"accenture",
+     "role_title":"Especialista ACN — Gobierno y Control Técnico","program_role":"acn_team",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Relevante por los temas de governance y control técnico.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-056","full_name":"Lukasz Pietrzyk","organization":"accenture",
+     "role_title":"Especialista Global ACN — Core Banking","program_role":"acn_global_expert",
+     "raci":"consulted","seniority":"specialist","confidence":"confirmed","alert":None,
+     "relevant_notes":"Global specialist de Accenture con expertise en core banking. Refuerza el trabajo en sitio. Referido como Lucas Pietres en notas por transcripción.",
+     "source_docs":"23 Marzo - Minutas.docx; 25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-057","full_name":"José Luis Navas","organization":"accenture",
+     "role_title":"Especialista Global ACN","program_role":"acn_global_expert",
+     "raci":"consulted","seniority":"specialist","confidence":"confirmed","alert":None,
+     "relevant_notes":"Apoya para armar el outline/board del readout del 24 de abril.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-058","full_name":"Pavel Vilosski","organization":"accenture",
+     "role_title":"Especialista Global ACN","program_role":"acn_global_expert",
+     "raci":"consulted","seniority":"specialist","confidence":"confirmed","alert":None,
+     "relevant_notes":"Global specialist. Referenciado junto con Navas y Lukasz para el readout del 24 de abril.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-059","full_name":"Joaquín Pichardo","organization":"accenture",
+     "role_title":"Especialista ACN — AMS / Operación","program_role":"acn_ams",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Expuso el enfoque de takeover formal desde el release 3 (junio 2026).",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-060","full_name":"Gabriela (Gaby) Maximiliano","organization":"accenture",
+     "role_title":"AMS / Takeover Lead — ACN","program_role":"acn_ams",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Vinculada al frente de AMS/takeover/soporte. Tomó assets y plantillas para estructurar el pre y post del takeover.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-061","full_name":"Alfredo García","organization":"accenture",
+     "role_title":"Responsable del Plan de Takeover / Soporte — ACN","program_role":"acn_ams",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed",
+     "alert":"Juan Manuel expresó molestia porque llevaba 3 semanas en el plan sin avanzar suficientemente.",
+     "relevant_notes":"Responsable de armar el plan de takeover/soporte postproducción.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    # -- EY (incumbente Transact -- COMPETIDOR) ----------------------------------
+    {"id":"STK-070","full_name":"Angélica María Tolosa Bravo","organization":"ey",
+     "role_title":"Líder del Track Core Bancario / Transact — EY","program_role":"vendor_lead",
+     "raci":"responsible","seniority":"director","confidence":"confirmed",
+     "alert":"COMPETIDOR: EY es incumbente en Transact. NUNCA compartir análisis de arquitectura con EY. Validaciones van a BanCoppel, no a EY.",
+     "relevant_notes":"Líder de EY en el frente de Temenos Transact. Construye el plan director de Transact. "
+       "Actúa como puente entre negocio y tecnología para Transact.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-071","full_name":"Gloria Cecilia Coll Peña","organization":"ey",
+     "role_title":"Plan Director Transact — EY","program_role":"vendor_team",
+     "raci":"informed","seniority":"specialist","confidence":"confirmed",
+     "alert":"COMPETIDOR: EY.",
+     "relevant_notes":"Levantamientos, riesgos, dependencias y armado del plan director de Transact. Equipo EY suma 4 personas total.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-072","full_name":"Miguel Medina","organization":"ey",
+     "role_title":"Arquitectura Aplicativa e Integraciones — EY","program_role":"vendor_team",
+     "raci":"informed","seniority":"specialist","confidence":"confirmed",
+     "alert":"COMPETIDOR: EY.",
+     "relevant_notes":"Concentrado en arquitectura aplicativa, integraciones y arquitectura transitoria/objetivo para Transact.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    {"id":"STK-073","full_name":"Miguel Romo","organization":"ey",
+     "role_title":"Consolidación y Análisis — EY","program_role":"vendor_team",
+     "raci":"informed","seniority":"specialist","confidence":"confirmed",
+     "alert":"COMPETIDOR: EY.",
+     "relevant_notes":"Apoya en consolidación y análisis dentro del equipo de EY para el plan director de Transact.",
+     "source_docs":"25 Marzo - Minutas.docx","active":1},
+    # -- BPC / AppWhere ----------------------------------------------------------
+    {"id":"STK-080","full_name":"Alfredo Aguilar","organization":"appwhere",
+     "role_title":"Lead Appwhere","program_role":"vendor_lead",
+     "raci":"responsible","seniority":"director","confidence":"confirmed","alert":None,
+     "relevant_notes":"Proveedor de App Móvil. Familiarizado con el DUD (Documento Único de Datos).",
+     "source_docs":"capability_stakeholders; 23 Marzo - Minutas.docx","active":1},
+    # -- Deloitte / Ex-vendors ---------------------------------------------------
+    {"id":"STK-090","full_name":"Daniela (apellido no confirmado)","organization":"deloitte",
+     "role_title":"Gobierno del Programa (ex-encargada)","program_role":"former_vendor",
+     "raci":"informed","seniority":"unknown","confidence":"assumed","alert":None,
+     "relevant_notes":"Anteriormente llevaba el gobierno del programa. Deloitte se enfocó en remediación de tarjeta de crédito (salió en marzo). Nombre exacto no confirmado.",
+     "source_docs":"25 Marzo - Minutas.docx","active":0},
+    {"id":"STK-091","full_name":"Rino (Rino Inside)","organization":"vendor",
+     "role_title":"Consultor de Arquitectura — Apolo (saliente)","program_role":"former_vendor",
+     "raci":"informed","seniority":"specialist","confidence":"confirmed","alert":None,
+     "relevant_notes":"Consultoría de arquitectura para Apolo. Sale en abril 2026 porque Miguel Bucio trae un track interno de arquitectura.",
+     "source_docs":"23 Marzo - Minutas.docx","active":0},
+    # -- Nuevos: identificados en slide Plan Director acciones 14-ago-2026 -------
+    {"id":"STK-092","full_name":"Oscar Melo","organization":"bancoppel",
+     "role_title":"Líder Técnico de Integraciones R4","program_role":"track_owner",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Owner técnico de las integraciones cross-track: Apolo→SIWEB→CAT→SmartVista. "
+       "Co-owner ISSUE-R4-001 (fechas diseño técnico) e ISSUE-R4-004 (inventario integraciones). "
+       "Identificado en slide Plan Director 14-ago-2026.",
+     "source_docs":"Plan Director — slide acciones críticas 14-ago-2026","active":1},
+    {"id":"STK-093","full_name":"Diana Estrada","organization":"bancoppel",
+     "role_title":"Track Owner — Canal App / AppMóvil","program_role":"track_owner",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Responsable del track de canal digital (App / AppMóvil). "
+       "Owner de ISSUE-R4-002: mitigar desfase de 6 HUs Must con implementación en noviembre. "
+       "Identificada en slide Plan Director 14-ago-2026.",
+     "source_docs":"Plan Director — slide acciones críticas 14-ago-2026","active":1},
+    {"id":"STK-094","full_name":"Ramses Santos","organization":"bancoppel",
+     "role_title":"Track Owner — CAT (Contact Center)","program_role":"track_owner",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Co-owner de ISSUE-R4-003: formalizar contratación del proveedor CAT. "
+       "Comparte ownership con Fernanda Barbosa (STK-009). "
+       "Identificado en slide Plan Director 14-ago-2026.",
+     "source_docs":"Plan Director — slide acciones críticas 14-ago-2026","active":1},
+    {"id":"STK-095","full_name":"Marksey Sanvicente","organization":"bancoppel",
+     "role_title":"Track Owner — Cobranza","program_role":"track_owner",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Responsable del track de Cobranza, el más opaco del programa: "
+       "30-50 HUs estimadas sin compartir al momento de identificación. "
+       "Owner de ISSUE-R4-005 (en breach desde 2026-08-07). "
+       "Identificado en slide Plan Director 14-ago-2026.",
+     "source_docs":"Plan Director — slide acciones críticas 14-ago-2026","active":1},
+    {"id":"STK-096","full_name":"Christian Zazueta","organization":"bancoppel",
+     "role_title":"Responsable de Despliegue y Estrategia de Release R4","program_role":"delivery",
+     "raci":"responsible","seniority":"manager","confidence":"confirmed","alert":None,
+     "relevant_notes":"Owner de la estrategia de despliegue R4: runbook, simulacros DR y rollback. "
+       "ISSUE-R4-008, due 2026-08-28. "
+       "Identificado en slide Plan Director 14-ago-2026.",
+     "source_docs":"Plan Director — slide acciones críticas 14-ago-2026","active":1},
+]
+
+
+def load_stakeholders(con: sqlite3.Connection) -> None:
+    """Carga roster completo de stakeholders del programa Unity R4 (v1.6.0).
+    96 personas: BanCoppel/Grupo Coppel + Accenture + EY (competidor) + AppWhere + Deloitte.
+    """
+    con.execute("DELETE FROM program_stakeholders")
+    cols = ["id","full_name","organization","role_title","program_role",
+            "raci","seniority","confidence","alert","relevant_notes","source_docs","active"]
+    ph  = ", ".join("?" * len(cols))
+    sql = f"INSERT OR REPLACE INTO program_stakeholders ({', '.join(cols)}) VALUES ({ph})"
+    con.executemany(sql, [tuple(s.get(c) for c in cols) for s in STAKEHOLDERS])
+    con.commit()
+    from collections import Counter
+    orgs = Counter(s["organization"] for s in STAKEHOLDERS)
+    summary = " | ".join(f"{o}:{n}" for o, n in sorted(orgs.items(), key=lambda x: -x[1]))
+    active_n = sum(1 for s in STAKEHOLDERS if s.get("active", 1))
+    print(f"  program_stakeholders: {len(STAKEHOLDERS)} total ({active_n} activos)  |  {summary}")
 
 
 if __name__ == "__main__":

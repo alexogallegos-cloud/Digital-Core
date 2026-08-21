@@ -1,4 +1,4 @@
-# DT Plan Director — Unity R4 · Producto TDC P4900
+﻿# DT Plan Director — Unity R4 · Producto TDC P4900
 > Digital Twin de gobierno del programa. Gestión transversal por producto, no por proveedor.
 > Versión: 1.0.0 · Fuentes: brain.db v1.0.0 · brain.db (plan_progress, milestones, risks, track_rag) · 2026-08-11
 
@@ -72,7 +72,7 @@ El semáforo del producto es el **peor RAG entre todos los tracks** que tienen U
 | CAT | 🔴 | 12 | 9 | 7 | Doble bloqueo: proveedor sin contratar + DTMs sin responsable confirmado |
 | SIWEB | 🟡 | 5 | 0 | — | 10 semanas de construcción desde 18-Ago llegan al 29-Oct (2 sem. después del cierre) |
 | Apolo | 🟡 | 22 | 11 | — | Track en roadmap, detalle por User Story en inventario |
-| Cobranza Direccionada | 🔴 | 45 (rango 37-50) | Sin definir | 0 (cargas de datos) | RISK-UNITY-R06 VENCIDO — plan sin formalizar; Pentest nov conflicto SIT; 3 HDUs dependientes en App y CAT |
+| Cobranza Direccionada | 🔴 | 45 (rango 37-50) | Sin definir | 0 (cargas de datos) | RISK-UNITY-R06 VENCIDO — plan sin formalizar; Pentest nov conflicto SIT; 3 User Stories dependientes en App y CAT |
 
 ### 3.3 Actividades críticas retrasadas
 

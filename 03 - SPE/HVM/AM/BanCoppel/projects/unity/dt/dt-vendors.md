@@ -1,4 +1,4 @@
-# DT: Gestión de Vendors — Unity R4
+﻿# DT: Gestión de Vendors — Unity R4
 > **Digital Twin** · Fuente: RAID v2.0 · Minutas R4 · PreGame Appwhere · Análisis SME IT Operating Model + Core Banking Transformation
 > **Versión**: v2.0.0 · 2026-08-19 — Modelo SIAM formal, Escalation Matrix, Penalization Log, Dependency Map, SIAM Charter
 > **Propósito**: Modelo SIAM del programa — contratos, deliverables, tickets abiertos, riesgos de concentración y palanca contractual por vendor
@@ -9,7 +9,7 @@
 
 **Deadline: 2026-08-31** (15 días desde hoy)
 Si no se contrata al proveedor de Contact Center antes de esa fecha, el canal CAT **no entra en go-live enero 2027**.
-Impacto directo: 12 HDUs · 2 capabilities (CAP-CHANNEL-SELFSERVICE + CAP-AUTHENTICATION) · RISK-001 abierto.
+Impacto directo: 12 User Stories · 2 capabilities (CAP-CHANNEL-SELFSERVICE + CAP-AUTHENTICATION) · RISK-001 abierto.
 
 ---
 
@@ -31,7 +31,7 @@ Impacto directo: 12 HDUs · 2 capabilities (CAP-CHANNEL-SELFSERVICE + CAP-AUTHEN
 ## Vendor 1 — BPC Banking Technologies (SmartVista)
 
 ### Rol en el programa
-Proveedor de la plataforma **SmartVista** (SVBO, SVFE, SVCG/Cargen, SVIP, OCG). Responsable de la configuración y entrega de los 22 HDUs SmartVista del R4. Appwhere actúa como integrador técnico de BPC para los DTMs.
+Proveedor de la plataforma **SmartVista** (SVBO, SVFE, SVCG/Cargen, SVIP, OCG). Responsable de la configuración y entrega de los 22 User Stories SmartVista del R4. Appwhere actúa como integrador técnico de BPC para los DTMs.
 
 ### Módulos contratados vs. no contratados
 
@@ -119,7 +119,7 @@ El proveedor de Contact Center debe entregar:
 | Impacto | Detalle |
 |---------|---------|
 | Capabilities bloqueadas | CAP-CHANNEL-SELFSERVICE · CAP-AUTHENTICATION |
-| HDUs sin cobertura | 12 HDUs del canal CAT (CAT-R4-01 a CAT-R4-12) |
+| User Stories sin cobertura | 12 User Stories del canal CAT (CAT-R4-01 a CAT-R4-12) |
 | DTMs sin asignación | DTM_RetrieveCreditCardBalanceAndMovements · DTM_RetrieveCustomerCreditCardProfile |
 | Riesgo go-live | Canal CAT no disponible en enero 2027 — clientes sin soporte telefónico para TDC |
 

@@ -1,4 +1,4 @@
-# DT — APP / AppMovil (Canal Digital)
+﻿# DT — APP / AppMovil (Canal Digital)
 > Digital Twin del track AppMovil para la Tarjeta de Crédito R4 (Producto 4900).
 > Fuente primaria: `20260806 - R4 APP - Analisis detallado HDUs e Integraciones.docx`
 > Fuentes secundarias: `Consolidacion User Stories v2.xlsx`, `Inventario de Integraciones_HUs_ R4_v1.0.xlsx`,
@@ -45,9 +45,9 @@
 
 ---
 
-## HDUs (hdu_catalog) — 20 HDUs
+## User Stories (hdu_catalog) — 20 User Stories
 
-La tabla HDU (Historias de Usuario de Desarrollo) refleja el análisis técnico del canal App para R4.
+La tabla User Story (Historias de Usuario de Desarrollo) refleja el análisis técnico del canal App para R4.
 Fuente: generada por Accenture en sesiones de análisis agosto 2026.
 
 ### APP-MF-01 — Visualización y gestión básica F&D
@@ -95,7 +95,7 @@ Fuente: generada por Accenture en sesiones de análisis agosto 2026.
 | HDU-APP-R4-19 | Mostrar mensaje de restricción por saldo a favor (homologado entre canales) | CAP-OVERPAYMENT | **not_covered** |
 | HDU-APP-R4-20 | Validación preventiva de inputs de pago en App (formato, mínimo, máximo) | CAP-OVERPAYMENT | **not_covered** |
 
-**Resumen cobertura HDU**: 16 partial + 4 not_covered = 20 total.
+**Resumen cobertura User Story**: 16 partial + 4 not_covered = 20 total.
 Los 4 not_covered (HDU-13, 18, 19, 20) están vinculados a gaps de capabilities CAP-CARD-LIFECYCLE y CAP-OVERPAYMENT.
 
 ---
@@ -176,7 +176,7 @@ Fuente: `Inventario de Integraciones_HUs_ R4_v1.0.xlsx`
 | GAP-APP-01 | SMART-4180 "Detalle de Movimientos Convivencia TDC F&D" diferida a R4.5 | No verá historial completo en convivencia F&D | Won't R4.5 |
 | GAP-APP-02 | SMART-4278 "Eliminación de TDC Digital" diferida a R4.5 | El cliente no podrá eliminar la tarjeta digital desde App en R4 | Won't R4.5 |
 | GAP-APP-03 | HDU-APP-R4-13: notificación de impactos al eliminar TDC digital | Flujo de eliminación incompleto sin aviso previo | not_covered |
-| GAP-APP-04 | HDU-APP-R4-18/19/20: validación y mensajes de saldo a favor — no cubiertos | 3 HDUs independientes de BYU0039 sin cobertura | not_covered |
+| GAP-APP-04 | HDU-APP-R4-18/19/20: validación y mensajes de saldo a favor — no cubiertos | 3 User Stories independientes de BYU0039 sin cobertura | not_covered |
 
 ---
 
