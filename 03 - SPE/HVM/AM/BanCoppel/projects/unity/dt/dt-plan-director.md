@@ -46,7 +46,7 @@ El semáforo del producto es el **peor RAG entre todos los tracks** que tienen U
 **RAG actual del producto TDC P4900**: 🔴 ROJO
 
 - Rezago global: -13.34pp (límite: ±5pp)
-- 2 tracks con User Stories must en RED (APP y CAT)
+- 1 track con User Stories must en RED (CAT)
 - CAT sin proveedor contratado
 - 3 bloqueadores críticos abiertos (DTMs, SVFM-QA, TRNTs Pagos)
 
@@ -68,7 +68,7 @@ El semáforo del producto es el **peor RAG entre todos los tracks** que tienen U
 | Track | RAG | User Stories total | User Stories must | Integraciones | Bloqueador principal |
 |-------|-----|-----------|----------|---------------|----------------------|
 | SmartVista | 🟡 | 22 | 11 | 7 | Maquila y Homologación Comisiones omnicanal no cierran antes del 15-Oct |
-| APP | 🔴 | 18 | 15 | 4 | 6 User Stories must cierran implementación 6-20 Nov — riesgo directo sobre SIT y go-live enero |
+| APP | 🟡 | 18 | 15 | 4 | 6 User Stories must cierran implementación 6-20 Nov — riesgo directo sobre SIT y go-live enero |
 | CAT | 🔴 | 12 | 9 | 7 | Doble bloqueo: proveedor sin contratar + DTMs sin responsable confirmado |
 | SIWEB | 🟡 | 5 | 0 | — | 10 semanas de construcción desde 18-Ago llegan al 29-Oct (2 sem. después del cierre) |
 | Apolo | 🟡 | 22 | 11 | — | Track en roadmap, detalle por User Story en inventario |

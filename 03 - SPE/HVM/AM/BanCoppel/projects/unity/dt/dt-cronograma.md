@@ -11,7 +11,7 @@
 ## Línea de Tiempo R4
 
 ```
-[HOY: 2026-08-15]
+[HOY: 2026-08-20]
   
   AGO 2026          SEP 2026          OCT 2026          NOV 2026          DIC 2026         ENE 2027
   │                 │                 │                 │                 │                │

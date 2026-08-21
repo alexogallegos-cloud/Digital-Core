@@ -713,11 +713,12 @@ def render_view_productos(products, releases, cube_top_content="", cube_img=None
 
 # ── Vista Sistemas — constantes ejecutivas ────────────────────────────────────
 SYSTEM_META_VS = {
-    "smartvista": {"name": "SmartVista BPC",       "type": "Core · Procesador de tarjetas", "note": "5 DTMs con gap crítico — DPP, BYU0039 y OCG sin plan de cierre"},
-    "apolo":      {"name": "APOLO",                "type": "Core · Originación digital",    "note": "Tensión de fechas — backend cierra 15-oct, go-live 15-ene"},
-    "app":        {"name": "App / Canal Digital",  "type": "Channel · AppMóvil",            "note": "6 User Stories Must cierran en noviembre, posterior al inicio de SIT"},
-    "cat":        {"name": "CAT — Contact Center", "type": "Channel · IBR + ICAT",          "note": "Proveedor sin contratar — 12 User Stories Must sin owner técnico"},
-    "siweb":      {"name": "SIWEB — Sucursales",   "type": "Channel · Ventanilla",          "note": "Bloqueado por APIs de SmartVista sin fecha de entrega confirmada"},
+    "smartvista": {"name": "SmartVista BPC",        "type": "Core · Procesador de tarjetas", "note": "5 DTMs con gap crítico — DPP, BYU0039 y OCG sin plan de cierre"},
+    "apolo":      {"name": "APOLO",                 "type": "Core · Originación digital",    "note": "Tensión de fechas — backend cierra 15-oct, go-live 15-ene"},
+    "app":        {"name": "App / Canal Digital",   "type": "Channel · AppMóvil",            "note": "6 User Stories Must cierran en noviembre, posterior al inicio de SIT"},
+    "cat":        {"name": "CAT — Contact Center",  "type": "Channel · IBR + ICAT",          "note": "Proveedor sin contratar — 12 User Stories Must sin owner técnico"},
+    "siweb":      {"name": "SIWEB — Sucursales",    "type": "Channel · Ventanilla",          "note": "Bloqueado por APIs de SmartVista sin fecha de entrega confirmada"},
+    "cobranza":   {"name": "Cobranza Direccionada", "type": "Enabler · Cross-canal",         "note": "Track opaco — 45 User Stories sin compartir · RISK-UNITY-R06 VENCIDO · ACT-005 en breach"},
 }
 
 KPIS_VS = [
