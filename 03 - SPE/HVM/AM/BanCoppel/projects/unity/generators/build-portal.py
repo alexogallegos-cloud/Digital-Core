@@ -1741,6 +1741,10 @@ footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid
     <span class="tc-chip">🟡 SIWEB</span>
   </div>
 
+  <section id="view-productos">
+    {view_prod}
+  </section>
+
   <section id="acciones">
     <div class="shead reveal">
       <div class="kick">Plan Director · Acciones Abiertas</div>
@@ -1768,10 +1772,6 @@ footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid
     <div class="risk-grid reveal">
       {risk_html}
     </div>
-  </section>
-
-  <section id="view-productos">
-    {view_prod}
   </section>
 
   <section id="view-sistemas">
