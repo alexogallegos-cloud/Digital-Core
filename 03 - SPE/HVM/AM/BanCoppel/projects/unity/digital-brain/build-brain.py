@@ -183,6 +183,8 @@ CREATE TABLE IF NOT EXISTS risks (
     owner           TEXT,
     source          TEXT,
     notes           TEXT,
+    tracks          TEXT,
+    breach          INTEGER DEFAULT 0,
     updated_at      TEXT DEFAULT (datetime('now'))
 );
 
@@ -214,6 +216,8 @@ CREATE TABLE IF NOT EXISTS raid_issues (
     due_date        TEXT,
     source          TEXT,
     notes           TEXT,
+    tracks          TEXT,
+    breach          INTEGER DEFAULT 0,
     updated_at      TEXT DEFAULT (datetime('now'))
 );
 
@@ -1318,6 +1322,12 @@ INITIAL_PRODUCTS = [
 # En SmartVista coinciden (solo hospeda la TDC); en Transact difieren.
 # La columna provenance distingue lo que es cita literal de lo que confirmo el equipo.
 PRODUCT_RELEASES = [
+    ("TDC-R1", "UNITY-R4-P4900", "R1", "SmartVista R1",
+     "Configuracion del gestor de TDC (SmartVista como CMS)", "productivo", "2024-12", 38,
+     None,
+     "Equipo 2026-08-19. Sustento: 38 funcionalidades y ningun canal listado = configuracion de "
+     "plataforma, no producto cliente. Senial estructural fuerte: canal-less + 38 funcionalidades "
+     "= configuracion del gestor. 'CMS Administrador de Tarjetas' es el termino del roadmap."),
     ("TDC-R2", "UNITY-R4-P4900", "R2", "SmartVista R2",
      "Tarjeta de Crédito Digital / Onboarding", "productivo", "2025-07", 33,
      "App, Promotoria, Sucursal, SPEI",
@@ -2117,6 +2127,7 @@ INITIAL_ISSUES = [
         "current_impact": "Sin equipo asignado, CAT no puede iniciar construccion en R4. Cronograma oct-nov deja margen critico hacia freeze Dic'26.",
         "remediation": "Confirmar fechas DTMs con Appware en paralelo a contratacion. Confirmar nombre, fechas y SLA del nuevo proveedor. Explorar capacidad interna como contingencia.",
         "status": "open", "owner": "CAT / Ramses Santos", "due_date": "2026-08-07",
+        "tracks": "CAT", "breach": 1,
         "source": "Sesion de trabajo SmartVista",
         "notes": "Incorporacion estimada proveedor: mediados de septiembre + 1 mes onboarding = construccion inicia mediados de octubre.",
     },
@@ -2127,6 +2138,7 @@ INITIAL_ISSUES = [
         "current_impact": "Bloqueos efectivos entre equipos durante ventanas de prueba. Riesgo de contaminacion de datos por superposicion de ciclos. Compromete calidad y fechas de SIT/UAT R4.",
         "remediation": "Provisionar entorno ETL E2E adicional y entorno pre-productivo para Dress Rehearsals. Publicar calendario centralizado de uso de entornos con SLA y responsables.",
         "status": "open", "owner": "Infra BCPL", "due_date": None,
+        "tracks": None, "breach": 0,
         "source": "Due Diligence",
         "notes": "Problema activo desde 19/05/2026. Critico bajo escenario R4 con multiples despliegues en Q4-26.",
     },
@@ -2137,8 +2149,98 @@ INITIAL_ISSUES = [
         "current_impact": "Sin capacidad asignada, canal App no puede completar integracion antes de SIT. Bloquea hitos R4 en Dic'26.",
         "remediation": "Contratacion inmediata de la celula App Apolo con fechas, SLA y plan de onboarding. Definir cierre de canales como gate formal de SIT. Preparar plan alterno con mocks si hay retraso.",
         "status": "open", "owner": "Apolo Lead / Leonardo Hernandez", "due_date": None,
+        "tracks": "App", "breach": 0,
         "source": "Due Diligence",
         "notes": "Abierto desde 19/05/2026. Sin celula contratada, la integracion App-Apolo no se completa antes de SIT.",
+    },
+    # ── 8 Acciones del Plan Director (corte 14-ago-2026) ────────────────────
+    {
+        "id": "ISSUE-R4-001", "raid_id": "ACT-001",
+        "description": "Confirmar fechas de dise\u00f1o t\u00e9cnico e implementaci\u00f3n de integraciones por track (Apolo\u2192SIWEB\u2192CAT\u2192SV, 2 HUs pendientes)",
+        "component_id": None, "category": "integration", "severity": "critical",
+        "current_impact": "Sin fechas confirmadas el plan SIT cross-track es inv\u00e1lido \u2014 ning\u00fan track puede arrancar pruebas de integraci\u00f3n",
+        "remediation": "Sesi\u00f3n t\u00e9cnica urgente con leads de cada track para cerrar calendario de integraciones antes de arrancar SIT",
+        "status": "open", "owner": "Oscar Melo", "due_date": "2026-08-18",
+        "tracks": "Apolo, SIWEB, CAT, SmartVista", "breach": 1,
+        "source": "Plan Director \u2014 slide acciones cr\u00edticas 14-ago-2026",
+        "notes": "BREACH: due_date vencida 2026-08-18.",
+    },
+    {
+        "id": "ISSUE-R4-002", "raid_id": "ACT-002",
+        "description": "Mitigar desfase de 6 HUs Must APP con implementaci\u00f3n planificada en noviembre \u2014 posterior al inicio de SIT",
+        "component_id": None, "category": "scope", "severity": "critical",
+        "current_impact": "6 HUs Must del canal App cierran despu\u00e9s del inicio de SIT; comprometiendo UAT y go-live 15-ene-2027",
+        "remediation": "(1) Incorporar en 2do tramo SIT, (2) agilizar entregas de dise\u00f1o e incremento de capacidad de desarrollo, (3) revisar prioridad de estas HUs",
+        "status": "open", "owner": "Diana Estrada", "due_date": "2026-08-14",
+        "tracks": "App", "breach": 1,
+        "source": "Plan Director \u2014 slide acciones cr\u00edticas 14-ago-2026",
+        "notes": "BREACH: due_date vencida 2026-08-14.",
+    },
+    {
+        "id": "ISSUE-R4-003", "raid_id": "ACT-003",
+        "description": "Formalizar la contrataci\u00f3n del proveedor CAT \u2014 on-boarding agosto, implementaci\u00f3n 15-sep, margen cero al 15-oct",
+        "component_id": None, "category": "vendor", "severity": "critical",
+        "current_impact": "Sin proveedor CAT contratado: 12 HUs Must y 6 integraciones sin owner t\u00e9cnico; bloquea SIT completo del canal Contact Center",
+        "remediation": "Contrataci\u00f3n inmediata para garantizar on-boarding en agosto e inicio de implementaci\u00f3n al 15-sep",
+        "status": "open", "owner": "Ramses Santos / Fernanda Barbosa", "due_date": "2026-08-14",
+        "tracks": "CAT", "breach": 1,
+        "source": "Plan Director \u2014 slide acciones cr\u00edticas 14-ago-2026",
+        "notes": "BREACH: due_date vencida 2026-08-14. Vinculado a RISK-UNITY-R27. Deadline duro: proveedor operativo al 15-oct.",
+    },
+    {
+        "id": "ISSUE-R4-004", "raid_id": "ACT-004",
+        "description": "Completar inventario de integraciones R4 y trazabilidad con Historias de Usuario para validar viabilidad del plan integrado",
+        "component_id": None, "category": "planning", "severity": "critical",
+        "current_impact": "Sin inventario de integraciones el an\u00e1lisis de prioridad y el plan SIT cross-track son parciales e inv\u00e1lidos",
+        "remediation": "Completar mapeo HU\u2194integraci\u00f3n\u2194sistema por track; confirmar que el plan integrado es viable",
+        "status": "open", "owner": "Oscar Melo / Pablo Lorenzo (Accenture)", "due_date": "2026-08-21",
+        "tracks": "Apolo, SIWEB, CAT, SmartVista", "breach": 0,
+        "source": "Plan Director \u2014 slide acciones cr\u00edticas 14-ago-2026",
+        "notes": "Accenture co-owner del an\u00e1lisis. Base indispensable para el SIT cross-track.",
+    },
+    {
+        "id": "ISSUE-R4-005", "raid_id": "ACT-005",
+        "description": "Compartir y completar an\u00e1lisis del Track de Cobranza \u2014 HUs, integraciones y dependencias con canales",
+        "component_id": None, "category": "scope", "severity": "critical",
+        "current_impact": "Track Cobranza completamente opaco: 30-50 HUs estimadas sin compartir, dependencias hacia canales desconocidas \u2014 bloquea an\u00e1lisis de prioridad del programa",
+        "remediation": "Compartir backlog Cobranza completo: HUs, integraciones, dependencias y plan de entrega",
+        "status": "open", "owner": "Marksey Sanvicente", "due_date": "2026-08-07",
+        "tracks": "Cobranza", "breach": 1,
+        "source": "Plan Director \u2014 slide acciones cr\u00edticas 14-ago-2026",
+        "notes": "BREACH: due_date vencida 2026-08-07 \u2014 13 d\u00edas en breach. Sin este an\u00e1lisis el SIT integral es inviable.",
+    },
+    {
+        "id": "ISSUE-R4-006", "raid_id": "ACT-006",
+        "description": "Habilitar v\u00eda ejecutiva de decisiones en 24-48h para decisiones cr\u00edticas R4 y seguimiento a hitos cr\u00edticos",
+        "component_id": None, "category": "governance", "severity": "critical",
+        "current_impact": "Sin mecanismo ejecutivo de decisi\u00f3n r\u00e1pida las decisiones de alcance, prioridad y recursos se escalan sin SLA",
+        "remediation": "Definir autoridad ejecutiva con capacidad de decidir sobre alcance y prioridades; incluir l\u00edderes de track, APIficaci\u00f3n, ambientes, pruebas, despliegue y Director de Transformaci\u00f3n",
+        "status": "open", "owner": "Pablo Madinaveitia", "due_date": "2026-08-17",
+        "tracks": "Todos los tracks", "breach": 1,
+        "source": "Plan Director \u2014 slide acciones cr\u00edticas 14-ago-2026",
+        "notes": "BREACH: due_date vencida 2026-08-17 \u2014 3 d\u00edas en breach.",
+    },
+    {
+        "id": "ISSUE-R4-007", "raid_id": "ACT-007",
+        "description": "Confirmar escenarios de mitigaci\u00f3n para Maquila Automatizada SmartVista \u2014 5 DTMs con gap cr\u00edtico sin plan de cierre",
+        "component_id": None, "category": "delivery", "severity": "high",
+        "current_impact": "DPP, BYU0039 y OCG sin plan de cierre; riesgo de no completar SIT SmartVista a tiempo para el go-live",
+        "remediation": "(1) Reducir alcance a 1 proveedor, (2) optimizar proceso de certificaci\u00f3n y gobierno de APIs, (3) excluir HUs Should, (4) ejecutar pruebas SIT en segundo ciclo",
+        "status": "open", "owner": "Armando Garc\u00eda", "due_date": "2026-08-14",
+        "tracks": "SmartVista", "breach": 1,
+        "source": "Plan Director \u2014 slide acciones cr\u00edticas 14-ago-2026",
+        "notes": "BREACH: due_date vencida 2026-08-14. 4 opciones de mitigaci\u00f3n a confirmar.",
+    },
+    {
+        "id": "ISSUE-R4-008", "raid_id": "ACT-008",
+        "description": "Definir e implementar estrategia de despliegue R4: runbook de actividades, simulacros DR completos incluyendo rollback",
+        "component_id": None, "category": "release", "severity": "high",
+        "current_impact": "Sin runbook de despliegue ni simulacros DR, el go-live bancario 15-ene-2027 tiene riesgo operativo alto ante incidentes en producci\u00f3n",
+        "remediation": "Runbook de actividades + planificaci\u00f3n de simulacros de despliegue completos (DRs) incluyendo rollback probado en STG",
+        "status": "open", "owner": "Christian Zazueta", "due_date": "2026-08-28",
+        "tracks": "Despliegue", "breach": 0,
+        "source": "Plan Director \u2014 slide acciones cr\u00edticas 14-ago-2026",
+        "notes": "Prerequisito para SIT y UAT seguros.",
     },
 ]
 
@@ -2914,9 +3016,11 @@ def load_issues(con: sqlite3.Connection) -> None:
         con.execute("""
             INSERT OR REPLACE INTO raid_issues
                 (id, raid_id, description, component_id, category, severity,
-                 current_impact, remediation, status, owner, due_date, source, notes)
+                 current_impact, remediation, status, owner, due_date, source, notes,
+                 tracks, breach)
             VALUES (:id, :raid_id, :description, :component_id, :category, :severity,
-                    :current_impact, :remediation, :status, :owner, :due_date, :source, :notes)
+                    :current_impact, :remediation, :status, :owner, :due_date, :source, :notes,
+                    :tracks, :breach)
         """, i)
     con.commit()
     print(f"  raid_issues       : {len(INITIAL_ISSUES)} (todos alta severidad)")
@@ -5559,7 +5663,7 @@ TRACK_RAG = [  # 5 tracks RAG desde PPTX 11-ago-2026
         "track": "apolo",
         "rag_color": "yellow",
         "hu_total": 22,
-        "hu_must": None,
+        "hu_must": 11,
         "hu_should": None,
         "hu_could": None,
         "hu_wont": None,
@@ -5571,6 +5675,23 @@ TRACK_RAG = [  # 5 tracks RAG desde PPTX 11-ago-2026
         "impacto_solucion_detail": None,
         "complejidad_detail": None,
         "source_date": "2026-08-11"
+    },
+    {
+        "track": "cobranza",
+        "rag_color": "red",
+        "hu_total": 45,
+        "hu_must": None,
+        "hu_should": None,
+        "hu_could": None,
+        "hu_wont": None,
+        "integraciones_count": 0,
+        "rag_general": "ROJO por opacidad total 2026-08-20: track completamente opaco — sin backlog compartido, sin User Stories formalizadas, sin integraciones documentadas. RISK-UNITY-R06 VENCIDO. ACT-005 BREACH desde 07-ago (13 dias). Impacta 3 User Stories dependientes en App y CAT.",
+        "rag_solucion": "Estimado 45 User Stories (rango 37-50, en consolidacion). Proveedor identificado pero backlog sin compartir con Accenture. Pentest nov 15-20 entra en conflicto con SIT.",
+        "rag_integraciones": "Sin inventario de integraciones disponible. Solo cargas de datos identificadas (0 integraciones API formalizadas).",
+        "tipo_solucion_detail": None,
+        "impacto_solucion_detail": None,
+        "complejidad_detail": None,
+        "source_date": "2026-08-20"
     },
 ]
 
