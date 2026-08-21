@@ -1658,7 +1658,6 @@ footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid
     <a class="jump" href="#acciones">Acciones</a>
     <a class="jump" href="#riesgos">Riesgos</a>
     <a class="jump" href="#cronograma">Cronograma</a>
-    <a class="jump ext" href="duplicidad-informix-unity.html">Duplicidad ↗</a>
   </span>
 </nav>
 
@@ -2739,9 +2738,14 @@ def build_systems_page(brain_path: str, out_dir) -> None:
         '.cov-full{background:#4CAF50}.cov-partial{background:#FFC107}.cov-not_covered{background:#FF5252}\n'
         '.cov-not_applicable{background:#666}.cov-unknown{background:#888}\n'
         '.impact-empty{font-size:.78rem;color:rgba(255,255,255,.22);font-style:italic}\n'
-        '.dia-wrap{margin-top:64px;background:rgba(255,255,255,.018);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:32px 20px 24px;overflow-x:auto}\n'
+        '.dia-wrap{margin-top:64px;background:rgba(255,255,255,.018);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:32px 20px 24px;overflow:hidden;position:relative}\n'
         '.dia-label{font-size:.62rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--yellow);margin-bottom:16px}\n'
-        '.mermaid svg{min-width:980px;max-width:100%}\n'
+        '.dia-controls{position:absolute;top:16px;right:16px;display:flex;gap:6px;z-index:10}\n'
+        '.dia-btn{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:8px;\n'
+        '  color:var(--muted);cursor:pointer;font-size:.9rem;width:32px;height:32px;\n'
+        '  display:flex;align-items:center;justify-content:center;transition:.18s;font-family:inherit;padding:0}\n'
+        '.dia-btn:hover{background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.25)}\n'
+        '.mermaid svg{width:100%!important;height:auto!important;max-width:100%}\n'
         '.leg-section{margin-top:80px;padding-bottom:80px}\n'
         '.kick{font-size:.7rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--yellow);margin-bottom:10px}\n'
         '.vw-h2{font-size:clamp(22px,3vw,36px);font-weight:800;letter-spacing:-.02em;\n'
@@ -3004,7 +3008,12 @@ def build_systems_page(brain_path: str, out_dir) -> None:
         '  <h2 class="vw-h2">Arquitectura de Sistemas e Integraciones</h2>\n'
         '  <div class="dia-wrap">\n'
         '    <div class="dia-label">Canales R4 &middot; Procesadores &middot; Middleware &middot; Datos &middot; Core Legado &middot; Entidades Externas</div>\n'
-        '    <div class="mermaid">\n'
+        '    <div class="dia-controls">\n'
+        '      <button class="dia-btn" id="dia-zin"  title="Zoom in">+</button>\n'
+        '      <button class="dia-btn" id="dia-zout" title="Zoom out">−</button>\n'
+        '      <button class="dia-btn" id="dia-zrst" title="Reset">↺</button>\n'
+        '    </div>\n'
+        '    <div class="mermaid" id="dia-mermaid">\n'
         + _MERMAID_DIAG +
         '    </div>\n'
         '  </div>\n'
@@ -3016,12 +3025,27 @@ def build_systems_page(brain_path: str, out_dir) -> None:
         '  </div>\n'
         '</div>\n'
         '<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>\n'
+        '<script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>\n'
         '<script>\n'
         'mermaid.initialize({startOnLoad:true,theme:"dark",flowchart:{useMaxWidth:false,htmlLabels:true},\n'
         'themeVariables:{background:"transparent",primaryColor:"#122FB1",primaryTextColor:"#e4eaff",\n'
         'primaryBorderColor:"#3D5FCD",lineColor:"#4a6aaa",secondaryColor:"#0d1a40",\n'
         'edgeLabelBackground:"rgba(6,10,26,0.92)",clusterBkg:"rgba(61,95,205,0.04)",\n'
         'clusterBorder:"rgba(255,255,255,0.09)",titleColor:"#dfe6ff"}});\n'
+        '(function initDiaZoom(){\n'
+        '  function tryInit(){\n'
+        '    const svg=document.querySelector("#dia-mermaid svg");\n'
+        '    if(!svg||!window.svgPanZoom){setTimeout(tryInit,200);return;}\n'
+        '    svg.style.width="100%";svg.style.height="620px";\n'
+        '    const pz=svgPanZoom(svg,{zoomEnabled:true,controlIconsEnabled:false,\n'
+        '      fit:true,center:true,minZoom:0.2,maxZoom:8,zoomScaleSensitivity:0.3});\n'
+        '    document.getElementById("dia-zin").onclick=function(){pz.zoomIn();};\n'
+        '    document.getElementById("dia-zout").onclick=function(){pz.zoomOut();};\n'
+        '    document.getElementById("dia-zrst").onclick=function(){pz.resetZoom();pz.resetPan();pz.fit();pz.center();};\n'
+        '  }\n'
+        '  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",function(){setTimeout(tryInit,400);});\n'
+        '  else setTimeout(tryInit,400);\n'
+        '})();\n'
         + _JS +
         '</script>\n'
         '</body></html>'
