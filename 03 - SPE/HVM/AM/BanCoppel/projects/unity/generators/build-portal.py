@@ -520,7 +520,7 @@ def derive_blockers_and_kpis(con):
             sys_name = sys_names.get(system_id, system_id or "Programa")
             blockers.append({
                 "level":      "crit" if impact == "critical" else "warn",
-                "text":       (description or raid_id or "")[:120],
+                "text":       description or raid_id or "",
                 "sys":        sys_name,
                 "cap":        sys_name,   # alias para render_view_productos (usa blk["cap"])
                 "owner":      owner or "Sin asignar",
@@ -588,6 +588,14 @@ def derive_blockers_and_kpis(con):
     except Exception:
         pass
 
+    breach_count = 0
+    try:
+        breach_count = con.execute(
+            "SELECT COUNT(*) FROM raid_issues WHERE breach=1"
+        ).fetchone()[0]
+    except Exception:
+        pass
+
     kpis = {
         "total_us": total_us, "must": must, "should": should,
         "could": could, "wont": wont,
@@ -597,6 +605,7 @@ def derive_blockers_and_kpis(con):
         "total_sys": total_sys,
         "total_integrations": total_integrations,
         "total_itcaps": total_itcaps, "crit_itcaps": crit_itcaps,
+        "breach_count": breach_count,
     }
 
     return blockers, kpis
@@ -1259,9 +1268,11 @@ def capture_cube_screenshots(html_path, img_dir):
 
 
 def render(data, cube_imgs=None):
-    days   = days_to_golive()
-    hus    = data["total_hus"] or 79
+    days    = days_to_golive()
+    hus     = data["total_hus"] or 79
     risks_n = data["high_risks"] or 9
+    _kpis   = data.get("derived_kpis") or {}
+    breach_n = _kpis.get("breach_count", 0)
 
     cube_imgs  = cube_imgs or {}
     cube_prod  = render_cube_productos(data["products"], data["releases"])
@@ -1616,6 +1627,22 @@ footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid
 .vs-block.warn{{border-left-color:var(--yellow)}}
 .vs-btext{{font-size:11px;font-weight:600;color:#e4eaff;line-height:1.4}}
 .vs-bsub{{font-size:8.5px;color:var(--muted2);margin-top:2px}}
+/* ── E1 hero RAG badge ── */
+.prog-rag-badge{{display:inline-block;padding:7px 16px;border-radius:8px;font-size:11px;font-weight:800;
+  letter-spacing:.08em;text-transform:uppercase;background:rgba(232,64,10,.18);color:#fca5a5;
+  border:1px solid rgba(232,64,10,.45);margin-bottom:16px}}
+/* ── E5 track chips ── */
+.track-chips{{padding:10px 20px;margin:0 0 48px;border-radius:10px;
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+  font-size:12px;color:var(--muted);display:flex;align-items:center;gap:14px;flex-wrap:wrap}}
+.tc-label{{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2);white-space:nowrap}}
+.tc-chip{{font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px}}
+/* ── E7 R4.1 gate ── */
+.r41-gate{{padding:20px 24px;margin-top:28px;border-radius:14px;
+  background:rgba(240,210,36,.06);border:1px solid rgba(240,210,36,.22)}}
+.r41-label{{font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--yellow);margin-bottom:6px}}
+.r41-title{{font-size:15px;font-weight:700;color:#e4eaff;margin-bottom:6px}}
+.r41-desc{{font-size:12px;color:var(--muted);line-height:1.55}}
 </style></head>
 <body>
 <div class="aurora"><div class="blob"></div></div>
@@ -1627,10 +1654,10 @@ footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid
   <span class="nt">Unity — Plan Director</span>
   <span class="sp"></span>
   <span class="nav-links" style="display:contents">
-    <a class="jump" href="#view-productos">Alcance</a>
-    <a class="jump" href="#cronograma">Cronograma</a>
     <a class="jump" href="#acciones">Acciones</a>
     <a class="jump" href="#riesgos">Riesgos</a>
+    <a class="jump" href="#view-productos">Alcance</a>
+    <a class="jump" href="#cronograma">Cronograma</a>
     <a class="jump ext" href="duplicidad-informix-unity.html">Duplicidad ↗</a>
     <a class="jump ext" href="plan-director.html">Plan Director ↗</a>
   </span>
@@ -1643,6 +1670,7 @@ footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid
       <div class="eyebrow reveal">
         <span class="dot"></span>&nbsp; SPE-AM-001, Unity, BUILD, ago 2026
       </div>
+      <div class="prog-rag-badge reveal">🔴 Programa en Riesgo · corte 2026-08-20</div>
       <h1 class="reveal">Plan Director<br>Unity</h1>
       <p class="sub reveal">
         Programa de modernización del core bancario BanCoppel.<br>
@@ -1652,6 +1680,7 @@ footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid
       <div class="countdown glass reveal">
         <div class="cdays" id="cdays">{days}</div>
         <div class="clabel">días al Go-Live — 15 enero 2027</div>
+        <div class="clabel" style="color:#fca5a5;margin-top:4px">⚠ Rezago −39.4pp vs baseline</div>
       </div>
     </div>
 
@@ -1679,14 +1708,14 @@ footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid
     </div>
   </header>
 
-  <div class="stats reveal" style="margin:0 0 60px">
+  <div class="stats reveal" style="margin:0 0 16px">
     <div class="stat glass">
       <div class="statn" id="s-days">{days}</div>
       <div class="statl">Días al Go-Live — 15 Enero 2027</div>
     </div>
     <div class="stat glass warn">
       <div class="statn">21.19%</div>
-      <div class="statl">Avance Global Unity R4, 60.58% esperado al 17-ago</div>
+      <div class="statl">Avance Global Unity R4 · −39.4pp vs baseline 60.58%</div>
     </div>
     <div class="stat glass">
       <div class="statn" data-target="{hus}">0</div>
@@ -1697,22 +1726,20 @@ footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid
       <div class="statl">Riesgos Alta Prioridad</div>
     </div>
     <div class="stat glass danger">
-      <div class="statn" data-target="10">0</div>
-      <div class="statl">Decisiones pendientes del Design Authority</div>
+      <div class="statn" data-target="{breach_n}">0</div>
+      <div class="statl">Acciones en BREACH — fecha vencida</div>
     </div>
   </div>
 
-  <section id="view-productos">
-    {view_prod}
-  </section>
-
-  <section id="view-sistemas">
-    {view_sis}
-  </section>
-
-  <section id="view-capacidades">
-    {view_cap}
-  </section>
+  <div class="track-chips reveal" style="margin-bottom:52px">
+    <span class="tc-label">RAG por track</span>
+    <span class="tc-chip">🔴 CAT</span>
+    <span class="tc-chip">🔴 Cobranza</span>
+    <span class="tc-chip">🟡 SmartVista</span>
+    <span class="tc-chip">🟡 APP</span>
+    <span class="tc-chip">🟡 APOLO</span>
+    <span class="tc-chip">🟡 SIWEB</span>
+  </div>
 
   <section id="acciones">
     <div class="shead reveal">
@@ -1722,6 +1749,13 @@ footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid
     </div>
     <div class="act-grid">
       {action_html}
+    </div>
+    <div class="wrap">
+      <div class="r41-gate glass reveal">
+        <div class="r41-label">Gate de Decisión · R4.1</div>
+        <div class="r41-title">9 User Stories candidatas a diferir a R4.1</div>
+        <p class="r41-desc">El Roadmap Accenture (11-ago-2026) identifica 9 User Stories que pueden simplificarse o diferirse sin impacto crítico en el go-live de enero 2027. Decisión de alcance requerida antes del inicio de SIT (15-oct-2026) para liberar capacidad de desarrollo y pruebas.</p>
+      </div>
     </div>
   </section>
 
@@ -1734,6 +1768,18 @@ footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid
     <div class="risk-grid reveal">
       {risk_html}
     </div>
+  </section>
+
+  <section id="view-productos">
+    {view_prod}
+  </section>
+
+  <section id="view-sistemas">
+    {view_sis}
+  </section>
+
+  <section id="view-capacidades">
+    {view_cap}
   </section>
 
   <section id="cronograma">
