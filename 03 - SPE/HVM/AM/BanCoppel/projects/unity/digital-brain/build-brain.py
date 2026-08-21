@@ -693,11 +693,17 @@ CREATE TABLE IF NOT EXISTS program_systems (
 );
 
 CREATE TABLE IF NOT EXISTS it_capabilities (
-    id              TEXT PRIMARY KEY,
-    name            TEXT NOT NULL,
-    description     TEXT,
-    category        TEXT,
-    owner_component TEXT
+    id                  TEXT PRIMARY KEY,
+    name                TEXT NOT NULL,
+    description         TEXT,
+    category            TEXT,
+    owner_component     TEXT,
+    owner_name          TEXT,
+    maturity_current    INTEGER DEFAULT 1,
+    maturity_target     INTEGER DEFAULT 4,
+    next_action         TEXT,
+    next_action_due     TEXT,
+    next_action_owner   TEXT
 );
 
 CREATE TABLE IF NOT EXISTS program_stakeholders (
@@ -1312,28 +1318,21 @@ INITIAL_PRODUCTS = [
 # En SmartVista coinciden (solo hospeda la TDC); en Transact difieren.
 # La columna provenance distingue lo que es cita literal de lo que confirmo el equipo.
 PRODUCT_RELEASES = [
-    ("TDC-R1", "UNITY-R4-P4900", "R1", "SmartVista R1",
-     "Configuracion del gestor de TDC (SmartVista como CMS)", "productivo", "2024-12", 38, None,
-     "Equipo 2026-08-19. Sustento convergente, NO cita literal: la frase 'gestor de TDC' no existe en "
-     "la documentacion, pero SmartVista esta documentado como 'Administrador de Tarjetas' y 'CMS'. "
-     "Senal estructural: 38 funcionalidades y ningun canal listado, lo esperable de configuracion de "
-     "plataforma. LIMITE: la lamina 2 del Roadmap Unity 2025 tiene la matriz de releases pero al "
-     "extraerla a texto se pierde la asignacion celda-columna; abrirla visualmente para cerrarlo."),
     ("TDC-R2", "UNITY-R4-P4900", "R2", "SmartVista R2",
-     "Integracion a App y onboarding de la TDC", "productivo", "2025-07", 33,
+     "Tarjeta de Crédito Digital / Onboarding", "productivo", "2025-07", 33,
      "App, Promotoria, Sucursal, SPEI",
      "Equipo 2026-08-19. Sustento: las cadenas 'CMS Administrador de Tarjetas - Apolo Onboarding' y "
      "'CMS Administrador de Tarjetas - App Bancoppel', mas el encabezado del roadmap ('todo su ciclo "
      "de vida: Onboarding, Operacion y Post-Venta')."),
     ("TDC-R3", "UNITY-R4-P4900", "R3", "SmartVista R3",
-     "Tarjeta fisica, liberada en modo Friends & Family", "productivo", "2025-09", 15,
+     "Tarjeta de Crédito Física", "productivo", "2025-09", 15,
      "App, Promotoria, Sucursal, Aclaraciones",
      "Equipo 2026-08-19 MAS cita literal: el DEF se titula 'DEF Tarjeta fisica R3 desglozado Historia "
      "de Usuario'. F&F es el MODO de liberacion, no el alcance: no son excluyentes. Su proposito real "
      "es cerrar la brecha de valor entre el 4900 de Apolo y el legado 6001 para habilitar la migracion "
      "de 3 millones de tarjetas. Dependencia critica de ATLAS a sep-2026 (decision L-03)."),
     ("TDC-R4", "UNITY-R4-P4900", "R4", "SmartVista R4",
-     "Tarjeta de Credito Clasica, Producto 4900. Release ancla", "building", "2027-01", 13,
+     "Tarjeta de Crédito Clásica P4900", "building", "2027-01", 13,
      "App, Promotoria, Sucursal, CAT",
      "RAID v2.0, plan de trabajo y minutas de ago-2026. SIT 15-oct a 15-dic-2026, go-live a mediados "
      "de enero 2027 (las minutas dicen 'mediados', no un dia concreto). L-01 abierta: escenario de "
@@ -2790,19 +2789,32 @@ PROGRAM_SYSTEMS = [
 ]
 
 IT_CAPABILITIES = [
-    {"id": "ITC-QE",      "name": "Quality Engineering",       "description": "Testing shift-left: pruebas unitarias, integracion, regresion, performance y UAT en todos los tracks", "category": "delivery",       "owner_component": "QE"},
-    {"id": "ITC-DEVOPS",  "name": "DevOps & CI/CD",            "description": "Pipelines de integracion y despliegue continuo; automatizacion de builds y releases por track",         "category": "delivery",       "owner_component": "DevOps"},
-    {"id": "ITC-ENV",     "name": "Environment Management",    "description": "Gestion de ambientes DEV/QA/UAT/STG/PROD; aprovisionamiento IaC y configuracion parametrizada",          "category": "infrastructure", "owner_component": "Infra"},
-    {"id": "ITC-SEC",     "name": "Cybersecurity",             "description": "DevSecOps: SAST, SCA, secrets scan, DAST; cumplimiento CNBV/Banxico e ISO 27001",                        "category": "cross-cutting",  "owner_component": "Security"},
-    {"id": "ITC-INTEROP", "name": "Interoperability & APIs",   "description": "Diseno y gestion de APIs REST/AsyncAPI; patrones de integracion entre sistemas del ecosistema",          "category": "architecture",   "owner_component": "Interop"},
-    {"id": "ITC-DATA",    "name": "Data Management",           "description": "Calidad de datos, contratos de datos, migracion Informix a Transact y feeds analiticos a Atlas",         "category": "data",           "owner_component": "Data"},
-    {"id": "ITC-ARCH",    "name": "Architecture & Design",     "description": "Toma de decisiones arquitectonicas (ADRs), blueprint de sistemas, gobernanza tecnica del programa",      "category": "architecture",   "owner_component": "Arch"},
-    {"id": "ITC-CHG",     "name": "Change Management",         "description": "Gestion del cambio organizacional: capacitacion, comunicacion, adopcion de Transact por usuarios",       "category": "people",         "owner_component": "PMO"},
-    {"id": "ITC-AI",      "name": "AI/GenAI Engineering",      "description": "IA generativa para aceleracion: transpilacion SPL a Java, generacion de tests, analisis de codigo",     "category": "innovation",     "owner_component": "AI"},
-    {"id": "ITC-REL",     "name": "Release Management",        "description": "Coordinacion de releases por wave: CAB, ventanas de cambio, rollback plans y comunicacion",              "category": "delivery",       "owner_component": "Release"},
-    {"id": "ITC-VND",     "name": "Vendor & ITSM",             "description": "Gestion de contratos y SLAs con Temenos, BPC, Appwhere, BMC; ITSM para incidentes y cambios",           "category": "governance",     "owner_component": "ITSM"},
-    {"id": "ITC-OBS",     "name": "Observability & SRE",       "description": "Monitoreo RED metrics, tracing OTEL, alertas y SLOs del programa; Dynatrace/GCP Monitoring",             "category": "operations",     "owner_component": "SRE"},
-    {"id": "ITC-COMP",    "name": "Compliance & Regulatory",   "description": "Reportes CNBV (Anexos 33-36), cumplimiento Banxico, auditorias internas; trazabilidad reg.",             "category": "governance",     "owner_component": "Compliance"},
+    {"id": "ITC-QE",      "name": "Quality Engineering",       "description": "Testing shift-left: pruebas unitarias, integracion, regresion, performance y UAT en todos los tracks", "category": "delivery",       "owner_component": "QE",
+     "owner_name": "BanCoppel QA Lead",              "maturity_current": 2, "maturity_target": 4, "next_action": "Resolver conflicto ventana pentest vs SIT",              "next_action_due": "2026-09-05", "next_action_owner": "Mercedes Espinosa"},
+    {"id": "ITC-DEVOPS",  "name": "DevOps & CI/CD",            "description": "Pipelines de integracion y despliegue continuo; automatizacion de builds y releases por track",         "category": "delivery",       "owner_component": "DevOps",
+     "owner_name": "ACN DevOps Lead",                "maturity_current": 2, "maturity_target": 4, "next_action": "Confirmar ambientacion SIT con BanCoppel Infra",           "next_action_due": "2026-09-15", "next_action_owner": "BanCoppel Infra"},
+    {"id": "ITC-ENV",     "name": "Environment Management",    "description": "Gestion de ambientes DEV/QA/UAT/STG/PROD; aprovisionamiento IaC y configuracion parametrizada",          "category": "infrastructure", "owner_component": "Infra",
+     "owner_name": "BanCoppel Infra",                "maturity_current": 2, "maturity_target": 4, "next_action": "Confirmar entorno SIT listo al 15-oct",                    "next_action_due": "2026-09-15", "next_action_owner": "BanCoppel Infra"},
+    {"id": "ITC-SEC",     "name": "Cybersecurity",             "description": "DevSecOps: SAST, SCA, secrets scan, DAST; cumplimiento CNBV/Banxico e ISO 27001",                        "category": "cross-cutting",  "owner_component": "Security",
+     "owner_name": "Mercedes Espinosa",              "maturity_current": 2, "maturity_target": 4, "next_action": "Definir ventana pentest no conflictiva con SIT",            "next_action_due": "2026-09-05", "next_action_owner": "BanCoppel CISO"},
+    {"id": "ITC-INTEROP", "name": "Interoperability & APIs",   "description": "Diseno y gestion de APIs REST/AsyncAPI; patrones de integracion entre sistemas del ecosistema",          "category": "architecture",   "owner_component": "Interop",
+     "owner_name": "J.A. Valverde / BPC",            "maturity_current": 1, "maturity_target": 4, "next_action": "Obtener fecha entrega APIs SmartVista de BPC",              "next_action_due": "2026-08-29", "next_action_owner": "ACN Interop Lead"},
+    {"id": "ITC-DATA",    "name": "Data Management",           "description": "Calidad de datos, contratos de datos, migracion Informix a Transact y feeds analiticos a Atlas",         "category": "data",           "owner_component": "Data",
+     "owner_name": "BanCoppel Data / ACN MDP",       "maturity_current": 1, "maturity_target": 3, "next_action": "Definir plan carga inicial Golden Record a ATLAS",          "next_action_due": "2026-09-30", "next_action_owner": "BanCoppel Data"},
+    {"id": "ITC-ARCH",    "name": "Architecture & Design",     "description": "Toma de decisiones arquitectonicas (ADRs), blueprint de sistemas, gobernanza tecnica del programa",      "category": "architecture",   "owner_component": "Arch",
+     "owner_name": "Ramses Santos",                  "maturity_current": 2, "maturity_target": 4, "next_action": "Completar inventario APIs e integraciones R4",              "next_action_due": "2026-09-15", "next_action_owner": "Ramses Santos"},
+    {"id": "ITC-CHG",     "name": "Change Management",         "description": "Gestion del cambio organizacional: capacitacion, comunicacion, adopcion de Transact por usuarios",       "category": "people",         "owner_component": "PMO",
+     "owner_name": "BanCoppel PMO",                  "maturity_current": 1, "maturity_target": 3, "next_action": "Ejecutar plan comunicacion 3M tarjetahabientes",            "next_action_due": "2026-10-31", "next_action_owner": "BanCoppel PMO"},
+    {"id": "ITC-AI",      "name": "AI/GenAI Engineering",      "description": "IA generativa para aceleracion: transpilacion SPL a Java, generacion de tests, analisis de codigo",     "category": "innovation",     "owner_component": "AI",
+     "owner_name": "ACN AI Lead",                    "maturity_current": 2, "maturity_target": 3, "next_action": "Validar outputs transpilacion SPL a Java en brain",         "next_action_due": "2026-09-30", "next_action_owner": "ACN AI Lead"},
+    {"id": "ITC-REL",     "name": "Release Management",        "description": "Coordinacion de releases por wave: CAB, ventanas de cambio, rollback plans y comunicacion",              "category": "delivery",       "owner_component": "Release",
+     "owner_name": "BanCoppel PMO / ACN",            "maturity_current": 2, "maturity_target": 4, "next_action": "Confirmar fecha cierre SIT 15-dic en CAB",                 "next_action_due": "2026-09-01", "next_action_owner": "BanCoppel PMO"},
+    {"id": "ITC-VND",     "name": "Vendor & ITSM",             "description": "Gestion de contratos y SLAs con Temenos, BPC, Appwhere, BMC; ITSM para incidentes y cambios",           "category": "governance",     "owner_component": "ITSM",
+     "owner_name": "BanCoppel Adquisiciones",        "maturity_current": 1, "maturity_target": 4, "next_action": "Contratar proveedor CAT - RISK-001 critico",                "next_action_due": "2026-08-31", "next_action_owner": "BanCoppel Adquisiciones"},
+    {"id": "ITC-OBS",     "name": "Observability & SRE",       "description": "Monitoreo RED metrics, tracing OTEL, alertas y SLOs del programa; Dynatrace/GCP Monitoring",             "category": "operations",     "owner_component": "SRE",
+     "owner_name": "ACN SRE Lead",                   "maturity_current": 2, "maturity_target": 4, "next_action": "Activar alerting y dashboards en Dynatrace",                "next_action_due": "2026-10-15", "next_action_owner": "ACN SRE Lead"},
+    {"id": "ITC-COMP",    "name": "Compliance & Regulatory",   "description": "Reportes CNBV (Anexos 33-36), cumplimiento Banxico, auditorias internas; trazabilidad reg.",             "category": "governance",     "owner_component": "Compliance",
+     "owner_name": "Mercedes Espinosa / BanCoppel Legal", "maturity_current": 2, "maturity_target": 4, "next_action": "Cerrar hallazgos APO_F01 y SMA_F01 CNBV",             "next_action_due": "2026-09-30", "next_action_owner": "Mercedes Espinosa"},
 ]
 
 
@@ -5718,11 +5730,16 @@ def load_program_systems(con) -> None:
 
 
 def load_it_capabilities(con) -> None:
-    for c in IT_CAPABILITIES:
+    for cap in IT_CAPABILITIES:
         con.execute(
-            """INSERT OR REPLACE INTO it_capabilities (id, name, description, category, owner_component)
-                VALUES (:id, :name, :description, :category, :owner_component)""",
-            c,
+            """INSERT OR REPLACE INTO it_capabilities
+                (id, name, description, category, owner_component,
+                 owner_name, maturity_current, maturity_target,
+                 next_action, next_action_due, next_action_owner)
+               VALUES (:id, :name, :description, :category, :owner_component,
+                 :owner_name, :maturity_current, :maturity_target,
+                 :next_action, :next_action_due, :next_action_owner)""",
+            cap,
         )
     con.commit()
     print(f"  it_capabilities   : {len(IT_CAPABILITIES)} capacidades IT")

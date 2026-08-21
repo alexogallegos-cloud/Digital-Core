@@ -245,18 +245,18 @@ PHASE_NARRATIVES = {
 # ── IT Capabilities — Vista Capacidades IT (3 bloques ejecutivos) ──────────────────
 # Fuente: dt-plan-director.md § Capacidades IT + RAID + minutas (corte 2026-08-20)
 IT_CAP_META = {
-    "testing":        {"name": "Testing y QA",         "group": "Engineering",  "sem": "warn", "note": "Conflicto pentest nov 15–20 con ventana SIT · CAT sin plan de pruebas posible"},
-    "devops":         {"name": "DevOps / CI-CD",        "group": "Engineering",  "sem": "warn", "note": "Pipelines en configuración · ambientación SIT pendiente de confirmar"},
-    "arquitectura":   {"name": "Arquitectura",          "group": "Delivery",     "sem": "warn", "note": "Mapa de dependencias entre sistemas sin consolidar · APIs sin inventario completo"},
-    "interop":        {"name": "Interoperabilidad",     "group": "Delivery",     "sem": "crit", "note": "APIs SmartVista sin fecha bloquean SIWEB · 18 integraciones sin mapa validado"},
-    "ambientacion":   {"name": "Ambientación",          "group": "Delivery",     "sem": "warn", "note": "Entorno SIT al 15-oct por confirmar · deuda de configuración canal CAT"},
-    "seguridad":      {"name": "Seguridad",             "group": "Delivery",     "sem": "warn", "note": "Pentest nov 15–20 en conflicto con SIT · PCI-DSS v4.0 en scope SmartVista"},
-    "observabilidad": {"name": "Observabilidad",        "group": "Operations",   "sem": "warn", "note": "SLOs definidos por capability · alerting y dashboards pendientes de activar"},
-    "change":         {"name": "Change Management",     "group": "Operations",   "sem": "warn", "note": "Plan de change para 3M tarjetahabientes sin ejecutar · comunicación pendiente"},
-    "release":        {"name": "Release Management",    "group": "Operations",   "sem": "warn", "note": "Go-Live 15-ene-2027 con margen mínimo — SIT debe cerrar el 15-dic"},
-    "vendor":         {"name": "Vendor / SIAM",         "group": "Operations",   "sem": "crit", "note": "CAT sin proveedor contratado (RISK-001) · DPP y BYU0039 abiertos con BPC"},
-    "compliance":     {"name": "Compliance",            "group": "Operations",   "sem": "warn", "note": "CNBV Art.76 LIC · hallazgos APO_F01 y SMA_F01 abiertos · Bajaware en decomiso"},
-    "data":           {"name": "Data / Migración",      "group": "Data",         "sem": "warn", "note": "Golden Record en Informix sin plan de carga inicial a ATLAS · Exodus Ola 6 en 2029"},
+    "testing":        {"name": "Testing y QA",         "group": "Engineering",  "sem": "warn", "note": "Conflicto pentest nov 15–20 con ventana SIT · CAT sin plan de pruebas posible", "mat_cur": 2, "mat_tgt": 4, "owner": "BanCoppel QA Lead",              "next_action": "Resolver conflicto ventana pentest vs SIT",              "next_due": "05-sep"},
+    "devops":         {"name": "DevOps / CI-CD",        "group": "Engineering",  "sem": "warn", "note": "Pipelines en configuración · ambientación SIT pendiente de confirmar", "mat_cur": 2, "mat_tgt": 4, "owner": "ACN DevOps Lead",                "next_action": "Confirmar ambientación SIT con BanCoppel Infra",         "next_due": "15-sep"},
+    "arquitectura":   {"name": "Arquitectura",          "group": "Delivery",     "sem": "warn", "note": "Mapa de dependencias entre sistemas sin consolidar · APIs sin inventario completo", "mat_cur": 2, "mat_tgt": 4, "owner": "Ramses Santos",                  "next_action": "Completar inventario APIs e integraciones R4",              "next_due": "15-sep"},
+    "interop":        {"name": "Interoperabilidad",     "group": "Delivery",     "sem": "crit", "note": "APIs SmartVista sin fecha bloquean SIWEB · 18 integraciones sin mapa validado", "mat_cur": 1, "mat_tgt": 4, "owner": "J.A. Valverde / BPC",            "next_action": "Obtener fecha entrega APIs SmartVista de BPC",              "next_due": "29-ago"},
+    "ambientacion":   {"name": "Ambientación",          "group": "Delivery",     "sem": "warn", "note": "Entorno SIT al 15-oct por confirmar · deuda de configuración canal CAT", "mat_cur": 2, "mat_tgt": 4, "owner": "BanCoppel Infra",                "next_action": "Confirmar entorno SIT listo al 15-oct",                    "next_due": "15-sep"},
+    "seguridad":      {"name": "Seguridad",             "group": "Delivery",     "sem": "warn", "note": "Pentest nov 15–20 en conflicto con SIT · PCI-DSS v4.0 en scope SmartVista", "mat_cur": 2, "mat_tgt": 4, "owner": "Mercedes Espinosa",              "next_action": "Definir ventana pentest no conflictiva con SIT",            "next_due": "05-sep"},
+    "observabilidad": {"name": "Observabilidad",        "group": "Operations",   "sem": "warn", "note": "SLOs definidos por capability · alerting y dashboards pendientes de activar", "mat_cur": 2, "mat_tgt": 4, "owner": "ACN SRE Lead",                   "next_action": "Activar alerting y dashboards en Dynatrace",                "next_due": "15-oct"},
+    "change":         {"name": "Change Management",     "group": "Operations",   "sem": "warn", "note": "Plan de change para 3M tarjetahabientes sin ejecutar · comunicación pendiente", "mat_cur": 1, "mat_tgt": 3, "owner": "BanCoppel PMO",                  "next_action": "Ejecutar plan comunicación 3M tarjetahabientes",          "next_due": "31-oct"},
+    "release":        {"name": "Release Management",    "group": "Operations",   "sem": "warn", "note": "Go-Live 15-ene-2027 con margen mínimo — SIT debe cerrar el 15-dic", "mat_cur": 2, "mat_tgt": 4, "owner": "BanCoppel PMO / ACN",            "next_action": "Confirmar fecha cierre SIT 15-dic en CAB",                 "next_due": "01-sep"},
+    "vendor":         {"name": "Vendor / SIAM",         "group": "Operations",   "sem": "crit", "note": "CAT sin proveedor contratado (RISK-001) · DPP y BYU0039 abiertos con BPC", "mat_cur": 1, "mat_tgt": 4, "owner": "BanCoppel Adquisiciones",        "next_action": "Contratar proveedor CAT — RISK-001 crítico",                "next_due": "31-ago"},
+    "compliance":     {"name": "Compliance",            "group": "Operations",   "sem": "warn", "note": "CNBV Art.76 LIC · hallazgos APO_F01 y SMA_F01 abiertos · Bajaware en decomiso", "mat_cur": 2, "mat_tgt": 4, "owner": "Mercedes Espinosa / Legal",      "next_action": "Cerrar hallazgos APO_F01 y SMA_F01 CNBV",                  "next_due": "30-sep"},
+    "data":           {"name": "Data / Migración",      "group": "Data",         "sem": "warn", "note": "Golden Record en Informix sin plan de carga inicial a ATLAS · Exodus Ola 6 en 2029", "mat_cur": 1, "mat_tgt": 3, "owner": "BanCoppel Data / ACN MDP",       "next_action": "Definir plan carga inicial Golden Record a ATLAS",          "next_due": "30-sep"},
 }
 
 # Para la cara del cubo (lista agrupada sin semáforo)
@@ -397,7 +397,7 @@ def load_data(db_path):
         "SELECT * FROM products ORDER BY id"
     ).fetchall()
     releases = con.execute(
-        "SELECT * FROM product_releases WHERE program_release = 1 ORDER BY release_label, id"
+        "SELECT * FROM product_releases ORDER BY release_label, id"
     ).fetchall()
 
     # Sistemas (program_components)
@@ -708,15 +708,45 @@ def render_view_capacidades(cube_right_content="", cube_img=None):
     dot_map = {"crit": "🔴", "warn": "🟡", "ok": "🟢"}
 
     # ── Bloque 1: tarjetas semáforo por capacidad
+    mat_color = {1: "#ef4444", 2: "#f59e0b", 3: "#84cc16", 4: "#22c55e"}
+    mat_pct   = {1: 0, 2: 33, 3: 66, 4: 100}
+
+    def _mat_bar(cur: int, tgt: int) -> str:
+        cp = mat_pct.get(cur, 0)
+        tp = mat_pct.get(tgt, 100)
+        fc = mat_color.get(cur, "#f59e0b")
+        tgt_dot = f'<div class="mat-dot tgt" style="left:{tp}%"></div>' if tgt != cur else ""
+        return (
+            f'<div class="mat-wrap">'
+            f'<div class="mat-track">'
+            f'<div class="mat-rail"></div>'
+            f'<div class="mat-fill" style="width:{cp}%;background:{fc}"></div>'
+            f'<div class="mat-dot cur" style="left:{cp}%"></div>'
+            f'{tgt_dot}'
+            f'</div>'
+            f'<div class="mat-ticks"><span>1</span><span>2</span><span>3</span><span>4</span></div>'
+            f'</div>'
+        )
+
     caps_html = ""
     for cap_id, meta in IT_CAP_META.items():
-        sem = meta["sem"]
-        dot = dot_map.get(sem, "⚪")
+        sem     = meta["sem"]
+        dot     = dot_map.get(sem, "⚪")
+        mat_cur = meta.get("mat_cur", 2)
+        mat_tgt = meta.get("mat_tgt", 4)
+        owner   = meta.get("owner", "")
+        nxt     = meta.get("next_action", "")
+        due     = meta.get("next_due", "")
+        mat_html  = _mat_bar(mat_cur, mat_tgt)
+        next_html = (f'<div class="vp-capnext">↗ {h(nxt)} · <span class="due">{h(due)}</span></div>' if nxt else "")
         caps_html += (
             f'<div class="vp-cap {sem}">'
             f'<div class="vp-caplabel">{dot} {h(meta["name"])}</div>'
             f'<div class="vp-capsys">{h(meta["group"])}</div>'
+            f'{mat_html}'
             f'<div class="vp-capnote">{h(meta["note"])}</div>'
+            f'<div class="vp-capowner">👤 {h(owner)}</div>'
+            f'{next_html}'
             f'</div>'
         )
 
@@ -770,33 +800,37 @@ def render_view_capacidades(cube_right_content="", cube_img=None):
 
 
 def render_cube_productos(products, releases):
-    """Grid 2 columnas: cada celda = un release con nombre de producto integrado."""
+    lines = []
     rel_by_product = {}
     for r in releases:
         rel_by_product.setdefault(r["product_id"], []).append(r)
 
-    def _rel_order(r):
-        return r["release_label"]
+    def _prod_order(p):
+        lbls = [r["release_label"] for r in rel_by_product.get(p["id"], [])
+                if r["status"] not in EXCLUDED_STATUSES]
+        return min(lbls) if lbls else "Z"
 
-    cells = []
-    for prod in sorted(products, key=lambda p: min(
-            (r["release_label"] for r in rel_by_product.get(p["id"], [])
-             if r["status"] not in EXCLUDED_STATUSES), default="Z")):
-        for rel in sorted(rel_by_product.get(prod["id"], []), key=_rel_order):
+    for prod in sorted(products, key=_prod_order):
+        prod_lines = []
+        for rel in rel_by_product.get(prod["id"], []):
             if rel["status"] in EXCLUDED_STATUSES:
                 continue
-            hl = " hl" if rel["status"] == "building" else ""
-            label = rel["scope"] or prod["name"]
-            cells.append(
-                f'<div class="cf-pcell{hl}">'
+            hl = ' hl' if rel["status"] == "building" else ""
+            scope = rel["scope"] or ""
+            scope_line = f'<div class="pcs">{h(scope)}</div>' if scope else ""
+            prod_lines.append(
+                f'<div class="pcard{hl}">'
                 f'<div class="pcn">{h(rel["release_label"])} {badge_status(rel["status"])}</div>'
-                f'<div class="cf-pname">{h(label)}</div>'
+                f'{scope_line}'
                 f'</div>'
             )
+        if prod_lines:
+            lines.append(f'<div class="cf-gl">{h(prod["name"])}</div>')
+            lines.extend(prod_lines)
 
-    if not cells:
-        return '<div class="cf-gl">Sin datos en brain.db</div>'
-    return '<div class="cf-pgrid">' + "".join(cells) + '</div>'
+    if not lines:
+        lines.append('<div class="cf-gl">Sin datos en brain.db</div>')
+    return "\n            ".join(lines)
 
 
 def render_cube_sistemas(components):
@@ -1126,7 +1160,7 @@ section{{padding:72px 0;scroll-margin-top:70px}}
   transition:transform .65s cubic-bezier(.25,.46,.45,.94);margin:50px auto}}
 .cube3d.dragging{{transition:none}}
 .cf{{position:absolute;width:280px;height:280px;border:1px solid rgba(255,255,255,.18);
-  overflow-y:auto;padding:8px;border-radius:4px}}
+  overflow-y:auto;padding:8px;border-radius:4px;display:flex;flex-direction:column;box-sizing:border-box}}
 .cf::-webkit-scrollbar{{width:3px}}
 .cf::-webkit-scrollbar-thumb{{background:rgba(255,255,255,.25);border-radius:2px}}
 .cf-top   {{transform:rotateX(90deg) translateZ(140px);background:linear-gradient(135deg,#AB47BC,#4A148C)}}
@@ -1152,7 +1186,7 @@ section{{padding:72px 0;scroll-margin-top:70px}}
 .pcard.hl{{background:rgba(255,255,255,.20);border-color:rgba(255,255,255,.50)}}
 .pcn{{font-size:9.5px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:flex-start;gap:5px;line-height:1}}
 .pcs{{font-size:8.5px;color:rgba(255,255,255,.65);line-height:1.3;margin-top:3px}}
-.cf-pgrid{{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px}}
+.cf-pgrid{{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px;flex:1;min-height:0;grid-auto-rows:1fr;align-content:stretch}}
 .cf-pcell{{background:rgba(255,255,255,.11);border:1px solid rgba(255,255,255,.16);border-radius:5px;padding:5px 7px}}
 .cf-pcell.hl{{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.48)}}
 .cf-pname{{font-size:7.5px;color:rgba(255,255,255,.72);line-height:1.35;margin-top:3px}}
@@ -1304,6 +1338,17 @@ footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid
 .vp-caplabel{{font-size:10.5px;font-weight:700;color:#e4eaff;margin-bottom:2px;line-height:1.3}}
 .vp-capsys{{font-size:8.5px;color:var(--muted2)}}
 .vp-capnote{{font-size:8px;color:var(--muted);margin-top:3px;line-height:1.35}}
+.mat-wrap{{margin-top:6px}}
+.mat-track{{position:relative;height:14px;display:flex;align-items:center;margin-bottom:2px}}
+.mat-rail{{position:absolute;left:0;right:0;height:2px;background:rgba(255,255,255,.1);border-radius:2px}}
+.mat-fill{{position:absolute;left:0;height:2px;border-radius:2px}}
+.mat-dot{{position:absolute;width:8px;height:8px;border-radius:50%;top:50%;transform:translate(-50%,-50%)}}
+.mat-dot.cur{{background:#fff;border:1.5px solid rgba(255,255,255,.8);box-shadow:0 0 4px rgba(255,255,255,.3)}}
+.mat-dot.tgt{{background:transparent;border:1.5px solid rgba(255,255,255,.3)}}
+.mat-ticks{{display:flex;justify-content:space-between;font-size:7.5px;color:rgba(255,255,255,.2);line-height:1;padding:0 4px}}
+.vp-capowner{{font-size:8px;color:rgba(255,255,255,.45);margin-top:5px}}
+.vp-capnext{{font-size:7.5px;color:rgba(255,255,255,.3);margin-top:2px;line-height:1.35}}
+.vp-capnext .due{{color:var(--yellow);font-weight:600}}
 .vp-kpis{{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}}
 @media(max-width:700px){{.vp-kpis{{grid-template-columns:repeat(2,1fr)}}}}
 .vp-kpi{{padding:10px 11px;border-radius:9px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);text-align:center}}
@@ -1382,7 +1427,7 @@ footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid
   <span class="sp"></span>
   <span class="nav-links" style="display:contents">
     <a class="jump" href="#view-productos">Alcance</a>
-    <a class="jump" href="#estado">Estado</a>
+    <a class="jump ext" href="systems-p4900.html">Estado por Track ↗</a>
     <a class="jump" href="#cronograma">Cronograma</a>
     <a class="jump" href="#acciones">Acciones</a>
     <a class="jump" href="#riesgos">Riesgos</a>
@@ -1468,19 +1513,6 @@ footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid
 
   <section id="view-capacidades">
     {view_cap}
-  </section>
-
-  <section id="estado">
-    <div style="margin-top:52px">
-      <div class="shead reveal">
-        <div class="kick">Semáforo del Programa</div>
-        <h2>Estado por Track</h2>
-        <p>Fuente: Roadmap Accenture 11-ago-2026 y Plan de Trabajo con corte 17-ago-2026</p>
-      </div>
-      <div class="rag-grid reveal">
-        {rag_html}
-      </div>
-    </div>
   </section>
 
   <section id="acciones">
@@ -1804,6 +1836,32 @@ def build_systems_page(brain_path: str, out_dir) -> None:
         "SELECT system_id, capability_id FROM program_system_caps"
     ).fetchall():
         _caps_db.setdefault(_r[0], []).append(_r[1])
+
+    # ── track_rag: RAG por track (normalizar 'app' → 'app-movil') ─────────────
+    _track_rag = {}
+    for _r in con.execute(
+        "SELECT track, rag_color, hu_total, hu_must, hu_should, hu_could, hu_wont, "
+        "integraciones_count, rag_general, rag_solucion, rag_integraciones, source_date "
+        "FROM track_rag"
+    ).fetchall():
+        _key = "app-movil" if _r[0] == "app" else _r[0]
+        _track_rag[_key] = {
+            "rag_color": _r[1], "hu_total": _r[2], "hu_must": _r[3],
+            "hu_should": _r[4], "hu_could": _r[5], "hu_wont": _r[6],
+            "integraciones_count": _r[7], "rag_general": _r[8],
+            "rag_solucion": _r[9], "rag_integraciones": _r[10], "source_date": _r[11],
+        }
+
+    # ── risks_by_system: riesgos abiertos por sistema e impacto ──────────────
+    _risks_by_sys = {}
+    for _r in con.execute(
+        "SELECT system_id, impact, COUNT(*) FROM risks "
+        "WHERE status != 'closed' GROUP BY system_id, impact"
+    ).fetchall():
+        _sid2, _imp, _n = _r
+        if _sid2 not in _risks_by_sys:
+            _risks_by_sys[_sid2] = {}
+        _risks_by_sys[_sid2][_imp] = _n
     # ─────────────────────────────────────────────────────────────────────────
 
     systems = [
@@ -1820,6 +1878,8 @@ def build_systems_page(brain_path: str, out_dir) -> None:
     for row in systems:
         sid, name, vendor, ttype, tstate, tabb, role, st, notes = row
         sdlc = _sdlc_db.get(sid, {})
+        _trag = _track_rag.get(sid, {})
+        _rsys = _risks_by_sys.get(sid, {})
         systems_js[sid] = {
             "id": sid, "name": name, "vendor": vendor or "",
             "togaf_type": ttype, "togaf_state": tstate, "togaf_abb": tabb or "",
@@ -1836,6 +1896,19 @@ def build_systems_page(brain_path: str, out_dir) -> None:
                  "coverage": caps.get(cid, {}).get("status", "unknown")}
                 for cid in _caps_db.get(sid, [])
             ],
+            # ── track_rag fields (desde brain.db, None si el track no existe) ──
+            "track_rag_color":         _trag.get("rag_color"),
+            "hu_must":                 _trag.get("hu_must"),
+            "hu_should":               _trag.get("hu_should"),
+            "hu_total":                _trag.get("hu_total"),
+            "rag_general":             _trag.get("rag_general"),
+            "rag_solucion":            _trag.get("rag_solucion"),
+            "rag_integraciones":       _trag.get("rag_integraciones"),
+            "integraciones_count":     _trag.get("integraciones_count"),
+            "track_rag_source_date":   _trag.get("source_date"),
+            # ── risks fields ────────────────────────────────────────────────────
+            "critical_risks": _rsys.get("critical", 0),
+            "high_risks":     _rsys.get("high", 0),
         }
 
     systems_json = _json.dumps(systems_js, ensure_ascii=False, indent=2)
@@ -1934,8 +2007,14 @@ def build_systems_page(brain_path: str, out_dir) -> None:
         _dc  = _status_colors.get(_sd.get("sdlc_status",""),"#888")
         _oc  = "selectSys('" + _sid + "')"
         _fcl = " first" if _i == 0 else ""
+        _hu_must_val     = _sd.get("hu_must") or ""
+        _rag_general_val = _sd.get("rag_general") or ""
+        _crit_risks_val  = _sd.get("critical_risks") or 0
         _tabs += (
-            '<button class="ptab' + _fcl + '" data-id="' + _sid + '" onclick="' + _oc + '">'
+            '<button class="ptab' + _fcl + '" data-id="' + _sid + '" onclick="' + _oc + '"'
+            + ' data-hu-must="' + str(_hu_must_val) + '"'
+            + ' data-rag-general="' + html.escape(str(_rag_general_val)) + '"'
+            + ' data-critical-risks="' + str(_crit_risks_val) + '">'
             + '<span class="ptab-dot" style="background:' + _dc + '"></span>'
             + '<span class="ptab-name">' + _sd["name"] + '</span>'
             + '<span class="ptab-type">' + _sd["togaf_type"].upper() + '</span>'
@@ -2174,7 +2253,25 @@ def build_systems_page(brain_path: str, out_dir) -> None:
         "    +'<div><div class=\"sec-title\">Hitos</div><div class=\"milestones\">'+msH+'</div></div>'\n"
         "    +'</div>'\n"
         "    +'<div style=\"margin-top:24px\"><div class=\"sec-title\">Capabilities impactadas</div>'\n"
-        "    +'<div class=\"caps-grid\">'+capsH+'</div></div>';\n"
+        "    +'<div class=\"caps-grid\">'+capsH+'</div></div>'\n"
+        "    +(s.rag_general?(function(){\n"
+        "        const rc={red:'#FF5252',yellow:'#FFC107',green:'#4CAF50'}[s.track_rag_color]||'#888';\n"
+        "        const rb={red:'rgba(255,82,82,.1)',yellow:'rgba(255,193,7,.08)',green:'rgba(76,175,80,.08)'}[s.track_rag_color]||'rgba(255,255,255,.05)';\n"
+        "        const rl={red:'🔴 Rojo — Bloqueado',yellow:'🟡 Amarillo — En seguimiento',green:'🟢 Verde — En control'}[s.track_rag_color]||'';\n"
+        "        let h='<div style=\"margin-top:28px\"><div class=\"sec-title\">Estado del Track</div>'\n"
+        "          +'<div style=\"background:'+rb+';border:1px solid '+rc+'44;border-radius:10px;padding:14px 18px;margin-top:8px\">'\n"
+        "          +'<div style=\"font-size:11px;font-weight:700;letter-spacing:.08em;color:'+rc+';margin-bottom:6px\">'+rl+'</div>'\n"
+        "          +'<div style=\"font-size:13px;color:#c8d0e0;line-height:1.5;margin-bottom:10px\">'+s.rag_general+'</div>';\n"
+        "        if(s.rag_solucion)h+='<div style=\"font-size:12px;color:#8a94a8;margin-bottom:4px\"><b style=\"color:#a0abc0\">Solución.</b> '+s.rag_solucion+'</div>';\n"
+        "        if(s.rag_integraciones)h+='<div style=\"font-size:12px;color:#8a94a8;margin-bottom:10px\"><b style=\"color:#a0abc0\">Integraciones.</b> '+s.rag_integraciones+'</div>';\n"
+        "        if(s.hu_total)h+='<div style=\"display:flex;gap:12px;margin-top:8px\">'\n"
+        "          +'<span style=\"font-size:11px;background:rgba(255,255,255,.06);border-radius:6px;padding:3px 9px;color:#a0abc0\">Must: <b style=\"color:#e8eaf0\">'+s.hu_must+'</b></span>'\n"
+        "          +'<span style=\"font-size:11px;background:rgba(255,255,255,.06);border-radius:6px;padding:3px 9px;color:#a0abc0\">Should: <b style=\"color:#e8eaf0\">'+(s.hu_should||0)+'</b></span>'\n"
+        "          +'<span style=\"font-size:11px;background:rgba(255,255,255,.06);border-radius:6px;padding:3px 9px;color:#a0abc0\">Total: <b style=\"color:#e8eaf0\">'+(s.hu_total||0)+'</b></span>'\n"
+        "          +(s.integraciones_count?'<span style=\"font-size:11px;background:rgba(255,255,255,.06);border-radius:6px;padding:3px 9px;color:#a0abc0\">Integraciones: <b style=\"color:#e8eaf0\">'+s.integraciones_count+'</b></span>':'')\n"
+        "          +'</div>';\n"
+        "        return h+'</div></div>';\n"
+        "      })():'');\n"
         "}\n"
         "function selectLegacy(id){\n"
         "  document.querySelectorAll('.leg-card').forEach(c=>c.classList.toggle('active',c.dataset.id===id));\n"
@@ -2530,3 +2627,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
