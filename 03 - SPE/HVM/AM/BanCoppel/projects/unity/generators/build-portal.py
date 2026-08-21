@@ -1260,7 +1260,7 @@ def capture_cube_screenshots(html_path, img_dir):
             out = img_dir / f"cube-{name}.png"
             page.query_selector('#scene3d').screenshot(path=str(out))
             imgs[name] = f"img/cube-{name}.png"
-            print(f"[build-portal]   screenshot cube-{name}.png ✓")
+            print(f"[build-portal]   screenshot cube-{name}.png OK")
 
         browser.close()
 
@@ -2368,7 +2368,7 @@ def build_capacidades_it_page(brain_path: str, out_dir) -> None:
 
     _out = _Path(out_dir) / "capacidades-it.html"
     _out.write_text(_html, encoding="utf-8")
-    print(f"[build-portal] capacidades-it.html generado \u2713 ({len(_html):,} chars)")
+    print(f"[build-portal] capacidades-it.html generado OK ({len(_html):,} chars)")
 
 
 def build_systems_page(brain_path: str, out_dir) -> None:
@@ -2891,6 +2891,7 @@ def build_systems_page(brain_path: str, out_dir) -> None:
         '    subgraph CAN["Canales R4"]\n'
         '        APP["App M\u00f3vil<br/>(AppWhere)"]\n'
         '        APO["Apolo<br/>(Onboarding Digital)"]\n'
+        '        MDY["Modyo<br/>(Micro-frontends)"]\n'
         '        SIW["SIWEB<br/>(Banca Internet)"]\n'
         '        subgraph CAT_GRP["CAT \u2014 Canales Adicionales"]\n'
         '            IVR["IVR"]\n'
@@ -2902,8 +2903,9 @@ def build_systems_page(brain_path: str, out_dir) -> None:
         '        TRN["Temenos Transact<br/>Cr\u00e9dito Simple Empresarial \u00b7 live"]\n'
         '    end\n'
         '    subgraph MID["Middleware \u2014 API / Integraci\u00f3n"]\n'
-        '        APG["Apigee<br/>(API Gateway \u00b7 EOL 2027)"]\n'
-        '        MUL["MuleSoft<br/>(ESB target)"]\n'
+        '        APG["Apigee<br/>(API Manager \u00b7 GCP us-central1)"]\n'
+        '        MUL["MuleSoft<br/>(ESB)"]\n'
+        '        WBM["WebMethods BPM<br/>(OnBoarding)"]\n'
         '        IBUS["IBM BUS / IIB<br/>(ODBC \u2192 Core)"]\n'
         '        IACT["InterAct / Syndein<br/>(ISO-8583 \u2192 Core)"]\n'
         '        CDR["Connect:Direct<br/>(Batch PGP)"]\n'
@@ -2912,6 +2914,7 @@ def build_systems_page(brain_path: str, out_dir) -> None:
         '    subgraph DAT["Datos"]\n'
         '        ATL["Atlas / AlloyDB<br/>(GCP \u00b7 Golden Record)"]\n'
         '        TDH["Temenos Data Hub<br/>(near-realtime)"]\n'
+        '        YUG["YugabyteDB<br/>(BD Transaccional AWS)"]\n'
         '        DWH["DataStage \u2192 DWH<br/>(Reportes CNBV \u00b7 RiskLogic)"]\n'
         '    end\n'
         '    subgraph LEG["Core Legado \u2014 baseline"]\n'
@@ -2922,6 +2925,7 @@ def build_systems_page(brain_path: str, out_dir) -> None:
         '        VMC["VISA / MC / PROSA"]\n'
         '        BNX["Banxico<br/>(SPEI \u00b7 CoDi)"]\n'
         '        BUR["Bur\u00f3 / C\u00edrculo"]\n'
+        '        LAT["Latinia<br/>(SMS / Email)"]\n'
         '        AWS["AWS Transfer Family<br/>(SFTP \u00b7 PGP)"]\n'
         '    end\n'
         '\n'
@@ -2930,6 +2934,17 @@ def build_systems_page(brain_path: str, out_dir) -> None:
         '    CLT_S --> SIW\n'
         '    CLT_C --> IVR\n'
         '    CLT_C --> ICT\n'
+        '    APO --> MDY\n'
+        '    APO --> WBM\n'
+        '\n'
+        '    APP -->|"API Gateway"| APG\n'
+        '    APO -->|"API Gateway"| APG\n'
+        '    SIW -->|"API Gateway"| APG\n'
+        '    APG -->|"routing"| MUL\n'
+        '    MUL -->|"ESB"| SV\n'
+        '    MUL -->|"ESB"| TRN\n'
+        '    MUL -.->|"reemplaza"| IBUS\n'
+        '    MUL -.->|"reemplaza"| IACT\n'
         '\n'
         '    APP -->|"API \u00b7 Autorizaciones<br/>ISV-APP-001"| SV\n'
         '    IVR -->|"API \u00b7 Consulta / Pago<br/>ISV-CAT-001/002"| SV\n'
@@ -2940,13 +2955,6 @@ def build_systems_page(brain_path: str, out_dir) -> None:
         '    APO -->|"Onboarding digital<br/>ISV-APP-005"| TRN\n'
         '    APO -->|"Post-originaci\u00f3n<br/>ISV-CAT-008"| SV\n'
         '\n'
-        '    APP -->|"API Gateway"| APG\n'
-        '    APO -->|"API Gateway"| APG\n'
-        '    SIW -->|"API Gateway"| APG\n'
-        '    APG -->|"routing"| SV\n'
-        '    APG -.->|"migraci\u00f3n 2027"| MUL\n'
-        '    MUL -.->|"reemplaza"| IBUS\n'
-        '    MUL -.->|"reemplaza"| IACT\n'
         '    AWS -->|"Batch PGP \u2192 INF<br/>ISV-01"| INF\n'
         '    INF -->|"Batch PGP \u2192 CDR<br/>ISV-02"| CDR\n'
         '    CTM --> INF\n'
@@ -2954,6 +2962,8 @@ def build_systems_page(brain_path: str, out_dir) -> None:
         '    IACT --> INF\n'
         '\n'
         '    TRN --> TDH\n'
+        '    TRN --> YUG\n'
+        '    APO --> YUG\n'
         '    TDH --> DWH\n'
         '    INF --> DWH\n'
         '    DWH -->|"R-04-C \u00b7 cartera"| BNX\n'
@@ -2962,6 +2972,7 @@ def build_systems_page(brain_path: str, out_dir) -> None:
         '    SV  --> EGL\n'
         '    EGL --> VMC\n'
         '    CDR --> VMC\n'
+        '    SV  --> LAT\n'
         '    ATL -.->|"Golden Record"| APO\n'
         '    ATL -.->|"Golden Record"| SV\n'
         '\n'
@@ -2974,15 +2985,17 @@ def build_systems_page(brain_path: str, out_dir) -> None:
         '    classDef target  fill:#0d3320,stroke:#1a7a4a,color:#7affc4\n'
         '    classDef data    fill:#0d1a33,stroke:#2a4a8a,color:#7b9fd4\n'
         '    classDef ext     fill:#1a1a2e,stroke:#444466,color:#aaaacc\n'
+        '    classDef wbm     fill:#2a1a3d,stroke:#8a4acd,color:#d4b0ff\n'
         '    class SV,TRN newR4\n'
-        '    class APP,APO,SIW,IVR channel\n'
+        '    class APP,APO,SIW,IVR,MDY channel\n'
         '    class ICT riesgo\n'
         '    class INF legacy\n'
         '    class IBUS,IACT,CDR,CTM mid\n'
         '    class APG apigee\n'
         '    class MUL target\n'
-        '    class ATL,TDH,DWH data\n'
-        '    class EGL,VMC,BNX,BUR,AWS ext\n'
+        '    class ATL,TDH,DWH,YUG data\n'
+        '    class EGL,VMC,BNX,BUR,LAT,AWS ext\n'
+        '    class WBM wbm\n'
     )
 
     _html = (
@@ -3096,7 +3109,7 @@ def main():
     cube_imgs = capture_cube_screenshots(out_path, img_dir)
     if cube_imgs:
         out_path.write_text(render(data, cube_imgs=cube_imgs), encoding="utf-8")
-        print(f"[build-portal] Screenshots embebidos ✓")
+        print(f"[build-portal] Screenshots embebidos OK")
 
     # Parcheo de títulos en lifecycle-p4900.html (no tiene generador propio aún)
     lifecycle_path = out_path.parent / "lifecycle-p4900.html"
@@ -3325,7 +3338,7 @@ def main():
                             "  fw.innerHTML = html;\n" + narr_insert_js + steps_render_js)
 
         lifecycle_path.write_text(lc, encoding="utf-8")
-        print(f"[build-portal] lifecycle-p4900.html títulos actualizados ✓")
+        print(f"[build-portal] lifecycle-p4900.html títulos actualizados OK")
 
     # Drill-down Vista Sistemas
     build_systems_page(str(brain_path), out_path.parent)

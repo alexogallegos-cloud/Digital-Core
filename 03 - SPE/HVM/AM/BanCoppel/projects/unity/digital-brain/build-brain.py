@@ -5670,9 +5670,9 @@ TRACK_RAG = [  # 5 tracks RAG desde PPTX 11-ago-2026
         "hu_could": 0,
         "hu_wont": 1,
         "integraciones_count": 7,
-        "rag_general": "CONFIRMADO 2026-08-19: amarillo en las tres dimensiones. Maquila y Homologacion de Comisiones omnicanal no cierran antes del 15-Oct.",
-        "rag_solucion": "18 User Stories con fechas comprometidas. Diferimiento MCI al 27-Nov sin impacto en SIT.",
-        "rag_integraciones": "Inventario pendiente de Validar y completar con APIficacion y SIWEB. DTMs Comisiones sin fecha.",
+        "rag_general": "Cobertura PreGame 55% sobre 22 User Stories (11 must). SVFM no licenciado en QA — PayTrue sustituye motor de fraude. BYU0039 abierto en ValueEdge bloquea 2 DTMs de saldo a favor sin fecha de cierre. DPP no contratado deja TRNTs de pagos CrediSoluciones sin cobertura.",
+        "rag_solucion": "14 DTMs en 6 macro-funciones; 4 en gap o POR DETERMINAR (DPP cancelacion, BYU0039 x2, IVR-SVIP). PreGame: 2 nativas, 3 configurables, 13 parciales. MCI diferido al 27-Nov.",
+        "rag_integraciones": "E-Global → SmartVista: autorizador 88 reglas (Modulo 1 ISO + Modulo 2 PayTrue). Maquila OCG/Cargen manual bloquea automatizacion en R4.",
         "tipo_solucion_detail": "15 Solucion + 6 Solucion+Integracion + 1 Integracion",
         "impacto_solucion_detail": "3 Desarrollo + 18 Desarrollo+Config.",
         "complejidad_detail": "4 Alta + 16 Media + 2 Baja",
@@ -5687,9 +5687,9 @@ TRACK_RAG = [  # 5 tracks RAG desde PPTX 11-ago-2026
         "hu_could": 1,
         "hu_wont": 2,
         "integraciones_count": 4,
-        "rag_general": "CORREGIDO 2026-08-19: RAG GENERAL = AMARILLO, no rojo. El rojo aplica solo a la dimension INTEGRACIONES. El deck 11-ago tiene 3 semaforos por track y accent2 del tema = F0D224 (amarillo). 6 User Stories Must cierran implementacion 6-20 Nov — riesgo directo sobre SIT y Go-live enero.",
-        "rag_solucion": "10 User Stories analisis completado. 8 cierran ago-sep. 2 User Stories sin fechas de implementacion confirmadas.",
-        "rag_integraciones": "4 integraciones API identificadas. Inventario en consolidacion. Sin detalles tecnicos de volumenes/tiempos.",
+        "rag_general": "6 User Stories Must Have cierran en noviembre, tras SIT 15-oct — riesgo directo go-live enero. Apolo con latencia 9s en produccion y 30s en QA sin SLA de mejora comprometido. DPP no contratado deja Compra Diferida fuera de alcance R4.",
+        "rag_solucion": "Compromiso AppWhere: 6 User Stories antes del 31-ago y activar PEN-002. Confirmar SLA latencia Apolo post-mejoras. Descopar DPP si no se licencia antes de octubre.",
+        "rag_integraciones": "SVIP activo para consulta y pago TDC via feature flag. DPP bloqueado; ICCAT depende de contratacion CAT.",
         "tipo_solucion_detail": "10 Solucion + 4 Solucion+Integracion + 4 Integracion",
         "impacto_solucion_detail": "18 Desarrollo",
         "complejidad_detail": "7 Alta + 6 Media + 5 Baja",
@@ -5704,9 +5704,9 @@ TRACK_RAG = [  # 5 tracks RAG desde PPTX 11-ago-2026
         "hu_could": 0,
         "hu_wont": 0,
         "integraciones_count": 7,
-        "rag_general": "CONFIRMADO 2026-08-19: unico track ROJO en las TRES dimensiones. Doble bloqueo: proveedor sin contratar y DTMs sin responsable confirmado.",
-        "rag_solucion": "Cero fechas de implementacion. Proveedor entra ~mid-Sep con 1 mes onboarding — inicio real coincide con SIT.",
-        "rag_integraciones": "Sin fechas ni responsable de DTMs confirmado. Pendiente trazabilidad completa de integraciones.",
+        "rag_general": "Proveedor sin contratar, deadline 31-ago-2026. Sin firma, 12 User Stories y CAP-CHANNEL-SELFSERVICE + CAP-AUTHENTICATION quedan sin cobertura para go-live enero 2027. DTMs consulta saldo y perfil de cliente sin responsable asignado.",
+        "rag_solucion": "Designar owner de contratacion antes del 25-ago per SIAM Charter. Definir si IVR propio o integrado y si ICCAT o SVIP es el middleware. Sin inicio de implementacion posible hasta firma.",
+        "rag_integraciones": "SVIP para consulta saldo y robo/extravio TDC. ICCAT para perfil de cliente sin definir; depende de DTMs AppWhere.",
         "tipo_solucion_detail": "5 Solucion + 7 Solucion+Integracion",
         "impacto_solucion_detail": "3 Desarrollo + 4 Configuracion + 5 Desarrollo+Config.",
         "complejidad_detail": "4 Alta + 4 Media + 4 Baja",
@@ -5721,9 +5721,9 @@ TRACK_RAG = [  # 5 tracks RAG desde PPTX 11-ago-2026
         "hu_could": 0,
         "hu_wont": 0,
         "integraciones_count": None,
-        "rag_general": "CORREGIDO 2026-08-19: GENERAL y SOLUCION amarillo; ROJO en INTEGRACIONES. Sin fechas de implementacion confirmadas. 10 semanas construccion desde 18-Ago llegan al 29-Oct — 2 sem. despues del cierre.",
-        "rag_solucion": "Cero fechas de implementacion. APIficacion entrega DTMs el 18-Ago — a partir de ahi se confirman fechas.",
-        "rag_integraciones": "Numero de integraciones pendiente de confirmar con APIficacion. Sesion tecnica acordada.",
+        "rag_general": "Construccion arranca 18-ago: 10 semanas llevan al 29-oct — 2 semanas despues del inicio SIT 15-oct. API ISV06 GetDPP de SmartVista no definida, bloqueando inicio de construccion. 5 User Stories (todas should-have) presionan cronograma.",
+        "rag_solucion": "BPC debe definir ISV06 GetDPP antes del 25-ago. Iniciar construccion con mocks para no perder semanas. Ajustar plan SIT para absorber entrada tardia sin comprometer Code Freeze 15-dic.",
+        "rag_integraciones": "ISV06 GetDPP bloqueante no definido por BPC. SVIP APIs pendientes de certificacion. Routing TDC a SmartVista; otros productos a Informix sin cambio.",
         "tipo_solucion_detail": "5 Solucion+Integracion",
         "impacto_solucion_detail": "5 Desarrollo+Configuracion",
         "complejidad_detail": "Pendiente por numero de integraciones faltante",
@@ -5738,9 +5738,9 @@ TRACK_RAG = [  # 5 tracks RAG desde PPTX 11-ago-2026
         "hu_could": None,
         "hu_wont": None,
         "integraciones_count": None,
-        "rag_general": "SIN FUENTE 2026-08-19: el deck 11-ago NO tiene lamina RAG de Apolo ni de Cobranza, solo SmartVista, APP, CAT y SIWEB. Este RAG es inferencia nuestra, sin respaldo documental. NO presentarlo como dato del programa. Track incluido en roadmap — detalle por User Story en Inventario User Stories (22 User Stories).",
-        "rag_solucion": "9 User Stories candidatas a simplificacion segun PPTX slide 7 (diferir a R4.1).",
-        "rag_integraciones": "Inventario en consolidacion con APIficacion.",
+        "rag_general": "Amarillo. CB2 Certificacion de Arquitectura corre 105 dias hasta 5-ene-2027 — sin aprobacion bloquea el pase a produccion. Latencia actual 9,000ms vs SLO R4 de 5,000ms (out-of-SLO hoy). Solo 9 dias de margen entre pase a produccion (6-ene) y go-live (15-ene).",
+        "rag_solucion": "Fase 1 completada (5-ago). 25 User Stories MVP1 con VoBo; 13 sprints backend iniciando. 10 User Stories Recuperacion de Solicitud diferidas a MVP2 fuera del go-live ene-2027.",
+        "rag_integraciones": "HDU-20 BB16 (DTM-15 REC_ExecuteCreditContracting, SA=12 Alta): firma → SmartVista → OnBase — 6 sprints finales; retraso aqui bloquea go-live.",
         "tipo_solucion_detail": None,
         "impacto_solucion_detail": None,
         "complejidad_detail": None,
@@ -5755,9 +5755,9 @@ TRACK_RAG = [  # 5 tracks RAG desde PPTX 11-ago-2026
         "hu_could": None,
         "hu_wont": None,
         "integraciones_count": 0,
-        "rag_general": "ROJO por opacidad total 2026-08-20: track completamente opaco — sin backlog compartido, sin User Stories formalizadas, sin integraciones documentadas. RISK-UNITY-R06 VENCIDO. ACT-005 BREACH desde 07-ago (13 dias). Impacta 3 User Stories dependientes en App y CAT.",
-        "rag_solucion": "Estimado 45 User Stories (rango 37-50, en consolidacion). Proveedor identificado pero backlog sin compartir con Accenture. Pentest nov 15-20 entra en conflicto con SIT.",
-        "rag_integraciones": "Sin inventario de integraciones disponible. Solo cargas de datos identificadas (0 integraciones API formalizadas).",
+        "rag_general": "RISK-UNITY-R06 vencido sin mitigacion confirmada. Pentest 15-20 nov corre paralelo al SIT activo — riesgo corrupcion datos de prueba; decision A-D debe tomarse antes del 30-sep. Tres User Stories de Cobranza dependen de App y de CAT sin contratar.",
+        "rag_solucion": "Decidir opcion pentest A-D antes del 30-sep. Cerrar RISK-R06 con evidencia formal ante PMO. Desbloquear las 3 User Stories dependientes una vez firmado el contrato CAT.",
+        "rag_integraciones": "Aging E1/E2/E3 via SmartVista. Integracion Informix-SmartVista sin protocolo formal; ADR-UNITY-003 pendiente de firma.",
         "tipo_solucion_detail": None,
         "impacto_solucion_detail": None,
         "complejidad_detail": None,
@@ -6039,7 +6039,7 @@ SYSTEM_SDLC_DATA = {
     },
     "apolo": {
         "sdlc_phase": "BUILD", "sdlc_progress": 45, "sdlc_status": "red",
-        "sdlc_summary": "Canal digital (Appwhere) para oferta y originacion de TDC. Issue I03: celula sin contratar (abierto 3+ meses, impacto sistemico critico). R05: latencia en PROD sin plan de mejora firmado.",
+        "sdlc_summary": "Plataforma de originacion digital AppWhere: onboarding, contratacion, firma y activacion de la TDC Clasica P4900 end-to-end. BUILD activo: 25 User Stories MVP1 (22 VoBo + 3 Taggeo) sobre 17 Building Blocks; 13 sprints backend en curso. CB2 Certificacion de Arquitectura corre hasta 5-ene-2027 — 9 dias antes del go-live sin margen de contingencia. Latencia PROD activa: 9,000ms vs SLO R4 de 5,000ms sin plan de mejora firmado. HDU-20 BB16 (firma → SmartVista → OnBase, SA=12 Alta): integracion critica que consume los ultimos 6 sprints del proyecto.",
         "exclude_from_portal": 0,
         "milestones": [
             {"seq": 1, "label": "37 User Stories APOLO catalogadas",     "target_date": "2026-08-01","status": "done"},
@@ -6069,7 +6069,7 @@ SYSTEM_SDLC_DATA = {
     },
     "siweb": {
         "sdlc_phase": "DISCOVER", "sdlc_progress": 15, "sdlc_status": "red",
-        "sdlc_summary": "Canal web de sucursal (ventanilla interna BanCoppel). 5 User Stories Must Have. Bloqueado: APIs SmartVista BPC sin fecha de entrega confirmada.",
+        "sdlc_summary": "Canal web BanCoppel para operaciones TDC en sucursal (SIWEB). 5 User Stories (todas should-have). Construccion arranca 18-ago; 10 semanas llevan al 29-oct — 2 semanas despues del inicio SIT 15-oct. Bloqueado por API ISV06 GetDPP de SmartVista sin definir; inicio real depende de entrega BPC antes del 25-ago.",
         "exclude_from_portal": 0,
         "milestones": [
             {"seq": 1, "label": "5 User Stories definidas (requerimientos)","target_date": "2026-07","status": "done"},
@@ -6161,6 +6161,20 @@ SYSTEM_SDLC_DATA = {
         ],
         "capabilities": ["CAP-CARD-LIFECYCLE","CAP-CARD-MANUFACTURING"],
     },
+    # --- v2.0.0 desde Documento Arquitectura UNITY_v1.0 — sin User Stories R4 propias ---
+    "modyo":          {"sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",  "sdlc_summary": "Micro-frontends de Apolo (Modyo Platform + Connect). En produccion; sin User Stories R4 independientes — se prueba dentro del track Apolo.", "exclude_from_portal": 1, "milestones": [], "capabilities": ["CAP-ONBOARDING-DIGITAL"]},
+    "incode":         {"sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",  "sdlc_summary": "Validacion biometrica de Apolo (INE, CURP/RENAPO, KYC). Proveedor externo en AWS; sin User Stories propias — cubierto por track Apolo.", "exclude_from_portal": 1, "milestones": [], "capabilities": ["CAP-ONBOARDING-DIGITAL"]},
+    "yugabyte":       {"sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",  "sdlc_summary": "BD transaccional para prospectos Apolo y CBS en AWS. Sin User Stories R4 propias — se valida en SIT de Apolo y Transact.", "exclude_from_portal": 1, "milestones": [], "capabilities": ["CAP-ONBOARDING-DIGITAL","CAP-CUSTOMER-PROFILE"]},
+    "webmethods":     {"sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",  "sdlc_summary": "Orquestador BPM de sesion OnBoarding (Software AG WebMethods). Sin User Stories R4 propias — cubierto por track Apolo.", "exclude_from_portal": 1, "milestones": [], "capabilities": ["CAP-ONBOARDING-DIGITAL"]},
+    "latinia":        {"sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",  "sdlc_summary": "Notificaciones SMS/email de SmartVista CMS por eventos de tarjeta. Sin User Stories R4 propias — cubierto por track SmartVista.", "exclude_from_portal": 1, "milestones": [], "capabilities": ["CAP-CARD-LIFECYCLE"]},
+    "amazon-mq":      {"sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",  "sdlc_summary": "Broker de mensajes para CBS (AWS). Sin User Stories R4 propias — cubierto por track Transact.", "exclude_from_portal": 1, "milestones": [], "capabilities": []},
+    "amazon-kinesis": {"sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",  "sdlc_summary": "Streaming de eventos CBS en AWS. Sin User Stories R4 propias — cubierto por track Transact.", "exclude_from_portal": 1, "milestones": [], "capabilities": []},
+    "imperva-waf":    {"sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",  "sdlc_summary": "WAF perimetral de Apolo (Imperva). Sin User Stories R4 propias — seguridad perimetral gestionada por BanCoppel.", "exclude_from_portal": 1, "milestones": [], "capabilities": []},
+    "exabeam":        {"sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",  "sdlc_summary": "SIEM/UEBA para CBS (Exabeam). Sin User Stories R4 propias — seguridad CBS gestionada por BanCoppel.", "exclude_from_portal": 1, "milestones": [], "capabilities": []},
+    "amazon-pinpoint":{"sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",  "sdlc_summary": "Notificaciones push/SMS/email para Apolo (AWS Pinpoint). Sin User Stories R4 propias — cubierto por track Apolo.", "exclude_from_portal": 1, "milestones": [], "capabilities": ["CAP-ONBOARDING-DIGITAL"]},
+    "flo-networks":   {"sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",  "sdlc_summary": "Proveedor telecom BanCoppel (Direct Connect AWS/GCP). Infraestructura de red; sin User Stories R4 propias.", "exclude_from_portal": 1, "milestones": [], "capabilities": []},
+    "openshift":      {"sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",  "sdlc_summary": "Plataforma de despliegue CBS en AWS (Red Hat OpenShift). Sin User Stories R4 propias — cubierto por track Transact.", "exclude_from_portal": 1, "milestones": [], "capabilities": []},
+    "azure-ad":       {"sdlc_phase": "OPERATE", "sdlc_progress": 100, "sdlc_status": "green",  "sdlc_summary": "Identity Provider transversal (Microsoft Entra). Sin User Stories R4 propias — IDP gestionado por BanCoppel y vendors.", "exclude_from_portal": 1, "milestones": [], "capabilities": []},
 }
 
 
@@ -6200,16 +6214,21 @@ def load_system_sdlc(con: sqlite3.Connection) -> None:
 
         -- Lifecycle Validator Tables (Swarm v1.0)
         CREATE TABLE IF NOT EXISTS lifecycle_phases (
-            phase_id    TEXT PRIMARY KEY,
-            name        TEXT,
-            num         TEXT,
-            icon        TEXT,
-            color       TEXT,
-            description TEXT,
-            coverage    TEXT,
-            us_count    INTEGER,
-            validated   INTEGER DEFAULT 0,
-            updated_at  TEXT
+            phase_id            TEXT PRIMARY KEY,
+            name                TEXT,
+            num                 TEXT,
+            icon                TEXT,
+            color               TEXT,
+            description         TEXT,
+            coverage            TEXT,
+            us_count            INTEGER,
+            track               TEXT,
+            notes               TEXT,        -- JSON array de strings
+            narrative_industry  TEXT,
+            narrative_kpis      TEXT,        -- JSON array [{k,v}]
+            narrative_brechas   TEXT,        -- JSON array [{txt,level}]
+            validated           INTEGER DEFAULT 0,
+            updated_at          TEXT
         );
 
         CREATE TABLE IF NOT EXISTS lifecycle_flow_nodes (
@@ -6366,7 +6385,8 @@ def main() -> None:
     load_audit_findings(con)   # v1.2.0  --  19 hallazgos del barrido (cifras, correcciones, ambiguedades)
     load_lifecycle_phase_steps(con)
     load_program_systems(con)
-    load_system_sdlc(con)          # v1.5.0  --  fase/progreso/milestones/caps por sistema (desde brain.db)
+    load_system_sdlc(con)          # v1.5.0 -- crea lifecycle_phases y tablas Swarm aquí
+    load_lifecycle_phases_and_flows(con)  # v2.0.0 -- popula lifecycle_phases desde constante          # v1.5.0  --  fase/progreso/milestones/caps por sistema (desde brain.db)
     load_coexistence_rules(con)    # v1.6.0  --  9 reglas routing Informix<->Unity por tipo op / canal
     load_migration_map(con)        # v1.6.0  --  20 entries mapeo dominio Informix -> sistema Unity
     load_functional_duplicity(con) # v1.7.0  --  23 candidatos swarm DT-SWAP-01..08 duplicidad funcional
@@ -6633,6 +6653,239 @@ def load_lifecycle_phase_steps(con: sqlite3.Connection) -> None:
         by_phase[p] = by_phase.get(p, 0) + 1
     brain_n = sum(1 for r in LIFECYCLE_PHASE_STEPS if r.get("fuente") == "brain")
     print(f"  lifecycle_phase_steps: {len(LIFECYCLE_PHASE_STEPS)} pasos  |  brain={brain_n}  |  fases={len(by_phase)}")
+
+
+# ── v2.0.0 Lifecycle Phases & Flows ──────────────────────────────────────────
+# Fuente de verdad de las 8 fases del lifecycle TDC. Migrado desde las constantes
+# Python de build-lifecycle.py (PHASE_META/DESC/NOTES/NARRATIVES/FLOWS).
+# Carga en: lifecycle_phases + lifecycle_flow_nodes + lifecycle_flow_arrows.
+LIFECYCLE_PHASES_DATA = {
+    "order": ["originacion","emision","activacion","autorizacion",
+              "transacciones","pagos","contabilidad","cobranza"],
+    "phases": {
+        "originacion": {
+            "num":"01","name":"Originación","icon":"📝","color":"#9C27B0",
+            "track":"apolo","us_count":22,"coverage":"completa",
+            "desc":"Solicitud y evaluación crediticia del cliente para la Tarjeta de Crédito.",
+            "notes":[
+                "Conteo verificado: 22 User Stories, todo el track Apolo del inventario. Es el único caso donde una fase equivale a un track completo.",
+                "Flujo interno APOLO esquemático — pantallas intermedias de solicitud pendientes de mapeo detallado.",
+            ],
+            "narrative":{
+                "industria":"La originación es el primer momento de relación del cliente con el producto. En México, la CONDUSEF exige entregar el Resumen de Contrato con el CAT (Costo Anual Total) calculado conforme a la Circular 9/2019 de Banxico, y el banco debe registrar el contrato de adhesión en el RECA antes de usarlo. El flujo incluye validación KYC, consulta al Buró de Crédito, scoring crediticio (CES) y alta en el sistema de gestión de tarjetas. La LFPIORPI exige que el banco aplique controles PLD desde la solicitud.",
+                "kpis":[{"k":"Tasa de aprobación","v":"30-55% (varía por segmento)"},{"k":"Tiempo de resolución digital","v":"< 5 minutos"},{"k":"Activación a 30 días","v":"> 70%"},{"k":"CAT comunicado correctamente","v":"100% (CONDUSEF)"}],
+                "brechas":[{"txt":"Pantallas intermedias del flujo de solicitud APOLO sin mapear","level":"warn"},{"txt":"Clientes objetivo (volumen / segmento) sin definir — GAP-VP-001","level":"crit"},{"txt":"Latencia 9 seg en producción — sin plan de mejora confirmado","level":"crit"},{"txt":"Contrato CONDUSEF (RECA): fecha de registro no confirmada","level":"warn"}],
+            },
+            "flows":[
+                {"nodes":["Cliente"]},
+                {"nodes":["APOLO"],                  "arrow":"solicitud digital"},
+                {"nodes":["PLD","Buró","KYC","CES"], "arrow":"validaciones paralelas"},
+                {"nodes":["SmartVista"],             "arrow":"alta de cuenta"},
+            ],
+        },
+        "emision": {
+            "num":"02","name":"Emisión y maquila","icon":"🏭","color":"#00838F",
+            "track":"smartvista","us_count":8,"coverage":"completa",
+            "desc":"Generación del plástico. SmartVista SVBO arma el lote, OCG genera el archivo de solicitudes aprobadas, Cargen aplica filtros y prepara el layout, se cifra con PGP y Connect-Direct lo deposita en la carpeta del maquilador.",
+            "notes":[
+                "Conteo verificado: 8 User Stories de la funcionalidad 'Automatización de Maquila' en el track SmartVista.",
+                "BLOQUEANTE: el depósito automático en Connect-Direct no está en producción y hoy se hace manual por tickets.",
+                "Cuatro maquiladores según el FSD0107 de BPC: Thales, G+D, TGS (Thomas Greg and Son) y Forza Form. Estrategia acordada: un solo proveedor, pendiente de definir con Negocio.",
+                "El HSM Thales payShield 10K asegura PIN y CVV2 en la personalización.",
+            ],
+            "narrative":{
+                "industria":"La emisión convierte una cuenta aprobada en un instrumento de pago. El sistema de gestión de tarjetas arma el lote de personalización, un módulo generador produce el archivo cifrado con PGP y lo transfiere al maquilador vía protocolo seguro (Connect-Direct o SFTP). El HSM (Hardware Security Module) genera y custodia las llaves por tarjeta — control mandatorio PCI-DSS Req. 3.6. El maquilador embosa el plástico, instala el chip y envía la tarjeta al cliente. Tiempo estándar en México: 5-10 días hábiles desde aprobación.",
+                "kpis":[{"k":"Aprobación → tarjeta en mano","v":"5-10 días hábiles"},{"k":"Tasa de defectos de maquila","v":"< 0.1%"},{"k":"Activación post-maquila 30d","v":"> 70%"},{"k":"Integridad de lote (PCI-DSS)","v":"100%"}],
+                "brechas":[{"txt":"Connect-Direct no en producción — depósito manual por tickets","level":"crit"},{"txt":"Maquilador único no definido formalmente — riesgo de capacidad","level":"warn"},{"txt":"Inconsistencia de maquiladores en documentación (3-5 proveedores)","level":"warn"},{"txt":"SLA de tiempo aprobación→tarjeta en mano: sin definir — GAP-VP-002","level":"warn"}],
+            },
+            "flows":[
+                {"nodes":["SVBO"]},
+                {"nodes":["OCG"],            "arrow":"archivo de solicitudes aprobadas"},
+                {"nodes":["Cargen"],         "arrow":"filtros y layout de maquila"},
+                {"nodes":["Connect-Direct"], "arrow":"cifrado PGP","pending":True},
+                {"nodes":["Maquilador"],     "arrow":"archivo de realce"},
+            ],
+        },
+        "activacion": {
+            "num":"03","name":"Activación","icon":"✅","color":"#1565C0",
+            "track":"app","us_count":2,"coverage":"completa",
+            "desc":"El cliente activa su tarjeta desde la App Móvil validando identidad en tiempo real.",
+            "notes":[
+                "Conteo verificado: 2 User Stories en App para tarjeta digital. Rutas ATM y SIWEB documentadas como Customer Journey (CJ_ATM_01, CJ_OFI_22) pero sin User Story propia en R4.",
+                "Provisión de token digital (Apple Pay / Google Pay): no mencionada en R4.",
+            ],
+            "narrative":{
+                "industria":"La CONDUSEF exige que ninguna tarjeta esté activa al momento de entregarse al cliente: el portador debe activarla explícitamente, lo que constituye una segunda confirmación del consentimiento. La industria ofrece cuatro canales: App móvil (preferente en productos digitales), IVR, sucursal y ATM. Para tarjeta digital, la activación incluye la provisión del token de pago en billeteras digitales (Apple Pay / Google Pay) mediante el protocolo EMVCo 3DS del emisor.",
+                "kpis":[{"k":"Tasa de activación a 30 días","v":"> 70%"},{"k":"Tasa de activación a 7 días","v":"> 40% (digital-first)"},{"k":"Tiempo al primer uso","v":"< 48 horas"},{"k":"Intentos fallidos","v":"< 5%"}],
+                "brechas":[{"txt":"Activación por ATM: Customer Journey documentado pero sin User Story en R4","level":"warn"},{"txt":"Activación por sucursal (SIWEB): Customer Journey documentado pero sin User Story en R4","level":"warn"},{"txt":"Provisión de token digital (Apple Pay / Google Pay): no mencionada en R4","level":"warn"}],
+            },
+            "flows":[
+                {"nodes":["App Móvil"]},
+                {"nodes":["CES"],        "arrow":"verificar identidad"},
+                {"nodes":["SmartVista"], "arrow":"activar tarjeta"},
+            ],
+        },
+        "autorizacion": {
+            "num":"04","name":"Autorización","icon":"🔐","color":"#2E7D32",
+            "track":"smartvista","us_count":1,"coverage":"completa",
+            "desc":"Autorización en tiempo real de compras. E-Global entrega el mensaje ISO 8583 a SmartVista BPC, que resuelve con sus 88 reglas y devuelve la respuesta al comercio.",
+            "notes":[
+                "Conteo verificado: 1 User Story — 'Reglas del autorizador (88 reglas)'. Única historia que sostiene 88 reglas; cierra análisis el 16-oct-2026.",
+                "La autorización es de ida y vuelta: no llega a Temenos Transact ni a Informix. Cita FSD0107 v5.5: 'PISA (CBS) no será responsable de esta actividad'.",
+                "CORRECCIÓN: PayTrue NO está en la ruta sincrónica. Se alimenta por archivo en carpeta con ciclos de 3 minutos (SmartVista SVIP a carpeta SV).",
+                "CONTRADICCIÓN ABIERTA sobre SmartVista SVFM: PreGame 28-jul dice no licenciado; Plan de Trabajo 12-ago dice binario instalado y conectividad SVFM-SVFE probada.",
+                "Las 88 reglas se pueden reordenar pero no ampliar ni recortar.",
+                "Dos rutas de entrada según canal: e-Global a SmartVista SVBO para e-commerce; e-Global a GlobalPOSe para POS físico.",
+                "Segundo autorizador en paralelo: Interact Switch de Syndein, legado, para POS y ATM de terceros.",
+            ],
+            "narrative":{
+                "industria":"La autorización ocurre en tiempo real para cada intento de compra. El flujo ISO 8583 lleva el mensaje del POS o e-commerce al emisor vía la red adquirente. El motor de autorización (SmartVista SVFE) aplica las reglas del producto — límite disponible, validez de tarjeta, CVV2, control de fraude — y devuelve aprobación o rechazo en milisegundos. Visa penaliza emisores con alta tasa de declinación injustificada. La CNBV exige reportar eventos de fraude y mantener controles activos de riesgo transaccional.",
+                "kpis":[{"k":"Tasa de autorización","v":"> 85% (Visa: > 90% para emisores maduros)"},{"k":"Latencia P99","v":"< 2,000 ms"},{"k":"Tasa de fraude","v":"< 0.05% (benchmark CNBV)"},{"k":"Disponibilidad 24×7","v":"> 99.9%"}],
+                "brechas":[{"txt":"Contradicción abierta sobre SmartVista SVFM (módulo fraude): licenciado vs. no licenciado","level":"crit"},{"txt":"SLA de autorización (latencia P99): sin definir en contrato R4 — GAP-VP-002","level":"warn"},{"txt":"3DS v2 para e-commerce: sin evidencia de implementación en R4","level":"warn"},{"txt":"Segunda User Story de cierre de análisis: 16-oct — overlap con inicio SIT 15-oct","level":"warn"}],
+            },
+            "flows":[
+                {"nodes":["Comercio"]},
+                {"nodes":["E-Global"], "arrow":"ISO 8583 (200)"},
+                {"nodes":["SVFE"],     "arrow":"88 reglas"},
+                {"nodes":["HSM"],      "arrow":"CVV2 en e-commerce"},
+                {"nodes":["E-Global"], "arrow":"respuesta ISO (210)"},
+                {"nodes":["Comercio"], "arrow":"aprobación o rechazo"},
+            ],
+        },
+        "transacciones": {
+            "num":"05","name":"Transacciones","icon":"💳","color":"#0277BD",
+            "track":"smartvista, app, cat, siweb","us_count":17,"coverage":"completa",
+            "desc":"Consulta de movimientos, saldos y estado de cuenta. Los canales consultan a SmartVista BPC, que es el libro de saldos del producto.",
+            "notes":[
+                "Conteo parcial: 4 User Stories de convivencia App. Las consultas de CAT (4 integraciones) y SIWEB no se cuentan aquí.",
+                "CORRECCIÓN: los canales consultan a SmartVista BPC — la flecha va de los canales hacia SmartVista, no al revés.",
+                "CAT es el canal con más integraciones de consulta: cuatro.",
+                "Inconsistencia en la fuente: IAPP02 e IAPP03 registrados con origen SmartVista y destino App — probable error de captura en el inventario.",
+            ],
+            "narrative":{
+                "industria":"Esta fase cubre toda la operación del portador sobre el producto activo: consultas de saldo, movimientos y estado de cuenta. La CONDUSEF exige estado de cuenta gratuito en formato regulatorio, con al menos 45 días entre fecha de corte y fecha límite de pago. Los emisores deben habilitar al menos App, IVR y sucursal. Las compras diferidas (MSI/MCI — Meses Sin/Con Intereses) son reguladas: el estado de cuenta debe mostrar el desglose de parcializaciones activas, el cargo mensual y el saldo pendiente.",
+                "kpis":[{"k":"Adopción canal digital","v":"> 60% portadores con consulta digital/mes"},{"k":"Latencia consulta P95","v":"< 2 segundos"},{"k":"Entrega estado de cuenta a tiempo","v":"100% (CONDUSEF)"},{"k":"Reclamaciones por estado de cuenta","v":"< 0.1% de cuentas"}],
+                "brechas":[{"txt":"Estado de cuenta formato CONDUSEF: sin evidencia de validación en R4","level":"warn"},{"txt":"MSI/MCI en estado de cuenta digital: sin User Story específica confirmada","level":"warn"},{"txt":"Consulta via ATM: no en scope R4","level":"warn"}],
+            },
+            "flows":[
+                {"nodes":["App Móvil","SIWEB","CAT/IVR"]},
+                {"nodes":["SmartVista"], "arrow":"consulta de movimientos y saldos"},
+            ],
+        },
+        "pagos": {
+            "num":"06","name":"Pagos","icon":"💰","color":"#00695C",
+            "track":"smartvista, app","us_count":14,"coverage":"completa",
+            "desc":"Pago de la tarjeta desde App o SIWEB. SPEI sin User Story ni integración documentada en R4.",
+            "notes":[],
+            "narrative":{
+                "industria":"El pago es la fase de mayor impacto en la relación cliente-banco y la principal causa de reclamaciones CONDUSEF si falla. El regulador exige al menos dos mecanismos de pago sin costo, fecha límite ≥ 45 días después del corte, y que el pago mínimo esté claramente definido. Los canales estándar en México incluyen: SPEI, ventanilla de sucursal, domiciliación / cargo automático, CoDi, tiendas de conveniencia y banca en línea. La acreditación del pago debe reflejarse en el saldo disponible en minutos (SPEI).",
+                "kpis":[{"k":"Tasa de pago a tiempo","v":"> 80%"},{"k":"Acreditación SPEI","v":"< 5 minutos"},{"k":"Portadores con domiciliación","v":"> 20%"},{"k":"Reclamaciones CONDUSEF por pagos","v":"< 0.05% de cuentas"}],
+                "brechas":[{"txt":"Pago en ventanilla: bloqueado por dependencia de SIWEB — sin alternativa confirmada","level":"crit"},{"txt":"Domiciliación / cargo automático: sin User Story en R4","level":"warn"},{"txt":"Pago CoDi: sin cobertura en R4 (canal Banxico en crecimiento)","level":"warn"},{"txt":"SLA de acreditación SPEI: sin definir en R4 — GAP-VP-002","level":"warn"}],
+            },
+            "flows":[
+                {"nodes":["App Móvil","SIWEB"]},
+                {"nodes":["SmartVista"], "arrow":"aplicar pago"},
+            ],
+        },
+        "contabilidad": {
+            "num":"07","name":"Contabilidad","icon":"📒","color":"#6A1B9A",
+            "track":"smartvista, apificación","us_count":None,"coverage":"completa",
+            "desc":"SmartVista SVBO es el libro de registro del crédito. La interfaz SmartVista SVXP transfiere asientos contables a Informix (PISA). Prioridad PreGame pendiente de construcción.",
+            "notes":[
+                "SIN User Stories propias en el inventario. La fase se materializa en entregables: guía contable formal y definición de tipos de transacción (TRNT) del Producto 4900.",
+                "La frontera contable canónica es SmartVista BPC → SmartVista SVXP → Informix (PISA).",
+                "Temenos Transact no participa en el ciclo del Producto 4900.",
+                "CORRECCIÓN: TRNT no es un sistema — es el tipo de transacción contable de SmartVista BPC.",
+                "Para el BIN 42680711 la conciliación en PISA es solo informativa: registra y marca como conciliada sin generar cargo ni abono.",
+                "Bloqueador abierto: PP-TRNT-PAGOS reporta definición de TRNTs de Pagos al 0% contra 100% esperado; owner BPC.",
+            ],
+            "narrative":{
+                "industria":"La contabilidad y conciliación es invisible para el cliente pero crítica para el regulador. La CNBV — vía la Circular Única de Bancos, Anexos 33 y 36 — exige que cada transacción del portador quede registrada en el libro contable central (core bancario) el mismo día. El posting diario genera los asientos contables en el procesador de tarjetas (SmartVista BPC), que se transfieren al core vía archivo SmartVista SVXP. La conciliación garantiza que el total de transacciones autorizadas coincida con los movimientos contabilizados. La NIF C-16 exige estimar y registrar mensualmente la provisión por pérdida esperada sobre la cartera.",
+                "kpis":[{"k":"Conciliación D+0","v":"> 99.5%"},{"k":"Breaks sin resolver > 24h","v":"0 (objetivo CNBV)"},{"k":"Latencia de posting","v":"< 4 horas post-cierre"},{"k":"Compliance reportería CNBV","v":"100% — multas automáticas"}],
+                "brechas":[{"txt":"Interfaz SmartVista SVXP→Informix (PISA) no construida — prioridad PreGame pendiente","level":"crit"},{"txt":"Guía contable formal (TRNTs del Producto 4900) no entregada","level":"crit"},{"txt":"Nuevo tipo conciliación SOC (req. 16-nov-2023): sin plan en R4","level":"warn"},{"txt":"Provisión NIF C-16: sin evidencia de diseño en R4","level":"warn"}],
+            },
+            "flows":[
+                {"nodes":["SVBO"]},
+                {"nodes":["SVXP"],    "arrow":"archivo XML contable",       "pending":True},
+                {"nodes":["Informix"],"arrow":"la contabilidad permanece en PISA"},
+                {"nodes":["SOC"],     "arrow":"nuevo tipo de conciliación", "pending":True},
+            ],
+        },
+        "cobranza": {
+            "num":"08","name":"Cobranza","icon":"📊","color":"#B71C1C",
+            "track":"informix, smartvista","us_count":None,"coverage":"completa",
+            "desc":"Gestión de cartera vencida — aging en SmartVista BPC, batch a Informix, gestión via CAT/IVR.",
+            "notes":[
+                "SIN User Stories en el inventario de R4. Cobranza Direccionada es una iniciativa preexistente con 37-50 User Stories en refinamiento, pendiente de incorporar al inventario unificado.",
+            ],
+            "narrative":{
+                "industria":"La cobranza cierra el ciclo de crédito y determina la salud de la cartera. La CONDUSEF prohíbe llamadas fuera de 8am-9pm y exige ofrecer reestructura antes de reportar al Buró. La CNBV requiere reportar cartera vencida al SISEC mensualmente y registrar la provisión contable (NIF C-16). La gestión opera en cuatro capas de aging: preventiva (1-29 días), temprana (30-60), cartera vencida (61-120) y litigio/castigo (> 120 días). El reporte al Buró se activa al día 30 de atraso.",
+                "kpis":[{"k":"NPL ratio (cartera vencida > 90d)","v":"< 4% (TDC masiva)"},{"k":"Recuperación temprana","v":"> 60% en < 30 días de contacto"},{"k":"Contactabilidad digital","v":"> 40%"},{"k":"Reclamaciones CONDUSEF cobranza","v":"Tolerancia cero"}],
+                "brechas":[{"txt":"37-50 User Stories de Cobranza Direccionada no incorporadas al inventario R4","level":"crit"},{"txt":"Pentest nov 15-20 congela el único ambiente SIT de Cobranza","level":"crit"},{"txt":"Reporte al Buró de Crédito (SISEC): sin evidencia de diseño en R4","level":"warn"},{"txt":"Proceso de reestructura de deuda: sin alcance en R4 (CONDUSEF lo exige)","level":"warn"}],
+            },
+            "flows":[
+                {"nodes":["SmartVista"]},
+                {"nodes":["Informix"],       "arrow":"agingPeriod batch"},
+                {"nodes":["Connect-Direct"], "arrow":"archivo cobranza"},
+                {"nodes":["CAT/IVR"],        "arrow":"gestión cliente"},
+            ],
+        },
+    },
+}
+
+
+def load_lifecycle_phases_and_flows(con: sqlite3.Connection) -> None:
+    """Carga fases, flujos y narrativas industriales en lifecycle_phases/flow_nodes/flow_arrows (v2.0.0).
+    Fuente de verdad: LIFECYCLE_PHASES_DATA. build-lifecycle.py lee de estas tablas.
+    """
+    import json as _json
+    con.execute("DELETE FROM lifecycle_phases")
+    con.execute("DELETE FROM lifecycle_flow_nodes")
+    con.execute("DELETE FROM lifecycle_flow_arrows")
+
+    n_phases = n_nodes = n_arrows = 0
+    today = "2026-08-21"
+
+    for pid in LIFECYCLE_PHASES_DATA["order"]:
+        p    = LIFECYCLE_PHASES_DATA["phases"][pid]
+        narr = p.get("narrative", {})
+
+        con.execute("""
+            INSERT OR REPLACE INTO lifecycle_phases
+                (phase_id, name, num, icon, color, description, coverage,
+                 us_count, track, notes, narrative_industry, narrative_kpis,
+                 narrative_brechas, validated, updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """, (
+            pid, p["name"], p["num"], p["icon"], p["color"],
+            p["desc"], p.get("coverage","completa"), p.get("us_count"),
+            p.get("track",""),
+            _json.dumps(p.get("notes",[]), ensure_ascii=False),
+            narr.get("industria",""),
+            _json.dumps(narr.get("kpis",[]),    ensure_ascii=False),
+            _json.dumps(narr.get("brechas",[]), ensure_ascii=False),
+            1, today,
+        ))
+        n_phases += 1
+
+        for si, step in enumerate(p.get("flows", [])):
+            for ni, node_name in enumerate(step["nodes"]):
+                con.execute("""
+                    INSERT OR REPLACE INTO lifecycle_flow_nodes
+                        (id, phase_id, step_order, node_name)
+                    VALUES (?,?,?,?)
+                """, (f"{pid}:{si}:{ni}", pid, si, node_name))
+                n_nodes += 1
+            if step.get("arrow"):
+                con.execute("""
+                    INSERT OR REPLACE INTO lifecycle_flow_arrows
+                        (id, phase_id, step_order, label, pending)
+                    VALUES (?,?,?,?,?)
+                """, (f"{pid}:{si}", pid, si, step["arrow"], 1 if step.get("pending") else 0))
+                n_arrows += 1
+
+    con.commit()
+    print(f"  lifecycle_phases: {n_phases}  |  flow_nodes: {n_nodes}  |  flow_arrows: {n_arrows}")
 
 
 # -- v1.6.0 -- program_stakeholders ------------------------------------------
