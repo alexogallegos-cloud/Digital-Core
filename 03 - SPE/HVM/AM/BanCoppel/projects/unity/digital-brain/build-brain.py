@@ -2962,7 +2962,10 @@ def load_products(con: sqlite3.Connection) -> None:
 def load_product_releases(con: sqlite3.Connection) -> None:
     """v1.1.0  --  tren de releases por producto, con procedencia por fila."""
     con.executemany(
-        "INSERT OR REPLACE INTO product_releases VALUES (?,?,?,?,?,?,?,?,?,?)",
+        "INSERT OR REPLACE INTO product_releases "
+        "(id, product_id, release_label, platform_release, scope, status, "
+        " release_date, functionalities, channels, provenance) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?)",
         PRODUCT_RELEASES)
     con.commit()
     prod = sum(1 for r in PRODUCT_RELEASES if r[5] == "productivo")
@@ -5693,6 +5696,48 @@ TRACK_RAG = [  # 5 tracks RAG desde PPTX 11-ago-2026
         "complejidad_detail": None,
         "source_date": "2026-08-20"
     },
+    {
+        "track": "apificacion",
+        "rag_color": "yellow",
+        "hu_total": None,
+        "hu_must": None,
+        "hu_should": None,
+        "hu_could": None,
+        "hu_wont": None,
+        "integraciones_count": None,
+        "rag_general": "AMARILLO 2026-08-20: track transversal desbloqueador critico. DTMs entregados "
+                       "18-Ago para SIWEB. APIs SmartVista BPC pendientes de certificacion — SIWEB "
+                       "bloqueado hasta entrega. Sin inventario formal de integraciones publicado aun.",
+        "rag_solucion": "Accenture interna — sin proveedor externo. Opera con DTMs y entregables "
+                        "tecnicos. Sin User Stories formales en el inventario.",
+        "rag_integraciones": "Inventario en consolidacion. Critico para SIWEB (bloqueado) y CAT "
+                             "(sin contrato). Sesion tecnica acordada con equipo SIWEB 18-Ago.",
+        "tipo_solucion_detail": None,
+        "impacto_solucion_detail": None,
+        "complejidad_detail": None,
+        "source_date": "2026-08-20"
+    },
+    {
+        "track": "programa",
+        "rag_color": "red",
+        "hu_total": 87,
+        "hu_must": 46,
+        "hu_should": 28,
+        "hu_could": None,
+        "hu_wont": None,
+        "integraciones_count": 18,
+        "rag_general": "ROJO 2026-08-20: avance global 21.19% vs 60.58% esperado (corte 17-ago). "
+                       "9 de 11 actividades retrasadas. CAT sin proveedor, SIWEB bloqueado, "
+                       "Cobranza opaco. Riesgo go-live enero 2027 elevado.",
+        "rag_solucion": "Tres tracks criticos: CAT (rojo), Cobranza (rojo), SIWEB (bloqueado). "
+                        "SmartVista R4 y App en amarillo. Apificacion como desbloqueador transversal.",
+        "rag_integraciones": "18 integraciones R4: 9 nuevas, 9 modificar. Inventario en validacion "
+                             "con APIficacion. Pendiente trazabilidad completa cross-track.",
+        "tipo_solucion_detail": None,
+        "impacto_solucion_detail": None,
+        "complejidad_detail": None,
+        "source_date": "2026-08-20"
+    },
 ]
 
 # â"€â"€ Funciones de carga semÃ¡ntica â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -6084,6 +6129,97 @@ def load_system_sdlc(con: sqlite3.Connection) -> None:
             system_id      TEXT NOT NULL REFERENCES program_systems(id),
             capability_id  TEXT NOT NULL,
             PRIMARY KEY (system_id, capability_id)
+        );
+
+        -- Lifecycle Validator Tables (Swarm v1.0)
+        CREATE TABLE IF NOT EXISTS lifecycle_phases (
+            phase_id    TEXT PRIMARY KEY,
+            name        TEXT,
+            num         TEXT,
+            icon        TEXT,
+            color       TEXT,
+            description TEXT,
+            coverage    TEXT,
+            us_count    INTEGER,
+            validated   INTEGER DEFAULT 0,
+            updated_at  TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS lifecycle_flow_nodes (
+            id            TEXT PRIMARY KEY,
+            phase_id      TEXT,
+            step_order    INTEGER,
+            node_name     TEXT,
+            system_id     TEXT,
+            node_type     TEXT,
+            pending       INTEGER DEFAULT 0,
+            evidence_type TEXT,
+            evidence_ref  TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS lifecycle_flow_arrows (
+            id            TEXT PRIMARY KEY,
+            phase_id      TEXT,
+            step_order    INTEGER,
+            label         TEXT,
+            pending       INTEGER DEFAULT 0,
+            evidence_ref  TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS lifecycle_steps (
+            id           TEXT PRIMARY KEY,
+            phase_id     TEXT,
+            step_n       INTEGER,
+            description  TEXT,
+            sistema      TEXT,
+            us_id        TEXT,
+            us_title     TEXT,
+            protocol     TEXT,
+            exists_today INTEGER DEFAULT 0,
+            gap_flag     INTEGER DEFAULT 0,
+            gap_notes    TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS lifecycle_data_elements (
+            id             TEXT PRIMARY KEY,
+            phase_id       TEXT,
+            entity_name    TEXT,
+            field_name     TEXT,
+            data_type      TEXT,
+            description    TEXT,
+            source_system  TEXT,
+            regulation_ref TEXT,
+            is_pii         INTEGER DEFAULT 0,
+            is_financial   INTEGER DEFAULT 0
+        );
+
+        CREATE TABLE IF NOT EXISTS lifecycle_integrations (
+            id              TEXT PRIMARY KEY,
+            phase_id        TEXT,
+            integration_ref TEXT,
+            from_system     TEXT,
+            to_system       TEXT,
+            api_name        TEXT,
+            protocol        TEXT,
+            direction       TEXT,
+            evidence_us     TEXT,
+            scope_r4        INTEGER DEFAULT 0,
+            gap_flag        INTEGER DEFAULT 0,
+            gap_notes       TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS lifecycle_test_cases (
+            id              TEXT PRIMARY KEY,
+            phase_id        TEXT,
+            tc_id           TEXT,
+            tc_title        TEXT,
+            precondition    TEXT,
+            steps_summary   TEXT,
+            expected_result TEXT,
+            priority        TEXT,
+            test_type       TEXT,
+            regulation_ref  TEXT,
+            linked_us_id    TEXT
         );
     """)
     con.commit()
