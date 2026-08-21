@@ -1,5 +1,5 @@
 ﻿"""
-build-brain.py  --  Unity Project Brain Builder v1.6.0
+build-brain.py  --  Unity Project Brain Builder v1.7.0
 Construye brain.db con el conocimiento incubado del programa Unity.
 Fuente: forward-knowledge (productos, componentes, riesgos, cronograma, vocabulario)
         --  diferente al brain de Informix que analiza cÃ³digo existente.
@@ -12,6 +12,12 @@ Changelog:
     0.9.0  --  2026-08-16  app_user_stories (13 User Stories canal App TDC F&D: backlog=8 release=3 removed=2)
     1.0.0  --  2026-08-16  user_stories_inventory (76 User Stories scoring) + r4_integrations (18) + track_rag (5 tracks RAG Roadmap)
     1.1.0  --  2026-08-19  user_stories_inventory (79 User Stories, +3 APP Encendido/Apagado TDC) + product_releases dual-plataforma
+    1.7.0  --  2026-08-20  Gaps --reset cerrados: DDL completo con system_id/risk_id/hdu_id en todas las
+                           -- tablas (risks, user_stories_inventory, dtm_catalog, hdu_catalog,
+                           -- apolo_hdu_catalog, audit_findings) + load_system_id_mappings ampliado
+                           -- (ALTER TABLE idempotentes + mapeo apificacion/reportes-regulatorios/NULL) +
+                           -- load_dtm_risks (14 riesgos desde dtm_catalog, risk_id FK back) +
+                           -- load_cobranza_placeholders (8 USs placeholder track cobranza)
     1.6.0  --  2026-08-20  Marco 3D STAKEHOLDER: program_stakeholders (96 personas integradas en pipeline) +
                            -- bancoppel(45) · accenture(12) · ey(4) · grupo_coppel(3) · otros(deloitte/bpc/appwhere/vendor)
                            -- FTS5 program_stakeholders_fts
@@ -185,7 +191,8 @@ CREATE TABLE IF NOT EXISTS risks (
     notes           TEXT,
     tracks          TEXT,
     breach          INTEGER DEFAULT 0,
-    updated_at      TEXT DEFAULT (datetime('now'))
+    updated_at      TEXT DEFAULT (datetime('now')),
+    system_id       TEXT REFERENCES program_systems(id)
 );
 
 CREATE TABLE IF NOT EXISTS raid_assumptions (
@@ -284,7 +291,8 @@ CREATE TABLE IF NOT EXISTS hdu_catalog (
     dtm_id          TEXT,
     hdus_asociadas  TEXT,
     notes           TEXT,
-    updated_at      TEXT DEFAULT (datetime('now'))
+    updated_at      TEXT DEFAULT (datetime('now')),
+    system_id       TEXT REFERENCES program_systems(id)
 );
 
 CREATE TABLE IF NOT EXISTS dtm_catalog (
@@ -297,7 +305,9 @@ CREATE TABLE IF NOT EXISTS dtm_catalog (
     gap_description TEXT,
     canal           TEXT,
     notes           TEXT,
-    updated_at      TEXT DEFAULT (datetime('now'))
+    updated_at      TEXT DEFAULT (datetime('now')),
+    system_id       TEXT REFERENCES program_systems(id),
+    risk_id         TEXT REFERENCES risks(id)
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS hdu_fts USING fts5(
@@ -319,7 +329,8 @@ CREATE TABLE IF NOT EXISTS apolo_hdu_catalog (
     status          TEXT,                        -- VoBo / MVP2 / Taggeo por Modyo / Desestimada
     capability_id   TEXT REFERENCES program_capabilities(id),
     criterios_count INTEGER DEFAULT 0,           -- nÃºmero de CAs
-    notes           TEXT
+    notes           TEXT,
+    system_id       TEXT REFERENCES program_systems(id)
 );
 
 -- â"€â"€ AnÃ¡lisis de tracks por sesiÃ³n (v0.7.0) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -433,7 +444,10 @@ CREATE TABLE IF NOT EXISTS user_stories_inventory (
     num_pantallas   INTEGER DEFAULT 0,
     score_ponderado REAL,
     complejidad     TEXT,
-    source_doc      TEXT DEFAULT 'Consolidacion y priorizacion_HUs_R4_v2.xlsx'
+    source_doc      TEXT DEFAULT 'Consolidacion y priorizacion_HUs_R4_v2.xlsx',
+    system_id       TEXT REFERENCES program_systems(id),
+    itcapability_ids TEXT,
+    hdu_id          TEXT REFERENCES hdu_catalog(id)
 );
 
 -- R4 Integrations (v1.0.0) ----------------------------------------------------
@@ -670,7 +684,9 @@ CREATE TABLE IF NOT EXISTS audit_findings (
     status          TEXT DEFAULT 'open' CHECK(status IN ('open','resolved','watchlist')),
     verified_date   TEXT DEFAULT '2026-08-19',
     source_doc      TEXT,
-    notes           TEXT
+    notes           TEXT,
+    system_id       TEXT REFERENCES program_systems(id),
+    risk_id         TEXT REFERENCES risks(id)
 );
 
 CREATE TABLE IF NOT EXISTS lifecycle_phase_steps (
@@ -737,6 +753,42 @@ CREATE TABLE IF NOT EXISTS program_stakeholders (
 CREATE VIRTUAL TABLE IF NOT EXISTS program_stakeholders_fts USING fts5(
     id, full_name, organization, role_title, program_role, relevant_notes,
     content='program_stakeholders', content_rowid='rowid'
+);
+
+-- ── Duplicidad Funcional — Swarm DT-SWAP (v1.7.0) ────────────────────────────────────
+-- 23 candidatos de duplicidad funcional entre sistemas Unity y sistemas legado.
+-- Producido por 8 agentes DT (DT-SWAP-01..08). Cada entrada es un CANDIDATO: requiere
+-- analisis tecnico detallado antes de decidir el escenario final.
+-- status: candidate → analyzing → decided → closed
+-- recommended_scenario: coexistence | decommission | complement | absorb | migrate | tbd
+CREATE TABLE IF NOT EXISTS functional_duplicity (
+    id                   TEXT PRIMARY KEY,         -- DUP-NNN
+    dt_agent             TEXT NOT NULL,             -- DT-SWAP-NN que genero el registro
+    capability_domain    TEXT NOT NULL,             -- dominio funcional
+    etb_capability       TEXT,                      -- L3 ETB si aplica
+    legacy_system        TEXT NOT NULL,             -- sistema legado (slug legacy_systems)
+    legacy_capability    TEXT,                      -- capacidad especifica en legado
+    legacy_evidence      TEXT,                      -- evidencia cuantitativa
+    new_system           TEXT NOT NULL,             -- sistema Unity (slug program_systems)
+    new_capability       TEXT,                      -- capacidad especifica en Unity
+    overlap_type         TEXT CHECK(overlap_type IN ('full','partial','potential','to_confirm')),
+    scenarios            TEXT,                      -- JSON [{type, probability, condition}]
+    recommended_scenario TEXT CHECK(recommended_scenario IN
+                             ('coexistence','decommission','complement','absorb','migrate','tbd')),
+    scenario_confidence  TEXT CHECK(scenario_confidence IN ('high','medium','low')),
+    migration_blocker    INTEGER DEFAULT 0,          -- 1 si bloquea decommission del legado
+    blocker_description  TEXT,                      -- que especificamente bloquea
+    decision_dependency  TEXT,                      -- que decision previa se necesita
+    evidence             TEXT,                      -- fuente documental
+    status               TEXT DEFAULT 'candidate' CHECK(status IN
+                             ('candidate','analyzing','decided','closed')),
+    notes                TEXT,
+    updated_at           TEXT DEFAULT (datetime('now'))
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS functional_duplicity_fts USING fts5(
+    id, capability_domain, legacy_system, legacy_capability, new_system, new_capability, notes,
+    content='functional_duplicity', content_rowid='rowid'
 );
 
 """
@@ -3155,7 +3207,8 @@ def load_apolo_hdus(con: sqlite3.Connection) -> None:
 
 def rebuild_fts(con: sqlite3.Connection) -> None:
     for tbl in ("products_fts", "program_capabilities_fts", "components_fts", "risks_fts",
-                "issues_fts", "hdu_fts", "dtm_fts", "program_stakeholders_fts"):
+                "issues_fts", "hdu_fts", "dtm_fts", "program_stakeholders_fts",
+                "functional_duplicity_fts"):
         try:
             con.execute(f"INSERT INTO {tbl}({tbl}) VALUES('rebuild')")
         except Exception:
@@ -6258,7 +6311,7 @@ def load_system_sdlc(con: sqlite3.Connection) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Unity Project Brain Builder v1.6.0")
+    parser = argparse.ArgumentParser(description="Unity Project Brain Builder v1.7.0")
     parser.add_argument("--reset", action="store_true", help="Borra y reconstruye brain.db")
     args = parser.parse_args()
 
@@ -6270,7 +6323,7 @@ def main() -> None:
     con = sqlite3.connect(str(DB_PATH))
     con.execute("PRAGMA journal_mode=WAL")
 
-    print("Construyendo Unity Project Brain v1.6.0...")
+    print("Construyendo Unity Project Brain v1.7.0...")
     init_db(con)
     load_project_info(con)
     load_products(con)
@@ -6302,7 +6355,11 @@ def main() -> None:
     load_system_sdlc(con)          # v1.5.0  --  fase/progreso/milestones/caps por sistema (desde brain.db)
     load_coexistence_rules(con)    # v1.6.0  --  9 reglas routing Informix<->Unity por tipo op / canal
     load_migration_map(con)        # v1.6.0  --  20 entries mapeo dominio Informix -> sistema Unity
-    load_system_id_mappings(con)   # v1.6.0  --  system_id en risks, US inventory, HDUs, DTMs, Apolo
+    load_functional_duplicity(con) # v1.7.0  --  23 candidatos swarm DT-SWAP-01..08 duplicidad funcional
+    load_system_id_mappings(con)   # v1.7.0  --  ALTER TABLE + system_id/risk_id/hdu_id en todas las tablas
+    load_dtm_risks(con)            # v1.7.0  --  14 riesgos derivados de dtm_catalog (gaps SmartVista)
+    load_cobranza_placeholders(con)
+    load_pending_issues(con) # v1.7.0  --  8 USs placeholder Cobranza (pendiente-levantamiento)
     load_it_capabilities(con)      # v1.5.0  --  13 capacidades IT del programa
     load_stakeholders(con)         # v1.6.0  --  96 stakeholders (bancoppel/acn/ey/vendors)
     rebuild_fts(con)
@@ -7196,6 +7253,443 @@ INFORMIX_MIGRATION_MAP = [
      "2026-08-20"),
 ]
 
+# ── Duplicidad Funcional — Swarm DT-SWAP-01..08 (v1.7.0) ──────────────────────────────
+# 23 candidatos. Cada entrada requiere analisis tecnico detallado antes de decidir.
+# Agents: DT-SWAP-01 Core Bancario | 02 Tarjetas | 03 Originacion | 04 Canales |
+#         DT-SWAP-05 MDM/GoldenRecord | 06 Integracion | 07 Reportes | 08 Cobranza
+DUPLICITY_DATA = [
+    # ── DT-SWAP-01: Core Bancario Transaccional  (Transact ↔ SIF/Informix) ─────────────
+    {
+        "id": "DUP-001", "dt_agent": "DT-SWAP-01",
+        "capability_domain": "Captacion de cuentas",
+        "etb_capability": "5.1.1",
+        "legacy_system": "sif-informix",
+        "legacy_capability": "D04 Captacion (Cuenta N2/N4/Nomina) + D05 Saldos — >800 SPs, Golden Record en Informix",
+        "legacy_evidence": "D04 fate=done (Transact en produccion). Golden Record en Informix segun doc CNBV.",
+        "new_system": "transact",
+        "new_capability": "Temenos Transact R1-R3: Cuenta Efectiva N2, CED N4, Nomina N4 en produccion",
+        "overlap_type": "full",
+        "scenarios": '[{"type":"coexistence","prob":"high","condition":"Nuevos clientes en Transact; cartera existente en Informix hasta migracion Golden Record"},{"type":"absorb","prob":"medium","condition":"Cuando Atlas/AlloyDB active como Golden Record y carga inicial Informix->Atlas se realice"}]',
+        "recommended_scenario": "coexistence", "scenario_confidence": "high",
+        "migration_blocker": 1,
+        "blocker_description": "Golden Record del cliente vive en Informix hoy (doc CNBV). Carga inicial Informix->Atlas no aparece en ningun documento del programa.",
+        "decision_dependency": "ADR pendiente: activacion Atlas como Golden Record (Fase 2 sep-2026 sin diseno documentado)",
+        "evidence": "Doc CNBV UNITY_v1.0: 'El cliente se generara en la base de datos de Informix (PISA)...Golden Record'. IMM-D04-TX.",
+        "status": "candidate",
+        "notes": "Coexistencia activa: 3 productos en Transact + cartera legacy en Informix. La decision clave es cuando y como migrar el Golden Record.",
+    },
+    {
+        "id": "DUP-002", "dt_agent": "DT-SWAP-01",
+        "capability_domain": "Credito Simple Empresarial",
+        "etb_capability": "5.2.1",
+        "legacy_system": "sif-informix",
+        "legacy_capability": "D03 Creditos (priority-ranking #1 Quick Win) + Orion/SFI credito comercial (TASF)",
+        "legacy_evidence": "D03 es dominio prioritario. Orion SFI en legacy_systems fate=migrar a Transact.",
+        "new_system": "transact",
+        "new_capability": "Temenos Transact R4: Credito Simple Empresarial (persona moral) en produccion desde R1-producto",
+        "overlap_type": "partial",
+        "scenarios": '[{"type":"complement","prob":"high","condition":"Transact captura persona moral nueva; Informix mantiene cartera personal legacy"},{"type":"migrate","prob":"medium","condition":"Si E-MG-03 Decision Paper resulta en migracion de cartera Orion a Transact"}]',
+        "recommended_scenario": "complement", "scenario_confidence": "high",
+        "migration_blocker": 0, "blocker_description": None,
+        "decision_dependency": "L-02 pendiente: Decision Paper Prestamo Simple (E-MG-03). Si migra, requiere plan E-MG-06.",
+        "evidence": "CLAUDE.md Unity: dos numeraciones (R1-producto sobre Transact R4-plataforma). IMM-D03-CRE.",
+        "status": "candidate",
+        "notes": "Segmentos distintos: Transact=persona moral (CSE); Informix=credito personal legacy y cartera Orion. Overlap parcial por motor de credito compartido.",
+    },
+    {
+        "id": "DUP-003", "dt_agent": "DT-SWAP-01",
+        "capability_domain": "Saldos y movimientos de cuentas",
+        "etb_capability": "5.1.2",
+        "legacy_system": "sif-informix",
+        "legacy_capability": "D05 Saldos (563 SPs, ESB fan_in alto, RETURN WITH RESUME producer)",
+        "legacy_evidence": "D05: 563 SPs, Quick Win priority-ranking, RETURN WITH RESUME pattern dominante (5,433 producers en todo Informix).",
+        "new_system": "transact",
+        "new_capability": "Transact: saldos y extracto cuentas captacion (N2/N4/Nomina) en produccion",
+        "overlap_type": "full",
+        "scenarios": '[{"type":"absorb","prob":"high","condition":"Transact absorbe D05 para productos migrados; parallel-run obligatorio"},{"type":"coexistence","prob":"medium","condition":"Durante ventana de migracion de portafolio completo"}]',
+        "recommended_scenario": "absorb", "scenario_confidence": "medium",
+        "migration_blocker": 1,
+        "blocker_description": "D05 usa RETURN WITH RESUME (producer pattern): patron no existe en SQL estandar — requiere refactorizacion en Transact. AppMovil consulta D05 via 49 SPs.",
+        "decision_dependency": "Definir parallel-run strategy D05: shadow mode o feature flag por segmento de cliente",
+        "evidence": "decoupling-cost: D05 hard_blocks altos. AppMovil brain: 49 SPs Informix incluyen D05.",
+        "status": "candidate",
+        "notes": "Duplicidad activa: App Movil consulta saldos Informix D05. Nueva App consulta Transact para cuentas nuevas e Informix para cartera legacy.",
+    },
+    # ── DT-SWAP-02: Gestion de Tarjetas  (SmartVista ↔ Intercard/Macweb + Informix D16) ─
+    {
+        "id": "DUP-004", "dt_agent": "DT-SWAP-02",
+        "capability_domain": "CMS ciclo de vida TDC",
+        "etb_capability": "5.3.1",
+        "legacy_system": "sif-informix",
+        "legacy_capability": "Intercard (CMS legacy, producto 6001/6100, ~3M tarjetas) + Informix D16 Tarjetas (311 SPs) + Macweb",
+        "legacy_evidence": "~3M tarjetas activas en Intercard. IMM-D16-SV: SmartVista replaces, in_progress.",
+        "new_system": "smartvista",
+        "new_capability": "SmartVista R1-R3 produccion: CMS, integracion App, tarjeta fisica F&F. R4 = TDC Clasica 4900 (building, go-live ene-2027)",
+        "overlap_type": "full",
+        "scenarios": '[{"type":"decommission","prob":"high","condition":"Migracion masiva 3M tarjetas portafolio legacy a SmartVista. Sin fecha confirmada."},{"type":"coexistence","prob":"high","condition":"Durante periodo de migracion de portafolio (estimado >12 meses post go-live R4)"}]',
+        "recommended_scenario": "decommission", "scenario_confidence": "high",
+        "migration_blocker": 1,
+        "blocker_description": "3 millones de tarjetas activas en Intercard/legado (producto 6001). La migracion de portafolio no tiene fecha confirmada ni plan tecnico documentado.",
+        "decision_dependency": "Decision de migracion de portafolio 3M tarjetas: timing, estrategia batch masiva vs. corte por segmento, rollback.",
+        "evidence": "DEF R3: 'Migrara el portafolio actual de 3 millones de tarjetas a SmartVista'. Plan Director: SmartVista amarillo 3 dimensiones. RISK-UNITY-R07.",
+        "status": "candidate",
+        "notes": "Duplicidad de mayor impacto del programa. Dos CMS en paralelo hasta que la migracion de portafolio se ejecute.",
+    },
+    {
+        "id": "DUP-005", "dt_agent": "DT-SWAP-02",
+        "capability_domain": "Autorizacion de transacciones TDC",
+        "etb_capability": "5.3.2",
+        "legacy_system": "sif-informix",
+        "legacy_capability": "D16 Tarjetas (311 SPs — paths AIX string concat) + Intercard autorizador",
+        "legacy_evidence": "D16 triaje: 311 SPs FORMULA string concat (paths AIX/dbaccess). Reg=100%, riesgo=0% (no aritmetica).",
+        "new_system": "smartvista",
+        "new_capability": "SmartVista: autorizacion TDC native BPC. HDU-SMART-R4-14 abonos SPEI TBD.",
+        "overlap_type": "partial",
+        "scenarios": '[{"type":"absorb","prob":"high","condition":"SmartVista absorbe logica D16 cuando portafolio migre (post decommission Intercard)"},{"type":"coexistence","prob":"high","condition":"Mientras coexistan productos en Intercard y SmartVista"}]',
+        "recommended_scenario": "absorb", "scenario_confidence": "medium",
+        "migration_blocker": 0, "blocker_description": None,
+        "decision_dependency": "Depende de DUP-004: hasta que el portafolio migre, autorizacion D16 permanece activa.",
+        "evidence": "decoupling-cost: D16 low cost. triaje-d16: CNBV CUB Cap.XI + VISA/MC Issuer Rules.",
+        "status": "candidate",
+        "notes": "D16 tiene costo bajo de desacoplamiento (dominant pattern=string concat AIX paths). Decommission natural cuando portafolio migre a SmartVista.",
+    },
+    {
+        "id": "DUP-006", "dt_agent": "DT-SWAP-02",
+        "capability_domain": "Meses con intereses (MCI)",
+        "etb_capability": "5.3.3",
+        "legacy_system": "sif-informix",
+        "legacy_capability": "D03 Creditos + D07 Cobranza: logica MCI legacy (calculo cuotas, intereses diferidos)",
+        "legacy_evidence": "D03 prioridad Quick Win #1. APP-MF-02 corregida en swarm2 QA v1.4.0.",
+        "new_system": "smartvista",
+        "new_capability": "SmartVista R4.5: MCI (Meses Con Intereses) en backlog. Design Authority nombra R4.5 sin declarar alcance.",
+        "overlap_type": "potential",
+        "scenarios": '[{"type":"coexistence","prob":"high","condition":"Hasta R4.5: Informix legacy atiende MCI para portafolio 6001; SmartVista para nuevas TDC 4900"},{"type":"absorb","prob":"medium","condition":"Post R4.5 si MCI SmartVista cubre todo el portafolio"}]',
+        "recommended_scenario": "coexistence", "scenario_confidence": "medium",
+        "migration_blocker": 0, "blocker_description": None,
+        "decision_dependency": "Fecha y alcance SmartVista R4.5 no declarados en Design Authority.",
+        "evidence": "build-brain.py v1.4.0: TA-SMARTVISTA integrations_api 7->5. dt-plan-director.md: R4.5 MCI backlog.",
+        "status": "candidate",
+        "notes": "Overlap potencial que se vuelve real cuando R4.5 arranque. Coexistencia natural por segmento de portafolio.",
+    },
+    # ── DT-SWAP-03: Originacion y Onboarding  (Apolo ↔ SIWEB legacy + Informix D26/D15) ─
+    {
+        "id": "DUP-007", "dt_agent": "DT-SWAP-03",
+        "capability_domain": "Onboarding digital TDC",
+        "etb_capability": "5.4.1",
+        "legacy_system": "sif-informix",
+        "legacy_capability": "SIWEB legacy (originacion en sucursal) + Informix D26 Prospectos (54 SPs, CNBV KYC)",
+        "legacy_evidence": "D26: CNBV KYC + PLD. IMM-D01-APO: apolo replaces, in_progress.",
+        "new_system": "apolo",
+        "new_capability": "Apolo R4: 22 User Stories digitales originacion TDC (canal digital). ADP 17 DTMs REC_* con 8 Critical Breakers.",
+        "overlap_type": "partial",
+        "scenarios": '[{"type":"complement","prob":"high","condition":"Apolo=canal digital (App/Web); SIWEB=canal sucursal. Segmentos de canal distintos por defecto."},{"type":"absorb","prob":"low","condition":"Si SIWEB es eventualmente sustituido por interface Apolo para sucursales"}]',
+        "recommended_scenario": "complement", "scenario_confidence": "high",
+        "migration_blocker": 0, "blocker_description": None,
+        "decision_dependency": "Definir si SIWEB tendra onboarding digital propio o permanece como canal diferenciado.",
+        "evidence": "track_analysis: Apolo=22 US; SIWEB=5 blocked. audit_findings: SIWEB 'Eliminar Deprecar' en APO pero activo Unity R4 (contradiccion).",
+        "status": "candidate",
+        "notes": "Overlap por canal: Apolo=digital-first; SIWEB=branch-first. Contradiccion APO vs Unity sobre SIWEB es decision pendiente.",
+    },
+    {
+        "id": "DUP-008", "dt_agent": "DT-SWAP-03",
+        "capability_domain": "Validacion KYC y PLD en originacion",
+        "etb_capability": "5.4.2",
+        "legacy_system": "sif-informix",
+        "legacy_capability": "D15 LIDE/PLD (CNBV PLD Circular 4/2019 + GAFI Rec.10/11) + D26 Prospectos KYC",
+        "legacy_evidence": "D15: reg=100%, riesgo=19% (pld_* patterns). D26: CNBV KYC + CONDUSEF. D15=PLD/Minds AML sistema separado.",
+        "new_system": "apolo",
+        "new_capability": "Apolo orquesta KYC/PLD llamando a sistemas legacy via integraciones (no reimplementa logica)",
+        "overlap_type": "potential",
+        "scenarios": '[{"type":"coexistence","prob":"high","condition":"Apolo orquesta D15/D26 legacy. No hay duplicidad real de logica regulatoria."},{"type":"complement","prob":"medium","condition":"Apolo agrega capa UX y orquestacion; legado provee logica regulatoria"}]',
+        "recommended_scenario": "coexistence", "scenario_confidence": "high",
+        "migration_blocker": 0, "blocker_description": None,
+        "decision_dependency": "Confirmar que Apolo llama D15/D26 via integration y no reimplementa logica PLD/KYC.",
+        "evidence": "r4_integrations: 15 APIs, 2 Batch. dt-compliance.md: CNBV Art.76 + KYC scope.",
+        "status": "candidate",
+        "notes": "Overlap de orquestacion, no de logica duplicada. Apolo NO reimplementa reglas PLD/KYC — las delega al legado.",
+    },
+    {
+        "id": "DUP-009", "dt_agent": "DT-SWAP-03",
+        "capability_domain": "Gestion documental y contratos",
+        "etb_capability": None,
+        "legacy_system": "sif-informix",
+        "legacy_capability": "OnBase-Prometeo (gestion documental) + D14 Banca Electronica (CNBV Circ.22/2010, 319 SPs)",
+        "legacy_evidence": "legacy_systems: OnBase-Prometeo en ecosistema. D14 BEI: 319 SPs.",
+        "new_system": "apolo",
+        "new_capability": "Apolo R4: generacion de contratos TDC (User Stories en alcance R4)",
+        "overlap_type": "partial",
+        "scenarios": '[{"type":"complement","prob":"high","condition":"Apolo genera contrato digital; OnBase-Prometeo almacena y gestiona el documento generado"},{"type":"coexistence","prob":"medium","condition":"R4: Apolo genera, OnBase custodia. Post-R4: decision sobre plataforma documental unica."}]',
+        "recommended_scenario": "complement", "scenario_confidence": "medium",
+        "migration_blocker": 0, "blocker_description": None,
+        "decision_dependency": "DR-DIG-001: plataforma documental de Digitalizacion. Confirmar si OnBase-Prometeo es el repositorio final de contratos TDC.",
+        "evidence": "legacy_systems: OnBase-Prometeo (ambiguedad fusion/separacion en inventario). D14 BEI regulacion CNBV Circ.22/2010.",
+        "status": "candidate",
+        "notes": "Complementariedad probable: Apolo genera el artefacto digital; OnBase/Digitalizacion lo custodia.",
+    },
+    # ── DT-SWAP-04: Canales Digitales y Sucursales  (App/SIWEB ↔ legacy + Informix D01) ─
+    {
+        "id": "DUP-010", "dt_agent": "DT-SWAP-04",
+        "capability_domain": "App movil — consulta y operaciones cliente",
+        "etb_capability": "5.5.1",
+        "legacy_system": "sif-informix",
+        "legacy_capability": "AppMovil legacy: 49 SPs en Informix (D01/D05/D03) via 216 Spring Boot microservicios",
+        "legacy_evidence": "AppMovil brain: 49 SPs unicos, 11 BDs, 133 referencias (21 Java Constants + 112 properties). 98% cobertura.",
+        "new_system": "app-movil",
+        "new_capability": "App Movil nueva R4: 18 User Stories TDC F&D (AMARILLO RAG). 6 Must cierran implementacion nov-2026.",
+        "overlap_type": "full",
+        "scenarios": '[{"type":"absorb","prob":"high","condition":"Nueva App sustituye conexiones a Informix D01/D05 para TDC; legado se mantiene para captacion legacy"},{"type":"coexistence","prob":"high","condition":"Transicion: nueva App para TDC 4900; legado para cuentas captacion N2/N4/Nomina hasta que migren"}]',
+        "recommended_scenario": "absorb", "scenario_confidence": "medium",
+        "migration_blocker": 1,
+        "blocker_description": "49 SPs Informix llamados desde App Movil legacy. Nueva App necesita exponer mismos 49 endpoints (o equivalentes) antes de desconectar el legado.",
+        "decision_dependency": "Inventario de feature-parity: nuevos endpoints App vs 49 SPs legacy. Cuales de los 49 SPs seran atendidos por Transact, SmartVista u otro?",
+        "evidence": "AppMovil brain: 49 SPs verificados. TA-APP: 6 Must cierran nov. RISK-UNITY-R02: 6 US Must APP cierran posterior a inicio SIT.",
+        "status": "candidate",
+        "notes": "Duplicidad de canal mas impactante en el corto plazo. Nueva App convive con legado por producto: TDC 4900 en nuevo, captacion legacy en Informix.",
+    },
+    {
+        "id": "DUP-011", "dt_agent": "DT-SWAP-04",
+        "capability_domain": "Operaciones de sucursal",
+        "etb_capability": "5.5.2",
+        "legacy_system": "sif-informix",
+        "legacy_capability": "SIWEB legacy (sistema actual sucursales) + Informix D01/D14 (Canal Digital Web + Banca Electronica)",
+        "legacy_evidence": "TA-SIWEB: GENERAL/SOLUCION amarillo, ROJO en integraciones. 10 semanas construccion 18-ago=29-oct (2 sem. tarde).",
+        "new_system": "siweb",
+        "new_capability": "SIWEB nuevo R4: 5 User Stories, estado BLOQUEADO (esperando APIs de Apificacion)",
+        "overlap_type": "partial",
+        "scenarios": '[{"type":"coexistence","prob":"high","condition":"SIWEB nuevo reemplaza funciones R4 especificas; legado mantiene operaciones no migradas"},{"type":"migrate","prob":"medium","condition":"Si SIWEB legacy se decomisiona post-R4 en releases futuros"}]',
+        "recommended_scenario": "coexistence", "scenario_confidence": "high",
+        "migration_blocker": 0, "blocker_description": None,
+        "decision_dependency": "Desbloquear SIWEB nuevo: APIs de Apificacion necesarias antes de arrancar desarrollo.",
+        "evidence": "program_components: siweb status=blocked. audit_findings: SIWEB 'Eliminar Deprecar' APO vs activo Unity R4 (contradiccion).",
+        "status": "candidate",
+        "notes": "Contradiccion documentada: Exodus APO clasifica SIWEB como 'Deprecar' pero Unity R4 incluye 5 US activas. Debe resolverse antes del decommission.",
+    },
+    {
+        "id": "DUP-012", "dt_agent": "DT-SWAP-04",
+        "capability_domain": "Canal ATM y cajeros automaticos",
+        "etb_capability": "5.5.3",
+        "legacy_system": "sif-informix",
+        "legacy_capability": "D15 ATM (SPs legacy cajeros, out_of_scope R4) + InterAct como segundo autorizador POS/ATM",
+        "legacy_evidence": "IMM-D15-RET: out_of_scope. 'Sin User Story en R4 (brecha Fase 03 dt-productos.md).'",
+        "new_system": "smartvista",
+        "new_capability": "SmartVista R5: ATM + tarjetas adicionales deferidos. Plan de trabajo R4_v1: 'disponible R5'.",
+        "overlap_type": "potential",
+        "scenarios": '[{"type":"tbd","prob":"high","condition":"ATM fuera de scope R4. Decision en R5 sobre si SmartVista maneja ATM o permanece en Informix/Intercard."}]',
+        "recommended_scenario": "tbd", "scenario_confidence": "low",
+        "migration_blocker": 0, "blocker_description": None,
+        "decision_dependency": "Definir alcance R5: ATM en SmartVista vs. retain en legado vs. smart-passthrough hacia Informix.",
+        "evidence": "IMM-D15-RET. Plan de trabajo R4_v1: R5 deferidos = ATM, tarjetas adicionales, incrementos, corresponsales.",
+        "status": "candidate",
+        "notes": "Out of scope R4. Registrado como candidato para analisis R5. InterAct/Syndein es segundo autorizador POS/ATM — su fate vinculado a esta decision.",
+    },
+    # ── DT-SWAP-05: MDM y Golden Record  (Atlas GCP ↔ Informix Golden Record + SOC) ──────
+    {
+        "id": "DUP-013", "dt_agent": "DT-SWAP-05",
+        "capability_domain": "Golden Record del cliente (MDM)",
+        "etb_capability": "5.6.1",
+        "legacy_system": "sif-informix",
+        "legacy_capability": "Informix/PISA (PRESENTE): Golden Record autoritativo del cliente segun doc CNBV v1.0",
+        "legacy_evidence": "Tres candidatos simultaneos activos: Informix (autoridad hoy), Atlas (Fase 2 sin diseno), Transact (nunca activado para Golden Record).",
+        "new_system": "atlas",
+        "new_capability": "Atlas Fase 2 (sep-2026, sin diseno documentado): AlloyDB + Cloud Run + Vertex AI para MDM de GRUPO (retail+banco+Afore)",
+        "overlap_type": "full",
+        "scenarios": '[{"type":"absorb","prob":"medium","condition":"Atlas absorbe Golden Record cuando Fase 2 active y carga inicial Informix->Atlas se realice"},{"type":"coexistence","prob":"high","condition":"Informix sigue siendo Golden Record mientras Atlas Fase 2 no tiene diseno ni plan de carga inicial"}]',
+        "recommended_scenario": "absorb", "scenario_confidence": "low",
+        "migration_blocker": 1,
+        "blocker_description": "Carga inicial Informix->Atlas 'no aparece en ningun documento del programa'. Atlas Fase 2 sin diseno documentado. Sin decision formal sobre quien es el Golden Record autoritativo.",
+        "decision_dependency": "ADR obligatorio: cual sistema es el Golden Record autoritativo y cuando ocurre la migracion. Prerequisito para decommission de Informix (Regla B7 AM).",
+        "evidence": "audit_findings hallazgo Golden Record. CLAUDE.md Unity: 'Golden Record vive hoy en Informix, no en ATLAS ni en Transact'.",
+        "status": "candidate",
+        "notes": "ALTA CRITICIDAD. Mayor bloqueador arquitectonico del programa. Decommission de Informix (Exodus Ola 6, 2029-H2) depende de resolver esta duplicidad.",
+    },
+    {
+        "id": "DUP-014", "dt_agent": "DT-SWAP-05",
+        "capability_domain": "Deduplicacion de clientes",
+        "etb_capability": "5.6.2",
+        "legacy_system": "sif-informix",
+        "legacy_capability": "sp_compara_nombres (D01, fine-mapping R26) — matching nombres para deduplication",
+        "legacy_evidence": "sp_compara_nombres en Informix D01, fan_in no trivial, dominio Canal Digital Web.",
+        "new_system": "atlas",
+        "new_capability": "Atlas: Vertex AI Vector Search para fuzzy matching (confirmado en architecture notes)",
+        "overlap_type": "partial",
+        "scenarios": '[{"type":"absorb","prob":"high","condition":"Atlas/Vertex AI absorbe logica compara_nombres cuando Atlas active como Golden Record"},{"type":"coexistence","prob":"medium","condition":"Hasta que Informix se decomisione, ambas logicas coexisten sobre distintos portafolios"}]',
+        "recommended_scenario": "absorb", "scenario_confidence": "medium",
+        "migration_blocker": 0, "blocker_description": None,
+        "decision_dependency": "Depende de DUP-013: una vez que Atlas sea Golden Record, la logica de deduplication de Informix se decomisiona.",
+        "evidence": "Informix brain fine-mapping R26: sp_compara_nombres D01. CLAUDE.md Unity: 'Atlas usa Vertex AI Vector Search para fuzzy matching'.",
+        "status": "candidate",
+        "notes": "Overlap derivado de DUP-013. Cuando Atlas sea Golden Record autoritativo, absorbe sp_compara_nombres.",
+    },
+    {
+        "id": "DUP-015", "dt_agent": "DT-SWAP-05",
+        "capability_domain": "MDM Grupo — maestro de cliente cross-empresa",
+        "etb_capability": None,
+        "legacy_system": "sif-informix",
+        "legacy_capability": "SOC/TASF (Sistema Operativo Central, 15 modulos, 710 funcionalidades) + Informix D04 maestro cliente",
+        "legacy_evidence": "legacy_systems: SOC/TASF core-app, fate=migrar-a-Transact. core_path=0.",
+        "new_system": "atlas",
+        "new_capability": "Atlas GCP: MDM de GRUPO (retail Coppel, banco, Afore). Scope mas amplio que bancario.",
+        "overlap_type": "partial",
+        "scenarios": '[{"type":"complement","prob":"high","condition":"Atlas=MDM de GRUPO (entidad cliente). SOC=banking operations. Scopes distintos."},{"type":"coexistence","prob":"medium","condition":"Atlas provee Golden Record; SOC mantiene logica bancaria especifica hasta migracion a Transact"}]',
+        "recommended_scenario": "complement", "scenario_confidence": "medium",
+        "migration_blocker": 0, "blocker_description": None,
+        "decision_dependency": "Confirmar que SOC/TASF migrara a Transact. Si migra, el overlap con Atlas se elimina.",
+        "evidence": "legacy_systems: SOC/TASF fate=migrar-a-Transact. Atlas: 'MDM de grupo (retail Coppel, banco y Afore), no solo bancario'.",
+        "status": "candidate",
+        "notes": "Overlap acotado: Atlas=MDM de grupo (entidad cliente), SOC=mini-core bancario (cuentas y operaciones). Riesgo: datos cliente en SOC y Atlas divergen.",
+    },
+    # ── DT-SWAP-06: Capa de Integracion  (Apificacion/MuleSoft ↔ IBM BUS + InterAct) ────
+    {
+        "id": "DUP-016", "dt_agent": "DT-SWAP-06",
+        "capability_domain": "ESB — routing y mediacion de mensajes",
+        "etb_capability": None,
+        "legacy_system": "sif-informix",
+        "legacy_capability": "IBM BUS/ACE (IIB): una de las 3 vias validas al core Informix. Routing ESB corporativo.",
+        "legacy_evidence": "legacy_systems: IBM BUS core_path=1 (una de las 3 vias). Plan Director: migracion IBM BUS/InterAct -> MuleSoft (contradiccion con Exodus que mantiene Apigee).",
+        "new_system": "eglobal",
+        "new_capability": "Apificacion transversal Accenture R4 + MuleSoft (objetivo de migracion). 18 integraciones R4 identificadas.",
+        "overlap_type": "full",
+        "scenarios": '[{"type":"decommission","prob":"medium","condition":"IBM BUS decomisionado cuando MuleSoft cubra todas sus rutas. Sin inventario de APIs documentado."},{"type":"coexistence","prob":"high","condition":"IBM BUS permanece como path critico al core mientras Apificacion cubre solo R4 endpoints"}]',
+        "recommended_scenario": "decommission", "scenario_confidence": "low",
+        "migration_blocker": 1,
+        "blocker_description": "IBM BUS es UNA DE LAS 3 UNICAS vias al core Informix. No se puede decomisionar hasta que todas sus rutas esten en MuleSoft. Plan Director: 'no tiene plan ni inventario de APIs documentado'.",
+        "decision_dependency": "Inventario completo rutas IBM BUS. Confirmar roadmap MuleSoft. Resolver contradiccion Plan Director (MuleSoft) vs Exodus Ola 1 (Apigee).",
+        "evidence": "audit_findings: contradiccion API gateway. legacy_systems: IBM BUS core_path=1. CLAUDE.md Unity: 3 unicas vias al core.",
+        "status": "candidate",
+        "notes": "CONTRADICCION CRITICA entre programas: Plan Director (MuleSoft) vs Exodus (Apigee). Hasta resolver, IBM BUS no puede decomisionarse de forma segura.",
+    },
+    {
+        "id": "DUP-017", "dt_agent": "DT-SWAP-06",
+        "capability_domain": "Middleware transaccional en tiempo real",
+        "etb_capability": None,
+        "legacy_system": "sif-informix",
+        "legacy_capability": "InterAct/Syndein (Router/Switch): una de las 3 vias validas al core. Middleware real-time.",
+        "legacy_evidence": "legacy_systems: InterAct core_path=1, type=middleware. 'Informix no recibe REST, SOAP, ISO 8583 ni SFTP directo.'",
+        "new_system": "eglobal",
+        "new_capability": "Apificacion R4: 15 integraciones API nuevas que eventualmente reemplazarian paths de InterAct",
+        "overlap_type": "full",
+        "scenarios": '[{"type":"decommission","prob":"low","condition":"InterAct decomisionado solo cuando Informix se decomisione (Exodus Ola 6, 2029-H2) o todas sus rutas esten en MuleSoft"},{"type":"coexistence","prob":"high","condition":"InterAct permanece como path critico al core durante toda la vida de Informix"}]',
+        "recommended_scenario": "coexistence", "scenario_confidence": "high",
+        "migration_blocker": 1,
+        "blocker_description": "InterAct es la via de middleware transaccional real-time al core Informix. Su fate esta acoplado al fate de Informix/PISA.",
+        "decision_dependency": "El decommission de InterAct es consecuencia del decommission de Informix, no un prerequisito. Alinear con timeline Exodus Ola 6.",
+        "evidence": "CLAUDE.md Unity: '3 unicas vias al core: ODBC/JDBC/SPL, InterAct, IBM BUS.' legacy_systems: InterAct core_path=1.",
+        "status": "candidate",
+        "notes": "No es un overlap a resolver en R4 — es una dependencia estructural. InterAct vive mientras Informix vive. Apificacion R4 crea un nuevo path; no elimina el existente.",
+    },
+    {
+        "id": "DUP-018", "dt_agent": "DT-SWAP-06",
+        "capability_domain": "Pagos SPEI / CoDi interbancarios",
+        "etb_capability": "5.7.1",
+        "legacy_system": "sif-informix",
+        "legacy_capability": "D13 TEF (628 SPs, Banxico SPEI/CECOBAN, reg=100%, riesgo=20%) — procesamiento SPEI en core",
+        "legacy_evidence": "D13 triaje: Banxico SPEI + CECOBAN. IMM-D05S-CMP: SPEI recibido en Informix/PISA como core de liquidacion.",
+        "new_system": "eglobal",
+        "new_capability": "Apificacion R4 + SmartVista R4: SPEI abono a TDC. HDU-SMART-R4-14 TBD: exclusion abonos SPEI del limite de credito.",
+        "overlap_type": "partial",
+        "scenarios": '[{"type":"coexistence","prob":"high","condition":"Apificacion orquesta SPEI sobre D13 legacy para nueva TDC. Informix D13 permanece como procesador de liquidacion."},{"type":"complement","prob":"medium","condition":"SmartVista maneja SPEI a nivel TDC; Informix D13 maneja SPEI a nivel cuenta de captacion"}]',
+        "recommended_scenario": "coexistence", "scenario_confidence": "high",
+        "migration_blocker": 0, "blocker_description": None,
+        "decision_dependency": "Resolver HDU-SMART-R4-14 TBD: exclusion abonos SPEI del limite de credito. Confirmacion con Banxico/RECO.",
+        "evidence": "triaje-d13: D13=Banxico SPEI, 628 SPs. coexistence_rules IMM-D05S-CMP. r4_integrations: SPEI como integracion R4.",
+        "status": "candidate",
+        "notes": "Apificacion NO reemplaza D13 en R4 — lo orquesta. El overlap es de capa de presentacion, no de procesamiento.",
+    },
+    # ── DT-SWAP-07: Reporteria Regulatoria  (Unity Reports ↔ legacy batch CTM + D16/D32) ─
+    {
+        "id": "DUP-019", "dt_agent": "DT-SWAP-07",
+        "capability_domain": "Reportes regulatorios CNBV/Banxico",
+        "etb_capability": "5.8.1",
+        "legacy_system": "sif-informix",
+        "legacy_capability": "~20 SPL batch jobs via CTM (D09/D13/D15/D16) + Bajaware (motor generacion, en decomiso Q1-2027)",
+        "legacy_evidence": "audit_findings: ~100 reportes por confirmar. Cadena: Informix->DataStage->DWH->RiskLogic/Bajaware->CNBV. RISK-UNITY-R19..R26 (8 riesgos).",
+        "new_system": "atlas",
+        "new_capability": "Unity Reportes Regulatorios (4to componente CNBV): SmartVista+Transact->TDH->DataStage->DWH->RiskLogic->CNBV. Mismo DWH, diferente fuente.",
+        "overlap_type": "partial",
+        "scenarios": '[{"type":"coexistence","prob":"high","condition":"Legacy batch genera reportes para portafolio Informix; Unity genera para portafolio SmartVista/Transact. Coexistencia por portafolio."},{"type":"decommission","prob":"medium","condition":"Legacy batch decomisionado cuando portafolio migre completamente a SmartVista/Transact"}]',
+        "recommended_scenario": "coexistence", "scenario_confidence": "high",
+        "migration_blocker": 1,
+        "blocker_description": "RIESGO CRITICO: Bajaware en decomiso Q1-2027 pero arquitectura CNBV lo declara como motor de generacion. IC-83: pipelines DataStage se rompen al decomisar Informix (owner por asignar).",
+        "decision_dependency": "Plan de remplazo de Bajaware URGENTE (Q1-2027). Inventario completo reportes (~100 por confirmar). Actualizar documentacion CNBV (hallazgos APO_F01 + SMA_F01).",
+        "evidence": "RISK-UNITY-R19 a R26. 'Bajaware en proceso de Baja Q1-2027'. Hallazgo CNBV APO_F01 + SMA_F01.",
+        "status": "candidate",
+        "notes": "Riesgo mas urgente del componente: Bajaware se decomisiona Q1-2027 sin sustituto definido. Coexistencia es el escenario seguro mientras tanto.",
+    },
+    {
+        "id": "DUP-020", "dt_agent": "DT-SWAP-07",
+        "capability_domain": "Reportes de portafolio TDC (SmartVista vs Informix)",
+        "etb_capability": "5.8.2",
+        "legacy_system": "sif-informix",
+        "legacy_capability": "D16 Tarjetas + D32 Reports (36 SPs, MC+VISA+CNBV TDC) — reportes emisora en batch CTM",
+        "legacy_evidence": "D32: reg=MC+VISA+CNBV TDC. D16: 311 SPs string concat. IMM-D10-AT: atlas replaces portafolio TDC reportes.",
+        "new_system": "smartvista",
+        "new_capability": "SmartVista: 18 reportes (cartera, numero tarjetas, apertura por mes). Reportes regulatorios BPC nativos.",
+        "overlap_type": "partial",
+        "scenarios": '[{"type":"complement","prob":"high","condition":"SmartVista reporta su portafolio (TDC 4900); D16/D32 reportan portafolio legacy (6001) hasta migracion"},{"type":"decommission","prob":"medium","condition":"D32 decomisionado cuando portafolio 6001 migre completamente a SmartVista"}]',
+        "recommended_scenario": "complement", "scenario_confidence": "high",
+        "migration_blocker": 0, "blocker_description": None,
+        "decision_dependency": "Alineado con DUP-004 (migracion portafolio 3M tarjetas). Cuando 6001 migre, D32 se decommissiona.",
+        "evidence": "triaje-d16: CNBV CUB Cap.XI + VISA/MC. D32=bdireports. SmartVista 18 reportes en dt-smartvista.md.",
+        "status": "candidate",
+        "notes": "Complementariedad natural durante migracion. SmartVista para portafolio nuevo 4900; D16/D32 para portafolio legacy 6001.",
+    },
+    {
+        "id": "DUP-021", "dt_agent": "DT-SWAP-07",
+        "capability_domain": "Contabilidad y asientos contables",
+        "etb_capability": "5.8.3",
+        "legacy_system": "sif-informix",
+        "legacy_capability": "D07 Gestion Deuda + D08 Pagos (asientos contables cobranza/pago) + legacy libro mayor",
+        "legacy_evidence": "D07/D08: fate=replicate en IMM. Asientos contables vinculados a CNBV Anexo 33-36.",
+        "new_system": "transact",
+        "new_capability": "Temenos Transact: genera asientos contables para productos en produccion (captacion, CSE). Reportes Regulatorios incluye contabilidad.",
+        "overlap_type": "partial",
+        "scenarios": '[{"type":"coexistence","prob":"high","condition":"Cada sistema genera asientos para sus propios productos durante migracion"},{"type":"absorb","prob":"medium","condition":"Cuando Informix se decomisione, Transact absorbe todos los asientos"}]',
+        "recommended_scenario": "coexistence", "scenario_confidence": "high",
+        "migration_blocker": 0, "blocker_description": None,
+        "decision_dependency": "Reconciliacion de asientos entre Transact y Informix. Confirmar que el DWH consolida ambas fuentes para reportes CNBV.",
+        "evidence": "SME Contabilidad Bancaria CNBV: CUB Anexo 33-36. IMM: D07/D08 fate=replicate. Reportes Regulatorios cadena documentada.",
+        "status": "candidate",
+        "notes": "Durante coexistencia la reconciliacion contable Transact/Informix es critica para reportes CNBV. El DWH de Reportes Reg. debe consolidar ambas fuentes.",
+    },
+    # ── DT-SWAP-08: Cobranza y Recuperacion  (Cobranza Direccionada ↔ Informix D07/D40) ─
+    {
+        "id": "DUP-022", "dt_agent": "DT-SWAP-08",
+        "capability_domain": "Motor de cobranza y recuperacion",
+        "etb_capability": "5.9.1",
+        "legacy_system": "sif-informix",
+        "legacy_capability": "D07 Gestion Deuda + D08 Pagos + D40 Cobranza + D41 Contacto Deudor + D42 Cartera Litigio",
+        "legacy_evidence": "IMM: D40-D42 fate=replicate/unknown. D07/D08 fate=replicate. RISK-UNITY-R06: Cobranza Direccionada 30-50 HUs sin inventariar.",
+        "new_system": "smartvista",
+        "new_capability": "Cobranza Direccionada R4: 37-50 User Stories (estimadas, no inventariadas formalmente). SmartVista agingPeriod E1/E2/E3.",
+        "overlap_type": "partial",
+        "scenarios": '[{"type":"complement","prob":"high","condition":"Cobranza Direccionada cubre TDC 4900 (SmartVista); Informix cubre cartera legacy"},{"type":"migrate","prob":"medium","condition":"Cuando portafolio legacy TDC migre a SmartVista, Cobranza D. absorbe D40-D42"}]',
+        "recommended_scenario": "complement", "scenario_confidence": "medium",
+        "migration_blocker": 0, "blocker_description": None,
+        "decision_dependency": "URGENTE: inventariar 30-50 HUs de Cobranza Direccionada (ISSUE-R4-005, breach vencido 2026-08-07). Sin inventario no es posible confirmar el overlap real.",
+        "evidence": "ISSUE-R4-005: 'Track Cobranza completamente opaco: 30-50 HUs estimadas sin compartir'. IMM-D40-COB fate=replaces. RISK-UNITY-R06.",
+        "status": "candidate",
+        "notes": "DATO-REQUERIDO: el overlap real depende del inventario de HUs de Cobranza Direccionada (aun no compartido).",
+    },
+    {
+        "id": "DUP-023", "dt_agent": "DT-SWAP-08",
+        "capability_domain": "Reglas de negocio y motor BRM cobranza",
+        "etb_capability": "5.9.2",
+        "legacy_system": "sif-informix",
+        "legacy_capability": "Experian BRM (scoring/elegibilidad) + WebMethods BRM (Software AG) + BRM Coppel (Red Coppel)",
+        "legacy_evidence": "legacy_systems: BRM tiene 3 referentes distintos (ambiguedad documentada). Experian=scoring; WebMethods=orquestacion.",
+        "new_system": "smartvista",
+        "new_capability": "SmartVista R4 + Cobranza Direccionada: reglas cobranza (agingPeriod, restricciones). Sin mencion de reemplazar Experian BRM en R4.",
+        "overlap_type": "potential",
+        "scenarios": '[{"type":"coexistence","prob":"high","condition":"Experian BRM continua como motor scoring/elegibilidad. SmartVista usa sus propias reglas aging/cobranza."},{"type":"complement","prob":"medium","condition":"Experian alimenta datos a SmartVista; SmartVista actua sobre sus resultados"}]',
+        "recommended_scenario": "coexistence", "scenario_confidence": "medium",
+        "migration_blocker": 0, "blocker_description": None,
+        "decision_dependency": "Desambiguar los 3 BRM en la arquitectura. Confirmar si alguno tiene funciones que Cobranza Direccionada o SmartVista vayan a reemplazar en R4.",
+        "evidence": "CLAUDE.md Unity desambiguacion: 'BRM tiene tres referentes distintos: WebMethods BRM, Experian BRM, BRM Coppel'. legacy_systems: BRM x3.",
+        "status": "candidate",
+        "notes": "Overlap potencial por ambiguedad arquitectonica. Hasta desambiguar los 3 BRM y mapear sus funciones, no es posible determinar el overlap real.",
+    },
+]
+
 
 def load_coexistence_rules(con: sqlite3.Connection) -> None:
     """v1.6.0 — 9 reglas de coexistencia Informix<->Unity por tipo de operacion y canal.
@@ -7233,11 +7727,32 @@ def load_migration_map(con: sqlite3.Connection) -> None:
 
 
 def load_system_id_mappings(con: sqlite3.Connection) -> None:
-    """v1.6.0 — Asigna system_id en tablas secundarias usando mappings track/component -> system.
-    Idempotente: usa UPDATE WHERE system_id IS NULL para no sobreescribir valores existentes.
-    Columnas system_id fueron agregadas via ALTER TABLE en load_program_systems.
+    """v1.7.0 — Asigna system_id (y risk_id/hdu_id donde aplica) en tablas secundarias.
+    Idempotente: ALTER TABLE con try/except + UPDATE WHERE IS NULL.
+    Cubre todas las tablas que necesitan system_id tras --reset.
     """
-    # user_stories_inventory: track → system_id
+    # ── ALTER TABLE idempotentes ──────────────────────────────────────────────
+    # Garantiza que las columnas existen aunque el DDL de una tabla anterior
+    # no las incluya (compatibilidad con DBs creadas antes de v1.7.0).
+    for col_ddl in [
+        "ALTER TABLE hdu_catalog          ADD COLUMN system_id   TEXT REFERENCES program_systems(id)",
+        "ALTER TABLE dtm_catalog          ADD COLUMN system_id   TEXT REFERENCES program_systems(id)",
+        "ALTER TABLE dtm_catalog          ADD COLUMN risk_id     TEXT REFERENCES risks(id)",
+        "ALTER TABLE apolo_hdu_catalog    ADD COLUMN system_id   TEXT REFERENCES program_systems(id)",
+        "ALTER TABLE audit_findings       ADD COLUMN system_id   TEXT REFERENCES program_systems(id)",
+        "ALTER TABLE audit_findings       ADD COLUMN risk_id     TEXT REFERENCES risks(id)",
+        "ALTER TABLE risks                ADD COLUMN system_id   TEXT REFERENCES program_systems(id)",
+        "ALTER TABLE user_stories_inventory ADD COLUMN system_id TEXT REFERENCES program_systems(id)",
+        "ALTER TABLE user_stories_inventory ADD COLUMN itcapability_ids TEXT",
+        "ALTER TABLE user_stories_inventory ADD COLUMN hdu_id    TEXT REFERENCES hdu_catalog(id)",
+    ]:
+        try:
+            con.execute(col_ddl)
+        except Exception:
+            pass  # columna ya existe — idempotente
+    con.commit()
+
+    # ── user_stories_inventory: track → system_id ────────────────────────────
     track_to_system = {
         "smartvista": "smartvista",
         "cat":        "smartvista",   # canal CAT opera sobre SmartVista APIs
@@ -7245,6 +7760,7 @@ def load_system_id_mappings(con: sqlite3.Connection) -> None:
         "apolo":      "apolo",
         "app":        "app-movil",
         "Cobranza":   "cobranza",
+        "cobranza":   "cobranza",
     }
     for track, sid in track_to_system.items():
         con.execute(
@@ -7252,29 +7768,34 @@ def load_system_id_mappings(con: sqlite3.Connection) -> None:
             (sid, track),
         )
 
-    # risks: component_id → system_id
+    # ── risks: component_id → system_id ─────────────────────────────────────
     component_to_system = {
-        "smartvista":  "smartvista",
-        "apolo":       "apolo",
-        "app":         "app-movil",
-        "cat":         "cat",
-        "siweb":       "siweb",
-        "cobranza":    "cobranza",
+        "smartvista":           "smartvista",
+        "apolo":                "apolo",
+        "app":                  "app-movil",
+        "cat":                  "cat",
+        "siweb":                "siweb",
+        "cobranza":             "cobranza",
+        "apificacion":          "programa",
+        "reportes-regulatorios": "atlas",
     }
     for comp_id, sid in component_to_system.items():
         con.execute(
             "UPDATE risks SET system_id = ? WHERE component_id = ? AND system_id IS NULL",
             (sid, comp_id),
         )
+    # Riesgos sin component_id (riesgos de programa transversales) → programa
+    con.execute(
+        "UPDATE risks SET system_id = 'programa' WHERE component_id IS NULL AND system_id IS NULL"
+    )
 
-    # hdu_catalog: todas las User Stories del inventario SmartVista/canales → smartvista
-    con.execute("UPDATE hdu_catalog SET system_id = 'smartvista' WHERE system_id IS NULL")
+    # ── Tablas de catálogo ───────────────────────────────────────────────────
+    con.execute("UPDATE hdu_catalog       SET system_id = 'smartvista' WHERE system_id IS NULL")
+    con.execute("UPDATE apolo_hdu_catalog SET system_id = 'apolo'      WHERE system_id IS NULL")
+    con.execute("UPDATE dtm_catalog       SET system_id = 'smartvista' WHERE system_id IS NULL")
 
-    # apolo_hdu_catalog: todas las HDUs de Apolo → apolo
-    con.execute("UPDATE apolo_hdu_catalog SET system_id = 'apolo' WHERE system_id IS NULL")
-
-    # dtm_catalog: todos los DTMs son de SmartVista/BPC
-    con.execute("UPDATE dtm_catalog SET system_id = 'smartvista' WHERE system_id IS NULL")
+    # ── audit_findings: hallazgos transversales → programa ───────────────────
+    con.execute("UPDATE audit_findings SET system_id = 'programa' WHERE system_id IS NULL")
 
     con.commit()
 
@@ -7283,8 +7804,176 @@ def load_system_id_mappings(con: sqlite3.Connection) -> None:
     n_hdu  = con.execute("SELECT COUNT(*) FROM hdu_catalog WHERE system_id IS NOT NULL").fetchone()[0]
     n_ap   = con.execute("SELECT COUNT(*) FROM apolo_hdu_catalog WHERE system_id IS NOT NULL").fetchone()[0]
     n_dtm  = con.execute("SELECT COUNT(*) FROM dtm_catalog WHERE system_id IS NOT NULL").fetchone()[0]
-    print(f"  system_id_mappings: us={n_us} risks={n_risk} hdu={n_hdu} apolo_hdu={n_ap} dtm={n_dtm}")
+    n_af   = con.execute("SELECT COUNT(*) FROM audit_findings WHERE system_id IS NOT NULL").fetchone()[0]
+    print(f"  system_id_mappings: us={n_us} risks={n_risk} hdu={n_hdu} apolo_hdu={n_ap} dtm={n_dtm} audit={n_af}")
 
+
+def load_dtm_risks(con: sqlite3.Connection) -> None:
+    """v1.7.0 — Crea riesgos en risks desde dtm_catalog y vincula via risk_id.
+    Idempotente: INSERT OR IGNORE + UPDATE dtm_catalog.risk_id solo si NULL.
+    Genera un riesgo por cada DTM cuyo status no sea closed/mitigado/native.
+    Fuente: dtm_catalog (14 DTMs — 5 not_covered, partial, tbd).
+    """
+    from datetime import date
+
+    dtm_rows = con.execute("""
+        SELECT id, funcionalidad_macro, funcion, status, capability_id, system_id
+        FROM dtm_catalog
+        WHERE status NOT IN ('closed', 'mitigado', 'native')
+    """).fetchall()
+
+    created = 0
+    linked  = 0
+    for dtm_id, func_macro, funcion, status, cap_id, sys_id in dtm_rows:
+        raid_id = f"DTM-{dtm_id}"
+        if status == "not_covered":
+            impact = "critical"
+        elif status == "partial":
+            impact = "high"
+        else:
+            impact = "medium"  # tbd
+
+        con.execute(
+            """INSERT OR IGNORE INTO risks
+               (id, raid_id, description, component_id, impact, probability,
+                status, source, system_id, updated_at)
+               VALUES (?,?,?,?,?,'medium','open','dtm_catalog',?,?)""",
+            (
+                raid_id, raid_id,
+                f"DTM gap: {func_macro or ''} — {funcion or dtm_id}",
+                "smartvista",
+                impact,
+                sys_id or "smartvista",
+                str(date.today()),
+            ),
+        )
+        if con.execute("SELECT changes()").fetchone()[0] > 0:
+            created += 1
+
+        # Vincular DTM → risk (solo si aun no tiene risk_id)
+        con.execute(
+            "UPDATE dtm_catalog SET risk_id = ? WHERE id = ? AND risk_id IS NULL",
+            (raid_id, dtm_id),
+        )
+        if con.execute("SELECT changes()").fetchone()[0] > 0:
+            linked += 1
+
+    con.commit()
+    total_dtm_risks = con.execute(
+        "SELECT COUNT(*) FROM risks WHERE source = 'dtm_catalog'"
+    ).fetchone()[0]
+    print(f"  dtm_risks         : {total_dtm_risks} riesgos desde DTMs  |  new={created} linked={linked}")
+
+
+def load_cobranza_placeholders(con: sqlite3.Connection) -> None:
+    """v1.7.0 — Inserta 8 User Stories placeholder de Cobranza.
+    Se usan hasta que Cobranza formalice su inventario en el Excel de scoring.
+    Idempotente: INSERT OR IGNORE por ID sintetico US-COB-NNN.
+    """
+    placeholders = [
+        ("US-COB-001", "cobranza", "Motor de reglas BPC para gestion de cobranza direccionada",
+         "tdc-p4900", "Cobranza", "must", "Solucion+Integracion", "Desarrollo+Config",
+         None, 3, 5, 2, 0.7, "Alta", "pendiente-levantamiento", "cobranza"),
+        ("US-COB-002", "cobranza", "Exposicion aging E1 (0-30 dias) a canales CAT y App",
+         "tdc-p4900", "Aging", "must", "Integracion", "Configuracion",
+         None, 2, 3, 0, 0.5, "Media", "pendiente-levantamiento", "cobranza"),
+        ("US-COB-003", "cobranza", "Exposicion aging E2 (31-60 dias) con restricciones de canal",
+         "tdc-p4900", "Aging", "must", "Integracion", "Configuracion",
+         None, 2, 3, 0, 0.5, "Media", "pendiente-levantamiento", "cobranza"),
+        ("US-COB-004", "cobranza", "Exposicion aging E3 (60+ dias) a gestor y CAT",
+         "tdc-p4900", "Aging", "must", "Integracion", "Configuracion",
+         None, 2, 3, 0, 0.5, "Media", "pendiente-levantamiento", "cobranza"),
+        ("US-COB-005", "cobranza", "Carga batch de datos de cartera vencida desde Informix a BPC",
+         "tdc-p4900", "Batch", "must", "Integracion", "Desarrollo",
+         None, 2, 4, 0, 0.6, "Alta", "pendiente-levantamiento", "cobranza"),
+        ("US-COB-006", "cobranza", "Reporte a Buro de Credito (CNBV obligatorio dia 30)",
+         "tdc-p4900", "Regulatorio", "must", "Solucion+Integracion", "Desarrollo+Config",
+         None, 3, 5, 1, 0.8, "Alta", "pendiente-levantamiento", "cobranza"),
+        ("US-COB-007", "cobranza", "Gestion preventiva digital — contacto previo al vencimiento",
+         "tdc-p4900", "Digital", "must", "Solucion", "Desarrollo",
+         None, 2, 4, 2, 0.5, "Media", "pendiente-levantamiento", "cobranza"),
+        ("US-COB-008", "cobranza", "Restricciones de operacion por nivel de mora en canales",
+         "tdc-p4900", "Reglas", "should", "Integracion", "Configuracion",
+         None, 3, 4, 0, 0.6, "Media", "pendiente-levantamiento", "cobranza"),
+    ]
+
+    con.executemany(
+        """INSERT OR IGNORE INTO user_stories_inventory
+           (id, track, title, producto, funcionalidad, moscow,
+            tipo_solucion, impacto_solucion, reusabilidad,
+            num_integraciones, num_criterios, num_pantallas,
+            score_ponderado, complejidad, source_doc, system_id)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        placeholders,
+    )
+    con.commit()
+
+    total_cob = con.execute(
+        "SELECT COUNT(*) FROM user_stories_inventory WHERE track = 'cobranza'"
+    ).fetchone()[0]
+    inserted = con.execute(
+        "SELECT COUNT(*) FROM user_stories_inventory WHERE source_doc = 'pendiente-levantamiento'"
+    ).fetchone()[0]
+    print(f"  cobranza_ph       : {inserted} placeholders insertados  |  total cobranza={total_cob}")
+
+
+def load_functional_duplicity(con: sqlite3.Connection) -> None:
+    """v1.7.0 — Swarm de 8 DT agents (DT-SWAP-01..08).
+    23 candidatos de duplicidad funcional entre sistemas Unity y sistemas legado.
+    Cada entrada requiere analisis tecnico detallado para decidir escenario final.
+    Idempotente via INSERT OR REPLACE.
+    """
+    cols = [
+        "id", "dt_agent", "capability_domain", "etb_capability",
+        "legacy_system", "legacy_capability", "legacy_evidence",
+        "new_system", "new_capability", "overlap_type",
+        "scenarios", "recommended_scenario", "scenario_confidence",
+        "migration_blocker", "blocker_description", "decision_dependency",
+        "evidence", "status", "notes",
+    ]
+    ph  = ", ".join("?" * len(cols))
+    sql = f"INSERT OR REPLACE INTO functional_duplicity ({', '.join(cols)}) VALUES ({ph})"
+    rows = [tuple(r.get(c) for c in cols) for r in DUPLICITY_DATA]
+    con.executemany(sql, rows)
+    con.commit()
+
+    by_agent    = {}
+    by_scenario = {}
+    blockers    = 0
+    for r in DUPLICITY_DATA:
+        ag = r["dt_agent"]
+        by_agent[ag] = by_agent.get(ag, 0) + 1
+        sc = r.get("recommended_scenario", "tbd")
+        by_scenario[sc] = by_scenario.get(sc, 0) + 1
+        if r.get("migration_blocker"):
+            blockers += 1
+
+    agent_sum    = " ".join(f"{ag[-2:]}:{n}" for ag, n in sorted(by_agent.items()))
+    scenario_sum = " ".join(f"{sc}:{n}" for sc, n in sorted(by_scenario.items()))
+    print(f"  functional_dup    : {len(DUPLICITY_DATA)} candidatos  |  blockers={blockers}  |  agents={agent_sum}")
+    print(f"                      scenarios: {scenario_sum}")
+
+
+
+def load_pending_issues(con):
+    """Issues de gestion del programa que no vienen de fuentes estructuradas."""
+    con.execute("""
+        INSERT OR IGNORE INTO raid_issues
+        (id, raid_id, description, component_id, category, severity, current_impact,
+         remediation, status, owner, due_date, source, notes, tracks, breach, updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    """, (
+        "ISSUE-UNITY-I12", "I12",
+        "USs de Cobranza Direccionada sin inventariar - 37-50 User Stories identificadas pero no formalizadas en inventario R4",
+        "cobranza", "Requerimientos", "high",
+        "Sin inventario formal, Cobranza no tiene USs reales en brain.db. RAG y progreso no calculables con precision.",
+        "Sesion con Marksey Sanvicente (BanCoppel) para desglosar 37-50 USs antes de fin de agosto 2026.",
+        "open", "Marksey Sanvicente / BanCoppel", "2026-08-31",
+        "brain-audit-2026-08-20",
+        "Brain tiene 8 USs placeholder (source_doc=pendiente-levantamiento). No son requerimientos validados.",
+        "Cobranza", 0, "2026-08-20 00:00:00"
+    ))
+    con.commit()
 
 if __name__ == "__main__":
     main()
