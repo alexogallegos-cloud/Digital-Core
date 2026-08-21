@@ -291,7 +291,7 @@ DT_GROUPS = [
             {"ico": "📋", "ver": "v1.0.0", "name": "Plan Director",
              "desc": "Visión transversal del programa, KPI framework, dashboard RAG cruzado, 8 acciones críticas, anti-silos.",
              "chips": [("yellow","KPIs"),("blue","RAG"),("blue","76 User Stories")],
-             "link": "plan-director.html", "warn": True},
+             "warn": True},
             {"ico": "🏛️", "ver": "v1.0.0", "name": "Gobierno",
              "desc": "Estructura de comités, RACI del programa, protocolo de escalación, RAID owners y frecuencias.",
              "chips": [("blue","Comités"),("blue","RACI"),("blue","RAID")]},
@@ -1659,7 +1659,6 @@ footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid
     <a class="jump" href="#riesgos">Riesgos</a>
     <a class="jump" href="#cronograma">Cronograma</a>
     <a class="jump ext" href="duplicidad-informix-unity.html">Duplicidad ↗</a>
-    <a class="jump ext" href="plan-director.html">Plan Director ↗</a>
   </span>
 </nav>
 
@@ -2321,7 +2320,6 @@ def build_capacidades_it_page(brain_path: str, out_dir) -> None:
         '  <span class="nt">Unity R4 — Gobernanza</span>\n'
         '  <span class="sp"></span>\n'
         '  <a class="hl" href="index.html">&#8592; Portal</a>\n'
-        '  <a href="plan-director.html">Plan Director</a>\n'
         '  <a class="hl" href="#">Capacidades IT</a>\n'
         '</nav>\n'
         '<main>\n'
@@ -2998,7 +2996,6 @@ def main():
         # 2. Nav: links limpios alineados al Plan Director
         old_nav_links = (
             '  <a href="index.html">Portal ←</a>\n'
-            '  <a href="plan-director.html">Plan Director</a>\n'
             '  <a href="arquitectura.html" class="hl">Arquitectura ↗</a>'
         )
         new_nav_links = (
