@@ -180,8 +180,8 @@ TOGAF 9 distingue cuatro dominios de arquitectura empresarial. Para AM, los sist
 │   └── regulacion/      ← mapeo a regulación aplicable (CNBV, Banxico, PCI-DSS, etc.)
 ├── generators/          ← scripts de análisis y enriquecimiento (re-ejecutables, versionados)
 ├── dt/                  ← Digital Twins (siempre `dt/` — nunca DTs/ ni digital-twins/)
-├── portal/              ← visualizaciones HTML activas
-│   ├── index.html       ← entry point del portal de la entidad
+├── portal/              ← visualizaciones HTML generadas (nunca hand-authored)
+│   ├── index.html       ← generado por generators/build-portal.py desde brain.db
 │   └── data/            ← JSON de datos para las visualizaciones
 ├── old/                 ← archivos archivados (nunca borrar — mover aquí)
 └── CLAUDE.md            ← agente especializado de la entidad (hereda este CLAUDE.md)
@@ -233,6 +233,7 @@ Todo sistema expone como mínimo estos métodos en su clase `{Sistema}Brain`:
 5. `brain.py` expone la interfaz estándar de 5 métodos — permite que `bank-brain` (federado) consulte todos los sistemas de forma uniforme.
 6. Un sistema puede tener `togaf_state: baseline` y coexistir con otro que tenga `togaf_state: target` para el mismo ABB — eso es el estado Transitional del programa, no una inconsistencia.
 7. Los sistemas de tipo `data` (Data Architecture domain) no requieren `migration_fate` ni equivalencia funcional contra AS-IS — se construyen, no se migran.
+8. **`portal/*.html` NUNCA es hand-authored — siempre generado desde `brain.db` por un script en `generators/`.** El script canónico es `generators/build-portal.py`. Si una visualización requiere ajuste visual, el ajuste va al generador, no al HTML. Un HTML editado a mano no es la fuente de verdad — el brain es la fuente de verdad. **Aplica a todos los proyectos — existentes y futuros.** Los proyectos con `portal/*.html` hand-authored anterior a esta regla tienen estado `[PENDING: crear generators/build-portal.py]` — no se puede tocar el HTML hasta que exista el generador. Proyectos pendientes conocidos al 2026-08-20: Unity R4 (BanCoppel), Banamex S500+S151, Gentera SAP.
 
 ---
 
