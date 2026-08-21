@@ -1654,9 +1654,9 @@ footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid
   <span class="nt">Unity — Plan Director</span>
   <span class="sp"></span>
   <span class="nav-links" style="display:contents">
+    <a class="jump" href="#view-productos">Alcance</a>
     <a class="jump" href="#acciones">Acciones</a>
     <a class="jump" href="#riesgos">Riesgos</a>
-    <a class="jump" href="#view-productos">Alcance</a>
     <a class="jump" href="#cronograma">Cronograma</a>
     <a class="jump ext" href="duplicidad-informix-unity.html">Duplicidad ↗</a>
     <a class="jump ext" href="plan-director.html">Plan Director ↗</a>
