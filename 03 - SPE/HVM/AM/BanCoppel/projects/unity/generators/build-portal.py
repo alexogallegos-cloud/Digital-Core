@@ -415,18 +415,18 @@ def load_data(db_path):
         "SELECT COALESCE(SUM(hu_total),0) FROM track_rag"
     ).fetchone()[0]
     high_risks = con.execute(
-        "SELECT COUNT(*) FROM risks WHERE probability='high' AND status='open'"
+        "SELECT COUNT(*) FROM risks WHERE probability='high' AND status='open' AND id IS NOT NULL"
     ).fetchone()[0]
 
-    # Riesgos (alta prioridad abiertos primero)
+    # Riesgos (alta prioridad abiertos primero — excluye filas con id NULL)
     risks = con.execute("""
         SELECT r.*, pc.name AS component_name
         FROM risks r
         LEFT JOIN program_components pc ON r.component_id = pc.id
-        WHERE r.status IN ('open','escalated')
+        WHERE r.status IN ('open','escalated') AND r.id IS NOT NULL
         ORDER BY
-            CASE r.probability WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
-            CASE r.impact WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END
+            CASE r.impact WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+            CASE r.probability WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END
         LIMIT 9
     """).fetchall()
 
@@ -547,10 +547,10 @@ def derive_blockers_and_kpis(con):
     total_risks, critical_risks, high_risks_cnt = 0, 0, 0
     try:
         total_risks = con.execute(
-            "SELECT COUNT(*) FROM risks WHERE status != 'closed'"
+            "SELECT COUNT(*) FROM risks WHERE status != 'closed' AND id IS NOT NULL"
         ).fetchone()[0]
         for impact, cnt in con.execute(
-            "SELECT impact, COUNT(*) FROM risks WHERE status != 'closed' GROUP BY impact"
+            "SELECT impact, COUNT(*) FROM risks WHERE status != 'closed' AND id IS NOT NULL GROUP BY impact"
         ).fetchall():
             if impact == "critical": critical_risks = cnt
             elif impact == "high":   high_risks_cnt = cnt
@@ -792,7 +792,7 @@ def render_view_sistemas(components, cube_front_content="", cube_img=None,
         sem   = sem_map.get(color, "warn")
         dot   = dot_map.get(color, "⚪")
         total = rag.get("hu_total") or 0
-        must  = us_must_by_track.get(track_id, 0)
+        must  = rag.get("hu_must") or 0
         us_lbl = f"{must} Must · {total} total" if total else meta["type"]
         tracks_html += (
             f'<div class="vp-cap {sem}">'
@@ -969,14 +969,13 @@ def render_view_capacidades(cube_right_content="", cube_img=None,
         '<div class="vw-grid vw-rev reveal">\n'
         '  <div class="vw-body">\n'
         '    <div class="kick">Vista · Capacidades IT</div>\n'
-        '    <h2 class="vw-h2 vwc-c">Capacidades Transversales de TI</h2>\n'
+        '    <div class="vp-h2-row">\n'
+        '      <h2 class="vw-h2 vwc-c">Capacidades Transversales de TI</h2>\n'
+        '      <a href="capacidades-it.html" class="vp-h2-link">Ver gobernanza <span class="vp-arr">→</span></a>\n'
+        '    </div>\n'
         '    <p class="vw-desc">Capacidades institucionales que proveen servicios de '
         'implementación y operación al programa. Gobiernan el SDLC, la demanda de proveedores, '
         'la seguridad, el testing y la resiliencia operativa del Go-Live.</p>\n'
-        '    <div class="vp-h2-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">\n'
-        '    <div class="kick" style="margin-bottom:0">Vista · Capacidades IT</div>\n'
-        '    <a href="capacidades-it.html" class="vp-h2-link">Ver gobernanza <span class="vp-arr">→</span></a>\n'
-        '    </div>\n'
         f'    <div class="vs-section-label">Estado por Capacidad</div>\n'
         f'    <div class="vp-caps">{caps_html}</div>\n'
         f'    <div class="vs-section-label">KPIs de Entrega IT</div>\n'
@@ -1686,7 +1685,7 @@ footer code{{color:var(--muted);background:rgba(240,210,36,.10);border:1px solid
     </div>
     <div class="stat glass warn">
       <div class="statn">21.19%</div>
-      <div class="statl">Avance TDC, 60.58% esperado al 17-ago</div>
+      <div class="statl">Avance Global Unity R4, 60.58% esperado al 17-ago</div>
     </div>
     <div class="stat glass">
       <div class="statn" data-target="{hus}">0</div>
