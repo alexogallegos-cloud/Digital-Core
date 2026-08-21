@@ -6299,9 +6299,12 @@ def main() -> None:
     load_audit_findings(con)   # v1.2.0  --  19 hallazgos del barrido (cifras, correcciones, ambiguedades)
     load_lifecycle_phase_steps(con)
     load_program_systems(con)
-    load_system_sdlc(con)      # v1.5.0  --  fase/progreso/milestones/caps por sistema (desde brain.db)
-    load_it_capabilities(con)  # v1.5.0  --  13 capacidades IT del programa
-    load_stakeholders(con)     # v1.6.0  --  96 stakeholders (bancoppel/acn/ey/vendors)
+    load_system_sdlc(con)          # v1.5.0  --  fase/progreso/milestones/caps por sistema (desde brain.db)
+    load_coexistence_rules(con)    # v1.6.0  --  9 reglas routing Informix<->Unity por tipo op / canal
+    load_migration_map(con)        # v1.6.0  --  20 entries mapeo dominio Informix -> sistema Unity
+    load_system_id_mappings(con)   # v1.6.0  --  system_id en risks, US inventory, HDUs, DTMs, Apolo
+    load_it_capabilities(con)      # v1.5.0  --  13 capacidades IT del programa
+    load_stakeholders(con)         # v1.6.0  --  96 stakeholders (bancoppel/acn/ey/vendors)
     rebuild_fts(con)
     coverage_summary(con)
     semantic_summary(con)     # v0.6.1  --  vista capability_360
@@ -6996,6 +6999,291 @@ def load_stakeholders(con: sqlite3.Connection) -> None:
     summary = " | ".join(f"{o}:{n}" for o, n in sorted(orgs.items(), key=lambda x: -x[1]))
     active_n = sum(1 for s in STAKEHOLDERS if s.get("active", 1))
     print(f"  program_stakeholders: {len(STAKEHOLDERS)} total ({active_n} activos)  |  {summary}")
+
+
+# ── Coexistence rules — v1.6.0 ────────────────────────────────────────────────
+# 9 reglas de routing Informix<->Unity por tipo de operacion, canal y producto.
+# Fuente: dt-coexistencia.md + dt-productos.md + dt-smartvista.md (2026-08-20).
+# Formato: (id, description, trigger_cond, channels, product_id, implemented, notes, updated_at)
+COEXISTENCE_RULES = [
+    ("COE-001",
+     "TDC P4900 — nuevas altas van a SmartVista via Apolo (no Informix/CMS)",
+     "tipo_operacion IN ('ALTA','ONBOARDING') AND producto_id = 'UNITY-R4-P4900'",
+     "apolo", "UNITY-R4-P4900", 0,
+     "Regla principal de switch: toda originacion nueva de TDC P4900 entra al sistema destino "
+     "SmartVista via Apolo. CMS/Intercard quedan como baseline solo para cartera pre-GoLive. "
+     "Confirmado en dt-coexistencia.md y dt-productos.md (Coexistencia: replaces CMS/Intercard/Macweb).",
+     "2026-08-20"),
+    ("COE-002",
+     "TDC P4900 — cartera existente pre-GoLive permanece en Informix/CMS hasta cutover masivo",
+     "producto_id = 'UNITY-R4-P4900' AND fecha_alta < '2027-01-15' AND migrado_smartvista IS NULL",
+     "app-movil,siweb,cat", "UNITY-R4-P4900", 0,
+     "Cartera legacy (~3M tarjetas producto 6001) sigue en Informix hasta migracion masiva de "
+     "portafolio. Parallel run aplica solo a nuevas altas P4900. Tolerancia divergencia <=0.05% "
+     "por dia. Confirmado dt-coexistencia.md seccion Parallel Run.",
+     "2026-08-20"),
+    ("COE-003",
+     "TDC P4900 — pagos y consultas de saldo post-GoLive van a SmartVista via SVIP",
+     "tipo_operacion IN ('PAGO','CONSULTA_SALDO','CONSULTA_MOVIMIENTOS') AND producto_id = 'UNITY-R4-P4900'",
+     "app-movil,siweb,cat", "UNITY-R4-P4900", 0,
+     "Feature flag por tipo de producto (ADR-UNITY-003 pendiente de firmar). App usa "
+     "getInstantCreditStatement y getTransactions v22. CAT via ICCAT->SVIP "
+     "(HDU-CAT-R4-02/08 NO CUBIERTO en PreGame). SIWEB via HDU-SIWEB-R4-01 PARCIAL.",
+     "2026-08-20"),
+    ("COE-004",
+     "TDC P4900 — cobranza y gestion de mora van a Cobranza Direccionada + SmartVista (no Informix D40)",
+     "tipo_operacion IN ('COBRANZA','GESTION_MORA','AGING','CONTACTO_DEUDOR') AND producto_id = 'UNITY-R4-P4900'",
+     "cobranza,cat", "UNITY-R4-P4900", 0,
+     "AgingPeriod E1/E2/E3 expuesto por SmartVista via getInstantCreditStatement. Cobranza "
+     "Direccionada configura reglas en BPC Banking Technologies. Prerequisito para "
+     "HDU-APP-R4-17 (mora visual App) y HDU-CAT-R4-10 (menu IVR por mora). "
+     "Integracion via cargas de datos BPC, no microservicios.",
+     "2026-08-20"),
+    ("COE-005",
+     "Reporteria regulatoria CNBV/Banxico TDC P4900 — pipeline DataStage/Atlas (no reporteria Informix)",
+     "tipo_operacion = 'REPORTE_REGULATORIO' AND regulador IN ('CNBV','BANXICO','IPAB','CONDUSEF') AND producto_id = 'UNITY-R4-P4900'",
+     "atlas", "UNITY-R4-P4900", 0,
+     "Cadena: SmartVista BPC -> Temenos TDH -> DataStage -> DWH -> RiskLogic -> reportes CNBV "
+     "(R-04-C, calificacion cartera). Aplica una vez pipeline productivo. Riesgo: Bajaware en "
+     "decomiso 2027-H1 y alcance R4 no confirmado formalmente (8 riesgos RISK en brain.db). "
+     "Fuente: CLAUDE.md Unity seccion Reportes Regulatorios.",
+     "2026-08-20"),
+    ("COE-006",
+     "TDC P4900 — cierre de dia orquestado por Control-M sobre SmartVista (no solo batch Informix)",
+     "tipo_operacion = 'CIERRE_DIA' AND producto_id = 'UNITY-R4-P4900'",
+     "smartvista", "UNITY-R4-P4900", 0,
+     "Control-M orquesta posting diario SmartVista SVBO. Asientos contables via interfaz "
+     "SVXP->PISA (brecha critica: SVXP->PISA no construida segun dt-productos.md Fase 07). "
+     "Doble batch durante parallel run oct-dic 2026: Informix legacy + SmartVista. "
+     "TRNT (tipo transaccion contable) debe estar definido antes de SIT.",
+     "2026-08-20"),
+    ("COE-007",
+     "Productos no P4900 legacy — permanecen en Informix sin cambio de routing",
+     "producto_id NOT IN ('UNITY-R4-P4900','UNITY-RX-P-PS','UNITY-R1-P-CE-N2','UNITY-R2-P-CED-N4','UNITY-R3-P-NOM-N4')",
+     "app-movil,siweb,cat", None, 1,
+     "Regla de continuidad: todos los productos no migrados a Unity (Credito Coppel 6001, "
+     "nomina legacy, ahorro legacy, credito automotriz, etc.) siguen en Informix. Sin cambio "
+     "de routing. Antipatron a evitar: enrutar mismo cliente a ambos cores sin sesion atomica. "
+     "Fuente: dt-coexistencia.md.",
+     "2026-08-20"),
+    ("COE-008",
+     "TDC P4900 — autorizacion de compras via SmartVista SVFE (88 reglas ISO 8583 via E-Global)",
+     "tipo_operacion = 'AUTORIZACION_COMPRA' AND producto_id = 'UNITY-R4-P4900'",
+     "smartvista", "UNITY-R4-P4900", 0,
+     "Flujo: Comercio->E-Global->SmartVista SVFE (88 reglas)->PayTrue (fraude, ciclos 3min "
+     "desacoplados)->respuesta ISO. SVFM no licenciado por BanCoppel. Modulo 1: rechazo "
+     "inmediato ISO (catalogo BPC). Modulo 2: PayTrue (no sincrono). BIN 42680711. "
+     "Fuente: dt-smartvista.md Flujo Autorizacion.",
+     "2026-08-20"),
+    ("COE-009",
+     "TDC P4900 — bloqueo, reposicion y cancelacion de tarjeta van a SmartVista updateCardStatus",
+     "tipo_operacion IN ('BLOQUEO_TARJETA','REPOSICION','CANCELACION','REPORTE_ROBO_EXTRAVIO') AND producto_id = 'UNITY-R4-P4900'",
+     "app-movil,cat,siweb", "UNITY-R4-P4900", 0,
+     "App: HDU-APP-R4-11/12/13 (PARCIAL/NO CUBIERTO). CAT via ICCAT: HDU-CAT-R4-05/06/11/12 "
+     "(OTP 4 digitos para desbloqueo; templates SMS MAI_BDT_IC bloqueo, SMS_BDT_IC desbloqueo; "
+     "folio robo). Sistemas legacy CMS/Intercard estado DEPRECATED en go-live. "
+     "Fuente: dt-smartvista.md + dt-coexistencia.md.",
+     "2026-08-20"),
+]
+
+
+# ── Informix migration map — v1.6.0 ───────────────────────────────────────────
+# 20 entries: mapeo de dominios Informix hacia sistema Unity de destino.
+# Fuente: dt-coexistencia.md + dt-productos.md (2026-08-20).
+# Formato: (id, informix_domain, informix_sp, unity_product, migration_fate,
+#            migration_status, notes, updated_at)
+INFORMIX_MIGRATION_MAP = [
+    ("IMM-D07-SV", "D07", None, "smartvista", "replaces", "planned",
+     "Emision y ciclo de vida de tarjetas TDC (CMS - Card Management System). SmartVista SVBO "
+     "reemplaza nativamente (fate-informix: absorbed, 59%). BIN 42680711. Maquiladores: "
+     "Forza/TGS/Tales via Connect-Direct. CMS pasa a STATE:DEPRECATED en go-live R4.",
+     "2026-08-20"),
+    ("IMM-D08-SV", "D08", None, "smartvista", "replaces", "planned",
+     "Autorizador de transacciones TDC (Intercard). SmartVista SVFE con 88 reglas ISO 8583 via "
+     "E-Global. fate-informix: absorbed (59% del total). PayTrue como motor de fraude externo. "
+     "Intercard pasa a STATE:DEPRECATED en go-live R4.",
+     "2026-08-20"),
+    ("IMM-D06-SV", "D06", None, "smartvista", "replaces", "planned",
+     "Saldos, pagos y estados de cuenta TDC (Macweb). SmartVista SVBO/SVFE gestiona saldos, "
+     "PPNGI, MAD, agingPeriod via getInstantCreditStatement. fate-informix: absorbed para "
+     "saldos; replicate para logica especifica BanCoppel. Macweb pasa a STATE:DEPRECATED en go-live R4.",
+     "2026-08-20"),
+    ("IMM-D05-SV", "D05", None, "smartvista", "replaces", "planned",
+     "Maquila y personalizacion de plasticos TDC. SmartVista SVCG/Cargen coordina con "
+     "OCG->PGP->Connect-Direct. fate-informix: replicate (24%). OCG y Cargen son manuales en R4 "
+     "(tickets #13830642 y #13830651 pendientes de automatizar post go-live).",
+     "2026-08-20"),
+    ("IMM-D03-SV", "D03", None, "smartvista", "replaces", "in_progress",
+     "Comisiones y catalogos de tarjeta de credito. SmartVista parametrizable "
+     "(HDU-SMART-R4-09: catalogo centralizado homologado con BANXICO). fate-informix: absorbed. "
+     "En configuracion PreGame por BPC Banking Technologies.",
+     "2026-08-20"),
+    ("IMM-D01-TX", "D01", None, "transact", "replaces", "done",
+     "Contabilidad general y libro mayor (GL). Temenos Transact como core contable para "
+     "productos R1-R3+Rx ya en produccion (done). fate-informix: absorbed para captacion y "
+     "credito simple. Para TDC P4900: SVXP->PISA interfaz contable pendiente de construccion "
+     "(brecha critica).",
+     "2026-08-20"),
+    ("IMM-D02-TX", "D02", None, "transact", "replaces", "done",
+     "Intereses, cargos y tasas. Transact calcula intereses para Cuenta Efectiva N2/N4 y "
+     "Nomina N4 (done). fate-informix: absorbed. Para TDC P4900: SmartVista calcula PPNGI y "
+     "MAD; los reporta via SVXP a PISA.",
+     "2026-08-20"),
+    ("IMM-D04-TX", "D04", None, "transact", "replaces", "done",
+     "Cuentas de deposito y captacion (Cuenta Efectiva N2/N4, Nomina N4). Temenos Transact en "
+     "produccion desde R1-R3 (done). fate-informix: absorbed. Onboarding via Apolo para nuevas "
+     "cuentas digitales.",
+     "2026-08-20"),
+    ("IMM-D40-COB", "D40", None, "cobranza", "replaces", "planned",
+     "Cobranza, aging y cartera vencida TDC. Cobranza Direccionada + SmartVista agingPeriod "
+     "E1/E2/E3. 37-50 User Stories pendientes de inventariar (RISK-UNITY-R06 vencido). "
+     "fate-informix: replicate (24%). Pentest 15-20 nov conflicto con SIT.",
+     "2026-08-20"),
+    ("IMM-D41-COB", "D41", None, "cobranza", "replaces", "planned",
+     "Contacto con deudor y gestion preventiva (1-29 dias mora). Cobranza Direccionada configura "
+     "reglas BPC para restricciones por agingPeriod. fate-informix: replicate. Sin User Story "
+     "identificada para gestion preventiva en R4 (brecha Fase 08 dt-productos.md).",
+     "2026-08-20"),
+    ("IMM-D42-COB", "D42", None, "cobranza", "unknown", "unknown",
+     "Cartera en litigio y castigo contable (>120 dias). Politica de castigo requerida por CNBV. "
+     "Sin evidencia de diseno en R4. fate: unknown. Fuente: dt-productos.md Fase 08 brechas "
+     "regulatorias Cobranza.",
+     "2026-08-20"),
+    ("IMM-D09-AT", "D09", None, "atlas", "replaces", "planned",
+     "Reporteria regulatoria CNBV/Banxico (R-04-C, calificacion cartera, Anexos 33/36). "
+     "Cadena: SmartVista->TDH->DataStage->DWH->RiskLogic. fate-informix: replicate. "
+     "Riesgo: Bajaware en decomiso 2027-H1; alcance R4 no confirmado formalmente "
+     "(8 riesgos RISK en brain.db).",
+     "2026-08-20"),
+    ("IMM-D10-AT", "D10", None, "atlas", "replaces", "planned",
+     "Reportes de portafolio TDC (18 reportes SmartVista: cartera, num tarjetas, apertura por "
+     "mes). Atlas/GCP MDM de grupo (retail + banco + Afore). fate-informix: replicate. "
+     "Golden Record del cliente hoy en Informix; migracion a Atlas/AlloyDB Fase 2 (pendiente).",
+     "2026-08-20"),
+    ("IMM-D12-RET", "D12", None, None, "out_of_scope", "unknown",
+     "Nomina legacy (credito nomina Coppel sobre PISA/SIF). No en scope R4. Producto "
+     "UNITY-R3-P-NOM-N4 en Transact para nuevas nominas; cartera legacy permanece en Informix. "
+     "Sin decision de migracion documentada.",
+     "2026-08-20"),
+    ("IMM-D13-RET", "D13", None, None, "out_of_scope", "unknown",
+     "Credito Coppel clasico (producto 6001 legacy, ~3M tarjetas). No en scope R4. "
+     "CMS/Intercard legacy siguen activos para esta cartera hasta decision de migracion masiva "
+     "de portafolio. Confirmado dt-coexistencia.md y dt-productos.md.",
+     "2026-08-20"),
+    ("IMM-D15-RET", "D15", None, None, "out_of_scope", "unknown",
+     "ATM y cajeros automaticos. No en scope R4. Activacion por ATM es CJ_ATM_01 sin User "
+     "Story en R4 (brecha Fase 03 dt-productos.md). Segundo autorizador InterAct Switch/Syndein "
+     "para POS/ATM no en scope R4.",
+     "2026-08-20"),
+    ("IMM-D20-RET", "D20", None, None, "out_of_scope", "unknown",
+     "Microseguros y beneficios (seguros vida, accidentes vinculados a TDC). No en scope R4. "
+     "Sin evidencia de diseno de migracion. Regulacion CNSF no aplica al scope actual.",
+     "2026-08-20"),
+    ("IMM-D30-CMP", "D30", None, None, "complements", "planned",
+     "Parametros del sistema, catalogos globales y configuracion operativa. fate-informix: "
+     "complement (17% del total). Informix y Unity mantienen catalogos sincronizados durante "
+     "coexistencia. Antipatron a evitar: IDs de cliente distintos en ambos sistemas.",
+     "2026-08-20"),
+    ("IMM-D05S-CMP", "D05-SPEI", None, None, "complements", "planned",
+     "Pagos SPEI interbancarios. fate-informix: complement. SPEI recibido en Informix/PISA como "
+     "core de liquidacion; SmartVista actualiza saldo TDC disponible. HDU-SMART-R4-14 POR "
+     "DETERMINAR: exclusion abonos SPEI del limite de credito hasta confirmacion clearing.",
+     "2026-08-20"),
+    ("IMM-D49-TBD", "D49", None, None, "unknown", "unknown",
+     "Administracion del sistema, seguridad operativa y bitacoras internas. Sin decision "
+     "documentada en DTs. Prerequisito para decommission: bank-brain.capability_gap() = 0 "
+     "(regla B7 CLAUDE.md AM). Fate: unknown hasta analisis completo de SPs.",
+     "2026-08-20"),
+]
+
+
+def load_coexistence_rules(con: sqlite3.Connection) -> None:
+    """v1.6.0 — 9 reglas de coexistencia Informix<->Unity por tipo de operacion y canal.
+    Idempotente via INSERT OR REPLACE.
+    Fuente: dt-coexistencia.md + dt-productos.md + dt-smartvista.md (2026-08-20).
+    """
+    con.executemany(
+        "INSERT OR REPLACE INTO coexistence_rules "
+        "(id, description, trigger_cond, channels, product_id, implemented, notes, updated_at) "
+        "VALUES (?,?,?,?,?,?,?,?)",
+        COEXISTENCE_RULES,
+    )
+    con.commit()
+    impl = sum(1 for r in COEXISTENCE_RULES if r[5])
+    print(f"  coexistence_rules : {len(COEXISTENCE_RULES)} reglas  |  implementadas={impl}")
+
+
+def load_migration_map(con: sqlite3.Connection) -> None:
+    """v1.6.0 — 20 entries: mapeo dominio Informix -> sistema Unity destino.
+    Idempotente via INSERT OR REPLACE.
+    Fuente: dt-coexistencia.md + dt-productos.md (2026-08-20).
+    """
+    con.executemany(
+        "INSERT OR REPLACE INTO informix_migration_map "
+        "(id, informix_domain, informix_sp, unity_product, migration_fate, "
+        " migration_status, notes, updated_at) "
+        "VALUES (?,?,?,?,?,?,?,?)",
+        INFORMIX_MIGRATION_MAP,
+    )
+    con.commit()
+    done = sum(1 for r in INFORMIX_MIGRATION_MAP if r[5] == "done")
+    planned = sum(1 for r in INFORMIX_MIGRATION_MAP if r[5] == "planned")
+    out = sum(1 for r in INFORMIX_MIGRATION_MAP if r[4] == "out_of_scope")
+    print(f"  migration_map     : {len(INFORMIX_MIGRATION_MAP)} entries  |  done={done} planned={planned} out_of_scope={out}")
+
+
+def load_system_id_mappings(con: sqlite3.Connection) -> None:
+    """v1.6.0 — Asigna system_id en tablas secundarias usando mappings track/component -> system.
+    Idempotente: usa UPDATE WHERE system_id IS NULL para no sobreescribir valores existentes.
+    Columnas system_id fueron agregadas via ALTER TABLE en load_program_systems.
+    """
+    # user_stories_inventory: track → system_id
+    track_to_system = {
+        "smartvista": "smartvista",
+        "cat":        "smartvista",   # canal CAT opera sobre SmartVista APIs
+        "siweb":      "smartvista",   # canal SIWEB opera sobre SmartVista APIs
+        "apolo":      "apolo",
+        "app":        "app-movil",
+        "Cobranza":   "cobranza",
+    }
+    for track, sid in track_to_system.items():
+        con.execute(
+            "UPDATE user_stories_inventory SET system_id = ? WHERE track = ? AND system_id IS NULL",
+            (sid, track),
+        )
+
+    # risks: component_id → system_id
+    component_to_system = {
+        "smartvista":  "smartvista",
+        "apolo":       "apolo",
+        "app":         "app-movil",
+        "cat":         "cat",
+        "siweb":       "siweb",
+        "cobranza":    "cobranza",
+    }
+    for comp_id, sid in component_to_system.items():
+        con.execute(
+            "UPDATE risks SET system_id = ? WHERE component_id = ? AND system_id IS NULL",
+            (sid, comp_id),
+        )
+
+    # hdu_catalog: todas las User Stories del inventario SmartVista/canales → smartvista
+    con.execute("UPDATE hdu_catalog SET system_id = 'smartvista' WHERE system_id IS NULL")
+
+    # apolo_hdu_catalog: todas las HDUs de Apolo → apolo
+    con.execute("UPDATE apolo_hdu_catalog SET system_id = 'apolo' WHERE system_id IS NULL")
+
+    # dtm_catalog: todos los DTMs son de SmartVista/BPC
+    con.execute("UPDATE dtm_catalog SET system_id = 'smartvista' WHERE system_id IS NULL")
+
+    con.commit()
+
+    n_us   = con.execute("SELECT COUNT(*) FROM user_stories_inventory WHERE system_id IS NOT NULL").fetchone()[0]
+    n_risk = con.execute("SELECT COUNT(*) FROM risks WHERE system_id IS NOT NULL").fetchone()[0]
+    n_hdu  = con.execute("SELECT COUNT(*) FROM hdu_catalog WHERE system_id IS NOT NULL").fetchone()[0]
+    n_ap   = con.execute("SELECT COUNT(*) FROM apolo_hdu_catalog WHERE system_id IS NOT NULL").fetchone()[0]
+    n_dtm  = con.execute("SELECT COUNT(*) FROM dtm_catalog WHERE system_id IS NOT NULL").fetchone()[0]
+    print(f"  system_id_mappings: us={n_us} risks={n_risk} hdu={n_hdu} apolo_hdu={n_ap} dtm={n_dtm}")
 
 
 if __name__ == "__main__":
