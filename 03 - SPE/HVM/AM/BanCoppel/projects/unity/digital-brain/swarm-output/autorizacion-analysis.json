@@ -1,0 +1,724 @@
+{
+  "phase_id": "autorizacion",
+  "phase_name": "Autorización",
+  "analyzed_at": "2026-08-20",
+  "analyst": "DT-Swarm-Autorizacion-v1",
+
+  "flow_validated": {
+    "nodes": [
+      {
+        "node_name": "Comercio",
+        "node_type": "actor",
+        "pending": false,
+        "evidence_type": "doc",
+        "evidence_ref": "FSD0107 v5.5 — 'las transacciones se enrutarán a SVFE para su validación, autorización final, y actualización de saldos'",
+        "notes": "Actor externo. Origen y destino final del flujo de autorización. Puede ser POS físico, e-commerce o ATM. El flujo es de ida y vuelta: termina donde empezó."
+      },
+      {
+        "node_name": "E-Global",
+        "node_type": "procesador",
+        "pending": false,
+        "evidence_type": "integration",
+        "evidence_ref": "Inventario de Integraciones_HUs_R4_v1.0.xlsx; vocabulario brain.db::vocabulary term='E-Global'",
+        "notes": "Switch transaccional de BanCoppel que enruta autorizaciones hacia SmartVista. Canal de entrada del autorizador de 88 reglas. Tiene DOS rutas de salida distintas según canal: e-Global → SVBO para e-commerce; e-Global → GlobalPOSe para POS con tarjeta física. Enruta también hacia Interact Switch (legado) para POS/ATM de terceros y débito."
+      },
+      {
+        "node_name": "SmartVista SVFE",
+        "node_type": "procesador",
+        "pending": false,
+        "evidence_type": "user_story",
+        "evidence_ref": "HDU-SMART-R4-11 'Incorporar reglas del autorizador BPC'; DTM_ValidateBPCAuthorization (brain.db::dtm_catalog)",
+        "notes": "SmartVista Front End: módulo que recibe el mensaje ISO 8583, aplica las 88 reglas (Módulo 1 rechaza por código ISO; Módulo 2 evalúa límites y riesgo), y devuelve la respuesta. Presencia verificada en R1 (productivo dic-2024). La ruta e-commerce usa SVBO como entry point. Ambas convergen en el motor de reglas."
+      },
+      {
+        "node_name": "SmartVista SVBO (ruta e-commerce)",
+        "node_type": "procesador",
+        "pending": false,
+        "evidence_type": "doc",
+        "evidence_ref": "TDC_R4_SV_Canales_PreGame_20260728_V1.0_Appwhere.pdf; vocabulario brain.db term='SVBO'",
+        "notes": "SmartVista Back Office: contratos, contabilidad, liquidación y parametrización. Es el entry point de e-Global para transacciones e-commerce. Para POS físico el entry point es GlobalPOSe, no SVBO. Documenta el movimiento y actualiza saldos disponibles (paso 6 del flujo)."
+      },
+      {
+        "node_name": "HSM Thales payShield 10K",
+        "node_type": "externo",
+        "pending": false,
+        "evidence_type": "doc",
+        "evidence_ref": "Phase notes lifecycle-p4900: 'el único componente sincrónico adicional es el HSM Thales payShield 10K para CVV2 en e-commerce'; vocabulario brain.db term='HSM'",
+        "notes": "Hardware Security Module. Sincrónico SOLO para validación de CVV2 en transacciones e-commerce. En POS físico el PIN se valida en el propio terminal (offline o via red); el HSM no participa en esa ruta. Cifrado individual por tarjeta."
+      },
+      {
+        "node_name": "PayTrue",
+        "node_type": "externo",
+        "pending": false,
+        "evidence_type": "doc",
+        "evidence_ref": "Phase notes lifecycle-p4900: 'PayTrue NO está en la ruta sincrónica. Se alimenta por archivo en carpeta con ciclos de 3 minutos (SVIP a carpeta SV)'; DTM_ValidateBPCAuthorization gap_description",
+        "notes": "Motor de riesgo/fraude. NO está en la ruta sincrónica de autorización. Se alimenta por archivo desde SVIP a carpeta SV con ciclos de ~3 minutos — es casi tiempo real desacoplado, no in-line. Reemplaza funcionalmente a SVFM (módulo fraude) que no está licenciado. El Módulo 2 del autorizador evalúa riesgo contra los scores de PayTrue actualizados periódicamente."
+      },
+      {
+        "node_name": "SVFM (SmartVista Fraud Management)",
+        "node_type": "procesador",
+        "pending": true,
+        "evidence_type": "doc",
+        "evidence_ref": "PreGame 28-jul-2026: módulo no licenciado (Anexo 1 firmado + SIR); Plan de Trabajo 12-ago-2026: binario instalado, conectividad SVFM-SVFE probada, reglas Módulo 2 en Fraud Manager",
+        "notes": "CONTRADICCIÓN ABIERTA: el PreGame firmado dice que SVFM no está licenciado por BanCoppel. El Plan de Trabajo registra el binario instalado y conectividad probada. El vocabulario del brain.db dice explícitamente 'NO licenciado por BanCoppel. Se usa PayTrue en su lugar'. Delta de licenciamiento vivo sin resolver. Marcado como pending hasta resolución formal."
+      },
+      {
+        "node_name": "Interact Switch / Syndein",
+        "node_type": "procesador",
+        "pending": false,
+        "evidence_type": "doc",
+        "evidence_ref": "Phase notes lifecycle-p4900: 'Existe un segundo autorizador en paralelo: Interact Switch de Syndein, legado, para POS y ATM de terceros y débito, que sí escribe en Informix'",
+        "notes": "Segundo autorizador paralelo — FUERA DE SCOPE R4. Opera para POS y ATM de terceros y débito bancario. A diferencia del flujo SmartVista R4, este SÍ escribe en Informix. Decir 'el autorizador' sin calificar es ambiguo en el ecosistema BanCoppel: hay dos autorizadores en producción. Listado aquí para contexto, no es nodo del flujo R4."
+      }
+    ],
+    "arrows": [
+      {
+        "step_order": 1,
+        "label": "ISO 8583 MTI 0200 (Authorization Request)",
+        "from_node": "Comercio",
+        "to_node": "E-Global",
+        "pending": false,
+        "evidence_ref": "vocabulario brain.db term='ISO 8583': 'Estándar internacional de mensajería para transacciones con tarjeta de crédito/debito. 88 reglas probadas por eGlobal'; FSD0107 v5.5",
+        "notes": "El comercio (POS físico, e-commerce o ATM) envía el mensaje de solicitud de autorización al switch transaccional E-Global en formato ISO 8583 MTI 0200."
+      },
+      {
+        "step_order": 2,
+        "label": "Enrutamiento ISO 8583 a SVFE (ruta POS físico: vía GlobalPOSe)",
+        "from_node": "E-Global",
+        "to_node": "SmartVista SVFE",
+        "pending": false,
+        "evidence_ref": "phase steps enriched: 'Recepción de mensaje ISO 8583 del adquirente (POS / e-commerce)'; HDU-SMART-R4-11",
+        "notes": "Ruta para POS físico con tarjeta plástica: E-Global → GlobalPOSe → SVFE. El mensaje ISO 8583 se entrega al motor autorizador de SmartVista."
+      },
+      {
+        "step_order": 3,
+        "label": "Enrutamiento ISO 8583 a SVBO (ruta e-commerce)",
+        "from_node": "E-Global",
+        "to_node": "SmartVista SVBO (ruta e-commerce)",
+        "pending": false,
+        "evidence_ref": "phase notes lifecycle-p4900: 'Dos rutas de entrada distintas según canal: e-Global a SVBO para e-commerce'",
+        "notes": "Ruta para e-commerce: E-Global → SVBO. Distinta a la ruta POS físico. SVBO actúa como entry point y luego delega la validación de reglas a SVFE."
+      },
+      {
+        "step_order": 4,
+        "label": "Solicitud validación CVV2 (e-commerce únicamente)",
+        "from_node": "SmartVista SVFE",
+        "to_node": "HSM Thales payShield 10K",
+        "pending": false,
+        "evidence_ref": "phase notes: 'el único componente sincrónico adicional es el HSM Thales payShield 10K para CVV2 en e-commerce'; vocabulario brain.db term='HSM'",
+        "notes": "Solo se ejecuta para transacciones e-commerce donde se envía CVV2. El HSM valida criptográficamente el código. En POS físico con tarjeta, el PIN se valida en el terminal; el HSM no participa."
+      },
+      {
+        "step_order": 5,
+        "label": "Respuesta validación CVV2",
+        "from_node": "HSM Thales payShield 10K",
+        "to_node": "SmartVista SVFE",
+        "pending": false,
+        "evidence_ref": "vocabulario brain.db term='HSM': 'módulo de seguridad física Thales payShield10K. Cifrado individual por tarjeta'",
+        "notes": "El HSM retorna el resultado de la validación CVV2 (válido / inválido) a SVFE para que continúe con la evaluación de las 88 reglas."
+      },
+      {
+        "step_order": 6,
+        "label": "Aplicación de 88 reglas del autorizador BPC",
+        "from_node": "SmartVista SVFE",
+        "to_node": "SmartVista SVFE",
+        "pending": false,
+        "evidence_ref": "HDU-SMART-R4-11 'Incorporar reglas del autorizador BPC'; DTM_ValidateBPCAuthorization; phase notes: 'Las 88 reglas se pueden reordenar pero no ampliar ni recortar. Módulo 1 rechaza por código ISO, Módulo 2 son límites y riesgo'",
+        "notes": "Proceso interno en SVFE. Módulo 1: rechaza por código ISO (tarjeta expirada, bloqueada, inválida). Módulo 2: evalúa límites de crédito y riesgo (scores de PayTrue cargados de forma asíncrona cada ~3 min). Las reglas no son ampliables ni recortables en R4."
+      },
+      {
+        "step_order": 7,
+        "label": "ISO 8583 MTI 0210 (Authorization Response)",
+        "from_node": "SmartVista SVFE",
+        "to_node": "E-Global",
+        "pending": false,
+        "evidence_ref": "phase desc lifecycle-p4900: 'devuelve la respuesta al comercio por la misma vía'; FSD0107 v5.5",
+        "notes": "SVFE devuelve el resultado de la autorización a E-Global en formato ISO 8583 MTI 0210. Incluye código de respuesta ISO (00=aprobado, 51=fondos insuficientes, etc.)."
+      },
+      {
+        "step_order": 8,
+        "label": "Respuesta aprobación o rechazo al comercio",
+        "from_node": "E-Global",
+        "to_node": "Comercio",
+        "pending": false,
+        "evidence_ref": "phase steps: 'aprobación o rechazo'; FSD0107 v5.5",
+        "notes": "E-Global retorna la respuesta al comercio (POS, terminal e-commerce o ATM). El flujo es completamente de ida y vuelta: termina donde empezó. La autorización NO llega a Temenos Transact ni a Informix (PISA) según FSD0107 v5.5."
+      },
+      {
+        "step_order": 9,
+        "label": "Alimentación asíncrona de scores de riesgo (no sincrónico)",
+        "from_node": "SmartVista SVFE",
+        "to_node": "PayTrue",
+        "pending": false,
+        "evidence_ref": "phase notes: 'Se alimenta por archivo en carpeta con ciclos de 3 minutos (SVIP a carpeta SV)'",
+        "notes": "ASÍNCRONO — fuera del flujo sincrónico de autorización. SVIP exporta datos a carpeta compartida cada ~3 minutos; PayTrue procesa y actualiza scores de riesgo. El autorizador consulta estos scores pre-calculados, no hace una llamada en tiempo real a PayTrue durante la autorización."
+      }
+    ],
+    "validation_summary": "El flujo principal está validado por evidencia documental (FSD0107 v5.5, PreGame BPC, vocabulario brain.db) y User Story HDU-SMART-R4-11. Hay DOS rutas de entrada desde E-Global: e-commerce (vía SVBO) y POS físico (vía GlobalPOSe). El HSM solo participa en e-commerce para CVV2. PayTrue es asíncrono y no está en el flujo sincrónico. La principal contradicción sin resolver es el estado de SVFM (licenciado vs no licenciado según fuentes del mismo mes). El segundo autorizador Interact Switch (Syndein) opera en paralelo para débito y ATM de terceros, fuera del scope R4. El flujo NO llega a Temenos Transact ni a Informix según FSD0107 v5.5."
+  },
+
+  "steps_enriched": [
+    {
+      "step_n": 1,
+      "description": "Recepción del mensaje ISO 8583 MTI 0200 del adquirente desde E-Global. El mensaje incluye PAN (tarjeta), monto, moneda, MCC del comercio, terminal ID, y datos de autenticación (CVV2 para e-commerce, PIN cifrado para POS físico).",
+      "sistema": "SmartVista SVFE",
+      "us_id": "HDU-SMART-R4-11",
+      "us_title": "Incorporar 88 reglas del autorizador BPC",
+      "protocol": "ISO8583",
+      "exists_today": true,
+      "gap_flag": false,
+      "gap_notes": "El autorizador SmartVista está operativo desde R1 (dic-2024). La User Story HDU-SMART-R4-11 cubre la incorporación de las 88 reglas específicas del Producto 4900."
+    },
+    {
+      "step_n": 2,
+      "description": "Validación del instrumento de pago: verificación de vigencia de la tarjeta (fecha expiración), estatus CSTS en catálogo SmartVista (CSTS_ACTIVE vs CSTS_BLOCKED), y validación de CVV2 contra HSM para transacciones e-commerce. Para POS físico el PIN se valida en el terminal.",
+      "sistema": "SmartVista SVFE + HSM Thales payShield 10K (solo e-commerce)",
+      "us_id": "HDU-SMART-R4-11",
+      "us_title": "Incorporar 88 reglas del autorizador BPC",
+      "protocol": "ISO8583",
+      "exists_today": true,
+      "gap_flag": false,
+      "gap_notes": "Validación de instrumento cubierta por Módulo 1 de las 88 reglas. HSM Thales payShield 10K para CVV2 confirmado en fase notes como único componente sincrónico adicional en ruta e-commerce."
+    },
+    {
+      "step_n": 3,
+      "description": "Aplicación secuencial de las 88 reglas del autorizador BPC. Módulo 1: rechaza por código de respuesta ISO (tarjeta expirada, bloqueada, inválida, lista negra). Módulo 2: valida límites de crédito y evalúa riesgo transaccional usando scores de PayTrue precargados asincrónicamente cada ~3 minutos. Las reglas son fijas: no se pueden ampliar ni recortar en R4.",
+      "sistema": "SmartVista SVFE",
+      "us_id": "HDU-SMART-R4-11",
+      "us_title": "Incorporar 88 reglas del autorizador BPC",
+      "protocol": "ISO8583",
+      "exists_today": true,
+      "gap_flag": true,
+      "gap_notes": "Las 88 reglas como set están validadas por PreGame BPC. GAP: el Módulo 2 depende de scores de riesgo de PayTrue que se actualizan de forma asíncrona — existe una ventana de hasta ~3 min donde los scores podrían estar desactualizados. CONTRADICCIÓN ABIERTA sobre SVFM: si el módulo fraude está instalado y conectado (Plan Trabajo 12-ago) o no licenciado (PreGame 28-jul), el comportamiento del Módulo 2 es ambiguo. RISK-UNITY-R15 activo: ambientes DEV y TEST no tienen infraestructura para SVFM, impidiendo probar las 88 reglas."
+    },
+    {
+      "step_n": 4,
+      "description": "Control de saldo a favor (overpayment) y validación del límite de crédito disponible. SmartVista BPC valida que la transacción no exceda el límite de crédito parametrizado por tramo de línea. Si hay saldo a favor (BLTP overpayment), se aplica antes de calcular el límite disponible. Rechazo completo si se excede — sin autorización parcial.",
+      "sistema": "SmartVista BPC",
+      "us_id": "HDU-SMART-R4-12",
+      "us_title": "Parametrizar límite de saldo a favor",
+      "protocol": "ISO8583",
+      "exists_today": false,
+      "gap_flag": true,
+      "gap_notes": "HDU-SMART-R4-12 (parametrizar límite saldo a favor) tiene cobertura TOTAL PARAMETRIZABLE en PreGame — sin desarrollo adicional. HDU-SMART-R4-13 (validar el límite, rechazo completo) tiene cobertura POR DETERMINAR con issue BYU0039 de severidad High abierto. Este defecto de BPC bloquea la confirmación del comportamiento de rechazo en SmartVista. HDU-SMART-R4-13 es must, sistema no existe hoy en R4 por el defecto."
+    },
+    {
+      "step_n": 5,
+      "description": "Generación y envío de la respuesta de autorización en tiempo real. SmartVista SVFE construye el mensaje ISO 8583 MTI 0210 con el código de respuesta (00=aprobado, 51=fondos insuficientes, 05=no honrar, etc.) y lo retorna a E-Global para su entrega al comercio. La latencia total del ciclo debe ser P99 < 2,000 ms.",
+      "sistema": "SmartVista SVFE",
+      "us_id": "HDU-SMART-R4-11",
+      "us_title": "Incorporar 88 reglas del autorizador BPC",
+      "protocol": "ISO8583",
+      "exists_today": true,
+      "gap_flag": true,
+      "gap_notes": "GAP-VP-002: el SLA de autorización (latencia P99) no está definido en el contrato R4. El benchmark de industria es P99 < 2,000 ms; Visa penaliza emisores con tiempos elevados. Sin SLA contractual no hay criterio formal de éxito para pruebas de rendimiento."
+    },
+    {
+      "step_n": 6,
+      "description": "Registro del movimiento autorizado y actualización del saldo disponible. SmartVista SVBO registra la transacción en su libro mayor, actualiza el saldo disponible de la línea de crédito, y refleja la pre-autorización como 'En Proceso' (amountHoldPlaced=true) hasta la liquidación del clearing. Según FSD0107 v5.5, Informix/PISA NO es responsable de esta actividad.",
+      "sistema": "SmartVista SVBO + SmartVista BPC",
+      "us_id": null,
+      "us_title": "Sin User Story específica en R4",
+      "protocol": "ISO8583",
+      "exists_today": false,
+      "gap_flag": true,
+      "gap_notes": "GAP-AUTH-002: no existe User Story formal que cubra el registro del movimiento y la actualización del saldo disponible después de la autorización. El campo amountHoldPlaced en getTransactions (API SVIP v22) refleja el estado de pre-autorización, lo que implica que SmartVista sí lo registra, pero no hay historia que lo valide explícitamente para R4. FSD0107 v5.5 confirma que PISA/Informix no es responsable de esta actividad."
+    }
+  ],
+
+  "us_mapping": [
+    {
+      "us_id": "HDU-SMART-R4-11",
+      "us_title": "Incorporar reglas del autorizador BPC",
+      "moscow": "must",
+      "system_id": "smartvista",
+      "phase_step": 1,
+      "coverage": "parcial",
+      "notes": "Cubre pasos 1, 2, 3, 5 del flujo de autorización. Una sola User Story sostiene las 88 reglas completas del autorizador. Cobertura PreGame: PARCIAL — el autorizador base es nativo en SmartVista; la integración con PayTrue (que reemplaza a SVFM no licenciado) es el delta a construir. Fecha de cierre de análisis: 16-oct-2026, lo que genera overlap con inicio SIT (15-oct-2026). Es la última User Story de todo R4 en cerrar análisis."
+    },
+    {
+      "us_id": "HDU-SMART-R4-12",
+      "us_title": "Parametrizar límite de saldo a favor",
+      "moscow": "must",
+      "system_id": "smartvista",
+      "phase_step": 4,
+      "coverage": "completa",
+      "notes": "Cobertura TOTAL PARAMETRIZABLE en PreGame — no requiere desarrollo adicional, solo configuración en SmartVista. 3 criterios de aceptación. Cubre la parametrización del límite por tramo de línea de crédito. Sin DTM propio — la funcionalidad es nativa."
+    },
+    {
+      "us_id": "HDU-SMART-R4-13",
+      "us_title": "Validar límite de saldo a favor por línea de crédito",
+      "moscow": "must",
+      "system_id": "smartvista",
+      "phase_step": 4,
+      "coverage": "parcial",
+      "notes": "Cobertura POR DETERMINAR en PreGame — tiene el issue BYU0039 de severidad High abierto en SmartVista. Este defecto bloquea confirmar el comportamiento de rechazo completo (sin póliza parcial) cuando se excede el límite de saldo a favor. DTM: DTM_ManageOverpaymentLimit. El contexto JSON del brain incluye HDU-SMART-R4-12 como 'Parametrizar límite de saldo a favor' con moscow=must, que es el step de parametrización. HDU-SMART-R4-13 es el step de validación ejecutiva."
+    }
+  ],
+
+  "data_elements": [
+    {
+      "entity_name": "Mensaje ISO 8583",
+      "field_name": "MTI",
+      "data_type": "TEXT",
+      "description": "Message Type Indicator — identifica el tipo de mensaje ISO 8583. 0200 = solicitud de autorización; 0210 = respuesta de autorización; 0400 = reversión.",
+      "source_system": "SmartVista SVFE / E-Global",
+      "regulation_ref": "ISO 8583:2003 — estándar internacional de mensajería de pago",
+      "is_pii": false,
+      "is_financial": true
+    },
+    {
+      "entity_name": "Mensaje ISO 8583",
+      "field_name": "PAN",
+      "data_type": "TEXT",
+      "description": "Primary Account Number — número de tarjeta de 16 dígitos (BIN 426807 + subBIN R4: posición 8 0-4=digital, 5-9=física). Debe almacenarse cifrado o tokenizado. Campo F2 del ISO 8583.",
+      "source_system": "SmartVista SVFE",
+      "regulation_ref": "PCI-DSS v4.0 Req. 3.3 — almacenamiento seguro del PAN; CNBV CUB Art. 76 LIC",
+      "is_pii": true,
+      "is_financial": true
+    },
+    {
+      "entity_name": "Mensaje ISO 8583",
+      "field_name": "monto_transaccion",
+      "data_type": "MONEY",
+      "description": "Importe de la transacción de compra. Campo F4 del ISO 8583. Expresado en centavos sin punto decimal para evitar errores de redondeo. Riesgo MONEY si se convierte a flotante.",
+      "source_system": "SmartVista SVFE",
+      "regulation_ref": "PCI-DSS v4.0; Circular Banxico SPEI para validación de montos",
+      "is_pii": false,
+      "is_financial": true
+    },
+    {
+      "entity_name": "Mensaje ISO 8583",
+      "field_name": "moneda_transaccion",
+      "data_type": "TEXT",
+      "description": "Código ISO 4217 de la moneda de la transacción. 484=MXN (Peso mexicano), 840=USD. Campo F49 del ISO 8583.",
+      "source_system": "SmartVista SVFE",
+      "regulation_ref": "ISO 4217:2015; Circular Banxico sobre operaciones en moneda extranjera",
+      "is_pii": false,
+      "is_financial": true
+    },
+    {
+      "entity_name": "Mensaje ISO 8583",
+      "field_name": "codigo_comercio_MCC",
+      "data_type": "TEXT",
+      "description": "Merchant Category Code — código de categoría del comercio (4 dígitos). Campo F18 del ISO 8583. Usado por las 88 reglas del Módulo 2 para evaluar riesgo por tipo de comercio.",
+      "source_system": "E-Global (originado por el adquirente)",
+      "regulation_ref": "ISO 18245:2003; PCI-DSS v4.0 para clasificación de merchants",
+      "is_pii": false,
+      "is_financial": false
+    },
+    {
+      "entity_name": "Mensaje ISO 8583",
+      "field_name": "terminal_id",
+      "data_type": "TEXT",
+      "description": "Identificador único de la terminal POS o ATM que origina la transacción. Campo F41 del ISO 8583. Usado para geolocalización y detección de fraude en el Módulo 2.",
+      "source_system": "E-Global",
+      "regulation_ref": null,
+      "is_pii": false,
+      "is_financial": false
+    },
+    {
+      "entity_name": "Mensaje ISO 8583",
+      "field_name": "fecha_hora_transaccion",
+      "data_type": "DATETIME",
+      "description": "Timestamp de la transacción en formato MMDDHHMMSS (campo F12/F13 ISO 8583). Crítico para cálculo de timeout de pre-autorización y conciliación con clearing posterior.",
+      "source_system": "SmartVista SVFE",
+      "regulation_ref": "Circular Banxico sobre trazabilidad de operaciones",
+      "is_pii": false,
+      "is_financial": true
+    },
+    {
+      "entity_name": "Mensaje ISO 8583",
+      "field_name": "CVV2",
+      "data_type": "TEXT",
+      "description": "Card Verification Value 2 — código de 3 dígitos impreso en el reverso de la tarjeta física, o CVV dinámico generado por SVIP para tarjeta digital. Campo de seguridad F45/F55 del ISO 8583. Solo aplicable en e-commerce.",
+      "source_system": "HSM Thales payShield 10K",
+      "regulation_ref": "PCI-DSS v4.0 Req. 3.3 — CVV2 nunca debe almacenarse post-autorización; CNBV CUB",
+      "is_pii": true,
+      "is_financial": true
+    },
+    {
+      "entity_name": "Regla de autorización",
+      "field_name": "codigo_regla",
+      "data_type": "INT",
+      "description": "Número identificador de la regla del autorizador (1 a 88). Las reglas se pueden reordenar pero no ampliar ni recortar en R4. Cada regla tiene un resultado binario: procede / rechaza.",
+      "source_system": "SmartVista SVFE",
+      "regulation_ref": null,
+      "is_pii": false,
+      "is_financial": false
+    },
+    {
+      "entity_name": "Regla de autorización",
+      "field_name": "modulo_regla",
+      "data_type": "INT",
+      "description": "Módulo al que pertenece la regla: 1=Módulo ISO (rechaza por código de respuesta ISO — tarjeta inválida, expirada, bloqueada) o 2=Módulo Límites/Riesgo (evalúa límite de crédito y scores de riesgo de PayTrue). Fuente: DTM_ValidateBPCAuthorization.",
+      "source_system": "SmartVista SVFE",
+      "regulation_ref": null,
+      "is_pii": false,
+      "is_financial": false
+    },
+    {
+      "entity_name": "Regla de autorización",
+      "field_name": "codigo_respuesta_iso",
+      "data_type": "TEXT",
+      "description": "Código de respuesta ISO 8583 devuelto al comercio: 00=aprobado, 05=no honrar, 51=fondos insuficientes, 54=tarjeta expirada, 55=PIN incorrecto, 57=transacción no permitida, 14=número de cuenta inválido. Crítico para tasa de autorización (KPI > 85%).",
+      "source_system": "SmartVista SVFE",
+      "regulation_ref": "ISO 8583:2003 — catálogo de códigos de respuesta",
+      "is_pii": false,
+      "is_financial": true
+    },
+    {
+      "entity_name": "Saldo de cuenta TDC",
+      "field_name": "saldo_disponible",
+      "data_type": "MONEY",
+      "description": "Saldo disponible actual en la línea de crédito. Calculado como: límite_crédito - saldo_deudor + saldo_a_favor. Actualizado por SmartVista SVBO después de cada autorización. Expuesto por API SVIP getInstantCreditStatement.",
+      "source_system": "SmartVista SVBO",
+      "regulation_ref": "Circular Banxico sobre transparencia de crédito; CONDUSEF",
+      "is_pii": false,
+      "is_financial": true
+    },
+    {
+      "entity_name": "Saldo de cuenta TDC",
+      "field_name": "limite_credito",
+      "data_type": "MONEY",
+      "description": "Límite de crédito total autorizado de la tarjeta. Parametrizado por tramo de línea (HDU-SMART-R4-12). Usado por el Módulo 2 del autorizador para validar si la transacción excede el límite disponible.",
+      "source_system": "SmartVista SVBO",
+      "regulation_ref": "CNBV CUB Anexo 33 — criterios de crédito al consumo",
+      "is_pii": false,
+      "is_financial": true
+    },
+    {
+      "entity_name": "Saldo de cuenta TDC",
+      "field_name": "saldo_a_favor",
+      "data_type": "MONEY",
+      "description": "Saldo positivo en la cuenta (overpayment). Ocurre cuando el cliente paga más del saldo total adeudado. SmartVista parametriza un límite de saldo a favor por tramo de línea. Si se excede el límite, el sistema rechaza el abono completo (sin póliza parcial). Campo BLTP en SmartVista.",
+      "source_system": "SmartVista SVBO",
+      "regulation_ref": "CNBV CUB — tratamiento de pagos en exceso; CONDUSEF",
+      "is_pii": false,
+      "is_financial": true
+    },
+    {
+      "entity_name": "Saldo de cuenta TDC",
+      "field_name": "agingPeriod",
+      "data_type": "TEXT",
+      "description": "Nivel de mora del cliente: E1=0-1 periodos sin restricción; E2=2-3 periodos restricción parcial; E3=4+ periodos bloqueo mayoritario. Usado por el Módulo 1 del autorizador para determinar códigos de respuesta según mora. Expuesto por API SVIP.",
+      "source_system": "SmartVista SVBO",
+      "regulation_ref": "CNBV CUB Anexo 33 — cartera vencida y niveles de mora",
+      "is_pii": false,
+      "is_financial": true
+    },
+    {
+      "entity_name": "Saldo de cuenta TDC",
+      "field_name": "amountHoldPlaced",
+      "data_type": "BOOL",
+      "description": "Indicador de pre-autorización pendiente de liquidación. true = compra e-commerce en estado 'En Proceso' — autorizada pero no liquidada mediante clearing. Expuesto en getTransactions v22 (API SVIP). Permite mostrar al cliente transacciones en proceso vs definitivas.",
+      "source_system": "SmartVista SVBO",
+      "regulation_ref": null,
+      "is_pii": false,
+      "is_financial": true
+    }
+  ],
+
+  "integrations": [
+    {
+      "integration_ref": "INT-AUTH-001",
+      "from_system": "E-Global",
+      "to_system": "SmartVista SVFE",
+      "api_name": "ISO 8583 Authorization Flow (vía GlobalPOSe — POS físico)",
+      "protocol": "ISO8583",
+      "direction": "bidirectional",
+      "evidence_us": "HDU-SMART-R4-11",
+      "scope_r4": true,
+      "gap_flag": false,
+      "gap_notes": "Ruta POS físico confirmada en producción desde R1 (dic-2024). El protocolo ISO 8583 MTI 0200/0210 es el estándar de la industria para autorizaciones de pago. No está en el inventario formal de 18 integraciones R4 porque es el protocolo central del sistema, no una integración de canal."
+    },
+    {
+      "integration_ref": "INT-AUTH-002",
+      "from_system": "E-Global",
+      "to_system": "SmartVista SVBO",
+      "api_name": "ISO 8583 Authorization Flow (ruta e-commerce via SVBO)",
+      "protocol": "ISO8583",
+      "direction": "bidirectional",
+      "evidence_us": "HDU-SMART-R4-11",
+      "scope_r4": true,
+      "gap_flag": false,
+      "gap_notes": "Ruta e-commerce: E-Global conecta a SVBO como entry point para transacciones de tarjeta no presente. Diferente punto de entrada que la ruta POS físico (GlobalPOSe)."
+    },
+    {
+      "integration_ref": "INT-AUTH-003",
+      "from_system": "SmartVista SVFE",
+      "to_system": "HSM Thales payShield 10K",
+      "api_name": "CVV2 Validation Request",
+      "protocol": "REST",
+      "direction": "bidirectional",
+      "evidence_us": "HDU-SMART-R4-11",
+      "scope_r4": true,
+      "gap_flag": false,
+      "gap_notes": "Sincrónico, solo para transacciones e-commerce donde el comercio envía CVV2. El protocolo exacto de la API hacia el HSM Thales payShield 10K no está documentado en el inventario de integraciones R4 — inferido de la documentación técnica SmartVista."
+    },
+    {
+      "integration_ref": "INT-AUTH-004",
+      "from_system": "SmartVista SVIP",
+      "to_system": "PayTrue",
+      "api_name": "Batch file transfer — scores de riesgo",
+      "protocol": "batch",
+      "direction": "outbound",
+      "evidence_us": null,
+      "scope_r4": true,
+      "gap_flag": true,
+      "gap_notes": "ASÍNCRONO — no en la ruta sincrónica de autorización. SVIP exporta datos transaccionales a una carpeta compartida cada ~3 minutos; PayTrue procesa y actualiza los scores de riesgo. El DTM_ValidateBPCAuthorization identifica esta integración como 'el delta a construir' en R4. Sin User Story que la respalde explícitamente. GAP: sin evidencia de esta integración en el inventario formal de 18 integraciones R4."
+    },
+    {
+      "integration_ref": "INT-AUTH-005",
+      "from_system": "SmartVista SVBO",
+      "to_system": "SmartVista SVFE (paso 6)",
+      "api_name": "Registro de movimiento y actualización de saldo (interno SmartVista)",
+      "protocol": "REST",
+      "direction": "inbound",
+      "evidence_us": null,
+      "scope_r4": false,
+      "gap_flag": true,
+      "gap_notes": "Proceso interno de SmartVista para registrar el movimiento autorizado y actualizar el saldo disponible. No está en el inventario de integraciones R4 como integración formal porque es interna al sistema. Sin User Story específica en R4 (paso 6 sin cobertura). El campo amountHoldPlaced en getTransactions implica que SmartVista registra la pre-autorización, pero no hay historia que lo valide explícitamente."
+    },
+    {
+      "integration_ref": "ICAT05",
+      "from_system": "ICCAT (CAT)",
+      "to_system": "SMARTVISTA",
+      "api_name": "Bloqueo de tarjeta SMARTVISTA",
+      "protocol": "REST",
+      "direction": "outbound",
+      "evidence_us": "HDU-CAT-R4-05",
+      "scope_r4": true,
+      "gap_flag": true,
+      "gap_notes": "Integración de bloqueo de tarjeta desde CAT. Relacionada con autorización porque un bloqueo impacta las autorizaciones futuras (código de respuesta ISO por tarjeta bloqueada). Nueva — no existe hoy. Complejidad: Media. Fuente: Inventario de Integraciones_HUs_R4_v1.0.xlsx."
+    },
+    {
+      "integration_ref": "ICAT06",
+      "from_system": "ICCAT (CAT)",
+      "to_system": "SMARTVISTA",
+      "api_name": "Desbloqueo de tarjeta SMARTVISTA",
+      "protocol": "REST",
+      "direction": "outbound",
+      "evidence_us": "HDU-CAT-R4-06",
+      "scope_r4": true,
+      "gap_flag": true,
+      "gap_notes": "Integración de desbloqueo de tarjeta desde CAT. Nueva — no existe hoy. Complementaria a ICAT05. Complejidad: Media. Fuente: Inventario de Integraciones_HUs_R4_v1.0.xlsx."
+    }
+  ],
+
+  "test_cases": [
+    {
+      "tc_id": "TC-AUTH-001",
+      "tc_title": "Compra aprobada en POS físico — flujo nominal",
+      "precondition": "Tarjeta P4900 activa (CSTS_ACTIVE), saldo disponible suficiente, sin mora (E1), terminal POS habilitada, tarjeta dentro de vigencia.",
+      "steps_summary": "1) Cliente inserta/acerca tarjeta en POS. 2) Terminal envía ISO 8583 MTI 0200 a E-Global vía GlobalPOSe. 3) E-Global enruta a SVFE. 4) SVFE aplica Módulo 1 (válido) y Módulo 2 (límite OK, riesgo OK). 5) SVFE retorna ISO 8583 MTI 0210 código 00. 6) Comercio recibe aprobación.",
+      "expected_result": "Código de respuesta ISO 00 (aprobado). Saldo disponible actualizado. amountHoldPlaced=true en getTransactions hasta clearing. Latencia total < 2,000 ms P99.",
+      "priority": "alta",
+      "test_type": "funcional",
+      "regulation_ref": null,
+      "linked_us_id": "HDU-SMART-R4-11"
+    },
+    {
+      "tc_id": "TC-AUTH-002",
+      "tc_title": "Compra aprobada en e-commerce con CVV2 válido",
+      "precondition": "Tarjeta P4900 activa, saldo disponible suficiente, CVV2 correcto (3 dígitos del reverso o CVV dinámico para tarjeta digital), comercio habilitado.",
+      "steps_summary": "1) Cliente ingresa datos de tarjeta en sitio web. 2) Adquirente envía ISO 8583 MTI 0200 a E-Global incluyendo CVV2. 3) E-Global enruta a SVBO (ruta e-commerce). 4) SVFE solicita validación CVV2 al HSM Thales payShield 10K. 5) HSM confirma CVV2 válido. 6) SVFE aplica 88 reglas. 7) Retorna MTI 0210 código 00.",
+      "expected_result": "Código de respuesta ISO 00. CVV2 validado correctamente por HSM. Transacción registrada como pre-autorización. La ruta SVBO es la utilizada, no GlobalPOSe.",
+      "priority": "alta",
+      "test_type": "funcional",
+      "regulation_ref": "PCI-DSS v4.0 Req. 6.4 — protección de datos de pago en transmisión",
+      "linked_us_id": "HDU-SMART-R4-11"
+    },
+    {
+      "tc_id": "TC-AUTH-003",
+      "tc_title": "Compra rechazada por límite de crédito excedido",
+      "precondition": "Tarjeta P4900 activa, saldo disponible insuficiente para el monto de la transacción.",
+      "steps_summary": "1) POS envía MTI 0200 con monto > saldo_disponible. 2) SVFE recibe y aplica Módulo 1 (pasa). 3) Módulo 2 valida límite: monto > saldo_disponible. 4) SVFE retorna MTI 0210 con código 51 (insuficient funds).",
+      "expected_result": "Código de respuesta ISO 51 (insufficient funds). Saldo disponible no se modifica. El rechazo NO genera cargo ni póliza parcial.",
+      "priority": "alta",
+      "test_type": "funcional",
+      "regulation_ref": null,
+      "linked_us_id": "HDU-SMART-R4-11"
+    },
+    {
+      "tc_id": "TC-AUTH-004",
+      "tc_title": "Compra rechazada por tarjeta bloqueada (CSTS_BLOCKED)",
+      "precondition": "Tarjeta P4900 en estatus CSTS_BLOCKED (bloqueada por reporto de robo/extravío o bloqueo desde CAT/App).",
+      "steps_summary": "1) POS envía MTI 0200. 2) E-Global enruta a SVFE. 3) SVFE evalúa Módulo 1: tarjeta en lista negra / estatus bloqueado. 4) SVFE retorna MTI 0210 con código 62 (restricted card) o 05 (do not honor).",
+      "expected_result": "Código de respuesta ISO 62 o 05. Transacción rechazada sin impacto en saldo. La actualización del estatus CSTS (ej. por bloqueo vía CAT - ICAT05) debe reflejarse en el siguiente intento de autorización.",
+      "priority": "alta",
+      "test_type": "funcional",
+      "regulation_ref": null,
+      "linked_us_id": "HDU-SMART-R4-11"
+    },
+    {
+      "tc_id": "TC-AUTH-005",
+      "tc_title": "Compra rechazada por CVV2 incorrecto en e-commerce",
+      "precondition": "Tarjeta P4900 activa, saldo disponible suficiente, CVV2 incorrecto enviado en la transacción e-commerce.",
+      "steps_summary": "1) Comercio envía MTI 0200 con CVV2 inválido. 2) Ruta e-commerce a SVBO. 3) SVFE solicita validación al HSM Thales payShield 10K. 4) HSM retorna CVV2 inválido. 5) SVFE retorna MTI 0210 código 82 (incorrect CVV).",
+      "expected_result": "Código de respuesta ISO 82 (incorrect CVV/CVC). Transacción rechazada. El PAN y CVV2 nunca deben almacenarse post-autorización (PCI-DSS Req. 3.3).",
+      "priority": "alta",
+      "test_type": "seguridad",
+      "regulation_ref": "PCI-DSS v4.0 Req. 3.3 — no almacenar CVV2 post-autorización",
+      "linked_us_id": "HDU-SMART-R4-11"
+    },
+    {
+      "tc_id": "TC-AUTH-006",
+      "tc_title": "Compra rechazada por disparo de regla de fraude (Módulo 2)",
+      "precondition": "Tarjeta P4900 activa, saldo disponible suficiente, pero el score de riesgo de PayTrue está elevado (transacción inusual por geografía, MCC o monto).",
+      "steps_summary": "1) POS envía MTI 0200. 2) SVFE aplica Módulo 1 (pasa). 3) Módulo 2 consulta score PayTrue para la tarjeta — score supera umbral de riesgo configurado. 4) Módulo 2 rechaza por regla de fraude. 5) SVFE retorna MTI 0210 código 34 (suspected fraud) o 57 (transaction not permitted).",
+      "expected_result": "Código de respuesta ISO 34 o 57. Transacción rechazada sin cargo. Nota: PayTrue se actualiza de forma asíncrona cada ~3 min — puede haber ventana de hasta 3 min donde un score reciente no esté disponible.",
+      "priority": "alta",
+      "test_type": "seguridad",
+      "regulation_ref": "CNBV — controles activos de riesgo transaccional; Circular Banxico sobre fraude",
+      "linked_us_id": "HDU-SMART-R4-11"
+    },
+    {
+      "tc_id": "TC-AUTH-007",
+      "tc_title": "Verificación de latencia P99 < 2,000 ms bajo carga sostenida",
+      "precondition": "Ambiente de pruebas de rendimiento con carga representativa. SmartVista SVFE + E-Global + HSM activos. Definición de carga pico representativa (TPS a validar con BanCoppel).",
+      "steps_summary": "1) Ejecutar prueba de carga con K6/JMeter generando transacciones ISO 8583 a la tasa pico estimada. 2) Medir latencia extremo a extremo Comercio → E-Global → SVFE → HSM (e-commerce) → SVFE → E-Global → Comercio. 3) Calcular P50, P95, P99 y P99.9.",
+      "expected_result": "P99 < 2,000 ms (benchmark de industria Visa). P95 < 1,000 ms recomendado. Tasa de error < 0.1%. Si el SLA no está definido en contrato (GAP-VP-002), este caso documenta la línea base real medida.",
+      "priority": "alta",
+      "test_type": "rendimiento",
+      "regulation_ref": null,
+      "linked_us_id": "HDU-SMART-R4-11"
+    },
+    {
+      "tc_id": "TC-AUTH-008",
+      "tc_title": "Tasa de autorización > 85% en transacciones válidas (Visa KPI)",
+      "precondition": "Dataset de transacciones válidas de prueba (tarjetas activas, saldo suficiente, comercios habilitados). Mínimo 1,000 transacciones para significancia estadística.",
+      "steps_summary": "1) Procesar batch de transacciones válidas a través del autorizador. 2) Contar aprobadas vs rechazadas. 3) Analizar motivos de rechazo. 4) Calcular tasa de autorización = aprobadas / total.",
+      "expected_result": "Tasa de autorización >= 85% (Visa benchmark; target > 90%). Si la tasa es menor, identificar qué reglas de las 88 generan rechazos indebidos. Documentar para análisis de declinación injustificada.",
+      "priority": "alta",
+      "test_type": "funcional",
+      "regulation_ref": "Visa Core Rules — penalización por alta tasa de declinación injustificada",
+      "linked_us_id": "HDU-SMART-R4-11"
+    },
+    {
+      "tc_id": "TC-AUTH-009",
+      "tc_title": "Comportamiento del autorizador con SVFM — validación del estado real",
+      "precondition": "Ambiente DEV/TEST con SVFM instalado (según Plan Trabajo 12-ago). Contradicción de licenciamiento sin resolver (GAP-AUTH-001).",
+      "steps_summary": "1) Confirmar estado de licenciamiento de SVFM con BPC (pregunta directa al proveedor). 2) Si no licenciado: verificar que Módulo 2 usa exclusivamente scores de PayTrue y SVFM no interfiere. 3) Si licenciado: ejecutar casos de autorización con Módulo 2 activo via SVFM y comparar resultados con escenario PayTrue-only.",
+      "expected_result": "Documentación formal del estado de licenciamiento de SVFM. Si SVFM está activo en ambientes: validar que no genera rechazos adicionales no esperados. Si solo PayTrue: confirmar que todos los casos del Módulo 2 funcionan correctamente sin SVFM. Resolución del GAP-AUTH-001.",
+      "priority": "alta",
+      "test_type": "funcional",
+      "regulation_ref": null,
+      "linked_us_id": "HDU-SMART-R4-11"
+    },
+    {
+      "tc_id": "TC-AUTH-010",
+      "tc_title": "Avance de efectivo en ATM (cash advance)",
+      "precondition": "Tarjeta P4900 activa, límite de disposición en efectivo configurado, ATM BanCoppel habilitado para TDC P4900.",
+      "steps_summary": "1) Cliente solicita disposición de efectivo en ATM BanCoppel. 2) ATM envía MTI 0200 (tipo transacción cash advance) a E-Global. 3) E-Global determina ruta — verificar si va a SVFE/SmartVista R4 o a Interact Switch (legado). 4) Si va a SmartVista: SVFE aplica 88 reglas con parámetros de cash advance. 5) Retorna MTI 0210.",
+      "expected_result": "Verificar qué autorizador resuelve las disposiciones ATM en R4: si es SmartVista o si ATM sigue usando Interact Switch (Syndein). Documentar la ruta real. Si SmartVista: disposición aprobada con código 00 y saldo actualizado. Nota: Interact Switch SÍ escribe en Informix; SmartVista NO.",
+      "priority": "media",
+      "test_type": "funcional",
+      "regulation_ref": null,
+      "linked_us_id": "HDU-SMART-R4-11"
+    },
+    {
+      "tc_id": "TC-AUTH-011",
+      "tc_title": "Disponibilidad 24x7 del autorizador — prueba de tolerancia a fallos",
+      "precondition": "Ambiente de pruebas con configuración de alta disponibilidad. Verificar configuración de failover entre instancias SmartVista.",
+      "steps_summary": "1) Iniciar flujo continuo de transacciones de autorización. 2) Simular fallo de un nodo SmartVista SVFE. 3) Verificar tiempo de recuperación y que las transacciones en vuelo no queden sin respuesta. 4) Medir tiempo de failover. 5) Verificar que no hay pérdida de transacciones.",
+      "expected_result": "Disponibilidad >= 99.9% (SLO-SPE-01). Failover automático sin impacto visible al comercio. Ninguna transacción en vuelo queda sin respuesta o se aplica doble. Alerta generada y registrada.",
+      "priority": "alta",
+      "test_type": "rendimiento",
+      "regulation_ref": "CNBV — disponibilidad de sistemas críticos de pago; DORA (grupos europeos)",
+      "linked_us_id": "HDU-SMART-R4-11"
+    },
+    {
+      "tc_id": "TC-AUTH-012",
+      "tc_title": "Reporte CNBV de eventos de fraude detectados",
+      "precondition": "Transacciones de fraude detectadas y rechazadas por el autorizador (código 34 / Módulo 2). Módulo de reportería conectado.",
+      "steps_summary": "1) Generar eventos de autorización rechazados por fraude (TC-AUTH-006 como base). 2) Verificar que los eventos quedan registrados en SmartVista con metadata suficiente (tarjeta, monto, MCC, terminal, timestamp, código de regla disparada). 3) Ejecutar proceso de generación de reporte CNBV de fraude. 4) Validar que el reporte cumple el formato CNBV.",
+      "expected_result": "Todos los eventos de fraude quedan registrados y son recuperables. El reporte CNBV se genera correctamente con los campos requeridos. Tasa de fraude documentada < 0.05% (benchmark CNBV).",
+      "priority": "alta",
+      "test_type": "regulatorio",
+      "regulation_ref": "CNBV — obligación de reportar eventos de fraude transaccional; Circular Banxico SPEI",
+      "linked_us_id": "HDU-SMART-R4-11"
+    },
+    {
+      "tc_id": "TC-AUTH-013",
+      "tc_title": "Verificación de implementación 3DS v2 para e-commerce",
+      "precondition": "Ambiente con configuración e-commerce activa. Verificar si 3DS v2 está implementado en R4.",
+      "steps_summary": "1) Intentar transacción e-commerce con comercio que exige autenticación 3DS v2. 2) Verificar si el flujo genera el challenge 3DS v2 correctamente. 3) Verificar que los datos de autenticación 3DS v2 (campo F55 / DE55 del ISO 8583) se envían correctamente en el MTI 0200. 4) Verificar respuesta del ACS (Access Control Server).",
+      "expected_result": "Si 3DS v2 está implementado: flujo de autenticación completado, transacción procesada con datos de autenticación. Si NO está implementado (GAP-AUTH-003): documentar como gap regulatorio/de mercado — Visa promueve 3DS v2 como estándar y reduce liability shift sin él.",
+      "priority": "alta",
+      "test_type": "regulatorio",
+      "regulation_ref": "Visa 3DS 2.0 Program; PCI-DSS v4.0 Req. 6.4; Reglamentación Banxico para comercio electrónico",
+      "linked_us_id": null
+    },
+    {
+      "tc_id": "TC-AUTH-014",
+      "tc_title": "Compra aprobada con saldo a favor (overpayment activo)",
+      "precondition": "Tarjeta P4900 con saldo a favor (cliente pagó más del saldo adeudado). Límite de saldo a favor configurado (HDU-SMART-R4-12). Issue BYU0039 resuelto.",
+      "steps_summary": "1) POS envía MTI 0200 con monto que excede el crédito disponible pero es cubierto por el saldo a favor. 2) SVFE — Módulo 2 verifica: crédito_disponible + saldo_a_favor >= monto_transaccion. 3) Si cubre: aprueba con código 00. 4) Actualizar saldo_a_favor y saldo_disponible en SVBO.",
+      "expected_result": "Transacción aprobada cuando saldo_a_favor + saldo_disponible >= monto. Nota: este comportamiento depende de la resolución del issue BYU0039 (HDU-SMART-R4-13 POR DETERMINAR). Si BYU0039 no está resuelto, este caso no puede ejecutarse.",
+      "priority": "media",
+      "test_type": "funcional",
+      "regulation_ref": "CNBV CUB — tratamiento de pagos en exceso",
+      "linked_us_id": "HDU-SMART-R4-12"
+    }
+  ],
+
+  "gaps_found": [
+    {
+      "gap_id": "GAP-AUTH-001",
+      "description": "CONTRADICCIÓN ABIERTA sobre el estado de licenciamiento de SVFM (SmartVista Fraud Management). El PreGame firmado del 28-jul-2026 (con respaldo en Anexo 1 y cuestionario SIR) declara que SVFM NO está licenciado y que PayTrue lo reemplaza. El Plan de Trabajo del 12-ago-2026 registra el binario de SVFM instalado, conectividad SVFM-SVFE probada, y reglas del Módulo 2 en Fraud Manager activas. Son documentos del mismo programa separados por 15 días con afirmaciones contradictorias sobre un componente crítico de seguridad y riesgo. No hay evidencia de resolución formal de la contradicción.",
+      "severity": "critico",
+      "category": "licenciamiento",
+      "recommendation": "Abrir defecto formal con BPC Banking Technologies para obtener respuesta escrita sobre el estado de licenciamiento de SVFM para BanCoppel. Confirmar qué contrato (Anexo 1) aplica y si hay enmienda posterior que habilitó el módulo. Actualizar el PreGame con la resolución. Si SVFM no está licenciado, documentar formalmente que PayTrue es el motor de riesgo exclusivo y que SVFM no debe activarse en producción. Si está licenciado, revisar el alcance y cobertura de las reglas del Módulo 2."
+    },
+    {
+      "gap_id": "GAP-AUTH-002",
+      "description": "El paso 6 del flujo de autorización — registro del movimiento autorizado y actualización del saldo disponible en SmartVista SVBO — no tiene User Story específica en R4. Si bien el campo amountHoldPlaced en la API getTransactions v22 evidencia que SmartVista registra pre-autorizaciones, no hay historia que valide explícitamente los criterios de aceptación de este comportamiento (cuándo se convierte de pre-autorización a definitivo, cómo afecta el saldo disponible en tiempo real, qué pasa si hay un timeout de clearing). FSD0107 v5.5 confirma que PISA/Informix no es responsable, pero SmartVista tampoco tiene cobertura formal.",
+      "severity": "alto",
+      "category": "us_faltante",
+      "recommendation": "Crear User Story para el registro de movimiento y actualización de saldo disponible post-autorización. Definir criterios de aceptación que cubran: (a) actualización inmediata de saldo_disponible tras autorización, (b) conversión de pre-autorización a definitiva al recibir clearing, (c) reversión automática si el clearing no llega dentro del SLA, (d) consistencia con getInstantCreditStatement y getTransactions. Asignar al track SmartVista en el backlog R4."
+    },
+    {
+      "gap_id": "GAP-AUTH-003",
+      "description": "No hay evidencia de implementación de 3DS v2 (3-D Secure versión 2) para transacciones e-commerce en el scope R4. El contexto de industria declara que '3DS v2 para e-commerce es estándar de mercado' y la CNBV exige controles activos de riesgo transaccional. Visa promueve activamente 3DS v2 y aplica liability shift: sin 3DS v2, el emisor asume el riesgo de fraude en transacciones e-commerce. Ningún documento de las fuentes analizadas (HDUs, PreGame, Inventario de Integraciones) menciona 3DS v2 como capability en R4.",
+      "severity": "alto",
+      "category": "regulatorio",
+      "recommendation": "Investigar si 3DS v2 está fuera del scope de R4 (decisión explícita) o es un gap no identificado. Revisar con BanCoppel si el emisor tiene hoy 3DS v2 activo para TDC y si SmartVista R4 lo soportará. Si es un gap: crear User Story para habilitar 3DS v2 en SmartVista para transacciones e-commerce. Si está fuera de scope: documentar el riesgo regulatorio y de fraude con owner explícito."
+    },
+    {
+      "gap_id": "GAP-AUTH-004",
+      "description": "El SLA de autorización (latencia P99) no está definido en el contrato R4 (referenciado como GAP-VP-002 en el contexto de brechas de la fase). El benchmark de industria es P99 < 2,000 ms para que Visa no penalice al emisor. La latencia actual de la capa de APIs de BanCoppel ya está por encima de 10 segundos en algunos casos (RISK-UNITY-R04: 'latencia ya encima de 10 seg en app'). Sin un SLA contractual, no hay criterio formal de éxito para las pruebas de rendimiento de SIT.",
+      "severity": "alto",
+      "category": "integracion_sin_evidencia",
+      "recommendation": "Definir y documentar el SLA de latencia de autorización en el contrato o en el Plan de Pruebas R4 antes de iniciar SIT (15-oct-2026). Propuesta: P99 < 2,000 ms extremo a extremo Comercio-SVFE-Comercio, P95 < 1,000 ms. Incluir este SLA en la tabla capability_slos del brain.db. Diseñar la prueba de rendimiento TC-AUTH-007 como prueba bloqueante en SIT."
+    },
+    {
+      "gap_id": "GAP-AUTH-005",
+      "description": "No hay ventanas de prueba confirmadas con E-Global para validar el flujo ISO 8583 de autorización extremo a extremo. E-Global es el switch transaccional de BanCoppel — sin su participación, las pruebas de SIT del autorizador no pueden ejecutarse en condiciones reales. No hay evidencia de que E-Global esté incluido en el plan de pruebas SIT (15-oct a 15-dic-2026) ni de que haya un acuerdo de coordinación.",
+      "severity": "alto",
+      "category": "flujo_incompleto",
+      "recommendation": "Coordinar con el equipo E-Global y con BanCoppel para confirmar disponibilidad de ambiente de pruebas y ventanas durante el período SIT (oct-dic 2026). Documentar el plan de coordinación con fechas, responsables y criterios de entrada/salida. Incluir a E-Global como dependencia crítica en el RAID R4."
+    },
+    {
+      "gap_id": "GAP-AUTH-006",
+      "description": "El segundo autorizador Interact Switch (Syndein) opera en paralelo para POS y ATM de terceros y débito, y SÍ escribe en Informix. Este autorizador está fuera del scope R4 pero comparte infraestructura transaccional con el flujo de autorización SmartVista. No está documentado el criterio de enrutamiento entre los dos autorizadores (cuándo E-Global envía a SmartVista vs cuándo envía a Interact Switch para tarjeta de crédito P4900). Si el enrutamiento no está correcto, transacciones de P4900 podrían llegar a Interact Switch en lugar de SmartVista.",
+      "severity": "medio",
+      "category": "flujo_incompleto",
+      "recommendation": "Documentar explícitamente la lógica de enrutamiento en E-Global: qué criterios determinan si una transacción va a SmartVista (R4, P4900) o a Interact Switch (legado, otros productos y débito). Crear prueba de regresión que valide que las transacciones P4900 siempre llegan a SmartVista y no al autorizador legado. Incluir en dt-coexistencia.md."
+    },
+    {
+      "gap_id": "GAP-AUTH-007",
+      "description": "Los ambientes DEV y TEST de SmartVista no tienen infraestructura completa para el componente SVFM/autorizador de 88 reglas (RISK-UNITY-R15). Los tickets de escalamiento #13830642 y #13830651 están pendientes de aprobación por Miguel Castillo. Sin el ambiente completo, las 88 reglas del autorizador no pueden probarse antes de SIT.",
+      "severity": "critico",
+      "category": "flujo_incompleto",
+      "recommendation": "Escalar urgentemente la resolución de tickets #13830642 y #13830651. Obtener visto bueno de Miguel Castillo antes del 15-sep-2026 para tener ambientes listos antes del inicio de SIT el 15-oct-2026. Si los ambientes no están disponibles a tiempo, el autorizador de 88 reglas entrará a SIT sin pruebas previas — riesgo alto de defectos en producción."
+    },
+    {
+      "gap_id": "GAP-AUTH-008",
+      "description": "La User Story HDU-SMART-R4-11 (88 reglas del autorizador) es la última de todo R4 en cerrar análisis, con fecha de cierre el 16-oct-2026. El SIT inicia el 15-oct-2026. Hay un overlap de 1 día (o más si el análisis se retrasa) entre el cierre de análisis y el inicio de pruebas. Una User Story que no ha cerrado análisis no puede entrar a SIT. Esto pone en riesgo el inicio del SIT del autorizador o requiere iniciar SIT con análisis incompleto.",
+      "severity": "alto",
+      "category": "us_faltante",
+      "recommendation": "Negociar con el track SmartVista para adelantar el cierre de análisis de HDU-SMART-R4-11 al 10-oct-2026 como máximo, dejando 5 días de buffer antes del inicio SIT. Si no es posible adelantarlo, crear un plan de contingencia que permita comenzar SIT con otras User Stories mientras se completa el análisis del autorizador. Registrar este riesgo en el RAID R4 como nuevo item."
+    }
+  ]
+}

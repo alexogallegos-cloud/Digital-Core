@@ -1,0 +1,737 @@
+{
+  "phase_id": "pagos",
+  "phase_name": "Pagos",
+  "analyzed_at": "2026-08-20",
+  "analyst": "DT-Swarm-Pagos-v1",
+
+  "flow_validated": {
+    "nodes": [
+      {
+        "node_name": "Tarjetahabiente (TH)",
+        "node_type": "actor",
+        "pending": false,
+        "evidence_type": "user_story",
+        "evidence_ref": "SMART-4182, SMART-4183, SMART-4280 — usuario que inicia el pago desde canal digital",
+        "notes": "Actor primario del flujo. No tiene dependencia de construcción propia."
+      },
+      {
+        "node_name": "App Móvil",
+        "node_type": "canal",
+        "pending": false,
+        "evidence_type": "user_story",
+        "evidence_ref": "SMART-4182 (visualización montos), SMART-4183 (validación SAF), SMART-4280 (gestión otra cantidad) — 3 US must have, track app",
+        "notes": "Canal digital principal para pagos TDC en R4. RAG YELLOW. Integración IAPP02 (Rec_executeCardPaymentTransaction) existente y en modificación."
+      },
+      {
+        "node_name": "SIWEB",
+        "node_type": "canal",
+        "pending": true,
+        "evidence_type": "user_story",
+        "evidence_ref": "HDU-SIWEB-R4-01..05 (5 US, todas Should) — operaciones de diferidos en sucursal; pago directo en ventanilla NO tiene US en R4",
+        "notes": "BLOQUEADO: las 5 US de SIWEB son Should y cubren operaciones de diferidos, no pago estándar en ventanilla. El pago en ventanilla (efectivo/cargo a cuenta) tiene Customer Journeys documentados (CJ_OFI_2, CJ_OFI_3, CJ_OFI_4) pero NO tiene User Story asignada en R4. Status blocked en el brain del programa."
+      },
+      {
+        "node_name": "SmartVista BPC",
+        "node_type": "procesador",
+        "pending": false,
+        "evidence_type": "user_story",
+        "evidence_ref": "HDU-SMART-R4-12 (parametrizar SAF), HDU-SMART-R4-19 (pagos anticipados), HDU-SMART-R4-20 (liquidar diferidas), HDU-SMART-R4-21 (cancelar diferidas) — 4 US SmartVista con relación directa a pagos",
+        "notes": "Procesador central de la fase. SVIP (Integration Platform) expone APIs Rec_executeCardPaymentTransaction y getInstantCreditStatement. Módulo DPP no contratado — impacta HDU-R4-19/20/21. BYU0039 pendiente bloquea validación SAF en runtime."
+      },
+      {
+        "node_name": "SPEI / E-Global",
+        "node_type": "externo",
+        "pending": true,
+        "evidence_type": "none",
+        "evidence_ref": "CJ_SPEI_01 y CJ_SPEI_001 existen como Customer Journeys y Formato_HU_CMS-CJ_SPEI_00.xlsx, pero NO hay User Story en R4 ni integración en el inventario r4_integrations para SPEI inbound de pagos",
+        "notes": "NODO ELIMINADO DEL FLUJO R4: existen documentos CJ_SPEI que describen el escenario, pero ninguno generó una US en el alcance formal de R4. E-Global aparece en el vocabulario del brain como 'switch transaccional que enruta autorizaciones hacia SmartVista' (autorizaciones de compra, no pagos inbound). GAP-VP-002 abierto: SLA de acreditación SPEI sin definir. Debe reintegrarse en R4.5 o como GAP documentado."
+      }
+    ],
+    "arrows": [
+      {
+        "step_order": 1,
+        "label": "visualiza montos de pago (mínimo, total, otra cantidad)",
+        "from_node": "App Móvil",
+        "to_node": "SmartVista BPC",
+        "pending": false,
+        "evidence_ref": "SMART-4182 (visualización y aplicación de montos), IAPP01 (Rec_retrieveCreditCardStatement — detalle TDC: saldo, límite, intereses, MAD, PPNGI)",
+        "notes": "IAPP01 ya existe en producción (existe_hoy=1) y está en modificación para R4. Expone MAD (monto mínimo) y PPNGI (pago para no generar intereses) desde SmartVista."
+      },
+      {
+        "step_order": 2,
+        "label": "valida límite de saldo a favor (SAF)",
+        "from_node": "App Móvil",
+        "to_node": "SmartVista BPC",
+        "pending": false,
+        "evidence_ref": "SMART-4183 + IAPP02 (Rec_executeCardPaymentTransaction) — integración API tiempo real, existe_hoy=1, estado Modificar",
+        "notes": "La validación del SAF ocurre como parte del flujo de pago: si el monto a pagar excede el saldo total, el excedente genera saldo a favor sujeto al límite parametrizado en HDU-SMART-R4-12."
+      },
+      {
+        "step_order": 3,
+        "label": "gestiona 'Otra cantidad' respetando límite SAF",
+        "from_node": "App Móvil",
+        "to_node": "SmartVista BPC",
+        "pending": false,
+        "evidence_ref": "SMART-4280 (gestión campo otra cantidad basado en SAF), IAPP02",
+        "notes": "El campo 'Otra cantidad' queda habilitado o restringido según el límite de SAF calculado por SmartVista. Sin BYU0039 resuelto, la restricción en runtime puede quedar inconsistente."
+      },
+      {
+        "step_order": 4,
+        "label": "aplica pago",
+        "from_node": "App Móvil",
+        "to_node": "SmartVista BPC",
+        "pending": false,
+        "evidence_ref": "IAPP02 — Rec_executeCardPaymentTransaction (SmartVista→APP, tiempo real, Alta complejidad, existe_hoy=1)",
+        "notes": "Dirección documentada en el inventario como SmartVista→APP (dirección de la respuesta/confirmación). El request de pago va de APP hacia SmartVista. Integración existente en modificación para R4."
+      },
+      {
+        "step_order": 5,
+        "label": "aplica pago anticipado a parcialidades activas",
+        "from_node": "SmartVista BPC",
+        "to_node": "SIWEB",
+        "pending": true,
+        "evidence_ref": "HDU-SMART-R4-19, ISV06 (GetDPP — Nueva, existe_hoy=0), ISV07 (Clearing Operation — existe_hoy=1, Modificar)",
+        "notes": "Flujo de pago anticipado a MSI/MCI requiere módulo DPP no contratado (ISV06 GetDPP es Nueva y existe_hoy=0). ISV07 Clearing Operation ya existe pero requiere modificación. HDU-SMART-R4-19 tiene 2 integraciones registradas."
+      },
+      {
+        "step_order": 6,
+        "label": "liquidación total compra diferida",
+        "from_node": "SmartVista BPC",
+        "to_node": "SIWEB",
+        "pending": true,
+        "evidence_ref": "HDU-SMART-R4-20, ISV07 (Clearing Operation) — 2 integraciones registradas para la US",
+        "notes": "Depende del mismo módulo DPP. SIWEB ejecuta el registro de la liquidación en sucursal via TRNT 623 'PAGO CGO A CTA DE CREDISOLUCIONES', con posterior efecto contable en PISA/Informix (Grupo 13, no cuenta 2402)."
+      },
+      {
+        "step_order": 7,
+        "label": "acreditación SPEI al saldo disponible",
+        "from_node": "SPEI / E-Global",
+        "to_node": "SmartVista BPC",
+        "pending": true,
+        "evidence_ref": "Sin integración documentada en r4_integrations. CJ_SPEI_01/001 existen como Customer Journeys pero no generaron US en R4.",
+        "notes": "GAP CRÍTICO. El regulador (Banxico) exige acreditación en saldo disponible en menos de 5 minutos. No hay US ni integración que cubra este SLA en R4. GAP-VP-002 abierto."
+      }
+    ],
+    "validation_summary": "Flujo de 3 nodos activos validados: App Móvil (3 US must, integración IAPP02 existente), SmartVista BPC (4 US directamente relacionadas, SVIP como middleware) y SIWEB (5 US should, operaciones de diferidos en sucursal — pago estándar en ventanilla sin US). SPEI/E-Global eliminado del flujo activo de R4 por ausencia total de User Story e integración en el inventario r4_integrations, aunque existen 3 Customer Journeys documentados (CJ_SPEI_001, CJ_SPEI_01 x2) y un Formato_HU que nunca generó US en alcance. Dos flechas marcadas pending por dependencia del módulo DPP no contratado (ISV06 Nueva + ISV07 en modificación). La flecha de acreditación SPEI es el gap más crítico de la fase desde perspectiva regulatoria CONDUSEF/Banxico."
+  },
+
+  "steps_enriched": [
+    {
+      "step_n": 1,
+      "description": "Visualización de montos de pago en la App (mínimo — MAD, total — PPNGI, otra cantidad) consumiendo getInstantCreditStatement de SmartVista SVIP antes de que el usuario confirme el monto a pagar",
+      "sistema": "App Móvil + SmartVista BPC (SVIP — getInstantCreditStatement / Rec_retrieveCreditCardStatement)",
+      "us_id": "SMART-4182",
+      "us_title": "Visualización y aplicación de montos de pago en Línea TDC",
+      "protocol": "REST",
+      "exists_today": true,
+      "gap_flag": false,
+      "gap_notes": null
+    },
+    {
+      "step_n": 2,
+      "description": "Validación del límite de saldo a favor (SAF) parametrizado en SmartVista al procesar el monto de pago desde App. Si el monto excede el saldo total, el excedente se acota al límite SAF configurado para evitar sobrepagos no regulados.",
+      "sistema": "App Móvil + SmartVista BPC (SVIP — Rec_executeCardPaymentTransaction via IAPP02)",
+      "us_id": "SMART-4183",
+      "us_title": "Límite de saldo a favor para pago de TDC en la aplicación móvil",
+      "protocol": "REST",
+      "exists_today": true,
+      "gap_flag": true,
+      "gap_notes": "Ticket BYU0039 abierto en SmartVista bloquea la validación de SAF en runtime. Hasta que se resuelva, la cobertura de la US queda como 'tbd' según dt-siweb.md."
+    },
+    {
+      "step_n": 3,
+      "description": "Gestión del campo 'Otra cantidad' en la pantalla de pago de App: el campo se habilita o deshabilita y su valor máximo se acota dinámicamente según el límite de SAF vigente calculado por SmartVista para ese contrato de TDC.",
+      "sistema": "App Móvil + SmartVista BPC",
+      "us_id": "SMART-4280",
+      "us_title": "Gestión del campo 'Otra cantidad' basado en el límite de SAF",
+      "protocol": "REST",
+      "exists_today": true,
+      "gap_flag": true,
+      "gap_notes": "Misma dependencia BYU0039 que SMART-4183: la validación del límite en runtime puede quedar inconsistente hasta resolver el ticket de SmartVista."
+    },
+    {
+      "step_n": 4,
+      "description": "Aplicación de pago anticipado sobre parcialidades activas de un plan diferido (MCI). SmartVista consulta el plan diferido (GetDPP) y aplica el abono anticipado via Clearing Operation, registrando el efecto en SIWEB para la conciliación de sucursal.",
+      "sistema": "SmartVista BPC (DPP module) + SIWEB",
+      "us_id": "HDU-SMART-R4-19",
+      "us_title": "Aplicar pagos anticipados a pagos fijos",
+      "protocol": "REST",
+      "exists_today": false,
+      "gap_flag": true,
+      "gap_notes": "Módulo DPP (Deferred Payment Plan) de SmartVista no contratado por BanCoppel. ISV06 (GetDPP) es integración Nueva con existe_hoy=0. ISV07 (Clearing Operation) existe pero requiere modificación. Requiere decisión de PMO: contratar DPP, desarrollar alternativa propia o diferir a R4.5."
+    },
+    {
+      "step_n": 5,
+      "description": "Liquidación total de una compra diferida activa (MCI/MSI) antes de su vencimiento. SmartVista calcula el monto de liquidación, ejecuta la cancelación del plan diferido y registra la liquidación en SIWEB con el TRNT 623 'PAGO CGO A CTA DE CREDISOLUCIONES' para efecto contable en Grupo 13 de PISA.",
+      "sistema": "SmartVista BPC + SIWEB + PISA/Informix (contabilidad)",
+      "us_id": "HDU-SMART-R4-20",
+      "us_title": "Liquidar totalmente compras diferidas",
+      "protocol": "REST",
+      "exists_today": false,
+      "gap_flag": true,
+      "gap_notes": "Dependencia del módulo DPP no contratado. Guía contable formal de BanCoppel pendiente (RISK-UNITY-R11, owner J.A. Valverde) — sin ella los criterios de aceptación de la US no pueden cerrarse. La US tiene alta complejidad y 2 integraciones registradas (ISV06, ISV07)."
+    },
+    {
+      "step_n": 6,
+      "description": "Acreditación del pago recibido vía SPEI al saldo disponible de la TDC. Banxico exige que el pago se refleje en el saldo disponible en menos de 5 minutos. En el ecosistema BanCoppel, E-Global es el switch transaccional que enruta hacia SmartVista, pero no hay integración documentada para el flujo SPEI inbound de pagos en R4.",
+      "sistema": "Informix + SPEI / E-Global (sin User Story ni integración en R4)",
+      "us_id": null,
+      "us_title": null,
+      "protocol": null,
+      "exists_today": false,
+      "gap_flag": true,
+      "gap_notes": "GAP CRÍTICO — sin User Story específica en R4 y sin integración en el inventario r4_integrations. Existen 3 Customer Journeys documentados (CJ_SPEI_001, CJ_SPEI_01, CJ_SPEI_01 v2) y un Formato_HU_CMS-CJ_SPEI_00.xlsx, pero ninguno generó una US en el alcance formal de R4. Minuta 2026-07-27 sobre 'Revisión app SPEI Enlace Financiero' existe en carpeta Reuniones. GAP-VP-002 abierto: SLA de acreditación SPEI < 5 min sin definir. CONDUSEF exige al menos dos mecanismos de pago sin costo."
+    }
+  ],
+
+  "us_mapping": [
+    {
+      "us_id": "SMART-4182",
+      "us_title": "Visualización y aplicación de montos de pago en Línea TDC",
+      "moscow": "must",
+      "system_id": "app",
+      "phase_step": 1,
+      "coverage": "completa",
+      "notes": "1 integración registrada (IAPP02 implícita). Baja complejidad. Track app."
+    },
+    {
+      "us_id": "SMART-4183",
+      "us_title": "Límite de saldo a favor para pago de TDC en la aplicación móvil",
+      "moscow": "must",
+      "system_id": "app",
+      "phase_step": 2,
+      "coverage": "parcial",
+      "notes": "1 integración registrada (IAPP02). Baja complejidad. Bloqueada por BYU0039 en runtime. Coverage parcial hasta resolver ticket SmartVista."
+    },
+    {
+      "us_id": "SMART-4280",
+      "us_title": "Gestión del campo 'Otra cantidad' basado en el límite de saldo a favor",
+      "moscow": "must",
+      "system_id": "app",
+      "phase_step": 3,
+      "coverage": "parcial",
+      "notes": "1 integración registrada. Baja complejidad. Dependencia de BYU0039 igual que SMART-4183."
+    },
+    {
+      "us_id": "HDU-SMART-R4-12",
+      "us_title": "Parametrizar límite de saldo a favor",
+      "moscow": "must",
+      "system_id": "smartvista",
+      "phase_step": 2,
+      "coverage": "parcial",
+      "notes": "0 integraciones directas. Media complejidad. Es la US de configuración del SAF en SmartVista que habilita los pasos 2 y 3. Sin esta US completada, la validación SAF no funciona. BYU0039 la afecta en runtime."
+    },
+    {
+      "us_id": "HDU-SMARTVISTA-R4-16",
+      "us_title": "Configurar campañas de compras diferidas",
+      "moscow": "should",
+      "system_id": "smartvista",
+      "phase_step": 4,
+      "coverage": "parcial",
+      "notes": "0 integraciones directas. Media complejidad. Prerequisito de configuración para que los pasos 4 y 5 funcionen (DPP). Sin módulo DPP contratado, esta US no tiene sustrato técnico completo."
+    },
+    {
+      "us_id": "HDU-SMART-R4-17",
+      "us_title": "Calcular oferta de compra diferida",
+      "moscow": "should",
+      "system_id": "smartvista",
+      "phase_step": 4,
+      "coverage": "parcial",
+      "notes": "0 integraciones directas. Media complejidad. Cálculo de la oferta que se presenta al cliente antes de diferir. Relevante para el lifecycle completo de diferidos, no solo pagos anticipados."
+    },
+    {
+      "us_id": "HDU-SMART-R4-19",
+      "us_title": "Aplicar pagos anticipados a pagos fijos",
+      "moscow": "should",
+      "system_id": "smartvista",
+      "phase_step": 4,
+      "coverage": "parcial",
+      "notes": "2 integraciones (ISV06 Nueva + ISV07 Modificar). Alta complejidad. Dependencia crítica de módulo DPP no contratado. Guía contable pendiente (RISK-UNITY-R11)."
+    },
+    {
+      "us_id": "HDU-SMART-R4-20",
+      "us_title": "Liquidar totalmente compras diferidas",
+      "moscow": "should",
+      "system_id": "smartvista",
+      "phase_step": 5,
+      "coverage": "parcial",
+      "notes": "2 integraciones (ISV06 + ISV07). Alta complejidad. Misma dependencia DPP + guía contable pendiente. 2 criterios de aceptación declarados."
+    },
+    {
+      "us_id": "HDU-SMART-R4-21",
+      "us_title": "Cancelar compras diferidas en línea",
+      "moscow": "should",
+      "system_id": "smartvista",
+      "phase_step": 4,
+      "coverage": "parcial",
+      "notes": "2 integraciones. Alta complejidad. GAP CRÍTICO de licencia: módulo DPP no contratado bloquea la cancelación automática. Podría diferirse a R4.5."
+    },
+    {
+      "us_id": "HDU-SIWEB-R4-01",
+      "us_title": "Adelantar pago parcial en SIWEB",
+      "moscow": "should",
+      "system_id": "siweb",
+      "phase_step": 4,
+      "coverage": "parcial",
+      "notes": "0 integraciones propias (las integraciones van en track SmartVista: ISV03, ISV04). Media complejidad. Track siweb. APIs SVIP disponibles; UI SIWEB pendiente de construcción."
+    },
+    {
+      "us_id": "HDU-SIWEB-R4-02",
+      "us_title": "Liquidar compra diferida en SIWEB",
+      "moscow": "should",
+      "system_id": "siweb",
+      "phase_step": 5,
+      "coverage": "parcial",
+      "notes": "0 integraciones propias (depende de ISV06/07 en track SV). Media complejidad. Cierre automático del plan diferido depende de DPP no contratado."
+    },
+    {
+      "us_id": "HDU-SIWEB-R4-03",
+      "us_title": "Cancelar compra diferida en SIWEB",
+      "moscow": "should",
+      "system_id": "siweb",
+      "phase_step": 4,
+      "coverage": "sin_step",
+      "notes": "GAP CRÍTICO: módulo DPP no contratado — cancelación automática no disponible en R4. Clasificada como not_covered en hdu_catalog. Podría diferirse a R4.5 o requiere desarrollo alternativo."
+    },
+    {
+      "us_id": "HDU-SIWEB-R4-04",
+      "us_title": "Registrar efectos contables de pagos fijos",
+      "moscow": "should",
+      "system_id": "siweb",
+      "phase_step": 5,
+      "coverage": "parcial",
+      "notes": "0 integraciones directas. Media complejidad. TRNT 623 'PAGO CGO A CTA DE CREDISOLUCIONES'. Guía contable formal pendiente — BanCoppel no ha entregado instrucciones para Grupo 13 de compras diferidas."
+    },
+    {
+      "us_id": "HDU-SIWEB-R4-05",
+      "us_title": "Validar el límite de saldo a favor en transacciones de caja",
+      "moscow": "should",
+      "system_id": "siweb",
+      "phase_step": 2,
+      "coverage": "sin_step",
+      "notes": "0 integraciones directas. Media complejidad. Bloqueada por ticket BYU0039 en SmartVista — cobertura en estado 'tbd'. La validación reutiliza lógica centralizada SVIP, pero BYU0039 impide validarla en runtime."
+    }
+  ],
+
+  "data_elements": [
+    {
+      "entity_name": "Pago TDC",
+      "field_name": "monto_pago_minimo",
+      "data_type": "MONEY",
+      "description": "Monto Mínimo de Pago (MAD — Minimum Amount Due). Calculado por SmartVista según el saldo de la cuenta y las reglas del producto 4900. Regulado por CONDUSEF.",
+      "source_system": "SmartVista BPC (SVIP getInstantCreditStatement)",
+      "regulation_ref": "CONDUSEF — Circular 30/2010 art. 8: el pago mínimo debe estar claramente definido en el estado de cuenta",
+      "is_pii": false,
+      "is_financial": true
+    },
+    {
+      "entity_name": "Pago TDC",
+      "field_name": "monto_pago_total",
+      "data_type": "MONEY",
+      "description": "Pago Para No Generar Intereses (PPNGI) — monto que, al pagarse, evita generación de intereses en el siguiente periodo. Equivale al saldo exigible total del periodo.",
+      "source_system": "SmartVista BPC (SVIP getInstantCreditStatement)",
+      "regulation_ref": "CONDUSEF — toda comunicación de pago debe incluir el monto total adeudado",
+      "is_pii": false,
+      "is_financial": true
+    },
+    {
+      "entity_name": "Pago TDC",
+      "field_name": "monto_otra_cantidad",
+      "data_type": "MONEY",
+      "description": "Monto de pago libre (entre el mínimo y el máximo permitido por SAF) seleccionado por el tarjetahabiente. El campo se habilita o acota dinámicamente según el límite SAF configurado.",
+      "source_system": "App Móvil (input usuario) + SmartVista BPC (validación)",
+      "regulation_ref": null,
+      "is_pii": false,
+      "is_financial": true
+    },
+    {
+      "entity_name": "Saldo a Favor",
+      "field_name": "limite_saldo_a_favor",
+      "data_type": "MONEY",
+      "description": "Límite máximo de saldo a favor (SAF) permitido para una cuenta TDC 4900. Parámetro configurado en SmartVista (HDU-SMART-R4-12). Limita el excedente de pago sobre el saldo total adeudado para evitar que el cliente 'deposite' en su TDC más de lo permitido.",
+      "source_system": "SmartVista BPC (SVBO — configuración de producto)",
+      "regulation_ref": "Banxico — Circular 14/2010: restricciones a depósitos en cuenta de crédito",
+      "is_pii": false,
+      "is_financial": true
+    },
+    {
+      "entity_name": "Saldo a Favor",
+      "field_name": "saldo_a_favor_actual",
+      "data_type": "MONEY",
+      "description": "Saldo a favor actual del contrato TDC. Surge cuando el pago excede el monto total adeudado. Está sujeto al límite_saldo_a_favor y reduce el monto disponible para pago en la siguiente transacción.",
+      "source_system": "SmartVista BPC (BLTP — Balance Type subcuenta saldo a favor)",
+      "regulation_ref": null,
+      "is_pii": false,
+      "is_financial": true
+    },
+    {
+      "entity_name": "Tarjeta de Crédito",
+      "field_name": "numero_tarjeta_pan",
+      "data_type": "TEXT",
+      "description": "PAN (Primary Account Number) de 16 dígitos del plástico de la TDC. Identificador externo visible para el tarjetahabiente. Diferente al crédito 18 dígitos interno de SmartVista.",
+      "source_system": "SmartVista BPC (subBIN R4: BIN 426807 producto 11)",
+      "regulation_ref": "PCI-DSS v4.0 — dato sensible de autenticación; debe enmascararse en pantallas y logs",
+      "is_pii": true,
+      "is_financial": false
+    },
+    {
+      "entity_name": "Contrato TDC",
+      "field_name": "credito_18_digitos",
+      "data_type": "TEXT",
+      "description": "Número interno de SmartVista que identifica el contrato de TDC. Es el identificador primario en SVIP para consultas y transacciones. Diferente al PAN de 16 dígitos del plástico.",
+      "source_system": "SmartVista BPC (SVBO — contrato)",
+      "regulation_ref": null,
+      "is_pii": false,
+      "is_financial": false
+    },
+    {
+      "entity_name": "Pago TDC",
+      "field_name": "fecha_pago",
+      "data_type": "DATE",
+      "description": "Fecha efectiva en que se acredita el pago. Para SPEI, el SLA regulatorio es menor a 5 minutos desde la recepción del mensaje. Para pago en App, es tiempo real contra SmartVista.",
+      "source_system": "SmartVista BPC (timestamp de transacción)",
+      "regulation_ref": "Banxico SPEI — Circular 9/2010: acreditación de pagos SPEI en menos de 5 minutos",
+      "is_pii": false,
+      "is_financial": true
+    },
+    {
+      "entity_name": "Pago TDC",
+      "field_name": "tipo_pago",
+      "data_type": "TEXT",
+      "description": "Clasificación del tipo de pago seleccionado por el tarjetahabiente: 'minimo' (MAD), 'total' (PPNGI) u 'otra_cantidad' (monto libre). Determina el flujo de validación SAF y los efectos en el saldo.",
+      "source_system": "App Móvil (selección usuario)",
+      "regulation_ref": "CONDUSEF — la TDC debe ofrecer la opción de pago mínimo, total y libre",
+      "is_pii": false,
+      "is_financial": false
+    },
+    {
+      "entity_name": "Diferido MCI/MSI",
+      "field_name": "id_parcialidad",
+      "data_type": "INT",
+      "description": "Identificador de la parcialidad o pago fijo dentro de un plan diferido (MCI = Meses Con Intereses / MSI = Meses Sin Intereses). Referenciado por las US HDU-SMART-R4-19 y HDU-SMART-R4-20.",
+      "source_system": "SmartVista BPC (módulo DPP — Deferred Payment Plan — no contratado)",
+      "regulation_ref": null,
+      "is_pii": false,
+      "is_financial": true
+    },
+    {
+      "entity_name": "Diferido MCI/MSI",
+      "field_name": "monto_parcialidad",
+      "data_type": "MONEY",
+      "description": "Monto de cada pago fijo en un plan diferido activo. Base para calcular el pago anticipado o la liquidación total de una compra diferida.",
+      "source_system": "SmartVista BPC (SVBO — plan diferido)",
+      "regulation_ref": null,
+      "is_pii": false,
+      "is_financial": true
+    },
+    {
+      "entity_name": "Diferido MCI/MSI",
+      "field_name": "monto_liquidacion_total",
+      "data_type": "MONEY",
+      "description": "Monto requerido para liquidar completamente una compra diferida antes de su vencimiento. Incluye capital pendiente más intereses no devengados o intereses a la fecha según el plan.",
+      "source_system": "SmartVista BPC (SVBO — cálculo liquidación anticipada)",
+      "regulation_ref": null,
+      "is_pii": false,
+      "is_financial": true
+    },
+    {
+      "entity_name": "Pago TDC",
+      "field_name": "id_transaccion_pago",
+      "data_type": "TEXT",
+      "description": "Identificador único de la transacción de pago generado por SmartVista al acreditar el pago. Permite trazabilidad, reclamaciones y conciliación.",
+      "source_system": "SmartVista BPC (SVIP — response de executeCardPaymentTransaction)",
+      "regulation_ref": "CONDUSEF — toda transacción debe tener identificador rastreable para gestión de reclamaciones",
+      "is_pii": false,
+      "is_financial": true
+    },
+    {
+      "entity_name": "Cliente TH",
+      "field_name": "nivel_mora",
+      "data_type": "TEXT",
+      "description": "Campo agingPeriod de SmartVista: E1=0-1 periodos (sin restricción), E2=2-3 (restricción parcial), E3>=4 (bloqueo mayoritario). Afecta las opciones de pago disponibles.",
+      "source_system": "SmartVista BPC (SVBO — campo agingPeriod)",
+      "regulation_ref": "CONDUSEF — restricciones de bloqueo por mora deben comunicarse al cliente",
+      "is_pii": false,
+      "is_financial": false
+    },
+    {
+      "entity_name": "Pago SPEI",
+      "field_name": "clabe_destino_tdc",
+      "data_type": "TEXT",
+      "description": "CLABE interbancaria de la cuenta TDC que recibe el pago SPEI desde otro banco. Relacionada con el CJ_APP_23 (compartir CLABE). Sin integración activa en R4 para la acreditación inbound.",
+      "source_system": "SmartVista BPC (CLABE asociada al contrato) + SPEI/E-Global (sin integración en R4)",
+      "regulation_ref": "Banxico SPEI — Circular 9/2010",
+      "is_pii": false,
+      "is_financial": false
+    }
+  ],
+
+  "integrations": [
+    {
+      "integration_ref": "IAPP01",
+      "from_system": "APP",
+      "to_system": "SmartVista BPC",
+      "api_name": "CAMBIOS en detalle de TDC — Rec_retrieveCreditCardStatement",
+      "protocol": "REST",
+      "direction": "outbound",
+      "evidence_us": "SMART-3962 (Detalle de crédito convivencia TDC F&D)",
+      "scope_r4": true,
+      "gap_flag": false,
+      "gap_notes": "Integración existente (existe_hoy=1) en modificación para R4. Expone saldo, límite, intereses, MAD, PPNGI, fechas de corte/pago. Alimenta la pantalla de visualización de montos de pago (Step 1)."
+    },
+    {
+      "integration_ref": "IAPP02",
+      "from_system": "SmartVista BPC",
+      "to_system": "APP",
+      "api_name": "Realiza el pago de TDC — Rec_executeCardPaymentTransaction",
+      "protocol": "REST",
+      "direction": "inbound",
+      "evidence_us": "SMART-4183 (Límite SAF para pago TDC en App)",
+      "scope_r4": true,
+      "gap_flag": false,
+      "gap_notes": "Integración existente (existe_hoy=1) en modificación para R4. Alta complejidad. Es la integración principal de ejecución de pago desde App. La dirección documentada en el inventario es SmartVista→APP (respuesta/confirmación)."
+    },
+    {
+      "integration_ref": "IAPP03",
+      "from_system": "SmartVista BPC",
+      "to_system": "APP",
+      "api_name": "Consulta de movimientos — Rec_RetrieveAccountTransaction",
+      "protocol": "REST",
+      "direction": "inbound",
+      "evidence_us": "SMART-4176 (Movimientos Convivencia TDC F&D)",
+      "scope_r4": true,
+      "gap_flag": false,
+      "gap_notes": "Integración existente (existe_hoy=1) en modificación. Relevante para la fase de pagos para confirmar el registro del pago en el historial de movimientos post-acreditación."
+    },
+    {
+      "integration_ref": "ISV06",
+      "from_system": "SmartVista BPC",
+      "to_system": "SIWEB",
+      "api_name": "GetDPP — Selección de transacciones del plan diferido",
+      "protocol": "REST",
+      "direction": "outbound",
+      "evidence_us": "HDU-SMART-R4-19 (Aplicar pagos anticipados a pagos fijos)",
+      "scope_r4": true,
+      "gap_flag": true,
+      "gap_notes": "Integración NUEVA (existe_hoy=0). Depende del módulo DPP no contratado por BanCoppel. Hasta que el módulo DPP se licencie o se desarrolle alternativa, esta integración no puede construirse."
+    },
+    {
+      "integration_ref": "ISV07",
+      "from_system": "SmartVista BPC",
+      "to_system": "SIWEB",
+      "api_name": "Clearing Operation — Envío de Pago Anticipado",
+      "protocol": "REST",
+      "direction": "outbound",
+      "evidence_us": "HDU-SMART-R4-19 (Aplicar pagos anticipados a pagos fijos)",
+      "scope_r4": true,
+      "gap_flag": false,
+      "gap_notes": "Integración existente (existe_hoy=1) en modificación. Media complejidad. Tiempo real. Parte del flujo de clearing de pagos anticipados hacia SIWEB."
+    },
+    {
+      "integration_ref": "ISV-SPEI-PAGOS-001",
+      "from_system": "SPEI / E-Global",
+      "to_system": "SmartVista BPC",
+      "api_name": "Acreditación de pago SPEI inbound a TDC 4900",
+      "protocol": "ISO8583",
+      "direction": "inbound",
+      "evidence_us": null,
+      "scope_r4": false,
+      "gap_flag": true,
+      "gap_notes": "INTEGRACIÓN NO DOCUMENTADA EN R4. ID generado para identificar el gap. Los Customer Journeys CJ_SPEI_01/001 documentan el escenario pero no generaron US ni integración en el inventario r4_integrations. E-Global es el switch transaccional que enruta autorizaciones ISO 8583 hacia SmartVista (88 reglas de autorizador). El flujo inverso (pago SPEI inbound) no tiene evidencia de diseño técnico en R4. Requiere US + integración en R4.5 o alcance adicional."
+    }
+  ],
+
+  "test_cases": [
+    {
+      "tc_id": "TC-PAGOS-001",
+      "tc_title": "Pago mínimo (MAD) desde App — happy path",
+      "precondition": "TH autenticado en App con TDC 4900 activa, saldo con MAD calculado, agingPeriod E1",
+      "steps_summary": "1. TH abre sección de pago en App. 2. App muestra MAD, PPNGI y opción 'Otra cantidad'. 3. TH selecciona 'Pago mínimo'. 4. TH confirma. 5. App invoca Rec_executeCardPaymentTransaction (IAPP02). 6. SmartVista acredita el pago y retorna confirmación.",
+      "expected_result": "Pago aplicado. Saldo disponible actualizado en App. Confirmación visible con folio de transacción. MAD reducido a cero en el periodo actual.",
+      "priority": "alta",
+      "test_type": "funcional",
+      "regulation_ref": "CONDUSEF — el pago mínimo debe ser aceptado y acreditado sin costo adicional",
+      "linked_us_id": "SMART-4182"
+    },
+    {
+      "tc_id": "TC-PAGOS-002",
+      "tc_title": "Pago total (PPNGI) desde App — happy path",
+      "precondition": "TH autenticado, TDC activa con saldo exigible > 0, agingPeriod E1 o E2",
+      "steps_summary": "1. TH abre sección de pago. 2. App muestra opciones. 3. TH selecciona 'Pago total'. 4. Confirma monto PPNGI. 5. App invoca IAPP02. 6. SmartVista valida fondos y acredita.",
+      "expected_result": "Pago total acreditado. Saldo exigible = 0. Sin generación de intereses en el siguiente periodo. Folio de transacción generado.",
+      "priority": "alta",
+      "test_type": "funcional",
+      "regulation_ref": "CONDUSEF — debe ofrecerse la opción de pago total sin cargo adicional",
+      "linked_us_id": "SMART-4182"
+    },
+    {
+      "tc_id": "TC-PAGOS-003",
+      "tc_title": "Pago personalizado 'Otra cantidad' dentro del límite SAF",
+      "precondition": "TH autenticado, TDC activa, saldo exigible > 0, límite SAF parametrizado en SmartVista (HDU-SMART-R4-12 completada)",
+      "steps_summary": "1. TH selecciona 'Otra cantidad'. 2. TH ingresa monto entre MAD y saldo total + límite SAF. 3. App valida contra límite SAF (SMART-4280). 4. TH confirma. 5. IAPP02 procesa. 6. SmartVista acredita.",
+      "expected_result": "Pago acreditado con el monto personalizado. Si el monto excede el saldo total y el excedente es menor al límite SAF, el saldo a favor se registra correctamente.",
+      "priority": "alta",
+      "test_type": "funcional",
+      "regulation_ref": null,
+      "linked_us_id": "SMART-4280"
+    },
+    {
+      "tc_id": "TC-PAGOS-004",
+      "tc_title": "Rechazo de pago que excede el límite de saldo a favor (SAF)",
+      "precondition": "TH autenticado, TDC activa con saldo total = X, límite SAF = L parametrizado",
+      "steps_summary": "1. TH intenta pagar X + L + 1 (excedente sobre el límite SAF). 2. App invoca validación SAF via SmartVista. 3. SmartVista evalúa: monto > saldo_total + limite_SAF.",
+      "expected_result": "Transacción rechazada con mensaje claro al TH indicando el límite máximo permitido. El campo 'Otra cantidad' no debe permitir valores superiores a saldo_total + limite_SAF.",
+      "priority": "alta",
+      "test_type": "funcional",
+      "regulation_ref": "Banxico Circular 14/2010 — restricciones a sobrepagos en TDC",
+      "linked_us_id": "SMART-4183"
+    },
+    {
+      "tc_id": "TC-PAGOS-005",
+      "tc_title": "Pago anticipado a parcialidad activa de plan MCI desde App",
+      "precondition": "TH con plan diferido MCI activo en SmartVista, módulo DPP contratado, US HDU-SMART-R4-19 construida",
+      "steps_summary": "1. TH accede a sección de diferidos en App. 2. App solicita listado de planes activos via GetDPP (ISV06). 3. TH selecciona parcialidad a adelantar. 4. TH confirma monto. 5. SmartVista ejecuta Clearing Operation (ISV07) y notifica a SIWEB.",
+      "expected_result": "Pago anticipado aplicado a la parcialidad seleccionada. Plan diferido actualizado en SmartVista. Registro generado en SIWEB para conciliación.",
+      "priority": "media",
+      "test_type": "funcional",
+      "regulation_ref": null,
+      "linked_us_id": "HDU-SMART-R4-19"
+    },
+    {
+      "tc_id": "TC-PAGOS-006",
+      "tc_title": "Liquidación anticipada total de compra diferida",
+      "precondition": "TH con compra diferida activa (MCI/MSI), módulo DPP disponible, US HDU-SMART-R4-20 construida",
+      "steps_summary": "1. TH selecciona compra diferida a liquidar. 2. App muestra monto de liquidación total calculado por SmartVista. 3. TH confirma. 4. SmartVista cancela el plan diferido y acredita el efecto. 5. SIWEB recibe notificación con TRNT 623 para registro contable en Grupo 13.",
+      "expected_result": "Compra diferida marcada como liquidada en SmartVista. Saldo del plan diferido = 0. Efecto contable TRNT 623 registrado en SIWEB. Saldo disponible de TDC actualizado.",
+      "priority": "media",
+      "test_type": "funcional",
+      "regulation_ref": null,
+      "linked_us_id": "HDU-SMART-R4-20"
+    },
+    {
+      "tc_id": "TC-PAGOS-007",
+      "tc_title": "Dos mecanismos de pago sin costo disponibles — validación CONDUSEF",
+      "precondition": "TDC 4900 Producto activo. Evaluación de canales disponibles para pago sin costo.",
+      "steps_summary": "1. Verificar que App Móvil permite pago sin comisión. 2. Verificar que SIWEB (ventanilla) permite pago sin comisión. 3. Verificar que al menos uno de los mecanismos acepta SPEI sin comisión. 4. Documentar evidencia de que ningún canal cobra comisión por pago normal.",
+      "expected_result": "Al menos 2 mecanismos de pago sin costo disponibles para el tarjetahabiente. App Móvil = mecanismo 1 validado. Ventanilla SIWEB / SPEI = mecanismo 2 pendiente de confirmar en R4.",
+      "priority": "alta",
+      "test_type": "regulatorio",
+      "regulation_ref": "CONDUSEF Circular 30/2010 art. 6 — las instituciones deben ofrecer al menos dos medios de pago sin costo",
+      "linked_us_id": null
+    },
+    {
+      "tc_id": "TC-PAGOS-008",
+      "tc_title": "Pago con monto cero — caso borde de rechazo",
+      "precondition": "TH autenticado, TDC activa con saldo exigible > 0",
+      "steps_summary": "1. TH selecciona 'Otra cantidad'. 2. TH ingresa $0.00. 3. App intenta procesar. 4. Sistema valida monto.",
+      "expected_result": "Pago rechazado con mensaje claro. El sistema no debe enviar una transacción de $0 a SmartVista. El botón de confirmar debe estar deshabilitado si monto = 0.",
+      "priority": "media",
+      "test_type": "funcional",
+      "regulation_ref": null,
+      "linked_us_id": "SMART-4280"
+    },
+    {
+      "tc_id": "TC-PAGOS-009",
+      "tc_title": "Pago mayor al saldo total sin SAF configurado — caso borde",
+      "precondition": "TH autenticado, TDC activa con saldo total = X, sin límite SAF parametrizado o SAF = 0",
+      "steps_summary": "1. TH intenta ingresar monto > X en 'Otra cantidad'. 2. App valida contra SmartVista. 3. SmartVista evalúa SAF = 0.",
+      "expected_result": "Pago limitado al saldo total (X). El sistema no acepta pagos que superen el saldo exigible cuando SAF = 0. Mensaje al TH indicando el monto máximo aceptable.",
+      "priority": "alta",
+      "test_type": "funcional",
+      "regulation_ref": "Banxico — restricción de saldo a favor en TDC",
+      "linked_us_id": "SMART-4183"
+    },
+    {
+      "tc_id": "TC-PAGOS-010",
+      "tc_title": "Intento de pago en SIWEB (ventanilla) para pago regular — flujo bloqueado o no disponible",
+      "precondition": "TH en sucursal BanCoppel con TDC 4900, cajero en SIWEB",
+      "steps_summary": "1. Cajero intenta registrar pago de TDC en SIWEB. 2. Sistema verifica si existe flujo de pago directo en ventanilla para Producto 4900.",
+      "expected_result": "En R4: No existe User Story de pago en ventanilla para Producto 4900. El cajero no tiene flujo disponible en SIWEB para pago estándar. Se debe documentar el flujo alternativo (derivar al cliente a App o SPEI).",
+      "priority": "alta",
+      "test_type": "funcional",
+      "regulation_ref": "CONDUSEF — pago en sucursal es uno de los mecanismos estándar; su ausencia debe documentarse como excepción formal",
+      "linked_us_id": null
+    },
+    {
+      "tc_id": "TC-PAGOS-011",
+      "tc_title": "Acreditación SPEI en saldo disponible — SLA regulatorio < 5 minutos",
+      "precondition": "TH realiza pago SPEI desde otro banco a la CLABE de su TDC 4900. Integración SPEI disponible (pendiente en R4).",
+      "steps_summary": "1. TH envía SPEI desde banco externo. 2. Mensaje SPEI llega a E-Global/Banxico. 3. E-Global enruta a SmartVista. 4. SmartVista acredita al contrato TDC. 5. Saldo disponible actualizado. 6. Medir tiempo desde timestamp SPEI hasta actualización en App.",
+      "expected_result": "Saldo disponible actualizado en App en menos de 5 minutos desde la recepción del SPEI por Banxico. Folio de transacción generado. Movimiento visible en historial de App.",
+      "priority": "alta",
+      "test_type": "rendimiento",
+      "regulation_ref": "Banxico Circular SPEI — acreditación en menos de 5 minutos; GAP-VP-002 abierto porque este SLA no está definido en R4",
+      "linked_us_id": null
+    },
+    {
+      "tc_id": "TC-PAGOS-012",
+      "tc_title": "Validación del límite SAF en caja de sucursal (SIWEB) — dependencia BYU0039",
+      "precondition": "Cajero en SIWEB atendiendo TH con TDC 4900. BYU0039 resuelto.",
+      "steps_summary": "1. Cajero intenta registrar pago que excede saldo total + límite SAF para la cuenta. 2. SIWEB consulta SmartVista via SVIP para validar SAF. 3. SmartVista evalúa el límite en runtime.",
+      "expected_result": "Transacción rechazada o acotada por SIWEB con indicación del límite máximo permitido. Consistencia de validación entre App y SIWEB para el mismo contrato.",
+      "priority": "media",
+      "test_type": "funcional",
+      "regulation_ref": null,
+      "linked_us_id": "HDU-SIWEB-R4-05"
+    }
+  ],
+
+  "gaps_found": [
+    {
+      "gap_id": "GAP-PAGOS-001",
+      "description": "SPEI inbound para pago de TDC sin User Story ni integración en R4. Existen 3 Customer Journeys documentados (CJ_SPEI_001, CJ_SPEI_01 x2) y un Formato_HU_CMS-CJ_SPEI_00.xlsx que nunca generaron una US en el alcance formal de R4. Minuta 2026-07-27 'Revisión app SPEI Enlace Financiero' existe pero no se tradujo en US. El SLA regulatorio de acreditación < 5 min (Banxico) no está definido ni probado en R4.",
+      "severity": "critico",
+      "category": "us_faltante",
+      "recommendation": "Crear User Story de alto nivel para SPEI inbound de pago TDC en R4 o R4.5. Definir formalmente el SLA (< 5 min) como criterio de aceptación. Documentar la integración E-Global→SmartVista para mensajes ISO 8583 de pago SPEI. Revisar la minuta 2026-07-27 con el equipo de Apificación para recuperar el análisis técnico ya realizado."
+    },
+    {
+      "gap_id": "GAP-PAGOS-002",
+      "description": "Pago en ventanilla (SIWEB) para Producto 4900 sin User Story en R4. Los Customer Journeys CJ_OFI_2 (efectivo), CJ_OFI_3 (cargo a cuenta) y CJ_OFI_4 (cheques) documentan el escenario de pago en ventanilla, pero no tienen US en el alcance R4. Las 5 US de SIWEB cubren exclusivamente operaciones de diferidos (MCI/MSI), no el pago regular. CONDUSEF exige al menos dos mecanismos de pago sin costo — la ausencia de ventanilla reduce las opciones disponibles.",
+      "severity": "critico",
+      "category": "us_faltante",
+      "recommendation": "Escalar a PMO y BanCoppel para confirmar si el pago en ventanilla es out-of-scope explícito de R4 o un gap no identificado. Si es out-of-scope, documentar formalmente el flujo alternativo que el cajero debe seguir (derivar a App o SPEI). Verificar cumplimiento CONDUSEF del requisito de dos mecanismos sin costo con solo un canal digital disponible en R4."
+    },
+    {
+      "gap_id": "GAP-PAGOS-003",
+      "description": "Módulo DPP (Deferred Payment Plan) de SmartVista no contratado por BanCoppel. Bloquea 3 User Stories directamente: HDU-SMART-R4-19 (pagos anticipados), HDU-SMART-R4-20 (liquidar diferidas) y HDU-SIWEB-R4-03 (cancelar diferida en SIWEB). La integración ISV06 (GetDPP) es Nueva con existe_hoy=0 y no puede construirse sin el módulo. RISK-UNITY-R02 abierto.",
+      "severity": "critico",
+      "category": "integracion_sin_evidencia",
+      "recommendation": "PMO BanCoppel debe tomar una de tres decisiones antes del inicio de SIT (15-oct-2026): (1) contratar módulo DPP con BPC, (2) desarrollar alternativa propia para getPlanes + cancelación diferidos, o (3) diferir HDU-SMART-R4-19/20 y HDU-SIWEB-R4-03 a R4.5 con alcance documentado. La decisión debe estar firmada antes del 01-sep-2026 para no comprometer el cronograma de construcción."
+    },
+    {
+      "gap_id": "GAP-PAGOS-004",
+      "description": "Domiciliación / cargo automático sin User Story en R4. El regulador (CONDUSEF) considera la domiciliación como mecanismo de pago estándar para TDC en México. No hay evidencia en el brain de Unity de ninguna US, Customer Journey o integración para domiciliación de pago de TDC 4900.",
+      "severity": "alto",
+      "category": "us_faltante",
+      "recommendation": "Confirmar con PMO si la domiciliación es out-of-scope explícito de R4 o un gap no identificado. Si es un mecanismo requerido por el producto 4900, crear US en backlog con prioridad para R4.5. Verificar si el legado (Informix/CMS) tiene domiciliación activa para el portafolio que se migrará a SmartVista."
+    },
+    {
+      "gap_id": "GAP-PAGOS-005",
+      "description": "CoDi (Cobro Digital) sin cobertura en R4. El regulador ha promovido CoDi como mecanismo de pago digital en México. No hay User Story, Customer Journey ni integración en R4 para recibir pagos CoDi en TDC 4900.",
+      "severity": "medio",
+      "category": "us_faltante",
+      "recommendation": "Evaluar la adopción de CoDi como mecanismo de pago. Si el banco actualmente recibe pagos CoDi en el legado, agregar al backlog para R4.5. Si no está en producción, documentar como funcionalidad futura no comprometida."
+    },
+    {
+      "gap_id": "GAP-PAGOS-006",
+      "description": "SLA de acreditación SPEI no definido en R4 — GAP-VP-002. Banxico exige que los pagos SPEI se reflejen en el saldo disponible del beneficiario en menos de 5 minutos. No hay criterio de aceptación ni caso de prueba de rendimiento para este SLA en ninguna US o DT del programa.",
+      "severity": "alto",
+      "category": "regulatorio",
+      "recommendation": "Definir formalmente el SLA de acreditación SPEI como criterio de aceptación en la US que cubra SPEI inbound (aún sin crear). Incluir caso de prueba de rendimiento TC-PAGOS-011 en el plan SIT. Documentar el flujo E-Global→SmartVista para mensajes de pago SPEI y el tiempo esperado de procesamiento en cada etapa."
+    },
+    {
+      "gap_id": "GAP-PAGOS-007",
+      "description": "Ticket BYU0039 de SmartVista sin resolver bloquea la validación del límite de saldo a favor en runtime. Afecta simultáneamente SMART-4183 (App), SMART-4280 (App) y HDU-SIWEB-R4-05 (SIWEB). La cobertura de estos pasos queda como 'tbd' hasta resolución. RISK-UNITY-R02 asociado.",
+      "severity": "alto",
+      "category": "flujo_incompleto",
+      "recommendation": "Escalar BYU0039 a BPC (SmartVista) con fecha comprometida de resolución antes del inicio de SIT. El ticket es bloqueante para 3 User Stories de validación SAF. Armar plan de contingencia que explique cómo se prueba la validación SAF sin BYU0039 resuelto."
+    },
+    {
+      "gap_id": "GAP-PAGOS-008",
+      "description": "Guía contable formal de BanCoppel para pagos anticipados y liquidaciones de diferidos pendiente. Sin ella, las US HDU-SMART-R4-19, HDU-SMART-R4-20 y HDU-SIWEB-R4-04 no pueden cerrar sus criterios de aceptación. RISK-UNITY-R11 abierto (owner: J.A. Valverde, Contabilidad BanCoppel). El TRNT 623 'PAGO CGO A CTA DE CREDISOLUCIONES' debe clasificarse en Grupo 13 (no en cuenta 2402/E-Global).",
+      "severity": "medio",
+      "category": "datos",
+      "recommendation": "Obtener la guía contable formal de J.A. Valverde antes del 2026-09-15. La guía debe cubrir: (1) clasificación contable del TRNT 623 en SmartVista, (2) grupo contable en PISA para diferidos MCI/MSI, (3) tratamiento de liquidaciones anticipadas. Sin esta guía, QA SmartVista no puede iniciar para estas User Stories."
+    }
+  ]
+}

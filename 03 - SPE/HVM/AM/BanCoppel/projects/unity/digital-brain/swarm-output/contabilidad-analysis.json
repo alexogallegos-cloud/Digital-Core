@@ -1,0 +1,623 @@
+{
+  "phase_id": "contabilidad",
+  "phase_name": "Contabilidad",
+  "analyzed_at": "2026-08-20",
+  "analyst": "DT-Swarm-Contabilidad-v1",
+
+  "flow_validated": {
+    "nodes": [
+      {
+        "id": "SVBO",
+        "name": "SmartVista SVBO",
+        "description": "SmartVista Back Office — libro de registro del crédito, saldos y asignación de tarjeta del Producto 4900. Ejecuta el cierre de día operativo (EOD) y consolida los asientos contables internos del gestor de tarjetas.",
+        "pending": false,
+        "role": "primary",
+        "system": "SmartVista BPC"
+      },
+      {
+        "id": "SVXP",
+        "name": "SmartVista SVXP",
+        "description": "Módulo de interfaz contable de SmartVista BPC. Genera el archivo XML de posting contable hacia Informix/PISA. Es la frontera contable pendiente de la fase — interfaz no construida en R4.",
+        "pending": true,
+        "role": "primary",
+        "gap": "Interfaz SmartVista SVXP → Informix/PISA no construida. Prioridad PreGame pendiente con BPC Banking Technologies.",
+        "system": "SmartVista BPC"
+      },
+      {
+        "id": "INFORMIX_PISA",
+        "name": "Informix/PISA",
+        "description": "Core bancario IBM Informix Dynamic Server v14.10 con módulo PISA (SIF — Sistema Integral Financiero). Es el libro contable central donde permanece la contabilidad definitiva del Producto 4900. Aplica asientos, ejecuta conciliación BCPLVNC/BCPLVIC/BCPLPNC y genera reportería CNBV Anexos 33/36 CUB.",
+        "pending": false,
+        "role": "primary",
+        "system": "Informix/PISA"
+      },
+      {
+        "id": "SOC",
+        "name": "SOC (Sistema Operativo Central)",
+        "description": "Mini-core bancario TASF de 15 módulos y 710 funcionalidades. Requiere un nuevo tipo de conciliación para el BIN 42680711 según requerimiento de noviembre 2023. Sin plan en R4.",
+        "pending": true,
+        "role": "primary",
+        "gap": "Nuevo tipo de conciliación SOC sin plan en R4. Requerimiento nov-2023 sin owner asignado.",
+        "system": "SOC"
+      },
+      {
+        "id": "EGLOBAL",
+        "name": "E-Global",
+        "description": "Equipo BanCoppel que prueba las 88 reglas del autorizador ISO 8583 y genera los archivos del día. Rol auxiliar en el flujo contable: sus archivos son insumo del EOD de SmartVista BPC. No es nodo primario de contabilización.",
+        "pending": false,
+        "role": "auxiliary",
+        "system": "E-Global"
+      },
+      {
+        "id": "CONNECT_DIRECT",
+        "name": "Connect-Direct",
+        "description": "Protocolo de transferencia de archivos. Transporta el archivo de maquila y archivos EOD entre E-Global y SmartVista BPC. Su configuración para el flujo SmartVista SVXP → Informix/PISA queda pendiente hasta que la interfaz SVXP sea construida.",
+        "pending": true,
+        "role": "transport",
+        "gap": "Configuración Connect-Direct para el flujo SmartVista SVXP → Informix/PISA pendiente de construcción de la interfaz SVXP.",
+        "system": "Connect-Direct"
+      }
+    ],
+    "flow_sequence": [
+      "SmartVista SVBO (EOD — End of Day)",
+      "→ SmartVista SVXP (archivo XML contable) [PENDING]",
+      "→ Informix/PISA (libro contable central — asientos, conciliación)",
+      "→ SOC (nuevo tipo de conciliación) [PENDING]"
+    ],
+    "auxiliary_flow": "E-Global genera archivos del día → Connect-Direct transporta → SmartVista BPC (insumo EOD)",
+    "notes": [
+      "La contabilidad definitiva permanece en Informix/PISA. SmartVista SVBO es el libro de registro del crédito, saldos y tarjeta.",
+      "Temenos Transact NO participa en el ciclo del Producto 4900 — es core de captación, no de tarjetas.",
+      "Pagos en sucursal BanCoppel entran directamente por PISA sin pasar por E-Global.",
+      "La conciliación del BIN 42680711 es informativa en PISA: registra pero NO genera cargo/abono, dado que el número de crédito, saldos y tarjeta viven en SmartVista BPC.",
+      "BCPLPNC incluye 4 BINes (426807, 554948, 510148, 514014); se excluye la afectación del subproducto 11 del BIN 426807 (Producto 4900)."
+    ]
+  },
+
+  "steps_enriched": [
+    {
+      "step": 1,
+      "name": "Cierre de día operativo en SmartVista BPC (EOD — End of Day)",
+      "system": "SmartVista BPC",
+      "protocol": "batch",
+      "gap_flag": false,
+      "user_story_ref": null,
+      "description": "SmartVista SVBO ejecuta el proceso de End of Day que consolida todas las transacciones del día del Producto 4900 (BIN 42680711): autorizaciones, pagos, cargos de comisión, intereses devengados y ajustes de saldo. Genera el estado contable interno del gestor de tarjetas. Este paso existe y opera en SmartVista BPC.",
+      "kpi_link": "Latencia posting < 4 horas post-cierre",
+      "cnbv_link": "CUB Anexo 33/36 — registro mismo día (D+0)"
+    },
+    {
+      "step": 2,
+      "name": "Generación de archivo SmartVista SVXP de posting contable",
+      "system": "SmartVista BPC → Informix/PISA",
+      "protocol": "batch/archivo",
+      "format": "XML",
+      "gap_flag": true,
+      "gap_severity": "CRÍTICO",
+      "gap_description": "Interfaz SmartVista SVXP → Informix/PISA no construida. Es la frontera contable del programa Unity R4. Prioridad PreGame pendiente con BPC Banking Technologies. Sin esta interfaz, los asientos del Producto 4900 no se transfieren al libro contable central.",
+      "user_story_ref": null,
+      "description": "SmartVista SVXP genera el archivo XML con los asientos contables del EOD (cuentas deudoras/acreedoras, montos, Tipos de Transacción (TRNT), fechas de valor) para aplicarse en Informix/PISA. La interfaz no existe en R4.",
+      "bloqueante": "PP-TRNT-PAGOS al 0% de avance (owner BPC Banking Technologies)"
+    },
+    {
+      "step": 3,
+      "name": "Aplicación de asientos contables en core Informix/PISA",
+      "system": "Informix (PISA)",
+      "protocol": "batch/stored-procedure-SPL",
+      "gap_flag": true,
+      "gap_severity": "CRÍTICO",
+      "gap_description": "Bloqueado por el paso 2 (SVXP no construida). Adicionalmente, la guía contable formal de Tipos de Transacción (TRNT) para el Producto 4900 no ha sido entregada — sin ella no se pueden definir las cuentas contables ni los criterios de aceptación del posting.",
+      "user_story_ref": null,
+      "description": "PISA recibe el archivo XML de posting de SmartVista SVXP y aplica los asientos contables (cargo/abono) en las cuentas CUB correspondientes. Genera los registros del libro mayor para cumplir CNBV CUB Anexo 33. Este paso queda bloqueado mientras el paso 2 no exista.",
+      "dtm_ref": "DTM_RegisterDeferredPurchaseAccountingEffects (SIWEB-MF-01) — partial, guía contable pendiente dependencia D01 RAID"
+    },
+    {
+      "step": 4,
+      "name": "Conciliación: transacciones autorizadas vs. contabilizadas",
+      "system": "Informix + SmartVista BPC",
+      "protocol": "batch",
+      "gap_flag": true,
+      "gap_severity": "WARN",
+      "gap_description": "La conciliación BCPLVNC/BCPLVIC existe para los BINes actuales. El nuevo tipo de conciliación para SOC (requerimiento nov-2023) no tiene plan en R4. La conciliación del BIN 42680711 es informativa: PISA registra pero no genera cargo/abono.",
+      "user_story_ref": null,
+      "description": "PISA ejecuta la conciliación automática entre transacciones autorizadas por SmartVista BPC y asientos contabilizados. Los BINes BCPLVNC, BCPLVIC y BCPLPNC (excluyendo subproducto 11 del BIN 426807) participan. El proceso SOC requiere un tipo de conciliación adicional no definido en R4.",
+      "conciliacion_ids": ["BCPLVNC", "BCPLVIC", "BCPLPNC", "BIN 42680711"],
+      "kpi_link": "Conciliación D+0 > 99.5%; Breaks > 24h = 0 (objetivo CNBV)"
+    },
+    {
+      "step": 5,
+      "name": "Generación de reportería CNBV Anexos 33 y 36 CUB",
+      "system": "Informix + CNBV",
+      "protocol": "batch",
+      "gap_flag": true,
+      "gap_severity": "WARN",
+      "gap_description": "Los reportes regulatorios no tienen stream propio en R4 (anidados bajo '5 CONTABILIDAD'). La capacidad 2.4.2 Reportería es P1 con alcance no confirmado (RISK-UNITY-R23). Bajaware está en proceso de decomiso mientras el documento CNBV lo declara como motor de generación.",
+      "user_story_ref": null,
+      "description": "PISA, junto con la cadena SmartVista BPC → DataStage → DWH → RiskLogic, genera los reportes regulatorios CNBV Anexos 33 y 36 de la CUB para el Producto 4900: calificación de cartera, saldos, número de tarjetas y apertura por mes.",
+      "regulacion": ["CUB Anexo 33", "CUB Anexo 36", "NIF C-16"],
+      "kpi_link": "Compliance CNBV 100%"
+    },
+    {
+      "step": 6,
+      "name": "Cálculo mensual de provisión de cartera NIF C-16",
+      "system": "Informix",
+      "protocol": "batch-mensual",
+      "gap_flag": true,
+      "gap_severity": "WARN",
+      "gap_description": "NIF C-16 exige estimar la provisión por pérdida esperada mensualmente. No existe evidencia de diseño del cálculo para el Producto 4900 en R4: sin User Story, sin DTM, sin parámetros de probabilidad de default para el BIN 42680711.",
+      "user_story_ref": null,
+      "description": "PISA calcula mensualmente la provisión de cartera vencida y estimada conforme a NIF C-16. Requiere los saldos de cartera, el agingPeriod de SmartVista BPC (E1: 0-1 días, E2: 2-3 días, E3: ≥4 días) y la parametrización de probabilidades de default del Producto 4900.",
+      "aging_levels": {
+        "E1": "agingPeriod 0-1 — sin restricciones operativas",
+        "E2": "agingPeriod 2-3 — disposiciones bloqueadas",
+        "E3": "agingPeriod >= 4 — bloqueo mayoritario, solo pago disponible"
+      },
+      "regulacion": ["NIF C-16", "CNBV Calificación de Cartera", "Reporte R-04-C"]
+    }
+  ],
+
+  "us_mapping": {
+    "total_us": 7,
+    "clarification": "La fase Contabilidad (07) no tiene User Stories propias en el backlog de R4. Las 7 User Stories identificadas pertenecen al track SmartVista BPC y corresponden a operaciones que generan asientos contables secundarios. Su contabilización en PISA depende de la interfaz SmartVista SVXP que está pendiente. No son User Stories de la fase contable sino de funcionalidades operativas cuyos efectos contables no están formalizados.",
+    "tracks": [
+      {
+        "track_name": "Pagos anticipados y liquidaciones de diferidos",
+        "track_description": "User Stories que cubren el prepago de planes de compras diferidas (DPP — Deferred Purchase Plan) en SmartVista BPC. Cada liquidación anticipada genera asientos contables que deben cruzar la interfaz SmartVista SVXP → Informix/PISA.",
+        "count": 3,
+        "user_stories": [
+          {
+            "id": "HDU-SMART-R4-17",
+            "title": "Consultar planes de compras diferidas vigentes del Producto 4900",
+            "moscow": "must",
+            "accounting_effect": "Consulta del estado del plan diferido en SmartVista SVBO — sin asiento contable directo; precondición para liquidar anticipadamente",
+            "dtm_ref": "DTM_SettleDeferredPurchasePlan"
+          },
+          {
+            "id": "HDU-SMART-R4-18",
+            "title": "Calcular monto de liquidación anticipada de diferido",
+            "moscow": "must",
+            "accounting_effect": "Cálculo de capital e intereses devengados a la fecha del diferido — genera la base del asiento de liquidación en PISA; requiere guía contable TRNTs para definir la cuenta contable destino",
+            "dtm_ref": "DTM_SettleDeferredPurchasePlan"
+          },
+          {
+            "id": "HDU-SMART-R4-19",
+            "title": "Aplicar pagos anticipados a pagos fijos",
+            "moscow": "must",
+            "accounting_effect": "Ejecuta la liquidación anticipada del plan diferido, actualiza el estado a 'Liquidado' en SmartVista BPC y genera el asiento de liquidación que debe cruzar SmartVista SVXP → Informix/PISA",
+            "integrations": [
+              "ISV06 GetDPP — selección de transacciones (SmartVista → SIWEB, nueva)",
+              "ISV07 Clearing Operation — envío de Pago Anticipado (SmartVista → SIWEB, modificar)"
+            ],
+            "dtm_ref": "DTM_SettleDeferredPurchasePlan",
+            "gap_note": "El Tipo de Transacción (TRNT) 623 es una transacción de SIWEB ('PAGO CGO A CTA DE CREDASOLUCIONES'), NO un sistema. Los efectos contables (grupo contable 13 para MCI) dependen de la guía contable formal pendiente. NO reclasificar por cuenta 2402/E-Global."
+          }
+        ]
+      },
+      {
+        "track_name": "Control de saldo a favor",
+        "track_description": "User Stories que gestionan el saldo a favor en la Tarjeta de Crédito (exceso de pago sobre el saldo deudor). Cada aplicación de saldo a favor genera asientos contables en SmartVista BPC que deben reflejarse en PISA vía SmartVista SVXP.",
+        "count": 4,
+        "user_stories": [
+          {
+            "id": "HDU-SMART-R4-20",
+            "title": "Consultar saldo a favor disponible en Tarjeta de Crédito",
+            "moscow": "must",
+            "accounting_effect": "Consulta del cajón BLTP saldo a favor en SmartVista SVBO — sin asiento contable; precondición para aplicar el saldo",
+            "dtm_ref": null
+          },
+          {
+            "id": "HDU-SMART-R4-21",
+            "title": "Aplicar saldo a favor como pago del periodo",
+            "moscow": "must",
+            "accounting_effect": "Aplica el excedente como pago del MAD o PPNGI — genera asiento de disminución de saldo a favor y reducción del saldo deudor que debe cruzar SmartVista SVXP → Informix/PISA",
+            "dtm_ref": null,
+            "integration_ref": "IAPP02 Rec_executeCardPaymentTransaction (SmartVista → APP, modificar)"
+          },
+          {
+            "id": "SMART-4183",
+            "title": "Límite de saldo a favor para pago de Tarjeta de Crédito en la aplicación móvil",
+            "moscow": "must",
+            "accounting_effect": "Controla el límite máximo de saldo a favor aplicable como pago desde AppMóvil — genera asiento en SmartVista BPC con reflejo pendiente en PISA vía SmartVista SVXP",
+            "dtm_ref": null,
+            "integration_ref": "IAPP02 Rec_executeCardPaymentTransaction (SmartVista → APP, modificar)"
+          },
+          {
+            "id": "HDU-SMART-R4-22",
+            "title": "Reintegrar saldo a favor por cancelación de cargo",
+            "moscow": "should",
+            "accounting_effect": "Reverso contable — genera asiento de devolución al cajón BLTP saldo a favor en SmartVista BPC; debe cruzar SmartVista SVXP → Informix/PISA",
+            "dtm_ref": "DTM_RegisterDeferredPurchaseAccountingEffects"
+          }
+        ]
+      }
+    ],
+    "gap_note": "Ninguna de las 7 User Stories tiene criterios de aceptación contables formalizados. La guía contable de Tipos de Transacción (TRNT) para el Producto 4900 no ha sido entregada — sin ella los criterios de aceptación en su dimensión contable no pueden definirse (RISK-UNITY-R08, DTM gap DTM_RegisterDeferredPurchaseAccountingEffects, dependencia D01 abierta en RAID)."
+  },
+
+  "data_elements": [
+    {
+      "id": "DE-CONT-01",
+      "name": "BIN",
+      "description": "Bank Identification Number del Producto 4900. BIN 42680711 (BIN 426807, subproducto 11). Identifica la tarjeta en los procesos de conciliación BCPLVNC/BCPLVIC/BCPLPNC. El dígito 8 del BIN determina si es tarjeta digital (posición 0-4) o física (posición 5-9).",
+      "type": "identificador",
+      "system_owner": "SmartVista BPC",
+      "cnbv_relevance": "Identificador primario para conciliación regulatoria"
+    },
+    {
+      "id": "DE-CONT-02",
+      "name": "TRNT (Tipo de Transacción)",
+      "description": "Código interno de SmartVista BPC que clasifica cada movimiento para la generación de asientos contables. Es un atributo de clasificación contable, NO un sistema. El Tipo de Transacción 623 es una transacción de SIWEB ('PAGO CGO A CTA DE CREDASOLUCIONES'), no del CMS.",
+      "type": "clasificador-contable",
+      "system_owner": "SmartVista BPC",
+      "gap": "Guía contable formal de Tipos de Transacción (TRNT) del Producto 4900 no entregada (CRÍTICO). PP-TRNT-PAGOS al 0% de avance."
+    },
+    {
+      "id": "DE-CONT-03",
+      "name": "monto_asiento",
+      "description": "Monto en pesos MXN del asiento contable generado por SmartVista SVXP. Incluye capital, intereses devengados, comisiones y ajustes del EOD.",
+      "type": "monto-financiero",
+      "system_owner": "SmartVista BPC → Informix/PISA",
+      "precision_note": "Tipo MONEY en Informix SPL — validar DEFINE en PISA; riesgo de redondeo en conversión desde SmartVista BPC"
+    },
+    {
+      "id": "DE-CONT-04",
+      "name": "cuenta_contable",
+      "description": "Código de cuenta del plan contable CUB (CNBV) al que se imputa el asiento. Define el catálogo de cuentas para los Anexos 33 y 36.",
+      "type": "catalogo-regulatorio",
+      "system_owner": "Informix/PISA",
+      "cnbv_relevance": "CUB Anexo 33/36 — cuenta contable obligatoria en reportes CNBV"
+    },
+    {
+      "id": "DE-CONT-05",
+      "name": "codigo_conciliacion",
+      "description": "Identificador del proceso de conciliación en PISA: BCPLVNC (nueva), BCPLVIC (informativa crédito), BCPLPNC (nuevos BINes). Determina si el proceso genera cargo/abono o es solo informativo.",
+      "type": "control-operativo",
+      "system_owner": "Informix/PISA",
+      "note": "El BIN 42680711 tiene conciliación informativa — PISA registra pero NO genera cargo/abono"
+    },
+    {
+      "id": "DE-CONT-06",
+      "name": "fecha_posting",
+      "description": "Fecha en que el asiento contable se registra en PISA. Debe coincidir con la fecha operativa del EOD (D+0) para cumplir CNBV. Es diferente a la fecha de autorización de la transacción.",
+      "type": "fecha-regulatoria",
+      "system_owner": "SmartVista BPC → Informix/PISA",
+      "cnbv_relevance": "CNBV CUB exige registro el mismo día (D+0)"
+    },
+    {
+      "id": "DE-CONT-07",
+      "name": "archivo_svxp",
+      "description": "Archivo XML generado por SmartVista SVXP con el batch de asientos contables del día. Es el artefacto de transferencia entre SmartVista BPC e Informix/PISA. No existe en R4 — pendiente de construcción.",
+      "type": "artefacto-integracion",
+      "system_owner": "SmartVista BPC (emisor) → Informix/PISA (receptor)",
+      "gap": "Interfaz y esquema del archivo XML no definidos. Bloqueado por PP-TRNT-PAGOS y guía contable pendiente."
+    },
+    {
+      "id": "DE-CONT-08",
+      "name": "numero_credito",
+      "description": "Número interno de SmartVista BPC de 18 dígitos que identifica el contrato de Tarjeta de Crédito. Diferente al PAN de 16 dígitos del plástico. Es la llave de asociación entre SmartVista BPC e Informix/PISA para los asientos contables.",
+      "type": "identificador-contrato",
+      "system_owner": "SmartVista BPC",
+      "note": "El número de crédito de 18 dígitos es el identificador del contrato interno de SmartVista; no se expone en canales como PAN"
+    },
+    {
+      "id": "DE-CONT-09",
+      "name": "provision_nif_c16",
+      "description": "Estimación de pérdida crediticia esperada calculada mensualmente conforme a NIF C-16. Requiere saldo de cartera, días de mora (agingPeriod SmartVista E1/E2/E3) y probabilidades de default del Producto 4900.",
+      "type": "estimacion-regulatoria",
+      "system_owner": "Informix/PISA",
+      "gap": "Sin evidencia de diseño del cálculo para el Producto 4900 en R4 (WARN)"
+    },
+    {
+      "id": "DE-CONT-10",
+      "name": "quebranto_esperado",
+      "description": "Valor de pérdida estimada por incumplimiento de pago, derivado del cálculo NIF C-16. Alimenta la provisión de cartera y los reportes regulatorios de calificación de cartera CNBV (Reporte R-04-C).",
+      "type": "estimacion-financiera",
+      "system_owner": "Informix/PISA",
+      "cnbv_relevance": "Calificación de cartera — Reporte R-04-C CNBV"
+    },
+    {
+      "id": "DE-CONT-11",
+      "name": "saldo_cartera",
+      "description": "Saldo total de la cartera del Producto 4900 a la fecha de corte. Incluye cartera vigente, vencida y emproblemada. Base para el cálculo de provisión NIF C-16 y el Reporte CNBV Anexo 33.",
+      "type": "saldo-regulatorio",
+      "system_owner": "SmartVista BPC (origen de la verdad del crédito) / Informix/PISA (libro contable)",
+      "note": "El saldo de cartera vive en SmartVista BPC como libro de registro; PISA lo recibe vía SmartVista SVXP (pendiente)"
+    },
+    {
+      "id": "DE-CONT-12",
+      "name": "dias_mora",
+      "description": "Número de días de atraso en el pago mínimo (MAD). Determina el agingPeriod de SmartVista BPC (E1: 0-1 días, E2: 2-3 días, E3: ≥4 días) y la categoría de riesgo para la provisión NIF C-16.",
+      "type": "indicador-riesgo",
+      "system_owner": "SmartVista BPC",
+      "aging_map": {
+        "E1": "0-1 días — sin restricciones operativas; solo indicador visual de atraso",
+        "E2": "2-3 días — disposiciones bloqueadas; consulta y pago habilitados",
+        "E3": ">=4 días — bloqueo de la mayoría de funciones; solo pago disponible"
+      }
+    },
+    {
+      "id": "DE-CONT-13",
+      "name": "grupo_contable",
+      "description": "Clasificación contable interna en SmartVista BPC para planes diferidos. El grupo contable 13 aplica para MCI (Meses Con Intereses). Determina el tratamiento contable del plan en el archivo SmartVista SVXP.",
+      "type": "clasificador-smartvista",
+      "system_owner": "SmartVista BPC",
+      "note": "No reclasificar por cuenta 2402/E-Global — el grupo contable 13 es específico para el tratamiento MCI de diferidos"
+    }
+  ],
+
+  "integrations": [
+    {
+      "id": "INT-CONT-01",
+      "name": "SmartVista SVXP → Informix/PISA",
+      "description": "Interfaz de posting contable que transfiere los asientos del EOD desde SmartVista BPC hacia Informix/PISA. Es la frontera contable del Producto 4900 en Unity R4. Sin esta interfaz, los asientos del crédito, pagos, comisiones e intereses no se reflejan en el libro contable central.",
+      "sistema_origen": "SmartVista BPC (módulo SmartVista SVXP)",
+      "sistema_destino": "Informix/PISA",
+      "tipo": "Batch",
+      "formato": "XML (archivo de posting contable)",
+      "frecuencia": "Diaria/EOD",
+      "existe_hoy": false,
+      "estado": "Nueva — no construida",
+      "gap_flag": true,
+      "gap_severity": "CRÍTICO",
+      "gap_description": "Interfaz no construida. Prioridad PreGame pendiente con BPC Banking Technologies. Bloqueada por PP-TRNT-PAGOS al 0% y guía contable de Tipos de Transacción (TRNT) no entregada.",
+      "owner": "BPC Banking Technologies",
+      "source_requirement": "PHASE_NARRATIVES.contabilidad — frontera contable SmartVista SVXP → PISA"
+    },
+    {
+      "id": "INT-CONT-02",
+      "name": "E-Global → Connect-Direct → SmartVista BPC (archivos EOD)",
+      "description": "Flujo auxiliar de archivos del día: E-Global genera los archivos de transacciones del autorizador ISO 8583, Connect-Direct los transporta en formato PGP, y SmartVista BPC los recibe como insumo del EOD. Flujo auxiliar — no es la contabilización primaria.",
+      "sistema_origen": "E-Global",
+      "sistema_intermedio": "Connect-Direct",
+      "sistema_destino": "SmartVista BPC",
+      "tipo": "Batch",
+      "formato": "Archivo cifrado PGP",
+      "frecuencia": "Diaria/EOD",
+      "existe_hoy": true,
+      "estado": "Existente — rol auxiliar de insumo para EOD, no de contabilización primaria",
+      "gap_flag": false,
+      "note": "E-Global no es nodo primario de contabilización. Pagos en sucursal BanCoppel entran directamente por PISA sin pasar por E-Global.",
+      "integration_ref": "ISV02 AFT — Transferencia de archivo de maquila (track SmartVista, Modificar)"
+    },
+    {
+      "id": "INT-CONT-03",
+      "name": "SmartVista BPC → CNBV (reportes regulatorios Anexos 33 y 36)",
+      "description": "Cadena de generación de reportes CNBV para el Producto 4900. SmartVista BPC e Informix/PISA alimentan DataStage → DWH → RiskLogic → reportes CNBV (R-04-C y calificación de cartera).",
+      "sistema_origen": "SmartVista BPC / Informix/PISA",
+      "sistema_intermedio": "DataStage → DWH → RiskLogic",
+      "sistema_destino": "CNBV",
+      "tipo": "Batch",
+      "formato": "Reportes CUB (Circular Única de Bancos)",
+      "frecuencia": "Diaria (Anexo 33), Mensual (Anexo 36 / NIF C-16), Trimestral/Semestral/Anual",
+      "existe_hoy": true,
+      "estado": "Existente — alcance del Producto 4900 no confirmado (RISK-UNITY-R23)",
+      "gap_flag": true,
+      "gap_severity": "WARN",
+      "gap_description": "Reportes regulatorios sin stream propio en R4 (anidados bajo '5 CONTABILIDAD'). Capacidad 2.4.2 Reportería es P1 con alcance no confirmado. Bajaware está en proceso de decomiso mientras el documento CNBV lo declara como motor de generación.",
+      "cnbv_relevance": ["CUB Anexo 33", "CUB Anexo 36", "R-04-C calificación de cartera"]
+    }
+  ],
+
+  "test_cases": [
+    {
+      "id": "TC-CONT-01",
+      "name": "Posting EOD completo D+0 para el Producto 4900",
+      "description": "Verificar que todos los asientos contables del día del Producto 4900 (BIN 42680711) se registran en Informix/PISA el mismo día operativo, cumpliendo el KPI Conciliación D+0 > 99.5% y el requisito CNBV CUB.",
+      "precondition": "SmartVista SVXP construida y conectada a Informix/PISA. Guía contable de Tipos de Transacción (TRNT) entregada.",
+      "type": "integration",
+      "priority": "must",
+      "systems": ["SmartVista BPC", "Informix/PISA"],
+      "cnbv_gate": true,
+      "gap_dependent": true,
+      "kpi": "Conciliación D+0 > 99.5%"
+    },
+    {
+      "id": "TC-CONT-02",
+      "name": "Conciliación sin breaks al cierre del día",
+      "description": "Verificar que el proceso de conciliación BCPLVNC/BCPLVIC/BCPLPNC cierra sin breaks (diferencias entre transacciones autorizadas y contabilizadas) para el Producto 4900. KPI: Breaks > 24 horas = 0.",
+      "precondition": "EOD completo. Archivo SmartVista SVXP aplicado en Informix/PISA.",
+      "type": "functional",
+      "priority": "must",
+      "systems": ["Informix/PISA", "SmartVista BPC"],
+      "cnbv_gate": true,
+      "gap_dependent": true,
+      "kpi": "Breaks > 24h = 0 (objetivo CNBV)"
+    },
+    {
+      "id": "TC-CONT-03",
+      "name": "Break de conciliación detectado antes de las 24 horas — alerta y escalación",
+      "description": "Simular un break de conciliación entre SmartVista BPC e Informix/PISA y verificar que el sistema lo detecta, lo registra en el log de breaks y genera alerta de escalación antes de cumplir 24 horas, cumpliendo el objetivo CNBV.",
+      "precondition": "Infraestructura de monitoreo activa. Proceso de conciliación operando.",
+      "type": "negative",
+      "priority": "must",
+      "systems": ["Informix/PISA", "SmartVista BPC"],
+      "cnbv_gate": true,
+      "gap_dependent": true
+    },
+    {
+      "id": "TC-CONT-04",
+      "name": "Archivo SmartVista SVXP generado con esquema correcto",
+      "description": "Verificar que el archivo XML de posting contable generado por SmartVista SVXP contiene todos los campos requeridos: número de crédito (18 dígitos), Tipo de Transacción (TRNT), monto_asiento, cuenta_contable, fecha_posting, grupo_contable. Validar contra esquema XSD acordado.",
+      "precondition": "Interfaz SmartVista SVXP construida. Guía contable de Tipos de Transacción (TRNT) entregada. Esquema XSD definido.",
+      "type": "unit",
+      "priority": "must",
+      "systems": ["SmartVista BPC"],
+      "gap_dependent": true,
+      "blocker": "PP-TRNT-PAGOS al 0% — BPC Banking Technologies"
+    },
+    {
+      "id": "TC-CONT-05",
+      "name": "BIN 42680711 — conciliación informativa sin cargo/abono en PISA",
+      "description": "Verificar que la conciliación del BIN 42680711 en PISA es estrictamente informativa: PISA registra la transacción pero NO genera cargo ni abono en las cuentas contables, dado que el número de crédito, saldos y tarjeta viven en SmartVista BPC.",
+      "precondition": "Proceso de conciliación activo para el BIN 42680711.",
+      "type": "functional",
+      "priority": "must",
+      "systems": ["Informix/PISA"],
+      "gap_dependent": false,
+      "regression_note": "Cualquier cargo/abono generado en PISA para este BIN es un defecto de alta severidad — indica una regresión en la regla de conciliación informativa"
+    },
+    {
+      "id": "TC-CONT-06",
+      "name": "BCPLPNC — exclusión del subproducto 11 del BIN 426807 (Producto 4900)",
+      "description": "Verificar que el proceso BCPLPNC (4 BINes: 426807, 554948, 510148, 514014) excluye correctamente la afectación del subproducto 11 del BIN 426807 (Producto 4900). Los demás subproductos del BIN 426807 no deben verse afectados por esta exclusión.",
+      "precondition": "BCPLPNC configurado con los 4 BINes. Parametrización del subproducto 11 activa en SmartVista BPC.",
+      "type": "functional",
+      "priority": "must",
+      "systems": ["Informix/PISA"],
+      "gap_dependent": false
+    },
+    {
+      "id": "TC-CONT-07",
+      "name": "Provisión NIF C-16 — cálculo mensual de pérdida esperada por agingPeriod",
+      "description": "Verificar que PISA calcula correctamente la provisión de pérdida crediticia esperada para la cartera del Producto 4900 conforme a NIF C-16. Validar: cálculo diferenciado por agingPeriod (E1/E2/E3), monto de quebranto_esperado, registro en cuenta contable correcta CUB, generación del Reporte R-04-C de calificación de cartera.",
+      "precondition": "Cartera del Producto 4900 con al menos un ciclo de corte completo. Saldos actualizados por SmartVista SVXP.",
+      "type": "regulatory",
+      "priority": "must",
+      "systems": ["Informix/PISA"],
+      "cnbv_gate": true,
+      "gap_dependent": true,
+      "regulacion": "NIF C-16"
+    },
+    {
+      "id": "TC-CONT-08",
+      "name": "Reporte CNBV Anexos 33 y 36 generado y entregado dentro del plazo regulatorio",
+      "description": "Verificar que los reportes regulatorios CNBV Anexos 33 (saldos diarios) y 36 (calificación de cartera mensual / NIF C-16) del Producto 4900 se generan correctamente y se entregan dentro del plazo regulatorio. KPI: Compliance CNBV 100%. Cadena: SmartVista BPC → DataStage → DWH → RiskLogic → CNBV.",
+      "precondition": "Cadena de generación activa con cobertura del Producto 4900. Al menos un mes de operación.",
+      "type": "regulatory",
+      "priority": "must",
+      "systems": ["SmartVista BPC", "Informix/PISA", "DataStage", "RiskLogic"],
+      "cnbv_gate": true,
+      "gap_dependent": true,
+      "kpi": "Compliance CNBV 100%"
+    },
+    {
+      "id": "TC-CONT-09",
+      "name": "Pago en sucursal BanCoppel — entrada directa a PISA sin pasar por E-Global",
+      "description": "Verificar que los pagos del Producto 4900 realizados en sucursal BanCoppel entran directamente a Informix/PISA sin pasar por E-Global, y que se contabilizan en el mismo día operativo con el asiento correcto.",
+      "precondition": "Canal sucursal activo para el Producto 4900. Informix/PISA recibiendo pagos de sucursal.",
+      "type": "functional",
+      "priority": "should",
+      "systems": ["Informix/PISA"],
+      "gap_dependent": false,
+      "note": "Caso de excepción de flujo: distingue el canal sucursal del canal digital/e-commerce que sí pasa por E-Global"
+    },
+    {
+      "id": "TC-CONT-10",
+      "name": "Latencia de posting dentro del KPI (menos de 4 horas post-cierre de EOD)",
+      "description": "Verificar que desde el inicio del EOD en SmartVista BPC hasta la aplicación del último asiento en Informix/PISA no transcurren más de 4 horas. Aplica para el percentil P95 de los días operativos.",
+      "precondition": "Interfaz SmartVista SVXP construida. Proceso de transferencia de archivos activo.",
+      "type": "performance",
+      "priority": "should",
+      "systems": ["SmartVista BPC", "Informix/PISA"],
+      "kpi": "Latencia posting < 4 horas post-cierre",
+      "gap_dependent": true
+    }
+  ],
+
+  "gaps_found": [
+    {
+      "id": "GAP-CONT-01",
+      "name": "Interfaz SmartVista SVXP → Informix/PISA no construida",
+      "severity": "CRÍTICO",
+      "description": "La frontera contable del Producto 4900 — el módulo SmartVista SVXP que transfiere los asientos del EOD a Informix/PISA — no existe en R4. Sin esta interfaz, los asientos contables del crédito, pagos, comisiones e intereses del Producto 4900 no se reflejan en el libro contable central de PISA. Es el bloqueante principal de la fase Contabilidad.",
+      "owner": "BPC Banking Technologies",
+      "status": "open",
+      "impact": "Incumplimiento CNBV CUB (registro D+0 imposible), imposibilidad de conciliar transacciones autorizadas vs. contabilizadas, falta de base para reportes Anexos 33/36 del Producto 4900",
+      "risk_ref": "RISK-UNITY-R08",
+      "dtm_ref": "DTM_RegisterDeferredPurchaseAccountingEffects (partial, gap abierto dependencia D01 RAID)",
+      "pregame_status": "PP-TRNT-PAGOS al 0% de avance",
+      "mitigation": "Obtener fecha de compromiso firmada de BPC Banking Technologies para entrega de SmartVista SVXP. Escalar en Design Authority con severidad CRÍTICO."
+    },
+    {
+      "id": "GAP-CONT-02",
+      "name": "Guía contable formal de Tipos de Transacción (TRNT) del Producto 4900 no entregada",
+      "severity": "CRÍTICO",
+      "description": "La guía contable formal que mapea los Tipos de Transacción (TRNT) de SmartVista BPC a las cuentas contables CUB del Producto 4900 no ha sido entregada. Sin ella: (1) el archivo SmartVista SVXP no puede definir su esquema, (2) los criterios de aceptación de las 7 User Stories con efecto contable no pueden definirse, (3) la fase de System Integration Testing (SIT) de contabilidad queda bloqueada.",
+      "owner": "BanCoppel / BPC Banking Technologies",
+      "status": "open",
+      "impact": "Bloqueo de criterios de aceptación en 7 User Stories de los tracks diferidos y saldo a favor; bloqueo del diseño técnico del archivo SmartVista SVXP; bloqueo del System Integration Testing (SIT) de contabilidad",
+      "risk_ref": "RISK-UNITY-R08 (entregables de Contabilidad con retraso — guía contable, reportes regulatorios y matriz de casos de prueba)",
+      "dtm_ref": "DTM_RegisterDeferredPurchaseAccountingEffects (guía contable pendiente de cierre — dependencia D01 abierta en RAID)",
+      "mitigation": "Obtener fecha de compromiso firmada para la guía contable de Tipos de Transacción (TRNT). Sin fecha firmada, el SIT de contabilidad no puede arrancar el 15-oct-2026."
+    },
+    {
+      "id": "GAP-CONT-03",
+      "name": "PP-TRNT-PAGOS al 0% de avance — owner BPC Banking Technologies",
+      "severity": "CRÍTICO",
+      "description": "El PreGame PP-TRNT-PAGOS, que define el esquema de Tipos de Transacción (TRNT) de pagos en SmartVista BPC para el Producto 4900, está al 0% de avance. Es un bloqueante directo de la construcción de la interfaz SmartVista SVXP y de la guía contable. Sin este PreGame, BPC Banking Technologies no puede entregar los entregables contables requeridos.",
+      "owner": "BPC Banking Technologies",
+      "status": "open",
+      "impact": "Bloquea construcción de SmartVista SVXP, guía contable de Tipos de Transacción (TRNT) y diseño de casos de prueba del System Integration Testing (SIT) para la fase Contabilidad",
+      "risk_ref": "RISK-UNITY-R08",
+      "mitigation": "Priorizar PP-TRNT-PAGOS en la agenda de BPC Banking Technologies. Escalar al nivel de Design Authority con plan de recuperación y fecha límite antes del 15-oct-2026."
+    },
+    {
+      "id": "GAP-CONT-04",
+      "name": "Nuevo tipo de conciliación SOC sin plan en R4",
+      "severity": "WARN",
+      "description": "El requerimiento de noviembre 2023 exige un nuevo tipo de conciliación en SOC (Sistema Operativo Central — TASF) para el BIN 42680711 del Producto 4900. No existe plan en R4 para implementarlo. Riesgo de que la conciliación del Producto 4900 quede sin cobertura en SOC al momento del Go-Live.",
+      "owner": "Sin asignar",
+      "status": "open",
+      "impact": "Conciliación incompleta del Producto 4900 en SOC; posible brecha en el cuadre operativo diario entre SmartVista BPC, Informix/PISA y SOC",
+      "risk_ref": "PHASE_NARRATIVES.contabilidad / RISK-UNITY-R08",
+      "mitigation": "Confirmar alcance en Design Authority. Asignar owner y crear User Story o task en R4 o R4.5. Confirmar si SOC tiene stream propio en el programa o queda anidado bajo Contabilidad."
+    },
+    {
+      "id": "GAP-CONT-05",
+      "name": "Provisión NIF C-16 sin evidencia de diseño en R4",
+      "severity": "WARN",
+      "description": "La NIF C-16 exige estimar mensualmente la provisión por pérdida esperada de la cartera. No existe evidencia de diseño del cálculo de provisión para el Producto 4900 en R4: sin User Story, sin DTM, sin parámetros de probabilidad de default definidos para el BIN 42680711.",
+      "owner": "Sin asignar",
+      "status": "open",
+      "impact": "Riesgo de incumplimiento regulatorio CNBV en calificación de cartera; potencial hallazgo de auditoría CNBV al Go-Live",
+      "regulacion": "NIF C-16 — CNBV Calificación de Cartera",
+      "mitigation": "Crear User Story de diseño para el cálculo NIF C-16 del Producto 4900. Asignar owner en el track de Contabilidad. Verificar si RiskLogic cubre este cálculo para el BIN 42680711 sin desarrollo adicional."
+    },
+    {
+      "id": "GAP-CONT-06",
+      "name": "Reportes regulatorios sin stream propio en R4 — alcance Producto 4900 no confirmado",
+      "severity": "WARN",
+      "description": "Los reportes regulatorios (Anexos 33/36 CUB, calificación de cartera) están anidados bajo '5 CONTABILIDAD' en el plan de trabajo, sin stream propio. La capacidad 2.4.2 Reportería es P1 con alcance no confirmado (RISK-UNITY-R23). Bajaware está en proceso de decomiso mientras el documento CNBV lo declara como motor de generación. No existe owner de Design Authority asignado al componente.",
+      "owner": "Sin owner de Design Authority asignado",
+      "status": "open",
+      "impact": "Riesgo de que los reportes CNBV del Producto 4900 no sean generados correctamente al Go-Live; hallazgos regulatorios APO_F01 y SMA_F01 sobre documentación CNBV desactualizada ya están abiertos",
+      "risk_ref": "RISK-UNITY-R23 (REG-05)",
+      "mitigation": "Confirmar alcance de la capacidad 2.4.2 con PMO. Evaluar si se requiere stream propio en R4. Resolver la contradicción Bajaware-decomiso vs. documento CNBV con Mercedes Espinosa Cortés (owner hallazgos APO_F01/SMA_F01)."
+    }
+  ],
+
+  "summary": {
+    "phase_coverage": "parcial",
+    "critical_gaps": 3,
+    "warn_gaps": 3,
+    "total_gaps": 6,
+    "us_count": 7,
+    "us_own": 0,
+    "us_inherited_from_track": 7,
+    "test_cases_count": 10,
+    "data_elements_count": 13,
+    "integrations_count": 3,
+    "go_live_risk": "ALTO",
+    "go_live_risk_rationale": "Los 3 gaps críticos (SmartVista SVXP no construida, guía de Tipos de Transacción (TRNT) no entregada, PP-TRNT-PAGOS al 0%) son interdependientes y todos tienen a BPC Banking Technologies como owner. Sin resolución antes del inicio del System Integration Testing (SIT) el 15-oct-2026, la fase Contabilidad del Producto 4900 no puede probarse ni certificarse ante CNBV.",
+    "kpis": {
+      "conciliacion_d0": "> 99.5%",
+      "breaks_24h": "= 0 (objetivo CNBV)",
+      "latencia_posting": "< 4 horas post-cierre",
+      "compliance_cnbv": "100%"
+    },
+    "regulatory_obligations": [
+      "CNBV CUB Anexo 33 — registro diario D+0",
+      "CNBV CUB Anexo 36 — calificación de cartera mensual",
+      "NIF C-16 — provisión pérdida esperada mensual",
+      "Reporte R-04-C CNBV — calificación de cartera",
+      "LFPIORPI — PEP y KYC aplicable a transacciones del Producto 4900"
+    ],
+    "key_decisions_pending": [
+      "Fecha de entrega de SmartVista SVXP por BPC Banking Technologies",
+      "Fecha de entrega de guía contable TRNTs del Producto 4900",
+      "Alcance del nuevo tipo de conciliación SOC (requerimiento nov-2023)",
+      "Responsable y diseño del cálculo NIF C-16 para el Producto 4900",
+      "Confirmación del alcance de la capacidad 2.4.2 Reportería en R4"
+    ]
+  }
+}

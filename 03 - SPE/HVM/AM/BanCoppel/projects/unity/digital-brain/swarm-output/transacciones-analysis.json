@@ -1,0 +1,1022 @@
+{
+  "phase_id": "transacciones",
+  "phase_name": "Transacciones",
+  "product": "Tarjeta de Crédito Clásica — Producto 4900",
+  "program": "Unity R4",
+  "analyzed_at": "2026-08-20",
+  "analyst": "DT-Swarm-Transacciones-v1",
+  "source_documents": [
+    "transacciones-context.json",
+    "lifecycle-p4900.html",
+    "Inventario de Integraciones_HUs_ R4_v1.0.xlsx"
+  ],
+  "phase_summary": {
+    "user_stories_total": 17,
+    "tracks": ["smartvista", "app", "cat", "siweb"],
+    "coverage": "completa",
+    "integration_ids_in_scope": ["IAPP01", "ICAT01", "ICAT02", "ICAT04", "ICAT07", "ISV03"],
+    "kpis": {
+      "adopcion_canal_digital_target_pct": 60,
+      "latencia_consulta_p95_ms_max": 2000,
+      "entrega_estado_cuenta_a_tiempo_pct": 100,
+      "reclamaciones_estado_cuenta_max_pct": 0.1
+    },
+    "regulatory_framework": ["CONDUSEF", "CNBV", "PCI-DSS"],
+    "notas_fase": "CAT es el canal con más integraciones de consulta (4: ICAT01, ICAT02, ICAT04, ICAT07). SVCG/Cargen no pertenece a esta fase. IAPP02 e IAPP03 registrados con origen SmartVista BPC y destino App en la fuente — posible error de captura documentado en flow_validated.integration_corrections."
+  },
+  "flow_validated": {
+    "nodes": [
+      {
+        "id": "node-app",
+        "name": "App Móvil",
+        "type": "channel",
+        "vendor": "Nova Solution Systems",
+        "integrations_outbound": ["IAPP01", "IAPP03"],
+        "integrations_inbound": [],
+        "notes": "Canal principal de consulta digital. IAPP01 (retrieveCreditCardStatement) e IAPP03 (RetrieveAccountTransaction) son las integraciones de consulta correctamente orientadas App→SmartVista BPC. IAPP02 e IAPP03 están invertidos en el inventario fuente — ver integration_corrections para el detalle."
+      },
+      {
+        "id": "node-siweb",
+        "name": "SIWEB",
+        "type": "channel",
+        "vendor": "BanCoppel interno",
+        "integrations_outbound": ["ISV03"],
+        "integrations_inbound": [],
+        "notes": "Canal sucursales. Consulta de lotes via ISV03 (Diaria/EOD). Consulta de saldos y movimientos via HDU-SIWEB-R4-01 (APIs SVIP disponibles; UI SIWEB a construir). Integración ISV03 existe hoy y se modifica para R4."
+      },
+      {
+        "id": "node-cat-ivr",
+        "name": "CAT / IVR",
+        "type": "channel",
+        "vendor": "Por contratar — RISK-001 deadline 2026-08-31",
+        "integrations_outbound": ["ICAT01", "ICAT02", "ICAT04", "ICAT07"],
+        "integrations_inbound": [],
+        "notes": "Canal con mayor número de integraciones de consulta en la fase (4). ICAT01 e ICAT02 habilitan autenticación del cliente en IVR por número de cliente y por número de cuenta respectivamente. ICAT04 entrega saldos y movimientos. ICAT07 expone productos y estatus de tarjetas al agente ICCAT. Las cuatro son integraciones Nueva (existe_hoy=false). El proveedor CAT aún no está contratado al 2026-08-20."
+      },
+      {
+        "id": "node-smartvista",
+        "name": "SmartVista BPC",
+        "type": "processor",
+        "vendor": "BPC Banking Technologies",
+        "modules": ["SmartVista SVBO", "SmartVista SVFE", "SmartVista SVIP"],
+        "integrations_outbound": [],
+        "integrations_inbound": ["IAPP01", "IAPP03", "ICAT01", "ICAT02", "ICAT04", "ICAT07", "ISV03"],
+        "notes": "Sistema de gestión de tarjetas (CMS). SmartVista SVIP (Integration Platform) expone el catálogo de 92 comandos consumidos por todos los canales. APIs relevantes para esta fase: getInstantCreditStatement (saldo, límite, fechas corte/pago, MAD, PPNGI), getTransactions v22 (movimientos, amountHoldPlaced, Classification), getAccountCards, getCardInfo, updateCardStatus (catálogo CSTS). SmartVista SVBO gestiona contratos, contabilidad y liquidación. SmartVista SVFE es la consola de usuarios operativos."
+      }
+    ],
+    "integration_corrections": [
+      {
+        "integration_id": "IAPP02",
+        "campo_afectado": "sistema_origen / sistema_destino",
+        "valor_en_fuente": {
+          "sistema_origen": "SMARTVISTA",
+          "sistema_destino": "APP"
+        },
+        "valor_corregido": {
+          "sistema_origen": "APP",
+          "sistema_destino": "SMARTVISTA"
+        },
+        "justificacion": "La operación Rec_executeCardPaymentTransaction es iniciada por el cliente desde App Móvil hacia SmartVista BPC. SmartVista BPC no inicia transacciones push hacia la App en este flujo. La dirección registrada en el inventario fuente (origen=SmartVista, destino=App) es consistente con un error de captura donde la columna sistema_origen fue llenada con el sistema que expone el endpoint (SmartVista BPC/SVIP) en lugar del sistema que invoca la operación (App Móvil).",
+        "impacto": "Si los diagramas de secuencia de SIT se construyen con la dirección del inventario fuente, los equipos de prueba entenderán incorrectamente quién inicia el flujo de pago, afectando la preparación de casos de prueba, la configuración de mocks y la atribución de responsabilidades entre Nova Solution Systems y BPC Banking Technologies.",
+        "requiere_confirmacion": true,
+        "confirmacion_pendiente_de": "Equipo de APIficación (Accenture) + Nova Solution Systems"
+      },
+      {
+        "integration_id": "IAPP03",
+        "campo_afectado": "sistema_origen / sistema_destino",
+        "valor_en_fuente": {
+          "sistema_origen": "SMARTVISTA",
+          "sistema_destino": "APP"
+        },
+        "valor_corregido": {
+          "sistema_origen": "APP",
+          "sistema_destino": "SMARTVISTA"
+        },
+        "justificacion": "La consulta de movimientos Rec_RetrieveAccountTransaction es invocada por la App Móvil hacia SmartVista BPC cuando el usuario solicita ver sus movimientos. El flujo correcto es App → SVIP → SmartVista SVBO. Mismo patrón de error que IAPP02: origen registrado como el proveedor del endpoint en lugar del consumidor de la operación.",
+        "impacto": "Igual que IAPP02: inversión del flujo de secuencia que afecta la preparación de SIT y el entendimiento de responsabilidades. La User Story SMART-4176 (paso 1, consulta de movimientos convivencia TDC F&D) depende directamente de esta integración con la dirección correcta.",
+        "requiere_confirmacion": true,
+        "confirmacion_pendiente_de": "Equipo de APIficación (Accenture) + Nova Solution Systems"
+      }
+    ]
+  },
+  "steps_enriched": [
+    {
+      "step_num": 1,
+      "titulo": "Consulta de movimientos convivencia TDC Física y Digital",
+      "sistemas": ["App Móvil", "Informix", "SmartVista BPC"],
+      "user_story_id": "SMART-4176",
+      "protocolo": "REST",
+      "api_svip": "getTransactions v22",
+      "endpoint_svip": "Rec_RetrieveAccountTransaction",
+      "exists_today": true,
+      "estado_impl": "partial",
+      "moscow": "must",
+      "complejidad": "Media",
+      "notes": "Movimientos de TDC Física (campo Classification=F) y TDC Digital (Classification=D) presentados en una vista unificada. El campo amountHoldPlaced=true indica compras en pre-autorización (En Proceso). Informix provee contexto de convivencia del portafolio legado durante la migración de los 3 millones de tarjetas. La integración IAPP03 (App→SmartVista BPC) cubre este paso — ver corrección de dirección en flow_validated."
+    },
+    {
+      "step_num": 2,
+      "titulo": "Detalle de movimiento individual",
+      "sistemas": ["App Móvil", "SmartVista BPC"],
+      "user_story_id": "SMART-4180",
+      "user_story_ids_adicionales": ["HDU-APP-R4-08"],
+      "protocolo": "REST",
+      "api_svip": "getTransactions v22 (filtro por transactionId)",
+      "endpoint_svip": "Rec_RetrieveAccountTransaction",
+      "exists_today": true,
+      "estado_impl": "partial",
+      "moscow": "wont",
+      "complejidad": "Alta",
+      "num_criterios_aceptacion": 7,
+      "notes": "SMART-4180 clasificado MoSCoW=wont en el inventario — verificar inclusión real en R4 antes de SIT. Incluye desglose de cargo mensual para compras diferidas (Meses Con Intereses y Meses Sin Intereses). HDU-APP-R4-08 (getTransactions v22 — consulta del periodo completo) es la User Story hermana con pregame_status=partial."
+    },
+    {
+      "step_num": 3,
+      "titulo": "Consulta de saldo y estado de cuenta",
+      "sistemas": ["App Móvil", "Informix"],
+      "user_story_id": "SMART-3962",
+      "user_story_ids_adicionales": ["HDU-APP-R4-01", "HDU-APP-R4-09", "HDU-APP-R4-16", "SMART-4183"],
+      "protocolo": "REST",
+      "api_svip": "getInstantCreditStatement",
+      "endpoint_svip": "Rec_retrieveCreditCardStatement",
+      "exists_today": true,
+      "estado_impl": "partial",
+      "moscow": "must",
+      "complejidad": "Media",
+      "notes": "Expone saldo_disponible, limite_credito, saldo_deudor, PPNGI (Pago Para No Generar Intereses), MAD (Monto mínimo a pagar), fecha_corte y fecha_limite_pago. Los campos fecha_corte y fecha_limite_pago son regulatorios CONDUSEF: se requieren ≥ 45 días entre ambas fechas. La validación del formato CONDUSEF es una brecha identificada (GAP-01). SMART-4183 cubre el límite de saldo a favor como dato del estado de cuenta. HDU-APP-R4-09 (planes CrediSoluciones) y HDU-APP-R4-16 (montos diferidos) son User Stories adicionales de este paso relacionadas con CONDUSEF.",
+      "regulatory_note": "CONDUSEF exige estado de cuenta gratuito en formato regulatorio. El incumplimiento del plazo de 45 días entre corte y fecha límite de pago es una infracción sancionable."
+    },
+    {
+      "step_num": 4,
+      "titulo": "Actualización de operaciones en una misma sesión",
+      "sistemas": ["App Móvil", "SmartVista BPC"],
+      "user_story_id": "PTCSF-6267",
+      "protocolo": "REST",
+      "api_svip": "getInstantCreditStatement + getTransactions v22 (refresh en sesión activa)",
+      "exists_today": true,
+      "estado_impl": "partial",
+      "moscow": "must",
+      "complejidad": "Media",
+      "num_criterios_aceptacion": 1,
+      "notes": "El cliente puede ejecutar una operación (pago, activación, etc.) y ver el saldo actualizado sin cerrar la sesión. Garantiza consistencia de los datos presentados en la App durante la misma sesión REST autenticada. Impacta directamente la experiencia del cliente post-pago."
+    },
+    {
+      "step_num": 5,
+      "titulo": "Encendido / apagado operativo de TDC Física y Digital",
+      "sistemas": ["App Móvil", "SmartVista BPC"],
+      "user_story_id": "APP-ENC-01",
+      "user_story_ids_adicionales": ["APP-ENC-02", "APP-ENC-03"],
+      "protocolo": "REST",
+      "api_svip": "updateCardStatus",
+      "endpoint_svip": "Catálogo CSTS — CSTS_ACTIVE / CSTS_BLOCKED",
+      "exists_today": true,
+      "estado_impl": "partial",
+      "moscow": "must",
+      "complejidad": "Media",
+      "notes": "Tres User Stories cubren este paso: APP-ENC-01 (TDC Digital Originación Apolo — 7 criterios), APP-ENC-02 (TDC Física Originación Apolo — 6 criterios), APP-ENC-03 (TDC Física Originación Legado — complejidad Baja). El campo Classification (F/D) y el estado CSTS determinan el comportamiento por tarjeta. El bloqueo operativo desde la App es independiente del bloqueo por fraude gestionado por PayTrue. Las notificaciones de bloqueo/desbloqueo utilizan los templates MAI_BDT_IC y SMS_BDT_IC."
+    },
+    {
+      "step_num": 6,
+      "titulo": "Homologación omnicanal de nombres de comisiones",
+      "sistemas": ["SmartVista BPC"],
+      "user_story_id": "HDU-SMART-R4-10",
+      "protocolo": "REST",
+      "api_svip": "Sincronización catálogo de comisiones — ISV04 (SmartVista BPC → SIWEB) + ISV05 (SmartVista BPC → APP)",
+      "exists_today": true,
+      "estado_impl": "partial",
+      "moscow": "must",
+      "complejidad": "Media",
+      "notes": "SmartVista BPC es la fuente autoritativa del nombre normativo de cada comisión. Las integraciones ISV04 (SmartVista BPC → SIWEB, Diaria/EOD, Modificar) e ISV05 (SmartVista BPC → APP, Diaria/EOD, Modificar) propagan el catálogo homologado a todos los canales. CONDUSEF y Banxico/RECO exigen que los nombres de comisiones sean exactamente los registrados. 2 User Stories Must regulatorias bloqueadas por DTMs sin fecha de cierre por confirmación pendiente de Banxico/RECO.",
+      "bloqueante": "2 User Stories Must regulatorias bloqueadas — confirmación Banxico/RECO pendiente"
+    }
+  ],
+  "us_mapping": {
+    "total_user_stories": 17,
+    "distribucion_por_track": {
+      "app": 10,
+      "smartvista": 1,
+      "cat": 3,
+      "siweb": 3
+    },
+    "mapping": [
+      {
+        "us_id": "SMART-4176",
+        "titulo": "Movimientos Convivencia TDC F&D",
+        "track": "app",
+        "step": 1,
+        "moscow": "must",
+        "complejidad": "Media",
+        "num_criterios": 2,
+        "integration_refs": ["IAPP03"],
+        "pregame_status": "partial"
+      },
+      {
+        "us_id": "SMART-4180",
+        "titulo": "Detalle de Movimientos Convivencia TDC F&D",
+        "track": "app",
+        "step": 2,
+        "moscow": "wont",
+        "complejidad": "Alta",
+        "num_criterios": 7,
+        "integration_refs": [],
+        "pregame_status": "partial",
+        "notes": "MoSCoW=wont — confirmar inclusión en scope R4 antes de SIT"
+      },
+      {
+        "us_id": "HDU-APP-R4-08",
+        "titulo": "Consultar movimientos del periodo (getTransactions v22)",
+        "track": "app",
+        "step": 2,
+        "moscow": "must",
+        "complejidad": "Media",
+        "integration_refs": [],
+        "pregame_status": "partial",
+        "capability_id": "CAP-BALANCE-STATEMENT"
+      },
+      {
+        "us_id": "SMART-3962",
+        "titulo": "Consulta de saldo y estado de cuenta (detalle de crédito convivencia TDC F&D)",
+        "track": "app",
+        "step": 3,
+        "moscow": "must",
+        "complejidad": "Media",
+        "integration_refs": ["IAPP01"],
+        "pregame_status": "partial"
+      },
+      {
+        "us_id": "HDU-APP-R4-01",
+        "titulo": "Visualizar estado de cuenta de TDC en App (getInstantCreditStatement)",
+        "track": "app",
+        "step": 3,
+        "moscow": "must",
+        "complejidad": "Media",
+        "integration_refs": [],
+        "pregame_status": "partial",
+        "capability_id": "CAP-BALANCE-STATEMENT",
+        "notes": "APIs SVIP disponibles. Módulo TDC a construir. agingPeriod E1/E2/E3 visual."
+      },
+      {
+        "us_id": "HDU-APP-R4-09",
+        "titulo": "Consultar estado de planes de compras diferidas (CrediSoluciones)",
+        "track": "app",
+        "step": 3,
+        "moscow": "should",
+        "complejidad": "Media",
+        "integration_refs": [],
+        "pregame_status": "partial",
+        "capability_id": "CAP-DEFERRED-PURCHASE",
+        "notes": "Planes en SmartVista BPC; visualización de CrediSoluciones (Meses Sin Intereses y Meses Con Intereses) a construir. CONDUSEF exige desglose de parcializaciones activas."
+      },
+      {
+        "us_id": "HDU-APP-R4-16",
+        "titulo": "Visualizar montos diferidos en estado de cuenta App",
+        "track": "app",
+        "step": 3,
+        "moscow": "should",
+        "complejidad": "Media",
+        "integration_refs": [],
+        "pregame_status": "partial",
+        "capability_id": "CAP-DEFERRED-PURCHASE",
+        "notes": "Montos de Meses Sin Intereses y Meses Con Intereses separados de compras normales en estado de cuenta."
+      },
+      {
+        "us_id": "SMART-4183",
+        "titulo": "Límite de saldo a favor para pago de TDC en la aplicación móvil",
+        "track": "app",
+        "step": 3,
+        "moscow": "must",
+        "complejidad": "Baja",
+        "integration_refs": ["IAPP02"],
+        "pregame_status": "partial",
+        "notes": "La visualización del límite de saldo a favor forma parte del estado de cuenta / vista transaccional. IAPP02 tiene dirección posiblemente invertida en la fuente (ver flow_validated.integration_corrections)."
+      },
+      {
+        "us_id": "PTCSF-6267",
+        "titulo": "Actualizar operaciones TDC Digital en una misma sesión",
+        "track": "app",
+        "step": 4,
+        "moscow": "must",
+        "complejidad": "Media",
+        "num_criterios": 1,
+        "integration_refs": []
+      },
+      {
+        "us_id": "APP-ENC-01",
+        "titulo": "Encendido, Apagado y Bloqueo Operativo — Tarjeta de Crédito Digital (Originación Apolo)",
+        "track": "app",
+        "step": 5,
+        "moscow": "must",
+        "complejidad": "Media",
+        "num_criterios": 7,
+        "integration_refs": []
+      },
+      {
+        "us_id": "APP-ENC-02",
+        "titulo": "Encendido, Apagado y Bloqueo Operativo — Tarjeta de Crédito Física (Originación Apolo)",
+        "track": "app",
+        "step": 5,
+        "moscow": "must",
+        "complejidad": "Media",
+        "num_criterios": 6,
+        "integration_refs": []
+      },
+      {
+        "us_id": "APP-ENC-03",
+        "titulo": "Encendido, Apagado y Bloqueo Operativo — Tarjeta de Crédito Física (Originación Legado)",
+        "track": "app",
+        "step": 5,
+        "moscow": "must",
+        "complejidad": "Baja",
+        "num_criterios": null,
+        "integration_refs": []
+      },
+      {
+        "us_id": "HDU-SMART-R4-10",
+        "titulo": "Homologación omnicanal de nombres de comisiones (Sincronizar nombres en canales)",
+        "track": "smartvista",
+        "step": 6,
+        "moscow": "must",
+        "complejidad": "Media",
+        "integration_refs": ["ISV04", "ISV05"],
+        "pregame_status": "partial",
+        "notes": "User Story regulatoria Must Have. 2 User Stories bloqueadas por DTMs pendientes Banxico/RECO. ISV04 propaga a SIWEB; ISV05 propaga a App Móvil."
+      },
+      {
+        "us_id": "HDU-CAT-R4-01",
+        "titulo": "Alta producto 4900 en menú IVR",
+        "track": "cat",
+        "step": null,
+        "canal": "CAT / IVR",
+        "moscow": "must",
+        "complejidad": "Media",
+        "integration_refs": ["ICAT01", "ICAT02"],
+        "pregame_status": "partial",
+        "notes": "Habilita autenticación del cliente P4900 en el flujo IVR. ICAT01 (consulta por número de cliente) e ICAT02 (consulta por número de cuenta en SmartVista BPC) son integraciones Nueva — no existen hoy."
+      },
+      {
+        "us_id": "HDU-CAT-R4-08",
+        "titulo": "Consultar saldos y movimientos del producto 4900 por IVR",
+        "track": "cat",
+        "step": null,
+        "canal": "CAT / IVR",
+        "moscow": "must",
+        "complejidad": "Alta",
+        "num_criterios": 5,
+        "integration_refs": ["ICAT04"],
+        "pregame_status": "not_covered",
+        "dtm_id": "DTM_RetrieveCreditCardBalanceAndMovements",
+        "notes": "GAP: integración IVR-SVIP completa a construir, incluyendo locuciones en español mexicano."
+      },
+      {
+        "us_id": "HDU-CAT-R4-11",
+        "titulo": "Consultar en CAT los productos y estatus de tarjetas del cliente",
+        "track": "cat",
+        "step": null,
+        "canal": "CAT / IVR",
+        "moscow": "must",
+        "complejidad": "Media",
+        "num_criterios": 3,
+        "integration_refs": ["ICAT07"],
+        "pregame_status": "partial",
+        "capability_id": "CAP-CARD-LIFECYCLE"
+      },
+      {
+        "us_id": "HDU-SIWEB-R4-01",
+        "titulo": "Consultar saldos y movimientos de TDC en SIWEB (getInstantCreditStatement)",
+        "track": "siweb",
+        "step": null,
+        "canal": "SIWEB",
+        "moscow": "should",
+        "complejidad": "Media",
+        "num_criterios": 3,
+        "integration_refs": ["ISV03"],
+        "pregame_status": "partial",
+        "capability_id": "CAP-BALANCE-STATEMENT",
+        "notes": "APIs SVIP disponibles; UI SIWEB a construir. Distinción amountHoldPlaced para compras en proceso. ISV03 (consulta de lotes Diaria/EOD) es la integración SIWEB de esta fase."
+      }
+    ]
+  },
+  "data_elements": [
+    {
+      "id": "DE-01",
+      "nombre": "saldo_disponible",
+      "descripcion": "Monto disponible para nuevas compras en el periodo actual",
+      "origen": "SmartVista BPC — SmartVista SVIP getInstantCreditStatement",
+      "regulatorio": false,
+      "pasos": [3],
+      "svip_field": "availableBalance"
+    },
+    {
+      "id": "DE-02",
+      "nombre": "limite_credito",
+      "descripcion": "Línea de crédito total autorizada para la Tarjeta de Crédito Clásica Producto 4900",
+      "origen": "SmartVista BPC — SmartVista SVIP getInstantCreditStatement",
+      "regulatorio": false,
+      "pasos": [3],
+      "svip_field": "creditLimit"
+    },
+    {
+      "id": "DE-03",
+      "nombre": "saldo_deudor",
+      "descripcion": "Saldo total adeudado incluyendo cargos pendientes de liquidar y parcializaciones activas",
+      "origen": "SmartVista BPC — SmartVista SVIP getInstantCreditStatement",
+      "regulatorio": false,
+      "pasos": [3],
+      "svip_field": "currentBalance"
+    },
+    {
+      "id": "DE-04",
+      "nombre": "movimientos_lista",
+      "descripcion": "Lista de transacciones del periodo con fecha, comercio, monto y tipo de movimiento",
+      "origen": "SmartVista BPC — SmartVista SVIP getTransactions v22",
+      "regulatorio": false,
+      "pasos": [1, 2],
+      "svip_field": "transactions[]"
+    },
+    {
+      "id": "DE-05",
+      "nombre": "fecha_corte",
+      "descripcion": "Fecha de cierre del periodo de facturación. CONDUSEF exige que el estado de cuenta incluya esta fecha y que existan ≥ 45 días hasta la fecha límite de pago.",
+      "origen": "SmartVista BPC — SmartVista SVIP getInstantCreditStatement",
+      "regulatorio": true,
+      "regulacion": "CONDUSEF",
+      "pasos": [3],
+      "svip_field": "statementDate"
+    },
+    {
+      "id": "DE-06",
+      "nombre": "fecha_limite_pago",
+      "descripcion": "Fecha máxima para realizar el pago del periodo. CONDUSEF exige mínimo 45 días de separación desde la fecha de corte.",
+      "origen": "SmartVista BPC — SmartVista SVIP getInstantCreditStatement",
+      "regulatorio": true,
+      "regulacion": "CONDUSEF — mínimo 45 días desde fecha_corte",
+      "pasos": [3],
+      "svip_field": "paymentDueDate"
+    },
+    {
+      "id": "DE-07",
+      "nombre": "nombre_comercio",
+      "descripcion": "Nombre del establecimiento donde se realizó la compra, parte del detalle de movimiento individual",
+      "origen": "SmartVista BPC — SmartVista SVIP getTransactions v22",
+      "regulatorio": false,
+      "pasos": [2],
+      "svip_field": "merchantName"
+    },
+    {
+      "id": "DE-08",
+      "nombre": "monto_movimiento",
+      "descripcion": "Importe de la transacción en MXN",
+      "origen": "SmartVista BPC — SmartVista SVIP getTransactions v22",
+      "regulatorio": false,
+      "pasos": [1, 2],
+      "svip_field": "transactionAmount"
+    },
+    {
+      "id": "DE-09",
+      "nombre": "tipo_movimiento",
+      "descripcion": "Clasificación de la transacción: compra normal, compra diferida (Meses Sin Intereses o Meses Con Intereses), pago, cargo por comisión, disposición en efectivo. El campo amountHoldPlaced=true indica compra en pre-autorización (En Proceso).",
+      "origen": "SmartVista BPC — SmartVista SVIP getTransactions v22",
+      "regulatorio": false,
+      "pasos": [1, 2],
+      "svip_field": "transactionType / amountHoldPlaced"
+    },
+    {
+      "id": "DE-10",
+      "nombre": "fecha_movimiento",
+      "descripcion": "Fecha en que se registró la transacción en SmartVista BPC",
+      "origen": "SmartVista BPC — SmartVista SVIP getTransactions v22",
+      "regulatorio": false,
+      "pasos": [1, 2],
+      "svip_field": "transactionDate"
+    },
+    {
+      "id": "DE-11",
+      "nombre": "num_parcialidad_msi",
+      "descripcion": "Número de parcialidad actual del plan Meses Sin Intereses (ejemplo: 2 de 12). CONDUSEF exige desglose de parcializaciones activas en el estado de cuenta.",
+      "origen": "SmartVista BPC — SmartVista SVIP (planes CrediSoluciones)",
+      "regulatorio": true,
+      "regulacion": "CONDUSEF — desglose de parcializaciones activas en estado de cuenta",
+      "pasos": [2, 3],
+      "svip_field": "installmentNumber"
+    },
+    {
+      "id": "DE-12",
+      "nombre": "cargo_mensual_mci",
+      "descripcion": "Monto del cargo mensual fijo del plan Meses Con Intereses activo",
+      "origen": "SmartVista BPC — SmartVista SVIP (planes CrediSoluciones)",
+      "regulatorio": false,
+      "pasos": [2, 3],
+      "svip_field": "monthlyPayment"
+    },
+    {
+      "id": "DE-13",
+      "nombre": "saldo_mci_pendiente",
+      "descripcion": "Capital pendiente de liquidar en planes Meses Con Intereses activos. Incluye el saldo de cada plan CrediSoluciones individual.",
+      "origen": "SmartVista BPC — SmartVista SVIP (planes CrediSoluciones)",
+      "regulatorio": false,
+      "pasos": [3],
+      "svip_field": "remainingBalance"
+    },
+    {
+      "id": "DE-14",
+      "nombre": "nombre_comision",
+      "descripcion": "Nombre normativo de la comisión registrado ante Banxico/RECO. SmartVista BPC es la fuente autoritativa. Debe ser idéntico en App Móvil, SIWEB y CAT / IVR.",
+      "origen": "SmartVista BPC — catálogo de comisiones propagado via ISV04 (a SIWEB) e ISV05 (a App Móvil)",
+      "regulatorio": true,
+      "regulacion": "CONDUSEF / Banxico RECO — nombres de comisiones registrados formalmente",
+      "pasos": [6],
+      "svip_field": "commissionName"
+    },
+    {
+      "id": "DE-15",
+      "nombre": "classification_tarjeta",
+      "descripcion": "Tipo de tarjeta: F = Tarjeta de Crédito Física, D = Tarjeta de Crédito Digital. Determinado por el campo Classification de SmartVista BPC, no por el rango de BIN.",
+      "origen": "SmartVista BPC — SmartVista SVIP getAccountCards",
+      "regulatorio": false,
+      "pasos": [1, 5],
+      "svip_field": "classification"
+    },
+    {
+      "id": "DE-16",
+      "nombre": "ppngi",
+      "descripcion": "Pago Para No Generar Intereses: monto mínimo que evita cargos de interés en el periodo siguiente. Distinto del MAD.",
+      "origen": "SmartVista BPC — SmartVista SVIP getInstantCreditStatement",
+      "regulatorio": false,
+      "pasos": [3],
+      "svip_field": "minimumPaymentNI"
+    },
+    {
+      "id": "DE-17",
+      "nombre": "mad",
+      "descripcion": "Monto mínimo a pagar (MAD) del periodo. Si se paga solo el MAD se generan intereses sobre el saldo restante. Distinto del PPNGI.",
+      "origen": "SmartVista BPC — SmartVista SVIP getInstantCreditStatement",
+      "regulatorio": false,
+      "pasos": [3],
+      "svip_field": "minimumPaymentDue"
+    }
+  ],
+  "integrations": [
+    {
+      "id": "IAPP01",
+      "hu_id": "SMART-3962",
+      "track": "app",
+      "nombre": "CAMBIOS en detalle de TDC Rec_retrieveCreditCardStatement",
+      "descripcion": "Consulta de detalle de Tarjeta de Crédito — cuenta, saldos e intereses. App Móvil invoca a SmartVista BPC.",
+      "sistema_origen": "APP",
+      "sistema_destino": "SMARTVISTA",
+      "tipo": "API",
+      "protocolo": "REST",
+      "frecuencia": "Tiempo real",
+      "complejidad": "Media",
+      "existe_hoy": true,
+      "estado": "Modificar",
+      "direction_flag": "OK",
+      "source_doc": "Inventario de Integraciones_HUs_ R4_v1.0.xlsx"
+    },
+    {
+      "id": "IAPP02",
+      "hu_id": "SMART-4183",
+      "track": "app",
+      "nombre": "Realiza el pago de TDC Rec_executeCardPaymentTransaction",
+      "descripcion": "Ejecución de pago de Tarjeta de Crédito desde App Móvil hacia SmartVista BPC.",
+      "sistema_origen_fuente": "SMARTVISTA",
+      "sistema_destino_fuente": "APP",
+      "sistema_origen_corregido": "APP",
+      "sistema_destino_corregido": "SMARTVISTA",
+      "tipo": "API",
+      "protocolo": "REST",
+      "frecuencia": "Tiempo real",
+      "complejidad": "Alta",
+      "existe_hoy": true,
+      "estado": "Modificar",
+      "direction_flag": "POSIBLE_ERROR_CAPTURA",
+      "notes": "En el inventario fuente sistema_origen=SMARTVISTA y sistema_destino=APP. La operación de pago es iniciada por App Móvil hacia SmartVista BPC, no al revés. Requiere confirmación con APIficación y Nova Solution Systems antes del System Integration Testing.",
+      "source_doc": "Inventario de Integraciones_HUs_ R4_v1.0.xlsx"
+    },
+    {
+      "id": "IAPP03",
+      "hu_id": "SMART-4176",
+      "track": "app",
+      "nombre": "Consulta de movimientos Rec_RetrieveAccountTransaction",
+      "descripcion": "Consulta de movimientos de Tarjeta de Crédito desde App Móvil hacia SmartVista BPC.",
+      "sistema_origen_fuente": "SMARTVISTA",
+      "sistema_destino_fuente": "APP",
+      "sistema_origen_corregido": "APP",
+      "sistema_destino_corregido": "SMARTVISTA",
+      "tipo": "API",
+      "protocolo": "REST",
+      "frecuencia": "Tiempo real",
+      "complejidad": "Media",
+      "existe_hoy": true,
+      "estado": "Modificar",
+      "direction_flag": "POSIBLE_ERROR_CAPTURA",
+      "notes": "Mismo patrón de inversión que IAPP02. En el inventario fuente sistema_origen=SMARTVISTA y sistema_destino=APP. La consulta de movimientos siempre es iniciada por la App Móvil. Requiere confirmación con APIficación y Nova Solution Systems.",
+      "source_doc": "Inventario de Integraciones_HUs_ R4_v1.0.xlsx"
+    },
+    {
+      "id": "IAPP05",
+      "hu_id": "SMART-4105",
+      "track": "app",
+      "nombre": "Notificación activación de Tarjeta Digital BanCoppel",
+      "descripcion": "Notificación de activación de Tarjeta de Crédito Digital BanCoppel por acción desde App Móvil hacia CES",
+      "sistema_origen": "APP",
+      "sistema_destino": "CES",
+      "tipo": "API",
+      "protocolo": "REST",
+      "frecuencia": "Tiempo real",
+      "complejidad": "Media",
+      "existe_hoy": false,
+      "estado": "Nueva",
+      "direction_flag": "OK",
+      "source_doc": "Inventario de Integraciones_HUs_ R4_v1.0.xlsx"
+    },
+    {
+      "id": "ICAT01",
+      "hu_id": "HDU-CAT-R4-01",
+      "track": "cat",
+      "nombre": "Consulta de clientes SmartVista BPC",
+      "descripcion": "Consultar el número de cliente registrado en SmartVista BPC desde IVR",
+      "sistema_origen": "IVR",
+      "sistema_destino": "SMARTVISTA",
+      "tipo": "API",
+      "protocolo": "REST",
+      "frecuencia": "Tiempo real",
+      "complejidad": "Media",
+      "existe_hoy": false,
+      "estado": "Nueva",
+      "direction_flag": "OK",
+      "cat_integration_group": "autenticacion-cliente",
+      "source_doc": "Inventario de Integraciones_HUs_ R4_v1.0.xlsx"
+    },
+    {
+      "id": "ICAT02",
+      "hu_id": "HDU-CAT-R4-01",
+      "track": "cat",
+      "nombre": "Consulta de cliente por cuenta SmartVista BPC",
+      "descripcion": "Consultar datos del cliente por número de cuenta (crédito 18 dígitos) en SmartVista BPC desde IVR",
+      "sistema_origen": "IVR",
+      "sistema_destino": "SMARTVISTA",
+      "tipo": "API",
+      "protocolo": "REST",
+      "frecuencia": "Tiempo real",
+      "complejidad": "Media",
+      "existe_hoy": false,
+      "estado": "Nueva",
+      "direction_flag": "OK",
+      "cat_integration_group": "autenticacion-cliente",
+      "notes": "El crédito 18 dígitos es el número interno de SmartVista BPC que identifica el contrato de Tarjeta de Crédito — diferente al PAN de 16 dígitos del plástico.",
+      "source_doc": "Inventario de Integraciones_HUs_ R4_v1.0.xlsx"
+    },
+    {
+      "id": "ICAT03",
+      "hu_id": "HDU-CAT-R4-02",
+      "track": "cat",
+      "nombre": "Canalizar al cliente SmartVista BPC con un ejecutivo",
+      "descripcion": "Transferencia del cliente SmartVista BPC desde el robot IVR al agente de Contact Center",
+      "sistema_origen": "IVR - Robot",
+      "sistema_destino": "IVR - CC",
+      "tipo": "Evento",
+      "protocolo": "Evento interno IVR",
+      "frecuencia": "Tiempo real",
+      "complejidad": "Baja",
+      "existe_hoy": true,
+      "estado": "Modificar",
+      "direction_flag": "OK",
+      "cat_integration_group": "routing-ejecutivo",
+      "source_doc": "Inventario de Integraciones_HUs_ R4_v1.0.xlsx"
+    },
+    {
+      "id": "ICAT04",
+      "hu_id": "HDU-CAT-R4-08",
+      "track": "cat",
+      "nombre": "Consulta de saldos y movimientos en SmartVista BPC",
+      "descripcion": "Consulta de saldos y movimientos de Tarjeta de Crédito Producto 4900 en SmartVista BPC a través de IVR",
+      "sistema_origen": "IVR",
+      "sistema_destino": "SMARTVISTA",
+      "tipo": "API",
+      "protocolo": "REST",
+      "frecuencia": "Tiempo real",
+      "complejidad": "Alta",
+      "existe_hoy": false,
+      "estado": "Nueva",
+      "direction_flag": "OK",
+      "cat_integration_group": "consulta-saldo-movimientos",
+      "notes": "Integración de mayor complejidad en el canal CAT / IVR para esta fase. Requiere construcción completa de la integración IVR-SVIP incluyendo locuciones en español mexicano y manejo de contingencia ante fallo de SVIP. DTM_RetrieveCreditCardBalanceAndMovements status=not_covered.",
+      "dtm_ref": "DTM_RetrieveCreditCardBalanceAndMovements",
+      "source_doc": "Inventario de Integraciones_HUs_ R4_v1.0.xlsx"
+    },
+    {
+      "id": "ICAT05",
+      "hu_id": "HDU-CAT-R4-05",
+      "track": "cat",
+      "nombre": "Bloqueo de tarjeta SmartVista BPC",
+      "descripcion": "Habilitación del bloqueo de Tarjeta de Crédito Física y Digital de SmartVista BPC a través de CAT (ICCAT)",
+      "sistema_origen": "ICCAT",
+      "sistema_destino": "SMARTVISTA",
+      "tipo": "API",
+      "protocolo": "REST",
+      "frecuencia": "Tiempo real",
+      "complejidad": "Media",
+      "existe_hoy": false,
+      "estado": "Nueva",
+      "direction_flag": "OK",
+      "source_doc": "Inventario de Integraciones_HUs_ R4_v1.0.xlsx"
+    },
+    {
+      "id": "ICAT06",
+      "hu_id": "HDU-CAT-R4-06",
+      "track": "cat",
+      "nombre": "Desbloqueo de tarjeta SmartVista BPC",
+      "descripcion": "Habilitación del desbloqueo de Tarjeta de Crédito Física y Digital de SmartVista BPC a través de CAT (ICCAT)",
+      "sistema_origen": "ICCAT",
+      "sistema_destino": "SMARTVISTA",
+      "tipo": "API",
+      "protocolo": "REST",
+      "frecuencia": "Tiempo real",
+      "complejidad": "Media",
+      "existe_hoy": false,
+      "estado": "Nueva",
+      "direction_flag": "OK",
+      "source_doc": "Inventario de Integraciones_HUs_ R4_v1.0.xlsx"
+    },
+    {
+      "id": "ICAT07",
+      "hu_id": "HDU-CAT-R4-11",
+      "track": "cat",
+      "nombre": "Consultar productos y estatus de tarjetas del cliente SmartVista BPC",
+      "descripcion": "Consultar la información de las tarjetas del cliente desde SmartVista BPC vía consola de agentes ICCAT",
+      "sistema_origen": "ICCAT",
+      "sistema_destino": "SMARTVISTA",
+      "tipo": "API",
+      "protocolo": "REST",
+      "frecuencia": "Tiempo real",
+      "complejidad": "Media",
+      "existe_hoy": false,
+      "estado": "Nueva",
+      "direction_flag": "OK",
+      "cat_integration_group": "consulta-productos-estatus",
+      "notes": "API en SmartVista SVIP (getAccountCards/getCardInfo). El agente puede ver el estatus actualizado en tiempo real vía catálogo CSTS.",
+      "source_doc": "Inventario de Integraciones_HUs_ R4_v1.0.xlsx"
+    },
+    {
+      "id": "ISV03",
+      "hu_id": "HDU-SMART-R4-08",
+      "track": "siweb",
+      "nombre": "Consulta de lotes",
+      "descripcion": "Consulta de tarjetas del Producto 4900 mediante número de sucursal y lote generado desde SIWEB hacia SmartVista BPC",
+      "sistema_origen": "SIWEB",
+      "sistema_destino": "SMARTVISTA",
+      "tipo": "API",
+      "protocolo": "REST",
+      "frecuencia": "Diaria/EOD",
+      "complejidad": "Baja",
+      "existe_hoy": true,
+      "estado": "Modificar",
+      "direction_flag": "OK",
+      "source_doc": "Inventario de Integraciones_HUs_ R4_v1.0.xlsx"
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "TC-TRANS-01",
+      "titulo": "Consulta de movimientos en convivencia Tarjeta de Crédito Física y Digital",
+      "us_ref": "SMART-4176",
+      "tipo": "functional",
+      "prioridad": "must",
+      "canal": "App Móvil",
+      "descripcion": "Verificar que la App Móvil presenta en una vista unificada los movimientos de la Tarjeta de Crédito Física (Classification=F) y la Tarjeta de Crédito Digital (Classification=D) del cliente Producto 4900. Las compras en pre-autorización deben mostrarse con el indicador En Proceso (amountHoldPlaced=true). Cubrir escenario con ambas tarjetas activas simultáneamente.",
+      "criterio_salida": "Movimientos de ambas tarjetas visibles y correctamente clasificados. El campo Classification (no el BIN) determina el tipo de tarjeta. La vista de convivencia distingue visualmente Tarjeta de Crédito Física y Tarjeta de Crédito Digital."
+    },
+    {
+      "id": "TC-TRANS-02",
+      "titulo": "Detalle de movimiento individual con desglose de Meses Con Intereses",
+      "us_ref": "SMART-4180 / HDU-APP-R4-08",
+      "tipo": "functional",
+      "prioridad": "should",
+      "canal": "App Móvil",
+      "descripcion": "Al seleccionar un movimiento de plan Meses Con Intereses (MCI) en la lista de transacciones, la App Móvil debe mostrar: el cargo mensual fijo (cargo_mensual_mci), el número de parcialidad actual y total, y el saldo pendiente del plan (saldo_mci_pendiente). Para Meses Sin Intereses (MSI) debe mostrar la parcialidad actual.",
+      "criterio_salida": "El desglose de parcializaciones Meses Sin Intereses y Meses Con Intereses es coherente con los datos de SmartVista BPC. Las compras normales no muestran campos de diferimiento.",
+      "nota": "User Story SMART-4180 clasificada MoSCoW=wont — confirmar inclusión en scope R4 antes de preparar casos de System Integration Testing."
+    },
+    {
+      "id": "TC-TRANS-03",
+      "titulo": "Estado de cuenta en formato regulatorio CONDUSEF",
+      "us_ref": "SMART-3962 / HDU-APP-R4-01",
+      "tipo": "regulatory",
+      "prioridad": "must",
+      "canal": "App Móvil",
+      "regulacion": "CONDUSEF",
+      "descripcion": "El estado de cuenta digital del Producto 4900 debe incluir los siguientes campos obligatorios CONDUSEF: (1) fecha de corte, (2) fecha límite de pago con mínimo 45 días de separación desde la fecha de corte, (3) saldo deudor, (4) límite de crédito, (5) Monto mínimo a pagar, (6) Pago Para No Generar Intereses, (7) desglose de planes Meses Sin Intereses y Meses Con Intereses activos con parcializaciones, (8) nombres de comisiones en nomenclatura Banxico/RECO.",
+      "criterio_salida": "El 100% de los campos regulatorios CONDUSEF está presente. La diferencia entre fecha límite de pago y fecha de corte es igual o mayor a 45 días en todos los escenarios de prueba. El estado de cuenta es accesible de forma gratuita desde App Móvil.",
+      "gap_relacionado": "GAP-01 — estado de cuenta CONDUSEF sin validación formal en R4"
+    },
+    {
+      "id": "TC-TRANS-04",
+      "titulo": "Consulta desde CAT / IVR con las 4 integraciones de consulta del canal",
+      "us_ref": "HDU-CAT-R4-01 / HDU-CAT-R4-08 / HDU-CAT-R4-11",
+      "tipo": "integration",
+      "prioridad": "must",
+      "canal": "CAT / IVR",
+      "descripcion": "Verificar el flujo completo de consulta desde el IVR del Contact Center: (1) autenticación del cliente por número de cliente vía ICAT01, (2) autenticación por número de cuenta vía ICAT02, (3) consulta de saldos y movimientos vía ICAT04 (getInstantCreditStatement + getTransactions v22), (4) consulta de productos y estatus de tarjetas por el agente vía ICAT07. El IVR debe entregar respuestas con locuciones en español mexicano.",
+      "criterio_salida": "Las 4 integraciones responden correctamente en el escenario end-to-end. ICAT04 retorna saldo disponible, Monto mínimo a pagar y Pago Para No Generar Intereses. ICAT07 retorna la lista de tarjetas con su estatus CSTS actualizado en tiempo real.",
+      "dtm_ref": "DTM_RetrieveCreditCardBalanceAndMovements",
+      "gap_relacionado": "GAP-05 — integración IVR-SVIP completa a construir",
+      "prereq": "Proveedor CAT contratado (RISK-001 deadline 2026-08-31)"
+    },
+    {
+      "id": "TC-TRANS-05",
+      "titulo": "Consulta de saldo y movimientos desde SIWEB",
+      "us_ref": "HDU-SIWEB-R4-01 / ISV03",
+      "tipo": "functional",
+      "prioridad": "should",
+      "canal": "SIWEB",
+      "descripcion": "El ejecutivo de sucursal puede consultar saldos y movimientos del cliente Producto 4900 desde SIWEB usando las APIs SmartVista SVIP. La pantalla debe mostrar el indicador para compras en proceso (amountHoldPlaced) y distinguir entre Tarjeta de Crédito Física y Digital. ISV03 (consulta de lotes Diaria/EOD) debe estar operativa.",
+      "criterio_salida": "Los datos de SmartVista BPC se presentan correctamente en la UI de SIWEB. ISV03 ejecuta la consulta de lotes diaria sin errores. La distinción Tarjeta de Crédito Física/Digital es visible al ejecutivo."
+    },
+    {
+      "id": "TC-TRANS-06",
+      "titulo": "Actualización de operaciones dentro de la misma sesión activa",
+      "us_ref": "PTCSF-6267",
+      "tipo": "functional",
+      "prioridad": "must",
+      "canal": "App Móvil",
+      "descripcion": "Después de ejecutar una operación (pago, activación de tarjeta, etc.) en la App Móvil, el cliente debe poder consultar el saldo actualizado en la misma sesión sin necesidad de cerrar y volver a abrir la aplicación. El saldo post-operación debe reflejar el estado real en SmartVista BPC.",
+      "criterio_salida": "El saldo visible post-operación es coherente con el estado actualizado de SmartVista BPC. No se requiere re-autenticación para la actualización del saldo en sesión. El tiempo de actualización es inferior a 3 segundos."
+    },
+    {
+      "id": "TC-TRANS-07",
+      "titulo": "Encendido y apagado operativo de Tarjeta de Crédito Física y Digital",
+      "us_ref": "APP-ENC-01 / APP-ENC-02 / APP-ENC-03",
+      "tipo": "functional",
+      "prioridad": "must",
+      "canal": "App Móvil",
+      "descripcion": "Verificar que el cliente puede activar y desactivar su Tarjeta de Crédito Física (Classification=F) y Tarjeta de Crédito Digital (Classification=D) de forma independiente desde la App Móvil. La operación invoca updateCardStatus con el código CSTS correcto. Cubrir las tres variantes: APP-ENC-01 (Tarjeta de Crédito Digital Originación Apolo), APP-ENC-02 (Tarjeta de Crédito Física Originación Apolo) y APP-ENC-03 (Tarjeta de Crédito Física Originación Legado). Verificar que el bloqueo operativo no interfiere con el bloqueo por fraude gestionado por PayTrue.",
+      "criterio_salida": "El estado de la tarjeta cambia en SmartVista BPC y se refleja inmediatamente en la consulta de estatus (CSTS_ACTIVE / CSTS_BLOCKED). Los templates de SMS MAI_BDT_IC y SMS_BDT_IC se envían correctamente en bloqueo y desbloqueo respectivamente.",
+      "num_criterios_aceptacion": "7 (APP-ENC-01) + 6 (APP-ENC-02)"
+    },
+    {
+      "id": "TC-TRANS-08",
+      "titulo": "Homologación de nombres de comisiones en todos los canales",
+      "us_ref": "HDU-SMART-R4-10",
+      "tipo": "regulatory",
+      "prioridad": "must",
+      "canal": "Omnicanal",
+      "regulacion": "CONDUSEF / Banxico RECO",
+      "descripcion": "Verificar que el nombre de cada comisión desplegado en App Móvil, SIWEB y CAT / IVR coincide exactamente con el nombre registrado ante Banxico/RECO y almacenado en SmartVista BPC como fuente autoritativa. Las integraciones ISV04 (SmartVista BPC → SIWEB, Diaria/EOD) e ISV05 (SmartVista BPC → App Móvil, Diaria/EOD) deben propagar el catálogo correctamente.",
+      "criterio_salida": "Cero discrepancias en el nombre de comisión entre canales. Los nombres son idénticos a los del registro formal Banxico/RECO. La sincronización se ejecuta diariamente sin errores.",
+      "gap_relacionado": "2 User Stories Must bloqueadas por DTMs pendientes de confirmación Banxico/RECO"
+    },
+    {
+      "id": "TC-TRANS-09",
+      "titulo": "Desglose de Meses Sin Intereses y Meses Con Intereses en estado de cuenta digital",
+      "us_ref": "HDU-APP-R4-09 / HDU-APP-R4-16",
+      "tipo": "regulatory",
+      "prioridad": "should",
+      "canal": "App Móvil",
+      "regulacion": "CONDUSEF",
+      "descripcion": "El estado de cuenta digital debe mostrar, para cada plan Meses Sin Intereses (MSI) o Meses Con Intereses (MCI) activo: el número de parcialidad actual (num_parcialidad_msi), el cargo mensual (cargo_mensual_mci), el saldo pendiente (saldo_mci_pendiente) y la fecha estimada de liquidación del plan. CONDUSEF exige este desglose como parte del estado de cuenta del emisor.",
+      "criterio_salida": "Los planes CrediSoluciones activos aparecen en el estado de cuenta con todos sus campos requeridos por CONDUSEF. El desglose es coherente con los datos de SmartVista BPC. Las compras normales no muestran campos de diferimiento.",
+      "gap_relacionado": "GAP-02 — Meses Sin Intereses y Meses Con Intereses en estado de cuenta digital sin User Story confirmada como Must Have"
+    },
+    {
+      "id": "TC-TRANS-10",
+      "titulo": "Latencia de consulta P95 inferior a 2 segundos",
+      "us_ref": "KPI — Latencia consulta P95 < 2 seg",
+      "tipo": "performance",
+      "prioridad": "must",
+      "canal": "App Móvil / CAT / SIWEB",
+      "descripcion": "Bajo carga representativa del volumen de consultas esperado en Go-Live, el tiempo de respuesta P95 de getInstantCreditStatement y getTransactions v22 debe ser inferior a 2,000 ms medido end-to-end desde el canal hasta SmartVista SVIP. Incluir escenario de convivencia donde se consultan simultáneamente los movimientos de Tarjeta de Crédito Física y Tarjeta de Crédito Digital.",
+      "criterio_salida": "P95 < 2,000 ms en las APIs getInstantCreditStatement y getTransactions v22. Sin degradación de latencia en el escenario de convivencia. El canal CAT / IVR cumple el umbral de latencia dentro del tiempo de locución esperado.",
+      "herramienta_sugerida": "K6 o JMeter con escenario de carga representativa del volumen Go-Live",
+      "kpi_ref": "KPI-TRANS-02"
+    },
+    {
+      "id": "TC-TRANS-11",
+      "titulo": "Restricciones funcionales según nivel de mora (agingPeriod)",
+      "us_ref": "HDU-APP-R4-01",
+      "tipo": "functional",
+      "prioridad": "should",
+      "canal": "App Móvil",
+      "descripcion": "Verificar que la App Móvil aplica correctamente las restricciones funcionales según el nivel de mora del cliente: E1 (agingPeriod 0-1) — sin restricciones; E2 (agingPeriod 2-3) — disposiciones bloqueadas pero consulta y pago habilitados; E3 (agingPeriod mayor o igual a 4) — solo pago disponible. El indicador de nivel de mora debe ser visible al cliente.",
+      "criterio_salida": "Las restricciones visuales y funcionales corresponden exactamente al agingPeriod retornado por SmartVista BPC en cada escenario. El cliente recibe mensaje claro y comprensible en cada nivel de restricción."
+    }
+  ],
+  "gaps_found": [
+    {
+      "id": "GAP-01",
+      "titulo": "Estado de cuenta formato CONDUSEF sin validación formal en R4",
+      "severidad": "warn",
+      "categoria": "regulatory",
+      "descripcion": "El estado de cuenta digital del Producto 4900 no tiene una User Story específica que valide el cumplimiento integral del formato regulatorio CONDUSEF: (a) mínimo 45 días entre fecha de corte y fecha límite de pago, (b) inclusión de todos los campos mandatorios del estado de cuenta, (c) disponibilidad gratuita en App Móvil, IVR y sucursal como mínimo. Las User Stories existentes (SMART-3962, HDU-APP-R4-01) cubren la consulta funcional, pero ninguna tiene criterios de aceptación explícitos sobre el formato regulatorio CONDUSEF como requisito de cumplimiento formal.",
+      "impacto": "Riesgo de incumplimiento regulatorio en Go-Live. CONDUSEF puede sancionar al emisor por estado de cuenta fuera del formato reglamentario. El hallazgo afecta directamente los KPIs Reclamaciones por estado de cuenta (< 0.1%) y Entrega a tiempo (100%).",
+      "accion_sugerida": "Crear User Story Must Have específica para validación del estado de cuenta en formato CONDUSEF con criterios de aceptación basados en la Circular correspondiente. Incluir en el System Integration Testing con participación del equipo de Compliance.",
+      "tracks_afectados": ["app", "smartvista"],
+      "tipo_resolucion": "nueva_user_story + criterios_aceptacion_compliance"
+    },
+    {
+      "id": "GAP-02",
+      "titulo": "Meses Sin Intereses y Meses Con Intereses en estado de cuenta digital sin User Story confirmada",
+      "severidad": "warn",
+      "categoria": "functional_regulatory",
+      "descripcion": "No existe una User Story confirmada como Must Have que exija el desglose de Meses Sin Intereses (MSI) y Meses Con Intereses (MCI) en el estado de cuenta digital de la App Móvil. Las User Stories HDU-APP-R4-09 y HDU-APP-R4-16 existen con pregame_status=partial y prioridad should. La obligación CONDUSEF de mostrar parcializaciones activas con desglose en el estado de cuenta aplica al emisor. El módulo DPP (Deferred Payment Plan) de BPC Banking Technologies no fue contratado por BanCoppel, lo que bloquea la cancelación de planes CrediSoluciones (DTM_CancelDeferredPurchasePlan — GAP CRÍTICO documentado en el DTM catalog).",
+      "impacto": "CONDUSEF exige que las compras diferidas aparezcan con desglose de parcializaciones en el estado de cuenta del emisor. Su ausencia es incumplimiento regulatorio. El módulo DPP no contratado bloquea la cancelación de planes desde canales digitales y sucursal.",
+      "accion_sugerida": "Elevar HDU-APP-R4-09 y HDU-APP-R4-16 a prioridad Must Have con criterios de aceptación CONDUSEF explícitos. Escalar la decisión de contratación del módulo DPP de BPC Banking Technologies a nivel de programa antes del inicio del System Integration Testing.",
+      "tracks_afectados": ["app", "smartvista"],
+      "tipo_resolucion": "escalar_prioridad + decision_comercial_bpc",
+      "dtm_relacionado": "DTM_CancelDeferredPurchasePlan",
+      "bloqueante_externo": "Módulo DPP de BPC Banking Technologies no contratado por BanCoppel"
+    },
+    {
+      "id": "GAP-03",
+      "titulo": "IAPP02 e IAPP03 con dirección posiblemente invertida en el inventario de integraciones",
+      "severidad": "warn",
+      "categoria": "documentation",
+      "descripcion": "En el Inventario de Integraciones R4 v1.0, las integraciones IAPP02 (Rec_executeCardPaymentTransaction — pago de Tarjeta de Crédito) e IAPP03 (Rec_RetrieveAccountTransaction — consulta de movimientos) tienen registrados sistema_origen=SMARTVISTA y sistema_destino=APP. La dirección semánticamente correcta es App Móvil → SmartVista BPC: tanto el pago como la consulta de movimientos son operaciones iniciadas por la App Móvil. SmartVista BPC no inicia transacciones push hacia la App en estos flujos. El mismo patrón de inversión (origen=proveedor del endpoint en lugar del consumidor) afecta a ambas integraciones.",
+      "impacto": "Si los diagramas de secuencia del System Integration Testing se construyen con la dirección del inventario fuente, los equipos entenderán incorrectamente quién inicia cada operación, afectando la preparación de casos de prueba, la configuración de mocks y la atribución de responsabilidades entre Nova Solution Systems (App Móvil) y BPC Banking Technologies (SmartVista BPC).",
+      "accion_sugerida": "Confirmar con el equipo de APIficación (Accenture) y Nova Solution Systems si la dirección de IAPP02 e IAPP03 en el inventario es efectivamente un error de captura. De confirmarse, actualizar el Inventario de Integraciones v1.0 y notificar a los proveedores afectados antes del inicio del System Integration Testing.",
+      "tracks_afectados": ["app", "smartvista"],
+      "tipo_resolucion": "verificacion_documental + correccion_inventario",
+      "requiere_confirmacion": true,
+      "fuente": "Inventario de Integraciones_HUs_ R4_v1.0.xlsx"
+    },
+    {
+      "id": "GAP-04",
+      "titulo": "Consulta vía ATM fuera de scope R4",
+      "severidad": "warn",
+      "categoria": "scope",
+      "descripcion": "CONDUSEF exige que los emisores de tarjetas de crédito habiliten al menos tres canales para consulta y estado de cuenta: App Móvil, IVR y sucursal. El canal ATM queda explícitamente fuera del scope de R4. No existe ninguna User Story ni integración en el inventario R4 que cubra la consulta de saldos y movimientos del Producto 4900 desde ATM. El Plan de Trabajo R4 v1 Julio diferiere el acceso a ATM para un release posterior (R5).",
+      "impacto": "Si existe un segmento de clientes que utiliza ATM como canal principal de consulta, la ausencia de este canal en R4 puede generar reclamaciones CONDUSEF. Sin embargo, la regulación permite cumplir el requisito mínimo con App Móvil + IVR + sucursal, que sí están en scope R4.",
+      "accion_sugerida": "Documentar formalmente en el RAID de Unity R4 que la consulta vía ATM para el Producto 4900 es out-of-scope de R4 y está diferida a R5. Validar con el equipo de Compliance que la combinación App Móvil + CAT/IVR + SIWEB cumple el mínimo regulatorio CONDUSEF sin canal ATM.",
+      "tracks_afectados": ["app", "cat", "siweb"],
+      "tipo_resolucion": "aceptar_riesgo + documentar_raid + validacion_compliance",
+      "release_diferido": "R5"
+    },
+    {
+      "id": "GAP-05",
+      "titulo": "DTM_RetrieveCreditCardBalanceAndMovements con status not_covered — integración IVR-SVIP completa a construir",
+      "severidad": "high",
+      "categoria": "implementation",
+      "descripcion": "El DTM DTM_RetrieveCreditCardBalanceAndMovements tiene status=not_covered, lo que significa que la integración completa entre el IVR del CAT y SmartVista Integration Platform (SmartVista SVIP) debe construirse desde cero en R4. Esto incluye: las locuciones en español mexicano, el flujo de autenticación (ICAT01 + ICAT02), la consulta de saldos y movimientos (ICAT04), y el manejo de contingencia ante fallo de SmartVista SVIP.",
+      "impacto": "Sin este DTM completado, el canal CAT / IVR no puede consultar saldos ni movimientos del Producto 4900. CONDUSEF exige el canal IVR como canal obligatorio de atención. El proveedor CAT aún no está contratado al 2026-08-20 (RISK-001, deadline 2026-08-31).",
+      "accion_sugerida": "Escalar RISK-001 (proveedor CAT no contratado) a resolución inmediata. Una vez contratado el proveedor, priorizar la construcción del DTM_RetrieveCreditCardBalanceAndMovements como prerequisito del System Integration Testing de la fase Transacciones.",
+      "tracks_afectados": ["cat"],
+      "tipo_resolucion": "contratar_proveedor_cat + construir_dtm",
+      "dtm_relacionado": "DTM_RetrieveCreditCardBalanceAndMovements",
+      "risk_relacionado": "RISK-001"
+    }
+  ],
+  "dtm_referencias": [
+    {
+      "dtm_id": "DTM_RetrieveCreditCardBalanceAndMovements",
+      "status": "not_covered",
+      "canal": "cat",
+      "funcionalidad": "Integración completa IVR-SVIP para consulta de saldo, cuenta y movimientos de Tarjeta de Crédito. Incluye locuciones en español mexicano, autenticación y contingencia de fallo SmartVista SVIP.",
+      "hdus_asociadas": ["HDU-CAT-R4-02", "HDU-CAT-R4-08"],
+      "gap_ref": "GAP-05",
+      "api_svip": "getInstantCreditStatement + getTransactions v22"
+    },
+    {
+      "dtm_id": "DTM_RetrieveCustomerCreditCardProfile",
+      "status": "partial",
+      "canal": "cat",
+      "funcionalidad": "Integración ICCAT con consultas nativas de cliente, productos y tarjetas. Enmascaramiento de datos sensibles. Crédito 18 dígitos (número interno SmartVista BPC distinto al PAN de 16 del plástico).",
+      "hdus_asociadas": ["HDU-CAT-R4-03"]
+    }
+  ],
+  "kpi_framework": {
+    "kpis": [
+      {
+        "id": "KPI-TRANS-01",
+        "nombre": "Adopción canal digital",
+        "target": "> 60%",
+        "medicion": "Porcentaje de consultas de saldo y movimientos realizadas desde App Móvil respecto al total de consultas por todos los canales (App Móvil + CAT / IVR + SIWEB)",
+        "responsable": "Product Owner Producto 4900",
+        "frecuencia": "Mensual post-Go-Live"
+      },
+      {
+        "id": "KPI-TRANS-02",
+        "nombre": "Latencia consulta P95",
+        "target": "< 2,000 ms",
+        "medicion": "Tiempo de respuesta P95 de getInstantCreditStatement y getTransactions v22 en producción medido end-to-end desde el canal hasta SmartVista SVIP",
+        "responsable": "APIficación (Accenture) + SmartVista BPC (BPC Banking Technologies)",
+        "frecuencia": "Continua — dashboards SLO activos en producción"
+      },
+      {
+        "id": "KPI-TRANS-03",
+        "nombre": "Entrega estado de cuenta a tiempo",
+        "target": "100%",
+        "medicion": "Porcentaje de estados de cuenta del Producto 4900 generados y disponibles para el cliente dentro del plazo regulatorio CONDUSEF por ciclo de facturación",
+        "responsable": "SmartVista BPC (BPC Banking Technologies) + equipo de Compliance BanCoppel",
+        "frecuencia": "Por ciclo de facturación"
+      },
+      {
+        "id": "KPI-TRANS-04",
+        "nombre": "Reclamaciones por estado de cuenta",
+        "target": "< 0.1%",
+        "medicion": "Reclamaciones CONDUSEF relacionadas con el estado de cuenta del Producto 4900 divididas entre el total de cuentas activas en el periodo",
+        "responsable": "Product Owner Producto 4900 + Compliance BanCoppel",
+        "frecuencia": "Mensual post-Go-Live"
+      }
+    ]
+  }
+}

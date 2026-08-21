@@ -1,0 +1,748 @@
+{
+  "phase_id": "cobranza",
+  "phase_name": "Cobranza",
+  "analyzed_at": "2026-08-20",
+  "analyst": "DT-Swarm-Cobranza-v1",
+  "product_id": "tdc-p4900",
+  "release": "SmartVista R4",
+  "go_live_estimated": "2027-01-15",
+
+  "flow_validated": {
+    "summary": "Flujo de gestión de cartera vencida del Producto 4900 — cuatro nodos confirmados por evidencia documental + Motor Cobranza Direccionada inferido (iniciativa preexistente sin User Stories en R4). Los primeros reportes al Buró de Crédito para el Producto 4900 ocurrirán ~60 días post go-live (≈ marzo 2027).",
+    "nodes": [
+      {
+        "node_id": "FN-COB-01",
+        "system": "SmartVista BPC",
+        "role": "Clasificación de cartera por agingPeriod (E1/E2/E3) y generación de restricciones operativas por nivel de mora",
+        "protocol": "Batch EOD + API SVIP (agingPeriod, CSTS, updateCardStatus)",
+        "evidence_type": "confirmed",
+        "source": "PHASES.cobranza + vocabulary agingPeriod + hdu_catalog HDU-APP-R4-03/HDU-APP-R4-17",
+        "notes": "agingPeriod: E1=0-1 ciclos de facturación (sin restricción), E2=2-3 (restricciones parciales — disposiciones bloqueadas, consulta y pago habilitados), E3>=4 (bloqueo mayoritario — solo pago disponible). Campo expuesto via SmartVista SVIP a canales App e IVR."
+      },
+      {
+        "node_id": "FN-COB-02",
+        "system": "Informix",
+        "role": "Recepción de datos de aging por batch, procesamiento de cartera vencida, generación de archivo cobranza y reportes regulatorios (SISEC, Buró de Crédito)",
+        "protocol": "Batch EOD (agingPeriod desde SmartVista BPC) + Batch mensual (SISEC CNBV)",
+        "evidence_type": "confirmed",
+        "source": "PHASES.cobranza desc + cobranza-context US-COB-005 + integración ISV02 (AFT Connect-Direct)",
+        "notes": "Informix actúa como repositorio central de cartera vencida. Genera el archivo de cobranza para Connect-Direct y los reportes regulatorios CNBV (SISEC mensual) y Buró de Crédito (día 30)."
+      },
+      {
+        "node_id": "FN-COB-03",
+        "system": "Connect-Direct",
+        "role": "Transferencia del archivo de cobranza desde Informix hacia CAT/IVR (gestores de cobranza)",
+        "protocol": "Batch AFT (Automated File Transfer) — PGP",
+        "evidence_type": "confirmed",
+        "source": "PHASES.cobranza + vocabulary Connect-Direct + ISV02 (AFT: OLTP-Informix → Connect-Direct, estado Modificar)",
+        "notes": "La integración ISV02 ya existe en el programa para maquila de tarjetas (estado: Modificar). Debe extenderse o replicarse para incluir los datos de cobranza del Producto 4900. Frecuencia Diaria/EOD. Cifrado PGP con llave del destinatario."
+      },
+      {
+        "node_id": "FN-COB-04",
+        "system": "CAT/IVR",
+        "role": "Gestión de cobranza con el cliente: contacto, oferta de reestructura, atención de consultas de mora por nivel de agingPeriod",
+        "protocol": "REST — SVIP (agingPeriod vía ICAT01/ICAT02 consulta SmartVista; HDU-CAT-R4-10 menú dinámico IVR)",
+        "evidence_type": "confirmed",
+        "source": "PHASES.cobranza + HDU-CAT-R4-10 (pregame_status: not_covered) + ICAT01/ICAT02/ICAT03",
+        "notes": "HDU-CAT-R4-10 — 'Gestionar opciones de autoservicio IVR por nivel de mora (agingPeriod)' — tiene pregame_status: not_covered. Es el gap central de cobranza en el canal CAT. SmartVista BPC expone agingPeriod vía SmartVista SVIP; la lógica de menú dinámico IVR es responsabilidad del proveedor CAT (sin contratar al 2026-08-20 — RISK-001)."
+      },
+      {
+        "node_id": "FN-COB-05",
+        "system": "Motor Cobranza Direccionada",
+        "role": "Motor de reglas para gestión de cobranza preventiva y temprana (1-60 días de atraso) — Cobranza Direccionada",
+        "protocol": "Inferred — probablemente API REST sobre SmartVista SVIP o integración con SmartVista SVBO",
+        "evidence_type": "inferred",
+        "source": "PHASES.cobranza notes + cobranza-context user_stories US-COB-001 + RISK-UNITY-R06 + PHASE_STEPS step 3",
+        "notes": "Cobranza Direccionada es una iniciativa preexistente a Unity. El alcance estimado es de 37 a 50 User Stories actualmente en refinamiento — ninguna ha sido incorporada al inventario oficial de R4. El Motor Cobranza Direccionada aparece en PHASE_STEPS como sistema del paso 3 sin diseño técnico documentado. RISK-UNITY-R06: 'Plan de trabajo Cobranza sin formalizar — estatus desconocido, impacta planificación de integraciones con canales.'"
+      },
+      {
+        "node_id": "FN-COB-06",
+        "system": "Buró de Crédito",
+        "role": "Reporte de incumplimiento SISEC en día 30 de mora — obligatorio regulatorio CNBV/CONDUSEF",
+        "protocol": "Batch regulatorio mensual (archivo SISEC desde Informix)",
+        "evidence_type": "confirmed",
+        "source": "PHASE_NARRATIVES.cobranza + cobranza-context US-COB-006 (candidata, no en R4) + CNBV/CONDUSEF regulatorio",
+        "first_report_p4900": "~2027-03",
+        "first_report_rationale": "Go-live Producto 4900 ~2027-01-15. Primer cliente en mora: ~2027-02-15 (30 días de gracia). Primer reporte al Buró: ~2027-03-15 (día 30 de atraso desde el primer incumplimiento post go-live).",
+        "notes": "SISEC = Sistema de Información de Sociedades de Ahorro y Crédito — reporte CNBV de cartera. Sin evidencia de diseño formal en el inventario R4. CONDUSEF exige ofrecer reestructura al cliente antes de reportar al Buró — el proceso de reestructura tampoco tiene alcance en R4."
+      },
+      {
+        "node_id": "FN-COB-07",
+        "system": "CNBV",
+        "role": "Reporte mensual de cartera vencida (SISEC mensual) y registro de provisión contable NIF C-16",
+        "protocol": "Batch mensual (archivo SISEC desde Informix)",
+        "evidence_type": "confirmed",
+        "source": "PHASE_NARRATIVES.cobranza + CNBV regulatorio NIF C-16",
+        "notes": "NIF C-16 = Norma de Información Financiera C-16 — provisión de cartera. Obligatorio mensual. Porcentajes de provisión por tramo: preventivo ~1%, temprano ~30-50%, cartera vencida ~70-100%, castigo 100%. Sin diseño en R4."
+      }
+    ],
+    "aging_model_note": "Alineación pendiente entre el modelo de aging de SmartVista BPC (agingPeriod E1/E2/E3 = ciclos de facturación) y el modelo regulatorio por días calendario (1-29, 30-60, 61-120, >120). Los ciclos de facturación no mapean exactamente a días. E1 ≈ 0-30 días, E2 ≈ 30-90 días, E3 ≈ 90+ días — pero la granularidad exacta depende del ciclo de corte de cada tarjeta. Requiere diseño técnico explícito del mapping antes del SIT."
+  },
+
+  "steps_enriched": [
+    {
+      "step_num": 1,
+      "description": "Clasificación de cartera por tramos de aging (1-29, 30-60, 61-120, >120 días)",
+      "sistema": "SmartVista BPC + Informix",
+      "protocol": "Batch EOD — SmartVista BPC actualiza agingPeriod (E1/E2/E3 en ciclos); Informix recibe y mapea a tramos de días calendario para clasificación contable y regulatoria",
+      "gap_flag": true,
+      "gap_description": "Sin User Story en el inventario R4. La lógica de mapping entre agingPeriod (E1/E2/E3 ciclos SmartVista) y los tramos regulatorios de días calendario (1-29, 30-60, 61-120, >120) no tiene diseño técnico documentado. Candidatas identificadas en Cobranza Direccionada: US-COB-002/003/004 (aging E1/E2/E3 a canales CAT y App).",
+      "us_r4": null,
+      "us_candidatas_cobranza_dir": ["US-COB-002", "US-COB-003", "US-COB-004"]
+    },
+    {
+      "step_num": 2,
+      "description": "Bloqueo de cuenta y restricciones operativas por mora",
+      "sistema": "SmartVista BPC + Informix",
+      "protocol": "API SmartVista SVIP — updateCardStatus (CSTS catalog) + propagación batch a Informix",
+      "gap_flag": true,
+      "gap_description": "Sin User Story en el inventario R4. La lógica de activación del bloqueo por mora (criterio exacto para CSTS_BLOCKED vs restricción parcial E2) no tiene criterios de aceptación formales. HDU-APP-R4-03 y HDU-APP-R4-17 cubren la visualización del bloqueo en la App pero no la lógica de activación en SmartVista. Candidata: US-COB-008 (restricciones de operación por nivel de mora en canales).",
+      "us_r4": null,
+      "us_candidatas_cobranza_dir": ["US-COB-008"],
+      "hdus_relacionadas": ["HDU-APP-R4-03", "HDU-APP-R4-17"]
+    },
+    {
+      "step_num": 3,
+      "description": "Gestión de cobranza preventiva (1-29 días de atraso)",
+      "sistema": "Motor Cobranza Direccionada",
+      "protocol": "Inferred — API REST sobre SmartVista SVIP o batch de reglas de contacto preventivo",
+      "gap_flag": true,
+      "gap_description": "Sin User Story en el inventario R4. El Motor Cobranza Direccionada es un nodo inferido — la iniciativa Cobranza Direccionada existe pero no tiene diseño técnico formal en R4. Candidatas identificadas: US-COB-001 (motor de reglas SmartVista BPC para cobranza direccionada), US-COB-007 (gestión preventiva digital — contacto previo al vencimiento). RISK-UNITY-R06 aplica directamente: el plan de trabajo de Cobranza no está formalizado.",
+      "us_r4": null,
+      "us_candidatas_cobranza_dir": ["US-COB-001", "US-COB-007"]
+    },
+    {
+      "step_num": 4,
+      "description": "Reporte al Buró de Crédito (día 30 de atraso — SISEC)",
+      "sistema": "Informix + Buró de Crédito",
+      "protocol": "Batch regulatorio — archivo SISEC generado por Informix. Primer reporte Producto 4900 ~marzo 2027.",
+      "gap_flag": true,
+      "gap_description": "Sin User Story en el inventario R4. Sin evidencia de diseño del archivo SISEC al Buró de Crédito para el Producto 4900. CONDUSEF exige ofrecer reestructura de deuda antes de reportar — el proceso de reestructura tampoco tiene alcance en R4, generando una brecha regulatoria en cadena. Candidata identificada: US-COB-006 (reporte Buró de Crédito CNBV obligatorio día 30).",
+      "us_r4": null,
+      "us_candidatas_cobranza_dir": ["US-COB-006"],
+      "regulatory_note": "CONDUSEF: prohibido reportar al Buró de Crédito sin antes haber ofrecido una reestructura al cliente. Sin proceso de reestructura en R4, el reporte al Buró es un riesgo regulatorio CONDUSEF de tolerancia cero."
+    },
+    {
+      "step_num": 5,
+      "description": "Reporte de cartera vencida a CNBV (SISEC mensual)",
+      "sistema": "Informix + CNBV",
+      "protocol": "Batch mensual — archivo SISEC (Sistema de Información de Sociedades de Ahorro y Crédito). Provisión contable NIF C-16 (Norma de Información Financiera C-16).",
+      "gap_flag": true,
+      "gap_description": "Sin User Story en el inventario R4. El reporte SISEC mensual a CNBV no tiene diseño técnico documentado en R4. La provisión contable bajo NIF C-16 por tramo de aging tampoco tiene alcance formal. Candidata parcial: US-COB-006 (cubre Buró de Crédito; CNBV mensual requiere User Story adicional).",
+      "us_r4": null,
+      "us_candidatas_cobranza_dir": ["US-COB-006"],
+      "regulatory_note": "CNBV exige reporte mensual de cartera vencida al SISEC. NIF C-16 obliga al registro contable de la provisión por tramo. Ambos son obligatorios antes del go-live."
+    },
+    {
+      "step_num": 6,
+      "description": "Castigo de cartera y proceso de recuperación (>120 días)",
+      "sistema": "Informix + Motor Castigo",
+      "protocol": "Batch — proceso de castigo contable (provisión 100% NIF C-16, baja del activo) y generación de expediente de recuperación",
+      "gap_flag": true,
+      "gap_description": "Sin User Story en el inventario R4. El Motor Castigo es un nodo sin User Story, DTM ni diseño formal en R4. El proceso de castigo contable y la provisión al 100% bajo NIF C-16 no tienen criterios de aceptación. El primer castigo real del Producto 4900 ocurrirá ~mayo 2027 (>120 días post go-live), pero el diseño del proceso debe estar validado antes del SIT.",
+      "us_r4": null,
+      "us_candidatas_cobranza_dir": [],
+      "note": "No se identifican candidatas directas entre las 8 User Stories de Cobranza Direccionada del contexto. Es probable que el castigo de cartera sea parte del subconjunto aún no refinado de las 37-50 User Stories estimadas."
+    }
+  ],
+
+  "us_mapping": {
+    "status": "sin_cobertura_r4",
+    "us_count_r4": 0,
+    "explanation": "La fase Cobranza no tiene ninguna User Story en el inventario oficial del programa R4. Cobranza Direccionada es una iniciativa preexistente a Unity con alcance estimado entre 37 y 50 User Stories, actualmente en refinamiento y fuera del inventario R4. Es un hueco de alcance, no una fase vacía. Los 6 pasos del lifecycle de Cobranza del Producto 4900 no tienen User Stories, DTMs ni criterios de aceptación formales en R4.",
+    "candidatas_identificadas": {
+      "fuente": "cobranza-context.json::user_stories — iniciativa Cobranza Direccionada",
+      "count": 8,
+      "nota": "Las 8 User Stories identificadas (US-COB-001 a US-COB-008) son candidatas del backlog de Cobranza Direccionada. No están en el inventario formal R4. Su incorporación requiere decisión de alcance del programa y validación con Marksey Sanvicente (per RISK-UNITY-R06).",
+      "stories": [
+        {
+          "id": "US-COB-001",
+          "title": "Motor de reglas SmartVista BPC para gestión de cobranza direccionada",
+          "moscow": "must",
+          "complejidad": "Alta",
+          "funcionalidad": "Cobranza",
+          "num_integraciones": 3,
+          "num_criterios": 5
+        },
+        {
+          "id": "US-COB-002",
+          "title": "Exposición aging E1 (0-30 días) a canales CAT y App",
+          "moscow": "must",
+          "complejidad": "Media",
+          "funcionalidad": "Aging",
+          "num_integraciones": 2,
+          "num_criterios": 3
+        },
+        {
+          "id": "US-COB-003",
+          "title": "Exposición aging E2 (31-60 días) con restricciones de canal",
+          "moscow": "must",
+          "complejidad": "Media",
+          "funcionalidad": "Aging",
+          "num_integraciones": 2,
+          "num_criterios": 3
+        },
+        {
+          "id": "US-COB-004",
+          "title": "Exposición aging E3 (60+ días) a gestor y CAT",
+          "moscow": "must",
+          "complejidad": "Media",
+          "funcionalidad": "Aging",
+          "num_integraciones": 2,
+          "num_criterios": 3
+        },
+        {
+          "id": "US-COB-005",
+          "title": "Carga batch de datos de cartera vencida desde Informix a SmartVista BPC",
+          "moscow": "must",
+          "complejidad": "Alta",
+          "funcionalidad": "Batch",
+          "num_integraciones": 2,
+          "num_criterios": 4
+        },
+        {
+          "id": "US-COB-006",
+          "title": "Reporte a Buró de Crédito (CNBV obligatorio día 30)",
+          "moscow": "must",
+          "complejidad": "Alta",
+          "funcionalidad": "Regulatorio",
+          "num_integraciones": 3,
+          "num_criterios": 5
+        },
+        {
+          "id": "US-COB-007",
+          "title": "Gestión preventiva digital — contacto previo al vencimiento",
+          "moscow": "must",
+          "complejidad": "Media",
+          "funcionalidad": "Digital",
+          "num_integraciones": 2,
+          "num_criterios": 4
+        },
+        {
+          "id": "US-COB-008",
+          "title": "Restricciones de operación por nivel de mora en canales",
+          "moscow": "should",
+          "complejidad": "Media",
+          "funcionalidad": "Reglas",
+          "num_integraciones": 3,
+          "num_criterios": 4
+        }
+      ]
+    }
+  },
+
+  "data_elements": [
+    {
+      "id": "DE-COB-01",
+      "name": "dias_mora",
+      "description": "Número de días calendario de incumplimiento desde la fecha del primer vencimiento impago",
+      "type": "INTEGER",
+      "is_financial": false,
+      "is_pii": false,
+      "system": "SmartVista BPC + Informix",
+      "regulatory": ["CONDUSEF", "CNBV SISEC"],
+      "notes": "Determinante del tramo de aging y del trigger de reporte al Buró (día 30). SmartVista BPC maneja agingPeriod en ciclos de facturación — requiere mapping explícito a días calendario."
+    },
+    {
+      "id": "DE-COB-02",
+      "name": "tramo_aging",
+      "description": "Clasificación del nivel de mora según tramos regulatorios: preventivo (1-29 días), temprano (30-60 días), cartera vencida (61-120 días), litigio o castigo (más de 120 días)",
+      "type": "VARCHAR",
+      "values": ["preventivo", "temprano", "vencido", "castigo"],
+      "is_financial": false,
+      "is_pii": false,
+      "system": "SmartVista BPC + Informix",
+      "regulatory": ["CNBV NIF C-16", "CNBV SISEC"],
+      "notes": "Mapeado desde agingPeriod SmartVista BPC (E1/E2/E3 en ciclos) a tramos de días calendario. La reconciliación ciclos/días debe estar documentada en el DTM del batch aging."
+    },
+    {
+      "id": "DE-COB-03",
+      "name": "saldo_vencido",
+      "description": "Monto total vencido en la cuenta — suma del saldo impago más intereses moratorios acumulados",
+      "type": "MONEY",
+      "is_financial": true,
+      "is_pii": false,
+      "system": "SmartVista BPC + Informix",
+      "regulatory": ["CNBV SISEC", "NIF C-16"],
+      "notes": "Tipo MONEY en Informix SPL — riesgo de redondeo en conversión a otros sistemas. Requiere mapeo al BLTP (Balance Type) correspondiente en SmartVista BPC."
+    },
+    {
+      "id": "DE-COB-04",
+      "name": "saldo_capital",
+      "description": "Monto del principal (capital) de la deuda sin incluir intereses ni comisiones",
+      "type": "MONEY",
+      "is_financial": true,
+      "is_pii": false,
+      "system": "SmartVista BPC + Informix",
+      "regulatory": ["NIF C-16 (provisión calculada sobre capital)", "CNBV SISEC"],
+      "notes": "Base de cálculo para la provisión contable NIF C-16 (Norma de Información Financiera C-16) y para el reporte SISEC al Buró de Crédito y CNBV."
+    },
+    {
+      "id": "DE-COB-05",
+      "name": "fecha_primer_incumplimiento",
+      "description": "Fecha en que se produjo el primer incumplimiento de pago — punto de inicio del cómputo de días mora",
+      "type": "DATE",
+      "is_financial": false,
+      "is_pii": false,
+      "system": "SmartVista BPC + Informix",
+      "regulatory": ["CONDUSEF (cómputo días para reporte Buró en día 30)"],
+      "notes": "Crítico para el cómputo exacto del día 30 de reporte al Buró de Crédito y para la clasificación precisa en tramos de aging."
+    },
+    {
+      "id": "DE-COB-06",
+      "name": "bloqueo_cuenta_flag",
+      "description": "Indicador booleano de si la cuenta tiene restricciones operativas activas por nivel de mora",
+      "type": "BOOLEAN",
+      "is_financial": false,
+      "is_pii": false,
+      "system": "SmartVista BPC",
+      "field_smartvista": "CSTS catalog (CSTS_ACTIVE, CSTS_BLOCKED)",
+      "notes": "Vinculado al agingPeriod E2 (restricción parcial) y E3 (bloqueo mayoritario). La lógica de activación del bloqueo no tiene diseño formal en el inventario R4."
+    },
+    {
+      "id": "DE-COB-07",
+      "name": "tipo_bloqueo",
+      "description": "Tipo de restricción aplicada al canal según nivel de mora: sin restricción (E1), restricción parcial (E2 — disposiciones bloqueadas, consulta y pago habilitados), bloqueo mayoritario (E3 — solo pago disponible)",
+      "type": "VARCHAR",
+      "values": ["sin_restriccion", "restriccion_parcial", "bloqueo_mayoritario"],
+      "is_financial": false,
+      "is_pii": false,
+      "system": "SmartVista BPC",
+      "field_smartvista": "agingPeriod (E1/E2/E3)",
+      "notes": "Vocabulario alineado con el brain: E1=0-1 ciclos, E2=2-3, E3>=4. La lógica de habilitación/bloqueo por agingPeriod debe construirse en App (HDU-APP-R4-03) y en el menú dinámico IVR (HDU-CAT-R4-10)."
+    },
+    {
+      "id": "DE-COB-08",
+      "name": "contacto_cliente",
+      "description": "Datos de contacto del titular para gestión de cobranza: teléfono, email, dirección registrada",
+      "type": "COMPOSITE",
+      "is_financial": false,
+      "is_pii": true,
+      "system": "Informix + SmartVista BPC",
+      "regulatory": ["CONDUSEF (protección datos cliente en cobranza)", "LFPDPPP"],
+      "notes": "Dato PII — requiere cifrado en reposo y en tránsito en el archivo Connect-Direct. CONDUSEF prohíbe el uso de datos de contacto para llamadas fuera del horario 8:00-21:00."
+    },
+    {
+      "id": "DE-COB-09",
+      "name": "canal_contacto",
+      "description": "Canal utilizado para el contacto de cobranza: IVR, agente CAT, App, SMS, email",
+      "type": "VARCHAR",
+      "values": ["ivr", "cat_agente", "app", "sms", "email"],
+      "is_financial": false,
+      "is_pii": false,
+      "system": "CAT/IVR + Motor Cobranza Direccionada",
+      "regulatory": ["CONDUSEF (registro de intentos de contacto de cobranza)"]
+    },
+    {
+      "id": "DE-COB-10",
+      "name": "fecha_contacto",
+      "description": "Fecha y hora del contacto de cobranza — para validación del horario CONDUSEF (8:00-21:00) y para registro de la gestión",
+      "type": "TIMESTAMP",
+      "is_financial": false,
+      "is_pii": false,
+      "system": "CAT/IVR + Motor Cobranza Direccionada",
+      "regulatory": ["CONDUSEF — registro obligatorio con sello de hora de cada intento de cobranza"]
+    },
+    {
+      "id": "DE-COB-11",
+      "name": "monto_reestructura",
+      "description": "Monto propuesto o acordado en el proceso de reestructura de deuda — requerido por CONDUSEF antes de reportar al Buró de Crédito",
+      "type": "MONEY",
+      "is_financial": true,
+      "is_pii": false,
+      "system": "Motor Cobranza Direccionada + Informix",
+      "regulatory": ["CONDUSEF — obligatorio ofrecer reestructura antes de reporte al Buró de Crédito"],
+      "notes": "El proceso de reestructura de deuda NO tiene alcance en R4. Es una brecha regulatoria CONDUSEF activa (GAP-COB-04). Sin este registro, el reporte al Buró incumple la regulación."
+    },
+    {
+      "id": "DE-COB-12",
+      "name": "tasa_recuperacion",
+      "description": "Porcentaje del saldo vencido recuperado en el período — KPI de recuperación temprana con objetivo mayor al 60% en menos de 30 días",
+      "type": "DECIMAL",
+      "format": "0.0000",
+      "is_financial": true,
+      "is_pii": false,
+      "system": "Informix + Motor Cobranza Direccionada",
+      "kpi_target": "Recuperación temprana mayor al 60% en menos de 30 días"
+    },
+    {
+      "id": "DE-COB-13",
+      "name": "provision_nif_c16",
+      "description": "Monto de provisión contable calculada bajo NIF C-16 (Norma de Información Financiera C-16) según tramo de aging",
+      "type": "MONEY",
+      "is_financial": true,
+      "is_pii": false,
+      "system": "Informix",
+      "regulatory": ["CNBV NIF C-16 — registro y reporte mensual obligatorio"],
+      "notes": "Porcentajes de provisión orientativos por tramo: preventivo ~1%, temprano ~30-50%, cartera vencida ~70-100%, castigo 100%. Los porcentajes exactos los define CNBV por tipo de cartera."
+    },
+    {
+      "id": "DE-COB-14",
+      "name": "npl_ratio",
+      "description": "Non-Performing Loan ratio — cartera vencida mayor a 90 días dividida entre la cartera total del Producto 4900. KPI regulatorio con objetivo menor al 4%.",
+      "type": "DECIMAL",
+      "format": "0.0000",
+      "is_financial": true,
+      "is_pii": false,
+      "system": "Informix + CNBV",
+      "kpi_target": "NPL ratio menor al 4%",
+      "regulatory": ["CNBV — reportado en SISEC mensual"]
+    }
+  ],
+
+  "integrations": [
+    {
+      "id": "INT-COB-01",
+      "name": "SmartVista BPC → Informix (agingPeriod batch EOD)",
+      "origen": "SmartVista BPC",
+      "destino": "Informix",
+      "tipo": "Batch",
+      "frecuencia": "Diaria/EOD",
+      "formato": "Archivo batch EOD (propietario SmartVista BPC)",
+      "protocolo": "Transferencia EOD batch — Connect-Direct o interfaz directa",
+      "existe_hoy": false,
+      "estado": "Nueva",
+      "datos_transferidos": ["agingPeriod", "dias_mora", "saldo_vencido", "saldo_capital", "bloqueo_cuenta_flag", "fecha_primer_incumplimiento"],
+      "gap_flag": true,
+      "notes": "No existe User Story ni DTM que documente esta integración en el inventario R4. Es el flujo central del aging — sin esta integración, Informix no puede calcular la provisión NIF C-16 ni generar el reporte SISEC."
+    },
+    {
+      "id": "INT-COB-02",
+      "name": "Informix → Connect-Direct → CAT/IVR (archivo cobranza)",
+      "origen": "Informix",
+      "destino": "CAT/IVR (vía Connect-Direct)",
+      "tipo": "Batch",
+      "frecuencia": "Diaria/EOD",
+      "formato": "PGP (archivo cifrado con llave del destinatario)",
+      "protocolo": "AFT — Automated File Transfer vía Connect-Direct",
+      "existe_hoy": true,
+      "estado": "Modificar",
+      "integracion_base_ref": "ISV02 (AFT: OLTP-Informix → Connect-Direct, para maquila)",
+      "datos_transferidos": ["contacto_cliente", "dias_mora", "tramo_aging", "saldo_vencido", "canal_contacto"],
+      "gap_flag": true,
+      "notes": "ISV02 ya existe en el programa para transferencia de archivo de maquila de tarjetas. Debe extenderse para incluir los datos de cobranza del Producto 4900. Sin User Story específica de cobranza en R4 que lo especifique."
+    },
+    {
+      "id": "INT-COB-03",
+      "name": "Informix → Buró de Crédito (SISEC — reporte día 30 de mora)",
+      "origen": "Informix",
+      "destino": "Buró de Crédito",
+      "tipo": "Batch",
+      "frecuencia": "Mensual (trigger: clientes que alcanzan día 30 de mora + cierre mensual)",
+      "formato": "Archivo SISEC (formato estándar Buró de Crédito)",
+      "protocolo": "Batch regulatorio",
+      "existe_hoy": false,
+      "estado": "Nueva",
+      "datos_transferidos": ["fecha_primer_incumplimiento", "saldo_vencido", "saldo_capital", "dias_mora", "contacto_cliente", "tramo_aging"],
+      "gap_flag": true,
+      "regulatory": ["CONDUSEF", "CNBV"],
+      "first_report_estimated": "~2027-03 (60 días post go-live 2027-01-15)",
+      "notes": "Sin User Story ni diseño en R4. CONDUSEF exige que el cliente haya recibido oferta de reestructura antes de este reporte. El proceso de reestructura tampoco tiene alcance en R4 — brecha regulatoria en cadena."
+    },
+    {
+      "id": "INT-COB-04",
+      "name": "Informix → CNBV (reporte cartera vencida SISEC mensual — NIF C-16)",
+      "origen": "Informix",
+      "destino": "CNBV",
+      "tipo": "Batch",
+      "frecuencia": "Mensual (cierre de mes)",
+      "formato": "Archivo SISEC (Sistema de Información de Sociedades de Ahorro y Crédito)",
+      "protocolo": "Batch regulatorio mensual",
+      "existe_hoy": false,
+      "estado": "Nueva",
+      "datos_transferidos": ["saldo_vencido", "saldo_capital", "tramo_aging", "provision_nif_c16", "npl_ratio", "dias_mora"],
+      "gap_flag": true,
+      "regulatory": ["CNBV — obligatorio mensual", "NIF C-16 — Norma de Información Financiera C-16 — provisión de cartera"],
+      "notes": "Sin User Story ni diseño en R4. SISEC = Sistema de Información de Sociedades de Ahorro y Crédito. Obligatorio para operación como entidad regulada ante CNBV."
+    }
+  ],
+
+  "test_cases": [
+    {
+      "id": "TC-COB-01",
+      "name": "Clasificación aging correcta por tramos de días",
+      "description": "Verificar que SmartVista BPC actualiza correctamente el agingPeriod (E1/E2/E3) y que Informix mapea esos ciclos a los tramos regulatorios de días calendario (1-29, 30-60, 61-120, más de 120 días) para el Producto 4900.",
+      "tipo": "INTEGRATION",
+      "sistemas": ["SmartVista BPC", "Informix"],
+      "criterio_entrada": "Tarjeta P4900 con fecha de primer incumplimiento conocida; ejecución del batch EOD",
+      "criterio_salida": "agingPeriod en SmartVista BPC y tramo_aging en Informix son consistentes entre sí y con los días calendario calculados. Sin divergencia en saldos vencidos entre sistemas.",
+      "regulatory": false,
+      "gap_flag": true,
+      "priority": "MUST_HAVE",
+      "notes": "Caso de prueba bloqueado por ausencia de User Story y DTM en R4. El mapping E1/E2/E3 (ciclos) vs días calendario no tiene diseño técnico formal."
+    },
+    {
+      "id": "TC-COB-02",
+      "name": "Bloqueo de cuenta en día 30 de mora — agingPeriod E2",
+      "description": "Verificar que SmartVista BPC activa el bloqueo operativo parcial (agingPeriod E2: disposiciones bloqueadas, consulta y pago habilitados) cuando la cuenta del Producto 4900 alcanza el día 30 de atraso.",
+      "tipo": "FUNCTIONAL",
+      "sistemas": ["SmartVista BPC"],
+      "criterio_entrada": "Tarjeta P4900 con 30 días de atraso desde fecha_primer_incumplimiento",
+      "criterio_salida": "CSTS actualizado a restricción parcial (E2): disposiciones bloqueadas, consulta y pago habilitados. HDU-APP-R4-17 muestra restricción visual en App. HDU-APP-R4-03 refleja CSTS correcto.",
+      "regulatory": false,
+      "gap_flag": true,
+      "priority": "MUST_HAVE",
+      "hdus_relacionadas": ["HDU-APP-R4-03", "HDU-APP-R4-17"]
+    },
+    {
+      "id": "TC-COB-03",
+      "name": "Cobranza preventiva 1-29 días — contacto digital dentro de horario CONDUSEF",
+      "description": "Verificar que el Motor Cobranza Direccionada genera contacto preventivo digital dentro de los 1-29 días de atraso, respetando el horario permitido por CONDUSEF (8:00-21:00 horas).",
+      "tipo": "FUNCTIONAL",
+      "sistemas": ["Motor Cobranza Direccionada", "CAT/IVR"],
+      "criterio_entrada": "Tarjeta P4900 con 1 a 29 días de atraso; cliente con canal digital activo; intento de contacto programado",
+      "criterio_salida": "Contacto ejecutado registrado con canal_contacto y fecha_contacto; fecha_contacto dentro del horario CONDUSEF (8:00-21:00); mensaje de cobranza preventiva generado; sin intentos fuera de horario.",
+      "regulatory": true,
+      "regulatory_ref": "CONDUSEF — horario permitido de cobranza: 8:00-21:00",
+      "gap_flag": true,
+      "priority": "MUST_HAVE",
+      "notes": "Caso de prueba bloqueado: Motor Cobranza Direccionada sin diseño en R4."
+    },
+    {
+      "id": "TC-COB-04",
+      "name": "Primer reporte al Buró de Crédito exactamente en día 30 de mora",
+      "description": "Verificar que Informix genera el archivo SISEC al Buró de Crédito exactamente en el día 30 de mora del cliente del Producto 4900, con los datos correctos de saldo y fecha de incumplimiento.",
+      "tipo": "REGULATORY",
+      "sistemas": ["Informix", "Buró de Crédito"],
+      "criterio_entrada": "Tarjeta P4900 con exactamente 30 días desde fecha_primer_incumplimiento; registro de oferta de reestructura realizada previamente al cliente (requerimiento CONDUSEF)",
+      "criterio_salida": "Archivo SISEC generado con formato correcto (estándar Buró de Crédito); saldo_vencido y saldo_capital correctos; archivo enviado al Buró en el plazo. Registro de envío almacenado en Informix.",
+      "regulatory": true,
+      "regulatory_ref": "CNBV/CONDUSEF — reporte obligatorio al Buró de Crédito en día 30 de mora",
+      "gap_flag": true,
+      "priority": "MUST_HAVE",
+      "notes": "Caso de prueba crítico para go-live. Sin User Story ni diseño en R4. Primer reporte real estimado: ~marzo 2027. Debe diseñarse y validarse antes del SIT."
+    },
+    {
+      "id": "TC-COB-05",
+      "name": "Reporte CNBV SISEC mensual de cartera vencida con provisión NIF C-16",
+      "description": "Verificar que Informix genera el reporte mensual de cartera vencida al CNBV (SISEC) con la provisión NIF C-16 (Norma de Información Financiera C-16) calculada correctamente por cada tramo de aging.",
+      "tipo": "REGULATORY",
+      "sistemas": ["Informix", "CNBV"],
+      "criterio_entrada": "Cierre de mes con cartera vencida del Producto 4900 en múltiples tramos de aging",
+      "criterio_salida": "Archivo SISEC generado con saldos por tramo de aging (preventivo, temprano, vencido, castigo) y montos de provisión NIF C-16 correctos por tramo. NPL ratio calculado correctamente. Reporte enviado a CNBV dentro del plazo regulatorio.",
+      "regulatory": true,
+      "regulatory_ref": "CNBV — SISEC mensual obligatorio + NIF C-16 (Norma de Información Financiera C-16)",
+      "gap_flag": true,
+      "priority": "MUST_HAVE"
+    },
+    {
+      "id": "TC-COB-06",
+      "name": "Castigo de cartera mayor a 120 días con provisión NIF C-16 al 100%",
+      "description": "Verificar que Informix y el Motor Castigo ejecutan el proceso de castigo contable cuando la cartera supera los 120 días de mora, registrando la provisión al 100% bajo NIF C-16 y generando el expediente de recuperación.",
+      "tipo": "FUNCTIONAL",
+      "sistemas": ["Informix", "Motor Castigo"],
+      "criterio_entrada": "Tarjeta P4900 con más de 120 días de atraso",
+      "criterio_salida": "Cartera registrada como castigada en Informix; provisión NIF C-16 al 100% registrada sobre saldo_capital; expediente de recuperación generado; estado reflejado en reporte SISEC siguiente.",
+      "regulatory": true,
+      "regulatory_ref": "NIF C-16 — provisión al 100% obligatoria a partir de los 120 días de mora",
+      "gap_flag": true,
+      "priority": "MUST_HAVE",
+      "notes": "Motor Castigo sin User Story ni diseño formal en R4. El primer castigo real del Producto 4900 llegaría ~mayo 2027."
+    },
+    {
+      "id": "TC-COB-07",
+      "name": "CONDUSEF: rechazo de llamada de cobranza fuera de horario permitido",
+      "description": "Verificar que el sistema rechaza o no ejecuta intentos de contacto de cobranza fuera del horario permitido por CONDUSEF, antes de las 8:00 o después de las 21:00 horas.",
+      "tipo": "REGULATORY",
+      "sistemas": ["Motor Cobranza Direccionada", "CAT/IVR"],
+      "criterio_entrada": "Intento de contacto de cobranza programado a las 7:59 o a las 21:01 horas para una tarjeta P4900 en mora",
+      "criterio_salida": "Contacto rechazado o reprogramado automáticamente. Registro del intento con motivo 'fuera_de_horario_condusef'. Ningún agente ni canal ejecuta el contacto fuera del horario. Alerta generada en el sistema.",
+      "regulatory": true,
+      "regulatory_ref": "CONDUSEF Circular de cobranza — horario permitido: 8:00-21:00",
+      "gap_flag": true,
+      "priority": "MUST_HAVE",
+      "severity": "CRITICAL — incumplimiento genera reclamación CONDUSEF; KPI 'Reclamaciones CONDUSEF cobranza: tolerancia cero'"
+    },
+    {
+      "id": "TC-COB-08",
+      "name": "CONDUSEF: oferta de reestructura obligatoria antes de reporte al Buró de Crédito",
+      "description": "Verificar que el flujo de cobranza registra formalmente la oferta de reestructura al cliente antes de que Informix genere el archivo SISEC de reporte al Buró de Crédito en el día 30.",
+      "tipo": "REGULATORY",
+      "sistemas": ["Motor Cobranza Direccionada", "CAT/IVR", "Informix"],
+      "criterio_entrada": "Cliente con 28 a 30 días de atraso; sin registro de oferta de reestructura previo",
+      "criterio_salida": "Registro de oferta de reestructura en Informix (monto_reestructura, canal_contacto, fecha_contacto) generado antes de que el proceso batch de Informix genere el archivo SISEC al Buró. El reporte al Buró no se ejecuta sin el registro previo de oferta.",
+      "regulatory": true,
+      "regulatory_ref": "CONDUSEF — obligatorio ofrecer reestructura de deuda antes de reportar al Buró de Crédito",
+      "gap_flag": true,
+      "priority": "MUST_HAVE",
+      "severity": "CRITICAL — el proceso de reestructura NO tiene alcance en R4 (GAP-COB-04 activo)"
+    },
+    {
+      "id": "TC-COB-09",
+      "name": "Propagación batch aging SmartVista BPC → Informix — consistencia de datos",
+      "description": "Verificar que el batch EOD de SmartVista BPC propaga correctamente el agingPeriod a Informix y que los datos de cartera quedan consistentes entre ambos sistemas al finalizar el proceso.",
+      "tipo": "INTEGRATION",
+      "sistemas": ["SmartVista BPC", "Informix"],
+      "criterio_entrada": "Ejecución del batch EOD con N tarjetas P4900 en distintos estados de mora (E1, E2, E3)",
+      "criterio_salida": "100% de las tarjetas activas con agingPeriod actualizado y reflejado en Informix. Sin divergencia entre saldos en SmartVista BPC y saldos en Informix. Tiempo de ejecución del batch dentro de la ventana EOD disponible.",
+      "regulatory": false,
+      "gap_flag": true,
+      "priority": "MUST_HAVE"
+    },
+    {
+      "id": "TC-COB-10",
+      "name": "Transferencia de archivo cobranza vía Connect-Direct con cifrado PGP",
+      "description": "Verificar que el archivo de cobranza generado por Informix es transferido correctamente a CAT/IVR mediante Connect-Direct con cifrado PGP, con integridad de datos verificada en destino.",
+      "tipo": "INTEGRATION",
+      "sistemas": ["Informix", "Connect-Direct", "CAT/IVR"],
+      "criterio_entrada": "Ejecución del job de generación de archivo cobranza en Informix después del batch EOD",
+      "criterio_salida": "Archivo generado con formato correcto; cifrado PGP con la llave pública del destinatario; transferido vía AFT a CAT; registro exitoso en log Connect-Direct; integridad del archivo verificada en destino.",
+      "regulatory": false,
+      "gap_flag": true,
+      "priority": "MUST_HAVE",
+      "integracion_ref": "INT-COB-02 (basado en ISV02 modificado)"
+    }
+  ],
+
+  "gaps_found": [
+    {
+      "id": "GAP-COB-01",
+      "severity": "CRITICAL",
+      "title": "37-50 User Stories de Cobranza Direccionada sin incorporar al inventario R4",
+      "description": "Cobranza Direccionada es una iniciativa preexistente a Unity con un alcance estimado entre 37 y 50 User Stories actualmente en refinamiento. Ninguna ha sido incorporada al inventario oficial del programa R4. Los 6 pasos del lifecycle de la fase Cobranza del Producto 4900 no tienen User Stories, DTMs ni criterios de aceptación formales en R4. Es un hueco de alcance declarado, no una fase vacía.",
+      "impacto": "Sin User Stories formales, la fase Cobranza no puede cumplir el Definition of Ready para entrar a System Integration Testing (SIT). El go-live del Producto 4900 con cobranza sin User Stories expone al banco a incumplimiento regulatorio CNBV y CONDUSEF desde el primer mes de operación. El KPI 'Reclamaciones CONDUSEF cobranza: tolerancia cero' no puede garantizarse.",
+      "mitigacion_sugerida": "Decisión urgente de PMO antes del 2026-10-01: definir qué subconjunto de las 37-50 User Stories de Cobranza Direccionada entra al alcance de R4 (mínimo las 6 candidatas must-have identificadas). Incorporar al inventario y al plan SIT antes del inicio (15-oct-2026). Validar con Marksey Sanvicente (per RISK-UNITY-R06).",
+      "componente": "cobranza",
+      "risk_ref": "RISK-UNITY-R06",
+      "regulatory": ["CNBV", "CONDUSEF"],
+      "fecha_limite": "2026-10-01"
+    },
+    {
+      "id": "GAP-COB-02",
+      "severity": "CRITICAL",
+      "title": "Pentest nov 15-20 bloquea el único ambiente de System Integration Testing de Cobranza",
+      "description": "El pentest programado del 15 al 20 de noviembre de 2026 congela el único ambiente de System Integration Testing (SIT) disponible para Cobranza. El SIT del programa se extiende del 15 de octubre al 15 de diciembre de 2026. La ventana efectiva de SIT de Cobranza queda reducida en 5 días hábiles en el único ambiente disponible.",
+      "impacto": "Con las User Stories de Cobranza aún sin incorporar al inventario R4, el riesgo de no completar el SIT de Cobranza en el plazo es alto. Si el pentest bloquea el ambiente entre el 15 y el 20 de noviembre, las semanas finales de SIT (previas al Code Freeze del 15 de diciembre) quedan con margen muy ajustado.",
+      "mitigacion_sugerida": "Negociar con el equipo de seguridad un ambiente de System Integration Testing alternativo para Cobranza durante el pentest, o desplazar el pentest de Cobranza fuera de la ventana crítica del SIT. Documentar como excepción con dueño del riesgo si no hay ambiente alterno.",
+      "componente": "cobranza",
+      "conflict_window": {
+        "pentest_inicio": "2026-11-15",
+        "pentest_fin": "2026-11-20",
+        "sit_inicio": "2026-10-15",
+        "sit_fin": "2026-12-15"
+      },
+      "regulatory": [],
+      "fecha_limite": "2026-10-01"
+    },
+    {
+      "id": "GAP-COB-03",
+      "severity": "WARN",
+      "title": "Reporte al Buró de Crédito (SISEC) sin evidencia de diseño en R4",
+      "description": "El proceso de reporte al Buró de Crédito en el día 30 de mora no tiene User Story, DTM ni diseño técnico documentado en el inventario R4. SISEC = Sistema de Información de Sociedades de Ahorro y Crédito — reporte CNBV obligatorio. Los primeros reportes del Producto 4900 ocurrirán aproximadamente en marzo 2027 (60 días post go-live de enero 2027).",
+      "impacto": "Riesgo de incumplimiento regulatorio CNBV en los primeros 60 días de operación del Producto 4900. El reporte al Buró de Crédito es un requisito de operación, no opcional.",
+      "mitigacion_sugerida": "Incorporar al menos una User Story regulatoria de reporte Buró de Crédito (candidata US-COB-006) al inventario R4. Diseñar el archivo SISEC y su integración antes del go-live, aunque el primer reporte real sea en marzo 2027.",
+      "componente": "cobranza",
+      "regulatory": ["CNBV", "Buró de Crédito", "CONDUSEF"]
+    },
+    {
+      "id": "GAP-COB-04",
+      "severity": "WARN",
+      "title": "Proceso de reestructura de deuda sin alcance en R4 — obligatorio CONDUSEF",
+      "description": "CONDUSEF exige explícitamente ofrecer una opción de reestructura de deuda al cliente antes de reportarlo al Buró de Crédito. Este proceso no tiene User Story, DTM ni alcance declarado en R4. Sin este proceso, el reporte al Buró de Crédito en el día 30 incumpliría la regulación CONDUSEF.",
+      "impacto": "Riesgo de reclamación CONDUSEF con tolerancia cero declarada en los KPIs del programa. El KPI 'Reclamaciones CONDUSEF cobranza: tolerancia cero' se incumpliría desde el primer mes de operación del Producto 4900.",
+      "mitigacion_sugerida": "Definir un proceso mínimo viable de oferta de reestructura antes del reporte al Buró (script IVR + registro en Informix). Incorporar al alcance de R4 como User Story Must Have regulatoria antes del SIT.",
+      "componente": "cobranza",
+      "regulatory": ["CONDUSEF"],
+      "kpi_impactado": "Reclamaciones CONDUSEF cobranza: tolerancia cero"
+    },
+    {
+      "id": "GAP-COB-05",
+      "severity": "WARN",
+      "title": "Motor Castigo sin User Story ni diseño formal en R4",
+      "description": "El proceso de castigo de cartera a más de 120 días (Informix + Motor Castigo) no tiene User Story, DTM ni diseño en el inventario R4. La provisión contable al 100% bajo NIF C-16 (Norma de Información Financiera C-16) debe estar diseñada antes del go-live aunque el primer castigo real del Producto 4900 ocurra aproximadamente en mayo 2027.",
+      "impacto": "Sin proceso de castigo documentado, el reporte CNBV mensual (SISEC) y el balance contable pueden quedar incompletos a partir del cuarto mes de operación. El incumplimiento de NIF C-16 es una observación de auditoría CNBV.",
+      "mitigacion_sugerida": "Incluir el proceso de castigo contable como parte del diseño de la integración Informix → CNBV. Aun si el primer castigo es post go-live, el diseño y los criterios de aceptación deben estar validados antes del SIT.",
+      "componente": "cobranza",
+      "regulatory": ["CNBV", "NIF C-16"]
+    },
+    {
+      "id": "GAP-COB-06",
+      "severity": "WARN",
+      "title": "Alineación de modelos de aging: SmartVista BPC (ciclos E1/E2/E3) vs días calendario regulatorios (1-29, 30-60, 61-120, más de 120 días)",
+      "description": "SmartVista BPC clasifica mora por ciclos de facturación (agingPeriod: E1=0-1 ciclos, E2=2-3, E3 mayor o igual a 4) mientras que las obligaciones regulatorias (CNBV, CONDUSEF, NIF C-16) y el Motor Cobranza Direccionada trabajan en días calendario exactos. No existe diseño técnico que reconcilie ambos modelos.",
+      "impacto": "Sin este mapping, el reporte al Buró en el día 30 exacto y la provisión NIF C-16 por tramo de días no pueden calcularse con precisión desde los datos de SmartVista BPC. Riesgo de reporte incorrecto a CNBV.",
+      "mitigacion_sugerida": "Definir la tabla de conversión ciclos de facturación → días calendario en el DTM del batch aging SmartVista BPC → Informix. Documentar como criterio de aceptación en TC-COB-01 y en el ADR de cobranza.",
+      "componente": "cobranza",
+      "regulatory": ["CNBV SISEC", "NIF C-16", "CONDUSEF"]
+    },
+    {
+      "id": "GAP-COB-07",
+      "severity": "INFO",
+      "title": "Proveedor CAT sin contratar al 2026-08-20 — bloquea canal de cobranza con cliente",
+      "description": "El componente CAT (Contact Center / IVR) no tiene proveedor contratado al 2026-08-20 (RISK-001 del programa con deadline 2026-08-31). El menú dinámico IVR por nivel de mora (HDU-CAT-R4-10, pregame_status: not_covered) y los scripts de cobranza son responsabilidad de ese proveedor. Sin CAT contratado, el canal de gestión de cobranza con el cliente no puede desarrollarse ni entrar a System Integration Testing.",
+      "impacto": "Sin proveedor CAT contratado, los pasos 3 (cobranza preventiva vía IVR/agente) y 4 (oferta de reestructura por agente) del lifecycle de Cobranza no tienen ejecutor. Escalada directa del RISK-001 al scope de Cobranza.",
+      "mitigacion_sugerida": "Resolución urgente de RISK-001 antes del 2026-08-31. La contratación de CAT es bloqueante para el desarrollo y el SIT de los pasos 3 y 4 de Cobranza.",
+      "componente": "cat",
+      "risk_ref": "RISK-001",
+      "fecha_limite": "2026-08-31"
+    }
+  ],
+
+  "kpis": [
+    {
+      "id": "KPI-COB-01",
+      "name": "NPL ratio",
+      "description": "Non-Performing Loan ratio — cartera vencida mayor a 90 días dividida entre cartera total del Producto 4900",
+      "target": "Menor al 4%",
+      "system": "Informix + CNBV"
+    },
+    {
+      "id": "KPI-COB-02",
+      "name": "Recuperación temprana",
+      "description": "Porcentaje de cartera vencida recuperada en menos de 30 días",
+      "target": "Mayor al 60% en menos de 30 días",
+      "system": "Informix + Motor Cobranza Direccionada"
+    },
+    {
+      "id": "KPI-COB-03",
+      "name": "Contactabilidad digital",
+      "description": "Porcentaje de clientes en mora contactados por canal digital (App, SMS, email)",
+      "target": "Mayor al 40%",
+      "system": "Motor Cobranza Direccionada + App + CAT/IVR"
+    },
+    {
+      "id": "KPI-COB-04",
+      "name": "Reclamaciones CONDUSEF cobranza",
+      "description": "Número de reclamaciones CONDUSEF recibidas por prácticas de cobranza del Producto 4900",
+      "target": "Tolerancia cero",
+      "system": "Motor Cobranza Direccionada + CAT/IVR",
+      "severity": "CRITICAL — cualquier incumplimiento regulatorio CONDUSEF genera reclamación"
+    }
+  ],
+
+  "regulatory_context": {
+    "condusef": {
+      "rule_horario": "Prohibición de llamadas de cobranza fuera del horario 8:00-21:00 horas",
+      "rule_reestructura": "Obligación de ofrecer reestructura de deuda al cliente antes de reportarlo al Buró de Crédito",
+      "compliance_status_r4": "NO CUBIERTO — el proceso de reestructura no tiene alcance en R4 (GAP-COB-04); el control de horario no tiene User Story en R4 (GAP-COB-01)"
+    },
+    "cnbv": {
+      "rule_sisec": "Reporte mensual de cartera vencida al SISEC (Sistema de Información de Sociedades de Ahorro y Crédito)",
+      "rule_nif_c16": "Provisión contable bajo NIF C-16 (Norma de Información Financiera C-16) por tramo de aging",
+      "compliance_status_r4": "NO CUBIERTO — sin User Story ni diseño en R4 (GAP-COB-01, GAP-COB-05)"
+    },
+    "buro_de_credito": {
+      "rule_dia30": "Reporte de incumplimiento al Buró de Crédito exactamente en el día 30 de mora",
+      "first_report_p4900_estimated": "~2027-03 (60 días post go-live 2027-01-15)",
+      "compliance_status_r4": "NO CUBIERTO — sin User Story ni diseño en R4 (GAP-COB-03)"
+    }
+  },
+
+  "brain_context_summary": {
+    "user_stories_en_contexto": 8,
+    "user_stories_en_inventario_r4": 0,
+    "hdus_relacionados": ["HDU-APP-R4-01", "HDU-APP-R4-03", "HDU-APP-R4-17", "HDU-CAT-R4-10"],
+    "hdus_not_covered": ["HDU-CAT-R4-10"],
+    "risks_del_contexto": ["RISK-UNITY-R06"],
+    "integraciones_base_reutilizables": ["ISV02 (AFT Informix → Connect-Direct — estado Modificar)"],
+    "integraciones_cat_relacionadas": ["ICAT01", "ICAT02", "ICAT03", "ICAT04"],
+    "vocabulario_aging": {
+      "agingPeriod": "Campo SmartVista BPC que indica nivel de mora. E1=0-1 ciclos (sin restricción), E2=2-3 ciclos (restricciones parciales), E3 mayor o igual a 4 ciclos (bloqueo mayoritario).",
+      "CSTS": "Prefijo del catálogo de estatus de tarjeta en SmartVista BPC (ej. CSTS_ACTIVE, CSTS_BLOCKED). Usado por updateCardStatus en SmartVista SVIP.",
+      "BLTP": "Balance Type — cajón de saldo dentro del contrato de tarjeta en SmartVista BPC.",
+      "SVIP": "SmartVista Integration Platform — middleware oficial de BPC Banking Technologies entre todos los canales y SmartVista SVBO. Catálogo de 92 comandos.",
+      "SVBO": "SmartVista Back Office — contratos, contabilidad, liquidación y parametrización de productos en SmartVista BPC.",
+      "SVFE": "SmartVista Front End — consola de usuarios operativos y de atención al cliente de SmartVista BPC."
+    }
+  }
+}

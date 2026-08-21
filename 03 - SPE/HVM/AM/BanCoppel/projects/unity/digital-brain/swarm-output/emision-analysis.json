@@ -1,0 +1,926 @@
+{
+  "phase_id": "emision",
+  "phase_name": "Emisión y Maquila",
+  "product": "Tarjeta de Crédito Clásica — Producto 4900",
+  "program": "Unity R4",
+  "analyzed_at": "2026-08-20",
+  "analyst": "DT-Swarm-Emision-v1",
+  "track": "smartvista",
+  "coverage": "parcial",
+  "user_stories_count": 8,
+
+  "flow_validated": [
+    {
+      "node_id": "SVBO",
+      "node_name": "SmartVista SVBO",
+      "full_name": "SmartVista Back Office (BPC Banking Technologies)",
+      "description": "Genera el lote de solicitudes de maquila. Arma y coordina el proceso de Card Generation vía OCG hacia Cargen/SVCG.",
+      "exists_today": true,
+      "pending": false,
+      "pregame_status": "partial",
+      "pci_scope": true,
+      "pci_control": "PCI-DSS Req. 3.6 — custodia de llaves por lote",
+      "evidence": [
+        "hdu_catalog HDU-SMART-R4-04: 'SVBO->SVCG automatizado via NFS+Cron; OCG y Connect Direct manuales en R4'",
+        "DTM_ExecuteCardManufacturingRequest: 'SVBO->SVCG automatizado via NFS+Cron. GAP: OCG y entrega a Connect Direct son 2 pasos manuales en R4'",
+        "Vocabulario brain: SVBO = SmartVista Back Office — contratos, contabilidad, liquidación y parametrización de productos"
+      ]
+    },
+    {
+      "node_id": "OCG",
+      "node_name": "OCG",
+      "full_name": "SmartVista OCG — Outgoing Card Generation",
+      "description": "Módulo BPC que genera el archivo de solicitudes aprobadas de maquila. Opera entre SmartVista SVBO y Cargen/SVCG.",
+      "exists_today": true,
+      "pending": false,
+      "pregame_status": "partial",
+      "pci_scope": true,
+      "pci_control": "PCI-DSS Req. 9 — control de producción de tarjetas",
+      "evidence": [
+        "Vocabulario brain: 'SmartVista OCG: Outgoing Card Generation: módulo BPC que genera el archivo de solicitudes aprobadas de maquila (entre SVBO y Cargen)'",
+        "DTM_ExecuteCardManufacturingRequest notes: 'OCG y entrega a Connect Direct son 2 pasos manuales en R4'",
+        "hdu_catalog HDU-SMART-R4-04: 'OCG y Connect Direct manuales en R4'"
+      ]
+    },
+    {
+      "node_id": "CARGEN",
+      "node_name": "Cargen (SVCG)",
+      "full_name": "SmartVista SVCG — Card Generation (Cargen)",
+      "description": "Aplica filtros y prepara el layout de maquila. Según el glosario del brain, SVCG y Cargen son el mismo componente. Genera los archivos de realce para los maquiladores.",
+      "exists_today": true,
+      "pending": false,
+      "pregame_status": "native",
+      "pci_scope": true,
+      "pci_control": "PCI-DSS Req. 9 — personalización de tarjetas",
+      "evidence": [
+        "Vocabulario brain: 'SVCG: SmartVista Card Generation (Cargen): genera archivos y layouts de maquila de tarjetas'",
+        "hdu_catalog HDU-SMART-R4-01: 'Cifrado PGP+HSM; certificacion Forza/TGS pendiente; rechazo de caracteres no embosables'",
+        "DTM_ExecuteCardManufacturingRequest: 'SVBO->SVCG automatizado via NFS+Cron'"
+      ]
+    },
+    {
+      "node_id": "CONNECT_DIRECT",
+      "node_name": "Connect-Direct",
+      "full_name": "IBM Connect:Direct — Transferencia segura de archivos",
+      "description": "Protocolo de transferencia de archivos usado para depositar el archivo de maquila cifrado con PGP en la carpeta del maquilador. No está en producción en R4 — el depósito se realiza manualmente por tickets.",
+      "exists_today": false,
+      "pending": true,
+      "gap_id": "GAP-EMIS-001",
+      "severity": "CRIT",
+      "pregame_status": "not_in_production",
+      "workaround": "Depósito manual por tickets hasta que Connect-Direct entre en producción",
+      "pci_scope": true,
+      "pci_control": "PCI-DSS Req. 4.2 — transmisión cifrada de CHD; riesgo de manipulación en depósito manual",
+      "evidence": [
+        "Phase notes BLOQUEANTE: 'Connect-Direct no en producción — depósito manual por tickets'",
+        "DTM_ExecuteCardManufacturingRequest gap_description: 'GAP: OCG y entrega a Connect Direct son 2 pasos manuales en R4'",
+        "hdu_catalog HDU-SMART-R4-04: 'OCG y Connect Direct manuales en R4'",
+        "ISV02 integrations brain: AFT OLTP-Informix→Connect-Direct, existe_hoy:1, estado:'Modificar' — integración preexistente que requiere modificación para R4"
+      ]
+    },
+    {
+      "node_id": "MAQUILADOR",
+      "node_name": "Maquilador",
+      "full_name": "Proveedor de maquila de plásticos",
+      "description": "Recibe el archivo cifrado y produce el plástico con chip EMV, PIN y datos personalizados. Cuatro proveedores posibles: Thales, G+D, TGS y ForzaForm. ForzaForm está priorizado de facto pero sin formalización contractual.",
+      "exists_today": true,
+      "pending": false,
+      "gap_id": "GAP-EMIS-002",
+      "severity": "WARN",
+      "candidates": ["Thales", "G+D", "TGS", "ForzaForm"],
+      "de_facto_priority": "ForzaForm",
+      "pregame_status": "partial",
+      "pci_scope": true,
+      "pci_control": "PCI-DSS Req. 9 — control sobre proveedores de producción de tarjetas; Req. 12.8 — gestión de proveedores con acceso a CHD",
+      "evidence": [
+        "Phase notes: 'Cuatro maquiladores posibles: Thales, G+D, TGS y ForzaForm (este último priorizado de facto)'",
+        "hdu_catalog HDU-SMART-R4-01: 'Certificar layouts de maquila con proveedores GID/Forza/TGS' — inconsistencia con lista de fase",
+        "hdu_catalog notes HDU-SMART-R4-01: 'certificacion Forza/TGS pendiente; rechazo de caracteres no embosables'"
+      ]
+    },
+    {
+      "node_id": "HSM",
+      "node_name": "HSM Thales payShield 10K",
+      "full_name": "Hardware Security Module — Thales payShield 10K",
+      "description": "Módulo de seguridad física. Genera y custodia las llaves criptográficas por tarjeta. Control mandatorio PCI-DSS Req. 3.6. Responsable de la derivación de PIN y CVV2 individualmente por tarjeta.",
+      "exists_today": true,
+      "pending": false,
+      "pregame_status": "native",
+      "pci_scope": true,
+      "pci_control": "PCI-DSS Req. 3.6 — generación y custodia de llaves criptográficas; Req. 3.2 — PIN y CVV2 nunca almacenados post-personalización",
+      "evidence": [
+        "Phase notes: 'HSM Thales payShield 10K para PIN y CVV2'",
+        "PHASE_NARRATIVES.emision: 'El HSM (Hardware Security Module) genera y custodia las llaves por tarjeta — control mandatorio PCI-DSS Req. 3.6'",
+        "Vocabulario brain: 'HSM: Hardware Security Module: módulo de seguridad física Thales payShield10K. Cifrado individual por tarjeta'",
+        "User Story HDU-SMART-R4-06 con 2 integraciones — una de ellas referencia al HSM vía PGP"
+      ]
+    }
+  ],
+
+  "steps_enriched": [
+    {
+      "step_num": 1,
+      "step_id": "STEP-EMIS-001",
+      "description": "Consulta de inventario de tarjetas por sucursal",
+      "us_id": "HDU-SMART-R4-02",
+      "system": "SmartVista BPC",
+      "protocol": "batch",
+      "protocol_detail": "Batch diario programado a las 6AM; consulta de existencias por número de sucursal y lote vía ISV03 (SIWEB→SmartVista BPC API)",
+      "exists_today": true,
+      "moscow": "should",
+      "complejidad": "Alta",
+      "pregame_status": "partial",
+      "gap_flag": false,
+      "evidence": "ISV03: Consulta de lotes SIWEB→SMARTVISTA API existe hoy (estado: Modificar)"
+    },
+    {
+      "step_num": 2,
+      "step_id": "STEP-EMIS-002",
+      "description": "Cálculo de solicitud de maquila con parámetros de abasto",
+      "us_id": "HDU-SMART-R4-03",
+      "system": "SmartVista BPC",
+      "protocol": "batch",
+      "protocol_detail": "Batch 6AM; cálculo de reabastecimiento por sucursal con inventario mínimo, semanas de cobertura y redondeo a múltiplos de 250 plásticos; consumo promedio sobre mes calendario (no ventana fija)",
+      "exists_today": false,
+      "moscow": "should",
+      "complejidad": "Media",
+      "pregame_status": "not_covered",
+      "gap_flag": true,
+      "gap_id": "GAP-EMIS-005",
+      "gap_description": "Lógica de cálculo paramétrico (piso, semanas a dotar, redondeo 250, mes calendario) no nativa en SmartVista BPC. Requiere desarrollo custom.",
+      "evidence": "DTM_CalculateCardManufacturing status:not_covered, gap_description confirma que la lógica no es nativa"
+    },
+    {
+      "step_num": 3,
+      "step_id": "STEP-EMIS-003",
+      "description": "Generación de solicitud automatizada de maquila",
+      "us_id": "HDU-SMART-R4-04",
+      "system": "SmartVista BPC",
+      "protocol": "batch",
+      "protocol_detail": "SmartVista SVBO→SVCG/Cargen automatizado vía NFS+Cron. OCG y entrega a Connect-Direct son pasos manuales en R4. RPA de reórdenes: correo diario a ~30 destinatarios con número de lote.",
+      "exists_today": true,
+      "moscow": "must",
+      "complejidad": "Media",
+      "pregame_status": "partial",
+      "gap_flag": true,
+      "gap_id": "GAP-EMIS-001",
+      "gap_description": "OCG y entrega a Connect-Direct son pasos manuales en R4. Automatización completa pendiente.",
+      "evidence": "hdu_catalog HDU-SMART-R4-04: 'SVBO->SVCG automatizado via NFS+Cron; OCG y Connect Direct manuales en R4'"
+    },
+    {
+      "step_num": 4,
+      "step_id": "STEP-EMIS-004",
+      "description": "Generación de archivos cifrados PGP para el maquilador",
+      "us_id": "HDU-SMART-R4-06",
+      "system": "SmartVista BPC + HSM Thales payShield 10K",
+      "protocol": "PGP",
+      "protocol_detail": "Cifrado PGP con llave pública del proveedor — una llave por maquilador. HSM Thales payShield 10K genera llaves individuales por tarjeta (PIN y CVV2). Flujo completo: SmartVista SVBO→OCG→Cargen→PGP→Connect-Direct.",
+      "exists_today": true,
+      "moscow": "must",
+      "complejidad": "Media",
+      "pregame_status": "native",
+      "gap_flag": true,
+      "gap_id": "GAP-EMIS-001",
+      "gap_description": "El paso de depósito vía Connect-Direct no está en producción. El archivo cifrado se deposita manualmente.",
+      "num_integraciones": 2,
+      "integrations_ref": ["ISV01", "ISV02"],
+      "evidence": "hdu_catalog HDU-SMART-R4-06: 'Flujo SVBO->OCG->Cargen->PGP->ConnectDirect confirmado'; ISV02 AFT OLTP-Informix→Connect-Direct"
+    },
+    {
+      "step_num": 5,
+      "step_id": "STEP-EMIS-005",
+      "description": "Certificación de layouts de maquila con el proveedor",
+      "us_id": "HDU-SMART-R4-01",
+      "system": "SmartVista BPC + Maquilador",
+      "protocol": "SFTP",
+      "protocol_detail": "Certificación bilateral del layout de embozado, chip EMV y datos variables con el proveedor de maquila. Rechazo de caracteres no embosables. Pendiente certificación formal con ForzaForm y TGS.",
+      "exists_today": false,
+      "moscow": "must",
+      "complejidad": "Media",
+      "pregame_status": "partial",
+      "gap_flag": false,
+      "evidence": "hdu_catalog HDU-SMART-R4-01: 'certificacion Forza/TGS pendiente; rechazo de caracteres no embosables'"
+    },
+    {
+      "step_num": 6,
+      "step_id": "STEP-EMIS-006",
+      "description": "Seguimiento de estatus de lotes de producción",
+      "us_id": "HDU-SMART-R4-07",
+      "system": "SmartVista BPC",
+      "protocol": "batch",
+      "protocol_detail": "Reportería de existencia disponible en SmartVista BPC. Integración con sistema de paquetería del maquilador pendiente.",
+      "exists_today": true,
+      "moscow": "should",
+      "complejidad": "Media",
+      "pregame_status": "partial",
+      "gap_flag": false,
+      "evidence": "hdu_catalog HDU-SMART-R4-07: 'Reporteria de existencia existe; integracion paqueteria pendiente'"
+    },
+    {
+      "step_num": 7,
+      "step_id": "STEP-EMIS-007",
+      "description": "Recepción y control de lotes física y digital",
+      "us_id": "HDU-SMART-R4-08",
+      "system": "SmartVista BPC",
+      "protocol": "API",
+      "protocol_detail": "Consulta y control de tarjetas por número de sucursal y lote generado vía API SIWEB→SmartVista BPC. Procesos en SmartVista BPC; parametrización de estados pendiente.",
+      "exists_today": true,
+      "moscow": "must",
+      "complejidad": "Baja",
+      "pregame_status": "partial",
+      "gap_flag": false,
+      "num_integraciones": 3,
+      "integrations_ref": ["ISV03"],
+      "evidence": "hdu_catalog HDU-SMART-R4-08: 'Procesos en SmartVista; parametrizacion de estados pendiente'; ISV03: Consulta de lotes SIWEB→SMARTVISTA existe hoy (Modificar)"
+    }
+  ],
+
+  "us_mapping": [
+    {
+      "us_id": "HDU-SMART-R4-01",
+      "title": "Certificar layouts de maquila con proveedores.",
+      "step_ref": "STEP-EMIS-005",
+      "moscow": "must",
+      "complejidad": "Media",
+      "num_criterios": 5,
+      "num_integraciones": 0,
+      "pregame_status": "partial",
+      "dtm_id": "DTM_ExecuteCardManufacturingRequest",
+      "capability_id": "CAP-CARD-MANUFACTURING",
+      "notes": "Cifrado PGP+HSM; certificación ForzaForm/TGS pendiente; rechazo de caracteres no embosables"
+    },
+    {
+      "us_id": "HDU-SMART-R4-02",
+      "title": "Consultar inventario de tarjetas por sucursal.",
+      "step_ref": "STEP-EMIS-001",
+      "moscow": "should",
+      "complejidad": "Alta",
+      "num_criterios": 4,
+      "num_integraciones": 0,
+      "pregame_status": null,
+      "dtm_id": null,
+      "capability_id": "CAP-CARD-MANUFACTURING",
+      "notes": null
+    },
+    {
+      "us_id": "HDU-SMART-R4-03",
+      "title": "Calcular maquila con parámetros de abasto.",
+      "step_ref": "STEP-EMIS-002",
+      "moscow": "should",
+      "complejidad": "Media",
+      "num_criterios": 4,
+      "num_integraciones": 0,
+      "pregame_status": "not_covered",
+      "dtm_id": "DTM_CalculateCardManufacturing",
+      "capability_id": "CAP-CARD-MANUFACTURING",
+      "notes": "GAP: lógica de cálculo paramétrico no nativa en SmartVista BPC; requiere desarrollo. Batch 6AM."
+    },
+    {
+      "us_id": "HDU-SMART-R4-04",
+      "title": "Ejecutar solicitud automatizada de maquila.",
+      "step_ref": "STEP-EMIS-003",
+      "moscow": "must",
+      "complejidad": "Media",
+      "num_criterios": 3,
+      "num_integraciones": 0,
+      "pregame_status": "partial",
+      "dtm_id": "DTM_ExecuteCardManufacturingRequest",
+      "capability_id": "CAP-CARD-MANUFACTURING",
+      "notes": "SmartVista SVBO→SVCG automatizado vía NFS+Cron; OCG y Connect-Direct manuales en R4"
+    },
+    {
+      "us_id": "HDU-SMART-R4-05",
+      "title": "Ejecutar solicitud manual de maquila.",
+      "step_ref": null,
+      "step_note": "No tiene paso dedicado en PHASE_STEPS. Es el flujo alterno manual cuando la solicitud automatizada no puede ejecutarse (o durante el período donde Connect-Direct no está en producción).",
+      "moscow": "must",
+      "complejidad": "Media",
+      "num_criterios": 3,
+      "num_integraciones": 0,
+      "pregame_status": "native",
+      "dtm_id": null,
+      "capability_id": "CAP-CARD-MANUFACTURING",
+      "notes": "Demo confirmó funcionamiento punta a punta para débito y crédito. Flujo alterno al automatizado."
+    },
+    {
+      "us_id": "HDU-SMART-R4-06",
+      "title": "Generar archivos seguros de maquila.",
+      "step_ref": "STEP-EMIS-004",
+      "moscow": "must",
+      "complejidad": "Media",
+      "num_criterios": 3,
+      "num_integraciones": 2,
+      "pregame_status": "native",
+      "dtm_id": null,
+      "capability_id": "CAP-CARD-MANUFACTURING",
+      "integrations_ref": ["ISV01", "ISV02"],
+      "notes": "Flujo SmartVista SVBO→OCG→Cargen→PGP→Connect-Direct confirmado. Cifrado PGP + HSM Thales payShield 10K."
+    },
+    {
+      "us_id": "HDU-SMART-R4-07",
+      "title": "Dar seguimiento a estatus de lotes.",
+      "step_ref": "STEP-EMIS-006",
+      "moscow": "should",
+      "complejidad": "Media",
+      "num_criterios": 2,
+      "num_integraciones": 0,
+      "pregame_status": "partial",
+      "dtm_id": null,
+      "capability_id": "CAP-CARD-MANUFACTURING",
+      "notes": "Reportería de existencia disponible; integración con paquetería del maquilador pendiente"
+    },
+    {
+      "us_id": "HDU-SMART-R4-08",
+      "title": "Controlar recepción y cancelación de lotes.",
+      "step_ref": "STEP-EMIS-007",
+      "moscow": "must",
+      "complejidad": "Baja",
+      "num_criterios": 0,
+      "num_integraciones": 3,
+      "pregame_status": "partial",
+      "dtm_id": null,
+      "capability_id": "CAP-CARD-MANUFACTURING",
+      "integrations_ref": ["ISV03"],
+      "notes": "Procesos en SmartVista BPC; parametrización de estados pendiente"
+    }
+  ],
+
+  "data_elements": [
+    {
+      "element_id": "DE-EMIS-001",
+      "name": "BIN",
+      "full_name": "Bank Identification Number",
+      "description": "BIN del Producto 4900: BIN 426807, producto 11. Identifica al banco emisor en los primeros 6 dígitos del PAN. Subdivisión: posición 8 dígito 0-4 = tarjeta digital; 5-9 = tarjeta física.",
+      "is_pii": false,
+      "pci_data": true,
+      "pci_classification": "Cardholder Data — componente del PAN",
+      "owner_system": "SmartVista BPC",
+      "used_in_steps": ["STEP-EMIS-003", "STEP-EMIS-004", "STEP-EMIS-005"]
+    },
+    {
+      "element_id": "DE-EMIS-002",
+      "name": "PAN",
+      "full_name": "Primary Account Number (número de tarjeta de 16 dígitos)",
+      "description": "Número de tarjeta de 16 dígitos del plástico físico. Dato de tarjetahabiente (CHD) protegido por PCI-DSS. Distinto al crédito de 18 dígitos que es número interno de SmartVista BPC (número de contrato).",
+      "is_pii": true,
+      "pci_data": true,
+      "pci_classification": "CHD — Cardholder Data",
+      "pci_control": "PCI-DSS Req. 3.3 — enmascaramiento en pantallas; Req. 3.4 — renderizado ilegible en reposo",
+      "owner_system": "SmartVista BPC",
+      "used_in_steps": ["STEP-EMIS-003", "STEP-EMIS-004", "STEP-EMIS-005"]
+    },
+    {
+      "element_id": "DE-EMIS-003",
+      "name": "Llave PGP",
+      "full_name": "Llave pública PGP del maquilador",
+      "description": "Llave pública PGP del proveedor de maquila. Una llave por maquilador. Usada por Cargen (SVCG) para cifrar el archivo de layout antes del transporte vía Connect-Direct. Vocabulario PGP: Pretty Good Privacy.",
+      "is_pii": false,
+      "pci_data": true,
+      "pci_classification": "Criptografía de transporte",
+      "pci_control": "PCI-DSS Req. 4.2 — cifrado de CHD en tránsito; Req. 3.6 — gestión del ciclo de vida de llaves",
+      "owner_system": "SmartVista BPC / Cargen (SVCG)",
+      "used_in_steps": ["STEP-EMIS-004"]
+    },
+    {
+      "element_id": "DE-EMIS-004",
+      "name": "institutionId",
+      "full_name": "Identificador de institución SmartVista BPC",
+      "description": "Identificador de la institución financiera en SmartVista BPC. Parámetro de configuración del sistema que distingue a BanCoppel de otros clientes del CMS de tarjetas BPC Banking Technologies.",
+      "is_pii": false,
+      "pci_data": false,
+      "owner_system": "SmartVista BPC",
+      "used_in_steps": ["STEP-EMIS-001", "STEP-EMIS-002", "STEP-EMIS-003"]
+    },
+    {
+      "element_id": "DE-EMIS-005",
+      "name": "batchId",
+      "full_name": "Identificador de lote de maquila",
+      "description": "Número de lote generado por SmartVista SVBO. Usado para trazabilidad end-to-end del proceso de maquila: desde la solicitud hasta la recepción física en sucursal. RPA de reórdenes lo incluye en el correo diario a ~30 destinatarios.",
+      "is_pii": false,
+      "pci_data": false,
+      "owner_system": "SmartVista BPC",
+      "used_in_steps": ["STEP-EMIS-003", "STEP-EMIS-006", "STEP-EMIS-007"]
+    },
+    {
+      "element_id": "DE-EMIS-006",
+      "name": "Layout de maquila",
+      "full_name": "Archivo de layout de maquila (personalización del plástico)",
+      "description": "Archivo con los datos de personalización del plástico: PAN, nombre del tarjetahabiente, fecha de vencimiento, BIN, datos del chip EMV. Generado por Cargen (SVCG) y cifrado con PGP antes del envío al maquilador.",
+      "is_pii": false,
+      "pci_data": true,
+      "pci_classification": "CHD — Cardholder Data (contiene PAN y nombre del tarjetahabiente)",
+      "pci_control": "PCI-DSS Req. 3 — protección de CHD; Req. 4.2 — cifrado PGP en tránsito",
+      "owner_system": "Cargen (SVCG) / SmartVista BPC",
+      "used_in_steps": ["STEP-EMIS-004", "STEP-EMIS-005"]
+    },
+    {
+      "element_id": "DE-EMIS-007",
+      "name": "Chip data",
+      "full_name": "Datos del chip EMV",
+      "description": "Datos de personalización del chip EMV de la tarjeta. Incluye certificados y claves de sesión derivadas por el HSM Thales payShield 10K. Estándar EMV (Europay, Mastercard, Visa) para transacciones con chip.",
+      "is_pii": false,
+      "pci_data": true,
+      "pci_classification": "SAD — Sensitive Authentication Data",
+      "pci_control": "PCI-DSS Req. 3.6 — custodia de llaves criptográficas por HSM",
+      "owner_system": "HSM Thales payShield 10K",
+      "used_in_steps": ["STEP-EMIS-004", "STEP-EMIS-005"]
+    },
+    {
+      "element_id": "DE-EMIS-008",
+      "name": "CVV2",
+      "full_name": "Card Verification Value 2",
+      "description": "Código de verificación de 3 dígitos impreso en el reverso de la tarjeta. Generado por el HSM Thales payShield 10K usando el PAN y la fecha de vencimiento. Protegido como SAD bajo PCI-DSS. Nunca debe almacenarse después de la personalización del plástico.",
+      "is_pii": true,
+      "pci_data": true,
+      "pci_classification": "SAD — Sensitive Authentication Data",
+      "pci_control": "PCI-DSS Req. 3.2 — prohibición de almacenar SAD post-autorización",
+      "owner_system": "HSM Thales payShield 10K",
+      "used_in_steps": ["STEP-EMIS-004"]
+    },
+    {
+      "element_id": "DE-EMIS-009",
+      "name": "PIN",
+      "full_name": "Personal Identification Number (NIP)",
+      "description": "NIP de la tarjeta generado por el HSM Thales payShield 10K. Cifrado individualmente por tarjeta. Nunca almacenado en claro en ningún sistema. Vocabulario brain: HSM: cifrado individual por tarjeta.",
+      "is_pii": false,
+      "pci_data": true,
+      "pci_classification": "SAD — Sensitive Authentication Data",
+      "pci_control": "PCI-DSS Req. 3.2 — SAD no almacenable post-autorización; Req. 8.2 — protección de PINs",
+      "owner_system": "HSM Thales payShield 10K",
+      "used_in_steps": ["STEP-EMIS-004"]
+    },
+    {
+      "element_id": "DE-EMIS-010",
+      "name": "Fecha de vencimiento de tarjeta",
+      "full_name": "Fecha de expiración del plástico (MM/AA)",
+      "description": "Fecha de vencimiento impresa en el plástico. Usada en el layout de maquila y como parámetro de entrada para la derivación de CVV2 en el HSM Thales payShield 10K. Combinada con PAN es un dato protegido bajo PCI-DSS.",
+      "is_pii": false,
+      "pci_data": true,
+      "pci_classification": "CHD — Cardholder Data (cuando se combina con PAN)",
+      "pci_control": "PCI-DSS Req. 3 — protección de CHD almacenados",
+      "owner_system": "SmartVista BPC",
+      "used_in_steps": ["STEP-EMIS-004", "STEP-EMIS-005"]
+    },
+    {
+      "element_id": "DE-EMIS-011",
+      "name": "Número de sucursal",
+      "full_name": "Identificador de sucursal BanCoppel",
+      "description": "Identificador de la sucursal para control de inventario de plásticos y asignación de lotes de maquila. Base del cálculo paramétrico de reabastecimiento.",
+      "is_pii": false,
+      "pci_data": false,
+      "owner_system": "SmartVista BPC / SIWEB",
+      "used_in_steps": ["STEP-EMIS-001", "STEP-EMIS-002", "STEP-EMIS-007"]
+    },
+    {
+      "element_id": "DE-EMIS-012",
+      "name": "Inventario por sucursal",
+      "full_name": "Nivel de inventario de plásticos por sucursal",
+      "description": "Cantidad de tarjetas disponibles en cada sucursal. Base del cálculo de solicitud de maquila. El cálculo incluye piso mínimo, semanas de cobertura y redondeo a múltiplos de 250 plásticos sobre consumo promedio mensual.",
+      "is_pii": false,
+      "pci_data": false,
+      "owner_system": "SmartVista BPC",
+      "used_in_steps": ["STEP-EMIS-001", "STEP-EMIS-002"]
+    }
+  ],
+
+  "integrations": [
+    {
+      "integration_id": "INT-EMIS-001",
+      "source_id": "ISV02",
+      "name": "AFT — Transferencia de archivo de maquila",
+      "from": "SmartVista BPC (OLTP-Informix)",
+      "to": "Connect-Direct",
+      "type": "Batch",
+      "format": "PGP",
+      "frequency": "Diaria/EOD",
+      "exists_today": true,
+      "estado": "Modificar",
+      "gap": true,
+      "gap_id": "GAP-EMIS-001",
+      "gap_description": "Connect-Direct no está en producción para el flujo R4. La transferencia del archivo de maquila se realiza manualmente por tickets.",
+      "pci_scope": true,
+      "pci_control": "PCI-DSS Req. 4.2 — cifrado PGP obligatorio en tránsito de CHD",
+      "notes": "La integración existe en versión previa (existe_hoy:1) pero requiere modificación para R4. El gap es la automatización del depósito en la carpeta del maquilador."
+    },
+    {
+      "integration_id": "INT-EMIS-002",
+      "source_id": "ISV01",
+      "name": "Interfaz temporal de maquila — descarga nube a on-premise",
+      "from": "AWS",
+      "to": "OLTP-Informix",
+      "type": "Batch",
+      "format": "PGP",
+      "frequency": "Diaria/EOD",
+      "exists_today": false,
+      "estado": "Nueva",
+      "gap": false,
+      "pci_scope": true,
+      "pci_control": "PCI-DSS Req. 4.2 — cifrado PGP en tránsito",
+      "notes": "Nueva integración requerida para la descarga del archivo de maquila desde nube (AWS) a infraestructura on-premise. No existe hoy."
+    },
+    {
+      "integration_id": "INT-EMIS-003",
+      "source_id": "ISV03",
+      "name": "Consulta de lotes",
+      "from": "SIWEB",
+      "to": "SmartVista BPC",
+      "type": "API",
+      "format": "REST/JSON",
+      "frequency": "Diaria/EOD",
+      "exists_today": true,
+      "estado": "Modificar",
+      "gap": false,
+      "pci_scope": false,
+      "notes": "Consulta de tarjetas por número de sucursal y lote generado. Usada en seguimiento y recepción de lotes (HDU-SMART-R4-08)."
+    },
+    {
+      "integration_id": "INT-EMIS-004",
+      "source_id": null,
+      "name": "SmartVista BPC → HSM Thales payShield 10K",
+      "from": "SmartVista BPC (Cargen/SVCG)",
+      "to": "HSM Thales payShield 10K",
+      "type": "Síncrona — HSM API",
+      "format": "PKCS#11 / Thales payShield API",
+      "frequency": "Por lote/EOD",
+      "exists_today": true,
+      "estado": "Existente",
+      "gap": false,
+      "pci_scope": true,
+      "pci_control": "PCI-DSS Req. 3.6 — generación y custodia de llaves; Req. 3.2 — PIN y CVV2",
+      "notes": "El HSM genera llaves individuales por tarjeta (PIN y CVV2). Thales payShield 10K es el módulo de referencia PCI-DSS para operaciones de personalización de tarjetas."
+    },
+    {
+      "integration_id": "INT-EMIS-005",
+      "source_id": null,
+      "name": "API getCgBatchContent",
+      "from": "SmartVista BPC",
+      "to": "Cargen (SVCG)",
+      "type": "API interna SmartVista BPC",
+      "format": "SmartVista SVIP — catálogo de 92 comandos",
+      "frequency": "Por lote",
+      "exists_today": true,
+      "estado": "Existente",
+      "gap": false,
+      "pci_scope": true,
+      "pci_control": "PCI-DSS Req. 9 — control de producción de tarjetas",
+      "notes": "API interna de SmartVista BPC para obtener el contenido del lote de Card Generation (Cargen/SVCG). Hace parte del catálogo SVIP oficial de BPC Banking Technologies."
+    }
+  ],
+
+  "test_cases": [
+    {
+      "tc_id": "TC-EMIS-001",
+      "name": "Generación de lote correcta — flujo nominal",
+      "description": "Verificar que SmartVista SVBO genera correctamente el lote de solicitudes, OCG produce el archivo de solicitudes aprobadas, Cargen aplica los filtros y produce el layout, y el archivo cifrado PGP queda disponible para envío.",
+      "type": "System Integration Testing (SIT)",
+      "us_refs": ["HDU-SMART-R4-03", "HDU-SMART-R4-04", "HDU-SMART-R4-06"],
+      "steps": [
+        "Ejecutar batch de inventario a las 6AM",
+        "Validar cálculo de solicitud por sucursal (múltiplos de 250)",
+        "Verificar generación de lote en SmartVista SVBO con batchId trazable",
+        "Confirmar que OCG genera archivo de solicitudes aprobadas",
+        "Validar que Cargen (SVCG) aplica filtros correctamente y produce el layout",
+        "Verificar cifrado PGP del archivo resultante con llave del maquilador",
+        "Confirmar integridad del lote (hash PCI-DSS al 100%)"
+      ],
+      "expected_result": "Archivo de layout cifrado con PGP disponible en directorio destino. batchId trazable. Integridad del lote verificada al 100%.",
+      "pci_relevant": true,
+      "priority": "must",
+      "sit_phase": "SIT — 15-oct a 15-dic-2026"
+    },
+    {
+      "tc_id": "TC-EMIS-002",
+      "name": "Lote con error PGP — llave incorrecta o expirada",
+      "description": "Verificar el comportamiento del sistema cuando la llave PGP del maquilador es incorrecta, ha expirado o no está disponible. El proceso no debe permitir que el archivo llegue al maquilador en texto claro.",
+      "type": "System Integration Testing (SIT) — caso negativo",
+      "us_refs": ["HDU-SMART-R4-06"],
+      "steps": [
+        "Configurar SmartVista BPC con una llave PGP expirada del maquilador",
+        "Ejecutar generación de archivo de maquila",
+        "Verificar que el proceso falla con error controlado antes del cifrado",
+        "Confirmar que no se genera ningún archivo en claro ni en directorio accesible",
+        "Verificar que se genera alerta y notificación al operador"
+      ],
+      "expected_result": "Error controlado de cifrado. No se produce archivo sin cifrar. No hay entrega al maquilador. Alerta generada con detalle del error.",
+      "pci_relevant": true,
+      "pci_control": "PCI-DSS Req. 4.2 — ningún CHD viaja sin cifrar",
+      "priority": "must"
+    },
+    {
+      "tc_id": "TC-EMIS-003",
+      "name": "Connect-Direct no disponible — fallback manual por tickets",
+      "description": "Verificar el procedimiento de contingencia cuando Connect-Direct no está disponible. En R4 este es el flujo operativo normal (BLOQUEANTE GAP-EMIS-001). Validar que el proceso manual de tickets no compromete la integridad PCI-DSS del archivo cifrado.",
+      "type": "System Integration Testing (SIT) — contingencia/operación normal R4",
+      "us_refs": ["HDU-SMART-R4-06"],
+      "gap_ref": "GAP-EMIS-001",
+      "steps": [
+        "Simular indisponibilidad de Connect-Direct (o ejecutar en ambiente R4 donde no está en producción)",
+        "Verificar que el archivo cifrado PGP queda disponible en directorio intermedio",
+        "Ejecutar proceso manual de ticket para depósito en carpeta del maquilador",
+        "Confirmar recepción en destino del maquilador y verificar integridad del archivo (hash)",
+        "Registrar trazabilidad del envío manual para auditoría PCI-DSS",
+        "Verificar que el archivo no se expone en canales inseguros durante el proceso manual"
+      ],
+      "expected_result": "Archivo entregado al maquilador con integridad verificada. Registro de auditoría completo. Cumplimiento PCI-DSS mantenido durante el proceso manual.",
+      "pci_relevant": true,
+      "priority": "must",
+      "note": "Este es el flujo de operación real en R4. Connect-Direct no está en producción. Este caso de prueba valida la operación normal del programa hasta Go-Live ~15-ene-2027."
+    },
+    {
+      "tc_id": "TC-EMIS-004",
+      "name": "Certificación de layout con maquilador (ForzaForm)",
+      "description": "Verificar que el layout de maquila es certificado correctamente con ForzaForm (maquilador priorizado de facto). Incluye validación de caracteres embosables, formato de chip EMV y datos variables del Producto 4900.",
+      "type": "User Acceptance Testing (UAT) — certificación bilateral con proveedor",
+      "us_refs": ["HDU-SMART-R4-01"],
+      "steps": [
+        "Generar archivo de layout de prueba con datos del Producto 4900 (BIN 426807)",
+        "Enviar a ForzaForm para revisión de formato",
+        "Introducir deliberadamente caracteres no embosables en el campo nombre y verificar rechazo",
+        "Validar formato del bloque de chip EMV en el layout",
+        "Confirmar aprobación bilateral del layout por ForzaForm y BanCoppel",
+        "Documentar el registro de certificación para compliance PCI-DSS Req. 9"
+      ],
+      "expected_result": "Layout certificado bilateralmente por ForzaForm y BanCoppel. Caracteres no embosables gestionados con error controlado. Registro de certificación firmado.",
+      "pci_relevant": true,
+      "priority": "must"
+    },
+    {
+      "tc_id": "TC-EMIS-005",
+      "name": "Recepción de lote — verificación física vs digital",
+      "description": "Verificar que el proceso de recepción de lotes en sucursal reconcilia correctamente el conteo físico de plásticos con el registro digital en SmartVista BPC (control de inventario PCI-DSS Req. 9).",
+      "type": "System Integration Testing (SIT)",
+      "us_refs": ["HDU-SMART-R4-08"],
+      "steps": [
+        "Simular llegada de lote físico a sucursal con batchId conocido",
+        "Registrar recepción en SmartVista BPC con el batchId correspondiente",
+        "Verificar conteo físico vs. registros digitales en SmartVista BPC",
+        "Simular discrepancia (plástico faltante) y validar proceso de reporte de excepción",
+        "Confirmar actualización del inventario en el sistema tras la reconciliación"
+      ],
+      "expected_result": "Reconciliación exitosa física-digital. Discrepancias detectadas y reportadas correctamente. Inventario actualizado en SmartVista BPC.",
+      "pci_relevant": true,
+      "pci_control": "PCI-DSS Req. 9 — control de inventario de tarjetas",
+      "priority": "must"
+    },
+    {
+      "tc_id": "TC-EMIS-006",
+      "name": "Inventario bajo mínimo — activación de cálculo de solicitud de maquila",
+      "description": "Verificar que el sistema detecta cuando el inventario de una sucursal cae por debajo del nivel mínimo configurado y activa el proceso de cálculo de solicitud de maquila con los parámetros de abasto correctos.",
+      "type": "System Integration Testing (SIT)",
+      "us_refs": ["HDU-SMART-R4-02", "HDU-SMART-R4-03"],
+      "steps": [
+        "Configurar nivel mínimo de inventario (piso) para una sucursal de prueba",
+        "Reducir el inventario por debajo del piso mínimo configurado",
+        "Ejecutar batch de inventario (6AM)",
+        "Verificar que el sistema activa el cálculo de solicitud de maquila",
+        "Confirmar que el cálculo usa el redondeo a múltiplos de 250",
+        "Validar que la cantidad calculada cubre las semanas de cobertura configuradas"
+      ],
+      "expected_result": "Solicitud de maquila generada automáticamente con cantidad correcta (múltiplos de 250). Alertas de inventario bajo generadas. Parámetros de abasto aplicados correctamente.",
+      "pci_relevant": false,
+      "priority": "should",
+      "note": "La lógica de cálculo paramétrico es GAP-EMIS-005 — requiere desarrollo custom en SmartVista BPC antes de que este caso de prueba sea ejecutable."
+    },
+    {
+      "tc_id": "TC-EMIS-007",
+      "name": "Seguimiento de estatus de lotes — flujo normal y alertas de retraso",
+      "description": "Verificar que el módulo de seguimiento de lotes en SmartVista BPC refleja correctamente los cambios de estado del lote (generado, en tránsito, en producción con el maquilador, entregado a sucursal) y genera alertas cuando hay retrasos frente al SLA.",
+      "type": "System Integration Testing (SIT)",
+      "us_refs": ["HDU-SMART-R4-07"],
+      "steps": [
+        "Generar un lote de maquila y registrar el estado inicial en SmartVista BPC",
+        "Simular progresión de estados: generado → enviado al maquilador → en producción → en tránsito → entregado",
+        "Verificar que cada transición de estado se refleja en tiempo real en SmartVista BPC",
+        "Simular retraso que excede el SLA (más de 10 días hábiles) y verificar alerta",
+        "Confirmar que el SLA de 5-10 días hábiles desde aprobación es monitoreable"
+      ],
+      "expected_result": "Estados del lote reflejados correctamente. Alertas de retraso generadas al exceder SLA. Trazabilidad end-to-end del lote visible en SmartVista BPC.",
+      "pci_relevant": false,
+      "priority": "should",
+      "kpi_ref": "KPI-EMIS-001: Aprobación→tarjeta en mano 5-10 días hábiles"
+    },
+    {
+      "tc_id": "TC-EMIS-008",
+      "name": "PCI-DSS — integridad del lote y auditoría de acceso a CHD",
+      "description": "Verificar que el proceso completo de generación y transmisión del lote cumple con los controles mandatorios PCI-DSS (Payment Card Industry Data Security Standard): integridad del lote al 100%, trazabilidad de acceso a Cardholder Data (CHD), y que ningún dato de tarjetahabiente queda expuesto en logs o archivos temporales.",
+      "type": "Security Test — PCI-DSS Req. 3, 4, 9, 10",
+      "us_refs": ["HDU-SMART-R4-06", "HDU-SMART-R4-08"],
+      "steps": [
+        "Ejecutar generación de lote completo en ambiente de pruebas",
+        "Verificar que el archivo de layout contiene CHD cifrado — sin PAN en claro (PCI-DSS Req. 3.4)",
+        "Revisar logs del proceso y confirmar que no contienen PAN ni CVV2 en claro",
+        "Verificar que el CVV2 generado por HSM Thales payShield 10K no se almacena post-personalización (PCI-DSS Req. 3.2)",
+        "Auditar el registro de acceso al directorio de archivos de maquila (PCI-DSS Req. 10)",
+        "Verificar hash de integridad del lote antes del cifrado PGP y confirmar coincidencia en destino"
+      ],
+      "expected_result": "Integridad del lote 100%. Sin CHD expuesto en logs ni archivos temporales. CVV2 y PIN nunca almacenados en claro. Registro de auditoría completo. KPI-EMIS-004: Integridad lote (PCI-DSS) = 100%.",
+      "pci_relevant": true,
+      "pci_controls": [
+        "PCI-DSS Req. 3.2 — SAD (CVV2/PIN) no almacenable",
+        "PCI-DSS Req. 3.4 — CHD ilegible en reposo",
+        "PCI-DSS Req. 4.2 — cifrado en tránsito",
+        "PCI-DSS Req. 9 — control físico de producción",
+        "PCI-DSS Req. 10 — log de acceso a CHD"
+      ],
+      "priority": "must",
+      "kpi_ref": "KPI-EMIS-004: Integridad lote (PCI-DSS) = 100%"
+    }
+  ],
+
+  "gaps_found": [
+    {
+      "gap_id": "GAP-EMIS-001",
+      "severity": "CRIT",
+      "title": "Connect-Direct no en producción — depósito manual por tickets",
+      "description": "Connect-Direct no está operativo en el flujo R4. El depósito del archivo de maquila cifrado con PGP en la carpeta del maquilador se realiza de forma manual mediante tickets, lo que introduce riesgo operativo, elimina la trazabilidad automatizada y es incompatible con un SLA de 5-10 días hábiles gestionable.",
+      "affected_steps": ["STEP-EMIS-003", "STEP-EMIS-004"],
+      "affected_us": ["HDU-SMART-R4-04", "HDU-SMART-R4-06"],
+      "affected_nodes": ["CONNECT_DIRECT"],
+      "affected_integrations": ["INT-EMIS-001"],
+      "pci_impact": true,
+      "pci_control": "PCI-DSS Req. 4.2 — riesgo de manipulación del archivo cifrado en proceso manual",
+      "mitigation_current": "Proceso manual por tickets con validación manual de integridad del archivo",
+      "mitigation_target": "Despliegue y certificación de Connect-Direct en ambiente de producción R4 antes del SIT (15-oct-2026)",
+      "evidence": [
+        "Phase notes BLOQUEANTE: 'Connect-Direct no en producción — depósito manual por tickets'",
+        "DTM_ExecuteCardManufacturingRequest gap_description: 'GAP: OCG y entrega a Connect Direct son 2 pasos manuales en R4'",
+        "hdu_catalog HDU-SMART-R4-04: 'OCG y Connect Direct manuales en R4'"
+      ]
+    },
+    {
+      "gap_id": "GAP-EMIS-002",
+      "severity": "WARN",
+      "title": "Maquilador único no definido formalmente",
+      "description": "Existen cuatro maquiladores posibles (Thales, G+D, TGS y ForzaForm), con ForzaForm priorizado de facto pero sin formalización contractual. La indefinición impide certificar layouts, planear la estrategia de llaves PGP por proveedor y cumplir con PCI-DSS Req. 9 sobre control de proveedores de producción de tarjetas.",
+      "affected_steps": ["STEP-EMIS-005"],
+      "affected_us": ["HDU-SMART-R4-01"],
+      "affected_nodes": ["MAQUILADOR"],
+      "pci_impact": true,
+      "pci_control": "PCI-DSS Req. 9 — control sobre proveedores de producción de tarjetas; Req. 12.8 — gestión de proveedores con acceso a CHD",
+      "mitigation_current": "ForzaForm usado de facto para pruebas iniciales de layout",
+      "mitigation_target": "Definición formal del maquilador principal, firma de contrato con SLA, y certificación de layout bilateral documentada",
+      "evidence": [
+        "Phase notes: 'Maquilador único no definido formalmente (warn)'",
+        "Phase notes: 'Cuatro maquiladores posibles: Thales, G+D, TGS y ForzaForm (este último priorizado de facto)'",
+        "hdu_catalog HDU-SMART-R4-01: 'Certificar layouts de maquila con proveedores GID/Forza/TGS' — inconsistencia con lista de fase"
+      ]
+    },
+    {
+      "gap_id": "GAP-VP-002",
+      "severity": "WARN",
+      "title": "SLA aprobación→tarjeta en mano sin definir",
+      "description": "No existe un SLA formal para el tiempo entre la aprobación del crédito y la entrega de la tarjeta física al cliente. El estándar de la industria en México es 5-10 días hábiles, pero BanCoppel no ha formalizado este indicador ni lo ha incluido como KPI de gobierno del programa Unity R4.",
+      "affected_steps": ["STEP-EMIS-003", "STEP-EMIS-006", "STEP-EMIS-007"],
+      "affected_us": ["HDU-SMART-R4-07"],
+      "kpi_industry_standard": "5-10 días hábiles desde aprobación (estándar México)",
+      "pci_impact": false,
+      "mitigation_current": "Sin definición formal",
+      "mitigation_target": "Definir SLA contractual con el maquilador, incorporar al cuadro de KPIs de Unity R4 y configurar alertas en SmartVista BPC",
+      "evidence": [
+        "PHASE_NARRATIVES.emision: 'Tiempo estándar México: 5-10 días hábiles desde aprobación'",
+        "Phase brechas: 'SLA aprobación→tarjeta: sin definir GAP-VP-002 (warn)'"
+      ]
+    },
+    {
+      "gap_id": "GAP-EMIS-004",
+      "severity": "WARN",
+      "title": "Inconsistencia en la lista de maquiladores en documentación",
+      "description": "La documentación del programa Unity R4 usa nombres inconsistentes para los maquiladores: 'GID/Forza/TGS' en hdu_catalog HDU-SMART-R4-01 vs 'Thales, G+D, TGS y ForzaForm' en las notas de fase vs 'Forza/TGS' en notas adicionales del hdu_catalog. Esta inconsistencia puede generar confusión en la planificación de llaves PGP, contratos y proceso de certificación de layouts.",
+      "affected_us": ["HDU-SMART-R4-01", "HDU-SMART-R4-06"],
+      "pci_impact": true,
+      "pci_control": "PCI-DSS Req. 12.8 — gestión de proveedores con acceso a CHD requiere lista definida y auditada",
+      "mitigation_current": "Sin resolución — inconsistencia no gestionada",
+      "mitigation_target": "Unificar el catálogo de maquiladores en una única fuente de verdad (brain.db::vendors o equivalente) y sincronizar toda la documentación del programa",
+      "evidence": [
+        "hdu_catalog HDU-SMART-R4-01 narrativa_corta: 'Certificar layouts de maquila con proveedores GID/Forza/TGS'",
+        "Phase notes: 'Cuatro maquiladores posibles: Thales, G+D, TGS y ForzaForm'",
+        "hdu_catalog HDU-SMART-R4-01 notes: 'certificacion Forza/TGS pendiente'",
+        "PHASE_STEPS step 5: 'SmartVista BPC + Maquilador' — sin nombre específico"
+      ]
+    },
+    {
+      "gap_id": "GAP-EMIS-005",
+      "severity": "WARN",
+      "title": "Lógica de cálculo paramétrico de maquila no nativa en SmartVista BPC",
+      "description": "El DTM_CalculateCardManufacturing confirma que la lógica de cálculo de reabastecimiento por sucursal (piso mínimo, semanas a dotar, redondeo a múltiplos de 250, consumo promedio sobre mes calendario) no es nativa en SmartVista BPC. HDU-SMART-R4-03 tiene pregame_status: not_covered. Requiere desarrollo custom antes del System Integration Testing (SIT).",
+      "affected_steps": ["STEP-EMIS-002"],
+      "affected_us": ["HDU-SMART-R4-03"],
+      "affected_nodes": ["SVBO"],
+      "pci_impact": false,
+      "mitigation_current": "Sin desarrollo iniciado",
+      "mitigation_target": "Desarrollo custom del motor de cálculo paramétrico integrado en SmartVista BPC o vía componente externo, con entrega antes del cierre de desarrollo y UT (15-oct-2026)",
+      "evidence": [
+        "DTM_CalculateCardManufacturing status: 'not_covered'",
+        "DTM_CalculateCardManufacturing gap_description: 'Logica de calculo parametrico (piso, semanas a dotar, redondeo 250, mes calendario) no nativa en SmartVista. Requiere desarrollo.'",
+        "hdu_catalog HDU-SMART-R4-03 pregame_status: 'not_covered'",
+        "DTM_CalculateCardManufacturing notes: 'Batch 6AM; consumo promedio sobre mes calendario (no ventana fija)'"
+      ]
+    }
+  ],
+
+  "kpis": [
+    {
+      "kpi_id": "KPI-EMIS-001",
+      "name": "Tiempo aprobación→tarjeta en mano",
+      "target": "5-10 días hábiles",
+      "status": "sin_definir",
+      "gap_ref": "GAP-VP-002"
+    },
+    {
+      "kpi_id": "KPI-EMIS-002",
+      "name": "Tasa de defectos de maquila",
+      "target": "< 0.1%",
+      "status": "definido",
+      "gap_ref": null
+    },
+    {
+      "kpi_id": "KPI-EMIS-003",
+      "name": "Activación post-maquila (30 días)",
+      "target": "> 70%",
+      "status": "definido",
+      "gap_ref": null
+    },
+    {
+      "kpi_id": "KPI-EMIS-004",
+      "name": "Integridad del lote (PCI-DSS Payment Card Industry Data Security Standard)",
+      "target": "100%",
+      "status": "definido",
+      "pci_controls": ["PCI-DSS Req. 3", "PCI-DSS Req. 4.2"],
+      "gap_ref": null
+    }
+  ],
+
+  "risks": [
+    {
+      "risk_id": "RISK-EMIS-001",
+      "linked_gap": "GAP-EMIS-001",
+      "description": "Connect-Direct no llega a producción antes del inicio del System Integration Testing (SIT) el 15-oct-2026, obligando a operar todo el ciclo de maquila del Producto 4900 con proceso manual por tickets durante el SIT y potencialmente en el Go-Live ~15-ene-2027.",
+      "probability": "high",
+      "impact": "high",
+      "status": "open",
+      "owner": "Por confirmar — programa Unity R4 / BPC Banking Technologies"
+    },
+    {
+      "risk_id": "RISK-EMIS-002",
+      "linked_gap": "GAP-EMIS-002",
+      "description": "ForzaForm u otro maquilador no certifica el layout del Producto 4900 (BIN 426807) antes del inicio del System Integration Testing (SIT), bloqueando la emisión de plásticos en el entorno de pruebas y retrasando el Go-Live.",
+      "probability": "medium",
+      "impact": "high",
+      "status": "open",
+      "owner": "Por confirmar — componente SmartVista BPC"
+    },
+    {
+      "risk_id": "RISK-EMIS-003",
+      "linked_gap": "GAP-EMIS-005",
+      "description": "El desarrollo custom de la lógica de cálculo paramétrico (DTM_CalculateCardManufacturing) no queda listo antes del cierre de desarrollo y Unit Testing (15-oct-2026), dejando la User Story HDU-SMART-R4-03 (MoSCoW: should) sin cobertura en el System Integration Testing (SIT).",
+      "probability": "medium",
+      "impact": "medium",
+      "status": "open",
+      "owner": "BPC Banking Technologies / equipo SmartVista"
+    }
+  ],
+
+  "analysis_summary": {
+    "phase_coverage": "parcial",
+    "total_user_stories": 8,
+    "user_stories_must": 5,
+    "user_stories_should": 3,
+    "pregame_native": 2,
+    "pregame_partial": 4,
+    "pregame_not_covered": 1,
+    "pregame_null": 1,
+    "gaps_total": 5,
+    "gaps_crit": 1,
+    "gaps_warn": 4,
+    "test_cases_total": 8,
+    "test_cases_pci_relevant": 5,
+    "test_cases_must": 6,
+    "test_cases_should": 2,
+    "integrations_total": 5,
+    "integrations_gap": 1,
+    "integrations_nueva": 1,
+    "integrations_modificar": 2,
+    "integrations_existente": 1,
+    "flow_nodes_total": 6,
+    "flow_nodes_pending": 1,
+    "data_elements_total": 12,
+    "data_elements_pii": 2,
+    "data_elements_pci": 9,
+    "pci_scope": true,
+    "pci_controls_in_scope": [
+      "PCI-DSS Req. 3.2",
+      "PCI-DSS Req. 3.3",
+      "PCI-DSS Req. 3.4",
+      "PCI-DSS Req. 3.6",
+      "PCI-DSS Req. 4.2",
+      "PCI-DSS Req. 9",
+      "PCI-DSS Req. 10",
+      "PCI-DSS Req. 12.8"
+    ],
+    "critical_blocker": "Connect-Direct no en producción — depósito manual por tickets (GAP-EMIS-001)",
+    "hsm_provider": "Thales payShield 10K",
+    "sit_window": "15-oct-2026 a 15-dic-2026",
+    "go_live_target": "~15-ene-2027",
+    "source_doc": "emision-context.json + lifecycle-p4900 PHASES.emision + PHASE_NARRATIVES.emision + PHASE_STEPS.emision"
+  }
+}

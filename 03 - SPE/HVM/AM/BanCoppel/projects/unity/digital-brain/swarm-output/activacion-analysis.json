@@ -1,0 +1,862 @@
+{
+  "phase_id": "activacion",
+  "phase_name": "Activación",
+  "analyzed_at": "2026-08-20",
+  "analyst": "DT-Swarm-Activacion-v1",
+  "product_id": "UNITY-R4-P4900",
+  "product_name": "Tarjeta de Crédito Clásica — Producto 4900",
+  "phase_num": "03",
+  "track": "app",
+  "coverage": "completa",
+  "description": "El cliente activa su tarjeta desde la App Móvil validando identidad en tiempo real.",
+
+  "flow_validated": {
+    "main_flow": [
+      {
+        "node_id": "APP",
+        "node_name": "App Móvil",
+        "system": "app-movil",
+        "role": "canal_activacion",
+        "pending": false,
+        "in_r4_scope": true,
+        "notes": "Canal preferente de activación en R4. 18 User Stories en el track app. Proveedor: Nova Solution Systems."
+      },
+      {
+        "node_id": "CES",
+        "node_name": "CES — Motor de Verificación de Identidad",
+        "system": "ces",
+        "role": "identity_verification",
+        "pending": false,
+        "in_r4_scope": true,
+        "notes": "Valida identidad del portador en tiempo real antes de activar la tarjeta. Integración IAPP05: APP → CES, estado Nueva, existe_hoy: false. Protocolo API REST. Orquesta también el envío de notificaciones post-activación."
+      },
+      {
+        "node_id": "SV",
+        "node_name": "SmartVista BPC",
+        "system": "smartvista",
+        "role": "card_activation",
+        "pending": false,
+        "in_r4_scope": true,
+        "notes": "Activa la tarjeta mediante el comando updateCardStatus del catálogo SVIP (92 comandos). Cambia estado CSTS_INACTIVE → CSTS_ACTIVE. El campo Classification F/D distingue tipo de tarjeta. Proveedor: BPC Banking Technologies."
+      }
+    ],
+    "alternate_channels": [
+      {
+        "node_id": "ATM",
+        "node_name": "ATM — Canal Cajero Automático",
+        "journey_ref": "CJ_ATM_01",
+        "pending": false,
+        "in_r4_scope": false,
+        "has_user_story": false,
+        "notes": "Customer Journey (CJ) documentado en CJ_ATM_01 pero SIN User Story propia en R4. No forma parte del flujo de activación implementado. Documentado como alcance excluido de R4."
+      },
+      {
+        "node_id": "SIWEB",
+        "node_name": "SIWEB — Canal Sucursal",
+        "journey_ref": "CJ_OFI_22",
+        "pending": false,
+        "in_r4_scope": false,
+        "has_user_story": false,
+        "notes": "Customer Journey (CJ) documentado en CJ_OFI_22 pero SIN User Story propia en R4. El track SIWEB tiene 5 User Stories en R4, ninguna de activación. Documentado como alcance excluido de R4."
+      }
+    ],
+    "validation_summary": {
+      "total_main_nodes": 3,
+      "total_validated": 3,
+      "channels_as_cj_only": ["ATM", "SIWEB"],
+      "missing_user_stories": [
+        {
+          "channel": "ATM",
+          "journey_ref": "CJ_ATM_01",
+          "severity": "warn",
+          "recommendation": "Documentar formalmente como alcance excluido en R4. Evaluar inclusión en SmartVista R4.5 o R5, junto con acceso a ATM para clientes SmartVista (actualmente diferido según Plan de Trabajo R4_v1 Julio)."
+        },
+        {
+          "channel": "SIWEB",
+          "journey_ref": "CJ_OFI_22",
+          "severity": "warn",
+          "recommendation": "Añadir User Story de activación por sucursal en el backlog SIWEB para el siguiente release. Si el plazo no lo permite, documentar como gap de servicio en el Release Notes de R4 y comunicar a sucursales."
+        }
+      ],
+      "condusef_compliance": "Tarjeta entregada en estado CSTS_INACTIVE. El portador activa explícitamente desde el canal elegido. Cumple CONDUSEF: ninguna tarjeta activa al entregarse al cliente.",
+      "svip_commands_required": ["updateCardStatus", "getAccountCards", "getCardInfo"]
+    }
+  },
+
+  "steps_enriched": [
+    {
+      "step_num": 1,
+      "step_id": "ACT-STEP-01",
+      "name": "Gestión de TDC Física desde canal Apolo",
+      "systems": ["Apolo", "SmartVista BPC"],
+      "user_story_ref": "SMART-3964",
+      "protocol": "REST",
+      "exists_today": true,
+      "svip_commands": ["updateCardStatus"],
+      "description": "Desde el canal Apolo (originación digital AppWhere) se gestiona la tarjeta de crédito física del Producto 4900: alta, activación y configuración inicial en SmartVista BPC vía SVIP. La tarjeta física (Classification=F) queda en estado CSTS_ACTIVE tras el flujo de originación.",
+      "integration_ids": [],
+      "notes": "Apolo actúa como canal de originación digital. La activación de la TDC Física se registra en SmartVista BPC actualizando el estado CSTS al momento del alta del contrato en SmartVista SVBO."
+    },
+    {
+      "step_num": 2,
+      "step_id": "ACT-STEP-02",
+      "name": "Activación de TDC Digital por AppMóvil",
+      "systems": ["App Móvil", "SmartVista BPC"],
+      "user_story_ref": "SMART-3966",
+      "protocol": "REST",
+      "exists_today": true,
+      "svip_commands": ["updateCardStatus", "getAccountCards"],
+      "description": "El cliente activa su tarjeta de crédito digital desde la App Móvil. La App invoca el comando updateCardStatus de SVIP para cambiar el estado CSTS de la tarjeta digital (Classification=D) de CSTS_INACTIVE a CSTS_ACTIVE. El subBIN R4 distingue tarjeta digital (8vo dígito posición 0-4) de física (posición 5-9). CES valida la identidad del portador antes de ejecutar la activación.",
+      "integration_ids": ["IAPP05"],
+      "us_details": {
+        "id": "SMART-3966",
+        "title": "Activación de TDC Digital",
+        "moscow": "must",
+        "complejidad": "Media",
+        "num_criterios": 4,
+        "track": "app",
+        "funcionalidad": "Activación de TDC Digital"
+      },
+      "notes": "User Story principal de la fase. Flujo: App Móvil → CES (verificar identidad) → SmartVista BPC (activar tarjeta). Es el canal preferente de activación en R4."
+    },
+    {
+      "step_num": 3,
+      "step_id": "ACT-STEP-03",
+      "name": "Gestión de TDC Digital desde canal Apolo",
+      "systems": ["Apolo", "SmartVista BPC"],
+      "user_story_ref": "SMART-4219",
+      "protocol": "REST",
+      "exists_today": true,
+      "svip_commands": ["updateCardStatus"],
+      "description": "Desde Apolo se gestiona la tarjeta de crédito digital del Producto 4900: alta del contrato, provisión de tarjeta digital (Classification=D) y activación inicial en SmartVista BPC. Flujo alternativo al canal App para clientes que completan la originación directamente en Apolo sin requerir activación posterior desde la App.",
+      "integration_ids": [],
+      "notes": "Complementa SMART-3964 para la variante digital. La tarjeta digital es creada por SmartVista SVBO y activada mediante SmartVista SVFE. Proveedor Apolo: AppWhere."
+    },
+    {
+      "step_num": 4,
+      "step_id": "ACT-STEP-04",
+      "name": "Notificación de activación al portador (push y email)",
+      "systems": ["App Móvil", "Notificaciones"],
+      "user_story_ref": "SMART-4105",
+      "protocol": "REST",
+      "exists_today": true,
+      "svip_commands": [],
+      "description": "Tras la activación exitosa en SmartVista BPC, la App Móvil dispara una notificación push al dispositivo del portador y un correo electrónico de confirmación. La integración IAPP05 (APP → CES) orquesta la notificación. User Story clasificada como 'could' con 1 integración y 0 criterios de aceptación definidos en el brain.",
+      "integration_ids": ["IAPP05"],
+      "us_details": {
+        "id": "SMART-4105",
+        "title": "Notificación de activación Tarjeta Digital BanCoppel",
+        "moscow": "could",
+        "complejidad": "Baja",
+        "num_criterios": 0,
+        "num_integraciones": 1,
+        "track": "app",
+        "funcionalidad": "Notificación activación o eliminación de Tarjeta Digital BanCoppel"
+      },
+      "notes": "Clasificación 'could' implica riesgo de deprioritización bajo presión de fechas. Los criterios de aceptación están en cero — requiere pre-game urgente antes de SIT (15-oct-2026). KPI relacionado: Activación a 7 días > 40% digital-first."
+    },
+    {
+      "step_num": 5,
+      "step_id": "ACT-STEP-05",
+      "name": "Convivencia TDC Física y Digital en Home de la App",
+      "systems": ["App Móvil", "Informix"],
+      "user_story_ref": "SMART-4531",
+      "protocol": "REST",
+      "exists_today": true,
+      "svip_commands": ["getAccountCards", "getInstantCreditStatement"],
+      "description": "El Home de la App Móvil muestra simultáneamente la tarjeta física (Classification=F) y la digital (Classification=D) con sus estados individuales tras la activación. SmartVista BPC expone ambas vía getAccountCards; la App construye la diferenciación visual y los estados. HDU-APP-R4-02 (pre-game partial): 'SmartVista expone ambas; App debe construir diferenciacion visual y estados individuales'.",
+      "integration_ids": ["IAPP01", "IAPP03"],
+      "us_details": {
+        "id": "SMART-4531",
+        "title": "Convivencia en Home de Cuentas TDC F&D",
+        "moscow": "must",
+        "complejidad": "Media",
+        "num_criterios": 2,
+        "num_integraciones": 0,
+        "track": "app",
+        "funcionalidad": "Convivencia en Home de Cuentas TDC F&D"
+      },
+      "notes": "HDU-APP-R4-02 en estado 'partial' en pre-game. El campo Classification (F/D) en SmartVista BPC es la señal canónica para distinguir tipo de tarjeta — NO el rango de BIN. num_criterios: 2 es bajo para una User Story de convivencia; riesgo de ambigüedad en SIT."
+    }
+  ],
+
+  "us_mapping": {
+    "primary_us": [
+      {
+        "id": "SMART-3966",
+        "title": "Activación de TDC Digital",
+        "moscow": "must",
+        "track": "app",
+        "system_id": "app-movil",
+        "complejidad": "Media",
+        "num_criterios": 4,
+        "phase_step": "ACT-STEP-02",
+        "funcionalidad": "Activación de TDC Digital",
+        "canal": "App Móvil",
+        "in_brain": true
+      },
+      {
+        "id": "SMART-4105",
+        "title": "Notificación de activación Tarjeta Digital BanCoppel",
+        "moscow": "could",
+        "track": "app",
+        "system_id": "app-movil",
+        "complejidad": "Baja",
+        "num_criterios": 0,
+        "num_integraciones": 1,
+        "phase_step": "ACT-STEP-04",
+        "funcionalidad": "Notificación activación o eliminación de Tarjeta Digital BanCoppel",
+        "canal": "App Móvil",
+        "in_brain": true,
+        "risk_note": "Criterios de aceptación en cero. Requiere pre-game antes de SIT. Clasificación 'could' implica riesgo de deprioritización."
+      }
+    ],
+    "supporting_us": [
+      {
+        "id": "SMART-4531",
+        "title": "Convivencia en Home de Cuentas TDC F&D",
+        "moscow": "must",
+        "track": "app",
+        "system_id": "app-movil",
+        "complejidad": "Media",
+        "num_criterios": 2,
+        "phase_step": "ACT-STEP-05",
+        "funcionalidad": "Convivencia en Home de Cuentas TDC F&D",
+        "canal": "App Móvil",
+        "in_brain": true
+      },
+      {
+        "id": "APP-ENC-01",
+        "title": "Encendido, Apagado y Bloqueo Operativo — Tarjeta de Crédito Digital (Originación Apolo)",
+        "moscow": "must",
+        "track": "app",
+        "system_id": "app-movil",
+        "complejidad": "Media",
+        "num_criterios": 7,
+        "phase_step": "ACT-STEP-02",
+        "funcionalidad": "Encendido y Apagado TDC Física y Digital",
+        "canal": "App Móvil",
+        "in_brain": true,
+        "notes": "Relacionada con la activación digital post-originación Apolo. Cubre también operaciones de bloqueo operativo posterior a la activación."
+      },
+      {
+        "id": "APP-ENC-02",
+        "title": "Encendido, Apagado y Bloqueo Operativo — Tarjeta de Crédito Física (Originación Apolo)",
+        "moscow": "must",
+        "track": "app",
+        "system_id": "app-movil",
+        "complejidad": "Media",
+        "num_criterios": 6,
+        "phase_step": "ACT-STEP-01",
+        "funcionalidad": "Encendido y Apagado TDC Física y Digital",
+        "canal": "App Móvil",
+        "in_brain": true,
+        "notes": "Relacionada con la gestión de la tarjeta física post-originación Apolo."
+      },
+      {
+        "id": "HDU-TDC-R4-19",
+        "title": "Mostrar información de activación de servicios digitales mediante popup",
+        "moscow": "should",
+        "track": "apolo",
+        "system_id": "apolo",
+        "complejidad": "Alta",
+        "num_criterios": 5,
+        "funcionalidad": "Integración de Expediente Digital",
+        "canal": "Apolo",
+        "in_brain": true,
+        "notes": "User Story de apoyo que muestra información de activación de servicios digitales al cliente durante la originación. Relacionada con SMART-3964 y SMART-4219."
+      }
+    ],
+    "out_of_scope_channels": [
+      {
+        "channel": "ATM",
+        "journey_ref": "CJ_ATM_01",
+        "has_user_story": false,
+        "note": "Canal de activación identificado en Customer Journey (CJ) pero sin User Story en R4."
+      },
+      {
+        "channel": "IVR",
+        "journey_ref": null,
+        "has_user_story": false,
+        "note": "Canal de activación declarado por CONDUSEF (uno de los 4 canales reconocidos) sin evidencia de alcance ni Customer Journey en R4."
+      },
+      {
+        "channel": "SIWEB",
+        "journey_ref": "CJ_OFI_22",
+        "has_user_story": false,
+        "note": "Canal de activación por sucursal documentado en Customer Journey (CJ) CJ_OFI_22 pero sin User Story en R4."
+      }
+    ],
+    "total_us_in_scope": 2,
+    "total_supporting_us": 5,
+    "note": "El conteo oficial de la fase es 2 User Stories: 'Activación TDC Digital' (SMART-3966) y 'Notificación activación o eliminación de Tarjeta Digital' (SMART-4105). Las 5 User Stories de apoyo están relacionadas con el ciclo de activación pero pertenecen formalmente a otras funcionalidades."
+  },
+
+  "data_elements": [
+    {
+      "id": "DE-ACT-01",
+      "name": "PAN — Número de Tarjeta",
+      "field_ref": "PAN",
+      "system": "SmartVista BPC",
+      "is_pii": true,
+      "is_sensitive": true,
+      "type": "string_16",
+      "description": "Número de tarjeta de 16 dígitos (Primary Account Number). BIN 426807 (4268 0711 para Producto 4900). SubBIN R4: 8vo dígito posición 0-4 = tarjeta digital; posición 5-9 = tarjeta física.",
+      "regulatory_req": ["PCI-DSS v4.0 — dato sensible de titular; cifrado en tránsito y reposo obligatorio"],
+      "used_in_steps": ["ACT-STEP-01", "ACT-STEP-02", "ACT-STEP-03"]
+    },
+    {
+      "id": "DE-ACT-02",
+      "name": "Estado de Tarjeta (CSTS)",
+      "field_ref": "CSTS",
+      "system": "SmartVista BPC",
+      "is_pii": false,
+      "is_sensitive": false,
+      "type": "enum",
+      "description": "Estado de la tarjeta en el catálogo CSTS de SmartVista BPC. Al entregarse: CSTS_INACTIVE (cumple CONDUSEF). Tras activación exitosa: CSTS_ACTIVE. Administrado mediante el comando SVIP updateCardStatus.",
+      "values_example": ["CSTS_INACTIVE", "CSTS_ACTIVE", "CSTS_BLOCKED"],
+      "used_in_steps": ["ACT-STEP-01", "ACT-STEP-02", "ACT-STEP-03"]
+    },
+    {
+      "id": "DE-ACT-03",
+      "name": "Canal de Activación",
+      "field_ref": "canal_activacion",
+      "system": "SmartVista BPC / App Móvil",
+      "is_pii": false,
+      "is_sensitive": false,
+      "type": "enum",
+      "description": "Canal por el que el portador realizó la activación. CONDUSEF reconoce 4 canales: App Móvil (preferente en R4), IVR, sucursal y ATM. Solo la App Móvil y Apolo tienen cobertura con User Story en R4.",
+      "values_example": ["app_movil", "apolo", "atm", "sucursal", "ivr"],
+      "used_in_steps": ["ACT-STEP-01", "ACT-STEP-02", "ACT-STEP-03"]
+    },
+    {
+      "id": "DE-ACT-04",
+      "name": "Timestamp de Activación",
+      "field_ref": "timestamp_activacion",
+      "system": "SmartVista BPC",
+      "is_pii": false,
+      "is_sensitive": false,
+      "type": "datetime_iso8601",
+      "description": "Fecha y hora exacta en que la tarjeta fue activada en SmartVista BPC. Insumo para el KPI 'Tiempo al primer uso < 48 horas' y para trazabilidad regulatoria ante CNBV.",
+      "kpi_refs": ["Tiempo al primer uso < 48 horas"],
+      "used_in_steps": ["ACT-STEP-01", "ACT-STEP-02", "ACT-STEP-03"]
+    },
+    {
+      "id": "DE-ACT-05",
+      "name": "Token Digital EMVCo",
+      "field_ref": "token_digital_emvco",
+      "system": "SmartVista BPC",
+      "is_pii": false,
+      "is_sensitive": true,
+      "type": "string",
+      "description": "Token de pago generado bajo el estándar EMVCo para provisión de la tarjeta digital en billeteras digitales (Apple Pay / Google Pay) mediante EMVCo 3DS. Reemplaza al PAN en transacciones NFC. Se genera durante la activación de la tarjeta digital.",
+      "regulatory_req": ["EMVCo tokenization standard", "PCI-DSS v4.0"],
+      "used_in_steps": ["ACT-STEP-02", "ACT-STEP-03"],
+      "gap_note": "La provisión de token digital Apple Pay / Google Pay no está mencionada en el alcance de R4. Ver GAP-ACT-03."
+    },
+    {
+      "id": "DE-ACT-06",
+      "name": "Push Notification Token",
+      "field_ref": "push_notification_token",
+      "system": "App Móvil",
+      "is_pii": false,
+      "is_sensitive": true,
+      "type": "string",
+      "description": "Token de dispositivo para el envío de notificaciones push. Registrado en el perfil del cliente en la App Móvil. Requerido para la notificación de activación (SMART-4105). Se invalida si el cliente desinstala la App.",
+      "used_in_steps": ["ACT-STEP-04"]
+    },
+    {
+      "id": "DE-ACT-07",
+      "name": "Email del Cliente",
+      "field_ref": "email_cliente",
+      "system": "App Móvil / Informix",
+      "is_pii": true,
+      "is_sensitive": true,
+      "type": "string_email",
+      "description": "Dirección de correo electrónico del portador. Usada para enviar la notificación de activación por correo. Dato personal bajo LFPDPPP. Almacenado en el perfil del cliente.",
+      "regulatory_req": ["LFPDPPP — dato personal; tratamiento con consentimiento del titular"],
+      "used_in_steps": ["ACT-STEP-04"]
+    },
+    {
+      "id": "DE-ACT-08",
+      "name": "Flag Física/Digital (Classification)",
+      "field_ref": "Classification",
+      "system": "SmartVista BPC",
+      "is_pii": false,
+      "is_sensitive": false,
+      "type": "enum",
+      "description": "Campo SmartVista BPC que determina el tipo de tarjeta: F = física, D = digital. NO se determina por rango de BIN sino por este campo. Es la señal canónica para la convivencia en el Home de la App (SMART-4531) y para el comportamiento diferenciado durante la activación.",
+      "values_example": ["F", "D"],
+      "used_in_steps": ["ACT-STEP-02", "ACT-STEP-03", "ACT-STEP-05"]
+    },
+    {
+      "id": "DE-ACT-09",
+      "name": "Fecha de Activación",
+      "field_ref": "fecha_activacion",
+      "system": "SmartVista BPC",
+      "is_pii": false,
+      "is_sensitive": false,
+      "type": "date_iso8601",
+      "description": "Fecha (sin hora) de activación de la tarjeta. Insumo para los KPIs de activación a 7 días (> 40%) y a 30 días (> 70%). Persiste en el historial del contrato en SmartVista BPC.",
+      "kpi_refs": ["Activación a 30 días > 70%", "Activación a 7 días > 40% (digital-first)"],
+      "used_in_steps": ["ACT-STEP-01", "ACT-STEP-02", "ACT-STEP-03"]
+    },
+    {
+      "id": "DE-ACT-10",
+      "name": "Intentos Fallidos de Activación",
+      "field_ref": "intentos_fallidos",
+      "system": "SmartVista BPC / CES",
+      "is_pii": false,
+      "is_sensitive": false,
+      "type": "integer",
+      "description": "Contador de intentos fallidos de activación por tarjeta y canal. KPI de calidad: Intentos fallidos < 5%. Usado para bloquear el proceso tras N intentos (umbral pendiente de definir) y activar el flujo de soporte.",
+      "kpi_refs": ["Intentos fallidos < 5%"],
+      "used_in_steps": ["ACT-STEP-02", "ACT-STEP-03"]
+    },
+    {
+      "id": "DE-ACT-11",
+      "name": "Crédito 18 Dígitos",
+      "field_ref": "credito_18_digitos",
+      "system": "SmartVista BPC",
+      "is_pii": false,
+      "is_sensitive": false,
+      "type": "string_18",
+      "description": "Número interno de SmartVista BPC que identifica el contrato de TDC ('Cuenta clave' — clave interbancaria de 18 dígitos). Diferente al PAN de 16 dígitos del plástico. Requerido para consultas de detalle de crédito mediante IAPP01.",
+      "used_in_steps": ["ACT-STEP-05"]
+    },
+    {
+      "id": "DE-ACT-12",
+      "name": "CVV Dinámico",
+      "field_ref": "cvv_dinamico",
+      "system": "SmartVista BPC",
+      "is_pii": false,
+      "is_sensitive": true,
+      "type": "string_3",
+      "description": "Código de verificación temporal generado por SVIP para transacciones de tarjeta digital en línea. Requerido tras la activación de la tarjeta digital para habilitar compras e-commerce. Es distinto del CVV estático del plástico.",
+      "regulatory_req": ["PCI-DSS v4.0 — dato sensible de autenticación"],
+      "used_in_steps": ["ACT-STEP-02"]
+    }
+  ],
+
+  "integrations": [
+    {
+      "id": "INT-ACT-01",
+      "brain_ref": "IAPP05",
+      "name": "Notificación activación de Tarjeta Digital BanCoppel",
+      "from": "App Móvil",
+      "to": "CES",
+      "direction": "bidireccional",
+      "protocol": "REST",
+      "frequency": "Tiempo real",
+      "complejidad": "Media",
+      "exists_today": false,
+      "estado": "Nueva",
+      "us_ref": "SMART-4105",
+      "description": "La App Móvil notifica a CES (motor de verificación de identidad) el evento de activación de la Tarjeta Digital BanCoppel. CES orquesta la validación de identidad y el posterior envío de notificaciones push y email al portador.",
+      "notes": "Integración nueva — no existe hoy. Crítica para la notificación post-activación. La User Story SMART-4105 está clasificada 'could' con 0 criterios de aceptación."
+    },
+    {
+      "id": "INT-ACT-02",
+      "brain_ref": null,
+      "name": "Activación de TDC Digital — App Móvil a SmartVista BPC",
+      "from": "App Móvil",
+      "to": "SmartVista BPC",
+      "direction": "bidireccional",
+      "protocol": "REST",
+      "svip_command": "updateCardStatus",
+      "frequency": "Tiempo real",
+      "complejidad": "Media",
+      "exists_today": true,
+      "estado": "Modificar",
+      "us_ref": "SMART-3966",
+      "description": "La App Móvil invoca updateCardStatus en SmartVista SVIP para cambiar el estado CSTS de la tarjeta digital (Classification=D) de CSTS_INACTIVE a CSTS_ACTIVE. La confirmación regresa a la App para mostrar el estado actualizado al portador.",
+      "notes": "Flujo principal de activación. Requiere validación previa de identidad vía CES."
+    },
+    {
+      "id": "INT-ACT-03",
+      "brain_ref": null,
+      "name": "Activación TDC desde Apolo a SmartVista BPC",
+      "from": "Apolo",
+      "to": "SmartVista BPC",
+      "direction": "unidireccional",
+      "protocol": "REST",
+      "svip_command": "updateCardStatus",
+      "frequency": "Tiempo real",
+      "complejidad": "Media",
+      "exists_today": true,
+      "estado": "Modificar",
+      "us_refs": ["SMART-3964", "SMART-4219"],
+      "description": "Desde el canal Apolo (onboarding digital AppWhere) se activa la tarjeta física (SMART-3964) y la tarjeta digital (SMART-4219) en SmartVista BPC. Es la ruta de activación en el flujo de originación.",
+      "notes": "Apolo es el canal de originación (proveedor AppWhere). La integración es parte del flujo de alta de contrato en SmartVista SVBO."
+    },
+    {
+      "id": "INT-ACT-04",
+      "brain_ref": "IAPP01",
+      "name": "Detalle de TDC — Rec_retrieveCreditCardStatement",
+      "from": "App Móvil",
+      "to": "SmartVista BPC",
+      "direction": "bidireccional",
+      "protocol": "REST",
+      "frequency": "Tiempo real",
+      "complejidad": "Media",
+      "exists_today": true,
+      "estado": "Modificar",
+      "us_ref": "SMART-3962",
+      "description": "Consulta de detalle de TDC (cuenta, saldos, intereses) desde la App Móvil hacia SmartVista BPC. Usada en el Home de convivencia para mostrar el estado de ambas tarjetas (física y digital) tras la activación.",
+      "notes": "Integración existente que se modifica para soportar la convivencia F&D. Relacionada con SMART-4531."
+    },
+    {
+      "id": "INT-ACT-05",
+      "brain_ref": "IAPP03",
+      "name": "Consulta de movimientos — Rec_RetrieveAccountTransaction",
+      "from": "SmartVista BPC",
+      "to": "App Móvil",
+      "direction": "unidireccional",
+      "protocol": "REST",
+      "frequency": "Tiempo real",
+      "complejidad": "Media",
+      "exists_today": true,
+      "estado": "Modificar",
+      "us_ref": "SMART-4176",
+      "description": "SmartVista BPC envía el listado de movimientos de la TDC a la App Móvil. En el contexto de activación, permite mostrar el historial de transacciones tras el primer uso de la tarjeta activada. API SVIP getTransactions v22.",
+      "notes": "Campo amountHoldPlaced indica compras e-commerce en pre-autorización. Parte de la experiencia post-activación en el Home de convivencia."
+    }
+  ],
+
+  "test_cases": [
+    {
+      "id": "TC-ACT-01",
+      "name": "Activación de TDC Digital desde App Móvil — caso feliz",
+      "type": "functional",
+      "priority": "must",
+      "us_ref": "SMART-3966",
+      "canal": "App Móvil",
+      "preconditions": [
+        "Cliente con TDC Producto 4900 en estado CSTS_INACTIVE (Classification=D)",
+        "KYC completado en Apolo",
+        "CES disponible y respondiendo"
+      ],
+      "steps": [
+        "1. Cliente inicia sesión en App Móvil",
+        "2. Navega a la tarjeta digital en estado 'Por activar'",
+        "3. Selecciona la opción de activar tarjeta",
+        "4. CES valida la identidad del portador en tiempo real",
+        "5. App Móvil invoca updateCardStatus en SmartVista SVIP",
+        "6. SmartVista BPC cambia el estado CSTS a CSTS_ACTIVE (Classification=D)"
+      ],
+      "expected_result": "Tarjeta digital activada exitosamente. Estado en SmartVista BPC = CSTS_ACTIVE. Notificación push enviada al portador.",
+      "kpi_impact": ["Activación a 7 días > 40% (digital-first)", "Tiempo al primer uso < 48 horas"],
+      "in_sit_scope": true
+    },
+    {
+      "id": "TC-ACT-02",
+      "name": "Activación de TDC desde Apolo post-originación",
+      "type": "integration",
+      "priority": "must",
+      "us_refs": ["SMART-3964", "SMART-4219"],
+      "canal": "Apolo",
+      "preconditions": [
+        "Originación digital completada en Apolo",
+        "Tarjeta creada en SmartVista BPC con estado CSTS_INACTIVE"
+      ],
+      "steps": [
+        "1. Flujo de originación Apolo concluye exitosamente",
+        "2. Apolo invoca activación en SmartVista BPC (SMART-3964 para TDC Física, SMART-4219 para TDC Digital)",
+        "3. SmartVista BPC actualiza el estado a CSTS_ACTIVE",
+        "4. Apolo registra la activación en el expediente digital del cliente"
+      ],
+      "expected_result": "Tarjeta activada desde Apolo sin intervención adicional del cliente. Estado en SmartVista BPC = CSTS_ACTIVE.",
+      "in_sit_scope": true
+    },
+    {
+      "id": "TC-ACT-03",
+      "name": "Notificación push exitosa tras activación",
+      "type": "integration",
+      "priority": "could",
+      "us_ref": "SMART-4105",
+      "canal": "App Móvil",
+      "preconditions": [
+        "Tarjeta activada exitosamente en SmartVista BPC",
+        "Push notification token registrado en App Móvil",
+        "Email del cliente disponible en el perfil"
+      ],
+      "steps": [
+        "1. Activación exitosa registrada en SmartVista BPC",
+        "2. App Móvil dispara evento de notificación hacia CES (IAPP05)",
+        "3. CES envía notificación push al dispositivo del portador",
+        "4. Email de confirmación enviado al correo del cliente"
+      ],
+      "expected_result": "Notificación push recibida en el dispositivo del portador en menos de 30 segundos. Email de confirmación entregado.",
+      "risk_note": "User Story SMART-4105 clasificada 'could' con 0 criterios de aceptación definidos. Riesgo de deprioritización bajo presión de fechas de SIT.",
+      "in_sit_scope": true
+    },
+    {
+      "id": "TC-ACT-04",
+      "name": "Convivencia de TDC Física y Digital en Home de la App",
+      "type": "functional",
+      "priority": "must",
+      "us_ref": "SMART-4531",
+      "canal": "App Móvil",
+      "preconditions": [
+        "Cliente con TDC Física (Classification=F) activada en SmartVista BPC",
+        "Cliente con TDC Digital (Classification=D) activada en SmartVista BPC",
+        "Ambas tarjetas bajo el mismo contrato (crédito 18 dígitos)"
+      ],
+      "steps": [
+        "1. Cliente inicia sesión en App Móvil",
+        "2. Navega a la sección de Tarjetas o Home de cuentas",
+        "3. App invoca getAccountCards en SmartVista SVIP",
+        "4. SmartVista BPC retorna ambas tarjetas con el campo Classification (F y D)",
+        "5. App renderiza la tarjeta física y la tarjeta digital con sus estados individuales"
+      ],
+      "expected_result": "El Home muestra ambas tarjetas (física y digital) diferenciadas visualmente. Los estados CSTS son correctos para cada una. La distinción se basa en el campo Classification, no en el BIN.",
+      "svip_ref": "getAccountCards — campo Classification F/D",
+      "in_sit_scope": true,
+      "risk_note": "HDU-APP-R4-02 en estado 'partial' en pre-game. num_criterios: 2 es insuficiente para una User Story de convivencia."
+    },
+    {
+      "id": "TC-ACT-05",
+      "name": "Intento de activación sin completar KYC",
+      "type": "negative",
+      "priority": "must",
+      "us_ref": "SMART-3966",
+      "canal": "App Móvil",
+      "preconditions": [
+        "Cliente con TDC Producto 4900 en estado CSTS_INACTIVE",
+        "KYC NO completado o pendiente de validación en CES"
+      ],
+      "steps": [
+        "1. Cliente intenta activar su tarjeta digital desde App Móvil",
+        "2. CES verifica la identidad del portador — falla por KYC incompleto",
+        "3. App Móvil muestra mensaje de error apropiado con instrucciones",
+        "4. El comando updateCardStatus NO es invocado en SmartVista BPC"
+      ],
+      "expected_result": "Activación bloqueada. Estado en SmartVista BPC permanece CSTS_INACTIVE. Mensaje de error claro para el cliente con instrucciones para completar el KYC.",
+      "condusef_relevance": "La tarjeta permanece inactiva hasta que el portador complete la verificación de identidad. Cumple el principio CONDUSEF de activación explícita.",
+      "in_sit_scope": true
+    },
+    {
+      "id": "TC-ACT-06",
+      "name": "Segundo intento fallido — contador de intentos fallidos incrementado",
+      "type": "negative",
+      "priority": "should",
+      "us_ref": "SMART-3966",
+      "canal": "App Móvil",
+      "preconditions": [
+        "Primer intento de activación fallido registrado (intentos_fallidos = 1)"
+      ],
+      "steps": [
+        "1. Cliente reintenta la activación desde App Móvil",
+        "2. CES rechaza nuevamente la verificación de identidad",
+        "3. El contador intentos_fallidos se incrementa a 2",
+        "4. App Móvil muestra advertencia con los intentos restantes disponibles"
+      ],
+      "expected_result": "Contador de intentos fallidos incrementado correctamente. El KPI 'Intentos fallidos < 5%' es monitoreable. Tras alcanzar el umbral definido: proceso bloqueado y canal de soporte activado.",
+      "kpi_impact": ["Intentos fallidos < 5%"],
+      "in_sit_scope": true,
+      "open_item": "El umbral de bloqueo por intentos fallidos no está documentado en las User Stories actuales. Requiere definición antes del inicio de SIT."
+    },
+    {
+      "id": "TC-ACT-07",
+      "name": "Activación por ATM — fuera de alcance R4 (sin User Story)",
+      "type": "out_of_scope",
+      "priority": "warn",
+      "us_ref": null,
+      "canal": "ATM",
+      "journey_ref": "CJ_ATM_01",
+      "preconditions": [
+        "Customer Journey (CJ) CJ_ATM_01 documentado"
+      ],
+      "steps": [],
+      "expected_result": "No aplica — este caso NO tiene User Story en R4. El Customer Journey CJ_ATM_01 documenta el flujo de experiencia del cliente en ATM pero no existe implementación en R4.",
+      "in_sit_scope": false,
+      "scope_decision": "out_of_scope",
+      "recommendation": "Documentar formalmente como alcance excluido en R4 con justificación. Evaluar inclusión en SmartVista R4.5 o R5. El cliente que intente activar por ATM no podrá hacerlo en R4 y deberá ser orientado al canal App Móvil."
+    },
+    {
+      "id": "TC-ACT-08",
+      "name": "CONDUSEF — Verificación: tarjeta no activa al entregarse al cliente",
+      "type": "compliance",
+      "priority": "must",
+      "us_ref": null,
+      "canal": "Cross-canal",
+      "regulatory_ref": "CONDUSEF",
+      "preconditions": [
+        "Tarjeta Producto 4900 recién creada en SmartVista BPC post-originación en Apolo",
+        "Estado inicial configurado en SmartVista SVBO"
+      ],
+      "steps": [
+        "1. SmartVista BPC crea una nueva tarjeta (física o digital) para el cliente al concluir la originación en Apolo",
+        "2. Verificar que el estado inicial de la tarjeta sea CSTS_INACTIVE",
+        "3. Verificar que ningún proceso automático activa la tarjeta sin acción explícita del portador",
+        "4. Confirmar que la tarjeta solo cambia a CSTS_ACTIVE tras acción del portador por un canal válido"
+      ],
+      "expected_result": "Toda tarjeta Producto 4900 recién creada tiene estado CSTS_INACTIVE. La activación requiere la acción explícita del portador. Cumplimiento CONDUSEF verificado.",
+      "condusef_clause": "CONDUSEF exige que ninguna tarjeta esté activa al entregarse al cliente. El portador debe activarla explícitamente.",
+      "in_sit_scope": true
+    },
+    {
+      "id": "TC-ACT-09",
+      "name": "Convivencia F&D — campo Classification como señal canónica (no BIN)",
+      "type": "technical",
+      "priority": "must",
+      "us_ref": "SMART-4531",
+      "canal": "App Móvil",
+      "preconditions": [
+        "Tarjeta física (Classification=F) y tarjeta digital (Classification=D) del mismo cliente en SmartVista BPC"
+      ],
+      "steps": [
+        "1. App Móvil invoca getAccountCards en SmartVista SVIP",
+        "2. Validar que el campo Classification retorna 'F' para la tarjeta física y 'D' para la digital",
+        "3. Validar que la distinción entre física y digital NO se realiza por rango de BIN",
+        "4. Confirmar que los comportamientos de activación y bloqueo operan según el valor del campo Classification"
+      ],
+      "expected_result": "El campo Classification (F/D) es la única señal canónica para distinguir el tipo de tarjeta. La App renderiza la diferenciación visual correctamente con base en este campo.",
+      "technical_ref": "Classification: F=física, D=digital. SubBIN R4: BIN 426807, 8vo dígito posición 0-4 = digital, posición 5-9 = física.",
+      "in_sit_scope": true
+    }
+  ],
+
+  "kpis": [
+    {
+      "id": "KPI-ACT-01",
+      "name": "Tasa de activación a 30 días",
+      "target": "> 70%",
+      "measurement": "Porcentaje de tarjetas Producto 4900 activadas dentro de los primeros 30 días tras la entrega al cliente",
+      "related_test_cases": ["TC-ACT-01", "TC-ACT-02"]
+    },
+    {
+      "id": "KPI-ACT-02",
+      "name": "Tasa de activación a 7 días (digital-first)",
+      "target": "> 40%",
+      "measurement": "Porcentaje de tarjetas digitales Producto 4900 activadas dentro de los primeros 7 días",
+      "related_test_cases": ["TC-ACT-01"]
+    },
+    {
+      "id": "KPI-ACT-03",
+      "name": "Tiempo al primer uso",
+      "target": "< 48 horas",
+      "measurement": "Tiempo entre la activación de la tarjeta y la primera transacción realizada con ella",
+      "related_test_cases": ["TC-ACT-01"]
+    },
+    {
+      "id": "KPI-ACT-04",
+      "name": "Intentos fallidos de activación",
+      "target": "< 5%",
+      "measurement": "Porcentaje de intentos de activación que terminan en falla sobre el total de intentos registrados",
+      "related_test_cases": ["TC-ACT-05", "TC-ACT-06"]
+    }
+  ],
+
+  "gaps_found": [
+    {
+      "id": "GAP-ACT-01",
+      "title": "Activación por ATM sin User Story en R4",
+      "severity": "warn",
+      "category": "alcance",
+      "channel": "ATM",
+      "journey_ref": "CJ_ATM_01",
+      "description": "El canal ATM está documentado como Customer Journey (CJ_ATM_01) para activación de la Tarjeta de Crédito Clásica pero no tiene una User Story propia en R4. CONDUSEF reconoce 4 canales de activación: App Móvil, IVR, sucursal y ATM. Solo la App Móvil y Apolo tienen cobertura con User Story en R4.",
+      "impact": "Los clientes que prefieran o solo tengan acceso a ATM no podrán activar su tarjeta en R4. Riesgo de fricción en el proceso de adopción para segmentos no digitales, especialmente relevante dado que BanCoppel opera la tercera red bancaria de México.",
+      "recommendation": "Documentar formalmente como alcance excluido en R4 con justificación. Evaluar inclusión en SmartVista R4.5 o R5 junto con el acceso a ATM (actualmente diferido según Plan de Trabajo R4_v1 Julio).",
+      "regulatory_risk": "Bajo — CONDUSEF no exige un canal específico, solo que el proceso de activación exista y sea accesible.",
+      "related_test_case": "TC-ACT-07"
+    },
+    {
+      "id": "GAP-ACT-02",
+      "title": "Activación por Sucursal (SIWEB) sin User Story en R4",
+      "severity": "warn",
+      "category": "alcance",
+      "channel": "SIWEB",
+      "journey_ref": "CJ_OFI_22",
+      "description": "El canal de sucursal (SIWEB) tiene un Customer Journey documentado (CJ_OFI_22) para activación de la TDC pero no cuenta con una User Story de activación en R4. El track SIWEB tiene 5 User Stories en R4 (todas Must Have según el inventario), ninguna de las cuales cubre la activación.",
+      "impact": "Los ejecutivos de sucursal no podrán activar tarjetas para clientes que acudan presencialmente. Fuerza al cliente a usar la App Móvil o llamar al CAT (track at_risk por proveedor no contratado).",
+      "recommendation": "Añadir una User Story de activación por sucursal en el backlog de SIWEB. Si el plazo de R4 no lo permite, documentar como gap de servicio en el Release Notes y comunicar a las sucursales el procedimiento alternativo.",
+      "regulatory_risk": "Bajo-Medio — podría generar quejas CONDUSEF si el cliente no tiene acceso a ningún canal disponible para activar.",
+      "related_test_case": null
+    },
+    {
+      "id": "GAP-ACT-03",
+      "title": "Provisión de token digital Apple Pay y Google Pay sin cobertura en R4",
+      "severity": "medium",
+      "category": "funcionalidad",
+      "channel": "App Móvil",
+      "description": "La provisión de token de pago EMVCo 3DS para billeteras digitales (Apple Pay y Google Pay) no está mencionada en las User Stories de R4. El estándar EMVCo es el mecanismo de activación de la tarjeta digital en wallets externos. Sin esta provisión, la tarjeta digital queda limitada al uso dentro de la App Móvil pero no puede usarse como método de pago en billeteras digitales externas.",
+      "impact": "Alto para la estrategia digital-first. Los clientes que esperan usar Apple Pay o Google Pay con su nueva TDC Digital BanCoppel no encontrarán esa funcionalidad disponible en R4, lo que puede reducir la tasa de activación a 7 días.",
+      "recommendation": "Investigar si la provisión de token EMVCo está cubierta implícitamente en APP-ENC-01 o SMART-3966. Si no existe cobertura, escalar al PMO para decisión de alcance: R4 o R4.5. Involucrar a BPC Banking Technologies para confirmar el soporte EMVCo en SmartVista BPC.",
+      "regulatory_risk": "Medio — el estándar EMVCo y los requisitos de Apple Pay y Google Pay tienen requerimientos de seguridad propios que deben alinearse con PCI-DSS v4.0.",
+      "related_data_element": "DE-ACT-05"
+    },
+    {
+      "id": "GAP-ACT-04",
+      "title": "Activación por IVR sin evidencia de alcance en R4",
+      "severity": "warn",
+      "category": "alcance",
+      "channel": "IVR",
+      "description": "El canal IVR (Contact Center / CAT) es uno de los 4 canales de activación reconocidos por CONDUSEF. El track CAT tiene User Stories en R4 (HDU-CAT-R4-01: Alta producto 4900 en menú IVR, HDU-CAT-R4-02: Rutar opciones IVR) pero ninguna de ellas cubre explícitamente la activación de la TDC desde IVR. Adicionalmente, el track CAT está marcado 'at_risk' porque el proveedor no está contratado (RISK-001, deadline 2026-08-31).",
+      "impact": "Si el canal IVR no puede activar tarjetas, los clientes que llamen al Contact Center para activar serán derivados a otro canal, generando fricción adicional. El riesgo es mayor dado que CAT está sin proveedor contratado.",
+      "recommendation": "Verificar con el equipo de CAT si la activación por IVR está cubierta en alguna de sus 12 User Stories. Si no, añadir una User Story específica. Resolver RISK-001 (proveedor CAT) antes del 31-ago-2026.",
+      "regulatory_risk": "Bajo — CONDUSEF no exige el canal IVR específicamente.",
+      "related_risk": "RISK-001 — Proveedor CAT no contratado (deadline 2026-08-31)"
+    },
+    {
+      "id": "GAP-ACT-05",
+      "title": "SMART-4105 con criterios de aceptación en cero antes de SIT",
+      "severity": "medium",
+      "category": "calidad",
+      "channel": "App Móvil",
+      "description": "La User Story SMART-4105 ('Notificación de activación Tarjeta Digital BanCoppel') tiene num_criterios: 0 en el brain al momento de este análisis. Esta User Story habilita la notificación push y email tras la activación. Sin criterios de aceptación definidos, el equipo de System Integration Testing (SIT) no tiene base para aprobarla o rechazarla.",
+      "impact": "Riesgo de calidad en SIT (15-oct a 15-dic-2026). Una User Story sin criterios de aceptación no puede completar su pre-game correctamente ni ser verificada en pruebas de integración.",
+      "recommendation": "Priorizar el pre-game de SMART-4105 antes del inicio de SIT. Criterios mínimos a definir: tiempo máximo de entrega de la notificación push, comportamiento cuando el push token no está disponible, template del email de confirmación, y manejo de errores de la integración IAPP05.",
+      "regulatory_risk": "Bajo — afecta la experiencia del cliente y los KPIs de activación pero no genera incumplimiento regulatorio directo."
+    }
+  ],
+
+  "industry_context": {
+    "regulatory_framework": "CONDUSEF",
+    "key_requirement": "Ninguna tarjeta debe estar activa al entregarse al cliente. El portador debe activarla explícitamente.",
+    "activation_channels_condusef": ["App Móvil (preferente)", "IVR", "Sucursal", "ATM"],
+    "digital_card_standard": "EMVCo 3DS — provisión de token de pago en billeteras digitales (Apple Pay y Google Pay)",
+    "r4_channel_coverage": {
+      "app_movil": "Completa — canal principal con 2 User Stories (SMART-3966 Must y SMART-4105 Could)",
+      "apolo": "Parcial — activación desde originación con SMART-3964 y SMART-4219",
+      "atm": "Customer Journey documentado (CJ_ATM_01) sin User Story en R4",
+      "sucursal_siweb": "Customer Journey documentado (CJ_OFI_22) sin User Story en R4",
+      "ivr": "Sin evidencia de cobertura con User Story en R4"
+    }
+  },
+
+  "metadata": {
+    "source_documents": [
+      "activacion-context.json (user_stories, integrations, vocabulary, risks)",
+      "lifecycle-p4900.html — PHASES.activacion, PHASE_NARRATIVES.activacion, PHASE_STEPS.activacion",
+      "brain.db::user_stories_inventory",
+      "brain.db::app_user_stories",
+      "brain.db::r4_integrations",
+      "brain.db::hdu_catalog",
+      "Inventario de Integraciones_HUs_R4_v1.0.xlsx",
+      "CLAUDE.md — Unity R4 (projects/unity/CLAUDE.md)"
+    ],
+    "vocabulary_references": [
+      "CSTS — catálogo de estatus de tarjeta en SmartVista BPC (CSTS_INACTIVE, CSTS_ACTIVE, CSTS_BLOCKED)",
+      "Classification F/D — campo SmartVista BPC para tipo de tarjeta (no BIN)",
+      "SVIP — SmartVista Integration Platform: middleware oficial BPC con catálogo de 92 comandos",
+      "updateCardStatus — comando SVIP para cambio de estado de tarjeta",
+      "getAccountCards — comando SVIP para listado de tarjetas por cuenta con campo Classification",
+      "subBIN R4 — BIN 426807: 8vo dígito posición 0-4 = digital; posición 5-9 = física",
+      "EMVCo — estándar de tokenización para billeteras digitales",
+      "CJ — Customer Journey (flujo de experiencia del cliente, no necesariamente una User Story)",
+      "SIT — System Integration Testing: 15-oct a 15-dic-2026",
+      "SmartVista SVBO — Back Office: contratos, contabilidad, liquidación y parametrización",
+      "SmartVista SVFE — Front End: consola de usuarios operativos y atención al cliente",
+      "credito_18_digitos — número interno SmartVista BPC que identifica el contrato (distinto al PAN)"
+    ],
+    "confidence_level": "high",
+    "total_us_analyzed": 9,
+    "total_integrations_analyzed": 5,
+    "total_test_cases": 9,
+    "total_gaps": 5,
+    "total_data_elements": 12,
+    "total_kpis": 4
+  }
+}
