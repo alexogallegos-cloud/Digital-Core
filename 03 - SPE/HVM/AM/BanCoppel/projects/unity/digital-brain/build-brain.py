@@ -2261,7 +2261,7 @@ INITIAL_VOCABULARY = [
     ("SVFM",            "SmartVista Fraud Management: modulo de fraude NO licenciado por BanCoppel. Se usa PayTrue en su lugar.", "tecnico", "sv-canales"),
     ("SVCG",            "SmartVista Card Generation (Cargen): genera archivos y layouts de maquila de tarjetas.", "tecnico", "sv-canales"),
     ("SVIP",            "SmartVista Integration Platform: middleware oficial de BPC entre todos los canales y SVBO. Catalogo de 92 comandos.", "tecnico", "sv-canales"),
-    ("OCG",             "Componente generador del archivo de solicitudes aprobadas de maquila (entre SVBO y Cargen).", "tecnico", "sv-canales"),
+    ("SmartVista OCG",  "Outgoing Card Generation: modulo BPC que genera el archivo de solicitudes aprobadas de maquila (entre SVBO y Cargen).", "tecnico", "sv-canales"),
     ("PayTrue",         "Motor externo de evaluacion de riesgo y fraude. Reemplaza a SVFM (no licenciado). Modulo 2 del autorizador.", "proveedor", "sv-canales"),
     # Modelo de datos SmartVista
     ("agingPeriod",     "Campo SmartVista que indica nivel de mora: E1=0-1 (sin restriccion), E2=2-3 (parcial), E3>=4 (bloqueo mayoritario).", "tecnico", "sv-canales"),
