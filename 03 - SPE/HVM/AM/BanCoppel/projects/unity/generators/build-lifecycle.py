@@ -254,22 +254,44 @@ def build_phases(con=None):
         node_rows  = q(con, "SELECT * FROM lifecycle_flow_nodes  WHERE phase_id=? ORDER BY step_order, id", pid)
         arrow_rows = q(con, "SELECT * FROM lifecycle_flow_arrows WHERE phase_id=? ORDER BY step_order", pid)
 
-        # Agrupar nodos por step_order
+        # Normalizar step_order a int ("step_01" → 1, "1" → 1, 1 → 1)
+        def _norm_so(v):
+            if isinstance(v, int): return v
+            s = str(v)
+            import re as _re
+            m = _re.search(r'\d+', s)
+            return int(m.group()) if m else 0
+
+        # Limpiar label: quitar prefijo "N01 → N02: " y truncar
+        def _clean_lbl(lbl):
+            import re as _re
+            lbl = _re.sub(r'^N\d+\s*→\s*N\d+\s*:\s*', '', lbl or '').strip()
+            # Si tiene "Sistema → Sistema: descripción", extraer solo la descripción
+            m = _re.match(r'^[^:]+→[^:]+:\s*(.+)$', lbl)
+            if m: lbl = m.group(1).strip()
+            return lbl[:70]
+
+        # Agrupar nodos por step_order (normalizado)
         steps_nodes = {}
         for n in node_rows:
-            steps_nodes.setdefault(n["step_order"], []).append(n["node_name"])
+            steps_nodes.setdefault(_norm_so(n["step_order"]), []).append(n["node_name"])
 
-        # Flechas indexadas por step_order
-        steps_arrows = {a["step_order"]: a for a in arrow_rows}
+        # Flechas indexadas por step_order (normalizado)
+        steps_arrows = {_norm_so(a["step_order"]): a for a in arrow_rows}
 
         steps = []
         for so in sorted(steps_nodes.keys()):
             step = {"nodes": steps_nodes[so]}
             if so in steps_arrows:
-                step["arrow"] = steps_arrows[so]["label"]
+                step["arrow"] = _clean_lbl(steps_arrows[so]["label"])
                 if steps_arrows[so]["pending"]:
                     step["pending"] = True
             steps.append(step)
+
+        etb_l3 = []
+        if p.get("etb_l3"):
+            try: etb_l3 = _json.loads(p["etb_l3"])
+            except Exception: pass
 
         result.append({
             "id":          pid,
@@ -284,6 +306,7 @@ def build_phases(con=None):
             "coverage":    p["coverage"] or "completa",
             "steps":       steps,
             "notes":       _json.loads(p["notes"]) if p.get("notes") else [],
+            "etb_l3":      etb_l3,
         })
     return result
 
@@ -336,6 +359,8 @@ def build_phase_steps(con):
                 step["proto"] = r["protocol"][:50]
             if r["gap_flag"]:
                 step["gap"] = True
+                if r["gap_notes"]:
+                    step["gap_notes"] = r["gap_notes"][:280]
             steps.append(step)
         result[pid] = steps
     return result
@@ -460,25 +485,39 @@ h1{font-size:clamp(32px,4.5vw,58px);font-weight:800;line-height:1.05;letter-spac
 .stl{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted2)}
 .stat.warn{border-color:rgba(240,210,36,.35);background:rgba(240,210,36,.06)}.stat.warn .stn{background:linear-gradient(180deg,var(--yellow),#e0b800);-webkit-background-clip:text;background-clip:text}
 .stepper-wrap{margin-top:44px;margin-bottom:0}
+.etb-bar{display:none}
+.pn-etb-wrap{white-space:normal;display:flex;flex-direction:column;gap:2px;align-items:center;
+  margin-bottom:5px;width:100%}
+.pn-etb{font-size:8px;color:rgba(144,202,249,.70);text-align:center;line-height:1.35;
+  display:flex;gap:4px;align-items:baseline;flex-wrap:wrap;justify-content:center}
+.pn-etb-id{font-weight:800;color:#90CAF9;letter-spacing:.04em}
 .stepper{display:flex;gap:0;position:relative;overflow-x:auto;padding-bottom:4px}
 .stepper::after{display:none}
+.ptab-outer{display:flex;flex-direction:column;align-items:stretch;
+  flex:1;min-width:118px;margin-right:-24px;position:relative}
+.ptab-outer:last-child{margin-right:0}
+.pn-etb-wrap{display:flex;flex-direction:column;gap:3px;align-items:center;
+  padding:5px 8px 7px;white-space:normal;
+  min-height:42px;justify-content:flex-end}
+.pn-etb{font-size:8px;color:rgba(144,202,249,.70);text-align:center;
+  line-height:1.35;display:flex;gap:4px;align-items:baseline;flex-wrap:wrap;justify-content:center}
+.pn-etb-id{font-weight:800;color:#90CAF9;letter-spacing:.04em}
 .ptab{
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
   padding:14px 40px 14px 20px;
   cursor:pointer;border:none;
   background:rgb(18,30,68);
-  color:var(--muted);position:relative;flex:1;min-width:118px;
+  color:var(--muted);position:relative;width:100%;
   transition:background .22s,color .22s;
   font-family:inherit;white-space:nowrap;
   clip-path:polygon(0 0,calc(100% - 24px) 0,100% 50%,calc(100% - 24px) 100%,0 100%,24px 50%);
-  margin-right:-24px;
   filter:drop-shadow(3px 0 5px rgba(0,0,0,.7))}
-.ptab:first-child{
+.ptab-outer:first-child .ptab{
   clip-path:polygon(0 0,calc(100% - 24px) 0,100% 50%,calc(100% - 24px) 100%,0 100%);
   padding-left:22px}
-.ptab:last-child{
+.ptab-outer:last-child .ptab{
   clip-path:polygon(0 0,100% 0,100% 100%,0 100%,24px 50%);
-  margin-right:0;padding-right:22px}
+  padding-right:22px}
 .ptab::after{display:none}
 .ptab:hover{background:rgb(28,44,100);color:var(--ink)}
 .ptab.active{color:#fff;filter:drop-shadow(3px 0 5px rgba(0,0,0,.7)) drop-shadow(0 0 10px rgba(61,95,205,.35))}
@@ -532,17 +571,20 @@ h1{font-size:clamp(32px,4.5vw,58px);font-weight:800;line-height:1.05;letter-spac
 .note-box p{font-size:11.5px;color:rgba(240,210,36,.75);line-height:1.5}
 .note-box p::before{content:"\26A0 ";font-size:11px}
 .flow-wrap{background:var(--glass);border:1px solid var(--glassb);border-radius:20px;
-  padding:32px 28px;backdrop-filter:blur(18px);overflow-x:auto;min-height:160px}
+  padding:32px 28px;backdrop-filter:blur(18px);overflow-x:auto;overflow-y:hidden;
+  min-height:160px;max-height:320px}
 .flow{display:flex;align-items:center;gap:0;min-width:min-content;padding:4px 0}
 .fstep{display:flex;flex-direction:column;align-items:center;gap:8px}
 .fnodes{display:flex;flex-direction:column;gap:10px;align-items:center}
 .farrow{display:flex;flex-direction:column;align-items:center;min-width:80px;flex-shrink:0;gap:5px}
 .farrow svg{width:100%;overflow:visible}
 .farrow-lbl{font-size:9px;font-weight:600;color:var(--muted2);text-align:center;
-  letter-spacing:.02em;padding:0 4px;max-width:90px;line-height:1.35}
+  letter-spacing:.02em;padding:0 4px;max-width:130px;line-height:1.35;
+  white-space:normal;overflow-wrap:break-word}
 .farrow-lbl.pend{color:rgba(240,210,36,.85)}
-.farrow-lbl.pend::after{content:" — por definir";display:block;color:rgba(240,210,36,.5);font-weight:500}
-.snode{padding:11px 18px;border-radius:13px;font-size:12px;font-weight:700;white-space:nowrap;
+.farrow-lbl.pend::after{content:" — por definir";display:block;color:rgba(240,210,36,.5);font-weight:500;font-size:8px}
+.snode{padding:10px 14px;border-radius:13px;font-size:9.5px;font-weight:700;white-space:normal;
+  max-width:130px;text-align:center;overflow-wrap:break-word;hyphens:auto;line-height:1.4;
   border:1px solid transparent;cursor:default;
   transition:transform .2s,box-shadow .2s,filter .2s;
   position:relative;overflow:hidden}
@@ -567,6 +609,9 @@ h1{font-size:clamp(32px,4.5vw,58px);font-weight:800;line-height:1.05;letter-spac
 .sn-integration{background:linear-gradient(145deg,rgba(74,20,140,.60),rgba(106,27,154,.35));
   border-color:rgba(149,117,205,.50);color:#CE93D8;
   box-shadow:0 4px 18px rgba(74,20,140,.5),inset 0 1px 0 rgba(206,147,216,.10)}
+.sn-legacy{background:linear-gradient(145deg,rgba(230,81,0,.60),rgba(245,124,0,.38));
+  border-color:rgba(255,152,0,.45);color:#FFCC80;
+  box-shadow:0 4px 18px rgba(230,81,0,.45),inset 0 1px 0 rgba(255,204,128,.10)}
 .us-block{margin-top:26px;padding-top:20px;border-top:1px solid rgba(255,255,255,.10)}
 .us-head{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
   color:var(--muted2);margin-bottom:14px;display:flex;align-items:center;gap:8px}
@@ -606,7 +651,16 @@ h1{font-size:clamp(32px,4.5vw,58px);font-weight:800;line-height:1.05;letter-spac
 .ps-table tr:last-child td{border-bottom:none}
 .ps-n{color:var(--muted2);font-size:10px;font-variant-numeric:tabular-nums;width:24px;text-align:right;padding-right:10px!important}
 .ps-paso{color:var(--text);max-width:340px}
-.ps-gap-ic{color:var(--yellow);font-size:10px;margin-right:3px;cursor:help}
+.ps-gap-ic{color:var(--yellow);font-size:10px;margin-right:3px;cursor:help;position:relative;display:inline-block}
+.ps-gap-ic .ps-gap-tip{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+  background:rgba(10,15,35,.97);border:1px solid rgba(240,210,36,.45);border-radius:8px;
+  padding:9px 12px;min-width:260px;max-width:340px;white-space:normal;
+  color:#e8edf8;font-size:11px;font-weight:400;line-height:1.5;
+  box-shadow:0 6px 24px rgba(0,0,0,.6);z-index:99;pointer-events:none;
+  text-align:left;font-family:inherit}
+.ps-gap-ic .ps-gap-tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
+  border:6px solid transparent;border-top-color:rgba(240,210,36,.45)}
+.ps-gap-ic:hover .ps-gap-tip{display:block}
 .ps-sis{white-space:nowrap}
 .ps-sis-badge{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:6px;background:rgba(61,95,205,.18);border:1px solid rgba(61,95,205,.35);color:#90CAF9}
 .ps-proto{display:inline-block;font-family:'SF Mono',ui-monospace,monospace;font-size:8.5px;padding:1px 5px;border-radius:4px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);color:var(--muted2);margin-top:3px}
@@ -669,6 +723,7 @@ footer code{color:var(--muted);background:rgba(240,210,36,.09);border:1px solid 
     </div>
   </div>
   <div class="stepper-wrap">
+    <div class="etb-bar" id="etb-bar"></div>
     <div class="stepper" id="stepper"></div>
   </div>
   <div class="phase-content">
@@ -692,33 +747,76 @@ function escHtml(s){
 }
 
 const SYS = {
-  'Cliente':         {type:'external',   label:'Cliente'},
-  'Comercio':        {type:'external',   label:'Comercio / Terminal'},
-  'App Móvil':       {type:'channel',    label:'App Móvil'},
-  'SIWEB':           {type:'channel',    label:'SIWEB'},
-  'APOLO':           {type:'channel',    label:'APOLO'},
-  'CAT/IVR':         {type:'channel',    label:'CAT / IVR'},
-  'SmartVista':      {type:'processor',  label:'SmartVista BPC'},
-  'SmartVista BPC':  {type:'processor',  label:'SmartVista BPC'},
-  'E-Global':        {type:'processor',  label:'E-Global'},
-  'Cargen':          {type:'processor',  label:'SmartVista SVCG (Cargen)'},
-  'OCG':             {type:'processor',  label:'OCG'},
-  'Maquilador':      {type:'external',   label:'Maquilador'},
-  'Informix':        {type:'core',       label:'Informix (PISA)'},
-  'SVBO':            {type:'processor',  label:'SmartVista SVBO'},
-  'SVFE':            {type:'processor',  label:'SmartVista SVFE'},
-  'SVXP':            {type:'integration',label:'SmartVista SVXP'},
-  'SOC':             {type:'core',       label:'SOC (Sistema Operativo Central)'},
-  'HSM':             {type:'compliance', label:'HSM Thales payShield'},
-  'PLD':             {type:'compliance', label:'PLD / Minds'},
-  'Buró':            {type:'compliance', label:'Buró de Crédito'},
-  'KYC':             {type:'compliance', label:'KYC'},
-  'CES':             {type:'compliance', label:'CES (Score)'},
-  'PayTrue':         {type:'compliance', label:'PayTrue (Fraude)'},
-  'Transact':        {type:'integration',label:'Temenos Transact'},
-  'SPEI':            {type:'integration',label:'SPEI / Banxico'},
-  'Connect-Direct':  {type:'integration',label:'Connect-Direct'},
+  /* Externos / personas */
+  'Cliente':                   {type:'external',    label:'Cliente / Prospecto'},
+  'Cliente / Prospecto':       {type:'external',    label:'Cliente / Prospecto'},
+  'Comercio':                  {type:'external',    label:'Comercio / Terminal'},
+  'Maquilador':                {type:'external',    label:'Maquilador'},
+  'CNBV':                      {type:'external',    label:'CNBV'},
+  'SAT':                       {type:'external',    label:'SAT'},
+  'Banxico':                   {type:'external',    label:'Banxico'},
+  /* Canales digitales y físicos */
+  'App Móvil':                 {type:'channel',     label:'App Móvil'},
+  'app-movil':                 {type:'channel',     label:'App Móvil'},
+  'SIWEB':                     {type:'channel',     label:'SIWEB — Sucursales'},
+  'CAT/IVR':                   {type:'channel',     label:'CAT / IVR'},
+  'CAT / IVR':                 {type:'channel',     label:'CAT / IVR'},
+  'APOLO':                     {type:'channel',     label:'APOLO — Originación'},
+  'ATM':                       {type:'channel',     label:'ATM / Cajero'},
+  /* Procesadores (plataformas nuevas R4) */
+  'SmartVista':                {type:'processor',   label:'SmartVista BPC'},
+  'SmartVista BPC':            {type:'processor',   label:'SmartVista BPC'},
+  'smartvista':                {type:'processor',   label:'SmartVista BPC'},
+  'SVBO':                      {type:'processor',   label:'SmartVista SVBO'},
+  'SmartVista SVBO':           {type:'processor',   label:'SmartVista SVBO'},
+  'SVFE':                      {type:'processor',   label:'SmartVista SVFE'},
+  'SmartVista SVFE':           {type:'processor',   label:'SmartVista SVFE'},
+  'E-Global':                  {type:'processor',   label:'E-Global'},
+  'GlobalPOSe':                {type:'processor',   label:'GlobalPOSe'},
+  'Cargen':                    {type:'processor',   label:'Cargen (SVCG)'},
+  'OCG':                       {type:'processor',   label:'OCG'},
+  'Motor Cobranza':            {type:'processor',   label:'Motor Cobranza Direccionada'},
+  'Motor Cobranza Direccionada':{type:'processor',  label:'Motor Cobranza Direccionada'},
+  /* Sistemas legados */
+  'Informix':                  {type:'legacy',      label:'Informix / PISA'},
+  'Informix/PISA':             {type:'legacy',      label:'Informix / PISA'},
+  'Informix (PISA)':           {type:'legacy',      label:'Informix / PISA'},
+  'PISA':                      {type:'legacy',      label:'Informix / PISA'},
+  'SOC':                       {type:'legacy',      label:'SOC — Sis. Operativo Central'},
+  'SOC (Sistema Operativo Central)':{type:'legacy', label:'SOC — Sis. Operativo Central'},
+  'Transact':                  {type:'core',        label:'Temenos Transact'},
+  /* Integración y transferencia */
+  'SVXP':                      {type:'integration', label:'SmartVista SVXP'},
+  'SmartVista SVXP':           {type:'integration', label:'SmartVista SVXP'},
+  'Connect-Direct':            {type:'integration', label:'Connect-Direct'},
+  'SPEI':                      {type:'integration', label:'SPEI / Banxico'},
+  'MuleSoft':                  {type:'integration', label:'MuleSoft'},
+  'IBM BUS':                   {type:'integration', label:'IBM BUS / IIB'},
+  /* Cumplimiento, riesgo y fraude */
+  'HSM':                       {type:'compliance',  label:'HSM Thales payShield'},
+  'HSM Thales':                {type:'compliance',  label:'HSM Thales payShield'},
+  'PLD':                       {type:'compliance',  label:'PLD / Minds'},
+  'Minds':                     {type:'compliance',  label:'PLD / Minds'},
+  'CES':                       {type:'compliance',  label:'CES — Credit Evaluation'},
+  'KYC':                       {type:'compliance',  label:'KYC'},
+  'Buró':                      {type:'compliance',  label:'Buró de Crédito'},
+  'Buró de Crédito':           {type:'compliance',  label:'Buró de Crédito'},
+  'SIC':                       {type:'compliance',  label:'SIC / Buró de Crédito'},
+  'PayTrue':                   {type:'compliance',  label:'PayTrue (Fraude)'},
 };
+
+/* Fuzzy lookup: exact → substring (longest key wins) → external fallback */
+function getSys(name) {
+  if (SYS[name]) return SYS[name];
+  const low = name.toLowerCase();
+  let best = null, bestLen = 0;
+  for (const k of Object.keys(SYS)) {
+    if (k.length > bestLen && low.includes(k.toLowerCase())) {
+      best = SYS[k]; bestLen = k.length;
+    }
+  }
+  return best || {type:'external', label:name};
+}
 
 const PHASE_NARRATIVES = __PHASE_NARRATIVES__;
 const PHASE_STEPS      = __PHASE_STEPS__;
@@ -727,17 +825,48 @@ const PHASE_STORIES    = __PHASE_STORIES__;
 const PHASE_TEST_CASES = __PHASE_TEST_CASES__;
 const PHASE_INTEG_GAPS = __PHASE_INTEG_GAPS__;
 
+/* ── Render ETB bar ── */
+const etbBar = document.getElementById('etb-bar');
+PHASES.forEach(p=>{
+  const cell = document.createElement('div');
+  cell.className = 'etb-cell';
+  (p.etb_l3||[]).forEach(cap=>{
+    const pill = document.createElement('span');
+    pill.className = 'etb-pill';
+    pill.innerHTML = `<span class="etb-pill-id">${escHtml(cap.id)}</span>${escHtml(cap.name)}`;
+    cell.appendChild(pill);
+  });
+  etbBar.appendChild(cell);
+});
+
 /* ── Render stepper ── */
 const stepper = document.getElementById('stepper');
 PHASES.forEach((p,i)=>{
+  const outer = document.createElement('div');
+  outer.className = 'ptab-outer';
+  outer.style.zIndex = PHASES.length - i;
+
+  // ETB labels above the chevron (outside clip-path)
+  const etbWrap = document.createElement('div');
+  etbWrap.className = 'pn-etb-wrap';
+  (p.etb_l3||[]).forEach(cap=>{
+    const row = document.createElement('span');
+    row.className = 'pn-etb';
+    row.innerHTML = `<span class="pn-etb-id">${escHtml(cap.id)}</span> ${escHtml(cap.name)}`;
+    etbWrap.appendChild(row);
+  });
+  outer.appendChild(etbWrap);
+
+  // The chevron button
   const btn = document.createElement('button');
   btn.className = 'ptab';
   btn.id = 'ptab-'+p.id;
-  btn.style.zIndex = PHASES.length - i;
   const usLabel = p.userStories ? `${p.userStories} USs` : 'routing';
   btn.innerHTML = `<span class="pnum">${p.num}</span><span class="pname">${p.name}</span><span class="pus">${usLabel}</span>`;
   btn.onclick = ()=>activate(p.id);
-  stepper.appendChild(btn);
+  outer.appendChild(btn);
+
+  stepper.appendChild(outer);
 });
 
 /* ── Render phase ── */
@@ -761,8 +890,6 @@ function activate(id){
     <div class="pmeta-title">Fase ${p.num}/8</div>
     <div class="pmeta-phase" style="color:${p.color}">${escHtml(p.name)}</div>
     <div class="pmeta-sep"></div>
-    <div class="pmeta-desc">${escHtml(p.desc)}</div>
-    <div class="pmeta-sep"></div>
     <div class="pmeta-row"><span class="pmeta-label">User Stories&nbsp;</span><span class="pmeta-val">${p.userStories ?? '—'}</span></div>
     <div class="pmeta-row"><span class="pmeta-label">Track&nbsp;</span><span class="pmeta-val">${escHtml(p.track)}</span></div>
     <div class="pmeta-sep"></div>
@@ -772,7 +899,8 @@ function activate(id){
   const fw = document.getElementById('flow-wrap');
   fw.style.borderColor = p.color + '55';
 
-  let html = `<div class="flow-title">Flujo de sistemas — ${escHtml(p.name)}</div><div class="flow">`;
+  /* ── Diagrama de flujo (solo en flow-wrap) ─────────────────────────── */
+  let flowHtml = `<div class="flow-title">Flujo de sistemas — ${escHtml(p.name)}</div><div class="flow">`;
   p.steps.forEach((step,si)=>{
     if(si>0){
       const pend   = step.pending ? ' pend' : '';
@@ -780,7 +908,7 @@ function activate(id){
       const fill   = step.pending ? 'rgba(240,210,36,.80)' : p.color+'dd';
       const dash   = step.pending ? 'stroke-dasharray="6 4"' : '';
       const ahId   = 'ah'+p.id+si;
-      html += `<div class="farrow">
+      flowHtml += `<div class="farrow">
         <svg viewBox="0 0 90 14" preserveAspectRatio="none" style="height:14px" aria-hidden="true">
           <defs><marker id="${ahId}" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
             <polyline points="0,0.5 5,3 0,5.5" fill="none" stroke="${fill}" stroke-width="1.6" stroke-linejoin="round"/>
@@ -790,47 +918,36 @@ function activate(id){
         <div class="farrow-lbl${pend}">${escHtml(step.arrow||'')}</div>
       </div>`;
     }
-    html += `<div class="fstep"><div class="fnodes">`;
+    flowHtml += `<div class="fstep"><div class="fnodes">`;
     step.nodes.forEach(n=>{
-      const sys = SYS[n]||{type:'external',label:n};
-      html += `<div class="snode sn-${sys.type}" title="${escHtml(sys.label)}">${escHtml(sys.label)}</div>`;
+      const sys = getSys(n);
+      flowHtml += `<div class="snode sn-${sys.type}" title="${escHtml(sys.label)}">${escHtml(sys.label)}</div>`;
     });
-    html += `</div></div>`;
+    flowHtml += `</div></div>`;
   });
-  html += `</div>`;
+  flowHtml += `</div>`;
+  fw.innerHTML = flowHtml;
 
-  /* User Stories de la fase */
-  const groups = PHASE_STORIES[p.id];
-  if(groups && groups.length){
-    const total = groups.reduce((a,g)=>a+g.items.length,0);
-    html += `<div class="us-block"><div class="us-head">User Stories de la fase <span class="us-count">${total}</span></div><div class="us-grid">`;
-    groups.forEach(g=>{
-      html += `<div class="us-col"><div class="us-node" style="border-color:${p.color}66">${escHtml(g.node)}</div>`;
-      g.items.forEach(it=>{
-        html += `<div class="us-item"><span class="us-id">${escHtml(it.id)}</span><span class="us-t">${escHtml(it.t)}</span><span class="us-m m-${it.m}">${it.m}</span></div>`;
-      });
-      html += `</div>`;
-    });
-    html += `</div></div>`;
-  }
-  fw.innerHTML = html;
+  /* ── Resto del contenido en phase-notes ─────────────────────────────── */
+  const noteEl = document.getElementById('phase-notes');
+  if(!noteEl) return;
+  let notesHtml = '';
 
   /* Narrativa funcional */
   if(narr){
     const _kHtml = narr.kpis.map(r=>`<div class="ph-narr-kpi-row"><span class="ph-narr-kpi-k">${escHtml(r.k)}</span><span class="ph-narr-kpi-v">${escHtml(r.v)}</span></div>`).join('');
     const _bHtml = narr.brechas.map(b=>`<div class="ph-narr-brecha"><span class="ph-narr-brecha-dot ${b.level}"></span><span class="ph-narr-brecha-txt">${escHtml(b.txt)}</span></div>`).join('');
-    const _nd = document.createElement('div');
-    _nd.innerHTML = `<div class="ph-narr"><div class="ph-narr-eyebrow">Proceso de industria · Marco regulatorio MX</div><p class="ph-narr-industry">${escHtml(narr.industria)}</p><div class="ph-narr-cols"><div class="ph-narr-block"><div class="ph-narr-block-title">KPIs de referencia</div>${_kHtml}</div><div class="ph-narr-block"><div class="ph-narr-block-title">Brechas identificadas en R4</div>${_bHtml}</div></div></div>`;
-    const _us = fw.querySelector('.us-block');
-    if(_us) fw.insertBefore(_nd.firstElementChild, _us);
-    else fw.appendChild(_nd.firstElementChild);
+    notesHtml += `<div class="ph-narr"><div class="ph-narr-eyebrow">Proceso de industria · Marco regulatorio MX</div><p class="ph-narr-industry">${escHtml(narr.industria)}</p><div class="ph-narr-cols"><div class="ph-narr-block"><div class="ph-narr-block-title">KPIs de referencia</div>${_kHtml}</div><div class="ph-narr-block"><div class="ph-narr-block-title">Brechas identificadas en R4</div>${_bHtml}</div></div></div>`;
   }
 
   /* Tabla paso a paso con User Story */
   const psteps = PHASE_STEPS[id];
   if(psteps && psteps.length){
     let rows = psteps.map(s=>{
-      const gap = s.gap ? `<span class="ps-gap-ic" title="Brecha detectada">⚠</span>` : '';
+      const gapTip = s.gap_notes
+        ? `<span class="ps-gap-tip">${escHtml(s.gap_notes)}</span>`
+        : `<span class="ps-gap-tip">Brecha detectada — sin detalle disponible</span>`;
+      const gap = s.gap ? `<span class="ps-gap-ic">⚠${gapTip}</span>` : '';
       const proto = s.proto ? `<span class="ps-proto">${escHtml(s.proto)}</span>` : '';
       const usMark = s.us
         ? `<span class="ps-us-id" title="${escHtml(s.ust||'')}">${escHtml(s.us)}</span>`
@@ -842,48 +959,54 @@ function activate(id){
         <td class="ps-us">${usMark}</td>
       </tr>`;
     }).join('');
-    const psEl = document.createElement('div');
-    psEl.innerHTML = `<div class="ps-wrap"><div class="ps-title">Paso a paso · User Story R4</div><table class="ps-table"><thead><tr><th>#</th><th>Paso</th><th>Sistema</th><th>User Story</th></tr></thead><tbody>${rows}</tbody></table></div>`;
-    const _usPs = fw.querySelector('.us-block');
-    if(_usPs) fw.insertBefore(psEl.firstElementChild, _usPs);
-    else fw.appendChild(psEl.firstElementChild);
+    notesHtml += `<div class="ps-wrap"><div class="ps-title">Paso a paso · User Story R4</div><table class="ps-table"><thead><tr><th>#</th><th>Paso</th><th>Sistema</th><th>User Story</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }
 
-  /* Test cases (desde lifecycle_test_cases) */
+  /* User Stories de la fase */
+  const groups = PHASE_STORIES[p.id];
+  if(groups && groups.length){
+    const total = groups.reduce((a,g)=>a+g.items.length,0);
+    notesHtml += `<div class="us-block"><div class="us-head">User Stories de la fase <span class="us-count">${total}</span></div><div class="us-grid">`;
+    groups.forEach(g=>{
+      notesHtml += `<div class="us-col"><div class="us-node" style="border-color:${p.color}66">${escHtml(g.node)}</div>`;
+      g.items.forEach(it=>{
+        notesHtml += `<div class="us-item"><span class="us-id">${escHtml(it.id)}</span><span class="us-t">${escHtml(it.t)}</span><span class="us-m m-${it.m}">${it.m}</span></div>`;
+      });
+      notesHtml += `</div>`;
+    });
+    notesHtml += `</div></div>`;
+  }
+
+  /* Test cases */
   const ptcData = PHASE_TEST_CASES[id];
   if(ptcData && ptcData.length){
-    let tcHtml = `<div class="tc-block"><div class="tc-head">Casos de Prueba (Swarm) <span class="tc-count">${ptcData.length}</span></div><div class="tc-list">`;
+    notesHtml += `<div class="tc-block"><div class="tc-head">Casos de Prueba (Swarm) <span class="tc-count">${ptcData.length}</span></div><div class="tc-list">`;
     ptcData.forEach(tc=>{
       const prio = (tc.priority||'').toLowerCase();
       const prioClass = (prio==='alta'||prio==='high') ? 'tc-prio-high' : (prio==='baja'||prio==='low') ? 'tc-prio-low' : 'tc-prio-med';
-      tcHtml += `<div class="tc-item"><div class="tc-row1"><span class="tc-id">${escHtml(tc.tc_id)}</span>${tc.test_type?`<span class="tc-type-badge">${escHtml(tc.test_type)}</span>`:''} ${tc.priority?`<span class="tc-prio-badge ${prioClass}">${escHtml(tc.priority)}</span>`:''}</div><div class="tc-title">${escHtml(tc.tc_title)}</div>${tc.expected_result?`<div class="tc-exp">→ ${escHtml(tc.expected_result)}</div>`:''}</div>`;
+      notesHtml += `<div class="tc-item"><div class="tc-row1"><span class="tc-id">${escHtml(tc.tc_id)}</span>${tc.test_type?`<span class="tc-type-badge">${escHtml(tc.test_type)}</span>`:''} ${tc.priority?`<span class="tc-prio-badge ${prioClass}">${escHtml(tc.priority)}</span>`:''}</div><div class="tc-title">${escHtml(tc.tc_title)}</div>${tc.expected_result?`<div class="tc-exp">→ ${escHtml(tc.expected_result)}</div>`:''}</div>`;
     });
-    tcHtml += '</div></div>';
-    fw.insertAdjacentHTML('beforeend', tcHtml);
+    notesHtml += '</div></div>';
   }
 
-  /* Integration gaps (desde lifecycle_integrations WHERE gap_flag=1) */
+  /* Integration gaps */
   const integGaps = PHASE_INTEG_GAPS[id];
   if(integGaps && integGaps.length){
-    let igHtml = `<div class="ig-block"><div class="ig-head">Brechas de Integración <span class="tc-count">${integGaps.length}</span></div><div class="ig-list">`;
+    notesHtml += `<div class="ig-block"><div class="ig-head">Integraciones Identificadas — Pendientes de Validación <span class="tc-count">${integGaps.length}</span></div><div class="ig-list">`;
     integGaps.forEach(g=>{
-      igHtml += `<div class="ig-item"><div class="ig-row1"><span class="ig-flow">${escHtml(g.from_sys)} → ${escHtml(g.to_sys)}</span>${g.proto?`<span class="ig-proto">${escHtml(g.proto)}</span>`:''}</div>${g.api?`<div class="ig-api">${escHtml(g.api)}</div>`:''} ${g.notes?`<div class="ig-notes">${escHtml(g.notes)}</div>`:''}</div>`;
+      notesHtml += `<div class="ig-item"><div class="ig-row1"><span class="ig-flow">${escHtml(g.from_sys)} → ${escHtml(g.to_sys)}</span>${g.proto?`<span class="ig-proto">${escHtml(g.proto)}</span>`:''}</div>${g.api?`<div class="ig-api">${escHtml(g.api)}</div>`:''} ${g.notes?`<div class="ig-notes">${escHtml(g.notes)}</div>`:''}</div>`;
     });
-    igHtml += '</div></div>';
-    fw.insertAdjacentHTML('beforeend', igHtml);
+    notesHtml += '</div></div>';
   }
 
-  /* Notes accordion */
-  const noteEl = document.getElementById('phase-notes');
-  if(noteEl){
-    const notes = p.notes||[];
-    if(notes.length){
-      const bodyId = 'notes-body-'+p.id;
-      noteEl.innerHTML = `<button class="notes-toggle" onclick="this.classList.toggle('open');document.getElementById('${bodyId}').classList.toggle('open')"><span>Notas técnicas de validación</span><span class="nt-arrow">▾</span></button><div class="notes-body" id="${bodyId}">${notes.map(n=>`<div class="note-box"><p>${escHtml(n)}</p></div>`).join('')}</div>`;
-    } else {
-      noteEl.innerHTML = '';
-    }
+  /* Notas técnicas (accordion) */
+  const notes = p.notes||[];
+  if(notes.length){
+    const bodyId = 'notes-body-'+p.id;
+    notesHtml += `<button class="notes-toggle" onclick="this.classList.toggle('open');document.getElementById('${bodyId}').classList.toggle('open')"><span>Notas técnicas de validación</span><span class="nt-arrow">▾</span></button><div class="notes-body" id="${bodyId}">${notes.map(n=>`<div class="note-box"><p>${escHtml(n)}</p></div>`).join('')}</div>`;
   }
+
+  noteEl.innerHTML = notesHtml;
 }
 
 activate('originacion');

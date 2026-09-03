@@ -1,5 +1,5 @@
 ﻿"""
-build-brain.py  --  Unity Project Brain Builder v1.7.0
+build-brain.py  --  Unity Project Brain Builder v2.0.0
 Construye brain.db con el conocimiento incubado del programa Unity.
 Fuente: forward-knowledge (productos, componentes, riesgos, cronograma, vocabulario)
         --  diferente al brain de Informix que analiza cÃ³digo existente.
@@ -9,9 +9,15 @@ Uso:
     python build-brain.py --reset          # borra y reconstruye desde cero
 
 Changelog:
+    2.0.0  --  2026-09-03  onboarding_finding_map (20 entradas swarm DT-ONB-01..05) +
+                           -- onboarding_hypotheses (7 hipotesis Plan Director Aceleracion ago-2026).
     0.9.0  --  2026-08-16  app_user_stories (13 User Stories canal App TDC F&D: backlog=8 release=3 removed=2)
     1.0.0  --  2026-08-16  user_stories_inventory (76 User Stories scoring) + r4_integrations (18) + track_rag (5 tracks RAG Roadmap)
     1.1.0  --  2026-08-19  user_stories_inventory (79 User Stories, +3 APP Encendido/Apagado TDC) + product_releases dual-plataforma
+    1.9.0  --  2026-08-21  functional_duplicity: DUP-021 migration_blocker corregido a 1 (SVXP no construida)
+                           -- + DUP-024 nuevo: motor SVFM fraude TDC (contradiccion abierta licencia).
+    1.8.0  --  2026-08-21  lifecycle_integrations (33 entradas, 15 gaps R4) +
+                           -- lifecycle_test_cases (29 casos QE shift-left: 10 regulatorios, 24 P1).
     1.7.0  --  2026-08-20  Gaps --reset cerrados: DDL completo con system_id/risk_id/hdu_id en todas las
                            -- tablas (risks, user_stories_inventory, dtm_catalog, hdu_catalog,
                            -- apolo_hdu_catalog, audit_findings) + load_system_id_mappings ampliado
@@ -791,6 +797,39 @@ CREATE VIRTUAL TABLE IF NOT EXISTS functional_duplicity_fts USING fts5(
     content='functional_duplicity', content_rowid='rowid'
 );
 
+CREATE TABLE IF NOT EXISTS onboarding_hypotheses (
+    id      TEXT PRIMARY KEY,   -- H1..H7
+    title   TEXT NOT NULL,
+    description TEXT,
+    status  TEXT DEFAULT 'open' CHECK(status IN ('open','in-progress','resolved')),
+    source_doc TEXT
+);
+
+CREATE TABLE IF NOT EXISTS onboarding_finding_map (
+    id                   TEXT PRIMARY KEY,          -- ONB-NNN
+    dt_agent             TEXT NOT NULL,              -- DT-ONB-01..05
+    finding_id           TEXT NOT NULL,             -- AUD-FF-xxx o RISK-UNITY-Rxx
+    onboarding_channel   TEXT NOT NULL,             -- apolo|ofi|dud|todos
+    flow_section_num     TEXT,                      -- 01..16
+    flow_section_name    TEXT,
+    flow_step_range      TEXT,                      -- ej: "Steps 42-43"
+    system_primary       TEXT NOT NULL,             -- sistema primario afectado
+    systems_involved     TEXT,                      -- JSON array
+    friction_type        TEXT,                      -- latencia|regulatorio|calidad|infraestructura|proceso|integracion
+    severity             TEXT CHECK(severity IN ('critico','alto','medio','bajo')),
+    hypothesis_ref       TEXT,                      -- H1..H7
+    current_state        TEXT,
+    blocker_for          TEXT,                      -- ff-escala|mercado-abierto|sit|go-live
+    evidence             TEXT,
+    status               TEXT DEFAULT 'open' CHECK(status IN ('open','in-progress','resolved')),
+    source_doc           TEXT
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS onboarding_map_fts USING fts5(
+    id, finding_id, flow_section_name, system_primary, friction_type, current_state,
+    content='onboarding_finding_map', content_rowid='rowid'
+);
+
 """
 
 # â"€â"€ Datos â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -1381,18 +1420,22 @@ PRODUCT_RELEASES = [
      "plataforma, no producto cliente. Senial estructural fuerte: canal-less + 38 funcionalidades "
      "= configuracion del gestor. 'CMS Administrador de Tarjetas' es el termino del roadmap."),
     ("TDC-R2", "UNITY-R4-P4900", "R2", "SmartVista R2",
-     "Tarjeta de Crédito Digital / Onboarding", "productivo", "2025-07", 33,
+     "Tarjeta de Crédito Digital / Onboarding", "productivo", "2026-02", 33,
      "App, Promotoria, Sucursal, SPEI",
      "Equipo 2026-08-19. Sustento: las cadenas 'CMS Administrador de Tarjetas - Apolo Onboarding' y "
      "'CMS Administrador de Tarjetas - App Bancoppel', mas el encabezado del roadmap ('todo su ciclo "
-     "de vida: Onboarding, Operacion y Post-Venta')."),
+     "de vida: Onboarding, Operacion y Post-Venta'). "
+     "Fecha real F&F: 2026-02 (objetivo original 2025-07); piloto con 8 clientes. "
+     "Corrección 2026-09-03."),
     ("TDC-R3", "UNITY-R4-P4900", "R3", "SmartVista R3",
-     "Tarjeta de Crédito Física", "productivo", "2025-09", 15,
+     "Tarjeta de Crédito Física", "productivo", "2026-07", 15,
      "App, Promotoria, Sucursal, Aclaraciones",
      "Equipo 2026-08-19 MAS cita literal: el DEF se titula 'DEF Tarjeta fisica R3 desglozado Historia "
      "de Usuario'. F&F es el MODO de liberacion, no el alcance: no son excluyentes. Su proposito real "
      "es cerrar la brecha de valor entre el 4900 de Apolo y el legado 6001 para habilitar la migracion "
-     "de 3 millones de tarjetas. Dependencia critica de ATLAS a sep-2026 (decision L-03)."),
+     "de 3 millones de tarjetas. Dependencia critica de ATLAS a sep-2026 (decision L-03). "
+     "Fecha real F&F: 2026-07 (objetivo original 2025-09); alta de 20 clientes en piloto. "
+     "R2 corregido a 2026-02 con 8 clientes. Corrección 2026-09-03."),
     ("TDC-R4", "UNITY-R4-P4900", "R4", "SmartVista R4",
      "Tarjeta de Crédito Clásica P4900", "building", "2027-01", 13,
      "App, Promotoria, Sucursal, CAT",
@@ -1786,6 +1829,47 @@ INITIAL_RISKS = [
      "notes": "Deadline critico: si no hay firma antes de 2026-08-31, las 6 integraciones nuevas CAT->SmartVista "
               "(ICAT01/02/04/05/06/07) no tendran responsable tecnico para SIT oct-nov 2026. "
               "Alias historico en build-brain.py: RISK-001. ID canonico: RISK-UNITY-R27."},
+    # ── Riesgos F&F / Aceleracion Onboarding  (fuente: BanCoppel_Plan_Director_Aceleracion_Onboarding ago-2026)
+    {"id": "RISK-UNITY-R28", "raid_id": None,
+     "description": "Mocks activos en QA para OTP, RENAPO, INE y Buró de Crédito  --  el E2E puede aprobar solicitudes sin pasar por los proveedores reales",
+     "component_id": "apolo", "category": "Calidad", "impact": "high", "probability": "high",
+     "status": "open",
+     "mitigation": "Certificar toggles para deshabilitar mocks por proveedor. Diseñar evidencia de prueba con proveedores reales antes de SIT. Gate formal antes del go-live a mercado abierto.",
+     "due_date": "2026-10-15", "owner": "QA Lead / Apolo",
+     "source": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 6",
+     "notes": "Diagnostico estructural critico slide 6. Impacta validez del E2E completo del onboarding."},
+    {"id": "RISK-UNITY-R29", "raid_id": None,
+     "description": "Alta SmartVista + expediente en steps 42-43 encadenados sin idempotencia  --  alta parcial genera reproceso manual y conciliacion tardia",
+     "component_id": "apolo", "category": "Arquitectura", "impact": "high", "probability": "medium",
+     "status": "open",
+     "mitigation": "Definir mecanismo de compensacion e idempotencia para steps 42-43. Establecer proceso de reconciliacion automatica. Validar en SIT con escenarios de falla parcial.",
+     "due_date": "2026-10-15", "owner": "Arquitecto Apolo / SmartVista",
+     "source": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 6",
+     "notes": "Steps 42-43: creacion, sincronizacion, firma y carga documental encadenados. Falla a mitad = alta incompleta sin rollback automatico."},
+    {"id": "RISK-UNITY-R30", "raid_id": None,
+     "description": "Latencia Apolo 10-30 segundos en canal fisico (sucursal)  --  impacta tasa de conversion y experiencia del ejecutivo en piloto F&F",
+     "component_id": "apolo", "category": "Performance", "impact": "high", "probability": "high",
+     "status": "open",
+     "mitigation": "Resolver latencia como hipotesis de trabajo prioritaria. Medir P95 por sub-etapa. Revisar pool de conexiones YUGA/INFORMIX (73 steps combinados). Objetivo: < 5 seg por step.",
+     "due_date": "2026-10-01", "owner": "Tech Lead Apolo",
+     "source": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 7",
+     "notes": "Piloto F&F ~30 clientes muestra latencia 10-30 seg. El flujo Apolo toma ~20 min vs 45 min OFI, pero la latencia elimina la ventaja percibida por el ejecutivo."},
+    {"id": "RISK-UNITY-R31", "raid_id": None,
+     "description": "Foliador OS digital proximo al limite de 10 millones de folios  --  sin alerta proactiva, un agotamiento interrumpe el onboarding en todas las sucursales",
+     "component_id": "apolo", "category": "Operativo", "impact": "high", "probability": "medium",
+     "status": "open",
+     "mitigation": "Monitorear contador de folios en tiempo real con alerta al 80% del limite. Solicitar ampliacion del rango de folios a BanCoppel IT antes de go-live a mercado abierto.",
+     "due_date": "2026-09-30", "owner": "Operaciones BanCoppel / IT",
+     "source": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 3",
+     "notes": "Tambien: Replica OS a Coppel falla sin alerta proactiva. Ambos son riesgos de integracion critica del onboarding en sucursal."},
+    {"id": "RISK-UNITY-R32", "raid_id": None,
+     "description": "Hardware biometrico comprometido en sucursales  --  sensor Morpho sin conexion intermitente + lector huellas TDC deficiente por desgaste",
+     "component_id": "apolo", "category": "Infraestructura", "impact": "medium", "probability": "high",
+     "status": "open",
+     "mitigation": "Inventariar estado de sensores Morpho y lectores TDC por sucursal. Plan de reemplazo antes de escalamiento F&F. Definir flujo alternativo cuando biometrico no este disponible.",
+     "due_date": "2026-10-01", "owner": "Infraestructura BanCoppel",
+     "source": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 3",
+     "notes": "El sensor de huellas falla tras actualizaciones del sistema. Impacta validacion biometrica obligatoria en onboarding fisico."},
 ]
 
 # -- Sistemas del legado y ecosistema Unity (v1.2.0) --------------------------
@@ -2130,6 +2214,347 @@ AUDIT_FINDINGS = [
         "source_doc": "Roadmap Unity 2025.pptx",
         "notes": "Impacta la presentacion publica del programa y los conteos de productos en produccion.",
     },
+    # ── Hallazgos F&F / Aceleracion Onboarding  (fuente: BanCoppel_Plan_Director_Aceleracion_Onboarding ago-2026)
+    {
+        "id": "AUD-FF-001", "category": "hallazgo",
+        "title": "OFI construido en Visual Basic 6 sobre Windows 7 virtualizado",
+        "description": "OFI Tradicional (canal fisico de onboarding en sucursal) esta construido sobre Visual Basic 6 "
+                       "y opera en entornos Windows 7 virtualizados. Arquitectura compleja, sin principios modernos "
+                       "de desacoplamiento. Infraestructura local en sucursales con componentes fisicos criticos. "
+                       "Limitaciones para integrarse con herramientas actuales de observabilidad. "
+                       "Cuando una sucursal pierde conectividad, el soporte remoto es imposible.",
+        "impact": "high", "status": "open",
+        "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 4",
+        "notes": "Obsolescencia tecnologica critica. Sustenta la urgencia de migrar al canal Apolo. "
+                 "16 pain points totales identificados: 11 apertura cuenta + 13 solicitud TDC. Tiempo promedio: 45 min.",
+    },
+    {
+        "id": "AUD-FF-002", "category": "hallazgo",
+        "title": "Riesgo regulatorio KYC: consulta INE omitida en canales DUD",
+        "description": "La consulta de INE (validacion de identidad) esta siendo omitida en canales DUD "
+                       "(Autosolicitudes digitales). Tambien se detectaron cierres con datos regulatorios faltantes "
+                       "y ausencia de huella del gerente con ID alternativo. Son tres brechas KYC en el proceso "
+                       "de onboarding que representan riesgo regulatorio ante CNBV/UIF.",
+        "impact": "high", "status": "open",
+        "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 3",
+        "notes": "Riesgo regulatorio de primer orden. Impacta LFPIORPI, KYC y PEP. Confirmar si el canal DUD "
+                 "tiene exencion o si es un gap que debe cerrarse antes del go-live a mercado abierto.",
+    },
+    {
+        "id": "AUD-FF-003", "category": "hallazgo",
+        "title": "Concentracion YUGA/INFORMIX: 73 steps del flujo Apolo dependen del legado",
+        "description": "En el flujo de onboarding de Apolo, YUGA tiene 46 pasos e INFORMIX tiene 27 pasos, "
+                       "sumando 73 dependencias directas al legado. Esto representa un amplio radio de impacto "
+                       "ante cualquier degradacion de Informix. Adicionalmente, 105 entradas de checkpoint "
+                       "(retrieve/initiate/update/execute) incrementan el I/O y dificultan el replay ante fallos. "
+                       "El Step 23 combina Buro, Circulo, BRM, Informix/Yuga y mocks con latencia acumulada.",
+        "impact": "high", "status": "open",
+        "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slides 5-6",
+        "notes": "Vinculado a RISK-UNITY-R30 (latencia). El decommission de Informix bloquea directamente "
+                 "73 steps del onboarding hasta que sean reemplazados en Apolo. Requiere SLI/SLO, "
+                 "capacidad, pool de conexiones y aislamiento por sub-etapa.",
+    },
+    {
+        "id": "AUD-FF-004", "category": "hallazgo",
+        "title": "Piloto F&F con ~30 clientes: volumen insuficiente para medir comportamiento de Apolo en produccion",
+        "description": "El Plan Director registra que el piloto F&F de R3 tiene aproximadamente 30 clientes. "
+                       "Este volumen es insuficiente para obtener metricas estadisticamente significativas de "
+                       "latencia, tasa de conversion, tasa de abandono y comportamiento del flujo de 48 steps. "
+                       "No se ha tenido transaccionalidad significativa para medir el comportamiento real de Apolo.",
+        "impact": "medium", "status": "open",
+        "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 7",
+        "notes": "Nota: el documento dice ~30 clientes; en sesion del 2026-09-03 el equipo menciono 20 altas en R3. "
+                 "Reconciliar el numero exacto con PMO. La hipotesis de trabajo del Plan Director es escalar F&F "
+                 "resolviendo primero latencia y flujo de proceso.",
+    },
+    {
+        "id": "AUD-FF-005", "category": "hallazgo",
+        "title": "OFI: imposibilidad de retomar el proceso ante caidas en pasos iniciales",
+        "description": "Cuando OFI cae durante los primeros pasos del onboarding, el proceso debe reiniciarse "
+                       "desde cero. SOLTAR (sistema intermedio) obliga a reiniciar el tramite completo. "
+                       "Esto genera abandono del cliente en sucursal y perdida de ingresos. "
+                       "Las fallas de integracion con plataformas de Coppel desde el hackeo agravan el problema.",
+        "impact": "high", "status": "open",
+        "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slides 3-4",
+        "notes": "Hipotesis de trabajo del Plan Director: resolver retoma del proceso ante caida es requisito "
+                 "antes de escalar Apolo a mercado abierto. Tambien aplica para Apolo: definir checkpoint de retoma.",
+    },
+]
+
+# ── Hipotesis de trabajo onboarding  (fuente: Plan Director Aceleracion Onboarding ago-2026)
+ONB_HYPOTHESES = [
+    {"id": "H1", "title": "Resolver conexion Coppel-BanCoppel",
+     "description": "Fallas de integracion entre Coppel y BanCoppel desde el hackeo bloquean el onboarding en sucursal y afectan OFI. Resolver como prerequisito de escalamiento F&F.",
+     "status": "open", "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 8"},
+    {"id": "H2", "title": "Resolver retoma de proceso ante caida en cualquier paso",
+     "description": "OFI y Apolo no permiten retomar el onboarding si hay una caida en pasos iniciales. El cliente debe reiniciar desde cero. Resolver con checkpoints idempotentes.",
+     "status": "open", "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 8"},
+    {"id": "H3", "title": "Delegar a procesos nocturnos validaciones no criticas",
+     "description": "Validaciones que no son stopper para la formalizacion pueden ejecutarse en batch nocturno, reduciendo latencia en el flujo en linea. Aplica especialmente para validaciones que no bloquean el contrato.",
+     "status": "open", "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 8"},
+    {"id": "H4", "title": "Resolver latencia de Apolo",
+     "description": "Latencia actual de 10-30 segundos por step en Apolo impacta la experiencia del ejecutivo y la tasa de conversion en sucursal. El flujo de 20 minutos no captura todo el potencial de mejora vs OFI (45 min).",
+     "status": "open", "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 8"},
+    {"id": "H5", "title": "Levantar proceso operativo detallado en tienda",
+     "description": "El proceso real del ejecutivo en tienda no esta documentado con suficiente detalle. Se requiere levantamiento de fricciones reales para validar y replantear el flujo de Apolo.",
+     "status": "open", "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 8"},
+    {"id": "H6", "title": "El ejecutivo opera Apolo, no el cliente",
+     "description": "El proceso de onboarding con Apolo en sucursal es ejecutado por el ejecutivo de tienda. Cambios en Apolo no son dispositivo del cliente. Esto impacta el diseno de UX y los flujos de error.",
+     "status": "open", "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 8"},
+    {"id": "H7", "title": "Microservicios de perfilamiento usando servicios legados",
+     "description": "El perfilamiento puede desarrollarse como microservicios que consumen servicios del legado (YUGA/Informix) para la oferta de los demas productos financieros de Grupo Coppel.",
+     "status": "open", "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 8"},
+]
+
+# ── Swarm DT-ONB: mapa hallazgo x step x sistema  ─────────────────────────────
+# 5 agentes: 01=OFI  02=Apolo-Flujo  03=Integraciones  04=Regulatorio  05=Calidad
+# Fuente: BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 (8 slides, ago-2026)
+ONB_FINDING_MAP = [
+    # ── DT-ONB-01: Canal OFI — Friccion y Obsolescencia ───────────────────────
+    {"id": "ONB-001", "dt_agent": "DT-ONB-01",
+     "finding_id": "AUD-FF-001", "onboarding_channel": "ofi",
+     "flow_section_num": "00", "flow_section_name": "Transversal — toda la sesion OFI",
+     "flow_step_range": "Flujo completo OFI",
+     "system_primary": "ofi", "systems_involved": '["ofi","soltar","morpho"]',
+     "friction_type": "infraestructura",
+     "severity": "critico", "hypothesis_ref": "H5",
+     "current_state": "OFI construido en VB6 sobre Windows 7 virtualizado. 45 min promedio de apertura. 16 pain points: 11 en apertura de cuenta + 13 en solicitud TDC.",
+     "blocker_for": "ff-escala",
+     "evidence": "16 pain points documentados slide 3. 45 min tiempo promedio confirmado slide 4.",
+     "status": "open",
+     "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slides 3-4"},
+    {"id": "ONB-002", "dt_agent": "DT-ONB-01",
+     "finding_id": "AUD-FF-005", "onboarding_channel": "ofi",
+     "flow_section_num": "00", "flow_section_name": "Transversal — retoma de proceso",
+     "flow_step_range": "Cualquier paso inicial",
+     "system_primary": "ofi", "systems_involved": '["ofi","soltar"]',
+     "friction_type": "proceso",
+     "severity": "alto", "hypothesis_ref": "H2",
+     "current_state": "SOLTAR obliga a reiniciar el tramite completo ante cualquier caida. No existe checkpoint de retoma. El cliente pierde todo el avance.",
+     "blocker_for": "ff-escala",
+     "evidence": "Pain point documentado slide 3: 'SOLTAR obliga reiniciar el tramite completo'.",
+     "status": "open",
+     "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 3"},
+    {"id": "ONB-003", "dt_agent": "DT-ONB-01",
+     "finding_id": "RISK-UNITY-R32", "onboarding_channel": "ofi",
+     "flow_section_num": "04", "flow_section_name": "Validacion del cliente",
+     "flow_step_range": "Steps 3D, 5A-7A",
+     "system_primary": "morpho", "systems_involved": '["ofi","morpho","lector-huellas-tdc"]',
+     "friction_type": "infraestructura",
+     "severity": "alto", "hypothesis_ref": "H5",
+     "current_state": "Sensor Morpho sin conexion intermitente. Sensor de huellas falla tras actualizaciones del sistema. Lector de huellas TDC deficiente por desgaste.",
+     "blocker_for": "ff-escala",
+     "evidence": "3 hallazgos biometricos en slide 3. Impacta validacion de identidad obligatoria.",
+     "status": "open",
+     "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 3"},
+    {"id": "ONB-004", "dt_agent": "DT-ONB-01",
+     "finding_id": "AUD-FF-001", "onboarding_channel": "ofi",
+     "flow_section_num": "00", "flow_section_name": "Transversal — inestabilidad de apps",
+     "flow_step_range": "Flujo completo",
+     "system_primary": "ofi", "systems_involved": '["ofi","tdc-visa-app"]',
+     "friction_type": "infraestructura",
+     "severity": "alto", "hypothesis_ref": "H1",
+     "current_state": "OFI Tradicional se bloquea con doble clic accidental. TDC Visa se congela y cierra con doble clic. Fallas de integracion con plataformas de Coppel desde el hackeo.",
+     "blocker_for": "ff-escala",
+     "evidence": "Pain points documentados slide 3. Fallas de integracion post-hackeo en slide 4.",
+     "status": "open",
+     "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slides 3-4"},
+    # ── DT-ONB-02: Canal Apolo — Arquitectura del Flujo ───────────────────────
+    {"id": "ONB-005", "dt_agent": "DT-ONB-02",
+     "finding_id": "AUD-FF-003", "onboarding_channel": "apolo",
+     "flow_section_num": "00", "flow_section_name": "Transversal — dependencia YUGA/Informix",
+     "flow_step_range": "46 steps YUGA + 27 steps Informix = 73 total",
+     "system_primary": "informix", "systems_involved": '["apolo","informix","yuga"]',
+     "friction_type": "latencia",
+     "severity": "critico", "hypothesis_ref": "H4",
+     "current_state": "YUGA tiene 46 pasos e Informix tiene 27 pasos en el flujo Apolo. Amplio radio de impacto ante degradacion del legado. Cada step con latencia 10-30 seg = hasta 730-2190 seg en steps sobre legado.",
+     "blocker_for": "mercado-abierto",
+     "evidence": "Diagnostico estructural slide 6: 'Concentracion YUGA/INFORMIX: 46 y 27 pasos respectivamente'.",
+     "status": "open",
+     "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slides 5-6"},
+    {"id": "ONB-006", "dt_agent": "DT-ONB-02",
+     "finding_id": "RISK-UNITY-R30", "onboarding_channel": "apolo",
+     "flow_section_num": "00", "flow_section_name": "Transversal — latencia por step",
+     "flow_step_range": "Todos los steps con llamada a YUGA/Informix",
+     "system_primary": "apolo", "systems_involved": '["apolo","yuga","informix"]',
+     "friction_type": "latencia",
+     "severity": "alto", "hypothesis_ref": "H4",
+     "current_state": "Latencia 10-30 segundos por step en Apolo. Flujo de 20 min vs OFI 45 min, pero la latencia elimina la ventaja percibida. Piloto F&F ~30 clientes sin metricas representativas.",
+     "blocker_for": "ff-escala",
+     "evidence": "Slide 7: 'Existen problemas de latencia en Apolo (10-30 segundos)'. Slide 6: YUGA/Informix 73 steps.",
+     "status": "open",
+     "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 7"},
+    {"id": "ONB-007", "dt_agent": "DT-ONB-02",
+     "finding_id": "AUD-FF-003", "onboarding_channel": "apolo",
+     "flow_section_num": "00", "flow_section_name": "Transversal — checkpoint proliferacion",
+     "flow_step_range": "105 entradas checkpoint en todo el flujo",
+     "system_primary": "apolo", "systems_involved": '["apolo"]',
+     "friction_type": "proceso",
+     "severity": "alto", "hypothesis_ref": "H3",
+     "current_state": "105 entradas de retrieve/initiate/update/execute checkpoint. Mas I/O, logica duplicada y replay dificil de razonar. El estado distribuido dificulta la retoma ante caidas.",
+     "blocker_for": "go-live",
+     "evidence": "Diagnostico estructural slide 6: '105 entradas de retrieve/initiate/update/execute checkpoint'.",
+     "status": "open",
+     "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 6"},
+    {"id": "ONB-008", "dt_agent": "DT-ONB-02",
+     "finding_id": "AUD-FF-004", "onboarding_channel": "todos",
+     "flow_section_num": "00", "flow_section_name": "Transversal — volumen piloto insuficiente",
+     "flow_step_range": "Todo el flujo",
+     "system_primary": "apolo", "systems_involved": '["apolo","ofi"]',
+     "friction_type": "proceso",
+     "severity": "medio", "hypothesis_ref": "H5",
+     "current_state": "Piloto F&F con ~30 clientes. No se ha tenido transaccionalidad significativa para medir comportamiento real de Apolo. Sin metricas de latencia P95, tasa de conversion ni tasa de abandono.",
+     "blocker_for": "ff-escala",
+     "evidence": "Slide 7: 'Bajo volumen de clientes en piloto F&F, 30 aproximadamente'.",
+     "status": "open",
+     "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 7"},
+    # ── DT-ONB-03: Integraciones Criticas ─────────────────────────────────────
+    {"id": "ONB-009", "dt_agent": "DT-ONB-03",
+     "finding_id": "RISK-UNITY-R28", "onboarding_channel": "apolo",
+     "flow_section_num": "03", "flow_section_name": "Validacion telefono / prueba de vida",
+     "flow_step_range": "Steps 3A-3B",
+     "system_primary": "otp", "systems_involved": '["apolo","otp"]',
+     "friction_type": "calidad",
+     "severity": "critico", "hypothesis_ref": "H1",
+     "current_state": "Mock OTP activo en QA. El E2E puede pasar validacion de telefono sin probar el proveedor real de OTP.",
+     "blocker_for": "sit",
+     "evidence": "Diagnostico estructural slide 6: 'OTP, RENAPO, INE y fallback Buro estan activos' como mocks.",
+     "status": "open",
+     "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 6"},
+    {"id": "ONB-010", "dt_agent": "DT-ONB-03",
+     "finding_id": "RISK-UNITY-R28", "onboarding_channel": "apolo",
+     "flow_section_num": "04", "flow_section_name": "Validacion del cliente",
+     "flow_step_range": "Steps 3D, 5A-7A",
+     "system_primary": "renapo", "systems_involved": '["apolo","renapo","ine"]',
+     "friction_type": "calidad",
+     "severity": "critico", "hypothesis_ref": "H1",
+     "current_state": "Mocks RENAPO e INE activos en QA. La validacion de identidad puede aprobar en E2E sin validar contra los padrones reales de RENAPO/INE.",
+     "blocker_for": "sit",
+     "evidence": "Diagnostico estructural slide 6. Vinculado a AUD-FF-002 (INE omitida en DUD).",
+     "status": "open",
+     "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 6"},
+    {"id": "ONB-011", "dt_agent": "DT-ONB-03",
+     "finding_id": "RISK-UNITY-R28", "onboarding_channel": "apolo",
+     "flow_section_num": "10", "flow_section_name": "Validacion SICs",
+     "flow_step_range": "Step 23",
+     "system_primary": "buro", "systems_involved": '["apolo","buro","circulo","brmex","informix","yuga"]',
+     "friction_type": "calidad",
+     "severity": "critico", "hypothesis_ref": "H1",
+     "current_state": "Step 23 combina Buro, Circulo, BRM, Informix/Yuga y mocks. Fallback Buro activo en QA. Latencia acumulada, rutas divergentes y dictamenes inconsistentes. E2E puede aprobar sin consultar Buro real.",
+     "blocker_for": "sit",
+     "evidence": "Diagnostico estructural slide 6: 'Step 23 combina Buro, Circulo, BRM, Informix/Yuga y mocks'.",
+     "status": "open",
+     "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 6"},
+    {"id": "ONB-012", "dt_agent": "DT-ONB-03",
+     "finding_id": "RISK-UNITY-R29", "onboarding_channel": "apolo",
+     "flow_section_num": "15", "flow_section_name": "Integracion de expediente digital",
+     "flow_step_range": "Steps 42-43",
+     "system_primary": "smartvista", "systems_involved": '["apolo","smartvista"]',
+     "friction_type": "integracion",
+     "severity": "critico", "hypothesis_ref": "H2",
+     "current_state": "Steps 42-43 encadenan creacion, sincronizacion, firma y carga documental sin idempotencia ni mecanismo de compensacion. Una falla a mitad produce alta parcial sin rollback automatico, requiriendo reproceso manual y conciliacion tardia.",
+     "blocker_for": "go-live",
+     "evidence": "Diagnostico estructural slide 6: 'Alta SmartVista + expediente'. Steps 42-43 criticos.",
+     "status": "open",
+     "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 6"},
+    {"id": "ONB-013", "dt_agent": "DT-ONB-03",
+     "finding_id": "RISK-UNITY-R31", "onboarding_channel": "apolo",
+     "flow_section_num": "15", "flow_section_name": "Integracion de expediente digital",
+     "flow_step_range": "Steps 41-45",
+     "system_primary": "os-digital", "systems_involved": '["apolo","os-digital","os-coppel"]',
+     "friction_type": "integracion",
+     "severity": "alto", "hypothesis_ref": "H1",
+     "current_state": "Foliador OS digital proximo al limite de 10M folios sin alerta proactiva. La replica OS a Coppel falla sin alerta proactiva. El motor de evaluacion tiene solicitudes encoladas.",
+     "blocker_for": "mercado-abierto",
+     "evidence": "Slide 3: 'Foliador OS digital proximo al limite de 10M folios'. 'Replica OS a Coppel falla sin alerta proactiva'.",
+     "status": "open",
+     "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 3"},
+    # ── DT-ONB-04: Brechas Regulatorias y KYC ─────────────────────────────────
+    {"id": "ONB-014", "dt_agent": "DT-ONB-04",
+     "finding_id": "AUD-FF-002", "onboarding_channel": "dud",
+     "flow_section_num": "04", "flow_section_name": "Validacion del cliente",
+     "flow_step_range": "Steps 3D, 5A-7A",
+     "system_primary": "apolo", "systems_involved": '["apolo","ine","renapo"]',
+     "friction_type": "regulatorio",
+     "severity": "critico", "hypothesis_ref": None,
+     "current_state": "Consulta INE omitida en canales DUD (Autosolicitudes digitales). Viola requisito KYC. Riesgo de CNBV/UIF ante falta de validacion de identidad en canal digital.",
+     "blocker_for": "mercado-abierto",
+     "evidence": "Slide 3: 'Consulta INE omitida en canales DUD (KYC)'.",
+     "status": "open",
+     "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 3"},
+    {"id": "ONB-015", "dt_agent": "DT-ONB-04",
+     "finding_id": "AUD-FF-002", "onboarding_channel": "todos",
+     "flow_section_num": "15", "flow_section_name": "Integracion de expediente digital",
+     "flow_step_range": "Steps 41-45",
+     "system_primary": "apolo", "systems_involved": '["apolo","ofi"]',
+     "friction_type": "regulatorio",
+     "severity": "alto", "hypothesis_ref": None,
+     "current_state": "Cierres con datos regulatorios faltantes. El expediente digital puede completarse sin todos los campos obligatorios requeridos por CNBV.",
+     "blocker_for": "mercado-abierto",
+     "evidence": "Slide 3: 'Cierres con datos regulatorios faltantes'.",
+     "status": "open",
+     "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 3"},
+    {"id": "ONB-016", "dt_agent": "DT-ONB-04",
+     "finding_id": "AUD-FF-002", "onboarding_channel": "ofi",
+     "flow_section_num": "04", "flow_section_name": "Validacion del cliente",
+     "flow_step_range": "Steps 3D, 5A-7A",
+     "system_primary": "ofi", "systems_involved": '["ofi","morpho"]',
+     "friction_type": "regulatorio",
+     "severity": "medio", "hypothesis_ref": "H5",
+     "current_state": "Sin huella del gerente con ID alternativo en OFI. Cuando el biometrico falla, no hay flujo alternativo de autorizacion del gerente con identificacion.",
+     "blocker_for": "ff-escala",
+     "evidence": "Slide 3: 'Sin huella del gerente con ID alternativo'.",
+     "status": "open",
+     "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 3"},
+    {"id": "ONB-017", "dt_agent": "DT-ONB-04",
+     "finding_id": "AUD-FF-003", "onboarding_channel": "apolo",
+     "flow_section_num": "10", "flow_section_name": "Validacion SICs",
+     "flow_step_range": "Step 23",
+     "system_primary": "buro", "systems_involved": '["apolo","buro","circulo","brmex"]',
+     "friction_type": "regulatorio",
+     "severity": "critico", "hypothesis_ref": "H3",
+     "current_state": "Step 23 combina BRM, Buro y Circulo con rutas divergentes. Dictamenes inconsistentes entre proveedores. Riesgo de otorgar credito con evaluacion de riesgo no confiable.",
+     "blocker_for": "mercado-abierto",
+     "evidence": "Slide 6: 'Latencia acumulada, rutas divergentes y dictamenes inconsistentes'.",
+     "status": "open",
+     "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 6"},
+    # ── DT-ONB-05: Calidad y Testing ───────────────────────────────────────────
+    {"id": "ONB-018", "dt_agent": "DT-ONB-05",
+     "finding_id": "RISK-UNITY-R28", "onboarding_channel": "apolo",
+     "flow_section_num": "00", "flow_section_name": "Transversal — cobertura E2E con mocks",
+     "flow_step_range": "Steps 3A-3B (OTP) + 3D/5A-7A (INE/RENAPO) + 23 (Buro)",
+     "system_primary": "apolo", "systems_involved": '["apolo","otp","ine","renapo","buro"]',
+     "friction_type": "calidad",
+     "severity": "critico", "hypothesis_ref": "H1",
+     "current_state": "Mocks activos en 4 integraciones criticas: OTP, RENAPO, INE y fallback Buro. El E2E de SIT puede aprobar el onboarding completo sin probar ningun proveedor real. Los mocks enmascaran problemas de latencia e indisponibilidad.",
+     "blocker_for": "sit",
+     "evidence": "Slide 6: 'E2E puede aprobar sin probar proveedores reales'. 4 mocks activos documentados.",
+     "status": "open",
+     "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 6"},
+    {"id": "ONB-019", "dt_agent": "DT-ONB-05",
+     "finding_id": "RISK-UNITY-R29", "onboarding_channel": "apolo",
+     "flow_section_num": "15", "flow_section_name": "Integracion de expediente digital",
+     "flow_step_range": "Steps 42-43",
+     "system_primary": "apolo", "systems_involved": '["apolo","smartvista"]',
+     "friction_type": "calidad",
+     "severity": "critico", "hypothesis_ref": "H2",
+     "current_state": "Steps 42-43 sin mecanismo de idempotencia ni compensacion. Los tests de integracion no cubren el escenario de falla parcial entre creacion y sincronizacion. Alta parcial no detectable en los tests actuales.",
+     "blocker_for": "sit",
+     "evidence": "Slide 6: 'Definir compensacion, idempotencia y reconciliacion' como accion pendiente.",
+     "status": "open",
+     "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 6"},
+    {"id": "ONB-020", "dt_agent": "DT-ONB-05",
+     "finding_id": "AUD-FF-003", "onboarding_channel": "apolo",
+     "flow_section_num": "00", "flow_section_name": "Transversal — vacios de documentacion",
+     "flow_step_range": "7 pasos sin obligatoriedad definida",
+     "system_primary": "apolo", "systems_involved": '["apolo"]',
+     "friction_type": "calidad",
+     "severity": "medio", "hypothesis_ref": None,
+     "current_state": "7 pasos sin campo de obligatoriedad definido. Nombres y tabla dinamica no concilian. Cobertura de pruebas y gobierno ambiguos para estos pasos.",
+     "blocker_for": "sit",
+     "evidence": "Slide 6: '7 pasos sin obligatoriedad; nombres y tabla dinamica no concilian'.",
+     "status": "open",
+     "source_doc": "BanCoppel_Plan_Director_Aceleracion_Onboarding_ago-2026 slide 6"},
 ]
 
 INITIAL_ASSUMPTIONS = [
@@ -6227,6 +6652,7 @@ def load_system_sdlc(con: sqlite3.Connection) -> None:
             narrative_industry  TEXT,
             narrative_kpis      TEXT,        -- JSON array [{k,v}]
             narrative_brechas   TEXT,        -- JSON array [{txt,level}]
+            etb_l3              TEXT,        -- JSON array de IDs ETB L3 cubiertos en la fase
             validated           INTEGER DEFAULT 0,
             updated_at          TEXT
         );
@@ -6343,8 +6769,36 @@ def load_system_sdlc(con: sqlite3.Connection) -> None:
     print(f"  system_sdlc       : {n_sys} sistemas | {n_ms} milestones | {n_caps} capabilities")
 
 
+def load_onboarding_hypotheses(con: sqlite3.Connection) -> None:
+    """Carga hipotesis de trabajo del Plan Director Aceleracion Onboarding (ago-2026)."""
+    for h in ONB_HYPOTHESES:
+        con.execute(
+            "INSERT OR REPLACE INTO onboarding_hypotheses (id, title, description, status, source_doc) "
+            "VALUES (:id, :title, :description, :status, :source_doc)", h)
+    con.commit()
+    print(f"  onboarding_hypotheses: {len(ONB_HYPOTHESES)} hipotesis de trabajo")
+
+
+def load_onboarding_finding_map(con: sqlite3.Connection) -> None:
+    """Carga mapa hallazgo x step x sistema del swarm DT-ONB-01..05 (ago-2026)."""
+    cols = list(ONB_FINDING_MAP[0].keys())
+    ph   = ", ".join("?" * len(cols))
+    sql  = f"INSERT OR REPLACE INTO onboarding_finding_map ({', '.join(cols)}) VALUES ({ph})"
+    con.executemany(sql, [tuple(r.get(c) for c in cols) for r in ONB_FINDING_MAP])
+    con.commit()
+    by_agent: dict[str, int] = {}
+    by_sev:   dict[str, int] = {}
+    for r in ONB_FINDING_MAP:
+        a = r.get("dt_agent", "?"); by_agent[a] = by_agent.get(a, 0) + 1
+        s = r.get("severity",  "?"); by_sev[s]  = by_sev.get(s, 0) + 1
+    sev_str   = " | ".join(f"{s}:{n}" for s, n in sorted(by_sev.items()))
+    agent_str = " | ".join(f"{a}:{n}" for a, n in sorted(by_agent.items()))
+    print(f"  onboarding_finding_map: {len(ONB_FINDING_MAP)} entradas  |  {sev_str}")
+    print(f"    agentes: {agent_str}")
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Unity Project Brain Builder v1.7.0")
+    parser = argparse.ArgumentParser(description="Unity Project Brain Builder v2.0.0")
     parser.add_argument("--reset", action="store_true", help="Borra y reconstruye brain.db")
     args = parser.parse_args()
 
@@ -6356,7 +6810,7 @@ def main() -> None:
     con = sqlite3.connect(str(DB_PATH))
     con.execute("PRAGMA journal_mode=WAL")
 
-    print("Construyendo Unity Project Brain v1.7.0...")
+    print("Construyendo Unity Project Brain v2.0.0...")
     init_db(con)
     load_project_info(con)
     load_products(con)
@@ -6383,10 +6837,14 @@ def main() -> None:
     load_track_rag(con)        # v1.0.0  --  5 tracks RAG (PPTX Roadmap 11-ago-2026)
     load_legacy_systems(con)   # v1.2.0  --  14 sistemas legado/ecosistema (barrido documental 2026-08-19)
     load_audit_findings(con)   # v1.2.0  --  19 hallazgos del barrido (cifras, correcciones, ambiguedades)
+    load_onboarding_hypotheses(con)     # v2.0.0 -- hipotesis Plan Director Aceleracion Onboarding
+    load_onboarding_finding_map(con)    # v2.0.0 -- swarm DT-ONB-01..05 mapa hallazgo x step x sistema
     load_lifecycle_phase_steps(con)
     load_program_systems(con)
     load_system_sdlc(con)          # v1.5.0 -- crea lifecycle_phases y tablas Swarm aquí
-    load_lifecycle_phases_and_flows(con)  # v2.0.0 -- popula lifecycle_phases desde constante          # v1.5.0  --  fase/progreso/milestones/caps por sistema (desde brain.db)
+    load_lifecycle_phases_and_flows(con)  # v2.0.0 -- popula lifecycle_phases desde constante
+    load_lifecycle_integrations(con)      # v1.8.0 -- integraciones por fase (scope + gaps)
+    load_lifecycle_test_cases(con)        # v1.8.0 -- casos de prueba QE shift-left por fase
     load_coexistence_rules(con)    # v1.6.0  --  9 reglas routing Informix<->Unity por tipo op / canal
     load_migration_map(con)        # v1.6.0  --  20 entries mapeo dominio Informix -> sistema Unity
     load_functional_duplicity(con) # v1.7.0  --  23 candidatos swarm DT-SWAP-01..08 duplicidad funcional
@@ -6704,6 +7162,7 @@ LIFECYCLE_PHASES_DATA = {
                 {"nodes":["Cargen"],         "arrow":"filtros y layout de maquila"},
                 {"nodes":["Connect-Direct"], "arrow":"cifrado PGP","pending":True},
                 {"nodes":["Maquilador"],     "arrow":"archivo de realce"},
+                {"nodes":["HSM"],            "arrow":"PIN / CVV2 — personalización PCI"},
             ],
         },
         "activacion": {
@@ -6723,6 +7182,8 @@ LIFECYCLE_PHASES_DATA = {
                 {"nodes":["App Móvil"]},
                 {"nodes":["CES"],        "arrow":"verificar identidad"},
                 {"nodes":["SmartVista"], "arrow":"activar tarjeta"},
+                {"nodes":["ATM"],        "arrow":"activación en cajero",   "pending":True},
+                {"nodes":["SIWEB"],      "arrow":"activación en sucursal", "pending":True},
             ],
         },
         "autorizacion": {
@@ -6768,7 +7229,9 @@ LIFECYCLE_PHASES_DATA = {
                 "brechas":[{"txt":"Estado de cuenta formato CONDUSEF: sin evidencia de validación en R4","level":"warn"},{"txt":"MSI/MCI en estado de cuenta digital: sin User Story específica confirmada","level":"warn"},{"txt":"Consulta via ATM: no en scope R4","level":"warn"}],
             },
             "flows":[
-                {"nodes":["App Móvil","SIWEB","CAT/IVR"]},
+                {"nodes":["App Móvil"]},
+                {"nodes":["SIWEB"],      "arrow":"canal digital"},
+                {"nodes":["CAT / IVR"], "arrow":"canal sucursal"},
                 {"nodes":["SmartVista"], "arrow":"consulta de movimientos y saldos"},
             ],
         },
@@ -6806,9 +7269,11 @@ LIFECYCLE_PHASES_DATA = {
             },
             "flows":[
                 {"nodes":["SVBO"]},
-                {"nodes":["SVXP"],    "arrow":"archivo XML contable",       "pending":True},
-                {"nodes":["Informix"],"arrow":"la contabilidad permanece en PISA"},
-                {"nodes":["SOC"],     "arrow":"nuevo tipo de conciliación", "pending":True},
+                {"nodes":["SVXP"],           "arrow":"archivo XML contable",        "pending":True},
+                {"nodes":["Informix"],        "arrow":"la contabilidad permanece en PISA"},
+                {"nodes":["SOC"],            "arrow":"nuevo tipo de conciliación",  "pending":True},
+                {"nodes":["E-Global"],        "arrow":"conciliación interbancaria"},
+                {"nodes":["Connect-Direct"], "arrow":"archivo de liquidación"},
             ],
         },
         "cobranza": {
@@ -6825,9 +7290,12 @@ LIFECYCLE_PHASES_DATA = {
             },
             "flows":[
                 {"nodes":["SmartVista"]},
-                {"nodes":["Informix"],       "arrow":"agingPeriod batch"},
-                {"nodes":["Connect-Direct"], "arrow":"archivo cobranza"},
-                {"nodes":["CAT/IVR"],        "arrow":"gestión cliente"},
+                {"nodes":["Informix"],              "arrow":"agingPeriod batch"},
+                {"nodes":["Connect-Direct"],        "arrow":"archivo cobranza"},
+                {"nodes":["CAT/IVR"],               "arrow":"gestión cliente"},
+                {"nodes":["Motor Cobranza"],        "arrow":"cobranza preventiva y temprana"},
+                {"nodes":["Buró de Crédito"],       "arrow":"reporte mora día 30"},
+                {"nodes":["CNBV"],                  "arrow":"SISEC cartera vencida", "pending":True},
             ],
         },
     },
@@ -6850,12 +7318,22 @@ def load_lifecycle_phases_and_flows(con: sqlite3.Connection) -> None:
         p    = LIFECYCLE_PHASES_DATA["phases"][pid]
         narr = p.get("narrative", {})
 
+        etb_map = {
+            "originacion":   [{"id":"3.1.1","name":"Credit Origination"},{"id":"3.1.2","name":"Application Processing"}],
+            "emision":       [{"id":"3.2.1","name":"Card Issuance"},{"id":"3.2.2","name":"Personalization"}],
+            "activacion":    [{"id":"3.2.4","name":"Card Activation"}],
+            "autorizacion":  [{"id":"3.3.1","name":"Authorization Processing"},{"id":"3.3.2","name":"Fraud Scoring"}],
+            "transacciones": [{"id":"3.4.1","name":"Transaction Processing"},{"id":"3.4.3","name":"Core Payment Processing"}],
+            "pagos":         [{"id":"3.5.1","name":"Payment Processing"},{"id":"3.5.2","name":"SPEI / Interbank"}],
+            "contabilidad":  [{"id":"3.6.1","name":"General Ledger"},{"id":"3.6.2","name":"Reconciliation"}],
+            "cobranza":      [{"id":"3.7.1","name":"Collections Management"},{"id":"3.7.2","name":"Delinquency Mgmt"}],
+        }
         con.execute("""
             INSERT OR REPLACE INTO lifecycle_phases
                 (phase_id, name, num, icon, color, description, coverage,
                  us_count, track, notes, narrative_industry, narrative_kpis,
-                 narrative_brechas, validated, updated_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                 narrative_brechas, validated, updated_at, etb_l3)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             pid, p["name"], p["num"], p["icon"], p["color"],
             p["desc"], p.get("coverage","completa"), p.get("us_count"),
@@ -6865,6 +7343,7 @@ def load_lifecycle_phases_and_flows(con: sqlite3.Connection) -> None:
             _json.dumps(narr.get("kpis",[]),    ensure_ascii=False),
             _json.dumps(narr.get("brechas",[]), ensure_ascii=False),
             1, today,
+            _json.dumps(etb_map.get(pid,[]), ensure_ascii=False),
         ))
         n_phases += 1
 
@@ -6886,6 +7365,543 @@ def load_lifecycle_phases_and_flows(con: sqlite3.Connection) -> None:
 
     con.commit()
     print(f"  lifecycle_phases: {n_phases}  |  flow_nodes: {n_nodes}  |  flow_arrows: {n_arrows}")
+
+
+# ── v1.8.0 Lifecycle Integrations ─────────────────────────────────────────────
+# Integraciones por fase del lifecycle TDC — scope R4 y gaps.
+# Fuente: r4_integrations + DTs (dt-coexistencia, dt-smartvista, dt-vendors,
+#         dt-sit-uat, dt-compliance) + LIFECYCLE_PHASES_DATA brechas.
+LIFECYCLE_INTEGRATIONS_DATA = [
+    # ── Originación ──────────────────────────────────────────────────────────────
+    {"id":"LI-ORIG-01","phase_id":"originacion","integration_ref":None,
+     "from_system":"APOLO","to_system":"SmartVista","api_name":"Alta de cuenta TDC",
+     "protocol":"API REST","direction":"sync",
+     "evidence_us":"HDU-APOL-R4-01","scope_r4":1,"gap_flag":0,"gap_notes":None},
+    {"id":"LI-ORIG-02","phase_id":"originacion","integration_ref":None,
+     "from_system":"APOLO","to_system":"Buró de Crédito",
+     "api_name":"Consulta Buró de Crédito","protocol":"API","direction":"sync",
+     "evidence_us":"HDU-APOL-R4-01","scope_r4":1,"gap_flag":0,"gap_notes":None},
+    {"id":"LI-ORIG-03","phase_id":"originacion","integration_ref":None,
+     "from_system":"APOLO","to_system":"CES (scoring)",
+     "api_name":"Scoring crediticio CES","protocol":"API","direction":"sync",
+     "evidence_us":"HDU-APOL-R4-01","scope_r4":1,"gap_flag":0,"gap_notes":None},
+    {"id":"LI-ORIG-04","phase_id":"originacion","integration_ref":None,
+     "from_system":"APOLO","to_system":"PLD/Minds",
+     "api_name":"Validación PLD / KYC","protocol":"API","direction":"sync",
+     "evidence_us":"HDU-APOL-R4-01","scope_r4":1,"gap_flag":0,"gap_notes":None},
+    {"id":"LI-ORIG-05","phase_id":"originacion","integration_ref":None,
+     "from_system":"APOLO","to_system":"ATLAS (Golden Record)",
+     "api_name":"Alta cliente en ATLAS","protocol":"API","direction":"sync",
+     "evidence_us":None,"scope_r4":1,"gap_flag":1,
+     "gap_notes":"ATLAS/Golden Record requerido para TDC R4 en sep-2026; carga inicial "
+                 "desde Informix sin documento de diseño. Tres candidatos al Golden "
+                 "Record simultáneos (Informix/ATLAS/Transact) — DUP-013."},
+    # ── Emisión ───────────────────────────────────────────────────────────────────
+    {"id":"LI-EMIS-01","phase_id":"emision","integration_ref":"ISV01",
+     "from_system":"AWS","to_system":"Informix (OLTP)",
+     "api_name":"Descarga archivo maquila (nube a on-premise)",
+     "protocol":"Batch/PGP","direction":"batch",
+     "evidence_us":"HDU-SMART-R4-06","scope_r4":1,"gap_flag":0,"gap_notes":None},
+    {"id":"LI-EMIS-02","phase_id":"emision","integration_ref":"ISV02",
+     "from_system":"Informix (OLTP)","to_system":"Connect-Direct",
+     "api_name":"AFT — Transferencia archivo de maquila",
+     "protocol":"Batch/PGP","direction":"batch",
+     "evidence_us":"HDU-SMART-R4-06","scope_r4":1,"gap_flag":1,
+     "gap_notes":"BLOQUEANTE: Connect-Direct no en producción — depósito manual por "
+                 "tickets. Sin User Story de automatización completada."},
+    {"id":"LI-EMIS-03","phase_id":"emision","integration_ref":"ISV03",
+     "from_system":"SIWEB","to_system":"SmartVista",
+     "api_name":"Consulta de lotes (recepción/cancelación)",
+     "protocol":"API","direction":"sync",
+     "evidence_us":"HDU-SMART-R4-08","scope_r4":1,"gap_flag":0,"gap_notes":None},
+    # ── Activación ────────────────────────────────────────────────────────────────
+    {"id":"LI-ACTI-01","phase_id":"activacion","integration_ref":None,
+     "from_system":"App Móvil","to_system":"CES",
+     "api_name":"Verificación de identidad en activación",
+     "protocol":"API REST","direction":"sync",
+     "evidence_us":"HDU-APP-R4","scope_r4":1,"gap_flag":0,"gap_notes":None},
+    {"id":"LI-ACTI-02","phase_id":"activacion","integration_ref":None,
+     "from_system":"CES","to_system":"SmartVista",
+     "api_name":"Activar tarjeta digital","protocol":"API","direction":"sync",
+     "evidence_us":"HDU-APP-R4","scope_r4":1,"gap_flag":0,"gap_notes":None},
+    {"id":"LI-ACTI-03","phase_id":"activacion","integration_ref":None,
+     "from_system":"ATM","to_system":"SmartVista",
+     "api_name":"Activación por ATM",
+     "protocol":"ISO 8583","direction":"sync",
+     "evidence_us":None,"scope_r4":0,"gap_flag":1,
+     "gap_notes":"Customer Journey documentado (CJ_ATM_01) pero sin User Story en R4 "
+                 "— fuera del alcance formal del release."},
+    {"id":"LI-ACTI-04","phase_id":"activacion","integration_ref":None,
+     "from_system":"SIWEB","to_system":"SmartVista",
+     "api_name":"Activación en sucursal","protocol":"API","direction":"sync",
+     "evidence_us":None,"scope_r4":0,"gap_flag":1,
+     "gap_notes":"Customer Journey documentado (CJ_OFI_22) pero sin User Story en R4."},
+    # ── Autorización ──────────────────────────────────────────────────────────────
+    {"id":"LI-AUTH-01","phase_id":"autorizacion","integration_ref":None,
+     "from_system":"E-Global","to_system":"SmartVista SVFE",
+     "api_name":"Autorización ISO 8583 (200) — e-commerce y POS",
+     "protocol":"ISO 8583","direction":"sync",
+     "evidence_us":"HDU-SMART-R4-11","scope_r4":1,"gap_flag":0,"gap_notes":None},
+    {"id":"LI-AUTH-02","phase_id":"autorizacion","integration_ref":None,
+     "from_system":"SmartVista SVFE","to_system":"HSM Thales payShield",
+     "api_name":"Validación CVV2 / PIN en e-commerce",
+     "protocol":"HSM Protocol","direction":"sync",
+     "evidence_us":"HDU-SMART-R4-11","scope_r4":1,"gap_flag":0,"gap_notes":None},
+    {"id":"LI-AUTH-03","phase_id":"autorizacion","integration_ref":None,
+     "from_system":"SmartVista SVFE","to_system":"E-Global",
+     "api_name":"Respuesta autorización ISO 8583 (210)",
+     "protocol":"ISO 8583","direction":"sync",
+     "evidence_us":"HDU-SMART-R4-11","scope_r4":1,"gap_flag":0,"gap_notes":None},
+    {"id":"LI-AUTH-04","phase_id":"autorizacion","integration_ref":None,
+     "from_system":"SmartVista SVIP","to_system":"PayTrue (carpeta SV)",
+     "api_name":"Archivo PayTrue por ciclos de 3 minutos",
+     "protocol":"Batch/File","direction":"batch",
+     "evidence_us":None,"scope_r4":1,"gap_flag":0,
+     "gap_notes":"PayTrue NO está en ruta sincrónica. Se alimenta por archivo en carpeta "
+                 "con ciclos de 3 minutos — no es integración en tiempo real."},
+    {"id":"LI-AUTH-05","phase_id":"autorizacion","integration_ref":None,
+     "from_system":"SmartVista SVFE","to_system":"SmartVista SVFM (fraude)",
+     "api_name":"Motor de fraude SVFM",
+     "protocol":"Interno SmartVista","direction":"sync",
+     "evidence_us":"HDU-SMART-R4-11","scope_r4":1,"gap_flag":1,
+     "gap_notes":"CONTRADICCIÓN ABIERTA: PreGame 28-jul dice SVFM no licenciado; "
+                 "Plan de Trabajo 12-ago dice binario instalado y conectividad "
+                 "SVFM-SVFE probada. Sin resolución documentada."},
+    # ── Transacciones ─────────────────────────────────────────────────────────────
+    {"id":"LI-TRANS-01","phase_id":"transacciones","integration_ref":"ICAT04",
+     "from_system":"IVR/CAT","to_system":"SmartVista",
+     "api_name":"Consulta de saldos y movimientos (IVR)",
+     "protocol":"API","direction":"sync",
+     "evidence_us":"HDU-CAT-R4-08","scope_r4":1,"gap_flag":0,"gap_notes":None},
+    {"id":"LI-TRANS-02","phase_id":"transacciones","integration_ref":"ISV04",
+     "from_system":"SmartVista","to_system":"SIWEB",
+     "api_name":"Visualización nombres normativos de comisiones (SIWEB)",
+     "protocol":"API","direction":"sync",
+     "evidence_us":"HDU-SMART-R4-10","scope_r4":1,"gap_flag":0,"gap_notes":None},
+    {"id":"LI-TRANS-03","phase_id":"transacciones","integration_ref":"ISV05",
+     "from_system":"SmartVista","to_system":"App Móvil",
+     "api_name":"Visualización nombres normativos de comisiones (App)",
+     "protocol":"API","direction":"sync",
+     "evidence_us":"HDU-SMART-R4-10","scope_r4":1,"gap_flag":0,"gap_notes":None},
+    {"id":"LI-TRANS-04","phase_id":"transacciones","integration_ref":None,
+     "from_system":"SmartVista","to_system":"App Móvil",
+     "api_name":"Estado de cuenta formato CONDUSEF",
+     "protocol":"API","direction":"sync",
+     "evidence_us":None,"scope_r4":1,"gap_flag":1,
+     "gap_notes":"Formato regulatorio CONDUSEF (Circular 9/2019 Banxico): sin evidencia "
+                 "de validación en R4. Exige 45 días entre corte y fecha límite de pago."},
+    # ── Pagos ─────────────────────────────────────────────────────────────────────
+    {"id":"LI-PAGOS-01","phase_id":"pagos","integration_ref":None,
+     "from_system":"App Móvil","to_system":"SmartVista",
+     "api_name":"Aplicar pago desde App",
+     "protocol":"API REST","direction":"sync",
+     "evidence_us":"HDU-APP-R4","scope_r4":1,"gap_flag":0,"gap_notes":None},
+    {"id":"LI-PAGOS-02","phase_id":"pagos","integration_ref":None,
+     "from_system":"SIWEB","to_system":"SmartVista",
+     "api_name":"Pago en ventanilla de sucursal",
+     "protocol":"API","direction":"sync",
+     "evidence_us":"HDU-SIWEB-R4","scope_r4":1,"gap_flag":1,
+     "gap_notes":"BLOQUEADO por dependencia SIWEB — track en estado blocked esperando "
+                 "APIs. Sin alternativa confirmada. CONDUSEF exige al menos dos "
+                 "mecanismos de pago sin costo para el cliente."},
+    {"id":"LI-PAGOS-03","phase_id":"pagos","integration_ref":None,
+     "from_system":"Cliente / banco exterior","to_system":"SmartVista",
+     "api_name":"Recepción de pago por SPEI",
+     "protocol":"SPEI (Banxico)","direction":"async",
+     "evidence_us":None,"scope_r4":0,"gap_flag":1,
+     "gap_notes":"Sin User Story ni integración documentada en R4. SPEI es el principal "
+                 "canal de pago digital en México."},
+    {"id":"LI-PAGOS-04","phase_id":"pagos","integration_ref":None,
+     "from_system":"SmartVista","to_system":"Domiciliación/ACH",
+     "api_name":"Cargo automático (domiciliación)",
+     "protocol":"Batch/ACH","direction":"batch",
+     "evidence_us":None,"scope_r4":0,"gap_flag":1,
+     "gap_notes":"Sin User Story en R4. CONDUSEF exige ofrecer domiciliación "
+                 "como canal de pago sin costo."},
+    # ── Contabilidad ──────────────────────────────────────────────────────────────
+    {"id":"LI-CONT-01","phase_id":"contabilidad","integration_ref":None,
+     "from_system":"SmartVista SVBO","to_system":"SmartVista SVXP",
+     "api_name":"Generación de asientos contables (SVXP)",
+     "protocol":"XML/Batch","direction":"batch",
+     "evidence_us":None,"scope_r4":1,"gap_flag":1,
+     "gap_notes":"BLOQUEANTE: interfaz SVXP no construida — prioridad PreGame pendiente. "
+                 "Sin esta interfaz la contabilidad del Producto 4900 no puede cerrarse."},
+    {"id":"LI-CONT-02","phase_id":"contabilidad","integration_ref":None,
+     "from_system":"SmartVista SVXP","to_system":"Informix (PISA)",
+     "api_name":"Transferencia de asientos contables a PISA",
+     "protocol":"XML/Batch","direction":"batch",
+     "evidence_us":None,"scope_r4":1,"gap_flag":1,
+     "gap_notes":"BLOQUEANTE: interfaz no construida. Contabilidad permanece en PISA "
+                 "hasta Go-Live. CNBV exige registro D+0 (CUB Anexos 33 y 36)."},
+    {"id":"LI-CONT-03","phase_id":"contabilidad","integration_ref":None,
+     "from_system":"SmartVista","to_system":"SOC (Sistema Operativo Central)",
+     "api_name":"Nuevo tipo de conciliación SOC",
+     "protocol":"Batch","direction":"batch",
+     "evidence_us":None,"scope_r4":0,"gap_flag":1,
+     "gap_notes":"Req. 16-nov-2023: SOC requiere nuevo tipo de conciliación "
+                 "para el Producto 4900. Sin plan en R4."},
+    {"id":"LI-CONT-04","phase_id":"contabilidad","integration_ref":None,
+     "from_system":"DataStage","to_system":"DWH / RiskLogic / Bajaware",
+     "api_name":"Pipeline de reportes regulatorios (DataStage→DWH→RiskLogic)",
+     "protocol":"Batch ETL","direction":"batch",
+     "evidence_us":None,"scope_r4":1,"gap_flag":1,
+     "gap_notes":"Bajaware en decomiso Q1-2027 mientras la arquitectura CNBV lo declara "
+                 "motor de generación. IC-83: pipelines DataStage se rompen al "
+                 "decomisar Informix (owner no asignado en ningún documento)."},
+    # ── Cobranza ──────────────────────────────────────────────────────────────────
+    {"id":"LI-COB-01","phase_id":"cobranza","integration_ref":None,
+     "from_system":"SmartVista","to_system":"Informix (PISA)",
+     "api_name":"agingPeriod batch (clasificación cartera vencida)",
+     "protocol":"Batch","direction":"batch",
+     "evidence_us":None,"scope_r4":1,"gap_flag":0,"gap_notes":None},
+    {"id":"LI-COB-02","phase_id":"cobranza","integration_ref":None,
+     "from_system":"Informix (PISA)","to_system":"Connect-Direct",
+     "api_name":"Archivo de cobranza a maquilador / gestor externo",
+     "protocol":"Connect-Direct/Batch","direction":"batch",
+     "evidence_us":None,"scope_r4":1,"gap_flag":1,
+     "gap_notes":"Mismo bloqueante que en Emisión: Connect-Direct no automatizado "
+                 "— depósito manual. Riesgo compartido entre fases Emisión y Cobranza."},
+    {"id":"LI-COB-03","phase_id":"cobranza","integration_ref":None,
+     "from_system":"SmartVista / Informix","to_system":"CAT/IVR",
+     "api_name":"Gestión de cliente en cobranza (IVR/CAT)",
+     "protocol":"API","direction":"sync",
+     "evidence_us":"HDU-CAT-R4","scope_r4":1,"gap_flag":0,"gap_notes":None},
+    {"id":"LI-COB-04","phase_id":"cobranza","integration_ref":None,
+     "from_system":"SmartVista / PISA","to_system":"Buró de Crédito (SISEC)",
+     "api_name":"Reporte cartera vencida al SISEC",
+     "protocol":"Batch/SFTP","direction":"batch",
+     "evidence_us":None,"scope_r4":0,"gap_flag":1,
+     "gap_notes":"Sin evidencia de diseño en R4. CNBV exige reportar cartera vencida "
+                 "al SISEC mensualmente desde D+30."},
+]
+
+
+def load_lifecycle_integrations(con: sqlite3.Connection) -> None:
+    """Carga integraciones por fase del lifecycle TDC — scope y gaps R4 (v1.8.0)."""
+    con.execute("DELETE FROM lifecycle_integrations")
+    cols = ["id","phase_id","integration_ref","from_system","to_system",
+            "api_name","protocol","direction","evidence_us",
+            "scope_r4","gap_flag","gap_notes"]
+    ph = ",".join("?"*len(cols))
+    con.executemany(
+        f"INSERT INTO lifecycle_integrations ({','.join(cols)}) VALUES ({ph})",
+        [tuple(r.get(c) for c in cols) for r in LIFECYCLE_INTEGRATIONS_DATA],
+    )
+    con.commit()
+    total    = len(LIFECYCLE_INTEGRATIONS_DATA)
+    gaps     = sum(1 for r in LIFECYCLE_INTEGRATIONS_DATA if r["gap_flag"])
+    in_scope = sum(1 for r in LIFECYCLE_INTEGRATIONS_DATA if r["scope_r4"])
+    print(f"  lifecycle_integrations: {total} total | in_scope_r4={in_scope} | gaps={gaps}")
+
+
+# ── v1.8.0 Lifecycle Test Cases ───────────────────────────────────────────────
+# Casos de prueba QE shift-left por fase del lifecycle TDC.
+# Prioridad: P1=bloqueante Go-Live · P2=importante · P3=nice-to-have.
+# Fuente: brechas en LIFECYCLE_PHASES_DATA + dt-compliance + dt-sit-uat +
+#         dt-smartvista + r4_integrations gaps.
+LIFECYCLE_TEST_CASES_DATA = [
+    # ── Originación ──────────────────────────────────────────────────────────────
+    {"id":"LTC-ORIG-01","phase_id":"originacion","tc_id":"TC-ORIG-01",
+     "tc_title":"Originación completa digital — solicitud aprobada",
+     "precondition":"Cliente nuevo; scoring CES aprobatorio; sin alerta PLD",
+     "steps_summary":"1. Ingresar a APOLO. 2. Capturar datos y docs KYC. "
+                     "3. Consulta automática Buró de Crédito. 4. Scoring CES. "
+                     "5. Aprobación y alta en SmartVista.",
+     "expected_result":"Cuenta TDC 4900 creada en SmartVista; cliente recibe confirmación; "
+                       "Golden Record en ATLAS actualizado (pendiente Fase 2 ATLAS).",
+     "priority":"P1","test_type":"funcional",
+     "regulation_ref":"CONDUSEF; Banxico Circ.9/2019 CAT","linked_us_id":"HDU-APOL-R4-01"},
+    {"id":"LTC-ORIG-02","phase_id":"originacion","tc_id":"TC-ORIG-02",
+     "tc_title":"CAT comunicado al cliente antes de firma — formato CONDUSEF",
+     "precondition":"Solicitud en etapa de aceptación de términos; CAT calculado para Producto 4900",
+     "steps_summary":"1. Avanzar al paso de aceptación. 2. Verificar CAT en pantalla de forma "
+                     "destacada. 3. Intentar firmar sin aceptar CAT.",
+     "expected_result":"CAT visible conforme Circular 9/2019 Banxico; contrato no firmable "
+                       "sin aceptación explícita; registro en RECA disponible.",
+     "priority":"P1","test_type":"regulatorio",
+     "regulation_ref":"CONDUSEF; Banxico Circ.9/2019 CAT; RECA","linked_us_id":"HDU-APOL-R4-02"},
+    {"id":"LTC-ORIG-03","phase_id":"originacion","tc_id":"TC-ORIG-03",
+     "tc_title":"Rechazo por Buró — comunicación al cliente conforme CONDUSEF",
+     "precondition":"Cliente con historial crediticio negativo en Buró",
+     "steps_summary":"1. Ingresar solicitud. 2. Buró retorna rechazo. "
+                     "3. Verificar mensaje al cliente. 4. Verificar no almacenamiento de datos sensibles.",
+     "expected_result":"Mensaje de rechazo claro sin exponer detalle del Buró; "
+                       "cliente informado de su derecho a revisar historial.",
+     "priority":"P2","test_type":"regulatorio",
+     "regulation_ref":"CONDUSEF; LFPDPPP","linked_us_id":"HDU-APOL-R4-01"},
+    {"id":"LTC-ORIG-04","phase_id":"originacion","tc_id":"TC-ORIG-04",
+     "tc_title":"Identificación de cliente PEP — bloqueo y escalación PLD",
+     "precondition":"Cliente en lista PEP; base PLD/Minds activa",
+     "steps_summary":"1. Ingresar solicitud de cliente PEP. 2. Sistema consulta PLD. "
+                     "3. Verificar alerta y bloqueo de originación automática. "
+                     "4. Verificar escalación a oficial de cumplimiento.",
+     "expected_result":"Originación bloqueada; alerta generada en sistema PLD; "
+                       "expediente creado para revisión manual.",
+     "priority":"P1","test_type":"regulatorio",
+     "regulation_ref":"LFPIORPI; GAFI R.12; PLD/UIF","linked_us_id":"HDU-APOL-R4-01"},
+    {"id":"LTC-ORIG-05","phase_id":"originacion","tc_id":"TC-ORIG-05",
+     "tc_title":"Latencia del flujo completo de solicitud < 5 minutos (P95)",
+     "precondition":"Ambiente de carga representativa; todos los servicios activos",
+     "steps_summary":"1. Iniciar cronómetro al ingresar a APOLO. "
+                     "2. Completar flujo completo. 3. Medir tiempo hasta confirmación de alta.",
+     "expected_result":"Tiempo total < 5 min en P95; latencia integración SmartVista < 500ms.",
+     "priority":"P1","test_type":"performance",
+     "regulation_ref":None,"linked_us_id":"HDU-APOL-R4-01"},
+    # ── Emisión ───────────────────────────────────────────────────────────────────
+    {"id":"LTC-EMIS-01","phase_id":"emision","tc_id":"TC-EMIS-01",
+     "tc_title":"Generación de lote de maquila desde SmartVista SVBO",
+     "precondition":"Cuentas TDC 4900 aprobadas y pendientes de maquila",
+     "steps_summary":"1. Ejecutar proceso SVBO. 2. OCG genera archivo solicitudes aprobadas. "
+                     "3. Cargen aplica filtros y genera layout. 4. Verificar integridad del archivo.",
+     "expected_result":"Archivo generado con formato correcto; hash de integridad válido; "
+                       "log de auditoría generado.",
+     "priority":"P1","test_type":"funcional",
+     "regulation_ref":"PCI-DSS Req.3.6; Req.10","linked_us_id":"HDU-SMART-R4-06"},
+    {"id":"LTC-EMIS-02","phase_id":"emision","tc_id":"TC-EMIS-02",
+     "tc_title":"Integridad del cifrado PGP del archivo de maquila",
+     "precondition":"Archivo de maquila generado; llaves PGP del maquilador configuradas",
+     "steps_summary":"1. Cargen cifra el archivo con PGP. 2. Verificar con llave pública. "
+                     "3. Intentar descifrar con llave incorrecta.",
+     "expected_result":"Descifrado exitoso con llave correcta; fallo controlado con llave "
+                       "incorrecta; log PCI-DSS generado.",
+     "priority":"P1","test_type":"seguridad",
+     "regulation_ref":"PCI-DSS Req.3.5; Req.3.6","linked_us_id":"HDU-SMART-R4-06"},
+    {"id":"LTC-EMIS-03","phase_id":"emision","tc_id":"TC-EMIS-03",
+     "tc_title":"Depósito automático en Connect-Direct (GAP — no en producción)",
+     "precondition":"Connect-Direct configurado [GAP]; archivo de maquila cifrado generado",
+     "steps_summary":"1. Ejecutar proceso de transferencia AFT. 2. Verificar depósito en "
+                     "carpeta Connect-Direct del maquilador. 3. Verificar acuse de recepción.",
+     "expected_result":"Archivo depositado automáticamente sin intervención manual; "
+                       "acuse de recepción generado; log de transferencia con hash.",
+     "priority":"P1","test_type":"integracion",
+     "regulation_ref":"PCI-DSS Req.3","linked_us_id":"HDU-SMART-R4-06"},
+    {"id":"LTC-EMIS-04","phase_id":"emision","tc_id":"TC-EMIS-04",
+     "tc_title":"Recepción y cancelación de lotes desde SIWEB",
+     "precondition":"Lote de tarjetas físicas entregado en sucursal; ejecutivo SIWEB con acceso",
+     "steps_summary":"1. Consultar lote en SIWEB por número de sucursal. "
+                     "2. Verificar listado de tarjetas. "
+                     "3. Cancelar tarjeta y verificar estado en SmartVista.",
+     "expected_result":"Consulta de lote exitosa; tarjeta cancelada reflejada en SmartVista "
+                       "en tiempo real.",
+     "priority":"P2","test_type":"funcional",
+     "regulation_ref":None,"linked_us_id":"HDU-SMART-R4-08"},
+    # ── Activación ────────────────────────────────────────────────────────────────
+    {"id":"LTC-ACTI-01","phase_id":"activacion","tc_id":"TC-ACTI-01",
+     "tc_title":"Tarjeta NO activa antes de activación explícita — CONDUSEF",
+     "precondition":"Tarjeta física entregada; cuenta en estado pre-activación en SmartVista",
+     "steps_summary":"1. Intentar usar tarjeta antes de activación. "
+                     "2. Verificar rechazo en autorizador. 3. Verificar mensaje al cliente.",
+     "expected_result":"Transacción rechazada con código correcto (tarjeta no activada); "
+                       "cliente recibe mensaje claro; registro en log.",
+     "priority":"P1","test_type":"regulatorio",
+     "regulation_ref":"CONDUSEF; NOM-021-SCFI","linked_us_id":None},
+    {"id":"LTC-ACTI-02","phase_id":"activacion","tc_id":"TC-ACTI-02",
+     "tc_title":"Activación de tarjeta digital desde App Móvil — flujo completo",
+     "precondition":"App instalada; cuenta TDC 4900 en pre-activación; cliente autenticado",
+     "steps_summary":"1. Ingresar a sección TDC en App. 2. Iniciar proceso de activación. "
+                     "3. CES valida identidad. 4. SmartVista actualiza estado a activa.",
+     "expected_result":"Tarjeta activa en SmartVista; estado visible en App; "
+                       "cliente puede realizar transacciones; log de activación generado.",
+     "priority":"P1","test_type":"funcional",
+     "regulation_ref":"CONDUSEF; CNBV Art.76 LIC","linked_us_id":"HDU-APP-R4"},
+    {"id":"LTC-ACTI-03","phase_id":"activacion","tc_id":"TC-ACTI-03",
+     "tc_title":"Bloqueo de cuenta tras 3 intentos fallidos de activación",
+     "precondition":"Cuenta en pre-activación; cliente ingresa datos incorrectos",
+     "steps_summary":"1. Intentar activación con datos incorrectos (3 veces). "
+                     "2. Verificar bloqueo temporal. 3. Verificar proceso de desbloqueo.",
+     "expected_result":"Cuenta bloqueada tras 3 intentos; cliente notificado; "
+                       "solo canal de desbloqueo autorizado habilitado.",
+     "priority":"P2","test_type":"seguridad",
+     "regulation_ref":"CNBV Art.76","linked_us_id":"HDU-APP-R4"},
+    # ── Autorización ──────────────────────────────────────────────────────────────
+    {"id":"LTC-AUTH-01","phase_id":"autorizacion","tc_id":"TC-AUTH-01",
+     "tc_title":"Autorización exitosa POS — latencia P99 < 2,000 ms",
+     "precondition":"Tarjeta activa con saldo disponible; SVFE y E-Global activos",
+     "steps_summary":"1. Iniciar transacción POS. 2. E-Global envía ISO 8583 a SVFE. "
+                     "3. SVFE evalúa 88 reglas. 4. Retorna aprobación. 5. Medir latencia total.",
+     "expected_result":"Autorización aprobada; latencia P99 < 2,000 ms; "
+                       "log generado; saldo actualizado.",
+     "priority":"P1","test_type":"performance",
+     "regulation_ref":"CNBV — disponibilidad 24x7","linked_us_id":"HDU-SMART-R4-11"},
+    {"id":"LTC-AUTH-02","phase_id":"autorizacion","tc_id":"TC-AUTH-02",
+     "tc_title":"Rechazo por límite de crédito excedido — código ISO correcto",
+     "precondition":"Tarjeta activa sin saldo disponible suficiente",
+     "steps_summary":"1. Intentar transacción que excede el límite. "
+                     "2. SVFE evalúa regla de límite. "
+                     "3. Retorna código de rechazo. 4. Verificar mensaje en POS.",
+     "expected_result":"Código ISO 8583 correcto (51 — insuficiencia de fondos); "
+                       "saldo sin modificar; log generado; sin cargo al portador.",
+     "priority":"P1","test_type":"funcional",
+     "regulation_ref":None,"linked_us_id":"HDU-SMART-R4-11"},
+    {"id":"LTC-AUTH-03","phase_id":"autorizacion","tc_id":"TC-AUTH-03",
+     "tc_title":"Validación CVV2 por HSM en compra e-commerce",
+     "precondition":"Tarjeta activa; compra e-commerce con CVV2; HSM Thales activo",
+     "steps_summary":"1. Iniciar compra e-commerce. 2. Cliente ingresa CVV2. "
+                     "3. SVFE consulta HSM para validación. 4. Verificar resultado.",
+     "expected_result":"CVV2 validado por HSM sin exposición en texto claro; "
+                       "aprobada con CVV2 correcto; rechazada con CVV2 incorrecto; log HSM.",
+     "priority":"P1","test_type":"seguridad",
+     "regulation_ref":"PCI-DSS Req.3.3; Req.3.6","linked_us_id":"HDU-SMART-R4-11"},
+    {"id":"LTC-AUTH-04","phase_id":"autorizacion","tc_id":"TC-AUTH-04",
+     "tc_title":"Disponibilidad 24x7 del autorizador — recovery < 15 min ante falla",
+     "precondition":"Ambiente productivo; monitoreo activo",
+     "steps_summary":"1. Simular falla del servicio SVFE. 2. Medir tiempo de detección. "
+                     "3. Medir tiempo de recovery. 4. Verificar transacciones en cola.",
+     "expected_result":"Detección < 2 min; recovery < 15 min; sin pérdida de transacciones; "
+                       "alerta generada a on-call.",
+     "priority":"P1","test_type":"performance",
+     "regulation_ref":"CNBV — continuidad operativa","linked_us_id":None},
+    # ── Transacciones ─────────────────────────────────────────────────────────────
+    {"id":"LTC-TRANS-01","phase_id":"transacciones","tc_id":"TC-TRANS-01",
+     "tc_title":"Consulta de saldo desde App Móvil — latencia < 2 s (P95)",
+     "precondition":"App autenticada; cuenta TDC 4900 activa con movimientos",
+     "steps_summary":"1. Ingresar a sección TDC en App. "
+                     "2. Consultar saldo disponible. 3. Medir tiempo de respuesta.",
+     "expected_result":"Saldo correcto en < 2 s P95; último movimiento actualizado.",
+     "priority":"P2","test_type":"performance",
+     "regulation_ref":None,"linked_us_id":"HDU-APP-R4"},
+    {"id":"LTC-TRANS-02","phase_id":"transacciones","tc_id":"TC-TRANS-02",
+     "tc_title":"Estado de cuenta en formato regulatorio CONDUSEF",
+     "precondition":"Cuenta con ciclo de corte completado; estado de cuenta disponible",
+     "steps_summary":"1. Generar estado de cuenta. 2. Verificar campos regulatorios "
+                     "(pago mínimo, fecha límite, saldo total, CAT). "
+                     "3. Verificar que fecha límite >= corte + 45 días.",
+     "expected_result":"Todos los campos CONDUSEF presentes; fecha límite >= corte + 45 días; "
+                       "entrega gratuita.",
+     "priority":"P1","test_type":"regulatorio",
+     "regulation_ref":"CONDUSEF; Banxico Circ.9/2019","linked_us_id":None},
+    {"id":"LTC-TRANS-03","phase_id":"transacciones","tc_id":"TC-TRANS-03",
+     "tc_title":"Consulta de movimientos por IVR (CAT) — 4 integraciones",
+     "precondition":"Cliente autenticado en IVR; cuenta TDC 4900 activa",
+     "steps_summary":"1. Llamar al CAT. 2. Autenticarse por IVR. "
+                     "3. Seleccionar consulta TDC. 4. Verificar respuesta de SmartVista. "
+                     "5. Navegar a movimientos recientes.",
+     "expected_result":"Saldo y movimientos correctos; latencia < 3 s; sin errores de integración.",
+     "priority":"P2","test_type":"integracion",
+     "regulation_ref":None,"linked_us_id":"HDU-CAT-R4-08"},
+    # ── Pagos ─────────────────────────────────────────────────────────────────────
+    {"id":"LTC-PAGOS-01","phase_id":"pagos","tc_id":"TC-PAGOS-01",
+     "tc_title":"Pago desde App — acreditación en saldo disponible en < 5 minutos",
+     "precondition":"App autenticada; cuenta TDC con adeudo; cuenta bancaria origen con fondos",
+     "steps_summary":"1. Ingresar a sección de pagos TDC en App. 2. Ingresar monto. "
+                     "3. Confirmar. 4. Verificar acreditación en SmartVista. 5. Medir tiempo.",
+     "expected_result":"Saldo disponible actualizado en < 5 min; confirmación al cliente; "
+                       "log de transacción generado.",
+     "priority":"P1","test_type":"funcional",
+     "regulation_ref":"CONDUSEF; Banxico SPEI","linked_us_id":"HDU-APP-R4"},
+    {"id":"LTC-PAGOS-02","phase_id":"pagos","tc_id":"TC-PAGOS-02",
+     "tc_title":"Pago mínimo y fecha límite claramente comunicados al cliente",
+     "precondition":"Estado de cuenta generado; App con vista de pago TDC",
+     "steps_summary":"1. Acceder a pagos TDC en App. 2. Verificar display de pago mínimo. "
+                     "3. Verificar display de fecha límite.",
+     "expected_result":"Pago mínimo correcto visible; fecha límite >= corte + 45 días; "
+                       "opción de pago total claramente diferenciada.",
+     "priority":"P1","test_type":"regulatorio",
+     "regulation_ref":"CONDUSEF; NOM-021-SCFI","linked_us_id":"HDU-APP-R4"},
+    {"id":"LTC-PAGOS-03","phase_id":"pagos","tc_id":"TC-PAGOS-03",
+     "tc_title":"Rechazo de pago — rollback de saldo sin cargo doble",
+     "precondition":"App autenticada; pago con fondos insuficientes en cuenta origen",
+     "steps_summary":"1. Intentar pago TDC con fondos insuficientes. "
+                     "2. Verificar respuesta de rechazo. "
+                     "3. Verificar que saldo TDC no fue modificado. "
+                     "4. Verificar ausencia de doble cargo.",
+     "expected_result":"Saldo TDC sin modificar; mensaje de rechazo claro; "
+                       "sin cargo en cuenta origen; log generado.",
+     "priority":"P1","test_type":"funcional",
+     "regulation_ref":"CONDUSEF","linked_us_id":"HDU-APP-R4"},
+    # ── Contabilidad ──────────────────────────────────────────────────────────────
+    {"id":"LTC-CONT-01","phase_id":"contabilidad","tc_id":"TC-CONT-01",
+     "tc_title":"Conciliación D+0 — transacciones autorizadas = asientos contables",
+     "precondition":"Día de cierre contable; transacciones del día autorizadas en SmartVista",
+     "steps_summary":"1. Ejecutar proceso de posting diario SVBO. 2. Verificar asientos. "
+                     "3. Cruzar total autorizaciones vs total asientos. "
+                     "4. Verificar transmisión a PISA vía SVXP.",
+     "expected_result":"Total transacciones = total asientos; 0 breaks sin resolver al cierre "
+                       "D+0; log de conciliación generado; PISA actualizado.",
+     "priority":"P1","test_type":"funcional",
+     "regulation_ref":"CNBV CUB Anexos 33 y 36; NIF C-16","linked_us_id":None},
+    {"id":"LTC-CONT-02","phase_id":"contabilidad","tc_id":"TC-CONT-02",
+     "tc_title":"Interfaz SmartVista SVXP → Informix (PISA) — transferencia asientos (GAP)",
+     "precondition":"Interfaz SVXP construida [GAP: pendiente]; asientos generados en SVBO",
+     "steps_summary":"1. Ejecutar transferencia SVXP. 2. Verificar recepción en PISA. "
+                     "3. Verificar integridad del archivo XML. "
+                     "4. Verificar contabilización en PISA.",
+     "expected_result":"Asientos transferidos íntegramente; PISA contabiliza en D+0; "
+                       "log con hash; sin pérdida de datos.",
+     "priority":"P1","test_type":"integracion",
+     "regulation_ref":"CNBV CUB Anexo 33; Banxico","linked_us_id":None},
+    {"id":"LTC-CONT-03","phase_id":"contabilidad","tc_id":"TC-CONT-03",
+     "tc_title":"TRNTs del Producto 4900 — validación de tipos de transacción (GAP)",
+     "precondition":"Guía contable formal entregada [GAP: PP-TRNT-PAGOS al 0%]; TRNTs definidos",
+     "steps_summary":"1. Para cada tipo de transacción (compra, pago, devolución, cargo): "
+                     "verificar TRNT asignado. 2. Verificar asiento contable correcto. "
+                     "3. Cruzar contra guía contable formal.",
+     "expected_result":"Cada transacción genera TRNT correcto; asientos cuadran con guía; "
+                       "0 TRNTs sin definir al Go-Live.",
+     "priority":"P1","test_type":"regulatorio",
+     "regulation_ref":"CNBV CUB; NIF B-1; NIF C-16","linked_us_id":None},
+    # ── Cobranza ──────────────────────────────────────────────────────────────────
+    {"id":"LTC-COB-01","phase_id":"cobranza","tc_id":"TC-COB-01",
+     "tc_title":"Aging batch D+30 — cuenta pasa a cartera vencida en SmartVista y PISA",
+     "precondition":"Cuenta TDC 4900 con adeudo sin pagar; proceso batch de aging activo",
+     "steps_summary":"1. Simular ciclo D+30 sin pago. 2. Ejecutar aging batch en SmartVista. "
+                     "3. Verificar cambio de status en SmartVista. "
+                     "4. Verificar reflejo en PISA vía batch.",
+     "expected_result":"Cuenta marcada vencida en SmartVista; reflejo en PISA en D+1; "
+                       "expediente generado en sistema de cobranza; log de aging.",
+     "priority":"P1","test_type":"funcional",
+     "regulation_ref":"CNBV SISEC; NIF C-16","linked_us_id":None},
+    {"id":"LTC-COB-02","phase_id":"cobranza","tc_id":"TC-COB-02",
+     "tc_title":"Gestión de contacto — horario permitido CONDUSEF (8am-9pm)",
+     "precondition":"Cuenta en cobranza activa; sistema de marcación CAT/IVR configurado",
+     "steps_summary":"1. Intentar llamada antes de las 8am. 2. Intentar llamada después de las 9pm. "
+                     "3. Intentar llamada en horario permitido.",
+     "expected_result":"Llamadas fuera de horario bloqueadas por sistema; "
+                       "llamada en horario permitido realizada; log de intentos generado.",
+     "priority":"P1","test_type":"regulatorio",
+     "regulation_ref":"CONDUSEF; Circular CNBV gestión cobranza","linked_us_id":None},
+    {"id":"LTC-COB-03","phase_id":"cobranza","tc_id":"TC-COB-03",
+     "tc_title":"Oferta de reestructura antes del primer reporte al Buró de Crédito",
+     "precondition":"Cuenta en D+25 sin pago; proceso de cobranza activo",
+     "steps_summary":"1. Verificar que sistema ofrece reestructura antes de D+30. "
+                     "2. Simular aceptación de reestructura. 3. Verificar suspensión de reporte. "
+                     "4. Simular rechazo y verificar reporte a D+30.",
+     "expected_result":"Oferta de reestructura generada antes de D+30; "
+                       "reestructura aceptada bloquea reporte; rechazada activa reporte a D+30.",
+     "priority":"P1","test_type":"regulatorio",
+     "regulation_ref":"CONDUSEF; Buró de Crédito SISEC; CNBV","linked_us_id":None},
+    {"id":"LTC-COB-04","phase_id":"cobranza","tc_id":"TC-COB-04",
+     "tc_title":"Reporte mensual de cartera vencida al SISEC (GAP — sin evidencia de diseño)",
+     "precondition":"Cartera vencida > 30 días en SmartVista/PISA; canal SISEC configurado [GAP]",
+     "steps_summary":"1. Ejecutar proceso de generación de reporte SISEC. "
+                     "2. Verificar formato conforme a CNBV. "
+                     "3. Verificar transmisión al SISEC. 4. Verificar acuse de recepción CNBV.",
+     "expected_result":"Reporte SISEC generado con formato correcto; transmisión exitosa; "
+                       "acuse almacenado; 0 cuentas vencidas omitidas.",
+     "priority":"P1","test_type":"regulatorio",
+     "regulation_ref":"CNBV SISEC; NIF C-16","linked_us_id":None},
+]
+
+
+def load_lifecycle_test_cases(con: sqlite3.Connection) -> None:
+    """Carga casos de prueba QE shift-left por fase del lifecycle TDC (v1.8.0)."""
+    con.execute("DELETE FROM lifecycle_test_cases")
+    cols = ["id","phase_id","tc_id","tc_title","precondition",
+            "steps_summary","expected_result","priority","test_type",
+            "regulation_ref","linked_us_id"]
+    ph = ",".join("?"*len(cols))
+    con.executemany(
+        f"INSERT INTO lifecycle_test_cases ({','.join(cols)}) VALUES ({ph})",
+        [tuple(r.get(c) for c in cols) for r in LIFECYCLE_TEST_CASES_DATA],
+    )
+    con.commit()
+    total = len(LIFECYCLE_TEST_CASES_DATA)
+    by_p  = {}
+    for r in LIFECYCLE_TEST_CASES_DATA:
+        p = r["priority"]; by_p[p] = by_p.get(p, 0) + 1
+    reg = sum(1 for r in LIFECYCLE_TEST_CASES_DATA if r.get("test_type") == "regulatorio")
+    print(f"  lifecycle_test_cases  : {total} total | regulatorio={reg} | " +
+          " | ".join(f"{k}:{v}" for k, v in sorted(by_p.items())))
 
 
 # -- v1.6.0 -- program_stakeholders ------------------------------------------
@@ -7906,16 +8922,17 @@ DUPLICITY_DATA = [
         "legacy_system": "sif-informix",
         "legacy_capability": "D07 Gestion Deuda + D08 Pagos (asientos contables cobranza/pago) + legacy libro mayor",
         "legacy_evidence": "D07/D08: fate=replicate en IMM. Asientos contables vinculados a CNBV Anexo 33-36.",
-        "new_system": "transact",
-        "new_capability": "Temenos Transact: genera asientos contables para productos en produccion (captacion, CSE). Reportes Regulatorios incluye contabilidad.",
+        "new_system": "smartvista",
+        "new_capability": "SmartVista SVBO: genera asientos contables TDC Producto 4900. Interfaz SVXP transfiere a Informix (PISA). Transact genera asientos para captacion/CSE.",
         "overlap_type": "partial",
-        "scenarios": '[{"type":"coexistence","prob":"high","condition":"Cada sistema genera asientos para sus propios productos durante migracion"},{"type":"absorb","prob":"medium","condition":"Cuando Informix se decomisione, Transact absorbe todos los asientos"}]',
+        "scenarios": '[{"type":"coexistence","prob":"high","condition":"SmartVista genera asientos TDC 4900; Informix sigue siendo el libro mayor central. Interfaz SVXP pendiente de construccion."},{"type":"absorb","prob":"medium","condition":"Cuando Informix se decomisione, sistema destino absorbe todos los asientos (Transact o nuevo core contable)"}]',
         "recommended_scenario": "convivir", "scenario_confidence": "high",
-        "migration_blocker": 0, "blocker_description": None,
-        "decision_dependency": "Reconciliacion de asientos entre Transact y Informix. Confirmar que el DWH consolida ambas fuentes para reportes CNBV.",
-        "evidence": "SME Contabilidad Bancaria CNBV: CUB Anexo 33-36. IMM: D07/D08 fate=replicate. Reportes Regulatorios cadena documentada.",
+        "migration_blocker": 1,
+        "blocker_description": "BLOQUEANTE: interfaz SmartVista SVXP -> Informix (PISA) no construida — 'prioridad PreGame pendiente'. Sin esta interfaz la contabilidad del Producto 4900 no puede cerrarse al Go-Live (enero 2027). TRNTs de Pagos al 0% (PP-TRNT-PAGOS). CNBV exige registro D+0 (CUB Anexos 33 y 36). Adicionalmente: nuevo tipo de conciliacion SOC (req. 16-nov-2023) sin plan en R4.",
+        "decision_dependency": "Construccion urgente de interfaz SVXP. Entrega guia contable TRNTs Producto 4900. Reconciliacion de asientos Transact/SmartVista/Informix en DWH.",
+        "evidence": "lifecycle_integrations: LI-CONT-01 y LI-CONT-02 gap_flag=1. SME Contabilidad Bancaria CNBV: CUB Anexo 33-36. IMM: D07/D08 fate=replicate. CLAUDE.md Unity brechas contabilidad.",
         "status": "candidate",
-        "notes": "Durante coexistencia la reconciliacion contable Transact/Informix es critica para reportes CNBV. El DWH de Reportes Reg. debe consolidar ambas fuentes.",
+        "notes": "ACTUALIZADO v1.8.0: migration_blocker corregido a 1. La interfaz SVXP es prerequisito para Go-Live enero 2027. Durante coexistencia la reconciliacion contable SmartVista/Transact/Informix es critica para reportes CNBV.",
     },
     # ── DT-SWAP-08: Cobranza y Recuperacion  (Cobranza Direccionada ↔ Informix D07/D40) ─
     {
@@ -7953,6 +8970,25 @@ DUPLICITY_DATA = [
         "evidence": "CLAUDE.md Unity desambiguacion: 'BRM tiene tres referentes distintos: WebMethods BRM, Experian BRM, BRM Coppel'. legacy_systems: BRM x3.",
         "status": "candidate",
         "notes": "Overlap potencial por ambiguedad arquitectonica. Hasta desambiguar los 3 BRM y mapear sus funciones, no es posible determinar el overlap real.",
+    },
+    {
+        "id": "DUP-024", "dt_agent": "DT-SWAP-02",
+        "capability_domain": "Motor de deteccion de fraude TDC en tiempo real",
+        "etb_capability": '["3.4.6","3.10.2"]',
+        "legacy_system": "sif-informix",
+        "legacy_capability": "Logica antifraude embebida en SPs Informix (consultas RBR in-process). No hay motor externo documentado en legacy TDC.",
+        "legacy_evidence": "CLAUDE.md Unity: 'SVFM: motor fraude SmartVista — CONTRADICCION ABIERTA: LI-AUTH-05 indica licencia no confirmada; sin US R4 documentadas para fraude real-time'. Informix SPs absorbian esta logica en D02/D03.",
+        "new_system": "smartvista",
+        "new_capability": "SmartVista SVFM (Fraud Manager): motor de fraude nativo BPC para TDC. Evalua patrones de riesgo en autorizacion (pre-auth). Dependencia de licencia SVFM confirmada.",
+        "overlap_type": "potential",
+        "scenarios": '[{"type":"absorb","prob":"high","condition":"Si SVFM licenciado y configurado: absorbe la logica antifraude RBR que hoy hace Informix inline en los SPs de autorizacion TDC"},{"type":"coexistence","prob":"medium","condition":"SVFM sin licencia o sin US R4: Informix sigue siendo el unico punto de control antifraude durante Go-Live (riesgo regulatorio PCI-DSS)"}]',
+        "recommended_scenario": "sustituir", "scenario_confidence": "low",
+        "migration_blocker": 1,
+        "blocker_description": "CONTRADICCION ABIERTA: el CLAUDE.md Unity y LI-AUTH-05 documentan que el licenciamiento de SVFM no esta confirmado y no hay User Stories R4 para fraude en tiempo real. Si SVFM no esta disponible en Go-Live enero 2027, BanCoppel opera TDC 4900 sin motor de fraude dedicado — incumplimiento PCI-DSS Req. 10.6 y posible exposicion CNBV. Resolver antes de cierre R4 backlog.",
+        "decision_dependency": "Confirmar con BPC/Exodus: (1) licencia SVFM incluida en contrato R4, (2) US de configuracion de reglas SVFM en backlog, (3) integracion SVFM en flujo AUTH aprobada por area de Riesgos BanCoppel.",
+        "evidence": "lifecycle_integrations: LI-AUTH-05 gap_flag=1 'CONTRADICCION ABIERTA: licenciamiento SVFM no confirmado — sin US R4 para fraude real-time'. CLAUDE.md Unity brechas autorizacion.",
+        "status": "candidate",
+        "notes": "NUEVO v1.9.0: DUP-024. confidence=low porque la contradiccion no permite determinar si SVFM sustituye (absorb) o si Informix sigue siendo el unico control de fraude. Es el unico DUP donde el scenario_confidence es bajo por dato faltante critico — no por ambiguedad de diseno.",
     },
 ]
 

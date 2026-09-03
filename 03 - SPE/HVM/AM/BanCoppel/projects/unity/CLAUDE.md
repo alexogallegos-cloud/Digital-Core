@@ -256,8 +256,8 @@ Fuente: `Bancoppel_Plan_Director_-_Design_Authority_v1.2.pptx`, slide 7 "Dominio
 | Release | Alcance | Estado |
 |---------|---------|--------|
 | SmartVista R1 | **Configuración del gestor de TDC** (SmartVista como CMS) | ✅ **En productivo** — dic-2024, 38 funcionalidades, **sin canales listados** |
-| SmartVista R2 | **Integración a App y onboarding de la TDC** | ✅ **En productivo** — jul-2025, 33 funcionalidades; App, Promotoría, Sucursal, SPEI |
-| SmartVista R3 | **Tarjeta física**, liberada en modo Friends & Family | ✅ **En productivo** — sep-2025, 15 funcionalidades; depende de ATLAS a sep-2026 (decisión L-03 pide plan alterno) |
+| SmartVista R2 | **Integración a App y onboarding de la TDC** | ✅ **En productivo F&F** — 2026-02 (objetivo jul-2025), 33 funcionalidades; piloto 8 clientes; App, Promotoría, Sucursal, SPEI |
+| SmartVista R3 | **Tarjeta física**, liberada en modo Friends & Family | ✅ **En productivo F&F** — 2026-07 (objetivo sep-2025), 15 funcionalidades; alta de 20 clientes; onboarding activo sep-2026; depende de ATLAS a sep-2026 (L-03) |
 | **SmartVista R4** | **Tarjeta de Crédito Clásica — Producto 4900** | **Building — release ancla**, SIT 15-oct a 15-dic-2026, go-live ~15-ene-2027 |
 | SmartVista R4.5 | Meses con intereses (MCI) en App | Backlog — el Design Authority nombra R4.5 pero no declara su alcance; el alcance viene del PreGame vía `dt-smartvista` |
 

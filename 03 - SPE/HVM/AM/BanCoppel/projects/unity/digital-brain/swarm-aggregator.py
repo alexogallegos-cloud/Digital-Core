@@ -39,7 +39,8 @@ def upsert(cur, table, row):
     cur.execute(sql, [_scalar(v) for v in row.values()])
 
 def _node_name(node):
-    return node.get("node_name") or node.get("label") or node.get("name") or node.get("sistema","")
+    return (node.get("node_name") or node.get("label") or node.get("name")
+            or node.get("system") or node.get("sistema",""))
 
 def _arrow_label(arrow, i):
     label = arrow.get("label","")
@@ -73,7 +74,16 @@ def load_phase(cur, phase_id, data):
 
     nodes, arrows, vs_str = _normalize_flow(data["flow_validated"])
 
-    # ── lifecycle_phases ──────────────────────────────────────────────
+    # ── lifecycle_phases — preservar columnas que el aggregator no gestiona ──
+    existing = cur.execute(
+        "SELECT etb_l3, track, notes, narrative_industry, narrative_kpis, narrative_brechas "
+        "FROM lifecycle_phases WHERE phase_id=?", (phase_id,)
+    ).fetchone()
+    preserved = {}
+    if existing:
+        cols = ["etb_l3","track","notes","narrative_industry","narrative_kpis","narrative_brechas"]
+        preserved = {c: existing[i] for i, c in enumerate(cols) if existing[i] is not None}
+
     upsert(cur, "lifecycle_phases", {
         "phase_id":    phase_id,
         "name":        data["phase_name"],
@@ -87,9 +97,19 @@ def load_phase(cur, phase_id, data):
         "us_count":    len(data.get("us_mapping",[])),
         "validated":   1,
         "updated_at":  NOW,
+        **preserved,
     })
 
-    # ── lifecycle_flow_nodes ──────────────────────────────────────────
+    # ── borrar datos existentes de esta fase antes de recargar ────────
+    # Solo reemplazar si el swarm trae datos; si no, conservar los estáticos de build-brain.py
+    if nodes:
+        cur.execute("DELETE FROM lifecycle_flow_nodes   WHERE phase_id=?", (phase_id,))
+    if arrows:
+        cur.execute("DELETE FROM lifecycle_flow_arrows  WHERE phase_id=?", (phase_id,))
+    cur.execute("DELETE FROM lifecycle_steps            WHERE phase_id=?", (phase_id,))
+    cur.execute("DELETE FROM lifecycle_data_elements    WHERE phase_id=?", (phase_id,))
+    cur.execute("DELETE FROM lifecycle_integrations     WHERE phase_id=?", (phase_id,))
+    cur.execute("DELETE FROM lifecycle_test_cases       WHERE phase_id=?", (phase_id,))
     for i, node in enumerate(nodes):
         if not isinstance(node, dict):
             continue
