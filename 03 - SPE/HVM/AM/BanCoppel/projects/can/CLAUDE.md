@@ -56,14 +56,16 @@ Basado en la taxonomía TOGAF del programa:
 
 ## Digital Twins · `dt/`
 
-Cuatro DTs para la fase DISCOVER del proyecto CAN:
+Seis DTs para la fase DISCOVER del proyecto CAN:
 
 | DT | Propósito | SMEs heredados | Versión |
 |----|-----------|----------------|---------|
 | `dt-normativa-can/` | Extrae y estructura la normativa Banxico CAN: obligaciones, plazos, sanciones, definiciones clave, alcance de productos | Regulatory/Banxico · Industry Banking · Industry Banking Accounting | 0.1.0 |
-| `dt-impacto-sistemas/` | Mapea qué capacidades del sistema están en scope de CAN: cruza obligaciones contra bdiadminnomina, canales y reporting; identifica SPs relevantes en brain.db | Specialist — Informix SPL · DBA IBM Informix · Industry Banking | 0.1.0 |
-| `dt-brecha-compliance/` | Gap analysis formal: obligaciones regulatorias CAN vs. capacidades actuales de BanCoppel; genera la lista de brechas con criticidad y fecha | Regulatory/Banxico · Industry Banking Accounting · Cybersecurity | 0.1.0 |
-| `dt-roadmap-cambios/` | Traduce las brechas a requerimientos técnicos, User Stories y un roadmap de implementación; estima esfuerzo e impacto por sistema | Core Banking Transformation · Software Engineering · IT Operating Model | 0.1.0 |
+| `dt-impacto-sistemas/` | Mapea qué capacidades del sistema están en scope de CAN: cruza obligaciones contra bdiadminnomina, canales y reporting; identifica SPs relevantes en brain.db | Specialist — Informix SPL · DBA IBM Informix · Industry Banking · Industry Payments → SPEI | 0.1.0 |
+| `dt-brecha-compliance/` | Gap analysis formal: obligaciones regulatorias CAN vs. capacidades actuales de BanCoppel; genera la lista de brechas con criticidad y fecha | Regulatory/Banxico · Industry Banking Accounting · Cybersecurity · SRE & AIOps | 0.1.0 |
+| `dt-roadmap-cambios/` | Traduce las brechas a requerimientos técnicos, User Stories y un roadmap de implementación; estima esfuerzo e impacto por sistema | Core Banking Transformation · Software Engineering · IT Operating Model · Framework — Integration Architecture | 0.1.0 |
+| `dt-de-can/` | Lee y estructura el DE CAN v4.2: especificaciones técnicas del Mecanismo Art. 63 Bis 3, catálogo de campos, flujos de mensajes interbancarios | Framework — Integration Architecture · Industry Payments → SPEI · Regulatory/Banxico | 0.1.0 |
+| `dt-nomina-interbancaria/` | Extrae Art. 81 Bis 1 y 81 Bis 2: Servicio de Nómina Interbancaria — portabilidad de nómina, obligaciones adicionales de Institución Ordenante/Receptora | Regulatory/Banxico · Industry Banking · Industry Payments → SPEI | 0.1.0 |
 
 ---
 
@@ -90,6 +92,10 @@ knowledge-base/
 [Documentos Banxico CAN]
     ↓
 dt-normativa-can → knowledge-base/regulacion/ (obligaciones + glosario)
+    │
+    ├──→ dt-de-can → spec técnica Mecanismo Art. 63 Bis 3 + catálogo de campos
+    │
+    └──→ dt-nomina-interbancaria → obligaciones Art. 81 Bis 1 y 81 Bis 2
     ↓
 dt-impacto-sistemas → cruza contra brain.db de Informix (bdiadminnomina)
     ↓
@@ -123,6 +129,10 @@ portal/index.html → dashboard de cumplimiento CAN
 | Análisis de bdiadminnomina SPL | Specialist — Informix SPL → BCOPBrain |
 | User Stories de cambios técnicos | Software Engineering SME |
 | Ajuste de jobs CTM para nómina | DBA IBM Informix + IT Operating Model |
+| OBL-006 (SPEI refinanciamiento) + OBL-009 (Clave Básica Estandarizada) | Industry Payments → SPEI |
+| Diseño del Mecanismo Art. 63 Bis 3 (hub interbancario) | Framework — Integration Architecture |
+| OBL-023 timing ventana 17:00 DHB + monitoreo prelación OBL-016 | SRE & AIOps |
+| Brechas de seguridad y privacidad (PII datos de nómina) | Cybersecurity |
 
 ---
 
@@ -138,4 +148,4 @@ portal/index.html → dashboard de cumplimiento CAN
 
 ---
 
-*Última actualización: 2026-09-16 · v0.1.0 · Proyecto iniciado — estructura canónica creada. Pendiente: carga de documentos regulatorios Banxico CAN para activar análisis.*
+*Última actualización: 2026-09-17 · v0.2.0 · 6 DTs definidos (4 originales + dt-de-can + dt-nomina-interbancaria); 3 SMEs adicionales declarados (Industry Payments → SPEI, Framework — Integration Architecture, SRE & AIOps); dt-normativa-can COMPLETO — 23 obligaciones cargadas en brain.db.*

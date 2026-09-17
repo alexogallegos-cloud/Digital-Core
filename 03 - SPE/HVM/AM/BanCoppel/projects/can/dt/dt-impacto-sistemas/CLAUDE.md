@@ -15,6 +15,7 @@ en Informix (especialmente `bdiadminnomina`) usando BCOPBrain como fuente de ver
 | Specialist — Informix SPL | Análisis de SPs en bdiadminnomina + dominios relacionados |
 | DBA IBM Informix | Schema de tablas, volúmenes, relaciones entre DBs |
 | Industry Banking | Validación de qué productos bancarios de nómina están en scope |
+| Industry Payments → SPEI | OBL-006 (liquidación SPEI en refinanciamiento CAN) + OBL-009 (Clave Básica Estandarizada — Circular 14/2017) |
 
 ## Inputs Esperados
 

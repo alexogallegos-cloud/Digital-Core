@@ -15,6 +15,7 @@ el input para el DoR de cada cambio técnico.
 | Core Banking Transformation | Diseño de cambios en el core (Informix + posible Unity) |
 | Software Engineering | Estimación de esfuerzo técnico de implementación |
 | IT Operating Model | Impacto en procesos operativos, CTM, monitoreo |
+| Framework — Integration Architecture | Diseño del Mecanismo Art. 63 Bis 3 — hub interbancario CAN (el cambio más complejo del roadmap) |
 
 ## Inputs Esperados
 

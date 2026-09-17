@@ -15,6 +15,7 @@ alimenta el roadmap de implementación.
 | Regulatory/Banxico | Validación de interpretación de obligaciones |
 | Industry Banking Accounting | Brechas contables (CUB, Serie R) |
 | Cybersecurity | Brechas de seguridad y privacidad (PII nómina) |
+| SRE & AIOps | Brechas operativas de timing: OBL-023 (transferencia Prestaciones Laborales ≤ 17:00 DHB) + monitoreo de prelación de cargos OBL-016 |
 
 ## Inputs Esperados
 
