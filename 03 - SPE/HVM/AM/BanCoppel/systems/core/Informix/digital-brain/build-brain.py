@@ -426,6 +426,136 @@ CREATE VIRTUAL TABLE etb_l3_fts USING fts5(
     content=etb_l3, content_rowid=rowid,
     tokenize='unicode61 remove_diacritics 1'
 );
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- DIGITAL BRAIN v2 — Knowledge Buckets (Run/Change × ETB/ITOM/Reg/Cultural)
+-- Tablas vacías son intencionales: el schema ES el spec de lo que falta.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- ── Hemisferio ────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS hemisphere_meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+    -- rows: hemisphere=run|change · program=<nombre> · togaf_state=baseline|transitional|target
+    -- hemisphere=run  → systems/ (producción, operación)
+    -- hemisphere=change → projects/ (transformación en vuelo)
+);
+
+-- ── ITOM — Capa de operación tecnológica ──────────────────────────────────
+CREATE TABLE IF NOT EXISTS itom_layer (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    component_id    TEXT,           -- sp_key o identificador del componente
+    layer           TEXT,           -- infrastructure|runtime|integration|data|security|scheduler
+    technology      TEXT,           -- Informix|AIX|CTM|MuleSoft|Kafka|etc
+    operation_model TEXT,           -- batch|realtime|event|scheduled|on-demand
+    slo_ref         TEXT,           -- referencia a definición SLO
+    owner_domain    TEXT,           -- D01..D49 o dominio de negocio
+    notes           TEXT
+);
+
+-- ── Regulatoria — Catálogo de obligaciones (first-class, no anotación) ────
+CREATE TABLE IF NOT EXISTS regulatory_obligations (
+    obligation_id   TEXT PRIMARY KEY,
+    regulator       TEXT,           -- CNBV|Banxico|UIF|CONDUSEF|SAT|BURO|IPAB|CONSAR
+    instrument      TEXT,           -- Circular 3/2012 | LTOSF Art.48 | etc.
+    article         TEXT,
+    description     TEXT,
+    obligation_type TEXT,           -- reporte|control|limite|disclosure|certificacion|autorizacion
+    frequency       TEXT,           -- diario|mensual|trimestral|anual|evento|continuo
+    penalty_risk    TEXT,           -- critico|alto|medio|bajo
+    effective_date  TEXT,
+    notes           TEXT
+    -- VACÍA = gap: no se han catalogado las obligaciones regulatorias de este brain
+);
+
+CREATE TABLE IF NOT EXISTS sp_regulatory_links (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    sp_key          TEXT,           -- db:sp_name
+    obligation_id   TEXT,
+    evidence_type   TEXT,           -- genera_reporte|valida_limite|calcula_indicador|registra_evento|notifica
+    confidence      TEXT,           -- confirmed|inferred|suspected
+    notes           TEXT,
+    FOREIGN KEY (obligation_id) REFERENCES regulatory_obligations(obligation_id)
+);
+
+-- ── Cultural — Expertos de dominio ────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS domain_experts (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    domain          TEXT,           -- D01..D49 o nombre del dominio de negocio
+    sp_key          TEXT,           -- SP específico que domina (NULL = dominio completo)
+    expert_type     TEXT,           -- soul_owner|domain_lead|contributor|historical
+    name            TEXT,           -- nombre o rol ("Líder de Crédito")
+    contact         TEXT,
+    tenure_years    INTEGER,        -- años con este conocimiento
+    availability    TEXT,           -- current|departed|unknown
+    notes           TEXT
+    -- VACÍA = gap: no se han identificado los expertos de dominio
+    -- is_soul en sps es una señal proxy — los expertos reales requieren entrevistas
+);
+
+-- ── Cultural — Conocimiento tribal ────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS tribal_knowledge (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    domain          TEXT,
+    knowledge_type  TEXT,           -- convention|assumption|workaround|implicit_rule|historical_context
+    description     TEXT,
+    impact_if_lost  TEXT,           -- critico|alto|medio|bajo
+    discovered_from TEXT,           -- code_analysis|incident|interview|vocab_gap|observation
+    discovered_at   TEXT,
+    validated_by    TEXT,
+    sp_keys         TEXT            -- JSON array de SPs relacionados
+    -- VACÍA = gap: no se ha capturado conocimiento no documentado
+    -- El vocabulario TU enriquecido es la primera capa de conocimiento tribal capturado
+);
+
+-- ── Cultural — Historial de decisiones (ADR vinculado al brain) ───────────
+CREATE TABLE IF NOT EXISTS decisions_history (
+    decision_id     TEXT PRIMARY KEY,  -- ADR-SPE-AM-XXX o ID interno
+    date            TEXT,
+    context         TEXT,               -- por qué se necesitó esta decisión
+    decision        TEXT,               -- qué se decidió
+    alternatives    TEXT,               -- qué se rechazó y por qué
+    consequences    TEXT,               -- implicaciones conocidas
+    status          TEXT,               -- active|superseded|deprecated
+    domain          TEXT,
+    related_sps     TEXT                -- JSON array
+    -- VACÍA = gap: no se han vinculado las decisiones arquitectónicas al brain
+);
+
+-- ── Meta — Gaps de conocimiento (lo que sabemos que no sabemos) ───────────
+CREATE TABLE IF NOT EXISTS knowledge_gaps (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    gap_type        TEXT,           -- regulatory|cultural|technical|business|itom
+    dimension       TEXT,           -- qué dimensión del brain está incompleta
+    domain          TEXT,
+    description     TEXT,
+    impact          TEXT,           -- critico|alto|medio|bajo
+    required_for    TEXT,           -- entregable que necesita este conocimiento
+    resolution_action TEXT,         -- entrevista_cliente|analisis_codigo|workshop|documento
+    status          TEXT DEFAULT 'open', -- open|in_progress|resolved
+    opened_at       TEXT,
+    resolved_at     TEXT
+);
+
+-- ── Vista — Completeness del brain por dimensión ──────────────────────────
+CREATE VIEW IF NOT EXISTS knowledge_completeness AS
+SELECT 'etb'         AS dimension, COUNT(*) AS total_items,
+       ROUND(100.0 * SUM(CASE WHEN bcop_status IS NOT NULL THEN 1 ELSE 0 END) / MAX(COUNT(*),1), 1) AS fill_pct
+FROM etb_l3
+UNION ALL
+SELECT 'itom',       COUNT(*), CASE WHEN COUNT(*) > 0 THEN 100.0 ELSE 0.0 END FROM itom_layer
+UNION ALL
+SELECT 'regulatory', COUNT(*), CASE WHEN COUNT(*) > 0 THEN 100.0 ELSE 0.0 END FROM regulatory_obligations
+UNION ALL
+SELECT 'reg_links',  COUNT(*), CASE WHEN COUNT(*) > 0 THEN 100.0 ELSE 0.0 END FROM sp_regulatory_links
+UNION ALL
+SELECT 'experts',    COUNT(*), CASE WHEN COUNT(*) > 0 THEN 100.0 ELSE 0.0 END FROM domain_experts
+UNION ALL
+SELECT 'tribal',     COUNT(*), CASE WHEN COUNT(*) > 0 THEN 100.0 ELSE 0.0 END FROM tribal_knowledge
+UNION ALL
+SELECT 'decisions',  COUNT(*), CASE WHEN COUNT(*) > 0 THEN 100.0 ELSE 0.0 END FROM decisions_history
+UNION ALL
+SELECT 'gaps_open',  COUNT(*), 0.0 FROM knowledge_gaps WHERE status = 'open';
 '''
 
 # ── Loaders ───────────────────────────────────────────────────────────────────

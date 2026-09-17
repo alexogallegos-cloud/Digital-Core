@@ -27,7 +27,7 @@ if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 BASE       = Path(__file__).resolve().parent.parent
-SOURCE_DIR = BASE / "source" / "Informix" / "informix"
+SOURCE_DIR = BASE / "source" / "Informix"
 DB_PATH    = BASE / "digital-brain" / "brain.db"
 
 # ── 19 dominios ausentes en brain.db ──────────────────────────────────────────

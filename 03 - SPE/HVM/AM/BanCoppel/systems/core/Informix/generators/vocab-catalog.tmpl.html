@@ -242,6 +242,58 @@ footer{
   display:flex;gap:16px;align-items:center;
 }
 .footer-dot{width:6px;height:6px;border-radius:2px;display:inline-block}
+
+/* ── HITL mode: elementos solo visibles en revisión ── */
+.hitl-only { display: none; }
+body.hitl .hitl-only { display: contents; }
+/* c-approve: solo en body.hitl + cand-mode */
+body:not(.hitl) th.c-approve, body:not(.hitl) td.c-approve { display: none; }
+
+/* columna Aprobar visible solo en cand-mode */
+table:not(.cand-mode) th.c-approve,table:not(.cand-mode) td.c-approve{display:none}
+
+/* ── Botones de aprobación ── */
+.btn-app{
+  background:rgba(34,197,94,.10);border:1px solid rgba(34,197,94,.25);
+  color:#86efac;padding:3px 10px;border-radius:5px;
+  font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;
+  transition:background .12s;
+}
+.btn-app:hover{background:rgba(34,197,94,.22)}
+.btn-app.done{background:rgba(34,197,94,.18);border-color:rgba(34,197,94,.4);color:#4ade80}
+.app-form-wrap{
+  display:flex;gap:6px;align-items:center;flex-wrap:wrap;
+  background:rgba(34,197,94,.05);border:1px solid rgba(34,197,94,.18);
+  border-radius:6px;padding:6px 8px;margin-top:4px;
+}
+.app-sel{
+  background:#0a1527;border:1px solid #1e2d58;color:#e8edf8;
+  border-radius:4px;padding:3px 6px;font-size:10px;
+}
+.app-inp{
+  background:#0a1527;border:1px solid #1e2d58;color:#e8edf8;
+  border-radius:4px;padding:3px 8px;font-size:10px;flex:1;min-width:160px;outline:none;
+}
+.app-inp:focus{border-color:var(--yellow);box-shadow:0 0 0 2px rgba(240,210,36,.1)}
+.app-save{
+  background:#14532d;border:1px solid #22c55e;color:#86efac;
+  padding:3px 10px;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600;
+}
+.app-save:hover{background:#166534}
+.app-cancel{
+  background:transparent;border:1px solid #374151;color:#6b7280;
+  padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;
+}
+.sample-sp{
+  display:block;font-family:'Cascadia Code',monospace;
+  font-size:9px;color:#374151;margin-top:2px;letter-spacing:.01em;
+}
+#btn-export{
+  background:#14532d;border:1px solid #22c55e;color:#86efac;
+  padding:4px 12px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;
+  transition:background .12s;
+}
+#btn-export:hover{background:#166534}
 </style>
 </head>
 <body>
@@ -310,6 +362,11 @@ footer{
   <span class="pill on-ghost" id="btn-efim" title="Mostrar términos efímeros (no trascienden entre interfaces)">+ Efímeros</span>
   <span id="efim-note">237 ocultos</span>
   <span class="pill on-ghost" id="btn-accion" title="Mostrar verbos de proceso — no albergan variables de negocio, son descriptores de operación">+ Acciones</span>
+  <span class="hitl-only">
+    <div class="tsep"></div>
+    <span class="pill on-ghost" id="btn-cand" data-f="niv" data-v="CANDIDATO" title="Revisar 2,170 candidatos automáticos pendientes de validación">Candidatos</span>
+    <button type="button" id="btn-export" style="display:none">↓ Exportar aprobados</button>
+  </span>
   <span id="cnt">329 términos</span>
 </div>
 
@@ -327,6 +384,7 @@ footer{
       <th class="c-mask">Máscara</th>
       <th class="c-units">Unidades</th>
       <th class="c-freq" data-sort="freq">Frec <span class="ar">↕</span></th>
+      <th class="c-approve">Aprobar</th>
     </tr>
   </thead>
   <tbody id="tbody"></tbody>
@@ -344,14 +402,25 @@ footer{
 </footer>
 
 <script>
+const HITL_MODE=%%HITL%%;
 const DATA=%%DATA%%;
 
+if(HITL_MODE){
+  document.body.classList.add('hitl');
+  document.title+=' · Revisión HITL';
+}
+
+// ── Approval state (persiste en localStorage entre sesiones) ──
+const STORE_KEY='bcop-vocab-approved';
+let approved={};
+try{approved=JSON.parse(localStorage.getItem(STORE_KEY)||'{}');}catch(e){}
+
 // Build canonical → variants map
-const variantMap={};  // canonical_term → array of {term, rel}
+const variantMap={};
 DATA.forEach(r=>{
   if(r.es_variante_de){
     if(!variantMap[r.es_variante_de]) variantMap[r.es_variante_de]=[];
-    variantMap[r.es_variante_de].push({term:r.term, rel:r.tipo_relacion});
+    variantMap[r.es_variante_de].push({term:r.term,rel:r.tipo_relacion});
   }
 });
 
@@ -359,26 +428,22 @@ const REL_LABEL={'ABBREV-OF':'Abrev','PLURAL-OF':'Plural','SYNONYM-OF':'Sinón'}
 const REL_CLASS={'ABBREV-OF':'fam-rel-abbrev','PLURAL-OF':'fam-rel-plural','SYNONYM-OF':'fam-rel-syn'};
 
 function famCell(r){
-  // Variant: points to canonical
   if(r.es_variante_de){
     const rel=r.tipo_relacion||'';
     const badge=rel?`<span class="fam-rel ${REL_CLASS[rel]||'fam-rel-abbrev'}">${REL_LABEL[rel]||rel}</span>`:'';
-    return `<span class="fam-arrow">→</span><span class="fam-canonical">${escape(r.es_variante_de)}</span>${badge}`;
+    return `<span class="fam-arrow">→</span><span class="fam-canonical">${esc(r.es_variante_de)}</span>${badge}`;
   }
-  // Canonical: show its variants
   const vs=variantMap[r.term];
   if(vs&&vs.length){
     return vs.map(v=>{
       const badge=v.rel?`<span class="fam-rel ${REL_CLASS[v.rel]||'fam-rel-abbrev'}">${REL_LABEL[v.rel]||v.rel}</span>`:'';
-      return `<span class="fam-variant">${escape(v.term)}</span>${badge}`;
+      return `<span class="fam-variant">${esc(v.term)}</span>${badge}`;
     }).join(' ');
   }
   return '';
 }
 
-// state
-let fCat='', fNiv='', fQ='', sortCol='term', sortDir=1, showEfim=false, showAccion=false;
-
+let fCat='',fNiv='',fQ='',sortCol='freq',sortDir=-1,showEfim=false,showAccion=false;
 
 function catBadge(c){
   const map={ENTIDAD:'b-ENTIDAD',ACCION:'b-ACCION',MODIF:'b-MODIF',REG:'b-REG',PREFIJO:'b-PREFIJO',AMBIGUO:'b-AMBIGUO','?':'b-q'};
@@ -389,31 +454,56 @@ function nivBadge(n){
   const map={ALTA:'n-ALTA',MEDIA:'n-MEDIA',AMBIGUA:'n-AMBIGUA',CANDIDATO:'n-CANDIDATO'};
   return `<span class="badge ${map[n]||'n-CANDIDATO'}">${n}</span>`;
 }
-function escape(s){
-  return s?s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'';
+function esc(s){
+  return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):'';
 }
 function unitsChip(u){
   if(!u||u==='—') return '';
   if(u==='MXN') return `<span class="u-chip u-MXN">MXN</span>`;
   if(u==='%')   return `<span class="u-chip u-pct">%</span>`;
-  if(u==='días'||u==='meses') return `<span class="u-chip u-time">${escape(u)}</span>`;
+  if(u==='días'||u==='meses') return `<span class="u-chip u-time">${esc(u)}</span>`;
   if(u==='flag')   return `<span class="u-chip u-flag">S/N</span>`;
   if(u==='fecha')  return `<span class="u-chip u-fecha">Fecha</span>`;
   if(u==='código') return `<span class="u-chip u-codigo">Código</span>`;
-  if(u==='texto')  return '';  // demasiado genérico, sin chip
-  return `<span class="u-chip u-other">${escape(u)}</span>`;
+  if(u==='texto')  return '';
+  return `<span class="u-chip u-other">${esc(u)}</span>`;
+}
+
+function appCell(r){
+  if(r.nivel!=='CANDIDATO') return '';
+  const a=approved[r.term];
+  if(a) return `<button type="button" class="btn-app done" data-term="${esc(r.term)}" title="${esc(a.mean)}">✓ ${esc(a.cat)}</button>`;
+  return `<button type="button" class="btn-app" data-term="${esc(r.term)}">Aprobar</button>`;
+}
+
+function updateExportBtn(){
+  if(!HITL_MODE) return;
+  const n=Object.keys(approved).length;
+  const btn=document.getElementById('btn-export');
+  btn.textContent=`↓ Exportar ${n} aprobados`;
+  btn.style.display=n>0?'':'none';
 }
 
 function render(){
+  document.querySelectorAll('.app-form-wrap').forEach(el=>el.remove());
+
+  const isCandMode=HITL_MODE&&fNiv==='CANDIDATO';
+  document.getElementById('tbl').classList.toggle('cand-mode',isCandMode);
+
   let rows=DATA.filter(r=>{
-    if(r.es_variante_de) return false;          // show only canonical forms
-    if(!showEfim && !r.trasciende) return false;
-    if(!showAccion && r.cat==='ACCION') return false;
-    if(fCat && r.cat!==fCat) return false;
-    if(fNiv && r.nivel!==fNiv) return false;
+    const isCand=r.nivel==='CANDIDATO';
+    if(isCand&&!isCandMode) return false;
+    if(isCandMode&&!isCand) return false;
+    if(!isCand){
+      if(r.es_variante_de) return false;
+      if(!showEfim&&!r.trasciende) return false;
+      if(!showAccion&&r.cat==='ACCION') return false;
+      if(fNiv&&r.nivel!==fNiv) return false;
+    }
+    if(fCat&&r.cat!==fCat) return false;
     if(fQ){
       const q=fQ.toLowerCase();
-      if(!r.term.toLowerCase().includes(q) && !(r.mean||'').toLowerCase().includes(q) && !(r.deco||'').toLowerCase().includes(q)) return false;
+      if(!r.term.toLowerCase().includes(q)&&!(r.mean||'').toLowerCase().includes(q)&&!(r.deco||'').toLowerCase().includes(q)&&!(r.notas_sme||'').toLowerCase().includes(q)) return false;
     }
     return true;
   });
@@ -421,18 +511,20 @@ function render(){
   rows.sort((a,b)=>{
     let va,vb;
     if(sortCol==='term'){va=a.term;vb=b.term;}
-    else if(sortCol==='freq'){va=(a.fn||0)+(a.fp||0);vb=(b.fn||0)+(b.fp||0);}
+    else{va=(a.fn||0)+(a.fp||0);vb=(b.fn||0)+(b.fp||0);}
     if(typeof va==='string') return sortDir*(va<vb?-1:va>vb?1:0);
     return sortDir*(va-vb);
   });
 
-  document.getElementById('cnt').textContent=rows.length+' términos';
+  const nApp=isCandMode?rows.filter(r=>approved[r.term]).length:0;
+  document.getElementById('cnt').textContent=isCandMode
+    ?`${rows.length.toLocaleString()} candidatos · ${nApp} aprobados`
+    :`${rows.length} términos`;
 
-  // Update efimeros note
-  const efimNote = document.getElementById('efim-note');
-  if(!showEfim){
-    const hidden = DATA.filter(r=>!r.trasciende && (fCat?r.cat===fCat:true) && (fNiv?r.nivel===fNiv:true)).length;
-    efimNote.textContent = hidden + ' efímeros ocultos';
+  const efimNote=document.getElementById('efim-note');
+  if(!isCandMode&&!showEfim){
+    const hidden=DATA.filter(r=>r.nivel!=='CANDIDATO'&&!r.trasciende&&(fCat?r.cat===fCat:true)).length;
+    efimNote.textContent=hidden+' efímeros ocultos';
     efimNote.style.display='';
   } else {
     efimNote.style.display='none';
@@ -441,8 +533,8 @@ function render(){
   const tb=document.getElementById('tbody');
   tb.innerHTML=rows.map(r=>{
     const isRoot=r.is_root;
-    const isEfim=!r.trasciende;
-    const fn=r.fn||0, fp=r.fp||0, tot=fn+fp;
+    const isEfim=!r.trasciende&&r.nivel!=='CANDIDATO';
+    const fn=r.fn||0,fp=r.fp||0,tot=fn+fp;
     const bcName=r.bc_name&&r.bc_name!=='Transversal'?r.bc_name:'';
     const bcId=r.bc&&r.bc!=='—'?r.bc:'';
     const dom=r.dominio_as_is||'';
@@ -451,35 +543,96 @@ function render(){
     const rawMean=(r.mean||'');
     const meanCap=rawMean.length>0?rawMean.charAt(0).toUpperCase()+rawMean.slice(1):rawMean;
     const meanTrunc=meanCap.length>90?meanCap.substring(0,90)+'…':meanCap;
+    const sampleTag=r.notas_sme&&r.nivel==='CANDIDATO'?`<span class="sample-sp">${esc(r.notas_sme)}</span>`:'';
     return `<tr class="${[isRoot?'is-root':'',isEfim?'efimero':''].filter(Boolean).join(' ')}">
       <td class="c-term">
-        <span class="mono">${escape(r.term)}${isRoot?'<span class="root-star">⭐</span>':''}</span>
-        ${r.id?`<span class="vid">${escape(r.id)}</span>`:''}
-        ${r.deco?`<span class="deco">${escape(r.deco)}</span>`:''}
+        <span class="mono">${esc(r.term)}${isRoot?'<span class="root-star">⭐</span>':''}</span>
+        ${r.id?`<span class="vid">${esc(r.id)}</span>`:''}
+        ${r.deco?`<span class="deco">${esc(r.deco)}</span>`:''}
+        ${sampleTag}
       </td>
-      <td class="c-mean">${escape(meanTrunc)}</td>
+      <td class="c-mean">${esc(meanTrunc)}</td>
       <td class="c-cat">${catBadge(r.cat)}</td>
-      <td class="c-bc">${bcName?`${escape(bcName)}<span class="bc-id">${escape(bcId)}</span>`:'<span style="color:#2a3558">—</span>'}</td>
-      <td class="c-dom">${dom?`<span class="dom-chip">${escape(dom)}</span>`:''}</td>
+      <td class="c-bc">${bcName?`${esc(bcName)}<span class="bc-id">${esc(bcId)}</span>`:'<span style="color:#2a3558">—</span>'}</td>
+      <td class="c-dom">${dom?`<span class="dom-chip">${esc(dom)}</span>`:''}</td>
       <td class="c-fam">${famCell(r)}</td>
-      <td class="c-mask">${escape(mask)}</td>
+      <td class="c-mask">${esc(mask)}</td>
       <td class="c-units">${unitsChip(units)}</td>
       <td class="c-freq">${tot>0?`<span class="${fn>0?'fn':'fp'}">${tot.toLocaleString()}</span>`:''}</td>
+      <td class="c-approve">${appCell(r)}</td>
     </tr>`;
   }).join('');
 }
 
+// ── Aprobación: formulario inline por fila (delegación en tbody) ──
+document.getElementById('tbody').addEventListener('click',e=>{
+  const btn=e.target.closest('.btn-app');
+  if(!btn) return;
+  const term=btn.dataset.term;
+  if(!term) return;
+
+  document.querySelectorAll('.app-form-wrap').forEach(el=>el.remove());
+
+  const existing=approved[term];
+  // Pre-popula desde localStorage → mean_inferred (Silver) → vacío
+  const row=DATA.find(r=>r.term===term);
+  const prefill=existing?existing.mean:(row&&row.mean?row.mean:'');
+  const prefillCat=existing?existing.cat:(row&&row.cat&&row.cat!=='?'?row.cat:'ENTIDAD');
+  const CATS=['ENTIDAD','ACCION','MODIF','REG','PREFIJO'];
+  const wrap=document.createElement('div');
+  wrap.className='app-form-wrap';
+  wrap.innerHTML=`
+    <select class="app-sel">${CATS.map(c=>`<option value="${c}"${prefillCat===c?' selected':''}>${c}</option>`).join('')}</select>
+    <input type="text" class="app-inp" placeholder="Significado de negocio…" value="${esc(prefill)}">
+    <button type="button" class="app-save">Guardar</button>
+    <button type="button" class="app-cancel">✕</button>`;
+  btn.parentNode.insertBefore(wrap,btn.nextSibling);
+  wrap.querySelector('.app-inp').focus();
+
+  wrap.querySelector('.app-save').addEventListener('click',()=>{
+    const cat=wrap.querySelector('.app-sel').value;
+    const mean=wrap.querySelector('.app-inp').value.trim();
+    if(!mean){wrap.querySelector('.app-inp').style.boxShadow='0 0 0 2px #ef4444';return;}
+    approved[term]={cat,mean,ts:new Date().toISOString()};
+    localStorage.setItem(STORE_KEY,JSON.stringify(approved));
+    wrap.remove();
+    btn.textContent='✓ '+cat;
+    btn.className='btn-app done';
+    btn.title=mean;
+    updateExportBtn();
+    // Actualizar contador sin re-render completo
+    const nApp=document.querySelectorAll('.btn-app.done').length;
+    const total=document.querySelectorAll('#tbody tr').length;
+    document.getElementById('cnt').textContent=`${total.toLocaleString()} candidatos · ${nApp} aprobados`;
+  });
+  wrap.querySelector('.app-cancel').addEventListener('click',()=>wrap.remove());
+});
+
+// ── Exportar vocab-approved.json ──
+document.getElementById('btn-export').addEventListener('click',()=>{
+  const items=Object.entries(approved).map(([token,{cat,mean}])=>({token,cat,mean}));
+  const payload={exported_at:new Date().toISOString(),count:items.length,approved:items};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='vocab-approved.json';a.click();
+  URL.revokeObjectURL(url);
+});
+
+// ── Event wiring ──
 document.getElementById('q').addEventListener('input',e=>{fQ=e.target.value.trim();render();});
 
 document.querySelectorAll('.pill[data-f]').forEach(p=>{
   p.addEventListener('click',()=>{
-    const f=p.dataset.f, v=p.dataset.v;
+    const f=p.dataset.f,v=p.dataset.v;
     if(f==='cat'){
       document.querySelectorAll('.pill[data-f="cat"]').forEach(x=>x.classList.remove('on'));
-      fCat=v; p.classList.add('on');
-    } else {
-      document.querySelectorAll('.pill[data-f="niv"]').forEach(x=>x.classList.remove('on'));
-      fNiv=v; p.classList.add('on');
+      fCat=v;p.classList.add('on');
+    } else if(f==='niv'){
+      const prev=fNiv;
+      document.querySelectorAll('.pill[data-f="niv"]').forEach(x=>{x.classList.remove('on');x.classList.add('on-ghost');});
+      fNiv=(prev===v)?'':v;
+      if(fNiv){p.classList.remove('on-ghost');p.classList.add('on');}
     }
     render();
   });
@@ -495,7 +648,7 @@ document.querySelectorAll('.pill[data-col]').forEach(p=>{
 document.querySelectorAll('thead th[data-sort]').forEach(th=>{
   th.addEventListener('click',()=>{
     if(sortCol===th.dataset.sort) sortDir*=-1;
-    else {sortCol=th.dataset.sort;sortDir=1;}
+    else{sortCol=th.dataset.sort;sortDir=1;}
     render();
   });
 });
@@ -518,6 +671,7 @@ document.getElementById('btn-accion').addEventListener('click',()=>{
   render();
 });
 
+updateExportBtn();
 render();
 </script>
 </body>

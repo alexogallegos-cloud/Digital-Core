@@ -16,7 +16,7 @@ from collections import defaultdict
 
 BASE    = Path(__file__).resolve().parent.parent
 BRAIN   = BASE / 'digital-brain' / 'brain.db'
-SRC_DIR = BASE / 'source' / 'informix' / 'informix'
+SRC_DIR = BASE / 'source' / 'Informix'
 OUT_DIR = BASE / 'portal' / 'data'
 
 CONTEXT_LINES = 8  # lines before and after rule.line

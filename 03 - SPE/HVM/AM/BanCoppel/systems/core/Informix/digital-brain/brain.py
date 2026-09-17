@@ -911,6 +911,44 @@ class BCOPBrain:
         """Estado del brain: N entidades, N reglas, N dominios. Alias de stats()."""
         return self.stats()
 
+    def knowledge_completeness(self) -> list[dict]:
+        """
+        Completeness del brain por dimensión del Digital Brain v2.
+        Muestra qué buckets de conocimiento tienen datos y cuáles están vacíos.
+        Tablas vacías = gaps explícitos que guían las entrevistas/workshops pendientes.
+
+        Dimensiones:
+          etb        — Capacidades ETB mapeadas (ontología negocio)
+          itom       — Capa de operación tecnológica (ontología tecnología)
+          regulatory — Obligaciones regulatorias catalogadas (ontología regulatoria)
+          reg_links  — SPs vinculados a obligaciones regulatorias
+          experts    — Expertos de dominio identificados (ontología cultural)
+          tribal     — Conocimiento tribal documentado (ontología cultural)
+          decisions  — Decisiones históricas vinculadas al brain (ontología cultural)
+          gaps_open  — Gaps de conocimiento abiertos
+        """
+        try:
+            rows = self._db().execute('SELECT * FROM knowledge_completeness').fetchall()
+            result = self._rows(rows)
+        except Exception:
+            result = []
+
+        labels = {
+            'etb':        ('Ontología Negocio',     'ETB L3 capabilities mapeadas'),
+            'itom':       ('Ontología Tecnología',  'Componentes en itom_layer'),
+            'regulatory': ('Ontología Regulatoria', 'Obligaciones en regulatory_obligations'),
+            'reg_links':  ('Ontología Regulatoria', 'SPs vinculados a obligaciones'),
+            'experts':    ('Ontología Cultural',    'Expertos de dominio en domain_experts'),
+            'tribal':     ('Ontología Cultural',    'Conocimiento tribal en tribal_knowledge'),
+            'decisions':  ('Ontología Cultural',    'Decisiones en decisions_history'),
+            'gaps_open':  ('Meta',                  'Gaps de conocimiento abiertos'),
+        }
+        for r in result:
+            dim = r.get('dimension', '')
+            r['ontology'], r['description'] = labels.get(dim, ('', ''))
+            r['status'] = 'active' if (r.get('total_items') or 0) > 0 else 'empty'
+        return result
+
     def components(self, domain: str = None, limit: int = 200) -> list[dict]:
         """Entidades del sistema (SPs). Filtra opcionalmente por dominio.
         Usa columnas base garantizadas — no depende de columnas de enriquecimiento post-build.

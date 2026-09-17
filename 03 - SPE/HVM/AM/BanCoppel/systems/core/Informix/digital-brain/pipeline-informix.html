@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>BCOPBrain — Pipeline Informix (Medallion)</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0d1117; color: #c9d1d9; font-family: 'Segoe UI', sans-serif; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+  header {
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  header h1 { font-size: 14px; font-weight: 600; color: #58a6ff; letter-spacing: 0.02em; }
+  header .meta { font-size: 11px; color: #8b949e; }
+
+  .controls { display: flex; gap: 6px; align-items: center; }
+  .controls button {
+    background: #21262d; border: 1px solid #30363d; color: #c9d1d9;
+    padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: background 0.15s;
+  }
+  .controls button:hover { background: #30363d; }
+  .controls .zoom-level { font-size: 11px; color: #8b949e; min-width: 42px; text-align: center; }
+
+  .legend {
+    display: flex; gap: 14px; align-items: center;
+    font-size: 11px; color: #8b949e;
+  }
+  .legend span { display: flex; align-items: center; gap: 4px; }
+  .legend .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  #viewport { flex: 1; overflow: hidden; cursor: grab; position: relative; }
+  #viewport.dragging { cursor: grabbing; }
+
+  #canvas {
+    position: absolute; top: 0; left: 0;
+    transform-origin: 0 0; will-change: transform; padding: 40px;
+  }
+
+  .mermaid { display: block; }
+  .mermaid svg { max-width: none; }
+
+  #hint { position: absolute; bottom: 12px; right: 16px; font-size: 11px; color: #484f58; pointer-events: none; }
+
+  /* Tooltip base */
+  .tt {
+    position: fixed; display: none; z-index: 999;
+    border-radius: 8px; padding: 12px 16px; font-size: 12px; color: #c9d1d9;
+    pointer-events: none; line-height: 1.65;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>BCOPBrain — Pipeline Informix · Medallion Bronze / Silver / Gold</h1>
+  <div class="controls">
+    <button id="btn-minus">−</button>
+    <span class="zoom-level" id="zoom-label">100%</span>
+    <button id="btn-plus">+</button>
+    <button id="btn-reset">Reset</button>
+    <button id="btn-fit">Fit</button>
+  </div>
+  <div class="legend">
+    <span><span class="dot" style="background:#58a6ff"></span> Rules track</span>
+    <span><span class="dot" style="background:#3fb950"></span> Vocab track</span>
+    <span><span class="dot" style="background:#d29922"></span> CTM / Logs</span>
+    <span><span class="dot" style="background:#a371f7"></span> Test Universe</span>
+  </div>
+  <div class="meta">49 DBs · 12,812 SPs · 8,955 reglas · 634 vocab · 🔬 837 SPs test-universe</div>
+</header>
+
+<div id="viewport">
+  <div id="canvas">
+    <div class="mermaid">
+flowchart LR
+
+  subgraph SRC["① FUENTE"]
+    direction TB
+    S_SQL["source/Informix/\n49 DBs · 11,391 SPs\n~12 K archivos .sql"]
+    S_CTM["source/controlm/\n*.xls · jobs batch"]
+    S_LOG["source/logs/\nCTM · WAS · ESB"]
+    S_VOC["✏️ sp_vocab.py\n634 términos\ncurado a mano"]
+  end
+
+  subgraph EXT["② EXTRACTORES"]
+    direction TB
+    E_JRN["mine-source.py\nextract-journeys.py"]
+    E_RUL["extract-rules.py\nD01–D49 · Medallion Bronze"]
+    E_VAC["build-vocab-auto.py\n11 señales · candidatos HITL"]
+    E_INV["build-vocab-inventory.py"]
+  end
+
+  subgraph BRZ["③ BRONZE"]
+    direction TB
+    B_JRN[("callgraph-data.json\njourneys-data.json\n166 journeys")]
+    B_RUL[("rules-bronze.json\nraw · sin clase · sin biz")]
+    B_INV[("vocabulary-inventory.json\n634 términos")]
+    B_CND[("vocab-candidates.json\ncandidatos HITL")]
+  end
+
+  subgraph HITL["⟳ HITL — Curación Vocab"]
+    direction TB
+    H_ENR["enrich-vocab.py\npass 1: rule-based\npass 2: DT Swarm ≤10/lote"]
+    H_CAT["build-vocab-catalog.py\nvocabulary-catalog-bcop-hitl.html"]
+    H_APR[("vocab-approved.json\naprobados Specialist")]
+    H_APL["apply-approved.py\ntoken → 'certificado'"]
+  end
+
+  subgraph SLV["④ SILVER"]
+    direction TB
+    SL_ENR["enrich-rules.py\nclase + triaje reg + biz lookup"]
+    SL_OUT[("business-rules-v3.json\n8,955 reglas\n6,819 NEGOCIO · 76%\n100% reg · 94% biz")]
+  end
+
+  subgraph GLD["⑤ GOLD — Secuencia"]
+    direction TB
+    G_BLD["① build-brain.py --reset\nsps · edges · journeys · rules · vocab"]
+    G_CLS["② classify-batch.py\nbatch_archetype contenido"]
+    G_CTM["③ load-ctm-to-brain.py\n+ mark-ctm-entry-points.py\nCTM_ENTRY 155 SPs"]
+    G_ETB["④ build-sp-fine-mapping.py\nETB L3 · 68.5% cobertura"]
+    G_DCP["⑤ build-decoupling-cost.py"]
+    G_DB[("brain.db\n11,391 SPs · 8,955 reglas\n634 vocab · 166 journeys")]
+  end
+
+  subgraph TU["🔬 TEST UNIVERSE"]
+    direction TB
+    TU_S["define-test-universe.py\n837 SPs · 4 tiers · 7.3%"]
+    TU_J[("test-universe.json\nmanifiesto · filtro")]
+    TU_CND[("vocab-candidates-tu.json\n560 candidatos · TU button")]
+  end
+
+  subgraph CON["⑥ CONSUMIDORES"]
+    direction TB
+    C_RUL["gen-rules-portal.py\nbuild-rules-report.py"]
+    C_DTL["build-sp-detail-pages.py\nPhase B CALLEE_INFO"]
+    C_CAP["build-capability-model.py"]
+    C_FRC["build-forecast-spei.py\nbuild-percentiles-correlacionados.py"]
+    C_DEP["build-dependency-graph.py\nbuild-migration-complexity.py\nbuild-souls.py"]
+    C_LND["build-landing.py\nbuild-catalog.py · build-quality-report.py"]
+    C_VOC["build-vocab-catalog.py"]
+    P_VOC[("vocabulary-catalog-bcop.html\n🔬 TU · HITL · 634 términos")]
+    P_RUL[("rules-catalog-bcop.html\n6,819 reglas NEGOCIO")]
+    P_DTL[("SP detail pages\n166 journeys")]
+    P_CAP[("ETB Capability Map\nL3 × 261")]
+    P_FRC[("Forecast SPEI\nCapacidad · Curvas")]
+    P_DEP[("Dependency · Souls\nArch · Migration")]
+    P_LND[("Landing · Catalog\nQuality")]
+    SRV["serve-nocache.py\nlocalhost:3000"]
+  end
+
+  %% ── Track A — Rules (azul) ───────────────────────────────────────────────
+  S_SQL --> E_JRN
+  S_SQL --> E_RUL
+  E_JRN --> B_JRN
+  E_RUL --> B_RUL
+  B_INV --> E_RUL
+  B_RUL --> SL_ENR
+  B_INV --> SL_ENR
+  SL_ENR --> SL_OUT
+  SL_OUT --> G_BLD
+  B_JRN --> G_BLD
+
+  %% ── Track B — Vocab (verde) ──────────────────────────────────────────────
+  S_SQL  --> E_VAC
+  S_VOC  --> E_INV
+  E_INV  --> B_INV
+  E_VAC  --> B_CND
+  B_CND  --> H_ENR
+  H_ENR  --> H_CAT
+  H_CAT  --> H_APR
+  H_APR  --> H_APL
+  H_APL  -.->|"tokens certificados\n→ vocab curado"| S_VOC
+
+  %% ── Track C — CTM / Logs (amarillo) ──────────────────────────────────────
+  S_CTM  --> G_CTM
+  S_LOG  --> G_CTM
+
+  %% ── Gold: secuencia interna ──────────────────────────────────────────────
+  G_BLD --> G_CLS
+  G_CLS --> G_CTM
+  G_CTM --> G_ETB
+  G_ETB --> G_DCP
+  G_BLD --> G_DB
+  G_CLS --> G_DB
+  G_CTM --> G_DB
+  G_ETB --> G_DB
+  G_DCP --> G_DB
+
+  %% ── Test Universe (morado) ────────────────────────────────────────────────
+  G_DB   --> TU_S
+  TU_S   --> TU_J
+  TU_J  -.->|"TU_FILTER\n→ source/Informix/"| E_VAC
+  E_VAC -.->|"--test-universe"| TU_CND
+
+  %% ── Consumidores ─────────────────────────────────────────────────────────
+  G_DB --> C_VOC --> P_VOC --> SRV
+  TU_CND --> P_VOC
+  G_DB --> C_RUL --> P_RUL --> SRV
+  G_DB --> C_DTL --> P_DTL --> SRV
+  G_DB --> C_CAP --> P_CAP --> SRV
+  G_DB --> C_FRC --> P_FRC --> SRV
+  G_DB --> C_DEP --> P_DEP --> SRV
+  G_DB --> C_LND --> P_LND --> SRV
+    </div>
+  </div>
+  <div id="hint">Rueda = zoom · Arrastrar = mover</div>
+</div>
+
+<!-- Tooltip: build-vocab-auto.py -->
+<div id="tt-vocab" class="tt" style="background:#1c2128;border:1px solid #30363d;min-width:380px"></div>
+
+<!-- Tooltip: Test Universe -->
+<div id="tt-tu" class="tt" style="background:#1c2128;border:1px solid #238636;min-width:360px"></div>
+
+<!-- Tooltip: HITL -->
+<div id="tt-hitl" class="tt" style="background:#1c2128;border:1px solid #3fb950;min-width:340px"></div>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    flowchart: { curve: 'basis', padding: 20, useMaxWidth: false },
+    themeVariables: {
+      background:           '#0d1117',
+      mainBkg:              '#161b22',
+      nodeBorder:           '#30363d',
+      clusterBkg:           '#1c2128',
+      titleColor:           '#58a6ff',
+      edgeLabelBackground:  '#161b22',
+      lineColor:            '#58a6ff',
+      primaryColor:         '#21262d',
+      primaryTextColor:     '#c9d1d9',
+      primaryBorderColor:   '#30363d',
+      fontSize:             '14px',
+    }
+  });
+
+  await mermaid.run();
+
+  // ── Pan & Zoom ─────────────────────────────────────────────────────────────
+  const viewport  = document.getElementById('viewport');
+  const canvas    = document.getElementById('canvas');
+  const zoomLabel = document.getElementById('zoom-label');
+  let scale = 1, tx = 0, ty = 0;
+
+  function clampScale(s) { return Math.min(Math.max(0.08, s), 4); }
+  function apply() {
+    canvas.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`;
+    zoomLabel.textContent = Math.round(scale * 100) + '%';
+  }
+
+  // Auto-fit
+  requestAnimationFrame(() => {
+    const svg = canvas.querySelector('svg');
+    if (!svg) return;
+    const vw = viewport.clientWidth, vh = viewport.clientHeight;
+    const sw = svg.scrollWidth  || svg.getBoundingClientRect().width;
+    const sh = svg.scrollHeight || svg.getBoundingClientRect().height;
+    scale = clampScale(Math.min((vw - 80) / sw, (vh - 80) / sh));
+    tx = Math.max((vw - sw * scale) / 2, 20);
+    ty = Math.max((vh - sh * scale) / 2, 20);
+    apply();
+  });
+
+  let dragging = false, startX = 0, startY = 0;
+  viewport.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect = viewport.getBoundingClientRect();
+    const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+    const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+    const ns = clampScale(scale * factor);
+    const ratio = ns / scale;
+    tx = cx - ratio * (cx - tx);
+    ty = cy - ratio * (cy - ty);
+    scale = ns; apply();
+  }, { passive: false });
+
+  viewport.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    dragging = true; startX = e.clientX - tx; startY = e.clientY - ty;
+    viewport.classList.add('dragging');
+  });
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    tx = e.clientX - startX; ty = e.clientY - startY; apply();
+  });
+  window.addEventListener('mouseup', () => { dragging = false; viewport.classList.remove('dragging'); });
+
+  document.getElementById('btn-plus').onclick  = () => { scale = clampScale(scale * 1.2); apply(); };
+  document.getElementById('btn-minus').onclick = () => { scale = clampScale(scale / 1.2); apply(); };
+  document.getElementById('btn-reset').onclick = () => { scale = 1; tx = 0; ty = 0; apply(); };
+  document.getElementById('btn-fit').onclick   = () => {
+    const svg = canvas.querySelector('svg');
+    if (!svg) return;
+    const vw = viewport.clientWidth, vh = viewport.clientHeight;
+    const sw = svg.scrollWidth  || svg.getBoundingClientRect().width;
+    const sh = svg.scrollHeight || svg.getBoundingClientRect().height;
+    scale = clampScale(Math.min((vw - 80) / sw, (vh - 80) / sh));
+    tx = (vw - sw * scale) / 2; ty = (vh - sh * scale) / 2; apply();
+  };
+
+  // ── Tooltips ───────────────────────────────────────────────────────────────
+  function mkTooltip(el, text) {
+    function pos(e) {
+      const x = Math.min(e.clientX + 20, window.innerWidth  - el.offsetWidth  - 8);
+      const y = Math.max(e.clientY - 10, 8);
+      el.style.left = x + 'px'; el.style.top = y + 'px';
+    }
+    return { show(e) { el.style.display = 'block'; pos(e); }, move(e) { pos(e); }, hide() { el.style.display = 'none'; } };
+  }
+
+  const ttVocab = document.getElementById('tt-vocab');
+  const ttTU    = document.getElementById('tt-tu');
+  const ttHITL  = document.getElementById('tt-hitl');
+
+  const vocabSignals = [
+    ['551', 'Sufijo numérico',              'sp_001, tabla2'],
+    ['44',  'Longitud &lt; 3 chars',        ''],
+    ['170', 'Naming convention',            'tbl_, tmp_, mae'],
+    ['281', 'Plural derivado',              'cuentas → cuenta'],
+    ['676', 'Derivado húngaro',             'susuario → usuario'],
+    ['28',  'Inglés técnico / literales',   'call, cron, timestamp'],
+    ['19',  'Derivado sufijo SPL',          'archivoc → archivo'],
+    ['32',  'Compuesto + código tipo SPL',  'sdomensualc'],
+    ['175', 'Abreviación de vocab',         'dom → domicilio'],
+    ['733', 'Compuesto cubierto por vocab', 'numcliente'],
+    ['584', 'Compuesto descomponible',      'registrosolicitud'],
+  ];
+  const vocabTotal = vocabSignals.reduce((s, r) => s + parseInt(r[0]), 0);
+  ttVocab.innerHTML = `
+    <div style="font-weight:600;color:#58a6ff;margin-bottom:10px;font-size:13px">
+      11 señales de filtrado · ${vocabTotal.toLocaleString()} tokens descartados
+    </div>
+    <table style="border-collapse:collapse;width:100%">
+      ${vocabSignals.map(([n, label, ex]) => `
+        <tr>
+          <td style="color:#8b949e;text-align:right;padding-right:10px;white-space:nowrap;font-variant-numeric:tabular-nums">${n}</td>
+          <td style="padding-right:8px;white-space:nowrap">${label}</td>
+          <td style="color:#8b949e;font-size:11px">${ex ? '— ' + ex : ''}</td>
+        </tr>`).join('')}
+      <tr><td colspan="3" style="border-top:1px solid #30363d;padding-top:6px"></td></tr>
+      <tr>
+        <td style="color:#3fb950;font-weight:600;text-align:right;padding-right:10px">candidatos</td>
+        <td colspan="2" style="color:#3fb950;font-weight:600">para Specialist HITL</td>
+      </tr>
+    </table>`;
+
+  ttTU.innerHTML = `
+    <div style="font-weight:600;color:#a371f7;margin-bottom:10px;font-size:13px">
+      🔬 Test Universe — 837 SPs (7.3% del corpus)
+    </div>
+    <table style="border-collapse:collapse;width:100%">
+      <tr><td style="color:#8b949e;padding-right:12px;white-space:nowrap">T1 — Señal especial</td><td style="color:#a371f7;font-weight:600">739</td><td style="color:#8b949e;font-size:11px;padding-left:8px">is_soul + entry_point + cross_domain + shared + esb_exposed</td></tr>
+      <tr><td style="color:#8b949e;padding-right:12px;white-space:nowrap">T2 — Complejidad</td><td style="color:#a371f7;font-weight:600">30</td><td style="color:#8b949e;font-size:11px;padding-left:8px">batch alta densidad (LOC × rules_n)</td></tr>
+      <tr><td style="color:#8b949e;padding-right:12px;white-space:nowrap">T3 — Dominios</td><td style="color:#a371f7;font-weight:600">48</td><td style="color:#8b949e;font-size:11px;padding-left:8px">3 por dominio D01–D16</td></tr>
+      <tr><td style="color:#8b949e;padding-right:12px;white-space:nowrap">T4 — Orchestrators</td><td style="color:#a371f7;font-weight:600">20</td><td style="color:#8b949e;font-size:11px;padding-left:8px">batch_orchestrator + super_orchestrator LOC ≥ 500</td></tr>
+      <tr><td colspan="3" style="border-top:1px solid #30363d;padding-top:6px"></td></tr>
+      <tr><td style="color:#8b949e;padding-right:12px">Prod-active</td><td style="color:#58a6ff;font-weight:600">570 / 570</td><td style="color:#8b949e;font-size:11px;padding-left:8px">100% capturados vía esb_exposed</td></tr>
+      <tr><td style="color:#8b949e;padding-right:12px">Almas</td><td style="color:#58a6ff;font-weight:600">17 / 17</td><td style="color:#8b949e;font-size:11px;padding-left:8px">todos los SPs is_soul=1</td></tr>
+      <tr><td style="color:#8b949e;padding-right:12px">Dominios D01–D16</td><td style="color:#58a6ff;font-weight:600">16 / 16</td><td style="color:#8b949e;font-size:11px;padding-left:8px">cobertura completa</td></tr>
+      <tr><td colspan="3" style="border-top:1px solid #30363d;padding-top:6px"></td></tr>
+      <tr><td style="color:#8b949e;padding-right:12px">Vocab candidatos</td><td style="color:#a371f7;font-weight:600">560</td><td style="color:#8b949e;font-size:11px;padding-left:8px">build-vocab-auto.py --test-universe → vocab-candidates-tu.json</td></tr>
+    </table>
+    <div style="margin-top:10px;font-size:11px;color:#484f58">Arquitectura: TU_FILTER sobre source/Informix/ — sin copia física; test-universe.json es el filtro</div>`;
+
+  ttHITL.innerHTML = `
+    <div style="font-weight:600;color:#3fb950;margin-bottom:8px;font-size:13px">
+      ⟳ HITL — Curación de Vocabulario
+    </div>
+    <div style="font-size:12px;line-height:1.7">
+      <b>Pass 1</b> — rule-based: 3 señales automáticas clasifican candidatos en ALTA / MEDIA / BAJA confianza<br>
+      <b>Pass 2</b> — DT Swarm: agentes paralelos ≤10 candidatos/lote sobre BAJA confianza<br>
+      <b>Output</b> — vocab-approved.json → apply-approved.py → certifica el token en sp_vocab.py<br>
+      <b>Portal HITL</b> — vocabulary-catalog-bcop-hitl.html: pill interactivo · Aprobar · Exportar
+    </div>`;
+
+  // ── Bind tooltips to nodes after Mermaid renders ───────────────────────────
+  requestAnimationFrame(() => {
+    const svg = canvas.querySelector('svg');
+    if (!svg) return;
+
+    svg.querySelectorAll('.node').forEach(node => {
+      const txt = (node.textContent || '').trim();
+      let tt = null;
+
+      if (txt.includes('build-vocab-auto'))           tt = mkTooltip(ttVocab);
+      else if (txt.includes('define-test-universe') ||
+               txt.includes('vocab-candidates-tu'))  tt = mkTooltip(ttTU);
+      else if (txt.includes('enrich-vocab'))          tt = mkTooltip(ttHITL);
+
+      if (tt) {
+        node.style.cursor = 'help';
+        node.addEventListener('mouseenter', tt.show);
+        node.addEventListener('mousemove',  tt.move);
+        node.addEventListener('mouseleave', tt.hide);
+      }
+    });
+  });
+</script>
+</body>
+</html>

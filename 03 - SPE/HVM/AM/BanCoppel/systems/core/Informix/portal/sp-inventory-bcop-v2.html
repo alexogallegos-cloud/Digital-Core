@@ -79,6 +79,11 @@ td{padding:6px 8px;vertical-align:middle}
 .arch-CONCILIACION     {background:rgba(6,182,212,.22);color:#67e8f9;border:1px solid #0891b2}
 .arch-CIERRE_CORTE     {background:rgba(219,39,119,.28);color:#f9a8d4;border:1px solid #be185d}
 .arch-NO_SOURCE        {background:rgba(51,65,85,.35);color:#64748b;border:1px solid #334155}
+.tu-badge{display:inline-block;border-radius:4px;font-size:9px;font-weight:700;padding:2px 5px;letter-spacing:.5px;margin-left:3px;vertical-align:middle}
+.tu-T1{background:rgba(139,92,246,.3);color:#c4b5fd;border:1px solid #7c3aed}
+.tu-T2{background:rgba(6,182,212,.25);color:#67e8f9;border:1px solid #0891b2}
+.tu-T3{background:rgba(249,115,22,.25);color:#fdba74;border:1px solid #ea580c}
+.tu-T4{background:rgba(34,197,94,.25);color:#86efac;border:1px solid #16a34a}
 .empty{text-align:center;padding:48px;color:var(--muted);font-size:13px}
 #pager{display:flex;align-items:center;gap:8px;padding:10px 28px;font-size:11px;color:var(--muted);border-top:1px solid rgba(255,255,255,.06)}
 .pg-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:var(--ink);border-radius:6px;padding:4px 11px;font-size:11px;cursor:pointer;transition:.15s}
@@ -106,6 +111,7 @@ footer{font-size:9px;color:var(--muted2);padding:14px 28px;border-top:1px solid 
     <div class="stat-tile"><div class="n" id="stat-online">—</div><div class="l">Online (fan-in > 0)</div></div>
     <div class="stat-tile"><div class="n" id="stat-souls">—</div><div class="l">Almas del sistema</div></div>
     <div class="stat-tile"><div class="n" id="stat-archs">13</div><div class="l">Arquetipos</div></div>
+    <div class="stat-tile"><div class="n" id="stat-tu">—</div><div class="l">Test Universe</div></div>
   </div>
 </section>
 
@@ -141,6 +147,7 @@ footer{font-size:9px;color:var(--muted2);padding:14px 28px;border-top:1px solid 
   <button type="button" class="fbtn" id="btn-batch"  onclick="toggleFilter('batch')"  title="Solo SPs batch (fan_in = 0)">Batch</button>
   <button type="button" class="fbtn" id="btn-online" onclick="toggleFilter('online')" title="Solo SPs online (fan_in > 0)">Online</button>
   <button type="button" class="fbtn" id="btn-soul"   onclick="toggleFilter('soul')"   title="Almas del sistema">Almas</button>
+  <button type="button" class="fbtn" id="btn-tu"    onclick="toggleFilter('tu')"     title="Solo SPs del universo de prueba (837 estratificados)">🔬 Test Universe</button>
   <span id="count"></span>
 </div>
 
@@ -180,6 +187,7 @@ footer{font-size:9px;color:var(--muted2);padding:14px 28px;border-top:1px solid 
 <script>
 let ALL=[], filtered=[], sortCol='archetype', sortDir=1, curPage=0, PAGE_SIZE=200;
 const activeFilters=new Set();
+const TU_MAP=new Map(); // sp_key ("db:name") → tier (T1/T2/T3/T4)
 
 const ROLE_LABEL={
   entry_point:'Entrada',
@@ -199,7 +207,8 @@ const ROLE_CLASS={
 
 function renderRow(sp){
   const role = sp.sp_role||'internal';
-  const roleBadge=`<span class="role-badge ${ROLE_CLASS[role]||'role-internal'}">${ROLE_LABEL[role]||role}</span>`;
+  const tuBadge=sp.in_tu?`<span class="tu-badge tu-${sp.tu_tier}" title="Test Universe · ${sp.tu_tier}">${sp.tu_tier}</span>`:'';
+  const roleBadge=`<span class="role-badge ${ROLE_CLASS[role]||'role-internal'}">${ROLE_LABEL[role]||role}</span>${tuBadge}`;
   const arch=sp.archetype||'';
   const archBadge=arch?`<span class="arch-badge arch-${arch}">${arch}</span>`:'<span class="vol-none">—</span>';
   const soulMark=sp.is_soul?`<span class="soul-star" title="${sp.soul_pattern||'Alma'}">★</span>`:'';
@@ -233,6 +242,7 @@ function applyFilters(){
     if(activeFilters.has('batch')&&sp.fan_in>0)return false;
     if(activeFilters.has('online')&&!sp.fan_in)return false;
     if(activeFilters.has('soul')&&!sp.is_soul)return false;
+    if(activeFilters.has('tu')&&!sp.in_tu)return false;
     return true;
   });
   curPage=0;
@@ -312,23 +322,31 @@ function setStats(data){
   const batch=data.filter(s=>!s.fan_in).length;
   const online=data.filter(s=>s.fan_in>0).length;
   const souls=data.filter(s=>s.is_soul).length;
+  const tu=data.filter(s=>s.in_tu).length;
   document.getElementById('stat-total').textContent=data.length.toLocaleString('es-MX');
   document.getElementById('stat-batch').textContent=batch.toLocaleString('es-MX');
   document.getElementById('stat-online').textContent=online.toLocaleString('es-MX');
   document.getElementById('stat-souls').textContent=souls;
+  document.getElementById('stat-tu').textContent=tu.toLocaleString('es-MX');
 }
 
-fetch('data/sp-inventory.json')
-  .then(r=>r.json())
-  .then(data=>{
-    ALL=data;
-    filtered=[...ALL];
-    initDomFilter(ALL);
-    setStats(ALL);
-    sortBy('archetype');
-  })
-  .catch(err=>{
-    document.getElementById('tbody').innerHTML=`<tr><td colspan="11" class="empty">Error cargando sp-inventory.json: ${err.message}</td></tr>`;
+Promise.all([
+  fetch('data/sp-inventory.json').then(r=>r.json()),
+  fetch('../digital-brain/test-universe.json').then(r=>r.json()).catch(()=>null)
+]).then(([data, tu])=>{
+  if(tu&&tu.sps){
+    tu.sps.forEach(s=>TU_MAP.set(`${s.db}:${s.name}`,s.tier));
+  }
+  ALL=data.map(sp=>{
+    const tier=TU_MAP.get(`${sp.db}:${sp.name}`);
+    return tier?{...sp,in_tu:true,tu_tier:tier}:sp;
   });
+  filtered=[...ALL];
+  initDomFilter(ALL);
+  setStats(ALL);
+  sortBy('archetype');
+}).catch(err=>{
+  document.getElementById('tbody').innerHTML=`<tr><td colspan="11" class="empty">Error cargando datos: ${err.message}</td></tr>`;
+});
 </script>
 </body></html>
