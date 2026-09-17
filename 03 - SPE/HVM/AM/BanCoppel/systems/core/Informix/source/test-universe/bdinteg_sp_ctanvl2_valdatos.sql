@@ -1,0 +1,538 @@
+CREATE PROCEDURE "informix".sp_ctanvl2_valdatos(pNombre1 CHAR(26),pNombre2 CHAR(26),pApellPaterno CHAR(26),pApellMaterno CHAR(26),
+pFechaNac DATE,pGenero CHAR(1),pNacionalidad CHAR(3),pTpoPersona CHAR(2))
+	RETURNING CHAR(5) AS codret;
+	
+	DEFINE cCodRet CHAR(5);
+	DEFINE cCodRetSp CHAR(5);
+	DEFINE iCodRetSp INTEGER;
+	DEFINE iSqlErr INTEGER;
+	DEFINE cEmpresa CHAR(3);
+	DEFINE cMes CHAR(2);
+	DEFINE cDia CHAR(2);
+	DEFINE cAnio CHAR(4);
+	DEFINE cExiste CHAR(1);
+	DEFINE cEsFisica CHAR(1);
+	
+	LET cCodRet = '000';
+	LET cCodRetSp = '';
+	LET iCodRetSp = 0;
+	LET iSqlErr = 0;
+	LET cEmpresa = '001';
+	LET cMes = '';
+	LET cDia = '';
+	LET cAnio = '';
+	LET cExiste = '';
+	LET cEsFisica = '';
+	
+	BEGIN
+	
+		ON EXCEPTION SET iSqlErr
+			IF iSqlerr <> 0 THEN
+				LET cCodRet = iSqlErr;
+				RETURN cCodRet;
+			END IF;
+		END EXCEPTION;
+		
+		--SET DEBUG FILE TO '/tmp/mfinis/sp_ctanvl2_valdatos.out';
+		--TRACE ON;
+		
+		SET ISOLATION TO DIRTY READ;
+		SET LOCK MODE TO WAIT 3;
+		
+		--VALIDA CAMPOS REQUERIDOS
+		IF pNombre1 IS NULL OR pNombre1 = '' OR pApellPaterno IS NULL OR pApellPaterno = '' OR 
+		pFechaNac IS NULL OR pFechaNac = '' OR pGenero IS NULL OR pGenero = '' OR 
+		pNacionalidad IS NULL OR pNacionalidad = '' OR pTpoPersona IS NULL OR pTpoPersona = '' THEN
+			LET cCodRet = '110';
+			RETURN cCodRet;
+		ELSE
+			--ASIGNACION DE VALORES
+			LET cMes = SUBSTR(pFechaNac,1,2);
+			LET cDia = SUBSTR(pFechaNac,4,2);
+			LET cAnio = SUBSTR(pFechaNac,7,4);
+		END IF;
+		
+		--VALIDA FORMATO DE FECHA
+		IF (cMes <> MONTH(pFechaNac)) OR (cDia <> DAY(pFechaNac)) OR (cAnio <> YEAR(pFechaNac)) THEN
+			LET cCodRet = '195';
+			RETURN cCodRet;
+		ELSE
+			IF (cMes::INTEGER > 12) THEN
+				LET cCodRet = '184';
+				RETURN cCodRet;
+			END IF;
+			IF (cDia::INTEGER > 31) THEN
+				LET cCodRet = '185';
+				RETURN cCodRet;
+			END IF;
+		END IF;
+		
+		--VALIDA QUE EL GENERO SEA MASCULINO = 'M' O FEMENINO = 'F'  
+		IF pGenero NOT IN ('M','F') THEN
+			LET cCodRet = '377';
+			RETURN cCodRet;
+		END IF;
+		
+		--VALIDA NACIONALIDAD
+		SELECT 1 INTO cExiste
+		FROM bdinteg:"informix".si_nacion
+		WHERE nacion = pNacionalidad;
+		
+		IF cExiste IS NULL THEN
+			LET cCodRet = '124';
+			RETURN cCodRet;
+		END IF;
+		
+		--VALIDA SI TIPO DE PERSONA SEA FISICA = '01' O FISICA EMPRESARIAL = '03'
+		SELECT {+INDEX (bdinteg:"informix".si_tipper ix193_1)} 
+		UPPER(es_fisica) INTO cEsFisica
+		FROM bdinteg:"informix".si_tipper
+		WHERE tpo_persona = pTpoPersona;
+		
+		IF cEsfisica <> 'S' THEN
+			LET cCodRet = '120';
+			RETURN cCodRet;
+		END IF;
+		
+		RETURN cCodRet;
+		
+	END;
+END PROCEDURE
+DOCUMENT 'AUTOR: L. Montserrat Leon Amador',
+'FECHA: 17/06/2020',
+'DESCRIPCION: SPL encargado de realizar la validacion de los datos del cliente.',
+'BD: bdinteg';
+
+CREATE PROCEDURE "informix".sp_ctanvl2_valotp(pNumCte CHAR(20),pNumCel CHAR(13),pOtp CHAR(6))
+	RETURNING CHAR(5) AS codret;
+		
+	DEFINE cCodRet CHAR(5);
+	DEFINE iSqlErr INTEGER;
+	DEFINE cCodRetSp CHAR(6);
+	DEFINE iCodRetSp INTEGER; 
+	DEFINE iExisteCte INTEGER;
+	DEFINE sIntenPerm SMALLINT;
+	DEFINE cEmpresa CHAR(3);
+	DEFINE dFechaInsert DATE;
+	DEFINE cCodigoOtp CHAR(6);
+	DEFINE sNoIntentos SMALLINT;
+	DEFINE cExiste CHAR(1);
+	
+	LET cCodRet = '000';
+	LET iSqlErr = 0;
+	LET cCodRetSp = '';
+	LET iCodRetSp = 0;
+	LET iExisteCte = 0;
+	LET sIntenPerm = 0;
+	LET cEmpresa = '001';
+	LET dFechaInsert = '';
+	LET cCodigoOtp = '';
+	LET sNoIntentos = 0;
+	LET cExiste = '';
+	
+	BEGIN
+	
+		ON EXCEPTION SET iSqlErr
+			IF iSqlErr <> 0 THEN 
+				LET cCodRet = iSqlErr;
+				RETURN cCodRet;
+			END IF;
+		END EXCEPTION;
+		
+		--SET DEBUG FILE TO '/tmp/mfinis/sp_ctanvl2_valotp.out';
+		--TRACE ON;
+		
+		SET ISOLATION TO DIRTY READ;
+		SET LOCK MODE TO WAIT 3;
+		
+		--VALIDACION DE CAMPOS REQUERIDOS
+		IF pNumCte IS NULL OR pNumCte = '' OR pNumCel IS NULL OR pNumCel = '' OR pOtp IS NULL OR pOtp = '' THEN
+			LET cCodRet = '110';
+			RETURN cCodRet;
+		END IF;
+		
+		IF LENGTH(pNumCel) <> 10 OR LENGTH(pOtp) <> 6 THEN
+			LET cCodRet = '395'; 
+			RETURN cCodRet;
+		END IF;
+		
+		--SE OBTIENE LA FECHA DEL SISTEMA
+		SELECT {+INDEX (bdinteg:"informix".si_fechas idx_si_fechas)} 
+		fecha_hoy INTO dFechaInsert
+		FROM bdinteg:"informix".si_fechas WHERE empresa = cEmpresa;
+		
+		--VALIDACION SI EXISTE CLIENTE
+		SELECT {+INDEX (bdinteg:"informix".si_cliente idx_si_cliente5)} 
+		1 INTO cExiste
+		FROM bdinteg:"informix".si_cliente
+		WHERE empresa = cEmpresa AND numcte = pNumCte;
+		
+		IF cExiste IS NULL THEN
+			LET cCodRet = '384';
+			RETURN cCodRet;
+		END IF;
+		
+		--SE OBTIENE NUMERO DE INTENTOS PERMITIDOS
+		SELECT {+INDEX (bdinteg:"informix".si_param ix_si_param)} 
+		valor INTO sIntenPerm
+		FROM bdinteg:"informix".si_param WHERE cod_param = 485;
+	   
+		SELECT cve_otp_gen, no_intentos
+		INTO cCodigoOtp, sNoIntentos
+		FROM bdinteg:"informix".si_ctanvl2_genotp
+		WHERE numcte = pNumCte;
+		
+		IF cCodigoOtp IS NULL OR cCodigoOtp = '' THEN 
+			LET cCodRet = '372'; 
+		ELSE
+			IF sNoIntentos >= sIntenPerm THEN
+				LET cCodRet = '370';
+			ELSE
+				IF cCodigoOtp = pOtp THEN
+					UPDATE bdinteg:"informix".si_ctanvl2_genotp
+					SET cve_otp_rec = pOtp, no_intentos = sNoIntentos + 1
+					WHERE numcte = pNumCte;
+					
+					IF DBINFO('sqlca.sqlerrd2') = 0 THEN
+						LET cCodRet = '222';
+						RETURN cCodRet;
+					END IF;
+				ELSE
+					UPDATE bdinteg:"informix".si_ctanvl2_genotp
+					SET no_intentos = sNoIntentos + 1
+					WHERE numcte = pNumCte;
+					
+					IF DBINFO('sqlca.sqlerrd2') = 0 THEN
+						LET cCodRet = '222';
+						RETURN cCodRet;
+					END IF;
+					
+					LET cCodRet = '371'; 
+				END IF;	
+			END IF;
+		END IF;
+		
+		RETURN cCodRet;
+		
+	END;
+END PROCEDURE
+DOCUMENT 'AUTOR: Veronica SÃ¡nchez Tlacomulco',
+'FECHA: 23/06/2020',
+'DESCRIPCION: SPL encargado de validar el cÃ³digo OTP del cliente',
+'BD: bdinteg';
+
+CREATE PROCEDURE "informix".sp_ctanvl2_eliminapdf()
+	RETURNING CHAR(5) AS codret;
+	
+	DEFINE cCodRet CHAR(5);
+	DEFINE cCodRetSp CHAR(5);
+	DEFINE iCodRetSp INTEGER;
+	DEFINE iSqlErr INTEGER;
+	DEFINE cEmpresa CHAR(3);
+	DEFINE cMes CHAR(2);
+	DEFINE cDia CHAR(2);
+	DEFINE cAnio CHAR(4);
+	DEFINE cExiste CHAR(1);
+	DEFINE cEsFisica CHAR(1);
+	DEFINE cRutaArchivo CHAR(100);
+	DEFINE cReporteHist CHAR(100);
+	DEFINE dFechaHoy DATE;
+	DEFINE cSQL CHAR(500);
+	DEFINE cEjecuta CHAR(1);
+	
+	LET cCodRet = '000';
+	LET cCodRetSp = '';
+	LET iCodRetSp = 0;
+	LET iSqlErr = 0;
+	LET cEmpresa = '001';
+	LET cMes = '';
+	LET cDia = '';
+	LET cAnio = '';
+	LET cExiste = '';
+	LET cEsFisica = '';
+	LET cRutaArchivo = '';
+	LET cReporteHist = '';
+	LET dFechaHoy = '';
+	LET cSQL = '';
+	LET cEjecuta = '';
+	
+	BEGIN
+	
+		ON EXCEPTION SET iSqlErr
+			IF iSqlerr <> 0 THEN
+				LET cCodRet = iSqlErr;
+				RETURN cCodRet;
+			END IF;
+		END EXCEPTION;
+		
+		--SET DEBUG FILE TO '/tmp/mfinis/caratulasCuentaNivel2/sp_ctanvl2_eliminapdf.out';
+		--TRACE ON;
+		
+		SET ISOLATION TO DIRTY READ;
+		SET LOCK MODE TO WAIT 3;
+		
+		SELECT {+INDEX (bdinteg:"informix".si_fechas idx_si_fechas)} 
+		fecha_hoy INTO dFechaHoy
+		FROM bdinteg:"informix".si_fechas
+		WHERE empresa = cEmpresa;
+		
+		SELECT ejecuta 
+          INTO cEjecuta 
+          FROM bdinteg:"informix".si_ctanvl2_ctrlelimina 
+         WHERE fecha_ej = dFechaHoy;
+		
+		IF NVL(cEjecuta,'') <> 't' THEN
+			
+			INSERT INTO bdinteg:"informix".si_ctanvl2_ctrlelimina(ejecuta,fecha_ej) VALUES('t',dFechaHoy);
+			IF DBINFO('sqlca.sqlerrd2') = 0 THEN
+				LET cCodRet = '379';
+				--RETURN cCodRet;
+			END IF;
+			
+			SELECT {+INDEX (bdinteg:"informix".si_param ix_si_param)} 
+			valor INTO cRutaArchivo
+			FROM bdinteg:"informix".si_param WHERE cod_param = 490;
+			
+			FOREACH
+			
+				SELECT nom_reporte
+				INTO cReporteHist
+				FROM bdinteg:"informix".si_ctanvl2_ctrlrep 
+				WHERE TO_DATE(fecha_gen, '%d/%m/%Y') < dFechaHoy
+				
+				LET cSQL = '';
+				LET cSQL = '/usr/bin/rm -rf '||TRIM(cRutaArchivo)||'caratulasPDF/'||TRIM(cReporteHist);
+				SYSTEM cSQL;
+				
+				DELETE FROM bdinteg:"informix".si_ctanvl2_ctrlrep WHERE nom_reporte = TRIM(cReporteHist);
+				
+			END FOREACH;
+			
+		END IF;
+		
+		RETURN cCodRet;
+		
+	END;
+END PROCEDURE
+DOCUMENT 'AUTOR: L. Montserrat Leon Amador',
+'FECHA: 20/07/2020',
+'DESCRIPCION: SPL encargado de realizar la eliminacion de todos los archivos PDF generados anteriores a la fecha hoy (T-1).',
+'BD: bdinteg';
+
+CREATE PROCEDURE "informix".sp_ctanvl2_gencaratula(pNumCte CHAR(20),pNumCta CHAR(20))
+	RETURNING CHAR(5) AS codret,
+		CHAR(40) AS producto;
+	
+	DEFINE cCodRet CHAR(5);
+	DEFINE cCodRetSp CHAR(5);
+	DEFINE iCodRetSp INTEGER;
+	DEFINE iSqlErr INTEGER;
+	DEFINE cEmpresa CHAR(3);
+	DEFINE cExiste CHAR(1);
+	DEFINE cProducto CHAR(40);
+	
+	LET cCodRet = '000';
+	LET cCodRetSp = '';
+	LET iCodRetSp = 0;
+	LET iSqlErr = 0;
+	LET cEmpresa = '001';
+	LET cExiste = '';
+	LET cProducto = '';
+	
+	BEGIN
+		
+		ON EXCEPTION SET iSqlErr
+			IF iSqlerr <> 0 THEN
+				LET cCodRet = iSqlErr;
+				RETURN cCodRet,cProducto;
+			END IF;
+		END EXCEPTION;
+		
+		--SET DEBUG FILE TO '/tmp/mfinis/sp_ctanvl2_gencaratula.out';
+		--TRACE ON;
+		
+		SET ISOLATION TO DIRTY READ;
+		SET LOCK MODE TO WAIT 3;
+		
+		--VALIDA CAMPOS REQUERIDOS
+		IF pNumCte IS NULL OR pNumCte = '' OR pNumCta IS NULL OR pNumCta = '' THEN
+			LET cCodRet = '110';
+			RETURN cCodRet,cProducto;
+		END IF;
+		
+		SELECT {+INDEX (bdinteg:"informix".sc_maechq idx_sc_maechq)} {+INDEX (bdinteg:"informix".sc_producto idxscproductopba)} 
+		pro.nombre INTO cProducto
+		FROM bdicheq:"informix".sc_maechq AS mae, bdicheq:"informix".sc_producto AS pro
+		WHERE mae.cuenta = pNumCta AND mae.producto = pro.producto;
+		
+		RETURN cCodRet,cProducto;
+		
+	END;
+END PROCEDURE
+DOCUMENT 'AUTOR: L. Montserrat Leon Amador',
+'FECHA: 15/07/2020',
+'DESCRIPCION: SPL encargado de consultar el detalle de la informacion que sera implementada para la generacion de la caratula.',
+'BD: bdinteg';
+
+CREATE PROCEDURE "informix".sp_rpt_cte_biometria()
+returning char(5) as CodRet;
+
+DEFINE cCodRet 		CHAR(5);
+DEFINE iSql_err     INT;
+DEFINE sFecha       CHAR(10);
+DEFINE sfechaInicial CHAR(10);
+DEFINE sfechaFinal   CHAR(10);
+DEFINE sFechaArch   CHAR(10);
+DEFINE cCmd1        CHAR(10000);
+DEFINE cCmd2        CHAR(10000);
+DEFINE cCmd3        CHAR(10000);
+DEFINE cCmd4        CHAR(10000);
+DEFINE cCmd5        CHAR(10000);
+DEFINE cCmd6        CHAR(10000);
+DEFINE cCmd7        CHAR(10000);
+DEFINE cCmd8        CHAR(10000);
+DEFINE cCmd9        CHAR(10000);
+DEFINE cCmd11        CHAR(10000);
+DEFINE cCmd12       CHAR(10000);
+DEFINE cQuery        CHAR(10000);
+DEFINE cQueryD        CHAR(10000);
+DEFINE cQueryM        CHAR(10000);
+DEFINE cQueryMB        CHAR(10000);
+DEFINE cQueryMD        CHAR(10000);
+DEFINE cQueryMBD        CHAR(10000);
+DEFINE pArchDescarga CHAR(100);
+DEFINE pArchDescargaG CHAR(100);
+DEFINE pArchDescargaM CHAR(100);
+DEFINE pArchDescargaMG CHAR(100);
+DEFINE pArchDescargaMB CHAR(100);
+DEFINE sDia          CHAR(2);
+DEFINE sMes          CHAR(2);
+DEFINE sYear         CHAR(4);
+DEFINE dFbio         INT;
+
+LET cCodRet 		='00000';
+LET iSql_err        =0;
+LET sFecha          ='';
+LET sfechaInicial   ='';
+LET sfechaFinal     ='';
+LET cCmd1           ='';
+LET cCmd2           ='';
+LET cCmd3           ='';
+LET cCmd4           ='';
+LET cCmd5           ='';
+LET cCmd6           ='';
+LET cCmd7           ='';
+LET cCmd8           ='';
+LET cCmd9           ='';
+LET cCmd11           ='';
+LET cCmd12          ='';
+LET pArchDescarga   ='';
+LET pArchDescargaG   ='';
+LET pArchDescargaM  ='';
+LET pArchDescargaMG  ='';
+LET pArchDescargaMB  ='';
+LET sFechaArch      ='';
+LET sDia            ='';
+LET sMes            ='';
+LET sYear           ='';
+LET cQuery			='';
+LET cQueryD			='';
+LET cQueryM			='';
+LET cQueryMB	    ='';
+LET cQueryMD	    ='';
+LET cQueryMBD	    ='';
+LET dFbio           =0;
+
+BEGIN
+
+    ON EXCEPTION SET iSql_err
+		IF iSql_err <> 0 THEN
+			LET cCodRet = iSql_err;
+			RETURN cCodRet;
+		END IF;
+	END EXCEPTION;
+	
+	SET ISOLATION TO dirty READ;
+	SET LOCK MODE TO WAIT 3;
+    
+    ---SET DEBUG FILE TO '/RESPALDOSNEW/sp_rpt_cte_biometria.out';
+    ---TRACE ON;
+	
+	
+    LET sfecha = (select fecha_hoy from si_fechas WHERE empresa = "001");
+    --LET sFechaArch=(select REPLACE(fecha_hoy,'/','') from si_fechas);
+
+    LET sDia=(select day(fecha_hoy) from si_fechas);
+    LET sMes=(select month(fecha_hoy) from si_fechas);
+    LET sYear=(select year(fecha_hoy) from si_fechas);
+
+    LET sfechaInicial = (SELECT TO_CHAR(fecha_hoy - 1 units month, '%m/%d/%Y') FROM bdinteg:si_fechas WHERE empresa = "001");
+	LET sfechaFinal = (SELECT TO_CHAR(fecha_ant, '%m/%d/%Y') FROM bdinteg:si_fechas WHERE empresa = "001");
+    IF LENGTH(sDia)<2 THEN
+         LET sDia="0"||sDia;
+    END IF;
+
+    IF LENGTH(sMes)<2 THEN
+         LET sMes="0"||sMes;
+    END IF;
+
+    LET sFechaArch=sDia||sMes||sYear;
+
+    LET pArchDescarga='"/RESPALDOSNEW/reporte_clientes_biometria_'||TRIM(sFechaArch)||'.txt" delimiter "|" ';
+	LET pArchDescargaG='"/RESPALDOSNEW/reporte_clientes_biometria_gral_'||TRIM(sFechaArch)||'.txt" delimiter "|" ';
+	LET pArchDescargaM='"/RESPALDOSNEW/reporte_clientes_biometria_mes_'||TRIM(sFechaArch)||'.txt" delimiter "|" ';
+	LET pArchDescargaMG='"/RESPALDOSNEW/reporte_clientes_biometria_mes_gral_'||TRIM(sFechaArch)||'.txt" delimiter "|" ';
+	LET pArchDescargaMB='"/RESPALDOSNEW/reporte_clientes_biometria_mes_dfb_'||TRIM(sFechaArch)||'.txt" delimiter "|" ';
+		
+
+                ---Se consulta la tabla principal y se crea la tabla temporal con los indices.
+        ---LET cCmd1 ='select numcte,tipo_cliente,tpo_persona,tpo_biometria,fecha_insert FROM bdinteg:si_cliente WHERE tipo_cliente="1" and tpo_persona="01" and fecha_insert<today INTO TEMP si_cliente_bio with no log; CREATE INDEX si_cliente_temp_idx on si_cliente_bio (numcte,tipo_cliente,tpo_persona,tpo_biometria,fecha_insert);';
+			
+		 		---De la tabla pricipal se obtiene el total de clientes titulares, total de clientes titulares con biometria.
+		LET cCmd2 = 'select count(*) from bdinteg:si_cliente where tipo_cliente="1" and tpo_persona="01" and tpo_biometria="1" and fecha_insert< "'||sFecha||'"';
+		LET cCmd3 = 'select count(*) from bdinteg:si_cliente where tipo_cliente="1" and tpo_persona="01" and fecha_insert< "'||sFecha||'"';
+	
+			    ---De la tabla pricipal se obtiene el total de clientes titulares y total de clientes titulares con biometria del mes.
+     	
+		LET cCmd4 = 'select count(*) from bdinteg:si_cliente where tipo_cliente="1" and tpo_persona="01" and tpo_biometria="1" and fecha_insert between "'||sfechaInicial||'" and "'||sfechaFinal||'"';	
+       	LET cCmd5 = 'select count(*) from bdinteg:si_cliente where tipo_cliente="1" and tpo_persona="01" and tpo_biometria="0" and fecha_insert between "'||sfechaInicial||'" and "'||sfechaFinal||'"';
+		
+		
+		---Se obtiene el total de cliente con fecha alta diferente a la fecha registro de biometria.
+		LET cCmd6 = 'select count(cte.numcte) from bdinteg:si_cliente cte inner join bdirostros@coppelimg_tcp:si_cte_rostro bio on cte.numcte=bio.numcte and cte.fecha_insert<>bio.fecha_alta and cte.fecha_insert between "'||sfechaInicial||'" and "'||sfechaFinal||'" where cte.tipo_cliente= "1" and cte.tpo_biometria= "1"';
+	
+	
+	 ---Se realiza la union de las dos consultas generales
+	    ---LET cCmd7 = TRIM(cCmd2)||" UNION "||TRIM(cCmd3);
+		LET cCmd7 = TRIM(cCmd2);
+		LET cCmd11 = TRIM(cCmd3);
+		LET cQuery = "/usr/bin/echo 'SET ISOLATION TO DIRTY READ; SET LOCK MODE TO WAIT 3;  UNLOAD TO "||TRIM(pArchDescarga)||"  "||TRIM(cCmd7)||"' | /ifxsif01/bin/dbaccess bdinteg > /dev/null 2>&1 ";
+		LET cQueryD = "/usr/bin/echo 'SET ISOLATION TO DIRTY READ; SET LOCK MODE TO WAIT 3; UNLOAD TO "||TRIM(pArchDescargaG)||"  "||TRIM(cCmd11)||"' | /ifxsif01/bin/dbaccess bdinteg > /dev/null 2>&1 ";
+		---LET cQuery = "/usr/bin/echo 'SET ISOLATION TO DIRTY READ; SET LOCK MODE TO WAIT 3; " || TRIM(cCmd2)||" UNION "||TRIM(cCmd3)|| " " || " UNLOAD TO "||TRIM(pArchDescarga)||"  "||TRIM(cCmd7)||"' | /ifxsif01/bin/dbaccess bdinteg > /dev/null 2>&1 ";
+	    ---LET cQuery = "/usr/bin/echo 'SET ISOLATION TO DIRTY READ; SET LOCK MODE TO WAIT 3; " || TRIM(cCmd1)||" " || " UNLOAD TO "||TRIM(pArchDescarga)||"  "||TRIM(cCmd7)||"' | /ifxsif01/bin/dbaccess bdinteg > /dev/null 2>&1 ";
+	  
+	 ---Se realiza la union de las consultas por mes
+	    LET cCmd8 = TRIM(cCmd4);
+		LET cCmd12 = TRIM(cCmd5);
+		LET cQueryM = "/usr/bin/echo 'SET ISOLATION TO DIRTY READ; SET LOCK MODE TO WAIT 3; UNLOAD TO "||TRIM(pArchDescargaM)||"  "||TRIM(cCmd8)||"' | /ifxsif01/bin/dbaccess bdinteg > /dev/null 2>&1 "; 	  	 	 
+		LET cQueryMD = "/usr/bin/echo 'SET ISOLATION TO DIRTY READ; SET LOCK MODE TO WAIT 3; UNLOAD TO "||TRIM(pArchDescargaMG)||"  "||TRIM(cCmd12)||"' | /ifxsif01/bin/dbaccess bdinteg > /dev/null 2>&1 "; 	  	 	 
+	    ----LET cQueryM = "/usr/bin/echo 'SET ISOLATION TO DIRTY READ; SET LOCK MODE TO WAIT 3; " || TRIM(cCmd1)||" " || " UNLOAD TO "||TRIM(pArchDescargaM)||"  "||TRIM(cCmd8)||"' | /ifxsif01/bin/dbaccess bdinteg > /dev/null 2>&1 ";
+
+	---Se descarga el resultado de la consulta entre la bdinteg:si_cliente y la bdidigital@coppelimg_tcp:si_cte_rostro.
+	    LET cCmd9 = TRIM(cCmd6);
+		LET cQueryMB = "/usr/bin/echo 'SET ISOLATION TO DIRTY READ; SET LOCK MODE TO WAIT 3; UNLOAD TO "||TRIM(pArchDescargaMB)||"  "||TRIM(cCmd9)||"' | /ifxsif01/bin/dbaccess bdinteg > /dev/null 2>&1";
+		---LET cQueryMB = "/usr/bin/echo 'SET ISOLATION TO DIRTY READ; SET LOCK MODE TO WAIT 3; " || TRIM(cCmd6)||" " || " UNLOAD TO "||TRIM(pArchDescargaMB)||"  "||TRIM(cCmd9)||"' | /ifxsif01/bin/dbaccess bdinteg > /dev/null 2>&1 ";
+	    ---LET cQueryMB = "/usr/bin/echo 'SET ISOLATION TO DIRTY READ; SET LOCK MODE TO WAIT 3; " || TRIM(cCmd1)||" " || " UNLOAD TO "||TRIM(pArchDescargaMB)||"  "||TRIM(cCmd9)||"' | /ifxsif01/bin/dbaccess bdinteg > /dev/null 2>&1 ";
+	 
+	    SYSTEM TRIM(cQuery);
+	    SYSTEM TRIM(cQueryD);
+        SYSTEM TRIM(cQueryM);
+		SYSTEM TRIM(cQueryMD);
+	    SYSTEM TRIM(cQueryMB);
+		
+
+	
+
+RETURN cCodRet;
+END;
+END PROCEDURE;
