@@ -28,12 +28,18 @@ ATTACH 'systems/channels/appmovil/digital-brain/brain.db' AS appmovil;
 ATTACH 'systems/core/unity/digital-brain/brain.db' AS unity;
 
 -- Consulta federada:
-SELECT 'informix' as sistema, l3_id, l3_name, coverage_status FROM informix.etb_l3
+SELECT 'informix' AS sistema, id, l3_name, coverage_status FROM informix.capabilities
 UNION ALL
-SELECT 'appmovil', l3_id, l3_name, coverage_status FROM appmovil.etb_l3
+SELECT 'appmovil', id, l3_name, coverage_status FROM appmovil.capabilities
 UNION ALL
-SELECT 'unity', l3_id, l3_name, coverage_status FROM unity.etb_l3;
+SELECT 'unity', id, l3_name, coverage_status FROM unity.capabilities;
 ```
+
+> **[ENMIENDA 2026-10-05]** El ejemplo original consultaba `etb_l3`, tabla que
+> ADR-EB-006 retiró en favor de `capabilities` con columna `ontology`, porque en
+> el estate conviven cuatro ontologías incompatibles. Quedó corregido contra el
+> schema vigente: un ejemplo canónico que no corre es tan dañino como una regla
+> falsa, porque se copia tal cual.
 
 ---
 

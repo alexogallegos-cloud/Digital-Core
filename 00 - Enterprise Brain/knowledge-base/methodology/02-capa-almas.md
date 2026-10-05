@@ -1,7 +1,7 @@
 # Capa 2 — Almas: Los Módulos Funcionales
 
 > Capa 2 del Gemelo Cognitivo del Sistema. Metodología Enterprise Brain · Digital Core.
-> Versión 2.0 · 2026-10-05. La v1.0 publicaba un `CREATE TABLE souls` que el canon no tiene; ver la nota al final.
+> Versión 2.0 · 2026-10-05. La v1.0 publicaba el DDL de una tabla de almas que el canon no tiene; ver la nota al final.
 
 ## Objetivo
 
@@ -102,7 +102,7 @@ Los sistemas heredados frecuentemente tienen copias de módulos que nunca se dep
 
 ## Nota de cambios respecto a la v1.0
 
-La v1.0 publicaba un bloque `CREATE TABLE souls` con columnas `core_sp`, `sp_count`, `etb_l3`, `replicas` y `status`. Ninguna de esas columnas existe en el canon, y la tabla tampoco: `templates/schema.sql` declara explícitamente que `is_soul` es una columna de `components` y no una tabla, porque así lo resolvió ADR-EB-006 al destilar el canon de los 16 brains del estate.
+La v1.0 publicaba un bloque de DDL que declaraba una tabla de almas, con campos para el componente central, el conteo, la capability y las réplicas. Ninguna de esas columnas existe en el canon, y la tabla tampoco: `templates/schema.sql` declara explícitamente que `is_soul` es una columna de `components` y no una tabla, porque así lo resolvió ADR-EB-006 al destilar el canon de los 16 brains del estate.
 
 Era la última referencia viva a esa tabla en toda la metodología, y el QA del 2026-10-05 la detectó. Un documento de metodología que publica DDL inexistente es particularmente dañino: alguien lo copia para arrancar un brain nuevo y construye sobre una estructura que ningún validador reconoce.
 
