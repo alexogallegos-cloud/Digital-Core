@@ -161,6 +161,8 @@ Adicional a DoD universal §2.2:
 - [ ] DoD-EB-08: brain.py expone interfaz estándar de 5 métodos.
 - [ ] DoD-EB-09: Taxonomía de negocio del cliente como hilo conductor de todos los artefactos.
 - [ ] DoD-EB-10: bank-brain federado actualizado (si existe).
+- [ ] DoD-EB-11: `knowledge_lineage` poblada — toda afirmación con nivel y fuente; ninguna gold sin `source_ref`; ninguna gold por validación sin `validated_by` (Reglas B37, B40).
+- [ ] DoD-EB-12: los 20 DTs canónicos existen con su `CLAUDE.md` y `dt/cobertura-dt.md` no deja ningún proceso del modelo operativo sin dueño (Regla B41).
 
 ---
 
@@ -282,6 +284,7 @@ El brain no sigue un ciclo DEV/QA/UAT/STG/PROD. Su path-to-production es:
 | SLO-EB-02 | business_name coverage | `business_name_null_pct = 0%` | `coverage()['business_name_null']` |
 | SLO-EB-03 | ETB coverage | `etb_coverage_pct ≥ 60%` | `coverage()['etb_covered_pct']` |
 | SLO-EB-04 | Query latency P95 | `dt_query_latency_p95 < 500ms` | Medido en OBSERVE con DT swarm |
+| SLO-EB-05 | Latencia bitemporal | Mediana de la diferencia entre `valid_from` y `recorded_at` ≤ 15 días | `knowledge_lineage` (Reglas B40, B43) |
 
 ### Métricas DORA del Brain
 
@@ -479,6 +482,8 @@ El brain no sigue un ciclo DEV/QA/UAT/STG/PROD. Su path-to-production es:
 - [ ] brain.py expone interfaz estándar de 5 métodos (DoD-EB-08).
 - [ ] Taxonomía de negocio del cliente como hilo conductor (DoD-EB-09).
 - [ ] bank-brain federado actualizado (DoD-EB-10).
+- [ ] Linaje del conocimiento poblado, sin gold huérfano de fuente (DoD-EB-11).
+- [ ] Roster de 20 DTs canónicos completo y cobertura sin huecos (DoD-EB-12).
 - [ ] brain.db en .gitignore — nunca commiteado.
 - [ ] Pipeline canónico de rebuild documentado en CLAUDE.md del sistema.
 - [ ] DORA baseline (frescura brain, cobertura, uso por DTs) registrada.

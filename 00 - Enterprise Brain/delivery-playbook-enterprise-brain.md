@@ -132,7 +132,7 @@ Bronze, Silver y Gold no son etapas: son el nivel de calidad de cada afirmación
 
 **Actividades**:
 
-1. Verificar DoD-EB-01 a DoD-EB-10 (checklist completo).
+1. Verificar DoD-EB-01 a DoD-EB-12 (checklist completo, incluidos linaje poblado y roster canónico de DTs).
 2. Generar portal HTML: `python generators/build-portal.py` → `portal/index.html` (NUNCA hand-authored — Regla P4).
 3. Actualizar bank-brain si existe: ATTACH el nuevo brain.db + actualizar `capabilities_consolidated()`.
 4. Emitir seeds finales (Regla B11) — todos los sistemas externos conocidos con evidencia cuantificada.
@@ -140,7 +140,7 @@ Bronze, Silver y Gold no son etapas: son el nivel de calidad de cada afirmación
 6. Cambiar `status` de `'building'` a `'active'` en `system_info`.
 7. Comunicar al equipo de modernización: brain activo, cómo interrogarlo, DTs disponibles.
 
-**Gate de salida**: DoD-EB-01 a DoD-EB-10 verdes · portal accesible · equipo informado
+**Gate de salida**: DoD-EB-01 a DoD-EB-12 verdes · portal accesible · equipo informado
 
 **SMEs involucrados**: SRE & AIOps (si el portal se hostea en cloud) · Software Engineering (integración brain-to-modernization-pipeline)
 
