@@ -29,8 +29,9 @@ Además, la Regla P1 usaba Bronze, Silver y Gold para nombrar etapas del pipelin
 **3. El nivel es de la afirmación, no de la fuente.** El código es gold; el `business_name` que un LLM sintetizó de él es silver hasta que lo valide el SME. El linaje puede registrarse por campo.
 
 **4. Schema:**
-- Columna `tier` en las 29 tablas de conocimiento, por defecto `bronze`.
-- Tabla `knowledge_lineage` en el CORE, que pasa de 13 a 14 tablas. Registra por afirmación: nivel, base del nivel, tipo, ubicación y versión de la fuente, quién afirmó, quién validó y qué la reemplazó.
+- Columna `tier` en las tablas de conocimiento, por defecto `bronze`. Eran 29 al aprobar este ADR; hoy son **31**, porque el schema creció.
+- **[ENMIENDA 2026-10-05]** `knowledge_lineage` lleva además `valid_from` y `valid_to` (Regla B40): el tiempo del negocio, distinto del tiempo del brain que registra `recorded_at`. No existían al aprobar este ADR.
+- Tabla `knowledge_lineage` en el CORE, que pasa de 13 a 14 tablas (hoy son **15**, con `suppliers` de ADR-EB-011). Registra por afirmación: nivel, base del nivel, tipo, ubicación y versión de la fuente, quién afirmó, quién validó y qué la reemplazó.
 
 **5. Gates por nivel.** Decommission, cutover o cierre de transición, readiness en `done` y afirmaciones de cumplimiento regulatorio exigen gold.
 
