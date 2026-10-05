@@ -24,20 +24,23 @@ El vocabulario es la semilla del conocimiento. Un `business_name` de regla que u
 
 ## Estructura en brain.db
 
-```sql
-CREATE TABLE vocabulary (
-    id TEXT PRIMARY KEY,          -- slug: "linea-credito"
-    term TEXT NOT NULL,           -- "línea de crédito"
-    definition TEXT,              -- definición operacional
-    scope TEXT,                   -- "enterprise" | "system" | "domain"
-    domain TEXT,                  -- dominio de negocio donde aplica
-    maturity TEXT,                -- "confirmed" | "proposed" | "deprecated"
-    source_system TEXT,           -- sistema de origen
-    est TEXT,                     -- "resolved" | NULL (si hubo conflicto V2)
-    related_terms TEXT            -- JSON array de IDs de términos relacionados
-);
-CREATE VIRTUAL TABLE vocabulary_fts USING fts5(id, term, definition);
-```
+El DDL ejecutable vive en [`templates/schema.sql`](../../templates/schema.sql) y es la única fuente de verdad (ADR-EB-006). Este documento no lo transcribe: lo describe.
+
+**Campos de `vocabulary`**
+
+| Campo | Qué guarda |
+|-------|-----------|
+| `term` | El término tal como lo usa el negocio |
+| `definition` | Su significado en el dominio |
+| `categoria` | Tipo de término |
+| `scope` | Alcance en que aplica |
+| `domain` | Dominio de negocio |
+| `maturity` | `confirmed`, `proposed` o `deprecated` |
+| `source_system` | Sistema del que se extrajo |
+| `aliases` | Otras formas de nombrar lo mismo. Reemplaza al `related_terms` que esta guía documentaba y que nunca existió en el canon |
+| `est` | `resolved` cuando un conflicto de vocabulario se dirimió (Regla V2) |
+
+Más `tier`, que declara el nivel de certeza de la afirmación (Regla B37), y `process_id`, que la ata a un proceso de negocio (Regla B22).
 
 ## Proceso de extracción (canónico)
 

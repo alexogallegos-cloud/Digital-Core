@@ -64,7 +64,7 @@ Ningún otro DT canónico responde esta pregunta. Si dos DTs la responden, hay s
 
 | Artefacto | Capa | De qué responde este DT |
 |-----------|------|-------------------------|
-| `generators/` | Codigo | Los generadores de cada brain: sin duplicados, sin scripts huérfanos, con un punto de entrada claro |
+| `generators/` del brain, `templates/` del asset | Codigo | Los generadores de cada brain: sin duplicados, sin scripts huérfanos, con un punto de entrada claro |
 | `templates/` | Codigo | El DDL canonico y los scripts de referencia del asset |
 | `brain.py` | Codigo | La interfaz del brain. Es el contrato (Regla B1) y no puede divergir entre deployments |
 | `build-portal.py` | Codigo | El unico camino valido para producir `portal/*.html` (Regla P4) |

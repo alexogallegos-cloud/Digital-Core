@@ -816,7 +816,16 @@ Las palabras Bronze, Silver y Gold quedan reservadas para la **calidad del conoc
 
 **P3 — Preservación de marks**: `CTM_ENTRY` y `CTM_HINT` son marcas de alta confianza; ningún paso posterior las sobreescribe. El orden de precedencia es: CTM_ENTRY (evidencia directa de ejecución) > CTM_HINT (inferido de código) > arquetipos de contenido (clasificador automático).
 
-**P4 — Portal generado siempre**: `portal/*.html` es invariablemente generado desde `generators/build-portal.py`. El script canónico es `build-portal.py`. Un HTML editado a mano no es la fuente de verdad — el brain es la fuente de verdad.
+**P4 — Portal generado siempre**: `portal/*.html` es invariablemente generado por `build-portal.py` desde el `brain.db` activo. Un HTML editado a mano no es la fuente de verdad: el brain es la fuente de verdad.
+
+El script vive en dos lugares según el contexto, y confundirlos hacía que la regla apuntara a una ruta inexistente:
+
+| Contexto | Ubicación | Qué es |
+|----------|-----------|--------|
+| Brain implementado | `generators/build-portal.py` | El generador del brain, adaptado a su corpus |
+| Asset Enterprise Brain | `templates/build-portal.py` | La implementación de referencia que cada brain copia y adapta |
+
+El asset no tiene `generators/` y es correcto que no lo tenga: no construye un `brain.db` propio, define cómo construirlo. Dueño del script en ambos contextos: `dt-ingenieria` (Regla B41).
 
 **P5 — brain.db en .gitignore**: brain.db nunca se commitea al repositorio. Se reconstruye desde el pipeline. El `.gitignore` del proyecto debe incluir `**/digital-brain/brain.db` y `**/digital-brain/brain.db.backup-*`.
 

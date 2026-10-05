@@ -34,19 +34,20 @@ Un journey es:
 
 ## Estructura en brain.db
 
-```sql
-CREATE TABLE journeys (
-    id TEXT PRIMARY KEY,           -- slug: "journey-autorizar-pago-spei"
-    entry_sp TEXT NOT NULL,        -- SP entry point (ID canónico db:sp_name)
-    display_name TEXT,             -- "Autorización de Pago SPEI"
-    description TEXT,              -- narrativa de negocio del journey
-    domain TEXT,                   -- dominio de negocio primario
-    cross_domains TEXT,            -- JSON array — dominios secundarios involucrados
-    call_depth INTEGER,            -- profundidad máxima del call graph
-    sp_count INTEGER,              -- total de SPs en el journey
-    source_type TEXT               -- "ctm_entry" | "esb_exposed" | "channel" | "scheduled"
-);
-```
+El DDL ejecutable vive en [`templates/schema.sql`](../../templates/schema.sql) y es la única fuente de verdad (ADR-EB-006). Este documento no lo transcribe: lo describe.
+
+**Campos de `journeys`**
+
+| Campo | Qué guarda |
+|-------|-----------|
+| `entry_component` | Componente que da entrada al journey. Antes documentado como `entry_sp`, nombre que nunca existió |
+| `display_name` | Nombre del journey en el idioma del negocio |
+| `description` | Narrativa de negocio |
+| `call_depth` | Profundidad máxima del grafo de llamadas |
+| `component_count` | Cuántos componentes recorre. Antes documentado como `sp_count` |
+| `source_type` | Cómo se descubrió: entrada de orquestador, expuesto por ESB, canal o programado |
+
+Más `tier`, que declara el nivel de certeza de la afirmación (Regla B37), y `process_id`, que la ata a un proceso de negocio (Regla B22).
 
 ## Phase B — CALLEE_INFO Lookup
 

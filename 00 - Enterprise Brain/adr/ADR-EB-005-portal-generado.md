@@ -17,7 +17,7 @@ La pregunta es: ¿se editan los HTML directamente o se generan desde el brain.db
 
 ## Decisión
 
-**Los archivos `portal/*.html` nunca se editan a mano**. Son siempre generados por `generators/build-portal.py` a partir del brain.db activo.
+**Los archivos `portal/*.html` nunca se editan a mano**. Son siempre generados por `build-portal.py` a partir del brain.db activo. En un brain implementado el script vive en `generators/`; en el asset, la implementación de referencia está en `templates/` (Regla P4).
 
 ```bash
 # Comando canónico de regeneración:
